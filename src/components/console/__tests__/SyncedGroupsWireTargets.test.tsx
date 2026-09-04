@@ -9,7 +9,7 @@
  *      would leave live access wired to something invisible in the console.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { SyncedGroupsCard } from '@/components/console/SyncedGroupsCard';
 import type { SyncedGroup } from '@/services/alliance-scim.service';
@@ -26,11 +26,18 @@ vi.mock('@/hooks/useAllianceProvisioning', () => ({
 }));
 
 vi.mock('@/hooks/useAllianceGroups', () => ({
-  useAllianceGroups: () => ({ data: [{ id: 9, name: 'Support EU' }], refetch: vi.fn() }),
+  useAllianceGroups: () => ({
+    data: [
+      { id: 9, name: 'Support EU' },
+      { id: 10, name: 'Support US', orgRole: 'support', orgIds: [3] },
+    ],
+    refetch: vi.fn(),
+  }),
   useOrgDepartments: () => ({ data: [], isLoading: false }),
 }));
 
 vi.mock('@/hooks/useAllianceAdmin', () => ({
+  useAllianceMembers: () => ({ data: [] }),
   useAllianceOrgs: () => ({
     data: [{ id: 3, name: 'Acme', slug: 'acme', active: true }],
     isLoading: false,
@@ -102,21 +109,62 @@ describe('SyncedGroupsCard wire targets', () => {
     );
     renderCard();
 
-    expect(screen.getByRole('button', { name: 'Re-point' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Re-point', hidden: true })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Unwire' })).toBeInTheDocument();
   });
 
   // Re-pointing at a NEW group would mint a second backing group and orphan the current
   // one; the backend 409s on it, so the picker must not offer it either.
-  it('offers only existing groups when re-pointing', () => {
+    it('offers only OTHER existing groups when re-pointing — never the one it is wired to', () => {
+    // Offering the group's own backing group is what read as "mapped to itself" on taco:
+    // the backing group is named after the IdP group, so the row's current wiring showed
+    // up in its own picker under the same name.
     syncedGroups.push(
       baseGroup({ wiredGroup: { mappingId: 7, groupId: 9, groupName: 'Support EU' } })
     );
     renderCard();
-
     const options = screen.getAllByRole('option').map((option) => option.textContent ?? '');
-    expect(options.some((label) => label.includes('Support EU'))).toBe(true);
+    expect(options.some((label) => label.includes('Support EU'))).toBe(false);
+    expect(options.some((label) => label.includes('Support US'))).toBe(true);
     expect(options.some((label) => label.startsWith('Org role'))).toBe(false);
+  });
+
+  it('labels a group by what it GRANTS, with its name second', () => {
+    syncedGroups.push(baseGroup({}));
+    renderCard();
+    const options = screen.getAllByRole('option').map((option) => option.textContent ?? '');
+    expect(options).toContain('Group — Support in Acme · Support US');
+    // A group with no role and no workspace keeps its bare name.
+    expect(options).toContain('Group — Support EU');
+  });
+
+  // The confirm says what the unwire does to the GROUP, by how the group came to exist —
+  // a minted one is retired (members lose the role), a hand-wired one is kept. One copy
+  // for both promised "nobody loses access", which is false for the common case.
+  it('warns that a MINTED backing group is retired with the wire', () => {
+    syncedGroups.push(
+      baseGroup({
+        wiredGroup: { mappingId: 7, groupId: 9, groupName: 'Support EU', mintedByWire: true },
+      })
+    );
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Unwire' }));
+
+    expect(screen.getByText(/"Support EU" — created by this mapping — is retired with it/)).toBeInTheDocument();
+    expect(screen.queryByText(/nobody loses access/)).not.toBeInTheDocument();
+  });
+
+  it('CONTROL: says a hand-wired group is kept', () => {
+    syncedGroups.push(
+      baseGroup({
+        wiredGroup: { mappingId: 7, groupId: 9, groupName: 'Support EU', mintedByWire: false },
+      })
+    );
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Unwire' }));
+
+    expect(screen.getByText(/"Support EU" existed before the wire/)).toBeInTheDocument();
+    expect(screen.getByText(/nobody loses access right now/)).toBeInTheDocument();
   });
 
   // A legacy alliance-role wiring has no group mapping to delete, so Unwire would have
@@ -126,6 +174,15 @@ describe('SyncedGroupsCard wire targets', () => {
     renderCard();
 
     expect(screen.queryByRole('button', { name: 'Unwire' })).not.toBeInTheDocument();
+  });
+
+  it('a wired row leads with editing the role and workspace, and keeps re-point one fold down', () => {
+    syncedGroups.push(
+      baseGroup({ wiredGroup: { mappingId: 7, groupId: 9, groupName: 'Support EU' } })
+    );
+    renderCard();
+    expect(screen.getByRole('button', { name: 'Edit role / workspace' })).toBeEnabled();
+    expect(screen.getByText(/Re-point this IdP group at a different existing group/)).toBeInTheDocument();
   });
 
   it('shows a group wiring without the legacy marker', () => {
@@ -199,7 +256,7 @@ describe('a group wired only to a legacy alliance role', () => {
     );
     renderCard();
 
-    expect(screen.getByText('Re-point')).toBeInTheDocument();
+    expect(screen.getByText('Re-point', { ignore: false })).toBeInTheDocument();
     expect(screen.queryByLabelText('Map to')).not.toBeInTheDocument();
   });
 });

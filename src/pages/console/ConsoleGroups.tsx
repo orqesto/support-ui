@@ -37,14 +37,127 @@ export const deleteDescription = (group: AllianceGroup | null): string => {
   const idp = group?.idpGroup;
   if (!idp) return base;
   const name = idp.displayName ?? idp.externalId;
-  return `${name} feeds this group from your identity provider. Deleting it also removes that mapping, so new members will stop arriving from ${name} — you would need to wire it again. ${base}`;
+  // The backend REFUSES this delete while the wire exists (409): the mapping is one thing,
+  // retired by unwiring. Say so here rather than promise a cascade that will not happen.
+  return `${name} feeds this group from your identity provider, so deleting it is refused while it is wired. Unwire ${name} on the Provisioning screen instead — that retires a group the mapping created and keeps one you made by hand.`;
 };
+
+/**
+ * The line under an IdP-fed group's name. These groups are minted by "Change mapping" on the
+ * synced-groups screen and NAMED after the IdP group they mirror, so on the Groups list they
+ * read as the IdP group itself — and the customer's devops asked why a group was "mapped to
+ * itself". Say which IdP group feeds it, in words, on the row.
+ */
+export const idpFeedLabel = (group: Pick<AllianceGroup, 'idpGroup'>): string | null => {
+  const idp = group.idpGroup;
+  if (!idp) return null;
+  return `Backing group for IdP group ${idp.displayName ?? idp.externalId} — the mapping, not the IdP group itself`;
+};
+
+/**
+ * Groups an admin AUTHORED versus groups MINTED by an IdP mapping.
+ *
+ * "Map access → new group" on the Provisioning screen creates a backing group per IdP group,
+ * named after it, and this page listed both kinds in one table with the same delete button.
+ * To the customer's admin that read as "my Groups page is full of my IdP groups, why can I
+ * delete them, and why are they mapped to themselves". A minted group is the mapping's
+ * implementation detail: it carries the role, it is retired by UNWIRING (Provisioning), never
+ * by deleting here. A hand-authored group the admin wired LATER is still theirs — it stays
+ * listed (with its feed named on the row) and is kept when unwired, exactly as the backend
+ * treats it. An older backend omits the flag; then every wired group is treated as minted,
+ * the behaviour this page shipped with.
+ */
+const isMintedBacking = (group: AllianceGroup): boolean =>
+  Boolean(group.idpGroup) && (group.idpGroup?.mintedByWire ?? true);
+
+export const splitGroups = (
+  groups: AllianceGroup[]
+): { authored: AllianceGroup[]; backing: AllianceGroup[] } => ({
+  authored: groups.filter((group) => !isMintedBacking(group)),
+  backing: groups.filter(isMintedBacking),
+});
+
+const GroupsTable = ({
+  groups,
+  onEdit,
+  onDelete,
+}: {
+  groups: AllianceGroup[];
+  onEdit: (group: AllianceGroup) => void;
+  /** Absent = no delete control (backing groups are retired by unwiring, not deleting). */
+  onDelete?: (group: AllianceGroup) => void;
+}) => (
+  <table className="w-full text-sm">
+    <thead>
+      <tr className="border-b border-border text-muted-foreground">
+        <th className="px-4 py-2 font-medium text-left">Group</th>
+        <th className="px-4 py-2 font-medium text-left">Grants</th>
+        <th className="px-4 py-2 font-medium text-right">Workspaces</th>
+        <th className="px-4 py-2 font-medium text-right">Members</th>
+        <th className="px-4 py-2 font-medium text-right">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {groups.map((group) => (
+        <tr key={group.id} className="border-b border-border last:border-0">
+          <td className="px-4 py-2">
+            <div className="flex gap-2 items-baseline">
+              <span className="font-medium text-foreground">{group.name}</span>
+              <span className="font-mono text-xs text-muted-foreground">#{group.id}</span>
+            </div>
+            {group.description && (
+              <div className="text-xs text-muted-foreground">{group.description}</div>
+            )}
+            {idpFeedLabel(group) && (
+              <div className="text-xs text-muted-foreground">{idpFeedLabel(group)}</div>
+            )}
+          </td>
+          <td className="px-4 py-2">
+            {group.orgRole ? (
+              <Badge variant="secondary">{orgRoleLabel(group.orgRole)}</Badge>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )}
+          </td>
+          <td className="px-4 py-2 text-right text-foreground">{group.orgIds.length}</td>
+          <td className="px-4 py-2 text-right text-foreground">{group.memberCount}</td>
+          <td className="px-4 py-2 text-right">
+            <div className="flex gap-1 justify-end">
+              <Tooltip content={`Edit ${group.name}`}>
+                <Button variant="ghost" onClick={() => onEdit(group)} aria-label={`Edit ${group.name}`}>
+                  <Pencil className="w-4 h-4" />
+                </Button>
+              </Tooltip>
+              {onDelete && (
+                <Tooltip content={`Delete ${group.name}`}>
+                  {/* A wired group cannot be deleted (the backend answers 409): the wire is undone
+                      on the Provisioning screen. A disabled control with the reason beats a
+                      dialog that ends in an error toast. */}
+                  <Button
+                    variant="ghost"
+                    onClick={() => onDelete(group)}
+                    aria-label={`Delete ${group.name}`}
+                    disabled={Boolean(group.idpGroup)}
+                    title={group.idpGroup ? 'Fed by an IdP group — unwire it on the Provisioning screen first' : undefined}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </Tooltip>
+              )}
+            </div>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+);
 
 export const ConsoleGroups = () => {
   const { allianceId } = useParams();
   const numericId = allianceId ? Number(allianceId) : null;
 
   const { data: groups, isLoading, isError, refetch } = useAllianceGroups(numericId);
+  const { authored, backing } = splitGroups(groups ?? []);
   const { data: orgs = [] } = useAllianceOrgs(numericId);
   const { data: members = [] } = useAllianceMembers(numericId);
   const deleteGroup = useDeleteGroup(numericId);
@@ -97,7 +210,7 @@ export const ConsoleGroups = () => {
     <div className="flex flex-col gap-4 h-full min-h-0">
       <ConsolePageHeader
         title="Groups"
-        description="Identity-provider groups mapped to alliance roles and workspaces."
+        description="Groups you create to grant a role to a set of members in a workspace."
         actions={
           <Button onClick={openCreate}>
             <Plus className="mr-2 w-4 h-4" />
@@ -106,65 +219,29 @@ export const ConsoleGroups = () => {
         }
       />
 
-      {groups.length === 0 ? (
+      {authored.length === 0 ? (
         <Card className="flex flex-col flex-1 min-h-0">
           <ConsoleEmpty
             icon={Users2}
-            message="No groups yet. Create one to grant a role to a set of members across chosen workspaces."
+            message="No groups of your own yet. Create one to grant a role to a set of members in a workspace."
           />
         </Card>
       ) : (
         <Card className="flex overflow-hidden flex-col flex-1 min-h-0">
           <CardContent padding="none" className="flex flex-col flex-1 min-h-0">
             <div className="overflow-auto flex-1 min-h-0">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-muted-foreground">
-                    <th className="px-4 py-2 font-medium text-left">Group</th>
-                    <th className="px-4 py-2 font-medium text-left">Grants</th>
-                    <th className="px-4 py-2 font-medium text-right">Workspaces</th>
-                    <th className="px-4 py-2 font-medium text-right">Members</th>
-                    <th className="px-4 py-2 font-medium text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {groups.map((group) => (
-                    <tr key={group.id} className="border-b border-border last:border-0">
-                      <td className="px-4 py-2">
-                        <div className="flex gap-2 items-baseline">
-                          <span className="font-medium text-foreground">{group.name}</span>
-                          <span className="font-mono text-xs text-muted-foreground">#{group.id}</span>
-                        </div>
-                        {group.description && (
-                          <div className="text-xs text-muted-foreground">{group.description}</div>
-                        )}
-                      </td>
-                      <td className="px-4 py-2">
-                        {group.orgRole ? <Badge variant="secondary">{orgRoleLabel(group.orgRole)}</Badge> : <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="px-4 py-2 text-right text-foreground">{group.orgIds.length}</td>
-                      <td className="px-4 py-2 text-right text-foreground">{group.memberCount}</td>
-                      <td className="px-4 py-2 text-right">
-                        <div className="flex gap-1 justify-end">
-                        <Tooltip content={`Edit ${group.name}`}>
-                          <Button variant="ghost" onClick={() => openEdit(group)} aria-label={`Edit ${group.name}`}>
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                        </Tooltip>
-                        <Tooltip content={`Delete ${group.name}`}>
-                          <Button variant="ghost" onClick={() => setDeleteTarget(group)} aria-label={`Delete ${group.name}`}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </Tooltip>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <GroupsTable groups={authored} onEdit={openEdit} onDelete={setDeleteTarget} />
             </div>
           </CardContent>
         </Card>
+      )}
+      {backing.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {backing.length} more {backing.length === 1 ? 'group is' : 'groups are'} managed by IdP
+          mappings and {backing.length === 1 ? 'lives' : 'live'} on the Provisioning screen. Edit
+          or retire {backing.length === 1 ? 'it' : 'them'} there, from the IdP group{' '}
+          {backing.length === 1 ? 'it mirrors' : 'they mirror'}.
+        </p>
       )}
 
       <GroupEditor

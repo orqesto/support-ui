@@ -36,8 +36,16 @@ const EVENT_LABEL: Record<string, string> = {
   // type (`eventLabel` falls back to the string), so it ships with the BE that emits it.
   group_member_skipped: 'Group members skipped',
   provision_rejected: 'Provisioning rejected',
-  seat_cap_rejected: 'Seat cap reached',
+    seat_cap_rejected: 'Seat cap reached',
   last_admin_removed: 'Last admin removed',
+  // A /Groups push that reached us (create, replace or patch) — the row that lets an admin
+  // answer "my IdP has 12 groups, why do I see 10" from THIS side of the wire.
+  group_received: 'IdP group received',
+  group_deleted: 'IdP group deleted by the provider',
+  // Every 4xx the connector answered that no more specific row covers — the PATCH
+  // {active:false} that 404s, the malformed push. Before this a refused request left
+  // nothing behind at all.
+  request_rejected: 'Request refused',
 };
 
 const ACTOR_LABEL: Record<string, string> = { idp: 'IdP', admin: 'Admin', system: 'System' };
@@ -49,12 +57,30 @@ const roleShort = (role: string | null): string | null =>
 const formatTime = (iso: string): string => new Date(iso).toLocaleString();
 
 /** The identity a row is about — the affected user's email, else the IdP group. */
-const eventTarget = (event: AllianceScimEvent): string | null =>
-  event.targetEmail ?? event.idpGroupExternalId ?? null;
+const eventTarget = (event: AllianceScimEvent): string | null => {
+  if (event.targetEmail) return event.targetEmail;
+  // Group pushes carry the IdP's display name in the detail; the raw external id is a
+  // 24-hex-char string nobody recognises.
+  const displayName = event.detail?.displayName;
+  if (typeof displayName === 'string' && displayName) return displayName;
+  return event.idpGroupExternalId ?? null;
+};
 
 /** A human reason string the backend attached (e.g. why a provision was rejected). */
-const eventReason = (event: AllianceScimEvent): string | null => {
+export const eventReason = (event: AllianceScimEvent): string | null => {
   const reason = event.detail?.reason;
+  if (event.eventType === 'request_rejected') {
+    // Say WHAT was refused, not only why: "PATCH /Users/15 → 404" is the line an admin
+    // pastes to the IdP team.
+    const method = event.detail?.method;
+    const path = event.detail?.path;
+    const status = event.detail?.scimStatus;
+    const head = [method, path].filter((part) => typeof part === 'string').join(' ');
+    const tail = typeof reason === 'string' ? reason : null;
+    const code = typeof status === 'number' ? `→ ${status}` : '';
+    const line = [head, code].filter(Boolean).join(' ');
+    return [line, tail].filter(Boolean).join(': ') || null;
+  }
   return typeof reason === 'string' ? reason : null;
 };
 

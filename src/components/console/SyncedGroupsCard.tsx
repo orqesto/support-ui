@@ -10,8 +10,10 @@ import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { OrgDepartmentPicker } from '@/components/console/OrgDepartmentPicker';
 import { useAllianceGroups } from '@/hooks/useAllianceGroups';
-import { useAllianceOrgs } from '@/hooks/useAllianceAdmin';
-import type { DepartmentIdsByOrg } from '@/services/alliance-groups.service';
+import { useAllianceMembers, useAllianceOrgs } from '@/hooks/useAllianceAdmin';
+import { GroupEditor } from '@/components/console/GroupEditor';
+import { ORG_ROLE_LABELS, backingGroupName } from '@/components/console/backingGroupName';
+import type { AllianceGroup, DepartmentIdsByOrg } from '@/services/alliance-groups.service';
 import {
   useAllianceSyncedGroups,
   useDeleteAllianceGroupMap,
@@ -37,12 +39,6 @@ import { ORGANIZATION_ROLES, type OrganizationRole } from '@/types/roles';
  * org-admin still requires an explicit, confirmed action.
  */
 
-const ORG_ROLE_LABELS: Record<OrganizationRole, string> = {
-  org_admin: 'Org admin',
-  moderator: 'Moderator',
-  support: 'Support',
-  associate: 'Associate',
-};
 
 /**
  * The target select encodes each kind as `orgrole:<role>` or `group:<id>`.
@@ -72,9 +68,6 @@ const privilegedKind = (value: string): 'org_admin' | null =>
   value === 'orgrole:org_admin' ? 'org_admin' : null;
 
 /** Backing-group name for an org-role wire — kept within the 120-char API limit. */
-const backingGroupName = (displayName: string, role: OrganizationRole): string =>
-  `${displayName} — ${ORG_ROLE_LABELS[role]}`.slice(0, 120);
-
 /**
  * ⛔ SYNCED IDP GROUPS ARE READ-ONLY HERE. They are the identity provider's objects; this
  * console MAPS them and nothing else.
@@ -88,7 +81,41 @@ const backingGroupName = (displayName: string, role: OrganizationRole): string =
  * The backend route still exists (`DELETE /scim/synced-groups/:id`) as an operator escape
  * hatch for a group the provider has genuinely stopped pushing. It is simply not a button.
  */
-const wiredLabel = (group: SyncedGroup): string => {
+/**
+ * What an authored group GRANTS, in words: "Associate in CoreSarms". The picker used to show
+ * only the group's NAME, and a backing group minted by this screen is named after the IdP
+ * group it mirrors — so "SSO - Odly - Coresarms - Associate" wired to
+ * "SSO - Odly - Coresarms - Associate — Associate" read as a group mapped to itself.
+ * A group with no role and no workspace (a fixture, or a bare authored group) keeps its name.
+ */
+export const describeGrant = (
+  group: { name: string; orgRole?: OrganizationRole | null; orgIds?: number[] },
+  orgs: { id: number; name: string }[]
+): string | null => {
+  const role = group.orgRole ? ORG_ROLE_LABELS[group.orgRole] : null;
+  const names = (group.orgIds ?? [])
+    .map((id) => orgs.find((org) => org.id === id)?.name ?? `workspace #${id}`);
+  if (!role && names.length === 0) return null;
+  return `${role ?? 'No role'} in ${names.length > 0 ? names.join(', ') : 'no workspace'}`;
+};
+
+/** The unwire confirm's body — what happens to the backing group, by how it came to exist. */
+export const unwireDescription = (group: SyncedGroup | null): string => {
+  const name = group?.wiredGroup?.groupName ? `"${group.wiredGroup.groupName}"` : 'its group';
+  switch (group?.wiredGroup?.mintedByWire) {
+    case true:
+      return `New members will stop arriving from this IdP group, and ${name} — created by this mapping — is retired with it. Its members lose that role immediately.`;
+    case false:
+      return `New members will stop arriving from this IdP group. ${name} existed before the wire, so it keeps its role, workspaces and any members added by hand — nobody loses access right now.`;
+    default:
+      return `New members will stop arriving from this IdP group. If ${name} was created by this mapping it is retired with it and its members lose that role; a group you made by hand is kept.`;
+  }
+};
+
+const wiredLabel = (
+  group: SyncedGroup,
+  grants: Map<number, string | null> = new Map()
+): string => {
   // A pre-existing alliance-role wiring still WORKS and is still shown — new ones just
   // can't be created. Labelled as legacy so an admin knows to move it onto a group.
   if (group.wiredRole) {
@@ -96,15 +123,21 @@ const wiredLabel = (group: SyncedGroup): string => {
       group.wiredRole.mappedRole === 'alliance_admin' ? 'Alliance admin' : 'Alliance agent';
     return `Wired → ${role} (legacy)`;
   }
-  if (group.wiredGroup) return `Wired → group ${group.wiredGroup.groupName}`;
+    if (group.wiredGroup) {
+    const grant = grants.get(group.wiredGroup.groupId);
+    return grant
+      ? `Wired → ${grant} (group ${group.wiredGroup.groupName})`
+      : `Wired → group ${group.wiredGroup.groupName}`;
+  }
   return 'Not wired';
 };
 
 /** A single synced-group row: identity, members, and either its wired state or a wire control. */
 const SyncedGroupRow = ({
-  group,
+    group,
   allianceId,
   targetOptions,
+  grants,
   selectedValue,
   onSelect,
   activeOrgs,
@@ -114,11 +147,15 @@ const SyncedGroupRow = ({
   onDeptChange,
   onWire,
   onUnwire,
+  onEditBacking,
+  canEditBacking,
   wiring,
 }: {
-  group: SyncedGroup;
+    group: SyncedGroup;
   allianceId: number;
   targetOptions: { value: string; label: string }[];
+  /** groupId → what it grants, for the wired label. */
+  grants: Map<number, string | null>;
   selectedValue: string;
   onSelect: (value: string) => void;
   activeOrgs: AllianceOrg[];
@@ -128,6 +165,9 @@ const SyncedGroupRow = ({
   onDeptChange: (orgId: number, deptIds: number[]) => void;
   onWire: () => void;
   onUnwire: () => void;
+  /** Opens the backing group in the editor (role + workspace). */
+  onEditBacking: () => void;
+  canEditBacking: boolean;
   wiring: boolean;
 }) => {
   const wired = group.wiredRole !== null || group.wiredGroup !== null;
@@ -150,7 +190,7 @@ const SyncedGroupRow = ({
           </p>
         </div>
         <div className="flex gap-2 items-center">
-          <Badge variant={wired ? 'success' : 'secondary'}>{wiredLabel(group)}</Badge>
+          <Badge variant={wired ? 'success' : 'secondary'}>{wiredLabel(group, grants)}</Badge>
         </div>
       </div>
 
@@ -178,42 +218,68 @@ const SyncedGroupRow = ({
            minting a second one would strand the first (still granting, still holding members).
            A group wired only to a legacy alliance ROLE has no backing group, so it takes the
            full mapping branch below — the backend's 409 checks group mappings, not role maps. */
-        <div className="flex flex-wrap gap-3 items-end pt-1">
-          <div className="flex-1 min-w-[14rem]">
-            <Label htmlFor={`rewire-target-${group.id}`} className="mb-1">
-              Change mapping
-            </Label>
-            {/* Existing groups only. Re-pointing at a NEW group would mint a second
-                backing group and leave the current one behind, still holding its grant
-                and members — the backend refuses it (409); the UI shouldn't offer it. */}
-            <Select
-              id={`rewire-target-${group.id}`}
-              value={selectedValue.startsWith('group:') ? selectedValue : ''}
-              onChange={(event) => onSelect(event.target.value)}
-            >
-              <option value="">Select a group…</option>
-              {targetOptions
-                .filter((option) => option.value.startsWith('group:'))
-                .map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-            </Select>
+        <div className="pt-1 space-y-2">
+          {/* The wired row's FIRST question is "what does this grant, and how do I change it" —
+              role and workspace, on the backing group. The owner mapped a group, saw only a
+              picker of OTHER groups, and asked what it was for. Editing opens the same editor
+              the Groups page uses for that backing group; re-pointing stays, one fold down. */}
+          <div className="flex flex-wrap gap-2 items-center">
+            {/* Only a group-backed wiring has a backing group to edit; a legacy alliance-role
+                wiring is re-pointed below instead. */}
+            {group.wiredGroup && (
+              <Button type="button" onClick={onEditBacking} disabled={wiring || !canEditBacking}>
+                Edit role / workspace
+              </Button>
+            )}
+            {group.wiredGroup && (
+              <Button type="button" variant="outline" onClick={onUnwire} disabled={wiring}>
+                Unwire
+              </Button>
+            )}
           </div>
-          <Button
-            type="button"
-            onClick={onWire}
-            isLoading={wiring}
-            disabled={wiring || !selectedValue.startsWith('group:')}
-          >
-            Re-point
-          </Button>
-          {group.wiredGroup && (
-            <Button type="button" variant="outline" onClick={onUnwire} disabled={wiring}>
-              Unwire
+          <details className="text-sm">
+            <summary className="cursor-pointer text-muted-foreground">
+              Re-point this IdP group at a different existing group
+            </summary>
+            <div className="flex flex-wrap gap-3 items-end pt-2">
+            <div className="flex-1 min-w-[14rem]">
+              <Label htmlFor={`rewire-target-${group.id}`} className="mb-1">
+                Change mapping
+              </Label>
+              {/* Existing groups only. Re-pointing at a NEW group would mint a second
+                  backing group and leave the current one behind, still holding its grant
+                  and members — the backend refuses it (409); the UI shouldn't offer it. */}
+              <Select
+                id={`rewire-target-${group.id}`}
+                value={selectedValue.startsWith('group:') ? selectedValue : ''}
+                onChange={(event) => onSelect(event.target.value)}
+              >
+                              <option value="">Select a group…</option>
+                {/* Not the group it is ALREADY wired to: re-pointing at itself is a no-op, and
+                    offering it is exactly what read as "mapped to itself". */}
+                {targetOptions
+                  .filter(
+                    (option) =>
+                      option.value.startsWith('group:') &&
+                      option.value !== `group:${group.wiredGroup?.groupId}`
+                  )
+                  .map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+              </Select>
+            </div>
+            <Button
+              type="button"
+              onClick={onWire}
+              isLoading={wiring}
+              disabled={wiring || !selectedValue.startsWith('group:')}
+            >
+              Re-point
             </Button>
-          )}
+            </div>
+          </details>
         </div>
       ) : (
         <>
@@ -337,6 +403,8 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
   const wire = useWireSyncedGroup(allianceId);
   const unwire = useDeleteAllianceGroupMap(allianceId);
   const [unwireConfirm, setUnwireConfirm] = useState<SyncedGroup | null>(null);
+  const [editingBacking, setEditingBacking] = useState<AllianceGroup | null>(null);
+  const membersQuery = useAllianceMembers(allianceId);
   const resync = useResyncAllianceProvisioning(allianceId);
 
   const [selectedByGroup, setSelectedByGroup] = useState<Record<number, string>>({});
@@ -364,12 +432,28 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
         value: `orgrole:${role}`,
         label: `Org role — ${ORG_ROLE_LABELS[role]}`,
       })),
-      ...(allianceGroupsQuery.data ?? []).map((group) => ({
-        value: `group:${group.id}`,
-        label: `Group — ${group.name}`,
-      })),
+            ...(allianceGroupsQuery.data ?? []).map((group) => {
+        const grant = describeGrant(group, orgsQuery.data ?? []);
+        return {
+          value: `group:${group.id}`,
+          // What it GRANTS first, its name second: the name of a backing group is the IdP
+          // group's own name, which is the last thing that helps here.
+          label: grant ? `Group — ${grant} · ${group.name}` : `Group — ${group.name}`,
+        };
+      }),
     ],
-    [allianceGroupsQuery.data]
+    [allianceGroupsQuery.data, orgsQuery.data]
+  );
+  /** groupId → grant sentence, for the wired badge on each row. */
+  const grants = useMemo(
+    () =>
+      new Map(
+        (allianceGroupsQuery.data ?? []).map((group) => [
+          group.id,
+          describeGrant(group, orgsQuery.data ?? []),
+        ])
+      ),
+    [allianceGroupsQuery.data, orgsQuery.data]
   );
 
   const defaultValueFor = (group: SyncedGroup): string =>
@@ -524,7 +608,20 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
               key={group.id}
               group={group}
               allianceId={allianceId}
-              targetOptions={targetOptions}
+                            targetOptions={targetOptions}
+              grants={grants}
+              canEditBacking={Boolean(
+                (allianceGroupsQuery.data ?? []).find(
+                  (candidate) => candidate.id === group.wiredGroup?.groupId
+                )
+              )}
+              onEditBacking={() =>
+                setEditingBacking(
+                  (allianceGroupsQuery.data ?? []).find(
+                    (candidate) => candidate.id === group.wiredGroup?.groupId
+                  ) ?? null
+                )
+              }
               selectedValue={selectedValueFor(group)}
               onSelect={(value) => setSelectedByGroup((prev) => ({ ...prev, [group.id]: value }))}
               activeOrgs={activeOrgs}
@@ -540,6 +637,17 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
         )}
       </CardContent>
 
+      {/* Mounted only while editing: the editor's own hooks must not run for every row. */}
+      {editingBacking !== null && (
+        <GroupEditor
+          open
+          onClose={() => setEditingBacking(null)}
+          allianceId={allianceId}
+          group={editingBacking}
+          orgs={orgsQuery.data ?? []}
+          members={membersQuery.data ?? []}
+        />
+      )}
       <ConfirmDialog
         open={adminConfirm !== null}
         onOpenChange={(open) => !open && setAdminConfirm(null)}
@@ -553,8 +661,11 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
         description={confirmDescription}
       />
 
-      {/* Unwiring removes only the MAPPING. The backing group keeps its role, workspaces
-          and any hand-added members — so nobody loses access at the moment you unwire. */}
+      {/* An unwire is ONE action on one thing: a backing group this screen minted is retired
+          with its mapping and the members lose that grant; a group the admin wired by hand
+          existed before the wire and is kept. Say which BEFORE the confirm — the earlier copy
+          promised "nobody loses access right now" for both, which is now false for the
+          common case. An older backend omits `mintedByWire`; then the honest word is "may". */}
       <ConfirmDialog
         open={unwireConfirm !== null}
         onOpenChange={(open) => !open && setUnwireConfirm(null)}
@@ -563,11 +674,11 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
           setUnwireConfirm(null);
           if (mappingId !== undefined) unwire.mutate(mappingId);
         }}
-        variant="warning"
+        variant={unwireConfirm?.wiredGroup?.mintedByWire === false ? 'warning' : 'danger'}
         confirmText="Unwire"
         cancelText="Keep wired"
         title={unwireConfirm ? `Unwire ${unwireConfirm.displayName}?` : ''}
-        description="New members will stop arriving from this IdP group. The group it was wired to keeps its role, workspaces and any members added by hand — nobody loses access right now."
+        description={unwireDescription(unwireConfirm)}
       />
     </Card>
   );

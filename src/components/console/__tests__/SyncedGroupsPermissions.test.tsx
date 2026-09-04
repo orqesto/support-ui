@@ -49,6 +49,7 @@ vi.mock('@/hooks/useAllianceGroups', () => ({
 }));
 
 vi.mock('@/hooks/useAllianceAdmin', () => ({
+  useAllianceMembers: () => ({ data: [] }),
   useAllianceOrgs: () => ({
     data: [{ id: 3, name: 'Acme', slug: 'acme', active: true }],
     isLoading: false,

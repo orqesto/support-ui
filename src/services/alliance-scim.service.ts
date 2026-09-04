@@ -155,13 +155,34 @@ export type AccessSuggestion = {
  * preview, current wired state (group and/or role mapping matched on external id), and a
  * name-derived suggestion. Timestamps serialize as ISO strings or null.
  */
+/**
+ * What an unwire did to the backing group. `backingGroupRetired`/`keptBecause` are absent
+ * on a backend that still deletes only the mapping row.
+ */
+export type UnwireResult = {
+  deleted: boolean;
+  backingGroupRetired?: boolean;
+  groupName?: string | null;
+  keptBecause?: string | null;
+};
+
 export type SyncedGroup = {
   id: number;
   externalId: string | null;
   displayName: string;
   memberCount: number;
   members: SyncedGroupMember[];
-  wiredGroup: { mappingId: number; groupId: number; groupName: string } | null;
+  wiredGroup: {
+    mappingId: number;
+    groupId: number;
+    groupName: string;
+    /**
+     * True when "Map access → new group" minted the backing group: unwiring RETIRES it and
+     * its members lose the grant. False = hand-wired, the group is kept. Absent on an older
+     * backend — then the confirm can only say "may".
+     */
+    mintedByWire?: boolean;
+  } | null;
   wiredRole: { mappingId: number; mappedRole: AllianceRole } | null;
   suggestion: AccessSuggestion | null;
   createdAt: string | null;
@@ -298,8 +319,8 @@ export const allianceScimService = {
     return res.data.data;
   },
 
-  deleteGroupMap: async (allianceId: number, mappingId: number): Promise<{ deleted: boolean }> => {
-    const res = await apiClient.delete<{ data: { deleted: boolean } }>(
+  deleteGroupMap: async (allianceId: number, mappingId: number): Promise<UnwireResult> => {
+    const res = await apiClient.delete<{ data: UnwireResult }>(
       `${base(allianceId)}/scim/group-maps/${mappingId}`
     );
     return res.data.data;

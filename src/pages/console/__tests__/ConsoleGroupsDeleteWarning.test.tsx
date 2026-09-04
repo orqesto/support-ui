@@ -1,12 +1,12 @@
 /**
- * Deleting an alliance group deletes the IdP wire feeding it — `alliance_group_idp_map.group_id`
- * is ON DELETE CASCADE. On taco (2026-08-20) five groups were wired and later deleted; nothing
- * said the wire went too, the synced groups fell back to an older legacy display, and the
- * mapping work looked like it had never happened.
+ * Deleting a WIRED alliance group is refused by the backend (409, support-service#651): the
+ * mapping is one thing, retired by unwiring on the Provisioning screen. This copy used to
+ * promise the opposite — "deleting it also removes that mapping" — from the days when
+ * `alliance_group_idp_map.group_id` cascaded silently (taco, 2026-08-20: five groups wired,
+ * deleted, and the mapping work looked like it had never happened).
  *
- * The BE now records `group_unwired` (support-service#408). This is the other half: say it
- * BEFORE the click. The control matters as much as the warning — an unmapped group must not
- * acquire a scary sentence about provisioning it never had.
+ * Say the refusal BEFORE the click. The control matters as much as the warning — an unmapped
+ * group must not acquire a sentence about provisioning it never had.
  */
 import { describe, it, expect } from 'vitest';
 import { deleteDescription } from '@/pages/console/ConsoleGroups';
@@ -28,7 +28,8 @@ describe('the group-delete warning', () => {
       group({ idpGroup: { mappingId: 4, externalId: '6a84087', displayName: 'SSO - Odly - Biaxol - View-new' } })
     );
     expect(text).toContain('SSO - Odly - Biaxol - View-new');
-    expect(text).toMatch(/stop arriving/);
+    expect(text).toMatch(/refused while it is wired/);
+    expect(text).toMatch(/Provisioning screen/);
   });
 
   it('falls back to the external id when the IdP sent no display name', () => {
@@ -40,15 +41,17 @@ describe('the group-delete warning', () => {
 
   it('CONTROL: an unmapped group keeps the plain warning, with no provisioning claim', () => {
     const text = deleteDescription(group());
-    expect(text).not.toMatch(/identity provider|stop arriving/);
+    expect(text).not.toMatch(/identity provider|refused/);
     expect(text).toContain('Members lose the roles this group granted');
+    expect(text).toContain('cannot be undone');
   });
 
-  it('always keeps the role-loss warning, mapped or not', () => {
+  // The old copy promised a cascade ("also removes that mapping … wire it again"). The
+  // backend refuses the delete instead, so promising role loss or a cascade would be a lie.
+  it('never promises a cascade for a wired group', () => {
     const mapped = deleteDescription(
       group({ idpGroup: { mappingId: 4, externalId: 'x', displayName: 'Group A' } })
     );
-    expect(mapped).toContain('Members lose the roles this group granted');
-    expect(mapped).toContain('cannot be undone');
+    expect(mapped).not.toMatch(/also removes that mapping|wire it again|cannot be undone/);
   });
 });

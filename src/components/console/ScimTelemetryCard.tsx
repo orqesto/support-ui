@@ -55,7 +55,7 @@ export const ScimTelemetryCard = ({ telemetry }: { telemetry: AllianceScimTeleme
             </span>
           </p>
           <p className="text-xs text-muted-foreground">
-            Last synced: {formatTelemetryTime(telemetry.groups.lastSyncedAt)}
+            Last group push: {formatTelemetryTime(telemetry.groups.lastSyncedAt)}
           </p>
         </div>
       </div>

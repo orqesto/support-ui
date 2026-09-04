@@ -14,6 +14,7 @@ let proposals: AllianceAdminProposal[] = [];
 const changeRoleMutate = vi.fn();
 
 vi.mock('@/hooks/useAllianceAdmin', () => ({
+  useAllianceMembers: () => ({ data: [] }),
   useAllianceAdminProposals: () => ({ data: proposals, isLoading: false, refetch: vi.fn() }),
   useChangeMemberRole: () => ({ mutate: changeRoleMutate, isPending: false }),
 }));
