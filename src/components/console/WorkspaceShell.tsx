@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Boxes, Building2, Settings, ShieldAlert, Users } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
@@ -46,6 +46,7 @@ export const WorkspaceShell = () => {
   const parsedId = orgId ? Number(orgId) : NaN;
   const numericId = Number.isFinite(parsedId) ? parsedId : null;
   const setSelectedOrganization = useAuthStore((state) => state.setSelectedOrganization);
+  const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const clearScope = useScopeStore((state) => state.clearScope);
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
   // The departments budget lever is global-admin only (its BE endpoints are
@@ -53,14 +54,37 @@ export const WorkspaceShell = () => {
   // as org_admin and would only get 403s.
   const { isAdmin } = usePermissions();
 
+  // Latest render's view of "which org is selected" and "which org this shell shows",
+  // readable from the unmount cleanup below without re-running it on every change.
+  const contextRef = useRef({ selected: selectedOrganizationId, viewing: numericId });
+  contextRef.current = { selected: selectedOrganizationId, viewing: numericId };
+
+  // Repointing `selectedOrganizationId` at `:orgId` (next effect) is a BORROW of the admin's
+  // working context, not a move. It used to be left where this shell put it ("no teardown …
+  // harmless"), and `partialize` persists it — so "Back to app" walked the whole app,
+  // every list, every write, into the workspace the admin had merely been LOOKING at, and
+  // a reload kept it there. Restore what was selected before this shell mounted.
+  //
+  // Declared BEFORE the repoint effect so it captures the pre-repoint value. The restore is
+  // conditional on the context still being ours: a logout (null) or a switch made while
+  // this shell was open must not be undone by our unmount.
+  useEffect(() => {
+    const restoreTo = contextRef.current.selected;
+    return () => {
+      const { selected, viewing } = contextRef.current;
+      if (restoreTo !== null && restoreTo !== viewing && selected === viewing) {
+        setSelectedOrganization(restoreTo);
+      }
+    };
+  }, [setSelectedOrganization]);
+
   useEffect(() => {
     if (numericId === null) {
       return;
     }
     // Point the active org context at the target workspace and ensure NO admin
     // scope is set, so the api-client attaches X-Organization-Context to the
-    // embedded pages' org-scoped calls. No teardown: leaving the selected org as-is
-    // is harmless (it's the admin's working context).
+    // embedded pages' org-scoped calls. The teardown lives in the effect above.
     setSelectedOrganization(numericId);
     clearScope();
   }, [numericId, setSelectedOrganization, clearScope]);
