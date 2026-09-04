@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Organization } from '@/services/organization.service';
+import { onOrganizationSwitch } from './identityScope';
 
 type OrganizationsState = {
   currentOrganization: Organization | null;
@@ -32,3 +33,8 @@ export const useOrganizationsStore = create<OrganizationsState>((set, get) => ({
     return Date.now() - state.currentOrgLastFetch > CACHE_TTL;
   },
 }));
+
+// `currentOrganization` is whatever `getCurrent` last answered under whatever context was
+// set at the time. After an org switch it is the PREVIOUS workspace until someone refetches,
+// and `CreateUserModal` read its `isSystem` to offer the global-admin role. Evict.
+onOrganizationSwitch(() => useOrganizationsStore.getState().clearCache());

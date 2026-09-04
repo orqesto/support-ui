@@ -5,9 +5,23 @@ import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Input } from '@/components/ui/Input';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { departmentService, type Department } from '@/services/department.service';
+import { useAuthStore } from '@/stores/authStore';
 import { useOrganizationsStore } from '@/stores/organizationsStore';
 import type { OrganizationRole } from '@/types/roles';
 import { isDepartmentServed } from '@/utils/departmentReachability';
+
+/**
+ * Whether the "Admin (Global)" role may be offered: only inside the system org, and only
+ * when the cached organization IS the one currently selected — a stale `currentOrganization`
+ * from the workspace switched away from must not decide this for the one switched to.
+ */
+export const offersGlobalAdminRole = (
+  currentOrganization: { id: number; isSystem?: boolean } | null,
+  selectedOrganizationId: number | null
+): boolean =>
+  currentOrganization !== null &&
+  currentOrganization.isSystem === true &&
+  currentOrganization.id === selectedOrganizationId;
 
 type CreateUserModalProps = {
   isOpen: boolean;
@@ -27,8 +41,13 @@ type CreateUserModalProps = {
 export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalProps) => {
   // Global System Administrators may only be created in the system org — hide the
   // option elsewhere (the backend enforces this too; this is UX/defense-in-depth).
-  const isSystemOrg = useOrganizationsStore(
-    (state) => state.currentOrganization?.isSystem === true
+  // `currentOrganization` is one global slot that outlives an in-place org switch, so the
+  // `isSystem` it holds is only trustworthy when its id IS the org this modal writes to.
+  const selectedOrganizationId = useAuthStore(
+    (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
+  );
+  const isSystemOrg = useOrganizationsStore((state) =>
+    offersGlobalAdminRole(state.currentOrganization, selectedOrganizationId)
   );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
