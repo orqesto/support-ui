@@ -30,7 +30,11 @@ vi.mock('@/lib/toast', () => ({
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => vi.fn(),
+  // useMessagePackReturn reads `?status=` for the pack checkout return; no flag here.
+  useSearchParams: () => [new URLSearchParams(), vi.fn()],
+}));
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: () => ({ user: { role: 'user', organizationRole: 'org_admin' } }),
 }));

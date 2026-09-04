@@ -46,6 +46,7 @@ import { useSLANotifications } from '@/hooks/useSLANotifications';
 import { LicenseExpiryBanner } from './LicenseExpiryBanner';
 import { ResumeSetupBanner } from './ResumeSetupBanner';
 import { TrialBanner } from './TrialBanner';
+import { MessageCapBanner } from './MessageCapBanner';
 import { SubscriptionGateOverlay } from '@/components/subscription/SubscriptionGateOverlay';
 import { useLearningNotifications } from '@/hooks/useLearningNotifications';
 import { WebSocketStatus } from '../shared/WebSocketStatus';
@@ -696,6 +697,7 @@ export const Layout = ({ children }: LayoutProps) => {
             <LicenseExpiryBanner />
             <ResumeSetupBanner />
             <TrialBanner />
+            <MessageCapBanner />
             {children}
           </main>
           <SubscriptionGateOverlay />
