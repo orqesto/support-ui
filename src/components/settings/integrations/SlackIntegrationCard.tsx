@@ -5,6 +5,7 @@ import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
@@ -23,6 +24,8 @@ export const SlackIntegrationCard = ({
   const [editDepts, setEditDepts] = useState<number | null>(null);
   const deptPicker = useCreateSourceDepartments();
 
+  const slackIntegrations = integrations.filter((integ) => integ.type === 'slack');
+
   const {
     showForm,
     saving,
@@ -31,9 +34,11 @@ export const SlackIntegrationCard = ({
     deleteConfirm,
     editingId,
     config,
+    name,
     setShowForm,
     setConfig,
     setDeleteConfirm,
+    setName,
     resetForm,
     loadForEdit,
     saveIntegration,
@@ -45,6 +50,9 @@ export const SlackIntegrationCard = ({
     initialConfig: { botToken: '', signingSecret: '' },
     onRefresh,
     onShowAlert,
+    // The BE upserts on name + type: a second workspace saved under the constant display
+    // name used to overwrite the first. Names are made distinct and typed collisions refused.
+    existingNames: slackIntegrations.map((integ) => integ.name),
     // Departments ride along with the insert (see useIntegrationCard.createDepartments)
     // rather than being assigned by a follow-up call, so the workspace can never be
     // committed enabled-but-unlinked if that second call fails or never runs.
@@ -53,8 +61,6 @@ export const SlackIntegrationCard = ({
       defaultDepartmentId: deptPicker.defaultId,
     },
   });
-
-  const slackIntegrations = integrations.filter((integ) => integ.type === 'slack');
 
   const handleDelete = () => {
     if (deleteConfirm) {
@@ -115,7 +121,11 @@ export const SlackIntegrationCard = ({
                         variant="outline"
                         size="sm"
                         onClick={() =>
-                          loadForEdit(integration.id, integration.config as SlackConfig)
+                          loadForEdit(
+                            integration.id,
+                            integration.config as SlackConfig,
+                            integration.name
+                          )
                         }
                         disabled={editingId === integration.id}
                       >
@@ -173,6 +183,12 @@ export const SlackIntegrationCard = ({
               <h4 className="font-medium">
                 {editingId ? 'Edit Slack Workspace' : 'Add New Slack Workspace'}
               </h4>
+              <Input
+                label="Name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Slack Workspace"
+              />
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="botToken" className="text-sm font-medium">
@@ -242,6 +258,7 @@ export const SlackIntegrationCard = ({
                   onClick={() => saveIntegration()}
                   isLoading={saving}
                   disabled={
+                    !name.trim() ||
                     !config.botToken ||
                     !config.signingSecret ||
                     (editingId === null && !deptPicker.isValid)

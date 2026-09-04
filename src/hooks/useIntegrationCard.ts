@@ -22,6 +22,26 @@ type UseIntegrationCardOptions<T> = {
    * and ingesting with no department links until it lands (or forever, if it fails).
    */
   createDepartments?: { departmentIds: number[]; defaultDepartmentId?: number };
+  /**
+   * Names already taken by integrations of this type in this workspace. The BE's
+   * `POST /api/integrations` is an UPSERT keyed on `name + type` (+ department), so a
+   * CREATE under a taken name silently overwrites that row. With this list the default
+   * name is made distinct and a typed collision is refused instead of committed.
+   */
+  existingNames?: ReadonlyArray<string>;
+  /**
+   * A name derived from the config being typed — the bot id inside a Telegram token, a
+   * WhatsApp phone-number id — so a second bot or number gets its own row by default.
+   */
+  deriveName?: (config: T) => string | null;
+};
+
+/** `base`, else `base 2`, `base 3`, … — the first not already taken. */
+export const distinctName = (base: string, taken: ReadonlyArray<string>): string => {
+  if (!taken.includes(base)) return base;
+  let suffix = 2;
+  while (taken.includes(`${base} ${suffix}`)) suffix += 1;
+  return `${base} ${suffix}`;
 };
 
 export const useIntegrationCard = <T extends Record<string, unknown>>({
@@ -32,6 +52,8 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
   onShowAlert,
   onCreated,
   createDepartments,
+  existingNames = [],
+  deriveName,
 }: UseIntegrationCardOptions<T>) => {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -39,26 +61,55 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
   const [deleting, setDeleting] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
+  // The name of the row being edited — the upsert's identity, so an EDIT must send it
+  // back verbatim. It used to send the constant display name: an edit of "Ops Slack"
+  // created a second row, and a second workspace created under the constant overwrote
+  // the first.
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [nameOverride, setNameOverride] = useState<string | null>(null);
   const [config, setConfig] = useState<T>(initialConfig);
+
+  const suggestedName =
+    editingId !== null
+      ? (editingName ?? integrationDisplayName)
+      : distinctName(deriveName?.(config) ?? integrationDisplayName, existingNames);
+  const name = nameOverride ?? suggestedName;
 
   const resetForm = useCallback(() => {
     setConfig(initialConfig);
     setShowForm(false);
     setEditingId(null);
+    setEditingName(null);
+    setNameOverride(null);
   }, [initialConfig]);
 
-  const loadForEdit = useCallback((id: number, currentConfig: T) => {
+  const loadForEdit = useCallback((id: number, currentConfig: T, currentName?: string) => {
     setEditingId(id);
+    setEditingName(currentName ?? null);
+    setNameOverride(null);
     setConfig(currentConfig);
     setShowForm(true);
   }, []);
 
   const saveIntegration = useCallback(
     async (customName?: string) => {
+      const isEdit = editingId !== null;
+      // EDIT: the stored name is the upsert key; the typed name (if changed) is applied by
+      // id afterwards. CREATE: the typed/derived name, refused if it would land on a row.
+      const upsertName = customName ?? (isEdit ? (editingName ?? name) : name.trim());
+      if (!isEdit && customName === undefined && existingNames.includes(upsertName)) {
+        onShowAlert({
+          open: true,
+          title: 'Name already in use',
+          description: `A ${integrationDisplayName} named "${upsertName}" already exists. Choose a different name — saving under the same one would overwrite it.`,
+          variant: 'error',
+        });
+        return;
+      }
       setSaving(true);
       try {
         const response = await integrationsService.upsert({
-          name: customName ?? integrationDisplayName,
+          name: upsertName,
           type: integrationType,
           enabled: true,
           config: config as Record<string, unknown>,
@@ -76,6 +127,11 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
           const isCreate = response.action !== 'updated';
           if (isCreate && onCreated && response.data?.id) {
             await onCreated(response.data.id);
+          }
+          // A rename on edit goes by id — the upsert cannot do it without creating a row.
+          const renamedTo = name.trim();
+          if (isEdit && customName === undefined && renamedTo && renamedTo !== upsertName) {
+            await integrationsService.update(editingId, { name: renamedTo, type: integrationType });
           }
           await onRefresh();
           resetForm();
@@ -100,6 +156,10 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
     },
     [
       config,
+      editingId,
+      editingName,
+      existingNames,
+      name,
       integrationType,
       integrationDisplayName,
       onRefresh,
@@ -184,11 +244,13 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
     deleteConfirm,
     editingId,
     config,
+    name,
 
     // Setters
     setShowForm,
     setConfig,
     setDeleteConfirm,
+    setName: setNameOverride,
 
     // Actions
     resetForm,
