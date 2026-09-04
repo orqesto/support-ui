@@ -9,7 +9,7 @@
  *      would leave live access wired to something invisible in the console.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { SyncedGroupsCard } from '@/components/console/SyncedGroupsCard';
 import type { SyncedGroup } from '@/services/alliance-scim.service';
@@ -136,6 +136,35 @@ describe('SyncedGroupsCard wire targets', () => {
     expect(options).toContain('Group — Support in Acme · Support US');
     // A group with no role and no workspace keeps its bare name.
     expect(options).toContain('Group — Support EU');
+  });
+
+  // The confirm says what the unwire does to the GROUP, by how the group came to exist —
+  // a minted one is retired (members lose the role), a hand-wired one is kept. One copy
+  // for both promised "nobody loses access", which is false for the common case.
+  it('warns that a MINTED backing group is retired with the wire', () => {
+    syncedGroups.push(
+      baseGroup({
+        wiredGroup: { mappingId: 7, groupId: 9, groupName: 'Support EU', mintedByWire: true },
+      })
+    );
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Unwire' }));
+
+    expect(screen.getByText(/"Support EU" — created by this mapping — is retired with it/)).toBeInTheDocument();
+    expect(screen.queryByText(/nobody loses access/)).not.toBeInTheDocument();
+  });
+
+  it('CONTROL: says a hand-wired group is kept', () => {
+    syncedGroups.push(
+      baseGroup({
+        wiredGroup: { mappingId: 7, groupId: 9, groupName: 'Support EU', mintedByWire: false },
+      })
+    );
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Unwire' }));
+
+    expect(screen.getByText(/"Support EU" existed before the wire/)).toBeInTheDocument();
+    expect(screen.getByText(/nobody loses access right now/)).toBeInTheDocument();
   });
 
   // A legacy alliance-role wiring has no group mapping to delete, so Unwire would have

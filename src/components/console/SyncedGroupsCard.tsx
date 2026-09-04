@@ -107,6 +107,19 @@ export const describeGrant = (
   return `${role ?? 'No role'} in ${names.length > 0 ? names.join(', ') : 'no workspace'}`;
 };
 
+/** The unwire confirm's body — what happens to the backing group, by how it came to exist. */
+export const unwireDescription = (group: SyncedGroup | null): string => {
+  const name = group?.wiredGroup?.groupName ? `"${group.wiredGroup.groupName}"` : 'its group';
+  switch (group?.wiredGroup?.mintedByWire) {
+    case true:
+      return `New members will stop arriving from this IdP group, and ${name} — created by this mapping — is retired with it. Its members lose that role on the next sync.`;
+    case false:
+      return `New members will stop arriving from this IdP group. ${name} existed before the wire, so it keeps its role, workspaces and any members added by hand — nobody loses access right now.`;
+    default:
+      return `New members will stop arriving from this IdP group. If ${name} was created by this mapping it is retired with it and its members lose that role; a group you made by hand is kept.`;
+  }
+};
+
 const wiredLabel = (
   group: SyncedGroup,
   grants: Map<number, string | null> = new Map()
@@ -656,8 +669,11 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
         description={confirmDescription}
       />
 
-      {/* Unwiring removes only the MAPPING. The backing group keeps its role, workspaces
-          and any hand-added members — so nobody loses access at the moment you unwire. */}
+      {/* An unwire is ONE action on one thing: a backing group this screen minted is retired
+          with its mapping and the members lose that grant; a group the admin wired by hand
+          existed before the wire and is kept. Say which BEFORE the confirm — the earlier copy
+          promised "nobody loses access right now" for both, which is now false for the
+          common case. An older backend omits `mintedByWire`; then the honest word is "may". */}
       <ConfirmDialog
         open={unwireConfirm !== null}
         onOpenChange={(open) => !open && setUnwireConfirm(null)}
@@ -666,11 +682,11 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
           setUnwireConfirm(null);
           if (mappingId !== undefined) unwire.mutate(mappingId);
         }}
-        variant="warning"
+        variant={unwireConfirm?.wiredGroup?.mintedByWire === false ? 'warning' : 'danger'}
         confirmText="Unwire"
         cancelText="Keep wired"
         title={unwireConfirm ? `Unwire ${unwireConfirm.displayName}?` : ''}
-        description="New members will stop arriving from this IdP group. The group it was wired to keeps its role, workspaces and any members added by hand — nobody loses access right now."
+        description={unwireDescription(unwireConfirm)}
       />
     </Card>
   );

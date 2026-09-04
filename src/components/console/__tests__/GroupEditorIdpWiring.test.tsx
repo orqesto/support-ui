@@ -12,10 +12,6 @@ import { GroupEditor } from '@/components/console/GroupEditor';
 import type { AllianceGroup } from '@/services/alliance-groups.service';
 import type { AllianceMember } from '@/services/alliance-admin.service';
 
-const unwireMutate = vi.fn();
-vi.mock('@/hooks/useAllianceProvisioning', () => ({
-  useDeleteAllianceGroupMap: () => ({ mutate: unwireMutate, isPending: false }),
-}));
 vi.mock('@/hooks/useAllianceGroups', () => ({
   useSaveGroup: () => ({ mutate: vi.fn(), isPending: false }),
   useOrgDepartments: () => ({ data: [], isLoading: false }),
@@ -66,7 +62,6 @@ const renderEditor = (value: AllianceGroup | null) =>
   );
 
 beforeEach(() => {
-  unwireMutate.mockReset();
   cleanup();
 });
 
@@ -88,30 +83,39 @@ describe('GroupEditor — IdP wiring', () => {
     expect(screen.queryByRole('button', { name: 'Unwire' })).not.toBeInTheDocument();
   });
 
-  it('confirms before unwiring, and says nobody loses access', () => {
+  // The Provisioning row is the ONE unwire control: its confirm knows whether the backing
+  // group is retired with the wire. A second button here carried older, softer copy.
+  it('offers no Unwire of its own, and points at the Provisioning screen', () => {
     renderEditor(
       group({ idpGroup: { mappingId: 7, externalId: 'ext-1', displayName: 'SSO - Support' } })
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Unwire' }));
-
-    expect(screen.getByText('Unwire this IdP group?')).toBeInTheDocument();
-    expect(screen.getByText(/nobody loses access right now/)).toBeInTheDocument();
-    expect(unwireMutate).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Unwire' })).not.toBeInTheDocument();
+    expect(screen.getByText(/unwire it on the Provisioning screen/)).toBeInTheDocument();
   });
 
-  it('unwires the mapping, by id, once confirmed', () => {
+  // A minted backing group is named "<IdP group> — <Role>" and the Provisioning row finds
+  // it by that name; renaming it here would detach the two while the mapping kept working.
+  it('keeps the name read-only for an IdP-fed group', () => {
     renderEditor(
       group({ idpGroup: { mappingId: 7, externalId: 'ext-1', displayName: 'SSO - Support' } })
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Unwire' }));
-    // Two buttons now read "Unwire": the banner's and the dialog's confirm. The dialog
-    // mounts last, so its is the one to press.
-    const buttons = screen.getAllByRole('button', { name: 'Unwire' });
-    fireEvent.click(buttons[buttons.length - 1]);
+    const nameInput = screen.getByLabelText<HTMLInputElement>('Name');
+    expect(nameInput.readOnly).toBe(true);
+    fireEvent.change(nameInput, { target: { value: 'Renamed by hand' } });
+    expect(screen.getByText(/the name follows the mapping/)).toBeInTheDocument();
+  });
 
-    expect(unwireMutate).toHaveBeenCalledWith(7);
+  // CONTROL: an authored group's name stays editable — otherwise "read-only" would just
+  // be "nobody can rename anything".
+  it('CONTROL: leaves the name editable for a hand-authored group', () => {
+    renderEditor(group());
+
+    const nameInput = screen.getByLabelText<HTMLInputElement>('Name');
+    expect(nameInput.readOnly).toBe(false);
+    fireEvent.change(nameInput, { target: { value: 'Renamed by hand' } });
+    expect(nameInput.value).toBe('Renamed by hand');
   });
 
   it('gives IdP-managed members no remove control', () => {

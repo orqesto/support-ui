@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { X } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Drawer } from '@/components/ui/Drawer';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -13,7 +12,6 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { OrgDepartmentPicker } from '@/components/console/OrgDepartmentPicker';
 import { useSaveGroup } from '@/hooks/useAllianceGroups';
-import { useDeleteAllianceGroupMap } from '@/hooks/useAllianceProvisioning';
 import type { AllianceGroup, DepartmentIdsByOrg } from '@/services/alliance-groups.service';
 import type { AllianceOrg, AllianceMember } from '@/services/alliance-admin.service';
 import { roleDisplayNames, type OrganizationRole } from '@/types/roles';
@@ -49,8 +47,10 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
 
   const save = useSaveGroup(allianceId);
-  const unwire = useDeleteAllianceGroupMap(allianceId);
-  const [unwireConfirm, setUnwireConfirm] = useState(false);
+  // An IdP-fed group is named "<IdP group> — <Role>" by the wire that minted it; the
+  // Provisioning row finds its backing group by that name, so a rename here would detach
+  // the two in the admin's eyes while the mapping silently kept working.
+  const idpFed = Boolean(group?.idpGroup);
   // Absent (old backend) is not the same as empty: with no field we simply can't tell who
   // is IdP-managed, and marking nobody is the honest answer — never marking everybody.
   const idpManagedMemberIds = group?.idpManagedMemberIds ?? [];
@@ -167,7 +167,19 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
       <div className="space-y-5">
         <div className="space-y-1.5">
           <Label htmlFor="group-name">Name</Label>
-          <Input id="group-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Support Leads" />
+          <Input
+            id="group-name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="e.g. Support Leads"
+            readOnly={idpFed}
+            aria-readonly={idpFed || undefined}
+          />
+          {idpFed && (
+            <p className="text-xs text-muted-foreground">
+              Named after the IdP group that feeds it — the name follows the mapping.
+            </p>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -188,28 +200,20 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
 
         {group?.idpGroup && (
           <Alert variant="info">
-            <div className="flex flex-wrap gap-2 justify-between items-center">
-              <span className="text-sm">
-                Members are synced from IdP group{' '}
-                <strong>{group.idpGroup.displayName ?? group.idpGroup.externalId}</strong>
-                {group.idpGroup.displayName && (
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {' '}
-                    ({group.idpGroup.externalId})
-                  </span>
-                )}
-                .
-              </span>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                isLoading={unwire.isPending}
-                onClick={() => setUnwireConfirm(true)}
-              >
-                Unwire
-              </Button>
-            </div>
+            {/* No Unwire here: the Provisioning row is the ONE place a wire is undone, and
+                its confirm knows whether this group is retired with it. A second control
+                with its own (older, softer) copy is how two screens end up disagreeing. */}
+            <span className="text-sm">
+              Members are synced from IdP group{' '}
+              <strong>{group.idpGroup.displayName ?? group.idpGroup.externalId}</strong>
+              {group.idpGroup.displayName && (
+                <span className="font-mono text-xs text-muted-foreground">
+                  {' '}
+                  ({group.idpGroup.externalId})
+                </span>
+              )}
+              . To stop syncing, unwire it on the Provisioning screen.
+            </span>
           </Alert>
         )}
 
@@ -347,23 +351,6 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
           </Button>
         </div>
       </div>
-
-      {/* Unwiring only removes the MAPPING. The group keeps its role, workspaces, and any
-          members added by hand — revoking all of that would be a side effect nobody asked
-          for when editing a mapping. */}
-      <ConfirmDialog
-        open={unwireConfirm}
-        onOpenChange={setUnwireConfirm}
-        onConfirm={() => {
-          setUnwireConfirm(false);
-          if (group?.idpGroup) unwire.mutate(group.idpGroup.mappingId);
-        }}
-        title="Unwire this IdP group?"
-        description="New members will stop arriving from the identity provider. This group keeps its role, workspaces and any members added by hand — nobody loses access right now."
-        confirmText="Unwire"
-        cancelText="Keep wired"
-        variant="warning"
-      />
     </Drawer>
   );
 };

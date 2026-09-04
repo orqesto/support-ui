@@ -162,9 +162,18 @@ export const useDeleteAllianceGroupMap = (allianceId: number | null) => {
   return useMutation({
     mutationFn: (mappingId: number) =>
       allianceScimService.deleteGroupMap(allianceId as number, mappingId),
-    onSuccess: () => {
+    onSuccess: (result) => {
       void invalidate();
-      toast.success('Group mapping removed');
+      // Say what happened to the GROUP, not just the mapping — an unwire retires a minted
+      // backing group, and "mapping removed" would hide that the members just lost a role.
+      const group = result.groupName ? `"${result.groupName}"` : 'its group';
+      toast.success(
+        result.backingGroupRetired
+          ? `Unwired — ${group} was retired with it`
+          : result.keptBecause
+            ? `Unwired — ${group} was kept because ${result.keptBecause}`
+            : 'Group mapping removed'
+      );
     },
     onError: (error: unknown) => toast.error(errorMessage(error, 'Could not remove group mapping')),
   });

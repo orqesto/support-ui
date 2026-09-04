@@ -133,15 +133,25 @@ export const ConsoleProvisioning = () => {
 
   const scimBaseUrl = useMemo(() => allianceScimBaseUrl(), []);
 
+  // Only groups the admin AUTHORED are re-point targets. A group minted by a wire is that
+  // wire's implementation detail: pointing a second IdP group at it would look like a
+  // group mapped to itself (both carry the IdP group's name) and would outlive an unwire.
   const groupOptions = useMemo(
     () =>
-      (groupsQuery.data ?? []).map((group) => ({
-        value: String(group.id),
-        // Qualify with the group id so same-name alliance groups stay distinguishable.
-        label: `${group.name} (#${group.id})`,
-      })),
+      (groupsQuery.data ?? [])
+        .filter((group) => !group.idpGroup)
+        .map((group) => ({
+          value: String(group.id),
+          // Qualify with the group id so same-name alliance groups stay distinguishable.
+          label: `${group.name} (#${group.id})`,
+        })),
     [groupsQuery.data]
   );
+  /** The picker for one mapping row: authored groups, plus the row's own (possibly minted) group so it can display. */
+  const optionsForMapping = (mapping: AllianceGroupMapping) =>
+    groupOptions.some((option) => option.value === String(mapping.groupId))
+      ? groupOptions
+      : [{ value: String(mapping.groupId), label: `${mapping.groupName} (#${mapping.groupId})` }, ...groupOptions];
 
   const isLoading =
     configQuery.isLoading ||
@@ -407,7 +417,7 @@ export const ConsoleProvisioning = () => {
                   <div className="flex-1 min-w-[12rem]">
                     <Label className="mb-1">Alliance group</Label>
                     <ReactSelect
-                      options={groupOptions}
+                      options={optionsForMapping(mapping)}
                       value={String(mapping.groupId)}
                       onChange={(value) => {
                         if (value && Number(value) !== mapping.groupId) {
