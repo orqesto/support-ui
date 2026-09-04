@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Ban, Plus, RotateCcw, Users } from 'lucide-react';
+import { Ban, Plus, RotateCcw, Trash2, Users } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -23,6 +23,7 @@ import {
   useChangeMemberRole,
   useDeactivateMember,
   useReactivateMember,
+  useRemoveMember,
 } from '@/hooks/useAllianceAdmin';
 import { roleDisplayNames, type AllianceRole, type UserRole } from '@/types/roles';
 import type {
@@ -82,11 +83,16 @@ export const accessSummary = (
 
 /**
  * Members screen (SPEC §8.3): each member's alliance_role (editable) and the
- * per-org roles the reconciler materialized for them (chips). Members are
- * DEACTIVATED (a durable, IdP-sync-proof hold that blocks login), never hard-
- * removed — full offboarding stays the IdP's job. Deactivated members show a
- * badge + a Reactivate action; the deactivate confirm surfaces the C2 offboarding
- * side-effects (session revoke + ticket reassign).
+ * per-org roles the reconciler materialized for them (chips). An active member is
+ * DEACTIVATED first (a durable, IdP-sync-proof hold that blocks login; the confirm
+ * surfaces the C2 offboarding side-effects — session revoke + ticket handover). A
+ * deactivated member can then be Reactivated or REMOVED outright.
+ *
+ * ⛔ "Never hard-removed — offboarding stays the IdP's job" was the rule until the owner
+ * asked, looking at five deactivated rows with nowhere to go: "why deactivated users can't
+ * be removed? as they can be added again if activated from idp". Removal deletes the
+ * membership; an IdP push that activates them again re-creates it. The hold is for the
+ * opposite case — keeping someone out WHILE the IdP still lists them.
  */
 export const ConsoleMembers = () => {
   const { allianceId } = useParams();
@@ -96,12 +102,14 @@ export const ConsoleMembers = () => {
   const changeRole = useChangeMemberRole(numericId);
   const deactivateMember = useDeactivateMember(numericId);
   const reactivateMember = useReactivateMember(numericId);
+  const removeMember = useRemoveMember(numericId);
   const addMember = useAddMember(numericId);
 
   const [deactivateTarget, setDeactivateTarget] = useState<AllianceMember | null>(null);
   // '' = "leave the tickets unassigned" — the pre-existing behaviour, and the default.
   const [handoverUserId, setHandoverUserId] = useState('');
   const [reactivateTarget, setReactivateTarget] = useState<AllianceMember | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<AllianceMember | null>(null);
   const [roleChange, setRoleChange] = useState<{
     member: AllianceMember;
     newRole: AllianceRole | null;
@@ -306,18 +314,43 @@ export const ConsoleMembers = () => {
     },
   ];
 
+  const handleRemove = () => {
+    if (!removeTarget) {
+      return;
+    }
+    removeMember.mutate(removeTarget.userId, {
+      onSuccess: () => {
+        toast.success(`Removed ${removeTarget.name || 'member'}`);
+        setRemoveTarget(null);
+      },
+      onError: (error: unknown) =>
+        toast.error(error instanceof Error ? error.message : 'Could not remove member'),
+    });
+  };
+
   const memberActions = (member: AllianceMember) => {
     const label = member.name || `User #${member.userId}`;
     return member.active === false ? (
-      <Tooltip content={`Reactivate ${label}`}>
-        <Button
-          variant="ghost"
-          onClick={() => setReactivateTarget(member)}
-          aria-label={`Reactivate ${label}`}
-        >
-          <RotateCcw className="w-4 h-4" />
-        </Button>
-      </Tooltip>
+      <div className="flex gap-1 items-center">
+        <Tooltip content={`Reactivate ${label}`}>
+          <Button
+            variant="ghost"
+            onClick={() => setReactivateTarget(member)}
+            aria-label={`Reactivate ${label}`}
+          >
+            <RotateCcw className="w-4 h-4" />
+          </Button>
+        </Tooltip>
+        <Tooltip content={`Remove ${label} from the alliance`}>
+          <Button
+            variant="ghost"
+            onClick={() => setRemoveTarget(member)}
+            aria-label={`Remove ${label}`}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </Tooltip>
+      </div>
     ) : (
       <Tooltip content={`Deactivate ${label} — blocks their Odly login`}>
         <Button
@@ -520,6 +553,20 @@ export const ConsoleMembers = () => {
         confirmText="Reactivate member"
         title={`Reactivate ${reactivateTarget?.name || 'this member'}?`}
         description="This lifts the hold and restores the member's access from their current identity-provider groups and alliance role, on the next reconcile."
+      />
+
+      <ConfirmDialog
+        open={removeTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRemoveTarget(null);
+          }
+        }}
+        onConfirm={handleRemove}
+        variant="danger"
+        confirmText="Remove member"
+        title={`Remove ${removeTarget?.name || 'this member'} from the alliance?`}
+        description="They disappear from this list and lose their alliance groups and workspace access. This is not a ban: if your identity provider activates them again, they come back automatically."
       />
 
       <ConfirmDialog

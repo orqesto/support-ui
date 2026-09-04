@@ -214,18 +214,17 @@ const SyncedGroupRow = ({
           </span>
         </Alert>
       ) : group.wiredGroup !== null ? (
-        /* Re-point-only, and deliberately so: this group already has a BACKING GROUP, and
-           minting a second one would strand the first (still granting, still holding members).
+        /* A wired group has exactly two actions: change what it grants (role + workspace, on
+           its backing group — the same editor the Groups page uses) or unwire it. There used to
+           be a third, "re-point this IdP group at a different existing group", one fold down.
+           The owner, on the deployed console: "I really don't understand wtf and why we need it,
+           and it's pointing nowhere" — its picker only ever offered hand-authored groups, and on
+           a console where every group was minted by a wire that is an empty list. Editing covers
+           every change an admin actually makes; re-pointing was a second door to the same room.
            A group wired only to a legacy alliance ROLE has no backing group, so it takes the
            full mapping branch below — the backend's 409 checks group mappings, not role maps. */
         <div className="pt-1 space-y-2">
-          {/* The wired row's FIRST question is "what does this grant, and how do I change it" —
-              role and workspace, on the backing group. The owner mapped a group, saw only a
-              picker of OTHER groups, and asked what it was for. Editing opens the same editor
-              the Groups page uses for that backing group; re-pointing stays, one fold down. */}
           <div className="flex flex-wrap gap-2 items-center">
-            {/* Only a group-backed wiring has a backing group to edit; a legacy alliance-role
-                wiring is re-pointed below instead. */}
             {group.wiredGroup && (
               <Button type="button" onClick={onEditBacking} disabled={wiring || !canEditBacking}>
                 Edit role / workspace
@@ -237,49 +236,6 @@ const SyncedGroupRow = ({
               </Button>
             )}
           </div>
-          <details className="text-sm">
-            <summary className="cursor-pointer text-muted-foreground">
-              Re-point this IdP group at a different existing group
-            </summary>
-            <div className="flex flex-wrap gap-3 items-end pt-2">
-            <div className="flex-1 min-w-[14rem]">
-              <Label htmlFor={`rewire-target-${group.id}`} className="mb-1">
-                Change mapping
-              </Label>
-              {/* Existing groups only. Re-pointing at a NEW group would mint a second
-                  backing group and leave the current one behind, still holding its grant
-                  and members — the backend refuses it (409); the UI shouldn't offer it. */}
-              <Select
-                id={`rewire-target-${group.id}`}
-                value={selectedValue.startsWith('group:') ? selectedValue : ''}
-                onChange={(event) => onSelect(event.target.value)}
-              >
-                              <option value="">Select a group…</option>
-                {/* Not the group it is ALREADY wired to: re-pointing at itself is a no-op, and
-                    offering it is exactly what read as "mapped to itself". */}
-                {targetOptions
-                  .filter(
-                    (option) =>
-                      option.value.startsWith('group:') &&
-                      option.value !== `group:${group.wiredGroup?.groupId}`
-                  )
-                  .map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-              </Select>
-            </div>
-            <Button
-              type="button"
-              onClick={onWire}
-              isLoading={wiring}
-              disabled={wiring || !selectedValue.startsWith('group:')}
-            >
-              Re-point
-            </Button>
-            </div>
-          </details>
         </div>
       ) : (
         <>
@@ -571,9 +527,10 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
               Synced IdP groups
             </CardTitle>
             <CardDescription>
-              Groups your identity provider has pushed. Map one to an alliance role, an org role in
-              specific workspaces, or an authored alliance group — its already-synced members update
-              immediately, no re-push needed.
+              Groups your identity provider has pushed. Map one to an org role in specific
+              workspaces, or to an authored alliance group — its already-synced members update
+              immediately, no re-push needed. Only groups the IdP has pushed appear: a group missing
+              from this list is not assigned to the SCIM application in your identity provider.
             </CardDescription>
           </div>
           <Button

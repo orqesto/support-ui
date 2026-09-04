@@ -168,8 +168,9 @@ export const allianceAdminService = {
 
   /**
    * DURABLE deactivate ("hold"): blocks this member from logging in to every workspace
-   * in the alliance, and survives IdP sync until reactivated. NOT a hard removal — full
-   * offboarding stays the IdP's job. (DELETE is repurposed; the BE soft-deactivates.)
+   * in the alliance, and survives IdP sync until reactivated. NOT a hard removal — that is
+   * `removeMember`, offered once they are deactivated. (DELETE is repurposed; the BE
+   * soft-deactivates.)
    */
   /**
    * Deactivate, optionally handing the member's open tickets to a named colleague.
@@ -199,5 +200,15 @@ export const allianceAdminService = {
   /** Lift the hold and hand the member back to normal IdP-driven reconciliation. */
   reactivateMember: async (allianceId: number, userId: number): Promise<void> => {
     await apiClient.post(`${BASE}/${allianceId}/members/${userId}/reactivate`, {});
+  },
+
+  /**
+   * HARD removal of a member who is already deactivated — the step after the hold. The
+   * backend deletes their alliance membership and group rows and revokes their workspace
+   * access; it refuses an active member (409). Removal is not a ban: if the IdP activates
+   * them again, that push re-creates the membership.
+   */
+  removeMember: async (allianceId: number, userId: number): Promise<void> => {
+    await apiClient.post(`${BASE}/${allianceId}/members/${userId}/remove`, {});
   },
 };

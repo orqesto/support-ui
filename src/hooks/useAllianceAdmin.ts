@@ -154,3 +154,11 @@ export const useReactivateMember = (allianceId: number | null) => {
     onSuccess: invalidate,
   });
 };
+
+export const useRemoveMember = (allianceId: number | null) => {
+  const invalidate = useAllianceListInvalidator(allianceId, 'members');
+  return useMutation({
+    mutationFn: (userId: number) => allianceAdminService.removeMember(allianceId as number, userId),
+    onSuccess: invalidate,
+  });
+};

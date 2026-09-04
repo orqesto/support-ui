@@ -102,31 +102,21 @@ describe('SyncedGroupsCard wire targets', () => {
   });
 
   // A wired group used to render nothing at all, so the mapping was one-shot: the only
-  // way to change it was through the API. Both edits have to be reachable.
-  it('offers re-point and unwire once wired', () => {
+  // way to change it was through the API. Now it has exactly two actions — and NOT a third:
+  // the "re-point at a different existing group" fold was removed (its picker was empty on
+  // a console where every group is minted by a wire, and the owner asked what it was for).
+  it('offers edit and unwire once wired — and no re-point', () => {
     syncedGroups.push(
       baseGroup({ wiredGroup: { mappingId: 7, groupId: 9, groupName: 'Support EU' } })
     );
     renderCard();
 
-    expect(screen.getByRole('button', { name: 'Re-point', hidden: true })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit role / workspace' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Unwire' })).toBeInTheDocument();
-  });
-
-  // Re-pointing at a NEW group would mint a second backing group and orphan the current
-  // one; the backend 409s on it, so the picker must not offer it either.
-    it('offers only OTHER existing groups when re-pointing — never the one it is wired to', () => {
-    // Offering the group's own backing group is what read as "mapped to itself" on taco:
-    // the backing group is named after the IdP group, so the row's current wiring showed
-    // up in its own picker under the same name.
-    syncedGroups.push(
-      baseGroup({ wiredGroup: { mappingId: 7, groupId: 9, groupName: 'Support EU' } })
-    );
-    renderCard();
-    const options = screen.getAllByRole('option').map((option) => option.textContent ?? '');
-    expect(options.some((label) => label.includes('Support EU'))).toBe(false);
-    expect(options.some((label) => label.includes('Support US'))).toBe(true);
-    expect(options.some((label) => label.startsWith('Org role'))).toBe(false);
+    expect(screen.queryByRole('button', { name: 'Re-point', hidden: true })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Re-point this IdP group/)).not.toBeInTheDocument();
+    // No picker at all on a wired row — the only place a group is chosen is the editor.
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
   });
 
   it('labels a group by what it GRANTS, with its name second', () => {
@@ -174,15 +164,6 @@ describe('SyncedGroupsCard wire targets', () => {
     renderCard();
 
     expect(screen.queryByRole('button', { name: 'Unwire' })).not.toBeInTheDocument();
-  });
-
-  it('a wired row leads with editing the role and workspace, and keeps re-point one fold down', () => {
-    syncedGroups.push(
-      baseGroup({ wiredGroup: { mappingId: 7, groupId: 9, groupName: 'Support EU' } })
-    );
-    renderCard();
-    expect(screen.getByRole('button', { name: 'Edit role / workspace' })).toBeEnabled();
-    expect(screen.getByText(/Re-point this IdP group at a different existing group/)).toBeInTheDocument();
   });
 
   it('shows a group wiring without the legacy marker', () => {
@@ -250,13 +231,13 @@ describe('a group wired only to a legacy alliance role', () => {
     expect(screen.getByText(/legacy alliance-role wire/)).toBeInTheDocument();
   });
 
-  it('CONTROL: a group wired to a real group keeps the re-point-only branch', () => {
+  it('CONTROL: a group wired to a real group shows edit + unwire, not the mapping form', () => {
     syncedGroups.push(
       baseGroup({ wiredGroup: { mappingId: 7, groupId: 9, groupName: 'Support EU' } })
     );
     renderCard();
 
-    expect(screen.getByText('Re-point', { ignore: false })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit role / workspace' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Map to')).not.toBeInTheDocument();
   });
 });
