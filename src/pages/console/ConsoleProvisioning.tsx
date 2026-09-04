@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import {
   ShieldCheck,
   KeyRound,
-  Users,
   UserCog,
   Copy,
   Check,
@@ -15,7 +14,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Button } from '@/components/ui/Button';
-import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Toggle } from '@/components/ui/Toggle';
 import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
@@ -36,17 +34,10 @@ import {
   useAllianceScimTokens,
   useMintAllianceScimToken,
   useRevokeAllianceScimToken,
-  useAllianceGroupMaps,
-  useSetAllianceGroupMap,
-  useDeleteAllianceGroupMap,
   useAllianceRoleMaps,
   useDeleteAllianceRoleMap,
 } from '@/hooks/useAllianceProvisioning';
-import {
-  allianceScimBaseUrl,
-  type AllianceGroupMapping,
-  type AllianceRoleMapping,
-} from '@/services/alliance-scim.service';
+import { allianceScimBaseUrl, type AllianceRoleMapping } from '@/services/alliance-scim.service';
 
 /**
  * Alliance Provisioning section (05-08, REQ-05 + D-05, the config surface for the
@@ -98,10 +89,9 @@ const CopyField = ({ label, value }: { label: string; value: string }) => {
   );
 };
 
-/** Discriminated confirm target — one ConfirmDialog serves token + both mapping tables. */
+/** Discriminated confirm target — one ConfirmDialog serves tokens + the legacy role maps. */
 type ConfirmTarget =
   | { kind: 'token'; id: number; label: string }
-  | { kind: 'groupmap'; id: number; label: string }
   | { kind: 'rolemap'; id: number; label: string };
 
 export const ConsoleProvisioning = () => {
@@ -116,10 +106,6 @@ export const ConsoleProvisioning = () => {
   const revokeToken = useRevokeAllianceScimToken(numericId);
 
   const groupsQuery = useAllianceGroups(numericId);
-  const groupMapsQuery = useAllianceGroupMaps(numericId);
-  const setGroupMap = useSetAllianceGroupMap(numericId);
-  const deleteGroupMap = useDeleteAllianceGroupMap(numericId);
-
   const roleMapsQuery = useAllianceRoleMaps(numericId);
   const deleteRoleMap = useDeleteAllianceRoleMap(numericId);
 
@@ -133,36 +119,14 @@ export const ConsoleProvisioning = () => {
 
   const scimBaseUrl = useMemo(() => allianceScimBaseUrl(), []);
 
-  // Only groups the admin AUTHORED are re-point targets. A group minted by a wire is that
-  // wire's implementation detail: pointing a second IdP group at it would look like a
-  // group mapped to itself (both carry the IdP group's name) and would outlive an unwire.
-  const groupOptions = useMemo(
-    () =>
-      (groupsQuery.data ?? [])
-        .filter((group) => !group.idpGroup)
-        .map((group) => ({
-          value: String(group.id),
-          // Qualify with the group id so same-name alliance groups stay distinguishable.
-          label: `${group.name} (#${group.id})`,
-        })),
-    [groupsQuery.data]
-  );
-  /** The picker for one mapping row: authored groups, plus the row's own (possibly minted) group so it can display. */
-  const optionsForMapping = (mapping: AllianceGroupMapping) =>
-    groupOptions.some((option) => option.value === String(mapping.groupId))
-      ? groupOptions
-      : [{ value: String(mapping.groupId), label: `${mapping.groupName} (#${mapping.groupId})` }, ...groupOptions];
-
   const isLoading =
     configQuery.isLoading ||
     tokensQuery.isLoading ||
-    groupMapsQuery.isLoading ||
     roleMapsQuery.isLoading ||
     groupsQuery.isLoading;
   const isError =
     configQuery.isError ||
     tokensQuery.isError ||
-    groupMapsQuery.isError ||
     roleMapsQuery.isError ||
     groupsQuery.isError;
 
@@ -197,8 +161,6 @@ export const ConsoleProvisioning = () => {
       revokeToken.mutate(confirm.id);
     } else if (confirm.kind === 'rolemap') {
       deleteRoleMap.mutate(confirm.id);
-    } else if (confirm.kind === 'groupmap') {
-      deleteGroupMap.mutate(confirm.id);
     }
     // Every arm is explicit on purpose. This used to end in a bare `else` that granted
     // alliance-admin, so a confirm kind added later and left unhandled would have
@@ -220,7 +182,6 @@ export const ConsoleProvisioning = () => {
             onClick={() => {
               void configQuery.refetch();
               void tokensQuery.refetch();
-              void groupMapsQuery.refetch();
               void roleMapsQuery.refetch();
             }}
           >
@@ -233,7 +194,6 @@ export const ConsoleProvisioning = () => {
 
   const config = configQuery.data;
   const tokens = tokensQuery.data ?? [];
-  const groupMaps = groupMapsQuery.data ?? [];
   const roleMaps = roleMapsQuery.data ?? [];
   const anyAdminRoleMap = roleMaps.some((mapping) => mapping.mappedRole === 'alliance_admin');
 
@@ -374,86 +334,6 @@ export const ConsoleProvisioning = () => {
                 </tbody>
               </table>
             </Card>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ─── IdP-group → alliance-group maps ─────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex gap-2 items-center">
-            <Users className="w-5 h-5 text-primary" />
-            IdP group → alliance group
-          </CardTitle>
-          <CardDescription>
-            Map an identity-provider group to an alliance group. On sync, members of the IdP group are
-            added to the alliance group and inherit whatever role that group grants across its
-            workspaces.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {groupOptions.length === 0 && (
-            <Alert variant="info">
-              <span className="text-sm">
-                No alliance groups yet. Create groups in the Groups section first, then map IdP groups
-                to them here.
-              </span>
-            </Alert>
-          )}
-
-          {groupMaps.length > 0 && (
-            <div className="space-y-3">
-              {groupMaps.map((mapping: AllianceGroupMapping) => (
-                <Card key={mapping.id} padding="sm" className="flex flex-wrap gap-3 items-end">
-                  <div className="flex-1 min-w-[12rem]">
-                    <Label className="mb-1">IdP group</Label>
-                    {mapping.idpGroupDisplayName ? (
-                      <p className="mb-1 text-sm font-medium truncate text-foreground">
-                        {mapping.idpGroupDisplayName}
-                      </p>
-                    ) : null}
-                    <Input readOnly value={mapping.idpGroupExternalId} className="font-mono text-xs" />
-                  </div>
-                  <div className="flex-1 min-w-[12rem]">
-                    <Label className="mb-1">Alliance group</Label>
-                    <ReactSelect
-                      options={optionsForMapping(mapping)}
-                      value={String(mapping.groupId)}
-                      onChange={(value) => {
-                        if (value && Number(value) !== mapping.groupId) {
-                          setGroupMap.mutate({
-                            groupId: Number(value),
-                            idpGroupExternalId: mapping.idpGroupExternalId,
-                          });
-                        }
-                      }}
-                    />
-                  </div>
-                  <Tooltip content={`Remove mapping for ${mapping.idpGroupExternalId}`}>
-                    <Button
-                      variant="ghost"
-                      onClick={() =>
-                        setConfirm({
-                          kind: 'groupmap',
-                          id: mapping.id,
-                          label: mapping.idpGroupExternalId,
-                        })
-                      }
-                      aria-label={`Remove mapping for ${mapping.idpGroupExternalId}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </Tooltip>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {groupMaps.length === 0 && groupOptions.length > 0 && (
-            <p className="text-sm text-muted-foreground">
-              No IdP groups are mapped to an alliance group yet. Map them from{' '}
-              <strong>Synced IdP groups</strong> above.
-            </p>
           )}
         </CardContent>
       </Card>
