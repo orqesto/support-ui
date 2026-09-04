@@ -111,10 +111,12 @@ export const COLUMNS: KanbanColumnDef[] = [
     iconClass: 'text-gray-500',
     emptyText: 'No unanalysed messages',
   },
-  // Needs Routing intentionally NOT a Triage column — it has its own dedicated
-  // full-page view (NeedsRoutingPage) + sidebar badge, and stays available as a
-  // list-view Queue filter. Keeping it off the board declutters Triage to the
-  // spam/analysis classifications that actually belong on the kanban.
+  // Needs Routing intentionally NOT a Triage column. `needs_routing` is a MARK on an
+  // ordinary thread, not a lane: the thread sits in Open / In Progress / Pending with a
+  // routing badge (see `routingMark.test.ts`), the sidebar badge and NeedsRoutingPage count
+  // the same rows, and the department picker's "Needs routing" entry narrows THIS board to
+  // them (`kanbanSharedFilters.ts` → `queue=needs_routing`). A dedicated column would show
+  // the same cards a second time under a lane they are not in.
   // (Suspicious moved to the lifecycle board above — collapsed by default.)
   {
     id: 'archived',

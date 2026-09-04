@@ -29,8 +29,6 @@ import { RotateCcw, GripVertical, ArrowRightCircle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/Badge';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
-import { legacyAiStateParam } from '@/hooks/legacyAiStateParam';
-import { negateApiParam } from '@/hooks/negateApiParam';
 import { useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { messageService, type ListScope, type MessageThread } from '@/services/message.service';
 import { ListScopeNotice } from './ListScopeNotice';
@@ -39,6 +37,7 @@ import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Button } from '@/components/ui/Button';
 import { SORT_PRESET_OPTIONS, sortingToPreset, presetToSorting } from './sortPresets';
 import { KanbanCard } from './KanbanCard';
+import { buildSharedFilters } from './kanbanSharedFilters';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -54,52 +53,6 @@ import {
 } from './kanbanColumns';
 
 const PAGE_SIZE = 20;
-
-function buildSharedFilters(filters: FilterState): Record<string, string> {
-  const api: Record<string, string> = {};
-  if (filters.messageSourceId && filters.messageSourceId !== 'all')
-    api.messageSourceId = filters.messageSourceId;
-  if (filters.receivedAt && filters.receivedAt !== 'all') api.receivedAt = filters.receivedAt;
-  // 'needs_routing' sentinel is a view override, not a dept filter — handled at
-  // the column level (a future 'needs_routing' column). For now, treat it as a
-  // pass-through dept selector and rely on the column's fixedFilters.
-  if (
-    filters.departmentId &&
-    filters.departmentId !== 'all' &&
-    filters.departmentId !== 'needs_routing'
-  )
-    api.departmentId = filters.departmentId;
-  if (filters.priority && filters.priority !== 'all') api.priority = filters.priority;
-  if (filters.assigneeId && filters.assigneeId !== 'all')
-    api.assigneeId = filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
-  // One param, so it can be inverted — the booleans it replaces had no "not" to send.
-  if (filters.aiState && filters.aiState !== 'all') {
-    api.aiState = filters.aiState;
-    // Only aiState: the board hard-sets its own lifecycle per column and uses `view`
-    // for the queue axis, so an inversion of either could not reach a card here.
-    const negate = negateApiParam(filters.negate, ['aiState']);
-    if (negate) api.negate = negate;
-    // The legacy boolean as a fallback for an older API — see the note in
-    // useMessagesData. Dropped when inverting, where the two would contradict.
-    else Object.assign(api, legacyAiStateParam(filters.aiState));
-  }
-  // The Received filter is offered on the board and was never sent from it — the token
-  // sat there looking applied while every column ignored it.
-  if (filters.ageRange && filters.ageRange !== 'all') api.ageRange = filters.ageRange;
-  if (filters.receivedFrom) api.receivedFrom = filters.receivedFrom;
-  if (filters.receivedTo) api.receivedTo = filters.receivedTo;
-  if (filters.labelId && filters.labelId !== 'all') api.labelId = filters.labelId;
-  // SLA toggles — same params the list view sends; every column spreads these.
-  if (filters.slaBreached) api.slaBreached = 'true';
-  if (filters.slaAtRisk) api.slaAtRisk = 'true';
-  if (filters.hasAttachments) api.hasAttachments = 'true';
-  if (filters.linked === 'has_ticket') api.hasTicket = 'true';
-  else if (filters.linked === 'has_jira') api.hasJiraTicket = 'true';
-  if (filters.threadStatus && filters.threadStatus !== 'all')
-    api.processed = filters.threadStatus as string;
-  if (filters.search?.trim()) api.search = filters.search.trim();
-  return api;
-}
 
 type ColumnState = {
   threads: MessageThread[];
