@@ -46,19 +46,78 @@ const openCustomerPortal = () =>
     .post<{ success: boolean; data: { url: string } }>('/api/subscriptions/portal')
     .then((res) => res.data.data.url);
 
-export type OrgUsage = {
-  current: { messages: number; users: number; integrations: number };
-  limits: { messages: number; users: number; integrations: number };
-  percentage: { messages: number; users: number; integrations: number };
-  month: string;
+/**
+ * The period the message allowance runs over. `billing` = the subscription's own
+ * cycle (bought on the 5th, resets on the 5th); `calendar` = the 1st of the month
+ * (free and unsubscribed workspaces). `end` is when the counter resets.
+ */
+export type UsagePeriod = {
+  key: string;
+  start: string;
+  end: string;
+  source: 'billing' | 'calendar';
 };
 
 /**
- * Current-month usage + plan limits for the org (GET /api/usage/current).
+ * Whether a message pack can be bought right now. `reason` explains a `false` so
+ * the UI can say "upgrade instead" rather than hiding the door without a word.
+ */
+export type MessagePackOffer = {
+  available: boolean;
+  reason?:
+    | 'billing_disabled'
+    | 'pack_not_configured'
+    | 'no_subscription'
+    | 'not_active'
+    | 'free_plan'
+    | 'unlimited_plan';
+  messages: number;
+  priceCents: number;
+  currency: string;
+};
+
+export type OrgUsage = {
+  current: { messages: number; users: number; integrations: number };
+  /** `messages` is the plan's cap PLUS any message pack bought into this period. */
+  limits: { messages: number; users: number; integrations: number };
+  percentage: { messages: number; users: number; integrations: number };
+  month: string;
+  /**
+   * Optional: a backend older than this field still answers, and the banner and
+   * usage page must render (without a reset date) rather than white-screen
+   * (FE-app/CLAUDE.md, version skew).
+   */
+  period?: UsagePeriod;
+  extra?: { messages: number };
+  messagePack?: MessagePackOffer;
+};
+
+/**
+ * Current-period usage + plan limits for the org (GET /api/usage/current).
  * Used to show remaining seats/quota. The endpoint returns the object directly
  * (no { success, data } envelope).
  */
 const getUsage = () => apiClient.get<OrgUsage>('/api/usage/current').then((res) => res.data);
+
+/**
+ * Start a one-time Stripe Checkout for a message pack (1,000 messages for €50,
+ * credited to the CURRENT period). Returns the hosted Checkout URL; the caller
+ * redirects the browser. The backend answers 409 with a one-sentence reason when
+ * the workspace may not buy one (free plan, trial, lapsed, no cap) — surface it.
+ */
+const createMessagePackCheckout = () =>
+  apiClient
+    .post<{
+      success: boolean;
+      data: {
+        checkoutUrl: string;
+        sessionId: string;
+        messages: number;
+        priceCents: number;
+        currency: string;
+      };
+    }>('/api/subscriptions/message-pack/checkout')
+    .then((res) => res.data.data);
 
 export type WizardCheckoutSession = {
   /** Client secret for the Stripe UI named by `uiMode`, mounted inline in the wizard. */
@@ -175,6 +234,7 @@ export const subscriptionService = {
   resumeSubscription,
   openCustomerPortal,
   getUsage,
+  createMessagePackCheckout,
   createWizardCheckoutSession,
   getPlans,
 };

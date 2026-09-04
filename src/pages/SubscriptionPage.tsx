@@ -20,12 +20,19 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { AddPaymentMethodDialog } from '@/components/billing/AddPaymentMethodDialog';
+import { MessagePackOfferCard } from '@/components/subscription/MessagePackOfferCard';
+import { describeUsagePeriod } from '@/components/subscription/usagePeriodCopy';
+import { useMessagePackReturn } from '@/components/subscription/useMessagePackReturn';
 import { Progress } from '@/components/ui/Progress';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 import { VAT_NOTE, formatMoney } from '@/lib/money';
 import { toast } from '@/lib/toast';
-import { subscriptionService } from '@/services/subscription.service';
+import {
+  subscriptionService,
+  type MessagePackOffer,
+  type UsagePeriod,
+} from '@/services/subscription.service';
 import { useAuthStore } from '@/stores/authStore';
 import { hasPermission, Permission } from '@/types/roles';
 
@@ -36,6 +43,13 @@ type UsageItem = {
   warning: boolean;
   critical: boolean;
   formatted: string;
+  /**
+   * Messages only: the plan's own cap and the message-pack part of `limit`.
+   * Optional — a backend that predates packs sends neither, and the card must
+   * still render (FE-app/CLAUDE.md, version skew).
+   */
+  planLimit?: number;
+  extra?: number;
 };
 
 type DashboardData = {
@@ -66,6 +80,9 @@ type DashboardData = {
     maxAICallsPerMonth: number;
     maxStorageMb: number;
   };
+  /** Both optional for the same skew reason as `UsageItem.extra`. */
+  period?: UsagePeriod;
+  messagePack?: MessagePackOffer;
 };
 
 type SubscriptionDetails = {
@@ -120,6 +137,7 @@ const formatAccessEnd = (value: string): string =>
 export const SubscriptionPage = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  useMessagePackReturn();
 
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [subscriptionDetails, setSubscriptionDetails] = useState<SubscriptionDetails | null>(null);
@@ -129,6 +147,22 @@ export const SubscriptionPage = () => {
   const [cancelling, setCancelling] = useState(false);
   const [resuming, setResuming] = useState(false);
   const [addingPaymentMethod, setAddingPaymentMethod] = useState(false);
+  const [buyingPack, setBuyingPack] = useState(false);
+
+  const handleBuyPack = async () => {
+    setBuyingPack(true);
+    try {
+      const { checkoutUrl } = await subscriptionService.createMessagePackCheckout();
+      // Full-page nav — Stripe Checkout lives on stripe.com and returns to
+      // /subscription?status=pack_success per the backend's success_url.
+      window.location.href = checkoutUrl;
+    } catch (err) {
+      logger.error('Failed to start message-pack checkout:', err);
+      // 409 carries the one-sentence reason (free plan, trial, no cap…) — show it.
+      toast.failure('start the message-pack checkout', err);
+      setBuyingPack(false);
+    }
+  };
 
   const handleOpenPortal = async () => {
     setPortalLoading(true);
@@ -268,6 +302,13 @@ export const SubscriptionPage = () => {
           <span className="text-xs font-medium text-orange-600">Approaching limit</span>
         )}
       </div>
+      {/* A bought pack is part of `limit`; say so, or the number looks wrong next to the plan. */}
+      {item.extra !== undefined && item.extra > 0 && item.planLimit !== undefined && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {item.planLimit.toLocaleString()} from your plan + {item.extra.toLocaleString()} from
+          message packs this period
+        </p>
+      )}
     </div>
   );
 
@@ -429,10 +470,19 @@ export const SubscriptionPage = () => {
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
-              <CardTitle>
-                <TrendingUp className="inline mr-2 w-5 h-5" />
-                Usage This Month
-              </CardTitle>
+              <div>
+                <CardTitle>
+                  <TrendingUp className="inline mr-2 w-5 h-5" />
+                  {/* The allowance follows the billing cycle, not the calendar month
+                      (owner decision 2026-09-04): name the period by its reset day. */}
+                  {dashboard.period ? 'Usage This Period' : 'Usage This Month'}
+                </CardTitle>
+                {dashboard.period && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {describeUsagePeriod(dashboard.period)}
+                  </p>
+                )}
+              </div>
               <Button variant="ghost" size="sm" onClick={() => navigate('/settings/usage')}>
                 View Details
               </Button>
@@ -447,6 +497,15 @@ export const SubscriptionPage = () => {
               <UsageCard title="Storage (MB)" icon={HardDrive} item={usage.storage} />
             </div>
 
+            {/* The message cap is the one limit with a second door besides upgrading. */}
+            {canManage && (
+              <MessagePackOfferCard
+                offer={dashboard.messagePack}
+                onBuy={handleBuyPack}
+                buying={buyingPack}
+              />
+            )}
+
             {/* Warning Alert */}
             {(usage.users.warning ||
               usage.integrations.warning ||
@@ -456,10 +515,13 @@ export const SubscriptionPage = () => {
               <div className="flex gap-3 items-start p-4 mt-4 bg-orange-50 rounded-lg border border-orange-200">
                 <AlertTriangle className="w-5 h-5 text-orange-600 shrink-0" />
                 <div>
-                  <p className="font-medium text-orange-800">Approaching Usage Limits</p>
+                  <p className="font-medium text-orange-800">
+                    {usage.messages.critical ? 'Message limit reached' : 'Approaching Usage Limits'}
+                  </p>
                   <p className="text-sm text-orange-700">
-                    Some of your usage metrics are approaching their limits. Consider upgrading your
-                    plan for more capacity.
+                    {usage.messages.critical
+                      ? 'New messages still arrive in your inbox and you can keep replying. AI analysis, routing and drafts are paused until the period resets, you upgrade, or you add a message pack.'
+                      : 'Some of your usage metrics are approaching their limits. Consider upgrading your plan for more capacity.'}
                   </p>
                   {canManage && (
                     <Button
