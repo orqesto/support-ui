@@ -29,7 +29,18 @@ export type AllianceGroup = {
    * Optional: the backend that returns it ships separately, and an absent field means
    * "this build can't tell", not "not wired".
    */
-  idpGroup?: { mappingId: number; externalId: string; displayName: string | null } | null;
+  idpGroup?: {
+    mappingId: number;
+    externalId: string;
+    displayName: string | null;
+    /**
+     * True when the wire minted this group (named after the IdP group and its role, hidden
+     * from the Groups page, retired on unwire). False = a hand-authored group wired later:
+     * listed, renamable, kept on unwire. Absent on an older backend — then treated as minted,
+     * the pre-existing behaviour.
+     */
+    mintedByWire?: boolean;
+  } | null;
   /**
    * Members present because the IdP put them in the wired group. Both they and hand-added
    * members live in the same list, so without this the editor invites an admin to remove

@@ -73,13 +73,17 @@ describe('eventReason — a refused request says WHAT was refused', () => {
 describe('splitGroups — the Groups page lists what the admin authored, and the mappings apart', () => {
   const group = (id: number, idpGroup: AllianceGroup['idpGroup']): AllianceGroup =>
     ({ id, name: `g${id}`, description: null, orgRole: 'associate', orgIds: [3], memberIds: [], memberCount: 0, idpGroup }) as unknown as AllianceGroup;
-  it('puts an IdP-fed group under backing and a hand-made one under authored', () => {
+  it('puts a MINTED group under backing; a hand-made one, wired or not, under authored', () => {
     const { authored, backing } = splitGroups([
       group(1, null),
+      // Older backend: no flag ⇒ treated as minted (the behaviour this page shipped with).
       group(2, { mappingId: 9, externalId: 'x', displayName: 'SSO - Odly - Orbelli - Admin' }),
       group(3, undefined),
+      group(4, { mappingId: 10, externalId: 'y', displayName: 'SSO - Odly - Orbelli - Support', mintedByWire: true }),
+      // Hand-authored, wired later: the admin's group — listed here, kept on unwire.
+      group(5, { mappingId: 11, externalId: 'z', displayName: 'SSO - Odly - Coresarms - Support', mintedByWire: false }),
     ]);
-    expect(authored.map((item) => item.id)).toEqual([1, 3]);
-    expect(backing.map((item) => item.id)).toEqual([2]);
+    expect(authored.map((item) => item.id)).toEqual([1, 3, 5]);
+    expect(backing.map((item) => item.id)).toEqual([2, 4]);
   });
 });

@@ -37,7 +37,9 @@ export const deleteDescription = (group: AllianceGroup | null): string => {
   const idp = group?.idpGroup;
   if (!idp) return base;
   const name = idp.displayName ?? idp.externalId;
-  return `${name} feeds this group from your identity provider. Deleting it also removes that mapping, so new members will stop arriving from ${name} — you would need to wire it again. ${base}`;
+  // The backend REFUSES this delete while the wire exists (409): the mapping is one thing,
+  // retired by unwiring. Say so here rather than promise a cascade that will not happen.
+  return `${name} feeds this group from your identity provider, so deleting it is refused while it is wired. Unwire ${name} on the Provisioning screen instead — that retires a group the mapping created and keeps one you made by hand.`;
 };
 
 /**
@@ -53,20 +55,26 @@ export const idpFeedLabel = (group: Pick<AllianceGroup, 'idpGroup'>): string | n
 };
 
 /**
- * Groups an admin AUTHORED versus groups minted by an IdP mapping.
+ * Groups an admin AUTHORED versus groups MINTED by an IdP mapping.
  *
- * "Map access" on the Provisioning screen creates a backing group per IdP group, named after
- * it, and this page listed both kinds in one table with the same delete button. To the
- * customer's admin that read as "my Groups page is full of my IdP groups, why can I delete
- * them, and why are they mapped to themselves". The backing groups are the mapping's
- * implementation detail: they carry the role, they are retired by UNWIRING (Provisioning),
- * never by deleting here.
+ * "Map access → new group" on the Provisioning screen creates a backing group per IdP group,
+ * named after it, and this page listed both kinds in one table with the same delete button.
+ * To the customer's admin that read as "my Groups page is full of my IdP groups, why can I
+ * delete them, and why are they mapped to themselves". A minted group is the mapping's
+ * implementation detail: it carries the role, it is retired by UNWIRING (Provisioning), never
+ * by deleting here. A hand-authored group the admin wired LATER is still theirs — it stays
+ * listed (with its feed named on the row) and is kept when unwired, exactly as the backend
+ * treats it. An older backend omits the flag; then every wired group is treated as minted,
+ * the behaviour this page shipped with.
  */
+const isMintedBacking = (group: AllianceGroup): boolean =>
+  Boolean(group.idpGroup) && (group.idpGroup?.mintedByWire ?? true);
+
 export const splitGroups = (
   groups: AllianceGroup[]
 ): { authored: AllianceGroup[]; backing: AllianceGroup[] } => ({
-  authored: groups.filter((group) => !group.idpGroup),
-  backing: groups.filter((group) => Boolean(group.idpGroup)),
+  authored: groups.filter((group) => !isMintedBacking(group)),
+  backing: groups.filter(isMintedBacking),
 });
 
 const GroupsTable = ({
@@ -122,7 +130,16 @@ const GroupsTable = ({
               </Tooltip>
               {onDelete && (
                 <Tooltip content={`Delete ${group.name}`}>
-                  <Button variant="ghost" onClick={() => onDelete(group)} aria-label={`Delete ${group.name}`}>
+                  {/* A wired group cannot be deleted (the backend answers 409): the wire is undone
+                      on the Provisioning screen. A disabled control with the reason beats a
+                      dialog that ends in an error toast. */}
+                  <Button
+                    variant="ghost"
+                    onClick={() => onDelete(group)}
+                    aria-label={`Delete ${group.name}`}
+                    disabled={Boolean(group.idpGroup)}
+                    title={group.idpGroup ? 'Fed by an IdP group — unwire it on the Provisioning screen first' : undefined}
+                  >
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </Tooltip>

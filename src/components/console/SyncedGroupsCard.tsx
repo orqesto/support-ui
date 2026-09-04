@@ -12,6 +12,7 @@ import { OrgDepartmentPicker } from '@/components/console/OrgDepartmentPicker';
 import { useAllianceGroups } from '@/hooks/useAllianceGroups';
 import { useAllianceMembers, useAllianceOrgs } from '@/hooks/useAllianceAdmin';
 import { GroupEditor } from '@/components/console/GroupEditor';
+import { ORG_ROLE_LABELS, backingGroupName } from '@/components/console/backingGroupName';
 import type { AllianceGroup, DepartmentIdsByOrg } from '@/services/alliance-groups.service';
 import {
   useAllianceSyncedGroups,
@@ -38,12 +39,6 @@ import { ORGANIZATION_ROLES, type OrganizationRole } from '@/types/roles';
  * org-admin still requires an explicit, confirmed action.
  */
 
-const ORG_ROLE_LABELS: Record<OrganizationRole, string> = {
-  org_admin: 'Org admin',
-  moderator: 'Moderator',
-  support: 'Support',
-  associate: 'Associate',
-};
 
 /**
  * The target select encodes each kind as `orgrole:<role>` or `group:<id>`.
@@ -73,9 +68,6 @@ const privilegedKind = (value: string): 'org_admin' | null =>
   value === 'orgrole:org_admin' ? 'org_admin' : null;
 
 /** Backing-group name for an org-role wire — kept within the 120-char API limit. */
-const backingGroupName = (displayName: string, role: OrganizationRole): string =>
-  `${displayName} — ${ORG_ROLE_LABELS[role]}`.slice(0, 120);
-
 /**
  * ⛔ SYNCED IDP GROUPS ARE READ-ONLY HERE. They are the identity provider's objects; this
  * console MAPS them and nothing else.
@@ -112,7 +104,7 @@ export const unwireDescription = (group: SyncedGroup | null): string => {
   const name = group?.wiredGroup?.groupName ? `"${group.wiredGroup.groupName}"` : 'its group';
   switch (group?.wiredGroup?.mintedByWire) {
     case true:
-      return `New members will stop arriving from this IdP group, and ${name} — created by this mapping — is retired with it. Its members lose that role on the next sync.`;
+      return `New members will stop arriving from this IdP group, and ${name} — created by this mapping — is retired with it. Its members lose that role immediately.`;
     case false:
       return `New members will stop arriving from this IdP group. ${name} existed before the wire, so it keeps its role, workspaces and any members added by hand — nobody loses access right now.`;
     default:

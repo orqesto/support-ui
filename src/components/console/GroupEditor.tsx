@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { OrgDepartmentPicker } from '@/components/console/OrgDepartmentPicker';
 import { useSaveGroup } from '@/hooks/useAllianceGroups';
+import { backingGroupName } from '@/components/console/backingGroupName';
 import type { AllianceGroup, DepartmentIdsByOrg } from '@/services/alliance-groups.service';
 import type { AllianceOrg, AllianceMember } from '@/services/alliance-admin.service';
 import { roleDisplayNames, type OrganizationRole } from '@/types/roles';
@@ -47,10 +48,15 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
 
   const save = useSaveGroup(allianceId);
-  // An IdP-fed group is named "<IdP group> — <Role>" by the wire that minted it; the
-  // Provisioning row finds its backing group by that name, so a rename here would detach
-  // the two in the admin's eyes while the mapping silently kept working.
-  const idpFed = Boolean(group?.idpGroup);
+  // A group the wire MINTED is named "<IdP group> — <Role>" and that name is the whole
+  // reason it exists: the Groups list and the Provisioning row both read it as "the mapping
+  // for that IdP group". So the name is derived, not typed — it follows the role picked here
+  // (a role edit that left "— Associate" on a group granting Support would lie). A
+  // hand-authored group that was wired later is the admin's: their name, editable. An older
+  // backend omits the flag; then nothing is derived (never overwrite a name we can't classify).
+  const minted = group?.idpGroup?.mintedByWire === true;
+  const idpName = group?.idpGroup ? (group.idpGroup.displayName ?? group.idpGroup.externalId) : null;
+  const derivedName = minted && idpName ? backingGroupName(idpName, orgRole) : null;
   // Absent (old backend) is not the same as empty: with no field we simply can't tell who
   // is IdP-managed, and marking nobody is the honest answer — never marking everybody.
   const idpManagedMemberIds = group?.idpManagedMemberIds ?? [];
@@ -123,7 +129,8 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
   const roleLabel = ROLE_OPTIONS.find((option) => option.value === orgRole)?.label ?? orgRole;
 
   const handleSave = () => {
-    if (!name.trim()) {
+    const finalName = derivedName ?? name.trim();
+    if (!finalName) {
       toast.error('Group name is required');
       return;
     }
@@ -131,7 +138,7 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
       {
         original: group,
         draft: {
-          name: name.trim(),
+          name: finalName,
           description: description.trim() || null,
           orgRole,
           // `permissionOverrides` is deliberately omitted. An alliance admin chooses an
@@ -169,15 +176,16 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
           <Label htmlFor="group-name">Name</Label>
           <Input
             id="group-name"
-            value={name}
+            value={derivedName ?? name}
             onChange={(event) => setName(event.target.value)}
             placeholder="e.g. Support Leads"
-            readOnly={idpFed}
-            aria-readonly={idpFed || undefined}
+            readOnly={derivedName !== null}
+            aria-readonly={derivedName !== null || undefined}
           />
-          {idpFed && (
+          {derivedName !== null && (
             <p className="text-xs text-muted-foreground">
-              Named after the IdP group that feeds it — the name follows the mapping.
+              Named after the IdP group that feeds it and the role it grants — the name follows
+              the mapping.
             </p>
           )}
         </div>
