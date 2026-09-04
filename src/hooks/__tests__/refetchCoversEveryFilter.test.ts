@@ -96,3 +96,30 @@ describe('refetch covers every filter the request reads', () => {
     expect(/^\s*isKanban,\s*$/m.test(effect?.[1] ?? '')).toBe(true);
   });
 });
+
+describe('orgSwitchRefetches — the organization context is a reason to refetch', () => {
+  /**
+   * `X-Organization-Context` is read from `selectedOrganizationId` at request time, and the
+   * cache key carries it (`identityScope`). It was NOT in this dependency list, so an
+   * in-place org switch — the console's WorkspaceShell repoints the context on mount and
+   * restores it on unmount — missed the cache and then issued nothing: the previous
+   * workspace's rows stayed on screen. Audit u38 P0-1, refetch half.
+   */
+  const refetchEffectDeps = (): string => {
+    const effect = source.match(
+      /useEffect\(\(\) => \{\s*if \(!urlSyncedRef\.current\) return;\s*fetchMessages\(1\)[\s\S]*?\}, \[([\s\S]*?)\]\);/
+    );
+    if (!effect) throw new Error('Could not find the refetch effect in useMessagesData.ts.');
+    return effect[1];
+  };
+
+  it('lists selectedOrganizationId as a dependency of the refetch effect', () => {
+    expect(refetchEffectDeps()).toMatch(/\bselectedOrganizationId\b/);
+  });
+
+  it('reads it from the auth store, the same field the api-client sends', () => {
+    expect(source).toMatch(
+      /useAuthStore\(\(state\) => state\.selectedOrganizationId\)/
+    );
+  });
+});

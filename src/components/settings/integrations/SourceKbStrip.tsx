@@ -1,6 +1,7 @@
 import { BookOpen, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { kbService } from '@/services/kb.service';
 import { logger } from '@/lib/logger';
 import type { AlertState } from '@/components/settings/integrations/types';
@@ -39,11 +40,15 @@ export const SourceKbStrip = ({
   onShowAlert: (alert: AlertState) => void;
 }) => {
   const [remining, setRemining] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   if (!source.isKnowledgeBase) return null;
 
   const cutoff = source.kbMarkedAt ? new Date(source.kbMarkedAt) : null;
   const cutoffValid = cutoff !== null && !Number.isNaN(cutoff.getTime());
+  const cutoffLabel = cutoffValid
+    ? cutoff.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+    : null;
 
   const handleRemine = async () => {
     setRemining(true);
@@ -93,10 +98,27 @@ export const SourceKbStrip = ({
           </span>
         )}
       </div>
-      <Button variant="outline" size="sm" onClick={handleRemine} isLoading={remining}>
+      {/* Re-mining sends every already-ingested conversation before the cutoff to the AI
+          provider AGAIN — paid work, with no count or estimate available up front. One
+          click used to start it; it now asks first. */}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setConfirmOpen(true)}
+        isLoading={remining}
+      >
         <RefreshCw className="mr-1 w-3 h-3" />
         Re-mine
       </Button>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        onConfirm={() => void handleRemine()}
+        title="Re-mine this mailbox's history?"
+        description={`All conversations in this mailbox${cutoffLabel ? ` received before ${cutoffLabel}` : ''} will be sent to your AI provider again to extract Q&A pairs. That is billed AI usage, and there is no count or estimate available before it starts.`}
+        confirmText="Re-mine"
+        variant="warning"
+      />
     </div>
   );
 };

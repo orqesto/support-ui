@@ -38,7 +38,7 @@ import { similarResultsCache } from './AiTabPanel';
 import type { KBAttachment } from './AiTabPanel';
 import { MessagePanelTabs } from './MessagePanelTabs';
 import type { Attachment } from './MessageAttachments';
-import type { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
+import { useLeadState } from './useLeadState';
 import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
 import { Button } from '@/components/ui/Button';
 import { logger } from '@/lib/logger';
@@ -57,7 +57,6 @@ import {
   type SuggestedAnswerMeta,
 } from './messageDetailConstants';
 
-type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
 type PanelTab =
   | 'ai'
   | 'customer'
@@ -316,7 +315,9 @@ export function MessageDetail({
   const [attachmentsByMessageId, setAttachmentsByMessageId] = useState<Map<number, Attachment[]>>(
     new Map()
   );
-  const [leadState, setLeadState] = useState<LeadState | null>(null);
+  // Lead state — derived from this message + thread. Guarded against a slow answer for the
+  // previously opened customer landing here (see useLeadState).
+  const [leadState, setLeadState] = useLeadState(message);
   const [leadFieldDefs, setLeadFieldDefs] = useState<LeadQualificationFieldConfig[]>([]);
 
   // Fetch notes + activity alongside thread refreshes
@@ -368,34 +369,6 @@ export function MessageDetail({
       })
       .catch(() => {});
   }, []);
-
-  // Lead state — derived from this message + thread
-  useEffect(() => {
-    if (!message.isLead) {
-      setLeadState(null);
-      return;
-    }
-    const ownState = message.metadata?.leadState as LeadState | undefined;
-    if (ownState) setLeadState(ownState);
-    messageService
-      .getThreadMessages(message.id)
-      .then((res) => {
-        const sorted = [...(res.data ?? [])].sort((itemA, itemB) => itemB.id - itemA.id);
-        for (const msg of sorted) {
-          const stat = (msg.metadata as { leadState?: LeadState } | null)?.leadState;
-          if (stat) {
-            setLeadState(stat);
-            return;
-          }
-        }
-        const fb = message.metadata?.leadState as LeadState | undefined;
-        setLeadState(fb ?? null);
-      })
-      .catch(() => {
-        const fb = message.metadata?.leadState as LeadState | undefined;
-        setLeadState(fb ?? null);
-      });
-  }, [message.id, message.isLead, message.metadata]);
 
   // ── Computed flags ─────────────────────────────────────────────────────────
   const spamCheck = getSpamCheck(message);

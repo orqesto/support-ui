@@ -27,6 +27,30 @@ type AuthSnapshot = { selectedOrganizationId: number | null; user: { id: number 
  * addressable, and ages out on the existing five-minute TTL. Do not "simplify" this
  * back out of a cache key — `cacheKeysAreTenantScoped.test.ts` will fail.
  */
+/**
+ * Run `listener` whenever the selected organization changes.
+ *
+ * For the stores that hold ONE global slot rather than a keyed cache — users, audit logs,
+ * the current organization — keying is not available, so they evict instead. Without
+ * this, an in-place org switch (the console's WorkspaceShell repoints the context on
+ * mount and, since the restore fix, on unmount) painted the previous workspace's rows
+ * under the new one's context for the whole refetch, and `CreateUserModal` read the
+ * previous workspace's `isSystem` to decide whether to offer the global-admin role.
+ *
+ * Same defensive shape as `identityScope`: test files that mock `@/stores/authStore` as a
+ * bare selector expose no `subscribe`, and a store module must never fail to load
+ * because of that.
+ */
+export const onOrganizationSwitch = (listener: () => void): void => {
+  const store = useAuthStore as unknown as {
+    subscribe?: (fn: (state: Partial<AuthSnapshot>, prev: Partial<AuthSnapshot>) => void) => void;
+  };
+  if (typeof store.subscribe !== 'function') return;
+  store.subscribe((state, prev) => {
+    if (state.selectedOrganizationId !== prev.selectedOrganizationId) listener();
+  });
+};
+
 export const identityScope = (): { org: number | null; user: number | null } => {
   // Total by construction: this runs on every list render, so it must never be the thing
   // that throws. Sixteen test files mock `@/stores/authStore` as a bare selector function

@@ -8,6 +8,7 @@ import { logger } from '@/lib/logger';
 import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
 import { messageService, type MessageThread } from '@/services/message.service';
 import { messagesCacheKey, useMessagesStore } from '@/stores/messagesStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useDepartmentContextKey } from './useDepartmentContextKey';
 
 type MessagesDataReturn = {
@@ -91,6 +92,11 @@ export const useMessagesData = ({
   // The checkbox-driven DepartmentSwitcher writes the X-Department-Context CSV
   // header. Subscribing here makes the effect re-run when the user toggles.
   const selectedDeptKey = useDepartmentContextKey();
+  // The X-Organization-Context header is read from this field at request time. It is part
+  // of the cache key (`identityScope`) but was not a reason to refetch: an in-place org
+  // switch (the console's WorkspaceShell repoints it on mount) missed the cache and then
+  // issued nothing, leaving the previous workspace's rows on screen.
+  const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
 
   const fetchMessages = useCallback(
     async (page = 1, force = false) => {
@@ -474,6 +480,9 @@ export const useMessagesData = ({
     sorting.sortBy,
     sorting.sortOrder,
     selectedDeptKey,
+    // The org the request is issued FOR (see the selector above). `orgSwitchRefetches` in
+    // `refetchCoversEveryFilter.test.ts` fails if this is dropped.
+    selectedOrganizationId,
     // Read by the request builder in five places — it ZEROES `lifecycle`, `queue`, `read`
     // and `columnId`, and withholds `scope=1` — so leaving it out is the same defect as an
     // unlisted filter field, one level up: switching board→list keeps whatever the BOARD's

@@ -9,6 +9,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { formatDate } from '@/lib/utils';
 import { logger } from '@/lib/logger';
 import { organizationService } from '@/services/organization.service';
+import { useAuthStore } from '@/stores/authStore';
 import { useOrganizationsStore } from '@/stores/organizationsStore';
 
 /**
@@ -25,26 +26,51 @@ export const WorkspaceDetailsSettings = () => {
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', description: '' });
 
-  const organization = useOrganizationsStore((state) => state.currentOrganization);
+  // The org this card is FOR. `getCurrent` resolves it from the `X-Organization-Context`
+  // header, which the api-client reads from this same store field — so the id is the one
+  // thing that says which workspace an answer belongs to. It used to be read from nowhere:
+  // the fetch ran once per mount and `currentOrganization` is a single global slot, so an
+  // in-place org switch (the console's WorkspaceShell repoints the context on mount, and
+  // this card is embedded under it) kept showing — and let you EDIT — the previous
+  // workspace's name and description under the new one's context.
+  const orgId = useAuthStore(
+    (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
+  );
+  const organization = useOrganizationsStore((state) =>
+    state.currentOrganization !== null &&
+    (orgId === null || state.currentOrganization.id === orgId)
+      ? state.currentOrganization
+      : null
+  );
   const setOrganization = useOrganizationsStore((state) => state.setCurrentOrganization);
 
-  const fetchCurrentOrganization = useCallback(async () => {
-    setLoading(true);
-    try {
-      const orgData = await organizationService.getCurrent();
-      setOrganization(orgData);
-      setEditForm({ name: orgData.name, description: orgData.description ?? '' });
-    } catch (error) {
-      logger.error('Failed to fetch current organization:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [setOrganization]);
+  const fetchCurrentOrganization = useCallback(
+    async (isStale: () => boolean = () => false) => {
+      setLoading(true);
+      try {
+        const orgData = await organizationService.getCurrent();
+        // A response that arrives after the org changed underneath us — or that names a
+        // different org than the one we asked for — must not be stored as "current".
+        if (isStale() || (orgId !== null && orgData.id !== orgId)) return;
+        setOrganization(orgData);
+        setEditForm({ name: orgData.name, description: orgData.description ?? '' });
+      } catch (error) {
+        logger.error('Failed to fetch current organization:', error);
+      } finally {
+        if (!isStale()) setLoading(false);
+      }
+    },
+    [orgId, setOrganization]
+  );
 
   useEffect(() => {
-    fetchCurrentOrganization().catch((error) => {
+    let cancelled = false;
+    fetchCurrentOrganization(() => cancelled).catch((error) => {
       logger.error('Failed to fetch current organization:', error);
     });
+    return () => {
+      cancelled = true;
+    };
   }, [fetchCurrentOrganization]);
 
   const handleEdit = () => {

@@ -5,6 +5,7 @@ import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
@@ -12,6 +13,12 @@ import { useIntegrationCard } from '@/hooks/useIntegrationCard';
 
 type TelegramConfig = {
   botToken: string;
+};
+
+/** A BotFather token is `<bot id>:<secret>`; the id part names the bot without revealing it. */
+const nameFromToken = (config: TelegramConfig): string | null => {
+  const botId = config.botToken.split(':')[0]?.trim();
+  return botId && /^\d+$/.test(botId) ? `Telegram Bot ${botId}` : null;
 };
 
 export const TelegramIntegrationCard = ({
@@ -24,6 +31,8 @@ export const TelegramIntegrationCard = ({
   // Centralized create-form department picker state.
   const deptPicker = useCreateSourceDepartments();
 
+  const telegramIntegrations = integrations.filter((integ) => integ.type === 'telegram');
+
   const {
     showForm,
     saving,
@@ -32,9 +41,11 @@ export const TelegramIntegrationCard = ({
     deleteConfirm,
     editingId,
     config,
+    name,
     setShowForm,
     setConfig,
     setDeleteConfirm,
+    setName,
     resetForm,
     loadForEdit,
     saveIntegration,
@@ -46,6 +57,10 @@ export const TelegramIntegrationCard = ({
     initialConfig: { botToken: '' },
     onRefresh,
     onShowAlert,
+    // The BE upserts on name + type: a second bot saved under the constant display name
+    // used to overwrite the first. Default to a name derived from the bot id.
+    existingNames: telegramIntegrations.map((integ) => integ.name),
+    deriveName: nameFromToken,
     // Departments ride along with the insert (see useIntegrationCard.createDepartments)
     // rather than being assigned by a follow-up call, so the bot can never be committed
     // enabled-but-unlinked if that second call fails or never runs.
@@ -54,8 +69,6 @@ export const TelegramIntegrationCard = ({
       defaultDepartmentId: deptPicker.defaultId,
     },
   });
-
-  const telegramIntegrations = integrations.filter((integ) => integ.type === 'telegram');
 
   const handleDelete = () => {
     if (deleteConfirm) {
@@ -116,7 +129,11 @@ export const TelegramIntegrationCard = ({
                         variant="outline"
                         size="sm"
                         onClick={() =>
-                          loadForEdit(integration.id, integration.config as TelegramConfig)
+                          loadForEdit(
+                            integration.id,
+                            integration.config as TelegramConfig,
+                            integration.name
+                          )
                         }
                         disabled={editingId === integration.id}
                       >
@@ -174,6 +191,12 @@ export const TelegramIntegrationCard = ({
               <h4 className="font-medium">
                 {editingId ? 'Edit Telegram Bot' : 'Add New Telegram Bot'}
               </h4>
+              <Input
+                label="Name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Telegram Bot"
+              />
               <div>
                 <label htmlFor="botToken" className="text-sm font-medium">
                   Bot Token
@@ -228,7 +251,9 @@ export const TelegramIntegrationCard = ({
                 <Button
                   onClick={() => saveIntegration()}
                   isLoading={saving}
-                  disabled={!config.botToken || (editingId === null && !deptPicker.isValid)}
+                  disabled={
+                    !name.trim() || !config.botToken || (editingId === null && !deptPicker.isValid)
+                  }
                 >
                   <Save className="mr-2 w-4 h-4" />
                   {editingId ? 'Update' : 'Save'} Telegram

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { User } from '@/types';
+import { onOrganizationSwitch } from './identityScope';
 
 type UsersState = {
   users: User[];
@@ -39,3 +40,7 @@ export const useUsersStore = create<UsersState>((set, get) => ({
     return Date.now() - state.lastFetch > CACHE_TTL;
   },
 }));
+
+// One global slot, not a keyed cache: evict on an org switch rather than paint the previous
+// workspace's users under the new one's context while the refetch is in flight.
+onOrganizationSwitch(() => useUsersStore.getState().clearCache());

@@ -15,6 +15,7 @@ import { SourceDepartmentEditor } from '@/components/settings/integrations/Sourc
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
@@ -36,6 +37,10 @@ const EMPTY_CONFIG: WhatsAppFormConfig = {
   appSecret: '',
   verifyToken: '',
 };
+
+/** The phone-number id names the number without being a secret. */
+const nameFromNumber = (config: WhatsAppFormConfig): string | null =>
+  config.phoneNumberId ? `WhatsApp ${config.phoneNumberId}` : null;
 
 /** The URL the customer pastes into Meta. Setup cannot be completed without it. */
 const WEBHOOK_URL = `${API_BASE_URL}/api/webhooks/whatsapp`;
@@ -100,6 +105,8 @@ export const WhatsAppIntegrationCard = ({
     }
   };
 
+  const whatsappIntegrations = integrations.filter((integ) => integ.type === 'whatsapp');
+
   const {
     showForm,
     saving,
@@ -108,9 +115,11 @@ export const WhatsAppIntegrationCard = ({
     deleteConfirm,
     editingId,
     config,
+    name,
     setShowForm,
     setConfig,
     setDeleteConfirm,
+    setName,
     resetForm,
     loadForEdit,
     saveIntegration,
@@ -122,6 +131,10 @@ export const WhatsAppIntegrationCard = ({
     initialConfig: EMPTY_CONFIG,
     onRefresh,
     onShowAlert,
+    // The BE upserts on name + type: a second number saved under the constant display
+    // name used to overwrite the first. Default to a name derived from the number id.
+    existingNames: whatsappIntegrations.map((integ) => integ.name),
+    deriveName: nameFromNumber,
     // Departments ride along with the insert rather than a follow-up call, so a source
     // can never be committed enabled-but-unlinked. Same reasoning as the Telegram card.
     createDepartments: {
@@ -129,8 +142,6 @@ export const WhatsAppIntegrationCard = ({
       defaultDepartmentId: deptPicker.defaultId,
     },
   });
-
-  const whatsappIntegrations = integrations.filter((integ) => integ.type === 'whatsapp');
 
   const copyWebhookUrl = () => {
     void navigator.clipboard.writeText(WEBHOOK_URL).then(() => {
@@ -208,10 +219,14 @@ export const WhatsAppIntegrationCard = ({
                         variant="outline"
                         size="sm"
                         onClick={() =>
-                          loadForEdit(integration.id, {
-                            ...EMPTY_CONFIG,
-                            ...(integration.config as Partial<WhatsAppFormConfig>),
-                          })
+                          loadForEdit(
+                            integration.id,
+                            {
+                              ...EMPTY_CONFIG,
+                              ...(integration.config as Partial<WhatsAppFormConfig>),
+                            },
+                            integration.name
+                          )
                         }
                         disabled={editingId === integration.id}
                       >
@@ -312,6 +327,13 @@ export const WhatsAppIntegrationCard = ({
               </div>
 
               <p className="text-sm font-medium">2. Credentials from your Meta app</p>
+
+              <Input
+                label="Name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="WhatsApp Business"
+              />
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
@@ -442,7 +464,9 @@ export const WhatsAppIntegrationCard = ({
                 <Button
                   onClick={() => saveIntegration()}
                   isLoading={saving}
-                  disabled={!requiredFilled || (editingId === null && !deptPicker.isValid)}
+                  disabled={
+                    !name.trim() || !requiredFilled || (editingId === null && !deptPicker.isValid)
+                  }
                 >
                   <Save className="mr-2 w-4 h-4" />
                   {editingId ? 'Update' : 'Save'} WhatsApp

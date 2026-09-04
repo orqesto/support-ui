@@ -34,10 +34,13 @@ describe('SourceKbToggle', () => {
     expect(sw).toHaveAttribute('aria-checked', 'false');
   });
 
-  it('reports the NEW value when switched on', () => {
+  it('reports the NEW value when switched on — after the paid-work confirmation', () => {
     const onChange = vi.fn();
     render(<SourceKbToggle checked={false} onChange={onChange} />);
     fireEvent.click(screen.getByRole('switch', { name: /mine past conversations/i }));
+    // Mining is billed AI work over the whole mailbox; one click must not commit to it.
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Mine past conversations' }));
     expect(onChange).toHaveBeenCalledWith(true);
   });
 });
@@ -56,10 +59,11 @@ describe('GmailForm — KB source can actually be enabled (regression)', () => {
     expect(screen.queryByText(/Knowledge Base Sources/i)).not.toBeInTheDocument();
   });
 
-  it('promotes the source to KB via onConfigChange', () => {
+  it('promotes the source to KB via onConfigChange once confirmed', () => {
     const onConfigChange = vi.fn();
     render(<GmailForm {...gmailProps} onConfigChange={onConfigChange} />);
     fireEvent.click(screen.getByRole('switch', { name: /mine past conversations/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mine past conversations' }));
     expect(onConfigChange).toHaveBeenCalledWith(expect.objectContaining({ isKnowledgeBase: true }));
   });
 });
