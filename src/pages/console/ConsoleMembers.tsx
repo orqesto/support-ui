@@ -241,8 +241,8 @@ export const ConsoleMembers = () => {
               {member.name || `User #${member.userId}`}
             </span>
             {member.active === false && (
-              <Badge variant={member.heldByAdmin ? 'warning' : 'secondary'}>
-                {member.heldByAdmin ? 'Deactivated' : 'Inactive'}
+                            <Badge variant={member.heldByAdmin ? 'warning' : 'secondary'}>
+                {member.heldByAdmin ? 'Deactivated by admin' : 'Deactivated by IdP'}
               </Badge>
             )}
           </div>

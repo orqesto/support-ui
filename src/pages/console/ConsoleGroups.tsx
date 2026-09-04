@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Users2 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
@@ -40,11 +40,107 @@ export const deleteDescription = (group: AllianceGroup | null): string => {
   return `${name} feeds this group from your identity provider. Deleting it also removes that mapping, so new members will stop arriving from ${name} — you would need to wire it again. ${base}`;
 };
 
+/**
+ * The line under an IdP-fed group's name. These groups are minted by "Change mapping" on the
+ * synced-groups screen and NAMED after the IdP group they mirror, so on the Groups list they
+ * read as the IdP group itself — and the customer's devops asked why a group was "mapped to
+ * itself". Say which IdP group feeds it, in words, on the row.
+ */
+export const idpFeedLabel = (group: Pick<AllianceGroup, 'idpGroup'>): string | null => {
+  const idp = group.idpGroup;
+  if (!idp) return null;
+  return `Backing group for IdP group ${idp.displayName ?? idp.externalId} — the mapping, not the IdP group itself`;
+};
+
+/**
+ * Groups an admin AUTHORED versus groups minted by an IdP mapping.
+ *
+ * "Map access" on the Provisioning screen creates a backing group per IdP group, named after
+ * it, and this page listed both kinds in one table with the same delete button. To the
+ * customer's admin that read as "my Groups page is full of my IdP groups, why can I delete
+ * them, and why are they mapped to themselves". The backing groups are the mapping's
+ * implementation detail: they carry the role, they are retired by UNWIRING (Provisioning),
+ * never by deleting here.
+ */
+export const splitGroups = (
+  groups: AllianceGroup[]
+): { authored: AllianceGroup[]; backing: AllianceGroup[] } => ({
+  authored: groups.filter((group) => !group.idpGroup),
+  backing: groups.filter((group) => Boolean(group.idpGroup)),
+});
+
+const GroupsTable = ({
+  groups,
+  onEdit,
+  onDelete,
+}: {
+  groups: AllianceGroup[];
+  onEdit: (group: AllianceGroup) => void;
+  /** Absent = no delete control (backing groups are retired by unwiring, not deleting). */
+  onDelete?: (group: AllianceGroup) => void;
+}) => (
+  <table className="w-full text-sm">
+    <thead>
+      <tr className="border-b border-border text-muted-foreground">
+        <th className="px-4 py-2 font-medium text-left">Group</th>
+        <th className="px-4 py-2 font-medium text-left">Grants</th>
+        <th className="px-4 py-2 font-medium text-right">Workspaces</th>
+        <th className="px-4 py-2 font-medium text-right">Members</th>
+        <th className="px-4 py-2 font-medium text-right">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {groups.map((group) => (
+        <tr key={group.id} className="border-b border-border last:border-0">
+          <td className="px-4 py-2">
+            <div className="flex gap-2 items-baseline">
+              <span className="font-medium text-foreground">{group.name}</span>
+              <span className="font-mono text-xs text-muted-foreground">#{group.id}</span>
+            </div>
+            {group.description && (
+              <div className="text-xs text-muted-foreground">{group.description}</div>
+            )}
+            {idpFeedLabel(group) && (
+              <div className="text-xs text-muted-foreground">{idpFeedLabel(group)}</div>
+            )}
+          </td>
+          <td className="px-4 py-2">
+            {group.orgRole ? (
+              <Badge variant="secondary">{orgRoleLabel(group.orgRole)}</Badge>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )}
+          </td>
+          <td className="px-4 py-2 text-right text-foreground">{group.orgIds.length}</td>
+          <td className="px-4 py-2 text-right text-foreground">{group.memberCount}</td>
+          <td className="px-4 py-2 text-right">
+            <div className="flex gap-1 justify-end">
+              <Tooltip content={`Edit ${group.name}`}>
+                <Button variant="ghost" onClick={() => onEdit(group)} aria-label={`Edit ${group.name}`}>
+                  <Pencil className="w-4 h-4" />
+                </Button>
+              </Tooltip>
+              {onDelete && (
+                <Tooltip content={`Delete ${group.name}`}>
+                  <Button variant="ghost" onClick={() => onDelete(group)} aria-label={`Delete ${group.name}`}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </Tooltip>
+              )}
+            </div>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+);
+
 export const ConsoleGroups = () => {
   const { allianceId } = useParams();
   const numericId = allianceId ? Number(allianceId) : null;
 
   const { data: groups, isLoading, isError, refetch } = useAllianceGroups(numericId);
+  const { authored, backing } = splitGroups(groups ?? []);
   const { data: orgs = [] } = useAllianceOrgs(numericId);
   const { data: members = [] } = useAllianceMembers(numericId);
   const deleteGroup = useDeleteGroup(numericId);
@@ -97,7 +193,7 @@ export const ConsoleGroups = () => {
     <div className="flex flex-col gap-4 h-full min-h-0">
       <ConsolePageHeader
         title="Groups"
-        description="Identity-provider groups mapped to alliance roles and workspaces."
+        description="Groups you create to grant a role to a set of members in a workspace."
         actions={
           <Button onClick={openCreate}>
             <Plus className="mr-2 w-4 h-4" />
@@ -106,62 +202,35 @@ export const ConsoleGroups = () => {
         }
       />
 
-      {groups.length === 0 ? (
+      {authored.length === 0 ? (
         <Card className="flex flex-col flex-1 min-h-0">
           <ConsoleEmpty
             icon={Users2}
-            message="No groups yet. Create one to grant a role to a set of members across chosen workspaces."
+            message="No groups of your own yet. Create one to grant a role to a set of members in a workspace."
           />
         </Card>
       ) : (
         <Card className="flex overflow-hidden flex-col flex-1 min-h-0">
           <CardContent padding="none" className="flex flex-col flex-1 min-h-0">
             <div className="overflow-auto flex-1 min-h-0">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-muted-foreground">
-                    <th className="px-4 py-2 font-medium text-left">Group</th>
-                    <th className="px-4 py-2 font-medium text-left">Grants</th>
-                    <th className="px-4 py-2 font-medium text-right">Workspaces</th>
-                    <th className="px-4 py-2 font-medium text-right">Members</th>
-                    <th className="px-4 py-2 font-medium text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {groups.map((group) => (
-                    <tr key={group.id} className="border-b border-border last:border-0">
-                      <td className="px-4 py-2">
-                        <div className="flex gap-2 items-baseline">
-                          <span className="font-medium text-foreground">{group.name}</span>
-                          <span className="font-mono text-xs text-muted-foreground">#{group.id}</span>
-                        </div>
-                        {group.description && (
-                          <div className="text-xs text-muted-foreground">{group.description}</div>
-                        )}
-                      </td>
-                      <td className="px-4 py-2">
-                        {group.orgRole ? <Badge variant="secondary">{orgRoleLabel(group.orgRole)}</Badge> : <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="px-4 py-2 text-right text-foreground">{group.orgIds.length}</td>
-                      <td className="px-4 py-2 text-right text-foreground">{group.memberCount}</td>
-                      <td className="px-4 py-2 text-right">
-                        <div className="flex gap-1 justify-end">
-                        <Tooltip content={`Edit ${group.name}`}>
-                          <Button variant="ghost" onClick={() => openEdit(group)} aria-label={`Edit ${group.name}`}>
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                        </Tooltip>
-                        <Tooltip content={`Delete ${group.name}`}>
-                          <Button variant="ghost" onClick={() => setDeleteTarget(group)} aria-label={`Delete ${group.name}`}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </Tooltip>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <GroupsTable groups={authored} onEdit={openEdit} onDelete={setDeleteTarget} />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      {backing.length > 0 && (
+        <Card className="flex overflow-hidden flex-col shrink-0 max-h-[45%]">
+          <CardHeader>
+            <CardTitle className="text-base">Backing groups from IdP mappings</CardTitle>
+            <CardDescription>
+              Created by “Map access” on the Provisioning screen and named after the IdP group
+              they mirror. Each carries the role its mapping grants. To retire one, unwire the
+              IdP group on the Provisioning screen — deleting it here would only break the mapping.
+            </CardDescription>
+          </CardHeader>
+          <CardContent padding="none" className="flex flex-col flex-1 min-h-0">
+            <div className="overflow-auto flex-1 min-h-0">
+              <GroupsTable groups={backing} onEdit={openEdit} />
             </div>
           </CardContent>
         </Card>

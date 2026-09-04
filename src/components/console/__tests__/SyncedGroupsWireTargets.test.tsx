@@ -26,11 +26,18 @@ vi.mock('@/hooks/useAllianceProvisioning', () => ({
 }));
 
 vi.mock('@/hooks/useAllianceGroups', () => ({
-  useAllianceGroups: () => ({ data: [{ id: 9, name: 'Support EU' }], refetch: vi.fn() }),
+  useAllianceGroups: () => ({
+    data: [
+      { id: 9, name: 'Support EU' },
+      { id: 10, name: 'Support US', orgRole: 'support', orgIds: [3] },
+    ],
+    refetch: vi.fn(),
+  }),
   useOrgDepartments: () => ({ data: [], isLoading: false }),
 }));
 
 vi.mock('@/hooks/useAllianceAdmin', () => ({
+  useAllianceMembers: () => ({ data: [] }),
   useAllianceOrgs: () => ({
     data: [{ id: 3, name: 'Acme', slug: 'acme', active: true }],
     isLoading: false,
@@ -102,21 +109,33 @@ describe('SyncedGroupsCard wire targets', () => {
     );
     renderCard();
 
-    expect(screen.getByRole('button', { name: 'Re-point' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Re-point', hidden: true })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Unwire' })).toBeInTheDocument();
   });
 
   // Re-pointing at a NEW group would mint a second backing group and orphan the current
   // one; the backend 409s on it, so the picker must not offer it either.
-  it('offers only existing groups when re-pointing', () => {
+    it('offers only OTHER existing groups when re-pointing — never the one it is wired to', () => {
+    // Offering the group's own backing group is what read as "mapped to itself" on taco:
+    // the backing group is named after the IdP group, so the row's current wiring showed
+    // up in its own picker under the same name.
     syncedGroups.push(
       baseGroup({ wiredGroup: { mappingId: 7, groupId: 9, groupName: 'Support EU' } })
     );
     renderCard();
-
     const options = screen.getAllByRole('option').map((option) => option.textContent ?? '');
-    expect(options.some((label) => label.includes('Support EU'))).toBe(true);
+    expect(options.some((label) => label.includes('Support EU'))).toBe(false);
+    expect(options.some((label) => label.includes('Support US'))).toBe(true);
     expect(options.some((label) => label.startsWith('Org role'))).toBe(false);
+  });
+
+  it('labels a group by what it GRANTS, with its name second', () => {
+    syncedGroups.push(baseGroup({}));
+    renderCard();
+    const options = screen.getAllByRole('option').map((option) => option.textContent ?? '');
+    expect(options).toContain('Group — Support in Acme · Support US');
+    // A group with no role and no workspace keeps its bare name.
+    expect(options).toContain('Group — Support EU');
   });
 
   // A legacy alliance-role wiring has no group mapping to delete, so Unwire would have
@@ -126,6 +145,15 @@ describe('SyncedGroupsCard wire targets', () => {
     renderCard();
 
     expect(screen.queryByRole('button', { name: 'Unwire' })).not.toBeInTheDocument();
+  });
+
+  it('a wired row leads with editing the role and workspace, and keeps re-point one fold down', () => {
+    syncedGroups.push(
+      baseGroup({ wiredGroup: { mappingId: 7, groupId: 9, groupName: 'Support EU' } })
+    );
+    renderCard();
+    expect(screen.getByRole('button', { name: 'Edit role / workspace' })).toBeEnabled();
+    expect(screen.getByText(/Re-point this IdP group at a different existing group/)).toBeInTheDocument();
   });
 
   it('shows a group wiring without the legacy marker', () => {
@@ -199,7 +227,7 @@ describe('a group wired only to a legacy alliance role', () => {
     );
     renderCard();
 
-    expect(screen.getByText('Re-point')).toBeInTheDocument();
+    expect(screen.getByText('Re-point', { ignore: false })).toBeInTheDocument();
     expect(screen.queryByLabelText('Map to')).not.toBeInTheDocument();
   });
 });

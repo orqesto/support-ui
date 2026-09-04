@@ -449,85 +449,89 @@ export const ConsoleProvisioning = () => {
       </Card>
 
       {/* ─── IdP-group → alliance_role maps (D-05 elevation) ─────────────── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex gap-2 items-center">
-            <UserCog className="w-5 h-5 text-primary" />
-            IdP group → alliance role
-          </CardTitle>
-          <CardDescription>
-            Legacy mappings that still grant an alliance role to members of an IdP group. New ones
-            are no longer created here — the alliance power now follows from the workspaces a
-            member administers, proposed above. Remove a mapping to retire it.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {anyAdminRoleMap && (
-            <Alert variant="warning">
-              <div className="flex gap-2 items-start">
-                <AlertTriangle className="mt-0.5 w-4 h-4 shrink-0" />
-                <span className="text-sm">
-                  A mapping below still grants <strong>alliance admin</strong> across{' '}
-                  <strong>all workspaces in this alliance</strong> on every SCIM sync. Nothing
-                  creates these any more — remove it once its members are confirmed from the
-                  proposals above.
-                </span>
-              </div>
-            </Alert>
-          )}
+      {/* Legacy only. Rendered ONLY while a legacy mapping still exists: with nothing to
+          retire, a card that says "nothing to retire here" is a paragraph about a feature
+          that no longer exists — the customer's devops read it as something left unremoved. */}
+      {roleMaps.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex gap-2 items-center">
+              <UserCog className="w-5 h-5 text-primary" />
+              IdP group → alliance role
+            </CardTitle>
+            <CardDescription>
+              Legacy mappings that still grant an alliance role to members of an IdP group. New ones
+              are no longer created here — the alliance power now follows from the workspaces a
+              member administers, proposed above. Remove a mapping to retire it.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {anyAdminRoleMap && (
+              <Alert variant="warning">
+                <div className="flex gap-2 items-start">
+                  <AlertTriangle className="mt-0.5 w-4 h-4 shrink-0" />
+                  <span className="text-sm">
+                    A mapping below still grants <strong>alliance admin</strong> across{' '}
+                    <strong>all workspaces in this alliance</strong> on every SCIM sync. Nothing
+                    creates these any more — remove it once its members are confirmed from the
+                    proposals above.
+                  </span>
+                </div>
+              </Alert>
+            )}
 
-          {roleMaps.length > 0 && (
-            <div className="space-y-3">
-              {roleMaps.map((mapping: AllianceRoleMapping) => (
-                <Card key={mapping.id} padding="sm" className="flex flex-wrap gap-3 items-end">
-                  <div className="flex-1 min-w-[12rem]">
-                    <Label className="mb-1">IdP group</Label>
-                    {mapping.idpGroupDisplayName ? (
-                      <p className="mb-1 text-sm font-medium truncate text-foreground">
-                        {mapping.idpGroupDisplayName}
+            {roleMaps.length > 0 && (
+              <div className="space-y-3">
+                {roleMaps.map((mapping: AllianceRoleMapping) => (
+                  <Card key={mapping.id} padding="sm" className="flex flex-wrap gap-3 items-end">
+                    <div className="flex-1 min-w-[12rem]">
+                      <Label className="mb-1">IdP group</Label>
+                      {mapping.idpGroupDisplayName ? (
+                        <p className="mb-1 text-sm font-medium truncate text-foreground">
+                          {mapping.idpGroupDisplayName}
+                        </p>
+                      ) : null}
+                      <Input readOnly value={mapping.idpGroupExternalId} className="font-mono text-xs" />
+                    </div>
+                    <div className="flex-1 min-w-[12rem]">
+                      <Label className="mb-1">Alliance role</Label>
+                      {/* Read-out, not a control. The alliance power is derived from workspace
+                          grants and confirmed in "Suggested alliance admins" — wiring an IdP group
+                          straight to an alliance role is the layer that collapsed. Existing
+                          mappings stay visible and removable so nothing grants invisibly. */}
+                      <p className="py-2 text-sm font-medium text-foreground">
+                        {mapping.mappedRole === 'alliance_admin' ? 'Alliance admin' : 'Member'}
                       </p>
-                    ) : null}
-                    <Input readOnly value={mapping.idpGroupExternalId} className="font-mono text-xs" />
-                  </div>
-                  <div className="flex-1 min-w-[12rem]">
-                    <Label className="mb-1">Alliance role</Label>
-                    {/* Read-out, not a control. The alliance power is derived from workspace
-                        grants and confirmed in "Suggested alliance admins" — wiring an IdP group
-                        straight to an alliance role is the layer that collapsed. Existing
-                        mappings stay visible and removable so nothing grants invisibly. */}
-                    <p className="py-2 text-sm font-medium text-foreground">
-                      {mapping.mappedRole === 'alliance_admin' ? 'Alliance admin' : 'Member'}
-                    </p>
-                  </div>
-                  <Tooltip content={`Remove role mapping for ${mapping.idpGroupExternalId}`}>
-                    <Button
-                      variant="ghost"
-                      onClick={() =>
-                        setConfirm({
-                          kind: 'rolemap',
-                          id: mapping.id,
-                          label: mapping.idpGroupExternalId,
-                        })
-                      }
-                      aria-label={`Remove role mapping for ${mapping.idpGroupExternalId}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </Tooltip>
-                </Card>
-              ))}
-            </div>
-          )}
+                    </div>
+                    <Tooltip content={`Remove role mapping for ${mapping.idpGroupExternalId}`}>
+                      <Button
+                        variant="ghost"
+                        onClick={() =>
+                          setConfirm({
+                            kind: 'rolemap',
+                            id: mapping.id,
+                            label: mapping.idpGroupExternalId,
+                          })
+                        }
+                        aria-label={`Remove role mapping for ${mapping.idpGroupExternalId}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </Tooltip>
+                  </Card>
+                ))}
+              </div>
+            )}
 
-          {roleMaps.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              No IdP group is mapped to an alliance role. Nothing to retire here — alliance
-              admin now comes from <strong>Suggested alliance admins</strong> above.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
+            {roleMaps.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No IdP group is mapped to an alliance role. Nothing to retire here — alliance
+                admin now comes from <strong>Suggested alliance admins</strong> above.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
       {/* One-time raw-token reveal — never re-fetchable (T-05-28). */}
       <Dialog open={mintedToken !== null} onOpenChange={(open) => !open && setMintedToken(null)}>
         <DialogHeader>
