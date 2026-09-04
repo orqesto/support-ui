@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Users2 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
@@ -219,21 +219,12 @@ export const ConsoleGroups = () => {
         </Card>
       )}
       {backing.length > 0 && (
-        <Card className="flex overflow-hidden flex-col shrink-0 max-h-[45%]">
-          <CardHeader>
-            <CardTitle className="text-base">Backing groups from IdP mappings</CardTitle>
-            <CardDescription>
-              Created by “Map access” on the Provisioning screen and named after the IdP group
-              they mirror. Each carries the role its mapping grants. To retire one, unwire the
-              IdP group on the Provisioning screen — deleting it here would only break the mapping.
-            </CardDescription>
-          </CardHeader>
-          <CardContent padding="none" className="flex flex-col flex-1 min-h-0">
-            <div className="overflow-auto flex-1 min-h-0">
-              <GroupsTable groups={backing} onEdit={openEdit} />
-            </div>
-          </CardContent>
-        </Card>
+        <p className="text-xs text-muted-foreground">
+          {backing.length} more {backing.length === 1 ? 'group is' : 'groups are'} managed by IdP
+          mappings and {backing.length === 1 ? 'lives' : 'live'} on the Provisioning screen. Edit
+          or retire {backing.length === 1 ? 'it' : 'them'} there, from the IdP group{' '}
+          {backing.length === 1 ? 'it mirrors' : 'they mirror'}.
+        </p>
       )}
 
       <GroupEditor
