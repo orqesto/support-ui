@@ -1,4 +1,3 @@
-import type { ElementType } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import {
   AlertCircle,
@@ -23,7 +22,7 @@ import { AddPaymentMethodDialog } from '@/components/billing/AddPaymentMethodDia
 import { MessagePackOfferCard } from '@/components/subscription/MessagePackOfferCard';
 import { describeUsagePeriod } from '@/components/subscription/usagePeriodCopy';
 import { useMessagePackReturn } from '@/components/subscription/useMessagePackReturn';
-import { Progress } from '@/components/ui/Progress';
+import { UsageTile, type UsageItem } from '@/components/subscription/UsageTile';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 import { VAT_NOTE, formatMoney } from '@/lib/money';
@@ -36,21 +35,6 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { hasPermission, Permission } from '@/types/roles';
 
-type UsageItem = {
-  current: number;
-  limit: number;
-  percentage: number;
-  warning: boolean;
-  critical: boolean;
-  formatted: string;
-  /**
-   * Messages only: the plan's own cap and the message-pack part of `limit`.
-   * Optional — a backend that predates packs sends neither, and the card must
-   * still render (FE-app/CLAUDE.md, version skew).
-   */
-  planLimit?: number;
-  extra?: number;
-};
 
 type DashboardData = {
   plan: {
@@ -263,54 +247,23 @@ export const SubscriptionPage = () => {
     }
   };
 
-  const getUsageBarColor = (item: UsageItem) => {
-    if (item.critical) return 'bg-red-500';
-    if (item.warning) return 'bg-orange-500';
-    return 'bg-blue-500';
-  };
-
-  const UsageCard = ({
-    title,
-    icon: Icon,
-    item,
-  }: {
-    title: string;
-    icon: ElementType;
-    item: UsageItem;
-  }) => (
-    <div className="p-4 rounded-lg border bg-card">
-      <div className="flex justify-between items-center mb-2">
-        <div className="flex gap-2 items-center">
-          <Icon className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-medium">{title}</span>
-        </div>
-        {item.warning && (
-          <AlertTriangle
-            className={`w-4 h-4 ${item.critical ? 'text-red-500' : 'text-orange-500'}`}
-          />
-        )}
-      </div>
-      <div className="flex justify-between items-baseline mb-2">
-        <span className="text-2xl font-bold">{item.current.toLocaleString()}</span>
-        <span className="text-sm text-muted-foreground">/ {item.limit.toLocaleString()}</span>
-      </div>
-      <Progress value={Math.min(item.percentage, 100)} className={getUsageBarColor(item)} />
-      <div className="flex justify-between items-center mt-1">
-        <span className="text-xs text-muted-foreground">{item.percentage}% used</span>
-        {item.critical && <span className="text-xs font-medium text-red-600">Limit reached!</span>}
-        {item.warning && !item.critical && (
-          <span className="text-xs font-medium text-orange-600">Approaching limit</span>
-        )}
-      </div>
-      {/* A bought pack is part of `limit`; say so, or the number looks wrong next to the plan. */}
-      {item.extra !== undefined && item.extra > 0 && item.planLimit !== undefined && (
-        <p className="mt-1 text-xs text-muted-foreground">
-          {item.planLimit.toLocaleString()} from your plan + {item.extra.toLocaleString()} from
-          message packs this period
-        </p>
-      )}
-    </div>
-  );
+  // The pack is offered where the limit is felt: on the Messages tile and inside the
+  // limit-reached alert, not only in a card further down (owner, staging 2026-09-05:
+  // "pretty hard to find where exactly that buy 1000 messages on page").
+  const packOffer = dashboard?.messagePack;
+  const canBuyPack = canManage && packOffer?.available === true;
+  const buyPackButton = (variant: 'primary' | 'outline') =>
+    canBuyPack && packOffer ? (
+      <Button
+        size="sm"
+        variant={variant}
+        onClick={handleBuyPack}
+        isLoading={buyingPack}
+        data-testid={variant === 'primary' ? 'buy-message-pack-alert' : 'buy-message-pack-tile'}
+      >
+        Buy {packOffer.messages.toLocaleString()} messages
+      </Button>
+    ) : null;
 
   if (loading) {
     return (
@@ -490,11 +443,16 @@ export const SubscriptionPage = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <UsageCard title="Users" icon={Users} item={usage.users} />
-              <UsageCard title="Integrations" icon={Plug} item={usage.integrations} />
-              <UsageCard title="Messages" icon={MessageSquare} item={usage.messages} />
-              <UsageCard title="AI Calls" icon={Zap} item={usage.aiCalls} />
-              <UsageCard title="Storage (MB)" icon={HardDrive} item={usage.storage} />
+              <UsageTile title="Users" icon={Users} item={usage.users} />
+              <UsageTile title="Integrations" icon={Plug} item={usage.integrations} />
+              <UsageTile
+                title="Messages"
+                icon={MessageSquare}
+                item={usage.messages}
+                action={buyPackButton('outline')}
+              />
+              <UsageTile title="AI Calls" icon={Zap} item={usage.aiCalls} />
+              <UsageTile title="Storage (MB)" icon={HardDrive} item={usage.storage} />
             </div>
 
             {/* The message cap is the one limit with a second door besides upgrading. */}
@@ -524,14 +482,12 @@ export const SubscriptionPage = () => {
                       : 'Some of your usage metrics are approaching their limits. Consider upgrading your plan for more capacity.'}
                   </p>
                   {canManage && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="mt-2"
-                      onClick={() => navigate('/pricing')}
-                    >
-                      View Upgrade Options
-                    </Button>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {usage.messages.critical && buyPackButton('primary')}
+                      <Button size="sm" variant="outline" onClick={() => navigate('/pricing')}>
+                        View Upgrade Options
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
