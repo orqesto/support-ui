@@ -1,6 +1,9 @@
 import { Building2 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useCurrentWorkspace } from '@/hooks/useCurrentWorkspace';
+import { canSwitchWorkspace } from './canSwitchWorkspace';
 
 /**
  * Names the workspace you are about to write to, above every screen.
@@ -15,18 +18,30 @@ import { useCurrentWorkspace } from '@/hooks/useCurrentWorkspace';
  * apiClient directly) and an allowlist of 52 is a list someone will forget to extend.
  * One banner above `main` covers every one of them, including the next one written.
  *
- * Shown only to users who can actually switch workspaces — `OrganizationSwitcher` renders
- * for global admins alone, so for everyone else there is exactly one workspace, no
- * ambiguity to resolve, and a permanent banner would be noise.
+ * Shown to exactly the users who can switch workspaces — the same predicate the
+ * `OrganizationSwitcher` renders on (`canSwitchWorkspace`). It used to check global-admin
+ * only, while the switcher also rendered for anyone with two memberships: a multi-workspace
+ * org_admin could switch and then write with no banner. For a user with one workspace there
+ * is no ambiguity to resolve, and a permanent banner would be noise.
  *
  * Kept to one slim line: it sits above the kanban, where every pixel of height is
  * working area, so it has the padding of a caption, not of a card.
  */
 export const WorkspaceBanner = () => {
-  const isGlobalAdmin = useAuthStore((state) => state.user?.role === 'admin');
+  const user = useAuthStore((state) => state.user);
   const { name, code } = useCurrentWorkspace();
 
-  if (!isGlobalAdmin) return null;
+  // A global admin can always switch — no list needed. Anyone else can switch only if
+  // they belong to two or more workspaces, which is the switcher's own data source.
+  const isGlobalAdmin = user?.role === 'admin';
+  const { data: memberships } = useQuery({
+    queryKey: ['my-organizations', user?.id ?? null],
+    queryFn: () => authService.myOrganizations(),
+    enabled: !isGlobalAdmin && user !== null,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (!canSwitchWorkspace(user, memberships ?? [])) return null;
 
   return (
     <div

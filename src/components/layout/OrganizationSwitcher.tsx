@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/lib/toast';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { canSwitchWorkspace } from './canSwitchWorkspace';
 
 export const OrganizationSwitcher = () => {
   const user = useAuthStore((state) => state.user);
@@ -91,8 +92,9 @@ export const OrganizationSwitcher = () => {
 
   // A member with a single workspace has nothing to switch to; showing a dead control
   // would just be noise. Global admins keep the card even at one, since it doubles as
-  // the indicator of which workspace they are acting in.
-  if (!isGlobalAdmin && organizations.length < 2) {
+  // the indicator of which workspace they are acting in. The predicate is shared with
+  // `WorkspaceBanner` so the two can never disagree again about who can switch.
+  if (!canSwitchWorkspace(user, organizations)) {
     return null;
   }
 

@@ -8,7 +8,7 @@
  * never invents one.
  */
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WorkspaceBanner } from '../WorkspaceBanner';
 
@@ -17,10 +17,16 @@ vi.mock('@/services/organization.service', () => ({
   organizationService: { getCurrent: () => getCurrent() as unknown },
 }));
 
+// The memberships a non-admin could switch between — the switcher's own data source.
+const myOrganizations = vi.fn();
+vi.mock('@/services/auth.service', () => ({
+  authService: { myOrganizations: () => myOrganizations() as unknown },
+}));
+
 let role = 'admin';
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: (selector: (state: unknown) => unknown) =>
-    selector({ user: { role, organizationId: 4 }, selectedOrganizationId: 4 }),
+    selector({ user: { id: 1, role, organizationId: 4 }, selectedOrganizationId: 4 }),
 }));
 
 const renderBanner = () =>
@@ -36,6 +42,8 @@ beforeEach(() => {
   role = 'admin';
   getCurrent.mockReset();
   getCurrent.mockResolvedValue({ id: 4, name: 'framehouse', code: 'FRM' });
+  myOrganizations.mockReset();
+  myOrganizations.mockResolvedValue([{ id: 4, name: 'framehouse', slug: 'framehouse' }]);
 });
 afterEach(cleanup);
 
@@ -55,9 +63,23 @@ describe('the workspace banner', () => {
     expect(screen.queryByText('framehouse')).not.toBeInTheDocument();
   });
 
-  it('stays out of the way of users who cannot switch workspaces', () => {
+  it('stays out of the way of users who cannot switch workspaces', async () => {
     role = 'agent';
     renderBanner();
+    await waitFor(() => expect(myOrganizations).toHaveBeenCalled());
     expect(screen.queryByTestId('workspace-banner')).not.toBeInTheDocument();
+  });
+
+  it('warns a member who belongs to two workspaces — they can switch too', async () => {
+    // The banner used to render for global admins only, while the switcher rendered for
+    // anyone with two memberships. This user could switch and write with no banner.
+    role = 'agent';
+    myOrganizations.mockResolvedValue([
+      { id: 4, name: 'framehouse', slug: 'framehouse' },
+      { id: 5, name: 'odly', slug: 'odly' },
+    ]);
+    renderBanner();
+    expect(await screen.findByTestId('workspace-banner')).toBeInTheDocument();
+    expect(await screen.findByText('framehouse')).toBeInTheDocument();
   });
 });
