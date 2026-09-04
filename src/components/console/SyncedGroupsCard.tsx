@@ -219,9 +219,13 @@ const SyncedGroupRow = ({
               picker of OTHER groups, and asked what it was for. Editing opens the same editor
               the Groups page uses for that backing group; re-pointing stays, one fold down. */}
           <div className="flex flex-wrap gap-2 items-center">
-            <Button type="button" onClick={onEditBacking} disabled={wiring || !canEditBacking}>
-              Edit role / workspace
-            </Button>
+            {/* Only a group-backed wiring has a backing group to edit; a legacy alliance-role
+                wiring is re-pointed below instead. */}
+            {group.wiredGroup && (
+              <Button type="button" onClick={onEditBacking} disabled={wiring || !canEditBacking}>
+                Edit role / workspace
+              </Button>
+            )}
             {group.wiredGroup && (
               <Button type="button" variant="outline" onClick={onUnwire} disabled={wiring}>
                 Unwire

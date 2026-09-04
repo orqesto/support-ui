@@ -242,7 +242,7 @@ export const ConsoleMembers = () => {
             </span>
             {member.active === false && (
                             <Badge variant={member.heldByAdmin ? 'warning' : 'secondary'}>
-                {member.heldByAdmin ? 'Deactivated by admin' : 'Deactivated by IdP'}
+                {member.heldByAdmin ? 'Deactivated by admin' : 'Deactivated'}
               </Badge>
             )}
           </div>
