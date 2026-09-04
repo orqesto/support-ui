@@ -8,6 +8,7 @@
 // link self-describes and looks trustworthy in email previews.
 
 import { useEffect, useState } from 'react';
+import DOMPurify from 'dompurify';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
@@ -186,6 +187,34 @@ const linkifyHtml = (html: string): string => {
     return html;
   }
 };
+
+/**
+ * Client-side allowlist for event HTML. Mirrors the tag set the BE's `PUBLIC_SANITIZE_OPTS`
+ * lets through and the attribute policy of the app's own thread sanitiser
+ * (`THREAD_SANITIZE`): links only over http(s), no inline styles, no handlers.
+ */
+const TRACKING_SANITIZE = {
+  ALLOWED_TAGS: [
+    'a', 'b', 'br', 'div', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'li',
+    'ol', 'p', 'pre', 'span', 'strong', 'table', 'tbody', 'td', 'th', 'thead', 'tr', 'u',
+    'ul', 'blockquote', 'code',
+  ],
+  ALLOWED_ATTR: ['href', 'title', 'target', 'rel'],
+  FORBID_ATTR: ['style', 'class', 'id'],
+  ALLOWED_URI_REGEXP: /^https?:/i,
+};
+
+/**
+ * The HTML that reaches `dangerouslySetInnerHTML` for a timeline event.
+ *
+ * This was the one sink in `src/` that trusted its input: the other seven all pass through
+ * `DOMPurify.sanitize`, and this one rendered `linkifyHtml(event.content)` as-is on the
+ * strength of the BE having sanitised it. A public page must not depend on that being
+ * true of every backend version and every write path — `sanitize` here is the last line,
+ * and it costs nothing when the BE already did its job.
+ */
+export const renderEventHtml = (content: string): string =>
+  DOMPurify.sanitize(linkifyHtml(content), TRACKING_SANITIZE);
 
 type ReplyState =
   | { kind: 'idle' }
@@ -810,7 +839,7 @@ export const TrackingPage = () => {
                                 ? 'bg-blue-600 text-white rounded-tr-sm prose-invert prose-a:text-white'
                                 : 'bg-[hsl(210,20%,98%)] border border-[hsl(214.3,31.8%,91.4%)] rounded-tl-sm prose-a:text-blue-700'
                             }`}
-                            dangerouslySetInnerHTML={{ __html: linkifyHtml(event.content) }}
+                            dangerouslySetInnerHTML={{ __html: renderEventHtml(event.content) }}
                           />
                         </div>
                       </div>
