@@ -96,6 +96,16 @@ export type AllianceScimTelemetry = {
   // newer version than the BE (e.g. FE prod ahead of BE prod) must treat these as absent.
   admins?: { activeAdminCount: number; hasActiveAdmin: boolean };
   events?: { total: number; lastEventAt: string | null };
+  /**
+   * Connector liveness derived from TOKEN use, not group activity — a healthy connector
+   * can leave `groups.lastSyncedAt` untouched for weeks. Optional for the same reason as
+   * the two above: a FE ahead of its BE must render without it.
+   */
+  connector?: {
+    state: 'disabled' | 'no_token' | 'never_used' | 'active' | 'stale';
+    hoursSinceLastUse: number | null;
+    staleAfterHours: number;
+  };
   notes: string[];
 };
 
