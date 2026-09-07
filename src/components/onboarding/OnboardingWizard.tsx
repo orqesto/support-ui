@@ -281,7 +281,8 @@ export const OnboardingWizard = () => {
     (activeStep === 4 && !channelsConnected) ||
     (activeStep === 6 && !kbHasDocs);
   // Per-step skip (footer) is distinct from ending the whole wizard (header).
-  const nextLabel = optionalUnfinished ? 'Skip this step' : 'Next';
+  // A gated step is not skippable — say "Next" (disabled), not "Skip this step".
+  const nextLabel = optionalUnfinished && !nextDisabled ? 'Skip this step' : 'Next';
   const isLastStep = activeStep >= stepLabels.length;
 
   // Finishing STARTS the 14-day trial, so require the org to be minimally usable
