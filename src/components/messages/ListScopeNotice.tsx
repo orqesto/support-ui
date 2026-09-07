@@ -27,7 +27,8 @@
  * claiming something they never said. They are now labelled as somewhere to GO.
  */
 import { ChevronDown, EyeOff } from 'lucide-react';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
+import { useClickOutside } from '@/hooks/useClickOutside';
 import type { ListScope } from '@/services/message.service';
 import type { FilterState } from '@/stores/messagesStore';
 
@@ -108,21 +109,8 @@ export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Prop
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
-  useEffect(() => {
-    if (!open) return undefined;
-    const onPointer = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onPointer);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onPointer);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
+  useClickOutside(rootRef, open, close);
 
   // No information, or nothing hidden. In both cases the honest thing is silence:
   // the pagination line already states the count, and inventing a reassurance here

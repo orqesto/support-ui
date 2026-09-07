@@ -33,7 +33,7 @@ import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { useSharedLinkWorkspace } from '@/hooks/useSharedLinkWorkspace';
 import { formatDate } from '@/lib/utils';
 import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
-import type { Message } from '@/types';
+import type { Message, MessagesDisplayMode } from '@/types';
 import { Permission } from '@/types/roles';
 import { ComposeNewModal } from '@/components/messages/ComposeNewModal';
 import { MessageFilterBar } from '@/components/messages/filters/MessageFilterBar';
@@ -85,7 +85,7 @@ export const MessagesPage = () => {
   useSharedLinkWorkspace(searchParams.get('id'));
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [displayMode, setDisplayMode] = useState<'threads' | 'contacts' | 'kanban'>(() => {
+  const [displayMode, setDisplayMode] = useState<MessagesDisplayMode>(() => {
     const mode = searchParams.get('mode');
     if (mode === 'contacts') return 'contacts';
     if (mode === 'kanban') return 'kanban';

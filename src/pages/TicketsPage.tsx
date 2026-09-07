@@ -23,13 +23,13 @@ import { PAGINATION } from '@/lib/constants';
 import { type JiraIntegration } from '@/services/integrations.service';
 import { ticketService, type PaginationMeta } from '@/services/ticket.service';
 import { useTicketsStore } from '@/stores/ticketsStore';
-import type { Ticket as TicketType } from '@/types';
+import type { Ticket as TicketType, TicketsDisplayMode } from '@/types';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
 
 export const TicketsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [displayMode, setDisplayMode] = useState<'list' | 'kanban'>(() => {
+  const [displayMode, setDisplayMode] = useState<TicketsDisplayMode>(() => {
     const mode = searchParams.get('mode');
     if (mode === 'kanban') return 'kanban';
     const stored = localStorage.getItem('tickets_view_mode');
