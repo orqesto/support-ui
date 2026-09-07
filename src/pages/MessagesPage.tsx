@@ -33,7 +33,7 @@ import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { useSharedLinkWorkspace } from '@/hooks/useSharedLinkWorkspace';
 import { formatDate } from '@/lib/utils';
 import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
-import type { Message } from '@/types';
+import type { Message, MessagesDisplayMode } from '@/types';
 import { Permission } from '@/types/roles';
 import { ComposeNewModal } from '@/components/messages/ComposeNewModal';
 import { MessageFilterBar } from '@/components/messages/filters/MessageFilterBar';
@@ -85,7 +85,7 @@ export const MessagesPage = () => {
   useSharedLinkWorkspace(searchParams.get('id'));
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [displayMode, setDisplayMode] = useState<'threads' | 'contacts' | 'kanban'>(() => {
+  const [displayMode, setDisplayMode] = useState<MessagesDisplayMode>(() => {
     const mode = searchParams.get('mode');
     if (mode === 'contacts') return 'contacts';
     if (mode === 'kanban') return 'kanban';
@@ -691,34 +691,55 @@ export const MessagesPage = () => {
           }`}
         >
           <div
-            className={`px-4 mx-auto space-y-3 w-full ${
+            className={`px-4 mx-auto space-y-2 w-full ${
               // Full page width (app-wide convention — every page is full width now;
               // the kanban also needs the flex-column chain for its bounded height).
               isKanban ? 'xl:flex xl:flex-col xl:flex-1 xl:min-h-0' : ''
             }`}
           >
             {/* Header — no own margin: the container's space-y already separates the
-                blocks, and mb-6 STACKED on top of it was costing 24px of kanban height. */}
+                blocks, and mb-6 STACKED on top of it was costing 24px of kanban height.
+                One 32px band: title on the actions row at text-xl, buttons at h-8. The
+                description ("Manage and process incoming messages") is gone — the sidebar
+                item names the screen and is lit; the sentence told a returning agent
+                nothing and cost 19px of lane height (Kanban space audit, 2026-09-07). */}
             <div>
               <PageHeader
-                title="Messages"
-                description="Manage and process incoming messages"
+                title={<span className="text-xl">Messages</span>}
+                className="sm:items-center"
                 actions={
                   <>
                     <PermissionGuard permission={Permission.MANAGE_TICKETS}>
-                      <Button onClick={() => setComposeOpen(true)} variant="outline">
-                        <PenSquare className="mr-2 h-4 w-4" />
+                      <Button
+                        onClick={() => setComposeOpen(true)}
+                        variant="outline"
+                        className="h-8 px-3 text-[13px]"
+                      >
+                        <PenSquare className="mr-2 h-3.5 w-3.5" />
                         Compose
                       </Button>
                     </PermissionGuard>
                     <PermissionGuard permission={Permission.MANAGE_MESSAGES}>
-                      <Button onClick={handleSyncEmails} disabled={refreshing} variant="outline">
-                        <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                      <Button
+                        onClick={handleSyncEmails}
+                        disabled={refreshing}
+                        variant="outline"
+                        className="h-8 px-3 text-[13px]"
+                      >
+                        <RefreshCw
+                          className={`mr-2 h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`}
+                        />
                         Sync New
                       </Button>
                     </PermissionGuard>
-                    <Button onClick={handleRefresh} disabled={refreshing}>
-                      <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    <Button
+                      onClick={handleRefresh}
+                      disabled={refreshing}
+                      className="h-8 px-3 text-[13px]"
+                    >
+                      <RefreshCw
+                        className={`mr-2 h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`}
+                      />
                       Refresh
                     </Button>
                   </>
@@ -750,48 +771,47 @@ export const MessagesPage = () => {
                   onCommitSearch={handleCommitSearch}
                   onClearFilters={() => void clearFilters()}
                   isKanban={isKanban}
+                  /* The view switch rides the filter card's saved-views row. It had a 40px
+                     row of its own here; on the kanban that row is now gone entirely. */
+                  viewSwitch={
+                    <MessagesViewToggle displayMode={displayMode} onModeChange={setDisplayMode} />
+                  }
                 />
               </div>
 
-              {/* Display mode toggle + inbox-level quick filter */}
-              <div className="flex justify-between items-center gap-3 flex-wrap">
-                <MessagesViewToggle displayMode={displayMode} onModeChange={setDisplayMode} />
-                <div className="flex items-center gap-3 flex-wrap">
-                  {displayMode === 'threads' && (
-                    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={filters.excludeAwaitingResponse ?? false}
-                        onChange={(ev) =>
-                          updateFilter('excludeAwaitingResponse', ev.target.checked)
-                        }
-                        className="rounded border-border accent-primary"
-                      />
-                      Hide awaiting response
-                    </label>
-                  )}
-                  {/* Standalone Sort — list view only (kanban sorts per-column,
-                      contacts has no sort). Drives store `sorting` directly. */}
-                  {displayMode === 'threads' && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-muted-foreground shrink-0">
-                        Sort:
-                      </span>
-                      <ReactSelect
-                        value={sortingToPreset(sorting)}
-                        onChange={(value) => setSorting(presetToSorting(value))}
-                        options={SORT_PRESET_OPTIONS}
-                        className="w-44"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
               {/* One-click equivalents of the board's columns. List mode only: on the kanban the
-                  columns themselves already are the filter. */}
+                  columns themselves already are the filter. The right end carries the two
+                  threads-only controls that shared the old toggle row. */}
               {displayMode === 'threads' && (
                 <QuickFilterChips
+                  trailing={
+                    <>
+                      <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={filters.excludeAwaitingResponse ?? false}
+                          onChange={(ev) =>
+                            updateFilter('excludeAwaitingResponse', ev.target.checked)
+                          }
+                          className="rounded border-border accent-primary"
+                        />
+                        Hide awaiting response
+                      </label>
+                      {/* Standalone Sort — list view only (kanban sorts per-column,
+                          contacts has no sort). Drives store `sorting` directly. */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-muted-foreground shrink-0">
+                          Sort:
+                        </span>
+                        <ReactSelect
+                          value={sortingToPreset(sorting)}
+                          onChange={(value) => setSorting(presetToSorting(value))}
+                          options={SORT_PRESET_OPTIONS}
+                          className="w-44"
+                        />
+                      </div>
+                    </>
+                  }
                   value={filters.columnId ?? 'all'}
                   onChange={(columnId) => {
                     // A second click on All must change nothing. It used to re-patch

@@ -26,7 +26,9 @@
  * SQL before an integration test stopped them. The counts were right; the sentence was
  * claiming something they never said. They are now labelled as somewhere to GO.
  */
-import { EyeOff } from 'lucide-react';
+import { ChevronDown, EyeOff } from 'lucide-react';
+import { useCallback, useId, useRef, useState } from 'react';
+import { useClickOutside } from '@/hooks/useClickOutside';
 import type { ListScope } from '@/services/message.service';
 import type { FilterState } from '@/stores/messagesStore';
 
@@ -59,13 +61,29 @@ const REASONS: Array<{
   /** The board has no column for these — jumping must also leave the board. */
   needsListView?: boolean;
 }> = [
-  { key: 'terminal', label: 'resolved or closed', filters: { lifecycle: 'resolved', queue: 'all' } },
+  {
+    key: 'terminal',
+    label: 'resolved or closed',
+    filters: { lifecycle: 'resolved', queue: 'all' },
+  },
   { key: 'knowledgeBase', label: 'from the knowledge base' },
-  { key: 'awaitingOrReplied', label: 'waiting on a reply', filters: { lifecycle: 'awaiting', queue: 'all' } },
-  { key: 'needsRouting', label: 'awaiting routing', filters: { queue: 'needs_routing', lifecycle: 'all' } },
+  {
+    key: 'awaitingOrReplied',
+    label: 'waiting on a reply',
+    filters: { lifecycle: 'awaiting', queue: 'all' },
+  },
+  {
+    key: 'needsRouting',
+    label: 'awaiting routing',
+    filters: { queue: 'needs_routing', lifecycle: 'all' },
+  },
   { key: 'spam', label: 'spam', filters: { queue: 'spam', lifecycle: 'all' } },
   { key: 'suspicious', label: 'suspicious', filters: { queue: 'suspicious', lifecycle: 'all' } },
-  { key: 'notAnalysed', label: 'not yet reviewed', filters: { queue: 'not_analysed', lifecycle: 'all' } },
+  {
+    key: 'notAnalysed',
+    label: 'not yet reviewed',
+    filters: { queue: 'not_analysed', lifecycle: 'all' },
+  },
   { key: 'archived', label: 'auto-archived', filters: { queue: 'archived', lifecycle: 'all' } },
   {
     // Was the largest identifiable share of `other`, where it rendered as a number with
@@ -79,6 +97,21 @@ const REASONS: Array<{
 ];
 
 export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Props) => {
+  /**
+   * The destinations live behind one trigger. On the board only the buckets with no lane
+   * survive the filter (one or two), but the list shows every bucket and seven is a real
+   * workspace: as one sentence they wrapped to three lines, pushed the list down, and read as
+   * broken arithmetic. Behind a trigger the row is one line however many buckets a workspace
+   * has, and the counts sit right-aligned where they can be compared.
+   *
+   * Hooks stay above the early return: React counts them per render.
+   */
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+  const close = useCallback(() => setOpen(false), []);
+  useClickOutside(rootRef, open, close);
+
   // No information, or nothing hidden. In both cases the honest thing is silence:
   // the pagination line already states the count, and inventing a reassurance here
   // would be the same species of claim the component was written to stop.
@@ -118,36 +151,47 @@ export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Prop
     .filter((reason) => !isBoard || reason.needsListView === true || reason.key === 'other');
 
   /**
-   * Two different claims, so two different places on the line. `other` is a subset of
-   * `hidden` and belongs in the sentence; the rest are lens totals and belong behind
-   * "Jump to", where a number larger than `hidden` is exactly what a reader should expect.
+   * Two different claims, so two different places. `other` is a SUBSET of `hidden` — the
+   * rows no bucket claims — and is the menu's footnote row with nothing to click. The rest
+   * are lens totals: each is the size of the list its row opens, so a number larger than
+   * `hidden` is exactly what a reader should expect, and the menu labels them as filters.
+   * The trigger's count is the destinations only; the subset is not somewhere to go.
    */
   const subsets = present.filter((reason) => reason.key === 'other');
   const destinations = present.filter((reason) => reason.key !== 'other');
+  const hasMenu = destinations.length > 0 || subsets.length > 0;
 
   return (
     <div
+      ref={rootRef}
       className={
         isBoard
           ? // On the board this is a caption on the Board/Triage row, not a card of its own:
             // the row it used to occupy (52px with its gap) came straight out of the lanes,
-            // on the one screen where lane height IS the working area. Same sentence,
-            // same jump link, no chrome.
-            'flex flex-wrap gap-x-1.5 gap-y-0.5 items-center text-xs text-muted-foreground'
-          : 'flex flex-wrap gap-x-2 gap-y-1 items-center px-3 py-2 mb-3 text-sm rounded-md border bg-muted/40 text-muted-foreground'
+            // on the one screen where lane height IS the working area. One line, always:
+            // the sentence truncates before anything else on that row yields.
+            'flex items-center gap-x-1.5 min-w-0 text-xs text-muted-foreground'
+          : 'flex items-center gap-x-2 min-w-0 px-3 py-2 mb-3 text-sm rounded-md border bg-muted/40 text-muted-foreground'
       }
       data-testid="list-scope-notice"
     >
-      <EyeOff className={isBoard ? 'w-3.5 h-3.5 shrink-0' : 'w-4 h-4 shrink-0'} aria-hidden="true" />
+      <EyeOff
+        className={isBoard ? 'w-3.5 h-3.5 shrink-0' : 'w-4 h-4 shrink-0'}
+        aria-hidden="true"
+      />
       {/**
        * ⛔ The board does NOT say "Showing N". `shown` there is the board query's total
        * across all nine lanes, while the screen renders only the columns the agent has
        * toggled on — 2,880 claimed against 14 cards actually visible on staging org 21.
        * Neither number is wrong; "Showing" was. The board's honest claim is about
        * COVERAGE — which rows it has a lane for — and that holds whatever is collapsed.
+       *
+       * The sentence is VERBATIM what it was before the destinations moved behind the
+       * trigger. Do not compress it: "1,356 hidden · 1 by this view" makes the subset read
+       * as a second, contradictory total — the exact bug the wording exists to prevent.
        */}
       {isBoard ? (
-        <span>
+        <span className="truncate min-w-0">
           This board has a lane for{' '}
           <strong className="text-foreground">
             {(scope.withoutLens - scope.hidden).toLocaleString()}
@@ -156,43 +200,97 @@ export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Prop
           {scope.hidden.toLocaleString()} have none
         </span>
       ) : (
-        <span>
+        <span className="truncate min-w-0">
           Showing <strong className="text-foreground">{shown.toLocaleString()}</strong> of{' '}
           <strong className="text-foreground">{scope.withoutLens.toLocaleString()}</strong> —{' '}
           {scope.hidden.toLocaleString()} hidden by the current view
         </span>
       )}
-      {/*
-        `other` is the one entry that genuinely decomposes `hidden` — it counts hidden rows
-        no bucket claims — so it stays attached to the sentence. Everything else is a
-        destination and moves behind the label below.
-      */}
-      {subsets.length > 0 && <span aria-hidden="true">·</span>}
-      {subsets.map((reason) => (
-        <span key={reason.key}>
-          {reason.count.toLocaleString()} {reason.label}
-        </span>
-      ))}
-      {destinations.length > 0 && (
-        <span className="ml-1">
-          Jump to<span aria-hidden="true">:</span>
-        </span>
-      )}
-      {destinations.map((reason) =>
-        reason.filters ? (
+      {hasMenu && (
+        <div className={isBoard ? 'relative shrink-0' : 'relative shrink-0 ml-auto'}>
           <button
-            key={reason.key}
             type="button"
-            className="underline rounded underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={() => onJump(reason.filters as Partial<FilterState>, reason.needsListView)}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            aria-controls={menuId}
+            onClick={() => setOpen((prev) => !prev)}
+            className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-border text-[12px] text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            {reason.count.toLocaleString()} {reason.label}
+            Not shown
+            {destinations.length > 0 && (
+              <b className="font-semibold text-foreground">{destinations.length}</b>
+            )}
+            <ChevronDown className="w-3 h-3" aria-hidden="true" />
           </button>
-        ) : (
-          <span key={reason.key}>
-            {reason.count.toLocaleString()} {reason.label}
-          </span>
-        )
+          {open && (
+            <div
+              id={menuId}
+              role="menu"
+              aria-label="Not shown"
+              className="absolute left-0 top-full mt-1.5 z-30 w-[290px] rounded-lg border border-border bg-card p-[5px] shadow-xl text-foreground"
+            >
+              {/**
+               * These rows are FILTER PRESETS, not navigation. Each carries `filters` and
+               * calls `onJump`; the applied lens then shows in the token bar as a removable
+               * token, so what changed and how to undo it are both visible. As underlined
+               * words in a sentence they read as links to somewhere else.
+               */}
+              {destinations.length > 0 && (
+                <div className="px-2 pt-1.5 pb-1 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                  Show instead — applies a filter
+                </div>
+              )}
+              {destinations.map((reason) =>
+                reason.filters ? (
+                  <button
+                    key={reason.key}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setOpen(false);
+                      onJump(reason.filters as Partial<FilterState>, reason.needsListView);
+                    }}
+                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded-[5px] text-[13px] text-left hover:bg-accent focus-visible:outline-none focus-visible:bg-accent"
+                  >
+                    <span className="truncate">{reason.label}</span>
+                    <span className="ml-auto font-semibold tabular-nums text-muted-foreground">
+                      {reason.count.toLocaleString()}
+                    </span>
+                  </button>
+                ) : (
+                  // A bucket with no single lens (the knowledge base) — a count, not a preset.
+                  <div
+                    key={reason.key}
+                    role="presentation"
+                    className="flex items-center gap-2 px-2 py-1.5 text-[13px] text-muted-foreground"
+                  >
+                    <span className="truncate">{reason.label}</span>
+                    <span className="ml-auto font-semibold tabular-nums">
+                      {reason.count.toLocaleString()}
+                    </span>
+                  </div>
+                )
+              )}
+              {subsets.map((reason) => (
+                <div
+                  key={reason.key}
+                  role="presentation"
+                  className="flex items-center gap-2 px-2 py-1.5 mt-1 border-t border-border text-[12.5px] text-muted-foreground"
+                >
+                  <span className="truncate">{reason.label}</span>
+                  <span className="ml-auto font-semibold tabular-nums">
+                    {reason.count.toLocaleString()}
+                  </span>
+                </div>
+              ))}
+              {destinations.length > 0 && (
+                <div className="px-2 pt-1.5 pb-1 mt-0.5 border-t border-border text-[11.5px] leading-snug text-muted-foreground/80">
+                  Each one sets a lens and lands in the filter bar as a token you can remove.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

@@ -26,6 +26,10 @@ export type ChannelType = 'email' | 'telegram' | 'slack' | 'chat' | 'whatsapp' |
 // sources existed but were filtered out of all three.
 export const MESSAGE_SOURCE_TYPES = ['email', 'gmail', 'telegram', 'slack', 'chat', 'whatsapp'] as const;
 export type MessageSourceType = (typeof MESSAGE_SOURCE_TYPES)[number];
+/** Which surface the Messages screen renders. Persisted in localStorage and the `mode` URL param. */
+export type MessagesDisplayMode = 'threads' | 'contacts' | 'kanban';
+/** Which surface the Tickets screen renders. Persisted in the `mode` URL param. */
+export type TicketsDisplayMode = 'list' | 'kanban';
 export type TicketStatus = 'pending' | 'open' | 'in_progress' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
 export type ThreadStatus =

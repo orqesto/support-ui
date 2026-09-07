@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { COLUMNS, type KanbanColumnDef } from './kanbanColumns';
 
 type QuickFilterChipsProps = {
@@ -6,6 +7,12 @@ type QuickFilterChipsProps = {
   onChange: (columnId: string) => void;
   /** Live depth per column id, where known. Absent means "not counted", not zero. */
   counts?: Record<string, number>;
+  /**
+   * Controls that share this row's right end — "Hide awaiting response" and Sort. They had a
+   * row of their own with the view toggle; the toggle moved into the filter card and this row
+   * is threads-only already, so they live here and the kanban loses the row entirely.
+   */
+  trailing?: ReactNode;
 };
 
 const AXIS_LABEL: Record<KanbanColumnDef['axis'], string> = {
@@ -25,7 +32,7 @@ const AXIS_LABEL: Record<KanbanColumnDef['axis'], string> = {
  * gives the list its chip for free, and neither view can end up offering a slice the other does
  * not — which is the failure a hand-written second list guarantees eventually.
  */
-export const QuickFilterChips = ({ value, onChange, counts }: QuickFilterChipsProps) => {
+export const QuickFilterChips = ({ value, onChange, counts, trailing }: QuickFilterChipsProps) => {
   const axes: KanbanColumnDef['axis'][] = ['lifecycle', 'triage'];
 
   return (
@@ -70,15 +77,14 @@ export const QuickFilterChips = ({ value, onChange, counts }: QuickFilterChipsPr
                   {col.label}
                   {/* `undefined` means the count is unknown — render nothing rather than a 0,
                       which would claim the queue is empty. */}
-                  {typeof count === 'number' && (
-                    <span className="ml-1.5 opacity-70">{count}</span>
-                  )}
+                  {typeof count === 'number' && <span className="ml-1.5 opacity-70">{count}</span>}
                 </button>
               );
             })}
           </div>
         );
       })}
+      {trailing && <div className="flex flex-wrap gap-3 items-center ml-auto">{trailing}</div>}
     </div>
   );
 };
