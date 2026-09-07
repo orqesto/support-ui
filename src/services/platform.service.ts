@@ -110,6 +110,15 @@ export type QueueStatus = {
     memory: string;
     status: string;
     throttling: boolean;
+    /** Absent on a backend older than support-service #675. */
+    memoryMB?: { used: number; total: number; limitSource: 'cgroup' | 'host' } | null;
+    process?: {
+      rssMB: number;
+      heapUsedMB: number;
+      heapTotalMB: number;
+      externalMB: number;
+      arrayBuffersMB: number;
+    } | null;
     throttleFactor: number;
   };
   scaling: unknown;
