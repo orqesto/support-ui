@@ -14,6 +14,7 @@ import {
   Package,
   ServerCog,
   SlidersHorizontal,
+  Database,
   ToggleLeft,
   MailOpen,
   type LucideIcon,
@@ -105,6 +106,9 @@ const PlatformUsage = lazy(() =>
 const PlatformSystem = lazy(() =>
   import('@/pages/console/PlatformSystem').then((mod) => ({ default: mod.PlatformSystem }))
 );
+const PlatformDatabases = lazy(() =>
+  import('@/pages/console/PlatformDatabases').then((mod) => ({ default: mod.PlatformDatabases }))
+);
 const PlatformDefaults = lazy(() =>
   import('@/pages/console/PlatformDefaults').then((mod) => ({ default: mod.PlatformDefaults }))
 );
@@ -145,6 +149,9 @@ export const PLATFORM_SECTIONS: ConsoleSection[] = [
     visible: (ctx) => !ctx.selfHostedDeployment,
   },
   { id: 'system', label: 'System', icon: ServerCog, path: 'system', element: PlatformSystem },
+  // Where each workspace's data lives (BYODB): retention window, Free-on-managed deadlines,
+  // own databases that stopped answering. Next to System because it is an operator's page.
+  { id: 'databases', label: 'Databases', icon: Database, path: 'databases', element: PlatformDatabases },
   { id: 'defaults', label: 'Platform Defaults', icon: SlidersHorizontal, path: 'defaults', element: PlatformDefaults },
   // Next to Platform Defaults on purpose: both answer "why is the product behaving
   // this way for this tenant", one through settings and one through flags.

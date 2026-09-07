@@ -49,18 +49,27 @@ describe('initialWizardPlan', () => {
 });
 
 describe('buildStepLabels', () => {
-  it('is the five core steps by default (no standalone departments step)', () => {
+  it('is the six core steps by default (no standalone departments step)', () => {
     expect(buildStepLabels(false)).toEqual([...STEP_LABELS]);
-    expect(buildStepLabels(false)).toHaveLength(5);
+    expect(buildStepLabels(false)).toHaveLength(6);
     // Departments are set up via Channels/routing, never as their own step.
     expect(buildStepLabels(false)).not.toContain('Departments');
   });
 
+  // BYODB §4: the database is chosen BEFORE any channel is connected, so mail lands in the
+  // database the workspace keeps — a channel connected first would fill a database the
+  // workspace then has to leave.
+  it('puts Database right after AI and before Channels', () => {
+    const labels = buildStepLabels(false);
+    expect(labels.indexOf('Database')).toBe(labels.indexOf('AI setup') + 1);
+    expect(labels.indexOf('Database')).toBeLessThan(labels.indexOf('Channels'));
+  });
+
   it('appends Payment as the last step when included', () => {
     const labels = buildStepLabels(true);
-    expect(labels).toHaveLength(6);
-    expect(labels[5]).toBe('Payment');
+    expect(labels).toHaveLength(7);
+    expect(labels[6]).toBe('Payment');
     // Core order is untouched, so a resumed step index still means the same step.
-    expect(labels.slice(0, 5)).toEqual([...STEP_LABELS]);
+    expect(labels.slice(0, 6)).toEqual([...STEP_LABELS]);
   });
 });

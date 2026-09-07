@@ -7,6 +7,7 @@ import type { WorkspaceSetupStatus } from '@/services/onboarding.service';
 const status = (over: Partial<WorkspaceSetupStatus> = {}): WorkspaceSetupStatus => ({
   steps: [
     { key: 'ai', satisfied: true, detail: '1 AI provider enabled' },
+    { key: 'database', satisfied: true, detail: 'Running on the managed database' },
     { key: 'storage', satisfied: false, detail: 'Using default managed storage' },
     { key: 'channels', satisfied: true, detail: '2 channels connected' },
     { key: 'team', satisfied: false, detail: 'Only the workspace owner so far' },
@@ -19,7 +20,7 @@ const status = (over: Partial<WorkspaceSetupStatus> = {}): WorkspaceSetupStatus 
 
 describe('SetupReconcileNotice', () => {
   it('shows the evidence for a step that is already configured', () => {
-    render(<SetupReconcileNotice setup={status()} activeStep={3} />);
+    render(<SetupReconcileNotice setup={status()} activeStep={4} />);
     expect(screen.getByTestId('setup-already-configured')).toBeInTheDocument();
     expect(screen.getByText(/2 channels connected/)).toBeInTheDocument();
   });
@@ -27,19 +28,19 @@ describe('SetupReconcileNotice', () => {
   // The banner must never claim credit for work that has not been done — that
   // would talk an admin past a step they still need.
   it('renders nothing for a step that is still outstanding', () => {
-    render(<SetupReconcileNotice setup={status()} activeStep={2} />);
+    render(<SetupReconcileNotice setup={status()} activeStep={3} />);
     expect(screen.queryByTestId('setup-already-configured')).not.toBeInTheDocument();
   });
 
   it('renders nothing while the setup check is still in flight', () => {
-    render(<SetupReconcileNotice setup={null} activeStep={3} />);
+    render(<SetupReconcileNotice setup={null} activeStep={4} />);
     expect(screen.queryByTestId('setup-already-configured')).not.toBeInTheDocument();
   });
 
   // Payment is about money, not workspace configuration, and the backend reports
   // no facts for it — so it must never be labelled "already set up".
   it('renders nothing on the payment step', () => {
-    render(<SetupReconcileNotice setup={status({ allSatisfied: true })} activeStep={6} />);
+    render(<SetupReconcileNotice setup={status({ allSatisfied: true })} activeStep={7} />);
     expect(screen.queryByTestId('setup-already-configured')).not.toBeInTheDocument();
   });
 

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { AIProvidersSettings } from './AIProvidersSettings';
 import { ChatWidgetSettings } from './ChatWidgetSettings';
 import { MessageSourcesSettings } from './MessageSourcesSettings';
+import { DatabaseConfigCard } from './providers/DatabaseConfigCard';
 import { ObjectStorageConfigCard } from './providers/ObjectStorageConfigCard';
 import { TicketAutomationSettings } from './TicketAutomationSettings';
 import { Tabs } from '@/components/ui/Tabs';
@@ -15,7 +16,8 @@ type ServiceSection =
   | 'ticket-automation'
   | 'ai-providers'
   | 'chat-widgets'
-  | 'object-storage';
+  | 'object-storage'
+  | 'database';
 
 type Props = {
   /** Sub-section from parent hash (e.g. `/settings#integrations/ai-providers`). */
@@ -37,7 +39,7 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
       'message-sources',
       'ticket-automation',
       ...(canManageIntegrations
-        ? (['ai-providers', 'object-storage', 'chat-widgets'] as ServiceSection[])
+        ? (['ai-providers', 'object-storage', 'database', 'chat-widgets'] as ServiceSection[])
         : []),
     ],
     [canManageIntegrations]
@@ -67,6 +69,7 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
       ? [
           { id: 'ai-providers' as ServiceSection, label: 'AI Providers', description: 'Configure OpenAI, Anthropic and models' },
           { id: 'object-storage' as ServiceSection, label: 'Object Storage', description: 'Store attachments in your own S3 bucket' },
+          { id: 'database' as ServiceSection, label: 'Database', description: 'Keep your data in your own Postgres' },
           { id: 'chat-widgets' as ServiceSection, label: 'Chat Widgets', description: 'Create embeddable AI chat widgets' },
         ]
       : []),
@@ -97,6 +100,7 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
           <AIProvidersSettings showModeSwitch={isOrgAdmin} />
         )}
         {canManageIntegrations && active === 'object-storage' && <ObjectStorageConfigCard />}
+        {canManageIntegrations && active === 'database' && <DatabaseConfigCard />}
         {canManageIntegrations && active === 'chat-widgets' && <ChatWidgetSettings />}
       </Tabs>
     </div>

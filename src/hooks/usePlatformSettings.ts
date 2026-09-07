@@ -3,6 +3,7 @@ import {
   platformSettingsService,
   type DefaultStorageInput,
   type ManagedAiInput,
+  type PlatformDatabaseInput,
   type PlatformSecretKey,
 } from '@/services/platformSettings.service';
 
@@ -42,6 +43,14 @@ export const useUpdatePlatformStorage = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: DefaultStorageInput) => platformSettingsService.updateStorage(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+};
+
+export const useUpdatePlatformDatabase = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PlatformDatabaseInput) => platformSettingsService.updateDatabase(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
 };

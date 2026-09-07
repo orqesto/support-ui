@@ -4,15 +4,17 @@ import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { Input } from '@/components/ui/Input';
 
-type DeploymentType = 'shared' | 'dedicated' | 'external';
-
+/**
+ * The workspace's database is NOT chosen here (BYODB §4). Like AI and storage, it is picked in
+ * the wizard's Database step or Settings → Integrations → Database, where the URL is probed
+ * and stored encrypted. The old `shared | dedicated | external` chooser with its env-var
+ * "DB Secret Ref" was removed with the collapse of `dedicated`; an ops-provisioned env
+ * reference is registered by script, never typed into a form.
+ */
 type CreateOrganizationData = {
   name: string;
   slug: string;
   description?: string;
-  deploymentType: DeploymentType;
-  dbSecretRef?: string;
-  region?: string;
 };
 
 type CreateOrganizationModalProps = {
@@ -30,9 +32,6 @@ export const CreateOrganizationModal = ({
     name: '',
     slug: '',
     description: '',
-    deploymentType: 'shared' as DeploymentType,
-    dbSecretRef: '',
-    region: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -48,8 +47,6 @@ export const CreateOrganizationModal = ({
     setError('');
   };
 
-  const needsConnectionDetails = formData.deploymentType !== 'shared';
-
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
@@ -64,11 +61,6 @@ export const CreateOrganizationModal = ({
       return;
     }
 
-    if (needsConnectionDetails && !formData.dbSecretRef.trim()) {
-      setError('DB secret ref is required for dedicated and external deployments');
-      return;
-    }
-
     setIsLoading(true);
 
     try {
@@ -76,11 +68,8 @@ export const CreateOrganizationModal = ({
         name: formData.name,
         slug: formData.slug,
         description: formData.description || undefined,
-        deploymentType: formData.deploymentType,
-        dbSecretRef: needsConnectionDetails ? formData.dbSecretRef : undefined,
-        region: needsConnectionDetails && formData.region ? formData.region : undefined,
       });
-      setFormData({ name: '', slug: '', description: '', deploymentType: 'shared', dbSecretRef: '', region: '' });
+      setFormData({ name: '', slug: '', description: '' });
       onClose();
     } catch (err) {
       if (err instanceof Error) {
@@ -180,59 +169,10 @@ export const CreateOrganizationModal = ({
             />
           </div>
 
-          <div>
-            <label className="block mb-1 text-sm font-medium">Database Deployment</label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['shared', 'dedicated', 'external'] as DeploymentType[]).map((type) => (
-                <Button
-                  key={type}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setFormData({ ...formData, deploymentType: type })}
-                  className={`capitalize ${
-                    formData.deploymentType === type
-                      ? 'border-primary bg-primary/10 text-primary font-medium'
-                      : ''
-                  }`}
-                >
-                  {type}
-                </Button>
-              ))}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {formData.deploymentType === 'shared' && 'Uses the platform shared database — no extra config needed'}
-              {formData.deploymentType === 'dedicated' && 'Separate DB instance on our infrastructure'}
-              {formData.deploymentType === 'external' && 'Client-side DB — you provide the connection'}
-            </p>
-          </div>
-
-          {needsConnectionDetails && (
-            <>
-              <div>
-                <Input
-                  label="DB Secret Ref"
-                  type="text"
-                  placeholder="ORG_ARASAKA_DB_URL"
-                  value={formData.dbSecretRef}
-                  onChange={(event) => setFormData({ ...formData, dbSecretRef: event.target.value })}
-                  required
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Env var name holding the full postgres connection string
-                </p>
-              </div>
-              <div>
-                <Input
-                  label="Region (Optional)"
-                  type="text"
-                  placeholder="eu-west-1"
-                  value={formData.region}
-                  onChange={(event) => setFormData({ ...formData, region: event.target.value })}
-                />
-              </div>
-            </>
-          )}
+          <p className="text-xs text-muted-foreground">
+            The workspace starts on the managed database. Its own Postgres is connected in the setup
+            wizard or in Settings → Integrations → Database, like AI keys and storage.
+          </p>
 
           {error && (
             <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">{error}</div>

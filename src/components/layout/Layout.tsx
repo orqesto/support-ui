@@ -43,6 +43,7 @@ import { VersionStatus } from './VersionStatus';
 import { ThemeToggle } from './ThemeToggle';
 import { NotificationCenter } from './NotificationCenter';
 import { useSLANotifications } from '@/hooks/useSLANotifications';
+import { DatabaseBanner } from './DatabaseBanner';
 import { LicenseExpiryBanner } from './LicenseExpiryBanner';
 import { ResumeSetupBanner } from './ResumeSetupBanner';
 import { TrialBanner } from './TrialBanner';
@@ -697,6 +698,7 @@ export const Layout = ({ children }: LayoutProps) => {
             <LicenseExpiryBanner />
             <ResumeSetupBanner />
             <TrialBanner />
+            <DatabaseBanner />
             <MessageCapBanner />
             {children}
           </main>

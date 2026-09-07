@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
 import { AiChoiceStep } from './steps/AiChoiceStep';
 import { ChannelsStep } from './steps/ChannelsStep';
+import { DatabaseStep } from './steps/DatabaseStep';
 import { InviteTeamStep } from './steps/InviteTeamStep';
 import { KbStep } from './steps/KbStep';
 import { PaymentStep } from './steps/PaymentStep';
@@ -28,6 +29,7 @@ import { integrationsService } from '@/services/integrations.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
+import { getApiErrorMessage, getErrorBody } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 
 type StepNumber = OnboardingState['currentStep'];
@@ -35,15 +37,17 @@ type StepNumber = OnboardingState['currentStep'];
 // Step order (KB is the last CORE step — see STEP_LABELS in StepIndicator). There
 // is no standalone departments step: a department is only reachable once a message
 // source serves it, so departments are set up in Channels / Settings routing.
-// Keyed by number (not StepNumber) since the persisted `currentStep` type is a
-// loose 1-7 superset while only 1-6 are live here.
+// Keyed by number (not StepNumber): the persisted `currentStep` is a bare 1-7 index.
+// Database (2) comes before Channels on purpose — mail must land in the database the
+// workspace keeps (BYODB §4).
 const STEP_TITLES: Record<number, string> = {
   1: 'How should AI features work?',
-  2: 'Where should files be stored?',
-  3: 'Connect your message channels',
-  4: 'Invite your team',
-  5: 'Add knowledge for your AI',
-  6: 'Add a payment method',
+  2: 'Where should your data live?',
+  3: 'Where should files be stored?',
+  4: 'Connect your message channels',
+  5: 'Invite your team',
+  6: 'Add knowledge for your AI',
+  7: 'Add a payment method',
 };
 
 /**
@@ -59,6 +63,11 @@ export const OnboardingWizard = () => {
   const isGlobalAdmin = currentUser?.role === 'admin';
   const persisted = useOnboardingStore((state) => state.onboarding);
   const managedAiAvailable = useOnboardingStore((state) => state.managedAiAvailable);
+  // Database step facts (BYODB Phase 2). A backend that predates the step sends nothing,
+  // and the honest default for "unknown" is the old behaviour: managed allowed.
+  const database = useOnboardingStore((state) => state.database);
+  const managedDbAllowed = database?.managedAllowed ?? true;
+  const currentDatabase = database?.current ?? null;
   const markComplete = useOnboardingStore((state) => state.markComplete);
   const refreshOnboarding = useOnboardingStore((state) => state.refresh);
   const billingEnabled = useBackendVersion().data?.billingEnabled ?? false;
@@ -95,6 +104,9 @@ export const OnboardingWizard = () => {
   const [rawStep, setRawStep] = useState<StepNumber>(persisted?.currentStep ?? 1);
   const activeStep = Math.min(rawStep, stepLabels.length) as StepNumber;
   const [aiChoice, setAiChoice] = useState<'managed' | 'byo' | undefined>(persisted?.aiChoice);
+  const [dbChoice, setDbChoice] = useState<'managed' | 'own' | undefined>(persisted?.dbChoice);
+  // The BE's refusal of the managed database (402 MANAGED_DB_NOT_ENTITLED), shown in the step.
+  const [dbChoiceError, setDbChoiceError] = useState<string | null>(null);
   const [channelsConnected, setChannelsConnected] = useState(false);
   const [channelsKnown, setChannelsKnown] = useState(false);
   // Per-step "the user actually engaged" signals, so the footer button reads
@@ -167,6 +179,31 @@ export const OnboardingWizard = () => {
     });
   };
 
+  const handleChooseDb = useCallback((choice: 'managed' | 'own') => {
+    setDbChoice(choice);
+    setDbChoiceError(null);
+    onboardingService.updateProgress({ dbChoice: choice }).catch((error: unknown) => {
+      // Free = own database: the managed choice is refused, not persisted. Say so where the
+      // click happened and un-select it, rather than leaving a card lit that the server
+      // rejected. Any other failure is the usual fire-and-forget progress write.
+      if (getErrorBody(error)?.code === 'MANAGED_DB_NOT_ENTITLED') {
+        setDbChoice(undefined);
+        setDbChoiceError(
+          getApiErrorMessage(error) ??
+            'Free runs on your own Postgres — connect one, or upgrade to use the managed database.'
+        );
+        return;
+      }
+      logger.error('Failed to persist database choice:', error);
+    });
+  }, []);
+
+  // The Database card connected (or re-verified) an own database: re-read the workspace's
+  // state so `currentDatabase` — and with it the Finish gate — reflects it without a reload.
+  const handleDatabaseChanged = useCallback(() => {
+    void refreshOnboarding();
+  }, [refreshOnboarding]);
+
   const handleChannelsConnected = (connected: boolean) => {
     setChannelsConnected(connected);
     setChannelsKnown(true);
@@ -209,7 +246,14 @@ export const OnboardingWizard = () => {
       await onboardingService.complete();
     } catch (error) {
       logger.error('Failed to complete onboarding:', error);
-      setExitError("Couldn't finish setup right now. Please check your connection and try again.");
+      // The one refusal with a reason the user can act on: a Free workspace still on the
+      // managed database. Everything else reads as the connection problem it usually is.
+      setExitError(
+        getErrorBody(error)?.code === 'MANAGED_DB_NOT_ENTITLED'
+          ? (getApiErrorMessage(error) ??
+              'Free runs on your own Postgres — connect one in the Database step before finishing.')
+          : "Couldn't finish setup right now. Please check your connection and try again."
+      );
       setFinishing(false);
       return;
     }
@@ -217,15 +261,18 @@ export const OnboardingWizard = () => {
     leaveWizard();
   };
 
-  // No step blocks advancing. AI (1 — managed or BYO), storage (2), channels (3)
-  // and KB (5) are all optional — set up now or later. KB is the last core step, so
-  // its term only affects the (unshown) Next/Skip label there; the footer renders Finish.
-  const nextDisabled = false;
+  // Free = own database (BYODB §3.4): a workspace that may not use the managed database and
+  // has not connected its own cannot go past the Database step — mail must not start landing
+  // in a database it will have to leave. Every other step is optional: set up now or later.
+  // "Finish later" (header) stays the escape hatch.
+  const missingDatabase = !managedDbAllowed && (currentDatabase?.mode ?? 'managed') === 'managed';
+  const nextDisabled = activeStep === 2 && missingDatabase;
   const optionalUnfinished =
     (activeStep === 1 && !aiChoice) ||
-    (activeStep === 2 && !storageChosen) ||
-    (activeStep === 3 && !channelsConnected) ||
-    (activeStep === 5 && !kbHasDocs);
+    (activeStep === 2 && !dbChoice) ||
+    (activeStep === 3 && !storageChosen) ||
+    (activeStep === 4 && !channelsConnected) ||
+    (activeStep === 6 && !kbHasDocs);
   // Per-step skip (footer) is distinct from ending the whole wizard (header).
   const nextLabel = optionalUnfinished ? 'Skip this step' : 'Next';
   const isLastStep = activeStep >= stepLabels.length;
@@ -245,7 +292,7 @@ export const OnboardingWizard = () => {
 
   const missingAiChoice = !aiChoice;
   const missingChannel = channelsKnown && !channelsConnected;
-  const readyToFinish = !missingAiChoice && !missingChannel;
+  const readyToFinish = !missingAiChoice && !missingChannel && !missingDatabase;
 
   // Reconcile against what already exists, once, on mount.
   //
@@ -340,11 +387,21 @@ export const OnboardingWizard = () => {
             managedAvailable={managedAiAvailable}
           />
         )}
-        {activeStep === 2 && <StorageStep onChoiceChange={handleStorageChoice} />}
-        {activeStep === 3 && <ChannelsStep onConnectedChange={handleChannelsConnected} />}
-        {activeStep === 4 && <InviteTeamStep />}
-        {activeStep === 5 && <KbStep onDocsCountChange={handleKbDocsCount} />}
-        {activeStep === 6 && showPaymentStep && (
+        {activeStep === 2 && (
+          <DatabaseStep
+            value={dbChoice}
+            onChoose={handleChooseDb}
+            managedAllowed={managedDbAllowed}
+            current={currentDatabase}
+            choiceError={dbChoiceError}
+            onConnected={handleDatabaseChanged}
+          />
+        )}
+        {activeStep === 3 && <StorageStep onChoiceChange={handleStorageChoice} />}
+        {activeStep === 4 && <ChannelsStep onConnectedChange={handleChannelsConnected} />}
+        {activeStep === 5 && <InviteTeamStep />}
+        {activeStep === 6 && <KbStep onDocsCountChange={handleKbDocsCount} />}
+        {activeStep === 7 && showPaymentStep && (
           <PaymentStep
             initialPlan={initialWizardPlan(selectedPlan)}
             planWasPreselected={planWasPreselected}
@@ -369,10 +426,17 @@ export const OnboardingWizard = () => {
           Back
         </Button>
         {!isLastStep ? (
-          <Button disabled={nextDisabled} onClick={() => goTo((activeStep + 1) as StepNumber)}>
-            {nextLabel}
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
+          <div className="flex flex-col items-end gap-1.5">
+            {nextDisabled && (
+              <p className="text-right text-xs text-muted-foreground" data-testid="database-step-required">
+                Free runs on your own Postgres — connect one to continue, or use “Finish later”.
+              </p>
+            )}
+            <Button disabled={nextDisabled} onClick={() => goTo((activeStep + 1) as StepNumber)}>
+              {nextLabel}
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
         ) : (
           <div className="flex flex-col items-end gap-1.5">
             {!readyToFinish && (
@@ -387,11 +451,21 @@ export const OnboardingWizard = () => {
                     choose how AI works
                   </button>
                 )}
-                {missingAiChoice && missingChannel && ' and '}
+                {missingAiChoice && (missingDatabase || missingChannel) && ', '}
+                {missingDatabase && (
+                  <button
+                    type="button"
+                    onClick={() => goTo(2)}
+                    className="font-medium text-primary underline"
+                  >
+                    connect your own database
+                  </button>
+                )}
+                {missingDatabase && missingChannel && ' and '}
                 {missingChannel && (
                   <button
                     type="button"
-                    onClick={() => goTo(3)}
+                    onClick={() => goTo(4)}
                     className="font-medium text-primary underline"
                   >
                     connect a channel

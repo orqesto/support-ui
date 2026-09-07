@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useScopeStore } from '@/stores/scopeStore';
 import { useDepartmentContextStore } from '@/stores/departmentContextStore';
 import { useSubscriptionGateStore } from '@/stores/subscriptionGateStore';
+import { isDatabasePauseCode, useDatabaseStatusStore } from '@/stores/databaseStatusStore';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -228,10 +229,26 @@ export const handleResponseError = async (error: unknown): Promise<unknown> => {
   // instead of leaving the user with silently-failing blank screens. Global
   // admins never receive a 402, so this only gates regular users in an expired org.
   if (isAxiosError(error) && error.response?.status === 402) {
-    const data = error.response.data as { error?: string; message?: string } | undefined;
-    useSubscriptionGateStore
-      .getState()
-      .setGated(data?.error ?? data?.message ?? 'Your subscription is not active.');
+    const data = error.response.data as { error?: string; message?: string; code?: string } | undefined;
+    // One 402 is NOT the subscription gate: the wizard's Database step answers 402
+    // `MANAGED_DB_NOT_ENTITLED` when a Free workspace picks the managed database (BYODB §3.4).
+    // That is a step-level refusal the step renders inline; gating the whole app on it would
+    // lock a brand-new signup behind "your subscription is not active" mid-setup.
+    if (data?.code !== 'MANAGED_DB_NOT_ENTITLED') {
+      useSubscriptionGateStore
+        .getState()
+        .setGated(data?.error ?? data?.message ?? 'Your subscription is not active.');
+    }
+  }
+
+  // 503 with a DB_* code = the workspace's OWN database is paused (being moved, not answering,
+  // suspended — BYODB §3.6). Record it so the banner can say which, instead of every screen
+  // reporting a generic "temporarily unavailable".
+  if (isAxiosError(error) && error.response?.status === 503) {
+    const data = error.response.data as { error?: string; message?: string; code?: unknown } | undefined;
+    if (isDatabasePauseCode(data?.code)) {
+      useDatabaseStatusStore.getState().setPaused(data.code, data?.error ?? data?.message ?? null);
+    }
   }
 
   // Extract error message from response
@@ -272,7 +289,30 @@ export const noteSessionFromResponse = (response: AxiosResponse): AxiosResponse 
   const body = response.data as { data?: { auth?: { expiresIn?: unknown } } } | undefined;
   const expiresIn = body?.data?.auth?.expiresIn;
   if (typeof expiresIn === 'string') noteSessionIssued(expiresIn);
+  clearDatabasePauseOnSuccess(response.config?.url);
   return response;
+};
+
+/**
+ * Routes that answer WITHOUT touching the workspace's database. A 2xx from one of these says
+ * nothing about whether the client's Postgres is back, so it must not clear the pause; a 2xx
+ * from anything else (the inbox, tickets, contacts…) is exactly the proof that it is.
+ */
+const DATABASE_PAUSE_EXEMPT_PREFIXES = [
+  '/api/health',
+  '/api/auth',
+  '/api/organizations/onboarding',
+  '/api/integrations/database-config',
+  '/api/admin',
+  '/api/alliances',
+  '/api/notifications',
+];
+
+export const clearDatabasePauseOnSuccess = (url: string | undefined): void => {
+  const store = useDatabaseStatusStore.getState();
+  if (!store.paused || !url) return;
+  if (DATABASE_PAUSE_EXEMPT_PREFIXES.some((prefix) => url.startsWith(prefix))) return;
+  store.clear();
 };
 
 // Response interceptor to handle errors
