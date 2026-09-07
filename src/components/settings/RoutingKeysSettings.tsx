@@ -25,6 +25,8 @@ export const RoutingKeysSettings = () => {
     key: null,
   });
   const [autoAssignMode, setAutoAssignMode] = useState<AutoAssignMode>('always');
+  const [assignOnReply, setAssignOnReply] = useState(true);
+  const [savingAssignOnReply, setSavingAssignOnReply] = useState(false);
   const [savingMode, setSavingMode] = useState(false);
   const [allowSelfEditSkills, setAllowSelfEditSkills] = useState(false);
   const [savingSelfEdit, setSavingSelfEdit] = useState(false);
@@ -40,6 +42,7 @@ export const RoutingKeysSettings = () => {
       ]);
       setRoutingKeys(data);
       setAutoAssignMode(assignData.mode);
+      setAssignOnReply(assignData.assignOnReply ?? true);
       setAllowSelfEditSkills(selfEditData.allowSelfEditSkills);
     } catch {
       // ignore
@@ -59,6 +62,17 @@ export const RoutingKeysSettings = () => {
       setAutoAssignMode(mode);
     } finally {
       setSavingMode(false);
+    }
+  };
+
+  const handleAssignOnReplyToggle = async () => {
+    const next = !assignOnReply;
+    setSavingAssignOnReply(true);
+    try {
+      await organizationService.updateAssignOnReply(next);
+      setAssignOnReply(next);
+    } finally {
+      setSavingAssignOnReply(false);
     }
   };
 
@@ -134,6 +148,27 @@ export const RoutingKeysSettings = () => {
               <div className="text-xs mt-0.5 text-muted-foreground">{opt.description}</div>
             </Button>
           ))}
+        </div>
+      </div>
+
+      {/* Assign on reply — independent of the routing mode above (owner decision 2026-09-07) */}
+      <div className="p-4 rounded-lg border border-border bg-muted/30">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+              Ask about ownership when replying
+            </p>
+            <p className="text-sm text-muted-foreground">
+              On Send, an agent is asked whether an unowned thread becomes theirs, or whether to take
+              over a colleague&apos;s. Off: replies never change the assignee and nobody is asked.
+            </p>
+          </div>
+          <Toggle
+            checked={assignOnReply}
+            onChange={() => void handleAssignOnReplyToggle()}
+            disabled={savingAssignOnReply}
+            data-testid="assign-on-reply-toggle"
+          />
         </div>
       </div>
 

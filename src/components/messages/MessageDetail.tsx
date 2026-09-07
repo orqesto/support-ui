@@ -13,6 +13,7 @@ import {
   type AiDraft,
   type MessageNote,
   type MessageActivityEntry,
+  type ReplyAssignIntent,
 } from '@/services/message.service';
 import {
   organizationService,
@@ -27,6 +28,13 @@ import {
 } from '@/lib/socketManager';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/authStore';
+import { useQuery } from '@tanstack/react-query';
+import { AssignOnReplyDialog } from './AssignOnReplyDialog';
+import {
+  decideAssignOnReplyPrompt,
+  readAssignOnReplySetting,
+  type AssignOnReplyPrompt,
+} from './assignOnReplyPrompt';
 import type { Message, MessageEvent } from '@/types';
 import { MessageDetailHeader } from './MessageDetailHeader';
 import { MessageComposer } from './MessageComposer';
@@ -307,6 +315,16 @@ export function MessageDetail({
   const user = useAuthStore((store) => store.user);
   const currentUserId = user?.id ?? null;
 
+  // Ownership prompt on Send (owner decision 2026-09-07). The workspace setting rides on the
+  // organization payload every member may read; cached, one read per session.
+  const { data: currentOrganization } = useQuery({
+    queryKey: ['current-organization-for-reply', currentUserId],
+    queryFn: () => organizationService.getCurrent(),
+    staleTime: 5 * 60 * 1000,
+    enabled: currentUserId !== null,
+  });
+  const [assignPrompt, setAssignPrompt] = useState<AssignOnReplyPrompt | null>(null);
+
   const [notes, setNotes] = useState<MessageNote[]>([]);
   const [messageActivity, setMessageActivity] = useState<MessageActivityEntry[]>([]);
   const [noteActivityLog, setNoteActivityLog] = useState<
@@ -404,10 +422,7 @@ export function MessageDetail({
   const supportsRecipients = message.channel === 'email';
   const [recipientDraft, setRecipientDraft] = useState<RecipientDraft>(emptyRecipientDraft);
 
-  const handleSend = useCallback(async () => {
-    // Require real text — blocks Ctrl+Enter attachment-only sends the disabled
-    // button can't (empty, whitespace, or markup-only like `<p><br></p>`).
-    if (isBlankRichText(composer)) return;
+  const performSend = useCallback(async (assign?: ReplyAssignIntent) => {
     setSubmitting(true);
     setSendFailedError(null);
     // Notes aren't emails — no idempotency needed. For replies, reuse a prior failed attempt's
@@ -432,7 +447,8 @@ export function MessageDetail({
           aiSource ?? undefined,
           idempotencyKey,
           aiDraft ?? undefined,
-          recipients
+          recipients,
+          assign
         );
       } else {
         await messageService.reply(
@@ -444,7 +460,8 @@ export function MessageDetail({
           idempotencyKey,
           aiDraft ?? undefined,
           undefined,
-          recipients
+          recipients,
+          assign
         );
       }
       sendIdempotencyKeyRef.current = null; // success — the next send is a new logical send
@@ -466,8 +483,31 @@ export function MessageDetail({
       setSendFailedError(resolveSendFailureMessage(err));
     } finally {
       setSubmitting(false);
+      setAssignPrompt(null);
     }
   }, [aiDraft, aiSource, composer, composerMode, message.id, onRefresh, onReplied, recipientDraft, selectedFiles, supportsRecipients]);
+
+  const handleSend = useCallback(async () => {
+    // Require real text — blocks Ctrl+Enter attachment-only sends the disabled
+    // button can't (empty, whitespace, or markup-only like `<p><br></p>`).
+    if (isBlankRichText(composer)) return;
+    // A reply (not a note) first asks whether the thread becomes yours — every time on an
+    // unowned thread, as a take-over on a colleague's, never on your own. The answer is sent
+    // with the reply; the backend applies it.
+    if (composerMode !== 'note') {
+      const prompt = decideAssignOnReplyPrompt({
+        assigneeId: message.assigneeId,
+        assigneeName: message.assigneeName,
+        currentUserId,
+        assignOnReply: readAssignOnReplySetting(currentOrganization),
+      });
+      if (prompt) {
+        setAssignPrompt(prompt);
+        return;
+      }
+    }
+    await performSend();
+  }, [composer, composerMode, currentOrganization, currentUserId, message.assigneeId, message.assigneeName, performSend]);
 
   const handleOpenTemplates = useCallback(async () => {
     setTemplateError(null);
@@ -919,6 +959,12 @@ export function MessageDetail({
         onRefresh={handleRefresh}
       />
       {/* Confirm dialogs */}
+      <AssignOnReplyDialog
+        prompt={assignPrompt}
+        sending={submitting}
+        onChoose={(assign) => void performSend(assign)}
+        onCancel={() => setAssignPrompt(null)}
+      />
       <MessageDetailConfirmDialogs
         message={message}
         rejectDialogOpen={rejectDialogOpen}

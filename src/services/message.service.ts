@@ -192,6 +192,9 @@ export type MessageContactSubject = {
  * agent does on purpose — on a shared support inbox the accidental version
  * discloses the thread to whoever the customer happened to cc.
  */
+/** The agent's answer to "does this thread become yours?" — see assignOnReplyPrompt.ts. */
+export type ReplyAssignIntent = 'me' | 'none';
+
 export type ReplyRecipients = {
   to?: string[];
   cc?: string[];
@@ -327,8 +330,10 @@ export const messageService = {
     return response.data;
   },
 
-  reply: async (id: number, content: string, resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string, aiDraft?: AiDraft, whatsappTemplate?: WhatsAppTemplateSend, recipients?: ReplyRecipients) => {
+  reply: async (id: number, content: string, resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string, aiDraft?: AiDraft, whatsappTemplate?: WhatsAppTemplateSend, recipients?: ReplyRecipients, assign?: ReplyAssignIntent) => {
     const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/reply`, {
+      // The agent's answer to the ownership prompt; omitted when nothing was asked.
+      ...(assign && { assign }),
       // Omitted entirely for a template send: the server renders the body from the
       // approved template, and a body we invented here would not be what Meta delivers.
       ...(!whatsappTemplate && { content }),
@@ -367,9 +372,10 @@ export const messageService = {
     }
   },
 
-  replyWithAttachments: async (id: number, content: string, files: File[], resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string, aiDraft?: AiDraft, recipients?: ReplyRecipients) => {
+  replyWithAttachments: async (id: number, content: string, files: File[], resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string, aiDraft?: AiDraft, recipients?: ReplyRecipients, assign?: ReplyAssignIntent) => {
     const formData = new FormData();
     formData.append('content', content);
+    if (assign) formData.append('assign', assign);
     formData.append('resolve', String(resolve));
     formData.append('usedSuggestedAnswer', String(usedSuggestedAnswer));
     if (suggestedAnswerSource) formData.append('suggestedAnswerSource', suggestedAnswerSource);
