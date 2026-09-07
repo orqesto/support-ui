@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/Dialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
+import { FailureAnalysisCard } from '@/components/console/FailureAnalysisCard';
+import { formatMemoryBreakdown, formatMemoryFigures } from '@/components/console/failureAnalysis.format';
 import { licenseService } from '@/services/license.service';
 import { platformService } from '@/services/platform.service';
 import systemService, { type StrayAdminMembership } from '@/services/system.service';
@@ -282,6 +284,11 @@ export const PlatformSystem = () => {
                   <div className="flex gap-2 items-center">
                     <span className="text-muted-foreground">Memory</span>
                     <span className="font-medium text-foreground">{resources.memory}</span>
+                    {formatMemoryFigures(resources.memoryMB) ? (
+                      <span className="text-xs text-muted-foreground">
+                        {formatMemoryFigures(resources.memoryMB)}
+                      </span>
+                    ) : null}
                   </div>
                   <div className="flex gap-2 items-center">
                     <span className="text-muted-foreground">Status</span>
@@ -292,6 +299,12 @@ export const PlatformSystem = () => {
                   {resources.throttling && <Badge variant="warning">throttling</Badge>}
                 </div>
               )}
+              {resources && formatMemoryBreakdown(resources.process) ? (
+                <p className="text-xs text-muted-foreground">
+                  Resident memory: {formatMemoryBreakdown(resources.process)}. Native memory is what
+                  a locally loaded embedding model occupies; it does not shrink when the queues are idle.
+                </p>
+              ) : null}
 
               <Card padding="none" className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -336,6 +349,8 @@ export const PlatformSystem = () => {
         </CardContent>
       </Card>
 
+
+      <FailureAnalysisCard />
       {/* Maintenance */}
       <Card>
         <CardHeader>

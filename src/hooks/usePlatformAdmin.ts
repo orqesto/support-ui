@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import {
   platformService,
   type CreatePlanInput,
+  type QueueFailureJobRef,
   type UpdatePlanInput,
 } from '@/services/platform.service';
 import type { AuditQueryFilters } from '@/services/auditQueryParams';
@@ -284,6 +285,36 @@ export const usePlatformQueueStatus = () =>
     refetchInterval: 15 * 1000,
     refetchOnWindowFocus: false,
   });
+
+export const usePlatformFailureAnalysis = () =>
+  useQuery({
+    queryKey: ['platform', 'queue-failures'],
+    queryFn: () => platformService.getQueueFailureAnalysis(),
+    refetchInterval: 30 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+const invalidateQueueViews = (queryClient: ReturnType<typeof useQueryClient>) => {
+  void queryClient.invalidateQueries({ queryKey: ['platform', 'queue-failures'] });
+  void queryClient.invalidateQueries({ queryKey: ['platform', 'queue-status'] });
+  void queryClient.invalidateQueries({ queryKey: ['platform', 'queue-failed'] });
+};
+
+export const useRetryFailedJobs = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (jobs: QueueFailureJobRef[]) => platformService.retryFailedJobs(jobs),
+    onSuccess: () => invalidateQueueViews(queryClient),
+  });
+};
+
+export const useRemoveFailedJobs = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (jobs: QueueFailureJobRef[]) => platformService.removeFailedJobs(jobs),
+    onSuccess: () => invalidateQueueViews(queryClient),
+  });
+};
 
 export const usePlatformSyncCheckpoints = () =>
   useQuery({
