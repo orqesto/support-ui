@@ -14,13 +14,15 @@ import { ScimTelemetryCard } from '../ScimTelemetryCard';
 import type { AllianceScimTelemetry } from '@/services/alliance-scim.service';
 
 const telemetry = (
-  connector?: AllianceScimTelemetry['connector']
+  connector?: AllianceScimTelemetry['connector'],
+  skippedMembers?: AllianceScimTelemetry['skippedMembers']
 ): AllianceScimTelemetry => ({
   config: { enabled: true, allowScimAccountLinking: true },
   tokens: { total: 1, active: 1, revoked: 0, lastUsedAt: '2026-09-06T12:34:02.000Z' },
   groups: { total: 10, memberships: 19, lastSyncedAt: '2026-09-03T07:44:15.000Z' },
   notes: [],
   connector,
+  skippedMembers,
 });
 
 afterEach(cleanup);
@@ -82,6 +84,41 @@ describe('ScimTelemetryCard — connector liveness', () => {
     // Reading `connector.state` off an absent object is how that becomes a blank page.
     render(<ScimTelemetryCard telemetry={telemetry(undefined)} />);
     expect(screen.getByText(/synced from IdP/i)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+
+describe('ScimTelemetryCard — members the IdP could not add', () => {
+  // taco, 2026-09-07 10:29 UTC: the IdP put alice, stella and mia into a group; none had an
+  // account, so all three were dropped. The IdP reported the push successful and our card
+  // showed nothing — three people had no access and both consoles read green.
+  const skipped = { total: 3, emails: ['alice@biaxol.com', 'stella@x.info'], lastSkippedAt: null };
+
+  it('warns, names the people, and says what to do about it', () => {
+    render(<ScimTelemetryCard telemetry={telemetry(undefined, skipped)} />);
+    expect(screen.getByRole('alert')).toHaveTextContent(/3 members left out of a group/);
+    expect(screen.getByText(/alice@biaxol.com/)).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/Provision them first/);
+  });
+
+  it('says "member" not "members" for a single person', () => {
+    render(
+      <ScimTelemetryCard telemetry={telemetry(undefined, { ...skipped, total: 1 })} />
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(/1 member left out/);
+  });
+
+  it('CONTROL: clears itself once nobody is outstanding', () => {
+    // The BE recomputes `total` against current membership, so a resolved skip must leave
+    // no trace here. A warning that cannot be cleared is one everyone learns to ignore.
+    render(
+      <ScimTelemetryCard telemetry={telemetry(undefined, { total: 0, emails: [], lastSkippedAt: null })} />
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('CONTROL: renders against a backend that does not send the field', () => {
+    render(<ScimTelemetryCard telemetry={telemetry(undefined, undefined)} />);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
