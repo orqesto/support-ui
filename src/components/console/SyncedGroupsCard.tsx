@@ -27,11 +27,18 @@ import { ORGANIZATION_ROLES, type OrganizationRole } from '@/types/roles';
 /**
  * Synced IdP groups card — the single Approach-1 surface for the alliance Provisioning
  * section. The IdP pushes its groups; this lists them (member preview + current wired
- * state + a name-derived suggestion) and maps each, in place, to one of:
- *   - an alliance role (alliance_admin/alliance_agent — the elevation surface), OR
- *   - a specific ORG ROLE (org_admin/moderator/support/associate) scoped to chosen
- *     WORKSPACES — materialized as a backing alliance group via the `newGroup` wire, OR
- *   - an existing authored alliance group.
+ * state + a name-derived suggestion) and maps each, in place, to ONE thing: an ORG ROLE
+ * (org_admin/moderator/support/associate) in a chosen WORKSPACE, optionally narrowed to
+ * departments — materialized as a backing alliance group via the `newGroup` wire.
+ *
+ * That is the only target. Two others used to sit in the same picker and are gone:
+ *   - an alliance role (Role-Model v2 §0.2 collapsed the two mapping layers into one);
+ *   - an existing authored alliance group. Every wire mints a backing group named after
+ *     the IdP group, and the picker listed those too — so each wire an admin made added a
+ *     "Group — SSO - Odly - … " row to every other IdP group's picker (taco, 2026-09-07:
+ *     four roles and six of its own by-products). Nothing it could express is out of reach
+ *     without it: workspace and departments are on the role wire, and permission overrides
+ *     are edited on the minted group through "Edit role / workspace". One door per job.
  * Wiring applies to the already-synced members immediately (backfill); "Re-sync now"
  * reconciles all synced members on demand — SCIM is push-driven with no reconcile cron.
  *
@@ -41,19 +48,14 @@ import { ORGANIZATION_ROLES, type OrganizationRole } from '@/types/roles';
 
 
 /**
- * The target select encodes each kind as `orgrole:<role>` or `group:<id>`.
- *
- * `role:<alliance role>` — wiring an IdP group straight to an alliance role — is gone
- * (Role-Model v2 §0.2: the two group-mapping layers collapse into one). An IdP group now
- * always maps to a workspace role, via a group.
+ * The target select encodes its one kind as `orgrole:<role>`. `role:<alliance role>` and
+ * `group:<id>` were the two retired kinds (see the header); a value in either shape is
+ * simply not a target any more and `buildTarget` refuses it.
  */
-const parseSimpleTarget = (value: string): WireTarget | null => {
-  if (value.startsWith('group:')) {
-    const groupId = Number(value.slice('group:'.length));
-    return Number.isFinite(groupId) ? { type: 'existingGroup', groupId } : null;
-  }
-  return null;
-};
+const TARGET_OPTIONS = ORGANIZATION_ROLES.map((role) => ({
+  value: `orgrole:${role}`,
+  label: `Org role — ${ORG_ROLE_LABELS[role]}`,
+}));
 
 const orgRoleOf = (value: string): OrganizationRole | null => {
   if (!value.startsWith('orgrole:')) return null;
@@ -379,27 +381,6 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
     [orgsQuery.data]
   );
 
-  // Target options: the four workspace roles (scoped to workspaces below), then every
-  // authored alliance group. The two alliance-role entries were removed — an IdP group
-  // maps to a workspace role, never to an alliance role.
-  const targetOptions = useMemo(
-    () => [
-      ...ORGANIZATION_ROLES.map((role) => ({
-        value: `orgrole:${role}`,
-        label: `Org role — ${ORG_ROLE_LABELS[role]}`,
-      })),
-            ...(allianceGroupsQuery.data ?? []).map((group) => {
-        const grant = describeGrant(group, orgsQuery.data ?? []);
-        return {
-          value: `group:${group.id}`,
-          // What it GRANTS first, its name second: the name of a backing group is the IdP
-          // group's own name, which is the last thing that helps here.
-          label: grant ? `Group — ${grant} · ${group.name}` : `Group — ${group.name}`,
-        };
-      }),
-    ],
-    [allianceGroupsQuery.data, orgsQuery.data]
-  );
   /** groupId → grant sentence, for the wired badge on each row. */
   const grants = useMemo(
     () =>
@@ -496,7 +477,7 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
         departmentIdsByOrg,
       };
     }
-    return parseSimpleTarget(value);
+    return null;
   };
 
   const handleWire = (group: SyncedGroup) => {
@@ -565,7 +546,7 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
               key={group.id}
               group={group}
               allianceId={allianceId}
-                            targetOptions={targetOptions}
+                            targetOptions={TARGET_OPTIONS}
               grants={grants}
               canEditBacking={Boolean(
                 (allianceGroupsQuery.data ?? []).find(

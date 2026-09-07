@@ -7,6 +7,9 @@
  *   1. The alliance-role options are GONE from the picker — nobody can create another.
  *   2. A pre-existing role wiring is still SHOWN, because it still works. Hiding it
  *      would leave live access wired to something invisible in the console.
+ *
+ * The second retirement (2026-09-07) is pinned further down: the picker no longer offers
+ * authored alliance groups either — it lists the four workspace roles and nothing else.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
@@ -81,13 +84,12 @@ describe('SyncedGroupsCard wire targets', () => {
 
   // CONTROL: the picker must still offer something, or the assertion above would pass
   // simply because the control failed to render.
-  it('still offers workspace roles and authored groups', () => {
+  it('still offers the workspace roles', () => {
     syncedGroups.push(baseGroup());
     renderCard();
 
     const options = screen.getAllByRole('option').map((option) => option.textContent ?? '');
     expect(options.some((label) => label.includes('Org admin'))).toBe(true);
-    expect(options.some((label) => label.includes('Support EU'))).toBe(true);
   });
 
   // The other half of a LAZY retirement: an existing mapping still grants access, so it
@@ -119,13 +121,25 @@ describe('SyncedGroupsCard wire targets', () => {
     expect(screen.queryAllByRole('option')).toHaveLength(0);
   });
 
-  it('labels a group by what it GRANTS, with its name second', () => {
+  // The picker offered "every authored alliance group" as a target too. Every wire mints a
+  // backing group named after its IdP group, so on a console where all groups are minted
+  // (taco, 2026-09-07) the list was four roles plus one by-product per wire already made,
+  // and the owner asked what they were for. Nothing that target could express is lost:
+  // workspace and departments sit on the role wire; overrides are edited on the minted group.
+  it('offers the four workspace roles and NO alliance group, minted or hand-authored', () => {
     syncedGroups.push(baseGroup({}));
     renderCard();
-    const options = screen.getAllByRole('option').map((option) => option.textContent ?? '');
-    expect(options).toContain('Group — Support in Acme · Support US');
-    // A group with no role and no workspace keeps its bare name.
-    expect(options).toContain('Group — Support EU');
+    const target = screen.getByLabelText<HTMLSelectElement>('Map to');
+    const options = Array.from(target.options).map((option) => option.textContent ?? '');
+    expect(options).toEqual([
+      'Org role — Org admin',
+      'Org role — Moderator',
+      'Org role — Support',
+      'Org role — Associate',
+    ]);
+    // CONTROL: the mocked alliance groups are still loaded (the wired badge needs them) —
+    // the 'Support US' group exists, it is just not a target.
+    expect(options.join(' ')).not.toMatch(/Support US|Support EU|Group — /);
   });
 
   // The confirm says what the unwire does to the GROUP, by how the group came to exist —
