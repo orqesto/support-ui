@@ -39,9 +39,15 @@ vi.mock('@/hooks/usePlatformSettings', () => ({
   useClearPlatformSecret: () => noopMutation,
 }));
 
-let bedrockInstanceProfile = false;
+/** `undefined` = the version query has not answered yet. */
+let backendVersionData: { bedrockInstanceProfile: boolean } | undefined = {
+  bedrockInstanceProfile: false,
+};
 vi.mock('@/hooks/useBackendVersion', () => ({
-  useBackendVersion: () => ({ data: { bedrockInstanceProfile }, isLoading: false }),
+  useBackendVersion: () => ({
+    data: backendVersionData,
+    isLoading: backendVersionData === undefined,
+  }),
 }));
 
 const settings = {
@@ -114,16 +120,34 @@ describe('Managed AI Defaults — Bedrock parity with the workspace card', () =>
   });
 
   it('gates the instance-profile switch exactly like the workspace card', () => {
-    bedrockInstanceProfile = false;
+    backendVersionData = { bedrockInstanceProfile: false };
     renderEditing();
     switchToBedrock();
     expect(screen.getByRole('switch')).toBeDisabled();
     expect(screen.getByText(/Not available on this deployment/)).toBeInTheDocument();
     cleanup();
-    bedrockInstanceProfile = true;
+    backendVersionData = { bedrockInstanceProfile: true };
     renderEditing();
     switchToBedrock();
     expect(screen.getByRole('switch')).toBeEnabled();
     expect(screen.queryByText(/Not available on this deployment/)).not.toBeInTheDocument();
+  });
+
+  // Found reviewing the first cut: `data?.bedrockInstanceProfile ?? false` read a LOADING
+  // version as "not allowed", so the switch rendered disabled and a Save in that window
+  // persisted `false` over a stored `true` on the very box where the mode works.
+  it('does not gate, and does not clear the switch, while the version is still unknown', () => {
+    backendVersionData = undefined;
+    renderEditing();
+    switchToBedrock();
+    const toggle = screen.getByRole('switch');
+    expect(toggle).toBeEnabled();
+    expect(screen.queryByText(/Not available on this deployment/)).not.toBeInTheDocument();
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole('button', { name: /save ai defaults/i }));
+    expect(noopMutation.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'bedrock', bedrockUseInstanceProfile: true }),
+      expect.anything()
+    );
   });
 });
