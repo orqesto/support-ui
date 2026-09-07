@@ -14,8 +14,11 @@
 // becomes reachable once a message source serves it (message_source_departments),
 // so departments are set up in the Channels step / Settings routing, never picked
 // in the abstract here.
+// Database sits right after AI and BEFORE Channels on purpose: once a channel is connected
+// mail starts landing, and it must land in the database the workspace will keep (BYODB §4).
 export const STEP_LABELS = [
   'AI setup',
+  'Database',
   'Storage',
   'Channels',
   'Team',

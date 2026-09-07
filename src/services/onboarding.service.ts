@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import type { DatabaseDisplay } from '@/services/database.service';
 import type { ApiResponse } from '@/types';
 
 /** Mirrors BE OnboardingState (BE-service organizationDefaults.ts). */
@@ -14,6 +15,11 @@ export type OnboardingState = {
    */
   selectedPlan?: string;
   aiChoiceApplied?: boolean;
+  /**
+   * Database step intent (BYODB Phase 2). `own` is realised by the Settings-style connect
+   * call; `managed` is refused (402 `MANAGED_DB_NOT_ENTITLED`) for a Free workspace.
+   */
+  dbChoice?: 'managed' | 'own';
   startedAt: string;
   completedAt?: string;
   skippedAt?: string;
@@ -32,10 +38,16 @@ export type OnboardingStatus = {
   trial: TrialInfo | null;
   /** True when the platform can serve managed ("our AI") mode — gates the AI step. */
   managedAiAvailable?: boolean;
+  /**
+   * The Database step's facts (BYODB Phase 2): whether the managed database is on offer for
+   * this workspace at all (Free = own database) and what it runs on now. Absent on a backend
+   * that predates the step, in which case the step behaves as "managed allowed".
+   */
+  database?: { managedAllowed: boolean; current: DatabaseDisplay };
 };
 
 /** Mirrors BE `SetupStepKey` (workspaceSetupState.ts), in wizard order. */
-export type SetupStepKey = 'ai' | 'storage' | 'channels' | 'team' | 'knowledge';
+export type SetupStepKey = 'ai' | 'database' | 'storage' | 'channels' | 'team' | 'knowledge';
 
 export type SetupStepStatus = {
   key: SetupStepKey;
@@ -61,6 +73,7 @@ export type ReconcileResult = {
 export type OnboardingPatch = {
   currentStep?: OnboardingState['currentStep'];
   aiChoice?: 'managed' | 'byo';
+  dbChoice?: 'managed' | 'own';
 };
 
 export const onboardingService = {

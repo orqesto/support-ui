@@ -1,14 +1,15 @@
 import { CheckCircle2 } from 'lucide-react';
 import type { SetupStepKey, WorkspaceSetupStatus } from '@/services/onboarding.service';
 
-/** Wizard step number → the setup step it configures. Payment (6) has no facts. */
+/** Wizard step number → the setup step it configures. Payment (7) has no facts. */
 export const STEP_TO_SETUP_KEY: Record<number, SetupStepKey | undefined> = {
   1: 'ai',
-  2: 'storage',
-  3: 'channels',
-  4: 'team',
-  5: 'knowledge',
-  6: undefined,
+  2: 'database',
+  3: 'storage',
+  4: 'channels',
+  5: 'team',
+  6: 'knowledge',
+  7: undefined,
 };
 
 type Props = {

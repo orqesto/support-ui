@@ -3,6 +3,7 @@ import { logger } from '@/lib/logger';
 import {
   onboardingService,
   type OnboardingState,
+  type OnboardingStatus,
   type TrialInfo,
 } from '@/services/onboarding.service';
 
@@ -19,6 +20,8 @@ type OnboardingStoreState = {
   trial: TrialInfo | null;
   /** Whether the platform offers managed ("our AI") mode — drives the wizard AI step. */
   managedAiAvailable: boolean;
+  /** Database step facts + the retention/pause state the banner reads. null until fetched. */
+  database: OnboardingStatus['database'] | null;
   fetchedForOrg: number | null;
   fetchOnce: (organizationId: number | null) => void;
   refresh: () => Promise<void>;
@@ -34,6 +37,7 @@ export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
   onboarding: null,
   trial: null,
   managedAiAvailable: false,
+  database: null,
   fetchedForOrg: null,
 
   fetchOnce: (organizationId: number | null) => {
@@ -43,7 +47,7 @@ export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
     inFlightForOrg = organizationId;
     // Drop any prior org's data immediately so the banner/redirect never act on
     // another org's status during the fetch.
-    set({ status: 'unknown', onboarding: null, trial: null, fetchedForOrg: organizationId });
+    set({ status: 'unknown', onboarding: null, trial: null, database: null, fetchedForOrg: organizationId });
     // Retry transient failures before deciding. A pending org must not slip past
     // the onboarding gate because one status call blipped, so we only give up
     // (and fail open, to avoid trapping the user) after several attempts.
@@ -61,6 +65,7 @@ export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
             onboarding: data.onboarding,
             trial: data.trial,
             managedAiAvailable: data.managedAiAvailable ?? false,
+            database: data.database ?? null,
           });
           clearInFlight();
         })
@@ -92,6 +97,7 @@ export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
         onboarding: data.onboarding,
         trial: data.trial,
         managedAiAvailable: data.managedAiAvailable ?? false,
+        database: data.database ?? null,
       });
     } catch (error) {
       logger.error('Failed to refresh onboarding status:', error);

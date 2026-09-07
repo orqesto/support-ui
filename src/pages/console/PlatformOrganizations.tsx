@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, Edit2, Trash2, Settings2, Network } from 'lucide-react';
+import { Plus, Edit2, Trash2, Settings2, Network, Database } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -11,6 +11,7 @@ import { DataTable, type ColumnDef } from '@/components/ui/DataTable';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { EditWorkspaceModal } from '@/components/console/EditWorkspaceModal';
+import { WorkspaceDatabaseDialog } from '@/components/console/WorkspaceDatabaseDialog';
 import { CONSOLE_PAGE_SIZE as PAGE_SIZE } from '@/components/console/consoleConstants';
 import { formatMemberCount, formatPlanLabel } from '@/pages/console/platformOrganizations.format';
 import { CreateOrganizationModal } from '@/components/modals/CreateOrganizationModal';
@@ -27,6 +28,15 @@ const DEPLOYMENT_BADGE: Record<string, 'secondary' | 'default' | 'warning'> = {
   shared: 'secondary',
   dedicated: 'default',
   external: 'warning',
+};
+/**
+ * The registry's storage vocabulary is `shared | external` (`dedicated` was collapsed into
+ * `external` — BYODB §3.3); what an operator reads is where the data lives.
+ */
+const DEPLOYMENT_LABEL: Record<string, string> = {
+  shared: 'managed database',
+  dedicated: 'own database (ops)',
+  external: 'own database',
 };
 
 /**
@@ -45,6 +55,7 @@ export const PlatformOrganizations = () => {
   const [editTarget, setEditTarget] = useState<OrgRow | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [databaseTarget, setDatabaseTarget] = useState<{ id: number; name: string } | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -197,7 +208,8 @@ export const PlatformOrganizations = () => {
           </Badge>
           {org.tenantDb && (
             <Badge variant={DEPLOYMENT_BADGE[org.tenantDb.deploymentType] ?? 'secondary'}>
-              {org.tenantDb.deploymentType}
+              {DEPLOYMENT_LABEL[org.tenantDb.deploymentType] ?? org.tenantDb.deploymentType}
+              {org.tenantDb.status !== 'active' && ` · ${org.tenantDb.status}`}
             </Badge>
           )}
         </div>
@@ -218,6 +230,16 @@ export const PlatformOrganizations = () => {
         <Settings2 className="mr-1 w-4 h-4" />
         Manage
       </Button>
+      <Tooltip content={`Database of ${org.name}`}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setDatabaseTarget({ id: org.id, name: org.name })}
+          aria-label={`Database of ${org.name}`}
+        >
+          <Database className="w-4 h-4" />
+        </Button>
+      </Tooltip>
       <Tooltip content={`Edit ${org.name}`}>
         <Button variant="outline" size="sm" onClick={() => setEditTarget(org)} aria-label={`Edit ${org.name}`}>
           <Edit2 className="w-4 h-4" />
@@ -298,6 +320,8 @@ export const PlatformOrganizations = () => {
         onClose={() => setEditTarget(null)}
         onSaved={fetchOrgs}
       />
+
+      <WorkspaceDatabaseDialog org={databaseTarget} onClose={() => setDatabaseTarget(null)} />
 
       <ConfirmDialog
         open={deleteTarget !== null}

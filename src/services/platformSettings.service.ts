@@ -93,7 +93,16 @@ export type PlatformSettings = {
   };
   /** Every platform secret's status, so a key can be staged before switching provider. */
   secrets: Record<PlatformSecretKey, SecretStatus>;
+  /**
+   * BYODB §3.4: how long a Free workspace may stay on the managed database. Two layers only
+   * (console / built-in default). Absent on a backend that predates Phase 2.
+   */
+  database?: {
+    freeSharedRetentionDays: ResolvedField<number>;
+  };
 };
+
+export type PlatformDatabaseInput = { retentionDays: number };
 
 export type ManagedAiInput = {
   provider?: AIProvider;
@@ -138,6 +147,7 @@ type RawPlatformSettings = {
   ai: Partial<PlatformSettings['ai']> & Pick<PlatformSettings['ai'], 'defaultModel'>;
   storage: Partial<PlatformSettings['storage']> & Pick<PlatformSettings['storage'], 'driver'>;
   secrets?: Partial<Record<PlatformSecretKey, SecretStatus>>;
+  database?: { freeSharedRetentionDays?: ResolvedField<number> };
 };
 
 const UNSET_SECRET: SecretStatus = { configured: false, source: 'none', last4: null };
@@ -242,6 +252,11 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
       secretAccessKey: raw.storage.secretAccessKey ?? UNSET_SECRET,
     },
     secrets,
+    // Passed through only when the backend reports it: the card says so rather than
+    // inventing a default the server may not be using.
+    ...(raw.database?.freeSharedRetentionDays
+      ? { database: { freeSharedRetentionDays: raw.database.freeSharedRetentionDays } }
+      : {}),
   };
 };
 
@@ -274,6 +289,11 @@ export const platformSettingsService = {
   /** PATCH the default-storage non-secret config. Include driver:'s3' with any S3 field. */
   updateStorage: async (input: DefaultStorageInput): Promise<void> => {
     await apiClient.patch(`${BASE}/storage`, input);
+  },
+
+  /** PATCH the Free-on-managed retention window (BYODB §3.4). Applies to future stamps only. */
+  updateDatabase: async (input: PlatformDatabaseInput): Promise<void> => {
+    await apiClient.patch(`${BASE}/database`, input);
   },
 
   /**
