@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/Dialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
+import { FailureAnalysisCard } from '@/components/console/FailureAnalysisCard';
 import { licenseService } from '@/services/license.service';
 import { platformService } from '@/services/platform.service';
 import systemService, { type StrayAdminMembership } from '@/services/system.service';
@@ -336,6 +337,8 @@ export const PlatformSystem = () => {
         </CardContent>
       </Card>
 
+
+      <FailureAnalysisCard />
       {/* Maintenance */}
       <Card>
         <CardHeader>

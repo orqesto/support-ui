@@ -128,6 +128,44 @@ export type QueueFailedJob = {
   organizationId: number | null;
 };
 
+export type QueueFailureJobRef = { queue: string; id: string };
+
+export type QueueFailureSample = {
+  queue: string;
+  id: string;
+  name: string;
+  failedReason: string | null;
+  attemptsMade: number;
+  organizationId: number | null;
+  failedAt: number | null;
+  enqueuedAt: number | null;
+};
+
+export type QueueFailureGroup = {
+  reason: string;
+  count: number;
+  queues: Array<{ name: string; count: number }>;
+  organizations: Array<{ id: number | null; count: number }>;
+  firstFailedAt: number | null;
+  lastFailedAt: number | null;
+  sample: QueueFailureSample[];
+  jobs: QueueFailureJobRef[];
+};
+
+export type QueueFailureAnalysis = {
+  total: number;
+  perQueue: number;
+  truncatedQueues: string[];
+  groups: QueueFailureGroup[];
+};
+
+export type QueueFailureActionResult = {
+  requested: number;
+  done: number;
+  skipped: number;
+  errors: number;
+};
+
 export type SyncCheckpoint = {
   id: number;
   organizationId: number;
@@ -407,6 +445,27 @@ export const platformService = {
       `${ADMIN}/queues/${encodeURIComponent(name)}/failed?limit=${limit}`
     );
     return res.data.data.failed;
+  },
+
+  getQueueFailureAnalysis: async (perQueue = 100): Promise<QueueFailureAnalysis> => {
+    const res = await apiClient.get<{ data: QueueFailureAnalysis }>(
+      `${ADMIN}/queues/failures?perQueue=${perQueue}`
+    );
+    return res.data.data;
+  },
+
+  retryFailedJobs: async (jobs: QueueFailureJobRef[]): Promise<QueueFailureActionResult> => {
+    const res = await apiClient.post<{ data: QueueFailureActionResult }>(`${ADMIN}/queues/failures/retry`, {
+      jobs,
+    });
+    return res.data.data;
+  },
+
+  removeFailedJobs: async (jobs: QueueFailureJobRef[]): Promise<QueueFailureActionResult> => {
+    const res = await apiClient.post<{ data: QueueFailureActionResult }>(`${ADMIN}/queues/failures/remove`, {
+      jobs,
+    });
+    return res.data.data;
   },
 
   getSyncCheckpoints: async (): Promise<SyncCheckpoint[]> => {
