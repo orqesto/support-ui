@@ -362,6 +362,13 @@ export const ConsoleIdentity = () => {
   }
 
   const domains = domainsQuery.data ?? [];
+  // A domain can be PROVEN (DNS TXT) and still be absent from the JIT list — they gate
+  // different things, so verifying one does not silently widen who may be auto-created.
+  // Surfacing the gap keeps that a decision instead of a puzzle.
+  const allowedNow = new Set(parseDomains(domainsText).map((entry) => entry.toLowerCase()));
+  const verifiedNotAllowed = domains.filter(
+    (entry) => entry.verifiedAt !== null && !allowedNow.has(entry.domain.toLowerCase())
+  );
   // SSO only routes/provisions users whose email domain is DNS-VERIFIED here — the
   // typed allowed-domains list alone does not authorize sign-in. Warn when SSO is
   // enabled but nothing is verified yet, so the admin isn't left with a green
@@ -473,8 +480,47 @@ export const ConsoleIdentity = () => {
               placeholder={'example.com\nsubsidiary.example.com'}
             />
             <p className="-mt-2 text-xs text-muted-foreground">
-              One per line (or comma-separated). Users with these email domains are routed to SSO.
+              {/* ⛔ This used to say these domains are "routed to SSO". They are not: routing
+                  is decided by VERIFIED domains, and this list gates one thing only — creating
+                  an account for someone who does not exist yet. An existing member signs in
+                  whatever their domain, and SCIM never consults this list at all. */}
+              One per line (or comma-separated). Used only to allow an account to be created
+              automatically on first SSO sign-in. Existing members can sign in regardless, and
+              SCIM provisioning ignores this list.
             </p>
+
+            {verifiedNotAllowed.length > 0 && (
+              <Alert variant="info">
+                <p className="text-sm">
+                  <strong>
+                    {verifiedNotAllowed.length} verified domain
+                    {verifiedNotAllowed.length === 1 ? '' : 's'} not on this list.
+                  </strong>{' '}
+                  Ownership is proven, so sign-in already routes here — but nobody with an
+                  address there can be created automatically until you add it.
+                </p>
+                <div className="flex flex-wrap gap-2 items-center mt-2">
+                  {verifiedNotAllowed.map((entry) => (
+                    <Button
+                      key={entry.id}
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() =>
+                        setDomainsText((current) =>
+                          current.trim() ? `${current.trim()}\n${entry.domain}` : entry.domain
+                        )
+                      }
+                    >
+                      Add {entry.domain}
+                    </Button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs">
+                  Adding puts it in the list above; it takes effect when you save.
+                </p>
+              </Alert>
+            )}
 
             <Input
               label="Scopes (optional)"
