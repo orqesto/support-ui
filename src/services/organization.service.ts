@@ -346,13 +346,19 @@ export const organizationService = {
     await apiClient.delete(`/api/organizations/routing-keys/${encodeURIComponent(key)}`);
   },
 
-  getAutoAssign: async (): Promise<{ mode: 'off' | 'match_only' | 'always' }> => {
-    const response = await apiClient.get<ApiResponse<{ mode: 'off' | 'match_only' | 'always' }>>('/api/organizations/auto-assign');
+  /** `assignOnReply` is optional on the wire: an older backend answers without it (read as on). */
+  getAutoAssign: async (): Promise<{ mode: 'off' | 'match_only' | 'always'; assignOnReply?: boolean }> => {
+    const response = await apiClient.get<ApiResponse<{ mode: 'off' | 'match_only' | 'always'; assignOnReply?: boolean }>>('/api/organizations/auto-assign');
     return response.data.data ?? { mode: 'always' };
   },
 
   updateAutoAssign: async (mode: 'off' | 'match_only' | 'always'): Promise<void> => {
     await apiClient.patch('/api/organizations/auto-assign', { mode });
+  },
+
+  /** Whether a reply may make the replier the thread's owner (the app asks). Org admin. */
+  updateAssignOnReply: async (assignOnReply: boolean): Promise<void> => {
+    await apiClient.patch('/api/organizations/auto-assign', { assignOnReply });
   },
 
   getSelfEditSkills: async (): Promise<{ allowSelfEditSkills: boolean }> => {
