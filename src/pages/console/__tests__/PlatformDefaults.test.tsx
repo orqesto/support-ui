@@ -56,6 +56,9 @@ const SAMPLE: PlatformSettings = {
 
 let settings: PlatformSettings = SAMPLE;
 const noopMutation = { mutate: vi.fn(), isPending: false };
+vi.mock('@/hooks/useBackendVersion', () => ({
+  useBackendVersion: () => ({ data: { bedrockInstanceProfile: false }, isLoading: false }),
+}));
 vi.mock('@/hooks/usePlatformSettings', () => ({
   usePlatformSettings: () => ({
     isLoading: false,

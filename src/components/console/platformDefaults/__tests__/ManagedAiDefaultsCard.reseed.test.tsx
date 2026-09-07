@@ -7,6 +7,9 @@ const saveMutation = {
   mutate: vi.fn((_input: unknown, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.()),
   isPending: false,
 };
+vi.mock('@/hooks/useBackendVersion', () => ({
+  useBackendVersion: () => ({ data: { bedrockInstanceProfile: false }, isLoading: false }),
+}));
 vi.mock('@/hooks/usePlatformSettings', () => ({
   useUpdatePlatformAi: () => saveMutation,
   useSetPlatformSecret: () => noopMutation,

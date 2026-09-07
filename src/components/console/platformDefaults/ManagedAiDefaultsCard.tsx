@@ -13,6 +13,7 @@ import {
   usePlatformAiModels,
   useUpdatePlatformAi,
 } from '@/hooks/usePlatformSettings';
+import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { useConfigCardState } from '@/hooks/useConfigCardState';
 import {
   AI_KEY_SLOT_BY_PROVIDER,
@@ -23,6 +24,7 @@ import {
 } from '@/services/platformSettings.service';
 import {
   AI_PROVIDER_TYPES,
+  BEDROCK_MODELS,
   BEDROCK_REGIONS,
   type AIModel,
   type AIProvider,
@@ -192,11 +194,23 @@ export const ManagedAiDefaultsCard = ({
   const clearSecret = useClearPlatformSecret();
   const catalog = usePlatformAiModels();
 
+  /** The provider managed traffic is served by NOW — what Test connection and the placeholders describe. */
+  const storedProvider: AIProvider = ai.provider.value ?? 'openai';
+
   // Chat models only — the embedding entries in the catalog can't serve a tier.
-  const providerModels: AIModel[] = (catalog.data?.[provider] ?? []).filter(
-    (model) => model.type === 'chat'
-  );
+  // Bedrock's list is the curated catalog the workspace Bedrock card renders, so the two
+  // surfaces offer the same models. The platform endpoint's Bedrock list had drifted behind
+  // it (no Claude Haiku 4.5), and an admin here was pushed to "Other" for a model the
+  // workspace card listed first (owner, 2026-09-07).
+  const providerModels: AIModel[] = (
+    provider === 'bedrock' ? BEDROCK_MODELS : (catalog.data?.[provider] ?? [])
+  ).filter((model) => model.type === 'chat');
   const isBedrock = provider === 'bedrock';
+  // Same gate the workspace Bedrock card applies: the server only honours the instance-profile
+  // switch on a self-hosted box (or with the env override). On the managed platform it logs a
+  // warning and ignores it, so offering it live here saved a setting that did nothing.
+  const backendVersion = useBackendVersion();
+  const allowInstanceProfile = backendVersion.data?.bedrockInstanceProfile ?? false;
   const isOllama = provider === 'ollama';
   const baseUrlEditable = provider === 'custom' || isOllama;
   // The key slot follows the SELECTED provider, not the saved one, so switching
@@ -257,7 +271,7 @@ export const ManagedAiDefaultsCard = ({
       if (bedrock.inferenceProfileArn.trim()) {
         input.bedrockInferenceProfileArn = bedrock.inferenceProfileArn.trim();
       }
-      input.bedrockUseInstanceProfile = useInstanceProfile;
+      input.bedrockUseInstanceProfile = useInstanceProfile && allowInstanceProfile;
     }
     update.mutate(input, { onSuccess: () => card.confirmSaved() });
   };
@@ -292,7 +306,14 @@ export const ManagedAiDefaultsCard = ({
           setModels((prev) => ({ ...prev, [modelKey]: next }));
         }}
       >
-        <option value="">Use the default ({ai[modelKey].value ?? 'unset'})</option>
+        {/* The resolved value belongs to the STORED provider; naming it under another provider
+            ("Use the default (gpt-5-mini)" under Bedrock) reads as a promise the server will
+            not keep. */}
+        <option value="">
+          {provider === storedProvider
+            ? `Use the default (${ai[modelKey].value ?? 'unset'})`
+            : "Use this provider's default"}
+        </option>
         {options.map((model) => (
           <option key={model.id} value={model.id}>
             {model.name} — {model.id}
@@ -353,10 +374,10 @@ export const ManagedAiDefaultsCard = ({
             saving={setSecret.isPending}
             clearing={clearSecret.isPending}
           />
-          {provider !== (ai.provider.value ?? 'openai') && (
+          {provider !== storedProvider && (
             <p className="mt-2 text-xs text-muted-foreground">
               Storing a key here is safe before you switch — managed traffic keeps using{' '}
-              {PROVIDER_LABELS[ai.provider.value ?? 'openai']} until you save the provider change.
+              {PROVIDER_LABELS[storedProvider]} until you save the provider change.
             </p>
           )}
         </div>
@@ -381,6 +402,15 @@ export const ManagedAiDefaultsCard = ({
       note={
         <>
           {credentials}
+          {/* The endpoint probes what is STORED — the key never reaches the browser, so a draft
+              cannot be tested. Its result under an unsaved provider switch read as "Bedrock is
+              broken" when it was OpenAI, unset, being probed (owner, 2026-09-07). */}
+          {card.isEditing && (
+            <p className="text-xs text-muted-foreground">
+              Save first — Test connection checks the stored defaults (
+              {PROVIDER_LABELS[storedProvider]}), not this draft.
+            </p>
+          )}
           {aiTest && (
             <p className={`text-sm ${aiTest.ok ? 'text-success' : 'text-danger'}`}>
               {aiTest.ok
@@ -391,7 +421,12 @@ export const ManagedAiDefaultsCard = ({
         </>
       }
       extraActions={
-        <Button variant="outline" onClick={() => void runAiTest()} isLoading={testing}>
+        <Button
+          variant="outline"
+          onClick={() => void runAiTest()}
+          isLoading={testing}
+          disabled={testing || card.isEditing}
+        >
           <TestTube2 className="mr-2 w-4 h-4" />
           Test connection
         </Button>
@@ -554,10 +589,17 @@ export const ManagedAiDefaultsCard = ({
               />
             </div>
             <Toggle
-              checked={useInstanceProfile}
+              checked={useInstanceProfile && allowInstanceProfile}
               onChange={setUseInstanceProfile}
+              disabled={!allowInstanceProfile}
               label="Use the server's AWS identity (EC2 instance profile / ECS task role / IRSA)"
             />
+            {!allowInstanceProfile && (
+              <p className="text-xs text-muted-foreground">
+                Not available on this deployment — the managed platform has no AWS identity of its
+                own and the server ignores this switch. Use IAM keys or a cross-account role.
+              </p>
+            )}
             <SecretField
               label="AWS access key ID"
               status={ai.bedrockAccessKeyId}
