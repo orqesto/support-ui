@@ -33,6 +33,9 @@ vi.mock('@/services/platformSettings.service', async (importOriginal) => {
 });
 
 const noopMutation = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, reset: vi.fn() };
+vi.mock('@/hooks/useBackendVersion', () => ({
+  useBackendVersion: () => ({ data: { bedrockInstanceProfile: false }, isLoading: false }),
+}));
 vi.mock('@/hooks/usePlatformSettings', () => ({
   usePlatformAiModels: () => ({ data: undefined, isLoading: false }),
   useUpdatePlatformAi: () => noopMutation,
