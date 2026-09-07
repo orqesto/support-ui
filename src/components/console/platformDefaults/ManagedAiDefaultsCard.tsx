@@ -209,8 +209,14 @@ export const ManagedAiDefaultsCard = ({
   // Same gate the workspace Bedrock card applies: the server only honours the instance-profile
   // switch on a self-hosted box (or with the env override). On the managed platform it logs a
   // warning and ignores it, so offering it live here saved a setting that did nothing.
+  // Three states, not two: until the version has loaded the answer is UNKNOWN, and unknown
+  // must not gate — a Save in that window would persist `false` over a stored `true` on the
+  // very box where the switch works. The note appears only once the server has said no.
   const backendVersion = useBackendVersion();
-  const allowInstanceProfile = backendVersion.data?.bedrockInstanceProfile ?? false;
+  const instanceProfileKnown = backendVersion.data !== undefined;
+  const allowInstanceProfile = instanceProfileKnown
+    ? backendVersion.data.bedrockInstanceProfile
+    : true;
   const isOllama = provider === 'ollama';
   const baseUrlEditable = provider === 'custom' || isOllama;
   // The key slot follows the SELECTED provider, not the saved one, so switching
@@ -594,7 +600,7 @@ export const ManagedAiDefaultsCard = ({
               disabled={!allowInstanceProfile}
               label="Use the server's AWS identity (EC2 instance profile / ECS task role / IRSA)"
             />
-            {!allowInstanceProfile && (
+            {instanceProfileKnown && !allowInstanceProfile && (
               <p className="text-xs text-muted-foreground">
                 Not available on this deployment — the managed platform has no AWS identity of its
                 own and the server ignores this switch. Use IAM keys or a cross-account role.
