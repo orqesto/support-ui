@@ -104,6 +104,23 @@ export const ScimTelemetryCard = ({ telemetry }: { telemetry: AllianceScimTeleme
         )}
       </div>
 
+      {(telemetry.skippedMembers?.total ?? 0) > 0 && (
+        <Alert variant="warning">
+          <p className="text-sm">
+            <strong>
+              {telemetry.skippedMembers?.total} member
+              {telemetry.skippedMembers?.total === 1 ? '' : 's'} left out of a group.
+            </strong>{' '}
+            Your IdP added them to a group here, but they have no account in this alliance, so
+            they were not added and have no access. Provision them first, then re-push the
+            group. A failed user push shows as &quot;Provisioning rejected&quot; in Activity.
+          </p>
+          {telemetry.skippedMembers?.emails.length ? (
+            <p className="mt-1 text-sm break-words">{telemetry.skippedMembers.emails.join(', ')}</p>
+          ) : null}
+        </Alert>
+      )}
+
       {connector?.warn && (
         <Alert variant="warning">
           <p className="text-sm">

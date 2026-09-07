@@ -106,6 +106,12 @@ export type AllianceScimTelemetry = {
     hoursSinceLastUse: number | null;
     staleAfterHours: number;
   };
+  /**
+   * People the IdP added to a group who have no account here, so they were left out.
+   * `total` counts those STILL unresolved, so the warning clears once they are
+   * provisioned. Optional for the same version-skew reason as the fields above.
+   */
+  skippedMembers?: { total: number; emails: string[]; lastSkippedAt: string | null };
   notes: string[];
 };
 
