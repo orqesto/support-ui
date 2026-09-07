@@ -3,10 +3,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { usePermissions } from '@/hooks/usePermissions';
 import { apiErrorMessage } from '@/lib/apiError';
+import { retentionNotice } from '@/lib/databaseRetention';
+import { getErrorBody, getErrorStatus } from '@/lib/errorMessages';
 import { toast } from '@/lib/toast';
+import { isDatabasePauseCode, type DatabasePauseCode } from '@/stores/databaseStatusStore';
 import { formatDate } from '@/lib/utils';
 import {
   databaseService,
@@ -27,9 +31,6 @@ type Props = {
   defaultMode?: 'managed' | 'own';
   hideModeToggle?: boolean;
 };
-
-const inputClass =
-  'px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground';
 
 export const STATUS_BADGE: Record<DatabaseStatus, 'success' | 'warning' | 'danger'> = {
   active: 'success',
@@ -107,6 +108,13 @@ export const DatabaseConfigCard = ({
 
   const [display, setDisplay] = useState<DatabaseDisplay | null>(null);
   const [loading, setLoading] = useState(true);
+  /**
+   * Why the card could not load: the backend predates the feature (404 — the frontend ships
+   * from `main` independently of backend tags), or the workspace's own database is paused
+   * (a DB_* 503 — being moved into, or not answering). Both are states to explain, not a
+   * broken form to offer.
+   */
+  const [unavailable, setUnavailable] = useState<'older_backend' | DatabasePauseCode | null>(null);
   const [mode, setMode] = useState<'managed' | 'own'>(defaultMode);
   const [url, setUrl] = useState('');
   const [region, setRegion] = useState('');
@@ -121,11 +129,16 @@ export const DatabaseConfigCard = ({
     try {
       const next = await databaseService.get();
       setDisplay(next);
+      setUnavailable(null);
       setMode(next.mode === 'own' ? 'own' : defaultMode);
       setRegion(next.region ?? '');
       return next;
     } catch (err) {
-      toast.failure('Load database config', err);
+      const status = getErrorStatus(err);
+      const code = getErrorBody(err)?.code;
+      if (status === 404) setUnavailable('older_backend');
+      else if (status === 503 && isDatabasePauseCode(code)) setUnavailable(code);
+      else toast.failure('Load database config', err);
       return null;
     } finally {
       setLoading(false);
@@ -140,7 +153,7 @@ export const DatabaseConfigCard = ({
     setTesting(true);
     setTestResult(null);
     try {
-      setTestResult(await databaseService.test(url));
+      setTestResult(await databaseService.test(url.trim()));
     } catch (err) {
       setTestResult({ ok: false, latencyMs: 0, error: apiErrorMessage(err, 'Request failed') });
     } finally {
@@ -151,7 +164,10 @@ export const DatabaseConfigCard = ({
   const handleConnect = async () => {
     setConnecting(true);
     try {
-      const result = await databaseService.connect({ url, region: region.trim() || null });
+      const result = await databaseService.connect({
+        url: url.trim(),
+        region: region.trim() || null,
+      });
       toast.success(
         result.display.move
           ? 'Connected. Your data is being moved to your database — the inbox is paused until the copy finishes.'
@@ -192,7 +208,8 @@ export const DatabaseConfigCard = ({
       const next = await databaseService.disconnect();
       toast.success('Database connection removed');
       setDisplay(next);
-      setMode(next.mode);
+      // Inside the wizard step the card IS the own-database form: stay on it.
+      setMode(next.mode === 'own' ? 'own' : defaultMode);
       onChanged?.(next);
     } catch (err) {
       toast.failure('Remove database connection', err);
@@ -202,10 +219,7 @@ export const DatabaseConfigCard = ({
   };
 
   const own = display?.mode === 'own';
-  const deadline = display?.sharedRetentionUntil ? new Date(display.sharedRetentionUntil) : null;
-  const daysLeft = deadline
-    ? Math.max(0, Math.ceil((deadline.getTime() - Date.now()) / 86_400_000))
-    : null;
+  const retention = retentionNotice(display?.sharedRetentionUntil);
   const canSubmit = url.trim().length > 0 && canManage;
   /** The BE refuses to drop an own database that ever went live; only a never-activated row can go. */
   const canRemove = own && display?.status === 'provisioning' && !display.move;
@@ -233,6 +247,27 @@ export const DatabaseConfigCard = ({
 
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : unavailable === 'older_backend' ? (
+          <p className="text-sm text-muted-foreground" data-testid="database-unavailable">
+            Bringing your own database is not available on this deployment yet.
+          </p>
+        ) : unavailable ? (
+          <div
+            className="space-y-3 rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm"
+            data-testid="database-paused"
+          >
+            <p>
+              {unavailable === 'DB_PROVISIONING'
+                ? 'Your data is being moved to your database. The workspace is paused until the copy finishes; this card reloads once it has.'
+                : unavailable === 'DB_SUSPENDED'
+                  ? 'This workspace is suspended. Contact Odly to restore access to its data.'
+                  : "Your database isn't answering, so the workspace is paused. Once it answers again the workspace resumes by itself."}
+            </p>
+            <Button variant="outline" size="sm" onClick={() => void load()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Check again
+            </Button>
+          </div>
         ) : own && display ? (
           <div className="space-y-4 rounded-lg border bg-muted/50 p-4 text-sm">
             <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-[max-content_1fr]">
@@ -337,27 +372,26 @@ export const DatabaseConfigCard = ({
                   This workspace's data is on Odly's managed database. Switch to “Bring your own
                   Postgres” to move it to a database you run.
                 </p>
-                {deadline && (
+                {retention && (
                   <p
-                    className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200"
+                    className={`rounded-md border p-3 text-xs ${
+                      retention.tone === 'danger'
+                        ? 'border-red-500/40 bg-red-500/10 text-red-800 dark:text-red-200'
+                        : 'border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200'
+                    }`}
                     data-testid="database-retention-note"
                   >
-                    Free runs on your own Postgres. Connect yours before{' '}
-                    <span className="font-medium">{deadline.toLocaleDateString()}</span>
-                    {daysLeft !== null && ` (${daysLeft} day${daysLeft === 1 ? '' : 's'} left)`} or
-                    this workspace's data will be deleted from the managed database. Upgrading to a
-                    paid plan also clears the deadline.
+                    {retention.sentence}
                   </p>
                 )}
               </div>
             ) : (
               <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
                 <div>
-                  <label htmlFor="database-url" className="text-sm font-medium">
-                    Connection string *
-                  </label>
                   <PasswordInput
                     id="database-url"
+                    label="Connection string *"
+                    revealLabel="connection string"
                     autoComplete="off"
                     value={url}
                     onChange={(event) => {
@@ -365,7 +399,7 @@ export const DatabaseConfigCard = ({
                       setTestResult(null);
                     }}
                     disabled={!canManage}
-                    className={`${inputClass} font-mono text-xs`}
+                    className="font-mono text-xs"
                     placeholder="postgres://user:password@host:5432/database?sslmode=require"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -375,16 +409,13 @@ export const DatabaseConfigCard = ({
                 </div>
 
                 <div>
-                  <label htmlFor="database-region" className="text-sm font-medium">
-                    Region label (Optional)
-                  </label>
-                  <input
+                  <Input
                     id="database-region"
+                    label="Region label (Optional)"
                     type="text"
                     value={region}
                     onChange={(event) => setRegion(event.target.value)}
                     disabled={!canManage}
-                    className={inputClass}
                     placeholder="eu-central-1"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">

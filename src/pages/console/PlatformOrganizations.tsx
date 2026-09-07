@@ -321,7 +321,7 @@ export const PlatformOrganizations = () => {
         onSaved={fetchOrgs}
       />
 
-      <WorkspaceDatabaseDialog org={databaseTarget} onClose={() => setDatabaseTarget(null)} />
+      {databaseTarget && <WorkspaceDatabaseDialog org={databaseTarget} onClose={() => setDatabaseTarget(null)} />}
 
       <ConfirmDialog
         open={deleteTarget !== null}

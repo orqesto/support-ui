@@ -247,7 +247,9 @@ export const handleResponseError = async (error: unknown): Promise<unknown> => {
   if (isAxiosError(error) && error.response?.status === 503) {
     const data = error.response.data as { error?: string; message?: string; code?: unknown } | undefined;
     if (isDatabasePauseCode(data?.code)) {
-      useDatabaseStatusStore.getState().setPaused(data.code, data?.error ?? data?.message ?? null);
+      useDatabaseStatusStore
+        .getState()
+        .setPaused(data.code, data?.error ?? data?.message ?? null, useAuthStore.getState().selectedOrganizationId);
     }
   }
 

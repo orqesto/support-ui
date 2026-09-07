@@ -26,6 +26,7 @@ import {
   type WorkspaceSetupStatus,
 } from '@/services/onboarding.service';
 import { integrationsService } from '@/services/integrations.service';
+import type { DatabaseDisplay } from '@/services/database.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
@@ -198,11 +199,17 @@ export const OnboardingWizard = () => {
     });
   }, []);
 
-  // The Database card connected (or re-verified) an own database: re-read the workspace's
-  // state so `currentDatabase` — and with it the Finish gate — reflects it without a reload.
-  const handleDatabaseChanged = useCallback(() => {
-    void refreshOnboarding();
-  }, [refreshOnboarding]);
+  // The Database card connected (or re-verified) an own database. Write its response straight
+  // into the store — the Finish gate follows at once — and refresh best-effort after: a busy
+  // workspace that just connected is PAUSED for the copy, so the refetch itself answers 503.
+  const setDatabaseCurrent = useOnboardingStore((state) => state.setDatabaseCurrent);
+  const handleDatabaseChanged = useCallback(
+    (display: DatabaseDisplay) => {
+      setDatabaseCurrent(display);
+      void refreshOnboarding();
+    },
+    [refreshOnboarding, setDatabaseCurrent]
+  );
 
   const handleChannelsConnected = (connected: boolean) => {
     setChannelsConnected(connected);

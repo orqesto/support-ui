@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { clearDatabasePauseOnSuccess, handleResponseError } from '../api-client';
-import { useDatabaseStatusStore } from '@/stores/databaseStatusStore';
+import { useAuthStore } from '@/stores/authStore';
+import { pauseForWorkspace, useDatabaseStatusStore } from '@/stores/databaseStatusStore';
 import { useSubscriptionGateStore } from '@/stores/subscriptionGateStore';
 
 const failure = (status: number, data: Record<string, unknown>) => ({
@@ -11,6 +12,7 @@ const failure = (status: number, data: Record<string, unknown>) => ({
 beforeEach(() => {
   useDatabaseStatusStore.getState().clear();
   useSubscriptionGateStore.getState().clear();
+  useAuthStore.setState({ selectedOrganizationId: 5 });
 });
 
 /**
@@ -39,6 +41,9 @@ describe('api-client — database-related codes', () => {
       handleResponseError(failure(503, { code: 'DB_UNREACHABLE', error: 'The workspace database is not answering' }))
     ).rejects.toMatchObject({ status: 503 });
     expect(useDatabaseStatusStore.getState().paused).toBe('DB_UNREACHABLE');
+    // …for the workspace it was seen on. After a switch the pause is not that workspace's.
+    expect(pauseForWorkspace(useDatabaseStatusStore.getState(), 5)).toBe('DB_UNREACHABLE');
+    expect(pauseForWorkspace(useDatabaseStatusStore.getState(), 6)).toBeNull();
 
     useDatabaseStatusStore.getState().clear();
     await expect(handleResponseError(failure(503, { code: 'AI_NOT_CONFIGURED' }))).rejects.toBeDefined();
@@ -47,7 +52,7 @@ describe('api-client — database-related codes', () => {
 
   // A 2xx from a route that never touches the workspace database proves nothing about it.
   it('clears the pause on a workspace-scoped success only', () => {
-    useDatabaseStatusStore.getState().setPaused('DB_UNREACHABLE', null);
+    useDatabaseStatusStore.getState().setPaused('DB_UNREACHABLE', null, 5);
     clearDatabasePauseOnSuccess('/api/health/version');
     clearDatabasePauseOnSuccess('/api/organizations/onboarding');
     clearDatabasePauseOnSuccess('/api/admin/platform/database/degraded');

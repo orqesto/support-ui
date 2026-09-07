@@ -70,7 +70,9 @@ export const WorkspaceDatabaseDialog = ({ org, onClose }: Props) => {
     });
 
   return (
-    <Dialog open onOpenChange={(next) => !next && onClose()} size="lg">
+    // Both dialogs listen for Escape on the document: while the cleanup confirmation is up,
+    // Escape must close only that, not the workspace dialog underneath it.
+    <Dialog open onOpenChange={(next) => !next && !cleanupOpen && onClose()} size="lg">
       <DialogHeader>
         <DialogTitle>
           <span className="flex items-center gap-2">
