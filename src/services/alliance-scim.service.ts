@@ -190,32 +190,33 @@ export type SyncedGroup = {
 };
 
 /**
- * Where a synced IdP group's access is wired to (discriminated by `type`).
+ * Where a synced IdP group's access is wired to (discriminated by `type`) — one variant now.
  *
- * The `role` variant — wiring straight to an alliance role — was retired with Role-Model
- * v2 §0.2. `wiredRole` above still exists because a PRE-EXISTING mapping is still read
- * and shown; it just can't be created any more.
+ * Two were retired. `role` — wiring straight to an alliance role — went with Role-Model v2
+ * §0.2; `wiredRole` above still exists because a PRE-EXISTING mapping is still read and
+ * shown. `existingGroup` — pointing the IdP group at an authored alliance group — went on
+ * 2026-09-07: every wire mints its own backing group, so the picker was listing its own
+ * by-products, and the variant could express nothing `newGroup` plus the group editor
+ * cannot. The backend still accepts it on the wire route; this app never sends it.
  */
-export type WireTarget =
-  | { type: 'existingGroup'; groupId: number }
-  | {
-      type: 'newGroup';
-      name: string;
-      orgRole: OrganizationRole;
-      orgIds?: number[];
-      /** Per-org department ids to map onto the backing group (scoped roles only). */
-      departmentIdsByOrg?: Record<number, number[]>;
-      /**
-       * Permissions the backing group grants on top of its role — the same { added, removed }
-       * shape the group API takes.
-       *
-       * Optional, and only sent when an admin actually customizes something: the backend that
-       * accepts it here ships separately from this app, and one without it does not fail — it
-       * STRIPS the unknown key and answers 200. So a wire that asked for overrides is read back
-       * afterwards rather than assumed (see SyncedGroupsCard.submitWire).
-       */
-      permissionOverrides?: PermissionOverrides;
-    };
+export type WireTarget = {
+  type: 'newGroup';
+  name: string;
+  orgRole: OrganizationRole;
+  orgIds?: number[];
+  /** Per-org department ids to map onto the backing group (scoped roles only). */
+  departmentIdsByOrg?: Record<number, number[]>;
+  /**
+   * Permissions the backing group grants on top of its role — the same { added, removed }
+   * shape the group API takes.
+   *
+   * Optional, and only sent when an admin actually customizes something: the backend that
+   * accepts it here ships separately from this app, and one without it does not fail — it
+   * STRIPS the unknown key and answers 200. So a wire that asked for overrides is read back
+   * afterwards rather than assumed (see SyncedGroupsCard.submitWire).
+   */
+  permissionOverrides?: PermissionOverrides;
+};
 
 /** Result of wiring a synced group — how many already-synced members were reconciled. */
 export type WireResult = {
