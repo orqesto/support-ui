@@ -845,8 +845,13 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
             after the tabs: it used to be a card of its own above them, and that row
             came straight out of the lanes' height. Still outside any empty-state branch,
             because an empty board while rows sit one lens away is the silence it removes. */}
-        <div className="flex flex-wrap gap-2 justify-between items-center">
-          <div className="flex flex-wrap gap-1 items-center">
+        {/* One line, always. The scope caption is the element that yields width (it
+            truncates); the tabs and all three Show counts are shrink-0. The counts move
+            with the filter — they are how an agent sees that a search matched 1,352
+            resolved threads — so they never go behind a menu. Holds at 1440 with the long
+            sentence plus four-digit counts (Kanban space audit, 2026-09-07). */}
+        <div className="flex gap-2 justify-between items-center min-w-0">
+          <div className="flex gap-1 items-center flex-1 min-w-0">
             {(['lifecycle', 'triage'] as const).map((axis) => {
               const isActive = activeTab === axis;
               const count = axis === 'lifecycle' ? boardCount : triageCount;
@@ -857,7 +862,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
                   variant="ghost"
                   onClick={() => setActiveTab(axis)}
                   className={cn(
-                    'flex items-center gap-1.5 px-3 py-1.5 h-auto rounded-md text-sm font-medium transition-colors',
+                    'flex items-center gap-1.5 px-3 py-1.5 h-auto rounded-md text-sm font-medium transition-colors shrink-0',
                     isActive
                       ? 'bg-muted text-foreground'
                       : 'text-muted-foreground hover:text-foreground'
@@ -904,7 +909,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
               );
             })}
             {boardScope && (
-              <div className="ml-2">
+              <div className="ml-2 flex-1 min-w-0">
                 <ListScopeNotice
                   scope={boardScope.scope}
                   shown={boardScope.shown}
@@ -916,7 +921,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
           </div>
 
           {activeTab === 'lifecycle' && (
-            <div className="flex gap-1.5 items-center text-xs">
+            <div className="flex gap-1.5 items-center text-xs shrink-0">
               <span className="text-muted-foreground">Show:</span>
               {COLUMNS.filter((col) => HIDEABLE_COLS.has(col.id)).map((col) => {
                 const shown = !hiddenCols.has(col.id);

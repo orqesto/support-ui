@@ -1,5 +1,5 @@
 import { SlidersHorizontal, Search, X } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { FilterSheet } from './FilterSheet';
@@ -29,6 +29,7 @@ export const MessageFilterBar = ({
   onFilterPatch,
   onCommitSearch,
   onClearFilters,
+  viewSwitch,
 }: {
   filters: FilterState;
   pagination: { page: number; limit: number; total: number };
@@ -41,6 +42,11 @@ export const MessageFilterBar = ({
   onFilterPatch: (patch: Partial<FilterState>) => void;
   onCommitSearch: (text: string) => void;
   onClearFilters: () => void;
+  /**
+   * The Threads / Contacts / Kanban switch, rendered at the right end of the saved-views row.
+   * It had a 40px row of its own under this card; that row was lane height on the kanban.
+   */
+  viewSwitch?: ReactNode;
 }) => {
   const dynamic = useFilterOptions();
   const defs = useMemo(() => buildFilterDefs(dynamic), [dynamic]);
@@ -251,6 +257,7 @@ export const MessageFilterBar = ({
               )}
             </div>
           </div>
+          {viewSwitch && <div className="ml-3 shrink-0">{viewSwitch}</div>}
         </div>
         {viewError && <p className="text-[12px] text-amber-600 dark:text-amber-400">{viewError}</p>}
 

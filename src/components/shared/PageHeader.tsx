@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 type PageHeaderProps = {
-  title: string;
+  /** A string, or a node when one screen needs a different size (Messages passes `text-xl`). */
+  title: ReactNode;
   description?: string;
   actions?: ReactNode;
   className?: string;
@@ -14,9 +15,7 @@ export const PageHeader = ({ title, description, actions, className }: PageHeade
   >
     <div className="min-w-0">
       <h1 className="text-2xl font-bold tracking-tight text-foreground">{title}</h1>
-      {description && (
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-      )}
+      {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
     </div>
     {actions && <div className="flex flex-shrink-0 gap-2 items-center">{actions}</div>}
   </div>

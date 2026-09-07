@@ -9,6 +9,13 @@ import type { ListScope } from '@/services/message.service';
 
 afterEach(cleanup);
 
+/**
+ * The destinations sit behind one trigger now (Kanban space audit, 2026-09-07): seven of them
+ * in a sentence wrapped to three lines and read as broken arithmetic. The sentence itself is
+ * verbatim; the rows open from "Not shown N".
+ */
+const openMenu = () => fireEvent.click(screen.getByRole('button', { name: /Not shown/ }));
+
 /** The real framehouse shape: 5 shown, 3,009 hidden, categories that overlap. */
 const framehouse: ListScope = {
   withoutLens: 3014,
@@ -61,6 +68,7 @@ describe('ListScopeNotice', () => {
 
   it('omits reasons with no rows rather than listing zeros', () => {
     render(<ListScopeNotice scope={framehouse} shown={5} onJump={vi.fn()} />);
+    openMenu();
     const text = screen.getByTestId('list-scope-notice').textContent ?? '';
     // Control: the element has text at all, so the not.toContain assertions mean something.
     expect(text).toContain('3,009 hidden');
@@ -76,10 +84,14 @@ describe('ListScopeNotice', () => {
 
     // The trailing `undefined` is the `needsListView` flag: these categories DO have a
     // kanban column, so the jump must not also throw the user off the board.
-    fireEvent.click(screen.getByText('2,935 resolved or closed'));
+    openMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: /resolved or closed/ }));
     expect(onJump).toHaveBeenCalledWith({ lifecycle: 'resolved', queue: 'all' }, undefined);
 
-    fireEvent.click(screen.getByText('40 spam'));
+    // A pick closes the menu: the applied lens shows up as a token in the filter bar.
+    expect(screen.queryByRole('menu')).toBeNull();
+    openMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: /spam/ }));
     expect(onJump).toHaveBeenCalledWith({ queue: 'spam', lifecycle: 'all' }, undefined);
   });
 
@@ -91,8 +103,10 @@ describe('ListScopeNotice', () => {
       hiddenBecause: { ...framehouse.hiddenBecause, other: 3 },
     };
     render(<ListScopeNotice scope={withOther} shown={5} onJump={vi.fn()} />);
-    const label = screen.getByText('3 hidden by this view');
-    expect(label.tagName).not.toBe('BUTTON');
+    openMenu();
+    const label = screen.getByText('hidden by this view');
+    expect(label.closest('button')).toBeNull();
+    expect(label.closest('[role="menuitem"]')).toBeNull();
   });
 
   it('outbound echoes are a LINK, and one that also leaves the board', () => {
@@ -106,8 +120,9 @@ describe('ListScopeNotice', () => {
     const onJump = vi.fn();
     render(<ListScopeNotice scope={withEchoes} shown={5} onJump={onJump} surface="board" />);
 
-    const chip = screen.getByText('3 outbound echoes');
-    expect(chip.tagName).toBe('BUTTON');
+    openMenu();
+    const chip = screen.getByRole('menuitem', { name: /outbound echoes/ });
+    expect(chip.textContent).toContain('3');
     fireEvent.click(chip);
     // The second argument is what tells the page to leave the kanban. Without it the
     // click sets a filter the board cannot honour and visibly does nothing.
@@ -119,6 +134,7 @@ describe('ListScopeNotice', () => {
     // start of rendering "0 outbound echoes" as a fact about a deployment that never
     // counted them.
     render(<ListScopeNotice scope={framehouse} shown={5} onJump={vi.fn()} />);
+    openMenu();
     const text = screen.getByTestId('list-scope-notice').textContent ?? '';
     expect(text).toContain('3,009 hidden'); // control
     expect(text).not.toContain('outbound echoes');
@@ -166,6 +182,7 @@ describe('ListScopeNotice — board surface', () => {
 
   const boardText = () => {
     render(<ListScopeNotice scope={org21} shown={2880} onJump={vi.fn()} surface="board" />);
+    openMenu();
     return screen.getByTestId('list-scope-notice').textContent ?? '';
   };
 
@@ -182,8 +199,8 @@ describe('ListScopeNotice — board surface', () => {
     // The control for the test above: if the filter were simply dropping everything, this
     // would pass vacuously. `orphanOutgoing` carries needsListView, `other` is the residue.
     const text = boardText();
-    expect(text).toContain('7 outbound echoes');
-    expect(text).toContain('23 hidden by this view');
+    expect(text).toContain('outbound echoes7');
+    expect(text).toContain('hidden by this view23');
   });
 
   it('is a caption on the board, not a card — the card row cost the lanes 52px', () => {
@@ -191,6 +208,8 @@ describe('ListScopeNotice — board surface', () => {
     const cls = screen.getByTestId('list-scope-notice').className;
     expect(cls).not.toMatch(/\bborder\b|rounded-md|py-2|mb-3/);
     expect(cls).toMatch(/text-xs/);
+    // And one line, always: the caption truncates before the row's counts yield.
+    expect(cls).not.toMatch(/flex-wrap/);
   });
 
   it('keeps the card chrome on the list, where it is not above a bounded board', () => {
@@ -210,10 +229,11 @@ describe('ListScopeNotice — board surface', () => {
     // Scope control. The same scope on the list must still name all four, because on the
     // list they really are the reasons rows are missing.
     render(<ListScopeNotice scope={org21} shown={0} onJump={vi.fn()} />);
+    openMenu();
     const text = screen.getByTestId('list-scope-notice').textContent ?? '';
     expect(text).toContain('Showing');
-    expect(text).toContain('2,864 resolved or closed');
-    expect(text).toContain('2,904 from the knowledge base');
+    expect(text).toContain('resolved or closed2,864');
+    expect(text).toContain('from the knowledge base2,904');
   });
 });
 
@@ -245,26 +265,48 @@ describe('a chip is a destination, not a share of the hidden count', () => {
     },
   } as never;
 
-  it('labels the clickable counts as somewhere to go', () => {
+  it('labels the clickable counts as filters to apply, not places to go', () => {
     render(<ListScopeNotice scope={scope} shown={53} onJump={vi.fn()} />);
-
-    expect(screen.getByText(/Jump to/)).toBeTruthy();
+    openMenu();
+    expect(screen.getByText('Show instead — applies a filter')).toBeTruthy();
+    expect(screen.getByText(/lands in the filter bar as a token you can remove/)).toBeTruthy();
   });
 
   it('still renders a bucket LARGER than the hidden count, because that is correct', () => {
     // ⛔ Not a bug and must never be "fixed" by clamping: 27 is how many rows that lens
     // holds, which is what the click lands on.
     render(<ListScopeNotice scope={scope} shown={53} onJump={vi.fn()} />);
-
-    expect(screen.getByRole('button', { name: '27 waiting on a reply' })).toBeTruthy();
+    openMenu();
+    expect(screen.getByRole('menuitem', { name: /waiting on a reply/ }).textContent).toContain(
+      '27'
+    );
   });
 
-  it('keeps `other` in the sentence, since it IS a share of the hidden count', () => {
-    // CONTROL for the split: `other` counts hidden rows no bucket claims, so it is the one
-    // entry that genuinely decomposes `hidden` and must not move behind "Jump to".
+  it('keeps `other` out of the trigger count and off the clickable rows — a share, not a lens', () => {
+    // CONTROL for the split: `other` counts hidden rows no bucket claims. Four destinations
+    // (suspicious, archived, waiting, routing); the trigger says 4, not 5.
     render(<ListScopeNotice scope={scope} shown={53} onJump={vi.fn()} />);
+    expect(screen.getByRole('button', { name: /Not shown/ }).textContent).toContain('4');
+    openMenu();
+    expect(screen.getAllByRole('menuitem')).toHaveLength(4);
+    expect(screen.getByText('hidden by this view').closest('[role="menuitem"]')).toBeNull();
+  });
 
-    const other = screen.getByText('6 hidden by this view');
-    expect(other.tagName).not.toBe('BUTTON');
+  it('keeps the sentence verbatim — the subset never gets folded into it', () => {
+    render(<ListScopeNotice scope={scope} shown={53} onJump={vi.fn()} />);
+    const text = screen.getByTestId('list-scope-notice').textContent ?? '';
+    expect(text).toContain('Showing 53 of 72 — 19 hidden by the current view');
+    expect(text).not.toContain('6 hidden by this view');
+  });
+
+  it('closes on Escape and on a click outside', () => {
+    render(<ListScopeNotice scope={scope} shown={53} onJump={vi.fn()} />);
+    openMenu();
+    expect(screen.getByRole('menu')).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    openMenu();
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole('menu')).toBeNull();
   });
 });
