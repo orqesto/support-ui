@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { logger } from '@/lib/logger';
+import type { DatabaseDisplay } from '@/services/database.service';
 import {
   onboardingService,
   type OnboardingState,
@@ -26,6 +27,8 @@ type OnboardingStoreState = {
   fetchOnce: (organizationId: number | null) => void;
   refresh: () => Promise<void>;
   markComplete: () => void;
+  /** The Database card just connected / re-verified: reflect its response without a refetch. */
+  setDatabaseCurrent: (current: DatabaseDisplay) => void;
 };
 
 // Which org a fetch is currently in flight for — org-scoped so switching orgs
@@ -105,4 +108,7 @@ export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
   },
 
   markComplete: () => set({ status: 'complete' }),
+
+  setDatabaseCurrent: (current) =>
+    set((state) => ({ database: { managedAllowed: state.database?.managedAllowed ?? true, current } })),
 }));

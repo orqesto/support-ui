@@ -201,7 +201,7 @@ export const PlatformDatabases = () => {
         </CardContent>
       </Card>
 
-      <WorkspaceDatabaseDialog org={target} onClose={() => setTarget(null)} />
+      {target && <WorkspaceDatabaseDialog org={target} onClose={() => setTarget(null)} />}
     </div>
   );
 };

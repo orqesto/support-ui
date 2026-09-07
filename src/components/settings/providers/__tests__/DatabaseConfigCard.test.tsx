@@ -121,6 +121,24 @@ describe('DatabaseConfigCard', () => {
   });
 });
 
+describe('DatabaseConfigCard — when the card cannot load', () => {
+  // The frontend ships from `main` independently of backend tags: against a backend without
+  // the feature the card must say so, not offer a Connect button that 404s.
+  it('says the feature is not on this deployment on a 404', async () => {
+    get.mockRejectedValue(Object.assign(new Error('Not found'), { status: 404, data: { error: 'Not found' } }));
+    render(<DatabaseConfigCard />);
+    expect(await screen.findByTestId('database-unavailable')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^connect$/i })).not.toBeInTheDocument();
+  });
+
+  it('explains a paused workspace on a DB_* 503 and offers to check again', async () => {
+    get.mockRejectedValue(Object.assign(new Error('paused'), { status: 503, data: { code: 'DB_PROVISIONING', error: 'being provisioned' } }));
+    render(<DatabaseConfigCard />);
+    expect(await screen.findByTestId('database-paused')).toHaveTextContent(/being moved/);
+    expect(screen.getByRole('button', { name: /check again/i })).toBeInTheDocument();
+  });
+});
+
 describe('describeProbe / describeMove', () => {
   it('names a missing privilege and a missing extension', () => {
     expect(describeProbe({ ok: false, latencyMs: 3, canCreate: false, vectorAvailable: false })).toEqual([

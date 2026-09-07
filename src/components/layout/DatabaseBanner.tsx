@@ -1,9 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { AlertTriangle, Database, PauseCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Alert } from '@/components/ui/Alert';
 import { usePermissions } from '@/hooks/usePermissions';
+import { retentionNotice } from '@/lib/databaseRetention';
 import { useAuthStore } from '@/stores/authStore';
-import { useDatabaseStatusStore, type DatabasePauseCode } from '@/stores/databaseStatusStore';
+import {
+  pauseForWorkspace,
+  useDatabaseStatusStore,
+  type DatabasePauseCode,
+} from '@/stores/databaseStatusStore';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 import type { DatabaseDisplay } from '@/services/database.service';
 import { Permission } from '@/types/roles';
@@ -35,39 +41,26 @@ export const databaseBannerContent = (
   now = Date.now()
 ): DatabaseBannerContent | null => {
   if (paused) {
-    return { tone: paused === 'DB_PROVISIONING' ? 'info' : 'danger', text: PAUSE_TEXT[paused], actionable: false };
+    return {
+      tone: paused === 'DB_PROVISIONING' ? 'info' : 'danger',
+      text: PAUSE_TEXT[paused],
+      actionable: false,
+    };
   }
   if (!current) return null;
   if (current.mode === 'own') {
-    if (current.status === 'degraded') return { tone: 'danger', text: PAUSE_TEXT.DB_UNREACHABLE, actionable: true };
-    if (current.status === 'suspended') return { tone: 'danger', text: PAUSE_TEXT.DB_SUSPENDED, actionable: false };
+    if (current.status === 'degraded')
+      return { tone: 'danger', text: PAUSE_TEXT.DB_UNREACHABLE, actionable: true };
+    if (current.status === 'suspended')
+      return { tone: 'danger', text: PAUSE_TEXT.DB_SUSPENDED, actionable: false };
     if (current.status === 'provisioning' && current.move && current.move.status !== 'failed') {
       return { tone: 'info', text: PAUSE_TEXT.DB_PROVISIONING, actionable: false };
     }
     return null;
   }
-  if (current.sharedRetentionUntil) {
-    const deadline = new Date(current.sharedRetentionUntil);
-    const daysLeft = Math.ceil((deadline.getTime() - now) / 86_400_000);
-    const when =
-      daysLeft <= 0
-        ? 'The deadline has passed'
-        : daysLeft === 1
-          ? 'You have 1 day left'
-          : `You have ${daysLeft} days left`;
-    return {
-      tone: daysLeft <= 7 ? 'danger' : 'warning',
-      text: `Free runs on your own Postgres. Connect yours before ${deadline.toLocaleDateString()} or this workspace's data will be deleted from the managed database. ${when}.`,
-      actionable: true,
-    };
-  }
+  const retention = retentionNotice(current.sharedRetentionUntil, now);
+  if (retention) return { tone: retention.tone, text: retention.sentence, actionable: true };
   return null;
-};
-
-const TONE_CLASS: Record<DatabaseBannerContent['tone'], string> = {
-  info: 'border-primary/30 bg-primary/5 text-foreground',
-  warning: 'border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200',
-  danger: 'border-red-500/40 bg-red-500/10 text-red-800 dark:text-red-200',
 };
 
 /**
@@ -82,33 +75,41 @@ export const DatabaseBanner = () => {
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const database = useOnboardingStore((state) => state.database);
   const fetchOnce = useOnboardingStore((state) => state.fetchOnce);
-  const paused = useDatabaseStatusStore((state) => state.paused);
+  const pausedState = useDatabaseStatusStore((state) => state);
 
   useEffect(() => {
     fetchOnce(selectedOrganizationId);
   }, [fetchOnce, selectedOrganizationId]);
-
-  const content = databaseBannerContent(paused, database?.current);
+  const paused = pauseForWorkspace(pausedState, selectedOrganizationId);
+  const content = useMemo(
+    () => databaseBannerContent(paused, database?.current),
+    [paused, database?.current]
+  );
   if (!content) return null;
 
-  const Icon = content.tone === 'info' ? PauseCircle : content.tone === 'warning' ? Database : AlertTriangle;
+  const Icon =
+    content.tone === 'info' ? PauseCircle : content.tone === 'warning' ? Database : AlertTriangle;
   const canAct = content.actionable && hasPermission(Permission.MANAGE_INTEGRATIONS);
 
   return (
     <div
       role={content.tone === 'danger' ? 'alert' : 'status'}
       data-testid="database-banner"
-      className={`mb-3 flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm ${TONE_CLASS[content.tone]}`}
+      className="mb-3"
     >
-      <span className="flex items-center gap-2">
-        <Icon className="h-4 w-4 shrink-0" />
-        {content.text}
-      </span>
-      {canAct && (
-        <Link to="/settings#integrations/database" className="shrink-0 font-medium underline">
-          Database settings
-        </Link>
-      )}
+      <Alert variant={content.tone}>
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="flex items-center gap-2">
+            <Icon className="h-4 w-4 shrink-0" />
+            {content.text}
+          </span>
+          {canAct && (
+            <Link to="/settings#integrations/database" className="shrink-0 font-medium underline">
+              Database settings
+            </Link>
+          )}
+        </div>
+      </Alert>
     </div>
   );
 };
