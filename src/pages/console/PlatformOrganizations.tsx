@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Plus, Edit2, Trash2, Settings2, Network } from 'lucide-react';
-import { useAuthStore } from '@/stores/authStore';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -39,7 +38,6 @@ const DEPLOYMENT_BADGE: Record<string, 'secondary' | 'default' | 'warning'> = {
  */
 export const PlatformOrganizations = () => {
   const navigate = useNavigate();
-  const setSelectedOrganization = useAuthStore((state) => state.setSelectedOrganization);
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchOrg, setSearchOrg] = useState('');
@@ -121,10 +119,13 @@ export const PlatformOrganizations = () => {
   // B2: enter per-workspace management inside the console. Drop into the WorkspaceShell for
   // this org — it reuses the full per-workspace surfaces (invite/create/skills/permission
   // overrides, workspace config) that the org-agnostic platform views can't perform. The shell
-  // itself sets the org context + clears scope on mount, so setting context here is redundant;
-  // kept only to avoid a flash before the shell mounts.
+  // itself repoints the org context + clears scope on mount and RESTORES the previous org on
+  // unmount. ⛔ Do not set the org context here "to avoid a flash": the shell records what was
+  // selected when it mounts, so a pre-set makes the borrowed org look like the original and
+  // "Back to app" then lands the admin in the workspace they had merely been managing
+  // (staging 2026-09-07: stripe-test → Manage ratata → Back to app → ratata). The alliance
+  // console's Manage (ConsoleOrganizations) never set it and restores correctly.
   const handleManage = (org: OrgRow) => {
-    setSelectedOrganization(org.id);
     toast.success(`Now managing ${org.name}`);
     navigate(`/console/workspace/${org.id}?from=/console/platform/organizations`);
   };
