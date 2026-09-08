@@ -185,7 +185,7 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
         }
       }}
       aria-label={`Open message from ${customer}${msg.subject ? `: ${msg.subject}` : ''}`}
-      className="relative w-full text-left rounded-md border bg-card pl-3.5 pr-3 py-2.5 shadow-sm hover:shadow-md hover:border-primary/40 transition-all space-y-1.5 overflow-hidden cursor-pointer"
+      className="relative w-full text-left rounded-md border bg-card pl-3.5 pr-3 py-2 shadow-sm hover:shadow-md hover:border-primary/40 transition-all space-y-1 overflow-hidden cursor-pointer"
     >
       {/* Status spine — 3px left border ranking urgency. */}
       <span
@@ -193,10 +193,12 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
         className={`absolute left-0 top-0 bottom-0 w-[3px] ${SPINE_BG[spine]}`}
       />
 
-      {/* Top metadata row: dept + id + grow + direction arrow + age.
-          pr-6 reserves space for the absolute-positioned grip handle in the
-          top-right corner so the time text doesn't collide with it. */}
-      <div className="flex items-center gap-2 pr-6 text-[11px] text-muted-foreground">
+      {/* Identity line — dept + channel + sender + age on ONE row.
+          The conversation id moved to the footer with the other muted
+          reference elements: it is looked up, not scanned, and giving it its
+          own header row cost every card a full line of height. pr-6 reserves
+          the top-right grip handle's space. */}
+      <div className="flex items-center gap-1.5 min-w-0 pr-7">
         {(primaryDept ?? needsRouting) && (
           <div className="flex items-center gap-1 shrink-0">
             {needsRouting ? (
@@ -206,34 +208,6 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
             )}
           </div>
         )}
-        <Button
-          type="button"
-          variant="ghost"
-          className="font-mono shrink-0 inline-flex items-center gap-1 p-0 h-auto cursor-pointer hover:text-foreground"
-          title={copied ? 'Copied!' : 'Copy link to this conversation'}
-          onClick={(event) => {
-            event.stopPropagation();
-            void navigator.clipboard
-              .writeText(`${window.location.origin}/messages?id=${getConvUrlId(msg, orgCode)}`)
-              .then(() => {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              });
-          }}
-        >
-          {formatConvId(msg, orgCode)}
-          {copied ? (
-            <Check className="w-3 h-3 text-green-600" />
-          ) : (
-            <Copy className="w-3 h-3 opacity-50" />
-          )}
-        </Button>
-        <span className="flex-1" />
-        <span className="whitespace-nowrap shrink-0">{formatAge(activityAt)}</span>
-      </div>
-
-      {/* Sender row — channel icon + bold name */}
-      <div className="flex items-center gap-1.5 min-w-0">
         {showUnreadDot && (
           <span
             aria-label="Unread"
@@ -245,6 +219,9 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
           {getChannelIcon(msg.channel)}
         </span>
         <span className={`flex-1 min-w-0 text-sm truncate ${senderClass}`}>{customer}</span>
+        <span className="whitespace-nowrap shrink-0 text-[11px] text-muted-foreground">
+          {formatAge(activityAt)}
+        </span>
       </div>
 
       {/* Which of our addresses this arrived at — see MessageListItem. */}
@@ -260,7 +237,7 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
           then spacer pushes assign (Claim or avatar) to the right. flex-wrap so a
           flood of labels can spill to a second visual line without breaking the
           right-pinned assign. */}
-      <div className="flex flex-wrap items-center gap-1.5 pt-2 mt-1 border-t border-border/60">
+      <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-border/60">
         <MessageSignalBadges message={signalMessage} size="sm" mode="card" />
 
         {priorityBadge && (
@@ -316,6 +293,31 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
             </span>
           </Tooltip>
         )}
+
+        {/* Conversation id — a muted reference element, alongside the ticket,
+            thread and attachment icons rather than on a header line of its own. */}
+        <Button
+          type="button"
+          variant="ghost"
+          className="font-mono shrink-0 inline-flex items-center gap-1 p-0 h-auto text-[11px] text-muted-foreground/70 cursor-pointer hover:text-foreground"
+          title={copied ? 'Copied!' : 'Copy link to this conversation'}
+          onClick={(event) => {
+            event.stopPropagation();
+            void navigator.clipboard
+              .writeText(`${window.location.origin}/messages?id=${getConvUrlId(msg, orgCode)}`)
+              .then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              });
+          }}
+        >
+          {formatConvId(msg, orgCode)}
+          {copied ? (
+            <Check className="w-3 h-3 text-green-600" />
+          ) : (
+            <Copy className="w-3 h-3 opacity-50" />
+          )}
+        </Button>
 
         {isFromKBSource && (
           <Tooltip content="From Knowledge Base source" size="sm">

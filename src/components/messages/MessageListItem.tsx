@@ -223,9 +223,12 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
         aria-hidden="true"
         className={`absolute left-0 top-0 bottom-0 w-[3px] ${SPINE_BG[spine]}`}
       />
-      <CardContent className="p-3 pl-4 space-y-1.5">
-        {/* Top row: dept + channel + ID + grow + direction text + age */}
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+      <CardContent className="p-2.5 pl-4 space-y-1">
+        {/* Identity line — dept + channel + sender + read toggle + age on ONE row.
+            The conversation id moved down to the reference footer: it is looked
+            up, not scanned, and a header row of its own cost every row a full
+            line of height with the board showing barely three cards. */}
+        <div className="flex items-center gap-1.5 min-w-0">
           {(primaryDept ?? needsRouting) && (
             <div className="flex items-center gap-1 shrink-0">
               {needsRouting ? (
@@ -235,30 +238,14 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
               )}
             </div>
           )}
+          {showUnread && (
+            <span
+              aria-hidden="true"
+              className="w-2 h-2 rounded-full bg-primary shrink-0"
+            />
+          )}
           <span className="text-muted-foreground shrink-0">{getChannelIcon(msg.channel)}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            className="font-mono shrink-0 inline-flex items-center gap-1 p-0 h-auto cursor-pointer hover:text-foreground"
-            title={copied ? 'Copied!' : 'Copy link to this conversation'}
-            onClick={(event) => {
-              event.stopPropagation();
-              void navigator.clipboard
-                .writeText(`${window.location.origin}/messages?id=${getConvUrlId(msg, orgCode)}`)
-                .then(() => {
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 1500);
-                });
-            }}
-          >
-            {formatConvId(msg, orgCode)}
-            {copied ? (
-              <Check className="w-3 h-3 text-green-600" />
-            ) : (
-              <Copy className="w-3 h-3 opacity-50" />
-            )}
-          </Button>
-          <span className="flex-1" />
+          <p className={`flex-1 min-w-0 text-sm truncate ${senderClass}`}>{thread.sender}</p>
           {isTriage && (
             <Tooltip content={effectiveIsRead ? 'Mark as unread' : 'Mark as read'} size="sm">
               <Button
@@ -277,20 +264,12 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
               </Button>
             </Tooltip>
           )}
-          <span className="whitespace-nowrap shrink-0" title={formatDate(activityAt)}>
+          <span
+            className="whitespace-nowrap shrink-0 text-[11px] text-muted-foreground"
+            title={formatDate(activityAt)}
+          >
             {formatWhen(activityAt)}
           </span>
-        </div>
-
-        {/* Sender — unread (triage) shows a dot + bold; read is muted */}
-        <div className="flex items-center gap-1.5 min-w-0">
-          {showUnread && (
-            <span
-              aria-hidden="true"
-              className="w-2 h-2 rounded-full bg-primary shrink-0"
-            />
-          )}
-          <p className={`text-sm truncate ${senderClass}`}>{thread.sender}</p>
         </div>
 
         {/* Which of our addresses this arrived at. A mailbox answers to several
@@ -309,7 +288,7 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
         {/* Sig row — at-most-one risk + AI state + labels (2 + N).
             Separator above marks the boundary between content (title/subject/preview)
             and the metadata block (chips + reference footer). */}
-        <div className="flex flex-wrap gap-1.5 items-center pt-2 mt-1 border-t border-border/60">
+        <div className="flex flex-wrap gap-1.5 items-center pt-1.5 border-t border-border/60">
           <MessageSignalBadges message={signalMessage} size="sm" mode="card" />
 
           {/*
@@ -417,6 +396,31 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
 
           {/* Resolved is shown by the canonical getStatusBadge chip above — no
               separate chip here (it would double-badge the same card). */}
+
+          {/* Conversation id — a muted reference element beside the ticket,
+              thread and attachment icons rather than a header line of its own. */}
+          <Button
+            type="button"
+            variant="ghost"
+            className="font-mono shrink-0 inline-flex items-center gap-1 p-0 h-auto text-[11px] text-muted-foreground/70 cursor-pointer hover:text-foreground"
+            title={copied ? 'Copied!' : 'Copy link to this conversation'}
+            onClick={(event) => {
+              event.stopPropagation();
+              void navigator.clipboard
+                .writeText(`${window.location.origin}/messages?id=${getConvUrlId(msg, orgCode)}`)
+                .then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                });
+            }}
+          >
+            {formatConvId(msg, orgCode)}
+            {copied ? (
+              <Check className="w-3 h-3 text-green-600" />
+            ) : (
+              <Copy className="w-3 h-3 opacity-50" />
+            )}
+          </Button>
 
           {isFromKBSource && (
             <Tooltip content="From Knowledge Base source" size="sm">
