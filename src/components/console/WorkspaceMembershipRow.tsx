@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Building2, Trash2 } from 'lucide-react';
+import { Building2, Lock, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Toggle } from '@/components/ui/Toggle';
+import { Tooltip } from '@/components/ui/Tooltip';
+import { Badge } from '@/components/ui/Badge';
 import { useWorkspaceDepartments } from '@/hooks/usePlatformAdmin';
 import { organizationService } from '@/services/organization.service';
 import { ORGANIZATION_ROLES, roleDisplayNames, type OrganizationRole } from '@/types/roles';
@@ -20,6 +22,13 @@ type Props = {
   currentDepartmentIds: number[];
   userId: number;
   userEmail: string;
+  /**
+   * The identity provider owns this membership. Until the API started enforcing that, this
+   * row offered a role Select and a Remove for a membership the workspace's own Users page
+   * had been refusing for months — the same row, two answers, depending on which screen was
+   * open. Both controls are now disabled here and say why.
+   */
+  idpManaged: boolean;
   /** Invalidate the platform-users + user-orgs caches after a mutation so the list refreshes. */
   onChanged: () => void;
 };
@@ -42,6 +51,7 @@ export const WorkspaceMembershipRow = ({
   currentDepartmentIds,
   userId,
   userEmail,
+  idpManaged,
   onChanged,
 }: Props) => {
   const [role, setRole] = useState<string>(currentRole);
@@ -113,11 +123,21 @@ export const WorkspaceMembershipRow = ({
   return (
     <li className="p-3 space-y-3 rounded-md border border-border">
       <div className="flex flex-wrap gap-3 justify-between items-center">
-        <span className="text-sm font-medium text-foreground">{orgName}</span>
+        <span className="flex flex-wrap gap-2 items-center text-sm font-medium text-foreground">
+          {orgName}
+          {idpManaged && (
+            <Tooltip content="Your identity provider owns this membership. Change the role, or remove the person, in the identity provider — this workspace will not accept the change.">
+              <Badge className="flex gap-1 items-center text-xs text-amber-700 bg-amber-100 dark:bg-amber-900 dark:text-amber-300">
+                <Lock className="w-3 h-3" />
+                IdP-managed
+              </Badge>
+            </Tooltip>
+          )}
+        </span>
         <div className="flex gap-2 items-center">
           <Select
             value={role}
-            disabled={savingRole}
+            disabled={savingRole || idpManaged}
             aria-label={`Role for ${userEmail} in ${orgName}`}
             className="h-9 w-44"
             onChange={(event) => void handleRoleChange(event.target.value)}
@@ -131,6 +151,7 @@ export const WorkspaceMembershipRow = ({
           <Button
             variant="outline"
             size="sm"
+            disabled={idpManaged}
             onClick={() => setRemoveOpen(true)}
             aria-label={`Remove ${userEmail} from ${orgName}`}
             className="text-destructive hover:text-destructive hover:border-destructive/40"

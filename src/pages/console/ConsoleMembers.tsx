@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Ban, Plus, RotateCcw, Trash2, Users } from 'lucide-react';
+import { Ban, Lock, Plus, RotateCcw, Trash2, Users } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -255,6 +255,14 @@ export const ConsoleMembers = () => {
             )}
           </div>
           {member.email && <div className="text-xs text-muted-foreground">{member.email}</div>}
+          {member.idpAsserted && (
+            <Tooltip content="Your identity provider names this member. Their group memberships, and any role a mapped group grants, are reasserted on the next push.">
+              <Badge className="inline-flex gap-1 items-center mt-1 text-xs text-amber-700 bg-amber-100 dark:bg-amber-900 dark:text-amber-300">
+                <Lock className="w-3 h-3" />
+                From IdP
+              </Badge>
+            </Tooltip>
+          )}
         </div>
       ),
     },
@@ -587,9 +595,15 @@ export const ConsoleMembers = () => {
             : `Change ${roleChange?.member.name || 'this member'} to alliance agent?`
         }
         description={
-          roleChange?.newRole === 'alliance_admin'
+          (roleChange?.newRole === 'alliance_admin'
             ? 'Alliance admins manage identity, provisioning, groups, members and workspaces — this grants workspace-admin access across every workspace in the alliance. Applied on the next reconcile.'
-            : 'This lowers the member to alliance agent (associate) across every workspace in the alliance and may reduce their department visibility. Applied on the next reconcile.'
+            : 'This lowers the member to alliance agent (associate) across every workspace in the alliance and may reduce their department visibility. Applied on the next reconcile.') +
+          // Setting the role by hand marks it 'manual', and a manual role is never lowered by
+          // the IdP again. That is a permanent detachment from directory control and nothing
+          // used to say so.
+          (roleChange?.member.allianceRoleSource === 'idp'
+            ? ' ⚠️ Your identity provider currently sets this role. Changing it here takes it over permanently — the provider will no longer be able to lower it, even when the group that granted it is removed.'
+            : '')
         }
       />
     </div>

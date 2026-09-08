@@ -52,6 +52,23 @@ export type AllianceMember = {
    * exactly like one that did nothing.
    */
   revokedRoles?: EffectiveRole[];
+  /**
+   * Did the identity provider NAME this member, rather than an admin adding them by hand?
+   * Optional for backward-compat with a backend that predates the field.
+   *
+   * ⛔ This list is the primary identity-provider console and it carried no IdP signal at
+   * all: an alliance admin saw a live role dropdown for someone whose role the directory
+   * reasserts on the next push, with nothing on screen to say so.
+   */
+  idpAsserted?: boolean;
+  /**
+   * Who set the current `allianceRole` — 'idp' (a mapped group asserted it) or 'manual'.
+   *
+   * ⛔ Load-bearing: changing the role here stamps 'manual', and a 'manual' admin is never
+   * de-elevated by the IdP again. The dropdown permanently detaches that person from
+   * directory control, which nothing used to say because the field was never returned.
+   */
+  allianceRoleSource?: string;
   /** false ⇒ deactivated (no active workspace access, cannot log in). Optional for
    *  backward-compat with a backend that predates the field — treat absent as active. */
   active?: boolean;
