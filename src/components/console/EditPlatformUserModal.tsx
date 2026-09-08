@@ -226,10 +226,19 @@ export const EditPlatformUserModal = ({ user, isOpen, onClose, currentUserId }: 
     });
   };
 
+  /** Any workspace where the identity provider owns this account's membership. */
+  const idpOwnedWorkspaces = (orgsQuery.data ?? []).filter((org) => org.idpManaged);
+
   const confirmDelete = async () => {
     try {
       // Platform delete = full global delete across ALL workspaces (scope:'global', BE #270).
-      await userService.delete(user.id, { scope: 'global' });
+      // When the directory owns the account the API refuses unless the caller acknowledges
+      // it, so the dialog says what will happen and passes the acknowledgement. Deleting here
+      // does NOT remove them from the directory, which re-creates them on the next sync.
+      await userService.delete(user.id, {
+        scope: 'global',
+        acknowledgeIdpManaged: idpOwnedWorkspaces.length > 0,
+      });
       invalidate();
       toast.success('Account deleted');
       setDeleteConfirmOpen(false);
@@ -342,6 +351,7 @@ export const EditPlatformUserModal = ({ user, isOpen, onClose, currentUserId }: 
                       orgName={org.name}
                       currentRole={org.role}
                       currentDepartmentIds={org.departmentIds}
+                      idpManaged={org.idpManaged}
                       userId={user.id}
                       userEmail={user.email}
                       onChanged={refreshMemberships}
@@ -528,7 +538,15 @@ export const EditPlatformUserModal = ({ user, isOpen, onClose, currentUserId }: 
         variant="danger"
         confirmText="Delete account"
         title={`Delete ${fullName(user)}'s account?`}
-        description={`This permanently deletes ${user.email}'s account and removes them from ALL workspaces across the platform. This cannot be undone.`}
+        description={
+          idpOwnedWorkspaces.length > 0
+            ? `This permanently deletes ${user.email}'s account and removes them from ALL workspaces across the platform. This cannot be undone. ` +
+              `Your identity provider owns this account in ${idpOwnedWorkspaces.length} workspace(s) ` +
+              `(${idpOwnedWorkspaces.map((org) => org.name).join(', ')}) — deleting it here does NOT ` +
+              `remove it from the directory, which will re-create the account on its next sync. ` +
+              `Remove them in the identity provider to make this stick.`
+            : `This permanently deletes ${user.email}'s account and removes them from ALL workspaces across the platform. This cannot be undone.`
+        }
       />
     </>
   );

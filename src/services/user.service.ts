@@ -3,6 +3,19 @@ import { apiClient } from '@/lib/api-client';
 import type { User, PaginationMeta, ApiResponse } from '@/types';
 import type { OrganizationRole } from '@/types/roles';
 
+/** One workspace a user belongs to, as the platform console's Manage dialog edits it. */
+export type UserWorkspaceMembership = {
+  id: number;
+  name: string;
+  role: string;
+  departmentIds: number[];
+  /**
+   * The identity provider owns this membership. The API refuses a role change or a removal
+   * for it, so the controls are shown disabled rather than offered and then rejected.
+   */
+  idpManaged: boolean;
+};
+
 export const userService = {
   /**
    * Every user in the workspace, walked page by page.
@@ -64,13 +77,14 @@ export const userService = {
 
   // Get the workspaces a user belongs to, with their per-workspace role.
   // Global-admin only — GET /api/users/:id/organizations (requireGlobalAdmin).
-  getUserOrganizations: async (
-    id: number
-  ): Promise<{ id: number; name: string; role: string; departmentIds: number[] }[]> => {
-    const response: AxiosResponse<
-      ApiResponse<{ id: number; name: string; role: string; departmentIds: number[] }[]>
-    > = await apiClient.get(`/api/users/${id}/organizations`);
-    return response.data.data ?? [];
+  getUserOrganizations: async (id: number): Promise<UserWorkspaceMembership[]> => {
+    const response: AxiosResponse<ApiResponse<UserWorkspaceMembership[]>> = await apiClient.get(
+      `/api/users/${id}/organizations`
+    );
+    // Skew guard: `idpManaged` arrives with the ownership-guard wave. A console build that
+    // reaches production first must not read undefined as "editable" any more loudly than it
+    // has to — false keeps today's behaviour, and the API refuses the write regardless.
+    return (response.data.data ?? []).map((row) => ({ ...row, idpManaged: row.idpManaged ?? false }));
   },
 
   // Get current user. The /me shape is locked by the CurrentUser BE contract test;
@@ -99,10 +113,19 @@ export const userService = {
   // multi-workspace user — the safe default. Mirrors BE userController.deleteUser (#270):
   // without ?scope=global a multi-workspace delete is scoped, so the platform "Delete
   // account" action MUST pass scope:'global' to actually delete the account.
-  delete: async (id: number, opts?: { scope?: 'global' }): Promise<void> => {
+  delete: async (
+    id: number,
+    opts?: { scope?: 'global'; acknowledgeIdpManaged?: boolean }
+  ): Promise<void> => {
+    // `acknowledgeIdpManaged` is how erasing an identity-provider-owned account stays
+    // possible without being silent: the API refuses the purge without it, because the
+    // directory re-creates whatever you delete on its next sync.
+    const params: Record<string, string> = {};
+    if (opts?.scope) params.scope = opts.scope;
+    if (opts?.acknowledgeIdpManaged) params.acknowledgeIdpManaged = 'true';
     await apiClient.delete(
       `/api/users/${id}`,
-      opts?.scope ? { params: { scope: opts.scope } } : undefined
+      Object.keys(params).length > 0 ? { params } : undefined
     );
   },
 
