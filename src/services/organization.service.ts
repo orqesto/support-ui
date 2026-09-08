@@ -92,6 +92,34 @@ export type BusinessHoursResponse = {
 };
 
 export const organizationService = {
+  /**
+   * Every workspace, walked page by page.
+   *
+   * ⚠️ The endpoint CLAMPS `limit` to 100, so a single request can never return more —
+   * asking for 500 silently drops workspaces 101+. Three pickers (the global-admin
+   * switcher, the feature-flag scope, the invite dialog) each asked for one page of 100
+   * and rendered it as the full list, and two of them then auto-selected `[0]` from it.
+   */
+  getAllPages: async (search?: string) => {
+    const LIMIT = 100;
+    const MAX_PAGES = 100; // runaway backstop (<=10k workspaces)
+    const all: Awaited<ReturnType<typeof organizationService.getAll>>['data'] = [];
+    let pagination: Awaited<ReturnType<typeof organizationService.getAll>>['pagination'] = {
+      page: 1,
+      limit: LIMIT,
+      total: 0,
+      totalPages: 1,
+      hasMore: false,
+    };
+    for (let page = 1; page <= MAX_PAGES; page += 1) {
+      const res = await organizationService.getAll(search, page, LIMIT);
+      all.push(...res.data);
+      pagination = res.pagination;
+      if (page >= (res.pagination.totalPages || 1) || res.data.length === 0) break;
+    }
+    return { data: all, pagination };
+  },
+
   getById: async (id: number) => {
     const response = await apiClient.get<ApiResponse<Organization>>(`/api/organizations/${id}`);
     if (!response.data.data) throw new Error('Organization not found');

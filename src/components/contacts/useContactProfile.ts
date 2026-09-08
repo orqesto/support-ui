@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { userService } from '@/services/user.service';
 import { apiClient } from '@/lib/api-client';
 import { hashNameToLabelColor } from '@/components/messages/inboxCardHelpers';
 import { labelService } from '@/services/settings.service';
@@ -55,12 +56,15 @@ export function useContactProfile(
     try {
       const [profile, usersRes, labelsRes] = await Promise.all([
         contactService.getByEmail(email),
-        apiClient.get<ApiResponse<OrgUser[]>>('/api/users'),
+        // ⚠️ This called `/api/users` bare, whose limit DEFAULTS TO 10. The result is the
+        // entire option list of the "Assigned manager" picker, so the eleventh member of a
+        // workspace could not be chosen at all — and the dropdown looked complete.
+        userService.getAllPages(),
         apiClient.get<ApiResponse<OrgLabel[]>>('/api/labels'),
       ]);
       setContact(profile);
       setNameInput(profile.displayName ?? '');
-      setUsers((usersRes.data.data as { users?: OrgUser[] } | null)?.users ?? []);
+      setUsers(usersRes.data as OrgUser[]);
       setOrgLabels(labelsRes.data.data ?? []);
     } catch {
       setContact(null);

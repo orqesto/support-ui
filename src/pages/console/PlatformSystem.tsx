@@ -170,6 +170,9 @@ const formatDate = (iso: string): string => {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
 };
 
+/** The cap `platformService.getQueueFailedJobs` applies. */
+const FAILED_JOBS_LIMIT = 20;
+
 export const PlatformSystem = () => {
   const licenseQuery = useQuery({
     queryKey: ['platform', 'license-status'],
@@ -399,6 +402,13 @@ export const PlatformSystem = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Failed jobs — {failedQueue}</DialogTitle>
+            {/* The badge that opens this dialog shows the TRUE failed count; the endpoint
+                returns at most 20. Say so, rather than letting the two disagree silently. */}
+            {(failedJobsQuery.data ?? []).length >= FAILED_JOBS_LIMIT && (
+              <p className="text-xs text-muted-foreground">
+                Showing the {FAILED_JOBS_LIMIT} most recent.
+              </p>
+            )}
             <DialogClose onClose={() => setFailedQueue(null)} />
           </DialogHeader>
           {failedJobsQuery.isLoading ? (

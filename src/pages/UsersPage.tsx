@@ -71,6 +71,9 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
   }>({ open: false, title: '', description: '', variant: 'info' });
 
   const [departments, setDepartments] = useState<Department[]>([]);
+  // The workspace's member count as the SERVER reports it, not the length of whatever
+  // this page happened to fetch.
+  const [userTotal, setUserTotal] = useState<number | null>(null);
 
   // Use users store
   const usersFromStore = useUsersStore((state) => state.users);
@@ -92,8 +95,12 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
       }
 
       try {
-        const result = await userService.getAll(searchUser || undefined);
-        setUsers(result.data); // Service returns { data: User[], pagination }
+        // ⚠️ This asked for ONE page at the service default of 10 and then paginated the
+        // result 25 to a page, so a workspace with more than ten members silently showed
+        // ten and the header counted the fetched array as the workspace total.
+        const { data, total } = await userService.getAllPages(searchUser || undefined);
+        setUsers(data);
+        setUserTotal(total);
       } catch (error) {
         logger.error('Failed to fetch users:', error);
       } finally {
@@ -537,7 +544,9 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
           <div>
             <h2 className="text-2xl font-bold">Users</h2>
             <p className="text-sm text-muted-foreground">
-              {loading ? 'Loading...' : `${users.length} user${users.length !== 1 ? 's' : ''}`}
+              {loading
+                ? 'Loading...'
+                : `${userTotal ?? users.length} user${(userTotal ?? users.length) !== 1 ? 's' : ''}`}
             </p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">

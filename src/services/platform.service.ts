@@ -34,21 +34,33 @@ export type PlatformOverview = {
 };
 
 // ─── Users (global directory) ────────────────────────────────────────────────
+
+/** One workspace a directory row belongs to, with what the person holds there. */
+export type PlatformUserWorkspace = {
+  organizationId: number;
+  organizationName: string;
+  role: string;
+  /** The direct role an IdP take-over is shadowing, if any. */
+  preAllianceRole: string | null;
+  /** This membership is owned by an IdP — the role is not editable in-app here. */
+  idpManaged: boolean;
+};
+
 export type PlatformUserRow = {
   id: number;
   email: string;
   firstName: string;
   lastName: string | null;
+  position: string | null;
   role: string;
   emailVerified: boolean;
   orgCount: number;
+  /** ACTIVE memberships, named. Departments are not here — they are per-tenant data. */
+  workspaces: PlatformUserWorkspace[];
+  /** True when ANY membership of this account is IdP-owned. */
+  idpManaged: boolean;
   createdAt: string;
-  /**
-   * Suspension state. NOTE: as of the wave-2 BE branch the users LIST endpoint does NOT
-   * return these — they arrive only on the suspend/reactivate mutation responses — so a
-   * suspended row's badge/Reactivate action won't persist across a refetch until the BE
-   * list also selects them. Kept optional so the UI is correct-by-construction once it does.
-   */
+  /** Suspension state — the list endpoint returns these, so the badge survives a refetch. */
   disabledAt?: string | null;
   disabledReason?: string | null;
 };
@@ -331,7 +343,16 @@ export const platformService = {
         },
       }
     );
-    return { rows: res.data.data, pagination: res.data.pagination };
+    // FE/BE skew guard: `workspaces` and the IdP flags arrive with the take-over wave. A
+    // console build that reaches prod first would otherwise read `.length` off undefined
+    // and white-screen the whole directory.
+    const rows = (res.data.data ?? []).map((row) => ({
+      ...row,
+      position: row.position ?? null,
+      workspaces: row.workspaces ?? [],
+      idpManaged: row.idpManaged ?? false,
+    }));
+    return { rows, pagination: res.data.pagination };
   },
 
   /** Set a user's global role (PATCH /api/admin/platform/users/:id/role, requireGlobalAdmin). */
