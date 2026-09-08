@@ -91,7 +91,10 @@ export const EditPlatformUserModal = ({ user, isOpen, onClose, currentUserId }: 
     if (user) {
       setFirstName(user.firstName ?? '');
       setLastName(user.lastName ?? '');
-      setPosition('');
+      // The list row carries `position` now, so the field shows what is stored instead of
+      // rendering blank on every open. It used to reset to '' because the directory
+      // endpoint never returned it, which also meant a save silently sent `undefined`.
+      setPosition(user.position ?? '');
       setRole(user.role as GlobalRole);
       setSuspendMode(false);
       setSuspendReason('');
@@ -165,7 +168,9 @@ export const EditPlatformUserModal = ({ user, isOpen, onClose, currentUserId }: 
       await userService.update(user.id, {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        position: position.trim() || undefined,
+        // '' clears a stored position deliberately; `undefined` would leave it untouched,
+        // which made the empty box unable to express "remove this".
+        position: position.trim(),
       });
       if (roleChanged) {
         await new Promise<void>((resolve, reject) => {

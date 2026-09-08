@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Settings2 } from 'lucide-react';
+import { Lock, Settings2, ShieldAlert } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { Tooltip } from '@/components/ui/Tooltip';
+import { roleDisplayNames, type UserRole } from '@/types/roles';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { DataTable, type ColumnDef } from '@/components/ui/DataTable';
@@ -98,19 +100,63 @@ export const PlatformUsers = () => {
       id: 'role',
       header: 'Role',
       cell: (row) => (
-        <Badge variant={row.role === 'admin' ? 'danger' : 'secondary'}>{row.role}</Badge>
+        <Badge variant={row.role === 'admin' ? 'danger' : 'secondary'}>
+          {roleDisplayNames[row.role as UserRole] ?? row.role}
+        </Badge>
       ),
     },
     {
       id: 'workspaces',
       header: 'Workspaces',
+      // Named, with the workspace role each membership carries, because this is the one
+      // screen that sees a person across tenants. It listed a bare count, so answering
+      // "where is this person and what are they there" meant opening the dialog.
       cell: (row) =>
-        row.orgCount > 0 ? (
-          <span className="text-muted-foreground">
-            {row.orgCount} {row.orgCount === 1 ? 'workspace' : 'workspaces'}
+        row.workspaces.length > 0 ? (
+          <span className="flex flex-wrap gap-1">
+            {row.workspaces.map((workspace) => (
+              <Badge key={workspace.organizationId} variant="secondary" className="text-xs">
+                {workspace.organizationName}
+                <span className="ml-1 opacity-70">
+                  {roleDisplayNames[workspace.role as UserRole] ?? workspace.role}
+                </span>
+                {workspace.idpManaged && <Lock className="ml-1 w-3 h-3" />}
+              </Badge>
+            ))}
           </span>
         ) : (
-          <span className="text-muted-foreground">0</span>
+          <span className="text-muted-foreground">None</span>
+        ),
+    },
+    {
+      id: 'position',
+      header: 'Position',
+      // An empty string is as absent as null here, so `??` would print a blank cell.
+      cell: (row) => (
+        <span className="text-muted-foreground">{row.position?.trim() ? row.position : '—'}</span>
+      ),
+    },
+    {
+      id: 'idp',
+      header: 'Identity provider',
+      // The console is where a platform admin acts on an IdP problem, and it was the one
+      // surface carrying no IdP signal at all. The lock mirrors the workspace list's badge;
+      // the per-workspace lock above says WHICH membership the IdP owns.
+      cell: (row) =>
+        row.idpManaged ? (
+          <Badge className="flex gap-1 items-center text-xs text-amber-700 bg-amber-100 dark:bg-amber-900 dark:text-amber-300">
+            <Lock className="w-3 h-3" />
+            IdP-managed
+          </Badge>
+        ) : row.role === 'admin' ? (
+          <Tooltip content="An identity provider cannot provision or manage this account while it is a platform administrator. Change their platform role to User to let the connector manage them.">
+            <Badge variant="secondary" className="flex gap-1 items-center text-xs">
+              <ShieldAlert className="w-3 h-3" />
+              Not IdP-manageable
+            </Badge>
+          </Tooltip>
+        ) : (
+          <span className="text-muted-foreground">—</span>
         ),
     },
     {

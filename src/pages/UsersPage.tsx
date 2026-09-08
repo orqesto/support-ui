@@ -43,6 +43,10 @@ import { UserSkillsModal } from '@/components/modals/UserSkillsModal';
 
 /** Match the console tables' page size so every user/workspace list paginates identically. */
 const PAGE_SIZE = 25;
+/** The `/api/users` page cap. Fetching in these chunks keeps the request count low. */
+const USERS_FETCH_PAGE_SIZE = 100;
+/** Stop after this many pages so a pathological directory cannot spin the browser. */
+const USERS_MAX_PAGES = 20;
 
 export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => {
   // When embedded in the WorkspaceShell (which supplies its own chrome), render
@@ -71,6 +75,9 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
   }>({ open: false, title: '', description: '', variant: 'info' });
 
   const [departments, setDepartments] = useState<Department[]>([]);
+  // The workspace's member count as the SERVER reports it, not the length of whatever
+  // this page happened to fetch.
+  const [userTotal, setUserTotal] = useState<number | null>(null);
 
   // Use users store
   const usersFromStore = useUsersStore((state) => state.users);
@@ -92,8 +99,19 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
       }
 
       try {
-        const result = await userService.getAll(searchUser || undefined);
-        setUsers(result.data); // Service returns { data: User[], pagination }
+        // ⚠️ This asked for ONE page at the service default of 10 and then paginated the
+        // result 25 to a page, so a workspace with more than ten members silently showed
+        // ten and the header counted the fetched array as the workspace total. Walk every
+        // page at the endpoint's own cap instead, and take the count from the server.
+        const first = await userService.getAll(searchUser || undefined, 1, USERS_FETCH_PAGE_SIZE);
+        const collected = [...first.data];
+        const totalPages = Math.min(first.pagination?.totalPages ?? 1, USERS_MAX_PAGES);
+        for (let page = 2; page <= totalPages; page += 1) {
+          const next = await userService.getAll(searchUser || undefined, page, USERS_FETCH_PAGE_SIZE);
+          collected.push(...next.data);
+        }
+        setUsers(collected);
+        setUserTotal(first.pagination?.total ?? collected.length);
       } catch (error) {
         logger.error('Failed to fetch users:', error);
       } finally {
@@ -537,7 +555,9 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
           <div>
             <h2 className="text-2xl font-bold">Users</h2>
             <p className="text-sm text-muted-foreground">
-              {loading ? 'Loading...' : `${users.length} user${users.length !== 1 ? 's' : ''}`}
+              {loading
+                ? 'Loading...'
+                : `${userTotal ?? users.length} user${(userTotal ?? users.length) !== 1 ? 's' : ''}`}
             </p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
