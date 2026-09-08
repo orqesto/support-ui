@@ -109,6 +109,13 @@ export const AnomalyAlertsList = () => {
           <AlertTriangle className="w-5 h-5 text-orange-500" />
           Anomaly Alerts ({data?.total ?? 0})
         </CardTitle>
+        {/* The count above is the server total; this list is one page of 10 with no paging,
+            so without this line the header and the rows contradict each other. */}
+        {(data?.total ?? 0) > records.length && (
+          <p className="text-xs text-muted-foreground">
+            Showing the {records.length} most recent of {data?.total}.
+          </p>
+        )}
       </CardHeader>
       <CardContent>
         <div className="space-y-3">

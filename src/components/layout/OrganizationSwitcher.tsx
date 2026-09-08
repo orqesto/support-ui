@@ -35,7 +35,7 @@ export const OrganizationSwitcher = () => {
       // context header. A member may only see their OWN memberships — `getAll` would
       // 403 for them — and switches by re-minting the token.
       const data = isGlobalAdmin
-        ? (await organizationService.getAll('', 1, 100)).data
+        ? (await organizationService.getAllPages('')).data
         : await authService.myOrganizations();
       setOrganizations(data as Organization[]);
 

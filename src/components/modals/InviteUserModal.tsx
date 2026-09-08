@@ -52,10 +52,10 @@ export const InviteUserModal = ({
     const loadOrganizations = async () => {
       try {
         if (isAdmin) {
-          // Load up to the server cap (100) so older orgs beyond the newest page are
-          // selectable — the picker filters client-side, so all must be loaded first.
-          // (Past 100 orgs this needs a server-side typeahead; see getAll's `search`.)
-          const result = await organizationService.getAll(undefined, 1, 100);
+          // Every workspace, not the first page of 100 — the picker filters client-side,
+          // so anything not loaded is simply not invitable, and this dialog also defaults
+          // the selection to `orgs[0]` off whatever it got.
+          const result = await organizationService.getAllPages(undefined);
           const orgs = result.data || [];
           setOrganizations(orgs);
           if (prefilledOrganizationId) {

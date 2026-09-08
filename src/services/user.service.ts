@@ -4,6 +4,30 @@ import type { User, PaginationMeta, ApiResponse } from '@/types';
 import type { OrganizationRole } from '@/types/roles';
 
 export const userService = {
+  /**
+   * Every user in the workspace, walked page by page.
+   *
+   * ⚠️ `getAll`'s default limit is 10, and a caller that omits it gets ten rows that LOOK
+   * like the whole workspace. That silently truncated the Users page and the contact
+   * "Assigned manager" picker, where members past the tenth simply could not be chosen.
+   * Prefer this whenever the caller wants the population rather than one page.
+   */
+  getAllPages: async (
+    search?: string
+  ): Promise<{ data: User[]; total: number }> => {
+    const PAGE_SIZE = 100; // the endpoint's own cap — asking for more does not help
+    const MAX_PAGES = 20; // runaway backstop
+    const collected: User[] = [];
+    let total = 0;
+    for (let page = 1; page <= MAX_PAGES; page += 1) {
+      const res = await userService.getAll(search, page, PAGE_SIZE);
+      collected.push(...res.data);
+      total = res.pagination?.total ?? collected.length;
+      if (page >= (res.pagination?.totalPages || 1) || res.data.length === 0) break;
+    }
+    return { data: collected, total };
+  },
+
   // Get all users
   getAll: async (
     search?: string,

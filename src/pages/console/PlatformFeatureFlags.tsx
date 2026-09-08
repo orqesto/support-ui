@@ -125,7 +125,7 @@ export const PlatformFeatureFlags = () => {
   // precisely what "calibrate against production traffic" was waiting for.
   const orgsQuery = useQuery({
     queryKey: ['platform', 'organizations', 'for-flags'],
-    queryFn: () => organizationService.getAll(undefined, 1, 100),
+    queryFn: () => organizationService.getAllPages(undefined),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });

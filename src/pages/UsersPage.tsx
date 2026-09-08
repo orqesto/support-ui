@@ -43,10 +43,6 @@ import { UserSkillsModal } from '@/components/modals/UserSkillsModal';
 
 /** Match the console tables' page size so every user/workspace list paginates identically. */
 const PAGE_SIZE = 25;
-/** The `/api/users` page cap. Fetching in these chunks keeps the request count low. */
-const USERS_FETCH_PAGE_SIZE = 100;
-/** Stop after this many pages so a pathological directory cannot spin the browser. */
-const USERS_MAX_PAGES = 20;
 
 export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => {
   // When embedded in the WorkspaceShell (which supplies its own chrome), render
@@ -101,17 +97,10 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
       try {
         // ⚠️ This asked for ONE page at the service default of 10 and then paginated the
         // result 25 to a page, so a workspace with more than ten members silently showed
-        // ten and the header counted the fetched array as the workspace total. Walk every
-        // page at the endpoint's own cap instead, and take the count from the server.
-        const first = await userService.getAll(searchUser || undefined, 1, USERS_FETCH_PAGE_SIZE);
-        const collected = [...first.data];
-        const totalPages = Math.min(first.pagination?.totalPages ?? 1, USERS_MAX_PAGES);
-        for (let page = 2; page <= totalPages; page += 1) {
-          const next = await userService.getAll(searchUser || undefined, page, USERS_FETCH_PAGE_SIZE);
-          collected.push(...next.data);
-        }
-        setUsers(collected);
-        setUserTotal(first.pagination?.total ?? collected.length);
+        // ten and the header counted the fetched array as the workspace total.
+        const { data, total } = await userService.getAllPages(searchUser || undefined);
+        setUsers(data);
+        setUserTotal(total);
       } catch (error) {
         logger.error('Failed to fetch users:', error);
       } finally {

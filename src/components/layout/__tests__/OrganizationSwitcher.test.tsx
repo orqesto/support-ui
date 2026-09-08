@@ -19,11 +19,17 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 type Org = { id: number; name: string; slug: string };
 
 const getAll = vi.fn<() => Promise<{ data: Org[] }>>();
+/**
+ * The admin path must read EVERY workspace, not one page. `getAll` clamps `limit` to 100,
+ * so the switcher used to render the first hundred and auto-select `[0]` from it —
+ * workspaces 101+ were unreachable. It now calls the paging helper, and this mock pins that.
+ */
+const getAllPages = vi.fn<() => Promise<{ data: Org[] }>>();
 const myOrganizations = vi.fn<() => Promise<Org[]>>();
 const switchOrganization = vi.fn<(id: number) => Promise<{ success: boolean }>>();
 
 vi.mock('@/services/organization.service', () => ({
-  organizationService: { getAll: () => getAll() },
+  organizationService: { getAll: () => getAll(), getAllPages: () => getAllPages() },
 }));
 vi.mock('@/services/auth.service', () => ({
   authService: {
@@ -58,11 +64,12 @@ const asMember = (orgs = TWO) => {
 };
 const asGlobalAdmin = () => {
   authState = { user: { role: 'admin' }, selectedOrganizationId: 1, setSelectedOrganization };
-  getAll.mockResolvedValue({ data: TWO });
+  getAllPages.mockResolvedValue({ data: TWO });
 };
 
 beforeEach(() => {
   getAll.mockReset();
+  getAllPages.mockReset();
   myOrganizations.mockReset();
   switchOrganization.mockReset();
   setSelectedOrganization.mockReset();
@@ -79,6 +86,7 @@ describe('OrganizationSwitcher — member', () => {
     await waitFor(() => expect(myOrganizations).toHaveBeenCalled());
     // Reads its list from the member endpoint, never the admin-only one.
     expect(getAll).not.toHaveBeenCalled();
+    expect(getAllPages).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.getByText('Acme')).toBeInTheDocument());
   });
 
@@ -97,14 +105,14 @@ describe('OrganizationSwitcher — global admin', () => {
     asGlobalAdmin();
     render(<OrganizationSwitcher />);
 
-    await waitFor(() => expect(getAll).toHaveBeenCalled());
+    await waitFor(() => expect(getAllPages).toHaveBeenCalled());
     expect(myOrganizations).not.toHaveBeenCalled();
   });
 
   it('never calls the member switch endpoint', async () => {
     asGlobalAdmin();
     render(<OrganizationSwitcher />);
-    await waitFor(() => expect(getAll).toHaveBeenCalled());
+    await waitFor(() => expect(getAllPages).toHaveBeenCalled());
 
     // An admin is usually NOT a member of the workspace they are inspecting, and that
     // endpoint refuses non-members — calling it would break switching for admins.
