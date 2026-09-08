@@ -520,7 +520,21 @@ export const ConfluenceIntegrationCard = ({
             <p className="mb-4 text-muted-foreground">
               Are you sure you want to delete <strong>{deleteConfirm.name}</strong>?
             </p>
-            <p className="mb-6 text-sm text-red-600">This action cannot be undone.</p>
+            {/*
+              Say what survives, not just what is irreversible. The old copy read "This action
+              cannot be undone" with no mention of documents, so a workspace owner reasonably
+              read it as being about the connection — and the hard delete behind it destroyed
+              their synced KB pages. The backend now DETACHES those docs instead; this tells
+              the reader that before they click, because an unexplained warning is what made
+              the old behaviour a surprise.
+            */}
+            <p className="mb-2 text-sm text-muted-foreground">
+              Pages already synced into the Knowledge Base are <strong>kept</strong>. They stop
+              syncing and become regular documents you can manage under Documentation.
+            </p>
+            <p className="mb-6 text-sm text-red-600">
+              The connection itself cannot be restored — you would need to add the space again.
+            </p>
             <div className="flex gap-3 justify-end">
               <Button
                 variant="outline"
