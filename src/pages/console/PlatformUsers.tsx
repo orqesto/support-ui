@@ -142,12 +142,25 @@ export const PlatformUsers = () => {
       // The console is where a platform admin acts on an IdP problem, and it was the one
       // surface carrying no IdP signal at all. The lock mirrors the workspace list's badge;
       // the per-workspace lock above says WHICH membership the IdP owns.
-      cell: (row) =>
-        row.idpManaged ? (
-          <Badge className="flex gap-1 items-center text-xs text-amber-700 bg-amber-100 dark:bg-amber-900 dark:text-amber-300">
-            <Lock className="w-3 h-3" />
-            IdP-managed
-          </Badge>
+      cell: (row) => {
+        // Say WHICH, not just whether. `idpManaged` is true when ANY membership is owned,
+        // so a flat "IdP-managed" contradicted the unlocked workspace chip two columns
+        // left for anyone owned in one workspace and hand-added to another.
+        const owned = row.workspaces.filter((workspace) => workspace.idpManaged).length;
+        const partly = owned > 0 && owned < row.workspaces.length;
+        return row.idpManaged ? (
+          <Tooltip
+            content={
+              partly
+                ? `Owned by an identity provider in ${owned} of ${row.workspaces.length} workspaces. The locked ones cannot be edited here.`
+                : 'Every workspace membership of this account is owned by an identity provider.'
+            }
+          >
+            <Badge className="flex gap-1 items-center text-xs text-amber-700 bg-amber-100 dark:bg-amber-900 dark:text-amber-300">
+              <Lock className="w-3 h-3" />
+              {partly ? `IdP-managed (${owned}/${row.workspaces.length})` : 'IdP-managed'}
+            </Badge>
+          </Tooltip>
         ) : row.role === 'admin' ? (
           <Tooltip content="An identity provider cannot provision or manage this account while it is a platform administrator. Change their platform role to User to let the connector manage them.">
             <Badge variant="secondary" className="flex gap-1 items-center text-xs">
@@ -157,7 +170,8 @@ export const PlatformUsers = () => {
           </Tooltip>
         ) : (
           <span className="text-muted-foreground">—</span>
-        ),
+        );
+      },
     },
     {
       id: 'joined',
