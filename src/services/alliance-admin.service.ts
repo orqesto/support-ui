@@ -34,7 +34,24 @@ export type AllianceCandidateUser = {
   email: string;
 };
 
-export type EffectiveRole = { orgId: number; orgName: string; role: string };
+export type EffectiveRole = {
+  orgId: number;
+  orgName: string;
+  /** The role in force today. */
+  role: string;
+  /**
+   * The DIRECT grant underneath, snapshotted when the alliance took the membership over.
+   * When set and higher than the group's mapping it is WHY the member is not at their
+   * group's role — the reconciler resolves highest-wins, so a hand-made Workspace
+   * Administrator stays one even in a group mapped to Moderator.
+   */
+  directRole?: string | null;
+  /** Per-user permission customisation is in force. */
+  hasOverrides?: boolean;
+  /** Who last customised them. null = not recorded, NOT "nobody". */
+  overridesSetByName?: string | null;
+  overridesSetAt?: string | null;
+};
 export type AllianceMember = {
   userId: number;
   name: string;

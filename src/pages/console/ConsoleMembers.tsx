@@ -82,6 +82,34 @@ export const accessSummary = (
 };
 
 /**
+ * What, if anything, explains this membership diverging from its IdP group.
+ *
+ * Pure and exported so the rules are testable without mounting the page — same reason
+ * `accessSummary` above is.
+ *
+ * `directRole` is shown whenever one EXISTS, not only when it differs from the role in force.
+ *
+ * ⚠️ An earlier version of this filtered to `directRole !== role`, reasoning that a snapshot
+ * equal to the live role explains nothing. That is backwards, and writing the test for the
+ * reported case exposed it: alice's role in force IS `org_admin` and her snapshot IS
+ * `org_admin` — equal — because highest-wins kept her July grant over the group's Moderator.
+ * The filter hid the chip on precisely the members it was built to explain.
+ *
+ * A non-null snapshot means "a direct grant underlies this membership", which is the answer to
+ * "why is this member not at their group's role?". A membership the alliance itself created
+ * has no snapshot and gets no chip.
+ */
+export const roleDivergence = (
+  role: EffectiveRole
+): { directRole: string | null; hasOverrides: boolean; overridesAttributed: boolean } => ({
+  directRole: role.directRole ?? null,
+  hasOverrides: role.hasOverrides === true,
+  // Attribution is missing on every membership customised before the column existed. The
+  // console must say "not recorded" rather than implying nobody did it.
+  overridesAttributed: role.hasOverrides === true && Boolean(role.overridesSetByName),
+});
+
+/**
  * Members screen (SPEC §8.3): each member's alliance_role (editable) and the
  * per-org roles the reconciler materialized for them (chips). An active member is
  * DEACTIVATED first (a durable, IdP-sync-proof hold that blocks login; the confirm
@@ -299,9 +327,46 @@ export const ConsoleMembers = () => {
         return (
           <div className="flex flex-wrap gap-1.5">
             {granted.map((role) => (
-              <Badge key={role.orgId} variant="secondary">
-                {orgRoleLabel(role.role)} in {role.orgName}
-              </Badge>
+              <span key={role.orgId} className="inline-flex flex-wrap items-center gap-1">
+                <Badge variant="secondary">
+                  {orgRoleLabel(role.role)} in {role.orgName}
+                </Badge>
+                {/*
+                  Why this member may not sit at their group's role. The reconciler resolves
+                  highest-wins over (direct grant, group target), so someone made Workspace
+                  Administrator by hand before the alliance existed KEEPS that role even in a
+                  group mapped to Moderator. Until this chip the console showed the group's
+                  wiring and nothing else, so the divergence read as a broken sync rather than
+                  the rule it is — which is exactly how it was reported.
+
+                  Shown only when the direct grant DIFFERS from the role in force: when they
+                  match it explains nothing and would just be noise on every taken-over row.
+                */}
+                {(() => {
+                  const divergent = roleDivergence(role).directRole;
+                  if (!divergent) return null;
+                  return (
+                    <Badge
+                      variant="warning"
+                      title={`A direct grant of ${orgRoleLabel(divergent)} predates the alliance; the effective role is the higher of that and the group's mapping.`}
+                    >
+                      direct: {orgRoleLabel(divergent)}
+                    </Badge>
+                  );
+                })()}
+                {role.hasOverrides && (
+                  <Badge
+                    variant="warning"
+                    title={
+                      role.overridesSetByName
+                        ? `Permissions customised by ${role.overridesSetByName}${role.overridesSetAt ? ` on ${new Date(role.overridesSetAt).toLocaleDateString()}` : ''}. The IdP still owns the role; these sit on top of it.`
+                        : 'Permissions customised locally. Who did it was not recorded — this membership predates attribution.'
+                    }
+                  >
+                    permissions customised
+                  </Badge>
+                )}
+              </span>
             ))}
             {revoked.map((role) => (
               <Tooltip
