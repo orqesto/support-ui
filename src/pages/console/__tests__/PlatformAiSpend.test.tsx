@@ -177,7 +177,10 @@ describe('Platform → AI Spend', () => {
     // Scoped to the cost card: '—' is the honest answer in more than one tile now.
     const costCard = screen.getByText('Estimated cost').closest('div');
     expect(within(costCard as HTMLElement).getByText('—')).toBeInTheDocument();
-    expect(screen.getByText(/no PLATFORM_AI_\*_COST_PER_1K rate configured/)).toBeInTheDocument();
+    // Copy changed with per-model pricing: the reason is no longer "no env rate is set"
+    // but "no rate matched any model here" — an operator rate is one of two sources now.
+    // The assertion that matters is unchanged: never 0.00 for something we cannot price.
+    expect(screen.getByText(/no rate matched any model in this window/)).toBeInTheDocument();
     expect(screen.queryByText('0.00')).not.toBeInTheDocument();
   });
 
@@ -192,7 +195,9 @@ describe('Platform → AI Spend', () => {
     );
     renderPage();
 
-    expect(await screen.findByText('3.00')).toBeInTheDocument();
+    // Falls back to summing per-tier estimates: this payload predates `totals.cost`,
+    // which is exactly what an un-upgraded backend sends.
+    expect(await screen.findByText('≈ $3.00')).toBeInTheDocument();
     expect(screen.getByText(/excludes 1,000 unpriced tokens/)).toBeInTheDocument();
   });
 

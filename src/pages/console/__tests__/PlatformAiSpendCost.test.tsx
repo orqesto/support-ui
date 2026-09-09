@@ -1,0 +1,337 @@
+/**
+ * "Estimated cost —" stood against 45,092,916 tokens for as long as this page existed,
+ * because the figure was gated on `PLATFORM_AI_*_COST_PER_1K` rates nobody ever set.
+ * Built-in list prices fill that gap; these tests pin the parts that keep it honest —
+ * the coverage statement, the dated prices, the rate behind the euro figure, and the
+ * per-model table that finally makes "Unpriced" answerable.
+ */
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { render, screen, cleanup, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ManagedAiUsageResult } from '@/services/managedAiUsage.service';
+import { PlatformAiSpend } from '../PlatformAiSpend';
+
+const get = vi.fn();
+vi.mock('@/services/managedAiUsage.service', () => ({
+  managedAiUsageService: { get: (days: number) => get(days) as unknown },
+}));
+
+const payload = (): ManagedAiUsageResult => ({
+  usage: {
+    orgs: [
+      {
+        organizationId: 18,
+        name: 'framehouse',
+        calls: null,
+        totalTokens: 3_000_000,
+        costUsd: 2.25,
+        unpricedTokens: 1_000_000,
+        byTier: [
+          {
+            tier: 'default',
+            totalTokens: 2_000_000,
+            promptTokens: 1_000_000,
+            completionTokens: 1_000_000,
+            requests: 10,
+            costEstimate: 2.25,
+            unpricedTokens: 0,
+          },
+          {
+            tier: 'other',
+            totalTokens: 1_000_000,
+            promptTokens: 900_000,
+            completionTokens: 100_000,
+            requests: 5,
+            costEstimate: null,
+            unpricedTokens: 1_000_000,
+          },
+        ],
+        byModel: [
+          {
+            model: 'gpt-5-mini',
+            tier: 'default',
+            totalTokens: 2_000_000,
+            promptTokens: 1_000_000,
+            completionTokens: 1_000_000,
+            requests: 10,
+            costUsd: 2.25,
+            rateSource: 'list',
+          },
+          {
+            model: 'retired-model-v1',
+            tier: 'other',
+            totalTokens: 1_000_000,
+            promptTokens: 900_000,
+            completionTokens: 100_000,
+            requests: 5,
+            costUsd: null,
+            rateSource: null,
+          },
+        ],
+      },
+    ],
+    totals: {
+      byTier: [],
+      managedOrgCount: 1,
+      cost: {
+        usd: 2.25,
+        eur: 2.07,
+        usdToEur: 0.92,
+        usdToEurIsDefault: true,
+        pricesAsOf: '2026-09-09',
+        pricedTokens: 2_000_000,
+        unpricedTokens: 1_000_000,
+      },
+    },
+  },
+  meta: { from: new Date('2026-08-10').toISOString(), to: new Date().toISOString(), days: 30 },
+});
+
+const renderPage = () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <PlatformAiSpend />
+    </QueryClientProvider>
+  );
+};
+
+beforeEach(() => get.mockResolvedValue(payload()));
+afterEach(cleanup);
+
+describe('AI Spend cost', () => {
+  it('shows a dollar figure instead of a dash', async () => {
+    renderPage();
+    // Scoped to the tile: the by-model row for the same spend renders the same string.
+    const tile = (await screen.findByText('Estimated cost')).closest('div') as HTMLElement;
+    expect(within(tile).getByText('≈ $2.25')).toBeInTheDocument();
+  });
+
+  it('shows euro as secondary, with the rate and that it is a default', async () => {
+    renderPage();
+    // A bare euro total reads more precise than a converted estimate is.
+    expect(await screen.findByText(/≈ €2\.07 · at 0\.92 USD\/EUR \(default\)/)).toBeInTheDocument();
+  });
+
+  it('states the coverage and dates the prices', async () => {
+    renderPage();
+    // The hole in the number is stated on the tile, not left for someone to discover.
+    expect(
+      await screen.findByText(/list prices as of 2026-09-09 · excludes 1,000,000 unpriced tokens/)
+    ).toBeInTheDocument();
+  });
+
+  it('names the unpriced model rather than leaving "Unpriced" unanswerable', async () => {
+    renderPage();
+    expect(await screen.findByText('retired-model-v1')).toBeInTheDocument();
+    expect(screen.getByText('no published rate')).toBeInTheDocument();
+    expect(screen.getByText('gpt-5-mini')).toBeInTheDocument();
+  });
+
+  it('never prices the unpriced model at zero', async () => {
+    renderPage();
+    await screen.findByText('retired-model-v1');
+    expect(screen.queryByText('≈ $0.00')).not.toBeInTheDocument();
+  });
+});
+
+describe('the tier column that used to be called "Unpriced"', () => {
+  it('does not claim a tier is unpriced when its models are priced', async () => {
+    // `other` = "not a current tier model", which is a different thing from "no rate".
+    // A since-changed tier model lands there and is priced fine from the list table.
+    get.mockResolvedValue({
+      ...payload(),
+      usage: {
+        ...payload().usage,
+        totals: {
+          ...payload().usage.totals,
+          byTier: [
+            {
+              tier: 'other',
+              totalTokens: 9_667_902,
+              promptTokens: 9_000_000,
+              completionTokens: 667_902,
+              requests: 100,
+              costEstimate: 1.75,
+              unpricedTokens: 0,
+            },
+          ],
+        },
+      },
+    });
+    renderPage();
+    expect(await screen.findByText('Other models')).toBeInTheDocument();
+    expect(screen.queryByText('Unpriced')).not.toBeInTheDocument();
+  });
+});
+
+describe('a priced model whose cost rounds below a cent', () => {
+  it('says "< 0.01" rather than rendering it as 0.00', async () => {
+    const base = payload();
+    get.mockResolvedValue({
+      ...base,
+      usage: {
+        ...base.usage,
+        orgs: [
+          {
+            ...base.usage.orgs[0],
+            byModel: [{ ...base.usage.orgs[0].byModel![0], model: 'gpt-5-nano', costUsd: 0.001 }],
+          },
+        ],
+      },
+    });
+    renderPage();
+    expect(await screen.findByText('≈ < $0.01')).toBeInTheDocument();
+    // 0.00 against a model that did cost something reads as free.
+    expect(screen.queryByText('≈ 0.00')).not.toBeInTheDocument();
+  });
+});
+
+describe('what the figure is attributed to', () => {
+  const withRateSource = (source: 'operator' | 'list') => {
+    const base = payload();
+    return {
+      ...base,
+      usage: {
+        ...base.usage,
+        orgs: [
+          {
+            ...base.usage.orgs[0],
+            byModel: [{ ...base.usage.orgs[0].byModel![0], rateSource: source }],
+          },
+        ],
+      },
+    };
+  };
+
+  it('does not claim list prices when the operator configured the rates', async () => {
+    // The backend prefers a configured PLATFORM_AI_*_COST_PER_1K over the built-in table,
+    // so stamping "list prices as of …" on that total misattributes somebody else's number.
+    get.mockResolvedValue(withRateSource('operator'));
+    renderPage();
+    expect(await screen.findByText(/your configured rates · excludes/)).toBeInTheDocument();
+    expect(screen.queryByText(/list prices as of/)).not.toBeInTheDocument();
+  });
+
+  it('says list prices when that is what priced it', async () => {
+    get.mockResolvedValue(withRateSource('list'));
+    renderPage();
+    expect(await screen.findByText(/list prices as of 2026-09-09 · excludes/)).toBeInTheDocument();
+  });
+
+  it('claims neither against a backend that sends no cost block', async () => {
+    const base = payload();
+    get.mockResolvedValue({
+      ...base,
+      usage: {
+        ...base.usage,
+        orgs: [{ ...base.usage.orgs[0], byModel: undefined }],
+        totals: {
+          byTier: [
+            {
+              tier: 'default',
+              totalTokens: 5_000,
+              promptTokens: 5_000,
+              completionTokens: 0,
+              requests: 2,
+              costEstimate: 3,
+            },
+            {
+              tier: 'other',
+              totalTokens: 1_000,
+              promptTokens: 1_000,
+              completionTokens: 0,
+              requests: 1,
+              costEstimate: null,
+            },
+          ],
+          managedOrgCount: 1,
+        },
+      },
+    });
+    renderPage();
+    // Pre-#697 the only source was the env tier rates, and there is no date to quote.
+    expect(await screen.findByText(/configured rates · excludes 1,000 unpriced tokens/)).toBeInTheDocument();
+    expect(screen.queryByText(/list prices/)).not.toBeInTheDocument();
+  });
+});
+
+describe('a priced model that still carries unpriced tokens', () => {
+  it('admits the residual on the row, so the tile exclusion is traceable', async () => {
+    // A list price reaches prompt+completion only; a provider may report a larger total.
+    // Without this the tile says "excludes 500,000 unpriced tokens" over a table in which
+    // every model looks fully priced.
+    const base = payload();
+    get.mockResolvedValue({
+      ...base,
+      usage: {
+        ...base.usage,
+        orgs: [
+          {
+            ...base.usage.orgs[0],
+            byModel: [
+              {
+                ...base.usage.orgs[0].byModel![0],
+                totalTokens: 2_500_000,
+                unpricedTokens: 500_000,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    renderPage();
+    expect(await screen.findByText('500,000 tokens unpriced')).toBeInTheDocument();
+    // It is priced — it must not also be labelled as having no rate.
+    expect(screen.queryByText('no published rate')).not.toBeInTheDocument();
+  });
+});
+
+describe('the vision tier', () => {
+  it('has a column, so a workspace\'s tier cells account for its tokens', async () => {
+    // The backend reports four tiers; the page rendered three. Vision is the
+    // token-heaviest managed tier, so a row could state 40,787,419 tokens while its
+    // visible cells summed to ~9.7M and nothing explained the rest.
+    const base = payload();
+    get.mockResolvedValue({
+      ...base,
+      usage: {
+        ...base.usage,
+        orgs: [
+          {
+            ...base.usage.orgs[0],
+            totalTokens: 31_000_000,
+            byTier: [
+              {
+                tier: 'vision',
+                totalTokens: 31_000_000,
+                promptTokens: 30_000_000,
+                completionTokens: 1_000_000,
+                requests: 400,
+                costEstimate: 5,
+                unpricedTokens: 0,
+              },
+            ],
+          },
+        ],
+        totals: {
+          ...base.usage.totals,
+          byTier: [
+            {
+              tier: 'vision',
+              totalTokens: 31_000_000,
+              promptTokens: 30_000_000,
+              completionTokens: 1_000_000,
+              requests: 400,
+              costEstimate: 5,
+              unpricedTokens: 0,
+            },
+          ],
+        },
+      },
+    });
+    renderPage();
+    expect(await screen.findByText('Vision')).toBeInTheDocument();
+    expect(screen.getAllByText('31,000,000').length).toBeGreaterThan(0);
+  });
+});
