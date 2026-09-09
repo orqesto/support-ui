@@ -119,15 +119,26 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
         logger.error('Failed to fetch users:', error);
       });
       departmentService
-        .getAll()
+        // Include archived ones: this list only resolves NAMES for the departments members
+        // already hold, it never feeds a picker, so an archived entry cannot be assigned from
+        // here — it can only stop the row rendering a meaningless number.
+        .getAll(true)
         .then(setDepartments)
         .catch(() => setDepartments([]));
     }
   }, [canViewUsers, fetchUsers]);
 
+  /**
+   * ⚠️ This used to render the bare id — "Department 22" — for anything it could not resolve,
+   * which is indistinguishable from a real department actually named that. It could not
+   * resolve archived ones because the list it searches was fetched active-only, and members
+   * could hold an archived department (support-service: the default-department lookup handed
+   * one out). Fetch inactive too, and say plainly which state a department is in.
+   */
   const deptNameById = (id: number) => {
     const found = departments.find((dep) => dep.id === id);
-    return found?.name ?? `Department ${id}`;
+    if (!found) return `Unknown department (#${id})`;
+    return found.active === false ? `${found.name} (archived)` : found.name;
   };
 
   const handleSearch = () => {
