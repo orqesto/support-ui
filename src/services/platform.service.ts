@@ -355,6 +355,26 @@ export const platformService = {
     return { rows, pagination: res.data.pagination };
   },
 
+  /**
+   * One directory row by id (GET /api/admin/platform/users/:id, requireGlobalAdmin) — the
+   * read behind the console user PAGE. The list hands its row to the page for an instant
+   * first paint, but a refresh or a pasted link has no row to inherit, so the page must be
+   * able to fetch the person itself. Built from the list's own query on the BE, so the two
+   * cannot describe the same person differently.
+   */
+  getUser: async (id: number): Promise<PlatformUserRow> => {
+    const res = await apiClient.get<{ data: PlatformUserRow }>(`${PLATFORM}/users/${id}`);
+    const row = res.data.data;
+    // Same skew guard as listUsers — an older backend omits these and `.length` on
+    // undefined would white-screen the page.
+    return {
+      ...row,
+      position: row.position ?? null,
+      workspaces: row.workspaces ?? [],
+      idpManaged: row.idpManaged ?? false,
+    };
+  },
+
   /** Set a user's global role (PATCH /api/admin/platform/users/:id/role, requireGlobalAdmin). */
   updateUserRole: async (id: number, role: GlobalRole): Promise<PlatformUserRoleUpdate> => {
     const res = await apiClient.patch<{ data: PlatformUserRoleUpdate }>(

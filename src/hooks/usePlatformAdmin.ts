@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import {
   platformService,
   type CreatePlanInput,
+  type PlatformUserRow,
   type QueueFailureJobRef,
   type UpdatePlanInput,
 } from '@/services/platform.service';
@@ -20,6 +21,25 @@ export const usePlatformOverview = () =>
     queryKey: ['platform', 'overview'],
     queryFn: () => platformService.getOverview(),
     staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+/**
+ * One user for the console user page. `initialData` lets the list hand over the row it
+ * already has so navigating from the directory paints immediately; a cold load (refresh,
+ * pasted link) fetches.
+ */
+export const usePlatformUser = (userId: number | null, initialData?: PlatformUserRow) =>
+  useQuery({
+    queryKey: ['platform', 'user', userId],
+    queryFn: () => platformService.getUser(userId as number),
+    enabled: userId !== null,
+    initialData,
+    // Stamp the handed-over row as already stale, so it paints instantly AND is confirmed
+    // by a fetch. Without this, `staleTime` would treat the list's row as fresh and the
+    // page would never verify it — it would be the dialog again, with a URL.
+    initialDataUpdatedAt: 0,
+    staleTime: 30 * 1000,
     refetchOnWindowFocus: false,
   });
 
