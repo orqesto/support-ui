@@ -6,6 +6,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   Trash2,
+  BookOpen,
 } from 'lucide-react';
 import { getSpamCheck, getFilteredCategoryMeta } from '@/lib/messageHelpers';
 import { Toggle } from '@/components/ui/Toggle';
@@ -16,6 +17,12 @@ import type { Message } from '@/types';
 
 export type MessageActionStripProps = {
   message: Message;
+  /**
+   * Offered on a finished conversation. "Resolve & Save to KB" captures only at the moment of
+   * resolving, so without this a thread resolved with "Resolve (no KB)" — or one whose capture
+   * found nothing that day — could never reach the knowledge base afterwards.
+   */
+  onPromoteToKb?: () => void;
   isFiltered: boolean;
   isSuspicious: boolean;
   /** Spam verdict on a conversation that is not in a triage state — see MessageDetail. */
@@ -41,6 +48,7 @@ export type MessageActionStripProps = {
 
 export function MessageActionStrip({
   message,
+  onPromoteToKb,
   isFiltered,
   isSuspicious,
   isSpamFlaggedOutsideTriage = false,
@@ -277,6 +285,16 @@ export function MessageActionStrip({
       <div className={strip}>
         <p className={statusLabel}>Resolved</p>
         <div className="flex gap-2">
+          {onPromoteToKb && (
+            <Button
+              variant="ghost"
+              onClick={onPromoteToKb}
+              className={`border ${btnBase} h-auto border-border text-muted-foreground hover:bg-accent`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              Save to KB
+            </Button>
+          )}
           <Button
             variant="ghost"
             onClick={() => setReopenDialogOpen(true)}
@@ -296,6 +314,16 @@ export function MessageActionStrip({
       <div className={strip}>
         <p className={statusLabel}>Closed</p>
         <div className="flex gap-2">
+          {onPromoteToKb && (
+            <Button
+              variant="ghost"
+              onClick={onPromoteToKb}
+              className={`border ${btnBase} h-auto border-border text-muted-foreground hover:bg-accent`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              Save to KB
+            </Button>
+          )}
           <Button
             variant="ghost"
             onClick={() => setReopenDialogOpen(true)}

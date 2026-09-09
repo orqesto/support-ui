@@ -235,6 +235,14 @@ export type AiDraft = { text: string; mode?: string; language?: string };
 /** An agent's template choice. Positional parameters, matching Meta's {{1}}, {{2}}… */
 export type WhatsAppTemplateSend = { templateId: number; parameters: string[] };
 
+/** What the agent kept, after any edits. The ids identify which extracted pair it came from. */
+export type KbQaPairInput = {
+  questionMessageId: number;
+  answerMessageId: number;
+  question: string;
+  answer: string;
+};
+
 export const messageService = {
   // Get metadata only (counts, no data) - for lazy pagination
   getMetadata: async (filters?: Record<string, string>, limit = PAGINATION.DEFAULT_LIMIT) => {
