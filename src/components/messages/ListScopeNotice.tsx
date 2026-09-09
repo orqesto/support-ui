@@ -217,9 +217,17 @@ export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Prop
             className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-border text-[12px] text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Not shown
-            {destinations.length > 0 && (
-              <b className="font-semibold text-foreground">{destinations.length}</b>
-            )}
+            {/*
+              The count of ITEMS hidden, not of categories.
+              ⛔ This used to render `destinations.length` — how many kinds of not-shown the
+              menu lists. "Not shown 7" therefore meant "seven categories", while every
+              reader took it for seven conversations. The honest number was already on
+              screen in the sentence beside this button, but that sentence is `truncate` in
+              a flexed header, so it is the first thing to disappear when space is tight —
+              leaving the misleading badge as the only number visible. Reported exactly that
+              way from the board.
+            */}
+            <b className="font-semibold text-foreground">{scope.hidden.toLocaleString()}</b>
             <ChevronDown className="w-3 h-3" aria-hidden="true" />
           </button>
           {open && (
@@ -286,6 +294,18 @@ export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Prop
               {destinations.length > 0 && (
                 <div className="px-2 pt-1.5 pb-1 mt-0.5 border-t border-border text-[11.5px] leading-snug text-muted-foreground/80">
                   Each one sets a lens and lands in the filter bar as a token you can remove.
+                  {/*
+                    Say it before someone adds it up. Each figure is the size of its WHOLE
+                    bucket, not its overlap with the hidden set, and a row can fall into
+                    several — on one workspace these summed to 5,887 against 3,009 hidden.
+                    Now that the button shows the real total, that mismatch is on screen and
+                    unexplained silence would read as a bug.
+                  */}
+                  {destinations.length > 1 && (
+                    <span className="block mt-0.5">
+                      Categories overlap, so they add up to more than {scope.hidden.toLocaleString()}.
+                    </span>
+                  )}
                 </div>
               )}
             </div>

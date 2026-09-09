@@ -282,14 +282,37 @@ describe('a chip is a destination, not a share of the hidden count', () => {
     );
   });
 
-  it('keeps `other` out of the trigger count and off the clickable rows — a share, not a lens', () => {
-    // CONTROL for the split: `other` counts hidden rows no bucket claims. Four destinations
-    // (suspicious, archived, waiting, routing); the trigger says 4, not 5.
+  it('keeps `other` out of the clickable rows — a share, not a lens', () => {
+    // CONTROL for the split: `other` counts hidden rows no bucket claims, so it is listed
+    // but not clickable. Four destinations (suspicious, archived, waiting, routing).
+    //
+    // ⚠️ This used to assert the TRIGGER said '4'. That was pinning a defect: 4 is how many
+    // categories the menu lists, and the button reads "Not shown 4" as though four
+    // conversations were hidden. The split it exists to control for is about the ROWS, and
+    // that half is unchanged and still asserted here.
     render(<ListScopeNotice scope={scope} shown={53} onJump={vi.fn()} />);
-    expect(screen.getByRole('button', { name: /Not shown/ }).textContent).toContain('4');
     openMenu();
     expect(screen.getAllByRole('menuitem')).toHaveLength(4);
     expect(screen.getByText('hidden by this view').closest('[role="menuitem"]')).toBeNull();
+  });
+
+  it('counts ITEMS on the trigger, not categories', () => {
+    // Reported from the board: "Not shown 7" with seven rows in the menu, read as seven
+    // conversations. The honest total was in the sentence beside it — which is `truncate`
+    // in a flexed header and therefore the first thing to vanish, leaving only the
+    // misleading badge.
+    render(<ListScopeNotice scope={scope} shown={53} onJump={vi.fn()} />);
+    const trigger = screen.getByRole('button', { name: /Not shown/ }).textContent ?? '';
+    expect(trigger).toContain('19'); // scope.hidden
+    expect(trigger).not.toContain('4'); // the category count it used to show
+  });
+
+  it('warns that the categories overlap, now that the button shows the real total', () => {
+    // Each figure is the size of its WHOLE bucket, not its overlap with the hidden set, so
+    // the rows sum to more than the trigger. Unexplained, that reads as a bug.
+    render(<ListScopeNotice scope={scope} shown={53} onJump={vi.fn()} />);
+    openMenu();
+    expect(screen.getByText(/Categories overlap/)).toBeInTheDocument();
   });
 
   it('keeps the sentence verbatim — the subset never gets folded into it', () => {
