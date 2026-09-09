@@ -41,6 +41,9 @@ import { MessageComposer } from './MessageComposer';
 import { MessageActionStrip } from './MessageActionStrip';
 import { MessageGhostBubble } from './MessageGhostBubble';
 import { MessageDetailConfirmDialogs } from './MessageDetailConfirmDialogs';
+import { PromoteToKbDialog } from './PromoteToKbDialog';
+import { usePermissions } from '@/hooks/usePermissions';
+import { Permission } from '@/types/roles';
 import { ThreadMessageItem } from './ThreadMessageItem';
 import { similarResultsCache } from './AiTabPanel';
 import type { KBAttachment } from './AiTabPanel';
@@ -204,6 +207,9 @@ export function MessageDetail({
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
   const [resolveConfirmOpen, setResolveConfirmOpen] = useState(false);
+  // Offered on a finished conversation: "Resolve & Save to KB" captures only while resolving.
+  const [promoteToKbOpen, setPromoteToKbOpen] = useState(false);
+  const { hasPermission } = usePermissions();
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   // Per-user read/unread state (triage queues only). Optimistically tracked so the
   // header toggle reflects instantly; synced whenever the message prop changes.
@@ -953,11 +959,23 @@ export function MessageDetail({
         onDelete={handleDelete}
         onClassify={handleClassify}
         onResolveWithoutReply={() => setResolveConfirmOpen(true)}
+        // UX gate only — the BE re-validates (MANAGE_TICKETS on both endpoints). Offering an
+        // action that answers 403 is worse than not offering it.
+        onPromoteToKb={
+          hasPermission(Permission.MANAGE_TICKETS) ? () => setPromoteToKbOpen(true) : undefined
+        }
         onClose={() => setCloseConfirmOpen(true)}
         setRejectDialogOpen={setRejectDialogOpen}
         setReopenDialogOpen={setReopenDialogOpen}
         onRefresh={handleRefresh}
       />
+      <PromoteToKbDialog
+        messageId={message.id}
+        isOpen={promoteToKbOpen}
+        onClose={() => setPromoteToKbOpen(false)}
+        onPromoted={handleRefresh}
+      />
+
       {/* Confirm dialogs */}
       <AssignOnReplyDialog
         prompt={assignPrompt}

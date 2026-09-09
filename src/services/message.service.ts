@@ -235,6 +235,25 @@ export type AiDraft = { text: string; mode?: string; language?: string };
 /** An agent's template choice. Positional parameters, matching Meta's {{1}}, {{2}}… */
 export type WhatsAppTemplateSend = { templateId: number; parameters: string[] };
 
+/** One Q&A a resolved thread could contribute, as returned by the candidates endpoint. */
+export type KbQaCandidate = {
+  question: string;
+  answer: string;
+  questionMessageId: number;
+  answerMessageId: number;
+  subject: string | null;
+  questionFrom: string | null;
+  answeredBy: string | null;
+};
+
+/** What the agent kept, after any edits. The ids identify which extracted pair it came from. */
+export type KbQaPairInput = {
+  questionMessageId: number;
+  answerMessageId: number;
+  question: string;
+  answer: string;
+};
+
 export const messageService = {
   // Get metadata only (counts, no data) - for lazy pagination
   getMetadata: async (filters?: Record<string, string>, limit = PAGINATION.DEFAULT_LIMIT) => {
@@ -532,6 +551,27 @@ export const messageService = {
   resolve: async (id: number) => {
     const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/resolve`, {});
     return response.data;
+  },
+
+  /**
+   * Q&A this resolved thread could contribute to the knowledge base. Writes nothing — the agent
+   * confirms first. 409 when the conversation is not resolved or closed.
+   */
+  kbCandidates: async (id: number): Promise<KbQaCandidate[]> => {
+    const response = await apiClient.post<ApiResponse<{ candidates: KbQaCandidate[] }>>(
+      `/api/messages/${id}/kb-candidates`,
+      {}
+    );
+    return response.data.data?.candidates ?? [];
+  },
+
+  /** Save the pairs the agent kept. They are stored approved and attributed to that agent. */
+  promoteToKb: async (id: number, pairs: KbQaPairInput[]): Promise<number[]> => {
+    const response = await apiClient.post<ApiResponse<{ knowledgeBaseIds: number[] }>>(
+      `/api/messages/${id}/kb-entries`,
+      { pairs }
+    );
+    return response.data.data?.knowledgeBaseIds ?? [];
   },
 
   reopen: async (id: number) => {
