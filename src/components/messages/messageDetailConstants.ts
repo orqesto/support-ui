@@ -426,16 +426,34 @@ export function splitAtQuote(
 ): { main: string; quote: string | null } {
   if (!content) return { main: '', quote: null };
   if (isHtml) {
+    // Split at the EARLIEST marker in the document, never at whichever pattern happens to
+    // be first in this list. Returning on the first matching PATTERN is what broke
+    // COR-SUP-251: every message there carries a `gmail_quote` div in the first ~2 KB and
+    // two `<hr>`s belonging to the shop's footer template ~20 KB down. `<hr>` was tested
+    // first, so the split landed PAST the whole quoted history and collapsed only the
+    // footer. Each reply then re-rendered the entire chain — visible text grew
+    // 675 → 5,122 characters across the thread's 11 messages, which is what an agent sees
+    // as a wall repeating the conversation. Taking the minimum index gives 213 → 879
+    // instead: each message shows its own text and nothing else.
+    //
+    // The per-marker thresholds are deliberate and differ: a structural `<hr>`/quote div in
+    // the first 80 characters is part of the template rather than a divider, and a
+    // `<blockquote>` needs more room (150) because a short mail can legitimately open by
+    // quoting a line before saying anything.
+    const candidates: number[] = [];
     for (const pattern of [
       /<hr\s*[^>]*\/?>/i,
       /<div[^>]*(?:gmail_quote|yahoo_quoted|quoted-text)[^>]*>/i,
     ]) {
       const match = content.match(pattern);
-      if (match?.index !== undefined && match.index > 80)
-        return { main: content.slice(0, match.index).trimEnd(), quote: content.slice(match.index) };
+      if (match?.index !== undefined && match.index > 80) candidates.push(match.index);
     }
     const bq = content.indexOf('<blockquote');
-    if (bq > 150) return { main: content.slice(0, bq).trimEnd(), quote: content.slice(bq) };
+    if (bq > 150) candidates.push(bq);
+    if (candidates.length > 0) {
+      const cut = Math.min(...candidates);
+      return { main: content.slice(0, cut).trimEnd(), quote: content.slice(cut) };
+    }
     return { main: content, quote: null };
   }
   // Plain-text reply history: an attribution line ("On … wrote:"), a signature
