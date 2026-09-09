@@ -3,6 +3,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import type { AllianceScimTelemetry } from '@/services/alliance-scim.service';
+import { formatDate } from '@/lib/utils';
 
 /**
  * Read-only SCIM provisioning telemetry card (GET .../scim/telemetry) for the alliance
@@ -104,20 +105,45 @@ export const ScimTelemetryCard = ({ telemetry }: { telemetry: AllianceScimTeleme
         )}
       </div>
 
+      {/*
+        This warning told an alliance admin to do something impossible, and it cost a customer
+        an afternoon. It read "they have no account in this alliance … provision them first".
+        The three people it named were already Workspace Administrators in two of this
+        alliance's workspaces AND already bound to the right groups in JumpCloud — there was
+        nothing left to provision, and the admin's next question was whether to DELETE them.
+
+        Two things are fixed here. The advice now matches what the code does: a member who
+        already belongs to one of this alliance's workspaces is adopted on the next push, so a
+        re-push alone is the fix. And the warning is dated — without `lastSkippedAt` on screen,
+        a warning left over from a push that predates the fix looks exactly like a live one.
+      */}
       {(telemetry.skippedMembers?.total ?? 0) > 0 && (
         <Alert variant="warning">
           <p className="text-sm">
             <strong>
               {telemetry.skippedMembers?.total} member
-              {telemetry.skippedMembers?.total === 1 ? '' : 's'} left out of a group.
+              {telemetry.skippedMembers?.total === 1 ? '' : 's'} left out of a group
+              {telemetry.skippedMembers?.lastSkippedAt
+                ? ` on ${formatDate(telemetry.skippedMembers.lastSkippedAt)}`
+                : ''}
+              .
             </strong>{' '}
-            Your IdP added them to a group here, but they have no account in this alliance, so
-            they were not added and have no access. Provision them first, then re-push the
-            group. A failed user push shows as &quot;Provisioning rejected&quot; in Activity.
+            Your IdP put them in a group here, but they had no membership in this alliance at
+            the time, so that group granted them nothing.
           </p>
           {telemetry.skippedMembers?.emails.length ? (
             <p className="mt-1 text-sm break-words">{telemetry.skippedMembers.emails.join(', ')}</p>
           ) : null}
+          <p className="mt-1 text-sm">
+            <strong>Push the group again to fix it.</strong> Anyone who already belongs to one
+            of this alliance&apos;s workspaces is adopted automatically — they keep the roles
+            they hold. Only an account that belongs nowhere here has to be created by your IdP
+            first, which shows as &quot;Provisioning rejected&quot; in Activity.
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            &quot;Re-apply mappings&quot; will not do this: it re-reads what is already stored
+            and never contacts your IdP.
+          </p>
         </Alert>
       )}
 

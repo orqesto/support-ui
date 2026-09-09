@@ -39,7 +39,7 @@ import { ORGANIZATION_ROLES, type OrganizationRole } from '@/types/roles';
  *     four roles and six of its own by-products). Nothing it could express is out of reach
  *     without it: workspace and departments are on the role wire, and permission overrides
  *     are edited on the minted group through "Edit role / workspace". One door per job.
- * Wiring applies to the already-synced members immediately (backfill); "Re-sync now"
+ * Wiring applies to the already-synced members immediately (backfill); "Re-apply mappings"
  * reconciles all synced members on demand — SCIM is push-driven with no reconcile cron.
  *
  * SECURITY: the suggestion only pre-selects the target; granting alliance-admin or
@@ -514,6 +514,17 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
               from this list is not assigned to the SCIM application in your identity provider.
             </CardDescription>
           </div>
+          {/*
+            It was called "Re-sync now", which reads as "fetch from my IdP". It does not:
+            `resyncAllianceProvisioning` re-applies the group mappings over the members ALREADY
+            stored and prunes groups the IdP has gone silent about. Nothing here contacts the
+            provider.
+
+            That mattered because the button sits directly above a warning it cannot resolve.
+            A member the IdP named and we dropped was never stored, so there is nothing local
+            for this to find — an admin trying to clear that warning got "Re-synced N member(s)"
+            and no change. The name now says what it does, and the title says what it doesn't.
+          */}
           <Button
             type="button"
             variant="secondary"
@@ -521,9 +532,10 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
             onClick={() => resync.mutate()}
             isLoading={resync.isPending}
             disabled={resync.isPending || synced.length === 0}
+            title="Re-applies the mappings below to the members already stored, and drops groups your IdP has stopped sending. It does not contact your IdP — to pull in a member who was left out, push the group again from there."
           >
             <RefreshCw className="mr-2 w-4 h-4" />
-            Re-sync now
+            Re-apply mappings
           </Button>
         </div>
       </CardHeader>

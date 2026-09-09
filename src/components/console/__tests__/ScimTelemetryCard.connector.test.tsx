@@ -98,7 +98,33 @@ describe('ScimTelemetryCard — members the IdP could not add', () => {
     render(<ScimTelemetryCard telemetry={telemetry(undefined, skipped)} />);
     expect(screen.getByRole('alert')).toHaveTextContent(/3 members left out of a group/);
     expect(screen.getByText(/alice@biaxol.com/)).toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent(/Provision them first/);
+    // The advice is "push the group again", NOT "provision them first".
+    //
+    // 2026-09-09: the old copy sent a customer's admin to provision three people who were
+    // already Workspace Administrators in two of this alliance's workspaces and already bound
+    // to the right groups in their IdP. There was nothing to provision, and the next question
+    // asked in that thread was whether to delete them. A member who already belongs to a
+    // workspace here is adopted on the next push, so a re-push alone is the fix.
+    expect(screen.getByRole('alert')).toHaveTextContent(/Push the group again to fix it/);
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/Provision them first/);
+    // And the button beside it must not be mistaken for the remedy.
+    expect(screen.getByRole('alert')).toHaveTextContent(/never contacts your IdP/);
+  });
+
+  it('dates the warning, so a stale one does not read as live', () => {
+    // The three on taco were skipped by a push that predates the fix that would have adopted
+    // them. With no date on screen that leftover warning is indistinguishable from a live one.
+    render(
+      <ScimTelemetryCard
+        telemetry={telemetry(undefined, { ...skipped, lastSkippedAt: '2026-09-07T10:29:00Z' })}
+      />
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(/left out of a group on /);
+  });
+
+  it('omits the date when the BE did not send one', () => {
+    render(<ScimTelemetryCard telemetry={telemetry(undefined, skipped)} />);
+    expect(screen.getByRole('alert')).toHaveTextContent(/left out of a group\./);
   });
 
   it('says "member" not "members" for a single person', () => {
