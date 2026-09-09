@@ -71,6 +71,18 @@ export const useUnansweredOutboundAlerts = () => {
               return kind === ONE_SIDED_OUTBOUND_KIND || kind === CUSTOMER_REPLY_IN_SPAM_KIND;
             })
             .map(toAlert)
+            // ⛔ Sorted, because the panel shows only the first PANEL_PEEK_LIMIT of these and
+            // the API returns them newest-first. Without this an urgent
+            // `customer_reply_in_spam` — a live mailbox filter eating customer replies, the
+            // one of the two kinds that is a genuine fault — can sit below five
+            // one-sided rows from this morning's sweep and never be seen, while still being
+            // counted in the bell. Fault first, then newest.
+            .sort((left, right) => {
+              const leftFault = left.kind === CUSTOMER_REPLY_IN_SPAM_KIND ? 0 : 1;
+              const rightFault = right.kind === CUSTOMER_REPLY_IN_SPAM_KIND ? 0 : 1;
+              if (leftFault !== rightFault) return leftFault - rightFault;
+              return right.id - left.id;
+            })
         );
       })
       // A failed poll must not clear standing alerts — an empty list would read as "nothing

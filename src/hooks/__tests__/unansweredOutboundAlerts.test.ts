@@ -77,6 +77,25 @@ describe('useUnansweredOutboundAlerts', () => {
     expect(result.current.alerts[0]).toMatchObject({ entityId: 34, recovered: 3 });
   });
 
+  it('puts the urgent kind first, because only the first few are ever shown', async () => {
+    // The panel renders PANEL_PEEK_LIMIT rows and the API returns newest-first. Without a sort
+    // an urgent `customer_reply_in_spam` — a live mailbox filter eating customer replies, the
+    // one of the two kinds that is a genuine fault — can sit below five one-sided rows from
+    // this morning's sweep, counted in the bell but visible nowhere.
+    respond([
+      row({ id: 10, kind: 'one_sided_outbound' }),
+      row({ id: 11, kind: 'one_sided_outbound' }),
+      row({ id: 3, kind: 'customer_reply_in_spam', entityType: 'message_source', details: { recovered: 2 } }),
+    ]);
+    const { result } = renderHook(() => useUnansweredOutboundAlerts());
+    await waitFor(() => expect(result.current.alerts).toHaveLength(3));
+
+    expect(result.current.alerts[0].kind).toBe('customer_reply_in_spam');
+    // …and within a kind, newest first, so the ordering is fully determined rather than
+    // whatever the API happened to return.
+    expect(result.current.alerts.slice(1).map((alert) => alert.id)).toEqual([11, 10]);
+  });
+
   it('ignores unrelated notification kinds', async () => {
     // Control: proves the filter is doing work rather than passing everything through.
     respond([row({ kind: 'kb_document_stale' }), row({ id: 9, kind: 'sla_message_breach' })]);

@@ -239,6 +239,14 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   // panel is the same mistake one step further in. Bounded against a permanently-lit bell by
   // the backend cap (5 announcements per sweep), by retirement when the customer replies, and
   // by dismissal being permanent for this kind.
+  //
+  // ⛔ CORRECTION, and it matters because a future reader would otherwise trust it: an earlier
+  // version of this comment cited "the backend cap (5 per sweep)" as the bound. That cap
+  // DEFERS, it does not drop — it is a per-sweep rate limiter that resumes on the next poll,
+  // so it bounds nothing about the standing count. The bounds that are real: the shared
+  // notifications page is 20 rows, the alert is RETIRED when the customer replies, and
+  // dismissal is permanent for this kind (it carries no resurfaceDismissed). Verified, not
+  // assumed — the spam kind DOES opt into resurfacing, which is why only it comes back.
   const badgeCount =
     sla.unreadCount + arrivalTotal + learningUnread + aiAlerts.length + outboundAlerts.length;
   // With multiple content types present, label each section; otherwise stay minimal.
@@ -468,7 +476,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                             </p>
                             <p className="mt-0.5 text-muted-foreground">
                               {isSpam
-                                ? `${alert.recovered !== null ? `${alert.recovered} ` : ''}recovered from the mailbox spam folder — check the mailbox filter`
+                                ? `${alert.recovered != null ? `${alert.recovered} ` : ''}recovered from the mailbox spam folder — check the mailbox filter`
                                 : 'We sent, nobody replied, and no one has picked it up'}
                             </p>
                             {!isSpam && (
@@ -506,9 +514,15 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                       // Capped like the learning sections. This panel is one `max-h-96`
                       // scroller and the shared notifications page holds 20 rows, so an
                       // uncapped section can push the SLA breaches below it out of sight.
+                      //
+                      // ⛔ Deliberately says nothing about WHERE the rest are. It used to read
+                      // "more in the inbox, badged Awaiting customer" — true only for the
+                      // one-sided kind. A `customer_reply_in_spam` alert is keyed on the
+                      // MAILBOX: it has no inbox row and no badge, so that sentence sent the
+                      // reader to look for something that does not exist. Sorting (see the
+                      // hook) puts the urgent kind in the visible five instead.
                       <p className="px-3 pb-1 text-xs text-muted-foreground">
-                        +{outboundAlerts.length - PANEL_PEEK_LIMIT} more in the inbox, badged
-                        &ldquo;Awaiting customer&rdquo;
+                        +{outboundAlerts.length - PANEL_PEEK_LIMIT} more not shown
                       </p>
                     )}
                   </>
