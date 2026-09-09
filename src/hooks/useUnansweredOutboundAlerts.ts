@@ -53,6 +53,17 @@ export type UseUnansweredOutboundAlertsResult = ReturnType<typeof useUnansweredO
 
 export const useUnansweredOutboundAlerts = () => {
   const [alerts, setAlerts] = useState<UnansweredOutboundAlert[]>([]);
+  /**
+   * The endpoint returned MORE notifications than it sent, so `alerts` is a subset of what
+   * exists and any count derived from it is a floor, not a total.
+   *
+   * ⛔ This is not a detail. `GET /api/notifications` serves the newest 20 rows of ALL kinds
+   * with no kind filter, and it reports `hasMore`. Ignoring that let the panel state "+7 more
+   * not shown" when 25 were, and let the sort below claim it promotes the urgent kind into
+   * view when the urgent row may not be in the payload at all. The count is now hedged rather
+   * than asserted; `total` is deliberately NOT used for it, because `total` counts every kind.
+   */
+  const [truncated, setTruncated] = useState(false);
   const orgKey = useAuthStore(
     (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
   );
@@ -62,8 +73,11 @@ export const useUnansweredOutboundAlerts = () => {
       .get('/api/notifications')
       .then((res) => {
         const payload = (
-          res.data as { data: { notifications: Notification[]; total: number } }
+          res.data as {
+            data: { notifications: Notification[]; total: number; hasMore?: boolean };
+          }
         ).data;
+        setTruncated(payload.hasMore === true);
         setAlerts(
           payload.notifications
             .filter((row) => {
@@ -71,12 +85,21 @@ export const useUnansweredOutboundAlerts = () => {
               return kind === ONE_SIDED_OUTBOUND_KIND || kind === CUSTOMER_REPLY_IN_SPAM_KIND;
             })
             .map(toAlert)
-            // ⛔ Sorted, because the panel shows only the first PANEL_PEEK_LIMIT of these and
-            // the API returns them newest-first. Without this an urgent
-            // `customer_reply_in_spam` — a live mailbox filter eating customer replies, the
-            // one of the two kinds that is a genuine fault — can sit below five
-            // one-sided rows from this morning's sweep and never be seen, while still being
-            // counted in the bell. Fault first, then newest.
+            // Fault first, then by id descending.
+            //
+            // Why sort at all: the panel shows only the first PANEL_PEEK_LIMIT rows, so
+            // ordering decides what is seen. An urgent `customer_reply_in_spam` — a live
+            // mailbox filter eating customer replies — must not sit below one-sided rows from
+            // this morning's sweep, counted in the bell and rendered nowhere.
+            //
+            // ⚠️ Two honest limits, neither of which the ordering can fix:
+            //   - It can only order what the payload CONTAINS. The endpoint truncates at 20
+            //     rows across all kinds, so a spam alert can be absent entirely; `truncated`
+            //     above is what the UI uses to stop over-claiming.
+            //   - "then newest" is approximate for the spam kind. `publishNotification`
+            //     upserts and refreshes neither `id` nor `createdAt`, so a July alert that
+            //     RESURFACES today still sorts as July. The kind key dominates, so this only
+            //     reorders spam alerts among themselves.
             .sort((left, right) => {
               const leftFault = left.kind === CUSTOMER_REPLY_IN_SPAM_KIND ? 0 : 1;
               const rightFault = right.kind === CUSTOMER_REPLY_IN_SPAM_KIND ? 0 : 1;
@@ -117,5 +140,5 @@ export const useUnansweredOutboundAlerts = () => {
     apiClient.patch(`/api/notifications/${id}/dismiss`).catch(() => {});
   }, []);
 
-  return { alerts, dismiss, refresh: fetchAlerts };
+  return { alerts, truncated, dismiss, refresh: fetchAlerts };
 };

@@ -82,9 +82,12 @@ describe('useUnansweredOutboundAlerts', () => {
     // an urgent `customer_reply_in_spam` — a live mailbox filter eating customer replies, the
     // one of the two kinds that is a genuine fault — can sit below five one-sided rows from
     // this morning's sweep, counted in the bell but visible nowhere.
+    // Newest-first, as the endpoint actually returns them (`ORDER BY created_at DESC`, and id
+    // is a serial so it moves with it). The previous fixture was [10, 11, 3] — not newest-first
+    // in any order — so a reader checking the stated premise against it found it unsupported.
     respond([
-      row({ id: 10, kind: 'one_sided_outbound' }),
       row({ id: 11, kind: 'one_sided_outbound' }),
+      row({ id: 10, kind: 'one_sided_outbound' }),
       row({ id: 3, kind: 'customer_reply_in_spam', entityType: 'message_source', details: { recovered: 2 } }),
     ]);
     const { result } = renderHook(() => useUnansweredOutboundAlerts());

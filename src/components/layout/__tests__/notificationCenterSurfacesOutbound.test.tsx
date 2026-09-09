@@ -19,6 +19,8 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 let outboundAlerts: Array<Record<string, unknown>> = [];
 
+let outboundTruncated = false;
+
 vi.mock('@/hooks/useUnansweredOutboundAlerts', async () => {
   const actual = await vi.importActual<Record<string, unknown>>(
     '@/hooks/useUnansweredOutboundAlerts',
@@ -27,6 +29,7 @@ vi.mock('@/hooks/useUnansweredOutboundAlerts', async () => {
     ...actual,
     useUnansweredOutboundAlerts: () => ({
       alerts: outboundAlerts,
+      truncated: outboundTruncated,
       dismiss: vi.fn(),
       refresh: vi.fn(),
     }),
@@ -98,8 +101,22 @@ const open = () => {
   fireEvent.click(bell);
 };
 
+const oneSided = (id: number) => ({
+  id,
+  kind: 'one_sided_outbound',
+  entityId: 10000 + id,
+  recovered: null,
+});
+const spam = (id: number) => ({
+  id,
+  kind: 'customer_reply_in_spam',
+  entityId: 30 + id,
+  recovered: 1,
+});
+
 beforeEach(() => {
   outboundAlerts = [];
+  outboundTruncated = false;
 });
 afterEach(() => cleanup());
 
@@ -147,6 +164,34 @@ describe('NotificationCenter — unanswered outbound', () => {
       </MemoryRouter>,
     );
     expect(screen.getByText('2')).toBeTruthy();
+  });
+
+  it('caps the section and says how many are not shown', () => {
+    // The cap exists because this panel is one scroller and an uncapped section pushes the SLA
+    // breaches out of sight. Neither the cap nor the overflow copy had any test.
+    outboundAlerts = [1, 2, 3, 4, 5, 6, 7].map(oneSided);
+    open();
+    expect(screen.getAllByText('No customer message in this thread')).toHaveLength(5);
+    expect(screen.getByText(/\+2 not shown/)).toBeTruthy();
+  });
+
+  it('hedges the count when the API says its own list was truncated', () => {
+    // `/api/notifications` returns the newest 20 of ALL kinds. When it reports hasMore, the
+    // alerts we hold are a subset and any count from them is a floor — stating a precise
+    // number would be the same over-claim this section already had to correct once.
+    outboundAlerts = [1, 2, 3, 4, 5, 6].map(oneSided);
+    outboundTruncated = true;
+    open();
+    expect(screen.getByText(/\+1 or more not shown/)).toBeTruthy();
+  });
+
+  it('never lets spam alerts take every visible slot', () => {
+    // Fault-first ordering, unchecked, is the mirror image of the starvation it fixed: with
+    // five spam alerts every visible row is spam and every one-sided thread is hidden.
+    outboundAlerts = [...[1, 2, 3, 4, 5, 6].map(spam), ...[7, 8].map(oneSided)];
+    open();
+    expect(screen.getAllByText('Customer replies were filed as spam')).toHaveLength(3);
+    expect(screen.getAllByText('No customer message in this thread')).toHaveLength(2);
   });
 
   it('renders nothing for it when there are no alerts', () => {

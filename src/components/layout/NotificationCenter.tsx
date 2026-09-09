@@ -194,7 +194,11 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const { counts: arrivalCounts, clearKind } = useNotificationCounts();
   const { alerts: aiAlerts, dismiss: dismissAiAlert } = useAiProviderAlerts();
   const { alerts: staleKbAlerts, dismiss: dismissStaleKbAlert } = useStaleKbAlerts();
-  const { alerts: outboundAlerts, dismiss: dismissOutboundAlert } = useUnansweredOutboundAlerts();
+  const {
+    alerts: outboundAlerts,
+    truncated: outboundTruncated,
+    dismiss: dismissOutboundAlert,
+  } = useUnansweredOutboundAlerts();
 
   const arrivalRows = ARRIVAL_QUEUES.map((entry) => ({
     ...entry,
@@ -222,6 +226,18 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const hasAiAlerts = aiAlerts.length > 0;
   const hasStaleKb = staleKbAlerts.length > 0;
   const hasOutbound = outboundAlerts.length > 0;
+  // Fault-first ordering means ≥5 spam alerts would take every visible slot and push ALL
+  // one-sided rows behind the overflow line — the mirror image of the starvation the sort was
+  // added to fix, and reachable on a workspace with several mailboxes. So one-sided keeps a
+  // reserved seat whenever both kinds are present: the urgent kind still leads, it just cannot
+  // take the whole row.
+  const outboundFaults = outboundAlerts.filter((alert) => alert.kind === CUSTOMER_REPLY_IN_SPAM_KIND);
+  const outboundOthers = outboundAlerts.filter((alert) => alert.kind !== CUSTOMER_REPLY_IN_SPAM_KIND);
+  const reservedForOthers = outboundOthers.length > 0 ? Math.min(2, outboundOthers.length) : 0;
+  const visibleOutbound = [
+    ...outboundFaults.slice(0, PANEL_PEEK_LIMIT - reservedForOthers),
+    ...outboundOthers,
+  ].slice(0, PANEL_PEEK_LIMIT);
   // Counted in the badge: unlike a queue depth, this is a fault, and it must not be
   // possible to have a silently degraded AI and an unbadged bell.
   // ⛔ Stale KB documents are deliberately NOT in the badge. Nothing is broken and nothing
@@ -460,7 +476,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                 {hasOutbound && (
                   <>
                     {showSectionLabels && <SectionLabel>Unanswered outbound</SectionLabel>}
-                    {outboundAlerts.slice(0, PANEL_PEEK_LIMIT).map((alert) => {
+                    {visibleOutbound.map((alert) => {
                       const isSpam = alert.kind === CUSTOMER_REPLY_IN_SPAM_KIND;
                       return (
                         <div
@@ -510,7 +526,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                         </div>
                       );
                     })}
-                    {outboundAlerts.length > PANEL_PEEK_LIMIT && (
+                    {(outboundAlerts.length > visibleOutbound.length || outboundTruncated) && (
                       // Capped like the learning sections. This panel is one `max-h-96`
                       // scroller and the shared notifications page holds 20 rows, so an
                       // uncapped section can push the SLA breaches below it out of sight.
@@ -522,7 +538,8 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                       // reader to look for something that does not exist. Sorting (see the
                       // hook) puts the urgent kind in the visible five instead.
                       <p className="px-3 pb-1 text-xs text-muted-foreground">
-                        +{outboundAlerts.length - PANEL_PEEK_LIMIT} more not shown
+                        +{outboundAlerts.length - visibleOutbound.length}
+                        {outboundTruncated ? ' or more' : ''} not shown
                       </p>
                     )}
                   </>
