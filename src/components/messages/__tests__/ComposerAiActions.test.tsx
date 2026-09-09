@@ -291,12 +291,62 @@ describe('ComposerAiActions', () => {
       fireEvent.click(screen.getByText('mock-translate'));
 
       expect(await screen.findByText('Your parcel is at customs.')).toBeInTheDocument();
-      // The original stays authoritative — the translation is only for checking.
-      expect(screen.getByText(/the DE version is what gets used/i)).toBeInTheDocument();
+      // The translation is now what "Use it" applies, and the panel says which language that
+      // is. It used to read "the DE version is what gets used" while showing the English —
+      // the preview and the result disagreed, which a footnote cannot fix.
+      expect(screen.getByText(/the customer\s+wrote in DE/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Use it \(EN\)/i })).toBeInTheDocument();
 
       fireEvent.click(screen.getByText('mock-show-original'));
       expect(screen.getByText('Ihr Paket ist im Zoll.')).toBeInTheDocument();
       expect(screen.queryByText('Your parcel is at customs.')).not.toBeInTheDocument();
+    });
+
+    it('applies the TRANSLATION when one is on screen, not the original', async () => {
+      // The defect this closes: the panel showed the translation and the button inserted the
+      // original. The agent read one thing and sent another, and the only thing saying so was
+      // a footnote under the text they had just read.
+      composeReply.mockResolvedValue({ data: { text: 'Ihr Paket ist im Zoll.', language: 'de' } });
+      openPanel('');
+      fireEvent.click(screen.getByText('Write reply'));
+      fireEvent.click(await screen.findByText('mock-translate'));
+      await screen.findByText('Your parcel is at customs.');
+
+      fireEvent.click(screen.getByRole('button', { name: /Use it \(EN\)/i }));
+
+      expect(setComposer).toHaveBeenCalledWith(expect.stringContaining('Your parcel is at customs.'));
+      expect(setComposer).not.toHaveBeenCalledWith(expect.stringContaining('Ihr Paket ist im Zoll.'));
+    });
+
+    it('records the language it actually applied, not the one the draft was written in', async () => {
+      // The caller stores this. Recording "de" for a reply that went out in English would
+      // misreport what the customer received.
+      composeReply.mockResolvedValue({ data: { text: 'Ihr Paket ist im Zoll.', language: 'de' } });
+      openPanel('');
+      fireEvent.click(screen.getByText('Write reply'));
+      fireEvent.click(await screen.findByText('mock-translate'));
+      await screen.findByText('Your parcel is at customs.');
+
+      fireEvent.click(screen.getByRole('button', { name: /Use it \(EN\)/i }));
+
+      expect(onApplied).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ language: 'en' })
+      );
+    });
+
+    it('warns when the applied language is not the one the customer wrote in', async () => {
+      composeReply.mockResolvedValue({ data: { text: 'Ihr Paket ist im Zoll.', language: 'de' } });
+      openPanel('');
+      fireEvent.click(screen.getByText('Write reply'));
+      fireEvent.click(await screen.findByText('mock-translate'));
+
+      expect(await screen.findByText(/customer\s+wrote in DE/i)).toBeInTheDocument();
+
+      // Back to the original: same language as the customer, so no warning and no suffix.
+      fireEvent.click(screen.getByText('mock-show-original'));
+      expect(screen.queryByText(/customer\s+wrote in DE/i)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Use it' })).toBeInTheDocument();
     });
 
     it('offers the control on an ENGLISH draft too — the agent may not read English', async () => {
