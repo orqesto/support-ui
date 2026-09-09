@@ -41,9 +41,11 @@ const formatCost = (cost: number | null): string =>
     ? '—'
     : // A real cost that rounds to 0.00 reads as free, which is the same lie as pricing an
       // unpriced model at zero. Anything above nothing but below a cent says so.
+      // The currency is spelled out: this page shows dollars AND euros, so a bare `2.25`
+      // in a column headed "Estimated cost" is genuinely ambiguous.
       cost > 0 && cost < 0.005
-      ? '< 0.01'
-      : cost.toFixed(2);
+      ? '< $0.01'
+      : `$${cost.toFixed(2)}`;
 
 /** `$1,234.56`. Cents are kept: a small workspace's month is a sub-dollar figure. */
 const formatUsd = (usd: number): string =>
@@ -146,6 +148,29 @@ export const PlatformAiSpend = () => {
       {}
     )
   ).sort((left, right) => right.totalTokens - left.totalTokens);
+
+  /**
+   * Where the money figure came from — because the caption used to assert "list prices"
+   * unconditionally.
+   *
+   * ⛔ That was wrong in two states. An operator who set `PLATFORM_AI_*_COST_PER_1K` gets
+   * THEIR rates (the backend prefers them over the built-in table), and a backend that
+   * predates per-model pricing has no list prices at all — in both cases the page was
+   * about to stamp a date and the words "list prices" onto somebody else's number. Same
+   * defect as the "Unpriced" column label, one caption over.
+   */
+  const rateSources = new Set(
+    (usage?.orgs ?? []).flatMap((org) =>
+      (org.byModel ?? []).filter((row) => row.rateSource !== null).map((row) => row.rateSource)
+    )
+  );
+  const pricedFrom = !cost
+    ? 'configured rates' // pre-#697 backend: env tier rates were the only source there was
+    : rateSources.has('operator') && rateSources.has('list')
+      ? `your configured rates + list prices as of ${cost.pricesAsOf}`
+      : rateSources.has('operator')
+        ? 'your configured rates'
+        : `list prices as of ${cost.pricesAsOf}`;
   const totalCost = cost ? cost.usd : usage ? sumCost(usage.totals.byTier) : null;
   const unpricedTokens =
     cost?.unpricedTokens ??
@@ -241,8 +266,8 @@ export const PlatformAiSpend = () => {
                     {/* Coverage, always — a total with an unstated hole in it is worse
                         than the dash this replaced. */}
                     {unpricedTokens > 0
-                      ? `list prices${cost ? ` as of ${cost.pricesAsOf}` : ''} · excludes ${formatTokens(unpricedTokens)} unpriced tokens`
-                      : `list prices${cost ? ` as of ${cost.pricesAsOf}` : ''} · all tokens priced`}
+                      ? `${pricedFrom} · excludes ${formatTokens(unpricedTokens)} unpriced tokens`
+                      : `${pricedFrom} · all tokens priced`}
                   </span>
                 )}
               </CardContent>
@@ -371,7 +396,9 @@ export const PlatformAiSpend = () => {
                       <th className="px-3 py-2 font-medium">Model</th>
                       <th className="px-3 py-2 font-medium text-right">Tokens</th>
                       <th className="px-3 py-2 font-medium text-right">Calls</th>
-                      <th className="px-3 py-2 font-medium text-right">Estimated cost</th>
+                      {/* Named apart from the tile above it, which carries both
+                          currencies: this column is USD only. */}
+                      <th className="px-3 py-2 font-medium text-right">Estimated cost (USD)</th>
                     </tr>
                   </thead>
                   <tbody>

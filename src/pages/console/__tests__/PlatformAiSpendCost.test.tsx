@@ -6,7 +6,7 @@
  * per-model table that finally makes "Unpriced" answerable.
  */
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ManagedAiUsageResult } from '@/services/managedAiUsage.service';
 import { PlatformAiSpend } from '../PlatformAiSpend';
@@ -102,7 +102,9 @@ afterEach(cleanup);
 describe('AI Spend cost', () => {
   it('shows a dollar figure instead of a dash', async () => {
     renderPage();
-    expect(await screen.findByText('≈ $2.25')).toBeInTheDocument();
+    // Scoped to the tile: the by-model row for the same spend renders the same string.
+    const tile = (await screen.findByText('Estimated cost')).closest('div') as HTMLElement;
+    expect(within(tile).getByText('≈ $2.25')).toBeInTheDocument();
   });
 
   it('shows euro as secondary, with the rate and that it is a default', async () => {
@@ -129,7 +131,7 @@ describe('AI Spend cost', () => {
   it('never prices the unpriced model at zero', async () => {
     renderPage();
     await screen.findByText('retired-model-v1');
-    expect(screen.queryByText('≈ 0.00')).not.toBeInTheDocument();
+    expect(screen.queryByText('≈ $0.00')).not.toBeInTheDocument();
   });
 });
 
@@ -179,8 +181,77 @@ describe('a priced model whose cost rounds below a cent', () => {
       },
     });
     renderPage();
-    expect(await screen.findByText('≈ < 0.01')).toBeInTheDocument();
+    expect(await screen.findByText('≈ < $0.01')).toBeInTheDocument();
     // 0.00 against a model that did cost something reads as free.
     expect(screen.queryByText('≈ 0.00')).not.toBeInTheDocument();
+  });
+});
+
+describe('what the figure is attributed to', () => {
+  const withRateSource = (source: 'operator' | 'list') => {
+    const base = payload();
+    return {
+      ...base,
+      usage: {
+        ...base.usage,
+        orgs: [
+          {
+            ...base.usage.orgs[0],
+            byModel: [{ ...base.usage.orgs[0].byModel![0], rateSource: source }],
+          },
+        ],
+      },
+    };
+  };
+
+  it('does not claim list prices when the operator configured the rates', async () => {
+    // The backend prefers a configured PLATFORM_AI_*_COST_PER_1K over the built-in table,
+    // so stamping "list prices as of …" on that total misattributes somebody else's number.
+    get.mockResolvedValue(withRateSource('operator'));
+    renderPage();
+    expect(await screen.findByText(/your configured rates · excludes/)).toBeInTheDocument();
+    expect(screen.queryByText(/list prices as of/)).not.toBeInTheDocument();
+  });
+
+  it('says list prices when that is what priced it', async () => {
+    get.mockResolvedValue(withRateSource('list'));
+    renderPage();
+    expect(await screen.findByText(/list prices as of 2026-09-09 · excludes/)).toBeInTheDocument();
+  });
+
+  it('claims neither against a backend that sends no cost block', async () => {
+    const base = payload();
+    get.mockResolvedValue({
+      ...base,
+      usage: {
+        ...base.usage,
+        orgs: [{ ...base.usage.orgs[0], byModel: undefined }],
+        totals: {
+          byTier: [
+            {
+              tier: 'default',
+              totalTokens: 5_000,
+              promptTokens: 5_000,
+              completionTokens: 0,
+              requests: 2,
+              costEstimate: 3,
+            },
+            {
+              tier: 'other',
+              totalTokens: 1_000,
+              promptTokens: 1_000,
+              completionTokens: 0,
+              requests: 1,
+              costEstimate: null,
+            },
+          ],
+          managedOrgCount: 1,
+        },
+      },
+    });
+    renderPage();
+    // Pre-#697 the only source was the env tier rates, and there is no date to quote.
+    expect(await screen.findByText(/configured rates · excludes 1,000 unpriced tokens/)).toBeInTheDocument();
+    expect(screen.queryByText(/list prices/)).not.toBeInTheDocument();
   });
 });
