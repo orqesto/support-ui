@@ -12,6 +12,7 @@ import {
   GitBranch,
   BrainCircuit,
   FileClock,
+  MailWarning,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,10 @@ import { type UseLearningNotificationsResult } from '@/hooks/useLearningNotifica
 import { useNotificationCounts, type ArrivalKind } from '@/hooks/useNotificationCounts';
 import { useAiProviderAlerts } from '@/hooks/useAiProviderAlerts';
 import { useStaleKbAlerts } from '@/hooks/useStaleKbAlerts';
+import {
+  CUSTOMER_REPLY_IN_SPAM_KIND,
+  useUnansweredOutboundAlerts,
+} from '@/hooks/useUnansweredOutboundAlerts';
 import { formatStaleAge } from '@/lib/kbStaleness';
 
 // Notification Center (P3 + P4): one bell that unifies every notification surface —
@@ -189,6 +194,11 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const { counts: arrivalCounts, clearKind } = useNotificationCounts();
   const { alerts: aiAlerts, dismiss: dismissAiAlert } = useAiProviderAlerts();
   const { alerts: staleKbAlerts, dismiss: dismissStaleKbAlert } = useStaleKbAlerts();
+  const {
+    alerts: outboundAlerts,
+    truncated: outboundTruncated,
+    dismiss: dismissOutboundAlert,
+  } = useUnansweredOutboundAlerts();
 
   const arrivalRows = ARRIVAL_QUEUES.map((entry) => ({
     ...entry,
@@ -215,6 +225,19 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const hasLearning = learningNotes.length > 0 || learningSuggestions.length > 0;
   const hasAiAlerts = aiAlerts.length > 0;
   const hasStaleKb = staleKbAlerts.length > 0;
+  const hasOutbound = outboundAlerts.length > 0;
+  // Fault-first ordering means ≥5 spam alerts would take every visible slot and push ALL
+  // one-sided rows behind the overflow line — the mirror image of the starvation the sort was
+  // added to fix, and reachable on a workspace with several mailboxes. So one-sided keeps a
+  // reserved seat whenever both kinds are present: the urgent kind still leads, it just cannot
+  // take the whole row.
+  const outboundFaults = outboundAlerts.filter((alert) => alert.kind === CUSTOMER_REPLY_IN_SPAM_KIND);
+  const outboundOthers = outboundAlerts.filter((alert) => alert.kind !== CUSTOMER_REPLY_IN_SPAM_KIND);
+  const reservedForOthers = outboundOthers.length > 0 ? Math.min(2, outboundOthers.length) : 0;
+  const visibleOutbound = [
+    ...outboundFaults.slice(0, PANEL_PEEK_LIMIT - reservedForOthers),
+    ...outboundOthers,
+  ].slice(0, PANEL_PEEK_LIMIT);
   // Counted in the badge: unlike a queue depth, this is a fault, and it must not be
   // possible to have a silently degraded AI and an unbadged bell.
   // ⛔ Stale KB documents are deliberately NOT in the badge. Nothing is broken and nothing
@@ -222,16 +245,37 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   // Confluence space can legitimately carry dozens for months. Badging them would leave the
   // bell permanently lit, which costs the badge its meaning for the faults above that are
   // urgent. Same reasoning as needs_routing and the queue depths.
-  const badgeCount = sla.unreadCount + arrivalTotal + learningUnread + aiAlerts.length;
+  // ⛔ Unanswered outbound IS counted, and the reasoning is the opposite of stale KB's.
+  // The test this file applies for exclusion is "nothing is broken, nothing is urgent, and a
+  // workspace can legitimately carry dozens for months". `customer_reply_in_spam` fails that
+  // outright — a live mailbox filter eating customer replies is a fault and it is urgent.
+  // `one_sided_outbound` is the arguable half (proactive outreach legitimately produces it),
+  // and it is counted anyway, because a SILENT bell is the exact failure this whole feature
+  // exists to fix: the previous design put these rows in a panel nobody opened. An unbadged
+  // panel is the same mistake one step further in. Bounded against a permanently-lit bell by
+  // the backend cap (5 announcements per sweep), by retirement when the customer replies, and
+  // by dismissal being permanent for this kind.
+  //
+  // ⛔ CORRECTION, and it matters because a future reader would otherwise trust it: an earlier
+  // version of this comment cited "the backend cap (5 per sweep)" as the bound. That cap
+  // DEFERS, it does not drop — it is a per-sweep rate limiter that resumes on the next poll,
+  // so it bounds nothing about the standing count. The bounds that are real: the shared
+  // notifications page is 20 rows, the alert is RETIRED when the customer replies, and
+  // dismissal is permanent for this kind (it carries no resurfaceDismissed). Verified, not
+  // assumed — the spam kind DOES opt into resurfacing, which is why only it comes back.
+  const badgeCount =
+    sla.unreadCount + arrivalTotal + learningUnread + aiAlerts.length + outboundAlerts.length;
   // With multiple content types present, label each section; otherwise stay minimal.
   const sectionCount =
     (hasQueues ? 1 : 0) +
     (hasSla ? 1 : 0) +
     (hasLearning ? 1 : 0) +
     (hasAiAlerts ? 1 : 0) +
-    (hasStaleKb ? 1 : 0);
+    (hasStaleKb ? 1 : 0) +
+    (hasOutbound ? 1 : 0);
   const showSectionLabels = sectionCount > 1;
-  const isEmpty = !hasQueues && !hasSla && !hasLearning && !hasAiAlerts && !hasStaleKb;
+  const isEmpty =
+    !hasQueues && !hasSla && !hasLearning && !hasAiAlerts && !hasStaleKb && !hasOutbound;
 
   // Close when clicking outside
   useEffect(() => {
@@ -422,6 +466,82 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                         </Button>
                       </div>
                     ))}
+                  </>
+                )}
+
+                {/* Unanswered outbound. ⛔ These rows exist BECAUSE the previous design hid
+                    them: a global-admin-only lens nobody opened, which is how a chargeback
+                    negotiation and a delivery claim went unowned for two days. Visible in the
+                    queue is the primary fix; this is what makes sure nobody has to notice. */}
+                {hasOutbound && (
+                  <>
+                    {showSectionLabels && <SectionLabel>Unanswered outbound</SectionLabel>}
+                    {visibleOutbound.map((alert) => {
+                      const isSpam = alert.kind === CUSTOMER_REPLY_IN_SPAM_KIND;
+                      return (
+                        <div
+                          key={alert.id}
+                          className="flex gap-3 items-start p-3 text-sm rounded-lg border bg-background border-border"
+                        >
+                          <MailWarning className="mt-0.5 w-4 h-4 shrink-0 text-amber-500" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium break-words text-foreground">
+                              {isSpam
+                                ? 'Customer replies were filed as spam'
+                                : 'No customer message in this thread'}
+                            </p>
+                            <p className="mt-0.5 text-muted-foreground">
+                              {isSpam
+                                ? `${typeof alert.recovered === 'number' ? `${alert.recovered} ` : ''}recovered from the mailbox spam folder — check the mailbox filter`
+                                : 'We sent, nobody replied, and no one has picked it up'}
+                            </p>
+                            {!isSpam && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setOpen(false);
+                                  navigate(`/messages/${alert.entityId}`);
+                                }}
+                                className="px-0 mt-1 h-auto text-xs text-primary hover:bg-transparent hover:underline"
+                              >
+                                Open thread
+                              </Button>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => dismissOutboundAlert(alert.id)}
+                            aria-label="Dismiss this alert"
+                            title={
+                              isSpam
+                                ? 'Dismiss — it returns if the filter eats another reply'
+                                : 'Dismiss — the thread stays in the queue either way'
+                            }
+                            className="p-1 h-auto text-muted-foreground hover:text-foreground"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                    {(outboundAlerts.length > visibleOutbound.length || outboundTruncated) && (
+                      // Capped like the learning sections. This panel is one `max-h-96`
+                      // scroller and the shared notifications page holds 20 rows, so an
+                      // uncapped section can push the SLA breaches below it out of sight.
+                      //
+                      // ⛔ Deliberately says nothing about WHERE the rest are. It used to read
+                      // "more in the inbox, badged Awaiting customer" — true only for the
+                      // one-sided kind. A `customer_reply_in_spam` alert is keyed on the
+                      // MAILBOX: it has no inbox row and no badge, so that sentence sent the
+                      // reader to look for something that does not exist. Sorting (see the
+                      // hook) puts the urgent kind in the visible five instead.
+                      <p className="px-3 pb-1 text-xs text-muted-foreground">
+                        +{outboundAlerts.length - visibleOutbound.length}
+                        {outboundTruncated ? ' or more' : ''} not shown
+                      </p>
+                    )}
                   </>
                 )}
 

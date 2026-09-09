@@ -140,6 +140,61 @@ describe('InboxSmoke', () => {
     expect(screen.getByText('customer@example.com')).toBeTruthy();
   });
 
+  /**
+   * The badge exists because these rows are no longer hidden. A one-sided outbound thread now
+   * sits in the queue looking like any other conversation — and without a badge nothing on the
+   * card says the customer never actually wrote in. The previous design hid these instead, and
+   * that is how two live customer threads went unowned for two days.
+   */
+  it('badges a one-sided outbound thread as awaiting the customer', () => {
+    const onOpen = vi.fn();
+    render(
+      <MemoryRouter future={ROUTER_FUTURE}>
+        <MessageListItem
+          thread={{
+            ...mockThread,
+            latestMessage: { ...mockMessage, metadata: { oneSidedOutbound: true } },
+          }}
+          onOpen={onOpen}
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Awaiting customer')).toBeTruthy();
+  });
+
+  it('does NOT badge an ordinary thread', () => {
+    // Control: proves the badge is driven by the mark, not always rendered.
+    const onOpen = vi.fn();
+    render(
+      <MemoryRouter future={ROUTER_FUTURE}>
+        <MessageListItem thread={mockThread} onOpen={onOpen} />
+      </MemoryRouter>
+    );
+    expect(screen.queryByText('Awaiting customer')).toBeNull();
+  });
+
+  it('shows only the echo badge when a row is BOTH hidden-orphan and marked', () => {
+    // They describe the same fact and would double-badge one card. The echo wins: it is the
+    // one that also explains why no analysis ran.
+    const onOpen = vi.fn();
+    render(
+      <MemoryRouter future={ROUTER_FUTURE}>
+        <MessageListItem
+          thread={{
+            ...mockThread,
+            latestMessage: {
+              ...mockMessage,
+              metadata: { oneSidedOutbound: true, orphanOutgoing: true },
+            },
+          }}
+          onOpen={onOpen}
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Outbound echo')).toBeTruthy();
+    expect(screen.queryByText('Awaiting customer')).toBeNull();
+  });
+
   it('renders message subject', () => {
     const onOpen = vi.fn();
     render(

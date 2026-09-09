@@ -197,6 +197,14 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
   const isOrphanOutgoing = Boolean(
     (msg.metadata as { orphanOutgoing?: boolean })?.orphanOutgoing,
   );
+  // One-sided outbound: same shape as the echo above — our own sent mail with no inbound —
+  // but this row is NOT hidden. It kept its status, assignee and SLA and sits in the queue,
+  // because hiding these is what let a chargeback negotiation and a delivery claim go unowned
+  // for two days. It needs a badge for the opposite reason the echo does: without one it looks
+  // like an ordinary thread and nothing says the customer never actually wrote in.
+  const isOneSidedOutbound = Boolean(
+    (msg.metadata as { oneSidedOutbound?: boolean })?.oneSidedOutbound,
+  );
 
   // Don't open the conversation if the click was the end of a text selection
   // — agents need to be able to copy IDs, sender emails, subject text.
@@ -379,6 +387,17 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
             >
               <span className="inline-flex items-center h-5 px-1.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground">
                 +{overflowLabels.length}
+              </span>
+            </Tooltip>
+          )}
+
+          {isOneSidedOutbound && !isOrphanOutgoing && (
+            <Tooltip
+              content="No customer message in this thread — we sent, nobody replied, and no one has picked it up in the app. It may be deliberate outreach; it is here so it does not go unnoticed."
+              size="sm"
+            >
+              <span className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                Awaiting customer
               </span>
             </Tooltip>
           )}
