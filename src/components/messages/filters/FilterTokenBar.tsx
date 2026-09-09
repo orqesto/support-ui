@@ -49,7 +49,10 @@ export const FilterTokenBar = ({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const tokens = useMemo(() => tokensOf(defs, filters, isKanban), [defs, filters, isKanban]);
-  const suggestions = useMemo(() => suggestionsFor(defs, query, isKanban), [defs, query, isKanban]);
+  const suggestions = useMemo(
+    () => suggestionsFor(defs, query, isKanban, filters),
+    [defs, query, isKanban, filters]
+  );
 
   const close = useCallback(() => {
     setOpen(false);

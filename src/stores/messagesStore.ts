@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useDepartmentContextStore } from './departmentContextStore';
 import { identityScope } from '@/stores/identityScope';
+// Value import, but not a cycle: filterSchema's reference back to this module is
+// `import type` and erases at build time.
+import { scopeReadToTriage } from '@/components/messages/filters/filterSchema';
 import type { PaginationMeta, MessageThread, ListScope } from '@/services/message.service';
 
 export type MessageViewStatus =
@@ -314,7 +317,14 @@ export const useMessagesStore = create<MessagesState>()(
         const currentState = get();
         // The scope describes the OLD lens, so it must go with the cache. Leaving a
         // stale count on screen while new rows load is a smaller version of the same lie.
-        set({ filters: { ...currentState.filters, ...filters }, cache: {}, listScope: null });
+        set({
+          // `read` only survives under a triage queue — see `scopeReadToTriage`. Applied
+          // to the MERGED result, not the patch, because a patch that changes only the
+          // queue must still drop a `read` that was already set.
+          filters: scopeReadToTriage({ ...currentState.filters, ...filters }),
+          cache: {},
+          listScope: null,
+        });
       },
 
       setSorting: (sorting) => {
@@ -323,7 +333,7 @@ export const useMessagesStore = create<MessagesState>()(
 
       updateFilter: (key, value) => {
         set((state) => ({
-          filters: { ...state.filters, [key]: value },
+          filters: scopeReadToTriage({ ...state.filters, [key]: value }),
           cache: {},
         }));
       },

@@ -24,6 +24,7 @@ import { apiClient } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { isAiNotConfiguredError, AI_NOT_CONFIGURED_MESSAGE } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
+import { AnswerPreview } from '@/components/messages/AnswerPreview';
 import {
   type SimilarMessage,
   toSimilarMessages,
@@ -368,7 +369,7 @@ export const SimilarMessagesDialog = ({
                     {showTranslation && translatedAiResponse ? 'Original:' : 'Suggested Answer:'}
                   </p>
                   <div className="overflow-y-auto max-h-[200px]">
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{aiResponse}</p>
+                    <AnswerPreview answer={aiResponse} className="text-sm leading-relaxed" />
                   </div>
                 </div>
 
@@ -392,9 +393,10 @@ export const SimilarMessagesDialog = ({
                       </Button>
                     </div>
                     <div className="overflow-y-auto max-h-[200px]">
-                      <p className="text-sm leading-relaxed text-blue-900 whitespace-pre-wrap dark:text-blue-100">
-                        {translatedAiResponse}
-                      </p>
+                      <AnswerPreview
+                        answer={translatedAiResponse}
+                        className="text-sm leading-relaxed text-blue-900 dark:text-blue-100"
+                      />
                     </div>
                   </div>
                 )}
@@ -571,9 +573,10 @@ export const SimilarMessagesDialog = ({
                             <Quote className="w-3 h-3" />
                             Original Documentation Quotes:
                           </div>
-                          <p className="text-sm italic whitespace-pre-wrap text-muted-foreground">
-                            {msg.content}
-                          </p>
+                          <AnswerPreview
+                            answer={msg.content}
+                            className="text-sm italic text-muted-foreground"
+                          />
                         </div>
                       )}
                     </div>
@@ -583,7 +586,7 @@ export const SimilarMessagesDialog = ({
                         Customer Request:
                       </p>
                       <div className="overflow-y-auto min-h-[48px] max-h-[120px]">
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        <AnswerPreview answer={msg.content} className="text-sm" />
                       </div>
                     </div>
                   )}
@@ -639,17 +642,18 @@ export const SimilarMessagesDialog = ({
                         )}
                     </div>
                     <div className="overflow-y-auto min-h-[60px] max-h-[160px]">
-                      <p
-                        className={`text-sm whitespace-pre-wrap ${
+                      <AnswerPreview
+                        answer={
+                          showEnglish[index] && msg.directReplyEnglish
+                            ? msg.directReplyEnglish
+                            : msg.directReply
+                        }
+                        className={`text-sm ${
                           msg.source === 'documentation'
                             ? 'text-blue-900 dark:text-blue-50'
                             : 'text-green-900 dark:text-green-50'
                         }`}
-                      >
-                        {showEnglish[index] && msg.directReplyEnglish
-                          ? msg.directReplyEnglish
-                          : msg.directReply}
-                      </p>
+                      />
                     </div>
                   </div>
 

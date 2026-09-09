@@ -7,6 +7,7 @@ import { searchIsTheOnlyFilter } from '@/hooks/searchIsTheOnlyFilter';
 import { logger } from '@/lib/logger';
 import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
 import { messageService, type MessageThread } from '@/services/message.service';
+import { readAppliesTo } from '@/components/messages/filters/filterSchema';
 import { messagesCacheKey, useMessagesStore } from '@/stores/messagesStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useDepartmentContextKey } from './useDepartmentContextKey';
@@ -202,7 +203,16 @@ export const useMessagesData = ({
         if (queue !== 'all') {
           apiFilters.queue = queue;
         }
-        const read = isKanban ? 'all' : (currentFilters.read ?? 'all');
+        // Read state exists only under the triage queues — nothing writes a
+        // `conversation_reads` row for an ordinary inbox thread, so sending `read` with
+        // any other queue filters on a column that is empty by construction. The store
+        // already drops it (`scopeReadToTriage`); this is the same rule at the request,
+        // where the kanban zeroing sits, so a stale persisted filter cannot leak through.
+        // NB: `currentFilters`, not the local `queue` above — that one is zeroed whenever a
+        // column is active, and a chip-selected triage column is precisely a lens where read
+        // state DOES exist.
+        const read =
+          isKanban || !readAppliesTo(currentFilters) ? 'all' : (currentFilters.read ?? 'all');
         if (read !== 'all') {
           apiFilters.read = read;
         }

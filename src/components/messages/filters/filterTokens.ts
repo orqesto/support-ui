@@ -70,7 +70,7 @@ export const tokensOf = (
   filters: FilterState,
   isKanban: boolean
 ): Token[] =>
-  visibleDefs(defs, isKanban).flatMap((def) => {
+  visibleDefs(defs, isKanban, filters).flatMap((def) => {
     const value = filterValue(filters, def.key);
     if (value === undefined) return [];
     // One value carries its colour; a set of them has no single colour to show.
@@ -105,13 +105,14 @@ export type Suggestion =
 export const suggestionsFor = (
   defs: FilterDef[],
   query: string,
-  isKanban: boolean
+  isKanban: boolean,
+  filters?: Pick<FilterState, 'queue'>
 ): Suggestion[] => {
   const needle = query.trim().toLowerCase();
   if (!needle) return [];
 
   const out: Suggestion[] = [{ kind: 'free', query: query.trim() }];
-  for (const def of visibleDefs(defs, isKanban)) {
+  for (const def of visibleDefs(defs, isKanban, filters)) {
     if (def.kind === 'free') continue;
     const nameHit = def.label.toLowerCase().includes(needle);
     if (def.kind === 'flag') {
