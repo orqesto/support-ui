@@ -38,6 +38,67 @@ const toContradictionItems = (result: ContradictionCheckResult): ContradictionIt
   return [];
 };
 
+/**
+ * The two checks the Conflict tab renders — `intraMessageContradictionCheck` and
+ * `contradictionCheck` — are frequently THE SAME RESULT, and the tab used to draw it twice.
+ *
+ * Both writers (`aiAnalysisProcessor`, `contradictionCheckController`) pick the headline result
+ * as `threadResult` if it fired, else `intraResult`, and then ALSO store `intraResult` under its
+ * own key. So whenever the intra-message check is the one that fired — the thread check found
+ * nothing, or there is no thread — both keys hold the same check, and the agent saw an identical
+ * "2 conflicts found" panel two times over.
+ *
+ * ⛔ The duplicate is NOT fixable by storing less. `autoReplyService` and
+ * `suggestedAnswerController` read `intraMessageContradictionCheck` and nothing else to decide
+ * whether to tell the model a contradiction was found in this message; dropping that key in the
+ * case where the intra check fired would silently disable it exactly when it matters. The
+ * storage is right and the DISPLAY was wrong, which is also why this fix reaches threads whose
+ * metadata was written months ago.
+ *
+ * Sameness is judged on what the card actually shows — the rendered items plus the occurrence
+ * that produced them. The stored objects are NOT reliably byte-equal: the manual path wraps the
+ * selected result to add a normalised `contradictions[]` while the intra key keeps the raw shape,
+ * so two records that render identically can differ as JSON. `checkedAt`/`triggeredBy` are part
+ * of the fingerprint deliberately: two runs at different times that found the same thing are two
+ * observations, and collapsing those would hide information rather than a duplicate.
+ */
+export const contradictionFingerprint = (check: ContradictionCheckMetadata): string =>
+  JSON.stringify([
+    check.checkedAt,
+    check.triggeredBy,
+    toContradictionItems(check.result).map((item) => [
+      item.currentStatement,
+      item.originalStatement,
+      item.explanation,
+      item.confidence,
+      item.contradictingMessageId,
+    ]),
+  ]);
+
+/**
+ * The alerts to render, in display order, with an exact duplicate collapsed to one.
+ *
+ * Only checks that would actually draw something are returned — `ContradictionAlert` renders
+ * null for an empty item list, so a check with no items is not an alert.
+ */
+export const contradictionChecksToRender = (
+  intraCheck?: ContradictionCheckMetadata,
+  crossCheck?: ContradictionCheckMetadata
+): ContradictionCheckMetadata[] => {
+  const drawn = [intraCheck, crossCheck].filter(
+    (check): check is ContradictionCheckMetadata =>
+      !!check && toContradictionItems(check.result).length > 0
+  );
+
+  const seen = new Set<string>();
+  return drawn.filter((check) => {
+    const key = contradictionFingerprint(check);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 const ContradictionRow = ({ item }: { item: ContradictionItem }) => (
   <div className="space-y-3 rounded border border-border/60 bg-background/50 p-3">
     <div className="flex justify-end">

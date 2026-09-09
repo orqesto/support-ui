@@ -6,7 +6,11 @@ import {
 } from 'lucide-react';
 import { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
 import { Button } from '@/components/ui/Button';
-import { ContradictionAlert } from './ContradictionAlert';
+import {
+  ContradictionAlert,
+  contradictionChecksToRender,
+  contradictionFingerprint,
+} from './ContradictionAlert';
 import { MessageAttachments, type Attachment } from './MessageAttachments';
 import { MessageKBReferences } from './MessageKBReferences';
 import { AiTabPanel, type KBAttachment } from './AiTabPanel';
@@ -399,8 +403,15 @@ export function MessagePanelTabs({
             if (hasIntraContradiction || hasCrossContradiction) {
               return (
                 <div className="space-y-2">
-                  {intraCheck && <ContradictionAlert contradictionCheck={intraCheck} />}
-                  {crossCheck && hasCrossContradiction && <ContradictionAlert contradictionCheck={crossCheck} />}
+                  {/* The fingerprint is unique across the rendered set by construction — it is
+                      what the list was deduplicated on. `checkedAt` alone would collide: the
+                      thread and intra checks of a single run share a timestamp. */}
+                  {contradictionChecksToRender(intraCheck, crossCheck).map((check) => (
+                    <ContradictionAlert
+                      key={contradictionFingerprint(check)}
+                      contradictionCheck={check}
+                    />
+                  ))}
                   {crossCheck && !hasCrossContradiction && !crossCheck.result.hasContradiction && <CleanResult check={crossCheck} />}
                 </div>
               );
