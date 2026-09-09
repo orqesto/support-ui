@@ -16,7 +16,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Textarea';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
-import { messageService, type KbQaCandidate } from '@/services/message.service';
+import { kbPromoteService, type KbQaCandidate } from '@/services/kbPromote.service';
 
 /**
  * Promote an already-resolved thread into the knowledge base.
@@ -55,8 +55,8 @@ export const PromoteToKbDialog = ({ messageId, isOpen, onClose, onPromoted }: Pr
     setLoadError(null);
     setPairs([]);
 
-    messageService
-      .kbCandidates(messageId)
+    kbPromoteService
+      .candidates(messageId)
       .then((candidates) => {
         if (cancelled) return;
         setPairs(candidates.map((candidate) => ({ ...candidate, keep: true })));
@@ -86,7 +86,7 @@ export const PromoteToKbDialog = ({ messageId, isOpen, onClose, onPromoted }: Pr
   const handleSave = async () => {
     setSaving(true);
     try {
-      const ids = await messageService.promoteToKb(
+      const ids = await kbPromoteService.promote(
         messageId,
         kept.map((pair) => ({
           questionMessageId: pair.questionMessageId,

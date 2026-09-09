@@ -1,7 +1,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
-import type { KbQaCandidate, KbQaPairInput } from '@/services/message.service';
+import type { KbQaCandidate, KbQaPairInput } from '@/services/kbPromote.service';
 
 /**
  * Promoting a resolved thread is the only path where a person reads KB content BEFORE it is
@@ -22,17 +22,26 @@ const candidate = (over: Partial<KbQaCandidate> = {}): KbQaCandidate => ({
 
 const kbCandidates = vi.fn<(id: number) => Promise<KbQaCandidate[]>>();
 const promoteToKb = vi.fn<(id: number, pairs: KbQaPairInput[]) => Promise<number[]>>();
-const success = vi.fn();
-const error = vi.fn();
+const success = vi.fn<(message: string) => void>();
+const error = vi.fn<(message: string) => void>();
 
-vi.mock('@/services/message.service', () => ({
-  messageService: {
-    kbCandidates: (id: number) => kbCandidates(id),
-    promoteToKb: (id: number, pairs: KbQaPairInput[]) => promoteToKb(id, pairs),
+vi.mock('@/services/kbPromote.service', () => ({
+  kbPromoteService: {
+    candidates: (id: number) => kbCandidates(id),
+    promote: (id: number, pairs: KbQaPairInput[]) => promoteToKb(id, pairs),
   },
 }));
 
-vi.mock('sonner', () => ({ toast: { success: (m: string) => success(m), error: (m: string) => error(m) } }));
+vi.mock('sonner', () => ({
+  toast: {
+    success: (message: string) => {
+      success(message);
+    },
+    error: (message: string) => {
+      error(message);
+    },
+  },
+}));
 
 const { PromoteToKbDialog } = await import('../PromoteToKbDialog');
 
