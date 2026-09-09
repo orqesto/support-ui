@@ -312,7 +312,7 @@ describe('a chip is a destination, not a share of the hidden count', () => {
     // the rows sum to more than the trigger. Unexplained, that reads as a bug.
     render(<ListScopeNotice scope={scope} shown={53} onJump={vi.fn()} />);
     openMenu();
-    expect(screen.getByText(/Categories overlap/)).toBeInTheDocument();
+    expect(screen.getByText(/will not add up to/)).toBeInTheDocument();
   });
 
   it('keeps the sentence verbatim — the subset never gets folded into it', () => {

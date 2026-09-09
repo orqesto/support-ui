@@ -301,9 +301,19 @@ export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Prop
                     Now that the button shows the real total, that mismatch is on screen and
                     unexplained silence would read as a bug.
                   */}
+                  {/*
+                    ⚠️ Says they will not MATCH, never that they add up to more. An earlier
+                    draft asserted "more than N" — which is not guaranteed. Each figure is the
+                    size of its whole bucket, so the rows usually exceed the total, but when
+                    most hidden rows fall into `other` (which is a subset row, not a
+                    destination) the destinations can sum to LESS. Asserting a direction the
+                    data does not guarantee puts a falsifiable claim on screen, which is the
+                    same class of bug as the badge this PR fixes.
+                  */}
                   {destinations.length > 1 && (
                     <span className="block mt-0.5">
-                      Categories overlap, so they add up to more than {scope.hidden.toLocaleString()}.
+                      Each figure is the size of its whole bucket, so they will not add up to{' '}
+                      {scope.hidden.toLocaleString()}.
                     </span>
                   )}
                 </div>
