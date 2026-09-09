@@ -74,6 +74,11 @@ const NON_SLA_BELL_KINDS = new Set([
   'spam_arrival',
   'ai_provider_down',
   'kb_document_stale',
+  // Both own their surface in useUnansweredOutboundAlerts. Without these two entries the
+  // fail-open filter renders them as amber SLA breaches with no breach fields — the exact
+  // failure this set was created for.
+  'one_sided_outbound',
+  'customer_reply_in_spam',
 ]);
 const isNonSlaBellKind = (kind: unknown): boolean =>
   typeof kind === 'string' && NON_SLA_BELL_KINDS.has(kind);
