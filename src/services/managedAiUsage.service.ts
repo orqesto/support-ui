@@ -24,6 +24,25 @@ export interface ManagedAiTierStat {
    * an unpriced tier as 0.00 is the difference between "free" and "unknown".
    */
   costEstimate: number | null;
+  /**
+   * Tokens in this tier no rate could price. Optional — an older backend omits it, and
+   * the page must not render a coverage claim it does not have.
+   */
+  unpricedTokens?: number;
+}
+
+/** One recorded model's usage. Optional: it arrives with the backend that prices per model. */
+export interface ManagedAiModelStat {
+  model: string;
+  tier: ManagedAiTier;
+  totalTokens: number;
+  promptTokens: number;
+  completionTokens: number;
+  requests: number;
+  /** USD, or null when no rate applies to this model. Null is "unknown", never free. */
+  costUsd: number | null;
+  /** 'operator' = a configured tier rate; 'list' = the built-in vendor list price. */
+  rateSource: 'operator' | 'list' | null;
 }
 
 export interface ManagedAiOrgUsage {
@@ -41,6 +60,10 @@ export interface ManagedAiOrgUsage {
   calls: { used: number; limit: number; remaining: number; month?: string } | null;
   totalTokens: number;
   byTier: ManagedAiTierStat[];
+  /** Per-model rows, busiest first — what the `other`/Unpriced column is actually made of. */
+  byModel?: ManagedAiModelStat[];
+  costUsd?: number | null;
+  unpricedTokens?: number;
 }
 
 export interface ManagedAiUsage {
@@ -56,6 +79,25 @@ export interface ManagedAiUsage {
      */
     tokenCeilingPerOrgPerDay?: number;
     tokenCeilingIsDefault?: boolean;
+    /**
+     * The money figure and everything needed to read it honestly.
+     *
+     * Optional: a backend that predates it omits the block, and the page then falls back
+     * to summing the per-tier estimates exactly as it did before. `pricedTokens` /
+     * `unpricedTokens` are why this is a block and not a number — a cost with an unstated
+     * hole in it is worse than the dash it replaced.
+     */
+    cost?: {
+      usd: number | null;
+      eur: number | null;
+      usdToEur: number;
+      /** True when nobody set `PLATFORM_USD_TO_EUR` — the euro figure is then a rough default. */
+      usdToEurIsDefault: boolean;
+      /** When the built-in list prices were captured. They are an estimate, not an invoice. */
+      pricesAsOf: string;
+      pricedTokens: number;
+      unpricedTokens: number;
+    };
   };
 }
 

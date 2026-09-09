@@ -16,20 +16,34 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 
 const RANGES = [7, 30, 90] as const;
 
+/**
+ * ⛔ `other` was labelled "Unpriced", and that stopped being true when pricing moved from
+ * per-tier rates to per-model list prices: `other` means "not one of the CURRENT tier
+ * models" (a since-changed tier model, a historical row), and such a model is often
+ * priced perfectly well. Keeping the old label would have shown 9,667,902 tokens under a
+ * heading claiming they cost nothing knowable, next to a tile that had just priced them.
+ * Unpriced is now its own, real figure — on the cost tile and in the by-model table.
+ */
 const TIER_LABEL: Record<ManagedAiTier, string> = {
   default: 'Cheap',
   strong: 'Strong',
-  other: 'Unpriced',
+  other: 'Other models',
 };
 
 const formatTokens = (tokens: number): string => tokens.toLocaleString();
 
 /**
- * Cost, or an honest dash. `costEstimate` is null when no PLATFORM_AI_*_COST_PER_1K rate is
- * set for that tier — and always null for `other`. Showing 0.00 there would read as "this
- * cost nothing", when the truth is "nobody told us the price".
+ * Cost, or an honest dash. Null is "nobody told us the price", never zero — showing 0.00
+ * against an unpriced model reads as "this cost nothing".
  */
 const formatCost = (cost: number | null): string => (cost === null ? '—' : cost.toFixed(2));
+
+/** `$1,234.56`. Cents are kept: a small workspace's month is a sub-dollar figure. */
+const formatUsd = (usd: number): string =>
+  `$${usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const formatEur = (eur: number): string =>
+  `€${eur.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const sumCost = (tiers: ManagedAiTierStat[]): number | null => {
   const priced = tiers.filter((tier) => tier.costEstimate !== null);
@@ -90,11 +104,48 @@ export const PlatformAiSpend = () => {
   const usage = data?.usage;
   const totalTokens = usage?.totals.byTier.reduce((sum, tier) => sum + tier.totalTokens, 0) ?? 0;
   const totalRequests = usage?.totals.byTier.reduce((sum, tier) => sum + tier.requests, 0) ?? 0;
-  const totalCost = usage ? sumCost(usage.totals.byTier) : null;
+  /**
+   * The backend now prices per MODEL and reports the rollup, because a per-tier rate
+   * could not price the `other` tier at all — which on this platform was 9,667,902 of
+   * framehouse's 40,787,419 tokens. `cost` is optional so an older backend still renders:
+   * fall back to summing the per-tier estimates, exactly as this page did before.
+   */
+  const cost = usage?.totals.cost;
+  /**
+   * Every model in the window, platform-wide. Without this the console could report
+   * "Unpriced 9,667,902" and offer no way to find out what those tokens were — the
+   * controller had grouped by model all along and thrown the name away.
+   */
+  const models = Object.values(
+    (usage?.orgs ?? []).reduce<Record<string, { model: string; totalTokens: number; requests: number; costUsd: number | null; priced: boolean }>>(
+      (acc, org) => {
+        for (const row of org.byModel ?? []) {
+          const entry = (acc[row.model] ??= {
+            model: row.model,
+            totalTokens: 0,
+            requests: 0,
+            costUsd: null,
+            priced: false,
+          });
+          entry.totalTokens += row.totalTokens;
+          entry.requests += row.requests;
+          if (row.costUsd !== null) {
+            entry.costUsd = (entry.costUsd ?? 0) + row.costUsd;
+            entry.priced = true;
+          }
+        }
+        return acc;
+      },
+      {}
+    )
+  ).sort((left, right) => right.totalTokens - left.totalTokens);
+  const totalCost = cost ? cost.usd : usage ? sumCost(usage.totals.byTier) : null;
   const unpricedTokens =
+    cost?.unpricedTokens ??
     usage?.totals.byTier
       .filter((tier) => tier.costEstimate === null)
-      .reduce((sum, tier) => sum + tier.totalTokens, 0) ?? 0;
+      .reduce((sum, tier) => sum + tier.totalTokens, 0) ??
+    0;
 
   /**
    * The cap column is on a different clock from every column beside it: tokens answer the
@@ -161,17 +212,31 @@ export const PlatformAiSpend = () => {
             <Card>
               <CardContent className="flex flex-col gap-1 p-4">
                 <span className="text-xs text-muted-foreground">Estimated cost</span>
-                <span className="text-2xl font-semibold">{formatCost(totalCost)}</span>
+                <span className="text-2xl font-semibold">
+                  {totalCost === null ? '—' : `≈ ${formatUsd(totalCost)}`}
+                </span>
+                {/* The euro figure is secondary on purpose: vendors publish and bill in
+                    USD, so the dollar number is the one that can be checked against an
+                    invoice. The rate is always shown beside it — a bare euro total reads
+                    more precise than a converted estimate is. */}
+                {totalCost !== null && cost?.eur !== null && cost?.eur !== undefined && (
+                  <span className="text-xs text-muted-foreground">
+                    ≈ {formatEur(cost.eur)} · at {cost.usdToEur} USD/EUR
+                    {cost.usdToEurIsDefault && ' (default)'}
+                  </span>
+                )}
                 {totalCost === null ? (
                   <span className="text-xs text-muted-foreground">
-                    no PLATFORM_AI_*_COST_PER_1K rate configured
+                    no rate matched any model in this window
                   </span>
                 ) : (
-                  unpricedTokens > 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      excludes {formatTokens(unpricedTokens)} unpriced tokens
-                    </span>
-                  )
+                  <span className="text-xs text-muted-foreground">
+                    {/* Coverage, always — a total with an unstated hole in it is worse
+                        than the dash this replaced. */}
+                    {unpricedTokens > 0
+                      ? `list prices${cost ? ` as of ${cost.pricesAsOf}` : ''} · excludes ${formatTokens(unpricedTokens)} unpriced tokens`
+                      : `list prices${cost ? ` as of ${cost.pricesAsOf}` : ''} · all tokens priced`}
+                  </span>
                 )}
               </CardContent>
             </Card>
@@ -282,6 +347,53 @@ export const PlatformAiSpend = () => {
               </p>
             )}
           </Card>
+
+          {models.length > 0 && (
+            <Card>
+              <CardContent padding="none">
+                <p className="px-3 py-2 text-xs border-b text-muted-foreground border-border">
+                  By model · what the tier columns above are made of. A model with no
+                  published rate is listed here with its tokens rather than priced at a
+                  guess — set{' '}
+                  <code className="text-[11px]">PLATFORM_AI_*_COST_PER_1K</code> to price it
+                  yourself.
+                </p>
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr className="text-left text-muted-foreground">
+                      <th className="px-3 py-2 font-medium">Model</th>
+                      <th className="px-3 py-2 font-medium text-right">Tokens</th>
+                      <th className="px-3 py-2 font-medium text-right">Calls</th>
+                      <th className="px-3 py-2 font-medium text-right">Estimated cost</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {models.map((row) => (
+                      <tr key={row.model} className="border-t border-border">
+                        <td className="px-3 py-2 font-medium text-foreground">
+                          {row.model}
+                          {!row.priced && (
+                            <span className="ml-2 text-xs font-normal text-muted-foreground">
+                              no published rate
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {formatTokens(row.totalTokens)}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                          {formatTokens(row.requests)}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {row.priced ? `≈ ${formatCost(row.costUsd)}` : formatCost(null)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>
