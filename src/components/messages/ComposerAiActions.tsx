@@ -191,20 +191,44 @@ export function ComposerAiActions({
     if (draft) void run(draft.mode);
   };
 
+  /**
+   * What "Use it" applies: whatever is on screen.
+   *
+   * It used to always apply `draft.text` while the panel could be showing a translation, so
+   * the preview and the result disagreed — the agent read the German, pressed the button, and
+   * got the English. The translation was for checking only and the panel said so, but "read
+   * this, then press the button under it" is not a contract a footnote can undo.
+   *
+   * Applying what is shown makes the two agree. The risk it introduces is the reason the
+   * original was pinned in the first place — the draft is written in the CUSTOMER's language,
+   * so applying a translation means replying in a language the customer did not write in.
+   * That is now a deliberate choice: the button names the language it will insert, and
+   * `appliesForeignLanguage` warns above it when that is not the customer's language.
+   */
+  const applied = translation ?? { content: draft?.text ?? '', language: draft?.language };
+  const appliesForeignLanguage =
+    !!translation &&
+    !!draft?.language &&
+    !!translation.language &&
+    translation.language.toLowerCase() !== draft.language.toLowerCase();
+
   const useDraft = () => {
     if (!draft) return;
-    const appliedHtml = answerToEditorHtml(draft.text);
+    const appliedHtml = answerToEditorHtml(applied.content);
     setPrevious(composer);
     setComposer(appliedHtml);
     const appliedSource = composerAiSource(draft.mode);
     setDraft(null);
+    setTranslation(null);
     setInstructions('');
     setStartFresh(false);
     setOpen(false);
     onApplied?.(appliedSource, {
       text: appliedHtml,
       mode: draft.mode,
-      ...(draft.language && { language: draft.language }),
+      // The language actually applied, not the language the draft was written in — the
+      // caller records this, and recording "en" for a German reply would misreport it.
+      ...(applied.language && { language: applied.language }),
     });
   };
 
@@ -325,17 +349,37 @@ export function ComposerAiActions({
                     : 'Nothing in the knowledge base matched, so this acknowledges the question without answering it. Add the answer before sending.'}
                 </p>
               )}
-              {translation && (
+              {/*
+                Say which version the button will insert, and warn when that is not the
+                language the customer wrote in. The old copy said the original "is what gets
+                used" — true then, and the reason it had to be said was that the panel could
+                show something else. Now the two agree, so the note only has to name the
+                language and flag the one case that can go wrong.
+              */}
+              {translation && !appliesForeignLanguage && (
                 <p className="text-[11px] text-muted-foreground">
                   Translated{translation.language ? ` to ${translation.language.toUpperCase()}` : ''}{' '}
-                  for checking — the {draft.language ? draft.language.toUpperCase() : 'original'}{' '}
-                  version is what gets used.
+                  — this is what gets used.
+                </p>
+              )}
+              {appliesForeignLanguage && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-500">
+                  This will reply in {translation?.language?.toUpperCase()}, but the customer
+                  wrote in {draft.language?.toUpperCase()}. Show the original to send{' '}
+                  {draft.language?.toUpperCase()} instead.
                 </p>
               )}
 
               <div className="flex flex-wrap gap-2 items-center">
                 <Button size="sm" onClick={useDraft}>
                   Use it
+                  {/*
+                    Name the language ONLY while a translation is on screen. With no
+                    translation there is nothing to choose between and the suffix would be
+                    noise on every draft; with one, it is the clearest statement of what the
+                    button is about to insert.
+                  */}
+                  {translation && applied.language ? ` (${applied.language.toUpperCase()})` : ''}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={retry}>
                   Try again
