@@ -255,3 +255,34 @@ describe('what the figure is attributed to', () => {
     expect(screen.queryByText(/list prices/)).not.toBeInTheDocument();
   });
 });
+
+describe('a priced model that still carries unpriced tokens', () => {
+  it('admits the residual on the row, so the tile exclusion is traceable', async () => {
+    // A list price reaches prompt+completion only; a provider may report a larger total.
+    // Without this the tile says "excludes 500,000 unpriced tokens" over a table in which
+    // every model looks fully priced.
+    const base = payload();
+    get.mockResolvedValue({
+      ...base,
+      usage: {
+        ...base.usage,
+        orgs: [
+          {
+            ...base.usage.orgs[0],
+            byModel: [
+              {
+                ...base.usage.orgs[0].byModel![0],
+                totalTokens: 2_500_000,
+                unpricedTokens: 500_000,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    renderPage();
+    expect(await screen.findByText('500,000 tokens unpriced')).toBeInTheDocument();
+    // It is priced — it must not also be labelled as having no rate.
+    expect(screen.queryByText('no published rate')).not.toBeInTheDocument();
+  });
+});

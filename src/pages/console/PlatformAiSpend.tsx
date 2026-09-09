@@ -126,7 +126,19 @@ export const PlatformAiSpend = () => {
    * controller had grouped by model all along and thrown the name away.
    */
   const models = Object.values(
-    (usage?.orgs ?? []).reduce<Record<string, { model: string; totalTokens: number; requests: number; costUsd: number | null; priced: boolean }>>(
+    (usage?.orgs ?? []).reduce<
+      Record<
+        string,
+        {
+          model: string;
+          totalTokens: number;
+          requests: number;
+          costUsd: number | null;
+          priced: boolean;
+          unpricedTokens: number;
+        }
+      >
+    >(
       (acc, org) => {
         for (const row of org.byModel ?? []) {
           const entry = (acc[row.model] ??= {
@@ -135,9 +147,11 @@ export const PlatformAiSpend = () => {
             requests: 0,
             costUsd: null,
             priced: false,
+            unpricedTokens: 0,
           });
           entry.totalTokens += row.totalTokens;
           entry.requests += row.requests;
+          entry.unpricedTokens += row.unpricedTokens ?? (row.costUsd === null ? row.totalTokens : 0);
           if (row.costUsd !== null) {
             entry.costUsd = (entry.costUsd ?? 0) + row.costUsd;
             entry.priced = true;
@@ -406,10 +420,20 @@ export const PlatformAiSpend = () => {
                       <tr key={row.model} className="border-t border-border">
                         <td className="px-3 py-2 font-medium text-foreground">
                           {row.model}
-                          {!row.priced && (
+                          {!row.priced ? (
                             <span className="ml-2 text-xs font-normal text-muted-foreground">
                               no published rate
                             </span>
+                          ) : (
+                            // A PRICED model can still carry tokens nothing charged for: a
+                            // list price reaches prompt+completion only, and a provider may
+                            // report a larger total. Without this the tile could exclude
+                            // tokens no row in this table admitted to.
+                            row.unpricedTokens > 0 && (
+                              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                                {formatTokens(row.unpricedTokens)} tokens unpriced
+                              </span>
+                            )
                           )}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">

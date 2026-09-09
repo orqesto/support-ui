@@ -41,6 +41,12 @@ export interface ManagedAiModelStat {
   requests: number;
   /** USD, or null when no rate applies to this model. Null is "unknown", never free. */
   costUsd: number | null;
+  /**
+   * Tokens of this model nothing charged for: all of them when there is no rate, or the
+   * residual a list price could not reach (a provider's `total_tokens` beyond
+   * prompt+completion). Optional — an older backend omits it.
+   */
+  unpricedTokens?: number;
   /** 'operator' = a configured tier rate; 'list' = the built-in vendor list price. */
   rateSource: 'operator' | 'list' | null;
 }
