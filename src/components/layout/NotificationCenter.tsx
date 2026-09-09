@@ -492,7 +492,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                             </p>
                             <p className="mt-0.5 text-muted-foreground">
                               {isSpam
-                                ? `${alert.recovered != null ? `${alert.recovered} ` : ''}recovered from the mailbox spam folder — check the mailbox filter`
+                                ? `${typeof alert.recovered === 'number' ? `${alert.recovered} ` : ''}recovered from the mailbox spam folder — check the mailbox filter`
                                 : 'We sent, nobody replied, and no one has picked it up'}
                             </p>
                             {!isSpam && (
