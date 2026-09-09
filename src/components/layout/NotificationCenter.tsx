@@ -12,6 +12,7 @@ import {
   GitBranch,
   BrainCircuit,
   FileClock,
+  MailWarning,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,10 @@ import { type UseLearningNotificationsResult } from '@/hooks/useLearningNotifica
 import { useNotificationCounts, type ArrivalKind } from '@/hooks/useNotificationCounts';
 import { useAiProviderAlerts } from '@/hooks/useAiProviderAlerts';
 import { useStaleKbAlerts } from '@/hooks/useStaleKbAlerts';
+import {
+  CUSTOMER_REPLY_IN_SPAM_KIND,
+  useUnansweredOutboundAlerts,
+} from '@/hooks/useUnansweredOutboundAlerts';
 import { formatStaleAge } from '@/lib/kbStaleness';
 
 // Notification Center (P3 + P4): one bell that unifies every notification surface —
@@ -189,6 +194,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const { counts: arrivalCounts, clearKind } = useNotificationCounts();
   const { alerts: aiAlerts, dismiss: dismissAiAlert } = useAiProviderAlerts();
   const { alerts: staleKbAlerts, dismiss: dismissStaleKbAlert } = useStaleKbAlerts();
+  const { alerts: outboundAlerts, dismiss: dismissOutboundAlert } = useUnansweredOutboundAlerts();
 
   const arrivalRows = ARRIVAL_QUEUES.map((entry) => ({
     ...entry,
@@ -215,6 +221,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const hasLearning = learningNotes.length > 0 || learningSuggestions.length > 0;
   const hasAiAlerts = aiAlerts.length > 0;
   const hasStaleKb = staleKbAlerts.length > 0;
+  const hasOutbound = outboundAlerts.length > 0;
   // Counted in the badge: unlike a queue depth, this is a fault, and it must not be
   // possible to have a silently degraded AI and an unbadged bell.
   // ⛔ Stale KB documents are deliberately NOT in the badge. Nothing is broken and nothing
@@ -229,9 +236,11 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     (hasSla ? 1 : 0) +
     (hasLearning ? 1 : 0) +
     (hasAiAlerts ? 1 : 0) +
-    (hasStaleKb ? 1 : 0);
+    (hasStaleKb ? 1 : 0) +
+    (hasOutbound ? 1 : 0);
   const showSectionLabels = sectionCount > 1;
-  const isEmpty = !hasQueues && !hasSla && !hasLearning && !hasAiAlerts && !hasStaleKb;
+  const isEmpty =
+    !hasQueues && !hasSla && !hasLearning && !hasAiAlerts && !hasStaleKb && !hasOutbound;
 
   // Close when clicking outside
   useEffect(() => {
@@ -422,6 +431,62 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                         </Button>
                       </div>
                     ))}
+                  </>
+                )}
+
+                {/* Unanswered outbound. ⛔ These rows exist BECAUSE the previous design hid
+                    them: a global-admin-only lens nobody opened, which is how a chargeback
+                    negotiation and a delivery claim went unowned for two days. Visible in the
+                    queue is the primary fix; this is what makes sure nobody has to notice. */}
+                {hasOutbound && (
+                  <>
+                    {showSectionLabels && <SectionLabel>Unanswered outbound</SectionLabel>}
+                    {outboundAlerts.map((alert) => {
+                      const isSpam = alert.kind === CUSTOMER_REPLY_IN_SPAM_KIND;
+                      return (
+                        <div
+                          key={alert.id}
+                          className="flex gap-3 items-start p-3 text-sm rounded-lg border bg-background border-border"
+                        >
+                          <MailWarning className="mt-0.5 w-4 h-4 shrink-0 text-amber-500" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium break-words text-foreground">
+                              {isSpam
+                                ? 'Customer replies were filed as spam'
+                                : 'No customer message in this thread'}
+                            </p>
+                            <p className="mt-0.5 text-muted-foreground">
+                              {isSpam
+                                ? `${alert.recovered ?? 0} recovered from the mailbox spam folder — check the mailbox filter`
+                                : 'We sent, nobody replied, and no one has picked it up'}
+                            </p>
+                            {!isSpam && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setOpen(false);
+                                  navigate(`/messages/${alert.entityId}`);
+                                }}
+                                className="px-0 mt-1 h-auto text-xs text-primary hover:bg-transparent hover:underline"
+                              >
+                                Open thread
+                              </Button>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => dismissOutboundAlert(alert.id)}
+                            aria-label="Dismiss this alert"
+                            title="Dismiss — the thread stays in the queue either way"
+                            className="p-1 h-auto text-muted-foreground hover:text-foreground"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      );
+                    })}
                   </>
                 )}
 

@@ -85,10 +85,16 @@ export const useUnansweredOutboundAlerts = () => {
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
-    const onNew = () => fetchAlerts();
-    subscribeToEvent('notification:new', onNew);
+    const onChange = () => fetchAlerts();
+    subscribeToEvent('notification:new', onChange);
+    // ⛔ `resolved` too, not just `new`. The backend RETIRES a one_sided_outbound alert the
+    // moment a real inbound arrives (clearOneSidedOutboundMarks), and without this the row
+    // sits on screen pointing at a thread that is no longer one-sided until the reader
+    // happens to reload — the same defect useAiProviderAlerts documents for a fixed provider.
+    subscribeToEvent('notification:resolved', onChange);
     return () => {
-      unsubscribeFromEvent('notification:new', onNew);
+      unsubscribeFromEvent('notification:new', onChange);
+      unsubscribeFromEvent('notification:resolved', onChange);
       releaseSocket();
     };
   }, [fetchAlerts]);
