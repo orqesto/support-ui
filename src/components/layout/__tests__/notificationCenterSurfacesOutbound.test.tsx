@@ -15,7 +15,7 @@
 import type { ComponentProps } from 'react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 let outboundAlerts: Array<Record<string, unknown>> = [];
 
@@ -48,34 +48,49 @@ vi.mock('@/hooks/useStaleKbAlerts', () => ({
 
 const { NotificationCenter } = await import('../NotificationCenter');
 
-// `sla` and `learning` arrive as PROPS, not hooks — the parent owns them. Typed off the
-// component's own prop types so a change to either shape fails here rather than silently.
+// `sla` and `learning` arrive as PROPS, not hooks — the parent owns them.
+//
+// ⛔ Typed WITHOUT a cast, deliberately. An earlier version of this file used
+// `as unknown as CenterProps['sla']` while claiming in a comment that the fixtures were
+// typed off the component's props — the cast made that claim false, and the fixture was in
+// fact missing `setOnlyMine`, `clearAll` and `dismiss` while inventing two fields that do
+// not exist. Renaming a field on the hook would have left this green. No casts: the
+// type-checker covers `src`, so the fixtures now fail compilation if either shape changes.
 type CenterProps = ComponentProps<typeof NotificationCenter>;
 
 const slaProp: CenterProps['sla'] = {
   notifications: [],
-  unreadCount: 0,
   total: 0,
-  onlyAssignedToMe: false,
-  setOnlyAssignedToMe: vi.fn(),
+  unreadCount: 0,
   fetchError: false,
+  onlyAssignedToMe: false,
+  setOnlyMine: vi.fn(),
+  clearAll: vi.fn(),
+  dismiss: vi.fn(),
   markRead: vi.fn(),
   markAllRead: vi.fn(),
-  refresh: vi.fn(),
-} as unknown as CenterProps['sla'];
+};
 
 const learningProp: CenterProps['learning'] = {
-  isOrgAdmin: false,
   notifications: [],
   suggestions: [],
   unreadCount: 0,
+  fetchError: false,
+  isOrgAdmin: false,
+  markAllRead: vi.fn(),
   refresh: vi.fn(),
-} as unknown as CenterProps['learning'];
+};
+
+/** Renders the current path so navigation can be asserted, not assumed. */
+const LocationProbe = () => <span data-testid="loc">{useLocation().pathname}</span>;
 
 const open = () => {
   render(
     <MemoryRouter>
       <NotificationCenter sla={slaProp} learning={learningProp} />
+      <Routes>
+        <Route path="*" element={<LocationProbe />} />
+      </Routes>
     </MemoryRouter>,
   );
   // The panel is behind the bell button.
@@ -104,6 +119,34 @@ describe('NotificationCenter — unanswered outbound', () => {
     open();
     expect(screen.getByText('Customer replies were filed as spam')).toBeTruthy();
     expect(screen.getByText(/3 recovered/)).toBeTruthy();
+  });
+
+  it('opens the actual conversation, in the right id space', () => {
+    // This repo has shipped a dead link from exactly this class of mistake before (the KB
+    // `?id=` vs `?docId=` collision, still commented in the sibling section). `entityId` for
+    // one_sided_outbound is a conversation id, and /messages/:id resolves it — assert it
+    // rather than trusting the string.
+    outboundAlerts = [
+      { id: 1, kind: 'one_sided_outbound', entityId: 11822, recovered: null },
+    ];
+    open();
+    fireEvent.click(screen.getByText('Open thread'));
+    expect(screen.getByTestId('loc').textContent).toBe('/messages/11822');
+  });
+
+  it('counts the alerts in the bell badge, so it is not a panel nobody opens', () => {
+    // The whole feature exists because a surface you must remember to look at does not get
+    // looked at. A silent bell is that same failure one step further in.
+    outboundAlerts = [
+      { id: 1, kind: 'one_sided_outbound', entityId: 11822, recovered: null },
+      { id: 2, kind: 'customer_reply_in_spam', entityId: 34, recovered: 3 },
+    ];
+    render(
+      <MemoryRouter>
+        <NotificationCenter sla={slaProp} learning={learningProp} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('2')).toBeTruthy();
   });
 
   it('renders nothing for it when there are no alerts', () => {

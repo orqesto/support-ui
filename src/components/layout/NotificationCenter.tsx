@@ -229,7 +229,18 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   // Confluence space can legitimately carry dozens for months. Badging them would leave the
   // bell permanently lit, which costs the badge its meaning for the faults above that are
   // urgent. Same reasoning as needs_routing and the queue depths.
-  const badgeCount = sla.unreadCount + arrivalTotal + learningUnread + aiAlerts.length;
+  // ⛔ Unanswered outbound IS counted, and the reasoning is the opposite of stale KB's.
+  // The test this file applies for exclusion is "nothing is broken, nothing is urgent, and a
+  // workspace can legitimately carry dozens for months". `customer_reply_in_spam` fails that
+  // outright — a live mailbox filter eating customer replies is a fault and it is urgent.
+  // `one_sided_outbound` is the arguable half (proactive outreach legitimately produces it),
+  // and it is counted anyway, because a SILENT bell is the exact failure this whole feature
+  // exists to fix: the previous design put these rows in a panel nobody opened. An unbadged
+  // panel is the same mistake one step further in. Bounded against a permanently-lit bell by
+  // the backend cap (5 announcements per sweep), by retirement when the customer replies, and
+  // by dismissal being permanent for this kind.
+  const badgeCount =
+    sla.unreadCount + arrivalTotal + learningUnread + aiAlerts.length + outboundAlerts.length;
   // With multiple content types present, label each section; otherwise stay minimal.
   const sectionCount =
     (hasQueues ? 1 : 0) +
@@ -441,7 +452,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                 {hasOutbound && (
                   <>
                     {showSectionLabels && <SectionLabel>Unanswered outbound</SectionLabel>}
-                    {outboundAlerts.map((alert) => {
+                    {outboundAlerts.slice(0, PANEL_PEEK_LIMIT).map((alert) => {
                       const isSpam = alert.kind === CUSTOMER_REPLY_IN_SPAM_KIND;
                       return (
                         <div
@@ -457,7 +468,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                             </p>
                             <p className="mt-0.5 text-muted-foreground">
                               {isSpam
-                                ? `${alert.recovered ?? 0} recovered from the mailbox spam folder — check the mailbox filter`
+                                ? `${alert.recovered !== null ? `${alert.recovered} ` : ''}recovered from the mailbox spam folder — check the mailbox filter`
                                 : 'We sent, nobody replied, and no one has picked it up'}
                             </p>
                             {!isSpam && (
@@ -479,7 +490,11 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                             size="sm"
                             onClick={() => dismissOutboundAlert(alert.id)}
                             aria-label="Dismiss this alert"
-                            title="Dismiss — the thread stays in the queue either way"
+                            title={
+                              isSpam
+                                ? 'Dismiss — it returns if the filter eats another reply'
+                                : 'Dismiss — the thread stays in the queue either way'
+                            }
                             className="p-1 h-auto text-muted-foreground hover:text-foreground"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -487,6 +502,15 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                         </div>
                       );
                     })}
+                    {outboundAlerts.length > PANEL_PEEK_LIMIT && (
+                      // Capped like the learning sections. This panel is one `max-h-96`
+                      // scroller and the shared notifications page holds 20 rows, so an
+                      // uncapped section can push the SLA breaches below it out of sight.
+                      <p className="px-3 pb-1 text-xs text-muted-foreground">
+                        +{outboundAlerts.length - PANEL_PEEK_LIMIT} more in the inbox, badged
+                        &ldquo;Awaiting customer&rdquo;
+                      </p>
+                    )}
                   </>
                 )}
 
