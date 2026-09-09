@@ -36,7 +36,14 @@ const formatTokens = (tokens: number): string => tokens.toLocaleString();
  * Cost, or an honest dash. Null is "nobody told us the price", never zero — showing 0.00
  * against an unpriced model reads as "this cost nothing".
  */
-const formatCost = (cost: number | null): string => (cost === null ? '—' : cost.toFixed(2));
+const formatCost = (cost: number | null): string =>
+  cost === null
+    ? '—'
+    : // A real cost that rounds to 0.00 reads as free, which is the same lie as pricing an
+      // unpriced model at zero. Anything above nothing but below a cent says so.
+      cost > 0 && cost < 0.005
+      ? '< 0.01'
+      : cost.toFixed(2);
 
 /** `$1,234.56`. Cents are kept: a small workspace's month is a sub-dollar figure. */
 const formatUsd = (usd: number): string =>

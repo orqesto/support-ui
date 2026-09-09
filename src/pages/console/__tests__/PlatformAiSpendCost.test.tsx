@@ -162,3 +162,25 @@ describe('the tier column that used to be called "Unpriced"', () => {
     expect(screen.queryByText('Unpriced')).not.toBeInTheDocument();
   });
 });
+
+describe('a priced model whose cost rounds below a cent', () => {
+  it('says "< 0.01" rather than rendering it as 0.00', async () => {
+    const base = payload();
+    get.mockResolvedValue({
+      ...base,
+      usage: {
+        ...base.usage,
+        orgs: [
+          {
+            ...base.usage.orgs[0],
+            byModel: [{ ...base.usage.orgs[0].byModel![0], model: 'gpt-5-nano', costUsd: 0.001 }],
+          },
+        ],
+      },
+    });
+    renderPage();
+    expect(await screen.findByText('≈ < 0.01')).toBeInTheDocument();
+    // 0.00 against a model that did cost something reads as free.
+    expect(screen.queryByText('≈ 0.00')).not.toBeInTheDocument();
+  });
+});
