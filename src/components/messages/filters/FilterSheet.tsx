@@ -71,10 +71,10 @@ export const FilterSheet = ({
 
   const tokens = useMemo(() => tokensOf(defs, filters, isKanban), [defs, filters, isKanban]);
   const suggestions = useMemo(
-    () => suggestionsFor(defs, query, isKanban),
-    [defs, query, isKanban]
+    () => suggestionsFor(defs, query, isKanban, filters),
+    [defs, query, isKanban, filters]
   );
-  const usable = useMemo(() => visibleDefs(defs, isKanban), [defs, isKanban]);
+  const usable = useMemo(() => visibleDefs(defs, isKanban, filters), [defs, isKanban, filters]);
   const panelDef = panelKey ? defs.find((def) => def.key === panelKey) : undefined;
   const panelSearchable = (panelDef?.options?.length ?? 0) > OPTION_SEARCH_THRESHOLD;
   const panelOptions = useMemo(() => {

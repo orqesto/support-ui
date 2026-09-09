@@ -457,7 +457,7 @@ export const FilterMenu = ({
   }
 
   // ── browse ────────────────────────────────────────────────────────────────
-  const usable = visibleDefs(defs, isKanban);
+  const usable = visibleDefs(defs, isKanban, filters);
   const common = COMMON_KEYS(isKanban)
     .map((key) => usable.find((def) => def.key === key))
     .filter((def): def is FilterDef => Boolean(def));

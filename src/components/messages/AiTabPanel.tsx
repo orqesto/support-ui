@@ -6,6 +6,7 @@ import { getSpamCheck, humanizeSignalFlag } from '@/lib/messageHelpers';
 import { MONO } from './messageDetailConstants';
 import { SIMILAR_RESULTS_LIMIT, SIMILAR_RESULTS_MIN_SIMILARITY } from '@/lib/constants';
 import { messageService } from '@/services/message.service';
+import { AnswerPreview } from './AnswerPreview';
 import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
@@ -423,9 +424,10 @@ export function AiTabPanel({
 
           {activeOption && (
             <>
-              <p className="text-[11px] leading-snug text-muted-foreground">
-                {activeOption.answer}
-              </p>
+              <AnswerPreview
+                answer={activeOption.answer}
+                className="text-[11px] leading-snug text-muted-foreground"
+              />
               {activeOption.documentationId && (
                 <div className="mt-1.5 pt-1.5 border-t border-border flex items-center gap-1 min-w-0">
                   <BookOpen className="flex-shrink-0 w-3 h-3 text-sky-500" />
