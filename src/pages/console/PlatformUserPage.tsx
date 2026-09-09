@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, Ban, RotateCcw, Trash2 } from 'lucide-react';
+import { ArrowLeft, Ban, Lock, RotateCcw, ShieldAlert, Trash2 } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/Label';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { Textarea } from '@/components/ui/Textarea';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
@@ -58,6 +59,47 @@ const USERS_PATH = '/console/platform/users';
 
 const fullName = (row: PlatformUserRow): string =>
   [row.firstName, row.lastName].filter(Boolean).join(' ').trim() || row.email;
+
+/**
+ * The account-level IdP marker, mirroring the directory column this page is opened from
+ * (PlatformUsers, "Identity provider"). Same wording, same amber, same "n of N" when only
+ * some memberships are owned — a page that renamed or recoloured it would contradict the
+ * row the admin just clicked.
+ */
+const IdpMarker = ({ user }: { user: PlatformUserRow }) => {
+  const owned = user.workspaces.filter((workspace) => workspace.idpManaged).length;
+  const partly = owned > 0 && owned < user.workspaces.length;
+
+  if (user.idpManaged) {
+    return (
+      <Tooltip
+        content={
+          partly
+            ? `Owned by an identity provider in ${owned} of ${user.workspaces.length} workspaces. The locked ones cannot be edited here.`
+            : 'Every workspace membership of this account is owned by an identity provider.'
+        }
+      >
+        <Badge className="flex gap-1 items-center text-xs text-amber-700 bg-amber-100 dark:bg-amber-900 dark:text-amber-300">
+          <Lock className="w-3 h-3" />
+          {partly ? `IdP-managed (${owned}/${user.workspaces.length})` : 'IdP-managed'}
+        </Badge>
+      </Tooltip>
+    );
+  }
+
+  if (user.role === 'admin') {
+    return (
+      <Tooltip content="An identity provider cannot provision or manage this account while it is a platform administrator. Change their platform role to User to let the connector manage them.">
+        <Badge variant="secondary" className="flex gap-1 items-center text-xs">
+          <ShieldAlert className="w-3 h-3" />
+          Not IdP-manageable
+        </Badge>
+      </Tooltip>
+    );
+  }
+
+  return null;
+};
 
 const BackToUsers = () => (
   <Link
@@ -287,7 +329,11 @@ export const PlatformUserPage = () => {
         scope: 'global',
         acknowledgeIdpManaged: idpOwnedWorkspaces.length > 0,
       });
-      invalidate();
+      void queryClient.invalidateQueries({ queryKey: ['platform', 'users'] });
+      void queryClient.invalidateQueries({ queryKey: ['platform', 'overview'] });
+      // Drop this account's cached row rather than invalidating it — `invalidate()` would
+      // refetch the user we just deleted on the way out of the page.
+      queryClient.removeQueries({ queryKey: ['platform', 'user', user.id] });
       setDeleteConfirmOpen(false);
       toast.success('Account deleted');
       // The subject of this page no longer exists — going back to the directory is the only
@@ -299,7 +345,7 @@ export const PlatformUserPage = () => {
   };
 
   return (
-    <div className="flex overflow-y-auto flex-col gap-4 pb-6">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-col flex-shrink-0 gap-2">
         <BackToUsers />
         <ConsolePageHeader
@@ -308,7 +354,7 @@ export const PlatformUserPage = () => {
           actions={
             <>
               {isSuspended && <Badge variant="danger">Suspended</Badge>}
-              {user.idpManaged && <Badge variant="secondary">Identity provider</Badge>}
+              <IdpMarker user={user} />
             </>
           }
         />
