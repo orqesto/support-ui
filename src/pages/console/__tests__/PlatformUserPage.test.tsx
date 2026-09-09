@@ -158,3 +158,48 @@ describe('PlatformUserPage', () => {
     expect(await screen.findByText('Directory')).toBeInTheDocument();
   });
 });
+
+describe('PlatformUserPage — audit', () => {
+  it('keeps showing the handed-over row when the by-id fetch fails', async () => {
+    // FE/BE skew: this page ships against a backend that may not have
+    // GET /platform/users/:id yet, so the confirming fetch 404s. Navigating from the
+    // directory must still work — the row is already in hand.
+    getUser.mockRejectedValue(new Error('Not Found'));
+    renderAt('/console/platform/users/42', { user: row });
+
+    await waitFor(() => expect(getUser).toHaveBeenCalled());
+    expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
+    expect(screen.queryByText(/could not be loaded/i)).not.toBeInTheDocument();
+  });
+  it('marks IdP ownership the way the directory does, including "n of N"', async () => {
+    // Parity with the row this page is opened from: same wording, same partial count. A
+    // page that renamed or flattened it would contradict the list two clicks earlier.
+    getUser.mockResolvedValue({
+      ...row,
+      idpManaged: true,
+      orgCount: 2,
+      workspaces: [
+        { ...row.workspaces[0], idpManaged: true },
+        {
+          organizationId: 8,
+          organizationName: 'Orbelli',
+          role: 'support',
+          preAllianceRole: null,
+          idpManaged: false,
+        },
+      ],
+    });
+    renderAt('/console/platform/users/42');
+
+    expect(await screen.findByText('IdP-managed (1/2)')).toBeInTheDocument();
+  });
+
+  it('shows no IdP marker for an account no directory owns', async () => {
+    // CONTROL for the marker above — it must not render for everyone.
+    renderAt('/console/platform/users/42');
+
+    expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
+    expect(screen.queryByText(/IdP-managed/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Not IdP-manageable/)).not.toBeInTheDocument();
+  });
+});
