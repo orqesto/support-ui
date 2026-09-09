@@ -97,6 +97,9 @@ const PlatformOrganizations = lazy(() =>
 const PlatformUsers = lazy(() =>
   import('@/pages/console/PlatformUsers').then((mod) => ({ default: mod.PlatformUsers }))
 );
+const PlatformUserPage = lazy(() =>
+  import('@/pages/console/PlatformUserPage').then((mod) => ({ default: mod.PlatformUserPage }))
+);
 const PlatformBilling = lazy(() =>
   import('@/pages/console/PlatformBilling').then((mod) => ({ default: mod.PlatformBilling }))
 );
@@ -136,6 +139,17 @@ export const PLATFORM_SECTIONS: ConsoleSection[] = [
   { id: 'alliances', label: 'Alliances', icon: Network, path: 'alliances', element: PlatformAlliances },
   { id: 'organizations', label: 'Workspaces', icon: Building2, path: 'organizations', element: PlatformOrganizations },
   { id: 'users', label: 'Users', icon: Users, path: 'users', element: PlatformUsers },
+  {
+    // One person, opened from the directory. Routes are generated from this array
+    // unconditionally and `visible` filters the NAV only, so a hidden section is how a
+    // detail page gets a URL without becoming a sidebar entry.
+    id: 'user-detail',
+    label: 'User',
+    icon: Users,
+    path: 'users/:userId',
+    element: PlatformUserPage,
+    visible: () => false,
+  },
   { id: 'usage', label: 'Subscriptions', icon: CreditCard, path: 'usage', element: PlatformUsage },
   { id: 'ai-spend', label: 'AI Spend', icon: Coins, path: 'ai-spend', element: PlatformAiSpend },
   {

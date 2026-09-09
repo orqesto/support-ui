@@ -1,26 +1,25 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Lock, Settings2, ShieldAlert } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { roleDisplayNames, type UserRole } from '@/types/roles';
-import { Button } from '@/components/ui/Button';
+import { getButtonClasses } from '@/components/ui/Button/button.styles';
 import { Select } from '@/components/ui/Select';
 import { DataTable, type ColumnDef } from '@/components/ui/DataTable';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
-import { EditPlatformUserModal } from '@/components/console/EditPlatformUserModal';
 import { CONSOLE_PAGE_SIZE as PAGE_SIZE } from '@/components/console/consoleConstants';
 import { usePlatformUsers } from '@/hooks/usePlatformAdmin';
-import { useAuthStore } from '@/stores/authStore';
 import type { PlatformUserRow } from '@/services/platform.service';
 
 /**
  * Platform console → Users. A global, cross-org user directory backed by
  * GET /api/admin/platform/users (searchable + paginated). Every per-user action —
  * profile, global role, suspend/reactivate, workspace memberships, delete — lives in one
- * "Manage user" dialog (EditPlatformUserModal), so the row carries a single action rather
- * than a scattered set of controls.
+ * "Manage user" PAGE (PlatformUserPage), so the row carries a single action rather than a
+ * scattered set of controls.
  */
 
 type RoleFilter = 'all' | 'admin' | 'user';
@@ -51,9 +50,7 @@ export const PlatformUsers = () => {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
   const [verifiedFilter, setVerifiedFilter] = useState<VerifiedFilter>('all');
-  const [manageUser, setManageUser] = useState<PlatformUserRow | null>(null);
 
-  const currentUserId = useAuthStore((state) => state.user?.id);
   const usersQuery = usePlatformUsers({
     page,
     pageSize: PAGE_SIZE,
@@ -182,17 +179,20 @@ export const PlatformUsers = () => {
     },
   ];
 
+  // Manage opens the user PAGE. A real link, so middle-click and "copy link address"
+  // work; the row travels in router state so the page paints immediately, and the page
+  // re-fetches by id anyway, which is what makes the URL survive a refresh or a paste.
   const rowActions = (row: PlatformUserRow) => (
     <div className="flex justify-end">
-      <Button
-        variant="outline"
-        size="sm"
+      <Link
+        to={`/console/platform/users/${row.id}`}
+        state={{ user: row }}
         aria-label={`Manage ${row.email}`}
-        onClick={() => setManageUser(row)}
+        className={getButtonClasses('outline', 'sm')}
       >
         <Settings2 className="mr-1.5 w-4 h-4" />
         Manage
-      </Button>
+      </Link>
     </div>
   );
 
@@ -278,12 +278,6 @@ export const PlatformUsers = () => {
         </CardContent>
       </Card>
 
-      <EditPlatformUserModal
-        user={manageUser}
-        isOpen={manageUser !== null}
-        onClose={() => setManageUser(null)}
-        currentUserId={currentUserId}
-      />
     </div>
   );
 };
