@@ -27,6 +27,7 @@ const RANGES = [7, 30, 90] as const;
 const TIER_LABEL: Record<ManagedAiTier, string> = {
   default: 'Cheap',
   strong: 'Strong',
+  vision: 'Vision',
   other: 'Other models',
 };
 
@@ -336,7 +337,7 @@ export const PlatformAiSpend = () => {
                       <th className="px-3 py-2 font-medium">Workspace</th>
                       <th className="px-3 py-2 font-medium text-right">Tokens</th>
                       <th className="px-3 py-2 font-medium text-right">Share</th>
-                      {(['default', 'strong', 'other'] as ManagedAiTier[]).map((tier) => (
+                      {(['default', 'strong', 'vision', 'other'] as ManagedAiTier[]).map((tier) => (
                         <th key={tier} className="px-3 py-2 font-medium text-right">
                           {TIER_LABEL[tier]}
                         </th>
@@ -368,7 +369,7 @@ export const PlatformAiSpend = () => {
                             ? `${Math.round((org.totalTokens / totalTokens) * 100)}%`
                             : '—'}
                         </td>
-                        {(['default', 'strong', 'other'] as ManagedAiTier[]).map((tier) => (
+                        {(['default', 'strong', 'vision', 'other'] as ManagedAiTier[]).map((tier) => (
                           <td
                             key={tier}
                             className="px-3 py-2 text-right tabular-nums text-muted-foreground"

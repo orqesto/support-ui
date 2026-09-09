@@ -286,3 +286,52 @@ describe('a priced model that still carries unpriced tokens', () => {
     expect(screen.queryByText('no published rate')).not.toBeInTheDocument();
   });
 });
+
+describe('the vision tier', () => {
+  it('has a column, so a workspace\'s tier cells account for its tokens', async () => {
+    // The backend reports four tiers; the page rendered three. Vision is the
+    // token-heaviest managed tier, so a row could state 40,787,419 tokens while its
+    // visible cells summed to ~9.7M and nothing explained the rest.
+    const base = payload();
+    get.mockResolvedValue({
+      ...base,
+      usage: {
+        ...base.usage,
+        orgs: [
+          {
+            ...base.usage.orgs[0],
+            totalTokens: 31_000_000,
+            byTier: [
+              {
+                tier: 'vision',
+                totalTokens: 31_000_000,
+                promptTokens: 30_000_000,
+                completionTokens: 1_000_000,
+                requests: 400,
+                costEstimate: 5,
+                unpricedTokens: 0,
+              },
+            ],
+          },
+        ],
+        totals: {
+          ...base.usage.totals,
+          byTier: [
+            {
+              tier: 'vision',
+              totalTokens: 31_000_000,
+              promptTokens: 30_000_000,
+              completionTokens: 1_000_000,
+              requests: 400,
+              costEstimate: 5,
+              unpricedTokens: 0,
+            },
+          ],
+        },
+      },
+    });
+    renderPage();
+    expect(await screen.findByText('Vision')).toBeInTheDocument();
+    expect(screen.getAllByText('31,000,000').length).toBeGreaterThan(0);
+  });
+});
