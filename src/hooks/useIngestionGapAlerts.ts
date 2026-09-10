@@ -34,10 +34,29 @@ export const INGESTION_GAP_KIND = 'ingestion_gap';
 
 export type IngestionGapAlert = {
   id: number;
+  /**
+   * The backend's per-cause headline, published in `details.title`.
+   *
+   * ⛔ Rendered rather than re-derived here. The three causes are NOT the same event: only
+   * `checkpoint_ahead` means a window was skipped; `cannot_resume` explicitly loses nothing
+   * (the checkpoint is held) and `day_too_large` is a listing cap, not a wrong clock. An
+   * earlier version of this hook wrote one sentence for all three — "this mailbox's sync
+   * position was wrong" — which was false for two of them and told an operator mail had been
+   * lost when it had not.
+   */
+  title: string | null;
   /** `message_sources.id` — the mailbox with the hole in it. */
   messageSourceId: number;
   mailbox: string;
-  /** 'checkpoint_ahead' | 'source_stopped_polling' | another cause the backend names. */
+  /**
+   * The backend's `IngestionGapCause`, verbatim: `checkpoint_ahead` (the stored position was
+   * in the future), `day_too_large` (one day held more messages than a run can list, and
+   * Gmail's `before:` is date-granular so the window cannot narrow further), or
+   * `cannot_resume` (a page-capped run could not work out where to resume).
+   *
+   * ⛔ Kept as a plain string, not a union: an unknown cause from a newer backend must still
+   * render, and it falls back to the backend's own `title`.
+   */
   cause: string;
   /** How far ahead the stored checkpoint was, in minutes. Null when the cause is not skew. */
   minutesAhead: number | null;
@@ -48,6 +67,7 @@ export type IngestionGapAlert = {
 };
 
 type AlertDetails = {
+  title?: string;
   mailbox?: string;
   cause?: string;
   minutesAhead?: number;
@@ -59,6 +79,7 @@ const toAlert = (row: Notification): IngestionGapAlert => {
   const details = (row.details ?? {}) as AlertDetails;
   return {
     id: row.id,
+    title: details.title ?? null,
     messageSourceId: row.entityId,
     mailbox: details.mailbox ?? 'this mailbox',
     cause: details.cause ?? 'unknown',
@@ -124,8 +145,14 @@ export const useIngestionGapAlerts = () => {
   }, [fetchAlerts]);
 
   /**
-   * Dismiss one row. The backend re-raises while the condition persists, so this is "not now",
-   * not "the mail is accounted for". Only the checkpoint healing actually clears it.
+   * Dismiss one row.
+   *
+   * ⚠️ What dismissal actually means, stated accurately because the first version of this
+   * comment did not: the alert is **never auto-retired** (see `ingestionGapAlert`: the row
+   * records that mail MAY be missing from a window, and that stays true after the cause is
+   * corrected). `checkpoint_ahead` heals on the very next poll, so nothing "returns while the
+   * condition persists" — what returns is a NEW gap, because the publish sets
+   * `resurfaceDismissed`. So this is "I have checked that window", not "not now".
    */
   const dismiss = useCallback((id: number) => {
     setAlerts((current) => current.filter((alert) => alert.id !== id));

@@ -50,19 +50,35 @@ export const IngestionGapSection = ({
           <MailWarning className="mt-0.5 w-4 h-4 shrink-0 text-red-500" />
           <div className="flex-1 min-w-0">
             <p className="font-medium break-words text-foreground">
-              Mail may be missing — {alert.mailbox}
+              {/* ⛔ The backend's own per-cause title, not one sentence for three different events.
+
+                  Only `checkpoint_ahead` means a window was skipped; `cannot_resume` loses nothing
+
+                  (the checkpoint is held) and `day_too_large` is a listing cap. A single hardcoded
+
+                  headline told an operator mail was lost when it was not. It is a whole sentence,
+
+                  so the mailbox goes on its own line rather than being dashed onto the end. */}
+
+              {alert.title ?? 'Mail may be missing'}
             </p>
+
+            <p className="mt-0.5 break-words text-foreground">{alert.mailbox}</p>
             <p className="mt-0.5 text-muted-foreground">
               {/* ⚠️ Reads correctly for every state the row can reach. `cause` is not always
                   skew, and `minutesAhead` is null when it is not — so the skew clause is
                   conditional rather than always rendered with a possibly-null number. A `0` is
                   a real value the hook preserves, and "0 minutes in the future" is not English,
                   so it takes the generic sentence too. */}
-              {alert.cause === 'checkpoint_ahead' &&
-              alert.minutesAhead !== null &&
-              alert.minutesAhead > 0
-                ? `This mailbox's sync position was ${formatMinutesAhead(alert.minutesAhead)} in the future, so mail arriving in that window was never fetched.`
-                : "This mailbox's sync position was wrong, so mail arriving in that window was never fetched."}
+              {alert.cause === 'checkpoint_ahead'
+                ? alert.minutesAhead !== null && alert.minutesAhead > 0
+                  ? `This mailbox's sync position was ${formatMinutesAhead(alert.minutesAhead)} in the future, so mail arriving in that window was never fetched.`
+                  : "This mailbox's sync position was in the future, so mail arriving in that window was never fetched."
+                : alert.cause === 'day_too_large'
+                  ? 'One day held more messages than a single sync can list, and the window cannot be narrowed further \u2014 raise this source\u2019s page limits.'
+                  : alert.cause === 'cannot_resume'
+                    ? 'The sync cannot work out where to resume, so it re-lists the same window every poll. Nothing is lost \u2014 but nothing older is reached either.'
+                    : 'Mail arriving in this window may not have been fetched.'}
             </p>
             {alert.window && (
               <p className="mt-0.5 font-mono text-xs break-words text-muted-foreground">
@@ -80,7 +96,7 @@ export const IngestionGapSection = ({
             aria-label="Dismiss this alert"
             // ⛔ Says "not now", never "the mail is accounted for". Dismissing changes nothing
             // about the gap; only the checkpoint healing does.
-            title="Dismiss — the gap is unchanged; it returns while the condition persists"
+            title="Dismiss — records that you have checked this window; a NEW gap is shown again"
             className="p-1 h-auto text-muted-foreground hover:text-foreground"
           >
             <X className="w-3.5 h-3.5" />
