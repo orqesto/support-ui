@@ -13,11 +13,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 
-const get = vi.fn<(url: string) => Promise<unknown>>();
+type GetConfig = { params?: { kind?: string } };
+// Forwards the CONFIG, not just the url. The kind now travels in `params`, and a mock that
+// drops the second argument cannot tell a kind-scoped request from the unfiltered one — so a
+// typo in `params` would ship green.
+const get = vi.fn<(url: string, config?: GetConfig) => Promise<unknown>>();
 const patch = vi.fn<(url: string) => Promise<unknown>>(() => Promise.resolve({ data: {} }));
 
 vi.mock('@/lib/api-client', () => ({
-  apiClient: { get: (url: string) => get(url), patch: (url: string) => patch(url) },
+  apiClient: {
+    get: (url: string, config?: GetConfig) => get(url, config),
+    patch: (url: string) => patch(url),
+  },
 }));
 vi.mock('@/lib/socketManager', () => ({
   getSocket: () => null,
@@ -59,6 +66,51 @@ describe('useUnansweredOutboundAlerts', () => {
     expect(result.current.alerts[0]).toMatchObject({
       kind: 'one_sided_outbound',
       entityId: 11822,
+    });
+  });
+
+  it('asks for its own kinds, so a busy workspace cannot push them past the 20-row cap', async () => {
+    // MEASURED on the taco client box, 2026-09-10, v1.1.268. CoreSarms holds 165
+    // notifications and `GET /api/notifications` serves the newest 20 across ALL kinds with
+    // `hasMore: true`. The three one-sided alerts raised at 12:03Z sat at positions 2-4 of
+    // that window, and a new SLA breach landed at 12:38Z. Once ~17 more arrive the outbound
+    // rows leave the payload entirely, `alerts` is empty, `UnansweredOutboundSection` returns
+    // null, and these alerts reach the user on ZERO surfaces — which is verbatim the failure
+    // this hook's own header says it exists to prevent. Visibility with a one-day
+    // shelf life is not visibility.
+    //
+    // So the fetch must name its kinds. The endpoint supports `?kind=` and applies it to
+    // `total`/`hasMore` too, giving each kind its own 20 slots instead of making them
+    // compete with a breach feed that never stops.
+    const breach = (id: number) => row({ id, kind: 'sla_message_breach' });
+    get.mockImplementation((_url: string, config?: GetConfig) =>
+      Promise.resolve({
+        data: {
+          data:
+            config?.params?.kind === 'one_sided_outbound'
+              ? { notifications: [row()], total: 1, hasMore: false }
+              : config?.params?.kind
+                ? { notifications: [], total: 0, hasMore: false }
+                : // The unfiltered call as a busy workspace really answers it: 20 breaches,
+                  // not one outbound row in sight, and 145 more behind them.
+                  {
+                    notifications: Array.from({ length: 20 }, (_, index) => breach(100 + index)),
+                    total: 165,
+                    hasMore: true,
+                  },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useUnansweredOutboundAlerts());
+    await waitFor(() => expect(result.current.alerts).toHaveLength(1));
+    expect(result.current.alerts[0]).toMatchObject({ kind: 'one_sided_outbound' });
+    // Wiring, not just outcome: both kinds are asked for by name. Without this an unfiltered
+    // call that happened to contain the row would satisfy the assertion above.
+    expect(get).toHaveBeenCalledWith('/api/notifications', {
+      params: { kind: 'one_sided_outbound' },
+    });
+    expect(get).toHaveBeenCalledWith('/api/notifications', {
+      params: { kind: 'customer_reply_in_spam' },
     });
   });
 
@@ -113,11 +165,17 @@ describe('useUnansweredOutboundAlerts', () => {
     await waitFor(() => expect(result.current.alerts).toHaveLength(1));
 
     // A fetch error is not evidence that the work got done.
+    //
+    // `mockRejectedValueOnce` fails exactly ONE of the two kind requests, so this is the
+    // PARTIAL failure: one kind answered, the other did not. `Promise.all` rejects, the
+    // `.catch()` keeps what is on screen, and the alerts survive. Resolving partially here
+    // would drop the failed kind's standing rows and read as "nothing is unowned any more".
     get.mockRejectedValueOnce(new Error('network'));
     act(() => {
       result.current.refresh();
     });
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    // Two per poll now — one per kind — so the mount and the refresh are four.
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(4));
     expect(result.current.alerts).toHaveLength(1);
   });
 

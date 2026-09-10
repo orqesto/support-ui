@@ -38,6 +38,9 @@ export const UnansweredOutboundSection = ({
 }) => {
   const navigate = useNavigate();
   if (alerts.length === 0) return null;
+  /** Rows this section holds but the peek cap does not render. Distinct from `truncated`,
+   *  which is the API saying ITS list was cut — those rows never reached the client. */
+  const hidden = alerts.length - visible.length;
   return (
     <>
       {showLabel && <SectionLabel>Unanswered outbound</SectionLabel>}
@@ -91,7 +94,7 @@ export const UnansweredOutboundSection = ({
           </div>
         );
       })}
-      {(alerts.length > visible.length || truncated) && (
+      {(hidden > 0 || truncated) && (
         // Capped like the learning sections. This panel is one `max-h-96`
         // scroller and the shared notifications page holds 20 rows, so an
         // uncapped section can push the SLA breaches below it out of sight.
@@ -103,8 +106,14 @@ export const UnansweredOutboundSection = ({
         // reader to look for something that does not exist. Sorting (see the
         // hook) puts the urgent kind in the visible five instead.
         <p className="px-3 pb-1 text-xs text-muted-foreground">
-          +{alerts.length - visible.length}
-          {truncated ? ' or more' : ''} not shown
+          {hidden > 0
+            ? `+${hidden}${truncated ? ' or more' : ''} not shown`
+            : // Nothing is hidden by the CAP here, but the endpoint said its own list was
+              // truncated, so what this section holds is still a floor. Saying "+0 or more
+              // not shown" — which is what taco rendered on 2026-09-10 — reads as a broken
+              // counter and sends the reader after rows this section does not know about.
+              // No row count is claimed, because there is no honest one to claim.
+              'There may be more — the notification list is capped'}
         </p>
       )}
     </>

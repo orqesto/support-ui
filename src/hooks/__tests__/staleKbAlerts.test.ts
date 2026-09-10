@@ -10,12 +10,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 
-const get = vi.fn<(url: string) => Promise<unknown>>();
+type GetConfig = { params?: { kind?: string } };
+// Forwards the CONFIG. The kind travels in `params`, so a mock that drops the second
+// argument cannot tell a kind-scoped request from the unfiltered one.
+const get = vi.fn<(url: string, config?: GetConfig) => Promise<unknown>>();
 const patch = vi.fn<(url: string) => Promise<unknown>>(() => Promise.resolve({ data: {} }));
 
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
-    get: (url: string) => get(url),
+    get: (url: string, config?: GetConfig) => get(url, config),
     patch: (url: string) => patch(url),
   },
 }));
@@ -136,5 +139,19 @@ describe('useStaleKbAlerts', () => {
 
     await waitFor(() => expect(result.current.alerts).toHaveLength(1));
     expect(result.current.alerts[0].title).toBe('Untitled document');
+  });
+
+  it('asks for its own kind, so a busy workspace cannot push it past the 20-row cap', async () => {
+    respond([]);
+    renderHook(() => useStaleKbAlerts());
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    // `GET /api/notifications` serves the newest 20 rows across ALL kinds. Measured on the
+    // taco client box 2026-09-10 at 13:30Z: CoreSarms held 165 notifications and the newest
+    // 20 spanned ~28 h, so an alert of this kind is pushed out of the payload in about a day
+    // and then renders nowhere.
+    //
+    // Asserted at the REQUEST: a typo in `params` changes nothing observable in the resulting
+    // list, so an outcome-only assertion would ship it green.
+    expect(get).toHaveBeenCalledWith('/api/notifications', { params: { kind: 'kb_document_stale' } });
   });
 });
