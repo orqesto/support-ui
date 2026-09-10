@@ -185,6 +185,23 @@ describe('NotificationCenter — unanswered outbound', () => {
     expect(screen.getByText(/\+1 or more not shown/)).toBeTruthy();
   });
 
+  it('never says "+0" when nothing is hidden but the API capped its own list', () => {
+    // Observed on the taco client box, 2026-09-10, v1.1.268: CoreSarms held 3 one-sided
+    // alerts — all three visible — while `/api/notifications` reported hasMore, because that
+    // endpoint caps at 20 rows across ALL kinds and the workspace had 20 (13 of them SLA
+    // breaches). The panel rendered "+0 or more not shown".
+    //
+    // "+0" reads as a broken counter, and the sentence tells the operator to go looking for
+    // rows that, as far as this section knows, do not exist. The cap is still worth saying —
+    // the alerts held here really are a floor — but not as a count of zero.
+    outboundAlerts = [1, 2, 3].map(oneSided);
+    outboundTruncated = true;
+    open();
+    // Both halves matter: asserting only the new copy would pass while "+0" also rendered.
+    expect(screen.queryByText(/\+0/)).toBeNull();
+    expect(screen.getByText(/There may be more/)).toBeTruthy();
+  });
+
   it('never lets spam alerts take every visible slot', () => {
     // Fault-first ordering, unchecked, is the mirror image of the starvation it fixed: with
     // five spam alerts every visible row is spam and every one-sided thread is hidden.

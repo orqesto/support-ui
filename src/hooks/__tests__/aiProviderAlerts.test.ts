@@ -20,11 +20,14 @@ import { renderHook, waitFor, act } from '@testing-library/react';
  * this test exists to stop repeating.
  */
 
-const get = vi.fn<(url: string) => Promise<unknown>>();
+type GetConfig = { params?: { kind?: string } };
+// Forwards the CONFIG. The kind travels in `params`, so a mock that drops the second
+// argument cannot tell a kind-scoped request from the unfiltered one.
+const get = vi.fn<(url: string, config?: GetConfig) => Promise<unknown>>();
 const patch = vi.fn<(url: string) => Promise<unknown>>(() => Promise.resolve({ data: {} }));
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
-    get: (url: string) => get(url),
+    get: (url: string, config?: GetConfig) => get(url, config),
     patch: (url: string) => patch(url),
   },
 }));
@@ -150,5 +153,19 @@ describe('useAiProviderAlerts', () => {
     });
     expect(result.current.alerts).toHaveLength(0);
     expect(patch).toHaveBeenCalledWith('/api/notifications/1/dismiss');
+  });
+
+  it('asks for its own kind, so a busy workspace cannot push it past the 20-row cap', async () => {
+    respond([]);
+    renderHook(() => useAiProviderAlerts());
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    // `GET /api/notifications` serves the newest 20 rows across ALL kinds. Measured on the
+    // taco client box 2026-09-10 at 13:30Z: CoreSarms held 165 notifications and the newest
+    // 20 spanned ~28 h, so an alert of this kind is pushed out of the payload in about a day
+    // and then renders nowhere.
+    //
+    // Asserted at the REQUEST: a typo in `params` changes nothing observable in the resulting
+    // list, so an outcome-only assertion would ship it green.
+    expect(get).toHaveBeenCalledWith('/api/notifications', { params: { kind: 'ai_provider_down' } });
   });
 });

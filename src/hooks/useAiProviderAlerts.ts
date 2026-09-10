@@ -62,7 +62,18 @@ export const useAiProviderAlerts = () => {
 
   const fetchAlerts = useCallback(() => {
     apiClient
-      .get('/api/notifications')
+      /**
+       * ⛔ Name the kind. The unfiltered call serves the newest 20 rows across ALL kinds, so
+       * this alert competes for slots with an SLA breach feed that never stops. Measured on
+       * the taco client box 2026-09-10: CoreSarms held 165 notifications and the endpoint
+       * returned 20, and that window spanned ~28 h — so an AI provider being down drops off the
+       * bell in about a day and reaches the user on zero surfaces.
+       * `useIngestionGapAlerts` already fetches this way; this hook did not.
+       *
+       * The `.filter()` below stays: it is what keeps a backend that ignored `?kind=` from
+       * rendering every other kind as this one.
+       */
+      .get('/api/notifications', { params: { kind: AI_PROVIDER_DOWN_KIND } })
       .then((res) => {
         const payload = (
           res.data as { data: { notifications: Notification[]; total: number } }
