@@ -69,6 +69,21 @@ describe('SLA bell kind filter', () => {
     expect(result.current.notifications.map((row) => row.id)).toEqual([1]);
   });
 
+  /**
+   * ⛔ Observed on staging 2026-09-10, before this entry existed: a real `ingestion_gap` row
+   * (mailbox sync position 25h ahead, nine hours of a live mailbox unfetched) rendered in the
+   * bell under SLA BREACHES as a generic "Notification" reading **"nullm over"** — the kind
+   * carries no `minutesOverdue`, and the filter is fail-open. It has its own surface now
+   * (useIngestionGapAlerts + the "Mail may be missing" section).
+   */
+  it('does not surface ingestion_gap as an SLA breach', async () => {
+    respond([row(1, 'sla_message_breach'), row(4, 'ingestion_gap')]);
+    const { result } = renderHook(() => useSLANotifications());
+    await waitFor(() => expect(result.current.notifications.length).toBeGreaterThan(0));
+
+    expect(result.current.notifications.map((row) => row.id)).toEqual([1]);
+  });
+
   it('still surfaces a real breach, so the filter is not simply eating everything', async () => {
     // Control. A denylist that hid real breaches would be far worse than the blank amber row.
     respond([row(1, 'sla_message_breach'), row(2, 'sla_ticket_first_response')]);

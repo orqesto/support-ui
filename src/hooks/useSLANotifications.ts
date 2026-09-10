@@ -79,6 +79,10 @@ const NON_SLA_BELL_KINDS = new Set([
   // failure this set was created for.
   'one_sided_outbound',
   'customer_reply_in_spam',
+  // Same reason, and this one was OBSERVED failing on staging 2026-09-10: a real
+  // `ingestion_gap` row rendered here as a generic amber "Notification" reading "nullm over",
+  // because the kind carries no `minutesOverdue`. It owns its surface in useIngestionGapAlerts.
+  'ingestion_gap',
 ]);
 const isNonSlaBellKind = (kind: unknown): boolean =>
   typeof kind === 'string' && NON_SLA_BELL_KINDS.has(kind);
