@@ -13,11 +13,16 @@ import { toast } from '@/lib/toast';
 
 export const ProfileSettings = () => {
   const user = useAuthStore((state) => state.user);
-  const setUser = useAuthStore((state) => state.setUser);
 
-  // `hasPassword` is absent on older BE responses; treat undefined as "has one" so a
-  // stale API never hides the current-password field from someone who does have one.
-  const needsFirstPassword = user?.hasPassword === false;
+  // This account signs in with SSO and has no password of its own — an IdP-provisioned
+  // member (SCIM, or SSO JIT). Setting one is DISABLED by policy, not merely hidden: the
+  // backend refuses change-password for these accounts, so the form is not shown at all.
+  // Recovery, if SSO is unavailable, is an admin-issued setup link.
+  //
+  // `=== false`, never `!user?.hasPassword`: the field is absent on older backend
+  // responses, and undefined must mean "assume it has one" — otherwise a stale API would
+  // hide the change-password form from people who genuinely need it.
+  const ssoOnlyAccount = user?.hasPassword === false;
   const [loading, setLoading] = useState(false);
 
   const [skillValues, setSkillValues] = useState<Record<string, string[]>>({});
@@ -122,21 +127,8 @@ export const ProfileSettings = () => {
     setLoading(true);
     try {
       await authService.changePassword(passwords.current, passwords.new);
-      setNotification({
-        type: 'success',
-        message: needsFirstPassword ? 'Password set successfully' : 'Password changed successfully',
-      });
+      setNotification({ type: 'success', message: 'Password changed successfully' });
       setPasswords({ current: '', new: '', confirm: '' });
-      // The account now HAS a password, so the form must stop offering to set a first one
-      // and start asking for the current one. Re-read the profile rather than patching the
-      // store by hand, so `hasPassword` comes from the same source that rendered it.
-      if (needsFirstPassword) {
-        try {
-          setUser(await userService.getCurrentUser());
-        } catch {
-          // Non-fatal: the password IS set. The form corrects itself on the next load.
-        }
-      }
     } catch (error) {
       setNotification({
         type: 'error',
@@ -307,19 +299,15 @@ export const ProfileSettings = () => {
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <h3 className="text-md font-semibold mb-4 flex items-center gap-2">
           <Lock className="w-5 h-5 text-blue-500" />
-          {needsFirstPassword ? 'Set a Password' : 'Change Password'}
+          {ssoOnlyAccount ? 'Password' : 'Change Password'}
         </h3>
-        {needsFirstPassword && (
-          <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
-            This account was created by your identity provider and signs in with SSO, so it
-            has no password yet. Set one to be able to sign in either way.
+        {ssoOnlyAccount ? (
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            This account is managed by your identity provider and signs in with SSO, so it has no
+            password. If you need one, ask an administrator.
           </p>
-        )}
-        <form onSubmit={handleChangePassword} className="space-y-4">
-          {/* There is no current password to ask for when the account has never had one —
-              the field is not merely optional, it is unanswerable, and `required` on it
-              blocked submission before the request could even be sent. */}
-          {!needsFirstPassword && (
+        ) : (
+          <form onSubmit={handleChangePassword} className="space-y-4">
             <div>
               <label
                 htmlFor="current-password"
@@ -337,53 +325,47 @@ export const ProfileSettings = () => {
                 disabled={loading}
               />
             </div>
-          )}
 
-          <div>
-            <label
-              htmlFor="new-password"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              New Password
-            </label>
-            <PasswordInput
-              id="new-password"
-              value={passwords.new}
-              onChange={(event) => setPasswords({ ...passwords, new: event.target.value })}
-              placeholder="Enter new password (min 8 characters)"
-              required
-              disabled={loading}
-              minLength={8}
-            />
-          </div>
+            <div>
+              <label
+                htmlFor="new-password"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                New Password
+              </label>
+              <PasswordInput
+                id="new-password"
+                value={passwords.new}
+                onChange={(event) => setPasswords({ ...passwords, new: event.target.value })}
+                placeholder="Enter new password (min 8 characters)"
+                required
+                disabled={loading}
+                minLength={8}
+              />
+            </div>
 
-          <div>
-            <label
-              htmlFor="confirm-password"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              Confirm New Password
-            </label>
-            <PasswordInput
-              id="confirm-password"
-              value={passwords.confirm}
-              onChange={(event) => setPasswords({ ...passwords, confirm: event.target.value })}
-              placeholder="Confirm new password"
-              required
-              disabled={loading}
-            />
-          </div>
+            <div>
+              <label
+                htmlFor="confirm-password"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                Confirm New Password
+              </label>
+              <PasswordInput
+                id="confirm-password"
+                value={passwords.confirm}
+                onChange={(event) => setPasswords({ ...passwords, confirm: event.target.value })}
+                placeholder="Confirm new password"
+                required
+                disabled={loading}
+              />
+            </div>
 
-          <Button type="submit" disabled={loading} className="w-full sm:w-auto">
-            {needsFirstPassword
-              ? loading
-                ? 'Setting Password...'
-                : 'Set Password'
-              : loading
-                ? 'Changing Password...'
-                : 'Change Password'}
-          </Button>
-        </form>
+            <Button type="submit" disabled={loading} className="w-full sm:w-auto">
+              {loading ? 'Changing Password...' : 'Change Password'}
+            </Button>
+          </form>
+        )}
       </div>
 
       {/* Two-Factor Authentication */}
