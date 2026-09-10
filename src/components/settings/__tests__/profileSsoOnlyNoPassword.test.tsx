@@ -1,13 +1,19 @@
 /**
- * Settings must let a SCIM-provisioned user SET a first password.
+ * Settings must not offer a password to an account that signs in with SSO.
  *
- * Their account holds a non-matching sentinel, so there is no current password to type —
- * and the field carried `required`, which blocked submission in the browser before any
- * request was sent. The account that most needs a password was the one account that could
- * never be given one from inside the app.
+ * Owner decision: an IdP-provisioned member's door is SSO, so the identity provider's
+ * controls (MFA, conditional access, device policy) cannot be sidestepped by a local
+ * credential. The option is DISABLED, not merely hidden — the backend refuses
+ * change-password for these accounts (409) — and this pins the UI half of that.
+ *
+ * The test is `hasPassword === false`, never `!hasPassword`: the field is absent on older
+ * backend responses, and undefined must mean "assume it has one", or a stale API would
+ * hide the change-password form from members who genuinely have a password. That includes
+ * every ADOPTED IdP member (SCIM matched their existing email and never touched their
+ * password) — they are IdP-managed and must keep the ability to rotate it.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { ProfileSettings } from '../ProfileSettings';
 import { useAuthStore } from '@/stores/authStore';
 import { authService } from '@/services/auth.service';
@@ -45,28 +51,24 @@ const setUser = (hasPassword: boolean | undefined) => {
   } as never);
 };
 
-describe('ProfileSettings — first password', () => {
+describe('ProfileSettings — SSO-only accounts have no password option', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('hides the current-password field and submits with an empty current password', async () => {
+  it('shows no password form at all for an SSO-only account', () => {
     setUser(false);
     render(<ProfileSettings />);
 
-    expect(screen.getByRole('heading', { name: 'Set a Password' })).toBeInTheDocument();
-    // Parity: the button must not still say "Change Password" under a "Set a Password" heading.
-    expect(screen.getByRole('button', { name: 'Set Password' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Password' })).toBeInTheDocument();
+    expect(screen.getByText(/managed by your identity provider/i)).toBeInTheDocument();
+
+    // Nothing to type and nothing to submit — the option is gone, not merely disabled-looking.
     expect(screen.queryByLabelText('Current Password')).not.toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText('New Password'), { target: { value: 'Passw0rdSet!' } });
-    fireEvent.change(screen.getByLabelText(/confirm/i), { target: { value: 'Passw0rdSet!' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Set Password' }));
-
-    await waitFor(() =>
-      expect(authService.changePassword).toHaveBeenCalledWith('', 'Passw0rdSet!')
-    );
+    expect(screen.queryByLabelText('New Password')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /password/i })).not.toBeInTheDocument();
+    expect(authService.changePassword).not.toHaveBeenCalled();
   });
 
-  it('still demands the current password for an account that has one', () => {
+  it('keeps the full change form for an ADOPTED IdP member, who does have a password', () => {
     setUser(true);
     render(<ProfileSettings />);
     expect(screen.getByRole('heading', { name: 'Change Password' })).toBeInTheDocument();
