@@ -79,13 +79,24 @@ export const useIngestionGapAlerts = () => {
   );
 
   const fetchAlerts = useCallback(() => {
+    // ⛔ `?kind=` — NOT the shared page filtered client-side, which is what every sibling hook
+    // does and what this hook did first. `GET /api/notifications` serves the newest 20 rows
+    // across ALL kinds: on a workspace carrying 20 standing SLA breaches, an ingestion gap is
+    // absent from the payload entirely and this section renders NOTHING. `useUnansweredOutbound
+    // Alerts` lives with that and exposes `truncated` so the UI does not over-claim, a fair
+    // trade for a thread still sitting in the queue. It is not a fair trade here: this is the
+    // one alert about mail we do NOT have, and a silent one reproduces the exact fourteen-hour
+    // blackout it exists to end. notificationsController takes `?kind=` (it applies to list,
+    // counts and read-all), so ask for the one kind and the crowd-out cannot happen.
     apiClient
-      .get('/api/notifications')
+      .get('/api/notifications', { params: { kind: INGESTION_GAP_KIND } })
       .then((res) => {
         const payload = (res.data as { data: { notifications: Notification[]; total: number } })
           .data;
         setAlerts(
           payload.notifications
+            // Belt and braces: the server filters. A server that ignored the param would
+            // otherwise hand this section every kind in the bell.
             .filter((row) => (row as { kind?: string }).kind === INGESTION_GAP_KIND)
             .map(toAlert)
             // Worst skew first — the biggest hole is the one to act on.
