@@ -79,6 +79,15 @@ export type User = {
   // Users. Their role/dept is owned by the IdP, so the in-app editor renders
   // read-only for them (D2-01).
   scimManaged?: boolean;
+  /**
+   * Does this account have a password anyone can sign in with? False for a
+   * SCIM-provisioned account, which is inserted with a non-matching sentinel and can
+   * therefore only reach the app through SSO. Settings uses it to offer "Set a
+   * password" (with no current-password field, since there is no current password)
+   * rather than a change form the person can never satisfy. Optional: absent from
+   * older responses, and every reader must treat `undefined` as "assume it has one".
+   */
+  hasPassword?: boolean;
   createdAt: string;
   updatedAt?: string;
 };
