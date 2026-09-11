@@ -66,3 +66,50 @@ describe('apiErrorStatus', () => {
     expect(apiErrorStatus(null)).toBeUndefined();
   });
 });
+
+describe('validation errors name the field', () => {
+  /**
+   * The server answers a failed validation with `error: 'Validation error'` plus `fields` — the
+   * dotted paths that failed — and deliberately withholds the zod message, because those
+   * messages describe the schema. Nothing read `fields`, so a console full of inputs said only
+   * "Validation error" and the operator had to guess which one.
+   *
+   * Observed on taco prod, 2026-09-11: `PATCH /api/admin/platform/settings/ai` rejected
+   * `bedrockRoleArn`, and the screen could not say so.
+   */
+  it('appends the failed field paths', () => {
+    const err = {
+      status: 400,
+      data: { error: 'Validation error', code: 'VALIDATION_FAILED', fields: ['bedrockRoleArn'] },
+    };
+    expect(apiErrorMessage(err, 'fallback')).toBe('Validation error (check: bedrockRoleArn)');
+  });
+
+  it('lists every failed field, not just the first', () => {
+    const err = {
+      status: 400,
+      data: { error: 'Validation error', fields: ['bedrockRegion', 'bedrockRoleArn'] },
+    };
+    expect(apiErrorMessage(err, 'fallback')).toBe(
+      'Validation error (check: bedrockRegion, bedrockRoleArn)',
+    );
+  });
+
+  it('leaves an ordinary error untouched — the control', () => {
+    // Without this, "append the fields" could be implemented as "always append something".
+    expect(apiErrorMessage({ status: 400, data: { error: 'Bedrock requires a region.' } }, 'f')).toBe(
+      'Bedrock requires a region.',
+    );
+  });
+
+  it('ignores a fields value that is not a list of strings', () => {
+    // A server that ever sends `fields: {}` or `[1,2]` must not produce "(check: )" or
+    // "(check: 1, 2)" on screen.
+    expect(apiErrorMessage({ data: { error: 'Validation error', fields: {} }, status: 400 }, 'f')).toBe(
+      'Validation error',
+    );
+    expect(
+      apiErrorMessage({ data: { error: 'Validation error', fields: [] }, status: 400 }, 'f'),
+    ).toBe('Validation error');
+  });
+});
