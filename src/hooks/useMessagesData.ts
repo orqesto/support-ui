@@ -381,6 +381,10 @@ export const useMessagesData = ({
         // ATTACHMENTS — show only convs with at least one attached file.
         if (currentFilters.hasAttachments) apiFilters.hasAttachments = 'true';
 
+        // KNOWLEDGE BASE — only threads mined from a KB source. The not-shown menu's
+        // "from the knowledge base" figure jumps here.
+        if (currentFilters.showKBOnly) apiFilters.showKBOnly = 'true';
+
         // SEARCH
         if (currentFilters.search?.trim()) {
           apiFilters.search = currentFilters.search.trim();
@@ -486,6 +490,7 @@ export const useMessagesData = ({
     filters.slaBreached,
     filters.slaAtRisk,
     filters.hasAttachments,
+    filters.showKBOnly,
     filters.excludeAwaitingResponse,
     sorting.sortBy,
     sorting.sortOrder,

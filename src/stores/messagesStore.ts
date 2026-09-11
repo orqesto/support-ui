@@ -155,6 +155,21 @@ export type FilterState = {
    * the list shows only items needing agent attention. Session-only (no URL
    * sync, no localStorage). */
   excludeAwaitingResponse?: boolean;
+  /**
+   * Show ONLY threads mined from a knowledge-base source. Maps to the BE `showKBOnly`.
+   *
+   * This is the lens behind the "from the knowledge base" figure in the not-shown menu.
+   * That row rendered as plain text — a count with nothing to click — on the grounds that
+   * the bucket had no single lens. It does: `showKBOnly` is parsed from the query string
+   * and adds `isFromKBSource = 'true'`, which on one staging workspace partitions the
+   * default lens exactly (29 KB + 21 not-KB = 50).
+   *
+   * ⚠️ The lens spans statuses on its own (it counts as a cross-status secondary filter
+   * server-side), but it INTERSECTS any lifecycle/queue already set — 29 rows alone, 12
+   * under a stale `lifecycle=awaiting`, 0 under `queue=spam`. Callers that mean "the whole
+   * bucket" must clear those too, as the not-shown menu's jump does.
+   */
+  showKBOnly?: boolean;
 };
 
 export type SortingState = {

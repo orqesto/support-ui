@@ -60,6 +60,9 @@ export function buildSharedFilters(filters: FilterState): Record<string, string>
   if (filters.slaBreached) api.slaBreached = 'true';
   if (filters.slaAtRisk) api.slaAtRisk = 'true';
   if (filters.hasAttachments) api.hasAttachments = 'true';
+  // The board has no KB column, but a token set in list view survives a switch to the
+  // board — sending it keeps the two views describing the same set.
+  if (filters.showKBOnly) api.showKBOnly = 'true';
   if (filters.linked === 'has_ticket') api.hasTicket = 'true';
   else if (filters.linked === 'has_jira') api.hasJiraTicket = 'true';
   if (filters.threadStatus && filters.threadStatus !== 'all')
