@@ -12,6 +12,15 @@ import type { AllianceAdminProposal } from '@/services/alliance-admin.service';
 
 let proposals: AllianceAdminProposal[] = [];
 const changeRoleMutate = vi.fn();
+const toastFailure = vi.fn<(scope: string, err: unknown) => void>();
+
+vi.mock('@/lib/toast', () => ({
+  toast: {
+    failure: (scope: string, err: unknown): void => toastFailure(scope, err),
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
 vi.mock('@/hooks/useAllianceAdmin', () => ({
   useAllianceMembers: () => ({ data: [] }),
@@ -92,5 +101,32 @@ describe('AllianceAdminProposalsCard', () => {
     proposals = [proposal({ name: '' })];
     renderCard();
     expect(screen.getAllByText('mike@tacoteam.info').length).toBeGreaterThan(0);
+  });
+  /**
+   * ⛔ THE PROMOTION CAN BE REFUSED, AND THE PERSON HAS TO HEAR IT.
+   *
+   * `useChangeMemberRole` has no hook-level `onError` — it cannot have one, because
+   * ConsoleMembers passes its own at every call site and a second toast would report one
+   * refusal twice. This card was the ONE caller that passed `{ onSuccess }` alone, so a
+   * refused grant closed the dialog and looked exactly like a successful one.
+   */
+  it('reports a refused promotion instead of closing the dialog in silence', () => {
+    proposals = [proposal()];
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Make alliance admin' }));
+    // The card's own button and the dialog's confirm carry the same label — confirm is last.
+    const buttons = screen.getAllByRole('button', { name: 'Make alliance admin' });
+    fireEvent.click(buttons[buttons.length - 1]);
+
+    const options = changeRoleMutate.mock.calls.at(-1)?.[1] as
+      | { onError?: (err: unknown) => void }
+      | undefined;
+    expect(options?.onError).toBeTypeOf('function');
+
+    options?.onError?.(new Error('Validation error (check: allianceRole)'));
+    expect(toastFailure).toHaveBeenCalledTimes(1);
+    expect(toastFailure.mock.calls[0][1]).toMatchObject({
+      message: 'Validation error (check: allianceRole)',
+    });
   });
 });

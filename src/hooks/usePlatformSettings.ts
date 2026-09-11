@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from '@/lib/toast';
 import {
   platformSettingsService,
   type DefaultStorageInput,
@@ -30,12 +31,25 @@ export const usePlatformAiModels = () =>
     refetchOnWindowFocus: false,
   });
 
-/** Mutations all invalidate the settings query so the source badges + statuses refresh. */
+/**
+ * Mutations all invalidate the settings query so the source badges + statuses refresh.
+ *
+ * ⛔ A SAVE MUST REPORT ITS OWN REFUSAL. Until 2026-09-11 none of these carried `onError`,
+ * their cards passed `{ onSuccess }` only, and `main.tsx` installs no MutationCache handler —
+ * so a rejected save was swallowed whole. Verified on staging: an invalid Bedrock role ARN
+ * flipped the button to "Loading…" and back and rendered nothing anywhere on the page.
+ *
+ * Two mutations here deliberately stay silent, because their CALLER already shows the
+ * failure where it belongs: `setSecret` (SecretField renders the refusal beside the input,
+ * so the value can be retyped) and `testStorage` (the card renders a probe result). A toast
+ * on top of either would report one refusal twice — the tests pin both.
+ */
 export const useUpdatePlatformAi = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: ManagedAiInput) => platformSettingsService.updateAi(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onError: (error: unknown) => toast.failure('save the Managed AI defaults', error),
   });
 };
 
@@ -44,6 +58,7 @@ export const useUpdatePlatformStorage = () => {
   return useMutation({
     mutationFn: (input: DefaultStorageInput) => platformSettingsService.updateStorage(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onError: (error: unknown) => toast.failure('save the storage defaults', error),
   });
 };
 
@@ -77,6 +92,7 @@ export const useClearPlatformSecret = () => {
   return useMutation({
     mutationFn: (key: PlatformSecretKey) => platformSettingsService.clearSecret(key),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onError: (error: unknown) => toast.failure('clear that credential', error),
   });
 };
 
