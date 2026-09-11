@@ -235,7 +235,16 @@ export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Prop
               id={menuId}
               role="menu"
               aria-label="Not shown"
-              className="absolute left-0 top-full mt-1.5 z-30 w-[290px] rounded-lg border border-border bg-card p-[5px] shadow-xl text-foreground"
+              /*
+                ⛔ Anchor the panel to the SAME EDGE the trigger is anchored to.
+                `left-0` alone pins the panel's left edge to the trigger's left and lets
+                290px grow rightwards — but on the list the trigger is pushed to the far
+                right by `ml-auto`, so there is nothing to grow into. Measured on a live
+                2560px viewport: trigger right 2504, panel right 2663 — 103px off-screen,
+                and worse the narrower the window. The board does not right-align its
+                trigger, so there `left-0` is still the correct side.
+              */
+              className={`absolute ${isBoard ? 'left-0' : 'right-0'} top-full mt-1.5 z-30 w-[290px] rounded-lg border border-border bg-card p-[5px] shadow-xl text-foreground`}
             >
               {/**
                * These rows are FILTER PRESETS, not navigation. Each carries `filters` and

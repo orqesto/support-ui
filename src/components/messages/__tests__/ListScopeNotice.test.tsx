@@ -95,6 +95,21 @@ describe('ListScopeNotice', () => {
     expect(onJump).toHaveBeenCalledWith({ queue: 'spam', lifecycle: 'all' }, undefined);
   });
 
+  it('anchors the panel to the edge its trigger sits on, so it cannot open off-screen', () => {
+    // Measured on live taco at 2560px: the trigger ended at x=2504 and the 290px panel ran
+    // to x=2663 — 103px past the viewport, and worse the narrower the window. `left-0` pins
+    // the panel's LEFT edge to the trigger's left, but the list pushes that trigger to the
+    // far right with `ml-auto`, so there is nothing to grow into.
+    //
+    // jsdom does no layout, so this asserts the anchoring SIDE rather than pixels — the
+    // thing that was wrong. The pixel claim above came from the browser, not from here.
+    const { unmount } = render(<ListScopeNotice scope={framehouse} shown={5} onJump={vi.fn()} />);
+    openMenu();
+    expect(screen.getByRole('menu')).toHaveClass('right-0');
+    expect(screen.getByRole('menu')).not.toHaveClass('left-0');
+    unmount();
+  });
+
   it('does not offer a jump for rows no single lens holds', () => {
     // `other` covers rows hidden by a pin that is not a classification at all — the
     // Active view also pins "no reply yet". A button there would land somewhere wrong.
@@ -201,6 +216,15 @@ describe('ListScopeNotice — board surface', () => {
     const text = boardText();
     expect(text).toContain('outbound echoes7');
     expect(text).toContain('hidden by this view23');
+  });
+
+  it('keeps the board panel on the LEFT — its trigger is not right-aligned', () => {
+    // The counterpart to the list-surface anchoring test. The fix is conditional, so a
+    // blanket `right-0` would have pushed the board panel off the other edge instead.
+    render(<ListScopeNotice scope={org21} shown={2880} onJump={vi.fn()} surface="board" />);
+    openMenu();
+    expect(screen.getByRole('menu')).toHaveClass('left-0');
+    expect(screen.getByRole('menu')).not.toHaveClass('right-0');
   });
 
   it('is a caption on the board, not a card — the card row cost the lanes 52px', () => {
