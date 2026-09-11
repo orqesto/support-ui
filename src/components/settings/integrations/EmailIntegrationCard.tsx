@@ -111,6 +111,9 @@ export const EmailIntegrationCard = ({
         secure: config.secure,
         searchCriteria: config.searchCriteria,
         lookbackDays: config.lookbackDays,
+        // Editing an existing source: the form holds the MASKED password it was seeded with,
+        // so the backend needs the id to substitute the stored secret before dialling.
+        ...(editingId !== null ? { integrationId: editingId } : {}),
       });
 
       if (result.success && result.data) {
