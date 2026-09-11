@@ -421,26 +421,44 @@ export const BedrockProviderCard = ({
               <div className="p-3 rounded-md border bg-background">
                 <p className="mb-2 text-sm font-medium">AWS credentials</p>
                 <div className="space-y-2">
-                  {CRED_MODES.filter((opt) => !opt.selfHostedOnly || allowInstanceProfile).map(
-                    (opt) => (
+                  {/*
+                   * Unsupported modes are SHOWN AND DISABLED, not hidden — parity with the
+                   * console's Platform Defaults card, which renders the same switch greyed
+                   * with a reason. Filtering it out answered "why is this option missing?"
+                   * with silence, and the two surfaces then disagreed about the same
+                   * deployment.
+                   */}
+                  {CRED_MODES.map((opt) => {
+                    const unavailable = Boolean(opt.selfHostedOnly) && !allowInstanceProfile;
+                    return (
                       <label
                         key={opt.mode}
-                        className="flex gap-2 items-start text-sm cursor-pointer"
+                        className={`flex gap-2 items-start text-sm ${
+                          unavailable ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                        }`}
                       >
                         <input
                           type="radio"
                           name="bedrock-cred-mode"
                           className="mt-1"
                           checked={credMode === opt.mode}
+                          disabled={unavailable}
                           onChange={() => setCredMode(opt.mode)}
                         />
                         <span>
                           <span className="font-medium">{opt.label}</span>
                           <span className="block text-xs text-muted-foreground">{opt.hint}</span>
+                          {unavailable && (
+                            <span className="block text-xs text-muted-foreground">
+                              Not available on this deployment — the server has no AWS identity of
+                              its own and ignores this setting. Use IAM keys or a cross-account
+                              role.
+                            </span>
+                          )}
                         </span>
                       </label>
-                    )
-                  )}
+                    );
+                  })}
                 </div>
               </div>
 
