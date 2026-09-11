@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -26,6 +26,7 @@ export const SecretField = ({
   saving = false,
   clearing = false,
   disabled = false,
+  onDirtyChange,
 }: {
   label: string;
   status: SecretStatus;
@@ -35,11 +36,36 @@ export const SecretField = ({
   saving?: boolean;
   clearing?: boolean;
   disabled?: boolean;
+  /**
+   * Reports whether this field holds text nobody has pressed Save on.
+   *
+   * A secret saves through THIS field, never through the surrounding form's submit — so a
+   * typed-but-unsaved credential is silently dropped when the form saves and the provider is
+   * then switched without one. The parent needs to know, to say so.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
 }) => {
   const [value, setValue] = useState('');
   const [rejection, setRejection] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<{ verified: boolean; reason?: string } | null>(null);
   const busy = saving || clearing || disabled;
+
+  /**
+   * A field that leaves the screen is no longer holding anything unsaved.
+   *
+   * ⛔ Without this, switching the provider (which unmounts one credential field and mounts
+   * others) or cancelling the form leaves a stale "dirty" flag behind, and the parent blocks
+   * saving over a field nobody can see. Held in a ref so the cleanup does not re-run on every
+   * render when the callback identity changes.
+   */
+  const dirtyReporter = useRef(onDirtyChange);
+  dirtyReporter.current = onDirtyChange;
+  useEffect(() => () => dirtyReporter.current?.(false), []);
+
+  const setValueReportingDirty = (next: string) => {
+    setValue(next);
+    onDirtyChange?.(next.trim().length > 0);
+  };
 
   const save = async (force?: boolean) => {
     setOutcome(null);
@@ -47,7 +73,7 @@ export const SecretField = ({
       const result = await onSave(value, force ? { force: true } : undefined);
       // ⛔ Only clear the field on SUCCESS. Wiping it on a refusal made the admin retype a long
       // key to try again — and retyping is exactly when a password manager fills it for you.
-      setValue('');
+      setValueReportingDirty('');
       setRejection(null);
       const verification = result && 'verification' in result ? result.verification : undefined;
       setOutcome(
@@ -91,7 +117,7 @@ export const SecretField = ({
           autoComplete="new-password"
           value={value}
           onChange={(event) => {
-            setValue(event.target.value);
+            setValueReportingDirty(event.target.value);
             setRejection(null);
             setOutcome(null);
           }}

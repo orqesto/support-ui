@@ -147,6 +147,11 @@ export const ManagedAiDefaultsCard = ({
    */
   const stored = storedAiSnapshot(ai);
 
+  const [unsavedSecrets, setUnsavedSecrets] = useState<Record<string, boolean>>({});
+  const markSecretDirty = (slot: string) => (dirty: boolean) =>
+    setUnsavedSecrets((prev) => (prev[slot] === dirty ? prev : { ...prev, [slot]: dirty }));
+  const pendingSecretCount = Object.values(unsavedSecrets).filter(Boolean).length;
+
   /** Drop every draft field back to what the server holds. */
   const reseed = () => {
     setProvider(ai.provider.value ?? 'openai');
@@ -156,6 +161,9 @@ export const ManagedAiDefaultsCard = ({
     setOrganization(ai.organization.value ?? '');
     setBedrock(seedBedrock(ai));
     setUseInstanceProfile(ai.bedrockUseInstanceProfile.value ?? false);
+    // Credential fields are drafts too: a cancelled form must not stay save-blocked by a
+    // value the user has just discarded.
+    setUnsavedSecrets({});
   };
 
   const [seededFrom, setSeededFrom] = useState(stored);
@@ -189,6 +197,15 @@ export const ManagedAiDefaultsCard = ({
   ] as const;
   const configured = OVERRIDABLE.some((key) => ai[key].source === 'db');
 
+  /**
+   * Credential fields that hold text nobody pressed Save on.
+   *
+   * ⛔ Secrets do NOT travel with "Save AI defaults" — each SecretField stores its own value
+   * through its own button. Typing an AWS key and pressing the form's Save therefore switched
+   * the provider to Bedrock and dropped the credential on the floor, after which Test
+   * connection failed and Bedrock looked broken. The workspace AI-provider card posts keys and
+   * config together, which is why the two surfaces behave differently for the same steps.
+   */
   const update = useUpdatePlatformAi();
   const setSecret = useSetPlatformSecret();
   const clearSecret = useClearPlatformSecret();
@@ -257,6 +274,8 @@ export const ManagedAiDefaultsCard = ({
   };
 
   const save = () => {
+    // Refuse rather than half-save: the config would persist and the credential would not.
+    if (pendingSecretCount > 0) return;
     const input: ManagedAiInput = { provider };
     (Object.keys(models) as ModelKey[]).forEach((key) => {
       const trimmed = models[key].trim();
@@ -373,6 +392,7 @@ export const ManagedAiDefaultsCard = ({
           <SecretField
             label={`${PROVIDER_LABELS[provider]} API key`}
             status={keyStatus}
+            onDirtyChange={markSecretDirty(keySlot)}
             onSave={(value, options) =>
               setSecret.mutateAsync({ key: keySlot, value, force: options?.force })
             }
@@ -411,6 +431,13 @@ export const ManagedAiDefaultsCard = ({
           {/* The endpoint probes what is STORED — the key never reaches the browser, so a draft
               cannot be tested. Its result under an unsaved provider switch read as "Bedrock is
               broken" when it was OpenAI, unset, being probed (owner, 2026-09-07). */}
+          {card.isEditing && pendingSecretCount > 0 && (
+            <Alert variant="info">
+              {pendingSecretCount === 1
+                ? 'A credential field has a value nobody has saved yet. Press Save next to that field first — keys are stored on their own and do not travel with "Save AI defaults", so saving now would switch the provider and drop the credential.'
+                : `${pendingSecretCount} credential fields have values nobody has saved yet. Press Save next to each one first — keys are stored on their own and do not travel with "Save AI defaults", so saving now would switch the provider and drop the credentials.`}
+            </Alert>
+          )}
           {card.isEditing && (
             <p className="text-xs text-muted-foreground">
               Save first — Test connection checks the stored defaults (
@@ -441,6 +468,7 @@ export const ManagedAiDefaultsCard = ({
       onEdit={card.startEditing}
       onCancel={card.cancelEditing}
       onSave={save}
+      saveDisabled={pendingSecretCount > 0}
       saving={update.isPending}
       configureLabel="Configure AI defaults"
       saveLabel="Save AI defaults"
@@ -609,6 +637,7 @@ export const ManagedAiDefaultsCard = ({
             <SecretField
               label="AWS access key ID"
               status={ai.bedrockAccessKeyId}
+              onDirtyChange={markSecretDirty('ai.bedrock_access_key_id')}
               onSave={(value, options) =>
                 setSecret.mutateAsync({
                   key: 'ai.bedrock_access_key_id',
@@ -623,6 +652,7 @@ export const ManagedAiDefaultsCard = ({
             <SecretField
               label="AWS secret access key"
               status={ai.bedrockSecretAccessKey}
+              onDirtyChange={markSecretDirty('ai.bedrock_secret_access_key')}
               onSave={(value, options) =>
                 setSecret.mutateAsync({
                   key: 'ai.bedrock_secret_access_key',
