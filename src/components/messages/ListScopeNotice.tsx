@@ -66,7 +66,23 @@ const REASONS: Array<{
     label: 'resolved or closed',
     filters: { lifecycle: 'resolved', queue: 'all' },
   },
-  { key: 'knowledgeBase', label: 'from the knowledge base' },
+  {
+    // Was a count with nothing to click, on the grounds that the bucket had no single
+    // lens. It has one: the API's `showKBOnly` adds `isFromKBSource = 'true'` and
+    // partitions the list exactly (29 KB + 21 not-KB = 50 on a staging workspace).
+    // ⚠️ `lifecycle: 'all'` + `queue: 'all'` are not decoration. The jump MERGES onto
+    // whatever lens is already set, and the menu's own footnote promises each figure is
+    // "the size of its whole bucket" — so a stale lens would make the landing contradict
+    // the number just clicked. Measured on staging org 21: showKBOnly alone 29, with a
+    // stale lifecycle=awaiting 12, with a stale queue=spam **0** — an empty list.
+    key: 'knowledgeBase',
+    label: 'from the knowledge base',
+    filters: { showKBOnly: true, lifecycle: 'all', queue: 'all' },
+    // ⛔ NOT `needsListView`. That flag means "the board has no lane for this", and the
+    // board's predicate applies no KB exclusion at all — these rows ARE on the board. It
+    // also doubles as the board-surface filter, so setting it here would cite the bucket
+    // as not-shown on the very surface that shows it. A list-only lens, by design.
+  },
   {
     key: 'awaitingOrReplied',
     label: 'waiting on a reply',
@@ -275,7 +291,8 @@ export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Prop
                     </span>
                   </button>
                 ) : (
-                  // A bucket with no single lens (the knowledge base) — a count, not a preset.
+                  // A residual bucket with no single lens — a count, not a preset. Only
+                  // `other` ("hidden by this view") reaches this branch now.
                   <div
                     key={reason.key}
                     role="presentation"

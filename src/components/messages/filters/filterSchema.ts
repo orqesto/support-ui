@@ -42,7 +42,8 @@ export type FilterKey =
   | 'labelId'
   | 'slaBreached'
   | 'slaAtRisk'
-  | 'hasAttachments';
+  | 'hasAttachments'
+  | 'showKBOnly';
 
 export type FilterOption = {
   value: string;
@@ -303,6 +304,9 @@ export const buildFilterDefs = (dynamic: DynamicOptions): FilterDef[] => {
     { key: 'slaBreached', label: 'SLA Breach', group: 'Flags', kind: 'flag', tone: 'red' },
     { key: 'slaAtRisk', label: 'SLA At Risk', group: 'Flags', kind: 'flag', tone: 'amber' },
     { key: 'hasAttachments', label: 'Attachments', group: 'Flags', kind: 'flag' },
+    // Named for what the row in the not-shown menu says, so the token a jump leaves behind
+    // is recognisable as the thing that was clicked.
+    { key: 'showKBOnly', label: 'From knowledge base', group: 'Flags', kind: 'flag' },
   ];
 
   return defs.filter((def) => def.kind !== 'select' || (def.options?.length ?? 0) > 0);

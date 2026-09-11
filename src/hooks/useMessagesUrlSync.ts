@@ -218,6 +218,10 @@ export const useMessagesUrlSync = ({
 
       const urlHasAttachments = searchParams.get('hasAttachments');
       if (urlHasAttachments === 'true') urlFilters.hasAttachments = true;
+      // Shared links and reloads must keep the KB lens, or the not-shown menu's jump
+      // silently reverts to the default lens on the next render.
+      const urlShowKBOnly = searchParams.get('showKBOnly');
+      if (urlShowKBOnly === 'true') urlFilters.showKBOnly = true;
 
       setFilters({ ...defaultFilters, ...urlFilters });
 
@@ -314,6 +318,7 @@ export const useMessagesUrlSync = ({
     if (filters.slaBreached) params.set('slaBreached', 'true');
     if (filters.slaAtRisk) params.set('slaAtRisk', 'true');
     if (filters.hasAttachments) params.set('hasAttachments', 'true');
+    if (filters.showKBOnly) params.set('showKBOnly', 'true');
 
     setSearchParams(params, { replace: true });
   }, [filters, setSearchParams]);
