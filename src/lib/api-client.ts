@@ -1,5 +1,6 @@
 import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 import { API_BASE_URL } from './config';
+import { withFailedFields } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { noteSessionIssued, noteSessionRenewed } from '@/lib/sessionClock';
 import { useAuthStore } from '@/stores/authStore';
@@ -267,7 +268,20 @@ export const handleResponseError = async (error: unknown): Promise<unknown> => {
         ? 'A server error occurred. Please try again later.'
         : rawMessage;
 
-    const enhancedError = new Error(errorMessage) as Error & { status?: number; data?: unknown };
+    // Name the rejected field ON THE MESSAGE. 37 catch blocks in this app render
+    // `err instanceof Error ? err.message : fallback` — SecretField's inline rejection, the
+    // three alliance hooks' private `errorMessage`, ConsoleMembers' role toast — and none of
+    // them reads the envelope. Appending here reaches all of them at once instead of
+    // rewriting each. `data` below keeps the UNTOUCHED body, so a caller that formats from
+    // the envelope (`getApiErrorMessage`) appends once, from there, and never twice.
+    //
+    // 5xx is excluded by construction: `errorMessage` is already the masked string by this
+    // point, and putting a field path after it would leak the shape of a body we deliberately
+    // refuse to show.
+    const displayMessage =
+      status >= 500 ? errorMessage : withFailedFields(errorMessage, { data: errorData });
+
+    const enhancedError = new Error(displayMessage) as Error & { status?: number; data?: unknown };
     enhancedError.status = status;
     enhancedError.data = errorData;
 

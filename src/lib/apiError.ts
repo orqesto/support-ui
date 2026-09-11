@@ -1,3 +1,5 @@
+import { withFailedFields } from '@/lib/errorMessages';
+
 /**
  * Read the server's message off an error thrown by `apiClient`.
  *
@@ -10,41 +12,21 @@
  *
  * Read `status` and `data` off the error itself. That is what the interceptor sets.
  */
-/**
- * The dotted field paths a failed validation reports, when there are any usable ones.
- *
- * The server answers `{ error: 'Validation error', code: 'VALIDATION_FAILED', fields: [...] }`
- * and deliberately withholds zod's own message, because those messages describe the schema.
- * So the paths are the ONLY thing that says which input was wrong — and nothing read them: a
- * console full of fields said "Validation error" and left the operator to guess.
- *
- * Observed on taco prod, 2026-09-11: `PATCH /api/admin/platform/settings/ai` rejected
- * `bedrockRoleArn` and the screen could not name it.
- *
- * ⛔ Filtered to strings and dropped when empty. A server that ever sends `fields: {}` or
- * `[1, 2]` must not put "(check: )" in front of a person.
- */
-const failedFields = (data: { fields?: unknown } | undefined): string[] => {
-  const raw = data?.fields;
-  if (!Array.isArray(raw)) return [];
-  return raw.filter(
-    (field): field is string => typeof field === 'string' && field.trim().length > 0
-  );
-};
-
 export const apiErrorMessage = (error: unknown, fallback: string): string => {
-  const enhanced = error as
-    | { data?: { error?: unknown; message?: unknown; fields?: unknown } }
-    | null
-    | undefined;
+  const enhanced = error as { data?: { error?: unknown; message?: unknown } } | null | undefined;
   const fromBody = enhanced?.data?.error ?? enhanced?.data?.message;
   if (typeof fromBody === 'string' && fromBody.trim().length > 0) {
-    const fields = failedFields(enhanced?.data);
-    return fields.length > 0 ? `${fromBody} (check: ${fields.join(', ')})` : fromBody;
+    // The envelope is untouched, so the suffix is added here, once. `withFailedFields` is
+    // shared with `getApiErrorMessage` and the interceptor so all three name a field the
+    // same way — the second copy of this logic is what let #376 fix two call sites and miss
+    // a hundred.
+    return withFailedFields(fromBody, error);
   }
 
   // An ordinary Error (a network failure, say) still has something worth showing — but not
-  // an empty string, and not the string "undefined".
+  // an empty string, and not the string "undefined". An api-client error arrives here only
+  // when the body carried no message; the interceptor has already named any fields on it, so
+  // this branch must NOT append again.
   if (error instanceof Error && error.message.trim().length > 0) return error.message;
 
   return fallback;

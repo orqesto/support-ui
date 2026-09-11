@@ -21,7 +21,16 @@ const STATUS_MESSAGES: Record<number, string> = {
 };
 
 /** The envelope the BE returns on a failure, in either transport shape. */
-export type ApiErrorBody = { error?: string; message?: string; code?: string };
+export type ApiErrorBody = {
+  error?: string;
+  message?: string;
+  code?: string;
+  /**
+   * The dotted paths a failed validation rejected. Typed `unknown` on purpose — it is
+   * whatever arrived over the wire, and `failedFields` is the only thing that narrows it.
+   */
+  fields?: unknown;
+};
 
 /**
  * Status of a caught API error, read from whichever shape it arrived in.
@@ -48,6 +57,53 @@ export const getErrorBody = (err: unknown): ApiErrorBody | undefined => {
 };
 
 /**
+ * The backend reports an issue with an EMPTY path as this literal — see `zodFieldPaths` in
+ * its errorHandler. It is a marker meaning "the object as a whole", not a field name.
+ */
+const NOT_A_FIELD = '_';
+
+/**
+ * The dotted field paths a failed validation reports, when there are any usable ones.
+ *
+ * The server answers `{ error: 'Validation error', code: 'VALIDATION_FAILED', fields: [...] }`
+ * and deliberately withholds zod's own message, because those messages describe the SCHEMA.
+ * The paths are therefore the only thing in the envelope that says which input was wrong.
+ *
+ * ⛔ Filtered to non-empty strings and dropped when the list is empty. A server that ever
+ * sends `fields: {}` or `[1, 2]` must not put "(check: )" or "(check: 1, 2)" in front of a
+ * person — the suffix has to be worth more than the doubt it casts on the rest of the line.
+ *
+ * ⛔ `_` is dropped for the same reason, and it is NOT hypothetical. The backend's
+ * `zodFieldPaths` maps an issue with an empty path to the literal `_` on purpose, so a client
+ * never receives `VALIDATION_FAILED` with an empty list — and every `.strict()` schema raises
+ * exactly that for an unknown key. Rendered verbatim it reads "check: _", which sends an
+ * operator hunting for a field called underscore. Array indices are KEPT
+ * (`messageSources.0.canView`): those name a real row on a repeated field.
+ */
+const failedFields = (err: unknown): string[] => {
+  const raw = getErrorBody(err)?.fields;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (field): field is string =>
+      typeof field === 'string' && field.trim().length > 0 && field.trim() !== NOT_A_FIELD
+  );
+};
+
+/**
+ * `message`, with the rejected fields named after it.
+ *
+ * Lives here rather than at a call site because the call sites are the problem: measured on
+ * 2026-09-11, this app formats an API error for a human in ~104 places, and #376 reached two
+ * of them. Anything that already goes through `getApiErrorMessage` (65 sites), `formatError`
+ * → `toast.failure` (24) or the api-client interceptor's Error message (37 hand-rolled
+ * `err.message` catch blocks) now names the field without being rewritten.
+ */
+export const withFailedFields = (message: string, err: unknown): string => {
+  const fields = failedFields(err);
+  return fields.length > 0 ? `${message} (check: ${fields.join(', ')})` : message;
+};
+
+/**
  * The BE's own message (`error`, then `message`) when it is SAFE TO DISPLAY.
  *
  * Deliberately returns nothing for a 5xx: the api-client interceptor masks those
@@ -61,7 +117,10 @@ export const getApiErrorMessage = (err: unknown): string | undefined => {
   if (status !== undefined && status >= 500) return undefined;
   const body = getErrorBody(err);
   const message = body?.error ?? body?.message;
-  return typeof message === 'string' && message.trim().length > 0 ? message.trim() : undefined;
+  if (typeof message !== 'string' || message.trim().length === 0) return undefined;
+  // The 5xx guard above already returned, so a suffix here can only ever describe a 4xx
+  // envelope the backend wrote for a human — never a masked server message.
+  return withFailedFields(message.trim(), err);
 };
 
 /**

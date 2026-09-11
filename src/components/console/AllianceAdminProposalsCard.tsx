@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useAllianceAdminProposals, useChangeMemberRole } from '@/hooks/useAllianceAdmin';
+import { toast } from '@/lib/toast';
 import type { AllianceAdminProposal } from '@/services/alliance-admin.service';
 
 /**
@@ -87,7 +88,15 @@ export const AllianceAdminProposalsCard = ({ allianceId }: { allianceId: number 
           if (!confirming) return;
           changeRole.mutate(
             { userId: confirming.userId, allianceRole: 'alliance_admin' },
-            { onSuccess: () => void proposalsQuery.refetch() }
+            {
+              onSuccess: () => void proposalsQuery.refetch(),
+              // ⛔ The dialog closes either way (below), so without this a REFUSED grant is
+              // indistinguishable from a granted one — the card simply stops proposing for a
+              // moment and then proposes again after the next refetch. Every other caller of
+              // `useChangeMemberRole` (ConsoleMembers) reports its own failure; this one did
+              // not, which is why the hook cannot carry it instead.
+              onError: (error: unknown) => toast.failure('grant alliance admin', error),
+            }
           );
           setConfirming(null);
         }}
