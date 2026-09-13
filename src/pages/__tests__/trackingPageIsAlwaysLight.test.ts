@@ -18,6 +18,14 @@
  * so it cannot measure a ratio. It pins the invariant that actually broke: this file must carry
  * no theme-dependent colour class. A future `text-foreground` reintroduces the bug and this
  * turns red.
+ *
+ * ⛔ SCOPE — this guards THIS FILE's markup, not everything the page renders. `<Textarea>` and
+ * `<Button>` (the customer's reply box and Send, success state, lines ~874/~899) still follow
+ * the app theme: `bg-input`, `text-foreground`, `bg-primary`. They do NOT have the heading's
+ * bug because they paint their OWN background — in dark mode the box is 13.78:1 internally,
+ * legible. The result is a dark widget on a light page: a visual inconsistency, not a
+ * legibility failure. Isolating the public route from the theme is the real fix and is a
+ * bigger change than this one; do not read a green test here as "the page is theme-proof".
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -49,7 +57,7 @@ const THEME_TOKENS = [
   'border-border',
 ];
 
-describe('the public tracking page never depends on the app theme', () => {
+describe("the tracking page's OWN markup never depends on the app theme", () => {
   it.each(THEME_TOKENS)('does not use %s', (token) => {
     // Word-boundary so `text-muted-foreground` cannot satisfy the `text-foreground` case.
     const hit = new RegExp(`(^|[\\s"'\`])${token}([\\s"'\`]|$)`, 'm').test(source);
