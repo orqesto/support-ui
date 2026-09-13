@@ -424,7 +424,7 @@ export const TrackingPage = () => {
   if (state.kind === 'loading') {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-sm text-[hsl(215.4,16.3%,46.9%)]">Loading…</p>
       </div>
     );
   }
@@ -432,9 +432,20 @@ export const TrackingPage = () => {
   if (state.kind === 'error') {
     return (
       <div className="flex justify-center items-center px-4 min-h-screen bg-gray-50">
+        {/*
+          ⛔ LITERAL colours, never `text-foreground`/`text-muted-foreground`. This page is
+          public and always light — every other surface on it is hard-coded the same way, and
+          there is no dark background to pair a dark-theme text token with. These three classes
+          were theme tokens until 2026-09-13, so a visitor whose browser had the app's theme
+          stored (any agent who has used the app here) got `--foreground` = 210 40% 98% ON
+          WHITE: measured contrast 1.05:1, against 20.01:1 with the class removed. The heading
+          was invisible.
+        */}
         <div className="w-full max-w-md p-6 text-center bg-white rounded-lg shadow-sm">
-          <h1 className="text-lg font-medium text-foreground">Tracking link unavailable</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{state.message}</p>
+          <h1 className="text-lg font-medium text-[hsl(222.2,84%,4.9%)]">
+            Tracking link unavailable
+          </h1>
+          <p className="mt-2 text-sm text-[hsl(215.4,16.3%,46.9%)]">{state.message}</p>
         </div>
       </div>
     );
