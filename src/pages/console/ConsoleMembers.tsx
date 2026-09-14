@@ -342,18 +342,28 @@ export const ConsoleMembers = () => {
                   Shown only when the direct grant DIFFERS from the role in force: when they
                   match it explains nothing and would just be noise on every taken-over row.
                 */}
-                {(() => {
-                  const divergent = roleDivergence(role).directRole;
-                  if (!divergent) return null;
-                  return (
-                    <Badge
-                      variant="warning"
-                      title={`A direct grant of ${orgRoleLabel(divergent)} predates the alliance; the effective role is the higher of that and the group's mapping.`}
-                    >
-                      direct: {orgRoleLabel(divergent)}
-                    </Badge>
-                  );
-                })()}
+                {/**
+                 * ⛔ NO `direct:` CHIP. It used to render the pre-alliance snapshot here, beside
+                 * the roles in force, with the tooltip "the effective role is the higher of that
+                 * and the group's mapping".
+                 *
+                 * That sentence stopped being true when the backend dropped
+                 * `maxRole(preAllianceRole, targetOrgRole)` — the IdP's answer wins now and the
+                 * snapshot is only a restore value. The chip's own reason for existing went with
+                 * it: it answered "why is this member not at their group's role?", and a member
+                 * can no longer BE off their group's role because of a snapshot.
+                 *
+                 * What was left was a column headed "Effective roles" showing a Workspace
+                 * Administrator badge for three people who are Moderators. The owner read it as
+                 * an assignment he never made, and so did I — I reported them as holding admin on
+                 * a client deployment before checking `effectiveRole`, which said `moderator` for
+                 * all six rows. The Platform → Users directory said Moderator the whole time; two
+                 * admin surfaces disagreed about the same people.
+                 *
+                 * The snapshot is still stored and still load-bearing — the deactivation pass
+                 * restores it verbatim when the IdP stops naming a member. It is simply not a
+                 * role, so it does not belong among the roles.
+                 */}
                 {role.hasOverrides && (
                   <Badge
                     variant="warning"

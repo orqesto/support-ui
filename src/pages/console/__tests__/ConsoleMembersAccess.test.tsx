@@ -9,6 +9,7 @@
  * active, with an empty roles column — identical to a removal that did nothing.
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { accessSummary, roleDivergence } from '@/pages/console/ConsoleMembers';
 import type { EffectiveRole } from '@/services/alliance-admin.service';
 
@@ -115,5 +116,51 @@ describe('why a membership diverges from its IdP group', () => {
       overridesSetAt: '2026-09-09T10:00:00Z',
     });
     expect(attributed.overridesAttributed).toBe(true);
+  });
+});
+
+/**
+ * The console stopped calling a snapshot a role.
+ *
+ * `roleDivergence` still returns `directRole` — the data is real and the deactivation pass
+ * depends on it — but the Effective-roles column must not render it as a badge, and must not
+ * repeat the claim that went stale when the backend dropped `maxRole(preAllianceRole, …)`.
+ *
+ * Measured on the client deployment: three members showed "direct: Workspace Administrator"
+ * beside Moderator chips while `effectiveRole` was `moderator` for all six rows, and the
+ * Platform → Users directory showed Moderator throughout. Two admin surfaces disagreeing about
+ * the same people is what prompted this.
+ */
+describe('the Effective roles column shows roles, not restore values', () => {
+  const source = readFileSync('src/pages/console/ConsoleMembers.tsx', 'utf8');
+  const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+  it('no longer claims the effective role is the higher of the grant and the group', () => {
+    /**
+     * ⚠️ Asserted against CODE, not the raw source. The first version checked the raw file and
+     * failed on this component's own comment, which quotes the stale sentence to explain why it
+     * was removed. A gate that matches the documentation of a fix is the same trap that let a
+     * "does the generator call the detector" check pass after the call was deleted.
+     */
+    expect(code).not.toContain('the effective role is the higher of that');
+  });
+
+  it('does not render the snapshot as a badge among the live roles', () => {
+    expect(code).not.toMatch(/direct:\s*\{?\s*orgRoleLabel/);
+    // CONTROL: comments are stripped, so this checks real code — and the overrides badge, a
+    // genuinely live signal, must still be rendered.
+    expect(code).toContain('hasOverrides');
+  });
+
+  it('still exposes the snapshot to callers that need it', () => {
+    // Removing the chip must not remove the DATA: the deactivation pass restores this role
+    // verbatim when the IdP stops naming a member.
+    const row: EffectiveRole = {
+      orgId: 3,
+      orgName: 'Orbelli',
+      role: 'moderator',
+      directRole: 'org_admin',
+    };
+    expect(roleDivergence(row).directRole).toBe('org_admin');
   });
 });
