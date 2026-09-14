@@ -147,6 +147,57 @@ export const ScimTelemetryCard = ({ telemetry }: { telemetry: AllianceScimTeleme
         </Alert>
       )}
 
+      {/*
+        Provisioned, but reaching nothing.
+
+        This is the warning that did not exist when it was needed. `esmeralda@biaxol.com` was
+        provisioned into this alliance on 11 Sept and landed with no workspace at all: she had
+        been hard-deleted as user 10, the IdP's group still pointed at that dead id, and when
+        it re-created her under a new id it never re-sent the group membership — nothing had
+        changed on its side. Activity logged "User provisioned" as plain success. It surfaced
+        two days later through a Slack message, not from the product.
+
+        ⛔ "Re-apply mappings" cannot fix these: it recomputes from what is already stored, and
+        the membership never arrived. Only a fresh push from the IdP restores it.
+      */}
+      {(telemetry.strandedMembers?.total ?? 0) > 0 && (
+        <Alert variant="warning">
+          <p className="text-sm">
+            <strong>
+              {telemetry.strandedMembers?.total} provisioned member
+              {telemetry.strandedMembers?.total === 1 ? '' : 's'} can reach nothing.
+            </strong>{' '}
+            They exist here, but hold no access to any workspace in this alliance — they cannot
+            sign in, by SSO or otherwise.
+          </p>
+          {telemetry.strandedMembers?.members.length ? (
+            <ul className="mt-1 space-y-0.5 text-sm">
+              {telemetry.strandedMembers.members.map((member) => (
+                <li key={member.email} className="break-words">
+                  {member.email}{' '}
+                  <span className="text-muted-foreground">
+                    {member.groupCount === 0
+                      ? '— in no synced group'
+                      : `— in ${member.groupCount} synced group${member.groupCount === 1 ? '' : 's'} that grants nothing here`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <p className="mt-1 text-sm">
+            <strong>In no synced group?</strong> Either they are assigned to the SCIM app
+            directly instead of through a group, or your IdP believes it already pushed a
+            membership that named a user id we no longer have. Both are fixed the same way:
+            remove them from the group in your IdP and add them back, which forces a fresh
+            push. <strong>In a group already?</strong> Map that group to a role in a workspace.
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            &quot;Re-apply mappings&quot; will not fix this — it re-reads what is already
+            stored and never contacts your IdP.
+          </p>
+        </Alert>
+      )}
+
       {connector?.warn && (
         <Alert variant="warning">
           <p className="text-sm">

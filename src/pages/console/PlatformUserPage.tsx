@@ -321,14 +321,15 @@ export const PlatformUserPage = () => {
   const confirmDelete = async () => {
     try {
       // Platform delete = full global delete across ALL workspaces (scope:'global', BE #270).
-      // When the directory owns the account the API refuses unless the caller acknowledges
-      // it, so the confirmation says what will happen and passes the acknowledgement.
-      // Deleting here does NOT remove them from the directory, which re-creates them on the
-      // next sync.
-      await userService.delete(user.id, {
-        scope: 'global',
-        acknowledgeIdpManaged: idpOwnedWorkspaces.length > 0,
-      });
+      //
+      // ⛔ The `acknowledgeIdpManaged` override is GONE, so this no longer sends it. The API
+      // now refuses outright (409) for an account the directory still owns, because
+      // overriding it did real damage: the directory re-creates the account under a NEW id
+      // but does not re-send its group memberships, leaving the person provisioned with no
+      // access and unable to sign in at all — and a re-sync cannot repair that. It also took
+      // one colleague's password with it. The dialog below says so instead of offering a
+      // button that now fails.
+      await userService.delete(user.id, { scope: 'global' });
       void queryClient.invalidateQueries({ queryKey: ['platform', 'users'] });
       void queryClient.invalidateQueries({ queryKey: ['platform', 'overview'] });
       // Drop this account's cached row rather than invalidating it — `invalidate()` would
@@ -649,15 +650,20 @@ export const PlatformUserPage = () => {
         onOpenChange={setDeleteConfirmOpen}
         onConfirm={() => void confirmDelete()}
         variant="danger"
-        confirmText="Delete account"
+        confirmText='Delete account'
+        hideConfirm={idpOwnedWorkspaces.length > 0}
+        cancelText={idpOwnedWorkspaces.length > 0 ? 'Close' : 'Cancel'}
         title={`Delete ${fullName(user)}'s account?`}
         description={
           idpOwnedWorkspaces.length > 0
-            ? `This permanently deletes ${user.email}'s account and removes them from ALL workspaces across the platform. This cannot be undone. ` +
-              `Your identity provider owns this account in ${idpOwnedWorkspaces.length} workspace(s) ` +
-              `(${idpOwnedWorkspaces.map((org) => org.name).join(', ')}) — deleting it here does NOT ` +
-              `remove it from the directory, which will re-create the account on its next sync. ` +
-              `Remove them in the identity provider to make this stick.`
+            ? `This account cannot be deleted here. Your identity provider owns it in ` +
+              `${idpOwnedWorkspaces.length} workspace(s) ` +
+              `(${idpOwnedWorkspaces.map((org) => org.name).join(', ')}). ` +
+              `Deleting it locally does not remove it from the directory: the directory ` +
+              `re-creates the account under a new id but does not re-send its group ` +
+              `memberships, so the person comes back provisioned with no access and no way ` +
+              `to sign in. Remove or deactivate them in your identity provider first — that ` +
+              `deprovisions them here — and then delete the account if you still need to.`
             : `This permanently deletes ${user.email}'s account and removes them from ALL workspaces across the platform. This cannot be undone.`
         }
       />

@@ -112,6 +112,13 @@ export type AllianceScimTelemetry = {
    * provisioned. Optional for the same version-skew reason as the fields above.
    */
   skippedMembers?: { total: number; emails: string[]; lastSkippedAt: string | null };
+  /**
+   * Provisioned into this alliance, holding no active membership in ANY of its workspaces —
+   * they can sign in nowhere. `groupCount` separates the two remedies: 0 means we hold no
+   * synced group membership for them at all, >0 means they are in a group that grants
+   * nothing here. Optional: absent from older backends, and absence is not zero.
+   */
+  strandedMembers?: { total: number; members: Array<{ email: string; groupCount: number }> };
   notes: string[];
 };
 
