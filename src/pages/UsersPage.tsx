@@ -286,13 +286,34 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
       </Badge>
     )) ?? null;
 
-  const scimBadge = (user: User) =>
-    user.scimManaged ? (
-      <Badge className="flex gap-1 items-center text-xs text-amber-700 bg-amber-100 dark:bg-amber-900 dark:text-amber-300">
+  const scimBadge = (user: User) => {
+    if (!user.scimManaged) return null;
+    // `scimManaged` is true for any account the IdP ever created, because
+    // `auth_provider='scim'` never clears. Saying "IdP-managed" for someone the directory no
+    // longer touches sends an admin hunting for a group that does not exist — which is
+    // exactly what happened with three accounts on a live workspace.
+    //
+    // `=== false` never `!`: the field is absent on older backends, and undefined must keep
+    // today's wording rather than silently relabel every managed member.
+    const createdOnly = user.idpLinkActive === false;
+    return (
+      <Badge
+        className={
+          createdOnly
+            ? 'flex gap-1 items-center text-xs text-muted-foreground bg-muted'
+            : 'flex gap-1 items-center text-xs text-amber-700 bg-amber-100 dark:bg-amber-900 dark:text-amber-300'
+        }
+        title={
+          createdOnly
+            ? 'Created by your identity provider, but it no longer manages this member — they are in no synced group here.'
+            : undefined
+        }
+      >
         <Lock className="w-3 h-3" />
-        IdP-managed
+        {createdOnly ? 'Created by IdP' : 'IdP-managed'}
       </Badge>
-    ) : null;
+    );
+  };
 
   /**
    * A platform admin cannot be provisioned by SCIM at all (the connector refuses to take over
