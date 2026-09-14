@@ -13,6 +13,7 @@ export const ConfirmDialog = ({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   variant = 'danger',
+  hideConfirm = false,
 }: ConfirmDialogProps) => {
   const handleConfirm = () => {
     onConfirm();
@@ -37,9 +38,11 @@ export const ConfirmDialog = ({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {cancelText}
           </Button>
-          <Button onClick={handleConfirm} className={getConfirmDialogButtonClasses(variant)}>
-            {confirmText}
-          </Button>
+          {!hideConfirm && (
+            <Button onClick={handleConfirm} className={getConfirmDialogButtonClasses(variant)}>
+              {confirmText}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
