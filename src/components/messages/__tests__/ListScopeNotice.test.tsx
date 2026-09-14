@@ -110,18 +110,69 @@ describe('ListScopeNotice', () => {
     unmount();
   });
 
-  it('does not offer a jump for rows no single lens holds', () => {
-    // `other` covers rows hidden by a pin that is not a classification at all — the
-    // Active view also pins "no reply yet". A button there would land somewhere wrong.
+  /**
+   * ⛔ REVERSED 2026-09-14, and the test it replaces asserted the behaviour the owner
+   * rejected — twice — in as many words: *"hidden by this view 3 not clickable"*.
+   *
+   * The old reasoning was that `other` has no precise lens, so a button would "land
+   * somewhere wrong". True about the lens, and not an answer: the row sits under a heading
+   * reading "Show instead — applies a filter", so a dead number there is the very defect
+   * this component exists to remove. Clearing the lens is a SUPERSET of the rows rather
+   * than an exact match, which is why the row says `clear the view` instead of promising
+   * a destination that holds exactly this count.
+   */
+  it('offers to clear the view for rows no single lens holds', () => {
     const withOther: ListScope = {
       ...framehouse,
       hiddenBecause: { ...framehouse.hiddenBecause, other: 3 },
     };
-    render(<ListScopeNotice scope={withOther} shown={5} onJump={vi.fn()} />);
+    const onJump = vi.fn();
+    render(<ListScopeNotice scope={withOther} shown={5} onJump={onJump} lensActive />);
+    openMenu();
+    const row = screen.getByRole('menuitem', { name: /hidden by this view/ });
+    expect(row.textContent).toContain('clear the view');
+    fireEvent.click(row);
+    // `showKBOnly` is in the delta on purpose: arriving from the knowledge-base row and
+    // then clicking this must not leave that lens in force while clearing only the halves
+    // already set to `all`.
+    expect(onJump).toHaveBeenCalledWith(
+      { lifecycle: 'all', queue: 'all', columnId: 'all', showKBOnly: false, status: 'all' },
+      undefined
+    );
+  });
+
+  it('keeps the residue row visually apart from the bucket totals', () => {
+    // It is a SUBSET of `hidden`; the destinations are whole-bucket sizes. Rendering it in
+    // the same group made the menu read as a decomposition and the counts as broken
+    // arithmetic — the bug the wording above it was written to prevent.
+    const withOther: ListScope = {
+      ...framehouse,
+      hiddenBecause: { ...framehouse.hiddenBecause, other: 3 },
+    };
+    render(<ListScopeNotice scope={withOther} shown={5} onJump={vi.fn()} lensActive />);
+    openMenu();
+    const row = screen.getByRole('menuitem', { name: /hidden by this view/ });
+    expect(row.className).toContain('border-t');
+  });
+
+  it('withholds the action when there is no lens to clear', () => {
+    /**
+     * ⛔ MEASURED, not stylistic. The residue row clears the lens, which on the client
+     * workspace widens a lensed list of 45 rows to 223. With NO lens set the same click
+     * changes nothing — those rows sit outside the DEFAULT browse lens, which clearing
+     * cannot undo — so offering it would replace "not clickable" with a button that
+     * visibly does nothing. The count stays; the promise goes.
+     */
+    const withOther: ListScope = {
+      ...framehouse,
+      hiddenBecause: { ...framehouse.hiddenBecause, other: 3 },
+    };
+    render(<ListScopeNotice scope={withOther} shown={5} onJump={vi.fn()} lensActive={false} />);
     openMenu();
     const label = screen.getByText('hidden by this view');
-    expect(label.closest('button')).toBeNull();
     expect(label.closest('[role="menuitem"]')).toBeNull();
+    // The count must survive losing the button — it is the only figure that names the residue.
+    expect(label.parentElement?.textContent).toContain('3');
   });
 
   it('outbound echoes are a LINK, and one that also leaves the board', () => {
@@ -215,6 +266,9 @@ describe('ListScopeNotice — board surface', () => {
     // would pass vacuously. `orphanOutgoing` carries needsListView, `other` is the residue.
     const text = boardText();
     expect(text).toContain('outbound echoes7');
+    // ⚠️ No `clear the view` here: the board does not pass `lensActive`, so the residue keeps
+    // its count and loses the button. Deliberate — the board's own lens is the ten columns,
+    // which cover everything, so there is nothing a clear could widen.
     expect(text).toContain('hidden by this view23');
   });
 
@@ -306,18 +360,26 @@ describe('a chip is a destination, not a share of the hidden count', () => {
     );
   });
 
-  it('keeps `other` out of the clickable rows — a share, not a lens', () => {
-    // CONTROL for the split: `other` counts hidden rows no bucket claims, so it is listed
-    // but not clickable. Four destinations (suspicious, archived, waiting, routing).
+  it('keeps `other` out of the BUCKET-TOTAL group — a share, not a lens', () => {
+    // CONTROL for the split. `other` is a subset of `hidden` while the destinations are
+    // whole-bucket sizes, so the two must stay visually and structurally apart.
     //
-    // ⚠️ This used to assert the TRIGGER said '4'. That was pinning a defect: 4 is how many
-    // categories the menu lists, and the button reads "Not shown 4" as though four
-    // conversations were hidden. The split it exists to control for is about the ROWS, and
-    // that half is unchanged and still asserted here.
-    render(<ListScopeNotice scope={scope} shown={53} onJump={vi.fn()} />);
+    // ⚠️ It used to assert `other` was not a menuitem AT ALL. That conflated two things —
+    // "not a bucket total" (still true, still asserted) with "not actionable" (reversed
+    // 2026-09-14, because a dead number under "Show instead" was the owner's complaint).
+    // Five menuitems now: four destinations plus the residue row below the divider.
+    //
+    // ⚠️ And it used to assert the TRIGGER said '4'. That pinned a different defect: 4 is
+    // how many categories the menu lists, while the button reads "Not shown 4" as though
+    // four conversations were hidden.
+    render(<ListScopeNotice scope={scope} shown={53} onJump={vi.fn()} lensActive />);
     openMenu();
-    expect(screen.getAllByRole('menuitem')).toHaveLength(4);
-    expect(screen.getByText('hidden by this view').closest('[role="menuitem"]')).toBeNull();
+    expect(screen.getAllByRole('menuitem')).toHaveLength(5);
+    const residue = screen.getByRole('menuitem', { name: /hidden by this view/ });
+    // The group it must stay OUT of is the one under the "Show instead" heading, which the
+    // divider separates. Its own label says what it does instead of naming a bucket.
+    expect(residue.className).toContain('border-t');
+    expect(residue.textContent).toContain('clear the view');
   });
 
   it('counts ITEMS on the trigger, not categories', () => {

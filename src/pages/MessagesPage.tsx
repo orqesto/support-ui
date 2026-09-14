@@ -849,6 +849,19 @@ export const MessagesPage = () => {
                   scope={listScope}
                   shown={pagination.total}
                   onJump={handleScopeJump}
+                  /**
+                   * Whether the residue row's "clear the view" would change anything. These
+                   * are exactly the filters that row resets — and `status` belongs in the
+                   * list because `useMessagesData` drops its widening
+                   * (`view=active&processed=all`) the moment a lifecycle or queue is set.
+                   */
+                  lensActive={
+                    (filters.lifecycle ?? 'all') !== 'all' ||
+                    (filters.queue ?? 'all') !== 'all' ||
+                    (filters.columnId ?? 'all') !== 'all' ||
+                    (filters.status ?? 'all') !== 'all' ||
+                    filters.showKBOnly === true
+                  }
                 />
               )}
 

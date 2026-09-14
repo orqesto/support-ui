@@ -128,6 +128,18 @@ export type PaginatedResponse<T> = {
 export type ListScope = {
   withoutLens: number;
   hidden: number;
+  /**
+   * Whether `view=board` is exhaustive on the backend that answered — i.e. whether the
+   * board's tenth column (`view=no_lane`) exists there.
+   *
+   * ⛔ OPTIONAL, and the optionality is the whole mechanism. This repo deploys on merge
+   * while the backend ships on a tag, so this bundle runs against older backends as a
+   * matter of routine. An unknown view is not rejected there, it is DROPPED, and the
+   * request comes back answered by the default browse lens — so an ungated Other column
+   * would render ordinary open threads under that heading and look entirely plausible.
+   * Absent means "this backend does not have it"; never coalesce it to true.
+   */
+  boardCoversAll?: boolean;
   hiddenBecause: {
     terminal: number;
     spam: number;

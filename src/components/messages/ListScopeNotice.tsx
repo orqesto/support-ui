@@ -46,6 +46,19 @@ type Props = {
   onJump: (filters: Partial<FilterState>, needsListView?: boolean) => void;
   /** Wording for where the rows are hidden from. The board hides more than the list does. */
   surface?: 'list' | 'board';
+  /**
+   * Whether any lens is actually set — i.e. whether "clear the view" would CHANGE anything.
+   *
+   * ⛔ Load-bearing, and measured. The residue row clears the lens, which widens a lensed
+   * list of 45 to 223 on the client workspace this was reported from. But when no lens is
+   * set, the very same click is a no-op: those rows are outside the DEFAULT browse lens,
+   * which clearing cannot undo. Offering the action anyway would replace the owner's
+   * complaint ("not clickable") with a strictly worse one — a button that visibly does
+   * nothing, the defect `kanbanSharedFilters.ts` carries its own warning about.
+   *
+   * Absent means "unknown", and the row falls back to the count-only rendering it had.
+   */
+  lensActive?: boolean;
 };
 
 /**
@@ -78,10 +91,21 @@ const REASONS: Array<{
     key: 'knowledgeBase',
     label: 'from the knowledge base',
     filters: { showKBOnly: true, lifecycle: 'all', queue: 'all' },
-    // ⛔ NOT `needsListView`. That flag means "the board has no lane for this", and the
-    // board's predicate applies no KB exclusion at all — these rows ARE on the board. It
-    // also doubles as the board-surface filter, so setting it here would cite the bucket
-    // as not-shown on the very surface that shows it. A list-only lens, by design.
+    /**
+     * ⛔ NOT `needsListView` — but NOT for the reason written here until 2026-09-14, which
+     * was false and cost a client a visible defect. It said "the board's predicate applies
+     * no KB exclusion at all — these rows ARE on the board". Four of the nine lanes
+     * (`notAnalysed`, `archived`, `spam`, `suspicious`) each carry `notKb`, so a KB row
+     * that never reached a terminal status was refused by every one of them. Measured on
+     * CoreSarms: of 1,322 KB rows, 1,211 had a lane and 111 had none — and because this
+     * bucket is suppressed on the board, those 111 were counted by `hidden` (114) and named
+     * by nothing. The menu read "Not shown 114" over a single visible entry of 3.
+     *
+     * The flag is still wrong here, because the bucket is not the unit: 1,211 of these rows
+     * ARE on the board and citing all 1,322 as not-shown would be the opposite lie. The
+     * lane-less ones are reached by the board's tenth column instead (`queue=no_lane`),
+     * which is a complement and so cannot go stale the way this comment did.
+     */
   },
   {
     key: 'awaitingOrReplied',
@@ -109,10 +133,47 @@ const REASONS: Array<{
     filters: { queue: 'outbound_echo', lifecycle: 'all' },
     needsListView: true,
   },
-  { key: 'other', label: 'hidden by this view' },
+  {
+    /**
+     * The residue no bucket claims — and, since 2026-09-14, still somewhere to GO.
+     *
+     * It had no action on the grounds that it has no precise lens, which is true and was
+     * not an answer: the entry sits under a heading that reads "Show instead — applies a
+     * filter", so a dead number there is the complaint the whole component exists to fix,
+     * twice over. The owner rejected "it is correct because it is a residue" explicitly.
+     *
+     * Clearing the lens entirely is the honest destination. It is the one filter guaranteed
+     * to CONTAIN these rows — a superset rather than an exact match — so the label says
+     * `clear the view` rather than naming a count the landing would contradict.
+     */
+    key: 'other',
+    label: 'hidden by this view',
+    /**
+     * ⚠️ Clears every lens that can narrow this list — `showKBOnly` and `status` included.
+     *
+     * `status` is not decoration: `useMessagesData` maps `status: 'all'` to the widening the
+     * backend sanctions (`view=active&processed=all`), and SKIPS it entirely while a
+     * lifecycle or queue is set. So clearing the pair is what actually widens — measured on
+     * CoreSarms 2026-09-14, a lensed list of 45 becomes 223. Leaving `status` behind would
+     * clear the lens and keep the narrower `view`, which reads as the click doing nothing.
+     */
+    filters: {
+      lifecycle: 'all',
+      queue: 'all',
+      columnId: 'all',
+      showKBOnly: false,
+      status: 'all',
+    },
+  },
 ];
 
-export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Props) => {
+export const ListScopeNotice = ({
+  scope,
+  shown,
+  onJump,
+  surface = 'list',
+  lensActive,
+}: Props) => {
   /**
    * The destinations live behind one trigger. On the board only the buckets with no lane
    * survive the filter (one or two), but the list shows every bucket and seven is a real
@@ -173,7 +234,10 @@ export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Prop
    * `hidden` is exactly what a reader should expect, and the menu labels them as filters.
    * The trigger's count is the destinations only; the subset is not somewhere to go.
    */
-  const subsets = present.filter((reason) => reason.key === 'other');
+  const subsets = present
+    .filter((reason) => reason.key === 'other')
+    // See `lensActive`: with nothing to clear, the row keeps its count and loses its button.
+    .map((reason) => (lensActive ? reason : { ...reason, filters: undefined }));
   const destinations = present.filter((reason) => reason.key !== 'other');
   const hasMenu = destinations.length > 0 || subsets.length > 0;
 
@@ -305,18 +369,46 @@ export const ListScopeNotice = ({ scope, shown, onJump, surface = 'list' }: Prop
                   </div>
                 )
               )}
-              {subsets.map((reason) => (
-                <div
-                  key={reason.key}
-                  role="presentation"
-                  className="flex items-center gap-2 px-2 py-1.5 mt-1 border-t border-border text-[12.5px] text-muted-foreground"
-                >
-                  <span className="truncate">{reason.label}</span>
-                  <span className="ml-auto font-semibold tabular-nums">
-                    {reason.count.toLocaleString()}
-                  </span>
-                </div>
-              ))}
+              {/**
+               * The subset row stays SEPARATE and below the border — it is not a bucket
+               * total and must not read as one — but it is no longer inert. Its filters
+               * clear the lens, which is the one destination guaranteed to contain these
+               * rows, so the row says `clear the view` instead of naming a lens it does
+               * not have. A dead number under "Show instead" was the original complaint.
+               */}
+              {subsets.map((reason) =>
+                reason.filters ? (
+                  <button
+                    key={reason.key}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setOpen(false);
+                      onJump(reason.filters as Partial<FilterState>, reason.needsListView);
+                    }}
+                    className="flex items-center gap-2 w-full px-2 py-1.5 mt-1 border-t border-border text-[12.5px] text-left text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:bg-accent"
+                  >
+                    <span className="truncate">{reason.label}</span>
+                    <span className="shrink-0 text-[11px] text-muted-foreground/70">
+                      clear the view
+                    </span>
+                    <span className="ml-auto font-semibold tabular-nums">
+                      {reason.count.toLocaleString()}
+                    </span>
+                  </button>
+                ) : (
+                  <div
+                    key={reason.key}
+                    role="presentation"
+                    className="flex items-center gap-2 px-2 py-1.5 mt-1 border-t border-border text-[12.5px] text-muted-foreground"
+                  >
+                    <span className="truncate">{reason.label}</span>
+                    <span className="ml-auto font-semibold tabular-nums">
+                      {reason.count.toLocaleString()}
+                    </span>
+                  </div>
+                )
+              )}
               {destinations.length > 0 && (
                 <div className="px-2 pt-1.5 pb-1 mt-0.5 border-t border-border text-[11.5px] leading-snug text-muted-foreground/80">
                   Each one sets a lens and lands in the filter bar as a token you can remove.

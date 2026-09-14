@@ -8,6 +8,7 @@ import {
   HelpCircle,
   Ban,
   Archive,
+  FileQuestion,
 } from 'lucide-react';
 
 // Two orthogonal axes (see .planning/status-model-rework-2026-07-09.md):
@@ -141,6 +142,47 @@ export const COLUMNS: KanbanColumnDef[] = [
     iconClass: 'text-red-500',
     emptyText: 'No spam messages',
   },
+  {
+    /**
+     * The lane for everything the other nine refuse — so the board hides nothing.
+     *
+     * ⛔ Its filter is a COMPLEMENT (`queue=no_lane` → `NOT (union of the nine)`), never a
+     * list of classifications. Every attempt to enumerate these rows has gone stale within
+     * weeks, because they have no shared property: they are defined by the other predicates
+     * declining them. Two classes are known and they arrived a month apart — own sent mail
+     * with no inbound parent, and KB-sourced mail in the `filtered` state, which all four
+     * triage lanes refuse via `notKb`.
+     *
+     * Before this column the board COUNTED them and offered no way to open them: 114 rows
+     * on CoreSarms, of which 111 were claimed by a "1,322 from the knowledge base" chip
+     * whose own lens returned zero. Measured on the client deploy 2026-09-14.
+     *
+     * ⚠️ It can be large and it is mostly not work: 1,267 outbound echoes on one production
+     * workspace. That is the argued trade, made deliberately: a noisy lane beats a
+     * conversation the product knows about and will not show. It is VISIBLE by default —
+     * a lane nobody opens hides the rows again by another route.
+     *
+     * ⛔ Not draggable and not a drop target. These rows have no classification to move
+     * between; the action is to open one and let it acquire a real state.
+     *
+     * ⛔ `view`, NOT `queue`, and the two are not interchangeable here. The board merges
+     * `{...sharedFilters, ...fixedFilters}`, and the department picker's "Needs routing"
+     * sentinel puts `queue=needs_routing` into the SHARED half (`kanbanSharedFilters.ts`).
+     * A `queue` spelling here would overwrite it and leave this column showing every
+     * lane-less row in the org while the other nine narrowed — a filter that visibly does
+     * nothing on one column, which is the defect that file's comment was written to fix.
+     * On `view` it composes, exactly as Archived / Not Analysed / Spam do. The backend
+     * accepts both spellings and compiles them to one predicate.
+     */
+    id: 'no_lane',
+    axis: 'triage',
+    label: 'Other',
+    icon: FileQuestion,
+    fixedFilters: { view: 'no_lane' },
+    accentColor: '#94a3b8',
+    iconClass: 'text-slate-400',
+    emptyText: 'Every conversation has a lane',
+  },
 ];
 
 // Badge shown on a kanban card = its COLUMN's lifecycle state, not the raw DB
@@ -160,6 +202,11 @@ export const LIFECYCLE_COLUMN_BADGE: Record<string, { label: string; className: 
 // Triage/queue columns where the shared org-wide read/unread indicator applies. The
 // lifecycle columns (open…resolved) already convey "handled" via workflow status,
 // so read/unread is only meaningful for these review piles.
+// ⛔ `no_lane` is absent DELIBERATELY, not by oversight. The read/unread indicator marks a
+// pile an agent is working through, and this set must agree with `countsTowardTriageBadge`
+// in `MessagesKanbanView`: a column withheld from the unread BADGE while its cards advertise
+// unread state tells the agent two different things about the same rows. The Other lane is
+// coverage, not a queue — mostly our own outbound echoes — so both say the same thing here.
 export const TRIAGE_READ_COLUMN_IDS = new Set(['suspicious', 'not_analysed', 'archived', 'spam']);
 
 // Special drop target on the Triage tab: approve a triaged message → it leaves triage
