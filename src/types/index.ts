@@ -80,6 +80,16 @@ export type User = {
   // read-only for them (D2-01).
   scimManaged?: boolean;
   /**
+   * The directory's relationship with this membership is LIVE — a SCIM external id, an
+   * alliance-managed row, or membership of a synced group.
+   *
+   * `scimManaged` also counts `auth_provider='scim'`, which never clears, so it stays true
+   * for any account SCIM ever created. Guards need that breadth; the BADGE does not — three
+   * accounts once read "IdP-managed" while the IdP had no current relationship with them at
+   * all. Absent on older backends, so `undefined` must not be read as false.
+   */
+  idpLinkActive?: boolean;
+  /**
    * Does this account have a password anyone can sign in with? False for a
    * SCIM-provisioned account, which is inserted with a non-matching sentinel and can
    * therefore only reach the app through SSO. Settings uses it to offer "Set a
