@@ -62,6 +62,15 @@ export const QUEUE_FILTERS = [
   'spam',
   'needs_routing',
   'outbound_echo',
+  /**
+   * Everything the board's nine classification lanes refuse — the complement, server-side.
+   *
+   * ⛔ Present in the LIST vocabulary on purpose, not just as the board column's twin. The
+   * board gained a lane for these rows; thread view had nothing, and the report that started
+   * this said "thread view → same". A row reachable on one surface and invisible on the
+   * other is the same defect one click smaller.
+   */
+  'no_lane',
 ] as const;
 
 export type QueueFilter = (typeof QUEUE_FILTERS)[number];

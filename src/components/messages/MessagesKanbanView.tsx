@@ -321,6 +321,23 @@ const ARRIVAL_KIND_BY_COL: Record<string, 'suspicious_arrival' | 'spam_arrival'>
 };
 
 const HIDEABLE_COLS = new Set(['on_hold', 'resolved', 'suspicious']);
+
+/**
+ * Which triage columns COUNT toward the tab's badges — and why `no_lane` does not.
+ *
+ * ⛔ ONE definition, used by both the total badge and the unread badge. They were written
+ * separately and the first draft of the Other column excluded it from one and not the
+ * other, which is the same fix-the-file-not-the-class miss this repo keeps paying for.
+ *
+ * The badges mean "pending triage work" — a number an agent is meant to act on. The Other
+ * lane is a coverage guarantee, not a queue: it holds whatever the other nine refuse, which
+ * on one production workspace is 1,267 outbound echoes of our own sent mail. Summing those
+ * would read as 1,267 items needing triage and bury the 30 that do.
+ *
+ * ⚠️ This withholds a CLAIM, never the rows: the column renders them, open by default.
+ */
+const countsTowardTriageBadge = (col: { id: string; axis: string }): boolean =>
+  col.axis === 'triage' && col.id !== 'no_lane';
 const HIDDEN_COLS_KEY = 'kanban_hidden_cols';
 
 const loadHiddenCols = (): Set<string> => {
@@ -472,7 +489,9 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
   // not when a thread is read.
   const loadTriageUnread = useCallback(() => {
     let cancelled = false;
-    const triageCols = COLUMNS.filter((col) => col.axis === 'triage');
+    // Same rule as the total badge — see `countsTowardTriageBadge`. Excluding it from one
+    // badge and not the other is how "1,267 unread" would have appeared beside a total of 30.
+    const triageCols = COLUMNS.filter(countsTowardTriageBadge);
     void (async () => {
       try {
         const totals = await Promise.all(
@@ -517,6 +536,18 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
    * ⚠️ Costs one aggregate over the org per filter change — the same query the list view
    * pays for, and the reason `useMessagesData` withholds `scope=1` from the board. It is
    * requested with `limit=1` so only the count comes back, never rows.
+   */
+  /**
+   * ⚠️ SINCE THE TENTH COLUMN, THIS IS A TRIPWIRE — not a caption anyone should see.
+   *
+   * `view=board` covers every conversation now, so `scope.hidden` is 0 by construction and
+   * `ListScopeNotice` renders nothing. Keeping the query is deliberate: the day a lane
+   * narrows again — a predicate gains a clause, a column's filter drifts from the server's
+   * — `hidden` goes positive and the sentence reappears above the board, naming the count.
+   * That is the failure mode this whole feature exists for, and it stayed invisible for a
+   * month the last two times precisely because nothing was watching.
+   *
+   * The cost is one aggregate per filter change, which was already being paid.
    */
   const [boardScope, setBoardScope] = useState<{ scope: ListScope; shown: number } | null>(null);
 
@@ -792,8 +823,27 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
     [queryClient]
   );
 
+  /**
+   * ⛔ FEATURE-GATED, for the same reason the board notice is — see `loadBoardScope`.
+   *
+   * The Other column asks for `view=no_lane`. A backend that predates it does not reject
+   * that view, it DROPS it (`requestedView` returns undefined server-side) and answers with
+   * the default browse lens, so the column would fill with ordinary open threads under the
+   * heading "Other" — on every workspace, plausibly enough to survive a screenshot. The
+   * frontend deploys on merge and the backend ships on a tag, so that skew is routine here,
+   * not hypothetical.
+   *
+   * `scope.boardCoversAll` is the backend saying the column exists. Absent (old backend, a
+   * failed scope request, or the notice's own feature-detect rejecting the shape) hides the
+   * column. Hiding it is the safe direction: the rows are then exactly as reachable as they
+   * were before this change, whereas showing it would be a new and confident lie.
+   */
+  const boardCoversAll = boardScope?.scope.boardCoversAll === true;
   const visibleColumns = COLUMNS.filter(
-    (col) => col.axis === activeTab && !hiddenCols.has(col.id)
+    (col) =>
+      col.axis === activeTab &&
+      !hiddenCols.has(col.id) &&
+      (col.id !== 'no_lane' || boardCoversAll)
   );
 
   /**
@@ -819,7 +869,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
   // page is loaded (PAGE_SIZE), so counting `isRead === false` there would silently
   // undercount any queue deeper than one page and look plausible while being wrong.
   // It has to be a server-side count; see loadTriageUnread.
-  const triageCount = COLUMNS.filter((col) => col.axis === 'triage').reduce(
+  const triageCount = COLUMNS.filter(countsTowardTriageBadge).reduce(
     (sum, col) => sum + (colStates[col.id]?.total ?? 0),
     0
   );

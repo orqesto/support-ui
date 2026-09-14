@@ -115,10 +115,16 @@ const QUEUE: FilterOption[] = [
   { value: 'archived', label: 'Archived' },
   { value: 'suspicious', label: 'Suspicious' },
   { value: 'spam', label: 'Spam' },
-  // Our own sent mail ingestion could not pair with an inbound parent. Offered here
-  // because it is the only way to reach those rows: no kanban column matches them, and
-  // every other queue excludes them by name. See `ListScopeNotice`.
+  // Our own sent mail ingestion could not pair with an inbound parent.
+  //
+  // ⚠️ It is no longer "the only way to reach those rows" — the board's Other column shows
+  // them, and `no_lane` below is the broader lens that contains them. Kept because it is the
+  // NARROWER, named one: "outbound echo" says what a row is, where "other" only says what it
+  // is not.
   { value: 'outbound_echo', label: 'Outbound Echo' },
+  // The complement of the board's nine classification lanes. Offered here so thread view can
+  // reach what the board's tenth column shows — the two surfaces were reported together.
+  { value: 'no_lane', label: 'Other' },
 ];
 
 const READ: FilterOption[] = [
