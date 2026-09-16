@@ -201,7 +201,7 @@ describe('no handler hides what the backend said', () => {
     /\b(?:toast\.error|toast\.warning|setError|setErrorMessage|setFormError|setStatusMessage|showError|setSubmitError|setApiError)\s*\(/;
   /** Ways a handler can put the backend's own words on screen. */
   const READS_THE_ERROR =
-    /getApiErrorMessage\(|formatError\(|messageOf\(|describeError\(|instanceof Error|\.message\b/;
+    /getApiErrorMessage\(|apiErrorMessage\(|formatError\(|messageOf\(|describeError\(|instanceof Error|\.message\b/;
 
   /** Index of the character closing the group that opens at `start`. */
   const closes = (src: string, start: number, open: string, close: string): number => {

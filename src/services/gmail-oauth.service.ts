@@ -27,6 +27,8 @@ export type GmailOAuthCallbackRequest = {
   bulkImportDays?: number;
   bulkImportMaxResults?: number;
   isKnowledgeBase?: boolean;
+  /** Save a NEW source disabled so its message count can be checked before it syncs. */
+  startPaused?: boolean;
 };
 
 export type ApiResponse<T> = {
@@ -43,6 +45,7 @@ export interface ConnectWithPopupConfig {
   bulkImportDays?: number;
   bulkImportMaxResults?: number;
   isKnowledgeBase?: boolean;
+  startPaused?: boolean;
 }
 
 export const gmailOAuthService = {
@@ -99,6 +102,7 @@ export const gmailOAuthService = {
         bulkImportDays,
         bulkImportMaxResults,
         isKnowledgeBase,
+        startPaused,
       } = config;
       // Open the popup synchronously while the user gesture is still active —
       // browsers block window.open() if it runs after awaits, even with valid intent.
@@ -209,6 +213,7 @@ export const gmailOAuthService = {
                   bulkImportDays,
                   bulkImportMaxResults,
                   isKnowledgeBase,
+                  startPaused,
                 })
                 .then((callbackResponse) => {
                   safeResolve(callbackResponse);
@@ -254,6 +259,7 @@ export const gmailOAuthService = {
                 bulkImportDays,
                 bulkImportMaxResults,
                 isKnowledgeBase,
+                startPaused,
               })
               .then((callbackResponse) => {
                 safeResolve(callbackResponse);
@@ -383,6 +389,7 @@ export const gmailOAuthService = {
       bulkImportDays: cfg.bulkImportDays,
       bulkImportMaxResults: cfg.bulkImportMaxResults,
       isKnowledgeBase: cfg.isKnowledgeBase,
+      startPaused: cfg.startPaused,
     });
   },
 };

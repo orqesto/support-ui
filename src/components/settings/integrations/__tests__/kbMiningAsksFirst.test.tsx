@@ -34,7 +34,10 @@ describe('SourceKbToggle — switching ON asks first', () => {
     expect(onChange).not.toHaveBeenCalled();
     expect(screen.getByText(KB_MINING_CONFIRM_DESCRIPTION)).toBeInTheDocument();
     // Says what will be mined and that it is billed.
-    expect(KB_MINING_CONFIRM_DESCRIPTION).toMatch(/every past conversation in this mailbox/i);
+    // Names the range as the bound — "every past conversation" was untrue once the sweep
+    // honoured the import range (2026-09-16).
+    expect(KB_MINING_CONFIRM_DESCRIPTION).toMatch(/within its import range/i);
+    expect(KB_MINING_CONFIRM_DESCRIPTION).not.toMatch(/every past conversation in this mailbox/i);
     expect(KB_MINING_CONFIRM_DESCRIPTION).toMatch(/billed/i);
   });
 

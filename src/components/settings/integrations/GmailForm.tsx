@@ -14,14 +14,14 @@ type GmailConfig = {
   bulkImportDays: number;
 };
 
-const searchQueryOptions = [
+export const searchQueryOptions = [
   { value: '', label: 'Everything (all folders)' },
   { value: 'is:unread in:inbox', label: 'Unread inbox (ongoing polling)' },
   { value: 'in:inbox OR in:sent', label: 'Inbox + Sent (full conversations)' },
   { value: 'in:inbox', label: 'All inbox messages' },
 ];
 
-const historicalRangeOptions = [
+export const historicalRangeOptions = [
   { value: '0', label: 'All Time' },
   { value: '7', label: 'Last 7 Days' },
   { value: '30', label: 'Last 30 Days' },
@@ -96,8 +96,8 @@ export const GmailForm = ({
             options={searchQueryOptions}
           />
           <p className="mt-1 text-xs text-muted-foreground">
-            Applied during ongoing polling. Initial sync always fetches full inbox + sent to
-            reconstruct conversation history.
+            Applied to every sync, including the first. An inbox-only filter also takes Sent on
+            the first sync (and for a Knowledge Base source) so earlier replies are threaded.
           </p>
         </div>
 
@@ -109,8 +109,8 @@ export const GmailForm = ({
             options={historicalRangeOptions}
           />
           <p className="mt-1 text-xs text-muted-foreground">
-            How far back to fetch on first connect. After that, polling continues from the last
-            checkpoint.
+            How far back the first sync fetches — for a Knowledge Base source too. After signing
+            in you can check the message count before anything is imported.
           </p>
         </div>
 

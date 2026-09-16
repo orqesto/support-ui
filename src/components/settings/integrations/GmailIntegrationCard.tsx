@@ -6,13 +6,15 @@ import {
   Trash2,
   TestTube2,
   Calendar,
-  Save,
   Building2,
   MessageSquareReply,
   AtSign,
+  Hash,
 } from 'lucide-react';
 import { AckReplyEditor } from '@/components/settings/integrations/AckReplyEditor';
+import { GmailRowCount } from '@/components/settings/integrations/GmailCountReview';
 import { GmailForm } from '@/components/settings/integrations/GmailForm';
+import { GmailSyncRangeDialog } from '@/components/settings/integrations/GmailSyncRangeDialog';
 import {
   SourceAliasEditor,
   declaredAliases,
@@ -25,7 +27,6 @@ import type { IntegrationCardProps } from '@/components/settings/integrations/ty
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
-import { ReactSelect } from '@/components/ui/ReactSelect';
 import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
 import { detectBrowser, getPopupUnblockInstructions } from '@/lib/browserDetect';
 import { logger } from '@/lib/logger';
@@ -73,11 +74,12 @@ export const GmailIntegrationCard = ({
     name: string;
     currentDays: number;
   } | null>(null);
-  const [bulkImportDaysInput, setBulkImportDaysInput] = useState<string>('7');
   const [showMenu, setShowMenu] = useState<number | null>(null);
   const [editDepts, setEditDepts] = useState<number | null>(null);
   const [editAliases, setEditAliases] = useState<number | null>(null);
   const [editAckReply, setEditAckReply] = useState<number | null>(null);
+  // The source whose message count is open — a just-connected PAUSED source lands here.
+  const [reviewId, setReviewId] = useState<number | null>(null);
   const [config, setConfig] = useState<GmailConfig>(defaultConfig);
   const [popupBlocked, setPopupBlocked] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
@@ -97,39 +99,6 @@ export const GmailIntegrationCard = ({
       integ.type === 'gmail' &&
       (defaultKB === undefined || (integ.isKnowledgeBase ?? false) === defaultKB)
   );
-
-  const handleUpdateBulkImportDays = async () => {
-    if (!editBulkImport) return;
-
-    setSaving(true);
-    try {
-      const days = parseInt(bulkImportDaysInput) || 0;
-
-      await integrationsService.update(editBulkImport.id, {
-        config: { gmail: { bulkImportDays: days } },
-      });
-
-      await onRefresh();
-      setEditBulkImport(null);
-
-      onShowAlert({
-        open: true,
-        title: 'Success',
-        description: `Bulk import days updated to ${days === 0 ? 'All time' : `${days} days`}`,
-        variant: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to update initial sync range:', error);
-      onShowAlert({
-        open: true,
-        title: 'Update Failed',
-        description: error instanceof Error ? error.message : 'Failed to update initial sync range',
-        variant: 'error',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const resetForm = () => {
     setConfig({ ...defaultConfig, isKnowledgeBase: !!defaultKB });
@@ -164,11 +133,14 @@ export const GmailIntegrationCard = ({
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     resetForm();
+    // A new source is saved PAUSED (`startPaused`): open its count so nothing is imported
+    // before someone has seen how much will be. A re-auth of a live source opens it too, as a count.
+    if (newIntegrationId) setReviewId(newIntegrationId);
 
     onShowAlert({
       open: true,
       title: 'Success',
-      description: `Gmail account connected successfully!\n\n${data.email ?? 'Account'} has been added.`,
+      description: `Gmail account connected!\n\n${data.email ?? 'Account'} has been added. Check the message count, then start the sync.`,
       variant: 'success',
     });
   };
@@ -183,6 +155,7 @@ export const GmailIntegrationCard = ({
         pollingMaxPages: config.pollingMaxPages,
         bulkImportDays: config.bulkImportDays,
         isKnowledgeBase: config.isKnowledgeBase,
+        startPaused: true,
       });
 
       if (abortRef.current) return;
@@ -224,6 +197,7 @@ export const GmailIntegrationCard = ({
       pollingMaxPages: config.pollingMaxPages,
       bulkImportDays: config.bulkImportDays,
       isKnowledgeBase: config.isKnowledgeBase,
+      startPaused: true,
     });
     setRedirecting(false);
     if (response.success && response.data?.authUrl) {
@@ -446,7 +420,12 @@ export const GmailIntegrationCard = ({
                                 <SourceMenuItem
                                   icon={Calendar}
                                   label="Initial Sync Range"
-                                  onClick={() => { const gmailConfig = ( integration.config as { gmail?: { bulkImportDays?: number } } ).gmail; const bulkDays = gmailConfig?.bulkImportDays ?? 0; setEditBulkImport({ id: integration.id, name: integration.name, currentDays: bulkDays, }); setBulkImportDaysInput(bulkDays.toString()); setShowMenu(null); }}
+                                  onClick={() => { const gmailConfig = ( integration.config as { gmail?: { bulkImportDays?: number } } ).gmail; const bulkDays = gmailConfig?.bulkImportDays ?? 0; setEditBulkImport({ id: integration.id, name: integration.name, currentDays: bulkDays, }); setShowMenu(null); }}
+                                />
+                                <SourceMenuItem
+                                  icon={Hash}
+                                  label="Check Message Count"
+                                  onClick={() => { setReviewId(integration.id); setShowMenu(null); }}
                                 />
                                 <SourceMenuItem
                                   icon={TestTube2}
@@ -489,6 +468,14 @@ export const GmailIntegrationCard = ({
                       </div>
                     </div>
                   </div>
+                  <GmailRowCount
+                    integration={integration}
+                    open={reviewId === integration.id}
+                    onOpen={() => setReviewId(integration.id)}
+                    onClose={() => setReviewId(null)}
+                    onRefresh={onRefresh}
+                    onShowAlert={onShowAlert}
+                  />
                   <SourceKbStrip source={integration} onShowAlert={onShowAlert} />
                   {editAliases === integration.id && (
                     <SourceAliasEditor
@@ -615,43 +602,12 @@ export const GmailIntegrationCard = ({
 
           {/* Initial Sync Range Edit Modal */}
           {editBulkImport && (
-            <div className="flex fixed inset-0 z-50 justify-center items-center bg-black/50">
-              <div className="p-6 w-full max-w-md rounded-lg border shadow-lg bg-card">
-                <h3 className="mb-4 text-lg font-semibold">Change Initial Sync Range</h3>
-                <p className="mb-4 text-sm text-muted-foreground">{editBulkImport.name}</p>
-                <div className="space-y-4">
-                  <div>
-                    <ReactSelect
-                      label="Historical Import Range"
-                      value={bulkImportDaysInput}
-                      onChange={(value) => setBulkImportDaysInput(value)}
-                      options={[
-                        { value: '0', label: 'All Time' },
-                        { value: '1', label: 'Last 1 Day' },
-                        { value: '7', label: 'Last 7 Days' },
-                        { value: '30', label: 'Last 30 Days' },
-                        { value: '90', label: 'Last 90 Days' },
-                        { value: '180', label: 'Last 6 Months' },
-                        { value: '365', label: 'Last Year' },
-                      ]}
-                    />
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      How far back to fetch emails on first connect. Set to &quot;All Time&quot; to
-                      fetch everything (may take a while).
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2 shrink-0">
-                    <Button onClick={handleUpdateBulkImportDays} isLoading={saving}>
-                      <Save className="mr-2 w-4 h-4" />
-                      Update
-                    </Button>
-                    <Button variant="outline" onClick={() => setEditBulkImport(null)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <GmailSyncRangeDialog
+              source={editBulkImport}
+              onClose={() => setEditBulkImport(null)}
+              onRefresh={onRefresh}
+              onShowAlert={onShowAlert}
+            />
           )}
         </CardContent>
       </Card>
