@@ -578,6 +578,22 @@ export const integrationsService = {
     return { success: response.data.success, data: response.data };
   },
 
+  /**
+   * "Check Messages Count" for a Gmail source — the messages its FIRST sync will import, counted
+   * with the same query the sync issues. Works on a paused source; the overrides recount a
+   * changed setting without saving it. `capped` means AT LEAST `count` (counting stopped).
+   */
+  countGmailMessages: async (
+    id: number,
+    overrides: { searchQuery?: string; bulkImportDays?: number; isKnowledgeBase?: boolean } = {}
+  ): Promise<{ count: number; capped: boolean; query: string }> => {
+    const response = await apiClient.post<{
+      success: boolean;
+      data: { count: number; capped: boolean; query: string };
+    }>(`/api/integrations/${id}/gmail-count`, overrides);
+    return response.data.data;
+  },
+
   upsert: async (data: {
     name: string;
     type: string;

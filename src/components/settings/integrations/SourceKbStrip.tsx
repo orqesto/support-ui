@@ -115,7 +115,7 @@ export const SourceKbStrip = ({
         onOpenChange={setConfirmOpen}
         onConfirm={() => void handleRemine()}
         title="Re-mine this mailbox's history?"
-        description={`All conversations in this mailbox${cutoffLabel ? ` received before ${cutoffLabel}` : ''} will be sent to your AI provider again to extract Q&A pairs. That is billed AI usage, and there is no count or estimate available before it starts.`}
+        description={`All conversations already imported from this mailbox${cutoffLabel ? ` and received before ${cutoffLabel}` : ''} will be sent to your AI provider again to extract Q&A pairs. That is billed AI usage, and there is no count or estimate available before it starts.`}
         confirmText="Re-mine"
         variant="warning"
       />

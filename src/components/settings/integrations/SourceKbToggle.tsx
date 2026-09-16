@@ -18,9 +18,9 @@ import { Toggle } from '@/components/ui/Toggle';
  * they previously disagreed — Email had a raw checkbox, Gmail had prose pointing at
  * the deleted "Knowledge Base Sources" section and no control at all.
  *
- * Switching it ON asks first. Mining sends every past conversation in the mailbox to the
- * AI provider — paid work, started by the save that follows, with no count or estimate
- * available up front (no endpoint reports how many conversations a source holds). A
+ * Switching it ON asks first. Mining sends every conversation imported within the source's
+ * import range to the AI provider — paid work, started by the save that follows. The range
+ * bounds it: since 2026-09-16 the KB history sweep honours it (before, it fetched all time). A
  * one-click toggle that quietly commits to that is how a budget gets spent by accident;
  * switching OFF costs nothing and passes straight through.
  */
@@ -31,7 +31,7 @@ type SourceKbToggleProps = {
 };
 
 export const KB_MINING_CONFIRM_DESCRIPTION =
-  'Every past conversation in this mailbox will be sent to your AI provider to extract Q&A pairs once you save. That is billed AI usage, and there is no count or estimate available before it starts. Turn it on only if you want the whole history mined.';
+  'Every conversation imported from this mailbox within its import range (Historical Import Range for Gmail, Time Range for IMAP) will be sent to your AI provider to extract Q&A pairs. That is billed AI usage — the range decides how much history is mined, and "All Time" mines all of it.';
 
 export const SourceKbToggle = ({ checked, onChange, disabled }: SourceKbToggleProps) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
