@@ -3,6 +3,7 @@ import { Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs } from '@/components/ui/Tabs';
 import { usePermissions } from '@/hooks/usePermissions';
+import { Permission } from '@/types/roles';
 import { DetectionRulesSettings } from './DetectionRulesSettings';
 import { KnowledgeDetectionRulesSettings } from './KnowledgeDetectionRulesSettings';
 import { PriorityRulesSettings } from './PriorityRulesSettings';
@@ -23,15 +24,15 @@ type RulesSettingsProps = {
 
 export const RulesSettings = ({ section }: RulesSettingsProps = {}) => {
   const navigate = useNavigate();
-  const { canManageOrganization } = usePermissions();
+  const { hasPermission } = usePermissions();
 
-  // Routing rules are gated to MANAGE_ORGANIZATION on the BE (every /api/routing-rules
-  // route). Moderators reach this page via VIEW_ORGANIZATION_SETTINGS but can't save
-  // routing changes, so hide the sub-tab for them instead of showing a dead-end UI.
-  const canManageRouting = canManageOrganization;
+  // Routing and priority rules are gated to MANAGE_ROUTING_RULES on the BE (every
+  // /api/routing-rules and /api/priority-rules route) — workspace admins AND moderators since
+  // 2026-09-17 (it was MANAGE_ORGANIZATION, which hid both tabs from moderators). A role
+  // without it still gets the tabs hidden rather than a dead-end UI.
+  const canManageRouting = hasPermission(Permission.MANAGE_ROUTING_RULES);
 
-  // Priority rules are gated to MANAGE_ORGANIZATION on the BE exactly like routing,
-  // so they hide and fall back together.
+  // Both families share the gate, so they hide and fall back together.
   const isManageOnly = (type: RuleType) => type === 'routing' || type === 'priority';
 
   const requested = section && isRuleType(section) ? section : 'spam';

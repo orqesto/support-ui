@@ -64,6 +64,7 @@ const GROUPS: { label: string; permissions: Permission[] }[] = [
       Permission.VIEW_AI_SETTINGS,
       Permission.MANAGE_AI_PROMPTS,
       Permission.MANAGE_SPAM_RULES,
+      Permission.MANAGE_ROUTING_RULES,
     ],
   },
   {

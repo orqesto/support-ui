@@ -43,6 +43,8 @@ export const Permission = {
   // AI & Automation
   MANAGE_AI_PROMPTS: 'manage_ai_prompts',
   MANAGE_SPAM_RULES: 'manage_spam_rules',
+  // Routing + priority rules. Mirrors the backend's split from MANAGE_ORGANIZATION (2026-09-17).
+  MANAGE_ROUTING_RULES: 'manage_routing_rules',
   VIEW_AI_SETTINGS: 'view_ai_settings',
 
   // Ticket Management
@@ -114,6 +116,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.VIEW_LABELS,
     Permission.MANAGE_AI_PROMPTS,
     Permission.MANAGE_SPAM_RULES,
+    Permission.MANAGE_ROUTING_RULES,
     Permission.VIEW_AI_SETTINGS,
     Permission.MANAGE_TICKETS,
     Permission.VIEW_TICKETS,
@@ -151,6 +154,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.VIEW_LABELS,
     Permission.MANAGE_AI_PROMPTS,
     Permission.MANAGE_SPAM_RULES,
+    Permission.MANAGE_ROUTING_RULES,
     Permission.VIEW_AI_SETTINGS,
     Permission.MANAGE_TICKETS,
     Permission.VIEW_TICKETS,
