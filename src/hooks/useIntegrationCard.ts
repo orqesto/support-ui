@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '@/lib/apiError';
 import { useState, useCallback } from 'react';
 import { integrationsService } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
@@ -144,10 +145,13 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
         }
       } catch (error) {
         logger.error(`Failed to save ${integrationDisplayName}:`, error);
+        // The server's own reason, not a generic line: since 2026-09-17 a Confluence source that
+        // cannot authenticate is refused with Atlassian's answer ("auth failed 401 — check the email
+        // and API token"), and "Failed to save Confluence" would hide exactly that.
         onShowAlert({
           open: true,
           title: 'Error',
-          description: `Failed to save ${integrationDisplayName}`,
+          description: apiErrorMessage(error, `Failed to save ${integrationDisplayName}`),
           variant: 'error',
         });
       } finally {

@@ -19,11 +19,15 @@ export const timeAgo = (iso: string): string => {
 };
 
 // Last-sync summary line shown under each saved space.
+//
+// `selectedCount` (folders + pages picked): a sync with nothing selected fetches nothing, and
+// "Synced 0 pages" in green read as "working, just empty" — say what is actually missing.
 export const syncMeta = (
   integ: Pick<
     BaseIntegration,
     'lastSyncStatus' | 'lastSyncedAt' | 'lastSyncedPageCount' | 'lastSyncError'
-  >
+  >,
+  selectedCount?: number
 ): { text: string; cls: string } => {
   if (integ.lastSyncStatus === 'syncing') return { text: 'Syncing…', cls: 'text-blue-600' };
   if (integ.lastSyncStatus === 'failed') {
@@ -32,8 +36,29 @@ export const syncMeta = (
   }
   if (integ.lastSyncStatus === 'success') {
     const count = integ.lastSyncedPageCount ?? 0;
+    if (count === 0 && selectedCount === 0) {
+      return {
+        text: 'Connected — nothing selected yet. Choose folders or pages to sync.',
+        cls: 'text-amber-600',
+      };
+    }
     const when = integ.lastSyncedAt ? ` · ${timeAgo(integ.lastSyncedAt)}` : '';
     return { text: `Synced ${count} page${count === 1 ? '' : 's'}${when}`, cls: 'text-green-600' };
   }
   return { text: 'Not synced yet', cls: 'text-muted-foreground' };
+};
+
+/**
+ * The status dot. It used to be green whenever the source was ENABLED, so a source whose token
+ * Confluence rejected still showed green next to a small "Sync failed" line (2026-09-17). It now
+ * reports health: green only after a successful sync.
+ */
+export const syncDot = (
+  integ: Pick<BaseIntegration, 'enabled' | 'lastSyncStatus'>
+): { cls: string; label: string } => {
+  if (!integ.enabled) return { cls: 'bg-gray-400', label: 'Paused' };
+  if (integ.lastSyncStatus === 'failed') return { cls: 'bg-red-500', label: 'Sync failed' };
+  if (integ.lastSyncStatus === 'syncing') return { cls: 'bg-blue-500', label: 'Syncing' };
+  if (integ.lastSyncStatus === 'success') return { cls: 'bg-green-500', label: 'Synced' };
+  return { cls: 'bg-amber-400', label: 'Not synced yet' };
 };

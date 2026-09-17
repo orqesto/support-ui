@@ -1,7 +1,11 @@
 import { BookOpen, Plus, Power, RefreshCw, Save, TestTube2, Trash2, Edit } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ConfluenceDepartmentScope } from '@/components/settings/integrations/ConfluenceDepartmentScope';
-import { parseSpaceKeys, syncMeta } from '@/components/settings/integrations/confluenceCardHelpers';
+import {
+  parseSpaceKeys,
+  syncDot,
+  syncMeta,
+} from '@/components/settings/integrations/confluenceCardHelpers';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Alert } from '@/components/ui/Alert';
 import { PasswordInput } from '@/components/ui/PasswordInput';
@@ -249,7 +253,10 @@ export const ConfluenceIntegrationCard = ({
                   >
                     <div className="flex flex-1 gap-3 items-center min-w-0">
                       <div
-                        className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                        className={`w-2 h-2 rounded-full shrink-0 ${syncDot(integration).cls}`}
+                        title={syncDot(integration).label}
+                        role="img"
+                        aria-label={syncDot(integration).label}
                       />
                       <div className="min-w-0">
                         <p className="font-medium break-words">
@@ -259,7 +266,10 @@ export const ConfluenceIntegrationCard = ({
                           {cfg.baseUrl ?? 'Not configured'}
                         </p>
                         {(() => {
-                          const meta = syncMeta(integration);
+                          const meta = syncMeta(
+                            integration,
+                            (cfg.selectedFolderIds?.length ?? 0) + (cfg.selectedPageIds?.length ?? 0)
+                          );
                           return <p className={`text-xs mt-0.5 ${meta.cls}`}>{meta.text}</p>;
                         })()}
                       </div>
