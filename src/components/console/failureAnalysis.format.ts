@@ -1,4 +1,4 @@
-import type { QueueFailureGroup } from '@/services/platform.service';
+import type { MemoryLimitSource, QueueFailureGroup } from '@/services/platform.service';
 
 /** Epoch millis → local date-time, or a dash when the queue kept no timestamp. */
 export const formatFailedAt = (millis: number | null): string => {
@@ -24,12 +24,26 @@ export const describeGroupAction = (action: 'retry' | 'remove', group: QueueFail
   return `${verb} ${formatJobCount(group.jobs.length)} in ${queues}?`;
 };
 
-/** "1,020 of 3,584 MB (container limit)" — the absolute figures behind a memory percentage. */
+/**
+ * "1,020 of 3,584 MB (container limit)" — the absolute figures behind a memory percentage.
+ *
+ * `budget` (backend since 2026-09-16): no container limit applies and the app sized itself —
+ * max(2,048 MB, 85% of the host's free memory). Saying "host memory" there would be wrong: the
+ * total is not the host's RAM. An unknown value from a newer backend reads as the neutral
+ * "memory limit" rather than claiming either.
+ */
 export const formatMemoryFigures = (
-  memory: { used: number; total: number; limitSource: 'cgroup' | 'host' } | null | undefined
+  memory: { used: number; total: number; limitSource: MemoryLimitSource } | null | undefined
 ): string | null => {
   if (!memory) return null;
-  const source = memory.limitSource === 'cgroup' ? 'container limit' : 'host memory, no container limit';
+  const source =
+    memory.limitSource === 'cgroup'
+      ? 'container limit'
+      : memory.limitSource === 'budget'
+        ? 'automatic: 85% of free memory, at least 2,048 MB'
+        : memory.limitSource === 'host'
+          ? 'host memory, no container limit'
+          : 'memory limit';
   return `${memory.used.toLocaleString()} of ${memory.total.toLocaleString()} MB (${source})`;
 };
 
