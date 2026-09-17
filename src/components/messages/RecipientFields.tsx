@@ -61,6 +61,16 @@ export const invalidAddresses = (draft: RecipientDraft): string[] =>
     .flatMap(parseTypedAddresses)
     .filter((address) => !looksLikeAddress(address));
 
+/**
+ * What "To" reads before the agent types anything. Must match what the backend sends to: the
+ * customer's Reply-To (`defaultReplyTo`, detail responses) — falling back to the requester only
+ * when the field is absent, e.g. a message opened from a list row.
+ */
+export const replyToLabel = (message: { sender: string; defaultReplyTo?: string[] }): string =>
+  message.defaultReplyTo && message.defaultReplyTo.length > 0
+    ? message.defaultReplyTo.join(', ')
+    : message.sender;
+
 type RecipientFieldsProps = {
   draft: RecipientDraft;
   onChange: (draft: RecipientDraft) => void;
@@ -69,12 +79,7 @@ type RecipientFieldsProps = {
   disabled?: boolean;
 };
 
-export const RecipientFields = ({
-  draft,
-  onChange,
-  defaultTo,
-  disabled,
-}: RecipientFieldsProps) => {
+export const RecipientFields = ({ draft, onChange, defaultTo, disabled }: RecipientFieldsProps) => {
   const [expanded, setExpanded] = useState(false);
   const [showCc, setShowCc] = useState(false);
   const [showBcc, setShowBcc] = useState(false);
@@ -112,16 +117,8 @@ export const RecipientFields = ({
             summary has to say that Cc/Bcc are populated. Hiding the fields while still
             addressing people the agent can no longer see is the one outcome this must not
             have, and Bcc especially: nobody on the thread can reveal it for us. */}
-        {ccCount > 0 && (
-          <span className="text-foreground">
-            · cc {ccCount}
-          </span>
-        )}
-        {bccCount > 0 && (
-          <span className="text-foreground">
-            · bcc {bccCount}
-          </span>
-        )}
+        {ccCount > 0 && <span className="text-foreground">· cc {ccCount}</span>}
+        {bccCount > 0 && <span className="text-foreground">· bcc {bccCount}</span>}
         <Button
           type="button"
           variant="ghost"
