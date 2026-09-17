@@ -7,7 +7,7 @@ import RichTextEditor, { extractImageFiles } from '@/components/shared/RichTextE
 import { ComposerAiActions } from './ComposerAiActions';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { isBlankRichText } from '@/lib/stripHtml';
-import { RecipientFields, type RecipientDraft } from './RecipientFields';
+import { RecipientFields, replyToLabel, type RecipientDraft } from './RecipientFields';
 import type { AiDraft } from '@/services/message.service';
 import type { Message } from '@/types';
 import { MONO } from './messageDetailConstants';
@@ -171,7 +171,7 @@ export function MessageComposer({
           <RecipientFields
             draft={recipientDraft}
             onChange={onRecipientDraftChange}
-            defaultTo={message.sender}
+            defaultTo={replyToLabel(message)}
             disabled={submitting}
           />
         )}

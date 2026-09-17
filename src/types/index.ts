@@ -169,6 +169,11 @@ export type Message = {
    * means the rule does not apply, not that it is unknown.
    */
   whatsappWindow?: WhatsAppWindow | null;
+  /**
+   * Who a reply goes to when the agent types no recipient: the customer's Reply-To when they set
+   * one, else the requester. Email detail responses only — absent on list rows and other channels.
+   */
+  defaultReplyTo?: string[];
   // Which of our addresses this thread arrived at. Thread-level: the BE
   // denormalises it from the message that opened the conversation. Absent on
   // pre-existing mail and on channels with no addressing.
