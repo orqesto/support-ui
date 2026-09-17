@@ -10,6 +10,12 @@ import { buildAuditQueryParams, type AuditQueryFilters } from '@/services/auditQ
  */
 
 // ─── Overview ──────────────────────────────────────────────────────────────
+/**
+ * Where the backend's memory total comes from. `budget` = sized automatically by the app
+ * (backend 2026-09-16). Open-ended so a newer backend's value is carried, not rejected.
+ */
+export type MemoryLimitSource = 'cgroup' | 'budget' | 'host' | (string & {});
+
 export type PlatformOverview = {
   counts: {
     alliances: number;
@@ -123,7 +129,7 @@ export type QueueStatus = {
     status: string;
     throttling: boolean;
     /** Absent on a backend older than support-service #675. */
-    memoryMB?: { used: number; total: number; limitSource: 'cgroup' | 'host' } | null;
+    memoryMB?: { used: number; total: number; limitSource: MemoryLimitSource } | null;
     process?: {
       rssMB: number;
       heapUsedMB: number;

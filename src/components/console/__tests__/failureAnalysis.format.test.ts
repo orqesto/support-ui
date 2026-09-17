@@ -49,6 +49,12 @@ describe('failure analysis formatting', () => {
     expect(formatMemoryFigures({ used: 335, total: 7937, limitSource: 'host' })).toBe(
       '335 of 7,937 MB (host memory, no container limit)'
     );
+    // The backend sized itself — the total is NOT host memory (2026-09-16).
+    expect(formatMemoryFigures({ used: 619, total: 6963, limitSource: 'budget' })).toBe(
+      '619 of 6,963 MB (automatic: 85% of free memory, at least 2,048 MB)'
+    );
+    // A value this build does not know claims neither.
+    expect(formatMemoryFigures({ used: 1, total: 2, limitSource: 'future' })).toBe('1 of 2 MB (memory limit)');
     expect(formatMemoryFigures(null)).toBeNull();
     expect(formatMemoryBreakdown({ rssMB: 1020, heapUsedMB: 210, externalMB: 700, arrayBuffersMB: 12 })).toBe(
       'heap 210 MB · native 712 MB · other 98 MB'
