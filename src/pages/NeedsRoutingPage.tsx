@@ -49,7 +49,7 @@ export const NeedsRoutingPage = () => {
   // Same gate the replay endpoint enforces, so a non-admin never renders a card that can
   // only 403.
   const { hasPermission } = usePermissions();
-  const canTuneRouting = hasPermission(Permission.MANAGE_ORGANIZATION);
+  const canTuneRouting = hasPermission(Permission.MANAGE_ROUTING_RULES);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [total, setTotal] = useState(0);
