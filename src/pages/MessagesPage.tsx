@@ -9,6 +9,7 @@ import { Mail, PenSquare, RefreshCw } from 'lucide-react';
 import { MessagesViewToggle } from '@/components/messages/MessagesViewToggle';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { usePhoneOpensMessageAsPage } from '@/hooks/usePhoneOpensMessageAsPage';
+import { buildContactsApiFilters } from '@/components/messages/contactsApiFilters';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -887,48 +888,7 @@ export const MessagesPage = () => {
                 />
               ) : displayMode === 'contacts' ? (
                 <ContactsView
-                  apiFilters={(() => {
-                    const filterObj: Record<string, string> = {};
-                    const status = filters.status ?? 'all';
-                    if (status === 'all') filterObj.view = 'work_queue';
-                    else if (status === 'active') filterObj.view = 'active';
-                    else if (status === 'awaiting_response')
-                      filterObj.awaitingCustomerResponse = 'true';
-                    else if (status === 'client_replied') filterObj.customerResponded = 'true';
-                    else if (status === 'suspicious') filterObj.view = 'suspicious';
-                    else if (status === 'not_analysed') filterObj.view = 'not_analysed';
-                    else if (status === 'resolved') filterObj.view = 'resolved';
-                    if (filters.threadStatus && filters.threadStatus !== 'all')
-                      filterObj.processed = filters.threadStatus as string;
-                    if (filters.messageSourceId && filters.messageSourceId !== 'all')
-                      filterObj.messageSourceId = filters.messageSourceId;
-                    if (filters.receivedAt && filters.receivedAt !== 'all')
-                      filterObj.receivedAt = filters.receivedAt;
-                    if (filters.departmentId && filters.departmentId !== 'all') {
-                      if (filters.departmentId === 'needs_routing') {
-                        filterObj.view = 'needs_routing';
-                      } else {
-                        filterObj.departmentId = filters.departmentId;
-                      }
-                    }
-                    if (filters.assigneeId && filters.assigneeId !== 'all')
-                      filterObj.assigneeId =
-                        filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
-                    if (filters.aiState === 'lead') filterObj.isLead = 'true';
-                    if (filters.aiState === 'needs_review') filterObj.needsHumanReview = 'true';
-                    if (filters.aiState === 'needs_info') filterObj.showNeedsInfo = 'true';
-                    if (filters.aiState === 'ai_suggested') filterObj.aiSuggested = 'true';
-                    if (filters.aiState === 'bot_handled') filterObj.botHandled = 'true';
-                    if (filters.aiState === 'contradiction') filterObj.hasContradiction = 'true';
-                    if (filters.linked === 'has_ticket') filterObj.hasTicket = 'true';
-                    if (filters.linked === 'has_jira') filterObj.hasJiraTicket = 'true';
-                    if (filters.priority && filters.priority !== 'all')
-                      filterObj.priority = filters.priority;
-                    if (filters.labelId && filters.labelId !== 'all')
-                      filterObj.labelId = filters.labelId;
-                    if (filters.search?.trim()) filterObj.search = filters.search.trim();
-                    return filterObj;
-                  })()}
+                  apiFilters={buildContactsApiFilters(filters)}
                   focusSender={searchParams.get('sender') ?? undefined}
                   onPaginationChange={setContactsPagination}
                   onOpenMessage={(msg) => {

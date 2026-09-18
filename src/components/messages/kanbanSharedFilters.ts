@@ -1,3 +1,4 @@
+import { assigneeApiParams } from '@/hooks/assigneeApiParams';
 import { legacyAiStateParam } from '@/hooks/legacyAiStateParam';
 import { negateApiParam } from '@/hooks/negateApiParam';
 import type { FilterState } from '@/stores/messagesStore';
@@ -37,8 +38,21 @@ export function buildSharedFilters(filters: FilterState): Record<string, string>
     api.departmentId = filters.departmentId;
   }
   if (filters.priority && filters.priority !== 'all') api.priority = filters.priority;
-  if (filters.assigneeId && filters.assigneeId !== 'all')
-    api.assigneeId = filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
+  /**
+   * ⛔ Through `assigneeApiParams`, never a private mapping. Two of the three values this
+   * filter offers are SYMBOLIC, and this function used to translate only one of them:
+   * `'unassigned'` became `0`, while `'me'` was passed through as though it were an id.
+   *
+   * So the built-in "Mine" saved view asked the API for the user whose id is the string
+   * "me". `parseInt('me')` is NaN — neither `undefined` nor `0` — and the predicate became
+   * `assignee_id = NaN`. Since BE #754 an unusable id fails closed, so the board now
+   * answers with an empty column instead of an error: quieter, and just as wrong.
+   *
+   * The list view has always used this helper (`useMessagesData`), which is why the same
+   * pill works there and not here. Keeping the rule in one place is the fix; the helper's
+   * own header already says `'me'` "must never be sent as an id".
+   */
+  Object.assign(api, assigneeApiParams(filters.assigneeId));
   // One param, so it can be inverted — the booleans it replaces had no "not" to send.
   if (filters.aiState && filters.aiState !== 'all') {
     api.aiState = filters.aiState;
