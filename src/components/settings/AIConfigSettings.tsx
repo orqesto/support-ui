@@ -14,6 +14,7 @@ import { Tabs } from '@/components/ui/Tabs';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { apiClient } from '@/lib/api-client';
+import { SUGGESTION_DOMAIN_PERMISSIONS } from '@/lib/learningSuggestionPermissions';
 
 type AISection =
   | 'prompts'
@@ -22,7 +23,14 @@ type AISection =
   | 'learning'
   | 'learning-trust';
 
-type SectionDef = { id: AISection; label: string; description: string; adminOnly?: boolean };
+type SectionDef = {
+  id: AISection;
+  label: string;
+  description: string;
+  adminOnly?: boolean;
+  /** Visible to anyone who can act on at least one suggestion domain, not just admins. */
+  needsAnyLearningPermission?: boolean;
+};
 
 const ALL_SECTIONS: SectionDef[] = [
   { id: 'prompts', label: 'AI Prompts', description: 'Customize AI prompt templates' },
@@ -31,7 +39,9 @@ const ALL_SECTIONS: SectionDef[] = [
   // Operational engine view: pending suggestions (need my action) stacked over
   // recent auto-actions (already fired, may want to undo). Trust stays its own
   // section because it's set-and-forget configuration, not daily activity.
-  { id: 'learning', label: 'Engine Activity', description: 'Review pending suggestions + recent auto-actions', adminOnly: true },
+  // Not adminOnly: a moderator may act on suggestions in the domains they already manage
+  // (see lib/learningSuggestionPermissions.ts). Gated below on holding ANY of those permissions.
+  { id: 'learning', label: 'Engine Activity', description: 'Review pending suggestions + recent auto-actions', needsAnyLearningPermission: true },
   { id: 'learning-trust', label: 'Learning Trust', description: 'Control how aggressively the engine auto-acts', adminOnly: true },
 ];
 
@@ -46,19 +56,27 @@ type AIConfigSettingsProps = {
 const DEFAULT_AI_SECTION: AISection = 'prompts';
 
 export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
-  const { isOrgAdmin } = usePermissions();
+  const { isOrgAdmin, hasAnyPermission } = usePermissions();
   const { data: backendVersion } = useBackendVersion();
   // When no billing provider is configured, plans are assigned by an admin, not
   // purchased — so the paywall drops the "Upgrade to Enterprise" / pricing CTA
   // and just states the feature isn't in the current plan.
   const billingEnabled = backendVersion?.billingEnabled ?? false;
+  const canReviewSuggestions = hasAnyPermission(Object.values(SUGGESTION_DOMAIN_PERMISSIONS));
   const sections = useMemo(
-    () => ALL_SECTIONS.filter((sect) => !sect.adminOnly || isOrgAdmin),
-    [isOrgAdmin]
+    () =>
+      ALL_SECTIONS.filter((sect) => {
+        if (sect.adminOnly) return isOrgAdmin;
+        // Engine Activity: visible to anyone who can act on at least one domain. An admin always
+        // qualifies (they hold every permission); a moderator qualifies through routing/spam/etc.
+        if (sect.needsAnyLearningPermission) return isOrgAdmin || canReviewSuggestions;
+        return true;
+      }),
+    [isOrgAdmin, canReviewSuggestions]
   );
-  // Section is valid only when it's in the VISIBLE list (after the adminOnly
-  // filter). Without that check, a non-admin deep-linking to `#ai/learning`
-  // would render the admin-only suggestions panel (BE returns empty, so no
+  // Section is valid only when it's in the VISIBLE list (after the filter above). Without that
+  // check, someone deep-linking to `#ai/learning` without the permission for any suggestion
+  // domain would render a panel whose every action they'd be refused (BE returns empty, so no
   // real data leak — just a confusing UI state).
   const visibleIds = useMemo(() => sections.map((sect) => sect.id), [sections]);
   const initialSection =
