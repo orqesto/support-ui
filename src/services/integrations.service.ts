@@ -461,6 +461,11 @@ export type ImapCountResult = {
    * none; null — the LIST failed. Absent on older backends (treated as unknown).
    */
   sentKnown?: boolean | null;
+  /**
+   * The source's read-state filter (ALL / UNSEEN / SEEN / FLAGGED / UNANSWERED). The count
+   * ignores it; with anything but ALL, mail the source never imports shows as missing.
+   */
+  searchCriteria?: string;
   /** The sync reads at most this many per folder per run. */
   perRunLimit: number;
 };

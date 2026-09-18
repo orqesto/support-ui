@@ -217,7 +217,7 @@ describe('Notification Center — ingestion gaps', () => {
     expect(screen.getByText(STRANDED_TITLE)).toBeTruthy();
     expect(screen.getByText(window)).toBeTruthy();
     expect(screen.getByText(/sent-folder sync could not reach its oldest part/)).toBeTruthy();
-    expect(screen.getByText(/older than the date shown may be missing/)).toBeTruthy();
+    expect(screen.getByText(/older than the first date shown may be missing/)).toBeTruthy();
     expect(screen.queryByText(/may not have been fetched/)).toBeNull();
   });
 

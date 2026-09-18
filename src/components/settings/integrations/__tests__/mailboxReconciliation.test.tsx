@@ -604,4 +604,29 @@ describe('IMAP "Compare with Odly" on a saved source', () => {
     expect(screen.queryByText(/before every message was read/)).not.toBeInTheDocument();
     expect(screen.queryByText(/INBOX was only partly read/)).not.toBeInTheDocument();
   });
+
+  it.each([
+    ['UNSEEN', 'unread'],
+    ['FLAGGED', 'flagged'],
+  ])(
+    'a %s source warns that mail outside the filter can show as missing',
+    async (criteria, label) => {
+      countImapMessages.mockResolvedValue(imapResult({ searchCriteria: criteria }));
+      renderCard();
+      fireEvent.click(screen.getByLabelText('Compare with Odly'));
+      expect(
+        await screen.findByText(
+          new RegExp(`This mailbox imports only ${label} mail, so messages outside that filter`)
+        )
+      ).toBeInTheDocument();
+    }
+  );
+
+  it.each([['ALL'], [undefined]])('CONTROL — criteria %s: no filter warning', async (criteria) => {
+    countImapMessages.mockResolvedValue(imapResult({ searchCriteria: criteria }));
+    renderCard();
+    fireEvent.click(screen.getByLabelText('Compare with Odly'));
+    await screen.findByText(/In Odly: 150/);
+    expect(screen.queryByText(/This mailbox imports only/)).not.toBeInTheDocument();
+  });
 });

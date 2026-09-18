@@ -60,6 +60,11 @@ export const MissingSamples = ({ samples }: { samples: MissingMessageSample[] })
   );
 };
 
+/** The IMAP form's read-state filter, as a person would say it. */
+const criteriaLabel = (criteria: string): string =>
+  ({ UNSEEN: 'unread', SEEN: 'read', FLAGGED: 'flagged', UNANSWERED: 'unanswered' })[criteria] ??
+  criteria.toLowerCase();
+
 const windowLabel = (days: number) =>
   days === 0 ? 'all time' : `last ${fmt(days)} day${days === 1 ? '' : 's'}`;
 
@@ -181,6 +186,12 @@ export const ImapReconciliationResult = ({ result }: { result: ImapCountResult }
         <p className="text-xs text-muted-foreground">
           Each sync run reads at most {fmt(result.perRunLimit)} messages per folder, so a window
           this large takes several runs to import.
+        </p>
+      )}
+      {result.searchCriteria && result.searchCriteria !== 'ALL' && (
+        <p className="text-xs text-muted-foreground">
+          This mailbox imports only {criteriaLabel(result.searchCriteria)} mail, so messages outside
+          that filter can appear here as missing.
         </p>
       )}
       <MissingSamples samples={result.missingSamples} />
