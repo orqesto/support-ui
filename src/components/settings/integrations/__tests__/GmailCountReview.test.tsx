@@ -105,7 +105,10 @@ describe('GmailCountReview', () => {
     await screen.findByText(/Found 1,200 messages/);
     fireEvent.click(screen.getByRole('button', { name: 'Start sync' }));
     await waitFor(() => expect(onStarted).toHaveBeenCalled());
+    // `type` is required by the PATCH handler — without it the backend answered 400 and the
+    // source stayed paused (prod, 2026-09-18). This assertion used to pin the call WITHOUT it.
     expect(update).toHaveBeenCalledWith(68, {
+      type: 'gmail',
       enabled: true,
       config: { gmail: { searchQuery: '', bulkImportDays: 7 } },
     });
