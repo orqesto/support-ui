@@ -156,6 +156,16 @@ export type Message = {
   // Per-user read state for the triage read/unread indicator (true = read for the
   // current user). Present on the detail payload; absent on some list shapes.
   isRead?: boolean;
+  /**
+   * The thread carries the SUSPICIOUS verdict — the same predicate the Suspicious chip
+   * claims rows by, resolved server-side from the newest inbound event (not the frozen
+   * copy in `metadata.spamCheck`).
+   *
+   * Since 2026-09-18 suspicion is a mark, not a lane: the thread stays in its work column
+   * and the UI badges it. OPTIONAL on purpose — the FE can reach production before the
+   * backend that sends it, and an absent flag must read as "not marked".
+   */
+  isSuspicious?: boolean;
   // BE returns labels UNIONed from three sources (#16). `source` lets the FE
   // render an "inherited via contact" badge so agents understand why the
   // label is showing without having to look it up. Optional for back-compat

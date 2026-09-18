@@ -118,6 +118,29 @@ export const getRoutingBadge = (message: {
     ? { label: 'Needs Routing', className: 'bg-violet-500/15 text-violet-700 dark:text-violet-300' }
     : null;
 
+/**
+ * The suspicion MARK.
+ *
+ * ⛔ This exists because the thread is now SHOWN rather than hidden, and a suspicious thread
+ * rendered as ordinary mail is worse than one nobody can find. It rides alongside the work
+ * status badge, exactly as `getRoutingBadge` does — never instead of it.
+ *
+ * Reads the backend's `isSuspicious`, which is computed from the SAME predicate the
+ * Suspicious chip claims rows by (`isSuspiciousQueue`). ⛔ Do NOT switch this to
+ * `metadata.spamCheck.category`: that copy is FROZEN at thread creation, so a thread that
+ * turns suspicious mid-thread would show up unmarked — the one case the shared predicate
+ * exists for.
+ *
+ * An absent flag reads as "not marked": the FE can reach production before the backend that
+ * sends it (see the skew note in CLAUDE.md).
+ */
+export const getSuspicionBadge = (message: {
+  isSuspicious?: boolean;
+}): { label: string; className: string } | null =>
+  message.isSuspicious === true
+    ? { label: 'Suspicious', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' }
+    : null;
+
 /** Priority chip for the inbox cards — all four levels. */
 export const getPriorityBadge = (
   priority: Message['priority']
