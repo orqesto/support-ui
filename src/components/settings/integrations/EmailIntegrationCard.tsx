@@ -9,9 +9,11 @@ import {
   Building2,
   MessageSquareReply,
   AtSign,
+  GitCompare,
 } from 'lucide-react';
 import { AckReplyEditor } from '@/components/settings/integrations/AckReplyEditor';
 import { EmailForm } from '@/components/settings/integrations/EmailForm';
+import { ImapCompareReview } from '@/components/settings/integrations/MailboxReconciliation';
 import { apiErrorMessage } from '@/lib/apiError';
 import {
   SourceAliasEditor,
@@ -89,6 +91,7 @@ export const EmailIntegrationCard = ({
   const [editDepts, setEditDepts] = useState<number | null>(null);
   const [editAliases, setEditAliases] = useState<number | null>(null);
   const [editAckReply, setEditAckReply] = useState<number | null>(null);
+  const [compareId, setCompareId] = useState<number | null>(null);
 
   // Centralized create-form department picker state.
   const deptPicker = useCreateSourceDepartments();
@@ -427,6 +430,16 @@ export const EmailIntegrationCard = ({
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => setCompareId(integration.id)}
+                        disabled={!integration.hasCredentials}
+                        title="Compare with Odly"
+                        aria-label="Compare with Odly"
+                      >
+                        <GitCompare className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => setEditAliases(integration.id)}
                         title="Mailbox addresses"
                         aria-label="Mailbox addresses"
@@ -465,6 +478,13 @@ export const EmailIntegrationCard = ({
                     </div>
                   </div>
                   <SourceKbStrip source={integration} onShowAlert={onShowAlert} />
+                  {compareId === integration.id && (
+                    <ImapCompareReview
+                      sourceId={integration.id}
+                      onClose={() => setCompareId(null)}
+                      onShowAlert={onShowAlert}
+                    />
+                  )}
                   {editAliases === integration.id && (
                     <SourceAliasEditor
                       sourceId={integration.id}

@@ -390,6 +390,38 @@ export type ApiResponse<T> = {
 };
 
 // Generic integrations service (for listing all)
+/** A mailbox message the backend could not find in Odly by its message id. */
+export type MissingMessageSample = {
+  id: string | null;
+  from: string | null;
+  subject: string | null;
+  date: string | null;
+};
+
+/** `count` is a FLOOR when `capped`; inOdly/missing then cover only the messages listed. */
+export type GmailCountResult = {
+  count: number;
+  capped: boolean;
+  query: string;
+  inOdly: number;
+  missing: number;
+  missingSamples: MissingMessageSample[];
+};
+
+export type ImapCountResult = {
+  count: number;
+  inOdly: number;
+  missing: number;
+  unverifiable: number;
+  capped: boolean;
+  folders: Array<{ name: string; count: number }>;
+  missingSamples: MissingMessageSample[];
+  /** 0 = all time. */
+  windowDays: number;
+  /** The sync reads at most this many per folder per run. */
+  perRunLimit: number;
+};
+
 export const integrationsService = {
   getAll: async (): Promise<ApiResponse<Integration[]>> => {
     const response = await apiClient.get<{ success: boolean; data: Integration[] }>(
@@ -586,11 +618,23 @@ export const integrationsService = {
   countGmailMessages: async (
     id: number,
     overrides: { searchQuery?: string; bulkImportDays?: number; isKnowledgeBase?: boolean } = {}
-  ): Promise<{ count: number; capped: boolean; query: string }> => {
-    const response = await apiClient.post<{
-      success: boolean;
-      data: { count: number; capped: boolean; query: string };
-    }>(`/api/integrations/${id}/gmail-count`, overrides);
+  ): Promise<GmailCountResult> => {
+    const response = await apiClient.post<{ success: boolean; data: GmailCountResult }>(
+      `/api/integrations/${id}/gmail-count`,
+      overrides
+    );
+    return response.data.data;
+  },
+
+  /**
+   * Reconcile a SAVED IMAP source against Odly: how many messages the mailbox holds in the
+   * sync window, how many of them are already in Odly (matched by Message-ID) and how many are
+   * missing. `unverifiable` = no Message-ID header — never counted as missing.
+   */
+  countImapMessages: async (id: number): Promise<ImapCountResult> => {
+    const response = await apiClient.post<{ success: boolean; data: ImapCountResult }>(
+      `/api/integrations/${id}/imap-count`
+    );
     return response.data.data;
   },
 
