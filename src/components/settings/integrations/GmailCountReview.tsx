@@ -93,20 +93,19 @@ export const cappedReason = (cappedBy: GmailCountResult['cappedBy'], count: numb
   }
 };
 
-/** What a quota refusal cost — it depends on WHERE Google refused. */
-export const quotaNote = (where: GmailCountResult['quotaHitIn'], missing = 0): string => {
+/**
+ * What a quota refusal cost — it depends on WHERE Google refused. The backend sets `quotaHitIn`
+ * whenever `quotaHit` is true, and a sent-check refusal always leaves something missing (the
+ * message it could not check), so every case here is one the backend can produce.
+ */
+export const quotaNote = (where: 'listing' | 'sentCheck' | 'samples'): string => {
   switch (where) {
     case 'listing':
       return 'Gmail refused requests (quota) while listing — fewer messages were compared, and no sent-copy check or examples were run.';
     case 'sentCheck':
-      // "Some of the missing may be…" only when something IS missing.
-      return missing > 0
-        ? 'Gmail refused requests (quota) during the sent-copy check — some of the missing may be sent messages Odly already holds, and no examples could be fetched.'
-        : 'Gmail refused requests (quota) during the sent-copy check, so it stopped early.';
+      return 'Gmail refused requests (quota) during the sent-copy check — some of the missing may be sent messages Odly already holds, and no examples could be fetched.';
     case 'samples':
       return 'Gmail refused requests (quota) while fetching examples — the counts are unaffected, but some examples are missing.';
-    default:
-      return 'Gmail refused requests (quota) — the check stopped early.';
   }
 };
 
@@ -260,8 +259,8 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
                   them — most likely the same message. They are not counted as missing.
                 </p>
               )}
-              {result.quotaHit && (
-                <p className="mt-1 text-xs">{quotaNote(result.quotaHitIn, result.missing)}</p>
+              {result.quotaHit && result.quotaHitIn && (
+                <p className="mt-1 text-xs">{quotaNote(result.quotaHitIn)}</p>
               )}
               {/* A LISTING refusal means the sent check never ran — its own note would contradict
                   the quota line above, which already says so. */}

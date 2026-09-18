@@ -188,7 +188,6 @@ describe('Gmail: a partial comparison says why it stopped', () => {
     ['listing', /while listing — fewer messages were compared/],
     ['sentCheck', /during the sent-copy check — some of the missing may be sent messages/],
     ['samples', /while fetching examples — the counts are unaffected/],
-    [undefined, /Gmail refused requests \(quota\) — the check stopped early/],
   ])('a quota refusal in %s says what it cost', async (quotaHitIn, text) => {
     // The backend sends cappedBy 'quota' exactly when the LISTING was refused.
     countGmailMessages.mockResolvedValue({
@@ -242,20 +241,6 @@ describe('Gmail: a partial comparison says why it stopped', () => {
     countGmailMessages.mockResolvedValue({ ...partial, sentOnlyCapped: true });
     renderGmail();
     expect(await screen.findByText(/check for sent copies did not finish/)).toBeInTheDocument();
-  });
-
-  it('a sent-check refusal with NOTHING missing does not say "some of the missing"', async () => {
-    countGmailMessages.mockResolvedValue({
-      ...partial,
-      missing: 0,
-      quotaHit: true,
-      quotaHitIn: 'sentCheck',
-    });
-    renderGmail();
-    expect(
-      await screen.findByText(/during the sent-copy check, so it stopped early/)
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/some of the missing/)).not.toBeInTheDocument();
   });
 
   // Shapes the backend produces: count = inOdly + missing + unverifiable + notCompared.
