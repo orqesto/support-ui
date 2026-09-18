@@ -14,6 +14,11 @@ import { logger } from '@/lib/logger';
 import { ReplyStyleSuggestionDetail } from './ReplyStyleSuggestionDetail';
 import { useAuthStore } from '@/stores/authStore';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import {
+  SUGGESTION_DOMAIN_PERMISSIONS,
+  permissionForSuggestionDomain,
+  whyCannotAct,
+} from '@/lib/learningSuggestionPermissions';
 
 const DOMAIN_LABELS: Record<string, string> = {
   routing: 'Routing',
@@ -438,7 +443,14 @@ const ConflictDetail = ({
 };
 
 export const LearningSuggestionsSettings = () => {
-  const { isOrgAdmin } = usePermissions();
+  const { isOrgAdmin, hasPermission, hasAnyPermission } = usePermissions();
+  const canActOnAnyDomain = hasAnyPermission(Object.values(SUGGESTION_DOMAIN_PERMISSIONS));
+  /** May this viewer accept/decline THIS suggestion? Admins always; others per domain. */
+  const canActOn = (domain: string): boolean => {
+    if (isOrgAdmin) return true;
+    const required = permissionForSuggestionDomain(domain);
+    return required !== null && hasPermission(required);
+  };
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const [suggestions, setSuggestions] = useState<LearningSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -530,9 +542,11 @@ export const LearningSuggestionsSettings = () => {
     return map;
   }, [suggestions]);
 
-  // accept / decline routes require org_admin — hide the panel for non-admins
-  // rather than rendering a list with action buttons that always 403.
-  if (!isOrgAdmin) return null;
+  // Visible to anyone who can act on at least one domain. Hiding the whole panel from moderators
+  // was the old behaviour and the bug: they hold manage_routing_rules, so the engine was proposing
+  // changes to rules they maintain, on a screen they could not open. Per suggestion, the actions
+  // below are disabled with a reason when this viewer may not act on THAT domain.
+  if (!isOrgAdmin && !canActOnAnyDomain) return null;
 
   return (
     <Card>
@@ -616,13 +630,22 @@ export const LearningSuggestionsSettings = () => {
                               </span>
                             </div>
                           </div>
-                          <div className="flex gap-1 shrink-0">
+                          <div className="flex gap-1 items-center shrink-0">
+                            {!canActOn(suggestion.domain) && (
+                              // VISIBLE, not a tooltip: a disabled button fires no hover events, so
+                              // a `title` on it is unreachable in most browsers — and an action that
+                              // is greyed out for no stated reason is what the old hide-everything
+                              // behaviour felt like.
+                              <span className="text-xs text-muted-foreground mr-1">
+                                {whyCannotAct(suggestion.domain)}
+                              </span>
+                            )}
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => void handleDecline(suggestion.id)}
-                              disabled={isActing}
-                              title="Decline"
+                              disabled={isActing || !canActOn(suggestion.domain)}
+                              title={canActOn(suggestion.domain) ? 'Decline' : whyCannotAct(suggestion.domain)}
                               aria-label="Decline"
                             >
                               <X className="w-4 h-4" />
@@ -631,11 +654,13 @@ export const LearningSuggestionsSettings = () => {
                               aria-label="Accept this suggestion"
                               size="sm"
                               onClick={() => void handleAccept(suggestion.id)}
-                              disabled={isActing}
+                              disabled={isActing || !canActOn(suggestion.domain)}
                               title={
-                                suggestion.domain === 'reply_style'
-                                  ? 'Accept — makes this the house style for AI-drafted replies'
-                                  : 'Accept — disables the weaker rule'
+                                !canActOn(suggestion.domain)
+                                  ? whyCannotAct(suggestion.domain)
+                                  : suggestion.domain === 'reply_style'
+                                    ? 'Accept — makes this the house style for AI-drafted replies'
+                                    : 'Accept — disables the weaker rule'
                               }
                             >
                               <Check className="w-4 h-4" />

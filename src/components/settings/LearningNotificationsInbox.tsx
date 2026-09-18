@@ -17,6 +17,11 @@ import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import {
+  SUGGESTION_DOMAIN_PERMISSIONS,
+  permissionForSuggestionDomain,
+  whyCannotAct,
+} from '@/lib/learningSuggestionPermissions';
+import {
   learningService,
   type LearningAutoActionType,
   type LearningNotification,
@@ -110,7 +115,14 @@ const evidenceHighlights = (evidence: Record<string, unknown>): string[] => {
 };
 
 export const LearningNotificationsInbox = () => {
-  const { isOrgAdmin } = usePermissions();
+  const { isOrgAdmin, hasPermission, hasAnyPermission } = usePermissions();
+  const canUndoAnyDomain = hasAnyPermission(Object.values(SUGGESTION_DOMAIN_PERMISSIONS));
+  /** Undo reverses a rule change, so it needs the same permission accepting one would. */
+  const canUndo = (domain: string): boolean => {
+    if (isOrgAdmin) return true;
+    const required = permissionForSuggestionDomain(domain);
+    return required !== null && hasPermission(required);
+  };
   const [rows, setRows] = useState<LearningNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -170,8 +182,10 @@ export const LearningNotificationsInbox = () => {
   const safePage = Math.min(page, pageCount - 1);
   const pageRows = sorted.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
-  // Undo route is admin-only; non-admins would see an empty undo action.
-  if (!isOrgAdmin) return null;
+  // Visible to anyone who can undo at least one domain's auto-action. Undo is gated per domain
+  // server-side, exactly like accepting a suggestion — so hiding this whole panel from moderators
+  // would leave them able to undo a routing auto-action by API but with nowhere to do it.
+  if (!isOrgAdmin && !canUndoAnyDomain) return null;
 
   return (
     <Card>
@@ -252,13 +266,23 @@ export const LearningNotificationsInbox = () => {
                         </span>
                       </div>
                     </div>
-                    <div className="flex gap-1 shrink-0">
+                    <div className="flex gap-1 items-center shrink-0">
+                      {!canUndo(row.domain) && (
+                        // Visible, not a tooltip: a disabled button fires no hover events.
+                        <span className="text-xs text-muted-foreground mr-1">
+                          {whyCannotAct(row.domain)}
+                        </span>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => void handleUndo(row.id)}
-                        disabled={isUndoing || undoingId !== null}
-                        title="Undo this auto-action and record a negative trust signal"
+                        disabled={isUndoing || undoingId !== null || !canUndo(row.domain)}
+                        title={
+                          canUndo(row.domain)
+                            ? 'Undo this auto-action and record a negative trust signal'
+                            : whyCannotAct(row.domain)
+                        }
                       >
                         {isUndoing ? (
                           <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
