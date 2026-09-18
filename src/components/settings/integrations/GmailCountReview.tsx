@@ -7,8 +7,16 @@ import type { AlertState } from '@/components/settings/integrations/types';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import {
+  formatInOdly,
+  MissingSamples,
+} from '@/components/settings/integrations/MailboxReconciliation';
 import { apiErrorMessage } from '@/lib/apiError';
-import { integrationsService, type Integration } from '@/services/integrations.service';
+import {
+  integrationsService,
+  type GmailCountResult,
+  type Integration,
+} from '@/services/integrations.service';
 
 /**
  * "Check Messages Count" for Gmail — the twin of IMAP's button in `EmailForm`.
@@ -53,7 +61,7 @@ export const formatGmailCount = ({ count, capped }: CountResult): string => {
 export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Props) => {
   const [searchQuery, setSearchQuery] = useState(source.searchQuery);
   const [bulkImportDays, setBulkImportDays] = useState(source.bulkImportDays);
-  const [result, setResult] = useState<CountResult | null>(null);
+  const [result, setResult] = useState<GmailCountResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -67,7 +75,7 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
         ...settings,
         isKnowledgeBase: source.isKnowledgeBase,
       });
-      setResult({ count: data.count, capped: data.capped });
+      setResult(data);
     } catch (err) {
       setError(apiErrorMessage(err, 'Could not count messages in this mailbox'));
     } finally {
@@ -158,9 +166,26 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
           <p className="text-sm">✅ {formatGmailCount(result)}</p>
           {result.capped && (
             <p className="mt-1 text-xs">
-              Counting stops at {result.count.toLocaleString('en-US')}. Narrow the range if that
-              is more than you meant to import.
+              Counting stops at {result.count.toLocaleString('en-US')}. Narrow the range if that is
+              more than you meant to import.
             </p>
+          )}
+          {/* An older backend returns only the count — show nothing rather than "0". */}
+          {typeof result.inOdly === 'number' && typeof result.missing === 'number' && (
+            <>
+              <p className="mt-2 text-sm">
+                {result.capped
+                  ? `In Odly: ${result.inOdly.toLocaleString('en-US')} · Missing: ${result.missing.toLocaleString('en-US')}`
+                  : formatInOdly(result)}
+              </p>
+              {result.capped && (
+                <p className="mt-1 text-xs">
+                  Partial comparison: only the newest {result.count.toLocaleString('en-US')} messages
+                  listed were checked against Odly.
+                </p>
+              )}
+              <MissingSamples samples={result.missingSamples ?? []} />
+            </>
           )}
         </Alert>
       )}
