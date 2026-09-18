@@ -190,9 +190,18 @@ describe('Gmail: a partial comparison says why it stopped', () => {
     ['samples', /while fetching examples — the counts are unaffected/],
     [undefined, /Gmail refused requests \(quota\) — the check stopped early/],
   ])('a quota refusal in %s says what it cost', async (quotaHitIn, text) => {
-    countGmailMessages.mockResolvedValue({ ...partial, quotaHit: true, quotaHitIn });
+    // The backend sends cappedBy 'quota' exactly when the LISTING was refused.
+    countGmailMessages.mockResolvedValue({
+      ...partial,
+      quotaHit: true,
+      quotaHitIn,
+      ...(quotaHitIn === 'listing' ? { cappedBy: 'quota' } : {}),
+    });
     renderGmail();
     expect(await screen.findByText(text)).toBeInTheDocument();
+    if (quotaHitIn === 'listing') {
+      expect(screen.queryByText(/Narrow the range/)).not.toBeInTheDocument();
+    }
     if (quotaHitIn === 'samples') {
       expect(screen.queryByText(/fewer messages were compared/)).not.toBeInTheDocument();
     }
@@ -213,13 +222,24 @@ describe('Gmail: a partial comparison says why it stopped', () => {
     expect(screen.queryByText(/check for sent copies did not finish/)).not.toBeInTheDocument();
   });
 
-  it('CONTROL — a sent-check refusal keeps the sent-check note', async () => {
+  it('CONTROL — a sent-check refusal still says the missing may be sent copies (once, in the quota line)', async () => {
     countGmailMessages.mockResolvedValue({
       ...partial,
       quotaHit: true,
       quotaHitIn: 'sentCheck',
       sentOnlyCapped: true,
     });
+    renderGmail();
+    expect(
+      await screen.findByText(
+        /during the sent-copy check — some of the missing may be sent messages/
+      )
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/some of the missing may be sent messages/)).toHaveLength(1);
+  });
+
+  it('CONTROL — an unfinished sent check WITHOUT a quota refusal keeps its own note', async () => {
+    countGmailMessages.mockResolvedValue({ ...partial, sentOnlyCapped: true });
     renderGmail();
     expect(await screen.findByText(/check for sent copies did not finish/)).toBeInTheDocument();
   });
@@ -291,6 +311,22 @@ describe('Gmail: a partial comparison says why it stopped', () => {
       screen.getByText(/Partial comparison: only the first 1,000 messages Gmail listed/)
     ).toBeInTheDocument();
     expect(screen.queryByText(/only the first 5,000/)).not.toBeInTheDocument();
+  });
+
+  it('a sent-check quota refusal and an unfinished sent check do not say the same sentence twice', async () => {
+    countGmailMessages.mockResolvedValue({
+      ...partial,
+      quotaHit: true,
+      quotaHitIn: 'sentCheck',
+      sentOnlyCapped: true,
+      sentOnlyUnchecked: 150,
+    });
+    renderGmail();
+    expect(
+      await screen.findByText(/during the sent-copy check — some of the missing/)
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/some of the missing may be sent messages/)).toHaveLength(1);
+    expect(screen.getByText(/At least 150 sent messages were not checked/)).toBeInTheDocument();
   });
 
   it('CONTROL — no quota refusal, no quota line', async () => {

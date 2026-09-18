@@ -65,11 +65,14 @@ export const formatGmailCount = ({ count, capped }: CountResult): string => {
  * not finish, candidates it never reached are not in it. ⛔ No "check again to finish": every
  * run restarts from the newest sent messages, so a retry does not reach what this one could not.
  */
-export const sentOnlyNote = (unchecked: number | undefined): string => {
-  const general =
-    'The check for sent copies did not finish, so some of the missing may be sent messages Odly already holds.';
+export const sentOnlyNote = (unchecked: number | undefined, generalSaid = false): string => {
+  // `generalSaid`: the sent-check QUOTA line above already says "some of the missing may be
+  // sent messages Odly already holds" — only the count is added, never the same sentence twice.
+  const general = generalSaid
+    ? ''
+    : 'The check for sent copies did not finish, so some of the missing may be sent messages Odly already holds.';
   if (!unchecked || unchecked <= 0) return general;
-  return `${general} At least ${unchecked.toLocaleString('en-US')} sent message${unchecked === 1 ? ' was' : 's were'} not checked and ${unchecked === 1 ? 'is' : 'are'} counted as missing.`;
+  return `${general ? `${general} ` : ''}At least ${unchecked.toLocaleString('en-US')} sent message${unchecked === 1 ? ' was' : 's were'} not checked and ${unchecked === 1 ? 'is' : 'are'} counted as missing.`;
 };
 
 /**
@@ -262,11 +265,14 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
               )}
               {/* A LISTING refusal means the sent check never ran — its own note would contradict
                   the quota line above, which already says so. */}
-              {result.sentOnlyCapped && result.missing > 0 && result.quotaHitIn !== 'listing' && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {sentOnlyNote(result.sentOnlyUnchecked)}
-                </p>
-              )}
+              {result.sentOnlyCapped &&
+                result.missing > 0 &&
+                result.quotaHitIn !== 'listing' &&
+                sentOnlyNote(result.sentOnlyUnchecked, result.quotaHitIn === 'sentCheck') && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {sentOnlyNote(result.sentOnlyUnchecked, result.quotaHitIn === 'sentCheck')}
+                  </p>
+                )}
               <MissingSamples samples={result.missingSamples ?? []} />
             </>
           )}
