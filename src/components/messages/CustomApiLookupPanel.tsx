@@ -1,0 +1,232 @@
+import { useState } from 'react';
+import { AlertTriangle, Search } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { useCustomApiLookup } from '@/hooks/useCustomApiLookup';
+import type { CustomApiLookupResult, LookupField } from '@/services/customApiLookup.service';
+import { MONO } from './messageDetailConstants';
+
+/**
+ * What the connected integrations know about THIS customer (CA-3).
+ *
+ * ⛔ ONE component, rendered in BOTH the thread's customer tab and the standalone contact drawer.
+ * Not two copies of the outcome states: a page opened from a list must not rename, recolour or
+ * flatten what that list said, and two copies are two places to fix every future state.
+ *
+ * The four outcomes are deliberately distinguishable at a glance:
+ *   ok            — rows, money with its currency (D23)
+ *   no match      — ORDINARY text. A shipping API not knowing a customer who never ordered is the
+ *                   commonest case there is, not an error (SC2)
+ *   shape changed — the vendor's response no longer matches what was configured, fields NAMED, so
+ *                   a dead integration is never mistaken for a customer we have no data for (SC4b)
+ *   failed        — a reason, and the OTHER cards still show their rows (SC3)
+ */
+
+interface Props {
+  conversationId?: number;
+  contactId?: number;
+  /** Shown when the customer has no email to key an identity lookup on (D30). */
+  identityNote?: string;
+}
+
+const ownershipNotice = (
+  ownership: CustomApiLookupResult['ownership']
+): { text: string; className: string } | null => {
+  switch (ownership) {
+    case 'mismatch':
+      // ⛔ D38. The owner chose to SHOW a record that is not this customer's rather than strand an
+      // agent whose customer wrote from a second address — knowing a guessed number then exposes
+      // someone else's data. The flag is the whole mitigation, so it is unmissable and never a
+      // muted hint. Every view of one of these is written to the workspace audit log.
+      return {
+        text: 'This record does NOT belong to this customer. Check before quoting anything from it.',
+        className: 'bg-destructive/15 text-destructive border border-destructive/40',
+      };
+    case 'unverified':
+      // Not an error and not a reassurance: we could not check. Either the vendor cannot list this
+      // customer's records at all (a carrier knows a parcel number, not who emailed us) or the
+      // check itself failed. Saying nothing here would let it read as confirmed.
+      return {
+        text: 'Not confirmed as this customer’s record — this integration cannot verify ownership.',
+        className: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/40',
+      };
+    default:
+      return null;
+  }
+};
+
+/**
+ * A vendor value is `unknown` — the shape is whatever that vendor returned, discovered at run time.
+ *
+ * ⛔ Never `String(value)` on it: a configured path that resolves to an object renders as
+ * "[object Object]" in front of an agent, which looks like data and is not. A nested value is
+ * shown as JSON instead, so it is at least readable and obviously structured.
+ */
+const asText = (value: unknown): string | null => {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return null;
+  }
+};
+
+/** D23: a money figure without its currency is a misquote waiting to happen. */
+const renderValue = (row: Record<string, unknown>, field: LookupField): string => {
+  const value = asText(row[field.path]);
+  if (value === null) return '—';
+  if (field.kind !== 'money') return value;
+  // The currency is either configured as a literal or travels WITH the row, because on a vendor
+  // that prices per row the same figure means different currencies from different endpoints.
+  const currency = field.currency ?? asText(row[`${field.path}__currency`]);
+  return currency ? `${value} ${currency}` : value;
+};
+
+const ResultCard = ({
+  result,
+  onRunManual,
+  busy,
+}: {
+  result: CustomApiLookupResult;
+  onRunManual: (endpointId: number, parameter: string) => void;
+  busy: boolean;
+}) => {
+  // D36: the number found in the CUSTOMER'S message is pre-filled — into a field the agent can
+  // overwrite. A suggestion is a suggestion; nothing is sent to a vendor without a press.
+  const [value, setValue] = useState(result.suggestions?.[0] ?? '');
+  const notice = ownershipNotice(result.ownership);
+  const fields = result.fields ?? [];
+
+  return (
+    <div className="rounded border border-border p-2 space-y-1.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-[11px] font-medium text-foreground">{result.label}</p>
+        <p className={`${MONO} text-muted-foreground`}>{result.connectionName}</p>
+      </div>
+
+      {notice && (
+        <p className={`text-[11px] rounded px-2 py-1 flex gap-1.5 ${notice.className}`}>
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" aria-hidden />
+          <span>{notice.text}</span>
+        </p>
+      )}
+
+      {result.status === 'needs_input' && (
+        <div className="flex gap-1.5">
+          <Input
+            size="sm"
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            placeholder="Record number"
+            aria-label={`Record number for ${result.label}`}
+            className="text-[11px]"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px]"
+            disabled={busy || !value.trim()}
+            onClick={() => onRunManual(result.endpointId, value.trim())}
+          >
+            Look up
+          </Button>
+        </div>
+      )}
+
+      {result.status === 'no_match' && (
+        // ⛔ ORDINARY. Plain text, no red, no warning icon — visibly different from a failure, or
+        // agents learn to ignore both and a real outage reads as a customer with no orders.
+        <p className="text-[11px] text-muted-foreground">No matching records for this customer.</p>
+      )}
+
+      {result.status === 'failed' && (
+        <p className="text-[11px] text-destructive">{result.reason ?? 'This lookup failed.'}</p>
+      )}
+
+      {result.status === 'shape_changed' && (
+        <p className="text-[11px] text-amber-700 dark:text-amber-400">
+          This vendor’s response no longer matches what was configured
+          {result.missing?.length ? `: ${result.missing.join(', ')} not found.` : '.'}
+        </p>
+      )}
+
+      {result.status === 'ok' &&
+        (result.rows?.length ? (
+          <div className="space-y-1.5">
+            {result.rows.map((row, index) => (
+              <div key={index} className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-0.5">
+                {fields.map((field) => (
+                  <div key={field.path} className="contents">
+                    <p className={`${MONO} text-muted-foreground`}>{field.label.toUpperCase()}</p>
+                    <p className="text-[11px] text-foreground break-words">
+                      {renderValue(row, field)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ))}
+            {/* D19/SC7: the cap is not decorative — say how many actually exist. */}
+            {typeof result.total === 'number' && result.total > result.rows.length && (
+              <p className="text-[10px] text-muted-foreground">
+                Showing {result.rows.length} of {result.total}.
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="text-[11px] text-muted-foreground">
+            No matching records for this customer.
+          </p>
+        ))}
+    </div>
+  );
+};
+
+export const CustomApiLookupPanel = ({ conversationId, contactId, identityNote }: Props) => {
+  const { results, loading, hasRun, error, run } = useCustomApiLookup({
+    conversationId,
+    contactId,
+  });
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className={`${MONO} text-muted-foreground`}>CONNECTED SYSTEMS</p>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-[11px]"
+          disabled={loading}
+          onClick={() => run()}
+        >
+          <Search className="h-3 w-3 mr-1" aria-hidden />
+          {loading ? 'Looking up…' : 'Look up'}
+        </Button>
+      </div>
+
+      {identityNote && <p className="text-[11px] text-muted-foreground">{identityNote}</p>}
+      {error && <p className="text-[11px] text-destructive">{error}</p>}
+
+      {/*
+        ⛔ Nothing is fetched until the button is pressed, so before that there is no empty state to
+        show. An "empty" panel on open would read as "we know nothing about this customer", which is
+        a different and wrong claim.
+      */}
+      {hasRun && results.length === 0 && !error && (
+        <p className="text-[11px] text-muted-foreground">
+          No integrations are set up for this workspace yet.
+        </p>
+      )}
+
+      {results.map((result) => (
+        <ResultCard
+          key={result.endpointId}
+          result={result}
+          busy={loading}
+          onRunManual={(endpointId, parameter) => run({ endpointId, parameter })}
+        />
+      ))}
+    </div>
+  );
+};
