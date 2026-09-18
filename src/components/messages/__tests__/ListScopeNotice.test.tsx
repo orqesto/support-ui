@@ -418,4 +418,84 @@ describe('a chip is a destination, not a share of the hidden count', () => {
     fireEvent.mouseDown(document.body);
     expect(screen.queryByRole('menu')).toBeNull();
   });
+
+  /**
+   * taco CoreSarms, 2026-09-18: the list hides Suspicious and Spam by default, and the menu
+   * showed "suspicious 33" with nothing saying any of it was NEW — the board badges its
+   * columns with the unread arrival counts, the list said nothing.
+   */
+  describe('unread arrivals in hidden queues', () => {
+    const withSuspicious: ListScope = {
+      ...framehouse,
+      hiddenBecause: { ...framehouse.hiddenBecause, suspicious: 33 },
+    };
+
+    it('says how many are new, on the trigger and on the queue row', () => {
+      render(
+        <ListScopeNotice
+          scope={withSuspicious}
+          shown={5}
+          onJump={vi.fn()}
+          arrivals={{ suspicious: 4, spam: 2 }}
+        />
+      );
+      expect(screen.getByRole('button', { name: /Not shown/ }).textContent).toContain('6 new');
+      openMenu();
+      expect(screen.getByRole('menuitem', { name: /suspicious/ }).textContent).toContain('4 new');
+      expect(screen.getByRole('menuitem', { name: /spam/ }).textContent).toContain('2 new');
+    });
+
+    it('opening the queue marks its arrivals reviewed, and only that queue', () => {
+      const onJump = vi.fn();
+      const onReviewArrivals = vi.fn();
+      render(
+        <ListScopeNotice
+          scope={withSuspicious}
+          shown={5}
+          onJump={onJump}
+          arrivals={{ suspicious: 4, spam: 2 }}
+          onReviewArrivals={onReviewArrivals}
+        />
+      );
+      openMenu();
+      fireEvent.click(screen.getByRole('menuitem', { name: /suspicious/ }));
+      expect(onJump).toHaveBeenCalledWith({ queue: 'suspicious', lifecycle: 'all' }, undefined);
+      expect(onReviewArrivals).toHaveBeenCalledTimes(1);
+      expect(onReviewArrivals).toHaveBeenCalledWith('suspicious');
+    });
+
+    it('does not count arrivals for a queue the menu does not offer', () => {
+      // framehouse has suspicious: 0, so there is no Suspicious row to open — its arrivals
+      // must not inflate the trigger, or the badge points nowhere.
+      render(
+        <ListScopeNotice
+          scope={framehouse}
+          shown={5}
+          onJump={vi.fn()}
+          arrivals={{ suspicious: 4, spam: 2 }}
+        />
+      );
+      expect(screen.getByRole('button', { name: /Not shown/ }).textContent).toContain('2 new');
+    });
+
+    it('renders nothing new without arrivals, and opening a queue then marks nothing', () => {
+      const onReviewArrivals = vi.fn();
+      render(
+        <ListScopeNotice
+          scope={withSuspicious}
+          shown={5}
+          onJump={vi.fn()}
+          arrivals={{ suspicious: 0 }}
+          onReviewArrivals={onReviewArrivals}
+        />
+      );
+      // Control: the trigger exists and has its count, so the not.toContain means something.
+      const trigger = screen.getByRole('button', { name: /Not shown/ });
+      expect(trigger.textContent).toContain('3,009');
+      expect(trigger.textContent).not.toContain('new');
+      openMenu();
+      fireEvent.click(screen.getByRole('menuitem', { name: /suspicious/ }));
+      expect(onReviewArrivals).not.toHaveBeenCalled();
+    });
+  });
 });
