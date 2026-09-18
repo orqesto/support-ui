@@ -53,15 +53,21 @@ export const IngestionDarkSection = ({
           <MailX className="mt-0.5 w-4 h-4 shrink-0 text-red-500" />
           <div className="flex-1 min-w-0">
             <p className="font-medium break-words text-foreground">
-              {/* ⛔ "Never polled" is a different sentence, not a bigger number. A source that
+              {/* ⛔ "Not checked", NEVER "no mail received". `minutesSince` measures the time
+                  since we last POLLED, not since mail last arrived — a quiet mailbox checked
+                  every 5 minutes is perfectly healthy. An earlier draft of this read "No mail
+                  collected for 68 minutes", which tells an operator their customers went quiet
+                  when the truth is that we stopped looking. Caught auditing this diff.
+
+                  "Never polled" is also a different sentence, not a bigger number. A source that
                   has never run once has never worked at all — the case a newly connected
                   integration hits — and telling an operator it is "0 minutes behind" would
                   describe the worst state in the mildest words. */}
               {alert.neverPolled
-                ? 'This mailbox has never been polled'
+                ? 'This mailbox has never been checked'
                 : alert.minutesSince !== null
-                  ? `No mail collected for ${formatMinutesDark(alert.minutesSince)}`
-                  : 'This mailbox has stopped being polled'}
+                  ? `Not checked for ${formatMinutesDark(alert.minutesSince)}`
+                  : 'This mailbox has stopped being checked'}
             </p>
 
             <p className="mt-0.5 break-words text-foreground">{alert.mailbox}</p>
