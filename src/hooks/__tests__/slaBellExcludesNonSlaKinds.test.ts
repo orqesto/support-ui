@@ -84,6 +84,20 @@ describe('SLA bell kind filter', () => {
     expect(result.current.notifications.map((row) => row.id)).toEqual([1]);
   });
 
+  /**
+   * Same shape, same reason: `ingestion_dark` carries no `minutesOverdue` either, so without
+   * its entry in NON_SLA_BELL_KINDS a mailbox that has stopped being polled renders as an
+   * amber SLA breach reading "nullm over". It owns its surface in useIngestionDarkAlerts and
+   * the "Mailbox not being polled" section.
+   */
+  it('does not surface ingestion_dark as an SLA breach', async () => {
+    respond([row(1, 'sla_message_breach'), row(5, 'ingestion_dark')]);
+    const { result } = renderHook(() => useSLANotifications());
+    await waitFor(() => expect(result.current.notifications.length).toBeGreaterThan(0));
+
+    expect(result.current.notifications.map((row) => row.id)).toEqual([1]);
+  });
+
   it('still surfaces a real breach, so the filter is not simply eating everything', async () => {
     // Control. A denylist that hid real breaches would be far worse than the blank amber row.
     respond([row(1, 'sla_message_breach'), row(2, 'sla_ticket_first_response')]);
