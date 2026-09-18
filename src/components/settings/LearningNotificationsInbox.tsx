@@ -12,15 +12,11 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
-import { usePermissions } from '@/hooks/usePermissions';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
-import {
-  SUGGESTION_DOMAIN_PERMISSIONS,
-  permissionForSuggestionDomain,
-  whyCannotAct,
-} from '@/lib/learningSuggestionPermissions';
+import { whyCannotAct } from '@/lib/learningSuggestionPermissions';
+import { useSuggestionDomainAccess } from '@/hooks/useSuggestionDomainAccess';
 import {
   learningService,
   type LearningAutoActionType,
@@ -115,14 +111,8 @@ const evidenceHighlights = (evidence: Record<string, unknown>): string[] => {
 };
 
 export const LearningNotificationsInbox = () => {
-  const { isOrgAdmin, hasPermission, hasAnyPermission } = usePermissions();
-  const canUndoAnyDomain = hasAnyPermission(Object.values(SUGGESTION_DOMAIN_PERMISSIONS));
-  /** Undo reverses a rule change, so it needs the same permission accepting one would. */
-  const canUndo = (domain: string): boolean => {
-    if (isOrgAdmin) return true;
-    const required = permissionForSuggestionDomain(domain);
-    return required !== null && hasPermission(required);
-  };
+  // Undo reverses a rule change, so it needs exactly what accepting one needs.
+  const { canActOn: canUndo, canActOnAnyDomain: canUndoAnyDomain } = useSuggestionDomainAccess();
   const [rows, setRows] = useState<LearningNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -185,7 +175,7 @@ export const LearningNotificationsInbox = () => {
   // Visible to anyone who can undo at least one domain's auto-action. Undo is gated per domain
   // server-side, exactly like accepting a suggestion — so hiding this whole panel from moderators
   // would leave them able to undo a routing auto-action by API but with nowhere to do it.
-  if (!isOrgAdmin && !canUndoAnyDomain) return null;
+  if (!canUndoAnyDomain) return null;
 
   return (
     <Card>

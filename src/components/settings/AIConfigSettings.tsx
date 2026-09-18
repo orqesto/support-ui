@@ -74,9 +74,9 @@ export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
       }),
     [isOrgAdmin, canReviewSuggestions]
   );
-  // Section is valid only when it's in the VISIBLE list (after the adminOnly
-  // filter). Without that check, a non-admin deep-linking to `#ai/learning`
-  // would render the admin-only suggestions panel (BE returns empty, so no
+  // Section is valid only when it's in the VISIBLE list (after the filter above). Without that
+  // check, someone deep-linking to `#ai/learning` without the permission for any suggestion
+  // domain would render a panel whose every action they'd be refused (BE returns empty, so no
   // real data leak — just a confusing UI state).
   const visibleIds = useMemo(() => sections.map((sect) => sect.id), [sections]);
   const initialSection =

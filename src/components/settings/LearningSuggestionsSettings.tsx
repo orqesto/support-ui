@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useDepartments } from '@/hooks/useDepartments';
-import { usePermissions } from '@/hooks/usePermissions';
 import {
   learningService,
   type LearningSuggestion,
@@ -14,11 +13,8 @@ import { logger } from '@/lib/logger';
 import { ReplyStyleSuggestionDetail } from './ReplyStyleSuggestionDetail';
 import { useAuthStore } from '@/stores/authStore';
 import { getApiErrorMessage } from '@/lib/errorMessages';
-import {
-  SUGGESTION_DOMAIN_PERMISSIONS,
-  permissionForSuggestionDomain,
-  whyCannotAct,
-} from '@/lib/learningSuggestionPermissions';
+import { whyCannotAct } from '@/lib/learningSuggestionPermissions';
+import { useSuggestionDomainAccess } from '@/hooks/useSuggestionDomainAccess';
 
 const DOMAIN_LABELS: Record<string, string> = {
   routing: 'Routing',
@@ -443,14 +439,7 @@ const ConflictDetail = ({
 };
 
 export const LearningSuggestionsSettings = () => {
-  const { isOrgAdmin, hasPermission, hasAnyPermission } = usePermissions();
-  const canActOnAnyDomain = hasAnyPermission(Object.values(SUGGESTION_DOMAIN_PERMISSIONS));
-  /** May this viewer accept/decline THIS suggestion? Admins always; others per domain. */
-  const canActOn = (domain: string): boolean => {
-    if (isOrgAdmin) return true;
-    const required = permissionForSuggestionDomain(domain);
-    return required !== null && hasPermission(required);
-  };
+  const { canActOn, canActOnAnyDomain } = useSuggestionDomainAccess();
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const [suggestions, setSuggestions] = useState<LearningSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -546,7 +535,7 @@ export const LearningSuggestionsSettings = () => {
   // was the old behaviour and the bug: they hold manage_routing_rules, so the engine was proposing
   // changes to rules they maintain, on a screen they could not open. Per suggestion, the actions
   // below are disabled with a reason when this viewer may not act on THAT domain.
-  if (!isOrgAdmin && !canActOnAnyDomain) return null;
+  if (!canActOnAnyDomain) return null;
 
   return (
     <Card>
