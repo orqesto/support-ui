@@ -49,7 +49,10 @@ const DEFAULT_PREFS: UserPrefs = {
   onlyAssignedToMe: false,
 };
 
-const matchesPrefs = (breach: Omit<SLABreachNotification, 'receivedAt'>, prefs: UserPrefs): boolean => {
+const matchesPrefs = (
+  breach: Omit<SLABreachNotification, 'receivedAt'>,
+  prefs: UserPrefs
+): boolean => {
   if (prefs.minSeverity === 'critical' && breach.severity !== 'critical') return false;
   if (breach.type === 'message' && !prefs.notifyMessages) return false;
   if (breach.type === 'ticket_first_response' && !prefs.notifyTicketFirstResponse) return false;
@@ -83,6 +86,10 @@ const NON_SLA_BELL_KINDS = new Set([
   // `ingestion_gap` row rendered here as a generic amber "Notification" reading "nullm over",
   // because the kind carries no `minutesOverdue`. It owns its surface in useIngestionGapAlerts.
   'ingestion_gap',
+  // Same reason again, and the same failure shape: this kind carries no `minutesOverdue`, so
+  // the fail-open filter would render a dark mailbox as an amber SLA breach reading
+  // "nullm over". It owns its surface in useIngestionDarkAlerts.
+  'ingestion_dark',
 ]);
 const isNonSlaBellKind = (kind: unknown): boolean =>
   typeof kind === 'string' && NON_SLA_BELL_KINDS.has(kind);
@@ -119,7 +126,8 @@ export const useSLANotifications = () => {
     apiClient
       .get('/api/notifications')
       .then((res) => {
-        const payload = (res.data as { data: { notifications: NotificationRow[]; total: number } }).data;
+        const payload = (res.data as { data: { notifications: NotificationRow[]; total: number } })
+          .data;
         // Drop arrival kinds — this is the SLA bell, not the unified center (P3 guard).
         const rows = payload.notifications.filter(
           (row) => !isNonSlaBellKind((row as { kind?: string }).kind)
@@ -149,24 +157,27 @@ export const useSLANotifications = () => {
       .catch(() => {
         setFetchError(true);
       });
-  // selectedDeptKey + orgKey are refresh triggers (both read via the axios
-  // interceptor headers, not as args) — changing either re-fetches in the new scope.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // selectedDeptKey + orgKey are refresh triggers (both read via the axios
+    // interceptor headers, not as args) — changing either re-fetches in the new scope.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDeptKey, orgKey]);
 
-  const setOnlyMine = useCallback((value: boolean) => {
-    const previousValue = prefsRef.current.onlyAssignedToMe;
-    setOnlyAssignedToMeState(value);
-    prefsRef.current = { ...prefsRef.current, onlyAssignedToMe: value };
-    apiClient
-      .put('/api/users/me/notification-preferences', { onlyAssignedToMe: value })
-      .then(() => fetchNotifications())
-      .catch(() => {
-        // Roll back to last server-confirmed state, not the negation of the argument
-        setOnlyAssignedToMeState(previousValue);
-        prefsRef.current = { ...prefsRef.current, onlyAssignedToMe: previousValue };
-      });
-  }, [fetchNotifications]);
+  const setOnlyMine = useCallback(
+    (value: boolean) => {
+      const previousValue = prefsRef.current.onlyAssignedToMe;
+      setOnlyAssignedToMeState(value);
+      prefsRef.current = { ...prefsRef.current, onlyAssignedToMe: value };
+      apiClient
+        .put('/api/users/me/notification-preferences', { onlyAssignedToMe: value })
+        .then(() => fetchNotifications())
+        .catch(() => {
+          // Roll back to last server-confirmed state, not the negation of the argument
+          setOnlyAssignedToMeState(previousValue);
+          prefsRef.current = { ...prefsRef.current, onlyAssignedToMe: previousValue };
+        });
+    },
+    [fetchNotifications]
+  );
 
   // Load user preferences
   useEffect(() => {
@@ -219,7 +230,13 @@ export const useSLANotifications = () => {
         setNotifications((prev) => {
           const rest = prev.filter((notif) => notif.id !== breach.id);
           const updated: SLABreachNotification = existing
-            ? { ...existing, severity: breach.severity, breachAmount: breach.breachAmount, receivedAt: Date.now(), isRead: false }
+            ? {
+                ...existing,
+                severity: breach.severity,
+                breachAmount: breach.breachAmount,
+                receivedAt: Date.now(),
+                isRead: false,
+              }
             : { ...breach, receivedAt: Date.now(), isRead: false };
           return [updated, ...rest];
         });
@@ -231,7 +248,11 @@ export const useSLANotifications = () => {
         const oldest = seenSeverity.current.keys().next().value as number;
         seenSeverity.current.delete(oldest);
       }
-      const notification: SLABreachNotification = { ...breach, receivedAt: Date.now(), isRead: false };
+      const notification: SLABreachNotification = {
+        ...breach,
+        receivedAt: Date.now(),
+        isRead: false,
+      };
       setNotifications((prev) => [notification, ...prev]);
       setUnreadCount((prev) => prev + 1);
       // W2-M26: a genuinely-new breach is a new persisted notification row, so the
@@ -283,7 +304,9 @@ export const useSLANotifications = () => {
     };
 
     // Re-fetch on reconnect to recover notifications missed during the disconnection gap
-    const handleReconnect = () => { fetchNotifications(); };
+    const handleReconnect = () => {
+      fetchNotifications();
+    };
 
     subscribeToEvent('sla_breach', handleBreach);
     subscribeToEvent('notification:read', handleNotificationRead);
@@ -342,5 +365,16 @@ export const useSLANotifications = () => {
     });
   }, []);
 
-  return { notifications, total, unreadCount, fetchError, onlyAssignedToMe, setOnlyMine, clearAll, dismiss, markRead, markAllRead };
+  return {
+    notifications,
+    total,
+    unreadCount,
+    fetchError,
+    onlyAssignedToMe,
+    setOnlyMine,
+    clearAll,
+    dismiss,
+    markRead,
+    markAllRead,
+  };
 };

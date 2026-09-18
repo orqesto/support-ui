@@ -27,8 +27,10 @@ import {
   CUSTOMER_REPLY_IN_SPAM_KIND,
   useUnansweredOutboundAlerts,
 } from '@/hooks/useUnansweredOutboundAlerts';
+import { useIngestionDarkAlerts } from '@/hooks/useIngestionDarkAlerts';
 import { useIngestionGapAlerts } from '@/hooks/useIngestionGapAlerts';
 import { formatStaleAge } from '@/lib/kbStaleness';
+import { IngestionDarkSection } from '@/components/layout/IngestionDarkSection';
 import { IngestionGapSection } from '@/components/layout/IngestionGapSection';
 import { UnansweredOutboundSection } from '@/components/layout/UnansweredOutboundSection';
 
@@ -202,6 +204,8 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     dismiss: dismissOutboundAlert,
   } = useUnansweredOutboundAlerts();
   const { alerts: ingestionGapAlerts, dismiss: dismissIngestionGapAlert } = useIngestionGapAlerts();
+  const { alerts: ingestionDarkAlerts, dismiss: dismissIngestionDarkAlert } =
+    useIngestionDarkAlerts();
 
   const arrivalRows = ARRIVAL_QUEUES.map((entry) => ({
     ...entry,
@@ -230,6 +234,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const hasStaleKb = staleKbAlerts.length > 0;
   const hasOutbound = outboundAlerts.length > 0;
   const hasIngestionGap = ingestionGapAlerts.length > 0;
+  const hasIngestionDark = ingestionDarkAlerts.length > 0;
   // Fault-first ordering means ≥5 spam alerts would take every visible slot and push ALL
   // one-sided rows behind the overflow line — the mirror image of the starvation the sort was
   // added to fix, and reachable on a workspace with several mailboxes. So one-sided keeps a
@@ -279,7 +284,8 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     learningUnread +
     aiAlerts.length +
     outboundAlerts.length +
-    ingestionGapAlerts.length;
+    ingestionGapAlerts.length +
+    ingestionDarkAlerts.length;
   // With multiple content types present, label each section; otherwise stay minimal.
   const sectionCount =
     (hasQueues ? 1 : 0) +
@@ -288,7 +294,8 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     (hasAiAlerts ? 1 : 0) +
     (hasStaleKb ? 1 : 0) +
     (hasOutbound ? 1 : 0) +
-    (hasIngestionGap ? 1 : 0);
+    (hasIngestionGap ? 1 : 0) +
+    (hasIngestionDark ? 1 : 0);
   const showSectionLabels = sectionCount > 1;
   const isEmpty =
     !hasQueues &&
@@ -297,7 +304,8 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     !hasAiAlerts &&
     !hasStaleKb &&
     !hasOutbound &&
-    !hasIngestionGap;
+    !hasIngestionGap &&
+    !hasIngestionDark;
 
   // Close when clicking outside
   useEffect(() => {
@@ -494,6 +502,15 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                 <IngestionGapSection
                   alerts={ingestionGapAlerts}
                   dismiss={dismissIngestionGapAlert}
+                  showLabel={showSectionLabels}
+                  SectionLabel={SectionLabel}
+                />
+
+                {/* Directly below "mail may be missing" and above everything else: both are
+                    ingestion faults, and a dark mailbox is the one that is still happening. */}
+                <IngestionDarkSection
+                  alerts={ingestionDarkAlerts}
+                  dismiss={dismissIngestionDarkAlert}
                   showLabel={showSectionLabels}
                   SectionLabel={SectionLabel}
                 />
