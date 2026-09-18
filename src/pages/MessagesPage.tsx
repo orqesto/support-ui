@@ -56,6 +56,7 @@ import {
 import { scopeJumpUrl } from '@/hooks/scopeJumpUrl';
 import { useMessagesData } from '@/hooks/useMessagesData';
 import { useMessagesUrlSync } from '@/hooks/useMessagesUrlSync';
+import { useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
@@ -75,6 +76,9 @@ const LIST_ONLY_FILTER_PARAMS = [
 
 export const MessagesPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  // Unread Suspicious/Spam arrivals — the board badges its columns with these; the list shows
+  // them on "Not shown", where both queues are hidden by default.
+  const { counts: arrivalCounts, clearKind: clearArrivalKind } = useNotificationCounts();
 
   /**
    * A link somebody sent you should land where it belongs. An id that names its workspace
@@ -849,6 +853,13 @@ export const MessagesPage = () => {
                   scope={listScope}
                   shown={pagination.total}
                   onJump={handleScopeJump}
+                  arrivals={{
+                    suspicious: arrivalCounts.suspicious_arrival ?? 0,
+                    spam: arrivalCounts.spam_arrival ?? 0,
+                  }}
+                  onReviewArrivals={(queue) =>
+                    clearArrivalKind(queue === 'suspicious' ? 'suspicious_arrival' : 'spam_arrival')
+                  }
                   /**
                    * Whether the residue row's "clear the view" would change anything. These
                    * are exactly the filters that row resets — and `status` belongs in the

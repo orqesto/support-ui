@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BookOpen, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { Message } from '@/types';
-import { getSpamCheck, humanizeSignalFlag } from '@/lib/messageHelpers';
+import { getSpamCheck, humanizeSignalFlag, spamClassLabel } from '@/lib/messageHelpers';
 import { MONO } from './messageDetailConstants';
 import { SIMILAR_RESULTS_LIMIT, SIMILAR_RESULTS_MIN_SIMILARITY } from '@/lib/constants';
 import { messageService } from '@/services/message.service';
@@ -529,13 +529,7 @@ export function AiTabPanel({
           {spamCheck && (
             <div className="rounded border border-border p-1.5">
               <p className={`${MONO} text-muted-foreground mb-0.5`}>CLASS</p>
-              <p className="text-[11px] font-medium truncate">
-                {spamCheck.isSpam === false
-                  ? 'Legit'
-                  : spamCheck.isSpam === true
-                    ? 'Spam'
-                    : 'Unknown'}
-              </p>
+              <p className="text-[11px] font-medium truncate">{spamClassLabel(spamCheck)}</p>
             </div>
           )}
           {analysis?.suggestedCategory && (

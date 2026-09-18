@@ -155,27 +155,46 @@ export const humanizeSignalFlag = (flag: string): string => {
   if (flag.startsWith('spam-keyword:')) return `Spam keyword: "${flag.slice(13)}"`;
   switch (flag) {
     // Quick check signals
-    case 'all-caps-subject':      return 'All-caps subject line';
-    case 'excessive-exclamation': return 'Excessive exclamation marks';
-    case 'missing-sender':        return 'Missing or invalid sender address';
-    case 'suspicious-url':        return 'Suspicious URL (shortener or risky TLD)';
-    case 'crypto-wallet':         return 'Crypto wallet address in body';
-    case 'lookalike-domain':      return 'Lookalike domain — possible brand spoofing';
-    case 'homoglyph-subject':     return 'Mixed-script characters in subject (homoglyph attack)';
-    case 'phone-in-body':         return 'Phone number in body';
+    case 'all-caps-subject':
+      return 'All-caps subject line';
+    case 'excessive-exclamation':
+      return 'Excessive exclamation marks';
+    case 'missing-sender':
+      return 'Missing or invalid sender address';
+    case 'suspicious-url':
+      return 'Suspicious URL (shortener or risky TLD)';
+    case 'crypto-wallet':
+      return 'Crypto wallet address in body';
+    case 'lookalike-domain':
+      return 'Lookalike domain — possible brand spoofing';
+    case 'homoglyph-subject':
+      return 'Mixed-script characters in subject (homoglyph attack)';
+    case 'phone-in-body':
+      return 'Phone number in body';
     // Email auth
-    case 'dmarc-fail':            return 'DMARC authentication failed';
-    case 'dmarc-pass':            return 'DMARC passed';
-    case 'spf-fail':              return 'SPF check failed';
-    case 'spf-pass':              return 'SPF passed';
-    case 'dkim-fail':             return 'DKIM signature invalid';
-    case 'dkim-pass':             return 'DKIM signature valid';
+    case 'dmarc-fail':
+      return 'DMARC authentication failed';
+    case 'dmarc-pass':
+      return 'DMARC passed';
+    case 'spf-fail':
+      return 'SPF check failed';
+    case 'spf-pass':
+      return 'SPF passed';
+    case 'dkim-fail':
+      return 'DKIM signature invalid';
+    case 'dkim-pass':
+      return 'DKIM signature valid';
     // Sender history
-    case 'first-contact':         return 'First message from this sender';
-    case 'velocity-high':         return 'High sending velocity (unusual burst)';
-    case 'velocity-medium':       return 'Elevated sending velocity';
-    case 'known-sender':          return 'Known legitimate sender';
-    default:                      return flag;
+    case 'first-contact':
+      return 'First message from this sender';
+    case 'velocity-high':
+      return 'High sending velocity (unusual burst)';
+    case 'velocity-medium':
+      return 'Elevated sending velocity';
+    case 'known-sender':
+      return 'Known legitimate sender';
+    default:
+      return flag;
   }
 };
 
@@ -183,10 +202,10 @@ export const humanizeSignalFlag = (flag: string): string => {
 // Drives the taxonomy distinction: system archives vs noise vs security threats.
 export type FilteredCategoryMeta = {
   statusText: string;
-  statusClass: string;       // tailwind class for the status label
+  statusClass: string; // tailwind class for the status label
   approveLabel: string;
-  approveClass: string;      // tailwind classes for the approve button
-  showMoveToSpam: boolean;   // false for phishing/scam — they're threats, not spam
+  approveClass: string; // tailwind classes for the approve button
+  showMoveToSpam: boolean; // false for phishing/scam — they're threats, not spam
 };
 
 export const getFilteredCategoryMeta = (category?: string): FilteredCategoryMeta => {
@@ -196,7 +215,8 @@ export const getFilteredCategoryMeta = (category?: string): FilteredCategoryMeta
         statusText: 'Quarantined · Phishing threat detected',
         statusClass: 'text-red-500',
         approveLabel: 'Not a Threat — Approve',
-        approveClass: 'border border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30',
+        approveClass:
+          'border border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30',
         showMoveToSpam: false,
       };
     case 'scam':
@@ -204,7 +224,8 @@ export const getFilteredCategoryMeta = (category?: string): FilteredCategoryMeta
         statusText: 'Quarantined · Scam detected',
         statusClass: 'text-red-500',
         approveLabel: 'Not a Threat — Approve',
-        approveClass: 'border border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30',
+        approveClass:
+          'border border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30',
         showMoveToSpam: false,
       };
     case 'transactional':
@@ -232,4 +253,29 @@ export const getFilteredCategoryMeta = (category?: string): FilteredCategoryMeta
         showMoveToSpam: false,
       };
   }
+};
+
+/**
+ * The spam check's own verdict, named. This tile used to read `isSpam` alone, and a
+ * `suspicious` or `solicitation` verdict also carries `isSpam: false` — so it said "Legit"
+ * right beside the SUSPICIOUS badge (taco COR-SUP-2654, 2026-09-18), and was read as the AI
+ * having cleared the message.
+ */
+const SPAM_CLASS_LABELS: Record<string, string> = {
+  legitimate: 'Legit',
+  suspicious: 'Suspicious',
+  solicitation: 'Solicitation',
+  spam: 'Spam',
+  promotional: 'Promotional',
+  phishing: 'Phishing',
+  scam: 'Scam',
+  transactional: 'Transactional',
+};
+export const spamClassLabel = (spamCheck: { isSpam?: boolean; category?: string }): string => {
+  if (spamCheck.category && SPAM_CLASS_LABELS[spamCheck.category]) {
+    return SPAM_CLASS_LABELS[spamCheck.category];
+  }
+  if (spamCheck.isSpam === true) return 'Spam';
+  if (spamCheck.isSpam === false) return spamCheck.category ? spamCheck.category : 'Legit';
+  return 'Unknown';
 };

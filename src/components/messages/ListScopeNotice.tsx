@@ -59,7 +59,25 @@ type Props = {
    * Absent means "unknown", and the row falls back to the count-only rendering it had.
    */
   lensActive?: boolean;
+  /**
+   * UNREAD arrivals per hidden queue — the same `suspicious_arrival` / `spam_arrival` counts
+   * the board badges its Suspicious and Spam column headers with. The list hides both queues
+   * by default, so without this a new suspicious message was invisible from the list: the
+   * menu showed the queue's TOTAL (33) with nothing saying any of it was new. Absent or 0
+   * renders nothing, exactly as before.
+   */
+  arrivals?: Partial<Record<ArrivalQueue, number>>;
+  /** Called after a row with unread arrivals is opened — opening the queue IS reviewing it. */
+  onReviewArrivals?: (queue: ArrivalQueue) => void;
 };
+
+export type ArrivalQueue = 'suspicious' | 'spam';
+const isArrivalQueue = (key: string): key is ArrivalQueue => key === 'suspicious' || key === 'spam';
+
+/** Same look as the board's column badge (MessagesKanbanView), so one signal reads the same. */
+const NEW_BADGE_CLASS =
+  'shrink-0 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 text-[10px] font-bold rounded-full bg-primary text-primary-foreground';
+const formatNew = (count: number) => `${count > 99 ? '99+' : count} new`;
 
 /**
  * Each chip jumps to the lens that actually holds those rows, mirroring the backend
@@ -173,6 +191,8 @@ export const ListScopeNotice = ({
   onJump,
   surface = 'list',
   lensActive,
+  arrivals,
+  onReviewArrivals,
 }: Props) => {
   /**
    * The destinations live behind one trigger. On the board only the buckets with no lane
@@ -239,6 +259,13 @@ export const ListScopeNotice = ({
     // See `lensActive`: with nothing to clear, the row keeps its count and loses its button.
     .map((reason) => (lensActive ? reason : { ...reason, filters: undefined }));
   const destinations = present.filter((reason) => reason.key !== 'other');
+  const newFor = (queue: ArrivalQueue) => Math.max(0, arrivals?.[queue] ?? 0);
+  // Only queues this menu actually offers: a badge on the trigger with no row to open would
+  // be a signal with nowhere to go.
+  const newTotal = destinations.reduce(
+    (sum, reason) => sum + (isArrivalQueue(reason.key) ? newFor(reason.key) : 0),
+    0
+  );
   const hasMenu = destinations.length > 0 || subsets.length > 0;
 
   return (
@@ -308,6 +335,11 @@ export const ListScopeNotice = ({
               way from the board.
             */}
             <b className="font-semibold text-foreground">{scope.hidden.toLocaleString()}</b>
+            {newTotal > 0 && (
+              <span className={NEW_BADGE_CLASS} aria-label={`${newTotal} new in hidden queues`}>
+                {formatNew(newTotal)}
+              </span>
+            )}
             <ChevronDown className="w-3 h-3" aria-hidden="true" />
           </button>
           {open && (
@@ -346,10 +378,16 @@ export const ListScopeNotice = ({
                     onClick={() => {
                       setOpen(false);
                       onJump(reason.filters as Partial<FilterState>, reason.needsListView);
+                      if (isArrivalQueue(reason.key) && newFor(reason.key) > 0) {
+                        onReviewArrivals?.(reason.key);
+                      }
                     }}
                     className="flex items-center gap-2 w-full px-2 py-1.5 rounded-[5px] text-[13px] text-left hover:bg-accent focus-visible:outline-none focus-visible:bg-accent"
                   >
                     <span className="truncate">{reason.label}</span>
+                    {isArrivalQueue(reason.key) && newFor(reason.key) > 0 && (
+                      <span className={NEW_BADGE_CLASS}>{formatNew(newFor(reason.key))}</span>
+                    )}
                     <span className="ml-auto font-semibold tabular-nums text-muted-foreground">
                       {reason.count.toLocaleString()}
                     </span>
