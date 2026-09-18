@@ -171,6 +171,42 @@ describe('Notification Center — ingestion gaps', () => {
     expect(screen.queryByText(/was never fetched/)).toBeNull();
   });
 
+  it('unreadable_message says the sent messages were NOT imported and where the recovery is', () => {
+    gapAlerts = [
+      {
+        ...tacoGap,
+        id: 9004,
+        title: 'Mail was not imported — the sync gave up on some sent messages',
+        cause: 'unreadable_message',
+        minutesAhead: null,
+        window: null,
+      },
+    ];
+    open();
+    expect(screen.getByText(/stopped waiting for them — they were not imported/)).toBeTruthy();
+    // Cited by NAME: the runbook's section numbers are shared by two PRs and can shift.
+    expect(screen.getByText(/runbook, section ‘Unreadable sent messages’/)).toBeTruthy();
+    expect(screen.queryByText(/§5\.1/)).toBeNull();
+    expect(screen.queryByText(/may not have been fetched/)).toBeNull();
+  });
+
+  it('sent_drain_stranded says the sent sync could not reach its oldest part', () => {
+    gapAlerts = [
+      {
+        ...tacoGap,
+        id: 9005,
+        title: 'Mail may be missing — old sent mail out of reach',
+        cause: 'sent_drain_stranded',
+        minutesAhead: null,
+        window: null,
+      },
+    ];
+    open();
+    expect(screen.getByText(/sent-folder sync could not reach its oldest part/)).toBeTruthy();
+    expect(screen.getByText(/older than the date shown may be missing/)).toBeTruthy();
+    expect(screen.queryByText(/may not have been fetched/)).toBeNull();
+  });
+
   it('renders the backend title rather than one hardcoded headline', () => {
     gapAlerts = [
       { ...tacoGap, id: 9003, title: 'Mail may be missing — a totally new cause we added later', cause: 'brand_new_cause', minutesAhead: null },

@@ -405,6 +405,29 @@ export type GmailCountResult = {
   query: string;
   inOdly: number;
   missing: number;
+  /**
+   * SENT-only messages matched neither by id nor by Message-ID, with an outbound reply in their
+   * Gmail thread sent within minutes — the sent-folder pass can hold such a copy without its id.
+   * (SENT-only copies found by Message-ID are already in `inOdly`.) Absent from an older
+   * backend: read as 0.
+   */
+  unverifiable?: number;
+  /** The SENT-only check did not finish, so some of `missing` may be such copies. */
+  sentOnlyCapped?: boolean;
+  /** Sent messages found but never checked (inside `missing`). A floor; absent on older backends. */
+  sentOnlyUnchecked?: number;
+  /** Gmail refused a request for quota; the check stopped early and samples were skipped. */
+  quotaHit?: boolean;
+  /** Listed ids the time limit left uncompared — neither in Odly nor missing. */
+  notCompared?: number;
+  /** inOdly + missing + unverifiable; with notCompared it adds up to count. */
+  compared?: number;
+  /** Where Google refused: the main listing, the sent-copy check, or the example reads. */
+  quotaHitIn?: 'listing' | 'sentCheck' | 'samples' | null;
+  /** Why the main listing is partial. Absent on older backends: read a cap as `size`. */
+  cappedBy?: 'size' | 'time' | 'quota' | 'error' | null;
+  /** The backend's time budget, not the page cap, stopped the listing. */
+  timedOut?: boolean;
   missingSamples: MissingMessageSample[];
 };
 
@@ -414,10 +437,30 @@ export type ImapCountResult = {
   missing: number;
   unverifiable: number;
   capped: boolean;
-  folders: Array<{ name: string; count: number }>;
+  /** The time budget stopped the listing (a Sent folder not reached is absent from `folders`). */
+  timedOut?: boolean;
+  /**
+   * `count` = messages COMPARED; `found` = the folder's search total; `failed` = the server's
+   * search failed, nothing in it was compared. `found`/`capped`/`failed` are absent on older
+   * backends.
+   */
+  folders: Array<{
+    name: string;
+    count: number;
+    found?: number;
+    capped?: boolean;
+    failed?: boolean;
+    /** Why this folder is partial (backend's own reason); absent on older backends. */
+    cappedBy?: 'size' | 'time' | 'shortFetch' | 'failed';
+  }>;
   missingSamples: MissingMessageSample[];
   /** 0 = all time. */
   windowDays: number;
+  /**
+   * Does the mailbox have a Sent folder? true — the server listed one; false — its LIST named
+   * none; null — the LIST failed. Absent on older backends (treated as unknown).
+   */
+  sentKnown?: boolean | null;
   /** The sync reads at most this many per folder per run. */
   perRunLimit: number;
 };
