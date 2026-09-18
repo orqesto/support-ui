@@ -300,3 +300,32 @@ describe('FE/BE skew — this frontend can reach production first', () => {
     expect(await screen.findByText('this order')).toBeTruthy();
   });
 });
+
+describe('a card is never blank while it holds data', () => {
+  it('renders the row’s own keys when no fields are configured', async () => {
+    // `fieldPaths` DEFAULTS to empty and the backend then returns rows unprojected, so this is the
+    // commonest configuration state, not an edge case. RED: map over `fields` alone ⇒ the agent
+    // sees an empty card and concludes there is no data, while the data is right there.
+    run.mockResolvedValue([
+      card({ rows: [{ order_id: '137416', status: 'Shipped' }], fields: [] }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    expect(await screen.findByText('137416')).toBeTruthy();
+    expect(screen.getByText('Shipped')).toBeTruthy();
+  });
+
+  it('does not show the projection’s currency bookkeeping as a field', async () => {
+    // `<path>__currency` is how the backend carries a per-row currency; it is not a vendor field
+    // and must not appear as its own labelled row.
+    run.mockResolvedValue([
+      card({ rows: [{ total: '348.50', total__currency: 'EUR' }], fields: [] }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    await screen.findByText('348.50');
+    expect(screen.queryByText(/TOTAL__CURRENCY/i)).toBeNull();
+  });
+});

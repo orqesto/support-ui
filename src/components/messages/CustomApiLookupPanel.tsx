@@ -97,7 +97,15 @@ const ResultCard = ({
   // overwrite. A suggestion is a suggestion; nothing is sent to a vendor without a press.
   const [value, setValue] = useState(result.suggestions?.[0] ?? '');
   const notice = ownershipNotice(result.ownership);
-  const fields = result.fields ?? [];
+  // ⛔ FALL BACK TO THE ROW'S OWN KEYS. `fieldPaths` DEFAULTS to empty, and the backend returns
+  // rows unprojected in that case — so mapping over `fields` alone rendered a BLANK card while
+  // holding data, on the commonest configuration state there is. Found by audit pass 2.
+  // The `__currency` companions are the projection's own bookkeeping, not vendor fields.
+  const fields: LookupField[] = result.fields?.length
+    ? result.fields
+    : Object.keys(result.rows?.[0] ?? {})
+        .filter((key) => !key.endsWith('__currency'))
+        .map((key) => ({ path: key, label: key, kind: 'plain' as const }));
 
   return (
     <div className="rounded border border-border p-2 space-y-1.5">
