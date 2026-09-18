@@ -108,13 +108,19 @@ const partialReasons = (result: ImapCountResult): string[] => {
       (folder) => folder.name === 'INBOX' && folder.cappedBy === 'time'
     );
     if (inboxCut) reasons.push('INBOX was only partly read before the time limit.');
+    const sentCut = result.folders
+      .filter((folder) => folder.name !== 'INBOX' && folder.cappedBy === 'time')
+      .map((folder) => folder.name);
+    if (sentCut.length > 0) {
+      reasons.push(`${sentCut.join(' and ')} was only partly read before the time limit.`);
+    }
     if (result.folders.length < 2 && result.sentKnown === true) {
       reasons.push('The time limit was reached before the Sent folder.');
     } else if (result.folders.length < 2 && result.sentKnown === null) {
       reasons.push(
         'The Sent folder could not be identified before the time limit, so it was not compared.'
       );
-    } else if (!inboxCut) {
+    } else if (!inboxCut && sentCut.length === 0) {
       reasons.push('The comparison stopped on the time limit before every message was read.');
     }
   }

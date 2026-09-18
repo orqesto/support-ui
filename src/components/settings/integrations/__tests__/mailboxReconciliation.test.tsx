@@ -329,6 +329,22 @@ describe('Gmail: a partial comparison says why it stopped', () => {
     expect(screen.getByText(/At least 150 sent messages were not checked/)).toBeInTheDocument();
   });
 
+  it('a sent-check refusal with nothing unchecked renders NO empty note paragraph', async () => {
+    countGmailMessages.mockResolvedValue({
+      ...partial,
+      quotaHit: true,
+      quotaHitIn: 'sentCheck',
+      sentOnlyCapped: true,
+      sentOnlyUnchecked: 0,
+    });
+    const { container } = renderGmail();
+    await screen.findByText(/during the sent-copy check/);
+    const empty = [...container.querySelectorAll('p')].filter(
+      (paragraph) => paragraph.textContent?.trim() === ''
+    );
+    expect(empty).toHaveLength(0);
+  });
+
   it('CONTROL — no quota refusal, no quota line', async () => {
     countGmailMessages.mockResolvedValue({ ...partial, quotaHit: false });
     renderGmail();
@@ -559,5 +575,30 @@ describe('IMAP "Compare with Odly" on a saved source', () => {
       screen.getByText(/The Sent folder could not be identified, so it was not compared/)
     ).toBeInTheDocument();
     expect(screen.queryByText(/could not be opened or searched/)).not.toBeInTheDocument();
+  });
+
+  it('a Sent folder the deadline cut mid-fetch gets its own time reason', async () => {
+    countImapMessages.mockResolvedValue(
+      imapResult({
+        count: 5,
+        inOdly: 5,
+        missing: 0,
+        capped: true,
+        timedOut: true,
+        sentKnown: true,
+        folders: [
+          { name: 'INBOX', count: 3, found: 3, capped: false },
+          { name: 'Sent', count: 2, found: 3, capped: true, cappedBy: 'time' },
+        ],
+        missingSamples: [],
+      })
+    );
+    renderCard();
+    fireEvent.click(screen.getByLabelText('Compare with Odly'));
+    expect(
+      await screen.findByText(/Sent was only partly read before the time limit/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/before every message was read/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/INBOX was only partly read/)).not.toBeInTheDocument();
   });
 });
