@@ -140,8 +140,13 @@ export const useSLANotifications = () => {
           entityId: row.entityId,
           type: row.entityType,
           organizationId: row.organizationId,
-          severity: row.severity,
-          breachAmount: row.breachAmount,
+          // ⚠️ `notifications.severity` and `breachAmount` are NULLABLE in the database — the
+          // column carries a value for SLA kinds only. This file's type said otherwise, and the
+          // generated contract was stale enough to agree with it. Regenerating surfaced the
+          // mismatch; a null severity now falls back to 'warning' rather than being asserted away,
+          // which is the quieter of the two states and matches how the filter already treats it.
+          severity: row.severity ?? 'warning',
+          breachAmount: row.breachAmount ?? 0,
           details: row.details,
           createdAt: row.createdAt,
           receivedAt: Date.now(),
