@@ -258,11 +258,10 @@ export const AIProvidersSettings = ({ showModeSwitch = false }: { showModeSwitch
     );
 
     try {
-      const updatePayload: Partial<{
+      const updatePayload: { type: string } & Partial<{
         name: string;
         enabled: boolean;
         config: Record<string, unknown>;
-        type: string;
       }> & { disableOtherAIProviders?: boolean } = {
         enabled: isEnabling,
         type,

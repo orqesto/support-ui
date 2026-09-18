@@ -27,6 +27,7 @@ export const GmailSyncRangeDialog = ({ source, onClose, onRefresh, onShowAlert }
       const days = parseInt(daysInput) || 0;
 
       await integrationsService.update(source.id, {
+        type: 'gmail',
         config: { gmail: { bulkImportDays: days } },
       });
 

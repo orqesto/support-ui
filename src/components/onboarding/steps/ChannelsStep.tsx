@@ -30,9 +30,19 @@ const CHANNELS: {
 }[] = [
   { key: 'gmail', label: 'Gmail', description: 'Connect a Google inbox with OAuth', icon: Mail },
   { key: 'email', label: 'Email (IMAP)', description: 'Any mailbox via IMAP/SMTP', icon: AtSign },
-  { key: 'telegram', label: 'Telegram', description: 'Receive messages from a Telegram bot', icon: Send },
+  {
+    key: 'telegram',
+    label: 'Telegram',
+    description: 'Receive messages from a Telegram bot',
+    icon: Send,
+  },
   { key: 'slack', label: 'Slack', description: 'Connect a Slack workspace', icon: Hash },
-  { key: 'whatsapp', label: 'WhatsApp', description: 'Connect a WhatsApp Business number', icon: MessageCircle },
+  {
+    key: 'whatsapp',
+    label: 'WhatsApp',
+    description: 'Connect a WhatsApp Business number',
+    icon: MessageCircle,
+  },
 ];
 
 /**
@@ -89,8 +99,7 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
   // Counts every mailbox on the channel, KB-marked or not — see the note in
   // fetchIntegrations. A row that says "Not connected" above a mailbox the user just added
   // is worse than no count at all.
-  const countFor = (key: ChannelKey) =>
-    integrations.filter((item) => item.type === key).length;
+  const countFor = (key: ChannelKey) => integrations.filter((item) => item.type === key).length;
 
   const cardProps = {
     integrations,
@@ -106,14 +115,17 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
 
   const renderCard = (key: ChannelKey) => {
     switch (key) {
+      // No `defaultKB` on either mailbox card — the same way Settings mounts them.
+      // `defaultKB={false}` made the card's own list filter to `isKnowledgeBase === false`, so
+      // a mailbox added with the KB box ticked disappeared behind "No … accounts configured"
+      // the moment it was created, while the row header (isConnectedChannel) said "1 connected".
+      // #260 fixed that for IMAP only; Gmail kept it until 2026-09-18 (prod test-workspace:
+      // usetixly@gmail.com, KB-marked, listed in Settings, "No Gmail accounts connected" in the
+      // wizard). The prop's other jobs are unchanged: `undefined` already falls back to a
+      // non-KB create form and the plain heading.
       case 'gmail':
-        return <GmailIntegrationCard {...cardProps} defaultKB={false} />;
+        return <GmailIntegrationCard {...cardProps} />;
       case 'email':
-        // No `defaultKB` — the same way Settings mounts it. `defaultKB={false}` made the
-        // card's own list filter to `isKnowledgeBase === false`, so a mailbox added with
-        // the KB box ticked disappeared behind "No email accounts configured" the moment
-        // it was created. The prop's other jobs (the create-form default and the heading)
-        // are unchanged: `undefined` already falls back to false / "Email Accounts (IMAP)".
         return <EmailIntegrationCard {...cardProps} />;
       case 'telegram':
         return <TelegramIntegrationCard {...cardProps} />;
@@ -174,7 +186,9 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
                   aria-hidden
                 />
               </Button>
-              {open && <div className="border-t border-border bg-muted/20 p-3">{renderCard(key)}</div>}
+              {open && (
+                <div className="border-t border-border bg-muted/20 p-3">{renderCard(key)}</div>
+              )}
             </div>
           );
         })}

@@ -95,6 +95,7 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
     setStarting(true);
     try {
       await integrationsService.update(source.id, {
+        type: 'gmail',
         enabled: true,
         config: { gmail: { searchQuery, bulkImportDays } },
       });

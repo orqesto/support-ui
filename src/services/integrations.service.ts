@@ -623,13 +623,19 @@ export const integrationsService = {
     };
   },
 
+  /**
+   * `type` is REQUIRED, not optional: ids repeat across `message_sources` and `ai_providers`,
+   * so the PATCH handler refuses an update without it ("Integration type is required for
+   * updates to avoid ID collision"). It was typed optional, and three callers omitted it —
+   * Gmail "Start sync" (prod, 2026-09-18: the source stayed paused), and both sync-range
+   * dialogs. Required here, a caller that forgets it no longer compiles.
+   */
   update: async (
     id: number,
-    data: Partial<{
+    data: { type: string } & Partial<{
       name: string;
       enabled: boolean;
       config: Record<string, unknown>;
-      type: string;
     }>
   ): Promise<ApiResponse<Integration>> => {
     const response = await apiClient.patch<{ success: boolean; data: Integration }>(

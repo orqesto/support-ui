@@ -152,6 +152,7 @@ export const EmailIntegrationCard = ({
       const days = parseInt(bulkImportDaysInput) || 0;
 
       await integrationsService.update(editBulkImport.id, {
+        type: 'email',
         config: {
           email: { bulkImportDays: days },
         },
