@@ -83,7 +83,7 @@ export interface components {
         ContactProfileEntry: {
             id: number;
             /** @enum {string} */
-            type: "email" | "telegram_username" | "telegram_phone" | "slack";
+            type: "email" | "telegram_username" | "telegram_phone" | "slack" | "whatsapp_phone";
             value: string;
             label: string | null;
             createdAt: string;
@@ -172,7 +172,7 @@ export interface components {
             messageSourceId: number | null;
             departmentId: number | null;
             /** @enum {string} */
-            channel: "email" | "telegram" | "slack" | "chat" | "other";
+            channel: "email" | "telegram" | "slack" | "chat" | "whatsapp" | "other";
             sender: string;
             subject: string | null;
             threadId: string | null;
@@ -208,7 +208,7 @@ export interface components {
             messageSourceId: number | null;
             departmentId: number | null;
             /** @enum {string} */
-            channel: "email" | "telegram" | "slack" | "chat" | "other";
+            channel: "email" | "telegram" | "slack" | "chat" | "whatsapp" | "other";
             sender: string;
             subject: string | null;
             threadId: string | null;
@@ -252,6 +252,11 @@ export interface components {
             organizationRole: string;
             organizationId: number;
             departmentIds: number[];
+            allianceMemberships?: {
+                allianceId: number;
+                /** @enum {string|null} */
+                role: "alliance_admin" | null;
+            }[];
             permissionOverrides?: {
                 added?: string[];
                 removed?: string[];
@@ -260,14 +265,15 @@ export interface components {
         Notification: {
             id: number;
             organizationId: number;
+            kind: string;
             /** @enum {string} */
             entityType: "message" | "ticket_first_response" | "ticket_resolution";
             entityId: number;
             assigneeId: number | null;
             departmentId: number | null;
-            /** @enum {string} */
-            severity: "warning" | "critical";
-            breachAmount: number;
+            /** @enum {string|null} */
+            severity: "warning" | "critical" | null;
+            breachAmount: number | null;
             details: {
                 channel?: string;
                 priority?: string;
@@ -308,6 +314,99 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        CustomApiEndpoint: {
+            id: number;
+            connectionId: number;
+            label: string;
+            path: string;
+            method: string;
+            /** @enum {string} */
+            parameterSource: "identity" | "manual" | "endpoint";
+            /** @enum {string|null} */
+            identityField: "email" | "phone" | "displayName" | null;
+            sourceEndpointId: number | null;
+            sourceFieldPath: string | null;
+            ownershipSourceEndpointId: number | null;
+            recordFormatPrefix: string | null;
+            recordFormatLength: number | null;
+            recordFormatCharset: string | null;
+            headers: {
+                [key: string]: string;
+            };
+            requestBodyTemplate: string | null;
+            fieldPaths: {
+                path: string;
+                label: string;
+                /**
+                 * @default plain
+                 * @enum {string}
+                 */
+                kind: "plain" | "money";
+                /**
+                 * @default none
+                 * @enum {string}
+                 */
+                role: "none" | "identifier" | "date" | "status" | "total" | "currency";
+                currencyPath?: string;
+                currencyLiteral?: string;
+            }[];
+            /** @enum {string} */
+            resultShape: "one" | "many";
+            rowCap: number | null;
+            /** @enum {string} */
+            surface: "thread" | "contact" | "both";
+            enabled: boolean;
+            effectivelyEnabled: boolean;
+            chainBroken: boolean;
+            hasResponseSkeleton: boolean;
+            createdAt: string;
+            updatedAt: string;
+        };
+        CustomApiConnection: {
+            id: number;
+            name: string;
+            purpose: string | null;
+            enabled: boolean;
+            baseUrl: string;
+            /** @enum {string} */
+            authType: "bearer" | "header" | "none";
+            authHeaderName: string | null;
+            hasCredential: boolean;
+            headers: {
+                [key: string]: string;
+            };
+            timeoutMs: number;
+            /** @enum {string} */
+            scopeMode: "all" | "departments";
+            departmentIds: number[];
+            endpoints: components["schemas"]["CustomApiEndpoint"][];
+            createdAt: string;
+            updatedAt: string;
+        };
+        CustomApiLookupResult: {
+            endpointId: number;
+            label: string;
+            connectionName: string;
+            resultShape: string;
+            /** @enum {string} */
+            status: "ok" | "no_match" | "shape_changed" | "failed" | "needs_input";
+            rows?: {
+                [key: string]: unknown;
+            }[];
+            suggestions?: string[];
+            fields?: {
+                path: string;
+                label: string;
+                /** @enum {string} */
+                kind: "plain" | "money";
+                currency?: string;
+            }[];
+            total?: number | null;
+            missing?: string[];
+            reason?: string;
+            /** @enum {string} */
+            ownership?: "owned" | "mismatch" | "unverified";
+        };
         SlaBreach: {
             id: number;
             /** @enum {string} */
@@ -328,7 +427,7 @@ export interface components {
             /** @enum {string} */
             type: "ticket" | "message";
             /** @enum {string} */
-            key: "low" | "medium" | "high" | "critical" | "email" | "telegram" | "slack" | "chat" | "other";
+            key: "low" | "medium" | "high" | "critical" | "email" | "telegram" | "slack" | "chat" | "whatsapp" | "other";
             firstResponseMinutes: number;
             resolutionHours: number | null;
             isCustom: boolean;

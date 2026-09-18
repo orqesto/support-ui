@@ -1,9 +1,5 @@
 import { useState, useCallback } from 'react';
-import {
-  StickyNote,
-  Pencil,
-  Trash2,
-} from 'lucide-react';
+import { StickyNote, Pencil, Trash2 } from 'lucide-react';
 import { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
 import { Button } from '@/components/ui/Button';
 import {
@@ -14,7 +10,11 @@ import {
 import { MessageAttachments, type Attachment } from './MessageAttachments';
 import { MessageKBReferences } from './MessageKBReferences';
 import { AiTabPanel, type KBAttachment } from './AiTabPanel';
-import { messageService, type MessageNote, type MessageActivityEntry } from '@/services/message.service';
+import {
+  messageService,
+  type MessageNote,
+  type MessageActivityEntry,
+} from '@/services/message.service';
 import { buildTimeline } from './messageActivityTimeline';
 import { ContactProfileDetails } from '@/components/contacts/ContactProfileDetails';
 import { useContactProfile } from '@/components/contacts/useContactProfile';
@@ -28,6 +28,7 @@ import RichTextEditor from '@/components/shared/RichTextEditor';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import DOMPurify from 'dompurify';
 import { MONO, relativeTime, getInitials } from './messageDetailConstants';
+import { CustomApiLookupPanel } from './CustomApiLookupPanel';
 
 type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
 
@@ -55,7 +56,11 @@ export type MessagePanelTabsProps = {
   setLeadState: React.Dispatch<React.SetStateAction<LeadState | null>>;
   leadFieldDefs: LeadQualificationFieldConfig[];
   onGhostClick: (answer: string, source: string, attachments?: KBAttachment[]) => void;
-  onOptionSelect?: (answer: string, label: string, type: 'lead' | 'documentation' | 'similar') => void;
+  onOptionSelect?: (
+    answer: string,
+    label: string,
+    type: 'lead' | 'documentation' | 'similar'
+  ) => void;
   onOptionsLoaded?: (total: number) => void;
   onAiLoadingChange?: (loading: boolean) => void;
   setComposerMode: React.Dispatch<React.SetStateAction<'reply' | 'note'>>;
@@ -117,7 +122,13 @@ export function MessagePanelTabs({
   // the standalone Contact drawer, via the shared hook. Resolved by the
   // requester's email; sender may be "Name <email>". Loaded lazily on tab open.
   const contactEmail = message.sender?.match(/<(.+?)>/)?.[1] ?? message.sender ?? '';
-  const contactEnabled = tab === 'customer' && contactEmail.includes('@');
+  // ⛔ D17: the profile loads for ANY resolvable sender, not only an email one. The old
+  // `contactEmail.includes('@')` gate meant a Telegram or WhatsApp customer had NO contact profile
+  // in the thread at all — a pre-existing bug, not a custom-API detail. Still keyed on the sender
+  // we have; a customer with no email simply gets no identity-keyed lookup (D30), and the panel
+  // says so rather than showing an empty result that reads like a failure.
+  const contactEnabled = tab === 'customer' && contactEmail.length > 0;
+  const hasEmailIdentity = contactEmail.includes('@');
   const contactProfile = useContactProfile(contactEmail, {
     enabled: contactEnabled,
     onChanged: onRefresh,
@@ -172,13 +183,18 @@ export function MessagePanelTabs({
     | undefined;
 
   return (
-    <div className={`flex flex-col border-b border-border ${panelOpen ? 'flex-1 min-h-0' : 'flex-shrink-0'}`}>
+    <div
+      className={`flex flex-col border-b border-border ${panelOpen ? 'flex-1 min-h-0' : 'flex-shrink-0'}`}
+    >
       {/* Tab bar */}
       <div className="flex w-full border-b border-border">
         {/* Thread tab — active when panel is closed */}
         <Button
           variant="ghost"
-          onClick={() => { setPanelOpen(false); setComposerMode('reply'); }}
+          onClick={() => {
+            setPanelOpen(false);
+            setComposerMode('reply');
+          }}
           className={`flex flex-1 justify-center items-center px-2 h-[33px] rounded-none hover:bg-transparent ${MONO} border-b-2 transition-colors ${
             !panelOpen
               ? 'border-primary text-primary'
@@ -241,11 +257,7 @@ export function MessagePanelTabs({
           {/* AI Tab */}
           {tab === 'ai' && (
             <div className="space-y-2">
-              <AiTabPanel
-                message={message}
-                onGhostClick={onGhostClick}
-                section="analysis"
-              />
+              <AiTabPanel message={message} onGhostClick={onGhostClick} section="analysis" />
             </div>
           )}
 
@@ -293,6 +305,19 @@ export function MessagePanelTabs({
                     <span className="text-[11px] truncate self-center">{row.value}</span>
                   </div>
                 ))}
+              </div>
+
+              {/* CA-3: what the connected integrations know about this customer. Nothing is
+                  fetched until the agent presses Look up (SC1). */}
+              <div className="pt-1">
+                <CustomApiLookupPanel
+                  conversationId={message.id}
+                  identityNote={
+                    hasEmailIdentity
+                      ? undefined
+                      : 'This customer has no email address, so identity-based lookups cannot run. Enter a record number to look one up.'
+                  }
+                />
               </div>
 
               {/* Full contact profile — assigned manager, labels, channel
@@ -351,107 +376,125 @@ export function MessagePanelTabs({
 
           {/* Attachments Tab */}
           {tab === 'attachments' && (
-            <MessageAttachments message={message} sortedThread={sortedThread} refreshKey={threadRefreshKey} highlightId={highlightAttachmentId} preloadedAttachments={attachments} />
+            <MessageAttachments
+              message={message}
+              sortedThread={sortedThread}
+              refreshKey={threadRefreshKey}
+              highlightId={highlightAttachmentId}
+              preloadedAttachments={attachments}
+            />
           )}
 
           {/* Contradiction Tab */}
-          {tab === 'contradiction' && (() => {
-            const crossCheck = message.metadata?.contradictionCheck as ContradictionCheckMetadata | undefined;
-            const intraCheck = message.metadata?.intraMessageContradictionCheck as ContradictionCheckMetadata | undefined;
-            const hasCrossContradiction =
-              !!crossCheck?.result?.hasContradiction ||
-              !!crossCheck?.result?.contradictions?.length;
-            const hasIntraContradiction =
-              !!intraCheck?.result?.hasContradiction ||
-              !!intraCheck?.result?.contradictions?.length;
-            const checkWasRun = !!crossCheck || !!intraCheck;
+          {tab === 'contradiction' &&
+            (() => {
+              const crossCheck = message.metadata?.contradictionCheck as
+                | ContradictionCheckMetadata
+                | undefined;
+              const intraCheck = message.metadata?.intraMessageContradictionCheck as
+                | ContradictionCheckMetadata
+                | undefined;
+              const hasCrossContradiction =
+                !!crossCheck?.result?.hasContradiction ||
+                !!crossCheck?.result?.contradictions?.length;
+              const hasIntraContradiction =
+                !!intraCheck?.result?.hasContradiction ||
+                !!intraCheck?.result?.contradictions?.length;
+              const checkWasRun = !!crossCheck || !!intraCheck;
 
-            const confidencePill: Record<string, string> = {
-              high: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-              medium: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-              low: 'bg-muted text-muted-foreground',
-            };
+              const confidencePill: Record<string, string> = {
+                high: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+                medium: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+                low: 'bg-muted text-muted-foreground',
+              };
 
-            const CleanResult = ({ check }: { check: ContradictionCheckMetadata }) => (
-              <div className="p-2 rounded border border-border bg-card space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
-                    No contradiction found
-                  </span>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${confidencePill[check.result.confidence] ?? confidencePill.low}`}>
-                    {check.result.confidence} confidence
-                  </span>
-                </div>
-                {check.claimToVerify && (
-                  <div>
-                    <p className={`${MONO} text-muted-foreground mb-0.5`}>CLAIM CHECKED</p>
-                    <p className="text-[11px] italic text-foreground">"{check.claimToVerify}"</p>
+              const CleanResult = ({ check }: { check: ContradictionCheckMetadata }) => (
+                <div className="p-2 rounded border border-border bg-card space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                      No contradiction found
+                    </span>
+                    <span
+                      className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${confidencePill[check.result.confidence] ?? confidencePill.low}`}
+                    >
+                      {check.result.confidence} confidence
+                    </span>
                   </div>
-                )}
-                {check.result.explanation && (
-                  <div>
-                    <p className={`${MONO} text-muted-foreground mb-0.5`}>ANALYSIS</p>
-                    <p className="text-[11px] text-muted-foreground">{check.result.explanation}</p>
-                  </div>
-                )}
-                <p className="text-[9px] text-muted-foreground pt-1 border-t border-border">
-                  {check.triggeredBy === 'auto_pattern' ? 'Auto' : 'Manual'} · {new Date(check.checkedAt).toLocaleString()}
-                </p>
-              </div>
-            );
-
-            if (hasIntraContradiction || hasCrossContradiction) {
-              return (
-                <div className="space-y-2">
-                  {/* The fingerprint is unique across the rendered set by construction — it is
-                      what the list was deduplicated on. `checkedAt` alone would collide: the
-                      thread and intra checks of a single run share a timestamp. */}
-                  {contradictionChecksToRender(intraCheck, crossCheck).map((check) => (
-                    <ContradictionAlert
-                      key={contradictionFingerprint(check)}
-                      contradictionCheck={check}
-                    />
-                  ))}
-                  {crossCheck && !hasCrossContradiction && !crossCheck.result.hasContradiction && <CleanResult check={crossCheck} />}
+                  {check.claimToVerify && (
+                    <div>
+                      <p className={`${MONO} text-muted-foreground mb-0.5`}>CLAIM CHECKED</p>
+                      <p className="text-[11px] italic text-foreground">"{check.claimToVerify}"</p>
+                    </div>
+                  )}
+                  {check.result.explanation && (
+                    <div>
+                      <p className={`${MONO} text-muted-foreground mb-0.5`}>ANALYSIS</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {check.result.explanation}
+                      </p>
+                    </div>
+                  )}
+                  <p className="text-[9px] text-muted-foreground pt-1 border-t border-border">
+                    {check.triggeredBy === 'auto_pattern' ? 'Auto' : 'Manual'} ·{' '}
+                    {new Date(check.checkedAt).toLocaleString()}
+                  </p>
                 </div>
               );
-            }
 
-            if (checkWasRun) {
+              if (hasIntraContradiction || hasCrossContradiction) {
+                return (
+                  <div className="space-y-2">
+                    {/* The fingerprint is unique across the rendered set by construction — it is
+                      what the list was deduplicated on. `checkedAt` alone would collide: the
+                      thread and intra checks of a single run share a timestamp. */}
+                    {contradictionChecksToRender(intraCheck, crossCheck).map((check) => (
+                      <ContradictionAlert
+                        key={contradictionFingerprint(check)}
+                        contradictionCheck={check}
+                      />
+                    ))}
+                    {crossCheck &&
+                      !hasCrossContradiction &&
+                      !crossCheck.result.hasContradiction && <CleanResult check={crossCheck} />}
+                  </div>
+                );
+              }
+
+              if (checkWasRun) {
+                return (
+                  <div className="space-y-2">
+                    {crossCheck && <CleanResult check={crossCheck} />}
+                    {intraCheck && <CleanResult check={intraCheck} />}
+                    {onCheckContradiction && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => void handleCheckContradiction()}
+                        disabled={checkingContradiction}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 h-auto rounded border border-border text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
+                      >
+                        {checkingContradiction ? 'Checking…' : 'Re-check'}
+                      </Button>
+                    )}
+                  </div>
+                );
+              }
+
               return (
-                <div className="space-y-2">
-                  {crossCheck && <CleanResult check={crossCheck} />}
-                  {intraCheck && <CleanResult check={intraCheck} />}
+                <div className="flex flex-col items-center justify-center gap-2 py-6 text-center">
+                  <p className="text-[11px] text-muted-foreground">Not checked yet.</p>
                   {onCheckContradiction && (
                     <Button
                       variant="ghost"
                       onClick={() => void handleCheckContradiction()}
                       disabled={checkingContradiction}
-                      className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 h-auto rounded border border-border text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-3 py-1.5 h-auto rounded border border-border text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
                     >
-                      {checkingContradiction ? 'Checking…' : 'Re-check'}
+                      {checkingContradiction ? 'Checking…' : 'Check contradiction'}
                     </Button>
                   )}
                 </div>
               );
-            }
-
-            return (
-              <div className="flex flex-col items-center justify-center gap-2 py-6 text-center">
-                <p className="text-[11px] text-muted-foreground">Not checked yet.</p>
-                {onCheckContradiction && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => void handleCheckContradiction()}
-                    disabled={checkingContradiction}
-                    className="flex items-center gap-1.5 px-3 py-1.5 h-auto rounded border border-border text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
-                  >
-                    {checkingContradiction ? 'Checking…' : 'Check contradiction'}
-                  </Button>
-                )}
-              </div>
-            );
-          })()}
+            })()}
 
           {/* KB Tab — always mounted so similar-results are fetched once and never re-generated */}
           <div className={tab === 'kb' ? 'space-y-2' : 'hidden'}>
@@ -479,7 +522,9 @@ export function MessagePanelTabs({
                   key={`${item.time}-${item.label}-${item.who}`}
                   className="flex gap-2 items-start py-1 border-b border-border last:border-0"
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${item.dot ?? 'bg-muted-foreground/30'}`} />
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${item.dot ?? 'bg-muted-foreground/30'}`}
+                  />
                   <span className="font-mono text-[10px] text-muted-foreground w-14 flex-shrink-0 [font-variant-numeric:tabular-nums]">
                     {relativeTime(item.time)}
                   </span>
@@ -488,9 +533,13 @@ export function MessagePanelTabs({
                   </span>
                 </div>
               ))}
-              {messageActivity.length === 0 && noteActivityLog.length === 0 && notes.length === 0 && (
-                <p className="text-[11px] text-muted-foreground text-center py-4">No activity yet</p>
-              )}
+              {messageActivity.length === 0 &&
+                noteActivityLog.length === 0 &&
+                notes.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground text-center py-4">
+                    No activity yet
+                  </p>
+                )}
             </div>
           )}
 
@@ -581,7 +630,25 @@ export function MessagePanelTabs({
                     ) : (
                       <div
                         className="text-[11px] leading-snug prose prose-sm max-w-none dark:prose-invert"
-                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(note.content, { ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'u', 'strong', 'em', 'ul', 'ol', 'li', 'code', 'pre'], ALLOWED_ATTR: [] }) }}
+                        dangerouslySetInnerHTML={{
+                          __html: DOMPurify.sanitize(note.content, {
+                            ALLOWED_TAGS: [
+                              'p',
+                              'br',
+                              'b',
+                              'i',
+                              'u',
+                              'strong',
+                              'em',
+                              'ul',
+                              'ol',
+                              'li',
+                              'code',
+                              'pre',
+                            ],
+                            ALLOWED_ATTR: [],
+                          }),
+                        }}
                       />
                     )}
                   </div>

@@ -4,8 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ContactAvatar } from '@/components/contacts/ContactAvatar';
-import { ContactProfileActivity, type ActivityItem } from '@/components/contacts/ContactProfileActivity';
+import {
+  ContactProfileActivity,
+  type ActivityItem,
+} from '@/components/contacts/ContactProfileActivity';
 import { ContactProfileDetails } from '@/components/contacts/ContactProfileDetails';
+import { CustomApiLookupPanel } from '@/components/messages/CustomApiLookupPanel';
 import { useContactProfile } from '@/components/contacts/useContactProfile';
 import { avatarColor, formatAge, getInitials, safeCssColor } from '@/lib/utils';
 
@@ -19,7 +23,9 @@ type ContactProfilePanelProps = {
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex-1 min-w-0">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
       <div className="mt-0.5 text-[13px] font-semibold truncate text-foreground">{children}</div>
     </div>
   );
@@ -85,8 +91,9 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
 
   const openTickets = useMemo(
     () =>
-      (contact?.recentTickets ?? []).filter((tkt) => tkt.status !== 'resolved' && tkt.status !== 'closed')
-        .length,
+      (contact?.recentTickets ?? []).filter(
+        (tkt) => tkt.status !== 'resolved' && tkt.status !== 'closed'
+      ).length,
     [contact]
   );
 
@@ -232,7 +239,6 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
                   <X className="w-4 h-4" />
                 </Button>
               </div>
-
             </div>
 
             {/* Key facts */}
@@ -263,7 +269,9 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
               </Fact>
               <Fact label="Customer since">{formatAge(contact.createdAt)} ago</Fact>
               <Fact label="Last active">
-                {contact.stats?.lastMessageAt ? `${formatAge(contact.stats.lastMessageAt)} ago` : '—'}
+                {contact.stats?.lastMessageAt
+                  ? `${formatAge(contact.stats.lastMessageAt)} ago`
+                  : '—'}
               </Fact>
             </div>
 
@@ -295,39 +303,50 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
               {tab === 'activity' ? (
                 <ContactProfileActivity activity={activity} />
               ) : (
-                <ContactProfileDetails
-                  contact={contact}
-                  users={users}
-                  availableLabels={availableLabels}
-                  showLabelPicker={showLabelPicker}
-                  setShowLabelPicker={setShowLabelPicker}
-                  onAssign={handleAssign}
-                  onAddLabel={handleAddLabel}
-                  onRemoveLabel={handleRemoveLabel}
-                  onCreateLabel={handleCreateLabel}
-                  creatingLabel={creatingLabel}
-                  noteInput={noteInput}
-                  setNoteInput={setNoteInput}
-                  addingNote={addingNote}
-                  onAddNote={handleAddNote}
-                  onDeleteNote={handleDeleteNote}
-                  profileTypeInput={profileTypeInput}
-                  setProfileTypeInput={setProfileTypeInput}
-                  profileValueInput={profileValueInput}
-                  setProfileValueInput={setProfileValueInput}
-                  profileLabelInput={profileLabelInput}
-                  setProfileLabelInput={setProfileLabelInput}
-                  showProfileForm={showProfileForm}
-                  setShowProfileForm={setShowProfileForm}
-                  addingProfile={addingProfile}
-                  onAddProfile={handleAddProfile}
-                  onDeleteProfile={handleDeleteProfile}
-                  linkEmailInput={linkEmailInput}
-                  setLinkEmailInput={setLinkEmailInput}
-                  linkingEmail={linkingEmail}
-                  onLinkEmail={handleLinkEmail}
-                  onUnlink={handleUnlink}
-                />
+                <>
+                  {/*
+                    SC5: the SAME lookup, reachable without opening a thread. ⛔ The same COMPONENT,
+                    not a second copy of the outcome states — a page opened from a list must not
+                    rename, recolour or flatten what that list said, and two copies are two places
+                    to fix every future state.
+                  */}
+                  <div className="mb-4">
+                    <CustomApiLookupPanel contactId={contact.id} />
+                  </div>
+                  <ContactProfileDetails
+                    contact={contact}
+                    users={users}
+                    availableLabels={availableLabels}
+                    showLabelPicker={showLabelPicker}
+                    setShowLabelPicker={setShowLabelPicker}
+                    onAssign={handleAssign}
+                    onAddLabel={handleAddLabel}
+                    onRemoveLabel={handleRemoveLabel}
+                    onCreateLabel={handleCreateLabel}
+                    creatingLabel={creatingLabel}
+                    noteInput={noteInput}
+                    setNoteInput={setNoteInput}
+                    addingNote={addingNote}
+                    onAddNote={handleAddNote}
+                    onDeleteNote={handleDeleteNote}
+                    profileTypeInput={profileTypeInput}
+                    setProfileTypeInput={setProfileTypeInput}
+                    profileValueInput={profileValueInput}
+                    setProfileValueInput={setProfileValueInput}
+                    profileLabelInput={profileLabelInput}
+                    setProfileLabelInput={setProfileLabelInput}
+                    showProfileForm={showProfileForm}
+                    setShowProfileForm={setShowProfileForm}
+                    addingProfile={addingProfile}
+                    onAddProfile={handleAddProfile}
+                    onDeleteProfile={handleDeleteProfile}
+                    linkEmailInput={linkEmailInput}
+                    setLinkEmailInput={setLinkEmailInput}
+                    linkingEmail={linkingEmail}
+                    onLinkEmail={handleLinkEmail}
+                    onUnlink={handleUnlink}
+                  />
+                </>
               )}
             </div>
           </>
