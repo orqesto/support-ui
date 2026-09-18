@@ -364,21 +364,36 @@ const renderCard = () =>
       onShowAlert={vi.fn()}
     />
   );
-const imapResult = (over: Record<string, unknown> = {}) => ({
-  count: 160,
-  inOdly: 150,
-  missing: 4,
-  unverifiable: 0,
-  capped: false,
-  folders: [
-    { name: 'INBOX', count: 120 },
-    { name: 'Sent', count: 40 },
-  ],
-  missingSamples: [sample],
-  windowDays: 30,
-  perRunLimit: 500,
-  ...over,
-});
+/**
+ * A shape the backend can produce: count (distinct) = inOdly + missing + unverifiable. An
+ * override that sets `count` without `inOdly` gets the inOdly that makes the sum hold.
+ */
+const imapResult = (over: Record<string, unknown> = {}) => {
+  const missing = (over.missing as number | undefined) ?? 4;
+  const unverifiable = (over.unverifiable as number | undefined) ?? 0;
+  const result = {
+    count: 154,
+    inOdly: 150,
+    missing,
+    unverifiable,
+    capped: false,
+    folders: [
+      { name: 'INBOX', count: 114 },
+      { name: 'Sent', count: 40 },
+    ],
+    missingSamples: [sample],
+    windowDays: 30,
+    perRunLimit: 500,
+    ...over,
+  };
+  if ('count' in over && !('inOdly' in over)) result.inOdly = result.count - missing - unverifiable;
+  if (!('count' in over)) result.count = result.inOdly + missing + unverifiable;
+  // Every fixture must be a shape the backend can send.
+  if (result.inOdly + missing + unverifiable !== result.count) {
+    throw new Error(`impossible fixture: ${JSON.stringify(result)}`);
+  }
+  return result;
+};
 
 describe('IMAP "Compare with Odly" on a saved source', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -389,7 +404,7 @@ describe('IMAP "Compare with Odly" on a saved source', () => {
     fireEvent.click(screen.getByLabelText('Compare with Odly'));
     await waitFor(() => expect(countImapMessages).toHaveBeenCalledWith(12));
     expect(
-      await screen.findByText('Mailbox (last 30 days): 160 messages (INBOX 120 · Sent 40)')
+      await screen.findByText('Mailbox (last 30 days): 154 messages (INBOX 114 · Sent 40)')
     ).toBeInTheDocument();
     expect(screen.getByText('In Odly: 150 · Missing: 4')).toBeInTheDocument();
     expect(screen.queryByText(/Can't verify/)).not.toBeInTheDocument();
@@ -502,25 +517,27 @@ describe('IMAP "Compare with Odly" on a saved source', () => {
     expect(screen.queryByText(/only the most recently added were checked/)).not.toBeInTheDocument();
   });
 
-  it('out of time on a mailbox with NO Sent folder: never "Sent: not reached"', async () => {
+  it('INBOX cut by the time limit (the backend then skips LIST and Sent: sentKnown null)', async () => {
     countImapMessages.mockResolvedValue(
       imapResult({
         count: 120,
         capped: true,
         timedOut: true,
-        sentKnown: false,
+        sentKnown: null,
         folders: [{ name: 'INBOX', count: 120, found: 150, capped: true, cappedBy: 'time' }],
       })
     );
     renderCard();
     fireEvent.click(screen.getByLabelText('Compare with Odly'));
     expect(await screen.findByText(/INBOX 120 of 150/)).toBeInTheDocument();
-    expect(screen.queryByText(/Sent: not reached/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/before the Sent folder/)).not.toBeInTheDocument();
-    // The cut was INBOX itself — say so.
     expect(
       screen.getByText(/INBOX was only partly read before the time limit/)
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Sent folder could not be identified before the time limit/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Sent: not reached/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/all in Odly/)).not.toBeInTheDocument();
   });
 
   it('LIST failed and time ran out: says the Sent folder could not be identified, not "looked for"', async () => {
