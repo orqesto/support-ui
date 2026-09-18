@@ -81,7 +81,7 @@ export const IngestionGapSection = ({
                     : alert.cause === 'sent_drain_stranded'
                       ? 'The sent-folder sync could not reach its oldest part; sent mail older than the date shown may be missing. See the ingestion-gaps runbook.'
                       : alert.cause === 'unreadable_message'
-                        ? 'The sync failed on these sent messages repeatedly and stopped waiting for them — they were not imported. Fix the cause, then follow the ingestion-gaps runbook, section \u2018Unreadable sent messages\u2019, to bring them back.'
+                        ? 'The sync failed repeatedly on some sent messages and stopped waiting for them — they were not imported (their ids are listed below when they were kept). Fix the cause, then follow the ingestion-gaps runbook, section \u2018Unreadable sent messages\u2019, to bring them back.'
                         : 'Mail arriving in this window may not have been fetched.'}
             </p>
             {alert.window && (

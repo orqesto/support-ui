@@ -498,7 +498,10 @@ describe('IMAP "Compare with Odly" on a saved source', () => {
   it('a SHORT FETCH (found > count, not the size cap) says so — never "only the newest"', async () => {
     countImapMessages.mockResolvedValue(
       imapResult({
-        count: 118,
+        // Distinct total across folders: 118 + 40 (no message in both).
+        count: 158,
+        inOdly: 154,
+        missing: 4,
         capped: true,
         folders: [
           { name: 'INBOX', count: 118, found: 120, capped: true, cappedBy: 'shortFetch' },
