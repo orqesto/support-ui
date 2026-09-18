@@ -170,8 +170,11 @@ const SLABreachItem = ({
 // NOTE: Suspicious is intentionally NOT here — it is rendered below as a LIVE
 // queue-depth row (like Needs Routing), sourced from the `suspicious_queue`
 // count, so it only clears when the queue empties rather than on a per-user
-// "reviewed" click. The `suspicious_arrival` kind still drives the Kanban
-// header "N new" badge, which is separate from this panel.
+// "reviewed" click. ⚠️ The `suspicious_arrival` kind USED TO drive a Kanban header
+// "N new" badge on the Suspicious column; that column was removed on 2026-09-18 when
+// suspicion became a mark on an ordinary thread rather than a lane of its own, so this
+// panel's queue-depth row is now the surface for it. The arrival kind itself is still
+// emitted and still clears; it simply has no column left to badge.
 const ARRIVAL_QUEUES: {
   kind: ArrivalKind;
   label: string;

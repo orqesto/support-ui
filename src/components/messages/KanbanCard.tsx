@@ -29,6 +29,7 @@ import {
   getInitials,
   getPriorityBadge,
   getSpine,
+  getSuspicionBadge,
   hasAttachments,
 } from './inboxCardHelpers';
 import { TRIAGE_READ_COLUMN_IDS } from './kanbanColumns';
@@ -109,6 +110,7 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
     ? allDepts.find((dept) => dept.id === msg.departmentId)
     : undefined;
   const needsRouting = msg.status === 'needs_routing';
+  const suspicionBadge = getSuspicionBadge(msg);
 
   const customer = thread.sender || msg.sender;
   const signalMessage = thread.latestIncomingMessage ?? msg;
@@ -207,6 +209,16 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
               primaryDept && <DepartmentBadge variant="primary" dept={primaryDept} />
             )}
           </div>
+        )}
+        {/* Same mark as the list row: the card sits in a work column now, not a lane of
+            its own, so the verdict has to travel with it. */}
+        {suspicionBadge && (
+          <span
+            className={`inline-flex items-center px-1.5 text-[10px] font-semibold rounded shrink-0 ${suspicionBadge.className}`}
+            title="Flagged suspicious — open it to approve or mark as spam"
+          >
+            {suspicionBadge.label}
+          </span>
         )}
         {showUnreadDot && (
           <span

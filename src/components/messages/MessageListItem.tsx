@@ -41,6 +41,7 @@ import {
   getPriorityBadge,
   getSpine,
   getRoutingBadge,
+  getSuspicionBadge,
   getStatusBadge,
   hasAttachments,
 } from './inboxCardHelpers';
@@ -120,6 +121,7 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
   const isBlockedSpamLog = thread.threadId.startsWith('spamlog_');
   // Separate axis from the work status: a thread can be awaiting routing AND open.
   const routingBadge = getRoutingBadge(msg);
+  const suspicionBadge = getSuspicionBadge(msg);
   const priorityBadge = getPriorityBadge(msg.priority);
 
   // Shared org-wide read/unread (triage queues only): unread = dot + bold; read =
@@ -334,6 +336,17 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
               title="Open this thread to choose its department"
             >
               {routingBadge.label}
+            </span>
+          )}
+
+          {/* ⛔ The thread is SHOWN now instead of hidden, so it must be MARKED. Unbadged
+              suspicion renders possible phishing as ordinary mail — worse than hiding it. */}
+          {suspicionBadge && (
+            <span
+              className={`inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold ${suspicionBadge.className}`}
+              title="Flagged suspicious — open it to approve or mark as spam"
+            >
+              {suspicionBadge.label}
             </span>
           )}
 

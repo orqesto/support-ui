@@ -15,9 +15,18 @@ import { QUEUE_FILTERS } from '@/stores/messagesStore';
 const noLane = COLUMNS.find((col) => col.id === 'no_lane');
 
 describe('the Other column', () => {
-  it('exists, so nothing the other nine refuse is left without a lane', () => {
+  it('exists, so nothing the other columns refuse is left without a lane', () => {
     expect(noLane).toBeDefined();
-    expect(COLUMNS).toHaveLength(10);
+    // ⬇ Was 10. The Suspicious column went on 2026-09-18: suspicion became a MARK on an
+    // ordinary thread, like needs_routing before it, so those rows now sit in the WORK
+    // columns wearing a badge rather than in a lane of their own.
+    //
+    // ⛔ The coverage guarantee is unchanged, and that is what this test is for: `no_lane`
+    // asks for the COMPLEMENT server-side, so a suspicious row is claimed by a work column
+    // (`workflowStatusCondition` gives it a work status now) and is not left stranded. If a
+    // future change removes a column WITHOUT giving its rows another home, `no_lane` catches
+    // them — that is the property, not the number.
+    expect(COLUMNS).toHaveLength(9);
   });
 
   it('asks for the COMPLEMENT, never a list of classifications', () => {

@@ -4,7 +4,6 @@ import {
   Hourglass,
   PauseCircle,
   CheckCircle2,
-  ShieldAlert,
   HelpCircle,
   Ban,
   Archive,
@@ -38,7 +37,7 @@ export const COLUMNS: KanbanColumnDef[] = [
     icon: Inbox,
     // lifecycle='open' = unreviewed + client-replied (needs our action). excludeSuspicious
     // keeps suspicious-but-open messages in the Triage tab, not the work board.
-    fixedFilters: { lifecycle: 'open', excludeSuspicious: 'true' },
+    fixedFilters: { lifecycle: 'open' },
     accentColor: '#3b82f6',
     iconClass: 'text-blue-500',
     emptyText: 'No open messages',
@@ -48,7 +47,7 @@ export const COLUMNS: KanbanColumnDef[] = [
     axis: 'lifecycle',
     label: 'In Progress',
     icon: PlayCircle,
-    fixedFilters: { lifecycle: 'in_progress', excludeSuspicious: 'true' },
+    fixedFilters: { lifecycle: 'in_progress' },
     accentColor: '#8b5cf6',
     iconClass: 'text-violet-500',
     emptyText: 'Nothing in progress',
@@ -59,7 +58,7 @@ export const COLUMNS: KanbanColumnDef[] = [
     label: 'Pending',
     icon: Hourglass,
     // "Pending" = awaiting the customer's response (BE lifecycle='awaiting').
-    fixedFilters: { lifecycle: 'awaiting', excludeSuspicious: 'true' },
+    fixedFilters: { lifecycle: 'awaiting' },
     accentColor: '#f97316',
     iconClass: 'text-orange-500',
     emptyText: 'Nothing awaiting the customer',
@@ -86,21 +85,6 @@ export const COLUMNS: KanbanColumnDef[] = [
     iconClass: 'text-emerald-500',
     emptyText: 'No resolved messages',
   },
-  {
-    // Suspicious lives on the work board as a collapsed-by-default column (like
-    // On-hold/Resolved) for at-a-glance visibility. It's Queue-axis by data
-    // (category='suspicious', excluded from Open/In Progress/Pending), so it never
-    // overlaps the active columns. Triage actions (approve / mark spam) are done by
-    // opening the card — the drag approve-zone stays on the Triage tab.
-    id: 'suspicious',
-    axis: 'lifecycle',
-    label: 'Suspicious',
-    icon: ShieldAlert,
-    fixedFilters: { view: 'suspicious' },
-    accentColor: '#a855f7',
-    iconClass: 'text-purple-500',
-    emptyText: 'No suspicious messages',
-  },
   // --- Triage axis (pre-lifecycle classification) ---
   {
     id: 'not_analysed',
@@ -118,7 +102,15 @@ export const COLUMNS: KanbanColumnDef[] = [
   // the same rows, and the department picker's "Needs routing" entry narrows THIS board to
   // them (`kanbanSharedFilters.ts` → `queue=needs_routing`). A dedicated column would show
   // the same cards a second time under a lane they are not in.
-  // (Suspicious moved to the lifecycle board above — collapsed by default.)
+  // Suspicious is NOT a column either, for the same reason and since 2026-09-18. It is a
+  // VERDICT MARK on an ordinary thread: the thread sits in Open / In Progress / Awaiting and
+  // carries a Suspicious badge (`getSuspicionBadge`, fed by the backend's `isSuspicious`,
+  // which is the very predicate the Suspicious chip claims rows by). It used to have a
+  // collapsed column AND `excludeSuspicious` pinned into those three work columns, so the
+  // thread appeared in neither place anyone was looking. The chip in the filter bar is how
+  // you ask to see them alone.
+  // ⛔ SPAM IS DIFFERENT and keeps its column: 37 spam against 6 suspicious on the measured
+  // workspace, so inlining spam would bury the work this board exists to show.
   {
     id: 'archived',
     axis: 'triage',
