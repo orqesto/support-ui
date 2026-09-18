@@ -256,3 +256,47 @@ describe('SC5 — the same panel outside a thread', () => {
     expect(await screen.findByText(/does NOT belong to this customer/i)).toBeTruthy();
   });
 });
+
+describe('FE/BE skew — this frontend can reach production first', () => {
+  it('⛔ stands DOWN when the deployment has no lookup endpoint', async () => {
+    // A push to main deploys this frontend; the backend ships on a tag. RED: treat a 404 like any
+    // other failure ⇒ every agent gets a Look up button answering "could not be completed", which
+    // reads as a broken integration rather than a feature that has not shipped yet.
+    // ⛔ THE SHAPE THE APP ACTUALLY PRODUCES. The api-client interceptor drops `.response` and
+    // copies `status` onto a fresh Error, so a fixture shaped like a raw axios error would pass
+    // this test against a hook that could never work in production.
+    run.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
+    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    await waitFor(() => expect(container.firstChild).toBeNull());
+  });
+
+  it('POSITIVE CONTROL: a real failure still shows a reason', async () => {
+    // Without this, a panel that hid itself on ANY error would pass the test above while silently
+    // swallowing a genuine outage.
+    run.mockRejectedValue(Object.assign(new Error('Server Error'), { status: 500 }));
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    expect(await screen.findByText(/could not be completed/i)).toBeTruthy();
+  });
+
+  it('tolerates a response with no fields, rows or suggestions', async () => {
+    // An older backend sends a narrower shape. A component reading a field the deployed backend
+    // does not send yet white-screens the whole thread view, so the service normalises first.
+    run.mockResolvedValue([
+      {
+        endpointId: 20,
+        label: 'this order',
+        connectionName: 'DeusPower',
+        resultShape: 'one',
+        status: 'ok',
+      },
+    ] as CustomApiLookupResult[]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    expect(await screen.findByText('this order')).toBeTruthy();
+  });
+});

@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import {
   customApiLookupService,
   type CustomApiLookupResult,
@@ -21,6 +22,15 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
   const [loading, setLoading] = useState(false);
   const [hasRun, setHasRun] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * ⚠️ THE SKEW WINDOW, handled rather than described. A push to `main` deploys this frontend while
+   * the backend ships on a tag, so this panel WILL exist in production before the CA-3 backend
+   * does. Without this, every agent gets a Look up button that answers "the lookup could not be
+   * completed" — worse than no button at all, because it reads as a broken integration rather than
+   * a feature that has not shipped yet. A 404 on the route itself means this deployment has no
+   * lookup endpoint, so the panel stands down entirely.
+   */
+  const [unavailable, setUnavailable] = useState(false);
 
   const run = useCallback(
     async (manual?: { endpointId: number; parameter: string }) => {
@@ -36,10 +46,21 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
             : data
         );
         setHasRun(true);
-      } catch {
-        // One reason, not a stack: the agent can act on "it did not work", and per-integration
-        // failures already arrive as their own cards from the backend.
-        setError('The lookup could not be completed.');
+      } catch (err) {
+        // ⛔ `getErrorStatus`, never `err.response.status`. The api-client interceptor builds a
+        // FRESH Error with `status` copied onto it and `.response` dropped entirely, so reading the
+        // axios shape here type-checks, looks right and NEVER MATCHES — which is how nine call
+        // sites once turned real 403s and 429s into generic "something went wrong" copy. This hook
+        // had the same bug until `errorShape.test.ts` caught it.
+        const status = getErrorStatus(err);
+        if (status === 404) {
+          setUnavailable(true);
+        } else {
+          // ⛔ SHOW WHAT THE BACKEND SAID. A hardcoded string throws away a reason the agent could
+          // act on — "the vendor rejected our credentials" becomes "something went wrong", which is
+          // the failure `errorShape.test.ts` exists to prevent and which it caught here.
+          setError(getApiErrorMessage(err) ?? 'The lookup could not be completed.');
+        }
       } finally {
         setLoading(false);
       }
@@ -47,5 +68,5 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
     [target.conversationId, target.contactId]
   );
 
-  return { results, loading, hasRun, error, run };
+  return { results, loading, hasRun, error, unavailable, run };
 }

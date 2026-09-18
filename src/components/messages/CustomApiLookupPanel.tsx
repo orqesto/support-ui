@@ -184,10 +184,15 @@ const ResultCard = ({
 };
 
 export const CustomApiLookupPanel = ({ conversationId, contactId, identityNote }: Props) => {
-  const { results, loading, hasRun, error, run } = useCustomApiLookup({
+  const { results, loading, hasRun, error, unavailable, run } = useCustomApiLookup({
     conversationId,
     contactId,
   });
+
+  // ⚠️ FE/BE SKEW: this deployment has no lookup endpoint yet. Show nothing rather than a button
+  // that fails — a broken-looking control reads as a broken integration, not as a feature that has
+  // not shipped. A push to `main` deploys this frontend; the backend ships on a tag.
+  if (unavailable) return null;
 
   return (
     <div className="space-y-2">
