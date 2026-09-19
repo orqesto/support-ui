@@ -109,9 +109,26 @@ const literalTexts = (node: ts.Node): string[] => {
 };
 
 /**
- * The only runtime way the client module may be named: `import { apiClient, other } from …` with
- * no alias, no default and no namespace binding — or anything `import type` (erased at compile
- * time). A side-effect-only import, a default or namespace import, an aliased specifier: all fail.
+ * ⛔ The ONLY runtime exports of the client module another file may import, each read by a person
+ * and found to send no request to a path its caller supplies. Audit (2026-09-19): the rule used to
+ * accept an unaliased import of ANY export, so `handleResponseError({ response: { status: 401 },
+ * config: { url: '/custom-apis/lookup' } })` stayed green and at runtime REPLAYED that path — no
+ * `/api` — through `apiClient.request`. Every export of lib/api-client.ts, classified:
+ * - `apiClient`: the client; every call on it is checked by this file.
+ * - `ensureFreshSession`: single-flight wrapper over `requestRefresh`, which posts only to the
+ *   fixed `${API_BASE_URL}/api/auth/refresh`. Takes no argument. Permitted.
+ * - `handleResponseError`: replays `error.config` — a CALLER-supplied path — on a 401. Forbidden.
+ * - `applyRequestContext`, `noteSessionFromResponse`, `clearDatabasePauseOnSuccess`: send no
+ *   request, but nothing outside the module needs them, so they are not listed. Add one only
+ *   after re-reading its body.
+ */
+const PERMITTED_IMPORTS = new Set(['apiClient', 'ensureFreshSession']);
+
+/**
+ * The only runtime way the client module may be named: `import { apiClient, ensureFreshSession }
+ * from …` — names from PERMITTED_IMPORTS, no alias, no default and no namespace binding — or
+ * anything `import type` (erased at compile time). A side-effect-only import, a default or
+ * namespace import, an aliased specifier, any other export: all fail.
  */
 const isPermittedClientImport = (node: ts.ImportDeclaration): boolean => {
   const clause = node.importClause;
@@ -120,7 +137,10 @@ const isPermittedClientImport = (node: ts.ImportDeclaration): boolean => {
   if (clause.name) return false;
   const bindings = clause.namedBindings;
   if (!bindings || !ts.isNamedImports(bindings)) return false;
-  return bindings.elements.every((element) => element.isTypeOnly || !element.propertyName);
+  return bindings.elements.every(
+    (element) =>
+      element.isTypeOnly || (!element.propertyName && PERMITTED_IMPORTS.has(element.name.text))
+  );
 };
 
 /** The name of the function a node sits in — `<module>` at top level. */
