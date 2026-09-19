@@ -154,6 +154,27 @@ export const THREAD_SANITIZE = {
   ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'width', 'height'],
   FORBID_ATTR: ['style', 'class', 'id'],
   ALLOWED_URI_REGEXP: /^https?:/i,
+  /**
+   * ⛔ Without this, `ALLOWED_URI_REGEXP` ABOVE DELETES `width` and `height`.
+   *
+   * DOMPurify URI-checks every attribute EXCEPT those it holds as URI-safe, and its defaults
+   * cover `alt` but not `width`/`height` — which is why `alt` survives the same sanitizer and the
+   * dimensions do not. `40` does not match `^https?:`, so every dimension an email carries was
+   * stripped (measured, not reasoned: sanitizing the same tag with and without the pattern) and every
+   * remote image rendered at its intrinsic size, scaled to the container by `[&_img]:max-w-full`.
+   * A 40px logo became a full-width banner; an 88px product thumbnail became a block. The comment
+   * on `img` above asserted the opposite and had done since the config was written, which is why
+   * nobody checked: the words said the sizes came along, and the config removed them.
+   *
+   * It is the SAME trap `addNoopenerHook` documents below for `target`/`rel`. That one was found
+   * because the anchors misbehaved visibly; this one hid until remote images began rendering at
+   * all (support-service#773 — before it, they were broken placeholders for any global admin).
+   *
+   * Proven with a control: sanitizing the same `<img>` with and only with `ALLOWED_URI_REGEXP`
+   * loses `width`/`height`; adding them here restores them, and a `javascript:` href or src is
+   * still refused — these two are marked safe, the URI guard itself is untouched.
+   */
+  ADD_URI_SAFE_ATTR: ['width', 'height'],
 };
 
 /**
