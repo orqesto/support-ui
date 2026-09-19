@@ -56,6 +56,10 @@ const initializerOf = (name: ts.Identifier, checker: ts.TypeChecker): ts.Express
 const prefixOf = (node: ts.Expression, checker: ts.TypeChecker, depth = 0): string | null => {
   if (depth > 8) return null;
   const next = (expr: ts.Expression) => prefixOf(expr, checker, depth + 1);
+  // ⛔ A `..` ANYWHERE in the expression — a concatenated operand, a value inside `${}`, a
+  // helper's argument — could climb back out of /api/, so its prefix proves nothing. Checked at
+  // every step, which also covers the declarations and helper bodies resolved below.
+  if (climbsOut(node.getText())) return null;
   if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
     return climbsOut(node.text) ? null : node.text;
   }
