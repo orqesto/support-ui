@@ -88,3 +88,24 @@ describe('the proxy url has ONE builder', () => {
     }
   });
 });
+
+describe('the image guard is pinned to THIS message', () => {
+  it('refuses our own proxy url when it names a different event or workspace', () => {
+    /**
+     * ⛔ Stricter than `isProxiedImageUrl` ON PURPOSE. That helper answers "did we write this
+     * url?" and accepts any event and any org. Here the question is "did we write it FOR THIS
+     * MESSAGE?" — otherwise a sender can hand us a proxy url scoped to a message, or a
+     * workspace, other than the one on screen and have the console fetch it.
+     */
+    const ours = imageProxyBase(CONTEXT);
+    expect(render(`<img src="${ours}?src=https%3A%2F%2Fa.test%2Fx.png">`)).toContain('<img');
+
+    for (const foreign of [
+      'https://api.test/api/organizations/21/messages/events/999/image?src=x',
+      'https://api.test/api/organizations/99/messages/events/5690/image?src=x',
+      'https://api.test/api/messages/events/5690/image?src=x',
+    ]) {
+      expect(render(`<img src="${foreign}">`), foreign).not.toContain('<img');
+    }
+  });
+});

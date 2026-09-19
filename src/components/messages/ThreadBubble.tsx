@@ -129,6 +129,31 @@ export function ThreadBubble({
     '[&_pre]:whitespace-pre-wrap [&_img]:max-w-full [&_img]:!h-auto ' +
     '[&_a]:text-[#1a0dab] [&_a]:underline';
 
+  /**
+   * Sanitizing is now materially more expensive than it was: it parses and filters the inline
+   * CSS of every styled element, where before it deleted the attribute outright. This runs for
+   * the body AND the quoted history of every message, and a thread panel re-renders on things
+   * as ordinary as typing in the composer — 22 bubbles on SOM-INF-1579, each with a signature.
+   * Memoised on the inputs that can actually change the output.
+   */
+  const sanitizeChunk = useMemo(() => {
+    const cache = new Map<string, string>();
+    return (chunk: string): string => {
+      const hit = cache.get(chunk);
+      if (hit !== undefined) return hit;
+      const clean =
+        eventId === undefined
+          ? ''
+          : sanitizeEmailHtml(chunk, {
+              eventId,
+              apiBaseUrl: API_BASE_URL,
+              organizationId: selectedOrganizationId,
+            });
+      cache.set(chunk, clean);
+      return clean;
+    };
+  }, [eventId, selectedOrganizationId]);
+
   const renderHtml = (html: string) => {
     // No `eventId` means no proxy URL, so the sender's own image hosts could not have been
     // rewritten. Fall back to the old, stricter config rather than render sender CSS around
@@ -141,11 +166,7 @@ export function ThreadBubble({
         />
       );
     }
-    const clean = sanitizeEmailHtml(html, {
-      eventId,
-      apiBaseUrl: API_BASE_URL,
-      organizationId: selectedOrganizationId,
-    });
+    const clean = sanitizeChunk(html);
     // A body can sanitize down to nothing — a message whose whole content was one image we
     // refuse to load, or markup made entirely of tags outside the allowlist. Rendering the
     // ground anyway leaves an empty white card in the thread, which reads as "this message is

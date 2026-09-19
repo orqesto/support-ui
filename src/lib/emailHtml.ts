@@ -224,6 +224,19 @@ function emailPurifier(): ReturnType<typeof createDOMPurify> {
      * this point the node is parsed, so there is no quoting or entity trickery left to hide
      * behind: anything not pointing at our proxy is removed, and a rewrite miss degrades to a
      * missing image rather than to a silent beacon.
+     *
+     * ⚠️ THIS IS DELIBERATELY STRICTER THAN `isProxiedImageUrl`, and it is not an oversight —
+     * do not "consolidate" it onto that helper. `isProxiedImageUrl` accepts our proxy path for
+     * ANY event and ANY organization, because it answers a different question ("did we write
+     * this url?"). Here the answer has to be "did we write this url FOR THIS MESSAGE?": pinned
+     * to `context.proxyBase`, a sender cannot hand us
+     * `<img src="https://ours/api/organizations/9/messages/events/999/image?src=…">` and have
+     * the console fetch something scoped to a message — or a workspace — that is not the one
+     * being rendered.
+     *
+     * Legitimate images always match, because `proxyRemoteImages` builds the src from the same
+     * `imageProxyBase(…)` call with the same inputs in the same render. That agreement is not
+     * assumed — `emailHtmlHardening.test.ts` drifts the two apart as a control.
      */
     if (node.tagName === 'IMG') {
       const src = node.getAttribute('src') ?? '';
