@@ -17,6 +17,12 @@ type Connection = Svc.CustomApiConnection;
 
 const list = vi.fn<() => Promise<Connection[]>>();
 
+// The dialogs drop the thread panel's cached availability after a save; this suite tests which
+// dialog opens, not that, so the hook is stubbed rather than a QueryClient mounted for it.
+vi.mock('@/hooks/useCustomApiLookup', () => ({
+  useInvalidateCustomApiAvailability: () => () => {},
+}));
+
 vi.mock('@/services/customApi.service', async () => {
   const actual = await vi.importActual<typeof Svc>('@/services/customApi.service');
   return {

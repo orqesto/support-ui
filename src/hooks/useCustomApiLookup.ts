@@ -54,6 +54,29 @@ export function useCustomApiLookupAvailability(surface: LookupSurface): boolean 
   return data === true;
 }
 
+/**
+ * Drop the cached "is there a lookup here?" answer, for CA-5's settings screen to call after a
+ * write that can change it. (Audit, 2026-09-19.)
+ *
+ * ⛔ WITHOUT THIS, CONFIGURING A LOOKUP DID NOTHING FOR FIVE MINUTES. The availability answer is
+ * cached for five minutes (above), and an admin who had just created the first lookup went to a
+ * thread and found no panel — the cached "no" from before the save was still being served. The
+ * same holds in reverse for disabling one. So every SUCCESSFUL write that can change whether a
+ * lookup exists or is enabled calls this; a failed write changed nothing and must not.
+ *
+ * Invalidates every org/user/surface under the key: the admin cannot know which surfaces or
+ * departments a change touched, and one refetch per mounted panel is cheap.
+ *
+ * ⚠️ Not called after Send test or a pasted sample: those READ the vendor and do not change
+ * availability. (The wizard's own save-before-test does, and calls it from that write.)
+ */
+export function useInvalidateCustomApiAvailability(): () => void {
+  const queryClient = useQueryClient();
+  return useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: [AVAILABILITY_KEY] });
+  }, [queryClient]);
+}
+
 export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' | 'contactId'>) {
   const [results, setResults] = useState<CustomApiLookupResult[]>([]);
   const [loading, setLoading] = useState(false);

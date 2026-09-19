@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
@@ -24,7 +24,24 @@ import { describe, expect, it } from 'vitest';
  */
 const SRC = join(process.cwd(), 'src');
 const climbsOut = (text: string): boolean => text.includes('..');
-const METHODS = new Set(['get', 'post', 'put', 'patch', 'delete']);
+/**
+ * Every apiClient method whose FIRST argument is a URL. The form and head/options variants were
+ * missing until audit round 12 (2026-09-19): `apiClient.postForm('/custom-apis', …)` was neither
+ * checked nor counted, so it stayed green.
+ */
+const METHODS = new Set([
+  'get',
+  'post',
+  'put',
+  'patch',
+  'delete',
+  'postForm',
+  'putForm',
+  'patchForm',
+  'head',
+  'options',
+]);
+const CLIENT_MODULE = 'lib/api-client.ts';
 const API = '/api/';
 
 /** `file: first argument` the parser cannot resolve, each checked by hand. Keep it EMPTY if possible. */
@@ -33,6 +50,28 @@ const CHECKED_BY_HAND = new Set<string>([
   // (TicketAttachments) passes `/api/attachments/jira/${id}/download` or undefined.
   'components/shared/AttachmentPreviewDialog.tsx: path = path = downloadPath ?? `/api/attachments/${attachment.id}/download`',
 ]);
+
+/**
+ * ⛔ WHOLE SITES that use the client some way other than a checked call, each read by a person.
+ * Keyed `file: site`, where site is the member chain off `apiClient` plus a call's arguments,
+ * so an entry stops matching the moment the site changes. Only the client's own module may be
+ * here: anywhere else, a use this test cannot read is a request it cannot check.
+ */
+const CLIENT_INTERNALS = new Set<string>([
+  // The request interceptor: adds the auth token and org/alliance headers. Builds no URL.
+  'lib/api-client.ts: apiClient.interceptors.request.use(applyRequestContext, (error: unknown) => Promise.reject(error instanceof Error ? error : new Error(String(error))))',
+  // The 401 retry RE-SENDS a request that already went out through a checked call — its URL is
+  // the one that call was checked for — after the session refresh. It builds no new path.
+  'lib/api-client.ts: apiClient.request(original)',
+  // The response interceptor: session bookkeeping and error shaping. Builds no URL.
+  'lib/api-client.ts: apiClient.interceptors.response.use(noteSessionFromResponse, handleResponseError)',
+]);
+
+/** A module specifier that names the client module, by alias or by relative path. */
+const namesClientModule = (specifier: string, fromFile: string): boolean =>
+  specifier === '@/lib/api-client' ||
+  (specifier.startsWith('.') &&
+    relative(SRC, join(fromFile, '..', specifier)).replace(/\.tsx?$/, '') === 'lib/api-client');
 
 const sourceFiles = (dir: string): string[] =>
   readdirSync(dir).flatMap((name) => {
@@ -108,6 +147,52 @@ const siteText = (arg: ts.Expression, checker: ts.TypeChecker, file: ts.SourceFi
   return declaration ? `${text} = ${declaration.getText(file).replace(/\s+/g, ' ')}` : text;
 };
 
+/**
+ * Is this `apiClient` identifier one of the three accounted uses — its own declaration in the
+ * client module, an un-renamed import specifier, or the object of a checked call with a first
+ * argument? If so, 'accounted'; otherwise the whole site, for the failure or the allowlist.
+ * A property NAME `apiClient` (`AC.apiClient`, `{ apiClient: … }`) is not accounted either.
+ */
+const classifyUse = (id: ts.Identifier, file: ts.SourceFile): string => {
+  const parent = id.parent;
+  if (
+    ts.isVariableDeclaration(parent) &&
+    parent.name === id &&
+    relative(SRC, file.fileName) === CLIENT_MODULE
+  ) {
+    return 'accounted';
+  }
+  // Renamed imports are flagged by the rebinding check; this accepts only `{ apiClient }`.
+  if (ts.isImportSpecifier(parent) && !parent.propertyName && parent.name === id)
+    return 'accounted';
+  if (
+    ts.isPropertyAccessExpression(parent) &&
+    parent.expression === id &&
+    METHODS.has(parent.name.text) &&
+    ts.isCallExpression(parent.parent) &&
+    parent.parent.expression === parent &&
+    parent.parent.arguments.length > 0
+  ) {
+    return 'accounted';
+  }
+  // Climb the member chain (`apiClient.interceptors.request.use`, `apiClient['get']`), and take
+  // the call's arguments too when the chain is called, so an allowlisted site is the WHOLE site.
+  let top: ts.Node = id;
+  while (
+    (ts.isPropertyAccessExpression(top.parent) || ts.isElementAccessExpression(top.parent)) &&
+    top.parent.expression === top
+  ) {
+    top = top.parent;
+  }
+  let site = top.getText(file);
+  if (ts.isCallExpression(top.parent) && top.parent.expression === top) {
+    site = top.parent.getText(file);
+  } else if (top === id) {
+    site = parent.getText(file);
+  }
+  return site.replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/,? \)/g, ')');
+};
+
 interface Call {
   site: string;
   prefix: string | null;
@@ -120,6 +205,10 @@ const scan = () => {
   // Any other NAME for the client: the scan matches the identifier `apiClient`, so a renamed
   // import or a `const c = apiClient` would take its calls out of the count and the check.
   const rebindings: string[] = [];
+  // Every OTHER use of the identifier: element access, `.request(...)`, passing it as an argument,
+  // `.defaults`, `.interceptors`, a namespace import. Audit round 12 found four forms the method
+  // count never saw; rather than list forms, every use must be one of the three accounted for.
+  const unaccounted: string[] = [];
   const files = sourceFiles(SRC);
   const program = ts.createProgram(files, {
     jsx: ts.JsxEmit.ReactJSX,
@@ -156,6 +245,40 @@ const scan = () => {
       ) {
         references += 1;
       }
+      // ⛔ The module itself, by any name the identifier scan below cannot follow:
+      // `import * as AC from '@/lib/api-client'` makes `AC.apiClient.get(...)` a property, and a
+      // `require` returns an object nobody checks.
+      if (
+        ts.isImportDeclaration(node) &&
+        ts.isStringLiteral(node.moduleSpecifier) &&
+        namesClientModule(node.moduleSpecifier.text, path) &&
+        node.importClause?.namedBindings &&
+        ts.isNamespaceImport(node.importClause.namedBindings) &&
+        // `import type * as X` is erased at compile time: it can name the client's TYPE
+        // (src/test/apiError.ts does), never call it.
+        !node.importClause.isTypeOnly
+      ) {
+        unaccounted.push(`${where()} (namespace import)`);
+      }
+      if (
+        ts.isCallExpression(node) &&
+        ts.isIdentifier(node.expression) &&
+        node.expression.text === 'require' &&
+        node.arguments.length > 0 &&
+        ts.isStringLiteral(node.arguments[0]) &&
+        namesClientModule(node.arguments[0].text, path)
+      ) {
+        unaccounted.push(`${where()} (require)`);
+      }
+      if (ts.isIdentifier(node) && node.text === 'apiClient') {
+        const site = classifyUse(node, file);
+        if (site !== 'accounted') {
+          const key = `${relative(SRC, path)}: ${site}`;
+          if (!(relative(SRC, path) === CLIENT_MODULE && CLIENT_INTERNALS.has(key))) {
+            unaccounted.push(key);
+          }
+        }
+      }
       if (
         ts.isCallExpression(node) &&
         ts.isPropertyAccessExpression(node.expression) &&
@@ -174,11 +297,11 @@ const scan = () => {
     };
     visit(file);
   }
-  return { calls, references, rebindings };
+  return { calls, references, rebindings, unaccounted };
 };
 
 describe('every apiClient path reaches the backend', () => {
-  const { calls, references, rebindings } = scan();
+  const { calls, references, rebindings, unaccounted } = scan();
 
   it('CONTROL: every apiClient.<method> reference is a call this test checked', () => {
     // The old regex skipped `get<A<B[]>>(`: 173 of 506 calls, and still passed its own control.
@@ -191,6 +314,30 @@ describe('every apiClient path reaches the backend', () => {
 
   it('⛔ the client is only ever called by its own name, so nothing escapes the count', () => {
     expect(rebindings).toEqual([]);
+  });
+
+  it('⛔ every use of the client is a checked call, an import, or a reasoned internal', () => {
+    // RED on `apiClient.request({ url })`, `apiClient['get'](…)`, `import * as AC`, a `require`,
+    // or the client passed to a helper: each can send a path the checks above never read.
+    expect(unaccounted).toEqual([]);
+  });
+
+  it('CONTROL: every allowlisted internal still exists, so the list cannot rot into a pass', () => {
+    const seen = new Set<string>();
+    const file = ts.createSourceFile(
+      join(SRC, CLIENT_MODULE),
+      readFileSync(join(SRC, CLIENT_MODULE), 'utf8'),
+      ts.ScriptTarget.ES2022,
+      true
+    );
+    const visit = (node: ts.Node): void => {
+      if (ts.isIdentifier(node) && node.text === 'apiClient') {
+        seen.add(`${CLIENT_MODULE}: ${classifyUse(node, file)}`);
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(file);
+    expect([...CLIENT_INTERNALS].filter((site) => !seen.has(site))).toEqual([]);
   });
 
   it('⛔ no apiClient path starts with anything but /api/', () => {
