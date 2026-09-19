@@ -157,6 +157,27 @@ describe('in the wizard', () => {
     await waitFor(() => expect(screen.getAllByRole('checkbox').length).toBe(PATHS.length));
   };
 
+  it('⛔ each role control is named for ITS field, not "What is this?" (audit pass 4)', async () => {
+    const user = userEvent.setup();
+    await openWithField(user);
+    await user.click(screen.getByRole('checkbox', { name: /order_id/ }));
+    await user.click(screen.getByRole('checkbox', { name: /^status/ }));
+
+    // RED: label them all "What is this?" and two controls share one accessible name — the
+    // identical defect fixed for the label input in the previous audit, recurring in new code.
+    expect(screen.getByLabelText('What is order_id?')).toBeTruthy();
+    expect(screen.getByLabelText('What is status?')).toBeTruthy();
+
+    /*
+     * ⛔ THE CLASS, NOT THE CONTROL. "Kind" and "Its currency" had the same defect and came from
+     * the PREVIOUS PR — audited twenty-one times and missed, because every pass asked about
+     * behaviour and none asked whether two controls could answer to one name. Merged is not
+     * audited.
+     */
+    expect(screen.getByLabelText('How to show order_id')).toBeTruthy();
+    expect(screen.getByLabelText('How to show status')).toBeTruthy();
+  });
+
   it('⛔ TAGGING IS OPTIONAL — a lookup saves and works with nothing tagged', async () => {
     const user = userEvent.setup();
     await openWithField(user);
@@ -176,7 +197,7 @@ describe('in the wizard', () => {
     const user = userEvent.setup();
     await openWithField(user);
     await user.click(screen.getByRole('checkbox', { name: /order_id/ }));
-    await user.selectOptions(screen.getByLabelText('What is this?'), 'identifier');
+    await user.selectOptions(screen.getByLabelText('What is order_id?'), 'identifier');
 
     expect(screen.getByText(/really belongs to the customer who wrote in/i)).toBeTruthy();
 
@@ -192,9 +213,13 @@ describe('in the wizard', () => {
     await user.click(screen.getByRole('checkbox', { name: /order_id/ }));
     await user.click(screen.getByRole('checkbox', { name: /^status/ }));
 
-    const selects = screen.getAllByLabelText('What is this?');
-    await user.selectOptions(selects[0], 'identifier');
-    await user.selectOptions(selects[1], 'identifier');
+    /*
+     * ⛔ Addressed BY FIELD, which is only possible because each select is named for its own
+     * field (audit pass 4). With five picked fields all called "What is this?", neither a test
+     * nor a screen-reader user can tell them apart.
+     */
+    await user.selectOptions(screen.getByLabelText('What is order_id?'), 'identifier');
+    await user.selectOptions(screen.getByLabelText('What is status?'), 'identifier');
 
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());

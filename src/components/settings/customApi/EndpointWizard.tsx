@@ -522,7 +522,14 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
                        * summary and the ownership check; an admin must be able to reach a
                        * working lookup without meeting a concept they do not need yet.
                        */}
-                      <Label htmlFor={`role-${field.path}`}>What is this?</Label>
+                      {/*
+                       * ⛔ NAMED PER FIELD (audit pass 4). Every role select said "What is
+                       * this?", so a lookup with five picked fields had five different controls
+                       * answering to one accessible name — the identical defect fixed for the
+                       * label input in the previous audit, recurring in new code. The class, not
+                       * the file.
+                       */}
+                      <Label htmlFor={`role-${field.path}`}>What is {field.path}?</Label>
                       <Select
                         id={`role-${field.path}`}
                         value={field.role}
@@ -540,7 +547,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
                       </Select>
                     </div>
                     <div className="flex-1">
-                      <Label htmlFor={`kind-${field.path}`}>Kind</Label>
+                      <Label htmlFor={`kind-${field.path}`}>How to show {field.path}</Label>
                       <Select
                         id={`kind-${field.path}`}
                         value={field.kind}
@@ -567,7 +574,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
                     </div>
                     {field.kind === 'money' && (
                       <div className="flex-1">
-                        <Label htmlFor={`cur-${field.path}`}>Its currency</Label>
+                        <Label htmlFor={`cur-${field.path}`}>Currency for {field.path}</Label>
                         <Select
                           id={`cur-${field.path}`}
                           value={field.currencyPath ?? (field.currencyLiteral ? '__fixed' : '')}

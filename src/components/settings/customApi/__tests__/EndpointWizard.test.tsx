@@ -245,7 +245,7 @@ describe('D23 — money without a currency is refused', () => {
     await waitFor(() => expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0));
 
     await user.click(screen.getByRole('checkbox', { name: /^total/ }));
-    await user.selectOptions(screen.getByLabelText('Kind'), 'money');
+    await user.selectOptions(screen.getByLabelText(/^How to show/), 'money');
 
     // ⛔ RED: allow it and the agent panel renders a bare number — and on this vendor the same
     // figure means different currencies depending on which lookup produced it.
@@ -253,7 +253,7 @@ describe('D23 — money without a currency is refused', () => {
     expect(screen.getByText(/where the currency comes from/i)).toBeTruthy();
 
     // POSITIVE CONTROL: naming the currency field unblocks it.
-    await user.selectOptions(screen.getByLabelText('Its currency'), 'currency_code');
+    await user.selectOptions(screen.getByLabelText(/^Currency for/), 'currency_code');
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
   });
 });
@@ -432,14 +432,14 @@ describe('audit pass 5 — a value already set, and a field priced in itself', (
     await user.click(screen.getByRole('button', { name: 'Test' }));
     await waitFor(() => expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0));
     await user.click(screen.getByRole('checkbox', { name: /^total/ }));
-    await user.selectOptions(screen.getByLabelText('Kind'), 'money');
-    await user.selectOptions(screen.getByLabelText('Its currency'), 'currency_code');
+    await user.selectOptions(screen.getByLabelText(/^How to show/), 'money');
+    await user.selectOptions(screen.getByLabelText(/^Currency for/), 'currency_code');
   };
 
   it('⛔ drops the currency when the field stops being money', async () => {
     const user = userEvent.setup();
     await pickTotalAsMoney(user);
-    await user.selectOptions(screen.getByLabelText('Kind'), 'plain');
+    await user.selectOptions(screen.getByLabelText(/^How to show/), 'plain');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
@@ -459,7 +459,7 @@ describe('audit pass 5 — a value already set, and a field priced in itself', (
     const user = userEvent.setup();
     await pickTotalAsMoney(user);
     const options = Array.from(
-      screen.getByLabelText('Its currency').querySelectorAll('option')
+      screen.getByLabelText(/^Currency for/).querySelectorAll('option')
     ).map((option) => option.getAttribute('value'));
     // RED: list every path and "From total" sits one keystroke away in the list — an amount
     // priced in its own value renders "348.50 348.50" to an agent.
