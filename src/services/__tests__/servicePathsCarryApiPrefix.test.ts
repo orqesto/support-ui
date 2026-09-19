@@ -170,6 +170,28 @@ const enclosingFunction = (node: ts.Node): string => {
 const normalise = (text: string): string =>
   text.replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/,? \)/g, ')');
 
+/** Is this string where a module is named: an import/export `from`, or an argument that loads one. */
+const isModuleSpecifier = (node: ts.Node): boolean => {
+  const parent = node.parent;
+  if (
+    (ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent)) &&
+    parent.moduleSpecifier === node
+  ) {
+    return true;
+  }
+  if (ts.isExternalModuleReference(parent)) return true;
+  if (ts.isCallExpression(parent) && parent.arguments[0] === node) {
+    const callee = parent.expression;
+    if (callee.kind === ts.SyntaxKind.ImportKeyword) return true;
+    if (ts.isIdentifier(callee) && callee.text === 'require') return true;
+    // vi.importActual / vi.importMock / vi.mock / jest.requireActual …
+    if (ts.isPropertyAccessExpression(callee) && /^(import|require|mock)/.test(callee.name.text)) {
+      return true;
+    }
+  }
+  return false;
+};
+
 /**
  * Every file the parser must see: all TypeScript under src/ except `*.test.ts(x)` and `.d.ts`.
  * ⛔ A `__tests__` directory is NOT skipped wholesale — a helper there that production code
@@ -342,9 +364,23 @@ const scan = () => {
     if (!file) throw new Error(`not parsed: ${path}`);
     const visit = (node: ts.Node): void => {
       const where = () => `${relative(SRC, path)}: ${node.getText(file)}`;
+      // Only in a MODULE-SPECIFIER position — `from '…'`, `import('…')`, `require('…')`,
+      // `vi.importActual('…')` — so an ordinary string such as `user@example.test` (a reserved
+      // TLD, RFC 2606) is not mistaken for a test module.
       if (
         (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
+        isModuleSpecifier(node) &&
         /\.test(?:\.[cm]?[jt]sx?)?$/.test(node.text)
+      ) {
+        testModulesNamed.push(where());
+      }
+      // `import.meta.glob(...)` pulls files in by PATTERN, so no specifier names the test module
+      // it may include (audit round 17: './__tests__/*.ts'). Production code may not glob at all.
+      if (
+        ts.isPropertyAccessExpression(node) &&
+        ts.isMetaProperty(node.expression) &&
+        node.expression.keywordToken === ts.SyntaxKind.ImportKeyword &&
+        node.name.text.startsWith('glob')
       ) {
         testModulesNamed.push(where());
       }
@@ -496,7 +532,7 @@ describe('every apiClient path reaches the backend', () => {
     expect(Object.fromEntries(moduleNamed)).toEqual(Object.fromEntries(MODULE_NAMED_BY_HAND));
   });
 
-  it('⛔ production code never names a test module, which the scan does not read', () => {
+  it('⛔ production code never names a test module or globs files in, which the scan cannot follow', () => {
     expect(testModulesNamed).toEqual([]);
   });
 
