@@ -45,15 +45,20 @@ export const hasLookupEmailIdentity = (value: string): boolean => {
   return LOOKUP_EMAIL_RE.test(email) && !email.toLowerCase().endsWith('@chat-widget.local');
 };
 
-/** Every status this build renders a body for; anything else falls back to the backend's reason. */
-const KNOWN_STATUSES: ReadonlySet<string> = new Set([
-  'ok',
-  'no_match',
-  'no_identity',
-  'failed',
-  'shape_changed',
-  'needs_input',
-]);
+/**
+ * Every status this build renders a body for; anything else falls back to the backend's reason.
+ * `satisfies` ties it to the generated union: a status added to the contract and not here fails
+ * type-check instead of rendering a blank card (or two bodies, if a branch is added without it).
+ */
+const KNOWN_STATUSES = {
+  ok: true,
+  no_match: true,
+  no_identity: true,
+  failed: true,
+  shape_changed: true,
+  needs_input: true,
+} satisfies Record<CustomApiLookupResult['status'], true>;
+const isKnownStatus = (status: string): boolean => Object.hasOwn(KNOWN_STATUSES, status);
 
 interface Props {
   conversationId?: number;
@@ -229,7 +234,7 @@ const ResultCard = ({
         </p>
       )}
 
-      {!KNOWN_STATUSES.has(result.status) && (
+      {!isKnownStatus(result.status) && (
         // A status this build does not know yet — a NEWER backend (this frontend ships from `main`,
         // the backend on a tag, so either can lead). Say what the backend said, muted: never a
         // blank card, and never red for a state this build cannot judge.

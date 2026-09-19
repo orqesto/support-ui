@@ -95,7 +95,7 @@ describe('customApiLookupService.run', () => {
     post.mockResolvedValue({ data: { success: true, data: [] } });
     await customApiLookupService.run({ conversationId: 7 });
 
-    expect(post).toHaveBeenCalledWith('/custom-apis/lookup', { conversationId: 7 });
+    expect(post).toHaveBeenCalledWith('/api/custom-apis/lookup', { conversationId: 7 });
   });
 });
 
@@ -103,7 +103,7 @@ describe('customApiLookupService.availability', () => {
   it('asks the availability route for the given surface — a GET, never the lookup POST', async () => {
     get.mockResolvedValue({ data: { success: true, data: { available: true } } });
     expect(await customApiLookupService.availability('contact')).toBe(true);
-    expect(get).toHaveBeenCalledWith('/custom-apis/lookup/availability', {
+    expect(get).toHaveBeenCalledWith('/api/custom-apis/lookup/availability', {
       params: { surface: 'contact' },
     });
     expect(post).not.toHaveBeenCalled();

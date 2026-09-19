@@ -57,7 +57,7 @@ export const customApiLookupService = {
    */
   async availability(surface: LookupSurface): Promise<boolean> {
     const res = await apiClient.get<{ success: boolean; data?: { available?: boolean } }>(
-      '/custom-apis/lookup/availability',
+      '/api/custom-apis/lookup/availability',
       { params: { surface } }
     );
     // Fail CLOSED: a response without the flag is not a yes.
@@ -72,7 +72,7 @@ export const customApiLookupService = {
    */
   async run(body: LookupRequest): Promise<CustomApiLookupResult[]> {
     const res = await apiClient.post<{ success: boolean; data: CustomApiLookupResult[] }>(
-      '/custom-apis/lookup',
+      '/api/custom-apis/lookup',
       body
     );
     return (res.data.data ?? []).map(normalise);
