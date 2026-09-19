@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -9,95 +10,145 @@ import { describe, expect, it } from 'vitest';
  * stays green. Five custom-API calls shipped that way (2026-09-19), and the lookup panel's
  * availability gate "worked" only because its own call failed and it hides on error.
  *
- * So this reads the SOURCE of every non-test file under src/, where a mock cannot hide a path:
- * · a LITERAL first argument (quote or template) must start with `/api/`;
- * · a NON-literal one (a variable, a helper call) cannot be checked by reading, so it must be
- *   listed below after a person has checked what it resolves to. A new one fails until it is.
+ * So this PARSES every non-test file under src/ — a regex cannot balance `get<A<B[]>>(` and
+ * silently skipped a third of all calls — and works out what each call's first argument can
+ * start with: literals, templates, file-local constants and variables, path helpers, and both
+ * arms of a conditional. Every call must provably start with `/api/`, or be listed below after
+ * a person has checked it.
  */
 const SRC = join(process.cwd(), 'src');
-// The first argument: a whole quoted string or template, else an expression up to `,` or `)`.
-const CALL =
-  /apiClient\.(?:get|post|put|patch|delete)(?:<[^>]*>)?\(\s*('[^']*'|"[^"]*"|`[^`]*`|[^,()]+(?:\([^()]*\))?)/g;
+const METHODS = new Set(['get', 'post', 'put', 'patch', 'delete']);
+const API = '/api/';
 
-/**
- * `file: first argument` for every path the source cannot resolve, each checked by hand to
- * resolve under /api. Keep this SHORT: resolve through a constant instead where possible.
- */
-const CHECKED_NON_LITERAL = new Set([
-  // `path` is one of two templates, both `/api/attachments/...` (the Jira and native downloads).
-  'components/tickets/TicketAttachments.tsx: path',
+/** `file: first argument` the parser cannot resolve, each checked by hand. Keep it EMPTY if possible. */
+const CHECKED_BY_HAND = new Set<string>([
+  // `downloadPath ?? \`/api/attachments/${id}/download\``: the prop's only caller
+  // (TicketAttachments) passes `/api/attachments/jira/${id}/download` or undefined.
+  'components/shared/AttachmentPreviewDialog.tsx: path',
 ]);
 
 const sourceFiles = (dir: string): string[] =>
   readdirSync(dir).flatMap((name) => {
     const full = join(dir, name);
     if (statSync(full).isDirectory()) return name === '__tests__' ? [] : sourceFiles(full);
-    return /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) ? [full] : [];
+    return /\.tsx?$/.test(name) && !/\.(test|d)\.tsx?$/.test(name) ? [full] : [];
   });
 
-/** File-local `const NAME = '...'` path constants, so `${BASE}/x` can be read like a literal. */
-// Also a path HELPER — `const base = (id: number) => \`/api/alliances/${id}\`` — by its literal head.
-const CONSTANT = /const\s+([A-Z_a-z]\w*)\s*=\s*(?:\([^)]*\)\s*(?::[^=]+)?=>\s*)?(['"`])([^'"`$]*)/g;
-
-const calls = () =>
-  sourceFiles(SRC).flatMap((file) => {
-    const text = readFileSync(file, 'utf8');
-    const constants = new Map([...text.matchAll(CONSTANT)].map((match) => [match[1], match[3]]));
-    return [...text.matchAll(CALL)].map((match) => ({
-      file: relative(SRC, file),
-      arg: match[1].trim(),
-      constants,
-    }));
-  });
+/** The first `const`/`let` declaration of `name` in the file, top to bottom. */
+const declarationOf = (file: ts.SourceFile, name: string): ts.Expression | undefined => {
+  let found: ts.Expression | undefined;
+  const visit = (node: ts.Node): void => {
+    if (found) return;
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === name) {
+      found = node.initializer;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return found;
+};
 
 /**
- * The path a first argument names, when it can be read: a quoted literal, or a template whose
- * leading `${NAME}` is a file-local constant. null when it cannot be read from the source.
+ * What the expression is known to START with, or null when that cannot be read from the file.
+ * A conditional counts only if BOTH arms resolve; the first arm that does not start with /api
+ * is returned, so a bad branch is reported rather than hidden by a good one.
  */
-const literalPath = (arg: string, constants: Map<string, string> = new Map()): string | null => {
-  // A bare constant or a path helper call: `BASE`, `base(allianceId)`.
-  const named = /^(\w+)(?:\([^()]*\))?$/.exec(arg);
-  if (named) return constants.get(named[1]) ?? null;
-  const quoted = /^([`'"])(.*)\1$/s.exec(arg);
-  if (!quoted) return null;
-  const lead = /^\$\{(\w+)(?:\([^}]*\))?\}(.*)$/s.exec(quoted[2]);
-  if (!lead) return quoted[2];
-  const base = constants.get(lead[1]);
-  return base === undefined ? null : base + lead[2];
+const prefixOf = (node: ts.Expression, file: ts.SourceFile, depth = 0): string | null => {
+  if (depth > 8) return null;
+  const next = (expr: ts.Expression) => prefixOf(expr, file, depth + 1);
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
+  if (ts.isTemplateExpression(node)) {
+    if (node.head.text) return node.head.text;
+    const lead = next(node.templateSpans[0].expression);
+    return lead === null ? null : lead + node.templateSpans[0].literal.text;
+  }
+  if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node)) return next(node.expression);
+  if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+    return next(node.left);
+  }
+  if (ts.isConditionalExpression(node)) {
+    const arms = [next(node.whenTrue), next(node.whenFalse)];
+    if (arms.some((arm) => arm === null)) return null;
+    return arms.find((arm) => !arm!.startsWith(API)) ?? arms[0];
+  }
+  if (ts.isIdentifier(node)) {
+    const init = declarationOf(file, node.text);
+    return init ? next(init) : null;
+  }
+  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+    // A path helper: `const base = (id: number) => \`/api/alliances/${id}\``.
+    const init = declarationOf(file, node.expression.text);
+    if (init && ts.isArrowFunction(init) && !ts.isBlock(init.body)) return next(init.body);
+  }
+  return null;
+};
+
+interface Call {
+  site: string;
+  prefix: string | null;
+}
+
+const scan = () => {
+  const calls: Call[] = [];
+  // Every `apiClient.<method>` REFERENCE in code (comments excluded, unlike a text search).
+  let references = 0;
+  for (const path of sourceFiles(SRC)) {
+    const text = readFileSync(path, 'utf8');
+    const file = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true);
+    const visit = (node: ts.Node): void => {
+      if (
+        ts.isPropertyAccessExpression(node) &&
+        ts.isIdentifier(node.expression) &&
+        node.expression.text === 'apiClient' &&
+        METHODS.has(node.name.text)
+      ) {
+        references += 1;
+      }
+      if (
+        ts.isCallExpression(node) &&
+        ts.isPropertyAccessExpression(node.expression) &&
+        ts.isIdentifier(node.expression.expression) &&
+        node.expression.expression.text === 'apiClient' &&
+        METHODS.has(node.expression.name.text) &&
+        node.arguments.length > 0
+      ) {
+        const arg = node.arguments[0];
+        calls.push({
+          site: `${relative(SRC, path)}: ${arg.getText(file)}`,
+          prefix: prefixOf(arg, file),
+        });
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(file);
+  }
+  return { calls, references };
 };
 
 describe('every apiClient path reaches the backend', () => {
-  it('CONTROL: the scan finds the known call sites, literal and not', () => {
-    // Guards the guard: a regex that matched nothing would pass the tests below vacuously.
-    const found = calls();
-    expect(found.length).toBeGreaterThan(100);
-    expect(found.some((call) => literalPath(call.arg) === '/api/custom-apis/lookup')).toBe(true);
-    // A `${BASE}/…` template resolves through its file-local constant.
-    expect(
-      found.some((call) => literalPath(call.arg, call.constants)?.startsWith('/api/alliances'))
-    ).toBe(true);
-    // So does a bare constant (`BASE`) and a helper call (`base(allianceId)`).
-    expect(found.some((call) => call.arg === 'BASE' && literalPath(call.arg, call.constants))).toBe(
-      true
+  const { calls, references } = scan();
+
+  it('CONTROL: every apiClient.<method> reference is a call this test checked', () => {
+    // The old regex skipped `get<A<B[]>>(`: 173 of 506 calls, and still passed its own control.
+    // A reference that is not a checked call (passed around, aliased, called with no argument)
+    // makes this fail rather than slip past the path check.
+    expect(calls.length).toBeGreaterThan(400);
+    expect(calls.length).toBe(references);
+    expect(calls.some((call) => call.prefix === '/api/custom-apis/lookup')).toBe(true);
+  });
+
+  it('⛔ no apiClient path starts with anything but /api/', () => {
+    expect(calls.filter((call) => call.prefix !== null && !call.prefix.startsWith(API))).toEqual(
+      []
     );
-    expect(
-      found.some((call) => call.arg === 'base(allianceId)' && literalPath(call.arg, call.constants))
-    ).toBe(true);
   });
 
-  it('⛔ no literal apiClient path omits the /api prefix', () => {
-    const bad = calls().filter((call) => {
-      const path = literalPath(call.arg, call.constants);
-      return path !== null && !path.startsWith('/api/');
-    });
-    expect(bad).toEqual([]);
-  });
-
-  it('⛔ every non-literal apiClient path has been checked by a person', () => {
-    const unchecked = calls()
-      .filter((call) => literalPath(call.arg, call.constants) === null)
-      .map((call) => `${call.file}: ${call.arg}`)
-      .filter((site) => !CHECKED_NON_LITERAL.has(site));
-    expect(unchecked).toEqual([]);
+  it('⛔ every path the parser cannot resolve has been checked by a person', () => {
+    const unresolved = calls
+      .filter((call) => call.prefix === null)
+      .map((call) => call.site)
+      .filter((site) => !CHECKED_BY_HAND.has(site));
+    expect(unresolved).toEqual([]);
   });
 });
