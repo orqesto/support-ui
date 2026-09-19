@@ -272,6 +272,25 @@ describe('Notification Center — ingestion gaps', () => {
     expect(screen.queryByText('Gmail message bbb222')).toBeNull();
   });
 
+  it('unreadable_live_gmail_message: an overflowed list with no ids left promises none', () => {
+    const window = 'Gmail messages given up on earlier; their ids were no longer kept';
+    gapAlerts = [
+      {
+        ...tacoGap,
+        id: 9010,
+        title: 'Gmail messages could not be imported',
+        cause: 'unreadable_live_gmail_message',
+        minutesAhead: null,
+        window,
+        skipped: [],
+        skippedOverflow: true,
+      },
+    ];
+    open();
+    expect(screen.getByText(window)).toBeTruthy();
+    expect(screen.queryByText(/shown below/)).toBeNull();
+  });
+
   it('unreadable_live_gmail_message: an overflowed list says it shows only the latest', () => {
     gapAlerts = [
       {

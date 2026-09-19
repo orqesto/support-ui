@@ -91,8 +91,9 @@ export const IngestionGapSection = ({
                             ? // Gmail has no UID and nothing "steps past" the message: the date
                               // checkpoint only stops waiting for it, and while Gmail still lists
                               // it the sync re-tries it about once a day. The alert accumulates
-                              // ids, so the sentence is plural-safe and the ids are listed below.
-                              'Gmail answered one or more messages with a server or network error on every sync, so the sync stopped waiting for them \u2014 they were not imported (their Gmail ids are shown below). While Gmail still lists a message it is re-tried about once a day, and one that imports leaves this list. Follow the ingestion-gaps runbook, section \u2018Unreadable live messages (Gmail)\u2019.'
+                              // ids, so the sentence is plural-safe. It does not promise the ids
+                              // are shown: an overflowed list whose kept ids all recovered has none.
+                              'Gmail answered one or more messages with a server or network error on every sync, so the sync stopped waiting for them \u2014 they were not imported. While Gmail still lists a message it is re-tried about once a day, and one that imports leaves this list. Follow the ingestion-gaps runbook, section \u2018Unreadable live messages (Gmail)\u2019.'
                             : 'Mail arriving in this window may not have been fetched.'}
             </p>
             {alert.cause === 'unreadable_live_gmail_message' && alert.skipped.length > 0 ? (
