@@ -200,6 +200,22 @@ describe('Notification Center — ingestion gaps', () => {
     expect(screen.queryByText(/may not have been fetched/)).toBeNull();
   });
 
+  it('unreadable_live_message: says it was NOT imported, shows the folder + UID, names the runbook section', () => {
+    // Title and window exactly as the backend writes them (ingestionGapAlert.ts TITLES, imapMailboxWrites.ts).
+    const title =
+      'A message could not be imported — the sync failed on it repeatedly and moved past it';
+    const window = 'INBOX UID 48213';
+    gapAlerts = [
+      { ...tacoGap, id: 9006, title, cause: 'unreadable_live_message', minutesAhead: null, window },
+    ];
+    open();
+    expect(screen.getByText(title)).toBeTruthy();
+    expect(screen.getByText(window)).toBeTruthy();
+    expect(screen.getByText(/that message was not imported/)).toBeTruthy();
+    expect(screen.getByText(/runbook, section ‘Unreadable live messages \(IMAP\)’/)).toBeTruthy();
+    expect(screen.queryByText(/may not have been fetched/)).toBeNull();
+  });
+
   it('sent_drain_stranded: the caption points at the date the window shows', () => {
     const window =
       'sent mail older than 2026-09-10T00:00:00.000Z (the sent window now starts at 2026-09-12T07:00:00.000Z — checkpoint minus overlap)';

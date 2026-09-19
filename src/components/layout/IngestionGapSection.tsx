@@ -82,7 +82,12 @@ export const IngestionGapSection = ({
                       ? 'The sent-folder sync could not reach its oldest part; sent mail older than the first date shown may be missing. See the ingestion-gaps runbook.'
                       : alert.cause === 'unreadable_message'
                         ? 'The sync failed repeatedly on some sent messages and stopped waiting for them — they were not imported (their ids are listed below when they were kept). Fix the cause, then follow the ingestion-gaps runbook, section \u2018Unreadable sent messages\u2019, to bring them back.'
-                        : 'Mail arriving in this window may not have been fetched.'}
+                        : alert.cause === 'unreadable_live_message'
+                          ? // The window is an IMAP folder + UID, not a time range, and the
+                            // message was definitely NOT imported — the generic "may not have
+                            // been fetched" sentence was false on both counts.
+                            'The sync failed repeatedly on one message and moved past it so the mail behind it could be read \u2014 that message was not imported (its folder and UID are shown below). Fix the cause, then follow the ingestion-gaps runbook, section \u2018Unreadable live messages (IMAP)\u2019.'
+                          : 'Mail arriving in this window may not have been fetched.'}
             </p>
             {alert.window && (
               <p className="mt-0.5 font-mono text-xs break-words text-muted-foreground">
