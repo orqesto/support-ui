@@ -117,17 +117,21 @@ export function ThreadBubble({
    *   | occurrences of the reported address | 16 | 16 |
    *   | of those, WRAPPED mid-token | 0 | **0** |
    *
-   * What DID fix the wrap was one or both of the other two changes in #413 — the table geometry
-   * (`width`/`valign`/`align`) surviving the sanitizer, and tables no longer being flattened by
-   * `[&_table]:block`. Which of the two, or both, is NOT established: only the floor was removed
-   * and re-measured. Saying more than that would repeat the very mistake below. The floor was treating a
-   * symptom that was already cured, and charging a quarter of the body in horizontal scroll on
-   * 12 of the thread's 22 email bodies (the other 10 sat in wider bubbles and cleared 600px)
-   * for it. So the mail now takes the width it is given.
+   * So the floor was treating a symptom that was already cured, and charging a quarter of the
+   * body in horizontal scroll on 12 of the thread's 22 email bodies for it. The other 10 sat in
+   * wider bubbles (measured: 624px client width) and cleared 600px on their own. The mail now
+   * takes the width it is given.
    *
-   * 🪤 The lesson is about the ORDER of the two fixes, not the floor: two changes landed
-   * together, the symptom went away, and I credited the wrong one. A control — removing one and
-   * re-measuring — is what separated them, and it was only possible on real mail in a browser.
+   * What DID fix the wrap is one or both of the other changes in #413 — the table geometry
+   * (`width`/`valign`/`align`) surviving the sanitizer, and tables no longer being flattened by
+   * `[&_table]:block`. WHICH of them, or whether both were needed, is NOT established: only the
+   * floor was removed and re-measured. Claiming more than that would repeat the mistake below.
+   *
+   * 🪤 THREE changes landed together in #413 — table geometry, un-flattening, and this floor.
+   * The symptom disappeared and I credited the floor, because the floor was the one I had been
+   * thinking about. Nothing in 1940 passing tests could tell the difference: jsdom does no
+   * layout. Only removing one change and re-measuring, on real mail in a real browser,
+   * separated them — and it still only rules ONE of the three in or out.
    *
    * `overflow-x-auto` STAYS. It is what holds the ORB-SUP-1358 line: a table genuinely wider
    * than the bubble scrolls inside its own container instead of propagating overflow up to the
