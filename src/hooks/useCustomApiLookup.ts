@@ -60,9 +60,13 @@ export function useCustomApiLookupAvailability(surface: LookupSurface): boolean 
  *
  * ⛔ WITHOUT THIS, CONFIGURING A LOOKUP DID NOTHING FOR FIVE MINUTES. The availability answer is
  * cached for five minutes (above), and an admin who had just created the first lookup went to a
- * thread and found no panel — the cached "no" from before the save was still being served. The
- * same holds in reverse for disabling one. So every SUCCESSFUL write that can change whether a
- * lookup exists or is enabled calls this; a failed write changed nothing and must not.
+ * thread and found no panel — the cached "no" from before the save was still being served. So
+ * every SUCCESSFUL create or update calls this, because either can change what exists; a failed
+ * write changed nothing and must not.
+ *
+ * ⚠️ The settings screen has no enabled, department or surface control today. Any future control
+ * that can disable a lookup or move it between departments or surfaces changes availability too,
+ * and must call this after its successful write.
  *
  * Invalidates every org/user/surface under the key: the admin cannot know which surfaces or
  * departments a change touched, and one refetch per mounted panel is cheap.

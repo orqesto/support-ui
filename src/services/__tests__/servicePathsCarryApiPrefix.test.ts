@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
@@ -53,25 +53,102 @@ const CHECKED_BY_HAND = new Set<string>([
 
 /**
  * ⛔ WHOLE SITES that use the client some way other than a checked call, each read by a person.
- * Keyed `file: site`, where site is the member chain off `apiClient` plus a call's arguments,
- * so an entry stops matching the moment the site changes. Only the client's own module may be
- * here: anywhere else, a use this test cannot read is a request it cannot check.
+ * Keyed `file: enclosing function: site`, where site is the member chain off `apiClient` plus a
+ * call's arguments, so an entry stops matching the moment the site changes — and mapped to the
+ * EXACT number of such sites, so one entry cannot silently cover a pasted second copy (audit,
+ * 2026-09-19), and a site that disappears fails too rather than leave the entry to rot into a pass.
+ * Only the client's own module may be here: anywhere else, a use this test cannot read is a
+ * request it cannot check.
  */
-const CLIENT_INTERNALS = new Set<string>([
+const CLIENT_INTERNALS = new Map<string, number>([
   // The request interceptor: adds the auth token and org/alliance headers. Builds no URL.
-  'lib/api-client.ts: apiClient.interceptors.request.use(applyRequestContext, (error: unknown) => Promise.reject(error instanceof Error ? error : new Error(String(error))))',
+  [
+    'lib/api-client.ts: <module>: apiClient.interceptors.request.use(applyRequestContext, (error: unknown) => Promise.reject(error instanceof Error ? error : new Error(String(error))))',
+    1,
+  ],
   // The 401 retry RE-SENDS a request that already went out through a checked call — its URL is
   // the one that call was checked for — after the session refresh. It builds no new path.
-  'lib/api-client.ts: apiClient.request(original)',
+  ['lib/api-client.ts: handleResponseError: apiClient.request(original)', 1],
   // The response interceptor: session bookkeeping and error shaping. Builds no URL.
-  'lib/api-client.ts: apiClient.interceptors.response.use(noteSessionFromResponse, handleResponseError)',
+  [
+    'lib/api-client.ts: <module>: apiClient.interceptors.response.use(noteSessionFromResponse, handleResponseError)',
+    1,
+  ],
 ]);
 
-/** A module specifier that names the client module, by alias or by relative path. */
-const namesClientModule = (specifier: string, fromFile: string): boolean =>
-  specifier === '@/lib/api-client' ||
-  (specifier.startsWith('.') &&
-    relative(SRC, join(fromFile, '..', specifier)).replace(/\.tsx?$/, '') === 'lib/api-client');
+/**
+ * Places that name the client MODULE other than a permitted static import, each read by a person,
+ * keyed `file: enclosing function: site` with an exact count, like CLIENT_INTERNALS.
+ */
+const MODULE_NAMED_BY_HAND = new Map<string, number>([
+  // A test helper (src/test/, never bundled into the app) that loads the REAL module to reach
+  // its response handler; it calls `handleResponseError`, never the client.
+  ["test/apiError.ts: realHandler: vi.importActual<typeof ApiClientModule>('@/lib/api-client')", 1],
+]);
+
+/**
+ * A module specifier — or any string — that names the client module: the alias, a relative path
+ * resolving to src/lib/api-client, or any other spelling ending in `lib/api-client` (`/src/lib/…`
+ * resolves in Vite), with or without an extension.
+ */
+const namesClientModule = (specifier: string, fromFile: string): boolean => {
+  const bare = (text: string) => text.replace(/\.(tsx?|jsx?|mjs|cjs)$/, '').replace(/\/index$/, '');
+  if (specifier.startsWith('.')) {
+    return bare(relative(SRC, join(fromFile, '..', specifier))) === 'lib/api-client';
+  }
+  return /(^|\/)lib\/api-client$/.test(bare(specifier));
+};
+
+/** Every piece of literal text a string or template carries. */
+const literalTexts = (node: ts.Node): string[] => {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return [node.text];
+  if (ts.isTemplateExpression(node)) {
+    return [node.head.text, ...node.templateSpans.map((span) => span.literal.text)];
+  }
+  return [];
+};
+
+/**
+ * The only runtime way the client module may be named: `import { apiClient, other } from …` with
+ * no alias, no default and no namespace binding — or anything `import type` (erased at compile
+ * time). A side-effect-only import, a default or namespace import, an aliased specifier: all fail.
+ */
+const isPermittedClientImport = (node: ts.ImportDeclaration): boolean => {
+  const clause = node.importClause;
+  if (!clause) return false;
+  if (clause.isTypeOnly) return true;
+  if (clause.name) return false;
+  const bindings = clause.namedBindings;
+  if (!bindings || !ts.isNamedImports(bindings)) return false;
+  return bindings.elements.every((element) => element.isTypeOnly || !element.propertyName);
+};
+
+/** The name of the function a node sits in — `<module>` at top level. */
+const enclosingFunction = (node: ts.Node): string => {
+  for (let at = node.parent; at; at = at.parent) {
+    if (
+      (ts.isFunctionDeclaration(at) || ts.isMethodDeclaration(at)) &&
+      at.name &&
+      !ts.isComputedPropertyName(at.name)
+    ) {
+      return at.name.getText();
+    }
+    if (ts.isArrowFunction(at) || ts.isFunctionExpression(at)) {
+      const holder = at.parent;
+      if (
+        (ts.isVariableDeclaration(holder) || ts.isPropertyAssignment(holder)) &&
+        ts.isIdentifier(holder.name)
+      ) {
+        return holder.name.text;
+      }
+      return '<anonymous>';
+    }
+  }
+  return '<module>';
+};
+
+const normalise = (text: string): string =>
+  text.replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/,? \)/g, ')');
 
 const sourceFiles = (dir: string): string[] =>
   readdirSync(dir).flatMap((name) => {
@@ -190,7 +267,7 @@ const classifyUse = (id: ts.Identifier, file: ts.SourceFile): string => {
   } else if (top === id) {
     site = parent.getText(file);
   }
-  return site.replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/,? \)/g, ')');
+  return normalise(site);
 };
 
 interface Call {
@@ -209,6 +286,9 @@ const scan = () => {
   // `.defaults`, `.interceptors`, a namespace import. Audit round 12 found four forms the method
   // count never saw; rather than list forms, every use must be one of the three accounted for.
   const unaccounted: string[] = [];
+  // How many times each allowlisted internal, and each hand-checked mention of the module, occurs.
+  const internals = new Map<string, number>();
+  const moduleNamed = new Map<string, number>();
   const files = sourceFiles(SRC);
   const program = ts.createProgram(files, {
     jsx: ts.JsxEmit.ReactJSX,
@@ -245,36 +325,72 @@ const scan = () => {
       ) {
         references += 1;
       }
-      // ⛔ The module itself, by any name the identifier scan below cannot follow:
-      // `import * as AC from '@/lib/api-client'` makes `AC.apiClient.get(...)` a property, and a
-      // `require` returns an object nobody checks.
-      if (
-        ts.isImportDeclaration(node) &&
-        ts.isStringLiteral(node.moduleSpecifier) &&
-        namesClientModule(node.moduleSpecifier.text, path) &&
-        node.importClause?.namedBindings &&
-        ts.isNamespaceImport(node.importClause.namedBindings) &&
-        // `import type * as X` is erased at compile time: it can name the client's TYPE
-        // (src/test/apiError.ts does), never call it.
-        !node.importClause.isTypeOnly
-      ) {
-        unaccounted.push(`${where()} (namespace import)`);
+      // ⛔ The module itself, by any route the identifier scan below cannot follow. Audit round 14
+      // (2026-09-19) got `(await import('@/lib/api-client'))['apiClient'].get(…)` past a rule that
+      // listed forms (namespace import, `require`), so this closes the CLASS instead: every string
+      // that names the module is a failure unless it is the specifier of a permitted import or a
+      // site read by a person — which covers `import()`, `require`, `vi.importActual`, a re-export
+      // barrel, `import x = require(…)`, and a specifier parked in a variable first.
+      for (const text of literalTexts(node)) {
+        if (!namesClientModule(text, path)) continue;
+        const holder = node.parent;
+        if (
+          ts.isImportDeclaration(holder) &&
+          holder.moduleSpecifier === node &&
+          isPermittedClientImport(holder)
+        ) {
+          continue;
+        }
+        if (
+          ts.isExportDeclaration(holder) &&
+          holder.moduleSpecifier === node &&
+          holder.isTypeOnly
+        ) {
+          continue;
+        }
+        let site: ts.Node = node;
+        while (ts.isCallExpression(site.parent) || ts.isTemplateSpan(site.parent))
+          site = site.parent;
+        const key = `${relative(SRC, path)}: ${enclosingFunction(node)}: ${normalise(site.getText(file))}`;
+        moduleNamed.set(key, (moduleNamed.get(key) ?? 0) + 1);
       }
+      // A module loaded by an expression this test cannot read could be the client: `import(x)`,
+      // `require(a + b)`. Every dynamic load must name its module in a plain literal.
       if (
         ts.isCallExpression(node) &&
-        ts.isIdentifier(node.expression) &&
-        node.expression.text === 'require' &&
-        node.arguments.length > 0 &&
-        ts.isStringLiteral(node.arguments[0]) &&
-        namesClientModule(node.arguments[0].text, path)
+        (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+          (ts.isIdentifier(node.expression) && node.expression.text === 'require')) &&
+        !(
+          node.arguments.length > 0 &&
+          (ts.isStringLiteral(node.arguments[0]) ||
+            ts.isNoSubstitutionTemplateLiteral(node.arguments[0]))
+        )
       ) {
-        unaccounted.push(`${where()} (require)`);
+        unaccounted.push(`${where()} (module loaded by an expression)`);
+      }
+      // The client's NAME as a string can only be reaching for it by key: `mod['apiClient']`,
+      // `{ ['apiClient']: … }`, `Reflect.get(mod, 'apiClient')`. No code needs it; all of it fails.
+      if (literalTexts(node).includes('apiClient')) {
+        unaccounted.push(`${where()} (the client's name as a string)`);
+      }
+      // A re-export can rename the client past the rebinding check (`export { apiClient as c }`,
+      // or `export { apiClient } from …` into a barrel). The client is exported where it is
+      // declared and nowhere else.
+      if (
+        ts.isExportSpecifier(node) &&
+        [node.name, node.propertyName].some(
+          (name) => name !== undefined && ts.isIdentifier(name) && name.text === 'apiClient'
+        )
+      ) {
+        unaccounted.push(`${where()} (re-export)`);
       }
       if (ts.isIdentifier(node) && node.text === 'apiClient') {
         const site = classifyUse(node, file);
         if (site !== 'accounted') {
-          const key = `${relative(SRC, path)}: ${site}`;
-          if (!(relative(SRC, path) === CLIENT_MODULE && CLIENT_INTERNALS.has(key))) {
+          const key = `${relative(SRC, path)}: ${enclosingFunction(node)}: ${site}`;
+          if (relative(SRC, path) === CLIENT_MODULE && CLIENT_INTERNALS.has(key)) {
+            internals.set(key, (internals.get(key) ?? 0) + 1);
+          } else {
             unaccounted.push(key);
           }
         }
@@ -297,11 +413,11 @@ const scan = () => {
     };
     visit(file);
   }
-  return { calls, references, rebindings, unaccounted };
+  return { calls, references, rebindings, unaccounted, internals, moduleNamed };
 };
 
 describe('every apiClient path reaches the backend', () => {
-  const { calls, references, rebindings, unaccounted } = scan();
+  const { calls, references, rebindings, unaccounted, internals, moduleNamed } = scan();
 
   it('CONTROL: every apiClient.<method> reference is a call this test checked', () => {
     // The old regex skipped `get<A<B[]>>(`: 173 of 506 calls, and still passed its own control.
@@ -322,22 +438,15 @@ describe('every apiClient path reaches the backend', () => {
     expect(unaccounted).toEqual([]);
   });
 
-  it('CONTROL: every allowlisted internal still exists, so the list cannot rot into a pass', () => {
-    const seen = new Set<string>();
-    const file = ts.createSourceFile(
-      join(SRC, CLIENT_MODULE),
-      readFileSync(join(SRC, CLIENT_MODULE), 'utf8'),
-      ts.ScriptTarget.ES2022,
-      true
-    );
-    const visit = (node: ts.Node): void => {
-      if (ts.isIdentifier(node) && node.text === 'apiClient') {
-        seen.add(`${CLIENT_MODULE}: ${classifyUse(node, file)}`);
-      }
-      ts.forEachChild(node, visit);
-    };
-    visit(file);
-    expect([...CLIENT_INTERNALS].filter((site) => !seen.has(site))).toEqual([]);
+  it('⛔ every allowlisted internal occurs EXACTLY as often as a person counted', () => {
+    // A pasted second copy fails, and so does a site that is gone — the list cannot rot into a pass.
+    expect(Object.fromEntries(internals)).toEqual(Object.fromEntries(CLIENT_INTERNALS));
+  });
+
+  it('⛔ the client module is named only by a plain import, or where a person counted it', () => {
+    // RED on `import('@/lib/api-client')`, `require`, `import * as`, a default import, an aliased
+    // specifier, `export * from` / `export { … } from` the module, or its path in any string.
+    expect(Object.fromEntries(moduleNamed)).toEqual(Object.fromEntries(MODULE_NAMED_BY_HAND));
   });
 
   it('⛔ no apiClient path starts with anything but /api/', () => {

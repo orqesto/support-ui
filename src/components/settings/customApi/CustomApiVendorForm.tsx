@@ -110,8 +110,9 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
           piiAcknowledged: true,
         });
       }
-      // A create adds a vendor and an update may toggle `enabled`: either can change whether the
-      // thread panel should render, so its cached answer must not outlive this save.
+      // A create or an update can change what lookups exist, and so whether the thread panel
+      // should render: its cached answer must not outlive this save. This form has no enabled,
+      // department or surface control; any added later must call the invalidator on save too.
       invalidateAvailability();
       onSaved();
       onClose();
