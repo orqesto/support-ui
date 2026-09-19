@@ -44,11 +44,20 @@ const METHODS = new Set([
 const CLIENT_MODULE = 'lib/api-client.ts';
 const API = '/api/';
 
-/** `file: first argument` the parser cannot resolve, each checked by hand. Keep it EMPTY if possible. */
-const CHECKED_BY_HAND = new Set<string>([
+/**
+ * Calls the parser cannot resolve, each checked by hand. Keep it EMPTY if possible.
+ * Keyed `file: enclosing function: argument = resolved declaration`, and mapped to the EXACT
+ * number of such calls, like the two lists below: a Set could not tell a second identical call
+ * (a new caller the hand check never read) from the one that was checked (audit round 21), nor
+ * an entry whose call is gone (independent audit, 2026-09-19).
+ */
+const CHECKED_BY_HAND = new Map<string, number>([
   // `downloadPath ?? \`/api/attachments/${id}/download\``: the prop's only caller
   // (TicketAttachments) passes `/api/attachments/jira/${id}/download` or undefined.
-  'components/shared/AttachmentPreviewDialog.tsx: path = path = downloadPath ?? `/api/attachments/${attachment.id}/download`',
+  [
+    'components/shared/AttachmentPreviewDialog.tsx: AttachmentPreviewDialog: path = path = downloadPath ?? `/api/attachments/${attachment.id}/download`',
+    1,
+  ],
 ]);
 
 /**
@@ -144,6 +153,30 @@ const isPermittedClientImport = (node: ts.ImportDeclaration): boolean => {
 };
 
 /** The name of the function a node sits in — `<module>` at top level. */
+/**
+ * The nearest NAMED function around a node, climbing past anonymous callbacks (a `useEffect`
+ * arrow): `<anonymous>` would give two components' identical calls the same key.
+ */
+const namedEnclosingFunction = (node: ts.Node): string => {
+  for (let at = node.parent; at; at = at.parent) {
+    if (
+      (ts.isFunctionDeclaration(at) || ts.isMethodDeclaration(at)) &&
+      at.name &&
+      !ts.isComputedPropertyName(at.name)
+    ) {
+      return at.name.getText();
+    }
+    if (
+      (ts.isArrowFunction(at) || ts.isFunctionExpression(at)) &&
+      (ts.isVariableDeclaration(at.parent) || ts.isPropertyAssignment(at.parent)) &&
+      ts.isIdentifier(at.parent.name)
+    ) {
+      return at.parent.name.text;
+    }
+  }
+  return '<module>';
+};
+
 const enclosingFunction = (node: ts.Node): string => {
   for (let at = node.parent; at; at = at.parent) {
     if (
@@ -495,7 +528,7 @@ const scan = () => {
       ) {
         const arg = node.arguments[0];
         calls.push({
-          site: `${relative(SRC, path)}: ${siteText(arg, checker, file)}`,
+          site: `${relative(SRC, path)}: ${namedEnclosingFunction(node)}: ${siteText(arg, checker, file)}`,
           prefix: prefixOf(arg, checker),
         });
       }
@@ -554,20 +587,13 @@ describe('every apiClient path reaches the backend', () => {
     );
   });
 
-  it('⛔ every path the parser cannot resolve has been checked by a person', () => {
-    const unresolved = calls
-      .filter((call) => call.prefix === null)
-      .map((call) => call.site)
-      .filter((site) => !CHECKED_BY_HAND.has(site));
-    expect(unresolved).toEqual([]);
-  });
-
-  it('⛔ every hand check still names a call the parser cannot resolve — none outlives its code', () => {
-    // An entry whose call was removed or rewritten would otherwise sit here unnoticed, ready to
-    // excuse a different call written the same way later (independent audit, 2026-09-19).
-    const unresolvedSites = new Set(
-      calls.filter((call) => call.prefix === null).map((call) => call.site)
-    );
-    expect([...CHECKED_BY_HAND].filter((site) => !unresolvedSites.has(site))).toEqual([]);
+  it('⛔ every unresolvable path is checked by hand, EXACTLY as often as it occurs', () => {
+    // Both ways: an unchecked call fails, a second identical call hiding behind one entry fails,
+    // and an entry whose call is gone fails rather than wait to excuse something later.
+    const observed = new Map<string, number>();
+    for (const call of calls.filter((call) => call.prefix === null)) {
+      observed.set(call.site, (observed.get(call.site) ?? 0) + 1);
+    }
+    expect(Object.fromEntries(observed)).toEqual(Object.fromEntries(CHECKED_BY_HAND));
   });
 });
