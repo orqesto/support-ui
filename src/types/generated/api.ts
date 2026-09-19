@@ -359,6 +359,9 @@ export interface components {
             effectivelyEnabled: boolean;
             chainBroken: boolean;
             hasResponseSkeleton: boolean;
+            /** @enum {string|null} */
+            skeletonSource: "test" | "sample" | null;
+            dataPath: string | null;
             createdAt: string;
             updatedAt: string;
         };
@@ -405,6 +408,8 @@ export interface components {
             }[];
             total?: number | null;
             missing?: string[];
+            /** @enum {string} */
+            missingKind?: "records" | "fields";
             reason?: string;
             /** @enum {string} */
             ownership?: "owned" | "mismatch" | "unverified";

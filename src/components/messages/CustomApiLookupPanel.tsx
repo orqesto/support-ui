@@ -17,8 +17,11 @@ import { MONO } from './messageDetailConstants';
  *   ok            — rows, money with its currency (D23)
  *   no match      — ORDINARY text. A shipping API not knowing a customer who never ordered is the
  *                   commonest case there is, not an error (SC2)
- *   shape changed — the vendor's response no longer matches what was configured, fields NAMED, so
- *                   a dead integration is never mistaken for a customer we have no data for (SC4b)
+ *   shape changed — TWO readings, told apart by `missingKind` (2026-09-19): `fields` = the rows are
+ *                   there but the configured fields have gone, NAMED, so a dead integration is
+ *                   never mistaken for a customer we have no data for (SC4b); `records` = we could
+ *                   not find the record list at all, which is true of a lookup that never worked —
+ *                   so it must not be described as "no longer" matching
  *   failed        — a reason, and the OTHER cards still show their rows (SC3)
  */
 
@@ -249,8 +252,18 @@ const ResultCard = ({
 
       {result.status === 'shape_changed' && (
         <p className="text-[11px] text-amber-700 dark:text-amber-400">
-          This vendor’s response no longer matches what was configured
-          {result.missing?.length ? `: ${result.missing.join(', ')} not found.` : '.'}
+          {/*
+            ⛔ "NO LONGER" IS A CLAIM ABOUT HISTORY, and it is false for the case this status now
+            also carries: a lookup whose RECORD LIST was never found never matched in the first
+            place. Both readings send the agent to an admin, but only one of them describes what
+            happened. ⚠️ An older backend sends no `missingKind` — keep the original wording there
+            rather than asserting either.
+          */}
+          {result.missingKind === 'records'
+            ? 'We reached this system but could not find any records in its answer. An admin needs to say where they are.'
+            : `This vendor’s response no longer matches what was configured${
+                result.missing?.length ? `: ${result.missing.join(', ')} not found.` : '.'
+              }`}
         </p>
       )}
 

@@ -112,6 +112,8 @@ const withNewEndpoint = (): Connection => ({
       effectivelyEnabled: true,
       chainBroken: false,
       hasResponseSkeleton: false,
+      skeletonSource: null,
+      dataPath: null,
       createdAt: '2026-09-19T10:00:00.000Z',
       updatedAt: '2026-09-19T10:00:00.000Z',
     },
@@ -155,6 +157,91 @@ describe('the field picker — the thing that makes this self-serve', () => {
     expect(screen.getByText('order_id')).toBeTruthy();
     // A nested path shows its container as structure and its leaf as the pickable thing.
     expect(screen.getByText('products[]')).toBeTruthy();
+  });
+
+  it('sends the records path the admin typed, and null when they left it blank', async () => {
+    /**
+     * 🔴 CA-5 acceptance A5, 2026-09-19. The executor defaulted the records path to `data` with no
+     * way to change it, so a vendor answering with a TOP-LEVEL ARRAY was reported to the admin as
+     * "nothing for that value" about a response that contained the record.
+     *
+     * ⛔ This asserts the REQUEST, not component state. A field that renders, updates state and is
+     * dropped from the payload looks identical on screen — and this whole feature shipped once
+     * already with every call going to a URL no test ever inspected.
+     */
+    const user = userEvent.setup();
+    render(<EndpointWizard connection={connection()} onClose={noop} onSaved={noop} />);
+    await fill(user);
+
+    await user.type(screen.getByLabelText(/Where are the records/i), 'results');
+    await user.click(screen.getByRole('button', { name: 'Test' }));
+    await waitFor(() => expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0));
+    await user.click(screen.getByRole('checkbox', { name: /date_added/ }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
+    const saved = updateEndpoint.mock.calls.at(-1)?.[2] as { dataPath: string | null };
+    expect(saved.dataPath).toBe('results');
+  });
+
+  it('a records-path miss tells the admin to say where the records are, not to re-pick fields', async () => {
+    /**
+     * ⛔ ONE STATUS, TWO PROBLEMS. `shape_changed` means either "we could not find the record list"
+     * or "the fields you configured have gone", and they need opposite actions. This message read
+     * "not with the fields this lookup expects any more" to an admin of a BRAND-NEW lookup that
+     * has no fields yet — advice they could not act on. Found auditing this diff before the PR.
+     */
+    sendTest.mockResolvedValueOnce({
+      outcome: { status: 'shape_changed', missingKind: 'records', missing: ['data'] },
+      paths: [],
+    });
+    const user = userEvent.setup();
+    render(<EndpointWizard connection={connection()} onClose={noop} onSaved={noop} />);
+    await fill(user);
+    await user.click(screen.getByRole('button', { name: 'Test' }));
+
+    expect(await screen.findByText(/could not find the records under “data”/i)).toBeTruthy();
+    expect(screen.queryByText(/fields this lookup expects/i)).toBeNull();
+  });
+
+  it('keeps the FIELDS wording when that is what changed', async () => {
+    sendTest.mockResolvedValueOnce({
+      outcome: { status: 'shape_changed', missingKind: 'fields', missing: ['order_id'] },
+      paths: [],
+    });
+    const user = userEvent.setup();
+    render(<EndpointWizard connection={connection()} onClose={noop} onSaved={noop} />);
+    await fill(user);
+    await user.click(screen.getByRole('button', { name: 'Test' }));
+
+    expect(await screen.findByText(/fields this lookup expects/i)).toBeTruthy();
+  });
+
+  it('an OLDER backend sending no missingKind keeps the original wording', async () => {
+    // ⚠️ Unspecified is not `records`: asserting either would be a claim the response did not make.
+    sendTest.mockResolvedValueOnce({
+      outcome: { status: 'shape_changed', missing: ['order_id'] },
+      paths: [],
+    });
+    const user = userEvent.setup();
+    render(<EndpointWizard connection={connection()} onClose={noop} onSaved={noop} />);
+    await fill(user);
+    await user.click(screen.getByRole('button', { name: 'Test' }));
+
+    expect(await screen.findByText(/fields this lookup expects/i)).toBeTruthy();
+  });
+
+  it('sends null for a BLANK records path, so a path once set can be removed', async () => {
+    // ⛔ Blank means AUTO and is sent as null (clear it), never omitted — absent is this API's
+    // "leave it alone", which would make a configured path impossible to undo.
+    const user = userEvent.setup();
+    render(<EndpointWizard connection={connection()} onClose={noop} onSaved={noop} />);
+    await fill(user);
+    await user.click(screen.getByRole('button', { name: 'Test' }));
+
+    await waitFor(() => expect(createEndpoint).toHaveBeenCalled());
+    const created = createEndpoint.mock.calls.at(-1)?.[1] as { dataPath: string | null };
+    expect(created.dataPath).toBeNull();
   });
 
   it('a ticked field gets a readable label, not the raw path', async () => {

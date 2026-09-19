@@ -52,6 +52,14 @@ const lookupState = (
   // picked from it — a distinct state from "on and working", and the one an admin must act on.
   if (!endpoint.hasResponseSkeleton) return { label: 'Not tested yet', variant: 'warning' };
   if (!endpoint.fieldPaths?.length) return { label: 'No fields chosen', variant: 'warning' };
+  // ⛔ A PASTED SAMPLE PROVES THE SHAPE, NOT THE CALL. Both routes fill the skeleton, so badging
+  // "Ready" off `hasResponseSkeleton` alone told an admin a lookup was working when its live call
+  // returned no_match — seen on staging during the CA-5 acceptance run, 2026-09-19.
+  // ⚠️ `null` means the skeleton predates the column: unknown, so it keeps the plain badge rather
+  // than being accused of being a paste.
+  if (endpoint.skeletonSource === 'sample') {
+    return { label: 'Ready — not tested live', variant: 'warning' };
+  }
   return { label: 'Ready', variant: 'success' };
 };
 
