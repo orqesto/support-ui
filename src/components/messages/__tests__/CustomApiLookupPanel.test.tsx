@@ -378,3 +378,59 @@ describe('an unconfigured lookup does not become a dossier', () => {
     expect(screen.queryByText(/preview of/i)).toBeNull();
   });
 });
+
+describe('results are announced, not just rendered', () => {
+  it('puts the outcome region in a polite live region', async () => {
+    // RED: render results outside a live region ⇒ a screen-reader user presses Look up and is
+    // given no reason to look at what arrived, on a panel whose whole job is delivering
+    // information an agent then quotes to a customer.
+    run.mockResolvedValue([card()]);
+    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    await screen.findByText('137416');
+    const live = container.querySelector('[aria-live="polite"]');
+    expect(live).not.toBeNull();
+    expect(live?.textContent).toContain('137416');
+  });
+
+  it('announces a failure too, not only a success', async () => {
+    run.mockRejectedValue(Object.assign(new Error('boom'), { status: 500 }));
+    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    await screen.findByText(/could not be completed/i);
+    expect(container.querySelector('[aria-live="polite"]')?.textContent).toMatch(/could not be/i);
+  });
+});
+
+describe('one customer’s records never appear under another', () => {
+  it('⛔ clears results when the panel moves to a different conversation', async () => {
+    // RED: keep the results in state ⇒ an agent moving to the next thread sees the PREVIOUS
+    // customer's order numbers, statuses and totals presented as this customer's. That is the
+    // D35 failure — a record shown as someone's when it is not — arriving through the UI.
+    run.mockResolvedValue([card()]);
+    const { rerender } = render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+    await screen.findByText('137416');
+
+    rerender(<CustomApiLookupPanel conversationId={2} />);
+
+    await waitFor(() => expect(screen.queryByText('137416')).toBeNull());
+  });
+
+  it('does NOT fetch for the new conversation by itself', async () => {
+    // The clear must not become a fetch: SC1 says N endpoints must not become N outbound calls
+    // every time an agent opens a thread.
+    run.mockResolvedValue([card()]);
+    const { rerender } = render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+    await screen.findByText('137416');
+    run.mockClear();
+
+    rerender(<CustomApiLookupPanel conversationId={2} />);
+
+    await waitFor(() => expect(screen.queryByText('137416')).toBeNull());
+    expect(run).not.toHaveBeenCalled();
+  });
+});

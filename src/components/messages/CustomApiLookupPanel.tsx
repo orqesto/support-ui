@@ -241,27 +241,36 @@ export const CustomApiLookupPanel = ({ conversationId, contactId, identityNote }
       </div>
 
       {identityNote && <p className="text-[11px] text-muted-foreground">{identityNote}</p>}
-      {error && <p className="text-[11px] text-destructive">{error}</p>}
 
       {/*
+        The results arrive asynchronously after a press, and a screen reader is given no reason to
+        look at them — on a panel whose entire job is delivering information an agent then quotes to
+        a customer. `polite` rather than `assertive`: it should be announced, not interrupt.
+      */}
+      <div role="status" aria-live="polite" className="space-y-2">
+        {loading && <p className="sr-only">Looking up…</p>}
+        {error && <p className="text-[11px] text-destructive">{error}</p>}
+
+        {/*
         ⛔ Nothing is fetched until the button is pressed, so before that there is no empty state to
         show. An "empty" panel on open would read as "we know nothing about this customer", which is
         a different and wrong claim.
       */}
-      {hasRun && results.length === 0 && !error && (
-        <p className="text-[11px] text-muted-foreground">
-          No integrations are set up for this workspace yet.
-        </p>
-      )}
+        {hasRun && results.length === 0 && !error && (
+          <p className="text-[11px] text-muted-foreground">
+            No integrations are set up for this workspace yet.
+          </p>
+        )}
 
-      {results.map((result) => (
-        <ResultCard
-          key={result.endpointId}
-          result={result}
-          busy={loading}
-          onRunManual={(endpointId, parameter) => run({ endpointId, parameter })}
-        />
-      ))}
+        {results.map((result) => (
+          <ResultCard
+            key={result.endpointId}
+            result={result}
+            busy={loading}
+            onRunManual={(endpointId, parameter) => run({ endpointId, parameter })}
+          />
+        ))}
+      </div>
     </div>
   );
 };
