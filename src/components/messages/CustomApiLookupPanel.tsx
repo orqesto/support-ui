@@ -45,6 +45,16 @@ export const hasLookupEmailIdentity = (value: string): boolean => {
   return LOOKUP_EMAIL_RE.test(email) && !email.toLowerCase().endsWith('@chat-widget.local');
 };
 
+/** Every status this build renders a body for; anything else falls back to the backend's reason. */
+const KNOWN_STATUSES: ReadonlySet<string> = new Set([
+  'ok',
+  'no_match',
+  'no_identity',
+  'failed',
+  'shape_changed',
+  'needs_input',
+]);
+
 interface Props {
   conversationId?: number;
   contactId?: number;
@@ -216,6 +226,15 @@ const ResultCard = ({
         // (An older backend still sends this as `failed`, which renders red — no worse than before.)
         <p className="text-[11px] text-muted-foreground">
           {result.reason ?? 'This customer has no email address, so this lookup cannot run.'}
+        </p>
+      )}
+
+      {!KNOWN_STATUSES.has(result.status) && (
+        // A status this build does not know yet — a NEWER backend (this frontend ships from `main`,
+        // the backend on a tag, so either can lead). Say what the backend said, muted: never a
+        // blank card, and never red for a state this build cannot judge.
+        <p className="text-[11px] text-muted-foreground">
+          {result.reason ?? 'This lookup returned a result this version cannot display.'}
         </p>
       )}
 

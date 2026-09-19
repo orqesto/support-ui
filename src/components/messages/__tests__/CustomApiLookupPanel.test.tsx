@@ -681,3 +681,19 @@ describe('the no-email note', () => {
     expect(NO_EMAIL_IDENTITY_NOTE).toMatch(/no email address/);
   });
 });
+
+describe('a status this build does not know (a newer backend)', () => {
+  it("shows the backend's reason, muted — never a blank card", async () => {
+    run.mockResolvedValue([
+      card({
+        status: 'from_the_future' as unknown as CustomApiLookupResult['status'],
+        reason: 'Something new happened.',
+      }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+    const text = await screen.findByText('Something new happened.');
+    expect(text.className).toContain('text-muted-foreground');
+    expect(text.className).not.toContain('text-destructive');
+  });
+});
