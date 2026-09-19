@@ -3,7 +3,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { render as rtlRender, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
-import { CustomApiLookupPanel } from '../CustomApiLookupPanel';
+import { CustomApiLookupPanel, NO_EMAIL_IDENTITY_NOTE } from '../CustomApiLookupPanel';
 import type * as LookupService from '@/services/customApiLookup.service';
 import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types';
@@ -544,5 +544,13 @@ describe('the panel renders ONLY when this caller has a lookup to run', () => {
     await press();
     await waitFor(() => expect(container.firstChild).toBeNull());
     expect(availability).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('the no-email note', () => {
+  it('never promises a field to type a record number into', () => {
+    // An identity-only workspace passes the availability gate, and no lookup there takes input.
+    expect(NO_EMAIL_IDENTITY_NOTE).not.toMatch(/enter|type|record number/i);
+    expect(NO_EMAIL_IDENTITY_NOTE).toMatch(/no email address/);
   });
 });

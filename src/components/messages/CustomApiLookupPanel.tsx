@@ -22,6 +22,15 @@ import { MONO } from './messageDetailConstants';
  *   failed        — a reason, and the OTHER cards still show their rows (SC3)
  */
 
+/**
+ * The note on a thread whose customer has no email (D30: identity lookups key on email only).
+ * ⛔ It must not promise a place to type a number: availability is true for identity-only
+ * workspaces too, where no lookup takes manual input — and before a press there is no field
+ * anywhere, since the input exists only on a `needs_input` card.
+ */
+export const NO_EMAIL_IDENTITY_NOTE =
+  'This customer has no email address, so identity-based lookups cannot run.';
+
 interface Props {
   conversationId?: number;
   contactId?: number;

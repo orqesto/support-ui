@@ -28,7 +28,7 @@ import RichTextEditor from '@/components/shared/RichTextEditor';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import DOMPurify from 'dompurify';
 import { MONO, relativeTime, getInitials } from './messageDetailConstants';
-import { CustomApiLookupPanel } from './CustomApiLookupPanel';
+import { CustomApiLookupPanel, NO_EMAIL_IDENTITY_NOTE } from './CustomApiLookupPanel';
 
 type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
 
@@ -312,11 +312,7 @@ export function MessagePanelTabs({
               <CustomApiLookupPanel
                 className="pt-1"
                 conversationId={message.id}
-                identityNote={
-                  hasEmailIdentity
-                    ? undefined
-                    : 'This customer has no email address, so identity-based lookups cannot run. Enter a record number to look one up.'
-                }
+                identityNote={hasEmailIdentity ? undefined : NO_EMAIL_IDENTITY_NOTE}
               />
 
               {/* Full contact profile — assigned manager, labels, channel
