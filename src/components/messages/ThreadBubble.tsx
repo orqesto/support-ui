@@ -99,22 +99,36 @@ export function ThreadBubble({
    * real mail. Plain-text bodies are NOT affected — they keep following the app theme, because
    * there is no sender styling to respect.
    *
-   * `overflow-x-auto` + `min-w-[600px]`: 600px is the de-facto width email is designed for, and
-   * this signature's `<table width="100%">` with a 150px logo cell had nowhere to go in a 524px
-   * bubble — which is why contact lines broke mid-token. Below 600px the mail keeps its intended
-   * width and scrolls INSIDE its own container; above it, the mail simply uses the space.
+   * `overflow-x-auto` and NO width floor.
    *
-   * ⛔ This was `min-w-[min(600px,100%)]` and that was WRONG — `min()` picks the SMALLER value,
-   * so in a 500px container it resolved to 500px and the floor never applied. The width fix was
-   * INERT in exactly the case it existed for. Every test passed, because they asserted the class
-   * NAME, and the class did compile — to `min-width:min(600px,100%)`. Only rendering it in a
-   * browser and measuring the element showed 476px where 600px was intended.
-   * ⚠️ The cost is real and deliberate: in a panel narrower than ~615px an HTML mail now has a
-   * horizontal scrollbar inside its bubble. That is the trade D6 chose over silently reflowing
-   * mail to a width it was not designed for. Containing the scroll here is what lets `[&_table]:block`
-   * go: that rule existed only to stop a wide table propagating overflow up to the thread panel
-   * (ORB-SUP-1358), and it did so by destroying table layout. The container now holds that line
-   * without flattening anything.
+   * ⛔ There WAS a `min-w-[600px]` floor here and it has been removed, because measuring it on
+   * the deployed build showed it was not doing the job it was added for. 600px is the width
+   * email is designed for, and the reasoning was that a `<table width="100%">` with a 150px
+   * logo cell had nowhere to go in a narrow bubble — which is why contact lines broke mid-token.
+   *
+   * That reasoning was wrong about the CAUSE. A/B on staging against the real SOM-INF-1579 mail,
+   * measuring line boxes rather than eyeballing:
+   *
+   *   | | with the 600px floor | without it |
+   *   |---|---|---|
+   *   | body width | 600px | 448px |
+   *   | horizontal overflow | 152px (25% of every email) | 0 |
+   *   | grounds needing a sideways scroll | all of them | 0 of 22 |
+   *   | occurrences of the reported address | 16 | 16 |
+   *   | of those, WRAPPED mid-token | 0 | **0** |
+   *
+   * The wrap was fixed by honouring the table geometry — `width`/`valign`/`align` surviving the
+   * sanitizer, and tables no longer flattened by `[&_table]:block`. The floor was treating a
+   * symptom that was already cured, and charging a quarter of every email in horizontal scroll
+   * for it. So the mail now takes the width it is given.
+   *
+   * 🪤 The lesson is about the ORDER of the two fixes, not the floor: two changes landed
+   * together, the symptom went away, and I credited the wrong one. A control — removing one and
+   * re-measuring — is what separated them, and it was only possible on real mail in a browser.
+   *
+   * `overflow-x-auto` STAYS. It is what holds the ORB-SUP-1358 line: a table genuinely wider
+   * than the bubble scrolls inside its own container instead of propagating overflow up to the
+   * thread panel. Without a floor that is now rare, but "rare" is not "never".
    */
   const emailGround =
     'rounded bg-white text-[#202124] px-3 py-2 overflow-x-auto ' +
@@ -138,21 +152,24 @@ export function ThreadBubble({
     '[&_a]:text-[#1a0dab] [&_a]:underline';
 
   /**
-   * Sanitizing is now materially more expensive than it was: it parses and filters the inline
-   * CSS of every styled element, where before it deleted the attribute outright. This runs for
-   * the body AND the quoted history of every message, and a thread panel re-renders on things
-   * as ordinary as typing in the composer — 22 bubbles on SOM-INF-1579, each with a signature.
-   * Memoised on the inputs that can actually change the output.
-   */
-  /**
-   * `null` when there is no `eventId`, which is the single source of truth for "can this
-   * message be rendered as email at all". Without an id there is no proxy URL, so the sender's
-   * image hosts were never rewritten and we must not render their CSS around images we refuse
-   * to load — the spam preview on MessagesPage reaches exactly that path.
+   * The memoised sanitizer for this message — `null` when the message cannot be rendered as
+   * email at all.
    *
-   * Returning `null` rather than a function that returns `''` is deliberate: an earlier version
-   * had the `eventId === undefined` test in BOTH this memo and `renderHtml`, so the branch in
-   * here could never run. A guard that cannot fire reads like one that can.
+   * WHY MEMOISED: sanitizing is materially more expensive than it was. It parses and filters
+   * the inline CSS of every styled element, where before it deleted the attribute outright, and
+   * it runs for the body AND the quoted history of every message. A thread panel re-renders on
+   * something as ordinary as typing in the composer — 22 bubbles on SOM-INF-1579, each with a
+   * signature.
+   *
+   * WHY `null` RATHER THAN A FUNCTION RETURNING `''`: `eventId` is the single source of truth
+   * for "can this be rendered as email". Without an id there is no proxy URL, so the sender's
+   * image hosts were never rewritten and we must not render their CSS around images we refuse
+   * to load — the spam preview on MessagesPage reaches exactly that path. An earlier version
+   * tested `eventId === undefined` in BOTH this memo and `renderHtml`, so the branch in here
+   * could never run, and a guard that cannot fire reads like one that can.
+   *
+   * (These were two stacked doc comments as merged in #413 — each opening as if it were the
+   * block's only one. Merged while removing the width floor.)
    */
   const sanitizeChunk = useMemo(() => {
     if (eventId === undefined) return null;
@@ -188,7 +205,7 @@ export function ThreadBubble({
     return (
       <div className={emailGround}>
         <div
-          className="[overflow-wrap:anywhere] min-w-[600px] text-[13px] leading-normal"
+          className="[overflow-wrap:anywhere] text-[13px] leading-normal"
           dangerouslySetInnerHTML={{ __html: clean }}
         />
       </div>
