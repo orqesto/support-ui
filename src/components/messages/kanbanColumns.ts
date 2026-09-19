@@ -35,8 +35,9 @@ export const COLUMNS: KanbanColumnDef[] = [
     axis: 'lifecycle',
     label: 'Open',
     icon: Inbox,
-    // lifecycle='open' = unreviewed + client-replied (needs our action). excludeSuspicious
-    // keeps suspicious-but-open messages in the Triage tab, not the work board.
+    // lifecycle='open' = unreviewed + client-replied (needs our action). It used to carry
+    // excludeSuspicious to keep suspicious-but-open messages off the work board; #756 made
+    // suspicion a MARK, so those threads belong in this lane wearing a Suspicious badge.
     fixedFilters: { lifecycle: 'open' },
     accentColor: '#3b82f6',
     iconClass: 'text-blue-500',
@@ -199,6 +200,13 @@ export const LIFECYCLE_COLUMN_BADGE: Record<string, { label: string; className: 
 // in `MessagesKanbanView`: a column withheld from the unread BADGE while its cards advertise
 // unread state tells the agent two different things about the same rows. The Other lane is
 // coverage, not a queue — mostly our own outbound echoes — so both say the same thing here.
+// ⛔ `suspicious` STAYS in this set even though no column carries that id any more (#756
+// made suspicion a mark). This set is keyed by TWO spaces, not one: `readAppliesTo` in
+// `filters/filterSchema.ts` tests it against `filters.queue` / `filters.columnId`, and
+// `queue='suspicious'` is live — it is what the Suspicious chip and the arrival notice jump
+// to. Removing the string here would hide the read/unread control on exactly that lens,
+// which is the defect the comment in `filterSchema.ts` was written to fix. It is the
+// COLUMN-keyed sets below that no longer need it.
 export const TRIAGE_READ_COLUMN_IDS = new Set(['suspicious', 'not_analysed', 'archived', 'spam']);
 
 // Special drop target on the Triage tab: approve a triaged message → it leaves triage
@@ -206,7 +214,7 @@ export const TRIAGE_READ_COLUMN_IDS = new Set(['suspicious', 'not_analysed', 'ar
 export const APPROVE_TARGET = 'approve_inbox';
 
 // Cards that can be dragged (drag sources).
-export const DRAGGABLE_COLS = new Set(['resolved', 'not_analysed', 'suspicious', 'spam', 'archived']);
+export const DRAGGABLE_COLS = new Set(['resolved', 'not_analysed', 'spam', 'archived']);
 // Columns that can receive a drop (drop targets). APPROVE_TARGET is handled separately.
 export const DROPPABLE_COLS = new Set(['open', 'spam']);
 
@@ -216,7 +224,6 @@ export const DROPPABLE_COLS = new Set(['open', 'spam']);
 export const VALID_TARGETS: Record<string, Set<string>> = {
   resolved: new Set(['open']), // reopen
   not_analysed: new Set(['spam', APPROVE_TARGET]),
-  suspicious: new Set(['spam', APPROVE_TARGET]),
   spam: new Set([APPROVE_TARGET]), // approve = "not spam"
   archived: new Set(['spam', APPROVE_TARGET]), // rescue a mis-archived real request, or hard-classify as spam
 };
@@ -227,12 +234,12 @@ export function getDndAction(from: string, to: string): DndAction | null {
   if (from === 'resolved' && to === 'open') return 'reopen';
   if (
     to === APPROVE_TARGET &&
-    (from === 'not_analysed' || from === 'suspicious' || from === 'spam' || from === 'archived')
+    (from === 'not_analysed' || from === 'spam' || from === 'archived')
   )
     return 'approve';
   if (
     to === 'spam' &&
-    (from === 'not_analysed' || from === 'suspicious' || from === 'archived')
+    (from === 'not_analysed' || from === 'archived')
   )
     return 'move_to_spam';
   return null;

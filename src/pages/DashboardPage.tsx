@@ -134,12 +134,12 @@ export const DashboardPage = () => {
         messageService.getThreads({ view: 'active', processed: 'closed' }, 1, 1),
         messageService.getThreads({ view: 'inbox', excludeNotAnalysed: 'true' }, 1, 1),
         messageService.getThreads(
-          { view: 'client_replied', excludeSuspicious: 'true', excludeNotAnalysed: 'true' },
+          { view: 'client_replied', excludeNotAnalysed: 'true' },
           1,
           1
         ),
         messageService.getThreads(
-          { view: 'awaiting_response', excludeSuspicious: 'true', excludeNotAnalysed: 'true' },
+          { view: 'awaiting_response', excludeNotAnalysed: 'true' },
           1,
           1
         ),
