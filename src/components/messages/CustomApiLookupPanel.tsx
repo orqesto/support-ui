@@ -86,6 +86,13 @@ const UNVERIFIED_TEXT: Record<
   no_customer_email:
     'Not confirmed as this customer’s record — this customer has no email address to check it against.',
   check_failed: 'Not confirmed as this customer’s record — the ownership check failed.',
+  /**
+   * An identity lookup whose answer carried no address to check against. ⛔ Worded as a FACT about
+   * the answer, not a doubt about the customer: an order or a parcel rarely echoes an address, so
+   * this is the ordinary case for most vendors and must not read like a warning.
+   */
+  identity_not_returned:
+    'Not confirmed as this customer’s record — this system’s answer contains no address to check it against.',
   unknown: 'Not confirmed as this customer’s record — ownership could not be checked.',
 };
 
