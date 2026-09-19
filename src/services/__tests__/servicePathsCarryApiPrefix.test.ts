@@ -15,6 +15,12 @@ import { describe, expect, it } from 'vitest';
  * start with: literals, templates, file-local constants and variables, path helpers, and both
  * arms of a conditional. Every call must provably start with `/api/`, or be listed below after
  * a person has checked it.
+ *
+ * SCOPE — what this proves, and what it deliberately does not. It proves a path's STATIC PREFIX
+ * is `/api/`: the defect it exists for is a missing prefix, which is a typo, not an attack. It
+ * does not prove a path is well-formed after the prefix; a `..` it happens to see makes the path
+ * unprovable (fails closed), but a `..` held in a variable appended later is not traced, and is
+ * not this test's job — no caller builds API paths from untrusted `..` segments.
  */
 const SRC = join(process.cwd(), 'src');
 const climbsOut = (text: string): boolean => text.includes('..');
@@ -56,9 +62,8 @@ const initializerOf = (name: ts.Identifier, checker: ts.TypeChecker): ts.Express
 const prefixOf = (node: ts.Expression, checker: ts.TypeChecker, depth = 0): string | null => {
   if (depth > 8) return null;
   const next = (expr: ts.Expression) => prefixOf(expr, checker, depth + 1);
-  // ⛔ A `..` ANYWHERE in the expression — a concatenated operand, a value inside `${}`, a
-  // helper's argument — could climb back out of /api/, so its prefix proves nothing. Checked at
-  // every step, which also covers the declarations and helper bodies resolved below.
+  // A `..` in the text this step reads makes the prefix unprovable (fails closed). Only the
+  // text visited — see SCOPE above: a `..` inside a variable appended later is not traced.
   if (climbsOut(node.getText())) return null;
   if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
     return climbsOut(node.text) ? null : node.text;
@@ -112,6 +117,9 @@ const scan = () => {
   const calls: Call[] = [];
   // Every `apiClient.<method>` REFERENCE in code (comments excluded, unlike a text search).
   let references = 0;
+  // Any other NAME for the client: the scan matches the identifier `apiClient`, so a renamed
+  // import or a `const c = apiClient` would take its calls out of the count and the check.
+  const rebindings: string[] = [];
   const files = sourceFiles(SRC);
   const program = ts.createProgram(files, {
     jsx: ts.JsxEmit.ReactJSX,
@@ -124,6 +132,22 @@ const scan = () => {
     const file = program.getSourceFile(path);
     if (!file) throw new Error(`not parsed: ${path}`);
     const visit = (node: ts.Node): void => {
+      const where = () => `${relative(SRC, path)}: ${node.getText(file)}`;
+      if (
+        ts.isImportSpecifier(node) &&
+        (node.propertyName ?? node.name).text === 'apiClient' &&
+        node.name.text !== 'apiClient'
+      ) {
+        rebindings.push(where());
+      }
+      if (
+        ts.isVariableDeclaration(node) &&
+        node.initializer &&
+        ts.isIdentifier(node.initializer) &&
+        node.initializer.text === 'apiClient'
+      ) {
+        rebindings.push(where());
+      }
       if (
         ts.isPropertyAccessExpression(node) &&
         ts.isIdentifier(node.expression) &&
@@ -150,11 +174,11 @@ const scan = () => {
     };
     visit(file);
   }
-  return { calls, references };
+  return { calls, references, rebindings };
 };
 
 describe('every apiClient path reaches the backend', () => {
-  const { calls, references } = scan();
+  const { calls, references, rebindings } = scan();
 
   it('CONTROL: every apiClient.<method> reference is a call this test checked', () => {
     // The old regex skipped `get<A<B[]>>(`: 173 of 506 calls, and still passed its own control.
@@ -163,6 +187,10 @@ describe('every apiClient path reaches the backend', () => {
     expect(calls.length).toBeGreaterThan(400);
     expect(calls.length).toBe(references);
     expect(calls.some((call) => call.prefix === '/api/custom-apis/lookup')).toBe(true);
+  });
+
+  it('⛔ the client is only ever called by its own name, so nothing escapes the count', () => {
+    expect(rebindings).toEqual([]);
   });
 
   it('⛔ no apiClient path starts with anything but /api/', () => {
