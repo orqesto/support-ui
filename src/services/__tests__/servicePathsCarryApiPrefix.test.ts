@@ -170,11 +170,27 @@ const enclosingFunction = (node: ts.Node): string => {
 const normalise = (text: string): string =>
   text.replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/,? \)/g, ')');
 
+/**
+ * Every file the parser must see: all TypeScript under src/ except `*.test.ts(x)` and `.d.ts`.
+ * ⛔ A `__tests__` directory is NOT skipped wholesale — a helper there that production code
+ * imports ships in the bundle — only files that are themselves tests are left out.
+ */
 const sourceFiles = (dir: string): string[] =>
   readdirSync(dir).flatMap((name) => {
     const full = join(dir, name);
-    if (statSync(full).isDirectory()) return name === '__tests__' ? [] : sourceFiles(full);
+    if (statSync(full).isDirectory()) return sourceFiles(full);
     return /\.tsx?$/.test(name) && !/\.(test|d)\.tsx?$/.test(name) ? [full] : [];
+  });
+
+/**
+ * Every file under src/ written in a language this parser does not read. Vite bundles a `.js`
+ * (with a `.d.ts` beside it, type-check passes too), so one would carry calls no check sees.
+ */
+const unscannedScripts = (dir: string): string[] =>
+  readdirSync(dir).flatMap((name) => {
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) return unscannedScripts(full);
+    return /\.(?:[cm]?jsx?|[cm]ts)$/.test(name) ? [relative(SRC, full)] : [];
   });
 
 /**
@@ -467,6 +483,10 @@ describe('every apiClient path reaches the backend', () => {
     // RED on `import('@/lib/api-client')`, `require`, `import * as`, a default import, an aliased
     // specifier, `export * from` / `export { … } from` the module, or its path in any string.
     expect(Object.fromEntries(moduleNamed)).toEqual(Object.fromEntries(MODULE_NAMED_BY_HAND));
+  });
+
+  it('⛔ src holds no script the parser cannot read', () => {
+    expect(unscannedScripts(SRC)).toEqual([]);
   });
 
   it('⛔ no apiClient path starts with anything but /api/', () => {
