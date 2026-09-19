@@ -1,8 +1,19 @@
-import { Bot, CheckCircle, Eye, EyeOff, FileText, Maximize2, MessageSquare, Trash2 } from 'lucide-react';
+import {
+  Bot,
+  CheckCircle,
+  Eye,
+  EyeOff,
+  FileText,
+  Maximize2,
+  MessageSquare,
+  Trash2,
+  XCircle,
+} from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
-import { KBApprovalBadge } from './KBApprovalProvenance';
+import { KBStatusBadge } from './KBStatusBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import type { KBEntry } from '@/services/kb.service';
 
 const getTypeIcon = (type: string) => {
@@ -28,7 +39,10 @@ type KBTableViewProps = {
   onView: (entry: KBEntry) => void;
   onApprove: (id: number) => void;
   onHide: (id: number) => void;
+  onReject: (id: number) => void;
   onDelete: (entry: KBEntry) => void;
+  /** May approve / reject / hide (manage_knowledge_base). Without it the server answers 403. */
+  canReview: boolean;
 };
 
 export const KBTableView = ({
@@ -37,7 +51,9 @@ export const KBTableView = ({
   onView,
   onApprove,
   onHide,
+  onReject,
   onDelete,
+  canReview,
 }: KBTableViewProps) => (
   <div className="hidden rounded-lg border md:block">
     <table className="w-full table-fixed">
@@ -129,18 +145,7 @@ export const KBTableView = ({
                       AI
                     </Badge>
                   )}
-                  {entry.hidden ? (
-                    <Badge className="text-muted-foreground">Hidden</Badge>
-                  ) : entry.approved ? (
-                    <>
-                      <Badge className="bg-green-600">Approved</Badge>
-                      {/* "Approved" alone hides whether anyone looked. Renders nothing
-                          until the backend carrying the fields is deployed. */}
-                      <KBApprovalBadge entry={entry} />
-                    </>
-                  ) : (
-                    <Badge>Pending</Badge>
-                  )}
+                  <KBStatusBadge entry={entry} />
                 </div>
               </td>
               <td className="px-2 py-3 text-right">
@@ -154,38 +159,50 @@ export const KBTableView = ({
                   >
                     <Maximize2 className="w-4 h-4" />
                   </Button>
-                  {!entry.approved && !entry.hidden && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onApprove(entry.id)}
-                      title="Approve"
-                      aria-label="Approve"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                    </Button>
+                  {canReview && !entry.approved && !entry.hidden && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onApprove(entry.id)}
+                        title="Approve"
+                        aria-label="Approve"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onReject(entry.id)}
+                        title={`Reject — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days`}
+                        aria-label="Reject"
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </Button>
+                    </>
                   )}
-                  {!entry.hidden ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onHide(entry.id)}
-                      title="Hide"
-                      aria-label="Hide"
-                    >
-                      <EyeOff className="w-4 h-4" />
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onApprove(entry.id)}
-                      title="Unhide"
-                      aria-label="Unhide"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                  )}
+                  {canReview &&
+                    (!entry.hidden ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onHide(entry.id)}
+                        title="Hide"
+                        aria-label="Hide"
+                      >
+                        <EyeOff className="w-4 h-4" />
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onApprove(entry.id)}
+                        title={entry.rejectedAt ? 'Approve — restores the rejected entry' : 'Unhide'}
+                        aria-label={entry.rejectedAt ? 'Restore' : 'Unhide'}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    ))}
                   <Button
                     size="sm"
                     variant="outline"

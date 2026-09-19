@@ -29,9 +29,11 @@ import {
 } from '@/hooks/useUnansweredOutboundAlerts';
 import { useIngestionDarkAlerts } from '@/hooks/useIngestionDarkAlerts';
 import { useIngestionGapAlerts } from '@/hooks/useIngestionGapAlerts';
+import { useKbReviewAlerts } from '@/hooks/useKbReviewAlerts';
 import { formatStaleAge } from '@/lib/kbStaleness';
 import { IngestionDarkSection } from '@/components/layout/IngestionDarkSection';
 import { IngestionGapSection } from '@/components/layout/IngestionGapSection';
+import { KbReviewSection } from '@/components/layout/KbReviewSection';
 import { UnansweredOutboundSection } from '@/components/layout/UnansweredOutboundSection';
 
 // Notification Center (P3 + P4): one bell that unifies every notification surface —
@@ -209,6 +211,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const { alerts: ingestionGapAlerts, dismiss: dismissIngestionGapAlert } = useIngestionGapAlerts();
   const { alerts: ingestionDarkAlerts, dismiss: dismissIngestionDarkAlert } =
     useIngestionDarkAlerts();
+  const kbReview = useKbReviewAlerts();
 
   const arrivalRows = ARRIVAL_QUEUES.map((entry) => ({
     ...entry,
@@ -238,6 +241,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const hasOutbound = outboundAlerts.length > 0;
   const hasIngestionGap = ingestionGapAlerts.length > 0;
   const hasIngestionDark = ingestionDarkAlerts.length > 0;
+  const hasKbReview = kbReview.alerts.length > 0;
   // Fault-first ordering means ≥5 spam alerts would take every visible slot and push ALL
   // one-sided rows behind the overflow line — the mirror image of the starvation the sort was
   // added to fix, and reachable on a workspace with several mailboxes. So one-sided keeps a
@@ -288,7 +292,10 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     aiAlerts.length +
     outboundAlerts.length +
     ingestionGapAlerts.length +
-    ingestionDarkAlerts.length;
+    ingestionDarkAlerts.length +
+    // Badged: unlike a stale document, this is a request addressed to THIS reader, and until
+    // they act the capture is unused. It clears the moment they (or anyone) decide it.
+    kbReview.alerts.length;
   // With multiple content types present, label each section; otherwise stay minimal.
   const sectionCount =
     (hasQueues ? 1 : 0) +
@@ -298,7 +305,8 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     (hasStaleKb ? 1 : 0) +
     (hasOutbound ? 1 : 0) +
     (hasIngestionGap ? 1 : 0) +
-    (hasIngestionDark ? 1 : 0);
+    (hasIngestionDark ? 1 : 0) +
+    (hasKbReview ? 1 : 0);
   const showSectionLabels = sectionCount > 1;
   const isEmpty =
     !hasQueues &&
@@ -308,7 +316,8 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     !hasStaleKb &&
     !hasOutbound &&
     !hasIngestionGap &&
-    !hasIngestionDark;
+    !hasIngestionDark &&
+    !hasKbReview;
 
   // Close when clicking outside
   useEffect(() => {
@@ -526,6 +535,16 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                   showLabel={showSectionLabels}
                   SectionLabel={SectionLabel}
                   setOpen={setOpen}
+                />
+
+                <KbReviewSection
+                  review={kbReview}
+                  showLabel={showSectionLabels}
+                  SectionLabel={SectionLabel}
+                  onNavigate={(path) => {
+                    setOpen(false);
+                    navigate(path);
+                  }}
                 />
 
                 {/* Knowledge base — last, because it is the only section here that is not a

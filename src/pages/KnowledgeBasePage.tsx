@@ -25,13 +25,16 @@ import {
 import { Pagination } from '@/components/ui/Pagination';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
+import { usePermissions } from '@/hooks/usePermissions';
 import { logger } from '@/lib/logger';
 import { kbService, type KBEntry, type PaginationMeta } from '@/services/kb.service';
+import { Permission } from '@/types/roles';
 
 type FilterType = 'all' | 'qa_pair' | 'document' | 'documentation';
-type FilterStatus = 'all' | 'approved' | 'pending' | 'hidden';
+type FilterStatus = 'all' | 'approved' | 'pending' | 'hidden' | 'rejected';
 
 const VALID_FILTER_TYPES: FilterType[] = ['all', 'qa_pair', 'document', 'documentation'];
+const VALID_FILTER_STATUSES: FilterStatus[] = ['all', 'approved', 'pending', 'hidden', 'rejected'];
 
 export const KnowledgeBasePage = () => {
   const location = useLocation();
@@ -52,7 +55,18 @@ export const KnowledgeBasePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
   const filterType = activeTab; // Use hash-based tab as filter type
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  // `?status=pending` is where the review notification's "See all" lands.
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>(() => {
+    const requested = searchParams.get('status');
+    return VALID_FILTER_STATUSES.includes(requested as FilterStatus)
+      ? (requested as FilterStatus)
+      : 'all';
+  });
+  // Approve / reject / hide / edit need manage_knowledge_base (moderator, org admin). Everyone
+  // else is capped to approved entries by the server, so the review filters and buttons would
+  // only ever fail for them.
+  const { hasPermission } = usePermissions();
+  const canReview = hasPermission(Permission.MANAGE_KNOWLEDGE_BASE);
   // Source filter — 'all' = no source narrowing. Maps to kbService messageSourceId.
   const [filterSource, setFilterSource] = useState<string>(ALL_SOURCES);
 
@@ -184,8 +198,13 @@ export const KnowledgeBasePage = () => {
     try {
       await kbService.approve(id);
       // Update entry in place - set approved and unhidden
+      // Approving also restores a rejected entry — the backend clears the rejection.
       setEntries((prev) =>
-        prev.map((entry) => (entry.id === id ? { ...entry, approved: true, hidden: false } : entry))
+        prev.map((entry) =>
+          entry.id === id
+            ? { ...entry, approved: true, hidden: false, rejectedAt: null, rejectedBy: null }
+            : entry
+        )
       );
     } catch (error) {
       logger.error('Failed to approve entry:', error);
@@ -193,6 +212,26 @@ export const KnowledgeBasePage = () => {
         open: true,
         title: 'Failed to Approve',
         description: error instanceof Error ? error.message : 'Failed to approve KB entry',
+        variant: 'error',
+      });
+    }
+  };
+
+  const handleReject = async (id: number) => {
+    try {
+      const response = await kbService.reject(id);
+      const rejectedAt = response.data?.rejectedAt ?? new Date().toISOString();
+      setEntries((prev) =>
+        prev.map((entry) =>
+          entry.id === id ? { ...entry, approved: false, hidden: true, rejectedAt } : entry
+        )
+      );
+    } catch (error) {
+      logger.error('Failed to reject entry:', error);
+      setAlertDialog({
+        open: true,
+        title: 'Failed to Reject',
+        description: error instanceof Error ? error.message : 'Failed to reject KB entry',
         variant: 'error',
       });
     }
@@ -384,44 +423,55 @@ export const KnowledgeBasePage = () => {
                     size="sm"
                   />
 
-                  {/* Status Filter */}
-                  <div className="flex flex-col gap-2">
-                    <span className="text-xs font-semibold text-muted-foreground">Status:</span>
-                    <div className="flex rounded-md shadow-sm w-fit">
-                      <Button
-                        variant={filterStatus === 'approved' ? 'primary' : 'outline'}
-                        size="sm"
-                        onClick={() => setFilterStatus('approved')}
-                        className="h-8 text-xs rounded-r-none rounded-l-md border-r-0"
-                      >
-                        Approved
-                      </Button>
-                      <Button
-                        variant={filterStatus === 'pending' ? 'primary' : 'outline'}
-                        size="sm"
-                        onClick={() => setFilterStatus('pending')}
-                        className="h-8 text-xs rounded-none border-r-0"
-                      >
-                        Pending
-                      </Button>
-                      <Button
-                        variant={filterStatus === 'hidden' ? 'primary' : 'outline'}
-                        size="sm"
-                        onClick={() => setFilterStatus('hidden')}
-                        className="h-8 text-xs rounded-none border-r-0"
-                      >
-                        Hidden
-                      </Button>
-                      <Button
-                        variant={filterStatus === 'all' ? 'primary' : 'outline'}
-                        size="sm"
-                        onClick={() => setFilterStatus('all')}
-                        className="h-8 text-xs rounded-r-md rounded-l-none"
-                      >
-                        All
-                      </Button>
+                  {/* Status Filter — reviewers only: the server caps everyone else to approved. */}
+                  {canReview && (
+                    <div className="flex flex-col gap-2">
+                      <span className="text-xs font-semibold text-muted-foreground">Status:</span>
+                      <div className="flex rounded-md shadow-sm w-fit">
+                        <Button
+                          variant={filterStatus === 'approved' ? 'primary' : 'outline'}
+                          size="sm"
+                          onClick={() => setFilterStatus('approved')}
+                          className="h-8 text-xs rounded-r-none rounded-l-md border-r-0"
+                        >
+                          Approved
+                        </Button>
+                        <Button
+                          variant={filterStatus === 'pending' ? 'primary' : 'outline'}
+                          size="sm"
+                          onClick={() => setFilterStatus('pending')}
+                          className="h-8 text-xs rounded-none border-r-0"
+                        >
+                          Pending
+                        </Button>
+                        <Button
+                          variant={filterStatus === 'hidden' ? 'primary' : 'outline'}
+                          size="sm"
+                          onClick={() => setFilterStatus('hidden')}
+                          className="h-8 text-xs rounded-none border-r-0"
+                        >
+                          Hidden
+                        </Button>
+                        <Button
+                          variant={filterStatus === 'rejected' ? 'primary' : 'outline'}
+                          size="sm"
+                          onClick={() => setFilterStatus('rejected')}
+                          className="h-8 text-xs rounded-none border-r-0"
+                          title="Rejected by a reviewer — deleted 90 days after the reject"
+                        >
+                          Rejected
+                        </Button>
+                        <Button
+                          variant={filterStatus === 'all' ? 'primary' : 'outline'}
+                          size="sm"
+                          onClick={() => setFilterStatus('all')}
+                          className="h-8 text-xs rounded-r-md rounded-l-none"
+                        >
+                          All
+                        </Button>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Source Filter */}
                   <div className="flex flex-col gap-2">
@@ -460,7 +510,9 @@ export const KnowledgeBasePage = () => {
                     onView={handleOpenEntry}
                     onApprove={handleApprove}
                     onHide={handleHide}
+                    onReject={handleReject}
                     onDelete={handleDeleteClick}
+                    canReview={canReview}
                   />
                 ))
               )}
@@ -473,7 +525,9 @@ export const KnowledgeBasePage = () => {
               onView={handleOpenEntry}
               onApprove={handleApprove}
               onHide={handleHide}
+              onReject={handleReject}
               onDelete={handleDeleteClick}
+              canReview={canReview}
             />
 
             {/* Pagination */}
@@ -530,8 +584,10 @@ export const KnowledgeBasePage = () => {
           onClose={handleCloseEntry}
           onApprove={handleApprove}
           onHide={handleHide}
+          onReject={handleReject}
           onDelete={handleDeleteClick}
           onUpdate={handleUpdate}
+          canReview={canReview}
         />
 
         {/* Alert Dialog */}

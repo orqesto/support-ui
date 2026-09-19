@@ -21,6 +21,13 @@ export type KBEntry = {
   approvedBy?: number | null;
   approvedAt?: string | null;
   hidden: boolean;
+  /**
+   * A reviewer REJECTED it (KB capture review). A rejected entry is also `hidden`; this adds
+   * the date the backend's daily purge counts 90 days from. Optional for the same reason as
+   * `approvedBy`: absent on a backend that predates it.
+   */
+  rejectedAt?: string | null;
+  rejectedBy?: number | null;
   usageCount: number;
   createdAt: string;
   metadata?: Record<string, unknown>;
@@ -107,6 +114,14 @@ export const kbService = {
   approve: async (id: number) => {
     const response = await apiClient.patch<ApiResponse<null>>(
       `/api/knowledge-base/entries/${id}/approve`
+    );
+    return response.data;
+  },
+
+  /** A reviewer's "no": hidden now, deleted by the backend 90 days later unless re-approved. */
+  reject: async (id: number) => {
+    const response = await apiClient.patch<ApiResponse<{ id: number; rejectedAt: string }>>(
+      `/api/knowledge-base/entries/${id}/reject`
     );
     return response.data;
   },

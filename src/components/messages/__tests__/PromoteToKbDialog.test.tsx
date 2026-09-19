@@ -21,7 +21,10 @@ const candidate = (over: Partial<KbQaCandidate> = {}): KbQaCandidate => ({
 });
 
 const kbCandidates = vi.fn<(id: number) => Promise<KbQaCandidate[]>>();
-const promoteToKb = vi.fn<(id: number, pairs: KbQaPairInput[]) => Promise<number[]>>();
+const promoteToKb =
+  vi.fn<
+    (id: number, pairs: KbQaPairInput[]) => Promise<{ ids: number[]; pendingReview: boolean; rejected: number }>
+  >();
 const success = vi.fn<(message: string) => void>();
 const error = vi.fn<(message: string) => void>();
 
@@ -56,7 +59,7 @@ afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
   kbCandidates.mockResolvedValue([candidate()]);
-  promoteToKb.mockResolvedValue([101]);
+  promoteToKb.mockResolvedValue({ ids: [101], pendingReview: false, rejected: 0 });
 });
 
 describe('PromoteToKbDialog', () => {
@@ -111,7 +114,7 @@ describe('PromoteToKbDialog', () => {
   it('says nothing was added when the pair is already in the KB', async () => {
     // The server returns what it CREATED; a pair already stored is not added twice. Reporting
     // "1 added" there would be a lie the agent cannot see.
-    promoteToKb.mockResolvedValue([]);
+    promoteToKb.mockResolvedValue({ ids: [], pendingReview: false, rejected: 0 });
     renderDialog();
 
     await screen.findByDisplayValue('Where is my order ORB-1268?');
@@ -119,6 +122,38 @@ describe('PromoteToKbDialog', () => {
 
     await waitFor(() => expect(success).toHaveBeenCalled());
     expect(success.mock.calls[0][0]).toMatch(/already in the knowledge base/i);
+  });
+
+  it('says the entry went for REVIEW, not "added", when the agent may not approve', async () => {
+    // "Added to the knowledge base" would be untrue: the AI does not use it until a moderator
+    // approves, and the agent would otherwise believe the answer is live.
+    promoteToKb.mockResolvedValue({ ids: [101], pendingReview: true, rejected: 0 });
+    renderDialog();
+
+    fireEvent.click(await screen.findByRole('button', { name: /add to knowledge base/i }));
+
+    await waitFor(() => expect(success).toHaveBeenCalled());
+    expect(success.mock.calls[0][0]).toMatch(/sent for review/i);
+    expect(success.mock.calls[0][0]).not.toMatch(/added/i);
+  });
+
+  it('says a reviewer REJECTED it rather than "added" or "sent for review"', async () => {
+    promoteToKb.mockResolvedValue({ ids: [101], pendingReview: false, rejected: 1 });
+    renderDialog();
+
+    fireEvent.click(await screen.findByRole('button', { name: /add to knowledge base/i }));
+
+    await waitFor(() => expect(success).toHaveBeenCalled());
+    expect(success.mock.calls[0][0]).toMatch(/rejected/i);
+  });
+
+  it('says "added" when the agent may approve', async () => {
+    renderDialog();
+
+    fireEvent.click(await screen.findByRole('button', { name: /add to knowledge base/i }));
+
+    await waitFor(() => expect(success).toHaveBeenCalled());
+    expect(success.mock.calls[0][0]).toMatch(/added to the knowledge base/i);
   });
 
   it('says so when the thread yields nothing, instead of offering an empty save', async () => {

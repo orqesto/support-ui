@@ -86,7 +86,7 @@ export const PromoteToKbDialog = ({ messageId, isOpen, onClose, onPromoted }: Pr
   const handleSave = async () => {
     setSaving(true);
     try {
-      const ids = await kbPromoteService.promote(
+      const { ids, pendingReview, rejected } = await kbPromoteService.promote(
         messageId,
         kept.map((pair) => ({
           questionMessageId: pair.questionMessageId,
@@ -97,12 +97,18 @@ export const PromoteToKbDialog = ({ messageId, isOpen, onClose, onPromoted }: Pr
       );
       // The server returns what it actually created: a pair already in the KB is not added
       // twice, and saying "2 added" when one was a duplicate would be a lie the agent can't see.
+      // "Added" would be untrue for someone who may not approve: their entries are saved but
+      // the AI does not use them until a reviewer (who has been notified) approves them.
       toast.success(
-        ids.length === 1
-          ? 'Added to the knowledge base'
-          : ids.length > 0
-            ? `${ids.length} entries added to the knowledge base`
-            : 'Already in the knowledge base — nothing new was added'
+        ids.length === 0
+          ? 'Already in the knowledge base — nothing new was added'
+          : !pendingReview && rejected === ids.length
+            ? 'A reviewer already rejected this answer — ask them to restore it'
+            : pendingReview
+            ? `${ids.length === 1 ? 'Saved' : `${ids.length} entries saved`} and sent for review — the AI uses ${ids.length === 1 ? 'it' : 'them'} once a reviewer approves`
+            : ids.length === 1
+              ? 'Added to the knowledge base'
+              : `${ids.length} entries added to the knowledge base`
       );
       onPromoted?.(ids);
       onClose();

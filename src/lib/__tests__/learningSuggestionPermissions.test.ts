@@ -26,6 +26,8 @@ describe('learning suggestion permissions (UI copy)', () => {
     expect(permissionForSuggestionDomain('categorization')).toBe(Permission.MANAGE_CATEGORIES);
     expect(permissionForSuggestionDomain('reply_style')).toBe(Permission.MANAGE_AI_PROMPTS);
     expect(permissionForSuggestionDomain('auto_reply')).toBe(Permission.MANAGE_AI_PROMPTS);
+    // A person's KB capture: the permission the per-entry approve/reject buttons need.
+    expect(permissionForSuggestionDomain('kb_review')).toBe(Permission.MANAGE_KNOWLEDGE_BASE);
   });
 
   it('an unmapped or unknown domain is ADMIN-ONLY, not allowed', () => {

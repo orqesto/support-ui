@@ -21,6 +21,9 @@ export const SUGGESTION_DOMAIN_PERMISSIONS: Readonly<Record<string, Permission>>
   categorization: Permission.MANAGE_CATEGORIES,
   reply_style: Permission.MANAGE_AI_PROMPTS,
   auto_reply: Permission.MANAGE_AI_PROMPTS,
+  // A person's "Resolve & Save to KB" capture waiting for review — the same permission the
+  // per-entry approve/reject buttons need.
+  kb_review: Permission.MANAGE_KNOWLEDGE_BASE,
 };
 
 /** The permission needed to act on this domain, or null when only an org admin may. */

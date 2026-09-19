@@ -10,9 +10,15 @@ import {
   type SuggestionEvidenceItem,
 } from '@/services/learning.service';
 import { logger } from '@/lib/logger';
+import {
+  KbReviewSuggestionDetail,
+  SuggestionMeta,
+  summarizeKbReview,
+} from './KbReviewSuggestionDetail';
 import { ReplyStyleSuggestionDetail } from './ReplyStyleSuggestionDetail';
 import { useAuthStore } from '@/stores/authStore';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import { whyCannotAct } from '@/lib/learningSuggestionPermissions';
 import { useSuggestionDomainAccess } from '@/hooks/useSuggestionDomainAccess';
 
@@ -26,6 +32,7 @@ const DOMAIN_LABELS: Record<string, string> = {
   kb_extraction: 'KB Extraction',
   kb_scope: 'KB Scope',
   kb_quality: 'KB Quality',
+  kb_review: 'Knowledge base review',
   reply_style: 'Reply Style',
   sentiment: 'Sentiment',
   lead: 'Lead',
@@ -103,6 +110,7 @@ const summarizeSuggestion = (
     }
     return 'Adjust threshold';
   }
+  if (suggestion.suggestionType === 'kb_review.capture') return summarizeKbReview(suggestion);
   if (suggestion.suggestionType === 'reply_style.update') {
     const signals =
       typeof payload.signals === 'object' && payload.signals !== null
@@ -612,11 +620,7 @@ export const LearningSuggestionsSettings = () => {
                               </p>
                             </Button>
                             <div className="flex flex-wrap gap-3 mt-1 ml-5 text-xs text-muted-foreground">
-                              <span>Evidence: {suggestion.evidenceCount}</span>
-                              {confidence !== null && <span>Confidence: {confidence}%</span>}
-                              <span>
-                                Expires: {new Date(suggestion.expiresAt).toLocaleDateString()}
-                              </span>
+                              <SuggestionMeta suggestion={suggestion} confidence={confidence} />
                             </div>
                           </div>
                           <div className="flex gap-1 items-center shrink-0">
@@ -634,8 +638,14 @@ export const LearningSuggestionsSettings = () => {
                               variant="outline"
                               onClick={() => void handleDecline(suggestion.id)}
                               disabled={isActing || !canActOn(suggestion.domain)}
-                              title={canActOn(suggestion.domain) ? 'Decline' : whyCannotAct(suggestion.domain)}
-                              aria-label="Decline"
+                              title={
+                                !canActOn(suggestion.domain)
+                                  ? whyCannotAct(suggestion.domain)
+                                  : suggestion.domain === 'kb_review'
+                                    ? `Reject — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days`
+                                    : 'Decline'
+                              }
+                              aria-label={suggestion.domain === 'kb_review' ? 'Reject' : 'Decline'}
                             >
                               <X className="w-4 h-4" />
                             </Button>
@@ -649,7 +659,9 @@ export const LearningSuggestionsSettings = () => {
                                   ? whyCannotAct(suggestion.domain)
                                   : suggestion.domain === 'reply_style'
                                     ? 'Accept — makes this the house style for AI-drafted replies'
-                                    : 'Accept — disables the weaker rule'
+                                    : suggestion.domain === 'kb_review'
+                                      ? 'Approve — the AI may quote it from now on'
+                                      : 'Accept — disables the weaker rule'
                               }
                             >
                               <Check className="w-4 h-4" />
@@ -660,6 +672,8 @@ export const LearningSuggestionsSettings = () => {
                           <>
                             {suggestion.domain === 'reply_style' ? (
                               <ReplyStyleSuggestionDetail suggestion={suggestion} />
+                            ) : suggestion.domain === 'kb_review' ? (
+                              <KbReviewSuggestionDetail suggestion={suggestion} />
                             ) : (
                               <ConflictDetail suggestion={suggestion} deptNameById={deptNameById} />
                             )}

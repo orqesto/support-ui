@@ -43,6 +43,9 @@ export type LearningDomain =
   | 'kb_quality' // planned
   | 'auto_reply' // planned
   | 'reply_style' // capture (P1) + propose (P3, flag-gated); accept rewrites the house-style prompt (P4)
+  // Not an engine domain: a person's KB capture waiting for a reviewer. Accept approves the
+  // entries, Decline rejects them (BE kbCaptureReview.ts).
+  | 'kb_review'
   // RESERVED — no producer/consumer today; never emits a suggestion:
   | 'category'
   | 'suggested_reply'

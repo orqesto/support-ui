@@ -7,11 +7,13 @@ import {
   Trash2,
   MessageSquare,
   FileText,
+  XCircle,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
-import { KBApprovalBadge } from './KBApprovalProvenance';
+import { KBStatusBadge } from './KBStatusBadge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import type { KBEntry } from '@/services/kb.service';
 
 const getTypeIcon = (type: string) => {
@@ -36,10 +38,21 @@ type KBEntryCardProps = {
   onView: (entry: KBEntry) => void;
   onApprove: (id: number) => void;
   onHide: (id: number) => void;
+  onReject: (id: number) => void;
   onDelete: (entry: KBEntry) => void;
+  /** May approve / reject / hide (manage_knowledge_base). Without it the server answers 403. */
+  canReview: boolean;
 };
 
-export const KBEntryCard = ({ entry, onView, onApprove, onHide, onDelete }: KBEntryCardProps) => (
+export const KBEntryCard = ({
+  entry,
+  onView,
+  onApprove,
+  onHide,
+  onReject,
+  onDelete,
+  canReview,
+}: KBEntryCardProps) => (
   <Card className="p-4">
     <div className="flex gap-3">
       {/* Icon */}
@@ -63,16 +76,7 @@ export const KBEntryCard = ({ entry, onView, onApprove, onHide, onDelete }: KBEn
               AI-drafted
             </Badge>
           )}
-          {entry.hidden ? (
-            <Badge className="text-muted-foreground shrink-0">Hidden</Badge>
-          ) : entry.approved ? (
-            <>
-              <Badge className="bg-green-600 shrink-0">Approved</Badge>
-              <KBApprovalBadge entry={entry} />
-            </>
-          ) : (
-            <Badge className="shrink-0">Pending</Badge>
-          )}
+          <KBStatusBadge entry={entry} className="shrink-0" />
         </div>
 
         {/* Preview */}
@@ -111,23 +115,40 @@ export const KBEntryCard = ({ entry, onView, onApprove, onHide, onDelete }: KBEn
             <Maximize2 className="w-4 h-4 mr-1" />
             View
           </Button>
-          {!entry.approved && !entry.hidden && (
-            <Button size="sm" variant="outline" onClick={() => onApprove(entry.id)} title="Approve"
+          {canReview && !entry.approved && !entry.hidden && (
+            <>
+              <Button size="sm" variant="outline" onClick={() => onApprove(entry.id)} title="Approve"
   aria-label="Approve">
-              <CheckCircle className="w-4 h-4" />
-            </Button>
+                <CheckCircle className="w-4 h-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onReject(entry.id)}
+                title={`Reject — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days`}
+                aria-label="Reject"
+              >
+                <XCircle className="w-4 h-4" />
+              </Button>
+            </>
           )}
-          {!entry.hidden ? (
-            <Button size="sm" variant="outline" onClick={() => onHide(entry.id)} title="Hide"
+          {canReview &&
+            (!entry.hidden ? (
+              <Button size="sm" variant="outline" onClick={() => onHide(entry.id)} title="Hide"
   aria-label="Hide">
-              <EyeOff className="w-4 h-4" />
-            </Button>
-          ) : (
-            <Button size="sm" variant="outline" onClick={() => onApprove(entry.id)} title="Unhide"
-  aria-label="Unhide">
-              <Eye className="w-4 h-4" />
-            </Button>
-          )}
+                <EyeOff className="w-4 h-4" />
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onApprove(entry.id)}
+                title={entry.rejectedAt ? 'Approve — restores the rejected entry' : 'Unhide'}
+                aria-label={entry.rejectedAt ? 'Restore' : 'Unhide'}
+              >
+                <Eye className="w-4 h-4" />
+              </Button>
+            ))}
           <Button
             size="sm"
             variant="outline"
