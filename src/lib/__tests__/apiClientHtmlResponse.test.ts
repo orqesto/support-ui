@@ -42,6 +42,10 @@ describe('api-client rejects an HTML page on a JSON call', () => {
     expect(getErrorStatus(caught)).toBe(200);
     expect(apiErrorMessage(caught, 'fallback')).toMatch(/web page instead of data/);
     expect(apiErrorMessage(caught, 'fallback')).toContain('/custom-apis');
+    // The same check runs on saves (POST/PUT/DELETE), so the words must not claim a screen
+    // failed to load — "the request did not complete" is true of a load and a save alike.
+    expect(apiErrorMessage(caught, 'fallback')).toContain('request did not complete');
+    expect(apiErrorMessage(caught, 'fallback')).not.toMatch(/screen/i);
   });
 
   it('rejects the charset variant text/html; charset=utf-8', () => {

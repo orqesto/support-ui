@@ -324,7 +324,7 @@ export const rejectHtmlResponse = (response: AxiosResponse): void => {
 
   const url = response.config?.url ?? 'unknown path';
   const message =
-    `The server answered ${url} with a web page instead of data, so this screen could not load. ` +
+    `The server answered ${url} with a web page instead of data, so the request did not complete. ` +
     'The request most likely did not reach the API (wrong path or proxy). Please report this.';
   const error = new Error(message) as Error & { status?: number; data?: unknown; code?: string };
   error.name = 'HtmlResponseError';
