@@ -168,3 +168,38 @@ describe('against real mail, not invented fixtures', () => {
     expect(out).toContain('lang="lv"');
   });
 });
+
+describe('every non-URL attribute is declared URI-safe', () => {
+  it('has no attribute that DOMPurify would silently delete', async () => {
+    /**
+     * ⛔ The #404 trap, made un-rottable. `ALLOWED_URI_REGEXP` is applied to every attribute
+     * DOMPurify does not hold as URI-safe, so an attribute listed in ALLOWED_ATTR but missing
+     * from ADD_URI_SAFE_ATTR is deleted — silently, with the config still claiming to allow it.
+     * That is exactly how `width`/`height` were lost for months while a comment said they came
+     * along, and it is how `align`/`valign` behaved in a control during this feature's audit.
+     *
+     * Anything ADDED to the allowlist from now on fails here until the decision is made.
+     */
+    const { EMAIL_ALLOWED_ATTR } = await import('../emailHtml');
+    const URL_BEARING = new Set(['href', 'src']);
+    // `target`/`rel` are intentionally not URI-safe: the sanitizer strips them and the
+    // afterSanitizeAttributes hook sets them back. See addNoopenerHook's comment.
+    const HOOK_RESTORED = new Set(['target', 'rel']);
+    // `style` and `class` ARE declared URI-safe (that is what lets them reach our hooks at
+    // all), but their values are then rewritten by `filterDeclarations` / `prefixClasses`, so
+    // a nonsense probe value is correctly discarded. Their survival is covered by the style
+    // and class-rewriting tests instead. Excluded here to keep this test about ONE property.
+    const HOOK_FILTERED = new Set(['style', 'class']);
+
+    const context = { eventId: 1, apiBaseUrl: 'https://api.test', organizationId: 2 };
+    for (const attr of EMAIL_ALLOWED_ATTR) {
+      if (URL_BEARING.has(attr) || HOOK_RESTORED.has(attr) || HOOK_FILTERED.has(attr)) continue;
+      // `p` accepts arbitrary attributes for this purpose; the value is a non-URL literal, so
+      // it survives only if the attribute is declared URI-safe.
+      const out = sanitizeEmailHtml(`<p ${attr}="zz">x</p>`, context);
+      expect(out, `"${attr}" is allowed but not URI-safe, so it is silently deleted`).toContain(
+        `${attr}="zz"`
+      );
+    }
+  });
+});
