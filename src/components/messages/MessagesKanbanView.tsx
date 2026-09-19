@@ -310,17 +310,19 @@ const initialColStates = (): Record<string, ColumnState> =>
     ])
   );
 
-// Lifecycle columns the agent can hide to focus on live work. Open/In Progress/
-// Pending are always shown; On-hold (paused), Resolved (done) and Suspicious
-// (pending triage) are reference columns, so they're toggleable + hidden by default.
-// Preference persists per browser.
 // P2: map a Kanban column to its auto-arrival notification kind (badge source).
-const ARRIVAL_KIND_BY_COL: Record<string, 'suspicious_arrival' | 'spam_arrival'> = {
-  suspicious: 'suspicious_arrival',
+// ⛔ Keyed by `col.id` (see the header badge below), so there is no `suspicious` entry:
+// #756 removed that column. The suspicious ARRIVAL count did not disappear with it — it is
+// shown by `NotificationCenter`, which jumps to `?queue=suspicious`, the lens that replaced
+// the column.
+const ARRIVAL_KIND_BY_COL: Record<string, 'spam_arrival'> = {
   spam: 'spam_arrival',
 };
 
-const HIDEABLE_COLS = new Set(['on_hold', 'resolved', 'suspicious']);
+// Lifecycle columns the agent can hide to focus on live work. Open/In Progress/
+// Pending are always shown; On-hold (paused) and Resolved (done) are reference
+// columns, so they're toggleable + hidden by default. Preference persists per browser.
+const HIDEABLE_COLS = new Set(['on_hold', 'resolved']);
 
 /**
  * Which triage columns COUNT toward the tab's badges — and why `no_lane` does not.
