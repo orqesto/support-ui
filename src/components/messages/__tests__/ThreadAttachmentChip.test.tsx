@@ -12,9 +12,13 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { ThreadAttachmentChip } from '../ThreadAttachmentChip';
+import { useAuthStore } from '@/stores/authStore';
 import type { Attachment } from '@/types/ai';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  useAuthStore.setState({ selectedOrganizationId: null });
+});
 
 const attachment = (over: Partial<Attachment>): Attachment =>
   ({
@@ -31,8 +35,29 @@ describe('ThreadAttachmentChip', () => {
     const { container } = render(<ThreadAttachmentChip attachment={attachment({})} className="" />);
     const img = container.querySelector('img');
     expect(img).not.toBeNull();
+    // NOTE this is the NO-WORKSPACE fallback shape. With a workspace selected the url carries
+    // it in the path — see the test below, which is the one that exercises the fix.
     expect(img?.getAttribute('src')).toContain('/api/attachments/99/download');
     expect(img?.getAttribute('alt')).toBe('roof-detail.jpg');
+  });
+
+  it('carries the workspace in the PATH when one is selected', () => {
+    /**
+     * ⛔ The defect this closes. The browser loads this `<img src>` itself, so no axios
+     * interceptor runs and `X-Organization-Context` never goes with it. For a global admin
+     * that header is the org context's only carrier, and the backend's `downloadAttachment`
+     * only binds the tenant scope when the org resolves non-null — so it silently queries the
+     * SHARED database and, under BYODB, does not find the row. Broken thumbnail, 404.
+     *
+     * 🪤 The test ABOVE still passes either way, because with no workspace selected the
+     * fallback produces exactly the legacy url. It therefore proves nothing about the fix, and
+     * this test exists because it took a moment to notice that.
+     */
+    useAuthStore.setState({ selectedOrganizationId: 21 });
+    const { container } = render(<ThreadAttachmentChip attachment={attachment({})} className="" />);
+    expect(container.querySelector('img')?.getAttribute('src')).toContain(
+      '/api/organizations/21/attachments/99/download'
+    );
   });
 
   it('does not fetch it until it is scrolled to', () => {

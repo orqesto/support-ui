@@ -7,7 +7,8 @@ import {
   isPreviewable,
 } from '@/components/shared/AttachmentPreviewDialog';
 import { apiClient } from '@/lib/api-client';
-import { API_BASE_URL } from '@/lib/config';
+import { attachmentDownloadUrl } from '@/lib/attachmentUrl';
+import { useAuthStore } from '@/stores/authStore';
 import type { Attachment } from '@/types/ai';
 import type { Message, MessageEvent } from '@/types';
 import { logger } from '@/lib/logger';
@@ -31,8 +32,10 @@ const formatFileSize = (bytes?: number) => {
 
 const isImage = (mimeType: string) => mimeType.startsWith('image/');
 
-const getDownloadUrl = (att: Attachment) =>
-  `${API_BASE_URL}/api/attachments/${att.id}/download`;
+// Browser-loaded thumbnail: the workspace goes in the path, not a header. One builder,
+// shared with ThreadAttachmentChip — see `attachmentDownloadUrl`.
+const getDownloadUrl = (att: Attachment, organizationId?: number | null) =>
+  attachmentDownloadUrl(att.id, organizationId);
 
 const FileIcon = ({ mimeType }: { mimeType: string }) => {
   const cls = 'w-4 h-4 text-muted-foreground';
@@ -42,8 +45,18 @@ const FileIcon = ({ mimeType }: { mimeType: string }) => {
   return <FileText className={cls} />;
 };
 
-export const MessageAttachments = ({ message, refreshKey, highlightId, preloadedAttachments }: MessageAttachmentsProps) => {
+export const MessageAttachments = ({
+  message,
+  refreshKey,
+  highlightId,
+  preloadedAttachments,
+}: MessageAttachmentsProps) => {
   const [attachments, setAttachments] = useState<Attachment[]>(preloadedAttachments ?? []);
+  // Same source the api-client interceptor reads; for a browser-loaded <img src> it has to go
+  // in the path instead of a header.
+  const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
+  /** Attachment ids whose thumbnail failed to load — shown as the file icon instead. */
+  const [brokenThumbnails, setBrokenThumbnails] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(!preloadedAttachments);
   const [activeHighlight, setActiveHighlight] = useState<number | null>(null);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
@@ -68,8 +81,12 @@ export const MessageAttachments = ({ message, refreshKey, highlightId, preloaded
         if (!cancelled) setAttachments(res.data.data ?? []);
       })
       .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [message.id, refreshKey, preloadedAttachments]);
 
   useEffect(() => {
@@ -104,7 +121,9 @@ export const MessageAttachments = ({ message, refreshKey, highlightId, preloaded
   };
 
   if (loading) {
-    return <p className="py-4 text-[11px] text-center text-muted-foreground">Loading attachments…</p>;
+    return (
+      <p className="py-4 text-[11px] text-center text-muted-foreground">Loading attachments…</p>
+    );
   }
 
   if (attachments.length === 0) {
@@ -116,7 +135,10 @@ export const MessageAttachments = ({ message, refreshKey, highlightId, preloaded
       {attachments.map((att) => (
         <div
           key={att.id}
-          ref={(el) => { if (el) rowRefs.current.set(att.id, el); else rowRefs.current.delete(att.id); }}
+          ref={(el) => {
+            if (el) rowRefs.current.set(att.id, el);
+            else rowRefs.current.delete(att.id);
+          }}
           className={`flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors group ${
             activeHighlight === att.id
               ? 'bg-primary/10 ring-1 ring-primary/30'
@@ -125,11 +147,17 @@ export const MessageAttachments = ({ message, refreshKey, highlightId, preloaded
         >
           {/* Thumbnail or icon */}
           <div className="w-8 h-8 rounded flex-shrink-0 flex items-center justify-center bg-muted/60 overflow-hidden">
-            {isImage(att.mimeType) ? (
+            {isImage(att.mimeType) && !brokenThumbnails.has(att.id) ? (
               <img
-                src={getDownloadUrl(att)}
+                src={getDownloadUrl(att, selectedOrganizationId)}
                 alt={att.originalFilename}
                 className="w-full h-full object-cover"
+                // Fall back to the file icon rather than a broken-image glyph. The thread chip
+                // has always done this; the FILES tab had no handler at all, so any 404 — a
+                // file missing from storage, or the FE reaching prod before the org-in-path
+                // attachment route does (this repo deploys `main` on push, the backend ships on
+                // a tag) — rendered a broken frame instead of degrading.
+                onError={() => setBrokenThumbnails((previous) => new Set(previous).add(att.id))}
               />
             ) : (
               <FileIcon mimeType={att.mimeType} />
@@ -149,7 +177,9 @@ export const MessageAttachments = ({ message, refreshKey, highlightId, preloaded
                 {att.originalFilename}
               </Button>
             ) : (
-              <p className="text-[11px] font-medium truncate leading-tight">{att.originalFilename}</p>
+              <p className="text-[11px] font-medium truncate leading-tight">
+                {att.originalFilename}
+              </p>
             )}
             <p className="text-[10px] text-muted-foreground leading-tight flex items-center gap-1">
               {formatFileSize(att.size)}
@@ -159,7 +189,8 @@ export const MessageAttachments = ({ message, refreshKey, highlightId, preloaded
                   "Received"). Preserved as-is; deriving true direction from the
                   owning message event is a follow-up (Bucket-B). */}
               <span className="inline-flex items-center gap-0.5 text-emerald-500 dark:text-emerald-400">
-                <ArrowDownLeft className="w-2.5 h-2.5" />Received
+                <ArrowDownLeft className="w-2.5 h-2.5" />
+                Received
               </span>
             </p>
           </div>
