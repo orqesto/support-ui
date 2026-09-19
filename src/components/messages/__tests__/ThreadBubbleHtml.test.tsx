@@ -190,6 +190,34 @@ describe('ThreadBubble with the original HTML', () => {
     }
   });
 
+  /**
+   * ⛔ The email's own dimensions must survive the sanitizer. They did not: `ALLOWED_URI_REGEXP`
+   * is applied to attribute values generally and `40` is not a url, so every `width`/`height`
+   * was deleted and each image rendered at its intrinsic size, scaled to the container — a 40px
+   * logo as a full-width banner. Invisible until images started rendering at all.
+   */
+  it('keeps the width and height the email asked for', () => {
+    cleanup();
+    useAuthStore.setState({ selectedOrganizationId: 36 });
+    try {
+      const html = '<img src="https://cdn.shop.test/logo.png" width="40" height="37" alt="logo">';
+      const { container } = render(<ThreadBubble content="" isAgent={false} html={html} eventId={99} />);
+      const img = container.querySelector('img');
+      expect(img?.getAttribute('width')).toBe('40');
+      expect(img?.getAttribute('height')).toBe('37');
+    } finally {
+      useAuthStore.setState({ selectedOrganizationId: null });
+    }
+  });
+
+  it('⛔ a javascript: url is still refused — the dimensions are safe, the URI guard is not relaxed', () => {
+    cleanup();
+    const html = '<img src="javascript:alert(1)" width="10"><a href="javascript:alert(1)">x</a>';
+    const { container } = render(<ThreadBubble content="" isAgent={false} html={html} eventId={99} />);
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('a')?.getAttribute('href') ?? null).toBeNull();
+  });
+
   it('⛔ BACKSTOP: strips an img the rewrite missed, rather than letting it beacon', () => {
     // Simulates `proxyRemoteImages` failing to match: the markup reaches the sanitizer with a
     // raw sender URL still on it. Without the hook, ALLOWED_URI_REGEXP (`^https?:`) would keep
