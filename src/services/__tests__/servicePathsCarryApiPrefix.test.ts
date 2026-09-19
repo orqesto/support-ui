@@ -375,12 +375,17 @@ const scan = () => {
         testModulesNamed.push(where());
       }
       // `import.meta.glob(...)` pulls files in by PATTERN, so no specifier names the test module
-      // it may include (audit round 17: './__tests__/*.ts'). Production code may not glob at all.
+      // it may include (audit round 17: './__tests__/*.ts'). Rather than list the spellings — a
+      // cast `(import.meta as any).glob` escaped a check on the direct form (round 18) — every
+      // `import.meta` in production code must be read as exactly `import.meta.env`.
       if (
-        ts.isPropertyAccessExpression(node) &&
-        ts.isMetaProperty(node.expression) &&
-        node.expression.keywordToken === ts.SyntaxKind.ImportKeyword &&
-        node.name.text.startsWith('glob')
+        ts.isMetaProperty(node) &&
+        node.keywordToken === ts.SyntaxKind.ImportKeyword &&
+        !(
+          ts.isPropertyAccessExpression(node.parent) &&
+          node.parent.expression === node &&
+          node.parent.name.text === 'env'
+        )
       ) {
         testModulesNamed.push(where());
       }
