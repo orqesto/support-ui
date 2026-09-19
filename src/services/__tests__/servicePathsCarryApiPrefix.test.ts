@@ -561,4 +561,13 @@ describe('every apiClient path reaches the backend', () => {
       .filter((site) => !CHECKED_BY_HAND.has(site));
     expect(unresolved).toEqual([]);
   });
+
+  it('⛔ every hand check still names a call the parser cannot resolve — none outlives its code', () => {
+    // An entry whose call was removed or rewritten would otherwise sit here unnoticed, ready to
+    // excuse a different call written the same way later (independent audit, 2026-09-19).
+    const unresolvedSites = new Set(
+      calls.filter((call) => call.prefix === null).map((call) => call.site)
+    );
+    expect([...CHECKED_BY_HAND].filter((site) => !unresolvedSites.has(site))).toEqual([]);
+  });
 });
