@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
@@ -17,6 +17,7 @@ import { describe, expect, it } from 'vitest';
  * a person has checked it.
  */
 const SRC = join(process.cwd(), 'src');
+const climbsOut = (text: string): boolean => text.includes('..');
 const METHODS = new Set(['get', 'post', 'put', 'patch', 'delete']);
 const API = '/api/';
 
@@ -24,7 +25,7 @@ const API = '/api/';
 const CHECKED_BY_HAND = new Set<string>([
   // `downloadPath ?? \`/api/attachments/${id}/download\``: the prop's only caller
   // (TicketAttachments) passes `/api/attachments/jira/${id}/download` or undefined.
-  'components/shared/AttachmentPreviewDialog.tsx: path',
+  'components/shared/AttachmentPreviewDialog.tsx: path = path = downloadPath ?? `/api/attachments/${attachment.id}/download`',
 ]);
 
 const sourceFiles = (dir: string): string[] =>
@@ -34,19 +35,17 @@ const sourceFiles = (dir: string): string[] =>
     return /\.tsx?$/.test(name) && !/\.(test|d)\.tsx?$/.test(name) ? [full] : [];
   });
 
-/** The first `const`/`let` declaration of `name` in the file, top to bottom. */
-const declarationOf = (file: ts.SourceFile, name: string): ts.Expression | undefined => {
-  let found: ts.Expression | undefined;
-  const visit = (node: ts.Node): void => {
-    if (found) return;
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === name) {
-      found = node.initializer;
-      return;
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(file);
-  return found;
+/**
+ * The initializer a name resolves to IN SCOPE (the type checker binds it, so a same-named
+ * variable elsewhere in the file cannot answer for it). Only a `const` with an initializer
+ * counts: a parameter, a `let`/`var`, or anything imported is not knowable from here.
+ */
+const initializerOf = (name: ts.Identifier, checker: ts.TypeChecker): ts.Expression | undefined => {
+  const declaration = checker.getSymbolAtLocation(name)?.valueDeclaration;
+  if (!declaration || !ts.isVariableDeclaration(declaration)) return undefined;
+  const list = declaration.parent;
+  if (!ts.isVariableDeclarationList(list) || !(list.flags & ts.NodeFlags.Const)) return undefined;
+  return declaration.initializer;
 };
 
 /**
@@ -54,11 +53,16 @@ const declarationOf = (file: ts.SourceFile, name: string): ts.Expression | undef
  * A conditional counts only if BOTH arms resolve; the first arm that does not start with /api
  * is returned, so a bad branch is reported rather than hidden by a good one.
  */
-const prefixOf = (node: ts.Expression, file: ts.SourceFile, depth = 0): string | null => {
+const prefixOf = (node: ts.Expression, checker: ts.TypeChecker, depth = 0): string | null => {
   if (depth > 8) return null;
-  const next = (expr: ts.Expression) => prefixOf(expr, file, depth + 1);
-  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
+  const next = (expr: ts.Expression) => prefixOf(expr, checker, depth + 1);
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+    return climbsOut(node.text) ? null : node.text;
+  }
   if (ts.isTemplateExpression(node)) {
+    // A `..` anywhere could climb back out of /api/, whatever the head says.
+    const parts = [node.head.text, ...node.templateSpans.map((span) => span.literal.text)];
+    if (parts.some(climbsOut)) return null;
     if (node.head.text) return node.head.text;
     const lead = next(node.templateSpans[0].expression);
     return lead === null ? null : lead + node.templateSpans[0].literal.text;
@@ -73,15 +77,26 @@ const prefixOf = (node: ts.Expression, file: ts.SourceFile, depth = 0): string |
     return arms.find((arm) => !arm!.startsWith(API)) ?? arms[0];
   }
   if (ts.isIdentifier(node)) {
-    const init = declarationOf(file, node.text);
+    const init = initializerOf(node, checker);
     return init ? next(init) : null;
   }
   if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
     // A path helper: `const base = (id: number) => \`/api/alliances/${id}\``.
-    const init = declarationOf(file, node.expression.text);
+    const init = initializerOf(node.expression, checker);
     if (init && ts.isArrowFunction(init) && !ts.isBlock(init.body)) return next(init.body);
   }
   return null;
+};
+
+/**
+ * How a call is named in CHECKED_BY_HAND: its argument, plus the whole declaration a name
+ * resolves to — so an entry stops matching the moment what it was checked against changes.
+ */
+const siteText = (arg: ts.Expression, checker: ts.TypeChecker, file: ts.SourceFile): string => {
+  const text = arg.getText(file);
+  if (!ts.isIdentifier(arg)) return text;
+  const declaration = checker.getSymbolAtLocation(arg)?.valueDeclaration;
+  return declaration ? `${text} = ${declaration.getText(file).replace(/\s+/g, ' ')}` : text;
 };
 
 interface Call {
@@ -93,9 +108,17 @@ const scan = () => {
   const calls: Call[] = [];
   // Every `apiClient.<method>` REFERENCE in code (comments excluded, unlike a text search).
   let references = 0;
-  for (const path of sourceFiles(SRC)) {
-    const text = readFileSync(path, 'utf8');
-    const file = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true);
+  const files = sourceFiles(SRC);
+  const program = ts.createProgram(files, {
+    jsx: ts.JsxEmit.ReactJSX,
+    target: ts.ScriptTarget.ES2022,
+    noResolve: true,
+    allowJs: false,
+  });
+  const checker = program.getTypeChecker();
+  for (const path of files) {
+    const file = program.getSourceFile(path);
+    if (!file) throw new Error(`not parsed: ${path}`);
     const visit = (node: ts.Node): void => {
       if (
         ts.isPropertyAccessExpression(node) &&
@@ -115,8 +138,8 @@ const scan = () => {
       ) {
         const arg = node.arguments[0];
         calls.push({
-          site: `${relative(SRC, path)}: ${arg.getText(file)}`,
-          prefix: prefixOf(arg, file),
+          site: `${relative(SRC, path)}: ${siteText(arg, checker, file)}`,
+          prefix: prefixOf(arg, checker),
         });
       }
       ts.forEachChild(node, visit);
