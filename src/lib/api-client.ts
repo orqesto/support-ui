@@ -291,6 +291,49 @@ export const handleResponseError = async (error: unknown): Promise<unknown> => {
   return Promise.reject(error instanceof Error ? error : new Error(String(error)));
 };
 
+/** Code carried on the error (and its `data`) when an API call answered with an HTML page. */
+export const HTML_RESPONSE_CODE = 'HTML_INSTEAD_OF_JSON';
+
+/**
+ * Response types whose caller asked for something other than JSON. A blob/arraybuffer is an
+ * attachment download (its Content-Type is the file's own and may well be text/html), `text` is
+ * the email-template preview, which IS an HTML render, and `document` parses markup by design.
+ */
+const NON_JSON_RESPONSE_TYPES = new Set(['blob', 'arraybuffer', 'text', 'document', 'stream']);
+
+/**
+ * A 2xx carrying `text/html` on a JSON call is never an answer from the API: it is the SPA's
+ * index.html served by the host's catch-all, which is what a path missing its `/api` prefix (or
+ * a request that never reached the backend) gets. Axios hands that string to the caller as
+ * `data`, every `data?.data ?? []` reads it as EMPTY, and the screen renders a false
+ * "Nothing connected yet" with no error. Turn it into a rejection shaped like every other
+ * interceptor error (`status` + `data.error` + `data.code`) so the existing error display says so.
+ *
+ * Keyed on the header, not the body: a 204/empty response has no Content-Type and passes.
+ */
+export const rejectHtmlResponse = (response: AxiosResponse): void => {
+  const responseType = response.config?.responseType;
+  if (responseType && NON_JSON_RESPONSE_TYPES.has(responseType)) return;
+  // Response interceptors run after dispatchRequest, which always sets
+  // `response.headers = AxiosHeaders.from(...)` (axios lib/core/dispatchRequest.js), so real
+  // headers always have `.get`. The optional calls only keep a header-less stub from throwing.
+  const headers = response.headers as { get?: (name: string) => unknown } | undefined;
+  const raw = headers?.get?.('content-type');
+  const contentType = typeof raw === 'string' ? raw.toLowerCase() : '';
+  if (!contentType.startsWith('text/html')) return;
+
+  const url = response.config?.url ?? 'unknown path';
+  const message =
+    `The server answered ${url} with a web page instead of data, so the request did not complete. ` +
+    'The request most likely did not reach the API (wrong path or proxy). Please report this.';
+  const error = new Error(message) as Error & { status?: number; data?: unknown; code?: string };
+  error.name = 'HtmlResponseError';
+  error.code = HTML_RESPONSE_CODE;
+  error.status = response.status;
+  error.data = { error: message, code: HTML_RESPONSE_CODE };
+  throw error;
+};
+
 /**
  * Every sign-in path — password, org picker, workspace switch, signup auto-login, 2FA — answers
  * through the BE's `establishSession`, which reports the access-token lifetime as
@@ -302,6 +345,7 @@ export const handleResponseError = async (error: unknown): Promise<unknown> => {
  * array — a private shape that type-checks differently under the app tsconfig than the loose one.
  */
 export const noteSessionFromResponse = (response: AxiosResponse): AxiosResponse => {
+  rejectHtmlResponse(response);
   const body = response.data as { data?: { auth?: { expiresIn?: unknown } } } | undefined;
   const expiresIn = body?.data?.auth?.expiresIn;
   if (typeof expiresIn === 'string') noteSessionIssued(expiresIn);
