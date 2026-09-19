@@ -92,26 +92,38 @@ describe('the two-column signature keeps its layout', () => {
     ).toContain('[&_img]:!h-auto');
   });
 
-  it('gives the body the width email is designed for', () => {
-    // 600px is the de-facto email design width. A `width="100%"` table with a 150px logo cell
-    // had nowhere to go in a 524px bubble, which is what broke the contact line mid-token.
-    const { container } = renderSignature();
-    const body = container.querySelector('table')?.closest('[class*="min-w-"]');
-    expect(body?.className).toContain('min-w-[600px]');
+  it('does NOT impose a width floor — the mail takes the width it is given', () => {
     /**
-     * ⛔ The assertion above is a CLASS NAME, and a class name is not a width — jsdom does no
-     * layout, so this test cannot see the effect. It passed for `min-w-[min(600px,100%)]`,
-     * which compiled correctly and resolved to the CONTAINER width, delivering 476px where 600
-     * was intended. The floor was inert in exactly the case it existed for, and only measuring
-     * the element in a real browser found it.
+     * ⚠️ This assertion is the REVERSE of what it was, and the reversal is the point.
      *
-     * So this guards the shape that was actually wrong: a `min()` here silently caps at the
-     * container instead of establishing a floor.
+     * A `min-w-[600px]` floor was added on the theory that the reported mid-token wrap
+     * ("natalie.antonenko@prefabh" / "ome.eu") came from the body being narrower than the 600px
+     * email is designed for. Measured on the deployed build against that exact mail, it did not:
+     * with the floor the address wrapped 0 times out of 16, and WITHOUT it, also 0 out of 16 —
+     * while the floor cost 152px of horizontal scroll on 12 of the thread's 22 email bodies (152px is a quarter of the 600px body, and a third of the 472px panel;
+     * the other 10 sit in wider bubbles and cleared 600px on their own).
+     *
+     * What fixed it was one or both of the other changes in #413 (table geometry surviving the
+     * sanitizer; tables no longer flattened by `[&_table]:block`). WHICH of them is not
+     * established — only the floor was removed and re-measured. What is established is that the
+     * floor was not it.
+     *
+     * So: no floor, and no `min-w-[...]` of any shape on the body. Re-adding one should mean
+     * re-running the A/B on real mail first, because the last time it was added on reasoning
+     * alone it shipped a 25% scroll that fixed nothing.
      */
-    expect(
-      body?.className,
-      'min() caps at the container — it cannot express a floor'
-    ).not.toContain('min-w-[min(');
+    const { container } = renderSignature();
+    const body = container.querySelector('table')?.closest('div[class*="overflow-wrap"]');
+    expect(body, 'the email body wrapper was not found').not.toBeNull();
+    expect(body?.className, 'a width floor was re-added without re-measuring').not.toMatch(
+      /min-w-\[/
+    );
+
+    // The containment that ORB-SUP-1358 needs is on the ground and must NOT go with the floor:
+    // a table genuinely wider than the bubble still has to scroll inside its own container
+    // rather than turn the whole thread panel into a sideways scroller.
+    const ground = container.querySelector('table')?.closest('.overflow-x-auto');
+    expect(ground, 'the scroll container is what contains a genuinely wide table').not.toBeNull();
   });
 });
 
