@@ -192,12 +192,49 @@ const linkifyHtml = (html: string): string => {
  * Client-side allowlist for event HTML. Mirrors the tag set the BE's `PUBLIC_SANITIZE_OPTS`
  * lets through and the attribute policy of the app's own thread sanitiser
  * (`THREAD_SANITIZE`): links only over http(s), no inline styles, no handlers.
+ *
+ * ⛔ DO NOT bring this page in line with `sanitizeEmailHtml`, which is what the THREAD now uses
+ * for sender mail (inline `style` subset, proxied images). It was considered for that change on
+ * 2026-09-19 and deliberately left out, on three grounds:
+ *   · this allowlist has no `img` at all, so the broken-image defect never existed here;
+ *   · the page is PUBLIC and unauthenticated — adopting the email renderer would ADD remote
+ *     image rendering to an anonymous surface, which is a new abuse surface, not a fix;
+ *   · there is no event id here to build a per-message image-proxy url from, and that id is
+ *     what scopes the proxy guard.
+ * `THREAD_SANITIZE` itself is unchanged and still backs the thread's no-`eventId` fallback, so
+ * the sentence above remains accurate — it is just no longer the whole story of the thread.
  */
 const TRACKING_SANITIZE = {
   ALLOWED_TAGS: [
-    'a', 'b', 'br', 'div', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'li',
-    'ol', 'p', 'pre', 'span', 'strong', 'table', 'tbody', 'td', 'th', 'thead', 'tr', 'u',
-    'ul', 'blockquote', 'code',
+    'a',
+    'b',
+    'br',
+    'div',
+    'em',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'hr',
+    'i',
+    'li',
+    'ol',
+    'p',
+    'pre',
+    'span',
+    'strong',
+    'table',
+    'tbody',
+    'td',
+    'th',
+    'thead',
+    'tr',
+    'u',
+    'ul',
+    'blockquote',
+    'code',
   ],
   ALLOWED_ATTR: ['href', 'title', 'target', 'rel'],
   FORBID_ATTR: ['style', 'class', 'id'],
@@ -216,10 +253,7 @@ const TRACKING_SANITIZE = {
 export const renderEventHtml = (content: string): string =>
   DOMPurify.sanitize(linkifyHtml(content), TRACKING_SANITIZE);
 
-type ReplyState =
-  | { kind: 'idle' }
-  | { kind: 'submitting' }
-  | { kind: 'error'; message: string };
+type ReplyState = { kind: 'idle' } | { kind: 'submitting' } | { kind: 'error'; message: string };
 
 // Mock payload used when the page is opened in preview mode (no conv id +
 // no token). Lets designers / sales screenshot the customer-facing view
@@ -480,16 +514,17 @@ export const TrackingPage = () => {
   const inProgressReachedAt =
     firstHumanReplyAt ??
     conversation.firstResponseAt ??
-    (isWorkingStatus ? conversation.lastReplyAt ?? conversation.createdAt : null) ??
+    (isWorkingStatus ? (conversation.lastReplyAt ?? conversation.createdAt) : null) ??
     // If the conv was resolved/closed but we never saw a reply OR a working
     // status, someone still must have touched it to close it — back-infer
     // the in-progress stage from the resolution timestamp so the stepper
     // doesn't read as "received → resolved with a magic skip".
-    (closedAt ?? null);
+    closedAt ??
+    null;
 
   const awaitingReplyAt =
     conversation.status === 'awaiting_response'
-      ? firstHumanReplyAt ?? conversation.firstResponseAt ?? conversation.lastReplyAt
+      ? (firstHumanReplyAt ?? conversation.firstResponseAt ?? conversation.lastReplyAt)
       : null;
 
   const timeline = [
@@ -550,15 +585,19 @@ export const TrackingPage = () => {
 
   // Channel label — only shown if we can infer one from the events. Stays
   // generic to avoid exposing internal source/integration names.
-  const inboundChannel = events.find((event) => event.direction === 'customer')?.id ? 'Email' : null;
+  const inboundChannel = events.find((event) => event.direction === 'customer')?.id
+    ? 'Email'
+    : null;
 
   return (
     <div className="min-h-screen bg-[hsl(210,20%,98%)] text-[hsl(222.2,84%,4.9%)] font-sans">
       {isPreview && (
         <div className="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-5 py-2 text-center">
-          <strong>Preview mode</strong> — showing sample data. Real customer
-          tracking links include a conversation id and token (
-          <code className="font-mono">/track/&lt;org&gt;/&lt;dept&gt;/&lt;id&gt;?t=&lt;token&gt;</code>
+          <strong>Preview mode</strong> — showing sample data. Real customer tracking links include
+          a conversation id and token (
+          <code className="font-mono">
+            /track/&lt;org&gt;/&lt;dept&gt;/&lt;id&gt;?t=&lt;token&gt;
+          </code>
           ).
         </div>
       )}
@@ -589,9 +628,7 @@ export const TrackingPage = () => {
             <div className="flex-shrink-0">
               <div
                 className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                  isResolved
-                    ? 'bg-emerald-50 text-emerald-600'
-                    : 'bg-blue-50 text-blue-600'
+                  isResolved ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'
                 }`}
               >
                 {isResolved ? (
@@ -630,9 +667,7 @@ export const TrackingPage = () => {
               <div className="flex items-center gap-2 mb-1">
                 <span
                   className={`text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${
-                    isResolved
-                      ? 'text-emerald-700 bg-emerald-50'
-                      : 'text-blue-700 bg-blue-50'
+                    isResolved ? 'text-emerald-700 bg-emerald-50' : 'text-blue-700 bg-blue-50'
                   }`}
                 >
                   {STATUS_LABELS[conversation.status]?.label ?? conversation.status}
@@ -710,7 +745,7 @@ export const TrackingPage = () => {
                   const isCurrent = idx === activeIdx + 1 && !isResolved;
                   const isLast = idx === timeline.length - 1;
                   const stageTime = stage.reachedAt
-                    ? fmtRelative(stage.reachedAt) ?? fmtTime(stage.reachedAt)
+                    ? (fmtRelative(stage.reachedAt) ?? fmtTime(stage.reachedAt))
                     : null;
                   return (
                     <li key={stage.key} className={`flex gap-3.5 relative ${isLast ? '' : 'pb-6'}`}>
@@ -810,7 +845,13 @@ export const TrackingPage = () => {
                     // Conventional chat layout: the viewer ("You") sits on the
                     // right in a filled bubble; support/assistant sits on the
                     // left in a neutral bubble.
-                    const avatarInitial = isCustomer ? 'You' : isAssistant ? 'A' : event.isAutomated ? 'A' : 'S';
+                    const avatarInitial = isCustomer
+                      ? 'You'
+                      : isAssistant
+                        ? 'A'
+                        : event.isAutomated
+                          ? 'A'
+                          : 'S';
                     return (
                       <div
                         key={event.id}
@@ -926,10 +967,7 @@ export const TrackingPage = () => {
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt className="text-[hsl(215.4,16.3%,46.9%)]">Submitted</dt>
-                  <dd
-                    className="font-medium text-right"
-                    title={fmtTime(conversation.createdAt)}
-                  >
+                  <dd className="font-medium text-right" title={fmtTime(conversation.createdAt)}>
                     {new Date(conversation.createdAt).toLocaleDateString(undefined, {
                       year: 'numeric',
                       month: 'short',
@@ -956,9 +994,7 @@ export const TrackingPage = () => {
                       <dt className="text-[hsl(215.4,16.3%,46.9%)]">Priority</dt>
                       <dd
                         className={`font-medium capitalize ${
-                          conversation.priority === 'critical'
-                            ? 'text-red-600'
-                            : 'text-orange-600'
+                          conversation.priority === 'critical' ? 'text-red-600' : 'text-orange-600'
                         }`}
                       >
                         {conversation.priority}
@@ -968,10 +1004,7 @@ export const TrackingPage = () => {
                 {firstHumanReplyAt && (
                   <div className="flex justify-between gap-3 pt-3 border-t border-[hsl(214.3,31.8%,91.4%)]">
                     <dt className="text-[hsl(215.4,16.3%,46.9%)]">First reply</dt>
-                    <dd
-                      className="font-medium text-right"
-                      title={fmtTime(firstHumanReplyAt)}
-                    >
+                    <dd className="font-medium text-right" title={fmtTime(firstHumanReplyAt)}>
                       {fmtRelative(firstHumanReplyAt) ?? fmtTime(firstHumanReplyAt)}
                     </dd>
                   </div>
@@ -988,8 +1021,8 @@ export const TrackingPage = () => {
             </section>
 
             <p className="text-xs text-[hsl(215.4,16.3%,46.9%)] px-1 leading-relaxed">
-              This page updates as your request progresses. Bookmark it to check back anytime — we'll
-              also email you at each step.
+              This page updates as your request progresses. Bookmark it to check back anytime —
+              we'll also email you at each step.
             </p>
           </aside>
         </div>

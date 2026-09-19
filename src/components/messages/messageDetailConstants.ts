@@ -405,12 +405,21 @@ const cssLengthAsAttribute = (value: string): string | null => {
 /**
  * Copy an image's size out of `style` into `width`/`height` attributes, before sanitizing.
  *
- * ⛔ Why not simply allow a `style` subset: `style` is in `FORBID_ATTR` for good reasons —
- * `position`, `display`, `opacity` and friends are how a mail turns a rendered message into an
- * overlay, and a real email carries all of them (one on staging: `position: relative; top: -1px;
- * display: none`). Admitting CSS to recover two numbers would buy the layout at the price of the
- * guard. Lifting the two numbers OUT instead keeps `style` forbidden and loses nothing: what
- * reaches the DOM is `width="600"`, a validated number, and no CSS at all.
+ * ⚠️ 2026-09-19: THIS COMMENT USED TO ARGUE AGAINST ALLOWING CSS AT ALL, and that argument no
+ * longer describes the thread. It read: "`style` is in `FORBID_ATTR` for good reasons … what
+ * reaches the DOM is `width="600"`, a validated number, and no CSS at all." That is still true
+ * of the surfaces using `THREAD_SANITIZE`, and it is NO LONGER true of `ThreadBubble`, which
+ * now renders sender mail through `sanitizeEmailHtml` with a filtered inline-`style` subset —
+ * because forbidding `style` outright is what collapsed table-built signatures.
+ *
+ * The concern the old text raised was answered rather than ignored: `position`, `top` and the
+ * rest of that overlay set are REJECTED by name in `CSS_ALLOWED_PROPERTIES`, and the real
+ * staging example it cites (`position: relative; top: -1px; display: none`) keeps only
+ * `display: none` today. So the guard survived; only the blanket ban went.
+ *
+ * Lifting the two numbers out still earns its place: it normalises `%` and bare numbers into
+ * validated attributes, it gives clients and the box-reservation path an explicit pair, and it
+ * is what the `THREAD_SANITIZE` fallback (a bubble with no `eventId`) still depends on.
  *
  * 🔑 This is not a hypothetical shape. In staging's SOM-INF-1579 every `<img>` in the message
  * carries its geometry in `style` and NOT in attributes — 8 of 8 — so support-ui#404, which
@@ -420,9 +429,15 @@ const cssLengthAsAttribute = (value: string): string | null => {
  * An explicit attribute always wins: it is what the sender wrote for clients that read
  * attributes, and second-guessing it against their own CSS would be inventing a third answer.
  *
- * Both dimensions are carried even though `[&_img]:h-auto` decides the rendered height: a
+ * Both dimensions are carried even though `[&_img]:!h-auto` decides the rendered height: a
  * width/height PAIR is what lets the browser reserve the right box before the bytes arrive,
- * and `h-auto` then keeps the picture undistorted inside it.
+ * and the height rule then keeps the picture undistorted inside it.
+ *
+ * ⛔ Note the `!`. While the sender's height arrived only as an ATTRIBUTE, a plain `h-auto`
+ * class outranked it and the picture stayed proportional for free. Now that the email renderer
+ * also keeps `height` in `style`, an inline declaration beats a plain class — so the rule had
+ * to become `!h-auto` or a wide image capped by `max-w-full` renders squashed. Anything that
+ * changes what this function leaves behind in `style` has to re-check that pairing.
  *
  * ⚠️ The `<img …>` match shares `proxyRemoteImages`' convention and stops at the first `>`, so a
  * `>` inside an attribute value (`alt="5 > 3"`) truncates the tag it sees. That is pre-existing

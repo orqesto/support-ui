@@ -150,6 +150,31 @@ describe('a body that sanitizes down to nothing', () => {
   });
 });
 
+describe('a quote split that lands inside a table', () => {
+  it('leaves both halves well formed rather than leaking raw tags', () => {
+    /**
+     * `splitAtQuote` cuts the raw HTML at a byte index, so a quote marker sitting inside a
+     * table splits the table across the two chunks. That was invisible while `[&_table]:block`
+     * flattened tables and `style` was stripped; now that tables render as tables it is worth
+     * pinning. Each half is parsed and repaired independently by DOMPurify, so the guarantee
+     * is "no stray markup reaches the reader", not "the table is reconstructed".
+     */
+    useAuthStore.setState({ selectedOrganizationId: 21 });
+    const html =
+      '<table><tr><td style="padding:4px">before</td></tr>' +
+      '<div class="gmail_quote">On Mon, someone wrote:</div>' +
+      '<tr><td>after</td></tr></table>';
+    const { container } = render(
+      <ThreadBubble content="" isAgent={false} html={html} eventId={9} />
+    );
+    expect(container.textContent).toContain('before');
+    // No unparsed tag text leaked into the rendered output.
+    expect(container.textContent).not.toContain('<td');
+    expect(container.textContent).not.toContain('</table>');
+    expect(container.textContent).not.toContain('gmail_quote');
+  });
+});
+
 describe('a bubble with no eventId (the spam preview)', () => {
   it('uses the old strict sanitizer and renders no email ground', () => {
     // Reachable state with no coverage before pass 5: MessagesPage renders a spam preview as
