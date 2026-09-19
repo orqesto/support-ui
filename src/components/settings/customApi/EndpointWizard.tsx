@@ -1,4 +1,8 @@
 import { useState } from 'react';
+import { ROLE_OPTIONS, applyRole, roleOption } from './fieldRoles';
+import { OwnershipStep } from './OwnershipStep';
+import { RecordFormatStep } from './RecordFormatStep';
+import type { RecordFormat } from './recordFormat';
 import { ResponseTree } from './ResponseTree';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -88,6 +92,23 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
   const [fromIdentity, setFromIdentity] = useState(
     (endpoint?.parameterSource ?? 'identity') === 'identity'
   );
+  /**
+   * D35 (Task 5). Only meaningful for a lookup an agent types a NUMBER into — an identity lookup
+   * already resolves from the contact, so the record is the customer's by construction.
+   */
+  const [ownershipSourceEndpointId, setOwnershipSourceEndpointId] = useState<number | null>(
+    endpoint?.ownershipSourceEndpointId ?? null
+  );
+  /** D36 (Task 6). Like ownership, only meaningful for a lookup an agent types a number into. */
+  const [recordFormat, setRecordFormat] = useState<RecordFormat | null>(
+    endpoint?.recordFormatLength
+      ? {
+          prefix: endpoint.recordFormatPrefix ?? '',
+          length: endpoint.recordFormatLength,
+          charset: (endpoint.recordFormatCharset ?? 'digits') as RecordFormat['charset'],
+        }
+      : null
+  );
   const [parameter, setParameter] = useState('');
   const [sample, setSample] = useState('');
   const [pasting, setPasting] = useState(false);
@@ -138,9 +159,19 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
   /**
    * ⛔ `identityField` travels WITH `identity`: the create schema refines that an identity
    * parameter needs one, so sending the source without it is a 400.
+   *
+   * ⛔ AND IT KEEPS AN EXISTING ONE (audit pass 2 — the class pass 1 found one of). The
+   * contract allows `email`, `phone` and `displayName`; this wizard only offers "the customer's
+   * email address", so hardcoding `email` here would SILENTLY RETARGET a lookup someone had
+   * configured to match on phone — the next time an admin opened it and pressed Save, for a
+   * field the screen never showed them. Email is the default for a NEW lookup, not an overwrite
+   * of an old one.
    */
   const parameterFields = fromIdentity
-    ? { parameterSource: 'identity' as const, identityField: 'email' as const }
+    ? {
+        parameterSource: 'identity' as const,
+        identityField: endpoint?.identityField ?? ('email' as const),
+      }
     : { parameterSource: 'manual' as const, identityField: null };
 
   /**
@@ -239,9 +270,10 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
    * and leaves two raw, one of them in the live store currency — so the same number means
    * different things per endpoint, and an agent reading a bare figure quotes the wrong one.
    */
+
   /**
-   * ⛔ DERIVED, NEVER STORED (audit pass 4). This was a `useState` set at test time, and the
-   * Remove control added in pass 2 deleted a pick WITHOUT pruning it — so the warning went on
+   * ⛔ DERIVED, NEVER STORED (previous audit, pass 4). This was a `useState` set at test time,
+   * and the Remove control deleted a pick WITHOUT pruning it — so the warning went on
    * naming a field the admin had just removed, and the "that is every field" sentence could fire
    * off a stale count. A fix commit breaking the fix before it is the pattern this repo keeps
    * paying for; deriving it removes the state that could disagree.
@@ -277,6 +309,27 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
         path: path.trim(),
         fieldPaths: picked,
         resultShape,
+        // ⛔ Sent as `null` when the admin chose "we can't check" — that is a DECISION, and the
+        // three-valued rule elsewhere in this API means absent would read as "leave it alone".
+        /**
+         * ⛔ OMITTED, NOT NULLED, when the step was not shown (audit pass 1). These two questions
+         * are asked only for a MANUAL lookup, so sending `null` for an identity one would destroy
+         * whatever an admin had configured the moment they flipped the parameter source — data
+         * they can no longer see, and so cannot know they lost. Worse, `ownershipSourceEndpointId`
+         * is read whenever an agent supplies a recordRef, so nulling it could REMOVE a check that
+         * would otherwise run. Absent means keep, which is this API's rule everywhere else.
+         *
+         * ⛔ The three format values travel TOGETHER (D36): a length without a charset is a
+         * format that matches nothing, and all-null is how an admin says "do not pre-fill".
+         */
+        ...(fromIdentity
+          ? {}
+          : {
+              ownershipSourceEndpointId,
+              recordFormatPrefix: recordFormat?.prefix ?? null,
+              recordFormatLength: recordFormat?.length ?? null,
+              recordFormatCharset: recordFormat?.charset ?? null,
+            }),
         ...parameterFields,
       });
       onSaved();
@@ -406,6 +459,21 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
             )}
           </div>
 
+          {/*
+           * ⛔ D35, and ONLY for a manual lookup. An identity lookup resolves its parameter from
+           * the contact, so the record it returns is that customer's by construction — asking
+           * would be a question with one possible answer.
+           */}
+          {!fromIdentity && <RecordFormatStep value={recordFormat} onChange={setRecordFormat} />}
+
+          {!fromIdentity && (
+            <OwnershipStep
+              siblings={connection.endpoints.filter((one) => one.id !== endpointId)}
+              value={ownershipSourceEndpointId}
+              onChange={setOwnershipSourceEndpointId}
+            />
+          )}
+
           <div className="space-y-2">
             <p className="text-xs font-medium text-foreground">What should agents see?</p>
             <ResponseTree paths={paths} picked={picked} onToggle={toggle} missing={missing} />
@@ -448,7 +516,38 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
                   </div>
                   <div className="flex gap-2 items-end">
                     <div className="flex-1">
-                      <Label htmlFor={`kind-${field.path}`}>Kind</Label>
+                      {/*
+                       * D35/D37 (Task 4). ⛔ OPTIONAL: every field starts at "Just show it" and a
+                       * lookup saves and works with nothing tagged. Roles unlock the stored
+                       * summary and the ownership check; an admin must be able to reach a
+                       * working lookup without meeting a concept they do not need yet.
+                       */}
+                      {/*
+                       * ⛔ NAMED PER FIELD (audit pass 4). Every role select said "What is
+                       * this?", so a lookup with five picked fields had five different controls
+                       * answering to one accessible name — the identical defect fixed for the
+                       * label input in the previous audit, recurring in new code. The class, not
+                       * the file.
+                       */}
+                      <Label htmlFor={`role-${field.path}`}>What is {field.path}?</Label>
+                      <Select
+                        id={`role-${field.path}`}
+                        value={field.role}
+                        onChange={(event) =>
+                          setPicked((current) =>
+                            applyRole(current, field.path, event.target.value as FieldPick['role'])
+                          )
+                        }
+                      >
+                        {ROLE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                    <div className="flex-1">
+                      <Label htmlFor={`kind-${field.path}`}>How to show {field.path}</Label>
                       <Select
                         id={`kind-${field.path}`}
                         value={field.kind}
@@ -475,7 +574,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
                     </div>
                     {field.kind === 'money' && (
                       <div className="flex-1">
-                        <Label htmlFor={`cur-${field.path}`}>Its currency</Label>
+                        <Label htmlFor={`cur-${field.path}`}>Currency for {field.path}</Label>
                         <Select
                           id={`cur-${field.path}`}
                           value={field.currencyPath ?? (field.currencyLiteral ? '__fixed' : '')}
@@ -505,6 +604,14 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
                       </div>
                     )}
                   </div>
+                  {/*
+                   * ⛔ WHAT THE TAG BUYS, not just what it is. Without this the admin sees what to
+                   * do and never why — and the ownership check is the single most important
+                   * privacy control in the product to configure by accident.
+                   */}
+                  {roleOption(field.role).buys && (
+                    <p className="text-xs text-muted-foreground">{roleOption(field.role).buys}</p>
+                  )}
                   {field.kind === 'money' && field.currencyLiteral !== undefined && (
                     <Input
                       label="Which currency?"
