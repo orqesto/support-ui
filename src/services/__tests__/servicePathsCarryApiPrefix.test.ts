@@ -325,6 +325,10 @@ const scan = () => {
   // How many times each allowlisted internal, and each hand-checked mention of the module, occurs.
   const internals = new Map<string, number>();
   const moduleNamed = new Map<string, number>();
+  // Test modules named from production code. The scan skips `*.test.ts(x)`, so a test module that
+  // production imports would ship calls no check sees (audit round 16: a bad path reached dist).
+  // Any string that names one counts — static, dynamic, require, re-export — not only imports.
+  const testModulesNamed: string[] = [];
   const files = sourceFiles(SRC);
   const program = ts.createProgram(files, {
     jsx: ts.JsxEmit.ReactJSX,
@@ -338,6 +342,12 @@ const scan = () => {
     if (!file) throw new Error(`not parsed: ${path}`);
     const visit = (node: ts.Node): void => {
       const where = () => `${relative(SRC, path)}: ${node.getText(file)}`;
+      if (
+        (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
+        /\.test(?:\.[cm]?[jt]sx?)?$/.test(node.text)
+      ) {
+        testModulesNamed.push(where());
+      }
       if (
         ts.isImportSpecifier(node) &&
         (node.propertyName ?? node.name).text === 'apiClient' &&
@@ -449,11 +459,12 @@ const scan = () => {
     };
     visit(file);
   }
-  return { calls, references, rebindings, unaccounted, internals, moduleNamed };
+  return { calls, references, rebindings, unaccounted, internals, moduleNamed, testModulesNamed };
 };
 
 describe('every apiClient path reaches the backend', () => {
-  const { calls, references, rebindings, unaccounted, internals, moduleNamed } = scan();
+  const { calls, references, rebindings, unaccounted, internals, moduleNamed, testModulesNamed } =
+    scan();
 
   it('CONTROL: every apiClient.<method> reference is a call this test checked', () => {
     // The old regex skipped `get<A<B[]>>(`: 173 of 506 calls, and still passed its own control.
@@ -483,6 +494,10 @@ describe('every apiClient path reaches the backend', () => {
     // RED on `import('@/lib/api-client')`, `require`, `import * as`, a default import, an aliased
     // specifier, `export * from` / `export { … } from` the module, or its path in any string.
     expect(Object.fromEntries(moduleNamed)).toEqual(Object.fromEntries(MODULE_NAMED_BY_HAND));
+  });
+
+  it('⛔ production code never names a test module, which the scan does not read', () => {
+    expect(testModulesNamed).toEqual([]);
   });
 
   it('⛔ src holds no script the parser cannot read', () => {
