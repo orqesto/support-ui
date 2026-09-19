@@ -15,7 +15,8 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { ThreadBubble } from '@/components/messages/ThreadBubble';
-import { proxyRemoteImages } from '@/components/messages/messageDetailConstants';
+import { proxyRemoteImages, isProxiedImageUrl } from '@/components/messages/messageDetailConstants';
+import { useAuthStore } from '@/stores/authStore';
 import { API_BASE_URL } from '@/lib/config';
 
 const ORDER_HTML = `
@@ -26,6 +27,61 @@ const ORDER_HTML = `
   <a href="https://track.example.test/ABC123">Track your order</a>`;
 
 const PIPES = '| Discount: | -£16.50 |\n| Total: | £158.50 |';
+
+describe('proxyRemoteImages — the workspace in the url', () => {
+  /**
+   * ⛔ THE BUG. A browser loads `<img src>` itself: no api-client, so no
+   * `X-Organization-Context`. On production's TES-INF-1393 every image request that had
+   * completed when the network log was read answered 400 "Organization context required",
+   * while the same message's /html call — which DOES go through the interceptor — returned
+   * 200. Every test in this file passed throughout.
+   */
+  it('names the workspace in the path when one is selected', () => {
+    const out = proxyRemoteImages('<img src="https://cdn.shop.test/a.png">', 42, 'https://api.test', 36);
+    expect(out).toContain(
+      'https://api.test/api/organizations/36/messages/events/42/image?src=https%3A%2F%2Fcdn.shop.test%2Fa.png'
+    );
+  });
+
+  it('keeps the bare shape when no workspace is selected — never organizations/undefined', () => {
+    const out = proxyRemoteImages('<img src="https://cdn.shop.test/a.png">', 42, 'https://api.test', null);
+    expect(out).toContain('https://api.test/api/messages/events/42/image?src=');
+    expect(out).not.toContain('undefined');
+    expect(out).not.toContain('/organizations/');
+  });
+
+  it('sends the workspace on a cid image too — it 400d for exactly the same reason', () => {
+    const out = proxyRemoteImages('<img src="cid:logo@corp.example">', 12, 'https://api.test', 7);
+    expect(out).toContain('/api/organizations/7/messages/events/12/image?cid=logo%40corp.example');
+  });
+
+  it('decodes character references, so the backend is not asked to fetch a literal &amp;', () => {
+    const html = '<img src="https://cdn.shop.test/t.png?auto=format&amp;fit=crop&amp;h=88">';
+    const out = proxyRemoteImages(html, 42, 'https://api.test', 36);
+    // encodeURIComponent turns `&` into %26; an `amp%3B` in here is the defect.
+    expect(out).toContain('t.png%3Fauto%3Dformat%26fit%3Dcrop%26h%3D88');
+    expect(out).not.toContain('amp%3B');
+  });
+});
+
+describe('isProxiedImageUrl — what the sanitizer backstop keeps', () => {
+  const base = 'https://api.test';
+
+  it('keeps both proxy shapes', () => {
+    expect(isProxiedImageUrl(`${base}/api/messages/events/9/image?src=x`, base)).toBe(true);
+    expect(isProxiedImageUrl(`${base}/api/organizations/36/messages/events/9/image?src=x`, base)).toBe(
+      true
+    );
+  });
+
+  it('⛔ admits ONLY the proxy path — matching the api base url is not enough', () => {
+    expect(isProxiedImageUrl(`${base}/api/attachments/9/download`, base)).toBe(false);
+    expect(isProxiedImageUrl(`${base}/api/organizations/36/messages/events/9/html`, base)).toBe(false);
+    expect(isProxiedImageUrl('https://tracker.example.test/open.gif', base)).toBe(false);
+    // A sender's url that merely STARTS with our origin's text.
+    expect(isProxiedImageUrl(`${base}.evil.test/api/messages/events/9/image`, base)).toBe(false);
+  });
+});
 
 describe('proxyRemoteImages', () => {
   it('rewrites an absolute remote source to our proxy, url-encoded', () => {
@@ -107,6 +163,31 @@ describe('ThreadBubble with the original HTML', () => {
     );
     const img = container.querySelector('img');
     expect(img?.getAttribute('src')).toContain('/api/messages/events/12/image?cid=');
+  });
+
+  /**
+   * ⛔ The test this file was missing. Every render case above runs with NO workspace selected,
+   * so they exercised the shape production could never use — and stayed green while the console
+   * showed a dozen broken images. This one renders the way a signed-in console does, and
+   * asserts the `<img>` SURVIVES the sanitizer: the backstop hook keeps an image only if it
+   * recognises the url, so a rewrite the hook does not know about is a blank thread, not a
+   * broken one.
+   */
+  it('renders the workspace-scoped proxy url, and the sanitizer keeps it', () => {
+    cleanup();
+    useAuthStore.setState({ selectedOrganizationId: 36 });
+    try {
+      const html = '<img src="https://cdn.shop.test/banner.png?a=1&amp;b=2">';
+      const { container } = render(<ThreadBubble content="" isAgent={false} html={html} eventId={99} />);
+      const img = container.querySelector('img');
+      expect(img).not.toBeNull();
+      expect(img?.getAttribute('src')).toContain(
+        `${API_BASE_URL}/api/organizations/36/messages/events/99/image?src=`
+      );
+      expect(img?.getAttribute('src')).not.toContain('amp%3B');
+    } finally {
+      useAuthStore.setState({ selectedOrganizationId: null });
+    }
   });
 
   it('⛔ BACKSTOP: strips an img the rewrite missed, rather than letting it beacon', () => {

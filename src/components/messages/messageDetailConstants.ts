@@ -191,10 +191,36 @@ export function addNoopenerHook(DOMPurify: typeof DOMPurifyType): void {
  * prevent. This checks the DOM node AFTER parsing, where there is no quoting or entity
  * trickery left to hide behind, so a rewrite miss degrades to a missing image rather than to
  * a silent beacon.
+ *
+ * (The docblock above belongs to `addProxiedImagesOnlyHook`, further down; `isProxiedImageUrl`
+ * and `PROXY_PATH` are the test it applies.)
  */
+
+/**
+ * Is this src one of OUR proxy urls?
+ *
+ * Two shapes reach the sanitizer and both are ours: the workspace-scoped one the console now
+ * writes, and the bare one, which still answers for any caller that can set an
+ * `X-Organization-Context` header. A prefix test alone was enough while there was one shape;
+ * with two it would have to be loose enough to admit `/api/`, and `/api/anything` is not a
+ * proxy url. So the PATH is matched, not merely the start of the string.
+ */
+const PROXY_PATH = /^\/api\/(?:organizations\/\d+\/)?messages\/events\/\d+\/image(?:\?|$)/;
+
+/**
+ * ⚠️ Takes the API BASE URL, not a prefix. An earlier version took `${base}/api/` and recovered
+ * the path by subtracting the length of `/api/` — which silently misaligns the moment the
+ * caller's prefix is anything else, and a misaligned path test strips every image on the page.
+ * The base is the one value the component actually has.
+ */
+export function isProxiedImageUrl(src: string, apiBaseUrl: string): boolean {
+  if (!src.startsWith(apiBaseUrl)) return false;
+  return PROXY_PATH.test(src.slice(apiBaseUrl.length));
+}
+
 let proxiedImageHookPrefix: string | null = null;
 export function addProxiedImagesOnlyHook(DOMPurify: typeof DOMPurifyType, apiBaseUrl: string): void {
-  const prefix = `${apiBaseUrl}/api/messages/events/`;
+  const prefix = apiBaseUrl;
   // The prefix can change between environments; re-registering with a new one must replace
   // the closure rather than stack a second hook.
   if (proxiedImageHookPrefix === prefix) return;
@@ -204,7 +230,7 @@ export function addProxiedImagesOnlyHook(DOMPurify: typeof DOMPurifyType, apiBas
   DOMPurify.addHook('afterSanitizeAttributes', (node: Element) => {
     if (node.tagName !== 'IMG') return;
     const src = node.getAttribute('src') ?? '';
-    if (!proxiedImageHookPrefix || !src.startsWith(proxiedImageHookPrefix)) {
+    if (!proxiedImageHookPrefix || !isProxiedImageUrl(src, proxiedImageHookPrefix)) {
       node.remove();
     }
   });
@@ -283,8 +309,66 @@ export function renderMarkdown(raw: string): string {
  * attachment row rather than fetched from anywhere. Sources that are neither (`data:` URIs,
  * relative paths) are left alone; the sanitizer drops them, which is the right outcome for
  * markup we cannot serve on the reader's behalf.
+ *
+ * (That docblock describes `proxyRemoteImages`, below the two decoding helpers.)
  */
-export function proxyRemoteImages(html: string, eventId: number, apiBaseUrl: string): string {
+
+/**
+ * One code point, or '' when the reference does not name one.
+ *
+ * ⚠️ It DROPS an unresolvable reference rather than keeping the raw text, because what it
+ * returns has to equal what the backend's twin returns — the backend builds the allowlist and
+ * this builds the url checked against it.
+ */
+const safeFromCodePoint = (code: number): string => {
+  if (!Number.isFinite(code) || code <= 0 || code > 0x10ffff) return '';
+  try {
+    return String.fromCodePoint(code);
+  } catch {
+    return '';
+  }
+};
+
+/**
+ * An attribute value as the BROWSER would read it — character references resolved.
+ *
+ * ⛔ Must stay equivalent to `decodeHtmlEntities` in the backend's `messageHtmlBody.ts`. That
+ * one builds the proxy's ALLOWLIST from the same markup and this one produces the url checked
+ * against it, so a decoder that handled one more entity than its twin would turn a legitimate
+ * image into a 403.
+ *
+ * An email writes `?auto=format&amp;fit=crop` because a raw `&` is not legal in an attribute.
+ * The browser resolves that before requesting anything; a regex over the source does not, so
+ * without this the proxy was asked to fetch a url with a literal `&amp;` in its query.
+ */
+export const decodeHtmlEntities = (value: string): string =>
+  value
+    .replace(/&#(\d+);/g, (_m, code: string) => safeFromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_m, code: string) => safeFromCodePoint(parseInt(code, 16)))
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    // LAST, so `&amp;#39;` decodes to the text `&#39;` rather than to an apostrophe.
+    .replace(/&amp;/gi, '&');
+
+export function proxyRemoteImages(
+  html: string,
+  eventId: number,
+  apiBaseUrl: string,
+  organizationId?: number | null
+): string {
+  // ⛔ The workspace has to be IN THE URL. A browser loads these `<img>` urls itself, with no
+  // axios interceptor, so `X-Organization-Context` — the only carrier a global admin's org
+  // context has — never reaches the backend. Production answered 400 to every remote image in
+  // every HTML mail because of it — on TES-INF-1393, every image request that had completed
+  // when the network log was read was a 400. With no workspace selected the old shape is
+  // written unchanged rather than an `organizations/undefined` path, and the backend still
+  // resolves it from the header for anyone who can send one.
+  const base =
+    typeof organizationId === 'number' && organizationId > 0
+      ? `${apiBaseUrl}/api/organizations/${organizationId}/messages/events/${eventId}/image`
+      : `${apiBaseUrl}/api/messages/events/${eventId}/image`;
   return html.replace(
     /(<img\b[^>]*?\bsrc\s*=\s*)("([^"]*)"|'([^']*)'|([^\s>]+))/gi,
     (whole, prefix: string, _q: string, dq?: string, sq?: string, bare?: string) => {
@@ -301,12 +385,12 @@ export function proxyRemoteImages(html: string, eventId: number, apiBaseUrl: str
       if (/^cid:/i.test(src)) {
         const cid = src.slice(4).trim();
         if (cid.length === 0) return whole;
-        const inline = `${apiBaseUrl}/api/messages/events/${eventId}/image?cid=${encodeURIComponent(cid)}`;
+        const inline = `${base}?cid=${encodeURIComponent(decodeHtmlEntities(cid))}`;
         return `${prefix}"${inline}"`;
       }
 
       if (!/^https?:\/\//i.test(src)) return whole;
-      const proxied = `${apiBaseUrl}/api/messages/events/${eventId}/image?src=${encodeURIComponent(src)}`;
+      const proxied = `${base}?src=${encodeURIComponent(decodeHtmlEntities(src))}`;
       return `${prefix}"${proxied}"`;
     }
   );
