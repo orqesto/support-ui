@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Paperclip, User } from 'lucide-react';
+import { User } from 'lucide-react';
 import { TranslateButton } from '@/components/shared/TranslateButton';
-import { Button } from '@/components/ui/Button';
 import { relayedFromLabel } from '@/lib/relayedFrom';
 import { formatDate, formatWhen } from '@/lib/utils';
 import type { MessageEvent } from '@/types';
 import { useMessageHtml } from '@/hooks/useMessageHtml';
+import { ThreadAttachmentChip } from './ThreadAttachmentChip';
 import { ThreadBubble } from './ThreadBubble';
 import { getInitials } from './messageDetailConstants';
 import type { Attachment } from './MessageAttachments';
@@ -130,16 +130,12 @@ export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: P
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {attachments.map((att) => (
-                <Button
+                <ThreadAttachmentChip
                   key={att.id}
-                  type="button"
-                  variant="ghost"
-                  onClick={() => onOpenAttachment?.(att.id)}
-                  className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 h-auto rounded bg-primary-foreground/15 text-primary-foreground border border-primary-foreground/25 hover:bg-primary-foreground/25 transition-colors"
-                >
-                  <Paperclip className="w-2.5 h-2.5" />
-                  {att.originalFilename}
-                </Button>
+                  attachment={att}
+                  onOpen={onOpenAttachment}
+                  className="bg-primary-foreground/15 text-primary-foreground border border-primary-foreground/25 hover:bg-primary-foreground/25"
+                />
               ))}
             </div>
           )}
@@ -208,16 +204,12 @@ export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: P
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
             {attachments.map((att) => (
-              <Button
+              <ThreadAttachmentChip
                 key={att.id}
-                type="button"
-                variant="ghost"
-                onClick={() => onOpenAttachment?.(att.id)}
-                className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 h-auto rounded bg-muted text-muted-foreground border border-border hover:bg-muted/80 transition-colors"
-              >
-                <Paperclip className="w-2.5 h-2.5" />
-                {att.originalFilename}
-              </Button>
+                attachment={att}
+                onOpen={onOpenAttachment}
+                className="bg-muted text-muted-foreground border border-border hover:bg-muted/80"
+              />
             ))}
           </div>
         )}
