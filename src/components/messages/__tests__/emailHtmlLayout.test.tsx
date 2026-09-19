@@ -103,9 +103,10 @@ describe('the two-column signature keeps its layout', () => {
      * while the floor cost 152px of horizontal scroll on 12 of the thread's 22 email bodies (152px is a quarter of the 600px body, and a third of the 472px panel;
      * the other 10 sit in wider bubbles and cleared 600px on their own).
      *
-     * The wrap was fixed by the table geometry surviving the sanitizer and tables no longer being
-     * flattened by `[&_table]:block`. Two fixes landed together and the floor took credit for the
-     * other one's work.
+     * What fixed it was one or both of the other changes in #413 (table geometry surviving the
+     * sanitizer; tables no longer flattened by `[&_table]:block`). WHICH of them is not
+     * established — only the floor was removed and re-measured. What is established is that the
+     * floor was not it.
      *
      * So: no floor, and no `min-w-[...]` of any shape on the body. Re-adding one should mean
      * re-running the A/B on real mail first, because the last time it was added on reasoning

@@ -117,8 +117,10 @@ export function ThreadBubble({
    *   | occurrences of the reported address | 16 | 16 |
    *   | of those, WRAPPED mid-token | 0 | **0** |
    *
-   * The wrap was fixed by honouring the table geometry — `width`/`valign`/`align` surviving the
-   * sanitizer, and tables no longer flattened by `[&_table]:block`. The floor was treating a
+   * What DID fix the wrap was one or both of the other two changes in #413 — the table geometry
+   * (`width`/`valign`/`align`) surviving the sanitizer, and tables no longer being flattened by
+   * `[&_table]:block`. Which of the two, or both, is NOT established: only the floor was removed
+   * and re-measured. Saying more than that would repeat the very mistake below. The floor was treating a
    * symptom that was already cured, and charging a quarter of the body in horizontal scroll on
    * 12 of the thread's 22 email bodies (the other 10 sat in wider bubbles and cleared 600px)
    * for it. So the mail now takes the width it is given.
