@@ -387,16 +387,16 @@ const cssLengthAsAttribute = (value: string): string | null => {
   // `!important` is everywhere in email CSS, because templates fight the client's own stylesheet.
   // It says nothing about the length, so it is stripped before the value is read rather than
   // causing the declaration to be dropped as unparseable.
-  const v = value
+  const length = value
     .trim()
     .toLowerCase()
     .replace(/\s*!\s*important\s*$/, '')
     .trim();
-  const px = v.match(/^(\d{1,5})(?:\.\d+)?px$/);
+  const px = length.match(/^(\d{1,5})(?:\.\d+)?px$/);
   if (px) return Number(px[1]) > 0 && Number(px[1]) <= 10000 ? px[1] : null;
-  const pct = v.match(/^(\d{1,3})(?:\.\d+)?%$/);
+  const pct = length.match(/^(\d{1,3})(?:\.\d+)?%$/);
   if (pct) return Number(pct[1]) > 0 && Number(pct[1]) <= 100 ? `${pct[1]}%` : null;
-  const bare = v.match(/^(\d{1,5})$/);
+  const bare = length.match(/^(\d{1,5})$/);
   if (bare) return Number(bare[1]) > 0 && Number(bare[1]) <= 10000 ? bare[1] : null;
   return null;
 };
