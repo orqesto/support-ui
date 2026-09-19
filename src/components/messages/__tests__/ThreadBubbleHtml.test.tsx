@@ -330,10 +330,25 @@ describe('ThreadBubble with the original HTML', () => {
       const img = container.querySelector('img');
       expect(img?.getAttribute('width')).toBe('120');
       expect(img?.getAttribute('height')).toBe('40');
-      // ⛔ the guard the lift exists to preserve: no CSS survives, so `position`/`display` cannot.
-      expect(img?.getAttribute('style')).toBeNull();
-      expect(container.innerHTML).not.toContain('position');
-      expect(container.innerHTML).not.toContain('display');
+      /**
+       * ⚠️ REWRITTEN 2026-09-19, and the change is deliberate — read before "restoring" it.
+       *
+       * This used to assert `style` was null and that NO css survived, because `style` was
+       * forbidden outright. That is exactly what collapsed table-built signatures, so the
+       * owner's decision is now to honour a filtered subset (Gmail's model). The guard the
+       * test protects has therefore moved: it is no longer "no CSS" but "only CSS from the
+       * allowlist", and `position` — which could lift sender content out of the bubble and
+       * over our own UI — is still refused.
+       *
+       * `display: none` now survives, which is a REAL BEHAVIOUR CHANGE: an image or block the
+       * sender hid is now actually hidden, where before it was shown. That is Gmail parity and
+       * it suppresses 1px spacers and tracking pixels, but it does mean a sender can hide
+       * content from an agent that older builds displayed.
+       */
+      expect(img?.getAttribute('style')).toContain('width: 120px');
+      expect(img?.getAttribute('style')).not.toContain('position');
+      expect(container.innerHTML).not.toContain('fixed');
+      expect(img?.getAttribute('style')).toContain('display: none');
     } finally {
       useAuthStore.setState({ selectedOrganizationId: null });
     }
@@ -404,18 +419,34 @@ describe('ThreadBubble wide-content containment (ORB-SUP-1358)', () => {
       />
     );
     expect(container.querySelector('pre')).not.toBeNull();
-    const wrapper = container.querySelector('pre')?.parentElement;
-    expect(wrapper?.className).toContain('[&_pre]:whitespace-pre-wrap');
+    // The wrap rule lives on the email ground, which is the `<pre>`'s GRANDparent now that the
+    // body sits in its own scroll container. Search upwards rather than naming a depth, so a
+    // future wrapper does not silently turn this assertion into a no-op.
+    const ground = container.querySelector('pre')?.closest('.overflow-x-auto');
+    expect(ground?.className).toContain('[&_pre]:whitespace-pre-wrap');
   });
 
-  it('carries the classes that cap images and let a wide table scroll inside its own bubble', () => {
+  it('contains a wide table inside its own bubble instead of capping it', () => {
     cleanup();
     const { container } = render(
       <ThreadBubble content={PIPES} isAgent={false} html={ORDER_HTML} eventId={4} />
     );
-    const wrapper = container.querySelector('table')?.parentElement;
-    expect(wrapper?.className).toContain('[&_table]:overflow-x-auto');
-    expect(wrapper?.className).toContain('[&_table]:max-w-full');
-    expect(wrapper?.className).toContain('[&_img]:max-w-full');
+    /**
+     * ⚠️ The containment MECHANISM changed on 2026-09-19 and the guarantee did not.
+     *
+     * ORB-SUP-1358 is that a table wider than the bubble propagates overflow up to the thread
+     * panel, whose `overflow-y-auto` makes overflow-x scrollable too, and the whole thread then
+     * scrolls sideways. The old fix was `[&_table]:block` + `[&_table]:max-w-full` — which
+     * contained the overflow by DESTROYING table layout, and that is what flattened every
+     * table-built signature.
+     *
+     * The email ground now owns `overflow-x-auto`, so a wide table scrolls inside its own
+     * bubble as a real table. `max-w-full` is deliberately NOT restored: capping the table at
+     * the container width is the flattening behaviour we are removing.
+     */
+    const ground = container.querySelector('table')?.closest('.overflow-x-auto');
+    expect(ground, 'a wide table must sit inside a scroll container').not.toBeNull();
+    expect(ground?.className).not.toContain('[&_table]:block');
+    expect(ground?.className).toContain('[&_img]:max-w-full');
   });
 });

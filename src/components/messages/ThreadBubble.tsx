@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/Button';
 import { API_BASE_URL } from '@/lib/config';
+import { sanitizeEmailHtml } from '@/lib/emailHtml';
 import { useAuthStore } from '@/stores/authStore';
 import {
   THREAD_SANITIZE,
@@ -82,12 +83,117 @@ export function ThreadBubble({
     '[&_pre]:whitespace-pre-wrap [&_img]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto';
   const prose = isAgent ? `${base} prose-invert dark:prose-invert` : base;
 
-  const renderHtml = (html: string) => (
-    <div
-      className={prose}
-      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, THREAD_SANITIZE) }}
-    />
-  );
+  /**
+   * The ground an EMAIL renders on, as opposed to the bubble it sits in.
+   *
+   * ⛔ This is a dependency of allowing sender CSS at all, not a cosmetic choice. Until now
+   * `style` was stripped, so forcing `text-primary-foreground` on the bubble was at least
+   * self-consistent: nothing the sender said about colour survived. The moment inline `style`
+   * is honoured, a sender who sets `color:#333` on part of their mail — which is most business
+   * mail — lands dark text on our blue bubble and becomes unreadable. Allowing the CSS without
+   * settling the ground makes some mail render WORSE than before the change.
+   *
+   * So an HTML body gets a light ground with a dark default colour, in BOTH themes. That is
+   * Gmail's behaviour and for the same reason: senders write for a light background and simply
+   * omit `background-color`, so any other ground is a guess that fails for a large slice of
+   * real mail. Plain-text bodies are NOT affected — they keep following the app theme, because
+   * there is no sender styling to respect.
+   *
+   * `overflow-x-auto` + `min-w-[600px]`: 600px is the de-facto width email is designed for, and
+   * this signature's `<table width="100%">` with a 150px logo cell had nowhere to go in a 524px
+   * bubble — which is why contact lines broke mid-token. Below 600px the mail keeps its intended
+   * width and scrolls INSIDE its own container; above it, the mail simply uses the space.
+   *
+   * ⛔ This was `min-w-[min(600px,100%)]` and that was WRONG — `min()` picks the SMALLER value,
+   * so in a 500px container it resolved to 500px and the floor never applied. The width fix was
+   * INERT in exactly the case it existed for. Every test passed, because they asserted the class
+   * NAME, and the class did compile — to `min-width:min(600px,100%)`. Only rendering it in a
+   * browser and measuring the element showed 476px where 600px was intended.
+   * ⚠️ The cost is real and deliberate: in a panel narrower than ~615px an HTML mail now has a
+   * horizontal scrollbar inside its bubble. That is the trade D6 chose over silently reflowing
+   * mail to a width it was not designed for. Containing the scroll here is what lets `[&_table]:block`
+   * go: that rule existed only to stop a wide table propagating overflow up to the thread panel
+   * (ORB-SUP-1358), and it did so by destroying table layout. The container now holds that line
+   * without flattening anything.
+   */
+  const emailGround =
+    'rounded bg-white text-[#202124] px-3 py-2 overflow-x-auto ' +
+    // `<pre>` never wraps by default and a contact-form relay wraps the ENTIRE body in one, so
+    // without this a single such mail is one unbroken line. The container would scroll rather
+    // than break the panel, but scrolling to read a message is not reading it.
+    /**
+     * ⛔ `!h-auto`, not `h-auto`, and the `!` is the whole point.
+     *
+     * `max-w-full` caps a wide image at the container. Aspect ratio then depends on the height
+     * being free to follow. That used to be automatic: the sender's height arrived as a
+     * presentational ATTRIBUTE, and any CSS beats an attribute, so `h-auto` won.
+     *
+     * Now that inline `style` survives, a sender writing `style="height:40px"` beats a plain
+     * class — so a capped image would keep its full height and render squashed. The `!` puts
+     * the rule back above inline style and restores exactly the behaviour that was correct
+     * before this change. Found by auditing the diff against `liftImageDimensions`, which
+     * leaves the dimensions in `style` as well as lifting them to attributes.
+     */
+    '[&_pre]:whitespace-pre-wrap [&_img]:max-w-full [&_img]:!h-auto ' +
+    '[&_a]:text-[#1a0dab] [&_a]:underline';
+
+  /**
+   * Sanitizing is now materially more expensive than it was: it parses and filters the inline
+   * CSS of every styled element, where before it deleted the attribute outright. This runs for
+   * the body AND the quoted history of every message, and a thread panel re-renders on things
+   * as ordinary as typing in the composer — 22 bubbles on SOM-INF-1579, each with a signature.
+   * Memoised on the inputs that can actually change the output.
+   */
+  /**
+   * `null` when there is no `eventId`, which is the single source of truth for "can this
+   * message be rendered as email at all". Without an id there is no proxy URL, so the sender's
+   * image hosts were never rewritten and we must not render their CSS around images we refuse
+   * to load — the spam preview on MessagesPage reaches exactly that path.
+   *
+   * Returning `null` rather than a function that returns `''` is deliberate: an earlier version
+   * had the `eventId === undefined` test in BOTH this memo and `renderHtml`, so the branch in
+   * here could never run. A guard that cannot fire reads like one that can.
+   */
+  const sanitizeChunk = useMemo(() => {
+    if (eventId === undefined) return null;
+    const cache = new Map<string, string>();
+    return (chunk: string): string => {
+      const hit = cache.get(chunk);
+      if (hit !== undefined) return hit;
+      const clean = sanitizeEmailHtml(chunk, {
+        eventId,
+        apiBaseUrl: API_BASE_URL,
+        organizationId: selectedOrganizationId,
+      });
+      cache.set(chunk, clean);
+      return clean;
+    };
+  }, [eventId, selectedOrganizationId]);
+
+  const renderHtml = (html: string) => {
+    if (sanitizeChunk === null) {
+      return (
+        <div
+          className={prose}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, THREAD_SANITIZE) }}
+        />
+      );
+    }
+    const clean = sanitizeChunk(html);
+    // A body can sanitize down to nothing — a message whose whole content was one image we
+    // refuse to load, or markup made entirely of tags outside the allowlist. Rendering the
+    // ground anyway leaves an empty white card in the thread, which reads as "this message is
+    // blank" rather than "nothing here could be shown". Render nothing instead.
+    if (clean.trim().length === 0) return null;
+    return (
+      <div className={emailGround}>
+        <div
+          className="[overflow-wrap:anywhere] min-w-[600px] text-[13px] leading-normal"
+          dangerouslySetInnerHTML={{ __html: clean }}
+        />
+      </div>
+    );
+  };
   const renderText = (text: string) => (
     <div
       className={prose}
