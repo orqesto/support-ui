@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import {
   customApiLookupService,
@@ -31,6 +31,22 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
    * lookup endpoint, so the panel stands down entirely.
    */
   const [unavailable, setUnavailable] = useState(false);
+
+  /**
+   * ⛔ CLEAR WHEN THE CUSTOMER CHANGES. Audit pass 5: the results live in state, and nothing reset
+   * them when the agent moved to another thread — so one customer's order numbers, statuses and
+   * totals could sit in the panel under a DIFFERENT customer's conversation, labelled as theirs.
+   * That is the D35 failure arriving through the UI instead of the API.
+   *
+   * ⚠️ This effect CLEARS, it never fetches. An effect that fetched would break SC1 — N enabled
+   * endpoints must not become N outbound calls every time an agent opens a thread.
+   */
+  useEffect(() => {
+    setResults([]);
+    setHasRun(false);
+    setError(null);
+    setUnavailable(false);
+  }, [target.conversationId, target.contactId]);
 
   const run = useCallback(
     async (manual?: { endpointId: number; parameter: string }) => {

@@ -56,6 +56,12 @@ const ownershipNotice = (
 };
 
 /**
+ * How many fields to preview when an admin has chosen none. Small on purpose: see the note where
+ * it is used — the alternative is the vendor's whole record, PII included, in the thread view.
+ */
+const UNCONFIGURED_FIELD_PREVIEW = 6;
+
+/**
  * A vendor value is `unknown` — the shape is whatever that vendor returned, discovered at run time.
  *
  * ⛔ Never `String(value)` on it: a configured path that resolves to an object renders as
@@ -101,11 +107,21 @@ const ResultCard = ({
   // rows unprojected in that case — so mapping over `fields` alone rendered a BLANK card while
   // holding data, on the commonest configuration state there is. Found by audit pass 2.
   // The `__currency` companions are the projection's own bookkeeping, not vendor fields.
-  const fields: LookupField[] = result.fields?.length
-    ? result.fields
-    : Object.keys(result.rows?.[0] ?? {})
-        .filter((key) => !key.endsWith('__currency'))
-        .map((key) => ({ path: key, label: key, kind: 'plain' as const }));
+  // ⛔ THE FALLBACK IS CAPPED, AND THAT IS THE POINT. When no fields are configured — the DEFAULT
+  // state — the backend returns rows UNPROJECTED. On the measured vendor that is 77 fields
+  // including the customer's email, telephone, both addresses, postcode, IP and user-agent.
+  // Audit pass 2 replaced a blank card with this fallback; audit pass 3 found that the fallback
+  // then dumped all of it into the thread view. Showing a bounded preview and naming the rest is
+  // the honest middle: the agent can see there IS data, without the panel becoming a dossier.
+  const fallbackKeys = Object.keys(result.rows?.[0] ?? {}).filter(
+    (key) => !key.endsWith('__currency')
+  );
+  const usingFallback = !result.fields?.length;
+  const fields: LookupField[] = usingFallback
+    ? fallbackKeys
+        .slice(0, UNCONFIGURED_FIELD_PREVIEW)
+        .map((key) => ({ path: key, label: key, kind: 'plain' as const }))
+    : (result.fields ?? []);
 
   return (
     <div className="rounded border border-border p-2 space-y-1.5">
@@ -175,6 +191,12 @@ const ResultCard = ({
                 ))}
               </div>
             ))}
+            {usingFallback && fallbackKeys.length > UNCONFIGURED_FIELD_PREVIEW && (
+              <p className="text-[10px] text-muted-foreground">
+                No fields chosen for this lookup, so this is a preview of{' '}
+                {UNCONFIGURED_FIELD_PREVIEW} of {fallbackKeys.length} fields the vendor returned.
+              </p>
+            )}
             {/* D19/SC7: the cap is not decorative — say how many actually exist. */}
             {typeof result.total === 'number' && result.total > result.rows.length && (
               <p className="text-[10px] text-muted-foreground">
@@ -219,27 +241,36 @@ export const CustomApiLookupPanel = ({ conversationId, contactId, identityNote }
       </div>
 
       {identityNote && <p className="text-[11px] text-muted-foreground">{identityNote}</p>}
-      {error && <p className="text-[11px] text-destructive">{error}</p>}
 
       {/*
+        The results arrive asynchronously after a press, and a screen reader is given no reason to
+        look at them — on a panel whose entire job is delivering information an agent then quotes to
+        a customer. `polite` rather than `assertive`: it should be announced, not interrupt.
+      */}
+      <div role="status" aria-live="polite" className="space-y-2">
+        {loading && <p className="sr-only">Looking up…</p>}
+        {error && <p className="text-[11px] text-destructive">{error}</p>}
+
+        {/*
         ⛔ Nothing is fetched until the button is pressed, so before that there is no empty state to
         show. An "empty" panel on open would read as "we know nothing about this customer", which is
         a different and wrong claim.
       */}
-      {hasRun && results.length === 0 && !error && (
-        <p className="text-[11px] text-muted-foreground">
-          No integrations are set up for this workspace yet.
-        </p>
-      )}
+        {hasRun && results.length === 0 && !error && (
+          <p className="text-[11px] text-muted-foreground">
+            No integrations are set up for this workspace yet.
+          </p>
+        )}
 
-      {results.map((result) => (
-        <ResultCard
-          key={result.endpointId}
-          result={result}
-          busy={loading}
-          onRunManual={(endpointId, parameter) => run({ endpointId, parameter })}
-        />
-      ))}
+        {results.map((result) => (
+          <ResultCard
+            key={result.endpointId}
+            result={result}
+            busy={loading}
+            onRunManual={(endpointId, parameter) => run({ endpointId, parameter })}
+          />
+        ))}
+      </div>
     </div>
   );
 };
