@@ -109,3 +109,62 @@ describe('the image guard is pinned to THIS message', () => {
     }
   });
 });
+
+describe('against real mail, not invented fixtures', () => {
+  /**
+   * Shapes taken from the four messages actually on staging (events 6072, 5690, 12811, 12875),
+   * measured rather than imagined: 2554 declarations, 36 distinct properties, and 88 style
+   * attributes containing quotes.
+   *
+   * ⚠️ What this test does and does NOT prove. It pins that a real HTML-ENCODED font stack
+   * (`&quot;Times New Roman&quot;,Times,serif`, 195 occurrences in the sample) survives
+   * decoding and filtering intact. It does NOT exercise the quote-aware splitter, and an
+   * earlier version of this comment claimed it did: the encoded `&quot;` ends in a semicolon,
+   * but the DOM decodes the attribute BEFORE the filter sees it, so by then there is no
+   * semicolon inside the quotes. A control confirmed it — replacing `splitDeclarations` with a
+   * plain `split(';')` leaves this test GREEN.
+   *
+   * Measured on the same real population: across 915 style attributes the quote/paren-aware
+   * splitter and a naive split produce identical output in 915 cases and differ in 0. The
+   * splitter is therefore defensive rather than load-bearing here; what genuinely needs it
+   * (`url(data:…;base64,…)`, a quoted value containing `;`) is covered by the unit tests in
+   * `emailCss.test.ts`, not by this one.
+   */
+  it('keeps a quoted font stack intact', () => {
+    // NB the wrapper: a bare <td> outside a <table> is dropped by the HTML parser, so the
+    // first version of this test asserted against the empty string and failed for a reason
+    // that had nothing to do with the font stack.
+    const out = render(
+      '<table><tr><td style="font-family:&quot;Times New Roman&quot;,Times,serif; color:#333">x</td></tr></table>' +
+        '<div style="font-family:&quot;Open Sans&quot;,sans-serif">y</div>'
+    );
+    expect(out).toContain('Times New Roman');
+    expect(out).toContain('Times,serif');
+    expect(out).toContain('color: #333');
+  });
+
+  it('keeps the two properties real mail used that the allowlist first missed', () => {
+    const out = render(
+      '<div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-decoration-line:underline">x</div>'
+    );
+    for (const decl of ['text-overflow', 'text-decoration-line', 'overflow', 'white-space']) {
+      expect(out, `${decl} was dropped`).toContain(decl);
+    }
+  });
+
+  it('still rejects the properties real mail used that we refuse on purpose', () => {
+    // These four also appear in that same real sample. Surviving is the failure.
+    const out = render(
+      '<div style="position:absolute; top:0; cursor:url(https://e.test/c.cur),auto; border-image:url(https://e.test/b.png)">x</div>'
+    );
+    for (const decl of ['position', 'top:', 'cursor', 'border-image']) {
+      expect(out, `${decl} survived`).not.toContain(decl);
+    }
+  });
+
+  it('keeps lang and aria-label, which real mail carries', () => {
+    const out = render('<a href="https://x.test" aria-label="A1.jpeg" lang="lv">x</a>');
+    expect(out).toContain('aria-label="A1.jpeg"');
+    expect(out).toContain('lang="lv"');
+  });
+});

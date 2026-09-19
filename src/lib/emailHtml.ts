@@ -98,6 +98,10 @@ export const EMAIL_ALLOWED_ATTR = [
   'alt',
   'title',
   'dir',
+  // Measured in real mail: `lang` 9 times, `aria-label` 4. Neither can carry a URL or a
+  // script, and dropping them loses screen-reader labelling and language tagging for nothing.
+  'lang',
+  'aria-label',
   'width',
   'height',
   'style',
@@ -152,6 +156,8 @@ const EMAIL_URI_SAFE_ATTR = [
   'dir',
   'title',
   'alt',
+  'lang',
+  'aria-label',
 ];
 
 export type EmailRenderContext = {

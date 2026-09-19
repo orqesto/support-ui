@@ -103,6 +103,13 @@ export const CSS_ALLOWED_PROPERTIES: ReadonlySet<string> = new Set([
   'word-spacing',
   'text-align',
   'text-decoration',
+  // MEASURED, not guessed. Both appear in real mail on staging and were being dropped:
+  // `text-overflow` 16 times (paired with `overflow` + `white-space` for an ellipsis) and
+  // `text-decoration-line` 3 times, across 2554 declarations sampled from four messages.
+  // Those two were the ONLY properties real mail used that this list did not already cover —
+  // every other miss (`position`, `top`, `cursor`, `border-image`) is a deliberate rejection.
+  'text-overflow',
+  'text-decoration-line',
   'text-indent',
   'text-transform',
   'white-space',
@@ -228,6 +235,11 @@ const HOSTILE_VALUE =
  * 🪤 A plain `value.split(';')` is wrong and the failure is invisible: a `data:` URI carries its
  * own `;` (`url(data:image/png;base64,…)`), so splitting naively cuts one declaration into two
  * malformed halves — the guard then inspects fragments rather than declarations.
+ *
+ * ⚠️ Honest about the population: measured against the real mail on staging, this splitter and
+ * a naive `split(';')` agree on all 915 style attributes and differ on none. So it is defence
+ * against input this corpus does not contain, not a fix for something observed. Kept because
+ * the failure mode is silent and the cost is one loop — but do not cite it as load-bearing.
  */
 export function splitDeclarations(style: string): string[] {
   const out: string[] = [];
