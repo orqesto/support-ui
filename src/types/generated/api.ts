@@ -378,6 +378,8 @@ export interface components {
             timeoutMs: number;
             /** @enum {string} */
             scopeMode: "all" | "departments";
+            piiAcknowledgedBy: number | null;
+            piiAcknowledgedAt: string | null;
             departmentIds: number[];
             endpoints: components["schemas"]["CustomApiEndpoint"][];
             createdAt: string;
