@@ -18,7 +18,13 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RecordFormatStep } from '../RecordFormatStep';
-import { deriveFormat, describeFormat, exampleFor, findInText } from '../recordFormat';
+import {
+  MAX_SCAN_CHARS,
+  deriveFormat,
+  describeFormat,
+  exampleFor,
+  findInText,
+} from '../recordFormat';
 
 describe('deriving a format from what an admin types', () => {
   it.each([
@@ -109,6 +115,18 @@ describe('the scan — mirrored from the backend, boundaries and all', () => {
   it('returns [] rather than throwing when nothing matches', () => {
     expect(findInText('no numbers here', digits6)).toEqual([]);
     expect(findInText('', digits6)).toEqual([]);
+  });
+
+  it('⛔ stops scanning at the same ceiling the backend stops at (audit pass 6)', () => {
+    /*
+     * ⛔ RED: drop the slice and the preview implies an unbounded scan — which is exactly the
+     * property D36's linear matcher exists to guarantee, and the one an admin would be shown a
+     * false promise about. A reference past the ceiling is NOT found, on purpose.
+     */
+    const padded = `${' '.repeat(MAX_SCAN_CHARS)}137416`;
+    expect(findInText(padded, digits6)).toEqual([]);
+    // POSITIVE CONTROL: the same reference just inside the ceiling IS found.
+    expect(findInText(`${' '.repeat(MAX_SCAN_CHARS - 10)}137416`, digits6)).toEqual(['137416']);
   });
 
   it('de-duplicates and caps what it returns', () => {

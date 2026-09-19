@@ -159,9 +159,8 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
   /**
    * ⛔ `identityField` travels WITH `identity`: the create schema refines that an identity
    * parameter needs one, so sending the source without it is a 400.
-   */
-  /**
-   * ⛔ KEEPS AN EXISTING `identityField` (audit pass 2 — the class pass 1 found one of). The
+   *
+   * ⛔ AND IT KEEPS AN EXISTING ONE (audit pass 2 — the class pass 1 found one of). The
    * contract allows `email`, `phone` and `displayName`; this wizard only offers "the customer's
    * email address", so hardcoding `email` here would SILENTLY RETARGET a lookup someone had
    * configured to match on phone — the next time an admin opened it and pressed Save, for a
@@ -271,9 +270,10 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
    * and leaves two raw, one of them in the live store currency — so the same number means
    * different things per endpoint, and an agent reading a bare figure quotes the wrong one.
    */
+
   /**
-   * ⛔ DERIVED, NEVER STORED (audit pass 4). This was a `useState` set at test time, and the
-   * Remove control added in pass 2 deleted a pick WITHOUT pruning it — so the warning went on
+   * ⛔ DERIVED, NEVER STORED (previous audit, pass 4). This was a `useState` set at test time,
+   * and the Remove control deleted a pick WITHOUT pruning it — so the warning went on
    * naming a field the admin had just removed, and the "that is every field" sentence could fire
    * off a stale count. A fix commit breaking the fix before it is the pattern this repo keeps
    * paying for; deriving it removes the state that could disagree.
