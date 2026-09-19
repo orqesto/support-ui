@@ -171,6 +171,56 @@ describe('Notification Center — ingestion gaps', () => {
     expect(screen.queryByText(/was never fetched/)).toBeNull();
   });
 
+  /** Titles and window strings exactly as the backend writes them (ingestionGapAlert.ts TITLES, sentDrain.ts). */
+  const UNREADABLE_TITLE = 'Sent messages could not be imported — the sync failed on them repeatedly';
+  const STRANDED_TITLE = 'Sent mail may be missing — the sent-folder drain could not reach its oldest part';
+
+  it.each([
+    ['ids kept', '2 sent message(s): 18f3a1, 18f3a2'],
+    ['ids NOT kept', 'More sent messages were given up on than could be tracked; their ids were not kept'],
+  ])('unreadable_message (%s): says they were NOT imported, shows the window, names the runbook section', (_label, window) => {
+    gapAlerts = [
+      {
+        ...tacoGap,
+        id: 9004,
+        title: UNREADABLE_TITLE,
+        cause: 'unreadable_message',
+        minutesAhead: null,
+        window,
+      },
+    ];
+    open();
+    expect(screen.getByText(UNREADABLE_TITLE)).toBeTruthy();
+    expect(screen.getByText(window)).toBeTruthy();
+    expect(screen.getByText(/stopped waiting for them — they were not imported/)).toBeTruthy();
+    expect(screen.getByText(/ids are listed below when they were kept/)).toBeTruthy();
+    // Cited by NAME: the runbook's section numbers are shared by two PRs and can shift.
+    expect(screen.getByText(/runbook, section ‘Unreadable sent messages’/)).toBeTruthy();
+    expect(screen.queryByText(/§5\.1/)).toBeNull();
+    expect(screen.queryByText(/may not have been fetched/)).toBeNull();
+  });
+
+  it('sent_drain_stranded: the caption points at the date the window shows', () => {
+    const window =
+      'sent mail older than 2026-09-10T00:00:00.000Z (the sent window now starts at 2026-09-12T07:00:00.000Z — checkpoint minus overlap)';
+    gapAlerts = [
+      {
+        ...tacoGap,
+        id: 9005,
+        title: STRANDED_TITLE,
+        cause: 'sent_drain_stranded',
+        minutesAhead: null,
+        window,
+      },
+    ];
+    open();
+    expect(screen.getByText(STRANDED_TITLE)).toBeTruthy();
+    expect(screen.getByText(window)).toBeTruthy();
+    expect(screen.getByText(/sent-folder sync could not reach its oldest part/)).toBeTruthy();
+    expect(screen.getByText(/older than the first date shown may be missing/)).toBeTruthy();
+    expect(screen.queryByText(/may not have been fetched/)).toBeNull();
+  });
+
   it('renders the backend title rather than one hardcoded headline', () => {
     gapAlerts = [
       { ...tacoGap, id: 9003, title: 'Mail may be missing — a totally new cause we added later', cause: 'brand_new_cause', minutesAhead: null },

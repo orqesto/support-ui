@@ -58,6 +58,68 @@ export const formatGmailCount = ({ count, capped }: CountResult): string => {
   return `Found ${shown} message${count === 1 ? '' : 's'} matching your criteria`;
 };
 
+/**
+ * Why some of `missing` may not be missing. The general reason is ALWAYS said — the check can
+ * stop for the time limit, Gmail's limits or the per-run cap — and the unchecked count is added
+ * to it, never instead of it. The count is "at least": when the sent-folder listing itself did
+ * not finish, candidates it never reached are not in it. ⛔ No "check again to finish": every
+ * run restarts from the newest sent messages, so a retry does not reach what this one could not.
+ */
+export const sentOnlyNote = (unchecked: number | undefined, generalSaid = false): string => {
+  // `generalSaid`: the sent-check QUOTA line above already says "some of the missing may be
+  // sent messages Odly already holds" — only the count is added, never the same sentence twice.
+  const general = generalSaid
+    ? ''
+    : 'The check for sent copies did not finish, so some of the missing may be sent messages Odly already holds.';
+  if (!unchecked || unchecked <= 0) return general;
+  return `${general ? `${general} ` : ''}At least ${unchecked.toLocaleString('en-US')} sent message${unchecked === 1 ? ' was' : 's were'} not checked and ${unchecked === 1 ? 'is' : 'are'} counted as missing.`;
+};
+
+/**
+ * Why the listing is partial — only the size cap is helped by narrowing the range. An older
+ * backend sends no reason; a cap there was the size cap, so it keeps that sentence.
+ */
+export const cappedReason = (cappedBy: GmailCountResult['cappedBy'], count: number): string => {
+  const shown = count.toLocaleString('en-US');
+  switch (cappedBy) {
+    case 'time':
+      return `Counting stopped on the time limit after ${shown} messages; the mailbox may hold more.`;
+    case 'quota':
+      return `Gmail refused further requests (quota) after ${shown} messages; the mailbox may hold more.`;
+    case 'error':
+      return `Gmail failed on a later page after ${shown} messages; the mailbox may hold more.`;
+    default:
+      return `Counting stops at ${shown}. Narrow the range if that is more than you meant to import.`;
+  }
+};
+
+/**
+ * What a quota refusal cost — it depends on WHERE Google refused. The backend sets `quotaHitIn`
+ * whenever `quotaHit` is true, and a sent-check refusal always leaves something missing (the
+ * message it could not check), so every case here is one the backend can produce.
+ */
+export const quotaNote = (where: 'listing' | 'sentCheck' | 'samples'): string => {
+  switch (where) {
+    case 'listing':
+      return 'Gmail refused requests (quota) while listing — fewer messages were compared, and no sent-copy check or examples were run.';
+    case 'sentCheck':
+      return 'Gmail refused requests (quota) during the sent-copy check — some of the missing may be sent messages Odly already holds, and no examples could be fetched.';
+    case 'samples':
+      return 'Gmail refused requests (quota) while fetching examples — the counts are unaffected, but some examples are missing.';
+  }
+};
+
+/**
+ * A comparison the time limit cut short — separate from the LISTING (`capped` says nothing
+ * about it): count = inOdly + missing + unverifiable + notCompared.
+ */
+export const notComparedNote = (result: GmailCountResult): string => {
+  const notCompared = result.notCompared ?? 0;
+  const compared = result.compared ?? result.count - notCompared;
+  const fmtN = (value: number) => value.toLocaleString('en-US');
+  return `${fmtN(compared)} of ${fmtN(result.count)} listed messages were compared; ${fmtN(notCompared)} ${notCompared === 1 ? 'was' : 'were'} not compared before the time limit — neither in Odly nor missing.`;
+};
+
 export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Props) => {
   const [searchQuery, setSearchQuery] = useState(source.searchQuery);
   const [bulkImportDays, setBulkImportDays] = useState(source.bulkImportDays);
@@ -165,25 +227,51 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
         <Alert variant="success" className="p-3">
           <p className="text-sm">✅ {formatGmailCount(result)}</p>
           {result.capped && (
-            <p className="mt-1 text-xs">
-              Counting stops at {result.count.toLocaleString('en-US')}. Narrow the range if that is
-              more than you meant to import.
-            </p>
+            <p className="mt-1 text-xs">{cappedReason(result.cappedBy, result.count)}</p>
           )}
           {/* An older backend returns only the count — show nothing rather than "0". */}
           {typeof result.inOdly === 'number' && typeof result.missing === 'number' && (
             <>
               <p className="mt-2 text-sm">
-                {result.capped
-                  ? `In Odly: ${result.inOdly.toLocaleString('en-US')} · Missing: ${result.missing.toLocaleString('en-US')}`
-                  : formatInOdly(result)}
+                {formatInOdly({
+                  inOdly: result.inOdly,
+                  missing: result.missing,
+                  // An older backend does not send it: nothing was set aside.
+                  unverifiable: result.unverifiable ?? 0,
+                  // "All in Odly" also needs every listed message COMPARED.
+                  capped: result.capped || (result.notCompared ?? 0) > 0,
+                })}
               </p>
               {result.capped && (
                 <p className="mt-1 text-xs">
-                  Partial comparison: only the newest {result.count.toLocaleString('en-US')} messages
-                  listed were checked against Odly.
+                  Partial comparison: only the first{' '}
+                  {(result.compared ?? result.count).toLocaleString('en-US')} messages Gmail listed
+                  (newest first, in practice) were checked against Odly.
                 </p>
               )}
+              {(result.notCompared ?? 0) > 0 && (
+                <p className="mt-1 text-xs">{notComparedNote(result)}</p>
+              )}
+              {(result.unverifiable ?? 0) > 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Can&apos;t verify = messages sent from this mailbox that could not be matched
+                  themselves, but Odly holds a reply in the same conversation sent within minutes of
+                  them — most likely the same message. They are not counted as missing.
+                </p>
+              )}
+              {result.quotaHit && result.quotaHitIn && (
+                <p className="mt-1 text-xs">{quotaNote(result.quotaHitIn)}</p>
+              )}
+              {/* A LISTING refusal means the sent check never ran — its own note would contradict
+                  the quota line above, which already says so. */}
+              {result.sentOnlyCapped &&
+                result.missing > 0 &&
+                result.quotaHitIn !== 'listing' &&
+                sentOnlyNote(result.sentOnlyUnchecked, result.quotaHitIn === 'sentCheck') && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {sentOnlyNote(result.sentOnlyUnchecked, result.quotaHitIn === 'sentCheck')}
+                  </p>
+                )}
               <MissingSamples samples={result.missingSamples ?? []} />
             </>
           )}
