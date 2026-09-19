@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plug } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AIProvidersSettings } from './AIProvidersSettings';
+import { CustomApiSection } from './customApi/CustomApiSection';
 import { ChatWidgetSettings } from './ChatWidgetSettings';
 import { MessageSourcesSettings } from './MessageSourcesSettings';
 import { DatabaseConfigCard } from './providers/DatabaseConfigCard';
@@ -17,7 +18,8 @@ type ServiceSection =
   | 'ai-providers'
   | 'chat-widgets'
   | 'object-storage'
-  | 'database';
+  | 'database'
+  | 'custom-apis';
 
 type Props = {
   /** Sub-section from parent hash (e.g. `/settings#integrations/ai-providers`). */
@@ -39,7 +41,13 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
       'message-sources',
       'ticket-automation',
       ...(canManageIntegrations
-        ? (['ai-providers', 'object-storage', 'database', 'chat-widgets'] as ServiceSection[])
+        ? ([
+            'ai-providers',
+            'object-storage',
+            'database',
+            'chat-widgets',
+            'custom-apis',
+          ] as ServiceSection[])
         : []),
     ],
     [canManageIntegrations]
@@ -71,6 +79,10 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
           { id: 'object-storage' as ServiceSection, label: 'Object Storage', description: 'Store attachments in your own S3 bucket' },
           { id: 'database' as ServiceSection, label: 'Database', description: 'Keep your data in your own Postgres' },
           { id: 'chat-widgets' as ServiceSection, label: 'Chat Widgets', description: 'Create embeddable AI chat widgets' },
+          // CA-5: the section the whole custom-API feature was missing. Visible to everyone with
+          // MANAGE_INTEGRATIONS (a moderator owns the LOOKUPS), but only an org_admin may add or
+          // change a VENDOR — D40, enforced on the backend routes, not by hiding this tab.
+          { id: 'custom-apis' as ServiceSection, label: 'Custom APIs', description: 'Look up orders, shipments or bookings from your own systems' },
         ]
       : []),
   ];
@@ -102,6 +114,9 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
         {canManageIntegrations && active === 'object-storage' && <ObjectStorageConfigCard />}
         {canManageIntegrations && active === 'database' && <DatabaseConfigCard />}
         {canManageIntegrations && active === 'chat-widgets' && <ChatWidgetSettings />}
+        {canManageIntegrations && active === 'custom-apis' && (
+          <CustomApiSection canManageVendors={isOrgAdmin} />
+        )}
       </Tabs>
     </div>
   );

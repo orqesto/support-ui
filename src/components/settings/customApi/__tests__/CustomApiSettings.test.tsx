@@ -42,6 +42,33 @@ beforeEach(() => {
   list.mockReset();
 });
 
+describe('audit pass 3 — D42 is visible, and NULL is never dressed up as consent', () => {
+  it('shows when a person accepted the third-party data disclosure', async () => {
+    list.mockResolvedValue([
+      connection({ piiAcknowledgedAt: '2026-09-19T10:00:00.000Z', piiAcknowledgedBy: 7 }),
+    ]);
+    render(<CustomApiSettings canManageVendors />);
+    await waitFor(() => expect(screen.getByText(/Third-party data accepted/i)).toBeTruthy());
+  });
+
+  it('⛔ says plainly that there is no recorded acceptance — a state, not a date', async () => {
+    /**
+     * Two populations reach this, and only a statement about the PRESENT is true of both:
+     * connections created before the column existed, and — because a push to `main` deploys this
+     * frontend while the backend ships on a tag — a vendor accepted seconds ago against an older
+     * backend, which strips the unknown `piiAcknowledged` key and records nothing.
+     */
+    list.mockResolvedValue([connection({ piiAcknowledgedAt: null, piiAcknowledgedBy: null })]);
+    render(<CustomApiSettings canManageVendors />);
+    // ⛔ RED: fall back to the connection's createdAt, or to "accepted", and the screen asserts a
+    // consent nobody gave — on exactly the rows where nobody gave one.
+    await waitFor(() =>
+      expect(screen.getByText(/No recorded acceptance of third-party data/i)).toBeTruthy()
+    );
+    expect(screen.queryByText(/Third-party data accepted/i)).toBeNull();
+  });
+});
+
 describe('the vendor list', () => {
   it('⛔ never renders a credential — not masked, not partially', async () => {
     // The API returns `hasCredential` and no key at all, so this asserts the UI has NO field for
