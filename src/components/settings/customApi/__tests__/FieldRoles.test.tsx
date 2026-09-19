@@ -100,6 +100,8 @@ const withEndpoint = (): Connection => ({
       effectivelyEnabled: true,
       chainBroken: false,
       hasResponseSkeleton: false,
+      skeletonSource: null,
+      dataPath: null,
       createdAt: '2026-09-19T10:00:00.000Z',
       updatedAt: '2026-09-19T10:00:00.000Z',
     },

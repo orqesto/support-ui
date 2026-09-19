@@ -143,6 +143,38 @@ describe('the outcomes stay distinguishable', () => {
     expect(await screen.findByText(/no longer matches what was configured/i)).toBeTruthy();
     expect(screen.getByText(/order_id, total/)).toBeTruthy();
   });
+
+  it('a RECORDS miss does not claim the response "no longer" matches', async () => {
+    /**
+     * ⛔ A CLAIM ABOUT HISTORY. `shape_changed` now also carries "we could not find the record list
+     * at all", which is true of a lookup that NEVER worked — so "no longer matches" describes a
+     * past that did not happen, and points the agent at fields rather than at the real problem.
+     */
+    run.mockResolvedValue([
+      card({
+        status: 'shape_changed',
+        missingKind: 'records',
+        missing: ['data'],
+        rows: [],
+        fields: [],
+      }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    expect(await screen.findByText(/could not find any records/i)).toBeTruthy();
+    expect(screen.queryByText(/no longer matches/i)).toBeNull();
+  });
+
+  it('an OLDER backend with no missingKind keeps the original wording', async () => {
+    run.mockResolvedValue([
+      card({ status: 'shape_changed', missing: ['order_id'], rows: [], fields: [] }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    expect(await screen.findByText(/no longer matches what was configured/i)).toBeTruthy();
+  });
 });
 
 describe('D38 — a record that is not this customer’s', () => {

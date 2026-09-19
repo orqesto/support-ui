@@ -64,6 +64,13 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
   const [picked, setPicked] = useState<FieldPick[]>(endpoint?.fieldPaths ?? []);
   const [paths, setPaths] = useState<string[]>([]);
   /**
+   * WHERE THE RECORDS LIVE in the vendor's answer. Blank means "work it out" — a top-level array is
+   * the list, otherwise the `data` envelope. ⛔ Unlike the ownership fields below, this one is
+   * ALWAYS on screen, so a blank box is an admin saying "auto", not a step that was never shown:
+   * it is sent as `null` (clear it), never omitted.
+   */
+  const [dataPath, setDataPath] = useState(endpoint?.dataPath ?? '');
+  /**
    * ⛔ D19, AND THE REASON THIS IS INFERRED RATHER THAN ASKED (audit pass 7). The executor sends
    * the row cap as the VENDOR'S OWN `limit` only when a lookup is marked `many` — and that
    * vendor's default page size is 20 / 100000 / config_limit_admin / 1 depending on the route,
@@ -121,11 +128,31 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
    * ⛔ A FAILED TEST IS NOT AN EMPTY TREE. Each outcome says something different, and collapsing
    * them into "nothing came back" makes an admin retune a working integration.
    */
-  const explain = (status: string, reason?: string): string => {
+  const explain = (
+    status: string,
+    reason?: string,
+    missingKind?: 'records' | 'fields',
+    missing?: string[]
+  ): string => {
     if (status === 'no_match')
       return 'Your system answered, but had nothing for that value. Try one you know exists.';
-    if (status === 'shape_changed')
+    if (status === 'shape_changed') {
+      /**
+       * ⛔ TWO DIFFERENT PROBLEMS behind one status, and they need opposite actions. `records`
+       * means we could not find the record list at all — the fix is to say where it is, in the
+       * box right there. Telling that admin "the fields changed" sends them to re-pick fields
+       * they have not chosen yet, which is what this said to a brand-new lookup before.
+       * ⚠️ An older backend sends no `missingKind`: unspecified, so keep the original wording
+       * rather than asserting either.
+       */
+      if (missingKind === 'records') {
+        const where = missing?.[0];
+        return where
+          ? `Your system answered, but we could not find the records under “${where}”. Tell us where they are below.`
+          : 'Your system answered, but we could not find the records in it. Tell us where they are below.';
+      }
       return 'Your system answered, but not with the fields this lookup expects any more.';
+    }
     return reason ?? 'Your system did not answer.';
   };
 
@@ -153,7 +180,14 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
        * refuses to overwrite the stored skeleton on a non-ok outcome; this is the same rule on
        * the screen. Found auditing this diff.
        */
-      setOutcome(explain(result.outcome.status, result.outcome.reason));
+      setOutcome(
+        explain(
+          result.outcome.status,
+          result.outcome.reason,
+          result.outcome.missingKind,
+          result.outcome.missing
+        )
+      );
     }
   };
 
@@ -196,6 +230,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
       await customApiService.updateEndpoint(connection.id, endpointId, {
         label: label.trim(),
         path: path.trim(),
+        dataPath: dataPath.trim() === '' ? null : dataPath.trim(),
         resultShape,
         ...parameterFields,
       });
@@ -206,6 +241,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
     const updated = await customApiService.createEndpoint(connection.id, {
       label: label.trim(),
       path: path.trim(),
+      dataPath: dataPath.trim() === '' ? null : dataPath.trim(),
       resultShape,
       ...parameterFields,
     });
@@ -319,6 +355,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
         label: label.trim(),
         path: path.trim(),
         fieldPaths: picked,
+        dataPath: dataPath.trim() === '' ? null : dataPath.trim(),
         resultShape,
         // ⛔ Sent as `null` when the admin chose "we can't check" — that is a DECISION, and the
         // three-valued rule elsewhere in this API means absent would read as "leave it alone".
@@ -376,6 +413,18 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
           <p className="text-xs text-muted-foreground -mt-2">
             Put <code>{VALUE_PLACEHOLDER}</code> where the email or the number belongs — that is
             where we put it when an agent looks someone up.
+          </p>
+
+          <Input
+            label="Where are the records in the answer? (optional)"
+            value={dataPath}
+            onChange={(event) => setDataPath(event.target.value)}
+            placeholder="data"
+          />
+          <p className="text-xs text-muted-foreground -mt-2">
+            Leave this blank and we work it out. Fill it in only if your system wraps the records
+            under a name we did not guess — <code>results</code>, or <code>payload.items</code>. Use{' '}
+            <code>.</code> if the answer IS the record, with nothing wrapped around it.
           </p>
 
           <div className="space-y-1">

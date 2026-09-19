@@ -48,6 +48,16 @@ const normaliseEndpoint = (endpoint: CustomApiEndpoint): CustomApiEndpoint => ({
   effectivelyEnabled: endpoint.effectivelyEnabled ?? endpoint.enabled,
   chainBroken: endpoint.chainBroken ?? false,
   hasResponseSkeleton: endpoint.hasResponseSkeleton ?? false,
+  /**
+   * ⛔ NULL, never a guess. This frontend can reach production before the backend that added the
+   * column does (a push to `main` deploys; the backend ships on a tag), and an older API sends
+   * neither field. `null` is the honest reading — "we do not know which route proved this shape" —
+   * and it keeps the plain badge. Defaulting to `'sample'` would put a warning on every existing
+   * lookup in every workspace; defaulting to `'test'` would re-assert the overstatement being
+   * fixed. Both are claims the data does not support.
+   */
+  skeletonSource: endpoint.skeletonSource ?? null,
+  dataPath: endpoint.dataPath ?? null,
 });
 
 const normalise = (connection: CustomApiConnection): CustomApiConnection => ({
@@ -74,6 +84,13 @@ const normalise = (connection: CustomApiConnection): CustomApiConnection => ({
 export interface EndpointTestResult {
   outcome: {
     status: 'ok' | 'no_match' | 'shape_changed' | 'failed';
+    /**
+     * `shape_changed` only. WITH `missingKind`: for `records` this is where the record list was
+     * looked for; for `fields` these are the configured fields that vanished. Absent from an older
+     * backend, which is "unspecified" — never assumed to be `fields`.
+     */
+    missing?: string[];
+    missingKind?: 'records' | 'fields';
     reason?: string;
     rows?: unknown[];
     /** The vendor's own `x-total-count`. Absent means "we do not know", never zero. */

@@ -21,6 +21,8 @@ const endpoint = (over: Partial<Connection['endpoints'][number]> = {}) =>
     effectivelyEnabled: true,
     chainBroken: false,
     hasResponseSkeleton: true,
+    skeletonSource: null,
+    dataPath: null,
     fieldPaths: [{ path: 'order_id', label: 'Order', kind: 'plain', role: 'identifier' }],
     ...over,
   }) as Connection['endpoints'][number];
@@ -114,6 +116,46 @@ describe('the vendor list', () => {
     expect(await screen.findByText('Not tested yet')).toBeTruthy();
     expect(screen.getByText('No fields chosen')).toBeTruthy();
     expect(screen.getByText('Ready')).toBeTruthy();
+  });
+
+  it('does not call a PASTE-ONLY lookup plain "Ready"', async () => {
+    /**
+     * 🔴 CA-5 acceptance A7, 2026-09-19. Both routes fill the skeleton, so the badge read "Ready"
+     * on a lookup whose LIVE call returned no_match — the words outran what the data could do.
+     * RED before the fix: `skeletonSource` was not consulted at all.
+     */
+    list.mockResolvedValue([
+      connection({
+        endpoints: [endpoint({ id: 30, label: 'pasted', skeletonSource: 'sample' })],
+      }),
+    ]);
+    render(<CustomApiSettings canManageVendors />);
+
+    expect(await screen.findByText('Ready — not tested live')).toBeTruthy();
+    // ⛔ The INVERTED assertion matters: asserting the warning appears would pass even if a second
+    // plain "Ready" were rendered beside it.
+    expect(screen.queryByText('Ready')).toBeNull();
+  });
+
+  it('calls a live-tested lookup "Ready"', async () => {
+    list.mockResolvedValue([
+      connection({ endpoints: [endpoint({ id: 31, label: 'tested', skeletonSource: 'test' })] }),
+    ]);
+    render(<CustomApiSettings canManageVendors />);
+
+    expect(await screen.findByText('Ready')).toBeTruthy();
+  });
+
+  it('keeps the plain badge when the skeleton PREDATES the column', async () => {
+    // ⚠️ null is "we do not know which route produced this", true of every row written before this
+    // shipped. Accusing those of being pastes would put a warning on every existing lookup.
+    list.mockResolvedValue([
+      connection({ endpoints: [endpoint({ id: 32, label: 'legacy', skeletonSource: null })] }),
+    ]);
+    render(<CustomApiSettings canManageVendors />);
+
+    expect(await screen.findByText('Ready')).toBeTruthy();
+    expect(screen.queryByText('Ready — not tested live')).toBeNull();
   });
 
   it('D40: only a vendor manager is offered the connect action', async () => {
