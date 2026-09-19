@@ -89,9 +89,10 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       for (const attachment of imageAttachments) {
         if (cancelled) break;
         try {
-          const path = attachment.externalId && attachment.url.startsWith('http')
-            ? `/api/attachments/jira/${attachment.id}/download`
-            : `/api/attachments/${attachment.id}/download`;
+          const path =
+            attachment.externalId && attachment.url.startsWith('http')
+              ? `/api/attachments/jira/${attachment.id}/download`
+              : `/api/attachments/${attachment.id}/download`;
           const response = await apiClient.get(path, { responseType: 'blob' });
           blobUrls[attachment.id] = URL.createObjectURL(response.data as Blob);
         } catch {
@@ -401,11 +402,9 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       <AttachmentPreviewDialog
         attachment={previewAttachment}
         onClose={() => setPreviewAttachment(null)}
-        downloadPath={
-          previewAttachment && previewAttachment.externalId && previewAttachment.url.startsWith('http')
-            ? `/api/attachments/jira/${previewAttachment.id}/download`
-            : undefined
-        }
+        jiraHosted={Boolean(
+          previewAttachment?.externalId && previewAttachment.url.startsWith('http')
+        )}
       />
     </div>
   );

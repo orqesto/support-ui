@@ -52,12 +52,9 @@ const API = '/api/';
  * an entry whose call is gone (independent audit, 2026-09-19).
  */
 const CHECKED_BY_HAND = new Map<string, number>([
-  // `downloadPath ?? \`/api/attachments/${id}/download\``: the prop's only caller
-  // (TicketAttachments) passes `/api/attachments/jira/${id}/download` or undefined.
-  [
-    'components/shared/AttachmentPreviewDialog.tsx: AttachmentPreviewDialog: path = path = downloadPath ?? `/api/attachments/${attachment.id}/download`',
-    1,
-  ],
+  // EMPTY, and meant to stay so. Its one entry (AttachmentPreviewDialog's caller-supplied
+  // `downloadPath`) was rewritten as a flag with two literal paths: a hand check keyed on text
+  // can always be reproduced by a new caller written the same way (audit rounds 21–23).
 ]);
 
 /**
