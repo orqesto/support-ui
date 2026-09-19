@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
@@ -69,6 +69,16 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
    */
   const [unavailable, setUnavailable] = useState(false);
   const queryClient = useQueryClient();
+  const { conversationId, contactId } = target;
+  /**
+   * ⛔ A PRESS ANSWERS FOR THE CUSTOMER IT WAS MADE ON, OR NOT AT ALL. The reset below clears the
+   * panel when the agent moves on, but a `run()` already in flight used to land AFTER that reset —
+   * press on conversation 1, open conversation 2, and conversation 1's orders rendered in 2's
+   * panel, labelled as 2's (audit 2026-09-19, reproduced with renderHook). Every change of target
+   * bumps this generation; a run captures it at the press and drops its response — success AND
+   * error, and its `loading` too — when the generation has moved. Stale responses touch no state.
+   */
+  const generation = useRef(0);
 
   /**
    * ⛔ CLEAR WHEN THE CUSTOMER CHANGES. Audit pass 5: the results live in state, and nothing reset
@@ -80,18 +90,25 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
    * endpoints must not become N outbound calls every time an agent opens a thread.
    */
   useEffect(() => {
+    generation.current += 1;
     setResults([]);
+    // A press still in flight for the previous customer will drop its own `finally`, so the
+    // spinner it started is cleared here — otherwise it would stick on the new thread for ever.
+    setLoading(false);
     setHasRun(false);
     setError(null);
     setUnavailable(false);
-  }, [target.conversationId, target.contactId]);
+  }, [conversationId, contactId]);
 
   const run = useCallback(
     async (manual?: { endpointId: number; parameter: string }) => {
+      const pressedFor = generation.current;
+      const isStale = () => generation.current !== pressedFor;
       setLoading(true);
       setError(null);
       try {
-        const data = await customApiLookupService.run({ ...target, ...manual });
+        const data = await customApiLookupService.run({ conversationId, contactId, ...manual });
+        if (isStale()) return;
         // A manual re-run answers for ONE endpoint; merge it over the existing cards rather than
         // replacing them, or looking up an order number would blank every other integration.
         setResults((previous) =>
@@ -107,6 +124,7 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
           void queryClient.invalidateQueries({ queryKey: [AVAILABILITY_KEY] });
         }
       } catch (err) {
+        if (isStale()) return;
         // ⛔ `getErrorStatus`, never `err.response.status`. The api-client interceptor builds a
         // FRESH Error with `status` copied onto it and `.response` dropped entirely, so reading the
         // axios shape here type-checks, looks right and NEVER MATCHES — which is how nine call
@@ -122,10 +140,10 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
           setError(getApiErrorMessage(err) ?? 'The lookup could not be completed.');
         }
       } finally {
-        setLoading(false);
+        if (!isStale()) setLoading(false);
       }
     },
-    [target.conversationId, target.contactId, queryClient]
+    [conversationId, contactId, queryClient]
   );
 
   return { results, loading, hasRun, error, unavailable, run };

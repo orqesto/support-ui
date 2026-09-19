@@ -1,9 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { ReactElement, ReactNode } from 'react';
-import { render as rtlRender, screen, waitFor } from '@testing-library/react';
+import { act, render as rtlRender, renderHook, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { CustomApiLookupPanel, NO_EMAIL_IDENTITY_NOTE } from '../CustomApiLookupPanel';
+import { useCustomApiLookup } from '@/hooks/useCustomApiLookup';
 import type * as LookupService from '@/services/customApiLookup.service';
 import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types';
@@ -456,6 +457,94 @@ describe('one customer’s records never appear under another', () => {
 
     await waitFor(() => expect(screen.queryByText('137416')).toBeNull());
     expect(run).not.toHaveBeenCalled();
+  });
+});
+
+describe('a press in flight answers only for the customer it was made on', () => {
+  /**
+   * The clear above runs when the target changes; a response that lands AFTER it used to repaint
+   * the new thread with the old customer's records. Audit 2026-09-19 reproduced it exactly so.
+   */
+  const deferred = () => {
+    let resolve!: (rows: CustomApiLookupResult[]) => void;
+    let reject!: (err: unknown) => void;
+    const promise = new Promise<CustomApiLookupResult[]>((ok, fail) => {
+      resolve = ok;
+      reject = fail;
+    });
+    return { promise, resolve, reject };
+  };
+  const mountHook = () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    return renderHook(({ id }: { id: number }) => useCustomApiLookup({ conversationId: id }), {
+      initialProps: { id: 1 },
+      wrapper,
+    });
+  };
+
+  it('⛔ drops a SUCCESS for conversation 1 that lands after the switch to 2', async () => {
+    // RED: apply it ⇒ conversation 1's order sits in conversation 2's panel, labelled as 2's.
+    const pending = deferred();
+    run.mockReturnValue(pending.promise);
+    const { result, rerender } = mountHook();
+    let press!: Promise<void>;
+    act(() => {
+      press = result.current.run();
+    });
+    rerender({ id: 2 });
+    await act(async () => {
+      pending.resolve([card()]);
+      await press;
+    });
+    expect(result.current.results).toEqual([]);
+    expect(result.current.hasRun).toBe(false);
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('⛔ drops an ERROR for conversation 1 that lands after the switch to 2', async () => {
+    // RED: apply it ⇒ conversation 2 shows a failure nobody asked about.
+    const pending = deferred();
+    run.mockReturnValue(pending.promise);
+    const { result, rerender } = mountHook();
+    let press!: Promise<void>;
+    act(() => {
+      press = result.current.run();
+    });
+    rerender({ id: 2 });
+    await act(async () => {
+      pending.reject(Object.assign(new Error('vendor down'), { status: 502 }));
+      await press;
+    });
+    expect(result.current.error).toBeNull();
+    expect(result.current.unavailable).toBe(false);
+    expect(result.current.hasRun).toBe(false);
+  });
+
+  it('a switch while loading does not leave the new thread spinning', () => {
+    // RED: leave `loading` to the stale press ⇒ it never clears on conversation 2.
+    const pending = deferred();
+    run.mockReturnValue(pending.promise);
+    const { result, rerender } = mountHook();
+    act(() => {
+      void result.current.run();
+    });
+    expect(result.current.loading).toBe(true);
+    rerender({ id: 2 });
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('a press on the CURRENT conversation still lands', async () => {
+    // Control: the guard must not drop every response.
+    run.mockResolvedValue([card()]);
+    const { result } = mountHook();
+    await act(async () => {
+      await result.current.run();
+    });
+    expect(result.current.results).toHaveLength(1);
+    expect(result.current.hasRun).toBe(true);
   });
 });
 

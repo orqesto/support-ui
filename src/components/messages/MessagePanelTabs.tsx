@@ -28,7 +28,11 @@ import RichTextEditor from '@/components/shared/RichTextEditor';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import DOMPurify from 'dompurify';
 import { MONO, relativeTime, getInitials } from './messageDetailConstants';
-import { CustomApiLookupPanel, NO_EMAIL_IDENTITY_NOTE } from './CustomApiLookupPanel';
+import {
+  CustomApiLookupPanel,
+  NO_EMAIL_IDENTITY_NOTE,
+  hasLookupEmailIdentity,
+} from './CustomApiLookupPanel';
 
 type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
 
@@ -128,7 +132,7 @@ export function MessagePanelTabs({
   // we have; a customer with no email simply gets no identity-keyed lookup (D30), and the panel
   // says so rather than showing an empty result that reads like a failure.
   const contactEnabled = tab === 'customer' && contactEmail.length > 0;
-  const hasEmailIdentity = contactEmail.includes('@');
+  const hasEmailIdentity = hasLookupEmailIdentity(contactEmail);
   const contactProfile = useContactProfile(contactEmail, {
     enabled: contactEnabled,
     onChanged: onRefresh,

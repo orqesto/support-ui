@@ -31,6 +31,18 @@ import { MONO } from './messageDetailConstants';
 export const NO_EMAIL_IDENTITY_NOTE =
   'This customer has no email address, so identity-based lookups cannot run.';
 
+/**
+ * Does this sender carry an email an identity lookup can key on? The SAME rule as the backend's
+ * `lookupEmail` (customApiLookupService): a real address shape, and not the chat widget's
+ * `anonymous@chat-widget.local` placeholder. `includes('@')` alone called that placeholder an
+ * email, so the note stayed hidden while every identity card said it could not run.
+ */
+const LOOKUP_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const hasLookupEmailIdentity = (value: string): boolean => {
+  const email = value.trim();
+  return LOOKUP_EMAIL_RE.test(email) && !email.toLowerCase().endsWith('@chat-widget.local');
+};
+
 interface Props {
   conversationId?: number;
   contactId?: number;
