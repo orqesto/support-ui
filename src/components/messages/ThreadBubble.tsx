@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/Button';
 import { API_BASE_URL } from '@/lib/config';
+import { useAuthStore } from '@/stores/authStore';
 import {
   THREAD_SANITIZE,
   addNoopenerHook,
@@ -32,13 +33,21 @@ export function ThreadBubble({
   /** Required alongside `html`: images are proxied per message, so the id is part of the URL. */
   eventId?: number;
 }) {
+  // The workspace the images belong to. It has to ride IN the proxy url: the browser loads
+  // these `<img>` urls itself, so the `X-Organization-Context` header the api-client attaches
+  // to every other request never reaches the backend — which answered 400 to every remote
+  // image in every HTML mail because of it. Same source the interceptor reads.
+  const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const [showQuote, setShowQuote] = useState(false);
   // Content can be null (e.g. an attachment-only message or a body that failed to
   // extract) — coerce to '' so the regex/split helpers below don't throw.
   // Prefer the original markup when we have it AND an id to proxy its images through.
   // Without the id there is no safe way to render remote images, so fall back to text
   // rather than render the mail with the sender's own URLs in it.
-  const original = html && eventId !== undefined ? proxyRemoteImages(html, eventId, API_BASE_URL) : null;
+  const original =
+    html && eventId !== undefined
+      ? proxyRemoteImages(html, eventId, API_BASE_URL, selectedOrganizationId)
+      : null;
   const safeContent = original ?? content ?? '';
   // Require a *real* HTML tag — a closing tag (</p>) or a known structural/void
   // tag (<br>, <div ...>). The old /<[a-z][\s\S]*>/ matched any angle-bracket
