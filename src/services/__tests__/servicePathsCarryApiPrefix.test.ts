@@ -370,7 +370,10 @@ const scan = () => {
       if (
         (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
         isModuleSpecifier(node) &&
-        /\.test(?:\.[cm]?[jt]sx?)?$/.test(node.text)
+        // A Vite query or fragment (`?worker`, `?url`, `#x`) changes HOW a module is loaded —
+        // `?worker` bundles it as executable code (audit round 19) — and no production import
+        // uses one, so a specifier carrying either is refused outright, whatever it names.
+        (/[?#]/.test(node.text) || /\.test(?:\.[cm]?[jt]sx?)?$/.test(node.text))
       ) {
         testModulesNamed.push(where());
       }
