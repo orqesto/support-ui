@@ -347,7 +347,8 @@ export function proxyRemoteImages(
   // ⛔ The workspace has to be IN THE URL. A browser loads these `<img>` urls itself, with no
   // axios interceptor, so `X-Organization-Context` — the only carrier a global admin's org
   // context has — never reaches the backend. Production answered 400 to every remote image in
-  // every HTML mail because of it (18 of 18 on TES-INF-1393). With no workspace selected the
+  // every HTML mail because of it (on TES-INF-1393 every completed image request was a 400).
+  // With no workspace selected the
   // old shape is written unchanged rather than an `organizations/undefined` path, and the
   // backend still resolves it from the header for anyone who can send one.
   const base =

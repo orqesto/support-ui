@@ -31,8 +31,7 @@ const PIPES = '| Discount: | -£16.50 |\n| Total: | £158.50 |';
 describe('proxyRemoteImages — the workspace in the url', () => {
   /**
    * ⛔ THE BUG. A browser loads `<img src>` itself: no api-client, so no
-   * `X-Organization-Context`. Production answered 400 "Organization context required" to all
-   * 18 images on TES-INF-1393 while the same message's /html call, which DOES go through the
+   * `X-Organization-Context`. Production answered 400 "Organization context required" to every completed image request on TES-INF-1393 while the same message's /html call, which DOES go through the
    * interceptor, returned 200. Every test in this file passed throughout.
    */
   it('names the workspace in the path when one is selected', () => {
