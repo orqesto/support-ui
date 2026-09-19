@@ -44,11 +44,17 @@ const METHODS = new Set([
 const CLIENT_MODULE = 'lib/api-client.ts';
 const API = '/api/';
 
-/** `file: first argument` the parser cannot resolve, each checked by hand. Keep it EMPTY if possible. */
-const CHECKED_BY_HAND = new Set<string>([
-  // `downloadPath ?? \`/api/attachments/${id}/download\``: the prop's only caller
-  // (TicketAttachments) passes `/api/attachments/jira/${id}/download` or undefined.
-  'components/shared/AttachmentPreviewDialog.tsx: path = path = downloadPath ?? `/api/attachments/${attachment.id}/download`',
+/**
+ * Calls the parser cannot resolve, each checked by hand. Keep it EMPTY if possible.
+ * Keyed `file: enclosing function: argument = resolved declaration`, and mapped to the EXACT
+ * number of such calls, like the two lists below: a Set could not tell a second identical call
+ * (a new caller the hand check never read) from the one that was checked (audit round 21), nor
+ * an entry whose call is gone (independent audit, 2026-09-19).
+ */
+const CHECKED_BY_HAND = new Map<string, number>([
+  // EMPTY, and meant to stay so. Its one entry (AttachmentPreviewDialog's caller-supplied
+  // `downloadPath`) was rewritten as a flag with two literal paths: a hand check keyed on text
+  // can always be reproduced by a new caller written the same way (audit rounds 21–23).
 ]);
 
 /**
@@ -143,7 +149,46 @@ const isPermittedClientImport = (node: ts.ImportDeclaration): boolean => {
   );
 };
 
-/** The name of the function a node sits in — `<module>` at top level. */
+/** The name a function-like or class node declares for itself, or null when it has none. */
+const declaredName = (at: ts.Node): string | null => {
+  const own = (name: ts.Node | undefined): string | null =>
+    name && !ts.isComputedPropertyName(name) ? name.getText() : null;
+  if (ts.isFunctionDeclaration(at) || ts.isClassDeclaration(at)) return own(at.name);
+  if (ts.isMethodDeclaration(at) || ts.isPropertyDeclaration(at)) return own(at.name);
+  if (ts.isGetAccessorDeclaration(at)) return `get ${own(at.name) ?? '?'}`;
+  if (ts.isSetAccessorDeclaration(at)) return `set ${own(at.name) ?? '?'}`;
+  if (ts.isExportAssignment(at)) return 'default';
+  if (ts.isArrowFunction(at) || ts.isFunctionExpression(at) || ts.isClassExpression(at)) {
+    const holder = at.parent;
+    if (
+      (ts.isVariableDeclaration(holder) || ts.isPropertyAssignment(holder)) &&
+      ts.isIdentifier(holder.name)
+    ) {
+      return holder.name.text;
+    }
+  }
+  return null;
+};
+
+/**
+ * EVERY named scope around a node, outermost first — `AttachmentPreviewDialog`, `Alpha.send`,
+ * `Outer>inner`, `default` — skipping anonymous callbacks (a `useEffect` arrow). The whole chain,
+ * so two callers share a key only if they share every enclosing name; `<module>` when there is
+ * none, which an unresolvable call may not have (see the hand-check test).
+ */
+const namedEnclosingFunction = (node: ts.Node): string => {
+  const names: string[] = [];
+  for (let at = node.parent; at; at = at.parent) {
+    const name = declaredName(at);
+    if (name !== null) names.unshift(name);
+  }
+  return names.length > 0 ? names.join('>') : '<module>';
+};
+
+/**
+ * The name of the nearest function a node sits in: `<anonymous>` for an unassigned callback,
+ * `<module>` at top level. Used for the api-client internals, which are pinned to one file.
+ */
 const enclosingFunction = (node: ts.Node): string => {
   for (let at = node.parent; at; at = at.parent) {
     if (
@@ -495,7 +540,7 @@ const scan = () => {
       ) {
         const arg = node.arguments[0];
         calls.push({
-          site: `${relative(SRC, path)}: ${siteText(arg, checker, file)}`,
+          site: `${relative(SRC, path)}: ${namedEnclosingFunction(node)}: ${siteText(arg, checker, file)}`,
           prefix: prefixOf(arg, checker),
         });
       }
@@ -554,11 +599,22 @@ describe('every apiClient path reaches the backend', () => {
     );
   });
 
-  it('⛔ every path the parser cannot resolve has been checked by a person', () => {
-    const unresolved = calls
-      .filter((call) => call.prefix === null)
-      .map((call) => call.site)
-      .filter((site) => !CHECKED_BY_HAND.has(site));
-    expect(unresolved).toEqual([]);
+  it('⛔ every unresolvable path is checked by hand, EXACTLY as often as it occurs', () => {
+    // Both ways: an unchecked call fails, a second identical call hiding behind one entry fails,
+    // and an entry whose call is gone fails rather than wait to excuse something later.
+    const observed = new Map<string, number>();
+    for (const call of calls.filter((call) => call.prefix === null)) {
+      observed.set(call.site, (observed.get(call.site) ?? 0) + 1);
+    }
+    expect(Object.fromEntries(observed)).toEqual(Object.fromEntries(CHECKED_BY_HAND));
+  });
+
+  it('⛔ an unresolvable call sits under a NAMED scope, so its hand check names one caller', () => {
+    // Under `<module>` any top-level caller would share the key (audit round 22: class fields,
+    // accessors and default exports all fell to `<module>` before they were named).
+    const unnamed = calls.filter(
+      (call) => call.prefix === null && call.site.split(': ')[1] === '<module>'
+    );
+    expect(unnamed.map((call) => call.site)).toEqual([]);
   });
 });

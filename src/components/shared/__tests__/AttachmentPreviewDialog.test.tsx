@@ -85,12 +85,12 @@ describe('AttachmentPreviewDialog', () => {
     expect(screen.getByAltText('parcel.jpg').tagName).toBe('IMG');
   });
 
-  it('honors a downloadPath override (Jira-hosted attachments)', async () => {
+  it('downloads a Jira-hosted attachment through the Jira endpoint', async () => {
     render(
       <AttachmentPreviewDialog
         attachment={attachment({ mimeType: 'image/png' })}
         onClose={vi.fn()}
-        downloadPath="/api/attachments/jira/7/download"
+        jiraHosted
       />
     );
     await waitFor(() => expect(getBlob).toHaveBeenCalled());
@@ -102,9 +102,7 @@ describe('AttachmentPreviewDialog', () => {
   it('a failed fetch offers the download fallback instead of a blank dialog', async () => {
     getBlob.mockRejectedValue(new Error('403'));
     render(<AttachmentPreviewDialog attachment={attachment({})} onClose={vi.fn()} />);
-    await waitFor(() =>
-      expect(screen.getByText(/Could not load the preview/)).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText(/Could not load the preview/)).toBeInTheDocument());
   });
 
   it('renders nothing when there is no attachment', () => {

@@ -23,11 +23,11 @@ type AttachmentPreviewDialogProps = {
   attachment: Attachment | null;
   onClose: () => void;
   /**
-   * Override for the download endpoint — the ticket surface routes Jira-hosted
-   * attachments through `/api/attachments/jira/:id/download`. Defaults to the
-   * standard per-attachment endpoint.
+   * The attachment is hosted in Jira: download it through `/api/attachments/jira/:id/download`
+   * instead of the standard per-attachment endpoint. A flag, not a path, so every request path
+   * this component builds is a literal the /api guard can read.
    */
-  downloadPath?: string;
+  jiraHosted?: boolean;
 };
 
 /**
@@ -44,7 +44,7 @@ type AttachmentPreviewDialogProps = {
 export const AttachmentPreviewDialog = ({
   attachment,
   onClose,
-  downloadPath,
+  jiraHosted = false,
 }: AttachmentPreviewDialogProps) => {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -56,7 +56,9 @@ export const AttachmentPreviewDialog = ({
     setObjectUrl(null);
     setFailed(false);
 
-    const path = downloadPath ?? `/api/attachments/${attachment.id}/download`;
+    const path = jiraHosted
+      ? `/api/attachments/jira/${attachment.id}/download`
+      : `/api/attachments/${attachment.id}/download`;
     apiClient
       .get(path, { responseType: 'blob' })
       .then((response) => {
@@ -74,7 +76,7 @@ export const AttachmentPreviewDialog = ({
       cancelled = true;
       if (createdUrl) URL.revokeObjectURL(createdUrl);
     };
-  }, [attachment, downloadPath]);
+  }, [attachment, jiraHosted]);
 
   if (!attachment) return null;
 
@@ -139,7 +141,13 @@ export const AttachmentPreviewDialog = ({
   };
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }} size="full">
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      size="full"
+    >
       <DialogHeader className="px-3">
         <DialogTitle className="text-sm font-medium truncate">
           <span title={attachment.originalFilename}>{attachment.originalFilename}</span>
