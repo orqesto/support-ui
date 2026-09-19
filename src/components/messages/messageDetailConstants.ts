@@ -1,5 +1,6 @@
 import DOMPurify, { type default as DOMPurifyType } from 'dompurify';
 import type React from 'react';
+import { imageProxyBase } from '@/lib/emailHtml';
 import type { ThreadStatus, TicketPriority } from '@/types';
 
 // ─── Visual constants ─────────────────────────────────────────────────────────
@@ -463,10 +464,13 @@ export function proxyRemoteImages(
   // when the network log was read was a 400. With no workspace selected the old shape is
   // written unchanged rather than an `organizations/undefined` path, and the backend still
   // resolves it from the header for anyone who can send one.
-  const base =
-    typeof organizationId === 'number' && organizationId > 0
-      ? `${apiBaseUrl}/api/organizations/${organizationId}/messages/events/${eventId}/image`
-      : `${apiBaseUrl}/api/messages/events/${eventId}/image`;
+  //
+  // ⛔ ONE builder, shared with the email renderer, and it must stay that way. This function
+  // WRITES the `src`; `sanitizeEmailHtml`'s last-line-of-defence hook then DELETES any `<img>`
+  // whose src does not start with `imageProxyBase(…)`. Those were two separate copies of the
+  // same template string until the 2026-09-19 audit. A one-character drift between them would
+  // not fail loudly — it would remove every image from every email, silently, everywhere.
+  const base = imageProxyBase({ eventId, apiBaseUrl, organizationId });
   return html.replace(
     /(<img\b[^>]*?\bsrc\s*=\s*)("([^"]*)"|'([^']*)'|([^\s>]+))/gi,
     (whole, prefix: string, _q: string, dq?: string, sq?: string, bare?: string) => {

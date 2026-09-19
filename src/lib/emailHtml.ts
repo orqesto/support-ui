@@ -251,21 +251,29 @@ export function sanitizeEmailHtml(html: string, context: EmailRenderContext): st
       ALLOWED_TAGS: EMAIL_ALLOWED_TAGS,
       ALLOWED_ATTR: EMAIL_ALLOWED_ATTR,
       ADD_URI_SAFE_ATTR: EMAIL_URI_SAFE_ATTR,
-      ALLOWED_URI_REGEXP: /^https?:/i,
       /**
-       * Removing `<style>` is not automatically the same as removing its CSS: DOMPurify keeps
-       * the CHILDREN of a disallowed element, and a `<style>` element's child is a text node
-       * holding the stylesheet — which would paste the raw CSS source into the message as
-       * visible text.
+       * `mailto:` and `tel:` are here because this renders EMAIL. A signature's contact block
+       * is mostly `mailto:` links, and the old `^https?:` pattern stripped every one of them —
+       * the address rendered as dead text. Neither scheme can execute anything; `javascript:`,
+       * `data:` and the rest stay refused, which the 'javascript: url is still refused' test
+       * holds. An `<img src="mailto:…">` is meaningless and is removed by the image hook below
+       * anyway, since it does not start with our proxy prefix.
+       */
+      ALLOWED_URI_REGEXP: /^(?:https?|mailto|tel):/i,
+      /**
+       * ⛔ DO NOT ADD `FORBID_CONTENTS` HERE. I did, as "defence in depth", and it was a real
+       * regression: the option REPLACES DOMPurify's own default list rather than extending it,
+       * and that default is much longer — it covers `svg`, `math`, `template`, `noscript`,
+       * `plaintext`, `xmp` and more, which is the mXSS namespace-confusion surface.
        *
-       * ⚠️ MEASURED, not assumed: DOMPurify's OWN `FORBID_CONTENTS` default already covers
-       * `style` and `script`, so removing this line leaves the tests green. It is written out
-       * anyway because the behaviour is load-bearing and invisible — a future config that sets
-       * `FORBID_CONTENTS` for some other reason would silently replace that default and start
-       * leaking stylesheets as text. Stated explicitly, that change has to be deliberate.
+       * Measured, with a control: sanitizing
+       * `<svg><desc>SVGTEXT</desc></svg><math><mi>MATHTEXT</mi></math><noscript>NOSCRIPTTEXT</noscript>`
+       * yields `""` on the default and `"SVGTEXTMATHTEXTNOSCRIPTTEXT"` with the four-entry list
+       * I had written. So the line intended to harden the config was the only thing letting
+       * that content through. `emailHtml.forbidContents.test.ts` keeps it that way.
        *
-       * Do not read this line as the thing keeping CSS out of the message body; the test named
-       * 'style and link blocks' passes with or without it, and a control proved that.
+       * `<style>`'s CSS text is dropped by that same default, which is what stops a stylesheet
+       * being pasted into the message as visible text.
        */
       FORBID_TAGS: [
         'style',
@@ -279,7 +287,6 @@ export function sanitizeEmailHtml(html: string, context: EmailRenderContext): st
         'object',
         'embed',
       ],
-      FORBID_CONTENTS: ['style', 'script', 'title', 'head'],
     });
   } finally {
     activeContext = null;

@@ -109,11 +109,24 @@ export function ThreadBubble({
    * without flattening anything.
    */
   const emailGround =
-    'rounded bg-white text-[#202124] px-3 py-2 -mx-1 overflow-x-auto ' +
+    'rounded bg-white text-[#202124] px-3 py-2 overflow-x-auto ' +
     // `<pre>` never wraps by default and a contact-form relay wraps the ENTIRE body in one, so
     // without this a single such mail is one unbroken line. The container would scroll rather
     // than break the panel, but scrolling to read a message is not reading it.
-    '[&_pre]:whitespace-pre-wrap [&_img]:max-w-full [&_img]:h-auto ' +
+    /**
+     * ⛔ `!h-auto`, not `h-auto`, and the `!` is the whole point.
+     *
+     * `max-w-full` caps a wide image at the container. Aspect ratio then depends on the height
+     * being free to follow. That used to be automatic: the sender's height arrived as a
+     * presentational ATTRIBUTE, and any CSS beats an attribute, so `h-auto` won.
+     *
+     * Now that inline `style` survives, a sender writing `style="height:40px"` beats a plain
+     * class — so a capped image would keep its full height and render squashed. The `!` puts
+     * the rule back above inline style and restores exactly the behaviour that was correct
+     * before this change. Found by auditing the diff against `liftImageDimensions`, which
+     * leaves the dimensions in `style` as well as lifting them to attributes.
+     */
+    '[&_pre]:whitespace-pre-wrap [&_img]:max-w-full [&_img]:!h-auto ' +
     '[&_a]:text-[#1a0dab] [&_a]:underline';
 
   const renderHtml = (html: string) => {
@@ -128,17 +141,21 @@ export function ThreadBubble({
         />
       );
     }
+    const clean = sanitizeEmailHtml(html, {
+      eventId,
+      apiBaseUrl: API_BASE_URL,
+      organizationId: selectedOrganizationId,
+    });
+    // A body can sanitize down to nothing — a message whose whole content was one image we
+    // refuse to load, or markup made entirely of tags outside the allowlist. Rendering the
+    // ground anyway leaves an empty white card in the thread, which reads as "this message is
+    // blank" rather than "nothing here could be shown". Render nothing instead.
+    if (clean.trim().length === 0) return null;
     return (
       <div className={emailGround}>
         <div
           className="[overflow-wrap:anywhere] min-w-[min(600px,100%)] text-[13px] leading-normal"
-          dangerouslySetInnerHTML={{
-            __html: sanitizeEmailHtml(html, {
-              eventId,
-              apiBaseUrl: API_BASE_URL,
-              organizationId: selectedOrganizationId,
-            }),
-          }}
+          dangerouslySetInnerHTML={{ __html: clean }}
         />
       </div>
     );
