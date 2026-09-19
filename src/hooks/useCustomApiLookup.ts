@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuthStore } from '@/stores/authStore';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import {
   customApiLookupService,
   type CustomApiLookupResult,
   type LookupRequest,
+  type LookupSurface,
 } from '@/services/customApiLookup.service';
 
 /**
@@ -17,6 +20,40 @@ import {
  * `hasRun` distinguishes "nobody has asked yet" from "asked, and there is nothing" — the panel
  * must not show an empty state that reads like a failed lookup before anyone pressed anything.
  */
+const AVAILABILITY_KEY = 'custom-api-lookup-availability';
+
+/**
+ * Should the lookup panel render at all? (Release blocker, 2026-09-19.)
+ *
+ * The panel used to render on EVERY thread and EVERY contact in every workspace, and only stood
+ * down after a press came back 404. On a backend that has the route, a workspace with nothing
+ * configured instead answered "No integrations are set up for this workspace yet" — a dead
+ * control shown to every client, with no screen yet to set one up. So the panel now asks first.
+ *
+ * ⛔ FAILS CLOSED. Loading, `available: false`, a 404 (an OLDER backend without this route — the
+ * frontend ships from `main` independently of the backend tag) and any other error ALL render
+ * nothing. The cost of a false "no" is a hidden button; the cost of a false "yes" is the dead
+ * control this exists to remove.
+ *
+ * Keyed on org AND user AND surface: the answer depends on the caller's department scope (D26)
+ * and on where each lookup declared it renders (D15). Cached for five minutes and deduped across
+ * every panel on screen; never polled. `retry: false` because a 404 is an answer, not a blip.
+ */
+export function useCustomApiLookupAvailability(surface: LookupSurface): boolean {
+  const orgId = useAuthStore(
+    (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
+  );
+  const userId = useAuthStore((state) => state.user?.id ?? null);
+  const { data } = useQuery({
+    queryKey: [AVAILABILITY_KEY, orgId, userId, surface],
+    queryFn: () => customApiLookupService.availability(surface),
+    enabled: orgId !== null,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+  return data === true;
+}
+
 export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' | 'contactId'>) {
   const [results, setResults] = useState<CustomApiLookupResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -31,6 +68,7 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
    * lookup endpoint, so the panel stands down entirely.
    */
   const [unavailable, setUnavailable] = useState(false);
+  const queryClient = useQueryClient();
 
   /**
    * ⛔ CLEAR WHEN THE CUSTOMER CHANGES. Audit pass 5: the results live in state, and nothing reset
@@ -62,6 +100,12 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
             : data
         );
         setHasRun(true);
+        // The press is the freshest evidence there is. A full run that found NOTHING to run means
+        // the cached "available" is stale (an admin disabled the last lookup since): refetch it so
+        // the panel stands down, rather than keep offering a button that does nothing.
+        if (!manual && data.length === 0) {
+          void queryClient.invalidateQueries({ queryKey: [AVAILABILITY_KEY] });
+        }
       } catch (err) {
         // ⛔ `getErrorStatus`, never `err.response.status`. The api-client interceptor builds a
         // FRESH Error with `status` copied onto it and `.response` dropped entirely, so reading the
@@ -81,7 +125,7 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
         setLoading(false);
       }
     },
-    [target.conversationId, target.contactId]
+    [target.conversationId, target.contactId, queryClient]
   );
 
   return { results, loading, hasRun, error, unavailable, run };

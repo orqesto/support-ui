@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AlertTriangle, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { useCustomApiLookup } from '@/hooks/useCustomApiLookup';
+import { useCustomApiLookup, useCustomApiLookupAvailability } from '@/hooks/useCustomApiLookup';
 import type { CustomApiLookupResult, LookupField } from '@/services/customApiLookup.service';
 import { MONO } from './messageDetailConstants';
 
@@ -218,6 +218,11 @@ export const CustomApiLookupPanel = ({ conversationId, contactId, identityNote }
     conversationId,
     contactId,
   });
+
+  // ⛔ ASK FIRST, RENDER ONLY ON A YES. Mirrors the backend: a conversation runs the THREAD
+  // surface, anything else the CONTACT surface. Nothing is looked up by asking (SC1).
+  const available = useCustomApiLookupAvailability(conversationId ? 'thread' : 'contact');
+  if (!available) return null;
 
   // ⚠️ FE/BE SKEW: this deployment has no lookup endpoint yet. Show nothing rather than a button
   // that fails — a broken-looking control reads as a broken integration, not as a feature that has

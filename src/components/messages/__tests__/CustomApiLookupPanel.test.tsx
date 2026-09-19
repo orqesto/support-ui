@@ -1,8 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import type { ReactElement, ReactNode } from 'react';
+import { render as rtlRender, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { CustomApiLookupPanel } from '../CustomApiLookupPanel';
 import type * as LookupService from '@/services/customApiLookup.service';
+import { useAuthStore } from '@/stores/authStore';
+import type { User } from '@/types';
 
 type CustomApiLookupResult = LookupService.CustomApiLookupResult;
 
@@ -15,10 +19,17 @@ type CustomApiLookupResult = LookupService.CustomApiLookupResult;
  */
 
 const run = vi.fn<(body: unknown) => Promise<CustomApiLookupResult[]>>();
+const availability = vi.fn<(surface: string) => Promise<boolean>>();
 
 vi.mock('@/services/customApiLookup.service', async () => {
   const actual = await vi.importActual<typeof LookupService>('@/services/customApiLookup.service');
-  return { ...actual, customApiLookupService: { run: (body: unknown) => run(body) } };
+  return {
+    ...actual,
+    customApiLookupService: {
+      run: (body: unknown) => run(body),
+      availability: (surface: string) => availability(surface),
+    },
+  };
 });
 
 const card = (over: Partial<CustomApiLookupResult> = {}): CustomApiLookupResult =>
@@ -37,11 +48,24 @@ const card = (over: Partial<CustomApiLookupResult> = {}): CustomApiLookupResult 
   }) as CustomApiLookupResult;
 
 const press = async (name = /look up/i) => {
-  await userEvent.click(screen.getAllByRole('button', { name })[0]);
+  // `find`, not `get`: the panel renders only once availability has answered.
+  await userEvent.click((await screen.findAllByRole('button', { name }))[0]);
+};
+
+/** A fresh cache per render, so one test's availability answer never leaks into the next. */
+const render = (ui: ReactElement) => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+  return rtlRender(ui, { wrapper });
 };
 
 beforeEach(() => {
   run.mockReset();
+  availability.mockReset();
+  availability.mockResolvedValue(true);
+  useAuthStore.setState({ selectedOrganizationId: 1, user: { id: 9 } as User });
 });
 
 describe('SC1 — the lookup is a PRESS, never automatic', () => {
@@ -432,5 +456,75 @@ describe('one customer’s records never appear under another', () => {
 
     await waitFor(() => expect(screen.queryByText('137416')).toBeNull());
     expect(run).not.toHaveBeenCalled();
+  });
+});
+
+describe('the panel renders ONLY when this caller has a lookup to run', () => {
+  // Release blocker 2026-09-19: the panel showed on every thread and contact in every workspace,
+  // and a press in a workspace with nothing configured said "No integrations are set up" — a dead
+  // control in front of every client, with no screen yet to set one up.
+  const settle = async () => {
+    await waitFor(() => expect(availability).toHaveBeenCalled());
+    // Let the rejected/resolved query commit before asserting on the DOM.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  };
+
+  it('⛔ renders NOTHING when the backend says no lookup is available', async () => {
+    availability.mockResolvedValue(false);
+    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
+    await settle();
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('⛔ renders nothing on a 404 — an OLDER backend without the availability route', async () => {
+    availability.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
+    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
+    await settle();
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders nothing on any other error — it fails CLOSED', async () => {
+    availability.mockRejectedValue(Object.assign(new Error('Server Error'), { status: 500 }));
+    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
+    await settle();
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders nothing while the answer is still loading', () => {
+    availability.mockReturnValue(new Promise<boolean>(() => {}));
+    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('POSITIVE CONTROL: renders the panel when a lookup IS available', async () => {
+    render(<CustomApiLookupPanel conversationId={1} />);
+    expect(await screen.findByText('CONNECTED SYSTEMS')).toBeTruthy();
+  });
+
+  it('⛔ asking is NOT a lookup — no lookup request fires on mount (SC1)', async () => {
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await screen.findByText('CONNECTED SYSTEMS');
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('asks about the SURFACE it is on: thread for a conversation, contact otherwise', async () => {
+    const thread = render(<CustomApiLookupPanel conversationId={1} />);
+    await waitFor(() => expect(availability).toHaveBeenCalledWith('thread'));
+    thread.unmount();
+    availability.mockClear();
+    render(<CustomApiLookupPanel contactId={7} />);
+    await waitFor(() => expect(availability).toHaveBeenCalledWith('contact'));
+    expect(availability).not.toHaveBeenCalledWith('thread');
+  });
+
+  it('a press that finds nothing to run re-asks, and the panel stands down', async () => {
+    run.mockResolvedValue([]);
+    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
+    await screen.findByText('CONNECTED SYSTEMS');
+    // An admin disabled the last lookup after the panel asked.
+    availability.mockResolvedValue(false);
+    await press();
+    await waitFor(() => expect(container.firstChild).toBeNull());
+    expect(availability).toHaveBeenCalledTimes(2);
   });
 });
