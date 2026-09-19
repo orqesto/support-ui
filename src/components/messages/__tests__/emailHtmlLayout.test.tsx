@@ -97,7 +97,21 @@ describe('the two-column signature keeps its layout', () => {
     // had nowhere to go in a 524px bubble, which is what broke the contact line mid-token.
     const { container } = renderSignature();
     const body = container.querySelector('table')?.closest('[class*="min-w-"]');
-    expect(body?.className).toContain('min-w-[min(600px,100%)]');
+    expect(body?.className).toContain('min-w-[600px]');
+    /**
+     * ⛔ The assertion above is a CLASS NAME, and a class name is not a width — jsdom does no
+     * layout, so this test cannot see the effect. It passed for `min-w-[min(600px,100%)]`,
+     * which compiled correctly and resolved to the CONTAINER width, delivering 476px where 600
+     * was intended. The floor was inert in exactly the case it existed for, and only measuring
+     * the element in a real browser found it.
+     *
+     * So this guards the shape that was actually wrong: a `min()` here silently caps at the
+     * container instead of establishing a floor.
+     */
+    expect(
+      body?.className,
+      'min() caps at the container — it cannot express a floor'
+    ).not.toContain('min-w-[min(');
   });
 });
 

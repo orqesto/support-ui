@@ -99,11 +99,19 @@ export function ThreadBubble({
    * real mail. Plain-text bodies are NOT affected — they keep following the app theme, because
    * there is no sender styling to respect.
    *
-   * `overflow-x-auto` + `min-w-[min(600px,100%)]`: 600px is the de-facto width email is designed
-   * for, and this signature's `<table width="100%">` with a 150px logo cell had nowhere to go in
-   * a 524px bubble — which is why contact lines were breaking mid-token. Where the bubble is
-   * wide enough the mail simply uses it; where it is not, the mail keeps its intended width and
-   * scrolls INSIDE its own container. Containing the scroll here is what lets `[&_table]:block`
+   * `overflow-x-auto` + `min-w-[600px]`: 600px is the de-facto width email is designed for, and
+   * this signature's `<table width="100%">` with a 150px logo cell had nowhere to go in a 524px
+   * bubble — which is why contact lines broke mid-token. Below 600px the mail keeps its intended
+   * width and scrolls INSIDE its own container; above it, the mail simply uses the space.
+   *
+   * ⛔ This was `min-w-[min(600px,100%)]` and that was WRONG — `min()` picks the SMALLER value,
+   * so in a 500px container it resolved to 500px and the floor never applied. The width fix was
+   * INERT in exactly the case it existed for. Every test passed, because they asserted the class
+   * NAME, and the class did compile — to `min-width:min(600px,100%)`. Only rendering it in a
+   * browser and measuring the element showed 476px where 600px was intended.
+   * ⚠️ The cost is real and deliberate: in a panel narrower than ~615px an HTML mail now has a
+   * horizontal scrollbar inside its bubble. That is the trade D6 chose over silently reflowing
+   * mail to a width it was not designed for. Containing the scroll here is what lets `[&_table]:block`
    * go: that rule existed only to stop a wide table propagating overflow up to the thread panel
    * (ORB-SUP-1358), and it did so by destroying table layout. The container now holds that line
    * without flattening anything.
@@ -180,7 +188,7 @@ export function ThreadBubble({
     return (
       <div className={emailGround}>
         <div
-          className="[overflow-wrap:anywhere] min-w-[min(600px,100%)] text-[13px] leading-normal"
+          className="[overflow-wrap:anywhere] min-w-[600px] text-[13px] leading-normal"
           dangerouslySetInnerHTML={{ __html: clean }}
         />
       </div>
