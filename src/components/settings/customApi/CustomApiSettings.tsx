@@ -3,6 +3,7 @@ import { Plug } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { customApiService, type CustomApiConnection } from '@/services/customApi.service';
 import { getApiErrorMessage } from '@/lib/errorMessages';
@@ -35,6 +36,21 @@ interface Props {
     endpoint: CustomApiConnection['endpoints'][number]
   ) => void;
 }
+
+/**
+ * What the admin is about to remove, held while the confirm dialog is open.
+ *
+ * ⛔ The ENTIRE object, not an id. A list that refreshes under an open dialog would otherwise
+ * leave the id pointing at a different row, and this dialog names what it is about to delete —
+ * naming the wrong thing is worse than naming nothing.
+ */
+type PendingRemoval =
+  | { kind: 'vendor'; connection: CustomApiConnection }
+  | {
+      kind: 'lookup';
+      connection: CustomApiConnection;
+      endpoint: CustomApiConnection['endpoints'][number];
+    };
 
 /**
  * What state a lookup is really in.
@@ -73,6 +89,8 @@ export const CustomApiSettings = ({
   const [connections, setConnections] = useState<CustomApiConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<PendingRemoval | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -90,6 +108,36 @@ export const CustomApiSettings = ({
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * Remove a vendor or a lookup, then RELOAD rather than splicing local state — the backend
+   * refuses some deletions (a lookup another one checks ownership against answers 409), so the
+   * list must come back from the server rather than from an assumption about what happened.
+   */
+  const confirmRemoval = async () => {
+    if (!pending) return;
+    setRemoving(true);
+    setError(null);
+    try {
+      if (pending.kind === 'vendor') {
+        await customApiService.remove(pending.connection.id);
+      } else {
+        await customApiService.removeEndpoint(pending.connection.id, pending.endpoint.id);
+      }
+      setPending(null);
+      await load();
+    } catch (err) {
+      /**
+       * ⛔ SHOW WHAT THE BACKEND SAID. Deleting a lookup that another one uses for its ownership
+       * check is refused with a 409 naming the dependants — an admin can act on that sentence,
+       * and cannot act on "could not remove".
+       */
+      setError(getApiErrorMessage(err) ?? 'Could not remove that.');
+      setPending(null);
+    } finally {
+      setRemoving(false);
+    }
+  };
 
   if (loading) return <Spinner />;
 
@@ -183,6 +231,20 @@ export const CustomApiSettings = ({
                 {canManageVendors ? 'Manage' : 'View lookups'}
               </Button>
             )}
+            {/*
+             * ⛔ D40: removing a VENDOR is an org_admin action, like creating one — a moderator owns
+             * the lookups, not the connection that holds the credential. ⚠️ The real guard is the
+             * request (`requireOrgAdmin`); this only decides whether to offer the action.
+             */}
+            {canManageVendors && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setPending({ kind: 'vendor', connection })}
+              >
+                Disconnect
+              </Button>
+            )}
           </div>
 
           {connection.endpoints.length === 0 ? (
@@ -214,6 +276,16 @@ export const CustomApiSettings = ({
                           Edit
                         </Button>
                       )}
+                      {/* ⛔ NOT gated on canManageVendors (D40): the lookups are a moderator's half. */}
+                      {onEditLookup && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setPending({ kind: 'lookup', connection, endpoint })}
+                        >
+                          Remove
+                        </Button>
+                      )}
                     </span>
                   </li>
                 );
@@ -227,6 +299,39 @@ export const CustomApiSettings = ({
           )}
         </Card>
       ))}
+
+      {/*
+       * ⛔ NAME WHAT GOES, AND WHAT GOES WITH IT. Disconnecting a vendor takes its lookups and its
+       * stored key with it; "are you sure?" leaves an admin to discover that afterwards. The
+       * lookup count is read from the connection being removed, so the sentence is true of THIS
+       * vendor rather than a general warning.
+       */}
+      <ConfirmDialog
+        open={pending !== null}
+        onOpenChange={(open) => {
+          if (!open && !removing) setPending(null);
+        }}
+        onConfirm={() => void confirmRemoval()}
+        variant="danger"
+        /*
+         * ⛔ The confirm button NAMES THE ACT, and differs from the row button that opened it.
+         * Both read "Remove" at first, which put two identically-named buttons on screen at once —
+         * ambiguous to a screen reader, and to anyone deciding what they are about to agree to.
+         */
+        confirmText={
+          removing ? 'Removing…' : pending?.kind === 'vendor' ? 'Disconnect it' : 'Remove lookup'
+        }
+        title={
+          pending?.kind === 'vendor'
+            ? `Disconnect ${pending.connection.name}?`
+            : `Remove ${pending?.endpoint.label ?? 'this lookup'}?`
+        }
+        description={
+          pending?.kind === 'vendor'
+            ? `Agents will stop seeing anything from ${pending.connection.name}. Its ${pending.connection.endpoints.length === 1 ? 'lookup' : 'lookups'} (${pending.connection.endpoints.length}) and its stored key go with it. Nothing is deleted in ${pending.connection.name} itself.`
+            : 'Agents will stop seeing this on their threads. The system it reads from is not changed.'
+        }
+      />
     </div>
   );
 };

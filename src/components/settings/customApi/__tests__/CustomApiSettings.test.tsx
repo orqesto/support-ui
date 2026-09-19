@@ -8,10 +8,21 @@ import { noteSessionFromResponse } from '@/lib/api-client';
 type Connection = Svc.CustomApiConnection;
 
 const list = vi.fn<() => Promise<Connection[]>>();
+const remove = vi.fn<(id: number) => Promise<void>>();
+const removeEndpoint = vi.fn<(connectionId: number, endpointId: number) => Promise<void>>();
 
 vi.mock('@/services/customApi.service', async () => {
   const actual = await vi.importActual<typeof Svc>('@/services/customApi.service');
-  return { ...actual, customApiService: { ...actual.customApiService, list: () => list() } };
+  return {
+    ...actual,
+    customApiService: {
+      ...actual.customApiService,
+      list: () => list(),
+      remove: (id: number) => remove(id),
+      removeEndpoint: (connectionId: number, endpointId: number) =>
+        removeEndpoint(connectionId, endpointId),
+    },
+  };
 });
 
 const endpoint = (over: Partial<Connection['endpoints'][number]> = {}) =>
@@ -44,6 +55,10 @@ const connection = (over: Partial<Connection> = {}) =>
 
 beforeEach(() => {
   list.mockReset();
+  remove.mockReset();
+  removeEndpoint.mockReset();
+  remove.mockResolvedValue(undefined);
+  removeEndpoint.mockResolvedValue(undefined);
 });
 
 describe('audit pass 3 — D42 is visible, and NULL is never dressed up as consent', () => {
@@ -220,5 +235,96 @@ describe('the vendor list', () => {
 
     expect(await screen.findByText(/web page instead of data/i)).toBeTruthy();
     expect(screen.queryByText('Nothing connected yet')).toBeNull();
+  });
+});
+
+/**
+ * DISCONNECTING — the gap that made "self-serve" half-true.
+ *
+ * 🔴 `DELETE /api/custom-apis/:id` and `customApiService.remove()` both existed with ZERO callers,
+ * so an admin could connect a system holding a credential and never remove it. Found by pressing
+ * the button during the CA-5 acceptance run, not by reading the code: nothing was missing, nothing
+ * was broken, and there was simply no way to do it.
+ */
+describe('removing what you connected', () => {
+  const userEvent = () => import('@testing-library/user-event').then((mod) => mod.default.setup());
+
+  it('disconnects a vendor, and NAMES what goes with it', async () => {
+    const user = await userEvent();
+    list.mockResolvedValue([
+      connection({ endpoints: [endpoint({ id: 20 }), endpoint({ id: 21 })] }),
+    ]);
+    render(<CustomApiSettings canManageVendors />);
+
+    await user.click(await screen.findByRole('button', { name: 'Disconnect' }));
+    // ⛔ The sentence must say what is destroyed. "Are you sure?" leaves an admin to find out
+    // afterwards that the lookups and the stored key went too.
+    expect(screen.getByText(/lookups \(2\) and its stored key go with it/i)).toBeTruthy();
+    expect(screen.getByText(/Nothing is deleted in DeusPower itself/i)).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Disconnect it' }));
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(1));
+    // The list is re-read rather than spliced locally: the server decides what survived.
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+  });
+
+  it('does NOT delete anything until the confirm is pressed', async () => {
+    // ⛔ The inverted assertion. A dialog that fires on open is the defect this test exists for.
+    const user = await userEvent();
+    list.mockResolvedValue([connection()]);
+    render(<CustomApiSettings canManageVendors />);
+
+    await user.click(await screen.findByRole('button', { name: 'Disconnect' }));
+    // The confirm names the act and differs from the row button, so nothing on screen is ambiguous.
+    expect(screen.getByRole('button', { name: 'Disconnect it' })).toBeTruthy();
+    expect(remove).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it('removes a single lookup without touching the vendor', async () => {
+    const user = await userEvent();
+    list.mockResolvedValue([connection({ endpoints: [endpoint({ id: 42 })] })]);
+    render(<CustomApiSettings canManageVendors onEditLookup={() => {}} />);
+
+    await user.click(await screen.findByRole('button', { name: 'Remove' }));
+    await user.click(screen.getByRole('button', { name: 'Remove lookup' }));
+    await waitFor(() => expect(removeEndpoint).toHaveBeenCalledWith(1, 42));
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it('D40: a moderator is offered lookup removal but NOT vendor removal', async () => {
+    /**
+     * ⛔ The lookups are a moderator's half; the connection holding the credential is not. RED:
+     * gate both the same way and either a moderator is invited to destroy a workspace-wide
+     * connection (refused at the request, after the dialog), or they lose the half they own.
+     */
+    list.mockResolvedValue([connection()]);
+    render(<CustomApiSettings canManageVendors={false} onEditLookup={() => {}} />);
+
+    expect(await screen.findByRole('button', { name: 'Remove' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Disconnect' })).toBeNull();
+  });
+
+  it("surfaces the backend's own refusal, not a generic failure", async () => {
+    /**
+     * A lookup another one checks ownership against is refused with a 409 NAMING the dependants.
+     * That sentence is the only thing that tells an admin what to change first.
+     */
+    const user = await userEvent();
+    list.mockResolvedValue([connection({ endpoints: [endpoint({ id: 42 })] })]);
+    removeEndpoint.mockRejectedValue({
+      response: {
+        data: {
+          message:
+            '"this order" confirms a record belongs to the customer by checking it against "this customer\'s orders", so it cannot be deleted yet.',
+        },
+      },
+    });
+    render(<CustomApiSettings canManageVendors onEditLookup={() => {}} />);
+
+    await user.click(await screen.findByRole('button', { name: 'Remove' }));
+    await user.click(screen.getByRole('button', { name: 'Remove lookup' }));
+    expect(await screen.findByText(/cannot be deleted yet/i)).toBeTruthy();
   });
 });

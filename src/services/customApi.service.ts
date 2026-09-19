@@ -160,6 +160,16 @@ export const customApiService = {
     await apiClient.delete(`/api/custom-apis/${id}`);
   },
 
+  /**
+   * ⛔ May be REFUSED with a 409: the backend will not delete a lookup that another one checks
+   * ownership against (D35), and it names the dependants in the message. Callers must surface that
+   * sentence rather than a generic failure — it is the only thing that tells an admin what to
+   * change first.
+   */
+  async removeEndpoint(connectionId: number, endpointId: number): Promise<void> {
+    await apiClient.delete(`/api/custom-apis/${connectionId}/endpoints/${endpointId}`);
+  },
+
   async createEndpoint(connectionId: number, input: Record<string, unknown>) {
     const res = await apiClient.post<{ success: boolean; data: CustomApiConnection }>(
       `/api/custom-apis/${connectionId}/endpoints`,
