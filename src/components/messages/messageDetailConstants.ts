@@ -240,7 +240,10 @@ export function isProxiedImageUrl(src: string, apiBaseUrl: string): boolean {
 }
 
 let proxiedImageHookPrefix: string | null = null;
-export function addProxiedImagesOnlyHook(DOMPurify: typeof DOMPurifyType, apiBaseUrl: string): void {
+export function addProxiedImagesOnlyHook(
+  DOMPurify: typeof DOMPurifyType,
+  apiBaseUrl: string
+): void {
   const prefix = apiBaseUrl;
   // The prefix can change between environments; re-registering with a new one must replace
   // the closure rather than stack a second hook.
@@ -292,28 +295,27 @@ export function fmtMin(mins: number): string {
 }
 
 export function renderMarkdown(raw: string): string {
-  return raw
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\*\*(.+?)\*\*/gs, '<strong>$1</strong>')
-    .replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>')
-    .replace(/_([^_\n]+)_/g, '<em>$1</em>')
-    .replace(/`([^`\n]+)`/g, '<code>$1</code>')
-    // Autolink bare URLs. A plain-text mail is the ONLY place a tracking link can appear
-    // without markup, and until now the text branch allowed no anchors at all — so the
-    // link a customer was told to click was, in the console, unclickable text. Runs after
-    // escaping (so `&` is already `&amp;`) and before newlines become <br>, and stops at
-    // the trailing punctuation that ends a sentence rather than swallowing it into the URL.
-    .replace(
-      /\bhttps?:\/\/[^\s<>"']+/g,
-      (url) => {
+  return (
+    raw
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\*\*(.+?)\*\*/gs, '<strong>$1</strong>')
+      .replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>')
+      .replace(/_([^_\n]+)_/g, '<em>$1</em>')
+      .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+      // Autolink bare URLs. A plain-text mail is the ONLY place a tracking link can appear
+      // without markup, and until now the text branch allowed no anchors at all — so the
+      // link a customer was told to click was, in the console, unclickable text. Runs after
+      // escaping (so `&` is already `&amp;`) and before newlines become <br>, and stops at
+      // the trailing punctuation that ends a sentence rather than swallowing it into the URL.
+      .replace(/\bhttps?:\/\/[^\s<>"']+/g, (url) => {
         const trimmed = url.replace(/[.,;:!?)\]]+$/, '');
         const tail = url.slice(trimmed.length);
         return `<a href="${trimmed}" target="_blank" rel="noopener noreferrer">${trimmed}</a>${tail}`;
-      }
-    )
-    .replace(/\n/g, '<br>');
+      })
+      .replace(/\n/g, '<br>')
+  );
 }
 
 /**
@@ -373,6 +375,81 @@ export const decodeHtmlEntities = (value: string): string =>
     // LAST, so `&amp;#39;` decodes to the text `&#39;` rather than to an apostrophe.
     .replace(/&amp;/gi, '&');
 
+/**
+ * A CSS length an HTML `width`/`height` attribute can carry, or null.
+ *
+ * The attribute understands two things only: a pixel count as a bare number, and a percentage.
+ * Everything else an email might write — `auto`, `inherit`, `calc(100% - 20px)`, `12em`, or the
+ * old IE `expression(...)` — has no attribute equivalent, so it is dropped rather than guessed
+ * at. The ceiling is a sanity bound, not a security one: nothing here reaches the DOM as CSS.
+ */
+const cssLengthAsAttribute = (value: string): string | null => {
+  // `!important` is everywhere in email CSS, because templates fight the client's own stylesheet.
+  // It says nothing about the length, so it is stripped before the value is read rather than
+  // causing the declaration to be dropped as unparseable.
+  const v = value
+    .trim()
+    .toLowerCase()
+    .replace(/\s*!\s*important\s*$/, '')
+    .trim();
+  const px = v.match(/^(\d{1,5})(?:\.\d+)?px$/);
+  if (px) return Number(px[1]) > 0 && Number(px[1]) <= 10000 ? px[1] : null;
+  const pct = v.match(/^(\d{1,3})(?:\.\d+)?%$/);
+  if (pct) return Number(pct[1]) > 0 && Number(pct[1]) <= 100 ? `${pct[1]}%` : null;
+  const bare = v.match(/^(\d{1,5})$/);
+  if (bare) return Number(bare[1]) > 0 && Number(bare[1]) <= 10000 ? bare[1] : null;
+  return null;
+};
+
+/**
+ * Copy an image's size out of `style` into `width`/`height` attributes, before sanitizing.
+ *
+ * ⛔ Why not simply allow a `style` subset: `style` is in `FORBID_ATTR` for good reasons —
+ * `position`, `display`, `opacity` and friends are how a mail turns a rendered message into an
+ * overlay, and a real email carries all of them (one on staging: `position: relative; top: -1px;
+ * display: none`). Admitting CSS to recover two numbers would buy the layout at the price of the
+ * guard. Lifting the two numbers OUT instead keeps `style` forbidden and loses nothing: what
+ * reaches the DOM is `width="600"`, a validated number, and no CSS at all.
+ *
+ * 🔑 This is not a hypothetical shape. In staging's SOM-INF-1579 every `<img>` in the message
+ * carries its geometry in `style` and NOT in attributes — 8 of 8 — so support-ui#404, which
+ * stopped the sanitizer deleting `width`/`height`, could not help that mail at all: there was
+ * nothing there to keep. Emails use both spellings and we have to read both.
+ *
+ * An explicit attribute always wins: it is what the sender wrote for clients that read
+ * attributes, and second-guessing it against their own CSS would be inventing a third answer.
+ *
+ * Both dimensions are carried even though `[&_img]:h-auto` decides the rendered height: a
+ * width/height PAIR is what lets the browser reserve the right box before the bytes arrive,
+ * and `h-auto` then keeps the picture undistorted inside it.
+ *
+ * ⚠️ The `<img …>` match shares `proxyRemoteImages`' convention and stops at the first `>`, so a
+ * `>` inside an attribute value (`alt="5 > 3"`) truncates the tag it sees. That is pre-existing
+ * and survivable — DOMPurify parses whatever comes out and is the real boundary — but it is a
+ * regex over sender markup, which is worth knowing before extending it.
+ */
+export function liftImageDimensions(html: string): string {
+  return html.replace(/<img\b[^>]*>/gi, (tag) => {
+    const style = tag.match(/\bstyle\s*=\s*("([^"]*)"|'([^']*)')/i);
+    const declarations = style?.[2] ?? style?.[3];
+    if (!declarations) return tag;
+
+    let out = tag;
+    for (const dimension of ['width', 'height'] as const) {
+      // Already stated as an attribute? Leave the sender's own answer alone.
+      if (new RegExp(`\\b${dimension}\\s*=`, 'i').test(out)) continue;
+      // `max-width` must not be read as `width`, hence the boundary before the name.
+      const declared = declarations.match(
+        new RegExp(`(?:^|;)\\s*${dimension}\\s*:\\s*([^;]+)`, 'i')
+      );
+      const value = declared ? cssLengthAsAttribute(declared[1]) : null;
+      if (!value) continue;
+      out = out.replace(/<img\b/i, `<img ${dimension}="${value}"`);
+    }
+    return out;
+  });
+}
+
 export function proxyRemoteImages(
   html: string,
   eventId: number,
@@ -430,7 +507,11 @@ export function suggestedAnswerToHtml(raw: string): string {
   // the editor + outbound sanitizer. A stricter test than /<[a-z].*>/ so a bare
   // <https://…> / <name@host> token in plain text still gets converted, not
   // passed through (where the sanitizer would drop it as an unknown tag).
-  if (/<\/[a-z][a-z0-9]*\s*>|<(?:br|p|div|ul|ol|li|strong|em|b|i|a|blockquote|pre|code)[\s/>]/i.test(raw))
+  if (
+    /<\/[a-z][a-z0-9]*\s*>|<(?:br|p|div|ul|ol|li|strong|em|b|i|a|blockquote|pre|code)[\s/>]/i.test(
+      raw
+    )
+  )
     return raw;
 
   const inline = (text: string): string =>
@@ -456,7 +537,10 @@ export function suggestedAnswerToHtml(raw: string): string {
     para = [];
   };
   const flushList = () => {
-    if (list) out.push(`<${list.tag}>${list.items.map((item) => `<li>${inline(item)}</li>`).join('')}</${list.tag}>`);
+    if (list)
+      out.push(
+        `<${list.tag}>${list.items.map((item) => `<li>${inline(item)}</li>`).join('')}</${list.tag}>`
+      );
     list = null;
   };
 
@@ -563,7 +647,9 @@ export function splitAtQuote(
   }
   // Plain-text reply history: an attribution line ("On … wrote:"), a signature
   // divider (--- / ___), a forwarded-header block, or the first `>`-quoted line.
-  const idx = content.search(/\n-{3,}|\n_{3,}|\nOn .{5,}wrote:|\n-{2,} ?Forwarded|\nFrom: .{2,}\n|\n\s*>[ >]/);
+  const idx = content.search(
+    /\n-{3,}|\n_{3,}|\nOn .{5,}wrote:|\n-{2,} ?Forwarded|\nFrom: .{2,}\n|\n\s*>[ >]/
+  );
   if (idx > 50) return { main: content.slice(0, idx).trimEnd(), quote: content.slice(idx) };
 
   // Every marker above is anchored to a newline, so a body that HAS no newline can
