@@ -50,6 +50,18 @@ describe('api-client rejects an HTML page on a JSON call', () => {
     ).toThrow(/web page instead of data/);
   });
 
+  it('rejects a mixed-case Text/HTML (header values are case-insensitive)', () => {
+    expect(() => noteSessionFromResponse(respond(200, 'Text/HTML', INDEX_HTML))).toThrow(
+      /web page instead of data/
+    );
+  });
+
+  it("passes responseType 'text' whose Content-Type is text/html (EmailTemplatesPage)", () => {
+    expect(noteSessionFromResponse(respond(200, 'text/html', INDEX_HTML, 'text')).data).toBe(
+      INDEX_HTML
+    );
+  });
+
   it('passes a blob download whose Content-Type is text/html', () => {
     const blob = new Blob([INDEX_HTML], { type: 'text/html' });
     expect(noteSessionFromResponse(respond(200, 'text/html', blob, 'blob')).data).toBe(blob);

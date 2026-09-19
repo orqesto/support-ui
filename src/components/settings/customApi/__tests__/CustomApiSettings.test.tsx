@@ -2,6 +2,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { CustomApiSettings } from '../CustomApiSettings';
 import type * as Svc from '@/services/customApi.service';
+import { AxiosHeaders, type AxiosResponse } from 'axios';
+import { noteSessionFromResponse } from '@/lib/api-client';
 
 type Connection = Svc.CustomApiConnection;
 
@@ -155,5 +157,26 @@ describe('the vendor list', () => {
     render(<CustomApiSettings canManageVendors />);
 
     expect(await screen.findByText(/not reachable from our servers/i)).toBeTruthy();
+  });
+
+  it('shows the HTML-response error instead of "Nothing connected yet"', async () => {
+    let htmlError: unknown;
+    try {
+      noteSessionFromResponse({
+        data: '<!doctype html>',
+        status: 200,
+        statusText: '',
+        headers: new AxiosHeaders({ 'Content-Type': 'text/html' }),
+        config: { url: '/custom-apis', headers: new AxiosHeaders() },
+      } as AxiosResponse);
+    } catch (err) {
+      htmlError = err;
+    }
+    expect(htmlError).toBeInstanceOf(Error);
+    list.mockRejectedValue(htmlError);
+    render(<CustomApiSettings canManageVendors />);
+
+    expect(await screen.findByText(/web page instead of data/i)).toBeTruthy();
+    expect(screen.queryByText('Nothing connected yet')).toBeNull();
   });
 });

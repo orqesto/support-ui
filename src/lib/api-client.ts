@@ -314,14 +314,11 @@ const NON_JSON_RESPONSE_TYPES = new Set(['blob', 'arraybuffer', 'text', 'documen
 export const rejectHtmlResponse = (response: AxiosResponse): void => {
   const responseType = response.config?.responseType;
   if (responseType && NON_JSON_RESPONSE_TYPES.has(responseType)) return;
-  const headers = response.headers as
-    | { get?: (name: string) => unknown }
-    | Record<string, unknown>
-    | undefined;
-  const raw =
-    typeof (headers as { get?: unknown })?.get === 'function'
-      ? (headers as { get: (name: string) => unknown }).get('content-type')
-      : (headers as Record<string, unknown> | undefined)?.['content-type'];
+  // Response interceptors run after dispatchRequest, which always sets
+  // `response.headers = AxiosHeaders.from(...)` (axios lib/core/dispatchRequest.js), so real
+  // headers always have `.get`. The optional calls only keep a header-less stub from throwing.
+  const headers = response.headers as { get?: (name: string) => unknown } | undefined;
+  const raw = headers?.get?.('content-type');
   const contentType = typeof raw === 'string' ? raw.toLowerCase() : '';
   if (!contentType.startsWith('text/html')) return;
 
