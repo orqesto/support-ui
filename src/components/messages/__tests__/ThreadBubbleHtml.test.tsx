@@ -31,8 +31,10 @@ const PIPES = '| Discount: | -£16.50 |\n| Total: | £158.50 |';
 describe('proxyRemoteImages — the workspace in the url', () => {
   /**
    * ⛔ THE BUG. A browser loads `<img src>` itself: no api-client, so no
-   * `X-Organization-Context`. Production answered 400 "Organization context required" to every completed image request on TES-INF-1393 while the same message's /html call, which DOES go through the
-   * interceptor, returned 200. Every test in this file passed throughout.
+   * `X-Organization-Context`. On production's TES-INF-1393 every image request that had
+   * completed when the network log was read answered 400 "Organization context required",
+   * while the same message's /html call — which DOES go through the interceptor — returned
+   * 200. Every test in this file passed throughout.
    */
   it('names the workspace in the path when one is selected', () => {
     const out = proxyRemoteImages('<img src="https://cdn.shop.test/a.png">', 42, 'https://api.test', 36);
@@ -64,19 +66,20 @@ describe('proxyRemoteImages — the workspace in the url', () => {
 
 describe('isProxiedImageUrl — what the sanitizer backstop keeps', () => {
   const base = 'https://api.test';
-  const prefix = base;
 
   it('keeps both proxy shapes', () => {
-    expect(isProxiedImageUrl(`${base}/api/messages/events/9/image?src=x`, prefix)).toBe(true);
-    expect(isProxiedImageUrl(`${base}/api/organizations/36/messages/events/9/image?src=x`, prefix)).toBe(true);
+    expect(isProxiedImageUrl(`${base}/api/messages/events/9/image?src=x`, base)).toBe(true);
+    expect(isProxiedImageUrl(`${base}/api/organizations/36/messages/events/9/image?src=x`, base)).toBe(
+      true
+    );
   });
 
-  it('⛔ does NOT admit anything else under /api/ — the loosened prefix is not the check', () => {
-    expect(isProxiedImageUrl(`${base}/api/attachments/9/download`, prefix)).toBe(false);
-    expect(isProxiedImageUrl(`${base}/api/organizations/36/messages/events/9/html`, prefix)).toBe(false);
-    expect(isProxiedImageUrl('https://tracker.example.test/open.gif', prefix)).toBe(false);
+  it('⛔ admits ONLY the proxy path — matching the api base url is not enough', () => {
+    expect(isProxiedImageUrl(`${base}/api/attachments/9/download`, base)).toBe(false);
+    expect(isProxiedImageUrl(`${base}/api/organizations/36/messages/events/9/html`, base)).toBe(false);
+    expect(isProxiedImageUrl('https://tracker.example.test/open.gif', base)).toBe(false);
     // A sender's url that merely STARTS with our origin's text.
-    expect(isProxiedImageUrl(`${base}.evil.test/api/messages/events/9/image`, prefix)).toBe(false);
+    expect(isProxiedImageUrl(`${base}.evil.test/api/messages/events/9/image`, base)).toBe(false);
   });
 });
 
