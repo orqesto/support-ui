@@ -152,31 +152,46 @@ const isPermittedClientImport = (node: ts.ImportDeclaration): boolean => {
   );
 };
 
-/** The name of the function a node sits in — `<module>` at top level. */
-/**
- * The nearest NAMED function around a node, climbing past anonymous callbacks (a `useEffect`
- * arrow): `<anonymous>` would give two components' identical calls the same key.
- */
-const namedEnclosingFunction = (node: ts.Node): string => {
-  for (let at = node.parent; at; at = at.parent) {
+/** The name a function-like or class node declares for itself, or null when it has none. */
+const declaredName = (at: ts.Node): string | null => {
+  const own = (name: ts.Node | undefined): string | null =>
+    name && !ts.isComputedPropertyName(name) ? name.getText() : null;
+  if (ts.isFunctionDeclaration(at) || ts.isClassDeclaration(at)) return own(at.name);
+  if (ts.isMethodDeclaration(at) || ts.isPropertyDeclaration(at)) return own(at.name);
+  if (ts.isGetAccessorDeclaration(at)) return `get ${own(at.name) ?? '?'}`;
+  if (ts.isSetAccessorDeclaration(at)) return `set ${own(at.name) ?? '?'}`;
+  if (ts.isExportAssignment(at)) return 'default';
+  if (ts.isArrowFunction(at) || ts.isFunctionExpression(at) || ts.isClassExpression(at)) {
+    const holder = at.parent;
     if (
-      (ts.isFunctionDeclaration(at) || ts.isMethodDeclaration(at)) &&
-      at.name &&
-      !ts.isComputedPropertyName(at.name)
+      (ts.isVariableDeclaration(holder) || ts.isPropertyAssignment(holder)) &&
+      ts.isIdentifier(holder.name)
     ) {
-      return at.name.getText();
-    }
-    if (
-      (ts.isArrowFunction(at) || ts.isFunctionExpression(at)) &&
-      (ts.isVariableDeclaration(at.parent) || ts.isPropertyAssignment(at.parent)) &&
-      ts.isIdentifier(at.parent.name)
-    ) {
-      return at.parent.name.text;
+      return holder.name.text;
     }
   }
-  return '<module>';
+  return null;
 };
 
+/**
+ * EVERY named scope around a node, outermost first — `AttachmentPreviewDialog`, `Alpha.send`,
+ * `Outer>inner`, `default` — skipping anonymous callbacks (a `useEffect` arrow). The whole chain,
+ * so two callers share a key only if they share every enclosing name; `<module>` when there is
+ * none, which an unresolvable call may not have (see the hand-check test).
+ */
+const namedEnclosingFunction = (node: ts.Node): string => {
+  const names: string[] = [];
+  for (let at = node.parent; at; at = at.parent) {
+    const name = declaredName(at);
+    if (name !== null) names.unshift(name);
+  }
+  return names.length > 0 ? names.join('>') : '<module>';
+};
+
+/**
+ * The name of the nearest function a node sits in: `<anonymous>` for an unassigned callback,
+ * `<module>` at top level. Used for the api-client internals, which are pinned to one file.
+ */
 const enclosingFunction = (node: ts.Node): string => {
   for (let at = node.parent; at; at = at.parent) {
     if (
@@ -595,5 +610,14 @@ describe('every apiClient path reaches the backend', () => {
       observed.set(call.site, (observed.get(call.site) ?? 0) + 1);
     }
     expect(Object.fromEntries(observed)).toEqual(Object.fromEntries(CHECKED_BY_HAND));
+  });
+
+  it('⛔ an unresolvable call sits under a NAMED scope, so its hand check names one caller', () => {
+    // Under `<module>` any top-level caller would share the key (audit round 22: class fields,
+    // accessors and default exports all fell to `<module>` before they were named).
+    const unnamed = calls.filter(
+      (call) => call.prefix === null && call.site.split(': ')[1] === '<module>'
+    );
+    expect(unnamed.map((call) => call.site)).toEqual([]);
   });
 });
