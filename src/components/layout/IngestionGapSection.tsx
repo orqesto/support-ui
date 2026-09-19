@@ -87,7 +87,12 @@ export const IngestionGapSection = ({
                             // message was definitely NOT imported — the generic "may not have
                             // been fetched" sentence was false on both counts.
                             'The sync failed repeatedly on one message and moved past it so the mail behind it could be read \u2014 that message was not imported (its folder and UID are shown below). Fix the cause, then follow the ingestion-gaps runbook, section \u2018Unreadable live messages (IMAP)\u2019.'
-                          : 'Mail arriving in this window may not have been fetched.'}
+                          : alert.cause === 'unreadable_live_gmail_message'
+                            ? // Gmail has no UID and nothing "steps past" the message: the date
+                              // checkpoint only stops waiting for it, and while Gmail still lists
+                              // it the sync re-tries it about once a day.
+                              'Gmail answered one message with a server error on every sync, so the sync stopped waiting for it \u2014 that message was not imported (its Gmail id is shown below). While Gmail still lists it, it is re-tried about once a day. Follow the ingestion-gaps runbook, section \u2018Unreadable live messages (Gmail)\u2019.'
+                            : 'Mail arriving in this window may not have been fetched.'}
             </p>
             {alert.window && (
               <p className="mt-0.5 font-mono text-xs break-words text-muted-foreground">
