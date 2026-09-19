@@ -99,6 +99,8 @@ const tacoGap = {
   minutesAhead: 1500,
   window: '2026-09-10T07:58:28.754Z → 2026-09-11T08:58:03.336Z',
   recovery: 're-scanning the last 48h; raise MAIL_POLL_OVERLAP_HOURS to reach further back',
+  skipped: [],
+  skippedOverflow: false,
 };
 
 beforeEach(() => {
@@ -228,7 +230,7 @@ describe('Notification Center — ingestion gaps', () => {
     // Title and window exactly as the backend writes them (ingestionGapAlert.ts TITLES,
     // gmail/transientFetchFailures.ts).
     const title =
-      'A Gmail message could not be imported — the sync failed on it repeatedly and stopped retrying it';
+      'Gmail messages could not be imported — Gmail failed on them repeatedly; each is re-tried about once a day';
     const window = 'Gmail message 18f2a9c0d1e2b3a4';
     gapAlerts = [
       {
@@ -243,12 +245,48 @@ describe('Notification Center — ingestion gaps', () => {
     open();
     expect(screen.getByText(title)).toBeTruthy();
     expect(screen.getByText(window)).toBeTruthy();
-    expect(screen.getByText(/that message was not imported/)).toBeTruthy();
-    expect(screen.getByText(/re-tried about once a day/)).toBeTruthy();
+    expect(screen.getByText(/they were not imported/)).toBeTruthy();
+    expect(screen.getByText(/server or network error/)).toBeTruthy();
+    expect(screen.getAllByText(/re-tried about once a day/).length).toBeGreaterThan(0);
     expect(screen.getByText(/runbook, section ‘Unreadable live messages \(Gmail\)’/)).toBeTruthy();
     expect(screen.queryByText(/UID/)).toBeNull();
     expect(screen.queryByText(/\(IMAP\)/)).toBeNull();
     expect(screen.queryByText(/may not have been fetched/)).toBeNull();
+  });
+
+  it('unreadable_live_gmail_message: lists EVERY skipped id, not only the latest in the window', () => {
+    gapAlerts = [
+      {
+        ...tacoGap,
+        id: 9008,
+        title: 'Gmail messages could not be imported',
+        cause: 'unreadable_live_gmail_message',
+        minutesAhead: null,
+        window: 'Gmail message bbb222',
+        skipped: ['aaa111', 'bbb222'],
+        skippedOverflow: false,
+      },
+    ];
+    open();
+    expect(screen.getByText(/2 not imported: aaa111, bbb222/)).toBeTruthy();
+    expect(screen.queryByText('Gmail message bbb222')).toBeNull();
+  });
+
+  it('unreadable_live_gmail_message: an overflowed list says it shows only the latest', () => {
+    gapAlerts = [
+      {
+        ...tacoGap,
+        id: 9009,
+        title: 'Gmail messages could not be imported',
+        cause: 'unreadable_live_gmail_message',
+        minutesAhead: null,
+        window: 'Gmail message ccc',
+        skipped: ['ccc'],
+        skippedOverflow: true,
+      },
+    ];
+    open();
+    expect(screen.getByText(/1\+ not imported \(latest 1 shown\): ccc/)).toBeTruthy();
   });
 
   it('sent_drain_stranded: the caption points at the date the window shows', () => {
