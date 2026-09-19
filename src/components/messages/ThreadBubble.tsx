@@ -136,29 +136,34 @@ export function ThreadBubble({
    * as ordinary as typing in the composer — 22 bubbles on SOM-INF-1579, each with a signature.
    * Memoised on the inputs that can actually change the output.
    */
+  /**
+   * `null` when there is no `eventId`, which is the single source of truth for "can this
+   * message be rendered as email at all". Without an id there is no proxy URL, so the sender's
+   * image hosts were never rewritten and we must not render their CSS around images we refuse
+   * to load — the spam preview on MessagesPage reaches exactly that path.
+   *
+   * Returning `null` rather than a function that returns `''` is deliberate: an earlier version
+   * had the `eventId === undefined` test in BOTH this memo and `renderHtml`, so the branch in
+   * here could never run. A guard that cannot fire reads like one that can.
+   */
   const sanitizeChunk = useMemo(() => {
+    if (eventId === undefined) return null;
     const cache = new Map<string, string>();
     return (chunk: string): string => {
       const hit = cache.get(chunk);
       if (hit !== undefined) return hit;
-      const clean =
-        eventId === undefined
-          ? ''
-          : sanitizeEmailHtml(chunk, {
-              eventId,
-              apiBaseUrl: API_BASE_URL,
-              organizationId: selectedOrganizationId,
-            });
+      const clean = sanitizeEmailHtml(chunk, {
+        eventId,
+        apiBaseUrl: API_BASE_URL,
+        organizationId: selectedOrganizationId,
+      });
       cache.set(chunk, clean);
       return clean;
     };
   }, [eventId, selectedOrganizationId]);
 
   const renderHtml = (html: string) => {
-    // No `eventId` means no proxy URL, so the sender's own image hosts could not have been
-    // rewritten. Fall back to the old, stricter config rather than render sender CSS around
-    // images we refuse to load — the spam preview reaches this path.
-    if (eventId === undefined) {
+    if (sanitizeChunk === null) {
       return (
         <div
           className={prose}

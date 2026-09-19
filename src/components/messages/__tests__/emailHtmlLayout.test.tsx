@@ -150,6 +150,23 @@ describe('a body that sanitizes down to nothing', () => {
   });
 });
 
+describe('a bubble with no eventId (the spam preview)', () => {
+  it('uses the old strict sanitizer and renders no email ground', () => {
+    // Reachable state with no coverage before pass 5: MessagesPage renders a spam preview as
+    // `<ThreadBubble content={...} isAgent={false} />` with no id. Without an id the sender's
+    // image hosts were never rewritten to the proxy, so sender CSS must not be honoured here.
+    const { container } = render(
+      <ThreadBubble
+        content='<p style="color:#333">hi</p><img src="https://evil.test/x.png">'
+        isAgent={false}
+      />
+    );
+    expect(container.querySelector('.overflow-x-auto')).toBeNull();
+    expect(container.innerHTML).not.toContain('evil.test');
+    expect(container.querySelector('p')?.getAttribute('style')).toBeNull();
+  });
+});
+
 describe("the sender's own colours", () => {
   it('survive, so a sender who styles their mail gets what they asked for', () => {
     const { container } = renderSignature();
