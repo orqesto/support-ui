@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RecordFormatStep } from '../RecordFormatStep';
-import { deriveFormat, describeFormat, findInText } from '../recordFormat';
+import { deriveFormat, describeFormat, exampleFor, findInText } from '../recordFormat';
 
 describe('deriving a format from what an admin types', () => {
   it.each([
@@ -37,6 +37,24 @@ describe('deriving a format from what an admin types', () => {
     );
     // ⛔ RED: say "prefix ORD-, length 6, charset digits" and we have exported our data model.
     expect(describeFormat({ prefix: '', length: 1, charset: 'digits' })).toContain('1 digit,');
+  });
+});
+
+describe('⛔ re-opening a saved lookup must not narrow its format (audit pass 1)', () => {
+  it.each([
+    [{ prefix: '', length: 6, charset: 'digits' as const }],
+    [{ prefix: '', length: 6, charset: 'alnum_upper' as const }],
+    [{ prefix: '', length: 6, charset: 'alnum' as const }],
+    [{ prefix: 'ORD-', length: 4, charset: 'alnum_upper' as const }],
+    [{ prefix: '#', length: 1, charset: 'alnum' as const }],
+  ])('%o survives a round trip through the example field', (format) => {
+    /*
+     * ⛔ RED: rebuild the example as `prefix + '0'.repeat(length)` — which is what it did — and a
+     * lookup saved as `alnum` shows "000000", derives back to `digits`, and is SILENTLY NARROWED
+     * the next time an admin opens it and presses Save without touching this field. They would
+     * have no way to know: the screen showed them a number, and a number is what they saved.
+     */
+    expect(deriveFormat(exampleFor(format))).toEqual(format);
   });
 });
 

@@ -96,6 +96,20 @@ export const describeFormat = (format: RecordFormat): string => {
   return format.prefix ? `${count}, starting with “${format.prefix}”` : `${count}, with no prefix`;
 };
 
+/**
+ * Rebuild an example that derives back to exactly this format — the inverse of `deriveFormat`.
+ *
+ * ⛔ WHY THIS IS NOT `prefix + '0'.repeat(length)` (audit pass 1). That is what it was, and it
+ * loses the charset: a lookup saved as `alnum` re-opened as "000000" derives back to `digits`, so
+ * an admin who opened a lookup and pressed Save without touching this field SILENTLY NARROWED its
+ * format — and had no way to know, because the screen showed them a number and a number is what
+ * they saved. The leading character carries the charset, and the round trip is asserted.
+ */
+export const exampleFor = (format: RecordFormat): string => {
+  const lead = format.charset === 'digits' ? '0' : format.charset === 'alnum_upper' ? 'A' : 'a';
+  return `${format.prefix}${lead}${'0'.repeat(Math.max(0, format.length - 1))}`;
+};
+
 /** Ported from the backend: a match must be a whole token, not a slice of a longer run. */
 const isBoundary = (text: string, index: number, format: RecordFormat): boolean => {
   if (index < 0 || index >= text.length) return true;

@@ -160,8 +160,19 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
    * ⛔ `identityField` travels WITH `identity`: the create schema refines that an identity
    * parameter needs one, so sending the source without it is a 400.
    */
+  /**
+   * ⛔ KEEPS AN EXISTING `identityField` (audit pass 2 — the class pass 1 found one of). The
+   * contract allows `email`, `phone` and `displayName`; this wizard only offers "the customer's
+   * email address", so hardcoding `email` here would SILENTLY RETARGET a lookup someone had
+   * configured to match on phone — the next time an admin opened it and pressed Save, for a
+   * field the screen never showed them. Email is the default for a NEW lookup, not an overwrite
+   * of an old one.
+   */
   const parameterFields = fromIdentity
-    ? { parameterSource: 'identity' as const, identityField: 'email' as const }
+    ? {
+        parameterSource: 'identity' as const,
+        identityField: endpoint?.identityField ?? ('email' as const),
+      }
     : { parameterSource: 'manual' as const, identityField: null };
 
   /**
@@ -300,15 +311,25 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
         resultShape,
         // ⛔ Sent as `null` when the admin chose "we can't check" — that is a DECISION, and the
         // three-valued rule elsewhere in this API means absent would read as "leave it alone".
-        ownershipSourceEndpointId: fromIdentity ? null : ownershipSourceEndpointId,
         /**
-         * ⛔ The three values, never a pattern (D36). All three are sent together — a length
-         * without a charset is a format that matches nothing, and `null` across the board is how
-         * an admin says "do not pre-fill".
+         * ⛔ OMITTED, NOT NULLED, when the step was not shown (audit pass 1). These two questions
+         * are asked only for a MANUAL lookup, so sending `null` for an identity one would destroy
+         * whatever an admin had configured the moment they flipped the parameter source — data
+         * they can no longer see, and so cannot know they lost. Worse, `ownershipSourceEndpointId`
+         * is read whenever an agent supplies a recordRef, so nulling it could REMOVE a check that
+         * would otherwise run. Absent means keep, which is this API's rule everywhere else.
+         *
+         * ⛔ The three format values travel TOGETHER (D36): a length without a charset is a
+         * format that matches nothing, and all-null is how an admin says "do not pre-fill".
          */
-        recordFormatPrefix: fromIdentity ? null : (recordFormat?.prefix ?? null),
-        recordFormatLength: fromIdentity ? null : (recordFormat?.length ?? null),
-        recordFormatCharset: fromIdentity ? null : (recordFormat?.charset ?? null),
+        ...(fromIdentity
+          ? {}
+          : {
+              ownershipSourceEndpointId,
+              recordFormatPrefix: recordFormat?.prefix ?? null,
+              recordFormatLength: recordFormat?.length ?? null,
+              recordFormatCharset: recordFormat?.charset ?? null,
+            }),
         ...parameterFields,
       });
       onSaved();

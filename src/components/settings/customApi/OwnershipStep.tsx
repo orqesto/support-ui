@@ -38,6 +38,27 @@ export const OwnershipStep = ({ siblings, value, onChange }: Props) => {
    */
   const sourceCannotMatch = Boolean(chosen) && !hasIdentifier(chosen as CustomApiEndpoint);
 
+  /**
+   * ⛔ A QUESTION WITH ONE POSSIBLE ANSWER IS NOT A QUESTION (audit pass 3). With no other lookup
+   * on this connection there is nothing to choose, and offering a dropdown containing only "we
+   * can't check" reads as a decision the admin made rather than a state they are in — and tells
+   * them nothing about how to get out of it.
+   */
+  if (siblings.length === 0) {
+    return (
+      <div className="space-y-1">
+        <p className="text-xs font-medium text-foreground">
+          Can we check a record belongs to the customer?
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Not yet — that needs a second lookup on this connection that lists a customer’s own
+          records (for example “this customer’s orders”). Until there is one, agents will see
+          records here marked <strong>unverified</strong>.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
       <Label htmlFor="ca-ownership">Which lookup lists this customer’s own records?</Label>

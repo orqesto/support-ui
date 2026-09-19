@@ -101,6 +101,19 @@ describe('the question an admin actually reads', () => {
   });
 });
 
+describe('audit pass 3 — the state where the question cannot be answered', () => {
+  it('⛔ with no sibling lookups, says what is missing instead of offering an empty choice', () => {
+    render(<OwnershipStep siblings={[]} value={null} onChange={vi.fn()} />);
+    // ⛔ RED: render the dropdown anyway and the admin faces a question with exactly one answer,
+    // which reads as a decision they made rather than a state they are in — and says nothing
+    // about how to get out of it.
+    expect(screen.queryByLabelText(/Which lookup lists/i)).toBeNull();
+    expect(screen.getByText(/needs a second lookup on this connection/i)).toBeTruthy();
+    // It still says what it costs, because that is the part an agent will see.
+    expect(screen.getByText(/unverified/i)).toBeTruthy();
+  });
+});
+
 describe('⛔ a source that cannot actually confirm anything', () => {
   it('warns at CONFIGURE time when the chosen lookup has no identifier tagged', () => {
     const untagged = endpoint({
@@ -204,6 +217,59 @@ describe('in the wizard', () => {
     // Its parameter comes from the contact, so the record is that customer's by construction —
     // asking would be a question with one possible answer.
     expect(screen.queryByLabelText(/Which lookup lists/i)).toBeNull();
+  });
+
+  it('⛔ keeps an existing identityField instead of forcing it to email (audit pass 2)', async () => {
+    const user = userEvent.setup();
+    const byPhone = endpoint({ id: 23, parameterSource: 'identity', identityField: 'phone' });
+    render(
+      <EndpointWizard
+        connection={connectionWith([byPhone])}
+        endpoint={byPhone}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await vi.waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
+
+    /*
+     * ⛔ RED: hardcode `email` and a lookup someone configured to match on PHONE is silently
+     * retargeted the next time an admin opens it and presses Save — for a field this wizard
+     * never showed them. The contract allows email, phone and displayName; we only offer one.
+     */
+    expect(updateEndpoint.mock.calls.at(-1)?.[2]).toMatchObject({ identityField: 'phone' });
+  });
+
+  it('⛔ OMITS these fields for an identity lookup rather than nulling them (audit pass 1)', async () => {
+    const user = userEvent.setup();
+    const identity = endpoint({
+      id: 22,
+      parameterSource: 'identity',
+      ownershipSourceEndpointId: 10,
+      recordFormatLength: 6,
+      recordFormatCharset: 'digits',
+    });
+    render(
+      <EndpointWizard
+        connection={connectionWith([identity])}
+        endpoint={identity}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await vi.waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
+
+    /*
+     * ⛔ RED: send `null` for these because the step is hidden, and flipping a configured lookup
+     * to "the customer's email" DESTROYS its ownership source and its pre-fill format — silently,
+     * because the admin can no longer see either field. Absent means keep.
+     */
+    const sent = updateEndpoint.mock.calls.at(-1)?.[2] as Record<string, unknown>;
+    expect(sent).not.toHaveProperty('ownershipSourceEndpointId');
+    expect(sent).not.toHaveProperty('recordFormatLength');
+    expect(sent).not.toHaveProperty('recordFormatCharset');
   });
 
   it('saves the chosen source, and null when the admin chose "we can’t check"', async () => {

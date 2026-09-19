@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import { deriveFormat, describeFormat, findInText, type RecordFormat } from './recordFormat';
+import {
+  deriveFormat,
+  describeFormat,
+  exampleFor,
+  findInText,
+  type RecordFormat,
+} from './recordFormat';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Input } from '@/components/ui/Input';
 
@@ -24,7 +30,9 @@ interface Props {
 const DEFAULT_SAMPLE = 'Hi, where is my order 137416? I ordered it last week.';
 
 export const RecordFormatStep = ({ value, onChange }: Props) => {
-  const [example, setExample] = useState(value ? `${value.prefix}${'0'.repeat(value.length)}` : '');
+  // ⛔ `exampleFor`, not a run of zeroes — see its comment: zeroes lose the charset and a
+  // re-opened `alnum` lookup would be silently narrowed to `digits` on the next save.
+  const [example, setExample] = useState(value ? exampleFor(value) : '');
   const [sample, setSample] = useState(DEFAULT_SAMPLE);
 
   const derived = example.trim() ? deriveFormat(example) : null;
