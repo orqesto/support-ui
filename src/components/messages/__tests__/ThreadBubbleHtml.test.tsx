@@ -15,7 +15,11 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { ThreadBubble } from '@/components/messages/ThreadBubble';
-import { proxyRemoteImages, isProxiedImageUrl } from '@/components/messages/messageDetailConstants';
+import {
+  proxyRemoteImages,
+  isProxiedImageUrl,
+  liftImageDimensions,
+} from '@/components/messages/messageDetailConstants';
 import { useAuthStore } from '@/stores/authStore';
 import { API_BASE_URL } from '@/lib/config';
 
@@ -28,6 +32,65 @@ const ORDER_HTML = `
 
 const PIPES = '| Discount: | -£16.50 |\n| Total: | £158.50 |';
 
+describe('liftImageDimensions — an email that sizes with CSS', () => {
+  /**
+   * ⛔ THE CASE support-ui#404 COULD NOT HELP. In staging's SOM-INF-1579 every `<img>` in the
+   * message carries its geometry in `style` and NOT in attributes — 8 of 8 — so "stop the
+   * sanitizer deleting width/height" had nothing to keep. Emails use both spellings.
+   */
+  it('copies a pixel size out of style into attributes', () => {
+    const out = liftImageDimensions(
+      '<img src="https://c.test/a.png" style="width: 600px; height: 80px">'
+    );
+    expect(out).toContain('width="600"');
+    expect(out).toContain('height="80"');
+  });
+
+  it('keeps a percentage, which is the other thing the attribute understands', () => {
+    expect(liftImageDimensions('<img src="x" style="width:100%">')).toContain('width="100%"');
+  });
+
+  it('⛔ an explicit attribute wins — the sender already answered', () => {
+    const out = liftImageDimensions('<img src="x" width="40" style="width: 600px">');
+    expect(out).toContain('width="40"');
+    expect(out).not.toContain('width="600"');
+  });
+
+  it('reads through !important, which email templates use constantly', () => {
+    const out = liftImageDimensions(
+      '<img src="x" style="width: 600px !important; height:80px!important">'
+    );
+    expect(out).toContain('width="600"');
+    expect(out).toContain('height="80"');
+  });
+
+  it('⛔ max-width is not width', () => {
+    expect(liftImageDimensions('<img src="x" style="max-width: 600px">')).not.toContain(
+      'width="600"'
+    );
+  });
+
+  it('drops what an attribute cannot express, rather than guessing', () => {
+    for (const css of [
+      'width: auto',
+      'width: inherit',
+      'width: calc(100% - 20px)',
+      'width: 12em',
+      'width: expression(alert(1))',
+      'width: 0px',
+      'width: 99999px',
+    ]) {
+      const out = liftImageDimensions(`<img src="x" style="${css}">`);
+      expect(out).toBe(`<img src="x" style="${css}">`);
+    }
+  });
+
+  it('leaves an image with no style alone', () => {
+    const html = '<img src="https://c.test/a.png" alt="a">';
+    expect(liftImageDimensions(html)).toBe(html);
+  });
+});
+
 describe('proxyRemoteImages — the workspace in the url', () => {
   /**
    * ⛔ THE BUG. A browser loads `<img src>` itself: no api-client, so no
@@ -37,14 +100,24 @@ describe('proxyRemoteImages — the workspace in the url', () => {
    * 200. Every test in this file passed throughout.
    */
   it('names the workspace in the path when one is selected', () => {
-    const out = proxyRemoteImages('<img src="https://cdn.shop.test/a.png">', 42, 'https://api.test', 36);
+    const out = proxyRemoteImages(
+      '<img src="https://cdn.shop.test/a.png">',
+      42,
+      'https://api.test',
+      36
+    );
     expect(out).toContain(
       'https://api.test/api/organizations/36/messages/events/42/image?src=https%3A%2F%2Fcdn.shop.test%2Fa.png'
     );
   });
 
   it('keeps the bare shape when no workspace is selected — never organizations/undefined', () => {
-    const out = proxyRemoteImages('<img src="https://cdn.shop.test/a.png">', 42, 'https://api.test', null);
+    const out = proxyRemoteImages(
+      '<img src="https://cdn.shop.test/a.png">',
+      42,
+      'https://api.test',
+      null
+    );
     expect(out).toContain('https://api.test/api/messages/events/42/image?src=');
     expect(out).not.toContain('undefined');
     expect(out).not.toContain('/organizations/');
@@ -69,14 +142,16 @@ describe('isProxiedImageUrl — what the sanitizer backstop keeps', () => {
 
   it('keeps both proxy shapes', () => {
     expect(isProxiedImageUrl(`${base}/api/messages/events/9/image?src=x`, base)).toBe(true);
-    expect(isProxiedImageUrl(`${base}/api/organizations/36/messages/events/9/image?src=x`, base)).toBe(
-      true
-    );
+    expect(
+      isProxiedImageUrl(`${base}/api/organizations/36/messages/events/9/image?src=x`, base)
+    ).toBe(true);
   });
 
   it('⛔ admits ONLY the proxy path — matching the api base url is not enough', () => {
     expect(isProxiedImageUrl(`${base}/api/attachments/9/download`, base)).toBe(false);
-    expect(isProxiedImageUrl(`${base}/api/organizations/36/messages/events/9/html`, base)).toBe(false);
+    expect(isProxiedImageUrl(`${base}/api/organizations/36/messages/events/9/html`, base)).toBe(
+      false
+    );
     expect(isProxiedImageUrl('https://tracker.example.test/open.gif', base)).toBe(false);
     // A sender's url that merely STARTS with our origin's text.
     expect(isProxiedImageUrl(`${base}.evil.test/api/messages/events/9/image`, base)).toBe(false);
@@ -85,7 +160,11 @@ describe('isProxiedImageUrl — what the sanitizer backstop keeps', () => {
 
 describe('proxyRemoteImages', () => {
   it('rewrites an absolute remote source to our proxy, url-encoded', () => {
-    const out = proxyRemoteImages('<img src="https://cdn.shop.test/a.png">', 42, 'https://api.test');
+    const out = proxyRemoteImages(
+      '<img src="https://cdn.shop.test/a.png">',
+      42,
+      'https://api.test'
+    );
     expect(out).toContain(
       'https://api.test/api/messages/events/42/image?src=https%3A%2F%2Fcdn.shop.test%2Fa.png'
     );
@@ -135,19 +214,25 @@ describe('ThreadBubble with the original HTML', () => {
   });
 
   it('falls back to the text body when the sender sent no HTML', () => {
-    const { container } = render(<ThreadBubble content={PIPES} isAgent={false} html={null} eventId={1} />);
+    const { container } = render(
+      <ThreadBubble content={PIPES} isAgent={false} html={null} eventId={1} />
+    );
     expect(container.querySelector('table')).toBeNull();
     expect(container.textContent).toContain('| Discount:');
   });
 
   it('falls back to text when there is no eventId — images could not be proxied safely', () => {
-    const { container } = render(<ThreadBubble content={PIPES} isAgent={false} html={ORDER_HTML} />);
+    const { container } = render(
+      <ThreadBubble content={PIPES} isAgent={false} html={ORDER_HTML} />
+    );
     expect(container.querySelector('table')).toBeNull();
   });
 
   it('⛔ renders a remote image ONLY through the proxy', () => {
     const html = '<img src="https://tracker.example.test/open.gif?id=abc">';
-    const { container } = render(<ThreadBubble content="" isAgent={false} html={html} eventId={99} />);
+    const { container } = render(
+      <ThreadBubble content="" isAgent={false} html={html} eventId={99} />
+    );
     const img = container.querySelector('img');
     expect(img).not.toBeNull();
     expect(img?.getAttribute('src')).toContain(`${API_BASE_URL}/api/messages/events/99/image`);
@@ -159,7 +244,12 @@ describe('ThreadBubble with the original HTML', () => {
     // whose src starts with our /api/messages/events/ prefix. A separate attachment URL would
     // have been stripped by the very backstop that protects remote images.
     const { container } = render(
-      <ThreadBubble content="" isAgent={false} html='<img src="cid:logo@corp.example">' eventId={12} />
+      <ThreadBubble
+        content=""
+        isAgent={false}
+        html='<img src="cid:logo@corp.example">'
+        eventId={12}
+      />
     );
     const img = container.querySelector('img');
     expect(img?.getAttribute('src')).toContain('/api/messages/events/12/image?cid=');
@@ -178,7 +268,9 @@ describe('ThreadBubble with the original HTML', () => {
     useAuthStore.setState({ selectedOrganizationId: 36 });
     try {
       const html = '<img src="https://cdn.shop.test/banner.png?a=1&amp;b=2">';
-      const { container } = render(<ThreadBubble content="" isAgent={false} html={html} eventId={99} />);
+      const { container } = render(
+        <ThreadBubble content="" isAgent={false} html={html} eventId={99} />
+      );
       const img = container.querySelector('img');
       expect(img).not.toBeNull();
       expect(img?.getAttribute('src')).toContain(
@@ -201,7 +293,9 @@ describe('ThreadBubble with the original HTML', () => {
     useAuthStore.setState({ selectedOrganizationId: 36 });
     try {
       const html = '<img src="https://cdn.shop.test/logo.png" width="40" height="37" alt="logo">';
-      const { container } = render(<ThreadBubble content="" isAgent={false} html={html} eventId={99} />);
+      const { container } = render(
+        <ThreadBubble content="" isAgent={false} html={html} eventId={99} />
+      );
       const img = container.querySelector('img');
       expect(img?.getAttribute('width')).toBe('40');
       expect(img?.getAttribute('height')).toBe('37');
@@ -213,9 +307,36 @@ describe('ThreadBubble with the original HTML', () => {
   it('⛔ a javascript: url is still refused — the dimensions are safe, the URI guard is not relaxed', () => {
     cleanup();
     const html = '<img src="javascript:alert(1)" width="10"><a href="javascript:alert(1)">x</a>';
-    const { container } = render(<ThreadBubble content="" isAgent={false} html={html} eventId={99} />);
+    const { container } = render(
+      <ThreadBubble content="" isAgent={false} html={html} eventId={99} />
+    );
     expect(container.querySelector('img')).toBeNull();
     expect(container.querySelector('a')?.getAttribute('href') ?? null).toBeNull();
+  });
+
+  /**
+   * End to end through the real component: style in, attributes out, and NO css in the DOM.
+   * This is the shape staging's SOM-INF-1579 actually has.
+   */
+  it('renders an email that sizes with CSS at the size it asked for, with no style attribute', () => {
+    cleanup();
+    useAuthStore.setState({ selectedOrganizationId: 36 });
+    try {
+      const html =
+        '<img src="https://cdn.shop.test/logo.png" style="width: 120px; height: 40px; position: fixed; display: none">';
+      const { container } = render(
+        <ThreadBubble content="" isAgent={false} html={html} eventId={99} />
+      );
+      const img = container.querySelector('img');
+      expect(img?.getAttribute('width')).toBe('120');
+      expect(img?.getAttribute('height')).toBe('40');
+      // ⛔ the guard the lift exists to preserve: no CSS survives, so `position`/`display` cannot.
+      expect(img?.getAttribute('style')).toBeNull();
+      expect(container.innerHTML).not.toContain('position');
+      expect(container.innerHTML).not.toContain('display');
+    } finally {
+      useAuthStore.setState({ selectedOrganizationId: null });
+    }
   });
 
   it('⛔ BACKSTOP: strips an img the rewrite missed, rather than letting it beacon', () => {
@@ -225,7 +346,9 @@ describe('ThreadBubble with the original HTML', () => {
     // exists to prevent. Rendering the ALREADY-PROXIED path is what the component does, so we
     // reach past it by handing HTML whose src the rewrite cannot touch: an entity-encoded one.
     const sneaky = '<img src="https&#58;//tracker.example.test/open.gif">';
-    const { container } = render(<ThreadBubble content="" isAgent={false} html={sneaky} eventId={5} />);
+    const { container } = render(
+      <ThreadBubble content="" isAgent={false} html={sneaky} eventId={5} />
+    );
     const imgs = [...container.querySelectorAll('img')];
     for (const img of imgs) {
       expect(img.getAttribute('src') ?? '').toContain('/api/messages/events/');
@@ -237,7 +360,10 @@ describe('ThreadBubble plain-text branch', () => {
   it('autolinks a bare URL — a plain-text mail could never have a clickable link before', () => {
     cleanup();
     const { container } = render(
-      <ThreadBubble content="Track it here: https://track.example.test/XYZ thanks" isAgent={false} />
+      <ThreadBubble
+        content="Track it here: https://track.example.test/XYZ thanks"
+        isAgent={false}
+      />
     );
     const link = container.querySelector('a');
     expect(link?.getAttribute('href')).toBe('https://track.example.test/XYZ');
@@ -249,7 +375,9 @@ describe('ThreadBubble plain-text branch', () => {
     const { container } = render(
       <ThreadBubble content="See https://track.example.test/XYZ." isAgent={false} />
     );
-    expect(container.querySelector('a')?.getAttribute('href')).toBe('https://track.example.test/XYZ');
+    expect(container.querySelector('a')?.getAttribute('href')).toBe(
+      'https://track.example.test/XYZ'
+    );
     expect(container.textContent).toContain('.');
   });
 

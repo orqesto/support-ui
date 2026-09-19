@@ -8,6 +8,7 @@ import {
   THREAD_SANITIZE,
   addNoopenerHook,
   addProxiedImagesOnlyHook,
+  liftImageDimensions,
   proxyRemoteImages,
   renderMarkdown,
   splitAtQuote,
@@ -44,9 +45,12 @@ export function ThreadBubble({
   // Prefer the original markup when we have it AND an id to proxy its images through.
   // Without the id there is no safe way to render remote images, so fall back to text
   // rather than render the mail with the sender's own URLs in it.
+  // ⚠️ Dimensions are lifted out of `style` BEFORE the sources are rewritten and before the
+  // sanitizer runs: `style` is forbidden, so by the time DOMPurify has finished there is nothing
+  // left to read the geometry from. Order matters, and only in this direction.
   const original =
     html && eventId !== undefined
-      ? proxyRemoteImages(html, eventId, API_BASE_URL, selectedOrganizationId)
+      ? proxyRemoteImages(liftImageDimensions(html), eventId, API_BASE_URL, selectedOrganizationId)
       : null;
   const safeContent = original ?? content ?? '';
   // Require a *real* HTML tag — a closing tag (</p>) or a known structural/void
@@ -54,7 +58,10 @@ export function ThreadBubble({
   // token, so a plaintext email containing a bare <https://…> link or a
   // <name@domain> address was misrouted into the HTML renderer, where newlines
   // collapse into one wall of text and the >-quoted reply history never splits.
-  const isHtml = /<\/[a-z][a-z0-9]*\s*>|<(?:br|hr|img|p|div|table|span|a|ul|ol|li|blockquote|h[1-6])[\s/>]/i.test(safeContent);
+  const isHtml =
+    /<\/[a-z][a-z0-9]*\s*>|<(?:br|hr|img|p|div|table|span|a|ul|ol|li|blockquote|h[1-6])[\s/>]/i.test(
+      safeContent
+    );
   const { main, quote } = useMemo(() => splitAtQuote(safeContent, isHtml), [safeContent, isHtml]);
 
   // `[overflow-wrap:anywhere]` so a long unbroken token (e.g. a 200-char tracking
