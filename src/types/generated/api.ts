@@ -391,7 +391,7 @@ export interface components {
             connectionName: string;
             resultShape: string;
             /** @enum {string} */
-            status: "ok" | "no_match" | "shape_changed" | "failed" | "needs_input";
+            status: "ok" | "no_match" | "shape_changed" | "failed" | "needs_input" | "no_identity";
             rows?: {
                 [key: string]: unknown;
             }[];
@@ -408,6 +408,8 @@ export interface components {
             reason?: string;
             /** @enum {string} */
             ownership?: "owned" | "mismatch" | "unverified";
+            /** @enum {string} */
+            ownershipReason?: "not_supported" | "no_customer_email" | "check_failed";
         };
         SlaBreach: {
             id: number;

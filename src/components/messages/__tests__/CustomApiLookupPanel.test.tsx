@@ -99,6 +99,25 @@ describe('the outcomes stay distinguishable', () => {
     expect(text.className).not.toContain('destructive');
   });
 
+  it('"no identity" is ORDINARY too — muted, with its reason', async () => {
+    // RED: render `no_identity` through the `failed` branch (or not at all) ⇒ a Telegram customer
+    // with no email reads in the same red as a vendor outage, or the card says nothing.
+    run.mockResolvedValue([
+      card({
+        status: 'no_identity',
+        reason: 'This customer has no email address, so this lookup cannot run.',
+        rows: [],
+        fields: [],
+      }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    const text = await screen.findByText(/has no email address, so this lookup cannot run/i);
+    expect(text.className).toContain('text-muted-foreground');
+    expect(text.className).not.toContain('destructive');
+  });
+
   it('SC3 — a failed card shows its reason AND the other card still shows rows', async () => {
     // RED: let one failure blank the panel ⇒ one vendor being down hides every other integration.
     run.mockResolvedValue([
@@ -149,6 +168,25 @@ describe('D38 — a record that is not this customer’s', () => {
     await press();
 
     expect(await screen.findByText(/not confirmed as this customer/i)).toBeTruthy();
+  });
+
+  it.each([
+    // RED for each: the single old sentence blamed the integration for every reason — false when
+    // the customer is the one with no email, or when the check call itself failed.
+    ['not_supported', /this integration cannot verify ownership/i],
+    ['no_customer_email', /this customer has no email address to check it against/i],
+    ['check_failed', /the ownership check failed/i],
+    // An older backend sends no reason: the neutral wording, true whatever the cause.
+    [undefined, /ownership could not be checked/i],
+  ] as const)('names the TRUE cause of "unverified" (%s)', async (ownershipReason, wording) => {
+    run.mockResolvedValue([card({ ownership: 'unverified', ownershipReason })]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    expect(await screen.findByText(wording)).toBeTruthy();
+    if (ownershipReason !== 'not_supported') {
+      expect(screen.queryByText(/this integration cannot verify/i)).toBeNull();
+    }
   });
 
   it('POSITIVE CONTROL: an owned record carries no warning at all', async () => {

@@ -36,6 +36,8 @@ export const NO_EMAIL_IDENTITY_NOTE =
  * `lookupEmail` (customApiLookupService): a real address shape, and not the chat widget's
  * `anonymous@chat-widget.local` placeholder. `includes('@')` alone called that placeholder an
  * email, so the note stayed hidden while every identity card said it could not run.
+ * ⛔ A COPY. The source of truth is `isRealCustomerEmail` in the backend's
+ * `src/shared/email/customerEmail.ts` (a separate repo) — change both together.
  */
 const LOOKUP_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const hasLookupEmailIdentity = (value: string): boolean => {
@@ -52,8 +54,26 @@ interface Props {
   className?: string;
 }
 
+/**
+ * Why an `unverified` verdict could not be checked, in words that are TRUE for that reason. The
+ * old single sentence blamed the integration even when it CAN verify and it was the customer who
+ * had no email. An older backend sends no reason ⇒ the neutral fallback, true in every case.
+ */
+const UNVERIFIED_TEXT: Record<
+  NonNullable<CustomApiLookupResult['ownershipReason']> | 'unknown',
+  string
+> = {
+  not_supported:
+    'Not confirmed as this customer’s record — this integration cannot verify ownership.',
+  no_customer_email:
+    'Not confirmed as this customer’s record — this customer has no email address to check it against.',
+  check_failed: 'Not confirmed as this customer’s record — the ownership check failed.',
+  unknown: 'Not confirmed as this customer’s record — ownership could not be checked.',
+};
+
 const ownershipNotice = (
-  ownership: CustomApiLookupResult['ownership']
+  ownership: CustomApiLookupResult['ownership'],
+  reason?: CustomApiLookupResult['ownershipReason']
 ): { text: string; className: string } | null => {
   switch (ownership) {
     case 'mismatch':
@@ -70,7 +90,9 @@ const ownershipNotice = (
       // customer's records at all (a carrier knows a parcel number, not who emailed us) or the
       // check itself failed. Saying nothing here would let it read as confirmed.
       return {
-        text: 'Not confirmed as this customer’s record — this integration cannot verify ownership.',
+        // `?? 'unknown'` AND the lookup's own fallback: a reason this build does not know yet (a
+        // newer backend) must not render as `undefined`.
+        text: UNVERIFIED_TEXT[reason ?? 'unknown'] ?? UNVERIFIED_TEXT.unknown,
         className: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/40',
       };
     default:
@@ -125,7 +147,7 @@ const ResultCard = ({
   // D36: the number found in the CUSTOMER'S message is pre-filled — into a field the agent can
   // overwrite. A suggestion is a suggestion; nothing is sent to a vendor without a press.
   const [value, setValue] = useState(result.suggestions?.[0] ?? '');
-  const notice = ownershipNotice(result.ownership);
+  const notice = ownershipNotice(result.ownership, result.ownershipReason);
   // ⛔ FALL BACK TO THE ROW'S OWN KEYS. `fieldPaths` DEFAULTS to empty, and the backend returns
   // rows unprojected in that case — so mapping over `fields` alone rendered a BLANK card while
   // holding data, on the commonest configuration state there is. Found by audit pass 2.
@@ -186,6 +208,15 @@ const ResultCard = ({
         // ⛔ ORDINARY. Plain text, no red, no warning icon — visibly different from a failure, or
         // agents learn to ignore both and a real outage reads as a customer with no orders.
         <p className="text-[11px] text-muted-foreground">No matching records for this customer.</p>
+      )}
+
+      {result.status === 'no_identity' && (
+        // ⛔ ORDINARY, like `no_match`: a Telegram or anonymous-widget customer simply has no email
+        // to key on. Red here taught agents the same thing as red on a real vendor outage.
+        // (An older backend still sends this as `failed`, which renders red — no worse than before.)
+        <p className="text-[11px] text-muted-foreground">
+          {result.reason ?? 'This customer has no email address, so this lookup cannot run.'}
+        </p>
       )}
 
       {result.status === 'failed' && (
