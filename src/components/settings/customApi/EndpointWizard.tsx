@@ -26,6 +26,7 @@ import {
   type FieldPick,
 } from '@/services/customApi.service';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
+import { useInvalidateCustomApiAvailability } from '@/hooks/useCustomApiLookup';
 
 /**
  * Add or edit a LOOKUP, and pick what an agent sees — CA-5 Task 3.
@@ -181,7 +182,15 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
    */
   const missingPlaceholder = path.trim().length > 0 && !path.includes(VALUE_PLACEHOLDER);
 
-  /** The lookup must exist before it can be tested — both routes are per-lookup. */
+  const invalidateAvailability = useInvalidateCustomApiAvailability();
+
+  /**
+   * The lookup must exist before it can be tested — both routes are per-lookup.
+   *
+   * ⚠️ This is a WRITE even when the admin pressed Test: the first press creates the lookup, so
+   * the thread panel's cached availability is dropped here, after the write lands. The test
+   * itself (`sendTest` / `shapeSample`) reads the vendor and changes nothing, so it does not.
+   */
   const ensureSaved = async (): Promise<number> => {
     if (endpointId) {
       await customApiService.updateEndpoint(connection.id, endpointId, {
@@ -190,6 +199,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
         resultShape,
         ...parameterFields,
       });
+      invalidateAvailability();
       return endpointId;
     }
     const knownIds = new Set(connection.endpoints.map((one) => one.id));
@@ -199,6 +209,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
       resultShape,
       ...parameterFields,
     });
+    invalidateAvailability();
     /**
      * ⛔ THE ONE THAT IS NEW, never "the last one in the array". The endpoints query had no
      * ORDER BY, and Send test REWRITES a row every time it runs (it saves the response skeleton)
@@ -332,6 +343,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
             }),
         ...parameterFields,
       });
+      invalidateAvailability();
       onSaved();
       onClose();
     } catch (err) {

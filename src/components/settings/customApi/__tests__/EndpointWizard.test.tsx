@@ -46,6 +46,16 @@ vi.mock('@/services/customApi.service', async () => {
   };
 });
 
+/**
+ * The availability cache the thread panel reads (F2, 2026-09-19). A spy rather than a real
+ * QueryClient: what matters here is WHEN the form drops it — after a successful write, never
+ * after a failed one. The hook itself is tested against a real client in its own file.
+ */
+const invalidate = vi.fn<() => void>();
+vi.mock('@/hooks/useCustomApiLookup', () => ({
+  useInvalidateCustomApiAvailability: () => invalidate,
+}));
+
 const connection = (): Connection => ({
   id: 1,
   name: 'DeusPower',
@@ -130,6 +140,7 @@ beforeEach(() => {
   updateEndpoint.mockReset().mockResolvedValue(withNewEndpoint());
   sendTest.mockReset().mockResolvedValue({ outcome: { status: 'ok' }, paths: REAL_PATHS });
   shapeSample.mockReset().mockResolvedValue({ outcome: { status: 'ok' }, paths: REAL_PATHS });
+  invalidate.mockReset();
 });
 
 describe('the field picker — the thing that makes this self-serve', () => {
@@ -663,5 +674,46 @@ describe('the wizard reaches a working lookup without meeting 24 fields', () => 
     expect(inputs.length).toBeLessThanOrEqual(4);
     await fill(user);
     expect(screen.getByRole('button', { name: 'Test' })).toBeEnabled();
+  });
+});
+
+describe('⛔ a saved lookup reaches the thread panel now, not in five minutes', () => {
+  it('the save-before-test that CREATES the lookup drops the cached availability', async () => {
+    const user = userEvent.setup();
+    render(<EndpointWizard connection={connection()} onClose={noop} onSaved={noop} />);
+    await fill(user);
+    await user.click(screen.getByRole('button', { name: 'Test' }));
+    await waitFor(() => expect(createEndpoint).toHaveBeenCalledTimes(1));
+    // ⛔ RED: drop the call after `createEndpoint` and the first lookup stays invisible.
+    await waitFor(() => expect(invalidate).toHaveBeenCalledTimes(1));
+    // The test itself changed nothing: exactly one invalidation, for the one write.
+    await waitFor(() => expect(sendTest).toHaveBeenCalledTimes(1));
+    expect(invalidate).toHaveBeenCalledTimes(1);
+  });
+
+  it('the final Save (updateEndpoint) drops it again', async () => {
+    const user = userEvent.setup();
+    render(<EndpointWizard connection={connection()} onClose={noop} onSaved={noop} />);
+    await fill(user);
+    await user.click(screen.getByRole('button', { name: 'Test' }));
+    await waitFor(() => expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0));
+    invalidate.mockClear();
+    await user.click(screen.getByRole('checkbox', { name: /date_added/ }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
+    // ⛔ RED: drop the call after the Save's `updateEndpoint`.
+    await waitFor(() => expect(invalidate).toHaveBeenCalledTimes(1));
+  });
+
+  it('a failed create does not', async () => {
+    createEndpoint.mockRejectedValue(new Error('refused'));
+    const user = userEvent.setup();
+    render(<EndpointWizard connection={connection()} onClose={noop} onSaved={noop} />);
+    await fill(user);
+    await user.click(screen.getByRole('button', { name: 'Test' }));
+    await waitFor(() => expect(createEndpoint).toHaveBeenCalledTimes(1));
+    await screen.findByText(/Could not reach your system/);
+    // ⛔ RED: invalidate before the write lands and a refused save still refetches.
+    expect(invalidate).not.toHaveBeenCalled();
   });
 });

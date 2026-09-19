@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { customApiService, type CustomApiConnection } from '@/services/customApi.service';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { useInvalidateCustomApiAvailability } from '@/hooks/useCustomApiLookup';
 
 /**
  * Add or edit a VENDOR — Settings → Integrations → Custom APIs (CA-5 Task 2).
@@ -68,6 +69,8 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
     (authType === 'header' && !authHeaderName.trim()) ||
     (!editing && !acknowledged);
 
+  const invalidateAvailability = useInvalidateCustomApiAvailability();
+
   const save = async () => {
     setSaving(true);
     setError(null);
@@ -107,6 +110,10 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
           piiAcknowledged: true,
         });
       }
+      // A create or an update can change what lookups exist, and so whether the thread panel
+      // should render: its cached answer must not outlive this save. This form has no enabled,
+      // department or surface control; any added later must call the invalidator on save too.
+      invalidateAvailability();
       onSaved();
       onClose();
     } catch (err) {

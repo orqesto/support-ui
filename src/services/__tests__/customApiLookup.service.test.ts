@@ -12,15 +12,20 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
  * code meets responses from a backend that predates it.
  */
 const post = vi.fn();
+const get = vi.fn();
 
 vi.mock('@/lib/api-client', () => ({
-  apiClient: { post: (...args: unknown[]): unknown => post(...args) },
+  apiClient: {
+    post: (...args: unknown[]): unknown => post(...args),
+    get: (...args: unknown[]): unknown => get(...args),
+  },
 }));
 
 const { customApiLookupService } = await import('../customApiLookup.service');
 
 beforeEach(() => {
   post.mockReset();
+  get.mockReset();
 });
 
 describe('customApiLookupService.run', () => {
@@ -90,6 +95,25 @@ describe('customApiLookupService.run', () => {
     post.mockResolvedValue({ data: { success: true, data: [] } });
     await customApiLookupService.run({ conversationId: 7 });
 
-    expect(post).toHaveBeenCalledWith('/custom-apis/lookup', { conversationId: 7 });
+    expect(post).toHaveBeenCalledWith('/api/custom-apis/lookup', { conversationId: 7 });
+  });
+});
+
+describe('customApiLookupService.availability', () => {
+  it('asks the availability route for the given surface — a GET, never the lookup POST', async () => {
+    get.mockResolvedValue({ data: { success: true, data: { available: true } } });
+    expect(await customApiLookupService.availability('contact')).toBe(true);
+    expect(get).toHaveBeenCalledWith('/api/custom-apis/lookup/availability', {
+      params: { surface: 'contact' },
+    });
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('⛔ fails CLOSED on a response without the flag', async () => {
+    // RED: `Boolean(data)` or `!== false` ⇒ an unexpected body shows the dead panel again.
+    get.mockResolvedValue({ data: { success: true } });
+    expect(await customApiLookupService.availability('thread')).toBe(false);
+    get.mockResolvedValue({ data: { success: true, data: { available: 'yes' } } });
+    expect(await customApiLookupService.availability('thread')).toBe(false);
   });
 });

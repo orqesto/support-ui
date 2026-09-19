@@ -21,6 +21,16 @@ vi.mock('@/services/customApi.service', async () => {
   };
 });
 
+/**
+ * The availability cache the thread panel reads (F2, 2026-09-19). A spy rather than a real
+ * QueryClient: what matters here is WHEN the form drops it — after a successful write, never
+ * after a failed one. The hook itself is tested against a real client in its own file.
+ */
+const invalidate = vi.fn<() => void>();
+vi.mock('@/hooks/useCustomApiLookup', () => ({
+  useInvalidateCustomApiAvailability: () => invalidate,
+}));
+
 const connection = (): Connection => ({
   id: 1,
   name: 'DeusPower',
@@ -46,6 +56,7 @@ const noop = () => {};
 beforeEach(() => {
   create.mockReset().mockResolvedValue(connection());
   update.mockReset().mockResolvedValue(connection());
+  invalidate.mockReset();
 });
 
 describe('D42 — the client acknowledges what connecting a vendor sends out', () => {
@@ -245,5 +256,31 @@ describe('a refusal says which end is wrong', () => {
     await waitFor(() =>
       expect(screen.getByText(/192\.168\.1\.10 is not reachable from our servers/)).toBeTruthy()
     );
+  });
+});
+
+describe('⛔ a saved connection reaches the thread panel now, not in five minutes', () => {
+  const connectOne = async () => {
+    const user = userEvent.setup();
+    render(<CustomApiVendorForm open onClose={noop} onSaved={noop} />);
+    await user.type(screen.getByLabelText('Name'), 'Our shop');
+    await user.type(screen.getByLabelText('Address'), 'https://shop.example/api');
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: 'Connect' }));
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+  };
+
+  it('a successful create drops the cached availability', async () => {
+    await connectOne();
+    // ⛔ RED: drop the call after the save and the panel keeps its cached "no" for five minutes.
+    await waitFor(() => expect(invalidate).toHaveBeenCalledTimes(1));
+  });
+
+  it('a failed create does not', async () => {
+    create.mockRejectedValue(new Error('refused'));
+    await connectOne();
+    // ⛔ RED: invalidate before the write (or in `finally`) and a refused save still refetches.
+    await screen.findByText(/Could not save this connection/);
+    expect(invalidate).not.toHaveBeenCalled();
   });
 });

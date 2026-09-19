@@ -44,7 +44,26 @@ const normalise = (row: CustomApiLookupResult): CustomApiLookupResult => ({
   suggestions: row.suggestions ?? [],
 });
 
+/** Which panel is asking. An endpoint declares where it renders (D15), so the answer differs. */
+export type LookupSurface = 'thread' | 'contact';
+
 export const customApiLookupService = {
+  /**
+   * Does this caller have ANY lookup a press on this surface could run? Decides whether the panel
+   * renders at all.
+   *
+   * ⛔ NOT A LOOKUP. It reads configuration on OUR backend — no vendor is called and no customer
+   * data comes back — so asking it on mount keeps SC1: nothing is LOOKED UP until the press.
+   */
+  async availability(surface: LookupSurface): Promise<boolean> {
+    const res = await apiClient.get<{ success: boolean; data?: { available?: boolean } }>(
+      '/api/custom-apis/lookup/availability',
+      { params: { surface } }
+    );
+    // Fail CLOSED: a response without the flag is not a yes.
+    return res.data.data?.available === true;
+  },
+
   /**
    * Run every eligible lookup for this customer, or one manual lookup with a supplied value.
    *
@@ -53,7 +72,7 @@ export const customApiLookupService = {
    */
   async run(body: LookupRequest): Promise<CustomApiLookupResult[]> {
     const res = await apiClient.post<{ success: boolean; data: CustomApiLookupResult[] }>(
-      '/custom-apis/lookup',
+      '/api/custom-apis/lookup',
       body
     );
     return (res.data.data ?? []).map(normalise);

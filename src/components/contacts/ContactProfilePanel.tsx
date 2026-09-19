@@ -310,9 +310,7 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
                     rename, recolour or flatten what that list said, and two copies are two places
                     to fix every future state.
                   */}
-                  <div className="mb-4">
-                    <CustomApiLookupPanel contactId={contact.id} />
-                  </div>
+                  <CustomApiLookupPanel contactId={contact.id} className="mb-4" />
                   <ContactProfileDetails
                     contact={contact}
                     users={users}

@@ -13,6 +13,12 @@ const updateEndpoint =
     (connectionId: number, endpointId: number, input: unknown) => Promise<Svc.CustomApiConnection>
   >();
 
+// The wizard drops the thread panel's cached availability after a save; that needs a
+// QueryClient these tests do not mount, and what it invalidates is covered in EndpointWizard.test.
+vi.mock('@/hooks/useCustomApiLookup', () => ({
+  useInvalidateCustomApiAvailability: () => () => undefined,
+}));
+
 vi.mock('@/services/customApi.service', async () => {
   const actual = await vi.importActual<typeof Svc>('@/services/customApi.service');
   return {

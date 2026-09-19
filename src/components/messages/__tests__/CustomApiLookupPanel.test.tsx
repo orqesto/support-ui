@@ -1,8 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import type { ReactElement, ReactNode } from 'react';
+import { act, render as rtlRender, renderHook, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
-import { CustomApiLookupPanel } from '../CustomApiLookupPanel';
+import { CustomApiLookupPanel, NO_EMAIL_IDENTITY_NOTE } from '../CustomApiLookupPanel';
+import { useCustomApiLookup } from '@/hooks/useCustomApiLookup';
 import type * as LookupService from '@/services/customApiLookup.service';
+import { useAuthStore } from '@/stores/authStore';
+import type { User } from '@/types';
 
 type CustomApiLookupResult = LookupService.CustomApiLookupResult;
 
@@ -15,10 +20,17 @@ type CustomApiLookupResult = LookupService.CustomApiLookupResult;
  */
 
 const run = vi.fn<(body: unknown) => Promise<CustomApiLookupResult[]>>();
+const availability = vi.fn<(surface: string) => Promise<boolean>>();
 
 vi.mock('@/services/customApiLookup.service', async () => {
   const actual = await vi.importActual<typeof LookupService>('@/services/customApiLookup.service');
-  return { ...actual, customApiLookupService: { run: (body: unknown) => run(body) } };
+  return {
+    ...actual,
+    customApiLookupService: {
+      run: (body: unknown) => run(body),
+      availability: (surface: string) => availability(surface),
+    },
+  };
 });
 
 const card = (over: Partial<CustomApiLookupResult> = {}): CustomApiLookupResult =>
@@ -37,11 +49,24 @@ const card = (over: Partial<CustomApiLookupResult> = {}): CustomApiLookupResult 
   }) as CustomApiLookupResult;
 
 const press = async (name = /look up/i) => {
-  await userEvent.click(screen.getAllByRole('button', { name })[0]);
+  // `find`, not `get`: the panel renders only once availability has answered.
+  await userEvent.click((await screen.findAllByRole('button', { name }))[0]);
+};
+
+/** A fresh cache per render, so one test's availability answer never leaks into the next. */
+const render = (ui: ReactElement) => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+  return rtlRender(ui, { wrapper });
 };
 
 beforeEach(() => {
   run.mockReset();
+  availability.mockReset();
+  availability.mockResolvedValue(true);
+  useAuthStore.setState({ selectedOrganizationId: 1, user: { id: 9 } as User });
 });
 
 describe('SC1 — the lookup is a PRESS, never automatic', () => {
@@ -70,6 +95,25 @@ describe('the outcomes stay distinguishable', () => {
     await press();
 
     const text = await screen.findByText(/no matching records/i);
+    expect(text.className).toContain('text-muted-foreground');
+    expect(text.className).not.toContain('destructive');
+  });
+
+  it('"no identity" is ORDINARY too — muted, with its reason', async () => {
+    // RED: render `no_identity` through the `failed` branch (or not at all) ⇒ a Telegram customer
+    // with no email reads in the same red as a vendor outage, or the card says nothing.
+    run.mockResolvedValue([
+      card({
+        status: 'no_identity',
+        reason: 'This customer has no email address, so this lookup cannot run.',
+        rows: [],
+        fields: [],
+      }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    const text = await screen.findByText(/has no email address, so this lookup cannot run/i);
     expect(text.className).toContain('text-muted-foreground');
     expect(text.className).not.toContain('destructive');
   });
@@ -124,6 +168,25 @@ describe('D38 — a record that is not this customer’s', () => {
     await press();
 
     expect(await screen.findByText(/not confirmed as this customer/i)).toBeTruthy();
+  });
+
+  it.each([
+    // RED for each: the single old sentence blamed the integration for every reason — false when
+    // the customer is the one with no email, or when the check call itself failed.
+    ['not_supported', /this integration cannot verify ownership/i],
+    ['no_customer_email', /this customer has no email address to check it against/i],
+    ['check_failed', /the ownership check failed/i],
+    // An older backend sends no reason: the neutral wording, true whatever the cause.
+    [undefined, /ownership could not be checked/i],
+  ] as const)('names the TRUE cause of "unverified" (%s)', async (ownershipReason, wording) => {
+    run.mockResolvedValue([card({ ownership: 'unverified', ownershipReason })]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    expect(await screen.findByText(wording)).toBeTruthy();
+    if (ownershipReason !== 'not_supported') {
+      expect(screen.queryByText(/this integration cannot verify/i)).toBeNull();
+    }
   });
 
   it('POSITIVE CONTROL: an owned record carries no warning at all', async () => {
@@ -230,7 +293,7 @@ describe('an empty panel never reads as a failure', () => {
     run.mockResolvedValue([]);
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
-    expect(await screen.findByText(/no integrations are set up/i)).toBeTruthy();
+    expect(await screen.findByText(/no lookups are available to you/i)).toBeTruthy();
   });
 });
 
@@ -432,5 +495,205 @@ describe('one customer’s records never appear under another', () => {
 
     await waitFor(() => expect(screen.queryByText('137416')).toBeNull());
     expect(run).not.toHaveBeenCalled();
+  });
+});
+
+describe('a press in flight answers only for the customer it was made on', () => {
+  /**
+   * The clear above runs when the target changes; a response that lands AFTER it used to repaint
+   * the new thread with the old customer's records. Audit 2026-09-19 reproduced it exactly so.
+   */
+  const deferred = () => {
+    let resolve!: (rows: CustomApiLookupResult[]) => void;
+    let reject!: (err: unknown) => void;
+    const promise = new Promise<CustomApiLookupResult[]>((ok, fail) => {
+      resolve = ok;
+      reject = fail;
+    });
+    return { promise, resolve, reject };
+  };
+  const mountHook = () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    return renderHook(({ id }: { id: number }) => useCustomApiLookup({ conversationId: id }), {
+      initialProps: { id: 1 },
+      wrapper,
+    });
+  };
+
+  it('⛔ drops a SUCCESS for conversation 1 that lands after the switch to 2', async () => {
+    // RED: apply it ⇒ conversation 1's order sits in conversation 2's panel, labelled as 2's.
+    const pending = deferred();
+    run.mockReturnValue(pending.promise);
+    const { result, rerender } = mountHook();
+    let press!: Promise<void>;
+    act(() => {
+      press = result.current.run();
+    });
+    rerender({ id: 2 });
+    await act(async () => {
+      pending.resolve([card()]);
+      await press;
+    });
+    expect(result.current.results).toEqual([]);
+    expect(result.current.hasRun).toBe(false);
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('⛔ drops an ERROR for conversation 1 that lands after the switch to 2', async () => {
+    // RED: apply it ⇒ conversation 2 shows a failure nobody asked about.
+    const pending = deferred();
+    run.mockReturnValue(pending.promise);
+    const { result, rerender } = mountHook();
+    let press!: Promise<void>;
+    act(() => {
+      press = result.current.run();
+    });
+    rerender({ id: 2 });
+    await act(async () => {
+      pending.reject(Object.assign(new Error('vendor down'), { status: 502 }));
+      await press;
+    });
+    expect(result.current.error).toBeNull();
+    expect(result.current.unavailable).toBe(false);
+    expect(result.current.hasRun).toBe(false);
+  });
+
+  it('a switch while loading does not leave the new thread spinning', () => {
+    // RED: leave `loading` to the stale press ⇒ it never clears on conversation 2.
+    const pending = deferred();
+    run.mockReturnValue(pending.promise);
+    const { result, rerender } = mountHook();
+    act(() => {
+      void result.current.run();
+    });
+    expect(result.current.loading).toBe(true);
+    rerender({ id: 2 });
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('a press on the CURRENT conversation still lands', async () => {
+    // Control: the guard must not drop every response.
+    run.mockResolvedValue([card()]);
+    const { result } = mountHook();
+    await act(async () => {
+      await result.current.run();
+    });
+    expect(result.current.results).toHaveLength(1);
+    expect(result.current.hasRun).toBe(true);
+  });
+});
+
+describe('the panel renders ONLY when this caller has a lookup to run', () => {
+  // Release blocker 2026-09-19: the panel showed on every thread and contact in every workspace,
+  // and a press in a workspace with nothing configured said "No integrations are set up" — a dead
+  // control in front of every client, with no screen yet to set one up.
+  const settle = async () => {
+    await waitFor(() => expect(availability).toHaveBeenCalled());
+    // Let the rejected/resolved query commit before asserting on the DOM.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  };
+
+  it('⛔ renders NOTHING when the backend says no lookup is available', async () => {
+    availability.mockResolvedValue(false);
+    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
+    await settle();
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('⛔ renders nothing on a 404 — an OLDER backend without the availability route', async () => {
+    availability.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
+    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
+    await settle();
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders nothing on any other error — it fails CLOSED', async () => {
+    availability.mockRejectedValue(Object.assign(new Error('Server Error'), { status: 500 }));
+    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
+    await settle();
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders nothing while the answer is still loading', () => {
+    availability.mockReturnValue(new Promise<boolean>(() => {}));
+    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("the host's spacing sits on the panel's OWN root, so a hidden panel leaves no gap", async () => {
+    // The hosts used to wrap the panel in a spaced <div>, which stayed behind as a blank gap on
+    // every thread and contact once the panel started rendering nothing by default.
+    const { container } = render(<CustomApiLookupPanel conversationId={1} className="mb-4" />);
+    await screen.findByRole('button', { name: /look up/i });
+    expect(container.firstElementChild?.className).toContain('mb-4');
+  });
+
+  it('a press that finds nothing says so without claiming the WORKSPACE has none', async () => {
+    // Availability and the press share one selection, so [] means the config changed inside the
+    // cache window — and for a department-scoped agent the workspace may still have lookups.
+    run.mockResolvedValue([]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+    expect(await screen.findByText('No lookups are available to you right now.')).toBeTruthy();
+    expect(screen.queryByText(/set up for this workspace/)).toBeNull();
+  });
+
+  it('POSITIVE CONTROL: renders the panel when a lookup IS available', async () => {
+    render(<CustomApiLookupPanel conversationId={1} />);
+    expect(await screen.findByText('CONNECTED SYSTEMS')).toBeTruthy();
+  });
+
+  it('⛔ asking is NOT a lookup — no lookup request fires on mount (SC1)', async () => {
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await screen.findByText('CONNECTED SYSTEMS');
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('asks about the SURFACE it is on: thread for a conversation, contact otherwise', async () => {
+    const thread = render(<CustomApiLookupPanel conversationId={1} />);
+    await waitFor(() => expect(availability).toHaveBeenCalledWith('thread'));
+    thread.unmount();
+    availability.mockClear();
+    render(<CustomApiLookupPanel contactId={7} />);
+    await waitFor(() => expect(availability).toHaveBeenCalledWith('contact'));
+    expect(availability).not.toHaveBeenCalledWith('thread');
+  });
+
+  it('a press that finds nothing to run re-asks, and the panel stands down', async () => {
+    run.mockResolvedValue([]);
+    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
+    await screen.findByText('CONNECTED SYSTEMS');
+    // An admin disabled the last lookup after the panel asked.
+    availability.mockResolvedValue(false);
+    await press();
+    await waitFor(() => expect(container.firstChild).toBeNull());
+    expect(availability).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('the no-email note', () => {
+  it('never promises a field to type a record number into', () => {
+    // An identity-only workspace passes the availability gate, and no lookup there takes input.
+    expect(NO_EMAIL_IDENTITY_NOTE).not.toMatch(/enter|type|record number/i);
+    expect(NO_EMAIL_IDENTITY_NOTE).toMatch(/no email address/);
+  });
+});
+
+describe('a status this build does not know (a newer backend)', () => {
+  it("shows the backend's reason, muted — never a blank card", async () => {
+    run.mockResolvedValue([
+      card({
+        status: 'from_the_future' as unknown as CustomApiLookupResult['status'],
+        reason: 'Something new happened.',
+      }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+    const text = await screen.findByText('Something new happened.');
+    expect(text.className).toContain('text-muted-foreground');
+    expect(text.className).not.toContain('text-destructive');
   });
 });

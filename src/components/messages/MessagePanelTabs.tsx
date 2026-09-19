@@ -28,7 +28,11 @@ import RichTextEditor from '@/components/shared/RichTextEditor';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import DOMPurify from 'dompurify';
 import { MONO, relativeTime, getInitials } from './messageDetailConstants';
-import { CustomApiLookupPanel } from './CustomApiLookupPanel';
+import {
+  CustomApiLookupPanel,
+  NO_EMAIL_IDENTITY_NOTE,
+  hasLookupEmailIdentity,
+} from './CustomApiLookupPanel';
 
 type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
 
@@ -128,7 +132,7 @@ export function MessagePanelTabs({
   // we have; a customer with no email simply gets no identity-keyed lookup (D30), and the panel
   // says so rather than showing an empty result that reads like a failure.
   const contactEnabled = tab === 'customer' && contactEmail.length > 0;
-  const hasEmailIdentity = contactEmail.includes('@');
+  const hasEmailIdentity = hasLookupEmailIdentity(contactEmail);
   const contactProfile = useContactProfile(contactEmail, {
     enabled: contactEnabled,
     onChanged: onRefresh,
@@ -309,16 +313,11 @@ export function MessagePanelTabs({
 
               {/* CA-3: what the connected integrations know about this customer. Nothing is
                   fetched until the agent presses Look up (SC1). */}
-              <div className="pt-1">
-                <CustomApiLookupPanel
-                  conversationId={message.id}
-                  identityNote={
-                    hasEmailIdentity
-                      ? undefined
-                      : 'This customer has no email address, so identity-based lookups cannot run. Enter a record number to look one up.'
-                  }
-                />
-              </div>
+              <CustomApiLookupPanel
+                className="pt-1"
+                conversationId={message.id}
+                identityNote={hasEmailIdentity ? undefined : NO_EMAIL_IDENTITY_NOTE}
+              />
 
               {/* Full contact profile — assigned manager, labels, channel
                   profiles, linked contacts and contact-level notes (shared with

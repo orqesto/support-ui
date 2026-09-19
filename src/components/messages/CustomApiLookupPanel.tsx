@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AlertTriangle, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { useCustomApiLookup } from '@/hooks/useCustomApiLookup';
+import { useCustomApiLookup, useCustomApiLookupAvailability } from '@/hooks/useCustomApiLookup';
 import type { CustomApiLookupResult, LookupField } from '@/services/customApiLookup.service';
 import { MONO } from './messageDetailConstants';
 
@@ -22,15 +22,73 @@ import { MONO } from './messageDetailConstants';
  *   failed        — a reason, and the OTHER cards still show their rows (SC3)
  */
 
+/**
+ * The note on a thread whose customer has no email (D30: identity lookups key on email only).
+ * ⛔ It must not promise a place to type a number: availability is true for identity-only
+ * workspaces too, where no lookup takes manual input — and before a press there is no field
+ * anywhere, since the input exists only on a `needs_input` card.
+ */
+export const NO_EMAIL_IDENTITY_NOTE =
+  'This customer has no email address, so identity-based lookups cannot run.';
+
+/**
+ * Does this sender carry an email an identity lookup can key on? The SAME rule as the backend's
+ * `lookupEmail` (customApiLookupService): a real address shape, and not the chat widget's
+ * `anonymous@chat-widget.local` placeholder. `includes('@')` alone called that placeholder an
+ * email, so the note stayed hidden while every identity card said it could not run.
+ * ⛔ A COPY. The source of truth is `isRealCustomerEmail` in the backend's
+ * `src/shared/email/customerEmail.ts` (a separate repo) — change both together.
+ */
+const LOOKUP_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const hasLookupEmailIdentity = (value: string): boolean => {
+  const email = value.trim();
+  return LOOKUP_EMAIL_RE.test(email) && !email.toLowerCase().endsWith('@chat-widget.local');
+};
+
+/**
+ * Every status this build renders a body for; anything else falls back to the backend's reason.
+ * `satisfies` ties it to the generated union: a status added to the contract and not here fails
+ * type-check instead of rendering a blank card (or two bodies, if a branch is added without it).
+ */
+const KNOWN_STATUSES = {
+  ok: true,
+  no_match: true,
+  no_identity: true,
+  failed: true,
+  shape_changed: true,
+  needs_input: true,
+} satisfies Record<CustomApiLookupResult['status'], true>;
+const isKnownStatus = (status: string): boolean => Object.hasOwn(KNOWN_STATUSES, status);
+
 interface Props {
   conversationId?: number;
   contactId?: number;
   /** Shown when the customer has no email to key an identity lookup on (D30). */
   identityNote?: string;
+  /** Spacing from the host. On the panel's own root, so a hidden panel leaves no gap behind. */
+  className?: string;
 }
 
+/**
+ * Why an `unverified` verdict could not be checked, in words that are TRUE for that reason. The
+ * old single sentence blamed the integration even when it CAN verify and it was the customer who
+ * had no email. An older backend sends no reason ⇒ the neutral fallback, true in every case.
+ */
+const UNVERIFIED_TEXT: Record<
+  NonNullable<CustomApiLookupResult['ownershipReason']> | 'unknown',
+  string
+> = {
+  not_supported:
+    'Not confirmed as this customer’s record — this integration cannot verify ownership.',
+  no_customer_email:
+    'Not confirmed as this customer’s record — this customer has no email address to check it against.',
+  check_failed: 'Not confirmed as this customer’s record — the ownership check failed.',
+  unknown: 'Not confirmed as this customer’s record — ownership could not be checked.',
+};
+
 const ownershipNotice = (
-  ownership: CustomApiLookupResult['ownership']
+  ownership: CustomApiLookupResult['ownership'],
+  reason?: CustomApiLookupResult['ownershipReason']
 ): { text: string; className: string } | null => {
   switch (ownership) {
     case 'mismatch':
@@ -47,7 +105,9 @@ const ownershipNotice = (
       // customer's records at all (a carrier knows a parcel number, not who emailed us) or the
       // check itself failed. Saying nothing here would let it read as confirmed.
       return {
-        text: 'Not confirmed as this customer’s record — this integration cannot verify ownership.',
+        // `?? 'unknown'` AND the lookup's own fallback: a reason this build does not know yet (a
+        // newer backend) must not render as `undefined`.
+        text: UNVERIFIED_TEXT[reason ?? 'unknown'] ?? UNVERIFIED_TEXT.unknown,
         className: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/40',
       };
     default:
@@ -102,7 +162,7 @@ const ResultCard = ({
   // D36: the number found in the CUSTOMER'S message is pre-filled — into a field the agent can
   // overwrite. A suggestion is a suggestion; nothing is sent to a vendor without a press.
   const [value, setValue] = useState(result.suggestions?.[0] ?? '');
-  const notice = ownershipNotice(result.ownership);
+  const notice = ownershipNotice(result.ownership, result.ownershipReason);
   // ⛔ FALL BACK TO THE ROW'S OWN KEYS. `fieldPaths` DEFAULTS to empty, and the backend returns
   // rows unprojected in that case — so mapping over `fields` alone rendered a BLANK card while
   // holding data, on the commonest configuration state there is. Found by audit pass 2.
@@ -165,6 +225,24 @@ const ResultCard = ({
         <p className="text-[11px] text-muted-foreground">No matching records for this customer.</p>
       )}
 
+      {result.status === 'no_identity' && (
+        // ⛔ ORDINARY, like `no_match`: a Telegram or anonymous-widget customer simply has no email
+        // to key on. Red here taught agents the same thing as red on a real vendor outage.
+        // (An older backend still sends this as `failed`, which renders red — no worse than before.)
+        <p className="text-[11px] text-muted-foreground">
+          {result.reason ?? 'This customer has no email address, so this lookup cannot run.'}
+        </p>
+      )}
+
+      {!isKnownStatus(result.status) && (
+        // A status this build does not know yet — a NEWER backend (this frontend ships from `main`,
+        // the backend on a tag, so either can lead). Say what the backend said, muted: never a
+        // blank card, and never red for a state this build cannot judge.
+        <p className="text-[11px] text-muted-foreground">
+          {result.reason ?? 'This lookup returned a result this version cannot display.'}
+        </p>
+      )}
+
       {result.status === 'failed' && (
         <p className="text-[11px] text-destructive">{result.reason ?? 'This lookup failed.'}</p>
       )}
@@ -213,11 +291,21 @@ const ResultCard = ({
   );
 };
 
-export const CustomApiLookupPanel = ({ conversationId, contactId, identityNote }: Props) => {
+export const CustomApiLookupPanel = ({
+  conversationId,
+  contactId,
+  identityNote,
+  className,
+}: Props) => {
   const { results, loading, hasRun, error, unavailable, run } = useCustomApiLookup({
     conversationId,
     contactId,
   });
+
+  // ⛔ ASK FIRST, RENDER ONLY ON A YES. Mirrors the backend: a conversation runs the THREAD
+  // surface, anything else the CONTACT surface. Nothing is looked up by asking (SC1).
+  const available = useCustomApiLookupAvailability(conversationId ? 'thread' : 'contact');
+  if (!available) return null;
 
   // ⚠️ FE/BE SKEW: this deployment has no lookup endpoint yet. Show nothing rather than a button
   // that fails — a broken-looking control reads as a broken integration, not as a feature that has
@@ -225,7 +313,7 @@ export const CustomApiLookupPanel = ({ conversationId, contactId, identityNote }
   if (unavailable) return null;
 
   return (
-    <div className="space-y-2">
+    <div className={className ? `space-y-2 ${className}` : 'space-y-2'}>
       <div className="flex items-center justify-between gap-2">
         <p className={`${MONO} text-muted-foreground`}>CONNECTED SYSTEMS</p>
         <Button
@@ -258,7 +346,7 @@ export const CustomApiLookupPanel = ({ conversationId, contactId, identityNote }
       */}
         {hasRun && results.length === 0 && !error && (
           <p className="text-[11px] text-muted-foreground">
-            No integrations are set up for this workspace yet.
+            No lookups are available to you right now.
           </p>
         )}
 

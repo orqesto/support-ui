@@ -104,14 +104,14 @@ const normaliseTestResult = (data: unknown): EndpointTestResult => {
 export const customApiService = {
   async list(): Promise<CustomApiConnection[]> {
     const res = await apiClient.get<{ success: boolean; data: CustomApiConnection[] }>(
-      '/custom-apis'
+      '/api/custom-apis'
     );
     return (res.data.data ?? []).map(normalise);
   },
 
   async create(input: CreateConnectionInput): Promise<CustomApiConnection> {
     const res = await apiClient.post<{ success: boolean; data: CustomApiConnection }>(
-      '/custom-apis',
+      '/api/custom-apis',
       input
     );
     return normalise(res.data.data);
@@ -133,19 +133,19 @@ export const customApiService = {
     input: Partial<Omit<CreateConnectionInput, 'piiAcknowledged'> & { enabled: boolean }>
   ) {
     const res = await apiClient.patch<{ success: boolean; data: CustomApiConnection }>(
-      `/custom-apis/${id}`,
+      `/api/custom-apis/${id}`,
       input
     );
     return normalise(res.data.data);
   },
 
   async remove(id: number): Promise<void> {
-    await apiClient.delete(`/custom-apis/${id}`);
+    await apiClient.delete(`/api/custom-apis/${id}`);
   },
 
   async createEndpoint(connectionId: number, input: Record<string, unknown>) {
     const res = await apiClient.post<{ success: boolean; data: CustomApiConnection }>(
-      `/custom-apis/${connectionId}/endpoints`,
+      `/api/custom-apis/${connectionId}/endpoints`,
       input
     );
     return normalise(res.data.data);
@@ -153,7 +153,7 @@ export const customApiService = {
 
   async updateEndpoint(connectionId: number, endpointId: number, input: Record<string, unknown>) {
     const res = await apiClient.patch<{ success: boolean; data: CustomApiConnection }>(
-      `/custom-apis/${connectionId}/endpoints/${endpointId}`,
+      `/api/custom-apis/${connectionId}/endpoints/${endpointId}`,
       input
     );
     return normalise(res.data.data);
@@ -166,7 +166,7 @@ export const customApiService = {
     parameter?: string
   ): Promise<EndpointTestResult> {
     const res = await apiClient.post<{ success: boolean; data: unknown }>(
-      `/custom-apis/${connectionId}/endpoints/${endpointId}/test`,
+      `/api/custom-apis/${connectionId}/endpoints/${endpointId}/test`,
       parameter ? { parameter } : {}
     );
     return normaliseTestResult(res.data.data);
@@ -183,7 +183,7 @@ export const customApiService = {
     sample: string
   ): Promise<EndpointTestResult> {
     const res = await apiClient.post<{ success: boolean; data: unknown }>(
-      `/custom-apis/${connectionId}/endpoints/${endpointId}/shape`,
+      `/api/custom-apis/${connectionId}/endpoints/${endpointId}/shape`,
       { sample }
     );
     return normaliseTestResult(res.data.data);
