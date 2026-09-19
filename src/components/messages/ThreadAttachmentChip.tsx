@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { API_BASE_URL } from '@/lib/config';
+import { attachmentDownloadUrl } from '@/lib/attachmentUrl';
+import { useAuthStore } from '@/stores/authStore';
 import type { Attachment } from '@/types/ai';
 
 /**
@@ -38,6 +39,8 @@ export const ThreadAttachmentChip = ({
   className: string;
 }) => {
   const [previewFailed, setPreviewFailed] = useState(false);
+  // Same source the api-client interceptor reads; here it goes in the path instead of a header.
+  const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const isImage = (attachment.mimeType ?? '').toLowerCase().startsWith('image/');
   const showPreview = isImage && !previewFailed;
 
@@ -68,7 +71,9 @@ export const ThreadAttachmentChip = ({
       title={attachment.originalFilename}
     >
       <img
-        src={`${API_BASE_URL}/api/attachments/${attachment.id}/download`}
+        // The workspace rides IN the url: the browser loads this itself, so the
+        // `X-Organization-Context` header never goes with it — see `attachmentDownloadUrl`.
+        src={attachmentDownloadUrl(attachment.id, selectedOrganizationId)}
         alt={attachment.originalFilename}
         loading="lazy"
         decoding="async"
