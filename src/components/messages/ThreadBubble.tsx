@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/Button';
 import { API_BASE_URL } from '@/lib/config';
+import { sanitizeEmailHtml } from '@/lib/emailHtml';
 import { useAuthStore } from '@/stores/authStore';
 import {
   THREAD_SANITIZE,
@@ -82,12 +83,66 @@ export function ThreadBubble({
     '[&_pre]:whitespace-pre-wrap [&_img]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto';
   const prose = isAgent ? `${base} prose-invert dark:prose-invert` : base;
 
-  const renderHtml = (html: string) => (
-    <div
-      className={prose}
-      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, THREAD_SANITIZE) }}
-    />
-  );
+  /**
+   * The ground an EMAIL renders on, as opposed to the bubble it sits in.
+   *
+   * ⛔ This is a dependency of allowing sender CSS at all, not a cosmetic choice. Until now
+   * `style` was stripped, so forcing `text-primary-foreground` on the bubble was at least
+   * self-consistent: nothing the sender said about colour survived. The moment inline `style`
+   * is honoured, a sender who sets `color:#333` on part of their mail — which is most business
+   * mail — lands dark text on our blue bubble and becomes unreadable. Allowing the CSS without
+   * settling the ground makes some mail render WORSE than before the change.
+   *
+   * So an HTML body gets a light ground with a dark default colour, in BOTH themes. That is
+   * Gmail's behaviour and for the same reason: senders write for a light background and simply
+   * omit `background-color`, so any other ground is a guess that fails for a large slice of
+   * real mail. Plain-text bodies are NOT affected — they keep following the app theme, because
+   * there is no sender styling to respect.
+   *
+   * `overflow-x-auto` + `min-w-[min(600px,100%)]`: 600px is the de-facto width email is designed
+   * for, and this signature's `<table width="100%">` with a 150px logo cell had nowhere to go in
+   * a 524px bubble — which is why contact lines were breaking mid-token. Where the bubble is
+   * wide enough the mail simply uses it; where it is not, the mail keeps its intended width and
+   * scrolls INSIDE its own container. Containing the scroll here is what lets `[&_table]:block`
+   * go: that rule existed only to stop a wide table propagating overflow up to the thread panel
+   * (ORB-SUP-1358), and it did so by destroying table layout. The container now holds that line
+   * without flattening anything.
+   */
+  const emailGround =
+    'rounded bg-white text-[#202124] px-3 py-2 -mx-1 overflow-x-auto ' +
+    // `<pre>` never wraps by default and a contact-form relay wraps the ENTIRE body in one, so
+    // without this a single such mail is one unbroken line. The container would scroll rather
+    // than break the panel, but scrolling to read a message is not reading it.
+    '[&_pre]:whitespace-pre-wrap [&_img]:max-w-full [&_img]:h-auto ' +
+    '[&_a]:text-[#1a0dab] [&_a]:underline';
+
+  const renderHtml = (html: string) => {
+    // No `eventId` means no proxy URL, so the sender's own image hosts could not have been
+    // rewritten. Fall back to the old, stricter config rather than render sender CSS around
+    // images we refuse to load — the spam preview reaches this path.
+    if (eventId === undefined) {
+      return (
+        <div
+          className={prose}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, THREAD_SANITIZE) }}
+        />
+      );
+    }
+    return (
+      <div className={emailGround}>
+        <div
+          className="[overflow-wrap:anywhere] min-w-[min(600px,100%)] text-[13px] leading-normal"
+          dangerouslySetInnerHTML={{
+            __html: sanitizeEmailHtml(html, {
+              eventId,
+              apiBaseUrl: API_BASE_URL,
+              organizationId: selectedOrganizationId,
+            }),
+          }}
+        />
+      </div>
+    );
+  };
   const renderText = (text: string) => (
     <div
       className={prose}
