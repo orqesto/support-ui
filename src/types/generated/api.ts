@@ -414,7 +414,7 @@ export interface components {
             /** @enum {string} */
             ownership?: "owned" | "mismatch" | "unverified";
             /** @enum {string} */
-            ownershipReason?: "not_supported" | "no_customer_email" | "check_failed";
+            ownershipReason?: "not_supported" | "no_customer_email" | "check_failed" | "identity_not_returned";
         };
         SlaBreach: {
             id: number;

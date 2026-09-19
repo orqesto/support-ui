@@ -177,6 +177,32 @@ describe('the outcomes stay distinguishable', () => {
   });
 });
 
+describe('an identity answer with no address to check against', () => {
+  it('says so as a fact about the ANSWER, not a doubt about the customer', async () => {
+    /**
+     * 🔴 2026-09-19: an identity result used to be labelled "This customer's account" with nothing
+     * verifying it. Now it carries a verdict — and for the ORDINARY shape (an order, a parcel: no
+     * address echoed) that verdict is `unverified`, which must read as a limitation of the vendor's
+     * answer rather than a warning about the person on the thread.
+     */
+    run.mockResolvedValue([
+      card({
+        status: 'ok',
+        ownership: 'unverified',
+        ownershipReason: 'identity_not_returned',
+        rows: [{ order_id: '137416' }],
+        fields: [{ path: 'order_id', label: 'Order', kind: 'plain' }],
+      }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    expect(await screen.findByText(/contains no address to check it against/i)).toBeTruthy();
+    // ⛔ INVERTED: it must NOT borrow the accusing wording used for a real mismatch.
+    expect(screen.queryByText(/does NOT belong to this customer/i)).toBeNull();
+  });
+});
+
 describe('D38 — a record that is not this customer’s', () => {
   it('⛔ is SHOWN, under an unmissable flag', async () => {
     // The owner chose showing it over stranding an agent whose customer wrote from a second
