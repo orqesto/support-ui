@@ -30,7 +30,18 @@ describe('renderEventHtml', () => {
     expect(html).toContain('go');
   });
 
-  it('drops inline styles, matching the inbox thread sanitiser', () => {
+  /**
+   * ⚠️ RENAMED 2026-09-19. This used to be called "drops inline styles, matching the inbox
+   * thread sanitiser", and that justification is now FALSE: the inbox thread renders sender
+   * mail through `sanitizeEmailHtml`, which keeps a filtered inline-`style` subset.
+   *
+   * The assertion is unchanged and still correct — this page keeps dropping style — but the
+   * reason is its own, not parity with the thread. It is PUBLIC and unauthenticated, it allows
+   * no `img`, and it has no event id to scope an image proxy with, so it deliberately did not
+   * adopt the email renderer. Left as "matching the thread", the next person reconciling the
+   * two would have widened an anonymous surface to restore an equivalence that no longer holds.
+   */
+  it('drops inline styles — this page is public and does NOT use the email renderer', () => {
     const html = renderEventHtml('<p style="position:fixed">hi</p>');
     expect(html).not.toMatch(/style=/i);
     expect(html).toContain('hi');
