@@ -112,14 +112,15 @@ export function ThreadBubble({
    *   | | with the 600px floor | without it |
    *   |---|---|---|
    *   | body width | 600px | 448px |
-   *   | horizontal overflow | 152px (25% of every email) | 0 |
-   *   | grounds needing a sideways scroll | all of them | 0 of 22 |
+   *   | horizontal overflow, where it hit | 152px — a quarter of the 600px body | 0 |
+   *   | bodies needing a sideways scroll | 12 of 22 | 0 of 22 |
    *   | occurrences of the reported address | 16 | 16 |
    *   | of those, WRAPPED mid-token | 0 | **0** |
    *
    * The wrap was fixed by honouring the table geometry — `width`/`valign`/`align` surviving the
    * sanitizer, and tables no longer flattened by `[&_table]:block`. The floor was treating a
-   * symptom that was already cured, and charging a quarter of every email in horizontal scroll
+   * symptom that was already cured, and charging a quarter of the body in horizontal scroll on
+   * 12 of the thread's 22 email bodies (the other 10 sat in wider bubbles and cleared 600px)
    * for it. So the mail now takes the width it is given.
    *
    * 🪤 The lesson is about the ORDER of the two fixes, not the floor: two changes landed

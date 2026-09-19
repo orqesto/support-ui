@@ -100,7 +100,8 @@ describe('the two-column signature keeps its layout', () => {
      * ("natalie.antonenko@prefabh" / "ome.eu") came from the body being narrower than the 600px
      * email is designed for. Measured on the deployed build against that exact mail, it did not:
      * with the floor the address wrapped 0 times out of 16, and WITHOUT it, also 0 out of 16 —
-     * while the floor cost 152px of horizontal scroll on every HTML email (25% of a 472px panel).
+     * while the floor cost 152px of horizontal scroll on 12 of the thread's 22 email bodies (152px is a quarter of the 600px body, and a third of the 472px panel;
+     * the other 10 sit in wider bubbles and cleared 600px on their own).
      *
      * The wrap was fixed by the table geometry surviving the sanitizer and tables no longer being
      * flattened by `[&_table]:block`. Two fixes landed together and the floor took credit for the
