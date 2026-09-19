@@ -203,3 +203,33 @@ describe('every non-URL attribute is declared URI-safe', () => {
     }
   });
 });
+
+describe('background-image, the shape real mail actually uses', () => {
+  /**
+   * ⚠️ MEASURED, and it corrected an assumption. `background-image` appears 18 times across the
+   * four real staging messages and EVERY ONE of them is a gradient — not a single remote url.
+   * So the `url()` rewriting, which is the privacy control this feature leans on hardest, is
+   * NOT exercised by any mail in that sample. It is defence against input this corpus does not
+   * contain; do not cite it as having fixed something observed.
+   *
+   * What IS exercised is the gradient path, and nothing tested it until pass 12 — the only
+   * real shape was the one shape with no coverage. Gradients carry commas and nested parens,
+   * which is exactly what the paren-aware splitter is for.
+   */
+  it('keeps gradients intact', () => {
+    for (const value of [
+      'linear-gradient(to right, #fff 0%, #000 100%)',
+      'linear-gradient(180deg,rgba(0,0,0,0.5),rgba(255,255,255,0))',
+      'radial-gradient(circle at 50% 50%, #abc, #def)',
+    ]) {
+      const out = render(`<div style="background-image:${value}">x</div>`);
+      expect(out, value).toContain('gradient');
+    }
+  });
+
+  it('still proxies a remote background url if one ever arrives', () => {
+    const out = render('<div style="background-image:url(https://sender.test/bg.png)">x</div>');
+    expect(out).toContain(`${imageProxyBase(CONTEXT)}?src=`);
+    expect(out).not.toMatch(/url\(&quot;?https:\/\/sender\.test/);
+  });
+});

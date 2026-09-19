@@ -267,3 +267,58 @@ describe('the image proxy url', () => {
     );
   });
 });
+
+/**
+ * Branch coverage after these: emailCss 100% statements / 96% branches, emailHtml 100% / 88%.
+ *
+ * ⚠️ What is still uncovered, named rather than left for someone to discover: the
+ * `activeContext === null` arms of the class and style hooks in emailHtml. They CANNOT be
+ * reached through the public API — `sanitizeEmailHtml` sets the context immediately before
+ * `sanitize` and clears it in a `finally`, and the instance is not exported — so covering them
+ * would mean exporting internals purely to satisfy a number. They are defence against a future
+ * async refactor, and the comment on `activeContext` says so. The rest are regex-alternation
+ * fallbacks (`?? ''`) that no input reaches.
+ */
+describe('the empty and escaped edges (found by branch coverage, pass 13)', () => {
+  // Four branches in this filter had no test. They are all the "nothing left" cases, which is
+  // where a filter quietly starts emitting `style=""` or keeping a fragment.
+  it('drops a declaration whose value is empty', () => {
+    expect(filterDeclarations('color:', PROXY)).toBe('');
+    expect(filterDeclarations('color: ; padding: 2px', PROXY)).toBe('padding: 2px');
+  });
+
+  it('drops a declaration that is only !important', () => {
+    expect(filterDeclarations('color: !important', PROXY)).toBe('');
+  });
+
+  it('drops a declaration with no colon at all', () => {
+    expect(filterDeclarations('color', PROXY)).toBe('');
+    expect(filterDeclarations(':red', PROXY)).toBe('');
+  });
+
+  it('rewrites a single-quoted url the same as a double-quoted one', () => {
+    const single = rewriteCssUrls("url('https://sender.test/a.png')", PROXY);
+    const double = rewriteCssUrls('url("https://sender.test/a.png")', PROXY);
+    expect(single).toBe(double);
+    expect(single).toContain(`${PROXY}?src=`);
+  });
+
+  it('resolves a non-hex backslash escape, not just the hex form', () => {
+    /**
+     * 🪤 Note the DOUBLE backslash. The first version of this test wrote `'a\;b'`, and in
+     * JavaScript `\;` is not an escape sequence — the string is literally `a;b` with no
+     * backslash in it at all. So the test asserted `normalizeCssText('a;b') === 'a;b'`, passed
+     * vacuously, and exercised none of the branch it was written for. Only eslint's
+     * `no-useless-escape` caught it; coverage did not move and the suite was green.
+     */
+    expect('a\\;b').toContain('\\'); // the input really does carry a backslash
+    expect(normalizeCssText('a\\;b')).toBe('a;b');
+    expect(normalizeCssText('\\"')).toBe('"');
+  });
+
+  it('removes an empty class attribute rather than leaving class=""', () => {
+    const out = sanitizeEmailHtml('<div class="   ">x</div>', CONTEXT);
+    expect(out).not.toContain('class=');
+    expect(out).toContain('x');
+  });
+});
