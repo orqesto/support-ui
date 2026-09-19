@@ -259,13 +259,26 @@ describe('removing what you connected', () => {
     await user.click(await screen.findByRole('button', { name: 'Disconnect' }));
     // ⛔ The sentence must say what is destroyed. "Are you sure?" leaves an admin to find out
     // afterwards that the lookups and the stored key went too.
-    expect(screen.getByText(/lookups \(2\) and its stored key go with it/i)).toBeTruthy();
+    expect(screen.getByText(/Its 2 lookups and its stored key go with it/i)).toBeTruthy();
     expect(screen.getByText(/Nothing is deleted in DeusPower itself/i)).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Disconnect it' }));
     await waitFor(() => expect(remove).toHaveBeenCalledWith(1));
     // The list is re-read rather than spliced locally: the server decides what survived.
     await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+  });
+
+  it('does not name a loss that is not there when a vendor has NO lookups', async () => {
+    // 🔴 Audit pass 4. "Its lookups (0) … go with it" is the state EVERY vendor is in the moment
+    // it is created — the likeliest one this dialog is ever opened for.
+    const user = await userEvent();
+    list.mockResolvedValue([connection({ endpoints: [] })]);
+    render(<CustomApiSettings canManageVendors />);
+
+    await user.click(await screen.findByRole('button', { name: 'Disconnect' }));
+    expect(screen.getByText(/Its stored key goes with it/i)).toBeTruthy();
+    expect(screen.queryByText(/lookups \(0\)/i)).toBeNull();
+    expect(screen.queryByText(/0 lookups/i)).toBeNull();
   });
 
   it('does NOT delete anything until the confirm is pressed', async () => {
@@ -293,6 +306,63 @@ describe('removing what you connected', () => {
     expect(remove).not.toHaveBeenCalled();
   });
 
+  it('shows the row as busy and REFUSES a second press while a removal is in flight', async () => {
+    /**
+     * 🔴 Audit pass 1 over #414, proven with a never-resolving delete.
+     * `ConfirmDialog.handleConfirm` calls `onConfirm()` then `onOpenChange(false)` SYNCHRONOUSLY,
+     * so the dialog is gone before React applies `setRemoving(true)`. The old
+     * `confirmText={removing ? 'Removing…' : …}` branch could therefore never render and the
+     * `!removing` dismissal guard never fired — both dead code that read as protection. Meanwhile
+     * the row still looked idle, so a slow DELETE invited a second press: the first succeeds, the
+     * second 404s, and the admin is told "could not remove" about something that was removed.
+     */
+    const user = await userEvent();
+    list.mockResolvedValue([connection()]);
+    let settle: (() => void) | undefined;
+    remove.mockImplementation(() => new Promise<void>((resolve) => (settle = () => resolve())));
+    render(<CustomApiSettings canManageVendors />);
+
+    await user.click(await screen.findByRole('button', { name: 'Disconnect' }));
+    await user.click(screen.getByRole('button', { name: 'Disconnect it' }));
+    await waitFor(() => expect(remove).toHaveBeenCalledTimes(1));
+
+    const busy = await screen.findByRole('button', { name: 'Removing…' });
+    expect(busy.hasAttribute('disabled')).toBe(true);
+    await user.click(busy);
+    expect(remove).toHaveBeenCalledTimes(1);
+
+    settle?.();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Disconnect' })).toBeTruthy());
+  });
+
+  it('labels ONLY the row being removed, and disables the rest', async () => {
+    /**
+     * 🔴 Audit pass 2 over #414. `removing` was one boolean for the whole page, so deleting one
+     * vendor made EVERY Disconnect and EVERY Remove read "Removing…" — rows announcing their own
+     * deletion while nothing was happening to them. Same class as the "Ready" badge this feature
+     * shipped with: the label outran the data. Disabling stays global on purpose (one removal at a
+     * time); only the words are targeted.
+     */
+    const user = await userEvent();
+    list.mockResolvedValue([
+      connection({ id: 1, name: 'DeusPower', endpoints: [] }),
+      connection({ id: 2, name: 'Other vendor', endpoints: [] }),
+    ]);
+    remove.mockImplementation(() => new Promise<void>(() => {}));
+    render(<CustomApiSettings canManageVendors />);
+
+    const [first, second] = await screen.findAllByRole('button', { name: 'Disconnect' });
+    await user.click(first);
+    await user.click(screen.getByRole('button', { name: 'Disconnect it' }));
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(1));
+
+    // The one being removed says so; the other still reads Disconnect — and is disabled anyway.
+    expect(await screen.findByRole('button', { name: 'Removing…' })).toBeTruthy();
+    const other = screen.getByRole('button', { name: 'Disconnect' });
+    expect(other).toBe(second);
+    expect(other.hasAttribute('disabled')).toBe(true);
+  });
+
   it('D40: a moderator is offered lookup removal but NOT vendor removal', async () => {
     /**
      * ⛔ The lookups are a moderator's half; the connection holding the credential is not. RED:
@@ -313,14 +383,22 @@ describe('removing what you connected', () => {
      */
     const user = await userEvent();
     list.mockResolvedValue([connection({ endpoints: [endpoint({ id: 42 })] })]);
-    removeEndpoint.mockRejectedValue({
-      response: {
+    /**
+     * ⛔ THE SHAPE THE API ACTUALLY PRODUCES — and the shape the test 100 lines above this one was
+     * already using. Mine mocked `{response:{data:{message}}}`, wrong twice over: the api-client
+     * interceptor does NOT rethrow the axios error (it builds a fresh Error carrying
+     * `status`/`data`, so `.response` is undefined at every call site), and the backend's envelope
+     * key is `error`, not `message`. It passed against a response the server cannot send.
+     */
+    removeEndpoint.mockRejectedValue(
+      Object.assign(new Error('Request failed'), {
+        status: 409,
         data: {
-          message:
+          error:
             '"this order" confirms a record belongs to the customer by checking it against "this customer\'s orders", so it cannot be deleted yet.',
         },
-      },
-    });
+      })
+    );
     render(<CustomApiSettings canManageVendors onEditLookup={() => {}} />);
 
     await user.click(await screen.findByRole('button', { name: 'Remove' }));

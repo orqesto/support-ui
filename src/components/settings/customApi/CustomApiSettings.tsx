@@ -90,7 +90,15 @@ export const CustomApiSettings = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingRemoval | null>(null);
-  const [removing, setRemoving] = useState(false);
+  /**
+   * WHICH row is being removed, not merely THAT one is.
+   *
+   * ⛔ A single boolean relabelled EVERY Disconnect and EVERY Remove on the page "Removing…" while
+   * any one removal was in flight — a row saying it is being deleted when it is not. Same defect
+   * class as the "Ready" badge this feature shipped with: the words outran what the data said.
+   * Disabling stays global (one removal at a time is the safe rule); only the LABEL is targeted.
+   */
+  const [inFlight, setInFlight] = useState<PendingRemoval | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -116,7 +124,7 @@ export const CustomApiSettings = ({
    */
   const confirmRemoval = async () => {
     if (!pending) return;
-    setRemoving(true);
+    setInFlight(pending);
     setError(null);
     try {
       if (pending.kind === 'vendor') {
@@ -135,7 +143,7 @@ export const CustomApiSettings = ({
       setError(getApiErrorMessage(err) ?? 'Could not remove that.');
       setPending(null);
     } finally {
-      setRemoving(false);
+      setInFlight(null);
     }
   };
 
@@ -240,9 +248,18 @@ export const CustomApiSettings = ({
               <Button
                 size="sm"
                 variant="ghost"
+                /*
+                 * ⛔ DISABLED WHILE ANY REMOVAL IS IN FLIGHT. The confirm dialog closes the instant
+                 * it is pressed, so without this the row still looks idle and a second press fires
+                 * a second DELETE — the first succeeds, the second 404s, and the admin is told
+                 * "could not remove" about something that was removed.
+                 */
+                disabled={inFlight !== null}
                 onClick={() => setPending({ kind: 'vendor', connection })}
               >
-                Disconnect
+                {inFlight?.kind === 'vendor' && inFlight.connection.id === connection.id
+                  ? 'Removing…'
+                  : 'Disconnect'}
               </Button>
             )}
           </div>
@@ -281,9 +298,12 @@ export const CustomApiSettings = ({
                         <Button
                           size="sm"
                           variant="ghost"
+                          disabled={inFlight !== null}
                           onClick={() => setPending({ kind: 'lookup', connection, endpoint })}
                         >
-                          Remove
+                          {inFlight?.kind === 'lookup' && inFlight.endpoint.id === endpoint.id
+                            ? 'Removing…'
+                            : 'Remove'}
                         </Button>
                       )}
                     </span>
@@ -308,8 +328,17 @@ export const CustomApiSettings = ({
        */}
       <ConfirmDialog
         open={pending !== null}
+        /*
+         * ⛔ NO IN-FLIGHT GUARD HERE, and the absence is deliberate. `ConfirmDialog.handleConfirm`
+         * calls `onConfirm()` and then `onOpenChange(false)` SYNCHRONOUSLY, so this runs before
+         * React has applied `setRemoving(true)` — the guard read a stale `false` every time and
+         * never once fired. Dead code that reads as protection is worse than no protection: it
+         * tells the next person the dialog cannot be dismissed mid-request when it always can.
+         * The in-flight state is shown and defended on the ROW instead, where the admin is looking
+         * once this closes. (Audit pass 1 over #414, proven with a never-resolving delete.)
+         */
         onOpenChange={(open) => {
-          if (!open && !removing) setPending(null);
+          if (!open) setPending(null);
         }}
         onConfirm={() => void confirmRemoval()}
         variant="danger"
@@ -317,10 +346,10 @@ export const CustomApiSettings = ({
          * ⛔ The confirm button NAMES THE ACT, and differs from the row button that opened it.
          * Both read "Remove" at first, which put two identically-named buttons on screen at once —
          * ambiguous to a screen reader, and to anyone deciding what they are about to agree to.
+         * ⚠️ NOT an in-flight ternary: the dialog is already gone by then, so that
+         * branch never rendered — see the note on `onOpenChange`.
          */
-        confirmText={
-          removing ? 'Removing…' : pending?.kind === 'vendor' ? 'Disconnect it' : 'Remove lookup'
-        }
+        confirmText={pending?.kind === 'vendor' ? 'Disconnect it' : 'Remove lookup'}
         title={
           pending?.kind === 'vendor'
             ? `Disconnect ${pending.connection.name}?`
@@ -328,7 +357,17 @@ export const CustomApiSettings = ({
         }
         description={
           pending?.kind === 'vendor'
-            ? `Agents will stop seeing anything from ${pending.connection.name}. Its ${pending.connection.endpoints.length === 1 ? 'lookup' : 'lookups'} (${pending.connection.endpoints.length}) and its stored key go with it. Nothing is deleted in ${pending.connection.name} itself.`
+            ? /*
+               * ⛔ The ZERO case gets its own sentence. "Its lookups (0) … go with it" names a loss
+               * that does not exist, and a vendor with no lookups is the state EVERY vendor is in
+               * the moment it is created — the likeliest one an admin will see this dialog for.
+               * (Audit pass 4; the corner case, as the rule says, every time.)
+               */
+              `Agents will stop seeing anything from ${pending.connection.name}.${
+                pending.connection.endpoints.length > 0
+                  ? ` Its ${pending.connection.endpoints.length === 1 ? 'lookup' : `${pending.connection.endpoints.length} lookups`} and its stored key go with it.`
+                  : ' Its stored key goes with it.'
+              } Nothing is deleted in ${pending.connection.name} itself.`
             : 'Agents will stop seeing this on their threads. The system it reads from is not changed.'
         }
       />
