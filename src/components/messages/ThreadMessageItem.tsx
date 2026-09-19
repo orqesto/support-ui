@@ -17,11 +17,7 @@ type Props = {
   onOpenAttachment?: (id: number) => void;
 };
 
-export function ThreadMessageItem({
-  msg,
-  attachments = [],
-  onOpenAttachment,
-}: Props) {
+export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: Props) {
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
 
   /**
@@ -31,9 +27,15 @@ export function ThreadMessageItem({
    *
    * ⛔ Skipped when the agent has asked for a TRANSLATION: that comes back as plain text, and
    * quietly showing the untranslated original instead would be worse than an ugly table.
-   * Also skipped for outbound, where the console already holds what we sent.
+   *
+   * 🔑 NOT skipped for outbound any more. It used to be, on the reasoning that "the console
+   * already holds what we sent" — but what it holds is the DERIVED PLAIN TEXT, which is not
+   * what we sent. On staging's SOM-INF-1579 an agent reply whose stored markup carries 76
+   * images rendered as a blank blue bubble: the quotation the customer received, shown to the
+   * agent as an empty box. An agent checking what went out, or answering "what did you send
+   * them?", was reading a different document from the customer.
    */
-  const wantsHtml = msg.type === 'inbound' && translatedContent === null;
+  const wantsHtml = translatedContent === null;
   const { data: originalHtml } = useMessageHtml(msg.id, wantsHtml);
 
   const isAgent =
@@ -42,9 +44,7 @@ export function ThreadMessageItem({
     (msg.metadata as { isSystemReply?: boolean } | null)?.isSystemReply === true;
 
   const msgTime = isAgent
-    ? (msg.sentAt ??
-      (msg.metadata as { receivedAt?: string } | null)?.receivedAt ??
-      msg.createdAt)
+    ? (msg.sentAt ?? (msg.metadata as { receivedAt?: string } | null)?.receivedAt ?? msg.createdAt)
     : ((msg.metadata as { receivedAt?: string } | null)?.receivedAt ?? msg.createdAt);
 
   // Prefer the person when the BE could resolve one: initials of a shared mailbox
