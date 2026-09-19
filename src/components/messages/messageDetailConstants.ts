@@ -191,7 +191,11 @@ export function addNoopenerHook(DOMPurify: typeof DOMPurifyType): void {
  * prevent. This checks the DOM node AFTER parsing, where there is no quoting or entity
  * trickery left to hide behind, so a rewrite miss degrades to a missing image rather than to
  * a silent beacon.
+ *
+ * (The docblock above belongs to `addProxiedImagesOnlyHook`, further down; `isProxiedImageUrl`
+ * and `PROXY_PATH` are the test it applies.)
  */
+
 /**
  * Is this src one of OUR proxy urls?
  *
@@ -305,18 +309,16 @@ export function renderMarkdown(raw: string): string {
  * attachment row rather than fetched from anywhere. Sources that are neither (`data:` URIs,
  * relative paths) are left alone; the sanitizer drops them, which is the right outcome for
  * markup we cannot serve on the reader's behalf.
+ *
+ * (That docblock describes `proxyRemoteImages`, below the two decoding helpers.)
  */
+
 /**
- * An attribute value as the BROWSER would read it — character references resolved.
+ * One code point, or '' when the reference does not name one.
  *
- * ⛔ Must stay byte-for-byte equivalent to `decodeHtmlEntities` in the backend's
- * `messageHtmlBody.ts`. That one builds the proxy's ALLOWLIST from the same markup and this
- * one produces the url checked against it, so a decoder that handled one more entity than its
- * twin would turn a legitimate image into a 403.
- *
- * An email writes `?auto=format&amp;fit=crop` because a raw `&` is not legal in an attribute.
- * The browser resolves that before requesting anything; a regex over the source does not, so
- * without this the proxy was asked to fetch a url with a literal `&amp;` in its query.
+ * ⚠️ It DROPS an unresolvable reference rather than keeping the raw text, because what it
+ * returns has to equal what the backend's twin returns — the backend builds the allowlist and
+ * this builds the url checked against it.
  */
 const safeFromCodePoint = (code: number): string => {
   if (!Number.isFinite(code) || code <= 0 || code > 0x10ffff) return '';
@@ -327,6 +329,18 @@ const safeFromCodePoint = (code: number): string => {
   }
 };
 
+/**
+ * An attribute value as the BROWSER would read it — character references resolved.
+ *
+ * ⛔ Must stay equivalent to `decodeHtmlEntities` in the backend's `messageHtmlBody.ts`. That
+ * one builds the proxy's ALLOWLIST from the same markup and this one produces the url checked
+ * against it, so a decoder that handled one more entity than its twin would turn a legitimate
+ * image into a 403.
+ *
+ * An email writes `?auto=format&amp;fit=crop` because a raw `&` is not legal in an attribute.
+ * The browser resolves that before requesting anything; a regex over the source does not, so
+ * without this the proxy was asked to fetch a url with a literal `&amp;` in its query.
+ */
 export const decodeHtmlEntities = (value: string): string =>
   value
     .replace(/&#(\d+);/g, (_m, code: string) => safeFromCodePoint(Number(code)))
@@ -347,10 +361,10 @@ export function proxyRemoteImages(
   // ⛔ The workspace has to be IN THE URL. A browser loads these `<img>` urls itself, with no
   // axios interceptor, so `X-Organization-Context` — the only carrier a global admin's org
   // context has — never reaches the backend. Production answered 400 to every remote image in
-  // every HTML mail because of it (on TES-INF-1393 every completed image request was a 400).
-  // With no workspace selected the
-  // old shape is written unchanged rather than an `organizations/undefined` path, and the
-  // backend still resolves it from the header for anyone who can send one.
+  // every HTML mail because of it — on TES-INF-1393, every image request that had completed
+  // when the network log was read was a 400. With no workspace selected the old shape is
+  // written unchanged rather than an `organizations/undefined` path, and the backend still
+  // resolves it from the header for anyone who can send one.
   const base =
     typeof organizationId === 'number' && organizationId > 0
       ? `${apiBaseUrl}/api/organizations/${organizationId}/messages/events/${eventId}/image`
