@@ -40,7 +40,7 @@ vi.mock('@/hooks/useStaleKbAlerts', () => ({
 }));
 vi.mock('@/hooks/useUnansweredOutboundAlerts', async () => {
   const actual = await vi.importActual<Record<string, unknown>>(
-    '@/hooks/useUnansweredOutboundAlerts',
+    '@/hooks/useUnansweredOutboundAlerts'
   );
   return {
     ...actual,
@@ -84,7 +84,7 @@ const open = () => {
   render(
     <MemoryRouter>
       <NotificationCenter sla={slaProp} learning={learningProp} />
-    </MemoryRouter>,
+    </MemoryRouter>
   );
   fireEvent.click(screen.getAllByRole('button')[0]);
 };
@@ -99,6 +99,8 @@ const tacoGap = {
   minutesAhead: 1500,
   window: '2026-09-10T07:58:28.754Z → 2026-09-11T08:58:03.336Z',
   recovery: 're-scanning the last 48h; raise MAIL_POLL_OVERLAP_HOURS to reach further back',
+  skipped: [],
+  skippedOverflow: false,
 };
 
 beforeEach(() => {
@@ -172,33 +174,41 @@ describe('Notification Center — ingestion gaps', () => {
   });
 
   /** Titles and window strings exactly as the backend writes them (ingestionGapAlert.ts TITLES, sentDrain.ts). */
-  const UNREADABLE_TITLE = 'Sent messages could not be imported — the sync failed on them repeatedly';
-  const STRANDED_TITLE = 'Sent mail may be missing — the sent-folder drain could not reach its oldest part';
+  const UNREADABLE_TITLE =
+    'Sent messages could not be imported — the sync failed on them repeatedly';
+  const STRANDED_TITLE =
+    'Sent mail may be missing — the sent-folder drain could not reach its oldest part';
 
   it.each([
     ['ids kept', '2 sent message(s): 18f3a1, 18f3a2'],
-    ['ids NOT kept', 'More sent messages were given up on than could be tracked; their ids were not kept'],
-  ])('unreadable_message (%s): says they were NOT imported, shows the window, names the runbook section', (_label, window) => {
-    gapAlerts = [
-      {
-        ...tacoGap,
-        id: 9004,
-        title: UNREADABLE_TITLE,
-        cause: 'unreadable_message',
-        minutesAhead: null,
-        window,
-      },
-    ];
-    open();
-    expect(screen.getByText(UNREADABLE_TITLE)).toBeTruthy();
-    expect(screen.getByText(window)).toBeTruthy();
-    expect(screen.getByText(/stopped waiting for them — they were not imported/)).toBeTruthy();
-    expect(screen.getByText(/ids are listed below when they were kept/)).toBeTruthy();
-    // Cited by NAME: the runbook's section numbers are shared by two PRs and can shift.
-    expect(screen.getByText(/runbook, section ‘Unreadable sent messages’/)).toBeTruthy();
-    expect(screen.queryByText(/§5\.1/)).toBeNull();
-    expect(screen.queryByText(/may not have been fetched/)).toBeNull();
-  });
+    [
+      'ids NOT kept',
+      'More sent messages were given up on than could be tracked; their ids were not kept',
+    ],
+  ])(
+    'unreadable_message (%s): says they were NOT imported, shows the window, names the runbook section',
+    (_label, window) => {
+      gapAlerts = [
+        {
+          ...tacoGap,
+          id: 9004,
+          title: UNREADABLE_TITLE,
+          cause: 'unreadable_message',
+          minutesAhead: null,
+          window,
+        },
+      ];
+      open();
+      expect(screen.getByText(UNREADABLE_TITLE)).toBeTruthy();
+      expect(screen.getByText(window)).toBeTruthy();
+      expect(screen.getByText(/stopped waiting for them — they were not imported/)).toBeTruthy();
+      expect(screen.getByText(/ids are listed below when they were kept/)).toBeTruthy();
+      // Cited by NAME: the runbook's section numbers are shared by two PRs and can shift.
+      expect(screen.getByText(/runbook, section ‘Unreadable sent messages’/)).toBeTruthy();
+      expect(screen.queryByText(/§5\.1/)).toBeNull();
+      expect(screen.queryByText(/may not have been fetched/)).toBeNull();
+    }
+  );
 
   it('unreadable_live_message: says it was NOT imported, shows the folder + UID, names the runbook section', () => {
     // Title and window exactly as the backend writes them (ingestionGapAlert.ts TITLES, imapMailboxWrites.ts).
@@ -214,6 +224,88 @@ describe('Notification Center — ingestion gaps', () => {
     expect(screen.getByText(/that message was not imported/)).toBeTruthy();
     expect(screen.getByText(/runbook, section ‘Unreadable live messages \(IMAP\)’/)).toBeTruthy();
     expect(screen.queryByText(/may not have been fetched/)).toBeNull();
+  });
+
+  it('unreadable_live_gmail_message: its own caption, no IMAP folder/UID wording, names the Gmail section', () => {
+    // Title and window exactly as the backend writes them (ingestionGapAlert.ts TITLES,
+    // gmail/transientFetchFailures.ts).
+    const title =
+      'Gmail messages could not be imported — Gmail failed on them repeatedly; each is re-tried about once a day';
+    const window = 'Gmail message 18f2a9c0d1e2b3a4';
+    gapAlerts = [
+      {
+        ...tacoGap,
+        id: 9007,
+        title,
+        cause: 'unreadable_live_gmail_message',
+        minutesAhead: null,
+        window,
+      },
+    ];
+    open();
+    expect(screen.getByText(title)).toBeTruthy();
+    expect(screen.getByText(window)).toBeTruthy();
+    expect(screen.getByText(/they were not imported/)).toBeTruthy();
+    expect(screen.getByText(/server or network error/)).toBeTruthy();
+    expect(screen.getAllByText(/re-tried about once a day/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/runbook, section ‘Unreadable live messages \(Gmail\)’/)).toBeTruthy();
+    expect(screen.queryByText(/UID/)).toBeNull();
+    expect(screen.queryByText(/\(IMAP\)/)).toBeNull();
+    expect(screen.queryByText(/may not have been fetched/)).toBeNull();
+  });
+
+  it('unreadable_live_gmail_message: lists EVERY skipped id, not only the latest in the window', () => {
+    gapAlerts = [
+      {
+        ...tacoGap,
+        id: 9008,
+        title: 'Gmail messages could not be imported',
+        cause: 'unreadable_live_gmail_message',
+        minutesAhead: null,
+        window: 'Gmail message bbb222',
+        skipped: ['aaa111', 'bbb222'],
+        skippedOverflow: false,
+      },
+    ];
+    open();
+    expect(screen.getByText(/2 not imported: aaa111, bbb222/)).toBeTruthy();
+    expect(screen.queryByText('Gmail message bbb222')).toBeNull();
+  });
+
+  it('unreadable_live_gmail_message: an overflowed list with no ids left promises none', () => {
+    const window = 'Gmail messages given up on earlier; their ids were no longer kept';
+    gapAlerts = [
+      {
+        ...tacoGap,
+        id: 9010,
+        title: 'Gmail messages could not be imported',
+        cause: 'unreadable_live_gmail_message',
+        minutesAhead: null,
+        window,
+        skipped: [],
+        skippedOverflow: true,
+      },
+    ];
+    open();
+    expect(screen.getByText(window)).toBeTruthy();
+    expect(screen.queryByText(/shown below/)).toBeNull();
+  });
+
+  it('unreadable_live_gmail_message: an overflowed list says it shows only the latest', () => {
+    gapAlerts = [
+      {
+        ...tacoGap,
+        id: 9009,
+        title: 'Gmail messages could not be imported',
+        cause: 'unreadable_live_gmail_message',
+        minutesAhead: null,
+        window: 'Gmail message ccc',
+        skipped: ['ccc'],
+        skippedOverflow: true,
+      },
+    ];
+    open();
+    expect(screen.getByText(/1\+ not imported \(latest 1 shown\): ccc/)).toBeTruthy();
   });
 
   it('sent_drain_stranded: the caption points at the date the window shows', () => {
@@ -239,7 +331,13 @@ describe('Notification Center — ingestion gaps', () => {
 
   it('renders the backend title rather than one hardcoded headline', () => {
     gapAlerts = [
-      { ...tacoGap, id: 9003, title: 'Mail may be missing — a totally new cause we added later', cause: 'brand_new_cause', minutesAhead: null },
+      {
+        ...tacoGap,
+        id: 9003,
+        title: 'Mail may be missing — a totally new cause we added later',
+        cause: 'brand_new_cause',
+        minutesAhead: null,
+      },
     ];
     open();
     expect(screen.getByText(/a totally new cause we added later/)).toBeTruthy();

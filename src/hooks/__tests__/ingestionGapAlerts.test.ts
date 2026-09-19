@@ -107,6 +107,33 @@ describe('useIngestionGapAlerts', () => {
     expect(result.current.alerts[0].window).toBeNull();
   });
 
+  it('maps the skipped id list, dropping non-strings, and the overflow flag', async () => {
+    respond([
+      gapRow({
+        details: {
+          cause: 'unreadable_live_gmail_message',
+          mailbox: 'Gmail box',
+          skipped: ['a1', 7, 'b2'],
+          skippedOverflow: true,
+        },
+      }),
+    ]);
+    const { result } = renderHook(() => useIngestionGapAlerts());
+    await waitFor(() => expect(result.current.alerts.length).toBe(1));
+
+    expect(result.current.alerts[0].skipped).toEqual(['a1', 'b2']);
+    expect(result.current.alerts[0].skippedOverflow).toBe(true);
+  });
+
+  it('an alert without a list maps to an empty one', async () => {
+    respond([gapRow()]);
+    const { result } = renderHook(() => useIngestionGapAlerts());
+    await waitFor(() => expect(result.current.alerts.length).toBe(1));
+
+    expect(result.current.alerts[0].skipped).toEqual([]);
+    expect(result.current.alerts[0].skippedOverflow).toBe(false);
+  });
+
   it('puts the worst skew first', async () => {
     respond([
       gapRow({ id: 1, details: { ...gapRow().details, minutesAhead: 30 } }),

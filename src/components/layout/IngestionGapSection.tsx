@@ -87,12 +87,29 @@ export const IngestionGapSection = ({
                             // message was definitely NOT imported — the generic "may not have
                             // been fetched" sentence was false on both counts.
                             'The sync failed repeatedly on one message and moved past it so the mail behind it could be read \u2014 that message was not imported (its folder and UID are shown below). Fix the cause, then follow the ingestion-gaps runbook, section \u2018Unreadable live messages (IMAP)\u2019.'
-                          : 'Mail arriving in this window may not have been fetched.'}
+                          : alert.cause === 'unreadable_live_gmail_message'
+                            ? // Gmail has no UID and nothing "steps past" the message: the date
+                              // checkpoint only stops waiting for it, and while Gmail still lists
+                              // it the sync re-tries it about once a day. The alert accumulates
+                              // ids, so the sentence is plural-safe. It does not promise the ids
+                              // are shown: an overflowed list whose kept ids all recovered has none.
+                              'Gmail answered one or more messages with a server or network error on every sync, so the sync stopped waiting for them \u2014 they were not imported. While Gmail still lists a message it is re-tried about once a day, and one that imports leaves this list. Follow the ingestion-gaps runbook, section \u2018Unreadable live messages (Gmail)\u2019.'
+                            : 'Mail arriving in this window may not have been fetched.'}
             </p>
-            {alert.window && (
+            {alert.cause === 'unreadable_live_gmail_message' && alert.skipped.length > 0 ? (
+              // `window` names only the LATEST id; the list is what the alert actually covers.
+              // Gmail only: the IMAP alert's `skipped` holds UIDs and its window names the folder.
               <p className="mt-0.5 font-mono text-xs break-words text-muted-foreground">
-                {alert.window}
+                {`${alert.skipped.length}${alert.skippedOverflow ? '+' : ''} not imported`}
+                {alert.skippedOverflow ? ` (latest ${alert.skipped.length} shown)` : ''}
+                {`: ${alert.skipped.join(', ')}`}
               </p>
+            ) : (
+              alert.window && (
+                <p className="mt-0.5 font-mono text-xs break-words text-muted-foreground">
+                  {alert.window}
+                </p>
+              )
             )}
             {alert.recovery && (
               <p className="mt-1 text-xs text-muted-foreground">{alert.recovery}</p>

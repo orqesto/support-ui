@@ -64,6 +64,14 @@ export type IngestionGapAlert = {
   window: string | null;
   /** What the backend is already doing about it, in its own words. */
   recovery: string | null;
+  /**
+   * Message ids the alert names (`unreadable_live_gmail_message`): the backend keeps the latest
+   * 50 and adds to the list on every give-up, while `window` names only the latest one. Empty
+   * when the cause carries no list.
+   */
+  skipped: string[];
+  /** More ids were given up on than `skipped` still holds. */
+  skippedOverflow: boolean;
 };
 
 type AlertDetails = {
@@ -73,6 +81,8 @@ type AlertDetails = {
   minutesAhead?: number;
   window?: string;
   recovery?: string;
+  skipped?: unknown;
+  skippedOverflow?: unknown;
 };
 
 const toAlert = (row: Notification): IngestionGapAlert => {
@@ -88,6 +98,10 @@ const toAlert = (row: Notification): IngestionGapAlert => {
     minutesAhead: typeof details.minutesAhead === 'number' ? details.minutesAhead : null,
     window: details.window ?? null,
     recovery: details.recovery ?? null,
+    skipped: Array.isArray(details.skipped)
+      ? details.skipped.filter((id): id is string => typeof id === 'string')
+      : [],
+    skippedOverflow: details.skippedOverflow === true,
   };
 };
 
