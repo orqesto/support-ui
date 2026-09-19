@@ -329,3 +329,52 @@ describe('a card is never blank while it holds data', () => {
     expect(screen.queryByText(/TOTAL__CURRENCY/i)).toBeNull();
   });
 });
+
+describe('an unconfigured lookup does not become a dossier', () => {
+  const vendorRow = {
+    order_id: '137416',
+    status: 'Shipped',
+    total: '348.50',
+    date_added: '2026-09-08',
+    currency_code: 'EUR',
+    name: 'Sergio',
+    email: 'sergio@deuspower.org',
+    telephone: '0000',
+    ip: '193.138.7.145',
+    user_agent: 'Mozilla/5.0 (iPhone)',
+    postcode: 'LV-1010',
+  };
+
+  it('⛔ caps the preview when no fields are chosen, rather than rendering everything', async () => {
+    // The DEFAULT state returns rows unprojected — 77 fields on the measured vendor, including the
+    // customer's email, telephone, IP and user-agent. RED: render every key ⇒ audit pass 2's fix
+    // for a blank card turns the thread view into a dossier on someone else's customer.
+    run.mockResolvedValue([card({ rows: [vendorRow], fields: [] })]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    await screen.findByText('137416');
+    expect(screen.queryByText('193.138.7.145')).toBeNull();
+    expect(screen.queryByText(/Mozilla/)).toBeNull();
+  });
+
+  it('says it is a preview, and how much it is not showing', async () => {
+    // Silently truncating is its own lie: the agent would believe that is all the vendor holds.
+    run.mockResolvedValue([card({ rows: [vendorRow], fields: [] })]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    expect(await screen.findByText(/preview of 6 of 11 fields/i)).toBeTruthy();
+  });
+
+  it('POSITIVE CONTROL: a CONFIGURED lookup still shows exactly what was chosen', async () => {
+    // Without this, a panel that capped everything would pass both tests above while hiding fields
+    // an admin deliberately picked.
+    run.mockResolvedValue([card()]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    expect(await screen.findByText('348.50 EUR')).toBeTruthy();
+    expect(screen.queryByText(/preview of/i)).toBeNull();
+  });
+});
