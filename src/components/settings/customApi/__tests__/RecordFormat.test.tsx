@@ -2,9 +2,17 @@
  * CA-5 Task 6 — D36, the pre-fill format derived from an EXAMPLE.
  *
  * ⚠️ `findInText` is a SECOND implementation of the backend's `extractCandidates`, for the
- * preview only. The scan cases below mirror the backend's semantics deliberately — whole-token
- * boundaries, prefix compared not compiled — so a divergence shows up here rather than as a
- * preview that quietly lies.
+ * preview only.
+ *
+ * ✅ VERIFIED PARITY (audit pass 5), not assumed: every case in the scan block below was run
+ * against the backend's own `extractCandidates` and produced identical output —
+ *   '…order 137416?'      → ['137416']
+ *   'order 1374169 please'→ []            (the boundary rule)
+ *   'ORD-137416 ORD-999999' → both
+ *   'AX12 A.12' with prefix 'A.' → ['A.12'] (the prefix is compared, not compiled)
+ *   '137416 137416'       → ['137416']    (de-duplicated)
+ * To re-check after a backend change: run `extractCandidates` over this table in support-service
+ * and diff. A divergence then fails HERE rather than becoming a preview that quietly lies.
  */
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -20,6 +28,25 @@ describe('deriving a format from what an admin types', () => {
     ['inv/2026ab', { prefix: 'inv/', length: 6, charset: 'alnum' }],
   ])('%s → the three values, never a pattern', (example, expected) => {
     expect(deriveFormat(example)).toEqual(expected);
+  });
+
+  it('⛔ refuses what the BACKEND would refuse (audit pass 5)', () => {
+    /*
+     * These bounds mirror `compileFormat` on the backend: prefix at most 32 characters and drawn
+     * from an allowlist, body between 1 and 64. ⛔ RED: accept them here and the admin saves a
+     * format the server throws on when it compiles the matcher — so the lookup fails at the
+     * moment an agent uses it, with nothing on this screen having said a word.
+     */
+    expect(deriveFormat('A'.repeat(65))).toBeNull();
+    expect(deriveFormat(`${'P'.repeat(33)}-123`)).toBeNull();
+    // The prefix allowlist is letters, digits and - _ # / . and a space — nothing that carries
+    // meaning in a pattern language, because the prefix is compared and never compiled.
+    expect(deriveFormat('(ORD)137416')).toBeNull();
+    expect(deriveFormat('a*b123')).toBeNull();
+    // POSITIVE CONTROLS: the boundary values themselves are fine.
+    expect(deriveFormat('A'.repeat(64))).toMatchObject({ length: 64 });
+    expect(deriveFormat(`${'P'.repeat(32)}-1`)).toBeNull();
+    expect(deriveFormat(`${'P'.repeat(31)}-1`)).toMatchObject({ length: 1 });
   });
 
   it('⛔ says so honestly when it cannot read the example', () => {

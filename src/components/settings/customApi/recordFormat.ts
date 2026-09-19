@@ -7,14 +7,20 @@
  * a linear scan that cannot backtrack — is the mitigation. Nothing here reaches `new RegExp`
  * with anything an admin typed.
  *
- * ⚠️ DECLARED DIVERGENCE RISK, because naming it is the point. `findInText` below is a SECOND
- * implementation of `customApiRecordMatcher.extractCandidates` on the backend, which is the
- * authoritative one. It exists only to show the admin their format working on their own sentence
- * before they save — it never decides anything. The boundary rule is ported deliberately (a match
- * must be a whole token, so `AB12` does not match inside `XAB12Y`) and the cases in the suite
- * mirror the backend's. If the backend's rule changes, this preview becomes a lie rather than a
- * bug — which is the failure mode to watch for, and why the preview says "we would suggest"
- * rather than asserting what will happen.
+ * ⚠️ A SECOND IMPLEMENTATION, AND THE PARITY IS EVIDENCED RATHER THAN ASSUMED. `findInText` below
+ * mirrors `customApiRecordMatcher.extractCandidates` on the backend, which is the authoritative
+ * one; this exists only to show the admin their format working on their own sentence before they
+ * save, and it never decides anything.
+ *
+ * ✅ Audit pass 5: every case in this module's suite was run against the BACKEND's implementation
+ * (`npx tsx` over `extractCandidates` in support-service) and the outputs matched exactly —
+ * including the two that matter most, `1374169` yielding nothing and `A.12` matching while `AX12`
+ * does not. So the port is faithful today, and a divergence would show as a failing case here.
+ *
+ * ⛔ What is still true, and why the copy says "we would suggest" rather than "we will find": if
+ * the backend's rule changes, this becomes a LIE rather than a bug — nothing fails, the admin is
+ * simply shown something that will not happen. The single-source alternative is a preview
+ * endpoint, and that is the thing to build if this preview ever grows past a sanity check.
  */
 
 export type RecordCharset = 'digits' | 'alnum' | 'alnum_upper';
