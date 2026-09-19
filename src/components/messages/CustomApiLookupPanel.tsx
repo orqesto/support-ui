@@ -27,6 +27,8 @@ interface Props {
   contactId?: number;
   /** Shown when the customer has no email to key an identity lookup on (D30). */
   identityNote?: string;
+  /** Spacing from the host. On the panel's own root, so a hidden panel leaves no gap behind. */
+  className?: string;
 }
 
 const ownershipNotice = (
@@ -213,7 +215,12 @@ const ResultCard = ({
   );
 };
 
-export const CustomApiLookupPanel = ({ conversationId, contactId, identityNote }: Props) => {
+export const CustomApiLookupPanel = ({
+  conversationId,
+  contactId,
+  identityNote,
+  className,
+}: Props) => {
   const { results, loading, hasRun, error, unavailable, run } = useCustomApiLookup({
     conversationId,
     contactId,
@@ -230,7 +237,7 @@ export const CustomApiLookupPanel = ({ conversationId, contactId, identityNote }
   if (unavailable) return null;
 
   return (
-    <div className="space-y-2">
+    <div className={className ? `space-y-2 ${className}` : 'space-y-2'}>
       <div className="flex items-center justify-between gap-2">
         <p className={`${MONO} text-muted-foreground`}>CONNECTED SYSTEMS</p>
         <Button
@@ -263,7 +270,7 @@ export const CustomApiLookupPanel = ({ conversationId, contactId, identityNote }
       */}
         {hasRun && results.length === 0 && !error && (
           <p className="text-[11px] text-muted-foreground">
-            No integrations are set up for this workspace yet.
+            No lookups are available to you right now.
           </p>
         )}
 

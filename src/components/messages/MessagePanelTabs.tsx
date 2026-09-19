@@ -309,16 +309,15 @@ export function MessagePanelTabs({
 
               {/* CA-3: what the connected integrations know about this customer. Nothing is
                   fetched until the agent presses Look up (SC1). */}
-              <div className="pt-1">
-                <CustomApiLookupPanel
-                  conversationId={message.id}
-                  identityNote={
-                    hasEmailIdentity
-                      ? undefined
-                      : 'This customer has no email address, so identity-based lookups cannot run. Enter a record number to look one up.'
-                  }
-                />
-              </div>
+              <CustomApiLookupPanel
+                className="pt-1"
+                conversationId={message.id}
+                identityNote={
+                  hasEmailIdentity
+                    ? undefined
+                    : 'This customer has no email address, so identity-based lookups cannot run. Enter a record number to look one up.'
+                }
+              />
 
               {/* Full contact profile — assigned manager, labels, channel
                   profiles, linked contacts and contact-level notes (shared with

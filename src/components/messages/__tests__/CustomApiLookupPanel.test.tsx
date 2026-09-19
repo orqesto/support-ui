@@ -254,7 +254,7 @@ describe('an empty panel never reads as a failure', () => {
     run.mockResolvedValue([]);
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
-    expect(await screen.findByText(/no integrations are set up/i)).toBeTruthy();
+    expect(await screen.findByText(/no lookups are available to you/i)).toBeTruthy();
   });
 });
 
@@ -494,6 +494,24 @@ describe('the panel renders ONLY when this caller has a lookup to run', () => {
     availability.mockReturnValue(new Promise<boolean>(() => {}));
     const { container } = render(<CustomApiLookupPanel conversationId={1} />);
     expect(container.firstChild).toBeNull();
+  });
+
+  it("the host's spacing sits on the panel's OWN root, so a hidden panel leaves no gap", async () => {
+    // The hosts used to wrap the panel in a spaced <div>, which stayed behind as a blank gap on
+    // every thread and contact once the panel started rendering nothing by default.
+    const { container } = render(<CustomApiLookupPanel conversationId={1} className="mb-4" />);
+    await screen.findByRole('button', { name: /look up/i });
+    expect(container.firstElementChild?.className).toContain('mb-4');
+  });
+
+  it('a press that finds nothing says so without claiming the WORKSPACE has none', async () => {
+    // Availability and the press share one selection, so [] means the config changed inside the
+    // cache window — and for a department-scoped agent the workspace may still have lookups.
+    run.mockResolvedValue([]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+    expect(await screen.findByText('No lookups are available to you right now.')).toBeTruthy();
+    expect(screen.queryByText(/set up for this workspace/)).toBeNull();
   });
 
   it('POSITIVE CONTROL: renders the panel when a lookup IS available', async () => {
