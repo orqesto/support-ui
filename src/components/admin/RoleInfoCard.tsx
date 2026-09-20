@@ -74,6 +74,10 @@ export const PERMISSION_CATALOG: PermissionGroup[] = [
       { permission: Permission.MANAGE_AI_PROMPTS, label: 'Configure AI prompts' },
       { permission: Permission.MANAGE_SPAM_RULES, label: 'Manage spam rules' },
       { permission: Permission.MANAGE_ROUTING_RULES, label: 'Manage routing and priority rules' },
+      {
+        permission: Permission.MANAGE_KNOWLEDGE_BASE,
+        label: 'Review the knowledge base (approve, reject, edit)',
+      },
       { permission: Permission.VIEW_AI_SETTINGS, label: 'View AI settings' },
     ],
   },

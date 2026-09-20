@@ -45,11 +45,28 @@ export const kbPromoteService = {
    * Save the pairs the agent kept. Stored approved and attributed to them — returns the ids
    * actually CREATED, which is fewer than requested when a pair is already in the KB.
    */
-  promote: async (messageId: number, pairs: KbQaPairInput[]): Promise<number[]> => {
-    const response = await apiClient.post<ApiResponse<{ knowledgeBaseIds: number[] }>>(
-      `/api/messages/${messageId}/kb-entries`,
-      { pairs }
-    );
-    return response.data.data?.knowledgeBaseIds ?? [];
+  /**
+   * `pendingReview`: the caller may not approve KB entries, so what was saved waits for a
+   * reviewer (who is notified) and the AI does not use it yet. `rejected`: the pair was already
+   * in the KB and a reviewer had rejected it — nothing new is waiting on anyone. Both are
+   * absent on an older backend, which reads as a plain "added".
+   */
+  promote: async (
+    messageId: number,
+    pairs: KbQaPairInput[]
+  ): Promise<{ ids: number[]; pendingReview: boolean; rejected: number }> => {
+    const response = await apiClient.post<
+      ApiResponse<{
+        knowledgeBaseIds: number[];
+        pendingReview?: boolean;
+        outcome?: { approved: number; pendingReview: number; rejected: number };
+      }>
+    >(`/api/messages/${messageId}/kb-entries`, { pairs });
+    const data = response.data.data;
+    return {
+      ids: data?.knowledgeBaseIds ?? [],
+      pendingReview: data?.pendingReview === true,
+      rejected: data?.outcome?.rejected ?? 0,
+    };
   },
 };

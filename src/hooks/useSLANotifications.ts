@@ -90,6 +90,8 @@ const NON_SLA_BELL_KINDS = new Set([
   // the fail-open filter would render a dark mailbox as an amber SLA breach reading
   // "nullm over". It owns its surface in useIngestionDarkAlerts.
   'ingestion_dark',
+  // A KB capture waiting for review: no breach fields, own surface in useKbReviewAlerts.
+  'kb_review_pending',
 ]);
 const isNonSlaBellKind = (kind: unknown): boolean =>
   typeof kind === 'string' && NON_SLA_BELL_KINDS.has(kind);

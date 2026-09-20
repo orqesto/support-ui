@@ -63,7 +63,10 @@ export const useLearningNotifications = () => {
         learningService.listSuggestions(),
       ]);
       setNotifications(notifs);
-      setSuggestions(sugs.filter((sug) => sug.status === 'pending'));
+      // KB capture reviews have their own bell section (useKbReviewAlerts), which also reaches
+      // moderators — this section is org-admin only. Listing them here too would show an org
+      // admin every review twice.
+      setSuggestions(sugs.filter((sug) => sug.status === 'pending' && sug.domain !== 'kb_review'));
       setFetchError(false);
     } catch (err) {
       logger.debug('useLearningNotifications fetch failed', { err });

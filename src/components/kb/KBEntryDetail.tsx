@@ -1,5 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Bot, CheckCircle, Eye, EyeOff, Trash2, Edit, Download, FileText, Image, Video, Volume2, Loader2 } from 'lucide-react';
+import {
+  Bot,
+  CheckCircle,
+  Eye,
+  EyeOff,
+  Trash2,
+  Edit,
+  Download,
+  FileText,
+  Image,
+  Video,
+  Volume2,
+  Loader2,
+  XCircle,
+} from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -17,8 +31,10 @@ import { Textarea } from '@/components/ui/Textarea';
 import { apiClient } from '@/lib/api-client';
 import { kbService, type KBEntry } from '@/services/kb.service';
 import { KBApprovalProvenance } from './KBApprovalProvenance';
+import { KBStatusBadge } from './KBStatusBadge';
 import { FormattedKBContent } from '../shared/FormattedKBContent';
 import { logger } from '@/lib/logger';
+import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 
 const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico']);
 const isImageFile = (filename: string) => IMAGE_EXTS.has(filename.split('.').pop()?.toLowerCase() ?? '');
@@ -49,8 +65,11 @@ type KBEntryDetailProps = {
   onClose: () => void;
   onApprove: (id: number) => void;
   onHide: (id: number) => void;
+  onReject: (id: number) => void;
   onDelete: (entry: KBEntry) => void;
   onUpdate?: (entry: KBEntry) => void;
+  /** May approve / reject / hide / edit (manage_knowledge_base). Without it the server answers 403. */
+  canReview: boolean;
 };
 
 export const KBEntryDetail = ({
@@ -58,8 +77,10 @@ export const KBEntryDetail = ({
   onClose,
   onApprove,
   onHide,
+  onReject,
   onDelete,
   onUpdate,
+  canReview,
 }: KBEntryDetailProps) => {
   const [fullEntry, setFullEntry] = useState<KBEntry | null>(null);
   const [loading, setLoading] = useState(false);
@@ -153,13 +174,11 @@ export const KBEntryDetail = ({
                   AI-drafted
                 </Badge>
               )}
-              {displayEntry.hidden ? (
-                <Badge className="text-muted-foreground">Hidden</Badge>
-              ) : displayEntry.approved ? (
-                <Badge className="bg-green-600">Approved</Badge>
-              ) : (
-                <Badge>Pending Review</Badge>
-              )}
+              <KBStatusBadge
+                entry={displayEntry}
+                pendingLabel="Pending Review"
+                withProvenance={false}
+              />
             </div>
           </div>
 
@@ -415,27 +434,40 @@ export const KBEntryDetail = ({
         {/* Actions Footer */}
         <div className="flex-none p-6 border-t bg-muted/20">
           <div className="flex gap-3 justify-end">
-            <Button variant="outline" onClick={handleEditClick}>
-              <Edit className="mr-2 w-4 h-4" />
-              Edit
-            </Button>
-            {!entry.approved && !entry.hidden && (
-              <Button variant="primary" onClick={() => onApprove(entry.id)}>
-                <CheckCircle className="mr-2 w-4 h-4" />
-                Approve
+            {canReview && (
+              <Button variant="outline" onClick={handleEditClick}>
+                <Edit className="mr-2 w-4 h-4" />
+                Edit
               </Button>
             )}
-            {!entry.hidden ? (
-              <Button variant="outline" onClick={() => onHide(entry.id)}>
-                <EyeOff className="mr-2 w-4 h-4" />
-                Hide
-              </Button>
-            ) : (
-              <Button variant="outline" onClick={() => onApprove(entry.id)}>
-                <Eye className="mr-2 w-4 h-4" />
-                Unhide
-              </Button>
+            {canReview && !entry.approved && !entry.hidden && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => onReject(entry.id)}
+                  title={`Hidden now, deleted after ${REJECTED_RETENTION_DAYS} days unless approved again`}
+                >
+                  <XCircle className="mr-2 w-4 h-4" />
+                  Reject
+                </Button>
+                <Button variant="primary" onClick={() => onApprove(entry.id)}>
+                  <CheckCircle className="mr-2 w-4 h-4" />
+                  Approve
+                </Button>
+              </>
             )}
+            {canReview &&
+              (!entry.hidden ? (
+                <Button variant="outline" onClick={() => onHide(entry.id)}>
+                  <EyeOff className="mr-2 w-4 h-4" />
+                  Hide
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={() => onApprove(entry.id)}>
+                  <Eye className="mr-2 w-4 h-4" />
+                  {entry.rejectedAt ? 'Restore' : 'Unhide'}
+                </Button>
+              ))}
             <Button
               variant="outline"
               className="text-red-600 hover:text-red-700"

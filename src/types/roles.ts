@@ -45,6 +45,9 @@ export const Permission = {
   MANAGE_SPAM_RULES: 'manage_spam_rules',
   // Routing + priority rules. Mirrors the backend's split from MANAGE_ORGANIZATION (2026-09-17).
   MANAGE_ROUTING_RULES: 'manage_routing_rules',
+  // Review the knowledge base: approve, reject, hide and edit entries. Mirrors the backend's
+  // split from MANAGE_ORGANIZATION (2026-09-19) so moderators review what support captures.
+  MANAGE_KNOWLEDGE_BASE: 'manage_knowledge_base',
   VIEW_AI_SETTINGS: 'view_ai_settings',
 
   // Ticket Management
@@ -117,6 +120,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.MANAGE_AI_PROMPTS,
     Permission.MANAGE_SPAM_RULES,
     Permission.MANAGE_ROUTING_RULES,
+    Permission.MANAGE_KNOWLEDGE_BASE,
     Permission.VIEW_AI_SETTINGS,
     Permission.MANAGE_TICKETS,
     Permission.VIEW_TICKETS,
@@ -155,6 +159,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.MANAGE_AI_PROMPTS,
     Permission.MANAGE_SPAM_RULES,
     Permission.MANAGE_ROUTING_RULES,
+    Permission.MANAGE_KNOWLEDGE_BASE,
     Permission.VIEW_AI_SETTINGS,
     Permission.MANAGE_TICKETS,
     Permission.VIEW_TICKETS,
