@@ -16,6 +16,10 @@ import type { components } from '@/types/generated/api';
 export type CustomApiLookupResult = components['schemas']['CustomApiLookupResult'];
 
 export type LookupOwnership = NonNullable<CustomApiLookupResult['ownership']>;
+/** CA-6: a record already fetched by an earlier lookup and kept by D37's store. */
+export type CustomApiStoredRecord = components['schemas']['CustomApiStoredRecord'];
+/** CA-6: a lookup an agent could run — label, vendor and whether it takes a typed reference. */
+export type RunnableLookup = components['schemas']['CustomApiRunnableLookup'];
 export type LookupField = NonNullable<CustomApiLookupResult['fields']>[number];
 
 export interface LookupRequest {
@@ -76,5 +80,39 @@ export const customApiLookupService = {
       body
     );
     return (res.data.data ?? []).map(normalise);
+  },
+
+  /**
+   * CA-6: what we ALREADY hold about this customer, for the records page.
+   *
+   * ⛔ THIS IS NOT A LOOKUP AND MUST NEVER BECOME ONE. It reads our own store, so a PAGE may call
+   * it on open without breaching SC1 — nothing reaches a vendor. That is the only reason the page
+   * can show anything before the agent presses something (D45).
+   *
+   * ⚠️ An older backend has no such route and answers the SPA's HTML 404, so a failure here is
+   * "this deployment has no records endpoint yet", not "this customer has no records" — the caller
+   * distinguishes them, because rendering an empty list for a skewed deployment would state
+   * something false about the customer.
+   */
+  async storedRecords(contactId: number): Promise<CustomApiStoredRecord[]> {
+    const res = await apiClient.get<{ success: boolean; data?: CustomApiStoredRecord[] }>(
+      '/api/custom-apis/records',
+      { params: { contactId } }
+    );
+    return res.data.data ?? [];
+  },
+
+  /**
+   * CA-6: which lookups a press could run here — so the records page can show its reference box
+   * without making the agent press something else first (D44).
+   *
+   * ⛔ NOT A LOOKUP: configuration is read on our own side, nothing reaches a vendor (SC1).
+   */
+  async lookupOptions(surface: LookupSurface): Promise<RunnableLookup[]> {
+    const res = await apiClient.get<{ success: boolean; data?: RunnableLookup[] }>(
+      '/api/custom-apis/lookup/options',
+      { params: { surface } }
+    );
+    return res.data.data ?? [];
   },
 };

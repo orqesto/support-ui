@@ -3,6 +3,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { act, render as rtlRender, renderHook, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { CustomApiLookupPanel, NO_EMAIL_IDENTITY_NOTE } from '../CustomApiLookupPanel';
 import { useCustomApiLookup } from '@/hooks/useCustomApiLookup';
 import type * as LookupService from '@/services/customApiLookup.service';
@@ -53,11 +54,21 @@ const press = async (name = /look up/i) => {
   await userEvent.click((await screen.findAllByRole('button', { name }))[0]);
 };
 
-/** A fresh cache per render, so one test's availability answer never leaks into the next. */
+/**
+ * A fresh cache per render, so one test's availability answer never leaks into the next.
+ *
+ * ⛔ AND A ROUTER (CA-6). The panel now links out to the customer's records page, and a `<Link>`
+ * outside a router context throws — so this wrapper is what keeps every test in this file honest
+ * about the context the panel actually renders in. Without it the suite dies at render with
+ * "Cannot destructure property 'basename'", which looks like a test-harness problem and is really
+ * the component telling you what it now requires.
+ */
 const render = (ui: ReactElement) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    <MemoryRouter>
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    </MemoryRouter>
   );
   return rtlRender(ui, { wrapper });
 };

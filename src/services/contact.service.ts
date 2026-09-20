@@ -52,6 +52,12 @@ export const contactService = {
     return res.data;
   },
 
+  /** CA-6: the records page is keyed on the contact ID in its URL, not on an email. */
+  getById: async (id: number): Promise<ContactProfile> => {
+    const res = await apiClient.get<ApiResponse<ContactProfile>>(`/api/contacts/${id}`);
+    return res.data.data!;
+  },
+
   getByEmail: async (email: string): Promise<ContactProfile> => {
     const res = await apiClient.get<ApiResponse<ContactProfile>>(
       `/api/contacts/by-email?email=${encodeURIComponent(email)}`
