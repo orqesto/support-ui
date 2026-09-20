@@ -244,6 +244,16 @@ export const CustomerRecordsPage = () => {
   const search = async () => {
     const value = reference.trim();
     if (!value || manualLookups.length === 0) return;
+    /**
+     * ⛔ ONE IN FLIGHT AT A TIME. Audit pass 2 of this change: the original had the press on a
+     * `Button` with `disabled={searching || !reference.trim()}`, and converting to the
+     * design-system `SearchInput` silently dropped it — that component takes no `disabled` prop, so
+     * its magnifier stays live while a lookup is running. Every extra press is another call to a
+     * CLIENT'S vendor, spending their rate ceiling (D31) and racing its own answer back onto the
+     * page. Guarding here rather than on the control means it holds however the box is pressed —
+     * button, Enter key, or a future one.
+     */
+    if (searching) return;
     setSearching(true);
     setSearchError(null);
     try {
@@ -280,6 +290,8 @@ export const CustomerRecordsPage = () => {
   };
 
   const refresh = async () => {
+    // Same bound as the box: Refresh is a vendor call too.
+    if (searching) return;
     setSearching(true);
     setSearchError(null);
     try {

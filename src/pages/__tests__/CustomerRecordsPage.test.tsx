@@ -155,6 +155,28 @@ describe('CustomerRecordsPage', () => {
     );
   });
 
+  it('⛔ a second press while a lookup is in flight does not call the vendor again', async () => {
+    /**
+     * 🔴 AUDIT PASS 2, 2026-09-20. The original press was a `Button` with
+     * `disabled={searching || !reference.trim()}`; converting to the design-system `SearchInput`
+     * dropped it, because that component takes no `disabled` prop. Every extra press is another
+     * call to a CLIENT'S vendor against their rate ceiling, racing its own answer back.
+     * RED: remove the `if (searching) return` guard and `run` is called twice.
+     */
+    let release: (value: unknown[]) => void = () => {};
+    run.mockImplementation(() => new Promise((resolve) => (release = resolve)));
+    renderPage();
+
+    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '42');
+    const press = screen.getByRole('button', { name: 'Search' });
+    await userEvent.click(press);
+    await userEvent.click(press);
+    await userEvent.click(press);
+
+    expect(run).toHaveBeenCalledTimes(1);
+    release([]);
+  });
+
   it('⛔ a record that is NOT this customer’s carries the SAME flag the panel uses', async () => {
     // Parity: a page opened from a surface must not rename, recolour or soften what that surface
     // said. RED: write this page its own gentler wording and the same record reads as two
