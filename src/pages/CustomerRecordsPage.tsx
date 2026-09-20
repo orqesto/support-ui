@@ -359,10 +359,20 @@ export const CustomerRecordsPage = () => {
                     showSearchButton
                     onSearch={() => void search()}
                   />
+                  {/*
+                    ⛔ NO PROMISE HERE. This said "Every answer is checked against this customer
+                    before it is shown", and on staging 2026-09-20 it sat directly above an answer
+                    reading "this integration cannot verify ownership" — a caption asserting a
+                    check the lookup cannot run. Whether ownership CAN be verified is per-lookup
+                    configuration (D35: it needs a source lookup listing the customer's own
+                    records), so the honest place for that claim is the verdict on each card, which
+                    already carries it. Six audit passes missed this because jsdom never rendered
+                    an unverifiable result next to the caption.
+                  */}
                   <p className="text-[11px] text-muted-foreground">
                     Checked against{' '}
-                    {manualLookups.map((lookup) => lookup.connectionName).join(', ')}. Every answer
-                    is checked against this customer before it is shown.
+                    {manualLookups.map((lookup) => lookup.connectionName).join(', ')}. Each answer
+                    says what we could confirm about it.
                   </p>
                 </CardContent>
               </Card>

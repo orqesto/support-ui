@@ -124,6 +124,23 @@ describe('CustomerRecordsPage', () => {
     expect(await screen.findByPlaceholderText('Order or reference number')).toBeInTheDocument();
   });
 
+  it('⛔ the box does not PROMISE a check the lookup cannot run', async () => {
+    /**
+     * 🔴 SEEN ON STAGING, 2026-09-20. The caption read "Every answer is checked against this
+     * customer before it is shown" and sat directly above an answer reading "this integration
+     * cannot verify ownership". Whether ownership can be verified is per-lookup configuration
+     * (D35 needs a source lookup listing the customer's own records), so the caption cannot know.
+     * RED: restore the promise and this fails.
+     */
+    renderPage();
+
+    await screen.findByPlaceholderText('Order or reference number');
+    expect(screen.queryByText(/Every answer is checked against this customer/i)).toBeNull();
+    expect(
+      screen.getByText(/Each answer says what we could confirm about it/i)
+    ).toBeInTheDocument();
+  });
+
   it('checking a reference runs the manual lookup with that value', async () => {
     run.mockResolvedValue([
       { endpointId: 20, label: 'this order', connectionName: 'DeusPower', status: 'ok', rows: [] },
