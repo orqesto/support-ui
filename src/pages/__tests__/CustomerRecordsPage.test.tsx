@@ -8,7 +8,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 
 const getById = vi.fn();
 const storedRecords = vi.fn();
@@ -104,6 +104,18 @@ describe('CustomerRecordsPage', () => {
     expect(await screen.findByText(/3,485|3485/)).toBeInTheDocument();
   });
 
+  it('⛔ a total with NO currency is not printed as a bare number (audit pass 2)', async () => {
+    // The stored figure is in MINOR units, so "34850" in a Total column is €348.50 misquoted by a
+    // hundredfold. D23: a money figure without its currency is a misquote waiting to happen.
+    storedRecords.mockResolvedValue([{ ...STORED, currency: null }]);
+
+    renderPage();
+
+    await screen.findByText('137416');
+    expect(screen.queryByText(/34850/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/348[.,]50/)).not.toBeInTheDocument();
+  });
+
   it('⛔ shows the reference box WITHOUT pressing anything first (D44)', async () => {
     renderPage();
 
@@ -181,6 +193,78 @@ describe('CustomerRecordsPage', () => {
 
     expect(await screen.findByText(/could not be opened/i)).toBeInTheDocument();
     expect(screen.queryByText(/No records held for this customer yet/i)).not.toBeInTheDocument();
+  });
+
+  it('⛔ records failing while the CUSTOMER loads is not "no records" either', async () => {
+    /**
+     * 🔴 AUDIT PASS 1, 2026-09-20 — the likeliest skew of all, and the one the first version got
+     * wrong. The contact comes from a DIFFERENT route than the records, so an older backend with
+     * no records route answered the customer fine and failed only the records. The page then
+     * rendered the customer's name above an empty table, which an agent reads as a fact about the
+     * customer. The earlier test rejected BOTH calls and so never reached this path.
+     */
+    storedRecords.mockRejectedValue(new Error('404'));
+    renderPage();
+
+    expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
+    expect(screen.getByText(/could not read this customer/i)).toBeInTheDocument();
+    expect(screen.queryByText(/No records held for this customer yet/i)).not.toBeInTheDocument();
+  });
+
+  it('one failing read does not blank the other two (SC3)', async () => {
+    // RED against `Promise.all`: an older backend missing the OPTIONS route refused to open a
+    // customer who exists, records and all.
+    lookupOptions.mockRejectedValue(new Error('404'));
+    renderPage();
+
+    expect(await screen.findByText('137416')).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Order or reference number')).not.toBeInTheDocument();
+    expect(screen.queryByText(/could not be opened/i)).not.toBeInTheDocument();
+  });
+
+  it('⛔ one customer’s live answers do not survive onto another customer’s page', async () => {
+    // Audit pass 1: the route re-renders in place when the id changes, so without a reset the
+    // previous customer's results sat under the new customer's name.
+    run.mockResolvedValue([
+      {
+        endpointId: 20,
+        label: 'this order',
+        connectionName: 'DeusPower',
+        status: 'ok',
+        rows: [{ secret: 'ada-only' }],
+      },
+    ]);
+    // ⛔ A REAL IN-PLACE NAVIGATION, not a fresh mount. Re-rendering a new tree would remount the
+    // component and pass no matter what the code does; the defect only exists when the SAME
+    // component instance sees a new :id.
+    const Harness = () => {
+      const navigate = useNavigate();
+      return (
+        <>
+          <button type="button" onClick={() => navigate('/contacts/6/records')}>
+            go to grace
+          </button>
+          <Routes>
+            <Route path="/contacts/:id/records" element={<CustomerRecordsPage />} />
+          </Routes>
+        </>
+      );
+    };
+    render(
+      <MemoryRouter initialEntries={['/contacts/5/records']}>
+        <Harness />
+      </MemoryRouter>
+    );
+
+    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '1');
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(await screen.findByText(/ada-only/)).toBeInTheDocument();
+
+    getById.mockResolvedValue({ id: 6, displayName: 'Grace Hopper', primaryEmail: 'g@x.com' });
+    await userEvent.click(screen.getByRole('button', { name: 'go to grace' }));
+
+    expect(await screen.findByText('Grace Hopper')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText(/ada-only/)).not.toBeInTheDocument());
   });
 
   it('a non-numeric id is a not-found state, not a request', async () => {

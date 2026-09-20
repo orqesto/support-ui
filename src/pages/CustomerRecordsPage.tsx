@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { ownershipNotice } from '@/components/messages/CustomApiLookupPanel';
 import { Button } from '@/components/ui/Button';
+import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Label } from '@/components/ui/Label';
@@ -43,7 +44,13 @@ const formatMinor = (minor: number | null, currency: string | null): string | nu
   // ⛔ NEVER a hardcoded /100. The number of minor units in a major one is a property of the
   // CURRENCY — JPY, KRW and IDR have none — so dividing by 100 renders ¥3,485 as ¥34.85, a
   // hundredfold error in a figure an agent quotes to a customer. Ask Intl for the exponent.
-  if (!currency) return String(minor);
+  //
+  // ⛔ AND WITH NO CURRENCY WE SHOW NOTHING (audit pass 2). `currency` is nullable, and the stored
+  // figure is in MINOR units — so printing it bare puts "34850" in a Total column where the truth
+  // is €348.50. An agent quoting that is off by a hundred. D23 already settled the principle for
+  // this codebase: a money figure without its currency is a misquote waiting to happen. Without
+  // the currency we cannot even convert it, so there is nothing honest to print.
+  if (!currency) return null;
   try {
     const format = new Intl.NumberFormat(undefined, { style: 'currency', currency });
     const digits = format.resolvedOptions().maximumFractionDigits ?? 2;
@@ -123,9 +130,11 @@ const LiveResult = ({ result }: { result: CustomApiLookupResult }) => {
 
       {result.status === 'ok' && result.rows && result.rows.length > 0 ? (
         <div className="space-y-1">
-          {result.rows.map((row, index) => (
+          {/* A vendor row has no id of its own, so its CONTENT is its identity — an index key
+              would reuse a DOM node for a different record when a second check returns fewer. */}
+          {result.rows.map((row) => (
             <pre
-              key={index}
+              key={`${result.endpointId}-${JSON.stringify(row)}`}
               className="text-[11px] whitespace-pre-wrap break-words bg-muted/40 rounded p-2"
             >
               {JSON.stringify(row, null, 1)}
@@ -171,22 +180,58 @@ export const CustomerRecordsPage = () => {
     }
     setLoading(true);
     setLoadFailed(false);
-    try {
-      // ⛔ Both of these read OUR side only. Neither is a lookup.
-      const [profile, stored, options] = await Promise.all([
-        contactService.getById(contactId),
-        customApiLookupService.storedRecords(contactId),
-        customApiLookupService.lookupOptions('contact'),
-      ]);
-      setContact(profile);
-      setRecords(stored);
-      setLookups(options);
-    } catch (error) {
-      logger.error('Failed to load customer records', error);
-      setLoadFailed(true);
-    } finally {
-      setLoading(false);
+    setNotFound(false);
+    /*
+      ⛔ A PREVIOUS CUSTOMER'S ANSWERS DO NOT SURVIVE A NAVIGATION. This route re-renders in place
+      when the id changes (records page → records page), so without this the live results and the
+      typed reference from customer A stay on screen under customer B's name. Audit pass 1.
+    */
+    setLiveResults(null);
+    setReference('');
+    setSearchError(null);
+
+    /*
+      ⛔ SETTLED, NOT ALL — the same rule the backend's own fan-out follows (SC3). These are three
+      independent reads and one failing must not blank the other two. Audit pass 1 found
+      `Promise.all` here, which meant an older deployment missing EITHER new route refused to open
+      a customer that exists, and — worse — a records route that 404s while the contact loads fine
+      fell through to the EMPTY state, telling an agent this customer has no records when the truth
+      is that this deployment cannot answer. That is the precise false statement this page was
+      written to avoid, and it was in the likeliest skew of all.
+    */
+    const [profile, stored, options] = await Promise.allSettled([
+      contactService.getById(contactId),
+      customApiLookupService.storedRecords(contactId),
+      customApiLookupService.lookupOptions('contact'),
+    ]);
+
+    if (profile.status === 'fulfilled') {
+      setContact(profile.value);
+    } else {
+      logger.error('Failed to load the customer', profile.reason);
+      setNotFound(true);
     }
+
+    if (stored.status === 'fulfilled') {
+      setRecords(stored.value);
+    } else {
+      // ⛔ NOT an empty list. `loadFailed` is what stops the empty state claiming something about
+      // the customer that we did not learn.
+      logger.error('Failed to load stored records', stored.reason);
+      setRecords([]);
+      setLoadFailed(true);
+    }
+
+    if (options.status === 'fulfilled') {
+      setLookups(options.value);
+    } else {
+      // The reference box simply does not appear. An older backend has no options route, and a box
+      // that cannot run is worse than no box.
+      logger.error('Failed to load lookup options', options.reason);
+      setLookups([]);
+    }
+
+    setLoading(false);
   }, [contactId]);
 
   useEffect(() => {
@@ -204,7 +249,8 @@ export const CustomerRecordsPage = () => {
     try {
       // ⛔ ONE call per manual lookup, and ONLY on this press. Every result comes back verified —
       // the backend runs D35 on a named record whichever door it arrives through.
-      const answers = await Promise.all(
+      // ⛔ SETTLED (SC3): one vendor being unreachable must not lose the answers from the others.
+      const answers = await Promise.allSettled(
         manualLookups.map((lookup) =>
           customApiLookupService.run({
             contactId,
@@ -213,7 +259,16 @@ export const CustomerRecordsPage = () => {
           })
         )
       );
-      setLiveResults(answers.flat());
+      const found = answers
+        .filter(
+          (answer): answer is PromiseFulfilledResult<CustomApiLookupResult[]> =>
+            answer.status === 'fulfilled'
+        )
+        .flatMap((answer) => answer.value);
+      setLiveResults(found);
+      if (found.length === 0 && answers.some((answer) => answer.status === 'rejected')) {
+        setSearchError('That lookup could not be completed. Try again, or check with an admin.');
+      }
       // A live answer is also stored by the backend, so the list below can now include it.
       setRecords(await customApiLookupService.storedRecords(contactId));
     } catch (error) {
@@ -252,14 +307,21 @@ export const CustomerRecordsPage = () => {
           </Button>
         </div>
 
-        {notFound || (loadFailed && !contact) ? (
+        {notFound ? (
+          /*
+            ⛔ ONE branch, and only the reachable one. Audit pass 6: this read
+            `notFound || (loadFailed && !contact)`, but since pass 1 a failing CONTACT read sets
+            `notFound` — so the second half could never be true and the message behind it was
+            unreachable. A records read that fails while the customer loads is a different state
+            entirely and is handled where the list would be, not here.
+            ⚠️ And it says LINK, not "address": this page is keyed on a contact id in the URL, so
+            "that address" described something the agent never typed.
+          */
           <Card>
             <CardContent className="py-8 text-center space-y-2">
               <p className="text-sm font-medium">This customer could not be opened.</p>
               <p className="text-[12px] text-muted-foreground">
-                {notFound
-                  ? 'That address does not name a customer in this workspace.'
-                  : 'The records service did not answer. This can happen while a deployment is part-way through.'}
+                That link does not name a customer in this workspace.
               </p>
             </CardContent>
           </Card>
@@ -330,6 +392,25 @@ export const CustomerRecordsPage = () => {
               <CardContent>
                 {loading ? (
                   <p className="text-[12px] text-muted-foreground">Loading…</p>
+                ) : loadFailed ? (
+                  /*
+                    ⛔ THE RECORDS READ FAILED, and that is NOT "this customer has no records".
+                    Audit pass 1: the contact loads from a different route, so the likeliest skew of
+                    all — an older backend with no records route — left the customer's name on
+                    screen above an EMPTY table, which an agent reads as fact about the customer.
+                    Say what actually happened, and offer the retry.
+                  */
+                  <Alert variant="warning">
+                    <div className="space-y-2">
+                      <p className="text-sm">
+                        We could not read this customer&rsquo;s records just now, so this list is
+                        not their record of account.
+                      </p>
+                      <Button variant="outline" size="sm" onClick={() => void load()}>
+                        Try again
+                      </Button>
+                    </div>
+                  </Alert>
                 ) : (
                   <>
                     <DataTable<CustomApiStoredRecord>
@@ -357,7 +438,9 @@ export const CustomerRecordsPage = () => {
                         nothing about them being current.
                       */
                       <p className="text-[11px] text-muted-foreground pt-2">
-                        Held from earlier lookups. Newest first. Use Refresh for the live position.
+                        Held from earlier lookups, newest first — what each system said when we
+                        fetched it, not a live position. Refresh re-runs the lookups available on
+                        this page.
                       </p>
                     )}
                   </>
