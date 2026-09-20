@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AlertTriangle, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -96,7 +97,13 @@ const UNVERIFIED_TEXT: Record<
   unknown: 'Not confirmed as this customer’s record — ownership could not be checked.',
 };
 
-const ownershipNotice = (
+/**
+ * ⛔ EXPORTED FOR PARITY, not for convenience. CA-6's records page shows the same verdicts, and a
+ * page opened from a surface must not rename, recolour or soften what that surface said — the same
+ * record must not be "does NOT belong to this customer" in the panel and something gentler on the
+ * page. One definition, both surfaces.
+ */
+export const ownershipNotice = (
   ownership: CustomApiLookupResult['ownership'],
   reason?: CustomApiLookupResult['ownershipReason']
 ): { text: string; className: string } | null => {
@@ -349,6 +356,21 @@ export const CustomApiLookupPanel = ({
       </div>
 
       {identityNote && <p className="text-[11px] text-muted-foreground">{identityNote}</p>}
+
+      {/*
+        CA-6: the way OUT of the panel. The owner's objection on 2026-09-20 was that records lived
+        only here — a popup an agent had to know to press, with no URL to link or return to. Shown
+        only when we know WHICH customer: the thread surface mounts this panel without a contact id,
+        and a link that guesses one would open a stranger's page.
+      */}
+      {contactId !== undefined && (
+        <Link
+          to={`/contacts/${contactId}/records`}
+          className="text-[11px] text-primary hover:underline inline-block"
+        >
+          Open the full records page
+        </Link>
+      )}
 
       {/*
         The results arrive asynchronously after a press, and a screen reader is given no reason to

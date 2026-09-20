@@ -388,6 +388,25 @@ export interface components {
             createdAt: string;
             updatedAt: string;
         };
+        CustomApiRunnableLookup: {
+            endpointId: number;
+            label: string;
+            connectionName: string;
+            parameterSource: string;
+            resultShape: string;
+        };
+        CustomApiStoredRecord: {
+            id: number;
+            recordRef: string;
+            occurredAt: string | null;
+            status: string | null;
+            totalMinor: number | null;
+            currency: string | null;
+            fetchedAt: string;
+            endpointId: number;
+            endpointLabel: string;
+            connectionName: string;
+        };
         CustomApiLookupResult: {
             endpointId: number;
             label: string;

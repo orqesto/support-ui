@@ -72,6 +72,9 @@ const PricingPage = lazy(() =>
 const UsageStatsPage = lazy(() =>
   import('./pages/UsageStatsPage').then((mod) => ({ default: mod.UsageStatsPage }))
 );
+const CustomerRecordsPage = lazy(() =>
+  import('./pages/CustomerRecordsPage').then((mod) => ({ default: mod.CustomerRecordsPage }))
+);
 const KnowledgeBasePage = lazy(() =>
   import('./pages/KnowledgeBasePage').then((mod) => ({ default: mod.KnowledgeBasePage }))
 );
@@ -259,10 +262,7 @@ const AppRoutes = () => {
           scrubbed URL fragment). Must NOT sit behind PrivateRoute. */}
       <Route path="/sso/callback" element={<SsoCallbackPage />} />
       {/* Public conversation tracking (#20). No auth — token in query string. */}
-      <Route
-        path="/track/:orgSlug/:deptSlug/:conversationId"
-        element={<TrackingPage />}
-      />
+      <Route path="/track/:orgSlug/:deptSlug/:conversationId" element={<TrackingPage />} />
       {/* Preview / demo of the tracking page with mock data (no conv id / token).
           Useful for design review, screenshots, customer-facing demos. */}
       <Route path="/track/:orgSlug/:deptSlug" element={<TrackingPage />} />
@@ -611,6 +611,24 @@ const AppRoutes = () => {
             <ProtectedRoute requiredPermission={Permission.VIEW_USAGE_STATS}>
               <Suspense fallback={<LoadingFallback />}>
                 <UsageStatsPage />
+              </Suspense>
+            </ProtectedRoute>
+          </PrivateRoute>
+        }
+      />
+      {/*
+        CA-6: a customer's records get a REAL URL. Owner, 2026-09-20 — the records lived only in a
+        side panel inside a thread, so they could not be linked, bookmarked or reached directly.
+        ⛔ VIEW_MESSAGES, the same gate the lookup itself uses (D28): `support` and `associate`
+        hold no integration permission at all and are exactly who this is for.
+      */}
+      <Route
+        path="/contacts/:id/records"
+        element={
+          <PrivateRoute>
+            <ProtectedRoute requiredPermission={Permission.VIEW_MESSAGES}>
+              <Suspense fallback={<LoadingFallback />}>
+                <CustomerRecordsPage />
               </Suspense>
             </ProtectedRoute>
           </PrivateRoute>
