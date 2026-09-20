@@ -433,7 +433,7 @@ export interface components {
             /** @enum {string} */
             ownership?: "owned" | "mismatch" | "unverified";
             /** @enum {string} */
-            ownershipReason?: "not_supported" | "no_customer_email" | "check_failed" | "identity_not_returned" | "check_truncated";
+            ownershipReason?: "not_supported" | "no_customer_email" | "check_failed" | "identity_not_returned" | "check_truncated" | "tagged_field_has_no_address";
         };
         SlaBreach: {
             id: number;

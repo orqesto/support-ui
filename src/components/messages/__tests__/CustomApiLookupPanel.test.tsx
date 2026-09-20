@@ -241,6 +241,33 @@ describe('an answer we could not finish reading', () => {
   });
 });
 
+describe('a tagged field that holds no address', () => {
+  it('blames the TAG and tells the agent who can fix it', async () => {
+    /**
+     * 🔴 The staging case, 2026-09-20. `name` was tagged as the customer's address on the vendor
+     * that ignores its parameter, so the check could not run — and the panel told the agent the
+     * ANSWER carried no address while it carried a real one at the next key. An agent can do
+     * nothing with that; this sentence points at the lookup's settings.
+     */
+    run.mockResolvedValue([
+      card({
+        status: 'ok',
+        ownership: 'unverified',
+        ownershipReason: 'tagged_field_has_no_address',
+        rows: [{ name: 'Leanne Graham' }],
+        fields: [{ path: 'name', label: 'Name', kind: 'plain' }],
+      }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    expect(await screen.findByText(/does not hold one/i)).toBeTruthy();
+    // ⛔ INVERTED: it must not claim the answer carried no address — that is the false sentence.
+    expect(screen.queryByText(/contains no address to check it against/i)).toBeNull();
+    expect(screen.queryByText(/does NOT belong to this customer/i)).toBeNull();
+  });
+});
+
 describe('D38 — a record that is not this customer’s', () => {
   it('⛔ is SHOWN, under an unmissable flag', async () => {
     // The owner chose showing it over stranding an agent whose customer wrote from a second
