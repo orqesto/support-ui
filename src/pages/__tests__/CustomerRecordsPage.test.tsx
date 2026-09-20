@@ -6,7 +6,7 @@
  * and a regression there is invisible to the eye — the page looks identical either way.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 
@@ -153,6 +153,38 @@ describe('CustomerRecordsPage', () => {
     await waitFor(() =>
       expect(run).toHaveBeenCalledWith({ contactId: 5, endpointId: 20, parameter: '999999' })
     );
+  });
+
+  it('⛔ presses landing in the SAME TICK still make one call (the ref, not the state)', async () => {
+    /**
+     * 🔴 THE CASE THE STATE GUARD CANNOT COVER. React flushes a state update between TASKS, so
+     * `if (searching) return` holds for two real clicks and fails for anything reaching the
+     * handler twice within one tick — a synthetic double-fire, Enter racing the button, a future
+     * caller invoking search() directly. `fireEvent` is synchronous, so these three land in one
+     * batch and every handler would read the pre-update state.
+     *
+     * ⛔ It is also the case staging could NOT settle: three presses produced three POSTs there,
+     * which is equally consistent with the guard failing and with each fast lookup finishing
+     * first, and two attempts to watch the busy state mid-flight froze the renderer.
+     * RED: swap the ref back for `if (searching) return` and this reports three calls.
+     */
+    let release: (value: unknown[]) => void = () => {};
+    run.mockImplementation(() => new Promise((resolve) => (release = resolve)));
+    renderPage();
+
+    const box = await screen.findByPlaceholderText('Order or reference number');
+    fireEvent.change(box, { target: { value: '42' } });
+    const press = screen.getByRole('button', { name: 'Search' });
+    // ⛔ RAW dispatch, NOT `fireEvent`. RTL wraps fireEvent in `act()`, which flushes state between
+    // events — so a fireEvent version of this test passes against the STATE guard too and proves
+    // nothing. These three land in one tick with no flush between them.
+    const click = () => press.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    click();
+    click();
+    click();
+
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+    release([]);
   });
 
   it('⛔ a second press while a lookup is in flight does not call the vendor again', async () => {

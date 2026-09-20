@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
@@ -178,6 +178,22 @@ export const CustomerRecordsPage = () => {
 
   const [reference, setReference] = useState('');
   const [searching, setSearching] = useState(false);
+  /**
+   * ⛔ A REF, NOT THE `searching` STATE, IS WHAT BOUNDS THE VENDOR CALLS.
+   *
+   * State is the wrong instrument here and the first version used it. React flushes a state update
+   * between TASKS, so `if (searching) return` holds for a human — two real clicks are two tasks —
+   * and fails for anything that reaches the handler twice within one: a synthetic double-fire, a
+   * keyboard Enter racing the button's click, a future caller invoking `search()` directly. Every
+   * one of those is an extra call to a CLIENT'S vendor against their rate ceiling (D31).
+   *
+   * ⚠️ AND IT WAS UNPROVABLE THE OTHER WAY. On staging 2026-09-20 three presses produced three
+   * POSTs, which is equally consistent with the guard failing and with each lookup finishing
+   * before the next press — the requests are fast. Two attempts to observe the busy state mid
+   * flight froze the renderer. A ref removes the question instead of answering it: it is set
+   * synchronously, in the same tick, before any await.
+   */
+  const inFlight = useRef(false);
   const [liveResults, setLiveResults] = useState<CustomApiLookupResult[] | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
 
@@ -256,15 +272,14 @@ export const CustomerRecordsPage = () => {
     const value = reference.trim();
     if (!value || manualLookups.length === 0) return;
     /**
-     * ⛔ ONE IN FLIGHT AT A TIME. Audit pass 2 of this change: the original had the press on a
-     * `Button` with `disabled={searching || !reference.trim()}`, and converting to the
-     * design-system `SearchInput` silently dropped it — that component takes no `disabled` prop, so
-     * its magnifier stays live while a lookup is running. Every extra press is another call to a
-     * CLIENT'S vendor, spending their rate ceiling (D31) and racing its own answer back onto the
-     * page. Guarding here rather than on the control means it holds however the box is pressed —
-     * button, Enter key, or a future one.
+     * ⛔ ONE IN FLIGHT AT A TIME. Audit pass 2: the original press was a `Button` with
+     * `disabled={searching || !reference.trim()}`, and converting to the design-system
+     * `SearchInput` silently dropped it — that component takes no `disabled` prop, so its
+     * magnifier stays live while a lookup runs. Guarding in the handler means it holds however the
+     * box is pressed: button, Enter key, or a future control.
      */
-    if (searching) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
     setSearching(true);
     setSearchError(null);
     try {
@@ -296,13 +311,15 @@ export const CustomerRecordsPage = () => {
       logger.error('Record lookup failed', error);
       setSearchError('That lookup could not be completed. Try again, or check with an admin.');
     } finally {
+      inFlight.current = false;
       setSearching(false);
     }
   };
 
   const refresh = async () => {
-    // Same bound as the box: Refresh is a vendor call too.
-    if (searching) return;
+    // Same bound as the box, and the same instrument: Refresh is a vendor call too.
+    if (inFlight.current) return;
+    inFlight.current = true;
     setSearching(true);
     setSearchError(null);
     try {
@@ -314,6 +331,7 @@ export const CustomerRecordsPage = () => {
       logger.error('Refresh failed', error);
       setSearchError('Could not refresh from the connected systems.');
     } finally {
+      inFlight.current = false;
       setSearching(false);
     }
   };
