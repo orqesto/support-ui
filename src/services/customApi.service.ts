@@ -103,7 +103,13 @@ export interface FieldPick {
   path: string;
   label: string;
   kind: 'plain' | 'money';
-  role: 'none' | 'identifier' | 'date' | 'status' | 'total' | 'currency';
+  /**
+   * D45 (support-service #789): `customer_email` marks the field holding THE CUSTOMER'S OWN
+   * address. Tagged, it is the only value the identity check compares against.
+   * ⚠️ Tolerated in both skew directions: an older backend stores an unknown role as `none`, and a
+   * newer one sends a role this build may not list. Nothing here switches exhaustively on it.
+   */
+  role: 'none' | 'identifier' | 'date' | 'status' | 'total' | 'currency' | 'customer_email';
   currencyPath?: string;
   currencyLiteral?: string;
 }
