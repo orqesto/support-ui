@@ -284,3 +284,34 @@ describe('⛔ a saved connection reaches the thread panel now, not in five minut
     expect(invalidate).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * 🔴 SEEN ON STAGING, 2026-09-20. Chrome read "Header name" + the password field as a login form
+ * and autofilled the SIGNED-IN ADMIN'S own email and saved account password into them. Masked, so
+ * it looks like a key somebody typed — and pressing Connect would encrypt that password as a
+ * vendor credential and send it to a third party on every lookup.
+ */
+describe('the browser must not treat the credential fields as a login form', () => {
+  const showKeyFields = async (user: ReturnType<typeof userEvent.setup>) => {
+    render(<CustomApiVendorForm open onClose={noop} onSaved={noop} />);
+    await user.selectOptions(screen.getByLabelText(/How does it check who we are/i), 'header');
+  };
+
+  it('⛔ the API key field opts out of saved-password fill', async () => {
+    const user = userEvent.setup();
+    await showKeyFields(user);
+
+    // RED: `autoComplete="off"` — which is what this field HAD. Chrome honours `off` only for
+    // non-credential fields and fills a password field regardless; `new-password` is the one that
+    // actually suppresses it.
+    expect(screen.getByLabelText('API key')).toHaveAttribute('autocomplete', 'new-password');
+  });
+
+  it('⛔ the header-name field does too — it is the username half', async () => {
+    const user = userEvent.setup();
+    await showKeyFields(user);
+
+    // RED: no attribute at all, which is what it had — so it collected the admin's email address.
+    expect(screen.getByLabelText('Header name')).toHaveAttribute('autocomplete', 'off');
+  });
+});

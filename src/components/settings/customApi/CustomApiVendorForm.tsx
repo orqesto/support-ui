@@ -169,12 +169,31 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
             </Select>
           </div>
 
+          {/*
+            ⛔ THE BROWSER MUST NOT TREAT THIS PAIR AS A LOGIN FORM. Observed on staging
+            2026-09-20: Chrome read "Header name" + a password field as username + password and
+            autofilled the SIGNED-IN ADMIN'S OWN email and saved account password into them. The
+            key is masked, so it looks like a key somebody typed.
+
+            What that costs if nobody notices: we encrypt the admin's own account password as a
+            vendor credential, SEND IT TO A THIRD PARTY on every lookup, and name the auth header
+            after their email so the integration is broken as well.
+
+            ⚠️ `autoComplete="off"` was already on the key field and Chrome ignores it — it honours
+            it only for non-credential fields. `new-password` is what actually suppresses saved
+            -password fill, and the header field needs an attribute of its own or it keeps
+            collecting the username half.
+          */}
           {authType === 'header' && (
             <Input
               label="Header name"
               value={authHeaderName}
               onChange={(event) => setAuthHeaderName(event.target.value)}
               placeholder="X-Api-Key"
+              autoComplete="off"
+              name="custom-api-header-name"
+              data-1p-ignore
+              data-lpignore="true"
             />
           )}
 
@@ -184,7 +203,10 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
               type="password"
               value={credential}
               onChange={(event) => setCredential(event.target.value)}
-              autoComplete="off"
+              autoComplete="new-password"
+              name="custom-api-credential"
+              data-1p-ignore
+              data-lpignore="true"
             />
           )}
 
