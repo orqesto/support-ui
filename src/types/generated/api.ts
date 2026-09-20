@@ -346,7 +346,7 @@ export interface components {
                  * @default none
                  * @enum {string}
                  */
-                role: "none" | "identifier" | "date" | "status" | "total" | "currency";
+                role: "none" | "identifier" | "date" | "status" | "total" | "currency" | "customer_email";
                 currencyPath?: string;
                 currencyLiteral?: string;
             }[];
@@ -433,7 +433,7 @@ export interface components {
             /** @enum {string} */
             ownership?: "owned" | "mismatch" | "unverified";
             /** @enum {string} */
-            ownershipReason?: "not_supported" | "no_customer_email" | "check_failed" | "identity_not_returned";
+            ownershipReason?: "not_supported" | "no_customer_email" | "check_failed" | "identity_not_returned" | "check_truncated";
         };
         SlaBreach: {
             id: number;

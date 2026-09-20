@@ -94,6 +94,14 @@ const UNVERIFIED_TEXT: Record<
    */
   identity_not_returned:
     'Not confirmed as this customer’s record — this system’s answer contains no address to check it against.',
+  /**
+   * ⛔ A FACT ABOUT OUR SEARCH, NOT ABOUT THE RECORD. The check walks the vendor's answer under
+   * bounds; where it hits one it stopped reading, and saying "no address here" would be a claim it
+   * did not earn. Before 2026-09-20 an unread row was skipped as though it were empty, which let a
+   * matching row elsewhere answer `owned` for it.
+   */
+  check_truncated:
+    'Not confirmed as this customer’s record — the answer was too large to check all of it.',
   unknown: 'Not confirmed as this customer’s record — ownership could not be checked.',
 };
 

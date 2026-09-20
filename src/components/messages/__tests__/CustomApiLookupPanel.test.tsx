@@ -214,6 +214,33 @@ describe('an identity answer with no address to check against', () => {
   });
 });
 
+describe('an answer we could not finish reading', () => {
+  it('says the ANSWER was too large, not that the record carries no address', async () => {
+    /**
+     * 🔴 The two are different facts and the older sentence told the wrong one. A bound the check
+     * walks the vendor's answer under is a limit of OUR search; "contains no address to check it
+     * against" is a claim about the record, and a row we never finished reading has not earned it.
+     * The backend distinguishes them as of 2026-09-20 (`check_truncated`); this is the sentence.
+     */
+    run.mockResolvedValue([
+      card({
+        status: 'ok',
+        ownership: 'unverified',
+        ownershipReason: 'check_truncated',
+        rows: [{ order_id: '137416' }],
+        fields: [{ path: 'order_id', label: 'Order', kind: 'plain' }],
+      }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    expect(await screen.findByText(/too large to check all of it/i)).toBeTruthy();
+    // ⛔ INVERTED, twice: it must borrow NEITHER the accusation nor the other amber's wording.
+    expect(screen.queryByText(/does NOT belong to this customer/i)).toBeNull();
+    expect(screen.queryByText(/contains no address to check it against/i)).toBeNull();
+  });
+});
+
 describe('D38 — a record that is not this customer’s', () => {
   it('⛔ is SHOWN, under an unmissable flag', async () => {
     // The owner chose showing it over stranding an agent whose customer wrote from a second
