@@ -124,6 +124,23 @@ describe('CustomerRecordsPage', () => {
     expect(await screen.findByPlaceholderText('Order or reference number')).toBeInTheDocument();
   });
 
+  it('⛔ the box does not PROMISE a check the lookup cannot run', async () => {
+    /**
+     * 🔴 SEEN ON STAGING, 2026-09-20. The caption read "Every answer is checked against this
+     * customer before it is shown" and sat directly above an answer reading "this integration
+     * cannot verify ownership". Whether ownership can be verified is per-lookup configuration
+     * (D35 needs a source lookup listing the customer's own records), so the caption cannot know.
+     * RED: restore the promise and this fails.
+     */
+    renderPage();
+
+    await screen.findByPlaceholderText('Order or reference number');
+    expect(screen.queryByText(/Every answer is checked against this customer/i)).toBeNull();
+    expect(
+      screen.getByText(/Each answer says what we could confirm about it/i)
+    ).toBeInTheDocument();
+  });
+
   it('checking a reference runs the manual lookup with that value', async () => {
     run.mockResolvedValue([
       { endpointId: 20, label: 'this order', connectionName: 'DeusPower', status: 'ok', rows: [] },
@@ -136,6 +153,28 @@ describe('CustomerRecordsPage', () => {
     await waitFor(() =>
       expect(run).toHaveBeenCalledWith({ contactId: 5, endpointId: 20, parameter: '999999' })
     );
+  });
+
+  it('⛔ a second press while a lookup is in flight does not call the vendor again', async () => {
+    /**
+     * 🔴 AUDIT PASS 2, 2026-09-20. The original press was a `Button` with
+     * `disabled={searching || !reference.trim()}`; converting to the design-system `SearchInput`
+     * dropped it, because that component takes no `disabled` prop. Every extra press is another
+     * call to a CLIENT'S vendor against their rate ceiling, racing its own answer back.
+     * RED: remove the `if (searching) return` guard and `run` is called twice.
+     */
+    let release: (value: unknown[]) => void = () => {};
+    run.mockImplementation(() => new Promise((resolve) => (release = resolve)));
+    renderPage();
+
+    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '42');
+    const press = screen.getByRole('button', { name: 'Search' });
+    await userEvent.click(press);
+    await userEvent.click(press);
+    await userEvent.click(press);
+
+    expect(run).toHaveBeenCalledTimes(1);
+    release([]);
   });
 
   it('⛔ a record that is NOT this customer’s carries the SAME flag the panel uses', async () => {
@@ -181,6 +220,24 @@ describe('CustomerRecordsPage', () => {
 
     expect(await screen.findByText(/No connected system is set up/i)).toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Order or reference number')).not.toBeInTheDocument();
+  });
+
+  it('⛔ a failed OPTIONS read is not reported as "nothing is configured"', async () => {
+    /**
+     * 🔴 AUDIT PASS 4, 2026-09-20 — the same defect pass 1 fixed for the records read, sitting in
+     * the call directly below it. Whether any lookup EXISTS is a fact about the customer's
+     * workspace; whether we could ASK is a fact about us. A failed options read set `lookups` to
+     * `[]`, and the empty state then announced that nothing was configured.
+     * RED: drop `optionsFailed` and this reads "No connected system is set up".
+     */
+    storedRecords.mockResolvedValue([]);
+    lookupOptions.mockRejectedValue(new Error('500'));
+    renderPage();
+
+    expect(
+      await screen.findByText(/could not check which lookups are available/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/No connected system is set up/i)).not.toBeInTheDocument();
   });
 
   it('⛔ a failed load is not reported as "this customer has no records"', async () => {

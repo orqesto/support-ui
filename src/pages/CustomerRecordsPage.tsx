@@ -165,6 +165,15 @@ export const CustomerRecordsPage = () => {
    * records". Rendering the empty state for the first would state something false about a customer.
    */
   const [loadFailed, setLoadFailed] = useState(false);
+  /**
+   * ⛔ SEPARATE FROM `loadFailed` (audit pass 4). Whether any lookup EXISTS is a fact about the
+   * customer's workspace; whether we could ASK is a fact about us. Collapsing them made the empty
+   * state announce "No connected system is set up for this workspace yet" whenever the options
+   * read merely failed — telling an admin something about their own configuration that we inferred
+   * from our own failed request. It is the identical defect pass 1 fixed for the records read,
+   * left sitting in the call directly below it.
+   */
+  const [optionsFailed, setOptionsFailed] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
   const [reference, setReference] = useState('');
@@ -181,6 +190,7 @@ export const CustomerRecordsPage = () => {
     setLoading(true);
     setLoadFailed(false);
     setNotFound(false);
+    setOptionsFailed(false);
     /*
       ⛔ A PREVIOUS CUSTOMER'S ANSWERS DO NOT SURVIVE A NAVIGATION. This route re-renders in place
       when the id changes (records page → records page), so without this the live results and the
@@ -229,6 +239,7 @@ export const CustomerRecordsPage = () => {
       // that cannot run is worse than no box.
       logger.error('Failed to load lookup options', options.reason);
       setLookups([]);
+      setOptionsFailed(true);
     }
 
     setLoading(false);
@@ -244,6 +255,16 @@ export const CustomerRecordsPage = () => {
   const search = async () => {
     const value = reference.trim();
     if (!value || manualLookups.length === 0) return;
+    /**
+     * ⛔ ONE IN FLIGHT AT A TIME. Audit pass 2 of this change: the original had the press on a
+     * `Button` with `disabled={searching || !reference.trim()}`, and converting to the
+     * design-system `SearchInput` silently dropped it — that component takes no `disabled` prop, so
+     * its magnifier stays live while a lookup is running. Every extra press is another call to a
+     * CLIENT'S vendor, spending their rate ceiling (D31) and racing its own answer back onto the
+     * page. Guarding here rather than on the control means it holds however the box is pressed —
+     * button, Enter key, or a future one.
+     */
+    if (searching) return;
     setSearching(true);
     setSearchError(null);
     try {
@@ -280,6 +301,8 @@ export const CustomerRecordsPage = () => {
   };
 
   const refresh = async () => {
+    // Same bound as the box: Refresh is a vendor call too.
+    if (searching) return;
     setSearching(true);
     setSearchError(null);
     try {
@@ -359,10 +382,20 @@ export const CustomerRecordsPage = () => {
                     showSearchButton
                     onSearch={() => void search()}
                   />
+                  {/*
+                    ⛔ NO PROMISE HERE. This said "Every answer is checked against this customer
+                    before it is shown", and on staging 2026-09-20 it sat directly above an answer
+                    reading "this integration cannot verify ownership" — a caption asserting a
+                    check the lookup cannot run. Whether ownership CAN be verified is per-lookup
+                    configuration (D35: it needs a source lookup listing the customer's own
+                    records), so the honest place for that claim is the verdict on each card, which
+                    already carries it. Six audit passes missed this because jsdom never rendered
+                    an unverifiable result next to the caption.
+                  */}
                   <p className="text-[11px] text-muted-foreground">
                     Checked against{' '}
-                    {manualLookups.map((lookup) => lookup.connectionName).join(', ')}. Every answer
-                    is checked against this customer before it is shown.
+                    {manualLookups.map((lookup) => lookup.connectionName).join(', ')}. Each answer
+                    says what we could confirm about it.
                   </p>
                 </CardContent>
               </Card>
@@ -386,7 +419,12 @@ export const CustomerRecordsPage = () => {
                   disabled={searching}
                 >
                   <RefreshCw className="h-3 w-3 mr-1" aria-hidden />
-                  {searching ? 'Refreshing…' : 'Refresh from source'}
+                  {/*
+                    ⚠️ NEUTRAL WHILE BUSY (audit pass 4). One `searching` flag covers the reference
+                    box and this button, so checking a reference used to make THIS control announce
+                    "Refreshing…" while no refresh was happening.
+                  */}
+                  {searching ? 'Working…' : 'Refresh from source'}
                 </Button>
               </CardHeader>
               <CardContent>
@@ -425,8 +463,9 @@ export const CustomerRecordsPage = () => {
                         rather than render a blank panel that reads like a broken page.
                       */
                       empty={{
-                        message:
-                          lookups.length === 0
+                        message: optionsFailed
+                          ? 'No records held for this customer yet. We could not check which lookups are available just now.'
+                          : lookups.length === 0
                             ? 'No records held for this customer yet. No connected system is set up for this workspace yet.'
                             : 'No records held for this customer yet. Check a reference above, or refresh from the connected systems.',
                       }}
