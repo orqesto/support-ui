@@ -117,6 +117,42 @@ beforeEach(() => {
   sendTest.mockReset().mockResolvedValue({ outcome: { status: 'ok' }, paths: PATHS });
 });
 
+describe('D45 — the customer-address role (support-service #789)', () => {
+  it('is offered in the picker at all', () => {
+    // ⛔ RED if the option is missing: the backend accepts the role, nothing can SET it, and #789
+    // is latent — the blind scan keeps guessing on every existing integration with no remedy.
+    const option = ROLE_OPTIONS.find((entry) => entry.value === 'customer_email');
+    expect(option).toBeDefined();
+    expect(option?.label).toMatch(/customer/i);
+  });
+
+  it('says what it buys in terms of the CHECK, not the field', () => {
+    // The admin is being asked to tag a field for a privacy control. Copy that only describes the
+    // field ("the email column") tells them nothing about why it matters.
+    const option = ROLE_OPTIONS.find((entry) => entry.value === 'customer_email');
+    expect(option?.buys).toMatch(/belongs to the customer/i);
+    // ⛔ And it must be honest about the cost of NOT tagging — that is the whole argument for it.
+    expect(option?.buys).toMatch(/guess/i);
+  });
+
+  it('obeys the one-field-per-role rule like every other tag', () => {
+    // POSITIVE CONTROL that the new role is not special-cased anywhere: re-tagging MOVES it.
+    const before = [pick('buyer_email', 'customer_email'), pick('contact_email')];
+    const after = applyRole(before, 'contact_email', 'customer_email');
+    expect(after.map((field) => field.role)).toEqual(['none', 'customer_email']);
+    expect(fieldWithRole(after, 'customer_email')?.path).toBe('contact_email');
+  });
+
+  it('does not disturb a lookup that tags an identifier as well', () => {
+    // The two roles coexist: ownership-by-number (D35) and ownership-by-address (D45) are
+    // different doors and an admin may configure both.
+    const before = [pick('order_id', 'identifier'), pick('buyer_email', 'customer_email')];
+    const after = applyRole(before, 'buyer_email', 'customer_email');
+    expect(fieldWithRole(after, 'identifier')?.path).toBe('order_id');
+    expect(fieldWithRole(after, 'customer_email')?.path).toBe('buyer_email');
+  });
+});
+
 describe('the rules — where an array-order bug would live', () => {
   it('⛔ at most ONE field per role: re-tagging MOVES the tag', () => {
     const before = [pick('order_id', 'identifier'), pick('reference')];
@@ -184,6 +220,38 @@ describe('in the wizard', () => {
      */
     expect(screen.getByLabelText('How to show order_id')).toBeTruthy();
     expect(screen.getByLabelText('How to show status')).toBeTruthy();
+  });
+
+  it('⛔ D45: the customer-address role is SELECTABLE and reaches the save payload', async () => {
+    const user = userEvent.setup();
+    await openWithField(user);
+    await user.click(screen.getByRole('checkbox', { name: /order_id/ }));
+
+    // ⛔ WIRING, NOT THE ARRAY. Asserting ROLE_OPTIONS contains the role proves the list; it does
+    // not prove an admin can pick it or that the value survives to the request. A typo in the
+    // option value ships green against a list-only test. This selects it in the real control and
+    // reads the payload the service was called with.
+    await user.selectOptions(screen.getByLabelText('What is order_id?'), 'customer_email');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
+    const saved = updateEndpoint.mock.calls.at(-1)?.[2] as { fieldPaths: Svc.FieldPick[] };
+    expect(saved.fieldPaths.find((field) => field.path === 'order_id')?.role).toBe(
+      'customer_email'
+    );
+  });
+
+  it('the admin is told what tagging it BUYS, in the wizard itself', async () => {
+    const user = userEvent.setup();
+    await openWithField(user);
+    await user.click(screen.getByRole('checkbox', { name: /order_id/ }));
+    await user.selectOptions(screen.getByLabelText('What is order_id?'), 'customer_email');
+
+    // ⛔ The most important privacy control in the product must not be configured by accident.
+    // RED: render the picker without `buys` and the admin sees what to do and never why.
+    await waitFor(() =>
+      expect(screen.getByText(/belongs to the customer who wrote in/i)).toBeTruthy()
+    );
   });
 
   it('⛔ TAGGING IS OPTIONAL — a lookup saves and works with nothing tagged', async () => {

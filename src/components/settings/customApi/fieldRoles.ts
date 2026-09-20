@@ -54,6 +54,20 @@ export const ROLE_OPTIONS: RoleOption[] = [
     label: 'Which currency',
     buys: 'Used to price the amount above, per record.',
   },
+  /**
+   * D45. ⛔ THIS ONE IS A PRIVACY CONTROL, and the copy has to earn the tag without overclaiming.
+   *
+   * Untagged, Odly compares the customer's address against EVERY email-shaped value in the record,
+   * because nothing tells it which one is the customer. That guesses wrong in both directions:
+   * a record carrying your shop's own address and not the buyer's gets flagged as "not this
+   * customer's" (support-service #786), and a system that echoes back the address it was asked
+   * about gets accepted as proof (support-service #789). Tagging the field ends the guessing.
+   */
+  {
+    value: 'customer_email',
+    label: "The customer's own email address",
+    buys: "Odly checks this field — and only this field — to confirm the record belongs to the customer who wrote in. Without it, Odly has to guess from any address in the record, which can flag a genuine record or accept someone else's.",
+  },
 ];
 
 export const roleOption = (role: FieldRole): RoleOption =>
