@@ -100,6 +100,15 @@ const UNVERIFIED_TEXT: Record<
    * did not earn. Before 2026-09-20 an unread row was skipped as though it were empty, which let a
    * matching row elsewhere answer `owned` for it.
    */
+  /**
+   * ⛔ ABOUT THE TAG, NOT THE ANSWER — and the distinction is not pedantic. Seen on staging
+   * 2026-09-20: `name` ("Leanne Graham") was tagged as the customer's address on a vendor that
+   * returns the same stranger to everyone, so the check went quiet and the panel told the agent
+   * the answer carried no address — while it carried a real one at the next key. An agent cannot
+   * act on that sentence; an admin reading this one can.
+   */
+  tagged_field_has_no_address:
+    'Not confirmed as this customer’s record — the field set up as the customer’s address does not hold one. An admin can fix this in the lookup’s settings.',
   check_truncated:
     'Not confirmed as this customer’s record — the answer was too large to check all of it.',
   unknown: 'Not confirmed as this customer’s record — ownership could not be checked.',
