@@ -32,7 +32,7 @@ export const ROLE_OPTIONS: RoleOption[] = [
   {
     value: 'identifier',
     label: 'The number the customer quotes',
-    buys: 'Lets Odly check that a record really belongs to the customer who wrote in, and lets an agent look one up by number.',
+    buys: 'Lets Odly check that a record really belongs to the customer who wrote in, lets an agent look one up by number, and is what makes records show on a customer’s records page — without it nothing is kept.',
   },
   {
     value: 'date',

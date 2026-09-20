@@ -394,6 +394,7 @@ export interface components {
             connectionName: string;
             parameterSource: string;
             resultShape: string;
+            storesRecords: boolean;
         };
         CustomApiStoredRecord: {
             id: number;

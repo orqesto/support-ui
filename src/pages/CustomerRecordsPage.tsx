@@ -192,8 +192,33 @@ export const CustomerRecordsPage = () => {
    * before the next press — the requests are fast. Two attempts to observe the busy state mid
    * flight froze the renderer. A ref removes the question instead of answering it: it is set
    * synchronously, in the same tick, before any await.
+   *
+   * ⛔ IT HOLDS THE CONTACT ID, NOT A BOOLEAN — audit pass 3 of the navigation fix. A plain
+   * boolean is shared across the customers this route renders in place, so an agent who opened
+   * customer B while A's lookup was still running found their FIRST press silently doing nothing,
+   * until a request about someone else came back. A silent no-op on the one control this page
+   * exists for is the failure the backend's own manual-press branch refuses to ship. Keyed, the
+   * bound still holds exactly where it must — a second press for the SAME customer in the same
+   * tick — and A's `finally` no longer releases a claim B has taken.
    */
-  const inFlight = useRef(false);
+  const inFlight = useRef<number | null>(null);
+  /**
+   * ⛔ WHICH CUSTOMER THE PAGE IS SHOWING RIGHT NOW — not the one the in-flight request asked about.
+   *
+   * This route re-renders IN PLACE when the id changes (records page → records page), so a lookup
+   * started for customer A is still running when B appears, and its `setLiveResults`/`setRecords`
+   * would land under B's name. `load()` clears the old answers on entry; the outstanding response
+   * arrives AFTER that and puts A's records back. It is the same defect the clearing above was
+   * written to prevent, entered through the other door, and a closure over `contactId` cannot see
+   * it — the closure's own value is the stale one.
+   */
+  const shownContactId = useRef(contactId);
+  // ⛔ IN AN EFFECT, not in the render body. Writing a ref while rendering mutates state React may
+  // throw away, and the effect is early enough by construction: it runs at commit, and every
+  // reader of this ref is a callback resolving after an awaited network round trip.
+  useEffect(() => {
+    shownContactId.current = contactId;
+  }, [contactId]);
   const [liveResults, setLiveResults] = useState<CustomApiLookupResult[] | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
 
@@ -268,6 +293,20 @@ export const CustomerRecordsPage = () => {
   /** The lookups that take a reference an agent types (D44). */
   const manualLookups = lookups.filter((lookup) => lookup.parameterSource === 'manual');
 
+  /**
+   * ⛔ EVERY lookup here keeps nothing, so this page can never fill — a configuration gap, not a
+   * fact about the customer.
+   *
+   * ⚠️ `=== false`, NOT `!lookup.storesRecords`. An older backend does not send the field at all
+   * (the frontend deploys on a push, the backend on a tag), and `undefined` there means "this
+   * deployment cannot tell me", which must not be rendered as "your admin tagged nothing" —
+   * that would state something false about a workspace's configuration on the strength of a skew.
+   * ⚠️ `every` over a non-empty list only; the `lookups.length === 0` branch above owns the empty
+   * case, and `[].every()` is true.
+   */
+  const keepsNothing =
+    lookups.length > 0 && lookups.every((lookup) => lookup.storesRecords === false);
+
   const search = async () => {
     const value = reference.trim();
     if (!value || manualLookups.length === 0) return;
@@ -278,8 +317,8 @@ export const CustomerRecordsPage = () => {
      * magnifier stays live while a lookup runs. Guarding in the handler means it holds however the
      * box is pressed: button, Enter key, or a future control.
      */
-    if (inFlight.current) return;
-    inFlight.current = true;
+    if (inFlight.current === contactId) return;
+    inFlight.current = contactId;
     setSearching(true);
     setSearchError(null);
     try {
@@ -301,37 +340,53 @@ export const CustomerRecordsPage = () => {
             answer.status === 'fulfilled'
         )
         .flatMap((answer) => answer.value);
+      // ⛔ A LATE ANSWER BELONGS TO THE CUSTOMER IT WAS ASKED ABOUT. If the agent has moved on to
+      // another customer while this was in flight, these rows are a stranger's — drop them rather
+      // than paint them under the name now on screen.
+      if (shownContactId.current !== contactId) return;
       setLiveResults(found);
       if (found.length === 0 && answers.some((answer) => answer.status === 'rejected')) {
         setSearchError('That lookup could not be completed. Try again, or check with an admin.');
       }
       // A live answer is also stored by the backend, so the list below can now include it.
-      setRecords(await customApiLookupService.storedRecords(contactId));
+      const stored = await customApiLookupService.storedRecords(contactId);
+      if (shownContactId.current !== contactId) return;
+      setRecords(stored);
     } catch (error) {
       logger.error('Record lookup failed', error);
+      if (shownContactId.current !== contactId) return;
       setSearchError('That lookup could not be completed. Try again, or check with an admin.');
     } finally {
-      inFlight.current = false;
+      // ⛔ ONLY IF IT IS STILL OURS. Another customer's press may have taken the claim while this
+      // was running; clearing it then would unbound THEIR lookup.
+      if (inFlight.current === contactId) inFlight.current = null;
       setSearching(false);
     }
   };
 
   const refresh = async () => {
     // Same bound as the box, and the same instrument: Refresh is a vendor call too.
-    if (inFlight.current) return;
-    inFlight.current = true;
+    if (inFlight.current === contactId) return;
+    inFlight.current = contactId;
     setSearching(true);
     setSearchError(null);
     try {
       // An explicit press, so a vendor call is exactly what the agent asked for.
       const answers = await customApiLookupService.run({ contactId });
+      // Same bound as the box: a refresh that outlives the navigation is a stranger's answer here.
+      if (shownContactId.current !== contactId) return;
       setLiveResults(answers);
-      setRecords(await customApiLookupService.storedRecords(contactId));
+      const stored = await customApiLookupService.storedRecords(contactId);
+      if (shownContactId.current !== contactId) return;
+      setRecords(stored);
     } catch (error) {
       logger.error('Refresh failed', error);
+      if (shownContactId.current !== contactId) return;
       setSearchError('Could not refresh from the connected systems.');
     } finally {
-      inFlight.current = false;
+      // ⛔ ONLY IF IT IS STILL OURS. Another customer's press may have taken the claim while this
+      // was running; clearing it then would unbound THEIR lookup.
+      if (inFlight.current === contactId) inFlight.current = null;
       setSearching(false);
     }
   };
@@ -485,7 +540,26 @@ export const CustomerRecordsPage = () => {
                           ? 'No records held for this customer yet. We could not check which lookups are available just now.'
                           : lookups.length === 0
                             ? 'No records held for this customer yet. No connected system is set up for this workspace yet.'
-                            : 'No records held for this customer yet. Check a reference above, or refresh from the connected systems.',
+                            : keepsNothing
+                              ? /*
+                                  🔴 THE STATE THAT READS AS A BROKEN FEATURE. A record is kept only
+                                  once an admin tags which field identifies it, so a workspace that
+                                  connected an integration correctly and tagged nothing shows EVERY
+                                  customer an empty page, for ever, with no press that can change
+                                  it. On 2026-09-20 that cost three wrong reports of the feature
+                                  being inert — mine. The page can say it only because the option
+                                  now carries `storesRecords`; an older backend omits it, which
+                                  leaves `keepsNothing` false and this sentence unsaid rather than
+                                  asserted on a guess.
+                                  ⚠️ SCOPED TO THIS PAGE'S LOOKUPS, audit pass 2. The options read
+                                  is per-SURFACE, so an endpoint whose surface is `thread` only is
+                                  not in this list — it can still tag an identifier and file a
+                                  record that lands here later. "Nothing is ever kept for this
+                                  customer" would therefore be false; what is true, and what the
+                                  agent needs, is that nothing THEY can press here will fill it.
+                                */
+                                'Nothing here keeps a record, so refreshing will not fill this list. No lookup available on this page has a field tagged “The number the customer quotes”, so an answer has no number to be filed under. An admin can tag one where the integration’s fields are set up.'
+                              : 'No records held for this customer yet. Check a reference above, or refresh from the connected systems.',
                       }}
                     />
                     {records.length > 0 && (

@@ -47,6 +47,10 @@ const MANUAL_LOOKUP = {
   connectionName: 'DeusPower',
   parameterSource: 'manual',
   resultShape: 'one',
+  // The backend sends this on every option (CA-6). A fixture omitting it describes a row the API
+  // cannot produce, and the empty-state branch that reads it would then be tested against a shape
+  // that only exists here.
+  storesRecords: true,
 };
 
 const renderPage = (id = '5') =>
@@ -354,6 +358,147 @@ describe('CustomerRecordsPage', () => {
 
     expect(await screen.findByText('Grace Hopper')).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByText(/ada-only/)).not.toBeInTheDocument());
+  });
+
+  it('⛔ an IN-FLIGHT answer does not land on the customer opened while it was running', async () => {
+    /**
+     * 🔴 THE OTHER DOOR INTO THE TEST ABOVE. That one covers answers already on screen; this one
+     * covers the request still in the air. The route re-renders in place, so `search()` keeps a
+     * closure over the OLD contact id, `load()` clears the screen for the new customer, and the
+     * late response then paints the previous customer's records under the new customer's name —
+     * the one thing this page is written never to do.
+     *
+     * RED: drop the `shownContactId` checks and Ada's record appears on Grace's page.
+     */
+    let release: (value: unknown[]) => void = () => {};
+    run.mockImplementation(() => new Promise((resolve) => (release = resolve)));
+
+    const Harness = () => {
+      const navigate = useNavigate();
+      return (
+        <>
+          <button type="button" onClick={() => navigate('/contacts/6/records')}>
+            go to grace
+          </button>
+          <Routes>
+            <Route path="/contacts/:id/records" element={<CustomerRecordsPage />} />
+          </Routes>
+        </>
+      );
+    };
+    render(
+      <MemoryRouter initialEntries={['/contacts/5/records']}>
+        <Harness />
+      </MemoryRouter>
+    );
+
+    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '1');
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    // Grace opens while Ada's lookup is still running.
+    getById.mockResolvedValue({ id: 6, displayName: 'Grace Hopper', primaryEmail: 'g@x.com' });
+    storedRecords.mockResolvedValue([]);
+    await userEvent.click(screen.getByRole('button', { name: 'go to grace' }));
+    expect(await screen.findByText('Grace Hopper')).toBeInTheDocument();
+
+    // ...and only now does Ada's vendor answer come back.
+    release([
+      {
+        endpointId: 20,
+        label: 'this order',
+        connectionName: 'DeusPower',
+        status: 'ok',
+        rows: [{ secret: 'ada-only' }],
+      },
+    ]);
+
+    await waitFor(() => expect(screen.getByText('Grace Hopper')).toBeInTheDocument());
+    expect(screen.queryByText(/ada-only/)).not.toBeInTheDocument();
+  });
+
+  it('⛔ the NEW customer’s first press is not swallowed by the old one’s lookup', async () => {
+    /**
+     * 🔴 AUDIT PASS 3 OF THIS FIX, and a defect the fix itself introduced the conditions for. One
+     * boolean ref bounds a route that re-renders in place, so while Ada's lookup was still running
+     * Grace's first press did nothing at all — no call, no error, no busy state — until a request
+     * about a different customer came back. The bound is keyed on the contact instead.
+     *
+     * RED: make `inFlight` a boolean again and `run` is never called for Grace.
+     */
+    let release: (value: unknown[]) => void = () => {};
+    run.mockImplementation(() => new Promise((resolve) => (release = resolve)));
+
+    const Harness = () => {
+      const navigate = useNavigate();
+      return (
+        <>
+          <button type="button" onClick={() => navigate('/contacts/6/records')}>
+            go to grace
+          </button>
+          <Routes>
+            <Route path="/contacts/:id/records" element={<CustomerRecordsPage />} />
+          </Routes>
+        </>
+      );
+    };
+    render(
+      <MemoryRouter initialEntries={['/contacts/5/records']}>
+        <Harness />
+      </MemoryRouter>
+    );
+
+    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '1');
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+
+    getById.mockResolvedValue({ id: 6, displayName: 'Grace Hopper', primaryEmail: 'g@x.com' });
+    await userEvent.click(screen.getByRole('button', { name: 'go to grace' }));
+    await screen.findByText('Grace Hopper');
+
+    // Ada's lookup is STILL in flight. Grace's agent presses Search.
+    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '2');
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    await waitFor(() =>
+      expect(run).toHaveBeenCalledWith({ contactId: 6, endpointId: 20, parameter: '2' })
+    );
+    release([]);
+  });
+
+  it('⛔ says WHY the page is empty when no lookup keeps a record', async () => {
+    /**
+     * 🔴 THE G10 GAP, and the state I read three times on 2026-09-20 as the feature being broken.
+     * A record is filed under the field an admin tags as its reference; with none tagged the
+     * backend stores nothing, so this page is empty for every customer, for ever, and no press an
+     * agent can make will change it. The old copy said "Check a reference above, or refresh" —
+     * advice that cannot work, on a page that looks broken.
+     *
+     * RED: restore the generic message and this fails.
+     */
+    storedRecords.mockResolvedValue([]);
+    lookupOptions.mockResolvedValue([{ ...MANUAL_LOOKUP, storesRecords: false }]);
+
+    renderPage();
+
+    expect(await screen.findByText(/The number the customer quotes/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Check a reference above, or refresh/i)).not.toBeInTheDocument();
+  });
+
+  it('⚠️ an older backend that does not send the flag is NOT read as "nothing tagged"', async () => {
+    /**
+     * ⛔ THE SKEW CONTROL. The frontend deploys on a push and the backend on a tag, so this page
+     * meets a backend whose options carry no `storesRecords` at all. Absent means "this deployment
+     * cannot tell me" — rendering that as "your admin tagged nothing" states something false about
+     * a workspace's configuration. RED: use `!lookup.storesRecords` instead of `=== false`.
+     */
+    storedRecords.mockResolvedValue([]);
+    const { storesRecords: _omitted, ...olderBackend } = MANUAL_LOOKUP;
+    lookupOptions.mockResolvedValue([olderBackend]);
+
+    renderPage();
+
+    expect(await screen.findByText(/Check a reference above, or refresh/i)).toBeInTheDocument();
+    expect(screen.queryByText(/The number the customer quotes/i)).not.toBeInTheDocument();
   });
 
   it('a non-numeric id is a not-found state, not a request', async () => {
