@@ -165,6 +165,15 @@ export const CustomerRecordsPage = () => {
    * records". Rendering the empty state for the first would state something false about a customer.
    */
   const [loadFailed, setLoadFailed] = useState(false);
+  /**
+   * ⛔ SEPARATE FROM `loadFailed` (audit pass 4). Whether any lookup EXISTS is a fact about the
+   * customer's workspace; whether we could ASK is a fact about us. Collapsing them made the empty
+   * state announce "No connected system is set up for this workspace yet" whenever the options
+   * read merely failed — telling an admin something about their own configuration that we inferred
+   * from our own failed request. It is the identical defect pass 1 fixed for the records read,
+   * left sitting in the call directly below it.
+   */
+  const [optionsFailed, setOptionsFailed] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
   const [reference, setReference] = useState('');
@@ -181,6 +190,7 @@ export const CustomerRecordsPage = () => {
     setLoading(true);
     setLoadFailed(false);
     setNotFound(false);
+    setOptionsFailed(false);
     /*
       ⛔ A PREVIOUS CUSTOMER'S ANSWERS DO NOT SURVIVE A NAVIGATION. This route re-renders in place
       when the id changes (records page → records page), so without this the live results and the
@@ -229,6 +239,7 @@ export const CustomerRecordsPage = () => {
       // that cannot run is worse than no box.
       logger.error('Failed to load lookup options', options.reason);
       setLookups([]);
+      setOptionsFailed(true);
     }
 
     setLoading(false);
@@ -408,7 +419,12 @@ export const CustomerRecordsPage = () => {
                   disabled={searching}
                 >
                   <RefreshCw className="h-3 w-3 mr-1" aria-hidden />
-                  {searching ? 'Refreshing…' : 'Refresh from source'}
+                  {/*
+                    ⚠️ NEUTRAL WHILE BUSY (audit pass 4). One `searching` flag covers the reference
+                    box and this button, so checking a reference used to make THIS control announce
+                    "Refreshing…" while no refresh was happening.
+                  */}
+                  {searching ? 'Working…' : 'Refresh from source'}
                 </Button>
               </CardHeader>
               <CardContent>
@@ -447,8 +463,9 @@ export const CustomerRecordsPage = () => {
                         rather than render a blank panel that reads like a broken page.
                       */
                       empty={{
-                        message:
-                          lookups.length === 0
+                        message: optionsFailed
+                          ? 'No records held for this customer yet. We could not check which lookups are available just now.'
+                          : lookups.length === 0
                             ? 'No records held for this customer yet. No connected system is set up for this workspace yet.'
                             : 'No records held for this customer yet. Check a reference above, or refresh from the connected systems.',
                       }}

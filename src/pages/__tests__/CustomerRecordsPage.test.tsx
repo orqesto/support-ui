@@ -222,6 +222,24 @@ describe('CustomerRecordsPage', () => {
     expect(screen.queryByPlaceholderText('Order or reference number')).not.toBeInTheDocument();
   });
 
+  it('⛔ a failed OPTIONS read is not reported as "nothing is configured"', async () => {
+    /**
+     * 🔴 AUDIT PASS 4, 2026-09-20 — the same defect pass 1 fixed for the records read, sitting in
+     * the call directly below it. Whether any lookup EXISTS is a fact about the customer's
+     * workspace; whether we could ASK is a fact about us. A failed options read set `lookups` to
+     * `[]`, and the empty state then announced that nothing was configured.
+     * RED: drop `optionsFailed` and this reads "No connected system is set up".
+     */
+    storedRecords.mockResolvedValue([]);
+    lookupOptions.mockRejectedValue(new Error('500'));
+    renderPage();
+
+    expect(
+      await screen.findByText(/could not check which lookups are available/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/No connected system is set up/i)).not.toBeInTheDocument();
+  });
+
   it('⛔ a failed load is not reported as "this customer has no records"', async () => {
     // FE/BE skew: this frontend deploys on a push while the backend ships on a tag, so it WILL
     // meet a deployment with no records route. Rendering the empty state there states something
