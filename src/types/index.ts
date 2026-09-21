@@ -175,6 +175,15 @@ export type Message = {
    * meets responses without the field; showing "not confirmed" for those would be a claim about
    * an agent's work that nothing told us.
    */
+  /**
+   * The thread is in the SPAM lane, resolved server-side from the newest inbound event — the same
+   * predicate the lane and its two halves claim rows by, and NOT the frozen copy in
+   * `metadata.spamCheck`, which can disagree with it.
+   *
+   * OPTIONAL for skew: absent means the deployment does not send it, and the caller falls back to
+   * the frozen copy rather than concluding the thread is not spam.
+   */
+  isSpam?: boolean;
   spamConfirmedAt?: string | null;
   // BE returns labels UNIONed from three sources (#16). `source` lets the FE
   // render an "inherited via contact" badge so agents understand why the
