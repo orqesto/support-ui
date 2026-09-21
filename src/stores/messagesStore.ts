@@ -60,6 +60,14 @@ export const QUEUE_FILTERS = [
   'archived',
   'suspicious',
   'spam',
+  /**
+   * The two halves of Spam (SP-D3), which partition it exactly: `spam_unconfirmed` is what an
+   * agent WORKS — the system put these rows here and no person has agreed yet — and
+   * `spam_confirmed` is the settled residue. Backend since #757/#772; unreachable from any UI
+   * until now, which is why the confirm action had nowhere to be.
+   */
+  'spam_unconfirmed',
+  'spam_confirmed',
   'needs_routing',
   'outbound_echo',
   /**

@@ -72,7 +72,7 @@ export type MessageDetailHeaderProps = {
   onDelete?: () => void;
   onApprove?: () => void;
   onClassify?: (
-    action: 'approve' | 'mark_suspicious' | 'move_to_spam',
+    action: 'approve' | 'mark_suspicious' | 'move_to_spam' | 'confirm_spam',
     createDetectionRule?: boolean,
     trainSpamFilter?: boolean
   ) => Promise<void>;

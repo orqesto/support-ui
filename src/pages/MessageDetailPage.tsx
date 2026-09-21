@@ -45,7 +45,7 @@ export const MessageDetailPage = () => {
    */
   const handleClassify = useCallback(
     async (
-      action: 'approve' | 'mark_suspicious' | 'move_to_spam',
+      action: 'approve' | 'mark_suspicious' | 'move_to_spam' | 'confirm_spam',
       createDetectionRule?: boolean,
       trainSpamFilter?: boolean
     ) => {

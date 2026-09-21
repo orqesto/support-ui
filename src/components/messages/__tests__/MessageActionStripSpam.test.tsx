@@ -82,3 +82,85 @@ describe('a spam verdict outside triage', () => {
     expect(screen.queryByText(/hidden from the inbox until approved/)).toBeNull();
   });
 });
+
+/**
+ * Confirming spam (SP-D1) — the action the backend has offered since #757 and no UI could reach.
+ *
+ * The system putting a thread in spam and a PERSON agreeing are different facts. The second one
+ * is what the `spam_unconfirmed` / `spam_confirmed` halves partition on, so a queue an agent
+ * works is only possible once this button exists.
+ */
+describe('confirming a spam thread', () => {
+  const spamThread = (over: Record<string, unknown> = {}) =>
+    message({ status: 'filtered', metadata: { spamCheck: { isSpam: true, category: 'spam' } }, ...over });
+
+  it('offers the confirmation on a filtered spam thread nobody has confirmed', async () => {
+    const onClassify = vi.fn().mockResolvedValue(undefined);
+    render(strip({ message: spamThread({ spamConfirmedAt: null }), isFiltered: true, onClassify }));
+
+    const button = await screen.findByRole('button', { name: /Confirm — it is spam/ });
+    fireEvent.click(button);
+
+    // RED before this change: no such button exists, and the whole feature is unreachable.
+    await waitFor(() =>
+      expect(onClassify).toHaveBeenCalledWith('confirm_spam', undefined, undefined)
+    );
+  });
+
+  it('⛔ never calls it a resolve (SP-D5)', async () => {
+    /**
+     * 🔴 A COPY CONSTRAINT FROM THE BACKEND, not a preference. A confirmed spam thread keeps
+     * `status='filtered'`, so it never appears in the Resolved column — an agent told they
+     * "resolved" it would go looking where it can never be. The backend comment says the action
+     * must not be labelled "Resolve and move to spam" in any UI.
+     */
+    render(strip({ message: spamThread({ spamConfirmedAt: null }), isFiltered: true, onClassify: vi.fn() }));
+
+    await screen.findByRole('button', { name: /Confirm — it is spam/ });
+    expect(screen.queryByText(/resolve/i)).toBeNull();
+  });
+
+  it('shows WHEN it was confirmed, and stops offering the button', async () => {
+    render(
+      strip({
+        message: spamThread({ spamConfirmedAt: '2026-09-20T09:30:00.000Z' }),
+        isFiltered: true,
+        onClassify: vi.fn(),
+      })
+    );
+
+    expect(await screen.findByText(/Confirmed as spam on/)).toBeInTheDocument();
+    // The confirmation has to be VISIBLE or every agent repeats it — the defect that made the
+    // backend field necessary in the first place.
+    expect(screen.queryByRole('button', { name: /Confirm — it is spam/ })).toBeNull();
+  });
+
+  it('⚠️ still offers it when the deployment does not send the field at all', async () => {
+    /**
+     * ⛔ THE SKEW CONTROL. This frontend deploys on a merge and the backend on a tag, so a bundle
+     * meets responses with no `spamConfirmedAt`. Undefined means "cannot tell me", not "not
+     * confirmed": pressing the button then still works, so offering it is honest — whereas
+     * rendering "not yet confirmed" would assert an agent's work state we were never told.
+     * RED: treat undefined as confirmed and the button disappears on every older backend.
+     */
+    const noField = spamThread();
+    render(strip({ message: noField, isFiltered: true, onClassify: vi.fn() }));
+
+    expect(await screen.findByRole('button', { name: /Confirm — it is spam/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Confirmed as spam on/)).toBeNull();
+  });
+
+  it('⛔ offers nothing to confirm on a filtered thread that is NOT spam', () => {
+    // The control. `filtered` also covers not-analysed and archived rows, and a confirm button
+    // on those would confirm a verdict the system never made.
+    render(
+      strip({
+        message: message({ status: 'filtered', metadata: { spamCheck: { isSpam: false, category: 'legitimate' } } }),
+        isFiltered: true,
+        onClassify: vi.fn(),
+      })
+    );
+
+    expect(screen.queryByRole('button', { name: /Confirm — it is spam/ })).toBeNull();
+  });
+});

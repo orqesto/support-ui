@@ -33,7 +33,7 @@ export type MessageActionStripProps = {
   onReopen?: () => void;
   onDelete?: () => void;
   onClassify?: (
-    action: 'approve' | 'mark_suspicious' | 'move_to_spam',
+    action: 'approve' | 'mark_suspicious' | 'move_to_spam' | 'confirm_spam',
     createDetectionRule?: boolean,
     trainSpamFilter?: boolean
   ) => Promise<void>;
@@ -72,7 +72,7 @@ export function MessageActionStrip({
   const [trainSpamFilter, setTrainSpamFilter] = useState(false);
   const handleClassify = useCallback(
     async (
-      action: 'approve' | 'mark_suspicious' | 'move_to_spam',
+      action: 'approve' | 'mark_suspicious' | 'move_to_spam' | 'confirm_spam',
       createDetectionRule?: boolean,
       trainFilter?: boolean
     ) => {
@@ -104,9 +104,43 @@ export function MessageActionStrip({
     const spamCheck = getSpamCheck(message);
     const meta = getFilteredCategoryMeta(spamCheck?.category);
     const isSecurityThreat = spamCheck?.category === 'phishing' || spamCheck?.category === 'scam';
+    /**
+     * SP-D1: the system put this thread here; a PERSON saying "yes, it is spam" is a separate
+     * fact, and until now there was no way to say it. The two halves of the Spam queue are built
+     * on this — `spam_unconfirmed` is the one an agent works.
+     *
+     * ⚠️ `=== null` and `=== undefined` are NOT the same answer. Null means nobody has confirmed;
+     * undefined means the deployment did not send the field (this frontend ships on merge, the
+     * backend on a tag), and offering the button then would be honest — pressing it works — while
+     * claiming "not yet confirmed" would not be. So the button shows for both, and only a real
+     * timestamp renders the confirmed line.
+     */
+    const confirmedAt = message.spamConfirmedAt;
+    /**
+     * ⚠️ KNOWN GAP, named rather than hidden: this reads the FROZEN verdict in
+     * `metadata.spamCheck`, while the queue halves resolve the category from the newest inbound
+     * event server-side. The two can disagree — that exact disagreement hid three live CoreSarms
+     * threads in 2026-09 — so a row sitting in `spam_unconfirmed` whose frozen copy says
+     * otherwise will not offer this button.
+     *
+     * The conservative direction is deliberate: the alternative (offer it on any `filtered`
+     * thread) puts a confirm button on not-analysed and archived rows, where the backend refuses
+     * the action because the system never called them junk — a button that reliably errors is
+     * worse than one that is sometimes absent. The real fix is a server-sent lane flag, the way
+     * `isSuspicious` was added for the same reason; that is support-ui#430's follow-up, not a
+     * thing to fake here.
+     */
+    const canConfirm = !isSecurityThreat && spamCheck?.isSpam === true && !confirmedAt;
     return (
       <div className={strip}>
         <p className={`${statusLabel} ${meta.statusClass}`}>{meta.statusText}</p>
+        {confirmedAt && (
+          // ⛔ NOT "resolved" (SP-D5). A confirmed spam thread keeps `filtered` and never enters
+          // the Resolved column; the word would send an agent looking where it cannot be.
+          <p className="text-[11px] text-muted-foreground mb-2">
+            Confirmed as spam on {new Date(confirmedAt).toLocaleDateString()}.
+          </p>
+        )}
         <div className="flex gap-2">
           <Button
             variant="ghost"
@@ -121,6 +155,17 @@ export function MessageActionStrip({
             )}
             {classifying ? 'Approving…' : meta.approveLabel}
           </Button>
+          {canConfirm && (
+            <Button
+              variant="ghost"
+              onClick={() => void handleClassify('confirm_spam')}
+              disabled={classifying}
+              className={`text-red-600 border border-red-300 ${btnBase} h-auto hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30`}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {classifying ? 'Confirming…' : 'Confirm — it is spam'}
+            </Button>
+          )}
         </div>
       </div>
     );
