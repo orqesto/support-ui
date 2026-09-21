@@ -10,7 +10,7 @@ import { isBlankRichText } from '@/lib/stripHtml';
 import { RecipientFields, replyToLabel, type RecipientDraft } from './RecipientFields';
 import type { AiDraft } from '@/services/message.service';
 import type { Message } from '@/types';
-import { MONO } from './messageDetailConstants';
+import { LABEL } from './messageDetailConstants';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -261,7 +261,7 @@ export function MessageComposer({
                 ? 'Add a message — attachments alone can’t be sent'
                 : undefined)
             }
-            className={`ml-auto flex items-center gap-1 px-2.5 py-1 h-auto rounded ${MONO} transition-colors disabled:opacity-50 ${
+            className={`ml-auto flex items-center gap-1 px-2.5 py-1 h-auto rounded ${LABEL} transition-colors disabled:opacity-50 ${
               composerMode === 'note'
                 ? 'bg-amber-800 hover:bg-amber-700 text-primary-foreground'
                 : 'bg-primary text-primary-foreground hover:bg-primary/90'

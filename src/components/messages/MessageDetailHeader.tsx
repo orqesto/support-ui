@@ -49,7 +49,7 @@ import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
 import { isAiNotConfiguredError, AI_NOT_CONFIGURED_MESSAGE } from '@/lib/errorMessages';
 import {
-  MONO,
+  LABEL,
   CHIP_BASE,
   PRIORITY_OPTIONS,
   CHANNEL_ICONS,
@@ -691,7 +691,7 @@ export function MessageDetailHeader({
         <span className="text-[10px] text-muted-foreground" title={message.channel}>
           {CHANNEL_ICONS[message.channel] ?? '◌'}
         </span>
-        <span className={`${MONO} text-muted-foreground`}>{message.channel}</span>
+        <span className={`${LABEL} text-muted-foreground`}>{message.channel}</span>
         {threadCount > 1 && (
           <span className="text-[10px] text-muted-foreground">· {threadCount} msgs</span>
         )}

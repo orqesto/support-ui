@@ -16,7 +16,7 @@ import { Permission } from '@/types/roles';
 import type { Message, Category } from '@/types';
 import type { Label } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
-import { MONO } from './messageDetailConstants';
+import { LABEL } from './messageDetailConstants';
 
 type Props = {
   message: Message;
@@ -150,7 +150,7 @@ export function HeaderMetaStrip({
     <div className="flex flex-wrap items-center gap-x-1 gap-y-2 px-4 pt-2 pb-3 border-t border-border/40">
       {/* Department (resolved by smart routing; admins can re-route inline) */}
       <div className="flex items-center gap-2 min-w-0">
-        <span className={`flex-shrink-0 ${MONO} text-muted-foreground/70`}>Department</span>
+        <span className={`flex-shrink-0 ${LABEL} text-muted-foreground/70`}>Department</span>
         {editingDept && canRoute ? (
           <div className="flex items-center gap-2">
             <ReactSelect
@@ -225,7 +225,7 @@ export function HeaderMetaStrip({
 
       {/* Assignee */}
       <div className="flex items-center gap-2 min-w-0">
-        <span className={`flex-shrink-0 ${MONO} text-muted-foreground/70`}>Assigned</span>
+        <span className={`flex-shrink-0 ${LABEL} text-muted-foreground/70`}>Assigned</span>
         <AssignmentSelect
           type="thread"
           itemId={threadItemId}
@@ -240,7 +240,7 @@ export function HeaderMetaStrip({
         <>
           <span className="text-border/60 select-none px-1">·</span>
           <div className="flex items-center gap-2 min-w-0">
-            <span className={`flex-shrink-0 ${MONO} text-muted-foreground/70`}>Category</span>
+            <span className={`flex-shrink-0 ${LABEL} text-muted-foreground/70`}>Category</span>
             <ReactSelect
               value={
                 message.categoryId !== null && message.categoryId !== undefined
@@ -267,7 +267,7 @@ export function HeaderMetaStrip({
         <>
           <span className="text-border/60 select-none px-1">·</span>
           <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-            <span className={`flex-shrink-0 ${MONO} text-muted-foreground/70`}>Labels</span>
+            <span className={`flex-shrink-0 ${LABEL} text-muted-foreground/70`}>Labels</span>
 
             {messageLabels.map((label) => (
               <span

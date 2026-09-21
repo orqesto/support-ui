@@ -3,7 +3,7 @@ import { BookOpen, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { Message } from '@/types';
 import { getSpamCheck, humanizeSignalFlag, spamClassLabel } from '@/lib/messageHelpers';
-import { MONO } from './messageDetailConstants';
+import { LABEL } from './messageDetailConstants';
 import { SIMILAR_RESULTS_LIMIT, SIMILAR_RESULTS_MIN_SIMILARITY } from '@/lib/constants';
 import { messageService } from '@/services/message.service';
 import { AnswerPreview } from './AnswerPreview';
@@ -349,7 +349,7 @@ export function AiTabPanel({
       {section !== 'analysis' && (loadingSimilar || options.length > 0) && (
         <div className="p-1.5 rounded border border-border">
           <div className="flex justify-between items-center mb-1.5">
-            <p className={`${MONO} text-muted-foreground`}>SUGGESTED REPLY</p>
+            <p className={`${LABEL} text-muted-foreground`}>SUGGESTED REPLY</p>
             {!loadingSimilar && activeOption && (
               <Button
                 variant="ghost"
@@ -397,7 +397,7 @@ export function AiTabPanel({
                       setSelectedId(opt.id);
                       onOptionSelect?.(opt.answer, opt.label, opt.type);
                     }}
-                    className={`${MONO} px-1.5 py-0.5 rounded border text-[9px] transition-colors ${
+                    className={`${LABEL} px-1.5 py-0.5 rounded border text-[9px] transition-colors ${
                       isActive ? PILL_ACTIVE[opt.type] : PILL_BASE[opt.type]
                     }`}
                   >
@@ -411,7 +411,7 @@ export function AiTabPanel({
           {options.length === 1 && activeOption && (
             <div className="mb-1">
               <span
-                className={`${MONO} px-1 py-0.5 rounded border text-[9px] ${PILL_BASE[activeOption.type]}`}
+                className={`${LABEL} px-1 py-0.5 rounded border text-[9px] ${PILL_BASE[activeOption.type]}`}
               >
                 {activeOption.label}
               </span>
@@ -524,31 +524,31 @@ export function AiTabPanel({
         <div className="grid grid-cols-3 gap-1.5">
           {spamCheck && (
             <div className="rounded border border-border p-1.5">
-              <p className={`${MONO} text-muted-foreground mb-0.5`}>CLASS</p>
+              <p className={`${LABEL} text-muted-foreground mb-0.5`}>CLASS</p>
               <p className="text-[11px] font-medium truncate">{spamClassLabel(spamCheck)}</p>
             </div>
           )}
           {analysis?.suggestedCategory && (
             <div className="rounded border border-border p-1.5">
-              <p className={`${MONO} text-muted-foreground mb-0.5`}>CATEGORY</p>
+              <p className={`${LABEL} text-muted-foreground mb-0.5`}>CATEGORY</p>
               <p className="text-[11px] font-medium truncate">{analysis.suggestedCategory}</p>
             </div>
           )}
           {analysis?.confidence !== undefined && (
             <div className="rounded border border-border p-1.5">
-              <p className={`${MONO} text-muted-foreground mb-0.5`}>CONFIDENCE</p>
+              <p className={`${LABEL} text-muted-foreground mb-0.5`}>CONFIDENCE</p>
               <p className="text-[11px] font-medium">{Math.round(analysis.confidence * 100)}%</p>
             </div>
           )}
           {analysis?.isTicketWorthy !== undefined && (
             <div className="rounded border border-border p-1.5">
-              <p className={`${MONO} text-muted-foreground mb-0.5`}>TICKET</p>
+              <p className={`${LABEL} text-muted-foreground mb-0.5`}>TICKET</p>
               <p className="text-[11px] font-medium">{analysis.isTicketWorthy ? 'Worthy' : 'No'}</p>
             </div>
           )}
           {analysis?.needsMoreInfo !== undefined && (
             <div className="rounded border border-border p-1.5">
-              <p className={`${MONO} text-muted-foreground mb-0.5`}>INFO</p>
+              <p className={`${LABEL} text-muted-foreground mb-0.5`}>INFO</p>
               <p className="text-[11px] font-medium">
                 {analysis.needsMoreInfo ? 'Needs more' : 'Complete'}
               </p>
@@ -556,7 +556,7 @@ export function AiTabPanel({
           )}
           {analysis?.suggestedPriority && (
             <div className="rounded border border-border p-1.5">
-              <p className={`${MONO} text-muted-foreground mb-0.5`}>PRIORITY</p>
+              <p className={`${LABEL} text-muted-foreground mb-0.5`}>PRIORITY</p>
               <p className="text-[11px] font-medium capitalize">{analysis.suggestedPriority}</p>
             </div>
           )}
@@ -565,21 +565,21 @@ export function AiTabPanel({
 
       {section !== 'suggested' && analysis?.summary && (
         <div className="p-1.5 rounded border border-border">
-          <p className={`mb-0.5 ${MONO} text-muted-foreground`}>SUMMARY</p>
+          <p className={`mb-0.5 ${LABEL} text-muted-foreground`}>SUMMARY</p>
           <p className="text-[11px] leading-snug">{analysis.summary}</p>
         </div>
       )}
 
       {section !== 'suggested' && spamCheck?.reason && (
         <div className="p-1.5 rounded border border-border">
-          <p className={`mb-0.5 ${MONO} text-muted-foreground`}>REASON</p>
+          <p className={`mb-0.5 ${LABEL} text-muted-foreground`}>REASON</p>
           <p className="text-[11px] leading-snug text-muted-foreground">{spamCheck.reason}</p>
         </div>
       )}
 
       {section !== 'suggested' && spamCheck?.redFlags && spamCheck.redFlags.length > 0 && (
         <div className="p-2 rounded border border-destructive-line bg-destructive-muted">
-          <p className={`mb-1 text-destructive ${MONO}`}>RED FLAGS</p>
+          <p className={`mb-1 text-destructive ${LABEL}`}>RED FLAGS</p>
           {spamCheck.redFlags.map((flag: string) => (
             <p key={flag} className="text-[11px] text-destructive">
               • {humanizeSignalFlag(flag)}
@@ -590,7 +590,7 @@ export function AiTabPanel({
 
       {section !== 'suggested' && spamCheck?.greenFlags && spamCheck.greenFlags.length > 0 && (
         <div className="p-2 rounded border border-success-line bg-success-muted">
-          <p className={`mb-1 text-success ${MONO}`}>GREEN FLAGS</p>
+          <p className={`mb-1 text-success ${LABEL}`}>GREEN FLAGS</p>
           {spamCheck.greenFlags.map((flag: string) => (
             <p key={flag} className="text-[11px] text-success">
               • {humanizeSignalFlag(flag)}
