@@ -50,7 +50,7 @@ export const MessageCapBanner = () => {
   return (
     <div
       data-testid="message-cap-banner"
-      className="mb-3 flex items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm"
+      className="mb-3 flex items-center justify-between gap-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm"
     >
       <span className="flex items-center gap-2 text-foreground">
         <MessageSquareOff className="h-4 w-4 text-warning" />

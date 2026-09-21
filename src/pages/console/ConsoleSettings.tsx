@@ -207,7 +207,7 @@ export const ConsoleSettings = () => {
       </Card>
 
       {/* ─── Danger zone ─────────────────────────────────────────────────── */}
-      <Card className="border-red-200 dark:border-red-900/50">
+      <Card className="border-destructive-line">
         <CardHeader>
           <CardTitle className="flex gap-2 items-center text-destructive">
             <AlertTriangle className="w-5 h-5" />
@@ -235,7 +235,7 @@ export const ConsoleSettings = () => {
 
           {/* Delete the whole alliance — global-admin only (platform-tenancy action). */}
           {isGlobalAdmin && (
-            <div className="flex flex-wrap gap-3 justify-between items-center pt-4 mt-4 border-t border-red-200 dark:border-red-900/50">
+            <div className="flex flex-wrap gap-3 justify-between items-center pt-4 mt-4 border-t border-destructive-line">
               <p className="text-sm text-muted-foreground">
                 Delete <strong>{settings.name}</strong> entirely. All workspaces are detached first
                 (they survive), then the alliance and its shared identity, groups and provisioning

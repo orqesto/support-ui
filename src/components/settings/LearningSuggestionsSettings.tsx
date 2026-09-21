@@ -54,7 +54,7 @@ const SeverityBadge = ({ suggestion }: { suggestion: LearningSuggestion }) => {
   if (conflictType === 'cross_dept_warn_overlap') {
     return (
       <span
-        className="font-display inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold uppercase tracking-[0.09em] bg-amber-500/15 text-warning"
+        className="font-display inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold uppercase tracking-[0.09em] bg-warning/15 text-warning"
         title="Borderline cross-dept overlap (cosine 0.85-0.92). Soft signal — these rules may converge over time. Not blocking."
       >
         Soft
@@ -64,7 +64,7 @@ const SeverityBadge = ({ suggestion }: { suggestion: LearningSuggestion }) => {
   if (conflictType === 'cross_dept_overlap' || conflictType === 'category_mismatch') {
     return (
       <span
-        className="font-display inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold uppercase tracking-[0.09em] bg-red-500/15 text-destructive"
+        className="font-display inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold uppercase tracking-[0.09em] bg-destructive/15 text-destructive"
         title="Hard conflict — two rules disagree at high similarity. Admin action needed."
       >
         Hard
@@ -260,18 +260,18 @@ const EvidenceSection = ({ suggestionId }: { suggestionId: number }) => {
                         : '(no subject)'}
                     </Link>
                     {item.ruleAMatched && (
-                      <span className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-amber-500/15 text-warning">
+                      <span className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-warning/15 text-warning">
                         A
                       </span>
                     )}
                     {item.ruleBMatched && (
-                      <span className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-sky-500/15 text-primary">
+                      <span className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-primary-muted text-primary">
                         B
                       </span>
                     )}
                     {item.ruleAMatched && item.ruleBMatched && (
                       <span
-                        className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-red-500/15 text-destructive"
+                        className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-destructive/15 text-destructive"
                         title="This message matches both rules — the conflict is real here"
                       >
                         Overlap
@@ -567,7 +567,7 @@ export const LearningSuggestionsSettings = () => {
         </p>
 
         {error && (
-          <div className="mb-4 flex items-start gap-2 px-3 py-2 rounded-md text-sm bg-red-50 text-red-700 border border-red-200 dark:bg-red-950 dark:border-red-900 dark:text-red-300">
+          <div className="mb-4 flex items-start gap-2 px-3 py-2 rounded-md text-sm bg-destructive-muted text-destructive border border-destructive-line">
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -682,7 +682,7 @@ export const LearningSuggestionsSettings = () => {
                               if (!refinement) return null;
                               return (
                                 <div className="px-3 pb-3 ml-5">
-                                  <div className="rounded-md border border-border bg-emerald-500/5 p-2.5 space-y-1.5 text-xs">
+                                  <div className="rounded-md border border-border bg-success/5 p-2.5 space-y-1.5 text-xs">
                                     <div className="font-medium text-foreground">
                                       Refine — tighten the over-reaching rule, keep both live
                                     </div>
@@ -691,11 +691,11 @@ export const LearningSuggestionsSettings = () => {
                                     )}
                                     <div className="flex flex-wrap items-center gap-1.5">
                                       <span className="text-muted-foreground">Rule #{refinement.targetRuleId}:</span>
-                                      <code className="px-1 py-0.5 rounded bg-red-500/10 text-destructive line-through break-all">
+                                      <code className="px-1 py-0.5 rounded bg-destructive/10 text-destructive line-through break-all">
                                         {refinement.oldValue}
                                       </code>
                                       <span className="text-muted-foreground">→</span>
-                                      <code className="px-1 py-0.5 rounded bg-emerald-500/10 text-success break-all">
+                                      <code className="px-1 py-0.5 rounded bg-success/10 text-success break-all">
                                         {refinement.proposedValue}
                                       </code>
                                     </div>

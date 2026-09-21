@@ -156,8 +156,8 @@ export const ChatWidgetSettings = () => {
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                         widget.enabled
-                          ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                          : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                          ? 'bg-success-muted text-success'
+                          : 'bg-muted text-muted-foreground'
                       }`}
                     >
                       {widget.enabled ? 'Active' : 'Disabled'}
@@ -176,7 +176,7 @@ export const ChatWidgetSettings = () => {
                   title={widget.enabled ? 'Disable' : 'Enable'}
                 >
                   <Power
-                    className={`h-4 w-4 ${widget.enabled ? 'text-success' : 'text-gray-400'}`}
+                    className={`h-4 w-4 ${widget.enabled ? 'text-success' : 'text-faint-foreground'}`}
                   />
                 </Button>
               </div>
@@ -252,7 +252,7 @@ export const ChatWidgetSettings = () => {
                   variant="ghost"
                   size="sm"
                   onClick={() => handleDeleteClick(widget)}
-                  className="text-destructive hover:text-red-700"
+                  className="text-destructive hover:text-destructive"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>

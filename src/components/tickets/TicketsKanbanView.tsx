@@ -67,7 +67,7 @@ const COLUMNS: KanbanColumnDef[] = [
     label: 'Pending',
     icon: Hourglass,
     accentColor: '#8b5cf6',
-    iconClass: 'text-violet-500',
+    iconClass: 'text-muted-foreground',
     emptyText: 'No pending tickets',
   },
   {
@@ -85,7 +85,7 @@ const COLUMNS: KanbanColumnDef[] = [
     label: 'Closed',
     icon: XCircle,
     accentColor: '#9ca3af',
-    iconClass: 'text-gray-400',
+    iconClass: 'text-faint-foreground',
     emptyText: 'No closed tickets',
   },
 ];

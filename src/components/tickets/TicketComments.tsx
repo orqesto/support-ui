@@ -318,7 +318,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
               key={comment.id}
               className={`p-4 rounded-lg border ${
                 comment.isInternal
-                  ? 'bg-amber-500/10 dark:bg-amber-500/10 border-amber-500/20'
+                  ? 'bg-note/10 border-note-line'
                   : 'bg-card border-border'
               }`}
             >
@@ -456,7 +456,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                               variant="ghost"
                               size="sm"
                               onClick={() => confirmDeleteAttachment(attachment.id)}
-                              className="p-1 text-red-600 rounded dark:text-red-400 hover:bg-red-500/10"
+                              className="p-1 text-destructive rounded hover:bg-destructive/10"
                             >
                               <X className="w-4 h-4" />
                             </Button>
@@ -477,7 +477,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                         size="sm"
                         variant="ghost"
                         onClick={() => handleDeleteClick(comment.id)}
-                        className="text-destructive hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
                         <Trash2 className="mr-1 w-3 h-3" />
                         Delete
@@ -516,7 +516,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                   aria-label="Remove file"
                   title="Remove file"
                   onClick={() => handleRemoveFile(index)}
-                  className="p-1 text-red-600 rounded dark:text-red-400 hover:bg-red-500/10"
+                  className="p-1 text-destructive rounded hover:bg-destructive/10"
                   disabled={isSubmitting}
                 >
                   <X className="w-4 h-4" />

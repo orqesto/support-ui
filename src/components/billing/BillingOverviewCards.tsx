@@ -41,7 +41,7 @@ export const BillingOverviewCards = () => {
 
   return (
     <div className="animate-in fade-in duration-500 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500">
+      <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-border-strong">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Active Subscriptions
@@ -58,7 +58,7 @@ export const BillingOverviewCards = () => {
         </CardContent>
       </Card>
 
-      <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-green-500">
+      <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-success">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">Total MRR</CardTitle>
           <div className="p-2 bg-success-muted rounded-lg">
@@ -73,7 +73,7 @@ export const BillingOverviewCards = () => {
         </CardContent>
       </Card>
 
-      <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-red-500">
+      <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-destructive">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">Anomalies</CardTitle>
           <div className="p-2 bg-destructive-muted rounded-lg">
@@ -88,7 +88,7 @@ export const BillingOverviewCards = () => {
         </CardContent>
       </Card>
 
-      <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-yellow-500">
+      <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-warning">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">Ghost Charges</CardTitle>
           <div className="p-2 bg-warning-muted rounded-lg">

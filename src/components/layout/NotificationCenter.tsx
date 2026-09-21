@@ -106,8 +106,8 @@ const SLABreachItem = ({
       className={cn(
         'relative flex gap-3 items-start p-3 text-sm rounded-lg border transition-opacity hover:opacity-90',
         isCritical
-          ? 'bg-red-50 border-destructive-line dark:bg-red-950/30'
-          : 'bg-amber-50 border-warning-line dark:bg-amber-950/30'
+          ? 'bg-destructive-muted border-destructive-line'
+          : 'bg-warning-muted border-warning-line'
       )}
     >
       <AlertTriangle
@@ -629,7 +629,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                         }}
                         className="flex gap-3 items-center p-3 w-full h-auto text-sm text-left rounded-lg border bg-background hover:bg-accent border-border"
                       >
-                        <ShieldAlert className="w-4 h-4 shrink-0 text-purple-500" />
+                        <ShieldAlert className="w-4 h-4 shrink-0 text-muted-foreground" />
                         <span className="flex-1 font-medium text-foreground">Suspicious</span>
                         <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
                           {suspiciousQueueCount > 99 ? '99+' : suspiciousQueueCount}
@@ -689,9 +689,9 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                         variant="ghost"
                         size="sm"
                         onClick={() => goToAiSettings()}
-                        className="flex gap-2 items-start p-2 w-full h-auto text-sm text-left rounded border bg-violet-50 border-violet-200 dark:bg-violet-950/30 dark:border-violet-900 hover:bg-violet-100 dark:hover:bg-violet-950/50"
+                        className="flex gap-2 items-start p-2 w-full h-auto text-sm text-left rounded border bg-ai-muted border-ai-line hover:bg-ai-muted/80"
                       >
-                        <Wand2 className="mt-0.5 w-3.5 h-3.5 shrink-0 text-violet-500" />
+                        <Wand2 className="mt-0.5 w-3.5 h-3.5 shrink-0 text-ai" />
                         <div className="flex-1 min-w-0">
                           <p className="truncate text-foreground">{note.summary}</p>
                           <p className="text-[11px] text-muted-foreground">
@@ -732,7 +732,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                           variant="ghost"
                           size="sm"
                           onClick={() => goToAiSettings(sug.id)}
-                          className="flex gap-2 items-start p-2 w-full h-auto text-sm text-left rounded border bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900 hover:bg-amber-100 dark:hover:bg-amber-950/50"
+                          className="flex gap-2 items-start p-2 w-full h-auto text-sm text-left rounded border bg-warning-muted border-warning-line hover:bg-warning-muted"
                         >
                           <Lightbulb className="mt-0.5 w-3.5 h-3.5 shrink-0 text-warning" />
                           <div className="flex-1 min-w-0">

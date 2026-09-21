@@ -109,20 +109,20 @@ export const PromptsSettings = () => {
       </div>
 
       {/* Info Banner */}
-      <div className="p-4 rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
+      <div className="p-4 rounded-lg border bg-muted dark:bg-muted border-border">
         <p className="text-sm text-primary">
           <strong>Template Variables:</strong> Use{' '}
-          <code className="px-1 rounded bg-blue-500/20">{'{{variable}}'}</code> for dynamic content.
-          Available: <code className="px-1 rounded bg-blue-500/20">{'{{subject}}'}</code>,{' '}
-          <code className="px-1 rounded bg-blue-500/20">{'{{sender}}'}</code>,{' '}
-          <code className="px-1 rounded bg-blue-500/20">{'{{content}}'}</code>,{' '}
-          <code className="px-1 rounded bg-blue-500/20">{'{{spam_rules}}'}</code>
+          <code className="px-1 rounded bg-sunken">{'{{variable}}'}</code> for dynamic content.
+          Available: <code className="px-1 rounded bg-sunken">{'{{subject}}'}</code>,{' '}
+          <code className="px-1 rounded bg-sunken">{'{{sender}}'}</code>,{' '}
+          <code className="px-1 rounded bg-sunken">{'{{content}}'}</code>,{' '}
+          <code className="px-1 rounded bg-sunken">{'{{spam_rules}}'}</code>
         </p>
       </div>
 
       {/* New Prompt Form */}
       {isCreating && (
-        <div className="p-4 space-y-4 rounded-lg border bg-green-500/10 dark:bg-green-500/10 border-green-500/20">
+        <div className="p-4 space-y-4 rounded-lg border bg-success/10 border-success-line">
           <h4 className="font-display font-semibold">New Prompt Template</h4>
           <div className="grid gap-4">
             <div>
@@ -192,7 +192,7 @@ export const PromptsSettings = () => {
           <div
             key={prompt.id}
             className={`border border-border rounded-lg p-4 ${
-              editingPrompt?.id === prompt.id ? 'bg-green-500/10 dark:bg-green-500/10' : 'bg-card'
+              editingPrompt?.id === prompt.id ? 'bg-success/10' : 'bg-card'
             }`}
           >
             {editingPrompt?.id === prompt.id ? (
@@ -304,7 +304,7 @@ export const PromptsSettings = () => {
                   </div>
                 </div>
                 <details className="group">
-                  <summary className="text-sm text-primary cursor-pointer hover:text-blue-800">
+                  <summary className="text-sm text-primary cursor-pointer hover:text-primary/80">
                     View Prompt Template ({prompt.prompt.length} characters)
                   </summary>
                   <div className="p-3 mt-3 rounded-lg border bg-muted border-border">

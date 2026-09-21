@@ -47,7 +47,7 @@ export const CheckoutSessionForm = ({
      * our theme, and forcing a light panel behind it would undo exactly the
      * thing it exists for.
      */
-    <div className="overflow-hidden rounded-lg bg-white p-1 shadow-sm">
+    <div className="overflow-hidden rounded-lg bg-card p-1 shadow-sm">
       <EmbeddedCheckoutProvider
         key={session.clientSecret}
         stripe={stripePromise}

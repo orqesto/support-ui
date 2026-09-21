@@ -318,7 +318,7 @@ export const SubscriptionPage = () => {
             page once it exists — it changes when the product stops working, so
             it sits above the plan rather than inside the card grid below. */}
         {subscription.cancelAt && (
-          <Card className="border-amber-500/50">
+          <Card className="border-warning/50">
             <CardContent className="flex flex-wrap gap-3 justify-between items-center p-4">
               <div className="flex gap-3 items-start">
                 <AlertTriangle className="mt-0.5 w-5 h-5 text-warning" />
@@ -620,7 +620,7 @@ export const SubscriptionPage = () => {
               }}
             >
               <CardContent className="p-6">
-                <Settings className="mb-3 w-8 h-8 text-purple-600" />
+                <Settings className="mb-3 w-8 h-8 text-muted-foreground" />
                 <h3 className="font-display mb-1 font-semibold">
                   {portalLoading ? 'Opening Billing Portal…' : 'Billing & Invoices'}
                 </h3>

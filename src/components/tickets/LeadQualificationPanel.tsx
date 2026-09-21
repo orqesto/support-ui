@@ -210,10 +210,10 @@ export const LeadQualificationPanel = ({
   };
 
   return (
-    <div className="p-4 space-y-4 rounded-lg border border-violet-500/20 bg-violet-500/5">
+    <div className="p-4 space-y-4 rounded-lg border border-border bg-card">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h3 className="font-display text-sm font-semibold text-violet-700 dark:text-violet-400">
+        <h3 className="font-display text-sm font-semibold text-foreground">
           Lead Qualification
         </h3>
         <div className="flex gap-2 items-center">
@@ -236,7 +236,7 @@ export const LeadQualificationPanel = ({
               variant="ghost"
               size="icon"
               onClick={startEdit}
-              className="p-1 w-auto h-auto rounded hover:bg-violet-500/10 text-muted-foreground hover:text-violet-600"
+              className="p-1 w-auto h-auto rounded hover:bg-accent text-muted-foreground hover:text-foreground"
               title="Edit qualification data"
               aria-label="Edit qualification data"
             >
@@ -249,7 +249,7 @@ export const LeadQualificationPanel = ({
                 size="icon"
                 onClick={saveEdit}
                 disabled={saving}
-                className="p-1 w-auto h-auto rounded hover:bg-green-500/10 text-muted-foreground hover:text-green-600"
+                className="p-1 w-auto h-auto rounded hover:bg-success/10 text-muted-foreground hover:text-success"
                 title="Save changes"
                 aria-label="Save changes"
               >
@@ -260,7 +260,7 @@ export const LeadQualificationPanel = ({
                 size="icon"
                 onClick={cancelEdit}
                 disabled={saving}
-                className="p-1 w-auto h-auto rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500"
+                className="p-1 w-auto h-auto rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
                 title="Cancel"
                 aria-label="Cancel"
               >
@@ -273,7 +273,7 @@ export const LeadQualificationPanel = ({
 
       {/* Escalated Stage Warning */}
       {leadState.stage === 'escalated' && (
-        <div className="p-3 rounded-lg border border-red-500/20 bg-red-500/5">
+        <div className="p-3 rounded-lg border border-destructive-line bg-destructive/5">
           <div className="flex gap-2 items-center">
             <div className="w-2 h-2 bg-destructive rounded-full" />
             <p className="text-sm font-medium text-destructive">
@@ -304,7 +304,7 @@ export const LeadQualificationPanel = ({
               <div className="flex gap-2 items-center">
                 <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 <input
-                  className="flex-1 text-sm bg-background border border-input rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="flex-1 text-sm bg-background border border-input rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="Name"
                   value={editContact.name}
                   onChange={(event) => setEditContact((prev) => ({ ...prev, name: event.target.value }))}
@@ -313,7 +313,7 @@ export const LeadQualificationPanel = ({
               <div className="flex gap-2 items-center">
                 <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 <input
-                  className="flex-1 text-sm bg-background border border-input rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="flex-1 text-sm bg-background border border-input rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="Email"
                   type="email"
                   value={editContact.email}
@@ -323,7 +323,7 @@ export const LeadQualificationPanel = ({
               <div className="flex gap-2 items-center">
                 <Phone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 <input
-                  className="flex-1 text-sm bg-background border border-input rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="flex-1 text-sm bg-background border border-input rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="Phone"
                   value={editContact.phone}
                   onChange={(event) => setEditContact((prev) => ({ ...prev, phone: event.target.value }))}
@@ -379,7 +379,7 @@ export const LeadQualificationPanel = ({
           </Button>
 
           {fieldsExpanded && (
-            <div className="pl-2 space-y-1.5 border-l-2 border-violet-500/20">
+            <div className="pl-2 space-y-1.5 border-l-2 border-border">
               {fieldEntries.map(([key, value]) => (
                 <div key={key} className="flex gap-2 items-start text-sm">
                   {editing ? (
@@ -388,7 +388,7 @@ export const LeadQualificationPanel = ({
                         {fieldLabel(key)}:
                       </span>
                       <input
-                        className="flex-1 bg-background border border-input rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-violet-500"
+                        className="flex-1 bg-background border border-input rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                         placeholder="Not provided"
                         value={editFields[key] ?? ''}
                         onChange={(event) => setEditFields((prev) => ({ ...prev, [key]: event.target.value }))}

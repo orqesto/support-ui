@@ -141,8 +141,8 @@ const PILL_BASE: Record<ReplyOption['type'], string> = {
 
 const PILL_ACTIVE: Record<ReplyOption['type'], string> = {
   lead: 'text-ai border-ai-line bg-ai-muted ring-1 ring-ai-line/50',
-  documentation: 'text-primary border-primary-line bg-primary-muted ring-1 ring-sky-400/50',
-  similar: 'text-warning border-warning-line bg-warning-muted ring-1 ring-amber-400/50',
+  documentation: 'text-primary border-primary-line bg-primary-muted ring-1 ring-primary-line',
+  similar: 'text-warning border-warning-line bg-warning-muted ring-1 ring-warning',
 };
 
 export function AiTabPanel({
@@ -435,7 +435,7 @@ export function AiTabPanel({
                         event.stopPropagation();
                         setViewKBSources(activeOption);
                       }}
-                      className="inline-block p-0 h-auto text-[10px] text-sky-600 hover:text-primary dark:hover:text-sky-300 truncate"
+                      className="inline-block p-0 h-auto text-[10px] text-primary hover:text-primary/80 truncate"
                     >
                       {activeOption.documentTitle
                         ?.replace(/^Q:\s*/i, '')
@@ -449,7 +449,7 @@ export function AiTabPanel({
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(event) => event.stopPropagation()}
-                      className="text-[10px] text-sky-600 hover:text-primary dark:hover:text-sky-300 truncate"
+                      className="text-[10px] text-primary hover:text-primary/80 truncate"
                     >
                       {activeOption.documentTitle
                         ? activeOption.documentTitle
@@ -500,7 +500,7 @@ export function AiTabPanel({
                           event.stopPropagation();
                           setViewOriginal(activeOption);
                         }}
-                        className="p-0 h-auto text-[10px] text-amber-600 hover:text-warning dark:hover:text-amber-300"
+                        className="p-0 h-auto text-[10px] text-warning hover:text-warning"
                       >
                         View original message
                       </Button>
@@ -508,7 +508,7 @@ export function AiTabPanel({
                       <Link
                         to={`/messages/${activeOption.messageId}`}
                         onClick={(event) => event.stopPropagation()}
-                        className="text-[10px] text-amber-600 hover:text-warning dark:hover:text-amber-300"
+                        className="text-[10px] text-warning hover:text-warning"
                       >
                         View original message
                       </Link>

@@ -128,7 +128,7 @@ export const DocumentationUploadForm = ({
               </div>
 
               {/* AI Helper - PDF Requirements */}
-              <div className="p-4 mt-4 bg-blue-50 rounded-lg border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
+              <div className="p-4 mt-4 bg-muted rounded-lg border border-border">
                 <div className="flex gap-2 items-start">
                   <AlertCircle className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
                   <div className="text-left">

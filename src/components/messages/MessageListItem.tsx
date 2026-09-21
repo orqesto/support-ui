@@ -360,7 +360,7 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
 
           {aiState && (
             <Tooltip content={aiState.tooltip} size="sm">
-              <span className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-violet-500/15 text-violet-700 dark:text-violet-300">
+              <span className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-ai-muted text-ai">
                 {aiState.label}
               </span>
             </Tooltip>
@@ -409,7 +409,7 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
               content="No customer message in this thread — we sent, nobody replied, and no one has picked it up in the app. It may be deliberate outreach; it is here so it does not go unnoticed."
               size="sm"
             >
-              <span className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-amber-500/15 text-warning">
+              <span className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-warning/15 text-warning">
                 Awaiting customer
               </span>
             </Tooltip>
@@ -420,7 +420,7 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
               content="Outbound echo — a sent message we couldn't pair with an inbound parent. No analysis runs on it because there's nothing to ask."
               size="sm"
             >
-              <span className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-slate-500/15 text-muted-foreground">
+              <span className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-muted text-muted-foreground">
                 Outbound echo
               </span>
             </Tooltip>

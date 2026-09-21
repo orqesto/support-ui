@@ -594,7 +594,7 @@ export const AdminUsageTab = () => {
                               </div>
 
                               {editingOrg === org.id && (
-                                <div className="p-4 mt-2 bg-blue-50 rounded-lg border border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
+                                <div className="p-4 mt-2 bg-muted rounded-lg border border-border">
                                   <h5 className="mb-3 text-sm font-semibold">Change Plan</h5>
                                   <div className="flex flex-wrap gap-2 mb-3">
                                     {availablePlans.map((plan) => (

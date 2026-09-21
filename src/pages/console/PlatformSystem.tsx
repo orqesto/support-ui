@@ -434,7 +434,7 @@ export const PlatformSystem = () => {
                       <span className="font-mono">{formatDate(new Date(job.failedAt).toISOString())}</span>
                     ) : null}
                   </div>
-                  <p className="mt-1 text-sm font-medium text-red-600 break-words dark:text-red-400">
+                  <p className="mt-1 text-sm font-medium text-destructive break-words">
                     {job.failedReason ?? 'Unknown error'}
                   </p>
                   {job.stacktrace.length > 0 ? (

@@ -57,7 +57,7 @@ export const SystemManagementSettings = () => {
   if (!canManageSystem) {
     return (
       <div className="space-y-6">
-        <div className="bg-red-50 dark:bg-red-950/20 rounded-lg border-2 border-destructive-line p-8 text-center">
+        <div className="bg-destructive-muted rounded-lg border-2 border-destructive-line p-8 text-center">
           <ShieldAlert className="w-16 h-16 text-destructive mx-auto mb-4" />
           <h2 className="font-display text-xl font-semibold text-destructive mb-2">
             Access Denied
@@ -225,8 +225,8 @@ export const SystemManagementSettings = () => {
         <div
           className={`p-4 rounded-lg border ${
             notification.type === 'success'
-              ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/20 dark:border-green-800 dark:text-green-400'
-              : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950/20 dark:border-red-800 dark:text-red-400'
+              ? 'bg-success-muted border-success-line text-success'
+              : 'bg-destructive-muted border-destructive-line text-destructive'
           }`}
         >
           {notification.message}
@@ -242,7 +242,7 @@ export const SystemManagementSettings = () => {
       </div>
 
       {/* Queue Management */}
-      <div className="p-6 bg-white rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+      <div className="p-6 bg-card rounded-lg border border-border">
         <h3 className="font-display flex gap-2 items-center mb-4 font-semibold text-md">
           <StopCircle className="w-5 h-5 text-warning" />
           Queue Management
@@ -293,7 +293,7 @@ export const SystemManagementSettings = () => {
       </div>
 
       {/* Data Cleanup */}
-      <div className="p-6 bg-white rounded-lg border border-red-200 dark:bg-gray-800 dark:border-red-900">
+      <div className="p-6 bg-card rounded-lg border border-destructive-line">
         <h3 className="font-display flex gap-2 items-center mb-4 font-semibold text-md">
           <Database className="w-5 h-5 text-destructive" />
           Data Cleanup
@@ -389,8 +389,8 @@ export const SystemManagementSettings = () => {
       </div>
 
       {/* Nuclear Zone */}
-      <div className="p-6 bg-red-50 rounded-lg border-2 border-red-500 dark:bg-red-950/20 dark:border-red-800">
-        <h3 className="font-display flex gap-2 items-center mb-4 font-semibold text-red-600 text-md dark:text-red-400">
+      <div className="p-6 bg-destructive-muted rounded-lg border-2 border-destructive">
+        <h3 className="font-display flex gap-2 items-center mb-4 font-semibold text-destructive text-md">
           <AlertTriangle className="w-5 h-5" />
           Danger Zone - Nuclear Cleanup
         </h3>
@@ -441,7 +441,7 @@ export const SystemManagementSettings = () => {
               <div>
                 <label className="block mb-2 text-sm font-medium">
                   Type{' '}
-                  <code className="px-2 py-1 bg-gray-100 rounded dark:bg-gray-800">
+                  <code className="px-2 py-1 bg-muted rounded">
                     {confirmDialog.confirmText}
                   </code>{' '}
                   to confirm:
@@ -455,7 +455,7 @@ export const SystemManagementSettings = () => {
               </div>
             )}
 
-            <div className="p-3 bg-red-50 rounded border border-red-200 dark:bg-red-950/20 dark:border-red-800">
+            <div className="p-3 bg-destructive-muted rounded border border-destructive-line">
               <p className="text-sm font-semibold text-destructive">
                 ⚠️ This action cannot be undone!
               </p>

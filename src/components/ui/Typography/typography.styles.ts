@@ -21,9 +21,9 @@ export const typographyVariants = cva('', {
       foreground: 'text-foreground',
       muted: 'text-muted-foreground',
       destructive: 'text-destructive',
-      success: 'text-green-600 dark:text-green-400',
-      warning: 'text-amber-600 dark:text-amber-400',
-      info: 'text-blue-600 dark:text-blue-400',
+      success: 'text-success',
+      warning: 'text-warning',
+      info: 'text-muted-foreground',
     },
     weight: {
       light: 'font-light',

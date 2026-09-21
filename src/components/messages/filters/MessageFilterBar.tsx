@@ -182,7 +182,7 @@ export const MessageFilterBar = ({
                     variant="ghost"
                     onClick={() => void removeView(view)}
                     aria-label={`Delete view ${view.name}`}
-                    className="grid absolute -top-1 -right-1 place-items-center p-0 w-4 h-4 rounded-full opacity-0 transition-opacity bg-muted text-muted-foreground group-hover/view:opacity-100 hover:text-red-600"
+                    className="grid absolute -top-1 -right-1 place-items-center p-0 w-4 h-4 rounded-full opacity-0 transition-opacity bg-muted text-muted-foreground group-hover/view:opacity-100 hover:text-destructive"
                   >
                     <X className="w-2.5 h-2.5" />
                   </Button>
@@ -250,7 +250,7 @@ export const MessageFilterBar = ({
                 <Button
                   variant="ghost"
                   onClick={onClearFilters}
-                  className="h-8 px-2.5 rounded-md text-[13px] text-muted-foreground hover:bg-accent hover:text-red-600 dark:hover:text-red-400"
+                  className="h-8 px-2.5 rounded-md text-[13px] text-muted-foreground hover:bg-accent hover:text-destructive"
                 >
                   Clear all
                 </Button>

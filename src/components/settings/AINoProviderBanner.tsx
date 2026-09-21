@@ -6,7 +6,7 @@ export const AINoProviderBanner = () => {
   const [showFeatureDetails, setShowFeatureDetails] = useState(false);
 
   return (
-    <div className="p-3 bg-amber-50 rounded-lg border-2 border-amber-500 dark:bg-amber-950/50">
+    <div className="p-3 bg-warning-muted rounded-lg border-2 border-warning">
       <Button
         variant="ghost"
         onClick={() => setShowFeatureDetails(!showFeatureDetails)}

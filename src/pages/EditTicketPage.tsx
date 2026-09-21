@@ -221,7 +221,7 @@ export const EditTicketPage = () => {
         </div>
 
         {ticket?.externalId && (
-          <Card className="bg-warning-muted border-yellow-500">
+          <Card className="bg-warning-muted border-warning">
             <CardContent className="pt-6">
               <div className="flex gap-3 items-start">
                 <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
@@ -238,7 +238,7 @@ export const EditTicketPage = () => {
                       href={safeExternalUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex gap-2 items-center text-sm font-medium text-primary hover:text-blue-800"
+                      className="inline-flex gap-2 items-center text-sm font-medium text-primary hover:text-primary/80"
                     >
                       Open in Jira
                       <ExternalLink className="w-4 h-4" />

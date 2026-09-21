@@ -251,7 +251,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
     return (
       <Wrap>
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <Shield className="mb-4 w-16 h-16 text-gray-400" />
+          <Shield className="mb-4 w-16 h-16 text-faint-foreground" />
           <h2 className="font-display mb-2 text-2xl font-bold">Access Denied</h2>
           <p className="max-w-md text-center text-muted-foreground">
             You don&apos;t have permission to manage users. Please contact your workspace
@@ -278,7 +278,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
 
   const deptBadges = (user: User) =>
     user.departmentIds?.map((deptId) => (
-      <Badge key={deptId} className="text-xs text-blue-700 bg-primary-muted dark:text-blue-300">
+      <Badge key={deptId} className="text-xs text-foreground bg-muted">
         {deptNameById(deptId)}
       </Badge>
     )) ?? null;
@@ -298,7 +298,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
         className={
           createdOnly
             ? 'flex gap-1 items-center text-xs text-muted-foreground bg-muted'
-            : 'flex gap-1 items-center text-xs text-amber-700 bg-warning-muted dark:text-amber-300'
+            : 'flex gap-1 items-center text-xs text-warning bg-warning-muted'
         }
         title={
           createdOnly
@@ -366,7 +366,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
           {user.organizationRole ? (
             <Badge variant="secondary">{roleDisplayNames[user.organizationRole]}</Badge>
           ) : (
-            <span className="text-sm text-gray-400">—</span>
+            <span className="text-sm text-faint-foreground">—</span>
           )}
           {scimBadge(user)}
           {idpBlockedBadge(user)}
@@ -380,7 +380,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
         user.departmentIds && user.departmentIds.length > 0 ? (
           <div className="flex flex-wrap gap-1">{deptBadges(user)}</div>
         ) : (
-          <span className="text-sm text-gray-400">—</span>
+          <span className="text-sm text-faint-foreground">—</span>
         ),
     },
     {
@@ -423,7 +423,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
     // anyone, because no request is ever made.
     const blockedReason = caps.removeBlockedReason;
     if (!canEdit && !canRemove && !blockedReason) {
-      return <span className="text-sm text-gray-400">—</span>;
+      return <span className="text-sm text-faint-foreground">—</span>;
     }
     return (
       <div className="flex gap-2 justify-end">
@@ -445,7 +445,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
             size="sm"
             variant="outline"
             onClick={() => handleDeleteUser(user)}
-            className="text-destructive hover:text-red-700 hover:border-red-300"
+            className="text-destructive hover:text-destructive hover:border-destructive-line"
           >
             <Trash2 className="w-4 h-4" />
           </Button>
@@ -519,7 +519,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
                   title="Delete user"
                   size="sm"
                   variant="outline"
-                  className="flex-shrink-0 text-destructive hover:text-red-700 hover:border-red-300"
+                  className="flex-shrink-0 text-destructive hover:text-destructive hover:border-destructive-line"
                   onClick={() => handleDeleteUser(user)}
                 >
                   <Trash2 className="w-4 h-4" />
@@ -610,11 +610,11 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
         </div>
 
         {/* Role Information Panel */}
-        <Card className="border-primary-line bg-blue-50/50 dark:bg-blue-950/20">
+        <Card className="border-border bg-card">
           <Button
             variant="ghost"
             onClick={() => setShowRoleInfo(!showRoleInfo)}
-            className="block p-4 w-full h-auto text-left rounded-none hover:bg-blue-100/50 dark:hover:bg-blue-900/20"
+            className="block p-4 w-full h-auto text-left rounded-none hover:bg-accent"
           >
             <div className="flex justify-between items-center">
               <div className="flex gap-2 items-center">

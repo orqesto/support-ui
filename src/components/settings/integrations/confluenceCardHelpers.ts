@@ -29,21 +29,21 @@ export const syncMeta = (
   >,
   selectedCount?: number
 ): { text: string; cls: string } => {
-  if (integ.lastSyncStatus === 'syncing') return { text: 'Syncing…', cls: 'text-blue-600' };
+  if (integ.lastSyncStatus === 'syncing') return { text: 'Syncing…', cls: 'text-muted-foreground' };
   if (integ.lastSyncStatus === 'failed') {
     const detail = integ.lastSyncError ? `: ${integ.lastSyncError.slice(0, 90)}` : '';
-    return { text: `Sync failed${detail}`, cls: 'text-red-600' };
+    return { text: `Sync failed${detail}`, cls: 'text-destructive' };
   }
   if (integ.lastSyncStatus === 'success') {
     const count = integ.lastSyncedPageCount ?? 0;
     if (count === 0 && selectedCount === 0) {
       return {
         text: 'Connected — nothing selected yet. Choose folders or pages to sync.',
-        cls: 'text-amber-600',
+        cls: 'text-warning',
       };
     }
     const when = integ.lastSyncedAt ? ` · ${timeAgo(integ.lastSyncedAt)}` : '';
-    return { text: `Synced ${count} page${count === 1 ? '' : 's'}${when}`, cls: 'text-green-600' };
+    return { text: `Synced ${count} page${count === 1 ? '' : 's'}${when}`, cls: 'text-success' };
   }
   return { text: 'Not synced yet', cls: 'text-muted-foreground' };
 };
@@ -56,9 +56,9 @@ export const syncMeta = (
 export const syncDot = (
   integ: Pick<BaseIntegration, 'enabled' | 'lastSyncStatus'>
 ): { cls: string; label: string } => {
-  if (!integ.enabled) return { cls: 'bg-gray-400', label: 'Paused' };
-  if (integ.lastSyncStatus === 'failed') return { cls: 'bg-red-500', label: 'Sync failed' };
-  if (integ.lastSyncStatus === 'syncing') return { cls: 'bg-blue-500', label: 'Syncing' };
-  if (integ.lastSyncStatus === 'success') return { cls: 'bg-green-500', label: 'Synced' };
-  return { cls: 'bg-amber-400', label: 'Not synced yet' };
+  if (!integ.enabled) return { cls: 'bg-faint-foreground', label: 'Paused' };
+  if (integ.lastSyncStatus === 'failed') return { cls: 'bg-destructive', label: 'Sync failed' };
+  if (integ.lastSyncStatus === 'syncing') return { cls: 'bg-muted-foreground', label: 'Syncing' };
+  if (integ.lastSyncStatus === 'success') return { cls: 'bg-success', label: 'Synced' };
+  return { cls: 'bg-warning', label: 'Not synced yet' };
 };

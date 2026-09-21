@@ -21,24 +21,24 @@ export const CHIP_BASE = `inline-flex items-center gap-1 px-2 py-0.5 rounded bor
 export const STATUS_DISPLAY: Record<ThreadStatus, { label: string; dot: string; chip: string }> = {
   open: {
     label: 'OPEN',
-    dot: 'bg-sky-500',
-    chip: 'text-sky-700    border-sky-200    bg-sky-50    dark:text-sky-400    dark:bg-sky-950/30    dark:border-sky-800',
+    dot: 'bg-foreground',
+    chip: 'text-foreground border-border-strong bg-raised',
   },
   in_progress: {
     label: 'IN PROGRESS',
-    dot: 'bg-blue-500',
-    chip: 'text-blue-700  border-blue-200  bg-blue-50  dark:text-blue-400  dark:bg-blue-950/30  dark:border-blue-800',
+    dot: 'bg-muted-foreground',
+    chip: 'text-muted-foreground border-border bg-muted',
   },
   pending: {
     // The 'pending' enum value = the On-hold (park) action.
     label: 'ON-HOLD',
-    dot: 'bg-amber-400',
-    chip: 'text-amber-700  border-amber-200  bg-amber-50  dark:text-amber-400  dark:bg-amber-950/30  dark:border-amber-800',
+    dot: 'bg-warning',
+    chip: 'text-warning  border-warning-line  bg-warning-muted   ',
   },
   resolved: {
     label: 'RESOLVED',
-    dot: 'bg-emerald-500',
-    chip: 'text-emerald-700 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/30 dark:border-emerald-800',
+    dot: 'bg-success',
+    chip: 'text-success border-success-line bg-success-muted',
   },
   closed: {
     label: 'CLOSED',
@@ -52,8 +52,8 @@ export const STATUS_DISPLAY: Record<ThreadStatus, { label: string; dot: string; 
   },
   needs_routing: {
     label: 'NEEDS ROUTING',
-    dot: 'bg-orange-500',
-    chip: 'text-orange-700  border-orange-200  bg-orange-50  dark:text-orange-400  dark:bg-orange-950/30  dark:border-orange-800',
+    dot: 'bg-muted-foreground',
+    chip: 'text-muted-foreground border-border bg-muted',
   },
 };
 
@@ -90,33 +90,29 @@ export const PRIORITY_OPTIONS: {
     value: 'low',
     label: 'LOW',
     menuLabel: 'Low',
-    dotClassName: 'bg-green-500',
-    chipClassName:
-      'text-green-700  bg-green-50   border-green-200  dark:text-green-400  dark:bg-green-950/30  dark:border-green-800',
+    dotClassName: 'bg-success',
+    chipClassName: 'text-success  bg-success-muted   border-success-line   ',
   },
   {
     value: 'medium',
     label: 'MEDIUM',
     menuLabel: 'Medium',
-    dotClassName: 'bg-amber-500',
-    chipClassName:
-      'text-amber-900 bg-amber-100 border-amber-300 dark:text-amber-300 dark:bg-amber-950/30 dark:border-amber-800',
+    dotClassName: 'bg-warning',
+    chipClassName: 'text-warning bg-warning-muted border-warning-line',
   },
   {
     value: 'high',
     label: 'HIGH',
     menuLabel: 'High',
-    dotClassName: 'bg-orange-500',
-    chipClassName:
-      'text-orange-700 bg-orange-50  border-orange-200 dark:text-orange-400 dark:bg-orange-950/30 dark:border-orange-800',
+    dotClassName: 'bg-warning',
+    chipClassName: 'text-warning bg-warning-muted  border-warning-line',
   },
   {
     value: 'critical',
     label: 'CRITICAL',
     menuLabel: 'Critical',
-    dotClassName: 'bg-red-500',
-    chipClassName:
-      'text-red-700    bg-red-50     border-red-200    dark:text-red-400    dark:bg-red-950/30    dark:border-red-800',
+    dotClassName: 'bg-destructive',
+    chipClassName: 'text-destructive    bg-destructive-muted     border-destructive-line         ',
   },
 ];
 

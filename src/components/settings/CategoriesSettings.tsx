@@ -175,7 +175,7 @@ export const CategoriesSettings = () => {
 
       {/* New Category Form */}
       {isCreating && (
-        <div className="p-4 space-y-4 rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
+        <div className="p-4 space-y-4 rounded-lg border bg-muted border-border">
           <h4 className="font-display font-semibold">New Category</h4>
           <div className="grid gap-4">
             <div>
@@ -238,7 +238,7 @@ export const CategoriesSettings = () => {
           <div
             key={category.id}
             className={`border border-border rounded-lg p-4 ${
-              editingCategory?.id === category.id ? 'bg-blue-500/10 dark:bg-blue-500/10' : 'bg-card'
+              editingCategory?.id === category.id ? 'bg-primary-muted' : 'bg-card'
             }`}
           >
             {editingCategory?.id === category.id ? (

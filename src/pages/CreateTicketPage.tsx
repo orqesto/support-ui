@@ -418,7 +418,7 @@ export const CreateTicketPage = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleRemoveFile(index)}
-                          className="p-1 h-auto text-destructive hover:bg-red-500/10"
+                          className="p-1 h-auto text-destructive hover:bg-destructive/10"
                           disabled={loading}
                         >
                           <X className="w-4 h-4" />

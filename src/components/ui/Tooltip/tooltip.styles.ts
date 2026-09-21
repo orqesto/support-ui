@@ -6,7 +6,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 // the `side` variant carries no class-level effect — it exists only to keep
 // the typed prop on TooltipProps for the JS positioning logic to consume.
 export const tooltipVariants = cva(
-  'z-[9999] text-white bg-gray-900/95 dark:bg-gray-800/95 rounded shadow-md whitespace-nowrap pointer-events-none transition-opacity duration-150',
+  'z-[9999] text-background bg-foreground/95 rounded shadow-md whitespace-nowrap pointer-events-none transition-opacity duration-150',
   {
     variants: {
       side: {

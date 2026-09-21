@@ -200,7 +200,7 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
         <Tooltip content="Message from Knowledge Base source" size="sm">
           <Badge
             variant="default"
-            className={`text-white bg-purple-600 ${bc} hover:bg-purple-700`}
+            className={`text-muted-foreground bg-muted ${bc} hover:bg-muted`}
           >
             <BookOpen className={ic} />
             Knowledge Base

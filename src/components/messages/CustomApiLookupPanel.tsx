@@ -146,7 +146,7 @@ export const ownershipNotice = (
         // `?? 'unknown'` AND the lookup's own fallback: a reason this build does not know yet (a
         // newer backend) must not render as `undefined`.
         text: UNVERIFIED_TEXT[reason ?? 'unknown'] ?? UNVERIFIED_TEXT.unknown,
-        className: 'bg-amber-500/15 text-warning border border-amber-500/40',
+        className: 'bg-warning/15 text-warning border border-warning/40',
       };
     default:
       return null;

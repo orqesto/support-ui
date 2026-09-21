@@ -297,7 +297,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       </CardHeader>
       <CardContent>
         {error && (
-          <div className="flex gap-2 items-start px-3 py-2 mb-4 text-sm text-red-700 rounded-md border border-red-200 bg-destructive-muted dark:border-red-900 dark:text-red-300">
+          <div className="flex gap-2 items-start px-3 py-2 mb-4 text-sm text-destructive rounded-md border border-destructive-line bg-destructive-muted">
             <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -317,7 +317,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                 <span
                   className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
                     orgEnabled
-                      ? 'bg-emerald-500/10 text-success'
+                      ? 'bg-success/10 text-success'
                       : 'bg-muted text-muted-foreground'
                   }`}
                 >
@@ -407,7 +407,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                               setTempThresholdOrg(null);
                             }
                           }}
-                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-primary"
+                          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                         />
                         <p className="text-[10px] text-muted-foreground">
                           ≥ threshold: auto-send. Below: surface to an agent. &lt;70%: skip.
@@ -455,11 +455,11 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
 
             const summaryClass =
               summary.tone === 'green'
-                ? 'bg-emerald-500/10 text-success'
+                ? 'bg-success/10 text-success'
                 : summary.tone === 'red'
-                  ? 'bg-rose-500/10 text-destructive'
+                  ? 'bg-destructive/10 text-destructive'
                   : summary.tone === 'amber'
-                    ? 'bg-amber-500/10 text-warning'
+                    ? 'bg-warning/10 text-warning'
                     : 'bg-muted text-muted-foreground';
 
             return (
@@ -504,7 +504,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         onClick={() => void saveDept(dept.id, { ...settings, autoReplyEnabled: true })}
                         className={`px-2 py-0.5 h-auto text-[10px] rounded-full ${
                           overrideEnabled === true
-                            ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/40 dark:text-emerald-300'
+                            ? 'bg-success/15 text-success border-success/40'
                             : 'bg-background hover:bg-muted'
                         }`}
                       >
@@ -518,7 +518,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         onClick={() => void saveDept(dept.id, { ...settings, autoReplyEnabled: false })}
                         className={`px-2 py-0.5 h-auto text-[10px] rounded-full ${
                           overrideEnabled === false
-                            ? 'bg-rose-500/15 text-rose-700 border-rose-500/40 dark:text-rose-300'
+                            ? 'bg-destructive/15 text-destructive border-destructive/40'
                             : 'bg-background hover:bg-muted'
                         }`}
                       >
@@ -584,7 +584,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                               });
                             }
                           }}
-                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-primary"
+                          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                         />
                         <p className="text-[10px] text-muted-foreground">Range 90–100%.</p>
                       </div>
@@ -611,7 +611,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         {phrases.map((phrase) => (
                           <span
                             key={phrase}
-                            className="flex gap-1 items-center px-2 py-0.5 text-xs text-yellow-900 bg-yellow-100 rounded-full dark:bg-yellow-900/30 dark:text-yellow-200"
+                            className="flex gap-1 items-center px-2 py-0.5 text-xs text-warning bg-warning-muted rounded-full"
                           >
                             {phrase}
                             <Button
@@ -626,7 +626,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                                 })
                               }
                               aria-label={`Remove phrase ${phrase}`}
-                              className="p-0 w-auto h-auto hover:text-red-600 disabled:opacity-50"
+                              className="p-0 w-auto h-auto hover:text-destructive disabled:opacity-50"
                             >
                               <X className="w-3 h-3" />
                             </Button>

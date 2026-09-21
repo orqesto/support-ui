@@ -40,7 +40,7 @@ export const COLUMNS: KanbanColumnDef[] = [
     // suspicion a MARK, so those threads belong in this lane wearing a Suspicious badge.
     fixedFilters: { lifecycle: 'open' },
     accentColor: '#3b82f6',
-    iconClass: 'text-blue-500',
+    iconClass: 'text-muted-foreground',
     emptyText: 'No open messages',
   },
   {
@@ -50,7 +50,7 @@ export const COLUMNS: KanbanColumnDef[] = [
     icon: PlayCircle,
     fixedFilters: { lifecycle: 'in_progress' },
     accentColor: '#8b5cf6',
-    iconClass: 'text-violet-500',
+    iconClass: 'text-muted-foreground',
     emptyText: 'Nothing in progress',
   },
   {
@@ -61,7 +61,7 @@ export const COLUMNS: KanbanColumnDef[] = [
     // "Pending" = awaiting the customer's response (BE lifecycle='awaiting').
     fixedFilters: { lifecycle: 'awaiting' },
     accentColor: '#f97316',
-    iconClass: 'text-orange-500',
+    iconClass: 'text-warning',
     emptyText: 'Nothing awaiting the customer',
   },
   {
@@ -72,7 +72,7 @@ export const COLUMNS: KanbanColumnDef[] = [
     // "On-hold" = parked overlay (BE lifecycle='pending' → parked_at IS NOT NULL).
     fixedFilters: { lifecycle: 'pending' },
     accentColor: '#f59e0b',
-    iconClass: 'text-amber-500',
+    iconClass: 'text-warning',
     emptyText: 'Nothing on hold',
   },
   {
@@ -83,7 +83,7 @@ export const COLUMNS: KanbanColumnDef[] = [
     // lifecycle='resolved' returns resolved + closed (single terminal state).
     fixedFilters: { lifecycle: 'resolved' },
     accentColor: '#10b981',
-    iconClass: 'text-emerald-500',
+    iconClass: 'text-success',
     emptyText: 'No resolved messages',
   },
   // --- Triage axis (pre-lifecycle classification) ---
@@ -94,7 +94,7 @@ export const COLUMNS: KanbanColumnDef[] = [
     icon: HelpCircle,
     fixedFilters: { view: 'not_analysed' },
     accentColor: '#6b7280',
-    iconClass: 'text-gray-500',
+    iconClass: 'text-muted-foreground',
     emptyText: 'No unanalysed messages',
   },
   // Needs Routing intentionally NOT a Triage column. `needs_routing` is a MARK on an
@@ -122,7 +122,7 @@ export const COLUMNS: KanbanColumnDef[] = [
     // can be found & rescued. Orphan-outgoing (own sent mail) is NOT here — see BE.
     fixedFilters: { view: 'archived' },
     accentColor: '#64748b',
-    iconClass: 'text-slate-500',
+    iconClass: 'text-muted-foreground',
     emptyText: 'Nothing archived',
   },
   {
@@ -132,7 +132,7 @@ export const COLUMNS: KanbanColumnDef[] = [
     icon: Ban,
     fixedFilters: { showSpam: 'true' },
     accentColor: '#ef4444',
-    iconClass: 'text-red-500',
+    iconClass: 'text-destructive',
     emptyText: 'No spam messages',
   },
   {
@@ -173,7 +173,7 @@ export const COLUMNS: KanbanColumnDef[] = [
     icon: FileQuestion,
     fixedFilters: { view: 'no_lane' },
     accentColor: '#94a3b8',
-    iconClass: 'text-slate-400',
+    iconClass: 'text-faint-foreground',
     emptyText: 'Every conversation has a lane',
   },
 ];
@@ -185,11 +185,11 @@ export const COLUMNS: KanbanColumnDef[] = [
 // lifecycle columns have one — triage columns (not_analysed/suspicious/archived/
 // spam) show their signal badges instead, so they map to nothing here.
 export const LIFECYCLE_COLUMN_BADGE: Record<string, { label: string; className: string }> = {
-  open: { label: 'Open', className: 'bg-slate-500/15 text-slate-700 dark:text-slate-300' },
-  in_progress: { label: 'In Progress', className: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' },
-  awaiting: { label: 'Pending', className: 'bg-orange-500/15 text-orange-700 dark:text-orange-300' },
-  on_hold: { label: 'On-hold', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
-  resolved: { label: 'Resolved', className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
+  open: { label: 'Open', className: 'bg-muted text-muted-foreground' },
+  in_progress: { label: 'In Progress', className: 'bg-muted text-muted-foreground' },
+  awaiting: { label: 'Pending', className: 'bg-warning/15 text-warning' },
+  on_hold: { label: 'On-hold', className: 'bg-warning/15 text-warning' },
+  resolved: { label: 'Resolved', className: 'bg-success/15 text-success' },
 };
 
 // Triage/queue columns where the shared org-wide read/unread indicator applies. The

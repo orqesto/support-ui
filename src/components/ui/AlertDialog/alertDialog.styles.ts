@@ -3,10 +3,10 @@ import { cva, type VariantProps } from 'class-variance-authority';
 export const alertDialogIconVariants = cva('w-6 h-6', {
   variants: {
     variant: {
-      success: 'text-green-600 dark:text-green-400',
-      error: 'text-red-600 dark:text-red-400',
-      warning: 'text-amber-600 dark:text-amber-400',
-      info: 'text-blue-600 dark:text-blue-400',
+      success: 'text-success',
+      error: 'text-destructive',
+      warning: 'text-warning',
+      info: 'text-muted-foreground',
     },
   },
   defaultVariants: {

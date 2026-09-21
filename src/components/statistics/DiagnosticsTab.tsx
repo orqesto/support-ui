@@ -56,7 +56,7 @@ export function DiagnosticsTab({ stats }: Props) {
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {stats.aiModels.analysisProviders.length > 0 && (
                 <div>
-                  <div className="flex gap-2 items-center mb-3"><Cpu className="w-4 h-4 text-purple-600" /><h3 className="font-display text-sm font-semibold">Analysis Providers</h3><span className="text-xs text-muted-foreground">({stats.aiModels.totalAnalyzed} messages)</span></div>
+                  <div className="flex gap-2 items-center mb-3"><Cpu className="w-4 h-4 text-ai" /><h3 className="font-display text-sm font-semibold">Analysis Providers</h3><span className="text-xs text-muted-foreground">({stats.aiModels.totalAnalyzed} messages)</span></div>
                   <div className="space-y-2">{stats.aiModels.analysisProviders.map((item) => (<div key={item.provider} className="flex justify-between items-center"><span className="text-sm capitalize">{item.provider}</span><div className="flex gap-2 items-center"><span className="text-sm font-medium">{item.count}</span><span className="text-xs text-muted-foreground">({item.percentage}%)</span></div></div>))}</div>
                 </div>
               )}
@@ -85,7 +85,7 @@ export function DiagnosticsTab({ stats }: Props) {
               const accuracyRate = totalPredictions > 0 ? Math.round((correctPredictions / totalPredictions) * 100) : 0;
               return (
                 <div className="pt-6 mt-6 border-t">
-                  <div className="flex gap-2 items-center mb-4"><BarChart3 className="w-4 h-4 text-purple-600" /><h3 className="font-display text-sm font-semibold">Category Prediction Accuracy</h3><span className="px-3 py-1 ml-auto text-sm font-semibold text-purple-600 rounded-full bg-purple-500/10 dark:text-purple-400">{accuracyRate}% Match Rate</span></div>
+                  <div className="flex gap-2 items-center mb-4"><BarChart3 className="w-4 h-4 text-ai" /><h3 className="font-display text-sm font-semibold">Category Prediction Accuracy</h3><span className="px-3 py-1 ml-auto text-sm font-semibold text-ai rounded-full bg-ai-muted">{accuracyRate}% Match Rate</span></div>
                   <div className="p-3 mb-4 rounded-lg bg-muted/50"><div className="grid grid-cols-3 gap-4 text-center"><div><div className="text-lg font-bold">{totalPredictions}</div><div className="text-xs text-muted-foreground">Total Predictions</div></div><div><div className="text-lg font-bold text-success">{correctPredictions}</div><div className="text-xs text-muted-foreground">Correct</div></div><div><div className="text-lg font-bold text-warning">{totalPredictions - correctPredictions}</div><div className="text-xs text-muted-foreground">Human Adjusted</div></div></div></div>
                   <div className="overflow-y-auto space-y-2 max-h-64">
                     {stats.aiAccuracy.sort((itemA, itemB) => itemB.count - itemA.count).slice(0, 15).map((item, index) => {
@@ -98,9 +98,9 @@ export function DiagnosticsTab({ stats }: Props) {
                         >
                           <div className="flex flex-1 gap-2 items-center min-w-0">
                             {isMatch ? (
-                              <div className="flex gap-1 items-center min-w-0"><span className="flex flex-shrink-0 justify-center items-center w-4 h-4 text-green-600 rounded-full bg-green-500/10 dark:text-green-400">✓</span><span className="font-medium text-green-600 truncate dark:text-green-400">{item.suggestedCategoryName}</span></div>
+                              <div className="flex gap-1 items-center min-w-0"><span className="flex flex-shrink-0 justify-center items-center w-4 h-4 text-success rounded-full bg-success/10">✓</span><span className="font-medium text-success truncate">{item.suggestedCategoryName}</span></div>
                             ) : (
-                              <div className="flex gap-1 items-center min-w-0"><span className="flex flex-shrink-0 justify-center items-center w-4 h-4 text-orange-600 rounded-full bg-orange-500/10 dark:text-orange-400">✎</span><span className="truncate text-muted-foreground">{item.suggestedCategoryName}</span><span className="flex-shrink-0 text-muted-foreground">→</span><span className="font-medium truncate">{item.actualCategoryName}</span></div>
+                              <div className="flex gap-1 items-center min-w-0"><span className="flex flex-shrink-0 justify-center items-center w-4 h-4 text-warning rounded-full bg-warning/10">✎</span><span className="truncate text-muted-foreground">{item.suggestedCategoryName}</span><span className="flex-shrink-0 text-muted-foreground">→</span><span className="font-medium truncate">{item.actualCategoryName}</span></div>
                             )}
                           </div>
                           <span className="flex-shrink-0 ml-2 font-medium text-muted-foreground">{item.count}</span>

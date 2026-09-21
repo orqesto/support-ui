@@ -255,7 +255,7 @@ export const ObjectStorageConfigCard = () => {
           <HardDrive className="w-5 h-5" />
           Object Storage
           {configured && (
-            <span className="px-2 py-0.5 text-xs rounded-full border border-green-500/40 bg-green-500/10 text-success">
+            <span className="px-2 py-0.5 text-xs rounded-full border border-success/40 bg-success/10 text-success">
               Configured
             </span>
           )}
@@ -513,8 +513,8 @@ export const ObjectStorageConfigCard = () => {
                 <div
                   className={`p-3 text-xs rounded border ${
                     testResult.ok
-                      ? 'border-green-500/40 bg-green-500/10 text-success'
-                      : 'border-red-500/40 bg-red-500/10 text-destructive'
+                      ? 'border-success/40 bg-success/10 text-success'
+                      : 'border-destructive/40 bg-destructive/10 text-destructive'
                   }`}
                 >
                   <p>

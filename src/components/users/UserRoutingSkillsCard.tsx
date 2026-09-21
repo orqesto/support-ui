@@ -101,7 +101,7 @@ export const UserRoutingSkillsCard = ({ userId }: { userId: number }) => {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleRemoveValue(key, val)}
-                        className="p-0 w-auto h-auto hover:text-red-500"
+                        className="p-0 w-auto h-auto hover:text-destructive"
                       >
                         <X className="w-3 h-3" />
                       </Button>

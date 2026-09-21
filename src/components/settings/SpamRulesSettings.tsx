@@ -88,13 +88,13 @@ export const SpamRulesSettings = () => {
       dialogTitle="Spam Rule"
       renderBanners={() => (
         <>
-          <div className="p-4 rounded-lg border bg-red-500/10 border-red-500/20">
+          <div className="p-4 rounded-lg border bg-destructive/10 border-destructive-line">
             <p className="text-sm text-destructive">
               <strong>🔒 System Protected Rules:</strong> Security rules cannot be modified or
               deleted. These protect against AI prompt injection and other security threats.
             </p>
           </div>
-          <div className="p-4 space-y-1 rounded-lg border bg-amber-500/10 border-amber-500/20">
+          <div className="p-4 space-y-1 rounded-lg border bg-warning/10 border-warning-line">
             <p className="text-sm text-warning">
               <strong>Severity:</strong> 1–49 = Flag for review · 50–99 = Mark as spam ·{' '}
               <strong className="text-destructive">100 = Auto-reject (not saved to DB)</strong>

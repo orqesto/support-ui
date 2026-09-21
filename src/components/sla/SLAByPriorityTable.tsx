@@ -25,7 +25,7 @@ export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS }: SLAByPriorityTab
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-[300px]">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <Loader2 className="h-8 w-8 animate-spin text-faint-foreground" />
           </div>
         </CardContent>
       </Card>

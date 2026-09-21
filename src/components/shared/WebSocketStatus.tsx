@@ -27,7 +27,7 @@ export const WebSocketStatus = () => {
           ) : (
             <WifiOff className="w-4 h-4" />
           )}
-          <span className="absolute right-full px-2 py-1 mr-2 text-xs text-white whitespace-nowrap bg-gray-900 rounded opacity-0 transition-opacity pointer-events-none group-hover:opacity-100">
+          <span className="absolute right-full px-2 py-1 mr-2 text-xs text-background whitespace-nowrap bg-foreground rounded opacity-0 transition-opacity pointer-events-none group-hover:opacity-100">
             {isConnected ? 'Connected' : 'Disconnected'}
           </span>
         </Button>
@@ -38,11 +38,13 @@ export const WebSocketStatus = () => {
         <div className="fixed right-0 top-1/2 z-50 w-64 -translate-y-1/2">
           <div
             className={`shadow-xl rounded-l-lg overflow-hidden ${
-              isConnected ? 'bg-success' : 'bg-destructive'
+              isConnected
+                ? 'bg-success text-success-foreground'
+                : 'bg-destructive text-destructive-foreground'
             }`}
           >
             {/* Header */}
-            <div className="flex justify-between items-center px-4 py-3 text-white">
+            <div className="flex justify-between items-center px-4 py-3">
               <div className="flex gap-2 items-center">
                 {isConnected ? (
                   <Wifi className="w-5 h-5 animate-pulse" />
@@ -55,7 +57,7 @@ export const WebSocketStatus = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsExpanded(false)}
-                className="p-1 h-auto text-white rounded transition-colors hover:bg-white/20 hover:text-white"
+                className="p-1 h-auto text-current rounded transition-colors hover:bg-foreground/10 hover:text-current"
                 title="Close"
                 aria-label="Close"
               >
@@ -64,7 +66,7 @@ export const WebSocketStatus = () => {
             </div>
 
             {/* Content */}
-            <div className="p-4 space-y-2 text-xs bg-white">
+            <div className="p-4 space-y-2 text-xs bg-card">
               <div className="flex justify-between">
                 <span className="font-medium text-muted-foreground">Status:</span>
                 <span

@@ -21,9 +21,9 @@ const sizeClasses = {
 };
 
 const UNASSIGNED_COLORS =
-  'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600';
+  'bg-muted text-muted-foreground border-border';
 const BASELINE_COLORS =
-  'bg-indigo-100 text-indigo-800 border-indigo-300 dark:bg-indigo-900/30 dark:text-indigo-200 dark:border-indigo-700';
+  'bg-sunken text-foreground border-border-strong';
 
 /**
  * Convert a hex color (e.g. "#3b82f6") into a tailwind-compatible inline style pair —

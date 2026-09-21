@@ -7,17 +7,17 @@ import { syncDot, syncMeta } from '../confluenceCardHelpers';
 
 describe('syncDot — health, not enabled', () => {
   it('THE BUG: an enabled source whose sync failed is red, not green', () => {
-    expect(syncDot({ enabled: true, lastSyncStatus: 'failed' })).toEqual({ cls: 'bg-red-500', label: 'Sync failed' });
+    expect(syncDot({ enabled: true, lastSyncStatus: 'failed' })).toEqual({ cls: 'bg-destructive', label: 'Sync failed' });
   });
 
   it('green only after a successful sync', () => {
-    expect(syncDot({ enabled: true, lastSyncStatus: 'success' }).cls).toBe('bg-green-500');
-    expect(syncDot({ enabled: true, lastSyncStatus: null }).cls).toBe('bg-amber-400');
-    expect(syncDot({ enabled: true, lastSyncStatus: 'syncing' }).cls).toBe('bg-blue-500');
+    expect(syncDot({ enabled: true, lastSyncStatus: 'success' }).cls).toBe('bg-success');
+    expect(syncDot({ enabled: true, lastSyncStatus: null }).cls).toBe('bg-warning');
+    expect(syncDot({ enabled: true, lastSyncStatus: 'syncing' }).cls).toBe('bg-muted-foreground');
   });
 
   it('a paused source is grey whatever its last sync said', () => {
-    expect(syncDot({ enabled: false, lastSyncStatus: 'failed' }).cls).toBe('bg-gray-400');
+    expect(syncDot({ enabled: false, lastSyncStatus: 'failed' }).cls).toBe('bg-faint-foreground');
   });
 });
 
@@ -26,7 +26,7 @@ describe('syncMeta — nothing selected', () => {
 
   it('a successful sync with nothing selected says so, instead of "Synced 0 pages" in green', () => {
     expect(syncMeta(synced, 0).text).toMatch(/nothing selected yet/i);
-    expect(syncMeta(synced, 0).cls).toBe('text-amber-600');
+    expect(syncMeta(synced, 0).cls).toBe('text-warning');
   });
 
   it('CONTROL: with a selection, zero pages is still reported as a sync', () => {

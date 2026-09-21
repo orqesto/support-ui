@@ -262,7 +262,7 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
 
         {aiState && (
           <Tooltip content={aiState.tooltip} size="sm">
-            <span className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-violet-500/15 text-violet-700 dark:text-violet-300">
+            <span className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-ai-muted text-ai">
               {aiState.label}
             </span>
           </Tooltip>

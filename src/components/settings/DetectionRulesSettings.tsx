@@ -126,10 +126,10 @@ export const DetectionRulesSettings = () => {
       description="Configure patterns to identify legitimate support requests"
       dialogTitle="Detection Rule"
       renderBanners={() => (
-        <div className="p-4 rounded-lg border bg-blue-500/10 border-blue-500/20">
+        <div className="p-4 rounded-lg border bg-muted border-border">
           <p className="text-sm text-primary">
             <strong>Pattern Matching:</strong> Use regex or keywords separated by{' '}
-            <code className="px-1 rounded bg-blue-500/20">|</code> (pipe). Higher confidence scores
+            <code className="px-1 rounded bg-sunken">|</code> (pipe). Higher confidence scores
             (0-100) indicate stronger support signals.
           </p>
         </div>

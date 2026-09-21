@@ -139,7 +139,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
               </Card>
 
               {/* Slow leads */}
-              <Card className="border-l-4 border-l-amber-500">
+              <Card className="border-l-4 border-l-warning">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between">
                     <div>
@@ -157,7 +157,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
               </Card>
 
               {/* Median first response */}
-              <Card className="border-l-4 border-l-blue-500">
+              <Card className="border-l-4 border-l-border-strong">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between">
                     <div>
@@ -176,7 +176,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
               </Card>
 
               {/* Pending now */}
-              <Card className="border-l-4 border-l-slate-400">
+              <Card className="border-l-4 border-l-border-strong">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between">
                     <div>
@@ -186,7 +186,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
                         {speedData.respondedLeads} of {speedData.totalLeads} answered
                       </p>
                     </div>
-                    <Hourglass className="w-9 h-9 text-slate-400 shrink-0" />
+                    <Hourglass className="w-9 h-9 text-faint-foreground shrink-0" />
                   </div>
                 </CardContent>
               </Card>

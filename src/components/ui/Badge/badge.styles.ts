@@ -6,11 +6,9 @@ export const badgeVariants = cva(
     variants: {
       variant: {
         default: 'bg-primary text-primary-foreground cursor-pointer',
-        success:
-          'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 cursor-pointer',
-        warning:
-          'bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-300 cursor-pointer',
-        danger: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 cursor-pointer',
+        success: 'bg-success-muted text-success cursor-pointer',
+        warning: 'bg-warning-muted text-warning cursor-pointer',
+        danger: 'bg-destructive-muted text-destructive cursor-pointer',
         secondary: 'bg-secondary text-secondary-foreground cursor-pointer',
       },
       size: {

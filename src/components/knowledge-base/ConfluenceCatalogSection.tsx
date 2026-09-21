@@ -423,7 +423,7 @@ const IntegrationCatalog = ({
           <Button
             variant="ghost"
             size="sm"
-            className="text-destructive shrink-0 hover:text-red-700"
+            className="text-destructive shrink-0 hover:text-destructive"
             onClick={() => requestRemoveFolder(folder, childPages)}
           >
             Remove from KB
@@ -450,7 +450,7 @@ const IntegrationCatalog = ({
           <Button
             variant="ghost"
             size="sm"
-            className="text-destructive shrink-0 hover:text-red-700"
+            className="text-destructive shrink-0 hover:text-destructive"
             disabled={isRemoving}
             onClick={() => removePage(page)}
           >

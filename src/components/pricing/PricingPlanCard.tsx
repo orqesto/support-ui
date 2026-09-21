@@ -46,12 +46,12 @@ export function getFeatureLabel(key: string): string {
 function PlanLimits({ plan }: { plan: Plan }) {
   return (
     <div className="pb-6 mb-6 space-y-2 border-b">
-      <p className="text-sm text-gray-400"><strong>{plan.limits.maxUsers.toLocaleString()}</strong> users</p>
-      <p className="text-sm text-gray-400">
+      <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxUsers.toLocaleString()}</strong> users</p>
+      <p className="text-sm text-faint-foreground">
         <strong>{plan.limits.maxMessagesPerMonth ? plan.limits.maxMessagesPerMonth.toLocaleString() : plan.limits.maxStorageGB ? `${plan.limits.maxStorageGB}GB (legacy)` : '—'}</strong>{' '}
         {plan.limits.maxMessagesPerMonth ? 'messages/month' : 'storage'}
       </p>
-      <p className="text-sm text-gray-400"><strong>{plan.limits.maxIntegrations}</strong> integrations</p>
+      <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxIntegrations}</strong> integrations</p>
     </div>
   );
 }
@@ -66,19 +66,19 @@ interface BasePlanCardProps {
 export function BasePlanCard({ plan, currentPlanName, upgrading, onSelect }: BasePlanCardProps) {
   const isPopular = plan.name === 'pro';
   return (
-    <Card className={`relative flex flex-col justify-between ${isPopular ? 'border-2 border-blue-500 shadow-lg' : ''}`}>
+    <Card className={`relative flex flex-col justify-between ${isPopular ? 'border-2 border-foreground shadow-lg' : ''}`}>
       {isPopular && <Badge className="absolute -top-3 left-1/2 text-primary-foreground bg-primary -translate-x-1/2">Most Popular</Badge>}
       <CardHeader>
         <CardTitle className="text-center">
           <div className="text-2xl font-bold">{plan.displayName}</div>
           <div className="mt-4">
             <span className="font-mono text-4xl font-bold">{formatMoney(plan.price, plan.currency)}</span>
-            <span className="text-gray-400">/{plan.billingInterval}</span>
+            <span className="text-faint-foreground">/{plan.billingInterval}</span>
             {/* Checkout adds VAT from the customer's own location, so the headline number is
                 not what gets charged — €500 became €605 in a real test-mode checkout. The rate
                 belongs to Stripe's breakdown; all we can honestly say here is that this is net. */}
             {plan.price > 0 && (
-              <span className="block mt-1 text-xs text-gray-400">{VAT_NOTE}</span>
+              <span className="block mt-1 text-xs text-faint-foreground">{VAT_NOTE}</span>
             )}
           </div>
         </CardTitle>
@@ -107,31 +107,31 @@ interface EnterprisePlanCardProps {
 
 export function EnterprisePlanCard({ plan, currentPlanName, upgrading, onSelect }: EnterprisePlanCardProps) {
   return (
-    <Card className="border-purple-500 border-2">
+    <Card className="border-foreground border-2">
       <CardHeader>
         <CardTitle className="text-center">
-          <div className="flex gap-2 justify-center items-center mb-2"><Shield className="w-6 h-6 text-purple-600" /><span className="text-2xl font-bold">{plan.displayName}</span></div>
+          <div className="flex gap-2 justify-center items-center mb-2"><Shield className="w-6 h-6 text-muted-foreground" /><span className="text-2xl font-bold">{plan.displayName}</span></div>
           <div className="mt-4">
             <span className="font-mono text-4xl font-bold">{formatMoney(plan.price, plan.currency)}</span>
-            <span className="text-gray-400">/{plan.billingInterval}</span>
+            <span className="text-faint-foreground">/{plan.billingInterval}</span>
             {/* Checkout adds VAT from the customer's own location, so the headline number is
                 not what gets charged — €500 became €605 in a real test-mode checkout. The rate
                 belongs to Stripe's breakdown; all we can honestly say here is that this is net. */}
             {plan.price > 0 && (
-              <span className="block mt-1 text-xs text-gray-400">{VAT_NOTE}</span>
+              <span className="block mt-1 text-xs text-faint-foreground">{VAT_NOTE}</span>
             )}
           </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="pb-6 mb-6 space-y-2 border-b">
-          <p className="text-sm text-gray-400"><strong>{plan.limits.maxUsers.toLocaleString()}</strong> users</p>
-          <p className="text-sm text-gray-400"><strong>{plan.limits.maxMessagesPerMonth ? plan.limits.maxMessagesPerMonth.toLocaleString() : '—'}</strong> messages/month</p>
-          <p className="text-sm text-gray-400"><strong>{plan.limits.maxIntegrations}</strong> integrations</p>
+          <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxUsers.toLocaleString()}</strong> users</p>
+          <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxMessagesPerMonth ? plan.limits.maxMessagesPerMonth.toLocaleString() : '—'}</strong> messages/month</p>
+          <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxIntegrations}</strong> integrations</p>
         </div>
         <div className="mb-6 space-y-3">
           {Object.entries(plan.features).filter(([_, enabled]) => enabled).slice(0, 8).map(([key]) => (
-            <div key={key} className="flex gap-2 items-start"><Check className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" /><span className="text-sm">{getFeatureLabel(key)}</span></div>
+            <div key={key} className="flex gap-2 items-start"><Check className="h-5 w-5 text-success flex-shrink-0 mt-0.5" /><span className="text-sm">{getFeatureLabel(key)}</span></div>
           ))}
         </div>
         <Button className="w-full" variant="primary" onClick={() => onSelect(plan.name)} disabled={upgrading === plan.name || plan.name === currentPlanName}>

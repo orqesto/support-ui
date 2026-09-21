@@ -110,7 +110,7 @@ export const KBTableView = ({
                 {entry.metadata && typeof entry.metadata.sourceMessageId === 'number' ? (
                   <a
                     href={`/messages?id=${entry.metadata.sourceMessageId}`}
-                    className="font-mono text-sm text-blue-600 hover:text-primary dark:hover:text-blue-300 hover:underline"
+                    className="font-mono text-sm text-primary hover:text-primary/80 hover:underline"
                     onClick={(event) => event.stopPropagation()}
                   >
                     #{entry.metadata.sourceMessageId}
@@ -209,7 +209,7 @@ export const KBTableView = ({
                     onClick={() => onDelete(entry)}
                     title="Delete"
                     aria-label="Delete"
-                    className="text-destructive hover:text-red-700"
+                    className="text-destructive hover:text-destructive"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>

@@ -95,7 +95,7 @@ export const FailureAnalysisCard = () => {
                 card: 'title',
                 cell: (group) => (
                   <div className="max-w-xl">
-                    <p className="text-sm font-medium text-red-600 break-words dark:text-red-400">
+                    <p className="text-sm font-medium text-destructive break-words">
                       {group.reason}
                     </p>
                     {group.sample.length > 0 ? (

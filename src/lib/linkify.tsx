@@ -36,7 +36,7 @@ export const linkifyText = (text: string): React.ReactNode => {
         <a key={`link-${index}-${part.substring(0, 20)}`} href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex gap-1 items-center text-blue-600 underline break-all transition-colors hover:text-primary dark:hover:text-blue-300 decoration-blue-600/30 hover:decoration-blue-600 dark:decoration-blue-400/30 dark:hover:decoration-blue-400"
+          className="inline-flex gap-1 items-center text-primary underline break-all transition-colors hover:text-primary decoration-primary/30 hover:decoration-primary"
           title={part} // Full URL on hover
         >
           {displayText}

@@ -510,7 +510,7 @@ export const MessageProcessingProgress = ({
             )}
             <div>
               <div className="flex gap-1 justify-center items-center">
-                <div className="w-3 h-3 bg-amber-500 rounded-full" />
+                <div className="w-3 h-3 bg-warning rounded-full" />
                 <span className="text-lg font-bold">{skipped ?? 0}</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Skipped</p>

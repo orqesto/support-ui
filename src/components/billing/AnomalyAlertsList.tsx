@@ -12,25 +12,25 @@ const getAnomalyBadges = (record: BillingRecord) => {
   if (record.isGhostCharge) {
     badges.push({
       label: 'Ghost Charge',
-      className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+      className: 'bg-destructive-muted text-destructive',
     });
   }
   if (record.isZombie) {
     badges.push({
       label: 'Zombie Subscription',
-      className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+      className: 'bg-warning-muted text-warning',
     });
   }
   if (record.isAmountDrift) {
     badges.push({
       label: 'Amount Drift',
-      className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+      className: 'bg-warning-muted text-warning',
     });
   }
   if (record.isDuplicate) {
     badges.push({
       label: 'Duplicate',
-      className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+      className: 'bg-destructive-muted text-destructive',
     });
   }
   return badges;
@@ -54,7 +54,7 @@ export const AnomalyAlertsList = () => {
         </CardHeader>
         <CardContent>
           <div className="flex justify-center items-center py-8">
-            <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
+            <Loader2 className="w-8 h-8 text-faint-foreground animate-spin" />
           </div>
         </CardContent>
       </Card>
@@ -81,7 +81,7 @@ export const AnomalyAlertsList = () => {
 
   if (records.length === 0) {
     return (
-      <Card className="border-success-line bg-green-50/50 dark:bg-green-950/20">
+      <Card className="border-success-line bg-success-muted/50">
         <CardHeader>
           <CardTitle className="flex gap-2 items-center text-success">
             <AlertTriangle className="w-5 h-5" />

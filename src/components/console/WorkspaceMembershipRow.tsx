@@ -127,7 +127,7 @@ export const WorkspaceMembershipRow = ({
           {orgName}
           {idpManaged && (
             <Tooltip content="Your identity provider owns this membership. Change the role, or remove the person, in the identity provider — this workspace will not accept the change.">
-              <Badge className="flex gap-1 items-center text-xs text-amber-700 bg-warning-muted dark:text-amber-300">
+              <Badge className="flex gap-1 items-center text-xs text-warning bg-warning-muted">
                 <Lock className="w-3 h-3" />
                 IdP-managed
               </Badge>

@@ -326,7 +326,7 @@ export const AuditLogsPage = () => {
                 </div>
               ) : logs.length === 0 ? (
                 <div className="p-8 text-center">
-                  <FileText className="mx-auto mb-4 w-16 h-16 text-gray-400" />
+                  <FileText className="mx-auto mb-4 w-16 h-16 text-faint-foreground" />
                   <h3 className="font-display mb-2 text-lg font-semibold">No Audit Logs Found</h3>
                   <p className="text-muted-foreground">
                     {activeFilterCount > 0

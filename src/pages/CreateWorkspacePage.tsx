@@ -142,7 +142,7 @@ export const CreateWorkspacePage = () => {
   };
 
   return (
-    <div className="flex justify-center items-center px-4 min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
+    <div className="flex justify-center items-center px-4 min-h-screen bg-background">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Start your free trial</CardTitle>

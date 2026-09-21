@@ -141,7 +141,7 @@ export const SecretField = ({
       </div>
 
       {rejection && (
-        <div className="mt-2 p-3 rounded-md border border-destructive-line bg-red-50 dark:bg-red-900/20">
+        <div className="mt-2 p-3 rounded-md border border-destructive-line bg-destructive-muted">
           <div className="flex gap-2">
             <AlertTriangle className="w-4 h-4 mt-0.5 text-destructive flex-shrink-0" />
             <div className="flex-1">

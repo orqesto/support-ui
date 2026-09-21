@@ -399,8 +399,8 @@ export function MessagePanelTabs({
               const checkWasRun = !!crossCheck || !!intraCheck;
 
               const confidencePill: Record<string, string> = {
-                high: 'bg-emerald-500/10 text-success',
-                medium: 'bg-amber-500/10 text-warning',
+                high: 'bg-success/10 text-success',
+                medium: 'bg-warning/10 text-warning',
                 low: 'bg-muted text-muted-foreground',
               };
 
@@ -557,7 +557,7 @@ export function MessagePanelTabs({
                 return (
                   <div
                     key={note.id}
-                    className="p-1.5 bg-card rounded border-l-2 border-l-amber-400 border border-border dark:border-amber-800/50 dark:bg-amber-300/5"
+                    className="p-1.5 bg-card rounded border-l-2 border-l-note-line border border-border"
                   >
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-[10px] font-medium text-warning">
@@ -573,7 +573,7 @@ export function MessagePanelTabs({
                               setEditingNoteId(note.id);
                               setEditNoteContent(note.content);
                             }}
-                            className="p-0 w-auto h-auto text-amber-700 hover:text-warning dark:hover:text-amber-300"
+                            className="p-0 w-auto h-auto text-note hover:text-note"
                           >
                             <Pencil className="w-2.5 h-2.5" />
                           </Button>
@@ -583,7 +583,7 @@ export function MessagePanelTabs({
                             aria-label="Delete note"
                             onClick={() => void handleDeleteNote(note.id)}
                             disabled={isDeleting}
-                            className="p-0 w-auto h-auto text-warning hover:text-red-600 dark:hover:text-red-400 disabled:opacity-40"
+                            className="p-0 w-auto h-auto text-note hover:text-destructive disabled:opacity-40"
                           >
                             <Trash2 className="w-2.5 h-2.5" />
                           </Button>
@@ -606,7 +606,7 @@ export function MessagePanelTabs({
                             variant="ghost"
                             size="sm"
                             onClick={() => void handleEditNote(note.id)}
-                            className="p-0 h-auto text-[10px] text-muted-foreground hover:text-foreground dark:text-amber-600 dark:hover:text-amber-700"
+                            className="p-0 h-auto text-[10px] text-muted-foreground hover:text-foreground"
                           >
                             Save
                           </Button>
@@ -656,7 +656,7 @@ export function MessagePanelTabs({
                   setComposerMode('note');
                   setTimeout(() => noteEditorRef.current?.focus(), 50);
                 }}
-                className="mt-1 w-full flex items-center justify-center gap-1.5 px-3 py-2 h-auto rounded border border-dashed border-warning-line text-[11px] text-warning hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors"
+                className="mt-1 w-full flex items-center justify-center gap-1.5 px-3 py-2 h-auto rounded border border-dashed border-note-line text-[11px] text-note hover:bg-note-muted transition-colors"
               >
                 <StickyNote className="w-3 h-3" />
                 Add a note via the composer

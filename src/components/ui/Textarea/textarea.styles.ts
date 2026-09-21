@@ -12,7 +12,7 @@ export const textareaVariants = cva(
       variant: {
         default: '',
         error: 'border-destructive focus:ring-destructive',
-        success: 'border-green-500 focus:ring-green-500',
+        success: 'border-success focus:ring-success',
       },
       resize: {
         none: 'resize-none',

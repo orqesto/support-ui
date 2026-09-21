@@ -266,7 +266,7 @@ export const SCIMConfigSettings = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex gap-2 items-center">
-            <Users className="w-5 h-5 text-purple-600" />
+            <Users className="w-5 h-5 text-muted-foreground" />
             SCIM Provisioning
           </CardTitle>
         </CardHeader>
@@ -294,7 +294,7 @@ export const SCIMConfigSettings = () => {
     <Card>
       <CardHeader>
         <CardTitle className="flex gap-2 items-center">
-          <Users className="w-5 h-5 text-purple-600" />
+          <Users className="w-5 h-5 text-muted-foreground" />
           SCIM Provisioning
         </CardTitle>
         <CardDescription>

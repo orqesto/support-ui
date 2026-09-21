@@ -146,7 +146,7 @@ export const EmailTemplates = () => {
                       onClick={() => loadPreview(template.type)}
                       className={`h-auto rounded-none justify-start w-full text-left p-4 hover:bg-accent transition-colors ${
                         selectedTemplate === template.type
-                          ? 'bg-blue-500/10 dark:bg-blue-500/10 border-l-4 border-primary'
+                          ? 'bg-primary-muted border-l-4 border-primary'
                           : ''
                       }`}
                     >
@@ -294,7 +294,7 @@ export const EmailTemplates = () => {
               <CardContent>
                 {!selectedTemplate && (
                   <div className="py-12 text-center text-muted-foreground">
-                    <Mail className="mx-auto mb-4 w-16 h-16 text-gray-300" />
+                    <Mail className="mx-auto mb-4 w-16 h-16 text-faint-foreground" />
                     <p>Select a template from the list to preview it</p>
                   </div>
                 )}
@@ -345,7 +345,7 @@ export const EmailTemplates = () => {
                     <iframe
                       srcDoc={previewHtml}
                       title="Email Preview"
-                      className="w-full h-[600px] bg-white"
+                      className="w-full h-[600px] bg-card"
                       sandbox="allow-same-origin"
                     />
                   </div>

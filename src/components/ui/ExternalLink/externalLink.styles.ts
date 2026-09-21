@@ -5,7 +5,7 @@ export const externalLinkVariants = cva(
   {
     variants: {
       variant: {
-        default: 'text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300',
+        default: 'text-primary hover:text-primary/80',
         primary: 'text-primary hover:text-primary/80',
         muted: 'text-muted-foreground hover:text-foreground',
         destructive: 'text-destructive hover:text-destructive/80',

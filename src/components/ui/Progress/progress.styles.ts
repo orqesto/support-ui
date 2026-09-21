@@ -1,35 +1,32 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 
-export const progressContainerVariants = cva(
-  'w-full bg-gray-200 dark:bg-gray-700 overflow-hidden',
-  {
-    variants: {
-      size: {
-        sm: 'h-1',
-        md: 'h-2',
-        lg: 'h-3',
-      },
-      rounded: {
-        none: 'rounded-none',
-        sm: 'rounded-sm',
-        md: 'rounded-md',
-        full: 'rounded-full',
-      },
+export const progressContainerVariants = cva('w-full bg-muted overflow-hidden', {
+  variants: {
+    size: {
+      sm: 'h-1',
+      md: 'h-2',
+      lg: 'h-3',
     },
-    defaultVariants: {
-      size: 'md',
-      rounded: 'full',
+    rounded: {
+      none: 'rounded-none',
+      sm: 'rounded-sm',
+      md: 'rounded-md',
+      full: 'rounded-full',
     },
-  }
-);
+  },
+  defaultVariants: {
+    size: 'md',
+    rounded: 'full',
+  },
+});
 
 export const progressBarVariants = cva('h-full transition-all duration-300', {
   variants: {
     variant: {
       default: 'bg-primary',
-      success: 'bg-green-500',
-      warning: 'bg-amber-500',
-      danger: 'bg-red-500',
+      success: 'bg-success',
+      warning: 'bg-warning',
+      danger: 'bg-destructive',
       secondary: 'bg-secondary',
     },
     rounded: {

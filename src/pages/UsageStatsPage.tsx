@@ -169,7 +169,7 @@ export const UsageStatsPage = () => {
 
         {/* Usage alerts — modules >= 80% */}
         {usage.filter((mod) => mod.included > 0 && mod.current / mod.included >= 0.8).length > 0 && (
-          <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
+          <Card className="border-warning-line bg-warning-muted">
             <CardContent className="p-4">
               <div className="flex gap-2 items-start">
                 <AlertTriangle className="mt-0.5 w-4 h-4 text-warning flex-shrink-0" />

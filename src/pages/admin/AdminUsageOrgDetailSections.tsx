@@ -36,13 +36,13 @@ export const UsageSummaryCards = ({
       title={onFilter ? 'Click to show all workspaces' : undefined}
       className={cn(
         onFilter && 'cursor-pointer transition-shadow hover:shadow-md',
-        active === 'all' && 'ring-2 ring-blue-500'
+        active === 'all' && 'ring-2 ring-primary'
       )}
     >
       <CardContent className="p-6">
         <div className="flex justify-between items-center">
           <div>
-            <p className="text-sm font-medium text-gray-400">Total Workspaces</p>
+            <p className="text-sm font-medium text-faint-foreground">Total Workspaces</p>
             <p className="mt-2 text-3xl font-bold">{total}</p>
           </div>
           <div className="p-3 bg-primary-muted rounded-full">
@@ -57,13 +57,13 @@ export const UsageSummaryCards = ({
       title={onFilter ? 'Click to show only at-risk workspaces' : undefined}
       className={cn(
         onFilter && 'cursor-pointer transition-shadow hover:shadow-md',
-        active === 'at_risk' && 'ring-2 ring-yellow-500'
+        active === 'at_risk' && 'ring-2 ring-warning'
       )}
     >
       <CardContent className="p-6">
         <div className="flex justify-between items-center">
           <div>
-            <p className="text-sm font-medium text-gray-400">At Risk (≥80% usage)</p>
+            <p className="text-sm font-medium text-faint-foreground">At Risk (≥80% usage)</p>
             <p className="mt-2 text-3xl font-bold text-warning">{atRisk}</p>
           </div>
           <div className="p-3 bg-warning-muted rounded-full">
@@ -78,13 +78,13 @@ export const UsageSummaryCards = ({
       title={onFilter ? 'Click to show only over-limit workspaces' : undefined}
       className={cn(
         onFilter && 'cursor-pointer transition-shadow hover:shadow-md',
-        active === 'over_limit' && 'ring-2 ring-red-500'
+        active === 'over_limit' && 'ring-2 ring-destructive'
       )}
     >
       <CardContent className="p-6">
         <div className="flex justify-between items-center">
           <div>
-            <p className="text-sm font-medium text-gray-400">Over Limit</p>
+            <p className="text-sm font-medium text-faint-foreground">Over Limit</p>
             <p className="mt-2 text-3xl font-bold text-destructive">{overLimit}</p>
           </div>
           <div className="p-3 bg-destructive-muted rounded-full">
@@ -227,7 +227,7 @@ export const OrgFeatureOverridesSection = ({ orgId }: { orgId: number }) => {
                     <div key={feat.key} className="flex gap-3 justify-between items-center py-1">
                       <div className="flex gap-2 items-center min-w-0">
                         <span
-                          className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${feat.effective ? 'bg-success' : 'bg-gray-500'}`}
+                          className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${feat.effective ? 'bg-success' : 'bg-faint-foreground'}`}
                         />
                         <span className="text-sm truncate">{feat.label}</span>
                         <span

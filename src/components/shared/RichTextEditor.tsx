@@ -117,7 +117,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
         Link.configure({
           openOnClick: false,
           HTMLAttributes: {
-            class: 'text-primary underline hover:text-blue-800',
+            class: 'text-primary underline hover:text-primary/80',
           },
         }),
       ],

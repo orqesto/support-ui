@@ -27,7 +27,7 @@ export const SLATrendChart = ({ days = SLA_DEFAULT_DAYS }: SLATrendChartProps) =
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-[300px]">
-            <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
+            <Loader2 className="w-8 h-8 text-faint-foreground animate-spin" />
           </div>
         </CardContent>
       </Card>

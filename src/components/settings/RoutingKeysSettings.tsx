@@ -252,7 +252,7 @@ export const RoutingKeysSettings = () => {
                 title="Delete routing key"
                 size="sm"
                 variant="ghost"
-                className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                className="text-destructive hover:text-destructive hover:bg-destructive-muted"
                 onClick={() => setDeleteDialog({ open: true, key: rk.key })}
               >
                 <Trash2 className="w-4 h-4" />

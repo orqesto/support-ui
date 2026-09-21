@@ -48,7 +48,7 @@ export const WebSocketDebug = () => {
                 </div>
                 <Button
                   onClick={() => setIsOpen(false)}
-                  className="p-1 rounded transition-colors hover:bg-blue-700"
+                  className="p-1 rounded transition-colors hover:bg-primary/90"
                   title="Close"
                   aria-label="Close"
                 >

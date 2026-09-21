@@ -146,8 +146,8 @@ export const ProfileSettings = () => {
         <div
           className={`p-4 rounded-lg border ${
             notification.type === 'success'
-              ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/20 dark:border-green-800 dark:text-green-400'
-              : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950/20 dark:border-red-800 dark:text-red-400'
+              ? 'bg-success-muted border-success-line text-success'
+              : 'bg-destructive-muted border-destructive-line text-destructive'
           }`}
         >
           {notification.message}
@@ -155,7 +155,7 @@ export const ProfileSettings = () => {
       )}
 
       {/* User Info */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
+      <div className="bg-card rounded-lg border border-border p-6">
         <h3 className="font-display text-md font-semibold mb-4 flex items-center gap-2">
           <User className="w-5 h-5 text-muted-foreground" />
           Profile Information
@@ -179,7 +179,7 @@ export const ProfileSettings = () => {
       </div>
 
       {/* Signature */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
+      <div className="bg-card rounded-lg border border-border p-6">
         <h3 className="font-display text-md font-semibold mb-1 flex items-center gap-2">
           <PenLine className="w-5 h-5 text-muted-foreground" />
           Email Signature
@@ -206,7 +206,7 @@ export const ProfileSettings = () => {
 
       {/* Routing Skills */}
       {routingKeys.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
+        <div className="bg-card rounded-lg border border-border p-6">
           <h3 className="font-display text-md font-semibold mb-4 flex items-center gap-2">
             <Tag className="w-5 h-5 text-muted-foreground" />
             Routing Skills
@@ -238,7 +238,7 @@ export const ProfileSettings = () => {
                             size="icon"
                             onClick={() => handleRemoveValue(key, val)}
                             aria-label={`Remove ${val}`}
-                            className="p-0 w-auto h-auto hover:text-red-500"
+                            className="p-0 w-auto h-auto hover:text-destructive"
                           >
                             <X className="w-3 h-3" />
                           </Button>
@@ -294,7 +294,7 @@ export const ProfileSettings = () => {
       )}
 
       {/* Change Password */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
+      <div className="bg-card rounded-lg border border-border p-6">
         <h3 className="font-display text-md font-semibold mb-4 flex items-center gap-2">
           <Lock className="w-5 h-5 text-muted-foreground" />
           {ssoOnlyAccount ? 'Password' : 'Change Password'}
@@ -367,7 +367,7 @@ export const ProfileSettings = () => {
       </div>
 
       {/* Two-Factor Authentication */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
+      <div className="bg-card rounded-lg border border-border p-6">
         <h3 className="font-display flex gap-2 items-center mb-4 text-lg font-semibold">
           <ShieldCheck className="w-5 h-5 text-muted-foreground" />
           Two-Factor Authentication
@@ -376,7 +376,7 @@ export const ProfileSettings = () => {
       </div>
 
       {/* Signed-in devices */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
+      <div className="bg-card rounded-lg border border-border p-6">
         <h3 className="font-display flex gap-2 items-center mb-4 text-lg font-semibold">
           <MonitorSmartphone className="w-5 h-5 text-muted-foreground" />
           Signed-in devices

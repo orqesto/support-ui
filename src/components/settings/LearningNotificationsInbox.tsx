@@ -205,7 +205,7 @@ export const LearningNotificationsInbox = () => {
         </p>
 
         {error && (
-          <div className="mb-4 flex items-start gap-2 px-3 py-2 rounded-md text-sm bg-red-50 text-red-700 border border-red-200 dark:bg-red-950 dark:border-red-900 dark:text-red-300">
+          <div className="mb-4 flex items-start gap-2 px-3 py-2 rounded-md text-sm bg-destructive-muted text-destructive border border-destructive-line">
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>

@@ -137,7 +137,7 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
                   {(skills[key] ?? []).map((val) => (
                     <span
                       key={val}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-muted text-foreground"
                     >
                       {val}
                       <Button
@@ -146,7 +146,7 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
                         size="icon"
                         onClick={() => handleRemoveValue(key, val).catch((err) => { logger.error(err); })}
                         disabled={saving[key]}
-                        className="p-0 w-auto h-auto hover:text-red-600 disabled:opacity-40"
+                        className="p-0 w-auto h-auto hover:text-destructive disabled:opacity-40"
                         aria-label={`Remove ${val}`}
                       >
                         <X className="w-3 h-3" />

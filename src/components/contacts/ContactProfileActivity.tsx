@@ -22,8 +22,8 @@ const STATUS_STYLE: Record<string, { dot: string; text: string; label: string }>
 };
 
 const RING = {
-  message: 'bg-blue-100 dark:bg-blue-500/15 text-primary',
-  ticket: 'bg-amber-100 dark:bg-amber-500/15 text-warning',
+  message: 'bg-muted text-muted-foreground',
+  ticket: 'bg-warning-muted text-warning',
   note: 'bg-muted text-muted-foreground',
 };
 

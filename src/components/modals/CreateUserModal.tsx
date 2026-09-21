@@ -160,13 +160,13 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
 
   return (
     <div className="fixed inset-0 z-50 flex justify-center items-center bg-black/50">
-      <div className="relative p-6 w-full max-w-md bg-white rounded-lg shadow-xl dark:bg-gray-800">
+      <div className="relative p-6 w-full max-w-md bg-card rounded-lg shadow-xl">
         <Button
           variant="ghost"
           size="icon"
           onClick={onClose}
           aria-label="Close"
-          className="absolute top-4 right-4 w-8 h-8 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          className="absolute top-4 right-4 w-8 h-8 text-faint-foreground hover:text-muted-foreground"
         >
           <X className="w-5 h-5" />
         </Button>
@@ -302,9 +302,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
           )}
 
           {error && (
-            <div className="p-3 text-sm text-red-600 rounded bg-red-50 dark:bg-red-900/20">
-              {error}
-            </div>
+            <div className="p-3 text-sm text-destructive rounded bg-destructive-muted">{error}</div>
           )}
 
           <div className="flex gap-3 justify-end pt-4">

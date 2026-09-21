@@ -598,7 +598,7 @@ export const Layout = ({ children }: LayoutProps) => {
                               // demos it believing a customer sees the same sidebar.
                               <span
                                 title="Unfinished — visible to Odly staff only"
-                                className="font-display flex-shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold uppercase tracking-[0.09em] bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                                className="font-display flex-shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold uppercase tracking-[0.09em] bg-warning-muted text-warning"
                               >
                                 WIP
                               </span>

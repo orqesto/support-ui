@@ -191,8 +191,8 @@ export const LeadQualificationSettings = () => {
     <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-violet-500/10">
-          <Target className="w-5 h-5 text-violet-600" />
+        <div className="p-2 rounded-lg bg-muted">
+          <Target className="w-5 h-5 text-muted-foreground" />
         </div>
         <div>
           <h2 className="font-display text-lg font-semibold">Lead Qualification</h2>
@@ -204,7 +204,7 @@ export const LeadQualificationSettings = () => {
       </div>
 
       {/* How it works */}
-      <div className="p-4 rounded-lg border bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
+      <div className="p-4 rounded-lg border bg-muted border-border">
         <div className="flex gap-2 items-start mb-3">
           <Info className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
           <h3 className="font-display text-sm font-semibold text-primary">How it works</h3>
