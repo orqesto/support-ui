@@ -22,7 +22,7 @@ interface SLASectionProps {
 export function DashboardSLASection({ cards }: SLASectionProps) {
   return (
     <div>
-      <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
+      <h2 className="font-display text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-[0.09em]">
         SLA &amp; Resolution
       </h2>
       <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">
@@ -79,7 +79,7 @@ export function DashboardStatusBarSection({ label, cards }: StatusBarSectionProp
     <Card>
       <CardHeader className="pb-2 pt-4">
         <div className="flex justify-between items-center">
-          <CardTitle className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          <CardTitle className="font-display text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             {label}
           </CardTitle>
           <span className="text-xs text-muted-foreground">{total} total</span>

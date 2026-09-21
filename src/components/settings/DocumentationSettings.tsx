@@ -422,7 +422,7 @@ export const DocumentationSettings = ({
       {/* Header with Stats — hidden in compact (onboarding) mode */}
       {!compact && (
         <div>
-          <h2 className="mb-2 text-2xl font-bold">Knowledge Base Documentation</h2>
+          <h2 className="font-display mb-2 text-2xl font-bold">Knowledge Base Documentation</h2>
           <p className="mb-4 text-muted-foreground">
             Upload documentation that AI will use to answer customer questions automatically.
           </p>

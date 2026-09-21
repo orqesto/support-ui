@@ -213,7 +213,7 @@ export const LeadQualificationPanel = ({
     <div className="p-4 space-y-4 rounded-lg border border-violet-500/20 bg-violet-500/5">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h3 className="text-sm font-semibold text-violet-700 dark:text-violet-400">
+        <h3 className="font-display text-sm font-semibold text-violet-700 dark:text-violet-400">
           Lead Qualification
         </h3>
         <div className="flex gap-2 items-center">
@@ -297,7 +297,7 @@ export const LeadQualificationPanel = ({
 
       {/* Contact Info */}
       <div className="space-y-2">
-        <p className="text-xs font-medium tracking-wide uppercase text-muted-foreground">Contact</p>
+        <p className="font-display text-xs font-medium tracking-[0.09em] uppercase text-muted-foreground">Contact</p>
         <div className="grid grid-cols-1 gap-1.5">
           {editing ? (
             <>
@@ -366,7 +366,7 @@ export const LeadQualificationPanel = ({
             variant="ghost"
             size="sm"
             onClick={() => setFieldsExpanded((prev) => !prev)}
-            className="flex justify-between items-center w-full h-auto p-0 text-xs font-medium tracking-wide uppercase text-muted-foreground hover:text-foreground hover:bg-transparent"
+            className="font-display flex justify-between items-center w-full h-auto p-0 text-xs font-medium tracking-[0.09em] uppercase text-muted-foreground hover:text-foreground hover:bg-transparent"
           >
             <span>
               Qualification Info ({filledCount}/{fieldEntries.length} collected)
@@ -423,7 +423,7 @@ export const LeadQualificationPanel = ({
       {/* Objections */}
       {leadState.objectionsRaised.length > 0 && (
         <div className="space-y-1">
-          <p className="text-xs font-medium tracking-wide uppercase text-muted-foreground">
+          <p className="font-display text-xs font-medium tracking-[0.09em] uppercase text-muted-foreground">
             Objections
           </p>
           <div className="flex flex-wrap gap-1">

@@ -159,7 +159,7 @@ export const KBEntryDetail = ({
         {/* Header */}
         <div className="flex-none p-6 border-b">
           <div className="flex gap-4 justify-between items-start mb-4">
-            <h2 className="text-2xl font-semibold">{displayEntry.title}</h2>
+            <h2 className="font-display text-2xl font-semibold">{displayEntry.title}</h2>
             <div className="flex gap-2">
               {/* Shown next to the approve action: approving makes this entry
                   retrievable ground truth, so the reviewer must know when the
@@ -389,7 +389,7 @@ export const KBEntryDetail = ({
 
         {/* Content */}
         <div className="overflow-auto flex-1 p-6">
-          <h3 className="mb-3 text-lg font-semibold">Content</h3>
+          <h3 className="font-display mb-3 text-lg font-semibold">Content</h3>
           <FormattedKBContent
             content={(() => {
               // For document type entries, use clean document content

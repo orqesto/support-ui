@@ -154,7 +154,7 @@ export const DocumentationList = ({
   return (
     <Card className="p-6">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">
+        <h3 className="font-display text-lg font-semibold">
           {sourceFilter === 'confluence' ? 'Confluence Pages' : 'Documentation'}
         </h3>
         {filteredDocs.length > 0 && (
@@ -305,7 +305,7 @@ export const DocumentationList = ({
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap gap-2 items-center mb-1">
                     <FileText className="flex-shrink-0 w-5 h-5 text-muted-foreground" />
-                    <h4 className="font-semibold truncate">{doc.title}</h4>
+                    <h4 className="font-display font-semibold truncate">{doc.title}</h4>
                     {getDocumentTypeBadge(doc.documentType)}
                     {doc.externalSource?.split(':')[0] === 'confluence' && (
                       <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-sky-800 bg-sky-100 rounded-full dark:bg-sky-900 dark:text-sky-200">

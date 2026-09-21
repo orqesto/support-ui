@@ -118,7 +118,7 @@ export const UsageStatsPage = () => {
               Back
             </Button>
             <div>
-              <h1 className="text-xl font-bold sm:text-2xl">Billing & Usage</h1>
+              <h1 className="font-display text-xl font-bold sm:text-2xl">Billing & Usage</h1>
               <p className="mt-1 text-sm text-foreground/70 sm:text-base">
                 AI usage tracking and overage monitoring
               </p>

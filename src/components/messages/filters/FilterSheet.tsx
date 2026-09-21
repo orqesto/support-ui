@@ -206,7 +206,7 @@ export const FilterSheet = ({
             })}
             {panelDef.kind === 'date' && (
               <>
-                <div className="px-4 pt-3 pb-1 text-[11px] font-semibold tracking-wider uppercase text-muted-foreground/80">
+                <div className="font-display px-4 pt-3 pb-1 text-[11px] font-semibold tracking-[0.09em] uppercase text-muted-foreground/80">
                   Or an exact range
                 </div>
                 <DateRangeFields
@@ -343,7 +343,7 @@ export const FilterSheet = ({
                 if (inGroup.length === 0) return null;
                 return (
                   <div key={group}>
-                    <div className="px-4 pt-3 pb-1 text-[11px] font-semibold tracking-wider uppercase text-muted-foreground/80">
+                    <div className="font-display px-4 pt-3 pb-1 text-[11px] font-semibold tracking-[0.09em] uppercase text-muted-foreground/80">
                       {group}
                     </div>
                     {inGroup.map((def) => {

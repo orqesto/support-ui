@@ -122,7 +122,7 @@ export const ChatWidgetSettings = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Chat Widgets</h2>
+          <h2 className="font-display text-2xl font-bold">Chat Widgets</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Embeddable AI-powered chat widgets for your website
           </p>
@@ -136,7 +136,7 @@ export const ChatWidgetSettings = () => {
       {widgets.length === 0 ? (
         <Card className="p-12 text-center">
           <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-4 text-lg font-semibold">No chat widgets yet</h3>
+          <h3 className="font-display mt-4 text-lg font-semibold">No chat widgets yet</h3>
           <p className="mt-2 text-sm text-muted-foreground">
             Create your first chat widget to embed on your website
           </p>
@@ -152,7 +152,7 @@ export const ChatWidgetSettings = () => {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold">{widget.name}</h3>
+                    <h3 className="font-display font-semibold">{widget.name}</h3>
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                         widget.enabled

@@ -122,7 +122,7 @@ export const MessageDetailPage = () => {
               <ArrowLeft className="mr-2 w-4 h-4" />
               Back
             </Button>
-            <h1 className="text-base font-semibold">Message Details</h1>
+            <h1 className="font-display text-base font-semibold">Message Details</h1>
           </div>
         </div>
 

@@ -17,7 +17,7 @@ type ConsolePageHeaderProps = {
 export const ConsolePageHeader = ({ title, description, actions }: ConsolePageHeaderProps) => (
   <div className="flex flex-shrink-0 gap-4 justify-between items-center">
     <div>
-      <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+      <h1 className="font-display text-2xl font-bold text-foreground">{title}</h1>
       {description && <p className="text-sm text-muted-foreground">{description}</p>}
     </div>
     {actions && <div className="flex flex-shrink-0 gap-2 items-center">{actions}</div>}

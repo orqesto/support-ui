@@ -97,7 +97,7 @@ export const PromptsSettings = () => {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-start">
         <div>
-          <h3 className="text-lg font-semibold">AI Prompt Templates</h3>
+          <h3 className="font-display text-lg font-semibold">AI Prompt Templates</h3>
           <p className="text-sm text-muted-foreground">
             Customize prompts used by AI for message analysis and spam detection
           </p>
@@ -123,7 +123,7 @@ export const PromptsSettings = () => {
       {/* New Prompt Form */}
       {isCreating && (
         <div className="p-4 space-y-4 rounded-lg border bg-green-500/10 dark:bg-green-500/10 border-green-500/20">
-          <h4 className="font-semibold">New Prompt Template</h4>
+          <h4 className="font-display font-semibold">New Prompt Template</h4>
           <div className="grid gap-4">
             <div>
               <label htmlFor="name" className="text-sm font-medium">
@@ -197,7 +197,7 @@ export const PromptsSettings = () => {
           >
             {editingPrompt?.id === prompt.id ? (
               <div className="space-y-4">
-                <h4 className="font-semibold">Edit Prompt Template</h4>
+                <h4 className="font-display font-semibold">Edit Prompt Template</h4>
                 <div className="grid gap-4">
                   <div>
                     <label className="text-sm font-medium">
@@ -266,7 +266,9 @@ export const PromptsSettings = () => {
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1">
                     <div className="flex flex-col gap-2">
-                      <h4 className="font-mono text-lg font-semibold">{prompt.name}</h4>
+                      <h4 className="font-display font-mono text-lg font-semibold">
+                        {prompt.name}
+                      </h4>
                       <div className="flex gap-2 items-center flex-wrap">
                         <DepartmentBadge
                           departmentId={prompt.departmentId}

@@ -49,7 +49,7 @@ export const readReplyStylePayload = (suggestion: LearningSuggestion): ReplyStyl
 
 const RawBlock = ({ label, text }: { label: string; text: string }) => (
   <div className="min-w-0">
-    <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+    <div className="font-display mb-1 text-[10px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
       {label}
     </div>
     <p className="p-2 rounded border border-border bg-muted/30 text-xs whitespace-pre-wrap break-words text-foreground">
@@ -101,7 +101,7 @@ export const ReplyStyleSuggestionDetail = ({
       </div>
 
       <div>
-        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <div className="font-display mb-1 text-[10px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
           {currentStyle ? 'Proposed change to the house style' : 'Proposed house style (none set today)'}
         </div>
         <p className="p-2 rounded border border-border bg-background text-xs whitespace-pre-wrap break-words leading-relaxed">

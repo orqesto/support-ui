@@ -298,7 +298,7 @@ export const WhatsAppIntegrationCard = ({
 
           {showForm && (
             <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
-              <h4 className="font-medium">
+              <h4 className="font-display font-medium">
                 {editingId ? 'Edit WhatsApp Business' : 'Add WhatsApp Business'}
               </h4>
 
@@ -489,7 +489,7 @@ export const WhatsAppIntegrationCard = ({
       {deleteConfirm && (
         <div className="flex fixed inset-0 z-50 justify-center items-center bg-black bg-opacity-50">
           <div className="p-6 mx-4 w-full max-w-md rounded-lg shadow-xl bg-card">
-            <h3 className="mb-2 text-lg font-semibold">Delete Integration?</h3>
+            <h3 className="font-display mb-2 text-lg font-semibold">Delete Integration?</h3>
             <p className="mb-4 text-muted-foreground">
               Are you sure you want to delete <strong>{deleteConfirm.name}</strong>?
             </p>

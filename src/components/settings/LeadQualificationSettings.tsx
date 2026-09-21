@@ -195,7 +195,7 @@ export const LeadQualificationSettings = () => {
           <Target className="w-5 h-5 text-violet-600" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold">Lead Qualification</h2>
+          <h2 className="font-display text-lg font-semibold">Lead Qualification</h2>
           <p className="text-sm text-muted-foreground">
             Configure multi-turn AI lead qualification — which departments use it, what to collect,
             and how to categorize leads.
@@ -207,7 +207,7 @@ export const LeadQualificationSettings = () => {
       <div className="p-4 rounded-lg border bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
         <div className="flex gap-2 items-start mb-3">
           <Info className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
-          <h3 className="text-sm font-semibold text-primary">How it works</h3>
+          <h3 className="font-display text-sm font-semibold text-primary">How it works</h3>
         </div>
         <div className="flex flex-wrap gap-2 items-center text-xs text-primary mb-3">
           <span className="px-2 py-1 rounded bg-primary-muted">Lead writes in</span>
@@ -245,7 +245,7 @@ export const LeadQualificationSettings = () => {
       {/* Departments */}
       <div className="p-4 space-y-3 rounded-lg border">
         <div>
-          <h3 className="text-sm font-semibold">Enabled Departments</h3>
+          <h3 className="font-display text-sm font-semibold">Enabled Departments</h3>
           <p className="text-xs text-muted-foreground">
             Lead qualification runs for incoming messages in these departments.
           </p>
@@ -272,7 +272,7 @@ export const LeadQualificationSettings = () => {
       {/* Contact fields */}
       <div className="p-4 space-y-3 rounded-lg border">
         <div>
-          <h3 className="text-sm font-semibold">Required Contact Fields</h3>
+          <h3 className="font-display text-sm font-semibold">Required Contact Fields</h3>
           <p className="text-xs text-muted-foreground">
             Fields the qualification flow must collect before a lead is considered fully contacted.
             Email is auto-derived from the sender address on email / Gmail sources, so the
@@ -320,7 +320,7 @@ export const LeadQualificationSettings = () => {
       <div className="p-4 space-y-3 rounded-lg border">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold">Qualification Fields</h3>
+            <h3 className="font-display text-sm font-semibold">Qualification Fields</h3>
             <p className="text-xs text-muted-foreground">
               Information the AI should collect from the lead. These are passed to the AI prompt as
               context.
@@ -439,7 +439,7 @@ export const LeadQualificationSettings = () => {
       <div className="p-4 space-y-3 rounded-lg border">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold">Lead Categories</h3>
+            <h3 className="font-display text-sm font-semibold">Lead Categories</h3>
             <p className="text-xs text-muted-foreground">
               Categories the AI can assign to qualified leads. The AI prompt uses these as options.
             </p>
@@ -607,7 +607,7 @@ export const LeadQualificationSettings = () => {
         <div className="flex items-center gap-2">
           <Zap className="w-4 h-4 text-warning shrink-0" />
           <div>
-            <h3 className="text-sm font-semibold">Speed-to-Lead Report</h3>
+            <h3 className="font-display text-sm font-semibold">Speed-to-Lead Report</h3>
             <p className="text-xs text-muted-foreground">
               Powers the <span className="font-medium">Statistics → Speed to Lead</span> tab and the
               weekly digest. A lead&apos;s response clock is separate from your support SLA.

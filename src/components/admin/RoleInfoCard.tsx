@@ -152,7 +152,9 @@ const RolePermissionMatrix = ({ role, size }: { role: OrganizationRole; size: Si
     <div className={size === 'sm' ? 'grid gap-3 mt-3' : 'grid md:grid-cols-2 gap-4'}>
       {PERMISSION_CATALOG.map((group) => (
         <div key={group.category}>
-          <h4 className={`font-semibold text-foreground ${headingSize}`}>{group.category}</h4>
+          <h4 className={`font-display font-semibold text-foreground ${headingSize}`}>
+            {group.category}
+          </h4>
           <ul className={size === 'sm' ? 'space-y-0.5' : 'space-y-1'}>
             {group.permissions.map(({ permission, label }) => {
               const granted = roleHasPermission(role, permission);

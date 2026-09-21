@@ -41,7 +41,7 @@ export function SubscriptionGateOverlay() {
       <div className="p-6 w-full max-w-md rounded-lg border shadow-lg bg-card border-border">
         <div className="flex gap-3 items-center mb-3">
           <AlertTriangle className="w-6 h-6 text-destructive" />
-          <h2 id="subscription-gate-title" className="text-lg font-semibold">
+          <h2 id="subscription-gate-title" className="font-display text-lg font-semibold">
             Subscription inactive
           </h2>
         </div>

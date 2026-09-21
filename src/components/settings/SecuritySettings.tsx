@@ -55,7 +55,7 @@ export const SecuritySettings = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="flex gap-2 items-center text-base font-semibold">
+        <h3 className="font-display flex gap-2 items-center text-base font-semibold">
           <Shield className="w-4 h-4" />
           Security Policies
         </h3>

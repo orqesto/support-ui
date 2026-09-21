@@ -38,7 +38,7 @@ export const EmbedCodeModal = ({ widget, onClose }: EmbedCodeModalProps) => {
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Embed Code</h2>
+          <h2 className="font-display text-xl font-semibold">Embed Code</h2>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" className="p-0 w-auto h-auto text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </Button>
@@ -74,7 +74,7 @@ export const EmbedCodeModal = ({ widget, onClose }: EmbedCodeModalProps) => {
           </div>
 
           <div className="rounded-lg border border-border p-4">
-            <h3 className="mb-2 font-semibold">Configuration:</h3>
+            <h3 className="font-display mb-2 font-semibold">Configuration:</h3>
             <dl className="space-y-1 text-sm">
               <div className="flex">
                 <dt className="w-32 text-muted-foreground">Widget Key:</dt>

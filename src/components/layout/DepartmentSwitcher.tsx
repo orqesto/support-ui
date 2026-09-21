@@ -124,7 +124,7 @@ export const DepartmentSwitcher = () => {
           {/* Dropdown */}
           <div className="overflow-y-auto absolute left-0 bottom-full z-20 mb-2 w-full max-h-80 rounded-md border shadow-lg bg-card border-border">
             <div className="p-2">
-              <p className="px-2 mb-1 text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">
+              <p className="font-display px-2 mb-1 text-[10px] font-semibold tracking-[0.09em] uppercase text-muted-foreground">
                 Filter by department
               </p>
 

@@ -365,7 +365,7 @@ export const ListScopeNotice = ({
                * words in a sentence they read as links to somewhere else.
                */}
               {destinations.length > 0 && (
-                <div className="px-2 pt-1.5 pb-1 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                <div className="font-display px-2 pt-1.5 pb-1 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-muted-foreground/80">
                   Show instead — applies a filter
                 </div>
               )}

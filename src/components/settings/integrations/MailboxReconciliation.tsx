@@ -239,7 +239,7 @@ export const ImapCompareReview = ({
   return (
     <div className="p-4 mt-2 space-y-3 rounded-lg border bg-muted/50">
       <div>
-        <h4 className="font-medium">Compare with Odly</h4>
+        <h4 className="font-display font-medium">Compare with Odly</h4>
         <p className="text-xs text-muted-foreground">
           Counts the messages in this mailbox&apos;s sync window and checks which are already in
           Odly, by Message-ID. A big mailbox can take up to a minute.

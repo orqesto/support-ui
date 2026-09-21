@@ -106,7 +106,7 @@ export const VisionSettings = () => {
     <div className="p-4 space-y-4 rounded-lg border bg-card">
       <div className="flex gap-4 justify-between items-start">
         <div>
-          <h3 className="text-sm font-medium text-foreground">Image analysis (Vision)</h3>
+          <h3 className="font-display text-sm font-medium text-foreground">Image analysis (Vision)</h3>
           <p className="mt-1 text-xs text-muted-foreground">
             Let the AI read image attachments (screenshots, photos) on inbound messages. Turn this
             off to skip images entirely.

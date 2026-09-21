@@ -191,7 +191,7 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
   return (
     <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
       <div>
-        <h4 className="font-medium">
+        <h4 className="font-display font-medium">
           {source.enabled ? 'Message count' : 'Review before the first sync'}
         </h4>
         <p className="text-xs text-muted-foreground break-all">

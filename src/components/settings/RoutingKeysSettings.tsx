@@ -127,7 +127,7 @@ export const RoutingKeysSettings = () => {
 
       {/* Auto-assign mode */}
       <div className="p-4 rounded-lg border border-border bg-muted/30">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="font-display mb-3 text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground">
           Auto-assignment mode
         </p>
         <div className="flex gap-2">
@@ -155,7 +155,7 @@ export const RoutingKeysSettings = () => {
       <div className="p-4 rounded-lg border border-border bg-muted/30">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+            <p className="font-display text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground mb-0.5">
               Ask about ownership when replying
             </p>
             <p className="text-sm text-muted-foreground">
@@ -176,7 +176,7 @@ export const RoutingKeysSettings = () => {
       <div className="p-4 rounded-lg border border-border bg-muted/30">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+            <p className="font-display text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground mb-0.5">
               Allow agents to self-edit skills
             </p>
             <p className="text-sm text-muted-foreground">
@@ -193,7 +193,7 @@ export const RoutingKeysSettings = () => {
 
       {/* Add new key */}
       <div className="p-4 rounded-lg border border-border bg-muted/30">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="font-display mb-3 text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground">
           Add routing key
         </p>
         <div className="flex gap-2">

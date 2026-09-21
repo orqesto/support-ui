@@ -217,7 +217,7 @@ export const CustomProviderCard = ({
 
         {showForm && (
           <div className="p-4 space-y-3 rounded-lg border bg-muted/50">
-            <h4 className="font-medium">
+            <h4 className="font-display font-medium">
               {editingId ? 'Edit Custom Endpoint' : 'Add Custom Endpoint'}
             </h4>
 

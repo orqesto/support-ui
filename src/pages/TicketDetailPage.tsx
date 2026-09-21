@@ -116,7 +116,7 @@ export const TicketDetailPage = () => {
               <ArrowLeft className="mr-2 w-4 h-4" />
               Back
             </Button>
-            <h1 className="text-2xl font-bold">Ticket Details</h1>
+            <h1 className="font-display text-2xl font-bold">Ticket Details</h1>
           </div>
 
           <div className="p-6 rounded-lg border bg-card">

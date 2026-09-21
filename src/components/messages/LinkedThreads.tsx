@@ -150,7 +150,7 @@ export const LinkedThreads = ({ message, onChanged }: Props) => {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium flex items-center gap-1.5">
+        <h4 className="font-display text-sm font-medium flex items-center gap-1.5">
           <Link2 className="h-3.5 w-3.5" aria-hidden />
           Same piece of work
         </h4>

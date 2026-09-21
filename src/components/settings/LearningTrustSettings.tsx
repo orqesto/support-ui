@@ -252,7 +252,7 @@ export const LearningTrustSettings = () => {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
               <div className="p-3 rounded-lg border border-border bg-background">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="font-display text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground">
                   Trust Score
                 </p>
                 <p className="mt-1 text-lg font-semibold">{formatScore(state.trustScore)}</p>
@@ -266,7 +266,7 @@ export const LearningTrustSettings = () => {
                 </p>
               </div>
               <div className="p-3 rounded-lg border border-border bg-background">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="font-display text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground">
                   Selected Mode
                 </p>
                 <p className="mt-1 text-lg font-semibold capitalize">{state.trustMode}</p>
@@ -275,7 +275,7 @@ export const LearningTrustSettings = () => {
                 </p>
               </div>
               <div className="p-3 rounded-lg border border-border bg-background">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="font-display text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground">
                   Effective Mode
                 </p>
                 <p className="mt-1 text-lg font-semibold capitalize">{state.effectiveMode}</p>

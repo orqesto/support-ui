@@ -115,7 +115,7 @@ export const CreateOrganizationModal = ({
             <div className="flex justify-center items-center w-10 h-10 rounded-lg bg-purple-500/10 dark:bg-purple-500/10">
               <Building2 className="w-5 h-5 text-purple-600" />
             </div>
-            <h2 className="text-xl font-semibold">Create Workspace</h2>
+            <h2 className="font-display text-xl font-semibold">Create Workspace</h2>
           </div>
           <Button
             aria-label="Close"

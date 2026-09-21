@@ -26,7 +26,7 @@ import type { FilterState } from '@/stores/messagesStore';
  *    old always-open panel: when you do not know what you want, you can still read it.
  */
 
-const HEADING = 'px-3 pt-2.5 pb-1 text-[11px] font-semibold tracking-wider uppercase text-muted-foreground/80';
+const HEADING = 'font-display px-3 pt-2.5 pb-1 text-[11px] font-semibold tracking-[0.09em] uppercase text-muted-foreground/80';
 const ROW = 'w-full flex items-center gap-2 text-left px-2.5 py-2 h-auto rounded justify-start text-[13px] font-normal';
 
 /** Status and Priority are what agents reach for constantly, so they are a visible

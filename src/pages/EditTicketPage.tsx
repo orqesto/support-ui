@@ -216,7 +216,7 @@ export const EditTicketPage = () => {
     <Layout>
       <div className="px-4 pb-6 mx-auto space-y-4 w-full">
         <div>
-          <h1 className="text-3xl font-bold">Edit Ticket</h1>
+          <h1 className="font-display text-3xl font-bold">Edit Ticket</h1>
           <p className="mt-2 text-muted-foreground">Update ticket details</p>
         </div>
 
@@ -226,7 +226,7 @@ export const EditTicketPage = () => {
               <div className="flex gap-3 items-start">
                 <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <h3 className="mb-1 font-semibold text-warning">
+                  <h3 className="font-display mb-1 font-semibold text-warning">
                     This ticket is synced with Jira
                   </h3>
                   <p className="mb-3 text-sm text-warning">

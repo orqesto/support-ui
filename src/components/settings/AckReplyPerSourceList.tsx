@@ -66,7 +66,7 @@ export const AckReplyPerSourceList = ({ onShowAlert }: Props) => {
       <div className="flex gap-3 items-start mb-1">
         <MessageSquareReply className="w-5 h-5 text-muted-foreground mt-0.5" />
         <div className="flex-1">
-          <h3 className="text-base font-semibold">Acknowledgment auto-reply</h3>
+          <h3 className="font-display text-base font-semibold">Acknowledgment auto-reply</h3>
           <p className="text-xs text-muted-foreground">
             Per-source. Fires once on the first inbound message, separate from the AI
             auto-reply above. Carries the public tracking link.

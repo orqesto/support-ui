@@ -121,7 +121,7 @@ export const DeletedMessages = () => {
       <div className="space-y-6">
         <div className="flex justify-between items-start">
           <div>
-            <h2 className="flex gap-2 items-center text-2xl font-bold">
+            <h2 className="font-display flex gap-2 items-center text-2xl font-bold">
               <Trash2 className="w-7 h-7" />
               Deleted Messages
             </h2>
@@ -250,7 +250,9 @@ export const DeletedMessages = () => {
         {isAdmin && (
           <Card>
             <CardContent className="p-4">
-              <h3 className="mb-3 text-sm font-semibold">Permanent Deletion (Admin)</h3>
+              <h3 className="font-display mb-3 text-sm font-semibold">
+                Permanent Deletion (Admin)
+              </h3>
               <p className="mb-4 text-xs text-muted-foreground">
                 Permanently removes soft-deleted messages older than the specified number of days.
                 This action cannot be undone.

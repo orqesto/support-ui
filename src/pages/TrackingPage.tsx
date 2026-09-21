@@ -476,7 +476,9 @@ export const TrackingPage = () => {
           was invisible.
         */}
         <div className="w-full max-w-md p-6 text-center bg-card rounded-lg shadow-sm">
-          <h1 className="text-lg font-medium text-foreground">Tracking link unavailable</h1>
+          <h1 className="font-display text-lg font-medium text-foreground">
+            Tracking link unavailable
+          </h1>
           <p className="mt-2 text-sm text-muted-foreground">{state.message}</p>
         </div>
       </div>
@@ -682,7 +684,9 @@ export const TrackingPage = () => {
                   {STATUS_LABELS[conversation.status]?.label ?? conversation.status}
                 </span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">{heroHeadline}</h1>
+              <h1 className="font-display text-xl sm:text-2xl font-semibold tracking-tight">
+                {heroHeadline}
+              </h1>
               <p className="text-muted-foreground mt-1.5 text-[15px] leading-relaxed">{heroSub}</p>
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4 text-sm">
                 {!isResolved &&
@@ -739,7 +743,7 @@ export const TrackingPage = () => {
           <div className="space-y-6 min-w-0">
             {/* Progress stepper */}
             <section className="bg-card border border-border rounded-xl p-6">
-              <h2 className="text-sm font-semibold mb-5">Progress</h2>
+              <h2 className="font-display text-sm font-semibold mb-5">Progress</h2>
               <ol className="relative">
                 {timeline.map((stage, idx) => {
                   // Reached = this specific stage actually has a reachedAt
@@ -826,7 +830,7 @@ export const TrackingPage = () => {
 
             {/* Conversation */}
             <section className="bg-card border border-border rounded-xl p-6">
-              <h2 className="text-sm font-semibold mb-4">Conversation</h2>
+              <h2 className="font-display text-sm font-semibold mb-4">Conversation</h2>
               <div className="space-y-4">
                 {events.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No messages yet.</p>
@@ -964,7 +968,7 @@ export const TrackingPage = () => {
           {/* Right column — details */}
           <aside className="space-y-6">
             <section className="bg-card border border-border rounded-xl p-5">
-              <h2 className="text-sm font-semibold mb-4">Request details</h2>
+              <h2 className="font-display text-sm font-semibold mb-4">Request details</h2>
               <dl className="space-y-3 text-sm">
                 <div className="flex justify-between gap-3">
                   <dt className="text-muted-foreground">Reference</dt>
@@ -1018,7 +1022,9 @@ export const TrackingPage = () => {
             </section>
 
             <section className="bg-card border border-border rounded-xl p-5">
-              <h2 className="text-sm font-semibold mb-2">Need to reach us another way?</h2>
+              <h2 className="font-display text-sm font-semibold mb-2">
+                Need to reach us another way?
+              </h2>
               <p className="text-sm text-muted-foreground mb-3">
                 Reply to your confirmation email — that's the channel we currently watch and you'll
                 land back on this page.

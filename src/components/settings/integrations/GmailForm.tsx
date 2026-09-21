@@ -76,7 +76,7 @@ export const GmailForm = ({
 
   return (
     <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
-      <h4 className="font-medium">
+      <h4 className="font-display font-medium">
         {defaultKB ? 'Add Gmail KB Source via OAuth2' : 'Add Gmail Account via OAuth2'}
       </h4>
 

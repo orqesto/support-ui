@@ -67,14 +67,14 @@ export const NotificationPreferencesSettings = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold">SLA Alert Preferences</h2>
+        <h2 className="font-display text-lg font-semibold">SLA Alert Preferences</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Which SLA breach alerts you see in your alert center — a personal preference.
           SLA time targets themselves are configured in Workspace › SLA Thresholds.
         </p>
       </div>
       <div>
-        <h3 className="text-sm font-semibold mb-1">Minimum severity</h3>
+        <h3 className="font-display text-sm font-semibold mb-1">Minimum severity</h3>
         <p className="text-xs text-muted-foreground mb-3">Only show alerts that meet this threshold.</p>
         <div className="flex gap-2">
           {(['warning', 'critical'] as const).map((sev) => (
@@ -91,7 +91,7 @@ export const NotificationPreferencesSettings = () => {
       </div>
 
       <div>
-        <h3 className="text-sm font-semibold mb-1">Alert types</h3>
+        <h3 className="font-display text-sm font-semibold mb-1">Alert types</h3>
         <p className="text-xs text-muted-foreground mb-3">Choose which breach types appear in the alert center.</p>
         <div className="rounded-lg border border-border bg-card px-4">
           <PreferenceRow

@@ -56,7 +56,7 @@ export const QuickFilterChips = ({ value, onChange, counts, trailing }: QuickFil
 
         return (
           <div key={axis} className="flex flex-wrap gap-1.5 items-center">
-            <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            <span className="font-display text-[11px] uppercase tracking-[0.09em] text-muted-foreground font-medium">
               {AXIS_LABEL[axis]}
             </span>
             {columns.map((col) => {

@@ -26,7 +26,7 @@ export const Drawer = ({
 
       <div className={getDrawerContentClasses(side, size)}>
         <div className="flex justify-between items-center p-4 border-b border-border bg-muted">
-          <h2 className="text-lg font-semibold">{title}</h2>
+          <h2 className="font-display text-lg font-semibold">{title}</h2>
           <Button
             aria-label="Close"
             title="Close"

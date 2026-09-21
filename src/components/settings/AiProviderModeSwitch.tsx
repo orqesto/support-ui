@@ -24,7 +24,7 @@ type Props = {
 export const AiProviderModeSwitch = ({ mode, managedAvailable, saving, onSelect }: Props) => (
   <div className="space-y-3">
     <div>
-      <h3 className="text-sm font-medium text-foreground">AI provider mode</h3>
+      <h3 className="font-display text-sm font-medium text-foreground">AI provider mode</h3>
       <p className="text-sm text-muted-foreground">
         Use our managed AI (no keys to manage) or connect your own provider. You can switch
         anytime.

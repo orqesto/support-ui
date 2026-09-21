@@ -560,7 +560,7 @@ export const EmailIntegrationCard = ({
       {deleteConfirm && (
         <div className="flex fixed inset-0 z-50 justify-center items-center bg-black bg-opacity-50">
           <div className="p-6 mx-4 w-full max-w-md rounded-lg shadow-xl bg-card">
-            <h3 className="mb-2 text-lg font-semibold">Delete Integration?</h3>
+            <h3 className="font-display mb-2 text-lg font-semibold">Delete Integration?</h3>
             <p className="mb-4 text-muted-foreground">
               Are you sure you want to delete <strong>{deleteConfirm.name}</strong>?
             </p>
@@ -589,7 +589,7 @@ export const EmailIntegrationCard = ({
       {editBulkImport && (
         <div className="flex fixed inset-0 z-50 justify-center items-center bg-black bg-opacity-50">
           <div className="p-6 mx-4 w-full max-w-md rounded-lg shadow-xl bg-card">
-            <h3 className="mb-2 text-lg font-semibold">Initial Sync Range</h3>
+            <h3 className="font-display mb-2 text-lg font-semibold">Initial Sync Range</h3>
             <p className="mb-4 text-sm text-muted-foreground">
               Configure historical import range for <strong>{editBulkImport.name}</strong>
             </p>

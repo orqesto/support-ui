@@ -77,7 +77,7 @@ export const StripePriceMapping = () => {
   return (
     <Card padding="md" className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Stripe price mapping</h2>
+        <h2 className="font-display text-lg font-semibold text-foreground">Stripe price mapping</h2>
         <p className="text-sm text-muted-foreground">
           Each paid plan&apos;s Stripe Price id (<code>price_…</code>) — used to build the Checkout
           Session. Usually set by <code>seed:stripe-prices</code>; edit here to fix or detach one.

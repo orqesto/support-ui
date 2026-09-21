@@ -120,7 +120,7 @@ export function WhatsAppTemplatePicker({
                 >
                   <div className="flex gap-2 justify-between items-baseline">
                     <span className="font-mono text-xs font-semibold">{template.name}</span>
-                    <span className="text-[10px] uppercase text-muted-foreground">
+                    <span className="font-display text-[10px] uppercase text-muted-foreground font-medium">
                       {template.language}
                     </span>
                   </div>
@@ -158,7 +158,7 @@ export function WhatsAppTemplatePicker({
 
             {selected && (
               <div>
-                <p className="mb-1 text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">
+                <p className="font-display mb-1 text-[10px] font-semibold tracking-[0.09em] uppercase text-muted-foreground">
                   What the customer will receive
                 </p>
                 <div className="px-3 py-2 text-sm whitespace-pre-wrap rounded border border-border bg-muted/40">

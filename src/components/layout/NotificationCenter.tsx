@@ -84,7 +84,7 @@ const formatRelativeTime = (iso: string): string => {
 };
 
 const SectionLabel = ({ children }: { children: React.ReactNode }) => (
-  <p className="px-1 pt-1 text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">
+  <p className="font-display px-1 pt-1 text-[11px] font-semibold tracking-[0.09em] uppercase text-muted-foreground">
     {children}
   </p>
 );

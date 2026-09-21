@@ -23,7 +23,7 @@ type ContactProfilePanelProps = {
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex-1 min-w-0">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <p className="font-display text-[10px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
         {label}
       </p>
       <div className="mt-0.5 text-[13px] font-semibold truncate text-foreground">{children}</div>
@@ -197,7 +197,7 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
                         setNameInput(contact.displayName ?? '');
                       }}
                     >
-                      <h2 className="text-base font-bold tracking-tight truncate text-foreground">
+                      <h2 className="font-display text-base font-bold tracking-tight truncate text-foreground">
                         {contact.displayName?.trim() ? contact.displayName : contact.primaryEmail}
                       </h2>
                       <Settings2 className="w-3 h-3 opacity-0 text-muted-foreground group-hover/name:opacity-100" />

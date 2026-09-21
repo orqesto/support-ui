@@ -214,7 +214,7 @@ export const NeedsRoutingPage = () => {
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
+            <h1 className="font-display text-2xl font-bold flex items-center gap-2">
               <GitBranch className="w-6 h-6" />
               Needs Routing
             </h1>
@@ -332,19 +332,19 @@ export const NeedsRoutingPage = () => {
               <table className="min-w-full divide-y divide-border">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-left text-muted-foreground">
+                    <th className="font-display px-4 py-3 text-xs font-medium uppercase tracking-[0.09em] text-left text-muted-foreground">
                       Sender
                     </th>
-                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-left text-muted-foreground">
+                    <th className="font-display px-4 py-3 text-xs font-medium uppercase tracking-[0.09em] text-left text-muted-foreground">
                       Subject
                     </th>
-                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-left text-muted-foreground">
+                    <th className="font-display px-4 py-3 text-xs font-medium uppercase tracking-[0.09em] text-left text-muted-foreground">
                       Received
                     </th>
-                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-left text-muted-foreground">
+                    <th className="font-display px-4 py-3 text-xs font-medium uppercase tracking-[0.09em] text-left text-muted-foreground">
                       Route to
                     </th>
-                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-right text-muted-foreground">
+                    <th className="font-display px-4 py-3 text-xs font-medium uppercase tracking-[0.09em] text-right text-muted-foreground">
                       Actions
                     </th>
                   </tr>

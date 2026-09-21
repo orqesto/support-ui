@@ -541,7 +541,7 @@ export const Layout = ({ children }: LayoutProps) => {
           <div className="flex overflow-hidden flex-col h-full">
             <div className="flex justify-between items-center px-4 h-16 border-b">
               <div className="flex gap-2 items-center h-full min-w-0">
-                <h1 className="text-xl font-bold">
+                <h1 className="font-display text-xl font-bold">
                   <Link to="/">
                     <img
                       src="/odly_blue_logo.png"
@@ -571,7 +571,7 @@ export const Layout = ({ children }: LayoutProps) => {
                 if (items.length === 0) return null;
                 return (
                   <div key={group} className={groupIdx > 0 ? 'mt-4' : ''}>
-                    <p className="px-3 mb-1 text-[10px] font-semibold tracking-wider uppercase text-muted-foreground/70">
+                    <p className="font-display px-3 mb-1 text-[10px] font-semibold tracking-[0.09em] uppercase text-muted-foreground/70">
                       {NAV_GROUP_LABELS[group]}
                     </p>
                     <div className="space-y-1">
@@ -598,7 +598,7 @@ export const Layout = ({ children }: LayoutProps) => {
                               // demos it believing a customer sees the same sidebar.
                               <span
                                 title="Unfinished — visible to Odly staff only"
-                                className="flex-shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                                className="font-display flex-shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold uppercase tracking-[0.09em] bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
                               >
                                 WIP
                               </span>
@@ -670,7 +670,7 @@ export const Layout = ({ children }: LayoutProps) => {
               >
                 <Menu className="w-6 h-6" />
               </Button>
-              <h2 className="text-lg font-semibold">
+              <h2 className="font-display text-lg font-semibold">
                 {getPageTitle(location.pathname, navigation)}
               </h2>
             </div>

@@ -197,7 +197,7 @@ export const InviteUserModal = ({
             <div className="flex justify-center items-center w-10 h-10 rounded-lg bg-blue-500/10 dark:bg-blue-500/10">
               <UserPlus className="w-5 h-5 text-muted-foreground" />
             </div>
-            <h2 className="text-xl font-semibold">Invite User</h2>
+            <h2 className="font-display text-xl font-semibold">Invite User</h2>
           </div>
           <Button
             aria-label="Close"

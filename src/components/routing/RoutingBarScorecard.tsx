@@ -39,7 +39,9 @@ export const RoutingBarScorecard = () => {
       <CardContent className="flex flex-col gap-3 p-4">
         <div className="flex flex-wrap gap-2 justify-between items-center">
           <div>
-            <h3 className="text-sm font-medium">What a different routing bar would have done</h3>
+            <h3 className="font-display text-sm font-medium">
+              What a different routing bar would have done
+            </h3>
             <p className="text-xs text-muted-foreground">
               Your own stored decisions, re-run through the live cascade with the similarity bar
               moved. Nothing is applied — this only says what would have happened.

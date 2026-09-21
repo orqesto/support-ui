@@ -282,7 +282,7 @@ export const SubscriptionPage = () => {
           <Card>
             <CardContent className="p-6 text-center">
               <AlertCircle className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
-              <h3 className="mb-2 text-lg font-semibold">No Subscription</h3>
+              <h3 className="font-display mb-2 text-lg font-semibold">No Subscription</h3>
               <p className="mb-4 text-muted-foreground">
                 You don&apos;t have an active subscription yet.
               </p>
@@ -303,7 +303,7 @@ export const SubscriptionPage = () => {
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold">Subscription & Usage</h1>
+            <h1 className="font-display text-2xl font-bold">Subscription & Usage</h1>
             <p className="mt-1 text-muted-foreground">Monitor your plan usage and limits</p>
           </div>
           {canManage && (
@@ -546,7 +546,7 @@ export const SubscriptionPage = () => {
           >
             <CardContent className="p-6">
               <TrendingUp className="mb-3 w-8 h-8 text-primary" />
-              <h3 className="mb-1 font-semibold">Usage Statistics</h3>
+              <h3 className="font-display mb-1 font-semibold">Usage Statistics</h3>
               <p className="text-sm text-foreground/70">View detailed usage trends and analytics</p>
             </CardContent>
           </Card>
@@ -558,7 +558,7 @@ export const SubscriptionPage = () => {
             >
               <CardContent className="p-6">
                 <CreditCard className="mb-3 w-8 h-8 text-success" />
-                <h3 className="mb-1 font-semibold">Change Plan</h3>
+                <h3 className="font-display mb-1 font-semibold">Change Plan</h3>
                 <p className="text-sm text-foreground/70">
                   {/* This navigates to /pricing, which can upgrade and downgrade
                       but has no cancel — the old copy promised one there. */}
@@ -580,7 +580,7 @@ export const SubscriptionPage = () => {
             >
               <CardContent className="p-6">
                 <CreditCard className="mb-3 w-8 h-8 text-primary" />
-                <h3 className="mb-1 font-semibold">Choose a Plan</h3>
+                <h3 className="font-display mb-1 font-semibold">Choose a Plan</h3>
                 <p className="text-sm text-foreground/70">
                   Pick a plan and add a card to keep working after the trial
                 </p>
@@ -599,7 +599,7 @@ export const SubscriptionPage = () => {
             >
               <CardContent className="p-6">
                 <CreditCard className="mb-3 w-8 h-8 text-primary" />
-                <h3 className="mb-1 font-semibold">Add a Payment Method</h3>
+                <h3 className="font-display mb-1 font-semibold">Add a Payment Method</h3>
                 <p className="text-sm text-foreground/70">
                   Save a card now so your plan continues when the trial ends
                 </p>
@@ -621,7 +621,7 @@ export const SubscriptionPage = () => {
             >
               <CardContent className="p-6">
                 <Settings className="mb-3 w-8 h-8 text-purple-600" />
-                <h3 className="mb-1 font-semibold">
+                <h3 className="font-display mb-1 font-semibold">
                   {portalLoading ? 'Opening Billing Portal…' : 'Billing & Invoices'}
                 </h3>
                 <p className="text-sm text-foreground/70">

@@ -408,7 +408,7 @@ export function ContactsView({
       {/* Toolbar */}
       <div className="flex flex-shrink-0 gap-2 justify-between items-center px-4 py-3 border-b border-border">
         <div className="flex gap-2 items-baseline">
-          <h2 className="text-base font-bold tracking-tight text-foreground">Contacts</h2>
+          <h2 className="font-display text-base font-bold tracking-tight text-foreground">Contacts</h2>
           <span className="text-xs text-muted-foreground tabular-nums">{pagination.total}</span>
         </div>
         <div className="flex gap-1 items-center px-1 h-8 rounded-lg bg-muted">

@@ -208,7 +208,7 @@ export const AuditLogsPage = () => {
           {/* Header */}
           <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
             <div>
-              <h1 className="flex gap-2 items-center text-2xl font-bold">
+              <h1 className="font-display flex gap-2 items-center text-2xl font-bold">
                 <FileText className="w-8 h-8" />
                 Audit Logs
               </h1>
@@ -327,7 +327,7 @@ export const AuditLogsPage = () => {
               ) : logs.length === 0 ? (
                 <div className="p-8 text-center">
                   <FileText className="mx-auto mb-4 w-16 h-16 text-gray-400" />
-                  <h3 className="mb-2 text-lg font-semibold">No Audit Logs Found</h3>
+                  <h3 className="font-display mb-2 text-lg font-semibold">No Audit Logs Found</h3>
                   <p className="text-muted-foreground">
                     {activeFilterCount > 0
                       ? 'No logs match the active filters.'
@@ -410,22 +410,22 @@ export const AuditLogsPage = () => {
                       <table className="w-full table-auto">
                         <thead className="sticky top-0 z-10 border-b bg-muted border-border">
                           <tr>
-                            <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
+                            <th className="font-display px-4 py-3 text-xs font-medium tracking-[0.09em] text-left uppercase text-muted-foreground">
                               Timestamp
                             </th>
-                            <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
+                            <th className="font-display px-4 py-3 text-xs font-medium tracking-[0.09em] text-left uppercase text-muted-foreground">
                               User
                             </th>
-                            <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
+                            <th className="font-display px-4 py-3 text-xs font-medium tracking-[0.09em] text-left uppercase text-muted-foreground">
                               Action
                             </th>
-                            <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
+                            <th className="font-display px-4 py-3 text-xs font-medium tracking-[0.09em] text-left uppercase text-muted-foreground">
                               Entity
                             </th>
-                            <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
+                            <th className="font-display px-4 py-3 text-xs font-medium tracking-[0.09em] text-left uppercase text-muted-foreground">
                               Entity ID
                             </th>
-                            <th className="px-4 py-3 text-xs font-medium tracking-wider text-left uppercase text-muted-foreground">
+                            <th className="font-display px-4 py-3 text-xs font-medium tracking-[0.09em] text-left uppercase text-muted-foreground">
                               Details
                             </th>
                           </tr>

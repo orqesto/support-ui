@@ -27,8 +27,10 @@ const NotFoundPage = () => {
         />
       </Link>
 
-      <p className="text-sm font-medium tracking-wide uppercase text-muted-foreground">Error 404</p>
-      <h1 className="mt-2 text-3xl font-bold text-center text-foreground">
+      <p className="font-display text-sm font-medium tracking-[0.09em] uppercase text-muted-foreground">
+        Error 404
+      </p>
+      <h1 className="font-display mt-2 text-3xl font-bold text-center text-foreground">
         We couldn&apos;t find that page
       </h1>
       <p className="mt-3 max-w-md text-center text-muted-foreground">

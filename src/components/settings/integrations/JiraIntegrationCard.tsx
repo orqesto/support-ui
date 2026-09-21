@@ -197,7 +197,7 @@ export const JiraIntegrationCard = ({
 
           {showForm && (
             <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
-              <h4 className="font-medium">
+              <h4 className="font-display font-medium">
                 {editingId ? 'Edit Jira Instance' : 'Add New Jira Instance'}
               </h4>
               <div className="grid grid-cols-2 gap-4">
@@ -277,7 +277,7 @@ export const JiraIntegrationCard = ({
       {deleteConfirm && (
         <div className="flex fixed inset-0 z-50 justify-center items-center bg-black bg-opacity-50">
           <div className="p-6 mx-4 w-full max-w-md rounded-lg shadow-xl bg-card">
-            <h3 className="mb-2 text-lg font-semibold">Delete Integration?</h3>
+            <h3 className="font-display mb-2 text-lg font-semibold">Delete Integration?</h3>
             <p className="mb-4 text-muted-foreground">
               Are you sure you want to delete <strong>{deleteConfirm.name}</strong>?
             </p>

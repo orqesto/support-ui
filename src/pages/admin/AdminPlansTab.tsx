@@ -196,7 +196,9 @@ export const AdminPlansTab = () => {
       {/* Current Subscription */}
       {currentPlan && (
         <div>
-          <h2 className="mb-4 text-xl font-semibold text-gray-300">Current Subscription</h2>
+          <h2 className="font-display mb-4 text-xl font-semibold text-gray-300">
+            Current Subscription
+          </h2>
           <p className="mb-4 text-sm text-gray-400">Your workspace&apos;s active plan</p>
           <div className="grid grid-cols-1 gap-6">
             {renderPlanCard({ ...currentPlan, isActive: true })}
@@ -206,7 +208,9 @@ export const AdminPlansTab = () => {
 
       {/* Base Platform Plans */}
       <div>
-        <h2 className="mb-4 text-xl font-semibold text-gray-300">Base Platform Plans</h2>
+        <h2 className="font-display mb-4 text-xl font-semibold text-gray-300">
+          Base Platform Plans
+        </h2>
         <p className="mb-4 text-sm text-gray-400">Core platform plans without AI features</p>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {basePlans.length > 0 ? (
@@ -221,7 +225,7 @@ export const AdminPlansTab = () => {
 
       {/* Enterprise Plans */}
       <div>
-        <h2 className="mb-2 text-xl font-semibold text-gray-300">Enterprise Plans</h2>
+        <h2 className="font-display mb-2 text-xl font-semibold text-gray-300">Enterprise Plans</h2>
         <p className="mb-4 text-sm text-gray-400">Custom enterprise solutions</p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {enterprisePlans.length > 0 ? (

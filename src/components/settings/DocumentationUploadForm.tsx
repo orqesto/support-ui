@@ -71,7 +71,7 @@ export const DocumentationUploadForm = ({
 
   return (
     <Card className="p-6">
-      <h3 className="mb-4 text-lg font-semibold">Upload New Documentation</h3>
+      <h3 className="font-display mb-4 text-lg font-semibold">Upload New Documentation</h3>
 
       <div className="flex-col space-y-4 text-center sm:items-center sm:flex-row sm:text-left">
         <div>

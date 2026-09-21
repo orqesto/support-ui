@@ -82,7 +82,7 @@ export const UserRoutingSkillsCard = ({ userId }: { userId: number }) => {
             {routingKeys.map(({ key, description }) => (
               <div key={key} className="p-3 rounded-md border border-border bg-muted/20">
                 <div className="flex justify-between items-baseline mb-2">
-                  <span className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">
+                  <span className="font-display text-xs font-semibold tracking-[0.09em] uppercase text-muted-foreground">
                     {key}
                   </span>
                   {description && <span className="text-xs text-muted-foreground">{description}</span>}
