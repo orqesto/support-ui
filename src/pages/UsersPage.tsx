@@ -252,7 +252,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
       <Wrap>
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
           <Shield className="mb-4 w-16 h-16 text-gray-400" />
-          <h2 className="mb-2 text-2xl font-bold">Access Denied</h2>
+          <h2 className="font-display mb-2 text-2xl font-bold">Access Denied</h2>
           <p className="max-w-md text-center text-muted-foreground">
             You don&apos;t have permission to manage users. Please contact your workspace
             administrator.
@@ -483,7 +483,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
         <div className="flex-1 min-w-0">
           <div className="flex gap-2 justify-between items-start mb-2">
             <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold truncate">
+              <h3 className="font-display text-sm font-semibold truncate">
                 {user.firstName} {user.lastName}
               </h3>
               <p className="text-sm truncate text-muted-foreground">{user.email}</p>
@@ -573,7 +573,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
         {/* Header */}
         <div className="flex flex-col gap-4 justify-between items-start mb-6 sm:flex-row sm:items-center">
           <div>
-            <h2 className="text-2xl font-bold">Users</h2>
+            <h2 className="font-display text-2xl font-bold">Users</h2>
             <p className="text-sm text-muted-foreground">
               {loading
                 ? 'Loading...'
@@ -617,7 +617,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
             <div className="flex justify-between items-center">
               <div className="flex gap-2 items-center">
                 <Info className="w-5 h-5 text-primary" />
-                <h3 className="font-semibold text-primary">Role Permissions Guide</h3>
+                <h3 className="font-display font-semibold text-primary">Role Permissions Guide</h3>
               </div>
               {showRoleInfo ? (
                 <ChevronUp className="w-5 h-5 text-muted-foreground" />

@@ -143,7 +143,7 @@ export const WorkspaceDatabaseDialog = ({ org, onClose }: Props) => {
             )}
 
             <section className="space-y-2 rounded-md border bg-muted/40 p-3 text-sm">
-              <h3 className="font-medium text-foreground">Data move</h3>
+              <h3 className="font-display font-medium text-foreground">Data move</h3>
               {move.isLoading ? (
                 <p className="text-muted-foreground">Loading…</p>
               ) : !latestMove ? (

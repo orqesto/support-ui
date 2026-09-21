@@ -45,7 +45,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               <AlertTriangle className="w-8 h-8" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Something went wrong</h1>
+          <h1 className="font-display text-2xl font-bold text-foreground">Something went wrong</h1>
           <p className="text-sm text-muted-foreground">
             This page failed to load. The error has been logged. You can try again, or reload the
             app to recover.

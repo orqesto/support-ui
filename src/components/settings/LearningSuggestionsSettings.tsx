@@ -54,7 +54,7 @@ const SeverityBadge = ({ suggestion }: { suggestion: LearningSuggestion }) => {
   if (conflictType === 'cross_dept_warn_overlap') {
     return (
       <span
-        className="inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-amber-500/15 text-warning"
+        className="font-display inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold uppercase tracking-[0.09em] bg-amber-500/15 text-warning"
         title="Borderline cross-dept overlap (cosine 0.85-0.92). Soft signal — these rules may converge over time. Not blocking."
       >
         Soft
@@ -64,7 +64,7 @@ const SeverityBadge = ({ suggestion }: { suggestion: LearningSuggestion }) => {
   if (conflictType === 'cross_dept_overlap' || conflictType === 'category_mismatch') {
     return (
       <span
-        className="inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-red-500/15 text-destructive"
+        className="font-display inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold uppercase tracking-[0.09em] bg-red-500/15 text-destructive"
         title="Hard conflict — two rules disagree at high similarity. Admin action needed."
       >
         Hard
@@ -588,7 +588,7 @@ export const LearningSuggestionsSettings = () => {
           <div className="space-y-6">
             {Array.from(byDomain.entries()).map(([domain, rows]) => (
               <div key={domain}>
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <h4 className="font-display mb-2 text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground">
                   {DOMAIN_LABELS[domain] ?? domain} ({rows.length})
                 </h4>
                 <div className="space-y-2">

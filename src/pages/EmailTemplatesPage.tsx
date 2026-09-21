@@ -119,7 +119,7 @@ export const EmailTemplates = () => {
     <div className="mx-auto space-y-6 w-full">
         <div className="flex justify-between items-start">
           <div>
-            <h2 className="flex gap-2 items-center text-2xl font-bold">
+            <h2 className="font-display flex gap-2 items-center text-2xl font-bold">
               <Mail className="w-7 h-7" />
               Email Templates
             </h2>
@@ -159,7 +159,7 @@ export const EmailTemplates = () => {
                           }`}
                         />
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-sm font-medium">{template.name}</h3>
+                          <h3 className="font-display text-sm font-medium">{template.name}</h3>
                           <p className="mt-1 text-xs text-muted-foreground">
                             {template.description}
                           </p>
@@ -310,7 +310,7 @@ export const EmailTemplates = () => {
                   <div className="flex gap-3 items-start p-4 bg-destructive-muted rounded-lg border border-destructive-line">
                     <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
                     <div>
-                      <h4 className="text-sm font-medium text-destructive">Error</h4>
+                      <h4 className="font-display text-sm font-medium text-destructive">Error</h4>
                       <p className="mt-1 text-sm text-destructive">{error}</p>
                     </div>
                   </div>

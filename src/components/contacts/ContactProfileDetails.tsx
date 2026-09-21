@@ -15,7 +15,7 @@ export type OrgLabel = { id: number; name: string; color: string };
 function SectionLabel({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="flex gap-2 items-center mb-2">
-      <p className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">{children}</p>
+      <p className="font-display text-[10.5px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">{children}</p>
       <div className="flex-1 h-px bg-border" />
       {action}
     </div>

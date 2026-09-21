@@ -16,7 +16,7 @@ export const OrganizationPage = ({ embedded = false }: { embedded?: boolean } = 
     <Wrap>
       <div className="px-4 mx-auto space-y-4 w-full">
         <div>
-          <h2 className="text-2xl font-bold">Workspace Settings</h2>
+          <h2 className="font-display text-2xl font-bold">Workspace Settings</h2>
           <p className="text-sm text-muted-foreground">Manage your workspace&apos;s details</p>
         </div>
         <WorkspaceDetailsSettings />

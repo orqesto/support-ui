@@ -363,7 +363,7 @@ export const PlatformPlans = () => {
 
   const renderGroup = (title: string, description: string, groupPlans: AdminPlan[]) => (
     <div>
-      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+      <h2 className="font-display text-lg font-semibold text-foreground">{title}</h2>
       <p className="mb-4 text-sm text-muted-foreground">{description}</p>
       {groupPlans.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">

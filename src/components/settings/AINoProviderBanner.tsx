@@ -32,7 +32,7 @@ export const AINoProviderBanner = () => {
         <div className="grid grid-cols-1 gap-3 mt-3 text-xs md:grid-cols-2">
           {/* Features that work */}
           <div className="p-2 rounded border bg-background">
-            <h4 className="flex gap-1.5 items-center mb-1.5 font-semibold text-xs">
+            <h4 className="font-display flex gap-1.5 items-center mb-1.5 font-semibold text-xs">
               <CheckCircle className="w-3.5 h-3.5 text-success" />
               Works Without AI
             </h4>
@@ -46,7 +46,7 @@ export const AINoProviderBanner = () => {
 
           {/* Features that require AI */}
           <div className="p-2 rounded border bg-background">
-            <h4 className="flex gap-1.5 items-center mb-1.5 font-semibold text-xs">
+            <h4 className="font-display flex gap-1.5 items-center mb-1.5 font-semibold text-xs">
               <XCircle className="w-3.5 h-3.5 text-destructive" />
               Requires AI Provider
             </h4>

@@ -212,7 +212,7 @@ export const PermissionCheckboxGrid = ({
             key={group.label}
             className="p-3 rounded-md border border-border bg-muted/20"
           >
-            <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <legend className="font-display px-1 text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground">
               {group.label}
             </legend>
             <div className="space-y-1.5 mt-1">

@@ -288,7 +288,7 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
                         <span className="text-muted-foreground">· {memberSecondary(userId)}</span>
                         {managedByIdp ? (
                           <span
-                            className="ml-1 text-[10px] uppercase tracking-wide text-muted-foreground"
+                            className="font-display ml-1 text-[10px] uppercase tracking-[0.09em] text-muted-foreground font-medium"
                             title="Membership comes from the wired IdP group — change it in your identity provider."
                           >
                             IdP
@@ -328,7 +328,7 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
 
         <Card>
           <CardContent>
-            <h3 className="mb-2 text-sm font-semibold text-foreground">Effective access preview</h3>
+            <h3 className="font-display mb-2 text-sm font-semibold text-foreground">Effective access preview</h3>
             {selectedMemberIds.length === 0 || selectedOrgIds.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Select at least one member and one workspace to preview.

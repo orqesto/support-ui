@@ -45,7 +45,7 @@ export const TicketAutomationSettings = () => {
   return (
     <div className="space-y-6">
       <div className="mb-4">
-        <h2 className="text-lg font-semibold text-foreground">Ticket Automation</h2>
+        <h2 className="font-display text-lg font-semibold text-foreground">Ticket Automation</h2>
         <p className="text-sm text-muted-foreground">
           Configure how tickets are integrated with external systems and automated workflows.
         </p>

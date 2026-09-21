@@ -56,7 +56,7 @@ export const GmailSyncRangeDialog = ({ source, onClose, onRefresh, onShowAlert }
   return (
     <div className="flex fixed inset-0 z-50 justify-center items-center bg-black/50">
       <div className="p-6 w-full max-w-md rounded-lg border shadow-lg bg-card">
-        <h3 className="mb-4 text-lg font-semibold">Change Initial Sync Range</h3>
+        <h3 className="font-display mb-4 text-lg font-semibold">Change Initial Sync Range</h3>
         <p className="mb-4 text-sm text-muted-foreground">{source.name}</p>
         <div className="space-y-4">
           <div>

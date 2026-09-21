@@ -40,7 +40,7 @@ export const FormattedKBContent = ({ content }: FormattedKBContentProps) => {
           return (
             <div key={key} className="space-y-2">
               <div className="flex gap-2 items-start">
-                <div className="flex-shrink-0 px-2 py-1 text-xs font-semibold uppercase rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                <div className="font-display flex-shrink-0 px-2 py-1 text-xs font-semibold uppercase rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
                   Question
                 </div>
               </div>
@@ -55,7 +55,7 @@ export const FormattedKBContent = ({ content }: FormattedKBContentProps) => {
           return (
             <div key={key} className="space-y-2">
               <div className="flex gap-2 items-start">
-                <div className="flex-shrink-0 px-2 py-1 text-xs font-semibold uppercase rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                <div className="font-display flex-shrink-0 px-2 py-1 text-xs font-semibold uppercase rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
                   Answer
                 </div>
               </div>

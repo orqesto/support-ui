@@ -693,7 +693,7 @@ export const ConfluenceCatalogSection = ({
   return (
     <section className="mb-6 space-y-3">
       <div>
-        <h2 className="text-lg font-semibold">Confluence</h2>
+        <h2 className="font-display text-lg font-semibold">Confluence</h2>
         <p className="text-sm text-muted-foreground">
           Browse your spaces and pick the folders or pages to answer from. Adding a folder pulls
           in everything inside it — including nested sub-folders — and keeps it in sync.

@@ -32,7 +32,7 @@ export const FeatureUnavailable = ({ title, description }: FeatureUnavailablePro
           <Construction className="h-6 w-6 text-muted-foreground" />
         </span>
         <div className="space-y-1">
-          <h1 className="text-lg font-semibold text-foreground">
+          <h1 className="font-display text-lg font-semibold text-foreground">
             {title ? `${title} isn’t available yet` : 'This page isn’t available yet'}
           </h1>
           <p className="text-sm text-muted-foreground">

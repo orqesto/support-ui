@@ -118,7 +118,7 @@ export const WorkspaceDetailsSettings = () => {
     return (
       <div className="flex flex-col justify-center items-center min-h-[200px]">
         <Building2 className="mb-4 w-16 h-16 text-gray-400" />
-        <h2 className="mb-2 text-2xl font-bold text-foreground">No Workspace</h2>
+        <h2 className="font-display mb-2 text-2xl font-bold text-foreground">No Workspace</h2>
         <p className="max-w-md text-center text-muted-foreground">
           You are not currently associated with a workspace.
         </p>

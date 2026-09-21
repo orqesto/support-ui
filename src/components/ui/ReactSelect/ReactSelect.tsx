@@ -9,7 +9,7 @@ import { ChipDropdownIndicator } from './ChipDropdownIndicator';
 import type { SelectProps, Option } from './reactSelect.types';
 
 const CHIP_CONTROL =
-  'inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-medium uppercase tracking-wide transition-colors cursor-pointer !min-h-0 h-auto shadow-none outline-none';
+  'font-display inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-medium uppercase tracking-[0.09em] transition-colors cursor-pointer !min-h-0 h-auto shadow-none outline-none';
 
 export const ReactSelect = forwardRef<unknown, SelectProps>(
   ({ label, error, value, onChange, options, id, className, variant = 'default', ...props }, _ref) => {

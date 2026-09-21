@@ -119,7 +119,7 @@ export const LabelsSettings = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Labels</h2>
+          <h2 className="font-display text-lg font-semibold">Labels</h2>
           <p className="text-sm text-muted-foreground">
             Create labels to categorise and filter tickets. Only admins and moderators can manage labels.
           </p>
@@ -135,7 +135,7 @@ export const LabelsSettings = () => {
       {/* Create / Edit Form */}
       {isEditing && (
         <div className="p-4 rounded-lg border space-y-4">
-          <h3 className="text-sm font-medium">{editingLabel ? 'Edit Label' : 'New Label'}</h3>
+          <h3 className="font-display text-sm font-medium">{editingLabel ? 'Edit Label' : 'New Label'}</h3>
           <div className="flex items-center gap-3">
             {/* Color swatch preview */}
             <div

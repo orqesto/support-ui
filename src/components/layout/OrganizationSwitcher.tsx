@@ -104,7 +104,7 @@ export const OrganizationSwitcher = () => {
     <>
       {organizations.length === 1 && selectedOrganizationId ? (
         <div className="mb-3 p-2.5 rounded-lg bg-muted/10 border border-primary/20">
-          <p className="mb-2 text-xs font-semibold tracking-wide uppercase text-muted-foreground">
+          <p className="font-display mb-2 text-xs font-semibold tracking-[0.09em] uppercase text-muted-foreground">
             Workspace
           </p>
           <div className="flex gap-2 items-center mb-1.5">

@@ -176,7 +176,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
             <UserPlus className="w-6 h-6 text-muted-foreground" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold">Create User</h2>
+            <h2 className="font-display text-xl font-semibold">Create User</h2>
             <p className="text-sm text-muted-foreground">Create a new user account directly</p>
           </div>
         </div>

@@ -89,7 +89,7 @@ export function MessageActionStrip({
 
   const btnBase =
     'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded text-[11px] font-medium transition-colors disabled:opacity-50';
-  const statusLabel = 'font-mono text-[9px] tracking-wide uppercase text-muted-foreground mb-1.5';
+  const statusLabel = 'font-display text-[9px] tracking-[0.09em] uppercase text-muted-foreground mb-1.5 font-medium';
   const strip = 'flex-shrink-0 px-4 pt-2 pb-2.5 border-t border-border';
 
   // A customer reply makes this an ACTIVE conversation even while the status is

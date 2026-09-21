@@ -745,7 +745,7 @@ export function MessageDetailHeader({
 
       {/* Subject + Sender */}
       <div className="px-4 pb-2">
-        <h2 className="text-[15px] font-medium leading-snug line-clamp-2 mb-1.5 text-foreground">
+        <h2 className="font-display text-[15px] font-medium leading-snug line-clamp-2 mb-1.5 text-foreground">
           {message.subject ?? '(no subject)'}
         </h2>
         <div className="flex gap-2 items-center">

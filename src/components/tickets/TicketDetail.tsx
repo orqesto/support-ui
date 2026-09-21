@@ -226,7 +226,7 @@ export const TicketDetail = ({
       <div className="space-y-4">
         <div>
           <div className="flex gap-3 items-center mb-2">
-            <h2 className="flex-1 text-2xl font-bold">{ticket.title}</h2>
+            <h2 className="font-display flex-1 text-2xl font-bold">{ticket.title}</h2>
             <span className="px-2 py-1 font-mono text-xs rounded bg-muted text-muted-foreground">
               #{ticket.id}
             </span>
@@ -407,13 +407,13 @@ export const TicketDetail = ({
       {/* Meta strip — From, Created, Assigned */}
       <div className="pt-4 border-t">
         <div className="grid grid-cols-[80px_1fr] gap-x-4 gap-y-2.5 items-center">
-          <span className="font-mono text-[11px] tracking-wide uppercase text-muted-foreground">From</span>
+          <span className="font-display text-[11px] tracking-[0.09em] uppercase text-muted-foreground font-medium">From</span>
           <span className="text-sm font-medium truncate">{ticket.sender}</span>
 
-          <span className="font-mono text-[11px] tracking-wide uppercase text-muted-foreground">Created</span>
+          <span className="font-display text-[11px] tracking-[0.09em] uppercase text-muted-foreground font-medium">Created</span>
           <span className="text-sm text-muted-foreground">{formatDate(ticket.createdAt)}</span>
 
-          <span className="font-mono text-[11px] tracking-wide uppercase text-muted-foreground self-center">Assigned</span>
+          <span className="font-display text-[11px] tracking-[0.09em] uppercase text-muted-foreground self-center font-medium">Assigned</span>
           <AssignmentSelect
             type="ticket"
             itemId={ticket.id}
@@ -463,7 +463,7 @@ export const TicketDetail = ({
       {/* Description */}
       <div className="pt-6 border-t">
         <div className="flex justify-between items-center mb-3">
-          <h3 className="text-sm font-semibold text-muted-foreground">Description</h3>
+          <h3 className="font-display text-sm font-semibold text-muted-foreground">Description</h3>
           <div className="flex gap-1 items-center">
             {hasManageTickets && !ticket.externalId && !editingDescription && (
               <Button

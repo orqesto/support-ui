@@ -303,7 +303,7 @@ export const TicketFilters = ({
 function FilterSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="py-3 space-y-3">
-      <span className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/60">
+      <span className="font-display text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/60">
         {label}
       </span>
       {children}

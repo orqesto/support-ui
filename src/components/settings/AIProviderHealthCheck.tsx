@@ -239,7 +239,7 @@ export const AIProviderHealthCheck = () => {
             */}
             {dormant.length > 0 && (
               <div className="mt-6">
-                <h4 className="text-sm font-medium text-muted-foreground">
+                <h4 className="font-display text-sm font-medium text-muted-foreground">
                   Your own keys — not in use while managed AI is on
                 </h4>
                 <p className="text-xs text-muted-foreground mt-1">

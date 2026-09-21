@@ -343,7 +343,7 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
               <ArrowLeft className="w-4 h-4" />
               Back to members
             </Button>
-            <h1 className="mt-2 text-3xl font-bold">{isEditingSelf ? 'Edit Profile' : 'Edit User'}</h1>
+            <h1 className="font-display mt-2 text-3xl font-bold">{isEditingSelf ? 'Edit Profile' : 'Edit User'}</h1>
             <p className="mt-2 text-muted-foreground">
               {user.firstName} {user.lastName} · {user.email}
             </p>

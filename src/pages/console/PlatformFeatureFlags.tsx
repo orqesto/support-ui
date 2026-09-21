@@ -228,7 +228,7 @@ export const PlatformFeatureFlags = () => {
           {grouped.map(([group, flags]) => (
             <Card key={group}>
               <CardHeader>
-                <CardTitle className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
+                <CardTitle className="font-display text-xs uppercase tracking-[0.09em] text-muted-foreground font-medium">
                   {group}
                 </CardTitle>
               </CardHeader>

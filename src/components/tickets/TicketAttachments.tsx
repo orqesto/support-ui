@@ -229,7 +229,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h3 className="flex gap-2 items-center text-base font-semibold">
+        <h3 className="font-display flex gap-2 items-center text-base font-semibold">
           <Paperclip className="w-4 h-4" />
           Attachments
           <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground rounded-full">
@@ -271,16 +271,16 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
               <tr>
-                <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-500 uppercase dark:text-gray-400">
+                <th className="font-display px-4 py-2 text-xs font-medium tracking-[0.09em] text-left text-gray-500 uppercase dark:text-gray-400">
                   Name
                 </th>
-                <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-500 uppercase dark:text-gray-400">
+                <th className="font-display px-4 py-2 text-xs font-medium tracking-[0.09em] text-left text-gray-500 uppercase dark:text-gray-400">
                   Size
                 </th>
-                <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-500 uppercase dark:text-gray-400">
+                <th className="font-display px-4 py-2 text-xs font-medium tracking-[0.09em] text-left text-gray-500 uppercase dark:text-gray-400">
                   Date added
                 </th>
-                <th className="px-4 py-2 text-xs font-medium tracking-wider text-right text-gray-500 uppercase dark:text-gray-400">
+                <th className="font-display px-4 py-2 text-xs font-medium tracking-[0.09em] text-right text-gray-500 uppercase dark:text-gray-400">
                   Actions
                 </th>
               </tr>

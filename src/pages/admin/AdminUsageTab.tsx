@@ -501,7 +501,7 @@ export const AdminUsageTab = () => {
                             {/* ── Subscription Details ── */}
                             <div className="space-y-3">
                               <div className="flex flex-wrap gap-2 justify-between items-center">
-                                <h4 className="text-sm font-semibold text-muted-foreground">
+                                <h4 className="font-display text-sm font-semibold text-muted-foreground">
                                   Subscription Details
                                 </h4>
                                 <div className="flex flex-wrap gap-2">

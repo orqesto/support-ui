@@ -46,7 +46,7 @@ export const DashboardKBSection = ({ kbQAPairs, kbDocuments, kbDocumentation }: 
 
   return (
     <div>
-      <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
+      <h2 className="font-display text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-[0.09em]">
         Knowledge Base
       </h2>
       <div className="grid gap-4 sm:grid-cols-3">

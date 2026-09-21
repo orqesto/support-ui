@@ -58,7 +58,7 @@ export const ScimTelemetryCard = ({ telemetry }: { telemetry: AllianceScimTeleme
     <CardContent className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="p-3 space-y-1 rounded-md border border-border">
-          <p className="text-xs font-medium tracking-wide uppercase text-muted-foreground">
+          <p className="font-display text-xs font-medium tracking-[0.09em] uppercase text-muted-foreground">
             Tokens
           </p>
           <p className="text-sm text-foreground">
@@ -73,7 +73,7 @@ export const ScimTelemetryCard = ({ telemetry }: { telemetry: AllianceScimTeleme
           </p>
         </div>
         <div className="p-3 space-y-1 rounded-md border border-border">
-          <p className="text-xs font-medium tracking-wide uppercase text-muted-foreground">
+          <p className="font-display text-xs font-medium tracking-[0.09em] uppercase text-muted-foreground">
             Groups
           </p>
           <p className="text-sm text-foreground">

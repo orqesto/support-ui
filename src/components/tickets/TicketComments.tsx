@@ -283,7 +283,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
     <div className="space-y-4">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h3 className="flex gap-2 items-center text-lg font-semibold">
+        <h3 className="font-display flex gap-2 items-center text-lg font-semibold">
           <MessageSquare className="w-5 h-5" />
           Comments ({comments.length})
         </h3>

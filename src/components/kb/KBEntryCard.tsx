@@ -62,7 +62,7 @@ export const KBEntryCard = ({
       <div className="flex-1 min-w-0">
         {/* Header */}
         <div className="flex items-start justify-between gap-2 mb-2">
-          <h3 className="font-medium text-sm truncate">{entry.title}</h3>
+          <h3 className="font-display font-medium text-sm truncate">{entry.title}</h3>
           {/* Approving an entry makes it retrievable ground truth for future AI
               answers, so a reviewer must be told when the "expert answer" they
               are about to bless was written by the model rather than a colleague. */}

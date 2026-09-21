@@ -102,7 +102,9 @@ type OrgAiUsageSectionProps = {
 
 export const OrgAiUsageSection = ({ aiCalls }: OrgAiUsageSectionProps) => (
   <div className="space-y-2">
-    <h4 className="text-sm font-semibold text-muted-foreground">AI Usage This Month</h4>
+    <h4 className="font-display text-sm font-semibold text-muted-foreground">
+      AI Usage This Month
+    </h4>
     <div className="p-4 rounded-lg border bg-card border-border">
       <div className="flex justify-between items-start mb-2">
         <div>
@@ -198,7 +200,7 @@ export const OrgFeatureOverridesSection = ({ orgId }: { orgId: number }) => {
     <div className="space-y-3">
       <div>
         <div className="flex justify-between items-center">
-          <h4 className="text-sm font-semibold text-muted-foreground">
+          <h4 className="font-display text-sm font-semibold text-muted-foreground">
             Feature Access — per-org overrides
           </h4>
           {error && <span className="text-xs text-destructive">{error}</span>}
@@ -215,7 +217,7 @@ export const OrgFeatureOverridesSection = ({ orgId }: { orgId: number }) => {
         <div className="space-y-4">
           {categories.map((cat) => (
             <div key={cat}>
-              <p className="mb-2 text-xs font-medium tracking-wide uppercase text-muted-foreground">
+              <p className="font-display mb-2 text-xs font-medium tracking-[0.09em] uppercase text-muted-foreground">
                 {cat}
               </p>
               <div className="space-y-1">

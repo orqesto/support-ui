@@ -80,7 +80,7 @@ export const MessageKBReferences = ({ messageId }: MessageKBReferencesProps) => 
     <div className="p-4 mb-4 bg-ai-muted rounded-lg border-2 border-ai-line">
       <div className="flex gap-2 items-center mb-3">
         <BookOpen className="w-5 h-5 text-ai" />
-        <h3 className="font-semibold text-ai">
+        <h3 className="font-display font-semibold text-ai">
           Knowledge Base References
         </h3>
         <span className="text-xs text-ai">
@@ -114,7 +114,7 @@ export const MessageKBReferences = ({ messageId }: MessageKBReferencesProps) => 
                     </span>
                   )}
                 </div>
-                <h4 className="text-sm font-semibold text-ai">
+                <h4 className="font-display text-sm font-semibold text-ai">
                   {ref.title}
                 </h4>
                 <p className="mt-1 text-xs text-ai line-clamp-2">

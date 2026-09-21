@@ -59,7 +59,7 @@ export const SystemManagementSettings = () => {
       <div className="space-y-6">
         <div className="bg-red-50 dark:bg-red-950/20 rounded-lg border-2 border-destructive-line p-8 text-center">
           <ShieldAlert className="w-16 h-16 text-destructive mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-destructive mb-2">
+          <h2 className="font-display text-xl font-semibold text-destructive mb-2">
             Access Denied
           </h2>
           <p className="text-muted-foreground">
@@ -234,7 +234,7 @@ export const SystemManagementSettings = () => {
       )}
 
       <div>
-        <h2 className="mb-2 text-lg font-semibold">System Management</h2>
+        <h2 className="font-display mb-2 text-lg font-semibold">System Management</h2>
         <p className="text-sm text-muted-foreground">
           Dangerous system operations that affect your entire workspace. Use with extreme
           caution.
@@ -243,7 +243,7 @@ export const SystemManagementSettings = () => {
 
       {/* Queue Management */}
       <div className="p-6 bg-white rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
-        <h3 className="flex gap-2 items-center mb-4 font-semibold text-md">
+        <h3 className="font-display flex gap-2 items-center mb-4 font-semibold text-md">
           <StopCircle className="w-5 h-5 text-warning" />
           Queue Management
         </h3>
@@ -294,7 +294,7 @@ export const SystemManagementSettings = () => {
 
       {/* Data Cleanup */}
       <div className="p-6 bg-white rounded-lg border border-red-200 dark:bg-gray-800 dark:border-red-900">
-        <h3 className="flex gap-2 items-center mb-4 font-semibold text-md">
+        <h3 className="font-display flex gap-2 items-center mb-4 font-semibold text-md">
           <Database className="w-5 h-5 text-destructive" />
           Data Cleanup
         </h3>
@@ -390,7 +390,7 @@ export const SystemManagementSettings = () => {
 
       {/* Nuclear Zone */}
       <div className="p-6 bg-red-50 rounded-lg border-2 border-red-500 dark:bg-red-950/20 dark:border-red-800">
-        <h3 className="flex gap-2 items-center mb-4 font-semibold text-red-600 text-md dark:text-red-400">
+        <h3 className="font-display flex gap-2 items-center mb-4 font-semibold text-red-600 text-md dark:text-red-400">
           <AlertTriangle className="w-5 h-5" />
           Danger Zone - Nuclear Cleanup
         </h3>

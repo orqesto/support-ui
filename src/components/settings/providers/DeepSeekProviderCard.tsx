@@ -223,7 +223,7 @@ export const DeepSeekProviderCard = ({
         {/* Add/Edit form */}
         {showForm && (
           <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
-            <h4 className="font-medium">
+            <h4 className="font-display font-medium">
               {editingId ? 'Edit DeepSeek Configuration' : 'Add DeepSeek Configuration'}
             </h4>
             <div className="space-y-3">

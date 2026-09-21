@@ -107,7 +107,7 @@ export const SLAConfigSettings = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="flex gap-2 items-center text-sm font-semibold mb-1">
+        <h3 className="font-display flex gap-2 items-center text-sm font-semibold mb-1">
           <Timer className="w-4 h-4" />
           SLA Thresholds
         </h3>
@@ -118,7 +118,7 @@ export const SLAConfigSettings = () => {
 
       {/* Ticket SLA */}
       <div>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Ticket SLA</p>
+        <p className="font-display text-xs font-medium text-muted-foreground uppercase tracking-[0.09em] mb-2">Ticket SLA</p>
         <div className="rounded-lg border border-border bg-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -168,7 +168,7 @@ export const SLAConfigSettings = () => {
 
       {/* Message SLA */}
       <div>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Message SLA</p>
+        <p className="font-display text-xs font-medium text-muted-foreground uppercase tracking-[0.09em] mb-2">Message SLA</p>
         <div className="rounded-lg border border-border bg-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

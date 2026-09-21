@@ -87,7 +87,7 @@ export const RulesSettings = ({ section }: RulesSettingsProps = {}) => {
       {/* Header with Rule Type Switcher */}
       <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-start">
         <div>
-          <h2 className="flex gap-2 items-center text-xl font-semibold">
+          <h2 className="font-display flex gap-2 items-center text-xl font-semibold">
             <Shield className="w-5 h-5" />
             Rules Management
           </h2>

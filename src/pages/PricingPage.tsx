@@ -100,13 +100,13 @@ export const PricingPage = () => {
       <div className="p-6 w-full space-y-12">
         <Button variant="ghost" size="sm" onClick={() => navigate('/subscription')}><ArrowLeft className="mr-2 w-4 h-4" />Back</Button>
         <div className="text-center">
-          <h1 className="mb-3 text-4xl font-bold">Choose Your Plan</h1>
+          <h1 className="font-display mb-3 text-4xl font-bold">Choose Your Plan</h1>
           <p className="text-xl text-gray-400">Scale your support operations with flexible pricing</p>
         </div>
 
         {/* Base Plans */}
         <div>
-          <h2 className="mb-6 text-2xl font-bold">Base Plans</h2>
+          <h2 className="font-display mb-6 text-2xl font-bold">Base Plans</h2>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             {basePlans.map((plan) => <BasePlanCard key={plan.id} plan={plan} currentPlanName={currentPlanName} upgrading={upgrading} onSelect={handleSelectPlan} />)}
           </div>
@@ -115,7 +115,7 @@ export const PricingPage = () => {
         {/* Admin/Enterprise Plans */}
         {isGlobalAdmin && enterprisePlans.length > 0 && (
           <div>
-            <h2 className="mb-6 text-2xl font-bold flex items-center gap-2"><Shield className="w-6 h-6 text-purple-600" />Administrator Plans</h2>
+            <h2 className="font-display mb-6 text-2xl font-bold flex items-center gap-2"><Shield className="w-6 h-6 text-purple-600" />Administrator Plans</h2>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               {enterprisePlans.map((plan) => <EnterprisePlanCard key={plan.id} plan={plan} currentPlanName={currentPlanName} upgrading={upgrading} onSelect={handleSelectPlan} />)}
             </div>
@@ -125,7 +125,7 @@ export const PricingPage = () => {
         {/* Enterprise CTA */}
         <Card className="text-white bg-gradient-to-r from-gray-900 to-gray-800">
           <CardContent className="p-12 text-center">
-            <h2 className="mb-3 text-3xl font-bold">Enterprise</h2>
+            <h2 className="font-display mb-3 text-3xl font-bold">Enterprise</h2>
             <p className="mb-6 text-xl text-gray-300">Custom solutions for large teams with specific requirements</p>
             <div className="flex flex-wrap gap-6 justify-center mb-8">
               {['Unlimited users','Custom integrations','Dedicated support','SLA guarantees'].map((feat) => (
@@ -138,14 +138,14 @@ export const PricingPage = () => {
 
         {/* FAQ */}
         <div className="mx-auto max-w-3xl">
-          <h2 className="mb-6 text-2xl font-bold text-center">Frequently Asked Questions</h2>
+          <h2 className="font-display mb-6 text-2xl font-bold text-center">Frequently Asked Questions</h2>
           <div className="space-y-6">
             {[
               { question: 'Can I change plans later?', answer: 'Yes, you can upgrade or downgrade your plan at any time. Plan changes take effect immediately.' },
               { question: 'What happens if I exceed my limits?', answer: "You'll be prompted to upgrade to a higher plan with more capacity." },
               { question: 'Is there a free trial?', answer: 'Yes, all plans come with a 14-day free trial. No credit card required.' },
             ].map(({ question, answer }) => (
-              <div key={question}><h3 className="mb-2 font-semibold">{question}</h3><p className="text-gray-400">{answer}</p></div>
+              <div key={question}><h3 className="font-display mb-2 font-semibold">{question}</h3><p className="text-gray-400">{answer}</p></div>
             ))}
           </div>
         </div>

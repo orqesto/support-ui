@@ -12,7 +12,8 @@ import { useAuthStore } from '@/stores/authStore';
 
 // Mirror the BE password policy for instant UX feedback (BE re-enforces): at
 // least 8 chars, one uppercase letter, one digit.
-const PASSWORD_HINT = 'At least 8 characters, with one uppercase letter and one number.';
+const PASSWORD_HINT =
+  'font-display At least 8 characters, with one uppercase letter and one number. font-medium';
 const isPasswordStrong = (password: string) =>
   password.length >= 8 && /[A-Z]/.test(password) && /\d/.test(password);
 

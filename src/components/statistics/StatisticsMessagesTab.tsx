@@ -165,7 +165,7 @@ export function StatisticsMessagesTab({ msgStats, msgLoading, labelStats, labelL
                       const total = msgStats.languageBreakdown.reduce((sum, row) => sum + row.count, 0);
                       return msgStats.languageBreakdown.slice(0, 10).map((item) => (
                         <div key={item.language} className="flex justify-between items-center">
-                          <span className="text-sm font-mono uppercase">{item.language}</span>
+                          <span className="text-sm font-display uppercase font-medium">{item.language}</span>
                           <div className="flex items-center gap-3"><div className="w-24 h-2 rounded-full bg-muted overflow-hidden"><div className="h-2 rounded-full bg-primary" style={{ width: total > 0 ? `${Math.round((item.count / total) * 100)}%` : '0%' }} /></div><span className="text-sm font-medium tabular-nums w-8 text-right">{item.count}</span></div>
                         </div>
                       ));

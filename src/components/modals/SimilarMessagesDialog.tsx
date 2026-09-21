@@ -307,7 +307,7 @@ export const SimilarMessagesDialog = ({
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex gap-2 items-center">
                     <Sparkles className="w-5 h-5 text-ai" />
-                    <h3 className="text-base font-semibold">AI-Generated Response</h3>
+                    <h3 className="font-display text-base font-semibold">AI-Generated Response</h3>
                   </div>
                   <div className="flex flex-col gap-1 items-end">
                     <div className="flex gap-1 items-center text-sm font-semibold text-primary">
@@ -423,7 +423,7 @@ export const SimilarMessagesDialog = ({
           {/* Search Results Section */}
           {!loading && aiMode === 'ai-generated' && similarMessages.length > 0 && (
             <div className="mb-2">
-              <h4 className="text-xs font-medium tracking-wide uppercase text-muted-foreground">
+              <h4 className="font-display text-xs font-medium tracking-[0.09em] uppercase text-muted-foreground">
                 Or choose from sources:
               </h4>
             </div>
@@ -473,7 +473,7 @@ export const SimilarMessagesDialog = ({
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <div className="flex gap-2 items-center mb-1">
-                        <h3 className="flex gap-2 items-center text-sm font-semibold">
+                        <h3 className="font-display flex gap-2 items-center text-sm font-semibold">
                           {msg.source === 'documentation' ? (
                             <>
                               <BookOpen className="w-4 h-4 text-muted-foreground" />

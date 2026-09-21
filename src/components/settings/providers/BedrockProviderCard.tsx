@@ -84,7 +84,7 @@ const CopyButton = ({ value, label }: { value: string; label: string }) => {
 const PolicyBlock = ({ title, body }: { title: string; body: string }) => (
   <div className="space-y-1">
     <div className="flex justify-between items-center">
-      <h6 className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">
+      <h6 className="font-display text-xs font-semibold tracking-[0.09em] uppercase text-muted-foreground">
         {title}
       </h6>
       <CopyButton value={body} label={title} />
@@ -413,7 +413,7 @@ export const BedrockProviderCard = ({
         {/* Add/Edit form */}
         {showForm && (
           <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
-            <h4 className="font-medium">
+            <h4 className="font-display font-medium">
               {editingId ? 'Edit Bedrock Configuration' : 'Add Bedrock Configuration'}
             </h4>
 

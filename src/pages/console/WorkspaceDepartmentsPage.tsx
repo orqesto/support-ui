@@ -149,7 +149,7 @@ export const WorkspaceDepartmentsPage = () => {
     <div className="space-y-6">
       <header className="space-y-1">
         <div className="flex flex-wrap gap-3 items-center">
-          <h1 className="text-xl font-semibold text-foreground">Departments</h1>
+          <h1 className="font-display text-xl font-semibold text-foreground">Departments</h1>
           <Badge variant={overBudget ? 'warning' : 'success'}>
             {unlimited
               ? `${budget.activeCount} active · unlimited`

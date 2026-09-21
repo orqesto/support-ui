@@ -122,7 +122,7 @@ export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="flex gap-2 items-center text-xl font-semibold">
+        <h2 className="font-display flex gap-2 items-center text-xl font-semibold">
           <BrainCog className="w-5 h-5" />
           AI Configuration
         </h2>

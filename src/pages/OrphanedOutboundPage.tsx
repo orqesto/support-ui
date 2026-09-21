@@ -93,7 +93,7 @@ export const OrphanedOutbound = () => {
     <div className="space-y-4">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
+            <h1 className="font-display text-2xl font-bold flex items-center gap-2">
               <MailWarning className="w-6 h-6" />
               Orphaned Outbound
             </h1>
@@ -158,16 +158,16 @@ export const OrphanedOutbound = () => {
               <table className="min-w-full divide-y divide-border">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-left text-muted-foreground">
+                    <th className="font-display px-4 py-3 text-xs font-medium uppercase tracking-[0.09em] text-left text-muted-foreground">
                       Recipient
                     </th>
-                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-left text-muted-foreground">
+                    <th className="font-display px-4 py-3 text-xs font-medium uppercase tracking-[0.09em] text-left text-muted-foreground">
                       Subject
                     </th>
-                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-left text-muted-foreground">
+                    <th className="font-display px-4 py-3 text-xs font-medium uppercase tracking-[0.09em] text-left text-muted-foreground">
                       Sent
                     </th>
-                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-right text-muted-foreground">
+                    <th className="font-display px-4 py-3 text-xs font-medium uppercase tracking-[0.09em] text-right text-muted-foreground">
                       Actions
                     </th>
                   </tr>

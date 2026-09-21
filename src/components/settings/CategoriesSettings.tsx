@@ -161,7 +161,7 @@ export const CategoriesSettings = () => {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-start">
         <div>
-          <h3 className="text-lg font-semibold">Ticket Categories</h3>
+          <h3 className="font-display text-lg font-semibold">Ticket Categories</h3>
           <p className="text-sm text-muted-foreground">
             Manage categories for automatic ticket classification
           </p>
@@ -176,7 +176,7 @@ export const CategoriesSettings = () => {
       {/* New Category Form */}
       {isCreating && (
         <div className="p-4 space-y-4 rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
-          <h4 className="font-semibold">New Category</h4>
+          <h4 className="font-display font-semibold">New Category</h4>
           <div className="grid gap-4">
             <div>
               <label htmlFor="name" className="text-sm font-medium">
@@ -243,7 +243,7 @@ export const CategoriesSettings = () => {
           >
             {editingCategory?.id === category.id ? (
               <div className="space-y-4">
-                <h4 className="font-semibold">Edit Category</h4>
+                <h4 className="font-display font-semibold">Edit Category</h4>
                 <div className="grid gap-4">
                   <div>
                     <label htmlFor="name" className="text-sm font-medium">
@@ -296,7 +296,7 @@ export const CategoriesSettings = () => {
                 <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <h4 className="text-lg font-semibold">{category.name}</h4>
+                      <h4 className="font-display text-lg font-semibold">{category.name}</h4>
                       <DepartmentBadge departmentId={category.departmentId} nullVariant="baseline" />
                     </div>
 

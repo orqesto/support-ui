@@ -106,7 +106,7 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
 
   return (
     <div className="space-y-3">
-      <h3 className="flex gap-2 items-center text-sm font-semibold text-muted-foreground">
+      <h3 className="font-display flex gap-2 items-center text-sm font-semibold text-muted-foreground">
         <MessageSquare className="w-4 h-4" />
         Internal Notes ({notes.length})
       </h3>

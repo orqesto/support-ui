@@ -56,7 +56,7 @@ export function InlineNoteBubble({ note, messageId, currentUserId, onUpdated, on
       <StickyNote className="w-3.5 h-3.5 text-muted-foreground dark:text-amber-500 flex-shrink-0 mt-1" />
       <div className="flex flex-col flex-1 max-w-[90%]">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className="font-mono text-[9px] uppercase tracking-widest text-foreground/55 dark:text-amber-400">
+          <span className="font-display text-[9px] uppercase tracking-widest text-foreground/55 dark:text-amber-400 font-medium">
             INTERNAL NOTE · {who} · {relativeTime(note.createdAt)}
           </span>
           {isOwner && !isEditing && (

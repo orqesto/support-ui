@@ -76,7 +76,7 @@ export const MessageSourcesSettings = () => {
       */}
       <div className="space-y-6">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Channels</h2>
+          <h2 className="font-display text-lg font-semibold text-foreground">Channels</h2>
           <p className="text-sm text-muted-foreground">
             Inboxes and chat connections that receive and process incoming messages. Any
             channel can also be mined for Knowledge Base content — enable that on the
@@ -120,7 +120,7 @@ export const MessageSourcesSettings = () => {
       {/* Spaces — document sources, not channels. Notion/Google Docs and uploads join here. */}
       <div className="space-y-6">
         <div className="pt-4 border-t">
-          <h2 className="text-lg font-semibold text-foreground">Spaces</h2>
+          <h2 className="font-display text-lg font-semibold text-foreground">Spaces</h2>
           <p className="text-sm text-muted-foreground">
             Document sources mined for Q&amp;A pairs and documentation used in AI-powered
             responses. Unlike channels, these never receive messages.

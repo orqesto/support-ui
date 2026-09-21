@@ -90,7 +90,7 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="flex gap-2 items-center text-xl font-semibold">
+        <h2 className="font-display flex gap-2 items-center text-xl font-semibold">
           <Plug className="w-5 h-5" />
           Integrations
         </h2>

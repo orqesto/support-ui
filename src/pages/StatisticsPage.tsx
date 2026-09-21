@@ -242,7 +242,7 @@ export const StatisticsPage = () => {
         {/* Header */}
         <div className="flex flex-wrap justify-between items-start gap-3">
           <div>
-            <h1 className="text-2xl font-bold sm:text-3xl">Analytics & Statistics</h1>
+            <h1 className="font-display text-2xl font-bold sm:text-3xl">Analytics & Statistics</h1>
             <p className="mt-1 text-sm text-muted-foreground sm:mt-2 sm:text-base">
               Comprehensive insights across channels, categories, and SLA performance
             </p>

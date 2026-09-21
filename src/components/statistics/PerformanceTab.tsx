@@ -65,7 +65,7 @@ export function PerformanceTab({
       </div>
 
       <section id="sla" className="space-y-6 scroll-mt-20">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <h2 className="font-display flex items-center gap-2 text-lg font-semibold">
           <Clock className="w-5 h-5 text-muted-foreground" />SLA
         </h2>
         <SLAOverviewCards days={days} />
@@ -78,7 +78,7 @@ export function PerformanceTab({
       </section>
 
       <section id="response" className="space-y-4 scroll-mt-20 border-t pt-8">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <h2 className="font-display flex items-center gap-2 text-lg font-semibold">
           <Timer className="w-5 h-5 text-muted-foreground" />Response &amp; Resolution
         </h2>
         <StatisticsMessagesTab
@@ -91,7 +91,7 @@ export function PerformanceTab({
       </section>
 
       <section id="leads" className="space-y-4 scroll-mt-20 border-t pt-8">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <h2 className="font-display flex items-center gap-2 text-lg font-semibold">
           <Zap className="w-5 h-5 text-muted-foreground" />Speed to Lead
         </h2>
         <SpeedToLeadTab speedData={speedData} speedLoading={speedLoading} speedDays={speedDays} />

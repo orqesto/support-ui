@@ -91,7 +91,8 @@ export type RuleEditorProps<
   renderPattern?: (pattern: string) => string;
 };
 
-const thClass = 'px-4 py-3 text-xs font-medium tracking-wider uppercase text-muted-foreground';
+const thClass =
+  'font-display px-4 py-3 text-xs font-medium tracking-[0.09em] uppercase text-muted-foreground';
 
 function alignClass(align?: 'left' | 'center' | 'right') {
   if (align === 'center') return 'text-center';
@@ -201,7 +202,7 @@ export function RuleEditor<
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-start">
         <div>
-          <h3 className="text-lg font-semibold">{title}</h3>
+          <h3 className="font-display text-lg font-semibold">{title}</h3>
           <p className="text-sm text-muted-foreground">{description}</p>
         </div>
         {!showPlaceholder && (
@@ -232,7 +233,7 @@ export function RuleEditor<
               style={{ top: filterPos.top, left: filterPos.left }}
             >
               <div className="p-2">
-                <p className="px-2 mb-1 text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">
+                <p className="font-display px-2 mb-1 text-[10px] font-semibold tracking-[0.09em] uppercase text-muted-foreground">
                   Filter by department
                 </p>
                 <Button

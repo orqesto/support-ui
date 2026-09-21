@@ -152,7 +152,7 @@ export const EmailForm = ({
 
   return (
     <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
-      <h4 className="font-medium">{editingId ? 'Edit Email Account' : 'Add New Email Account'}</h4>
+      <h4 className="font-display font-medium">{editingId ? 'Edit Email Account' : 'Add New Email Account'}</h4>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Input

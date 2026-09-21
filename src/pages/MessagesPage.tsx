@@ -913,7 +913,7 @@ export const MessagesPage = () => {
                 <Card>
                   <CardContent className="p-12 text-center">
                     <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
-                    <h3 className="mb-2 text-lg font-semibold">No messages found</h3>
+                    <h3 className="font-display mb-2 text-lg font-semibold">No messages found</h3>
                     <p className="text-muted-foreground">
                       {activeFilterCount > 0
                         ? 'No messages match your filters'

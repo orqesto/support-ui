@@ -361,7 +361,7 @@ export const OnboardingWizard = () => {
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Set up your workspace</h1>
+            <h1 className="font-display text-2xl font-semibold text-foreground">Set up your workspace</h1>
             <p className="text-sm text-muted-foreground">
               A few quick steps. Finish setup to start your 14-day trial.
             </p>
@@ -380,7 +380,7 @@ export const OnboardingWizard = () => {
         <h2
           ref={stepHeadingRef}
           tabIndex={-1}
-          className="text-lg font-medium text-foreground outline-none"
+          className="font-display text-lg font-medium text-foreground outline-none"
         >
           <span className="sr-only">{`Step ${activeStep} of ${stepLabels.length}: `}</span>
           {STEP_TITLES[activeStep]}

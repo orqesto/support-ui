@@ -153,7 +153,7 @@ export const CustomApiSettings = ({
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-sm font-medium text-foreground">Your systems</h3>
+          <h3 className="font-display text-sm font-medium text-foreground">Your systems</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             Connect the system where your orders, shipments or bookings live, so agents can answer
             without leaving Odly.
