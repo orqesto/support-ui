@@ -207,7 +207,21 @@ export const LIFECYCLE_COLUMN_BADGE: Record<string, { label: string; className: 
 // to. Removing the string here would hide the read/unread control on exactly that lens,
 // which is the defect the comment in `filterSchema.ts` was written to fix. It is the
 // COLUMN-keyed sets below that no longer need it.
-export const TRIAGE_READ_COLUMN_IDS = new Set(['suspicious', 'not_analysed', 'archived', 'spam']);
+/**
+ * ⛔ THE TWO SPAM HALVES BELONG HERE TOO. This set decides where the read/unread control and
+ * the unread dot appear, and `spam_unconfirmed` is the lens an agent actually works — leaving
+ * it out would hide the control on exactly the queue it is for, which is the defect
+ * `readAppliesTo` was already fixed for once when the quick chips set `columnId` and zeroed
+ * `queue`. The halves partition `spam`, so anything true of spam here is true of both.
+ */
+export const TRIAGE_READ_COLUMN_IDS = new Set([
+  'suspicious',
+  'not_analysed',
+  'archived',
+  'spam',
+  'spam_unconfirmed',
+  'spam_confirmed',
+]);
 
 // Special drop target on the Triage tab: approve a triaged message → it leaves triage
 // and enters the lifecycle at "Open". Not a column (the lifecycle board is another tab).

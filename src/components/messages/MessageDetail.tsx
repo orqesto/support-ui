@@ -107,7 +107,7 @@ export type MessageDetailProps = {
    *  (park / resolve / reopen) from the detail header. */
   onOptimisticMove?: (columnId: string) => void;
   onClassify?: (
-    action: 'approve' | 'mark_suspicious' | 'move_to_spam',
+    action: 'approve' | 'mark_suspicious' | 'move_to_spam' | 'confirm_spam',
     createDetectionRule?: boolean,
     trainSpamFilter?: boolean
   ) => Promise<void>;
@@ -686,7 +686,7 @@ export function MessageDetail({
 
   const handleClassify = useCallback(
     async (
-      action: 'approve' | 'mark_suspicious' | 'move_to_spam',
+      action: 'approve' | 'mark_suspicious' | 'move_to_spam' | 'confirm_spam',
       createDetectionRule?: boolean,
       trainSpamFilter?: boolean
     ) => {

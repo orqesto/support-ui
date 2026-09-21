@@ -559,9 +559,14 @@ export const messageService = {
     return response.data;
   },
 
+  /**
+   * ⛔ `confirm_spam` IS NOT A RESOLVE, and must never be labelled as one (SP-D5). A confirmed
+   * spam thread keeps `status='filtered'`, so it never appears in the Resolved column — calling
+   * it "resolve" sends agents looking for the thread somewhere it can never be.
+   */
   classify: async (
     id: number,
-    action: 'approve' | 'mark_suspicious' | 'move_to_spam',
+    action: 'approve' | 'mark_suspicious' | 'move_to_spam' | 'confirm_spam',
     createDetectionRule?: boolean,
     // move_to_spam only: opt in to mint a learned spam rule from this message.
     trainSpamFilter?: boolean

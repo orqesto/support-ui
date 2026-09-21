@@ -166,6 +166,16 @@ export type Message = {
    * backend that sends it, and an absent flag must read as "not marked".
    */
   isSuspicious?: boolean;
+  /**
+   * WHEN an agent confirmed this really is spam (SP-D1). Null while the thread is merely
+   * filtered by the system, i.e. nobody has looked at it yet.
+   *
+   * ⛔ OPTIONAL, and absent must read as "this deployment cannot tell me" — never as "not
+   * confirmed". The backend ships on a tag while this frontend deploys on merge, so a bundle
+   * meets responses without the field; showing "not confirmed" for those would be a claim about
+   * an agent's work that nothing told us.
+   */
+  spamConfirmedAt?: string | null;
   // BE returns labels UNIONed from three sources (#16). `source` lets the FE
   // render an "inherited via contact" badge so agents understand why the
   // label is showing without having to look it up. Optional for back-compat

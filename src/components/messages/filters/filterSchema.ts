@@ -115,6 +115,13 @@ const QUEUE: FilterOption[] = [
   { value: 'archived', label: 'Archived' },
   { value: 'suspicious', label: 'Suspicious' },
   { value: 'spam', label: 'Spam' },
+  /**
+   * The two halves of Spam (SP-D3). They partition `spam` exactly: unconfirmed is the one an
+   * agent WORKS — the system put these here and no person has agreed yet — and confirmed is the
+   * settled residue. Backend since #757/#772; unreachable from any UI until now.
+   */
+  { value: 'spam_unconfirmed', label: 'Spam — to confirm' },
+  { value: 'spam_confirmed', label: 'Spam — confirmed' },
   // Our own sent mail ingestion could not pair with an inbound parent.
   //
   // ⚠️ It is no longer "the only way to reach those rows" — the board's Other column shows
