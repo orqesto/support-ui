@@ -214,13 +214,13 @@ export const WorkspaceDetailsSettings = () => {
                 <label htmlFor="createdAt" className="text-sm font-medium text-muted-foreground">
                   Created
                 </label>
-                <p className="mt-1 text-sm">{formatDate(organization.createdAt)}</p>
+                <p className="font-mono mt-1 text-sm">{formatDate(organization.createdAt)}</p>
               </div>
               <div>
                 <label htmlFor="updatedAt" className="text-sm font-medium text-muted-foreground">
                   Last Updated
                 </label>
-                <p className="mt-1 text-sm">{formatDate(organization.updatedAt)}</p>
+                <p className="font-mono mt-1 text-sm">{formatDate(organization.updatedAt)}</p>
               </div>
             </div>
           </div>

@@ -163,7 +163,7 @@ export const ProfileSettings = () => {
         <div className="space-y-3">
           <div>
             <label className="text-sm font-medium text-muted-foreground">Email</label>
-            <p className="text-sm text-foreground">{user?.email}</p>
+            <p className="font-mono text-sm text-foreground">{user?.email}</p>
           </div>
           <div>
             <label className="text-sm font-medium text-muted-foreground">Name</label>

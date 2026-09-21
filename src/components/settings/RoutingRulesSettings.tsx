@@ -376,7 +376,7 @@ export const RoutingRulesSettings = () => {
         {
           header: 'Last Match',
           render: (rule) => (
-            <span className="text-muted-foreground whitespace-nowrap">
+            <span className="font-mono text-muted-foreground whitespace-nowrap">
               {formatLastMatched(rule.lastMatchedAt)}
             </span>
           ),

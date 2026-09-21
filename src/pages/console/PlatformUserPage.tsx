@@ -393,7 +393,7 @@ export const PlatformUserPage = () => {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="pu-email">Email</Label>
-              <div id="pu-email" className="px-3 py-2 text-sm rounded-md bg-muted">
+              <div id="pu-email" className="font-mono px-3 py-2 text-sm rounded-md bg-muted">
                 {user.email}
               </div>
               <p className="text-xs text-muted-foreground">Email can&apos;t be changed.</p>

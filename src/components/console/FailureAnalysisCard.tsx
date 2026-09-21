@@ -155,13 +155,13 @@ export const FailureAnalysisCard = () => {
                 id: 'first',
                 header: 'First seen',
                 card: 'hidden',
-                cell: (group) => <span className="text-xs text-muted-foreground">{formatFailedAt(group.firstFailedAt)}</span>,
+                cell: (group) => <span className="font-mono text-xs text-muted-foreground">{formatFailedAt(group.firstFailedAt)}</span>,
               },
               {
                 id: 'last',
                 header: 'Last seen',
                 card: 'meta',
-                cell: (group) => <span className="text-xs text-muted-foreground">{formatFailedAt(group.lastFailedAt)}</span>,
+                cell: (group) => <span className="font-mono text-xs text-muted-foreground">{formatFailedAt(group.lastFailedAt)}</span>,
               },
             ]}
             actions={(group) => (

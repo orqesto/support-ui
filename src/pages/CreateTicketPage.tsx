@@ -408,7 +408,7 @@ export const CreateTicketPage = () => {
                       >
                         <File className="w-4 h-4 text-muted-foreground" />
                         <span className="flex-1 text-sm truncate">{file.name}</span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="font-mono text-xs text-muted-foreground">
                           {formatFileSize(file.size)}
                         </span>
                         <Button

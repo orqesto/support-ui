@@ -282,7 +282,7 @@ export const ConsoleMembers = () => {
               </Badge>
             )}
           </div>
-          {member.email && <div className="text-xs text-muted-foreground">{member.email}</div>}
+          {member.email && <div className="font-mono text-xs text-muted-foreground">{member.email}</div>}
           {member.idpAsserted && (
             <Tooltip content="Your identity provider names this member. Their group memberships, and any role a mapped group grants, are reasserted on the next push.">
               <Badge className="inline-flex gap-1 items-center mt-1 text-xs text-amber-700 bg-warning-muted dark:text-amber-300">

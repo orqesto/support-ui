@@ -129,7 +129,7 @@ function TicketCardContent({ ticket }: { ticket: TicketType }) {
         <span className="font-mono">#{ticket.id}</span>
         <span>·</span>
         <Clock className="w-3 h-3" />
-        <span>{formatAge(ticket.createdAt)}</span>
+        <span className="font-mono">{formatAge(ticket.createdAt)}</span>
       </div>
       <div className="flex gap-1 items-center flex-wrap">
         <Badge variant={priorityVariant} className="h-4 px-1 text-[10px]">

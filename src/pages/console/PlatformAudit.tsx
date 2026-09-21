@@ -311,7 +311,7 @@ export const PlatformAudit = () => {
                               )}
                             </Button>
                           </td>
-                          <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">
+                          <td className="font-mono px-3 py-2 whitespace-nowrap text-muted-foreground">
                             {formatTime(row.createdAt)}
                           </td>
                           <td className="px-3 py-2">{actorLabel(row)}</td>
@@ -341,7 +341,7 @@ export const PlatformAudit = () => {
                                   {row.actorEmail && (
                                     <div>
                                       <span className="text-muted-foreground">Actor email: </span>
-                                      <span className="font-medium text-foreground">
+                                      <span className="font-mono font-medium text-foreground">
                                         {row.actorEmail}
                                       </span>
                                     </div>

@@ -367,7 +367,7 @@ export const NeedsRoutingPage = () => {
                           {msg.subject ?? '(no subject)'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                      <td className="font-mono px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
                         {formatDate(msg.createdAt)}
                       </td>
                       <td className="px-4 py-3" onClick={(ev) => ev.stopPropagation()}>
@@ -450,7 +450,7 @@ export const NeedsRoutingPage = () => {
                       <p className="text-sm text-left text-muted-foreground hover:underline truncate w-full">
                         {msg.subject ?? '(no subject)'}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
+                      <p className="font-mono text-xs text-muted-foreground mt-0.5">
                         {formatDate(msg.createdAt)}
                       </p>
                     </div>

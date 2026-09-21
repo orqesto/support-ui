@@ -37,7 +37,7 @@ export function ContactNotesPanel({
               {note.authorFirstName ?? 'Unknown'} {note.authorLastName ?? ''}
             </span>
             <div className="flex gap-2 items-center">
-              <span className="text-[10.5px] text-muted-foreground">{formatDate(note.createdAt)}</span>
+              <span className="font-mono text-[10.5px] text-muted-foreground">{formatDate(note.createdAt)}</span>
               <Button
                 type="button"
                 variant="ghost"

@@ -14,7 +14,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 // second scrollbar and dead space. It only reproduced at viewport heights where the label
 // fell below the fold, which is why it looked screen-size dependent.
 export const buttonVariants = cva(
-  'inline-flex relative justify-center items-center font-medium rounded-md transition-colors ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex relative justify-center items-center font-display font-medium rounded-md transition-colors ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {

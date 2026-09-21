@@ -309,7 +309,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                  <td className="font-mono px-4 py-3 text-sm text-muted-foreground">
                     {formatFileSize(attachment.size)}
                   </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">

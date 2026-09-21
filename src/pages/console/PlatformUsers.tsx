@@ -174,7 +174,7 @@ export const PlatformUsers = () => {
       id: 'joined',
       header: 'Joined',
       cell: (row) => (
-        <span className="whitespace-nowrap text-muted-foreground">{formatDate(row.createdAt)}</span>
+        <span className="font-mono whitespace-nowrap text-muted-foreground">{formatDate(row.createdAt)}</span>
       ),
     },
   ];

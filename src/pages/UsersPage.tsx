@@ -344,7 +344,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
             <div className="text-sm font-medium truncate">
               {user.firstName} {user.lastName}
             </div>
-            <div className="text-sm truncate text-muted-foreground">{user.email}</div>
+            <div className="font-mono text-sm truncate text-muted-foreground">{user.email}</div>
           </div>
         </div>
       ),
@@ -392,7 +392,9 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
       id: 'joined',
       header: 'Joined',
       cell: (user) => (
-        <span className="text-sm text-muted-foreground">{formatDate(user.createdAt)}</span>
+        <span className="font-mono text-sm text-muted-foreground">
+          {formatDate(user.createdAt)}
+        </span>
       ),
     },
     {
@@ -486,7 +488,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
               <h3 className="font-display text-sm font-semibold truncate">
                 {user.firstName} {user.lastName}
               </h3>
-              <p className="text-sm truncate text-muted-foreground">{user.email}</p>
+              <p className="font-mono text-sm truncate text-muted-foreground">{user.email}</p>
             </div>
             <div className="flex gap-2">
               {canManageUser(user) && (

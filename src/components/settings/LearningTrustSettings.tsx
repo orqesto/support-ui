@@ -255,7 +255,7 @@ export const LearningTrustSettings = () => {
                 <p className="font-display text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground">
                   Trust Score
                 </p>
-                <p className="mt-1 text-lg font-semibold">{formatScore(state.trustScore)}</p>
+                <p className="font-mono mt-1 text-lg font-semibold">{formatScore(state.trustScore)}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   Threshold ×{state.thresholdMultiplier.toFixed(2)} ·{' '}
                   {state.trustScore < -5

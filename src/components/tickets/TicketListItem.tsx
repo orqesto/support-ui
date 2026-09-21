@@ -103,7 +103,7 @@ export const TicketListItem = ({
 
           {/* Jira link */}
           {ticket.externalId && ticket.externalUrl && (
-            <ExternalLink href={ticket.externalUrl} className="text-xs">
+            <ExternalLink href={ticket.externalUrl} className="font-mono text-xs">
               {ticket.externalId}
             </ExternalLink>
           )}
@@ -126,7 +126,7 @@ export const TicketListItem = ({
             {ticket.sender}
           </span>
           <span
-            className="ml-auto whitespace-nowrap text-xs"
+            className="font-mono ml-auto whitespace-nowrap text-xs"
             title={`Created: ${formatDate(ticket.createdAt)}`}
           >
             {formatAge(ticket.createdAt)}

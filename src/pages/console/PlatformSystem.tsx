@@ -235,7 +235,7 @@ export const PlatformSystem = () => {
               </div>
               <div>
                 <p className="text-muted-foreground">Expires</p>
-                <p className="font-medium text-foreground">
+                <p className="font-mono font-medium text-foreground">
                   {formatDate(licenseQuery.data.expiresAt)}
                 </p>
               </div>
@@ -431,7 +431,7 @@ export const PlatformSystem = () => {
                       {job.organizationId ? ` · org ${job.organizationId}` : ''}
                     </span>
                     {job.failedAt ? (
-                      <span>{formatDate(new Date(job.failedAt).toISOString())}</span>
+                      <span className="font-mono">{formatDate(new Date(job.failedAt).toISOString())}</span>
                     ) : null}
                   </div>
                   <p className="mt-1 text-sm font-medium text-red-600 break-words dark:text-red-400">

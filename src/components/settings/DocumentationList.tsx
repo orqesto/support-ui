@@ -338,7 +338,7 @@ export const DocumentationList = ({
 
                   <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
                     <span>{doc.originalFilename}</span>
-                    <span>{formatFileSize(doc.size)}</span>
+                    <span className="font-mono">{formatFileSize(doc.size)}</span>
                     {doc.chunkCount > 0 && <span>{doc.chunkCount} chunks</span>}
                     {doc.timesReferenced > 0 && (
                       <span className="inline-flex gap-1 items-center font-medium text-purple-600 dark:text-purple-400">

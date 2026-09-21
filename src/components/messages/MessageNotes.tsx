@@ -140,7 +140,7 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
                     </Badge>
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-muted-foreground">{formatDate(note.createdAt)}</span>
+                    <span className="font-mono text-xs text-muted-foreground">{formatDate(note.createdAt)}</span>
                     {isOwner && !isEditing && (
                       <>
                         <Button

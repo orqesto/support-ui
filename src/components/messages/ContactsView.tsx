@@ -183,7 +183,7 @@ function ContactRow({
           <div className="hidden sm:block w-px h-6 bg-border" />
 
           <span
-            className="text-xs text-muted-foreground w-9 text-right tabular-nums shrink-0"
+            className="font-mono text-xs text-muted-foreground w-9 text-right shrink-0"
             title={formatDate(contact.lastMessageAt)}
           >
             {formatAge(contact.lastMessageAt)}

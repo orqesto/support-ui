@@ -219,7 +219,7 @@ export const PlatformOrganizations = () => {
       id: 'created',
       header: 'Created',
       cell: (org) => (
-        <span className="text-sm whitespace-nowrap text-muted-foreground">{formatDate(org.createdAt)}</span>
+        <span className="font-mono text-sm whitespace-nowrap text-muted-foreground">{formatDate(org.createdAt)}</span>
       ),
     },
   ];

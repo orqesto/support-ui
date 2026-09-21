@@ -365,11 +365,11 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                   </div>
                   {comment.user && (
                     <div className="flex gap-2 items-center text-xs text-muted-foreground">
-                      <span>{comment.user.email}</span>
+                      <span className="font-mono">{comment.user.email}</span>
                     </div>
                   )}
                 </div>
-                <span className="text-xs whitespace-nowrap text-muted-foreground">
+                <span className="font-mono text-xs whitespace-nowrap text-muted-foreground">
                   {formatDate(comment.createdAt)}
                 </span>
               </div>
@@ -417,7 +417,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                             <p className="text-sm font-medium truncate">
                               {attachment.originalFilename}
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="font-mono text-xs text-muted-foreground">
                               {formatFileSize(attachment.size)}
                             </p>
                           </div>
@@ -511,7 +511,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
               >
                 <Paperclip className="w-4 h-4 text-muted-foreground" />
                 <span className="flex-1 text-sm truncate">{file.name}</span>
-                <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
+                <span className="font-mono text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
                 <Button
                   aria-label="Remove file"
                   title="Remove file"

@@ -389,7 +389,7 @@ export const TicketDetail = ({
             </div>
 
             {ticket.externalId && ticket.externalUrl && (
-              <ExternalLink href={ticket.externalUrl}>{ticket.externalId}</ExternalLink>
+              <ExternalLink href={ticket.externalUrl} className="font-mono">{ticket.externalId}</ExternalLink>
             )}
           </div>
           {ticket.externalId && (
@@ -411,7 +411,7 @@ export const TicketDetail = ({
           <span className="text-sm font-medium truncate">{ticket.sender}</span>
 
           <span className="font-display text-[11px] tracking-[0.09em] uppercase text-muted-foreground font-medium">Created</span>
-          <span className="text-sm text-muted-foreground">{formatDate(ticket.createdAt)}</span>
+          <span className="font-mono text-sm text-muted-foreground">{formatDate(ticket.createdAt)}</span>
 
           <span className="font-display text-[11px] tracking-[0.09em] uppercase text-muted-foreground self-center font-medium">Assigned</span>
           <AssignmentSelect

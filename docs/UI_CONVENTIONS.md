@@ -123,14 +123,16 @@ page needs the class, not just the main one.
 Three faces, and the rule is one line: **Grotesk for labels, Sans for language, Mono for
 identifiers.**
 
-| Class                 | Face            | For                                                                                                                                |
-| --------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `font-display`        | Space Grotesk   | things you scan: headings, uppercase labels, tab names, chip labels, subjects. Weight 500–600; tracking `.08–.11em` when uppercase |
-| `font-sans` (default) | Instrument Sans | things you read: email bodies, notes, AI drafts, descriptions, the composer                                                        |
-| `font-mono`           | JetBrains Mono  | things you verify character by character: addresses, ticket ids, order numbers, money, counts, timestamps, code                    |
+| Class                 | Face            | For                                                                                                                                                                      |
+| --------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `font-display`        | Space Grotesk   | things you scan: headings, uppercase labels, tab names, chip labels, subjects, button text, sender names on bubbles. Weight 500–600; tracking `.08–.11em` when uppercase |
+| `font-sans` (default) | Instrument Sans | things you read: email bodies, notes, AI drafts, KB article text, tooltips, descriptions, the composer, any full sentence. Weight 400, 13–14.5px, line-height 1.55–1.62  |
+| `font-mono`           | JetBrains Mono  | things you verify character by character or compare in a column: addresses, ticket ids, order and tracking numbers, money, counts, timestamps in lists, code             |
 
 ⛔ **A label is not an identifier.** Mono was doing double duty as the label face, which
 left nothing distinguishing `DEPT` from an order number.
+
+**The shared components carry the face**: `Button`, `Badge`, `CardTitle`, `DialogTitle` and the `Typography` heading/label variants are Grotesk, so tabs (rendered through `Button`) are too. A caller showing an identifier inside one passes `font-mono`; `cn()` lets it win.
 
 ⛔ **`tabular-nums` is redundant on `font-mono`.** JetBrains Mono is monospaced, so its
 digits already advance equally; the class is for proportional faces. Figures set in mono

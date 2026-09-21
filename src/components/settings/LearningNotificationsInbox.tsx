@@ -250,7 +250,7 @@ export const LearningNotificationsInbox = () => {
                         {highlights.map((label) => (
                           <span key={label}>{label}</span>
                         ))}
-                        <span>{formatDate(row.createdAt)}</span>
+                        <span className="font-mono">{formatDate(row.createdAt)}</span>
                         <span>
                           Undo window: {remainingDays} day{remainingDays === 1 ? '' : 's'} left
                         </span>

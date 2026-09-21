@@ -677,7 +677,7 @@ export const TrackingPage = () => {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <span
-                  className={`text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                  className={`font-display text-xs font-semibold uppercase tracking-[0.09em] px-2 py-0.5 rounded-full ${
                     isResolved ? 'text-success bg-success-muted' : 'text-primary bg-primary-muted'
                   }`}
                 >

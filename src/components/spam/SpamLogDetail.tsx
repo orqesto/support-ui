@@ -54,7 +54,7 @@ export const SpamLogDetail = ({ log, onClose }: SpamLogDetailProps) => (
         <div className="p-4 space-y-2 rounded-lg bg-muted">
           <div className="grid grid-cols-[120px_1fr] gap-2">
             <span className="text-sm font-medium">Email:</span>
-            <span className="text-sm break-all">{log.senderEmail}</span>
+            <span className="font-mono text-sm break-all">{log.senderEmail}</span>
           </div>
           <div className="grid grid-cols-[120px_1fr] gap-2">
             <span className="text-sm font-medium">Domain:</span>
@@ -108,7 +108,7 @@ export const SpamLogDetail = ({ log, onClose }: SpamLogDetailProps) => (
           )}
           <div className="grid grid-cols-[120px_1fr] gap-2">
             <span className="text-sm font-medium">Detected:</span>
-            <span className="text-sm">{formatDate(log.detectedAt)}</span>
+            <span className="font-mono text-sm">{formatDate(log.detectedAt)}</span>
           </div>
         </div>
       </div>

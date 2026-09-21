@@ -72,7 +72,7 @@ export function BasePlanCard({ plan, currentPlanName, upgrading, onSelect }: Bas
         <CardTitle className="text-center">
           <div className="text-2xl font-bold">{plan.displayName}</div>
           <div className="mt-4">
-            <span className="text-4xl font-bold">{formatMoney(plan.price, plan.currency)}</span>
+            <span className="font-mono text-4xl font-bold">{formatMoney(plan.price, plan.currency)}</span>
             <span className="text-gray-400">/{plan.billingInterval}</span>
             {/* Checkout adds VAT from the customer's own location, so the headline number is
                 not what gets charged — €500 became €605 in a real test-mode checkout. The rate
@@ -112,7 +112,7 @@ export function EnterprisePlanCard({ plan, currentPlanName, upgrading, onSelect 
         <CardTitle className="text-center">
           <div className="flex gap-2 justify-center items-center mb-2"><Shield className="w-6 h-6 text-purple-600" /><span className="text-2xl font-bold">{plan.displayName}</span></div>
           <div className="mt-4">
-            <span className="text-4xl font-bold">{formatMoney(plan.price, plan.currency)}</span>
+            <span className="font-mono text-4xl font-bold">{formatMoney(plan.price, plan.currency)}</span>
             <span className="text-gray-400">/{plan.billingInterval}</span>
             {/* Checkout adds VAT from the customer's own location, so the headline number is
                 not what gets charged — €500 became €605 in a real test-mode checkout. The rate

@@ -275,7 +275,7 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
             </Tooltip>
           )}
           <span
-            className="whitespace-nowrap shrink-0 text-[11px] text-muted-foreground"
+            className="font-mono whitespace-nowrap shrink-0 text-[11px] text-muted-foreground"
             title={formatDate(activityAt)}
           >
             {formatWhen(activityAt)}

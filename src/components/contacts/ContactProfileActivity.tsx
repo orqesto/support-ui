@@ -69,7 +69,7 @@ export function ContactProfileActivity({ activity }: { activity: ActivityItem[] 
                 >
                   {item.title}
                 </Button>
-                <span className="text-[11px] text-muted-foreground whitespace-nowrap tabular-nums flex-shrink-0 mt-0.5">
+                <span className="font-mono text-[11px] text-muted-foreground whitespace-nowrap flex-shrink-0 mt-0.5">
                   {formatAge(item.at)}
                 </span>
               </div>

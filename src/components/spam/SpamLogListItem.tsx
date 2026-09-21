@@ -38,7 +38,7 @@ export const SpamLogListItem = ({ log, onOpen }: SpamLogListItemProps) => (
       {/* Row 1: channel icon + sender + age + Open */}
       <div className="flex items-center gap-2 min-w-0">
         <span className="shrink-0 text-muted-foreground">{getChannelIcon(log.channel)}</span>
-        <span className="text-sm font-semibold truncate flex-1 min-w-0">{log.senderEmail}</span>
+        <span className="font-mono text-sm font-semibold truncate flex-1 min-w-0">{log.senderEmail}</span>
         <span
           className="text-xs text-muted-foreground whitespace-nowrap shrink-0"
           title={`Detected: ${formatDate(log.detectedAt)}`}

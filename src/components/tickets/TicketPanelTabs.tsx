@@ -121,7 +121,7 @@ export function TicketPanelTabs({
                     <div className="flex-1 min-w-0">
                       <div className="flex gap-2 items-center mb-1">
                         <Badge variant="secondary" className="text-xs">{root.channel}</Badge>
-                        <span className="text-xs text-muted-foreground">{formatDate(root.createdAt)}</span>
+                        <span className="font-mono text-xs text-muted-foreground">{formatDate(root.createdAt)}</span>
                         {count > 1 && (
                           <span className="text-xs text-muted-foreground">{count} messages</span>
                         )}

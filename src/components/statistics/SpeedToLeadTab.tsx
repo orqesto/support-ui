@@ -116,7 +116,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
                       <p className="text-sm font-medium text-muted-foreground">Est. revenue at risk</p>
                       {speedData.estimatedLostValue !== null ? (
                         <>
-                          <p className="mt-2 text-3xl font-bold text-destructive">
+                          <p className="font-mono mt-2 text-3xl font-bold text-destructive">
                             {formatMoney(speedData.estimatedLostValue)}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
@@ -162,7 +162,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Median first response</p>
-                      <p className="mt-2 text-3xl font-bold">
+                      <p className="font-mono mt-2 text-3xl font-bold">
                         {formatSeconds(speedData.medianResponseSeconds)}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">

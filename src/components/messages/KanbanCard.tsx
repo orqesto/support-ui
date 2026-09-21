@@ -231,7 +231,7 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
           {getChannelIcon(msg.channel)}
         </span>
         <span className={`flex-1 min-w-0 text-sm truncate ${senderClass}`}>{customer}</span>
-        <span className="whitespace-nowrap shrink-0 text-[11px] text-muted-foreground">
+        <span className="font-mono whitespace-nowrap shrink-0 text-[11px] text-muted-foreground">
           {formatAge(activityAt)}
         </span>
       </div>

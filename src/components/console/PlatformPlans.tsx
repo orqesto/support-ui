@@ -279,7 +279,7 @@ export const PlatformPlans = () => {
           {/* Slug — disambiguates same-named plans (e.g. two "Enterprise Cloud":
               enterprise-cloud vs enterprise). */}
           <code className="text-xs text-muted-foreground">{plan.name}</code>
-          <div className="mt-1 text-lg font-semibold text-foreground">{formatPrice(plan)}</div>
+          <div className="font-mono mt-1 text-lg font-semibold text-foreground">{formatPrice(plan)}</div>
         </CardHeader>
 
         <CardContent className="space-y-3">
