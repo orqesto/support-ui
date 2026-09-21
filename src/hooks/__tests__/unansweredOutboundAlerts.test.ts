@@ -99,7 +99,7 @@ describe('useUnansweredOutboundAlerts', () => {
                     hasMore: true,
                   },
         },
-      }),
+      })
     );
     const { result } = renderHook(() => useUnansweredOutboundAlerts());
     await waitFor(() => expect(result.current.alerts).toHaveLength(1));
@@ -140,7 +140,12 @@ describe('useUnansweredOutboundAlerts', () => {
     respond([
       row({ id: 11, kind: 'one_sided_outbound' }),
       row({ id: 10, kind: 'one_sided_outbound' }),
-      row({ id: 3, kind: 'customer_reply_in_spam', entityType: 'message_source', details: { recovered: 2 } }),
+      row({
+        id: 3,
+        kind: 'customer_reply_in_spam',
+        entityType: 'message_source',
+        details: { recovered: 2 },
+      }),
     ]);
     const { result } = renderHook(() => useUnansweredOutboundAlerts());
     await waitFor(() => expect(result.current.alerts).toHaveLength(3));
@@ -188,5 +193,60 @@ describe('useUnansweredOutboundAlerts', () => {
     });
     expect(result.current.alerts).toHaveLength(0);
     expect(patch).toHaveBeenCalledWith('/api/notifications/1/dismiss');
+  });
+});
+
+/**
+ * Escalation — the backend raises a one-sided thread to `critical` once it is past
+ * ONE_SIDED_CRITICAL_HOURS and still has no customer message (owner decision E2, 2026-09-21).
+ *
+ * ⛔ The hook reads the SEVERITY column, not `details.escalated`. Severity is what the bus
+ * acts on — it is what cleared the dismissal and put this row back in front of someone — so
+ * if the two ever disagree, severity is the one that describes what the user experienced.
+ */
+describe('escalated one-sided alerts', () => {
+  it('marks a critical row as escalated and carries the age the backend measured', async () => {
+    respond([row({ severity: 'critical', details: { ageHours: 216, escalated: true } })]);
+
+    const { result } = renderHook(() => useUnansweredOutboundAlerts());
+
+    await waitFor(() => expect(result.current.alerts).toHaveLength(1));
+    expect(result.current.alerts[0]?.escalated).toBe(true);
+    expect(result.current.alerts[0]?.ageHours).toBe(216);
+  });
+
+  it('CONTROL: a warning row is not escalated, even if details claim it is', async () => {
+    // The disagreement is the case worth pinning: a row the bus never escalated has not
+    // re-surfaced from anybody's dismissal, so presenting it as escalated would be a lie
+    // about how it got here.
+    respond([row({ severity: 'warning', details: { ageHours: 4, escalated: true } })]);
+
+    const { result } = renderHook(() => useUnansweredOutboundAlerts());
+
+    await waitFor(() => expect(result.current.alerts).toHaveLength(1));
+    expect(result.current.alerts[0]?.escalated).toBe(false);
+  });
+
+  it('a row published before this feature existed has no age and is not escalated', async () => {
+    respond([row({ severity: null, details: {} })]);
+
+    const { result } = renderHook(() => useUnansweredOutboundAlerts());
+
+    await waitFor(() => expect(result.current.alerts).toHaveLength(1));
+    expect(result.current.alerts[0]?.ageHours).toBeNull();
+    expect(result.current.alerts[0]?.escalated).toBe(false);
+  });
+
+  it('sorts escalated rows above ordinary ones — the panel renders only the first few', async () => {
+    respond([
+      row({ id: 90, severity: null, details: {} }),
+      row({ id: 12, severity: 'critical', details: { ageHours: 400 } }),
+    ]);
+
+    const { result } = renderHook(() => useUnansweredOutboundAlerts());
+
+    await waitFor(() => expect(result.current.alerts).toHaveLength(2));
+    // Ordinary sorting is newest-id-first, so 90 would lead. Escalation outranks it.
+    expect(result.current.alerts.map((alert) => alert.id)).toEqual([12, 90]);
   });
 });

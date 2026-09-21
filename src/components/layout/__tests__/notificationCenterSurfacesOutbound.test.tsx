@@ -23,7 +23,7 @@ let outboundTruncated = false;
 
 vi.mock('@/hooks/useUnansweredOutboundAlerts', async () => {
   const actual = await vi.importActual<Record<string, unknown>>(
-    '@/hooks/useUnansweredOutboundAlerts',
+    '@/hooks/useUnansweredOutboundAlerts'
   );
   return {
     ...actual,
@@ -94,7 +94,7 @@ const open = () => {
       <Routes>
         <Route path="*" element={<LocationProbe />} />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter>
   );
   // The panel is behind the bell button.
   const bell = screen.getAllByRole('button')[0];
@@ -122,17 +122,74 @@ afterEach(() => cleanup());
 
 describe('NotificationCenter — unanswered outbound', () => {
   it('renders a one-sided outbound alert', () => {
-    outboundAlerts = [
-      { id: 1, kind: 'one_sided_outbound', entityId: 11822, recovered: null },
-    ];
+    outboundAlerts = [{ id: 1, kind: 'one_sided_outbound', entityId: 11822, recovered: null }];
     open();
     expect(screen.getByText('No customer message in this thread')).toBeTruthy();
   });
 
-  it('renders a spam-recovery alert with its count', () => {
+  /**
+   * The escalated row must not look or read like a fresh one. The whole reason it is on screen
+   * may be that it escalated out of somebody's dismissal, so "No customer message in this
+   * thread" — the sentence they already waved away once — is the wrong sentence to show them.
+   */
+  it('names the elapsed time on an escalated alert', () => {
     outboundAlerts = [
-      { id: 2, kind: 'customer_reply_in_spam', entityId: 34, recovered: 3 },
+      {
+        id: 3,
+        kind: 'one_sided_outbound',
+        entityId: 900,
+        recovered: null,
+        ageHours: 216,
+        escalated: true,
+      },
     ];
+    open();
+    expect(screen.getByText('Still unanswered after 9 days')).toBeTruthy();
+    // CONTROL: the ordinary sentence must be GONE, not merely joined by a second one.
+    expect(screen.queryByText('No customer message in this thread')).toBeNull();
+  });
+
+  it('says how old an ordinary one-sided thread is, without calling it escalated', () => {
+    outboundAlerts = [
+      {
+        id: 4,
+        kind: 'one_sided_outbound',
+        entityId: 901,
+        recovered: null,
+        ageHours: 5,
+        escalated: false,
+      },
+    ];
+    open();
+    expect(screen.getByText('No customer message in this thread')).toBeTruthy();
+    expect(screen.getByText(/We sent 5 hours ago/)).toBeTruthy();
+  });
+
+  it('🔴 says nothing about age when the backend could not date the thread', () => {
+    // null (an alert published before this feature) and a NEGATIVE age (a sender's clock in
+    // the future — this product has been bitten by one) must both fall back to the plain
+    // sentence rather than render "0 hours" or "-6 hours".
+    for (const ageHours of [null, -6, 0]) {
+      outboundAlerts = [
+        {
+          id: 5,
+          kind: 'one_sided_outbound',
+          entityId: 902,
+          recovered: null,
+          ageHours,
+          escalated: true,
+        },
+      ];
+      open();
+      expect(screen.getByText('No customer message in this thread')).toBeTruthy();
+      expect(screen.queryByText(/hours ago/)).toBeNull();
+      expect(screen.queryByText(/Still unanswered/)).toBeNull();
+      cleanup();
+    }
+  });
+
+  it('renders a spam-recovery alert with its count', () => {
+    outboundAlerts = [{ id: 2, kind: 'customer_reply_in_spam', entityId: 34, recovered: 3 }];
     open();
     expect(screen.getByText('Customer replies were filed as spam')).toBeTruthy();
     expect(screen.getByText(/3 recovered/)).toBeTruthy();
@@ -143,9 +200,7 @@ describe('NotificationCenter — unanswered outbound', () => {
     // `?id=` vs `?docId=` collision, still commented in the sibling section). `entityId` for
     // one_sided_outbound is a conversation id, and /messages/:id resolves it — assert it
     // rather than trusting the string.
-    outboundAlerts = [
-      { id: 1, kind: 'one_sided_outbound', entityId: 11822, recovered: null },
-    ];
+    outboundAlerts = [{ id: 1, kind: 'one_sided_outbound', entityId: 11822, recovered: null }];
     open();
     fireEvent.click(screen.getByText('Open thread'));
     expect(screen.getByTestId('loc').textContent).toBe('/messages/11822');
@@ -161,7 +216,7 @@ describe('NotificationCenter — unanswered outbound', () => {
     render(
       <MemoryRouter>
         <NotificationCenter sla={slaProp} learning={learningProp} />
-      </MemoryRouter>,
+      </MemoryRouter>
     );
     expect(screen.getByText('2')).toBeTruthy();
   });
