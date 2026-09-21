@@ -8,6 +8,22 @@ import {
 } from '@/hooks/useUnansweredOutboundAlerts';
 
 /**
+ * "for 9 days" — what the bell says about a thread nobody has answered.
+ *
+ * ⛔ Returns null rather than a number for anything that is not a positive count of hours.
+ * The backend publishes the age it measured WITHOUT clamping it, so a thread whose
+ * `created_at` came from a sender's clock can be negative, and rows published before this
+ * feature existed carry no age at all. "Unanswered for 0 hours" and "for -6 hours" are both
+ * worse than saying nothing: the first describes the worst state in the mildest words, which
+ * is the mistake `IngestionDarkSection` documents for "never polled".
+ */
+const formatUnansweredFor = (ageHours: number | null): string | null => {
+  if (ageHours === null || !Number.isFinite(ageHours) || ageHours < 1) return null;
+  if (ageHours < 48) return `${Math.floor(ageHours)} hours`;
+  return `${Math.floor(ageHours / 24)} days`;
+};
+
+/**
  * "Unanswered outbound" — one-sided threads and replies Google filed as spam.
  *
  * ⛔ These rows exist BECAUSE the previous design hid them: a global-admin-only lens nobody
@@ -46,22 +62,46 @@ export const UnansweredOutboundSection = ({
       {showLabel && <SectionLabel>Unanswered outbound</SectionLabel>}
       {visible.map((alert) => {
         const isSpam = alert.kind === CUSTOMER_REPLY_IN_SPAM_KIND;
+        // Escalated rows are the ones the backend raised to `critical` — past the threshold
+        // and still with no customer message. They are the reason a dismissed alert can be
+        // back on this list at all, so they must not look identical to a fresh one.
+        const escalated = !isSpam && alert.escalated;
+        const unansweredFor = isSpam ? null : formatUnansweredFor(alert.ageHours);
         return (
           <div
             key={alert.id}
-            className="flex gap-3 items-start p-3 text-sm rounded-lg border bg-background border-border"
+            className={
+              escalated
+                ? 'flex gap-3 items-start p-3 text-sm rounded-lg border bg-destructive/5 border-destructive/40'
+                : 'flex gap-3 items-start p-3 text-sm rounded-lg border bg-background border-border'
+            }
           >
-            <MailWarning className="mt-0.5 w-4 h-4 shrink-0 text-warning" />
+            <MailWarning
+              className={
+                escalated
+                  ? 'mt-0.5 w-4 h-4 shrink-0 text-destructive'
+                  : 'mt-0.5 w-4 h-4 shrink-0 text-warning'
+              }
+            />
             <div className="flex-1 min-w-0">
               <p className="font-medium break-words text-foreground">
                 {isSpam
                   ? 'Customer replies were filed as spam'
-                  : 'No customer message in this thread'}
+                  : // ⛔ The escalated sentence names the ELAPSED TIME, not a bigger adjective.
+                    // "Still" plus a duration is what tells an operator this is the same thread
+                    // they saw last week; "Urgent" would just be louder.
+                    escalated && unansweredFor
+                    ? `Still unanswered after ${unansweredFor}`
+                    : 'No customer message in this thread'}
               </p>
               <p className="mt-0.5 text-muted-foreground">
                 {isSpam
                   ? `${typeof alert.recovered === 'number' ? `${alert.recovered} ` : ''}recovered from the mailbox spam folder — check the mailbox filter`
-                  : 'We sent, nobody replied, and no one has picked it up'}
+                  : escalated
+                    ? 'We sent, nobody replied, and nobody here has picked it up since. This alert came back because the thread got older, not because anything changed.'
+                    : unansweredFor
+                      ? `We sent ${unansweredFor} ago, nobody replied, and no one has picked it up`
+                      : 'We sent, nobody replied, and no one has picked it up'}
               </p>
               {!isSpam && (
                 <Button
@@ -85,7 +125,11 @@ export const UnansweredOutboundSection = ({
               title={
                 isSpam
                   ? 'Dismiss — it returns if the filter eats another reply'
-                  : 'Dismiss — the thread stays in the queue either way'
+                  : // ⛔ Honest about what dismissal does here, and it was not before: it is
+                    // NOT final. The sweep re-announces a still-unanswered thread after its
+                    // re-alert window and escalates it past the critical threshold, which
+                    // un-hides a dismissal on its own.
+                    'Dismiss — the thread stays in the queue, and this returns while the customer is still unanswered'
               }
               className="p-1 h-auto text-muted-foreground hover:text-foreground"
             >

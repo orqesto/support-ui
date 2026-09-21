@@ -97,8 +97,11 @@ export const IngestionDarkSection = ({
             // ⛔ Honest about what dismissal does, and it is the OPPOSITE of the gap alert's.
             // The condition may still be live; the backend escalates warning → critical, which
             // re-surfaces a dismissed row. Saying so is what stops this becoming
-            // `one_sided_outbound`, where dismissal is final and four broken threads on taco
-            // have no path back to anyone's attention.
+            // `one_sided_outbound`, where dismissal WAS final and four broken threads on taco
+            // had no path back to anyone's attention. ⚠️ That is no longer true of that kind
+            // either: it re-announces after ONE_SIDED_REALERT_HOURS and, since 2026-09-21,
+            // escalates warning→critical past ONE_SIDED_CRITICAL_HOURS. Left here as the
+            // reason this sentence is worded the way it is, corrected so nobody cites it.
             title="Dismiss — if the mailbox stays dark, this comes back"
             className="p-1 h-auto text-muted-foreground hover:text-foreground"
           >

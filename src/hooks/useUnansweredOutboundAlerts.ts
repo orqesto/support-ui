@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api-client';
-import { getSocket, releaseSocket, subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
+import {
+  getSocket,
+  releaseSocket,
+  subscribeToEvent,
+  unsubscribeFromEvent,
+} from '@/lib/socketManager';
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/types/api';
 
@@ -35,9 +40,26 @@ export type UnansweredOutboundAlert = {
   entityId: number;
   /** Spam recovery only — how many replies were pulled back this sweep. */
   recovered: number | null;
+  /**
+   * One-sided only — how long this thread has been unanswered, in hours, as the BACKEND
+   * measured it. Null when the backend did not say (every row published before 2026-09-21,
+   * and any row whose `created_at` could not be read).
+   *
+   * ⚠️ Can be NEGATIVE. A sender's `Date:` header has already put a timestamp in this product
+   * into the future once, and the backend publishes the raw number rather than clamping it to
+   * zero — "brand new" would be a lie about a thread it cannot date. So the UI renders a
+   * duration only when this is a positive number.
+   */
+  ageHours: number | null;
+  /**
+   * The backend raised this row as `critical`: the thread is past ONE_SIDED_CRITICAL_HOURS and
+   * still has no customer message. This is the transition that un-hides a DISMISSED alert, so
+   * the row in front of you may be one somebody already waved away — which is the point.
+   */
+  escalated: boolean;
 };
 
-type AlertDetails = { recovered?: number };
+type AlertDetails = { recovered?: number; ageHours?: number; escalated?: boolean };
 
 const toAlert = (row: Notification): UnansweredOutboundAlert => {
   const details = (row.details ?? {}) as AlertDetails;
@@ -46,6 +68,12 @@ const toAlert = (row: Notification): UnansweredOutboundAlert => {
     kind: (row as { kind?: string }).kind as UnansweredOutboundAlert['kind'],
     entityId: row.entityId,
     recovered: typeof details.recovered === 'number' ? details.recovered : null,
+    ageHours: typeof details.ageHours === 'number' ? details.ageHours : null,
+    // ⛔ Read from `severity`, not from `details.escalated`, and the difference matters: the
+    // severity column is what the notification bus ACTS on (it is what clears a dismissal and
+    // re-delivers), while `details` is a description written beside it. If the two ever
+    // disagree, the one the user was actually re-alerted by is the truthful one.
+    escalated: (row as { severity?: string | null }).severity === 'critical',
   };
 };
 
@@ -148,6 +176,12 @@ export const useUnansweredOutboundAlerts = () => {
               const leftFault = left.kind === CUSTOMER_REPLY_IN_SPAM_KIND ? 0 : 1;
               const rightFault = right.kind === CUSTOMER_REPLY_IN_SPAM_KIND ? 0 : 1;
               if (leftFault !== rightFault) return leftFault - rightFault;
+              // Then the ESCALATED one-sided rows, for the same reason the fault kind sorts
+              // first: only PANEL_PEEK_LIMIT rows are rendered, so ordering decides what is
+              // seen, and a customer nobody has answered for a week must not sit below this
+              // morning's sweep. It cannot reorder rows the payload does not contain — the
+              // `truncated` flag above is what stops the panel over-claiming about those.
+              if (left.escalated !== right.escalated) return left.escalated ? -1 : 1;
               return right.id - left.id;
             })
         );
@@ -178,7 +212,13 @@ export const useUnansweredOutboundAlerts = () => {
     };
   }, [fetchAlerts]);
 
-  /** Dismiss one row. "Not now" — the thread itself is unchanged and stays in the queue. */
+  /**
+   * Dismiss one row. "Not now" — the thread itself is unchanged and stays in the queue.
+   *
+   * ⚠️ Not permanent, and the tooltip says so. The backend re-announces a one-sided thread
+   * that is still unanswered after ONE_SIDED_REALERT_HOURS, and escalates it to `critical`
+   * past ONE_SIDED_CRITICAL_HOURS — an escalation clears the dismissal by itself.
+   */
   const dismiss = useCallback((id: number) => {
     setAlerts((current) => current.filter((alert) => alert.id !== id));
     apiClient.patch(`/api/notifications/${id}/dismiss`).catch(() => {});
