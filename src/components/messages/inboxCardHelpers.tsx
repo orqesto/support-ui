@@ -13,6 +13,26 @@ import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/t
  * Everything else waits for the detail view.
  */
 
+/**
+ * Is this thread SPAM, as the lane itself decides it?
+ *
+ * ⛔ THE SERVER FLAG FIRST. `message.isSpam` (support-service #799) is resolved from the newest
+ * inbound event — the same predicate the Spam lane and its halves claim rows by.
+ * `metadata.spamCheck` is frozen at thread creation, and the two disagree on real threads: three
+ * live CoreSarms ones in 2026-09, one a customer asking about an order. Reading the frozen copy
+ * badges the wrong rows in BOTH directions — a thread that turned spam mid-thread wears no mark,
+ * and one that was cleared keeps a red one.
+ *
+ * ⚠️ `??`, so absent falls back to the frozen copy: this frontend deploys on merge while the
+ * backend ships on a tag, and an older deployment sending no flag must keep the old behaviour
+ * rather than lose every spam mark in the product.
+ *
+ * ⛔ One helper, because that frozen field was read in five places and a guard fixed in one file
+ * while its siblings keep the old answer is this repo's most repeated defect.
+ */
+export const isSpamThread = (message: Message): boolean =>
+  message.isSpam ?? getSpamCheck(message)?.isSpam === true;
+
 export type SpineColor = 'red' | 'amber' | 'blue' | 'none';
 
 /**
@@ -24,8 +44,7 @@ export type SpineColor = 'red' | 'amber' | 'blue' | 'none';
  *   - none   = awaiting customer / no signal
  */
 export const getSpine = (message: Message, thread: MessageThread): SpineColor => {
-  const spamCheck = getSpamCheck(message);
-  if (spamCheck?.isSpam === true) return 'red';
+  if (isSpamThread(message)) return 'red';
 
   const slaTone = computeSlaTone(message);
   if (slaTone === 'breach') return 'red';
@@ -305,12 +324,20 @@ export const getRiskSignals = (message: Message): RiskSignal[] => {
   const signals: RiskSignal[] = [];
 
   const spam = getSpamCheck(message);
-  if (spam?.isSpam === true) {
+  if (isSpamThread(message)) {
+    /**
+     * SP-D1: whether a PERSON has agreed is a different fact from the system's verdict, and it is
+     * what the two halves of the Spam queue partition on. Saying it on the card is what stops two
+     * agents opening the same thread to decide the same thing.
+     */
+    const confirmedAt = message.spamConfirmedAt;
     signals.push({
       key: 'spam',
-      label: 'Spam',
+      label: confirmedAt ? 'Spam · confirmed' : 'Spam',
       tone: 'breach',
-      tooltip: 'Marked as spam',
+      tooltip: confirmedAt
+        ? `Confirmed as spam by an agent on ${new Date(confirmedAt).toLocaleDateString()}`
+        : 'Marked as spam by the filter — nobody has confirmed it yet',
     });
   } else if (spam?.category === 'suspicious') {
     signals.push({
