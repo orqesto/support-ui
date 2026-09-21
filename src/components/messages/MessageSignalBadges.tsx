@@ -12,6 +12,7 @@ import type { Message } from '@/types';
 import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/types/ai';
 import {
   getRiskSignals,
+  isSpamThread,
   getSlaCardText,
   renderOverflowTooltip,
 } from './inboxCardHelpers';
@@ -122,18 +123,30 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
           </Badge>
         </Tooltip>
       )}
-      {spamCheck?.isSpam === true && (
+      {isSpamThread(message) && (
+        /*
+          ⚠️ THE LABEL AND THE REASONS COME FROM DIFFERENT PLACES NOW. Whether the thread is spam
+          is the LANE's answer (`isSpam`, resolved from the newest inbound event); the red flags
+          and the category are only ever in the FROZEN `metadata.spamCheck`. A thread that turned
+          spam mid-thread has the first and not the second, so both fall back rather than render
+          "undefined" or crash — which is what `spamCheck.redFlags` did before this guard.
+        */
         <Tooltip
-          content={`Spam: ${spamCheck.redFlags?.map(humanizeSignalFlag).join(', ') ?? ''}`}
+          content={
+            spamCheck?.redFlags?.length
+              ? `Spam: ${spamCheck.redFlags.map(humanizeSignalFlag).join(', ')}`
+              : 'Marked as spam'
+          }
           size="sm"
         >
           <Badge variant="danger" className={bc}>
             <ShieldX className={ic} />
-            {getFilteredCategoryLabel(spamCheck.category)}
+            {spamCheck?.category ? getFilteredCategoryLabel(spamCheck.category) : 'Spam'}
           </Badge>
         </Tooltip>
       )}
-      {!spamCheck?.isSpam && spamCheck?.category === 'suspicious' && (
+      {/* A thread the LANE calls spam is not also shown as merely suspicious. */}
+      {!isSpamThread(message) && spamCheck?.category === 'suspicious' && (
         <Tooltip
           content={`Suspicious: ${spamCheck.redFlags?.map(humanizeSignalFlag).join(', ') ?? ''}`}
           size="sm"
