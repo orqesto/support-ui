@@ -137,8 +137,18 @@ export function ThreadBubble({
    * than the bubble scrolls inside its own container instead of propagating overflow up to the
    * thread panel. Without a floor that is now rare, but "rare" is not "never".
    */
+  //
+  // 🎨 2026-09-21, app palette: the white sheet is GONE and the body follows the app
+  // theme (`.email-body` in index.css). A light sheet nested in a dark thread is a
+  // second container around the same message and the brightest object on screen —
+  // which is the thing the elevation scale set out to fix. `.email-body` overrides
+  // exactly four properties (colour, background, border-colour, font-family), each
+  // with `!important` because from there it is fighting an inline `style` the filter
+  // deliberately preserved. ⛔ It sets NO padding, width or display on a cell, and no
+  // `min-width` on a table: both re-collapse the two-column signatures, and the
+  // second one is ORB-SUP-1358 exactly. Sender GEOMETRY is untouched.
   const emailGround =
-    'rounded bg-white text-[#202124] px-3 py-2 overflow-x-auto ' +
+    'email-body rounded px-3 py-2 overflow-x-auto ' +
     // `<pre>` never wraps by default and a contact-form relay wraps the ENTIRE body in one, so
     // without this a single such mail is one unbroken line. The container would scroll rather
     // than break the panel, but scrolling to read a message is not reading it.
@@ -155,8 +165,15 @@ export function ThreadBubble({
      * before this change. Found by auditing the diff against `liftImageDimensions`, which
      * leaves the dimensions in `style` as well as lifting them to attributes.
      */
+    // ⛔ the `!h-auto` note above still applies and the class stays here, NOT in
+    // `.email-body`: a Tailwind `!` utility and a stylesheet `!important` are the
+    // same weapon, and keeping it next to its reasoning is what stops the next
+    // reader deleting it as a duplicate.
     '[&_pre]:whitespace-pre-wrap [&_img]:max-w-full [&_img]:!h-auto ' +
-    '[&_a]:text-[#1a0dab] [&_a]:underline';
+    // Link colour now comes from `.email-body a` (--primary, or --agent-link on a
+    // reply) rather than Gmail's hardcoded #1a0dab, which was invisible on a dark
+    // ground and wrong on our own reply tint.
+    '[&_a]:underline';
 
   /**
    * The memoised sanitizer for this message — `null` when the message cannot be rendered as
@@ -210,7 +227,10 @@ export function ThreadBubble({
     // blank" rather than "nothing here could be shown". Render nothing instead.
     if (clean.trim().length === 0) return null;
     return (
-      <div className={emailGround}>
+      // `bubble-agent` swaps the on-bubble roles for a reply WE wrote: links, quotes,
+      // table heads and code wells inside it read against --agent, not against the
+      // incoming ground. Without it a reply renders in the customer's colours.
+      <div className={isAgent ? `${emailGround} bubble-agent` : emailGround}>
         <div
           className="[overflow-wrap:anywhere] text-[13px] leading-normal"
           dangerouslySetInnerHTML={{ __html: clean }}

@@ -128,26 +128,60 @@ describe('the two-column signature keeps its layout', () => {
 });
 
 describe('the ground an email renders on', () => {
-  it('is light for an HTML body, in both themes', () => {
-    // Not cosmetic: the sender sets `color:#333333` above and sets no background, as most
-    // business mail does. On our blue agent bubble that is unreadable. The ground is fixed
-    // rather than theme-following for exactly that reason — Gmail does the same.
+  /**
+   * 🎨 REVERSED DELIBERATELY, 2026-09-21 (app palette). These three assertions used to pin the
+   * opposite rule — a fixed white sheet, as Gmail does — and they are rewritten rather than
+   * deleted, because the PROBLEM they were protecting against has not gone away.
+   *
+   * The problem: most business mail sets `color:#333333` and no background. Honouring that on a
+   * dark ground is unreadable, so SOMETHING has to give.
+   *   - Old answer: fix the GROUND. Render the body on a white sheet whatever the theme.
+   *   - New answer: neutralise the INK. `.email-body * { color: inherit !important }`, so the
+   *     sender's colour never applies and the body follows the app theme.
+   * The old answer made a light sheet the brightest object in a dark thread, and a second
+   * container around a message that already had one.
+   *
+   * ⛔ What must NOT change with it is geometry — table width/valign/align, inline padding, real
+   * <table> layout — which is what un-collapsed the two-column signatures. The tests above this
+   * describe block cover that and are untouched.
+   *
+   * 🪤 THE LIMIT OF THESE ASSERTIONS, stated because it would otherwise read as proof: jsdom
+   * loads no stylesheet, so `.email-body` has no computed effect here. These pin that the CLASS
+   * is applied and the hardcoded sheet is gone — NOT that the result is readable. That was
+   * checked in a browser, in both themes, against a real signature.
+   */
+  it('follows the app theme rather than a fixed white sheet', () => {
     const { container } = renderSignature();
     const ground = container.querySelector('table')?.closest('.overflow-x-auto');
-    expect(ground?.className).toContain('bg-white');
-    expect(ground?.className).toContain('text-[#202124]');
-    // The theme-inverting prose classes must NOT reach an email body.
+    expect(ground?.className).toContain('email-body');
+    expect(ground?.className, 'the fixed sheet is what this replaced').not.toContain('bg-white');
+    expect(ground?.className).not.toContain('text-[#202124]');
+    // The theme-inverting prose classes must still NOT reach an email body.
     expect(ground?.className).not.toContain('prose-invert');
   });
 
-  it('is light on an AGENT bubble too, where the bubble itself is saturated blue', () => {
+  it('carries the on-bubble roles on an AGENT reply, so it is not read in the customer’s colours', () => {
     useAuthStore.setState({ selectedOrganizationId: 21 });
     const { container } = render(
       <ThreadBubble content="" isAgent={true} html={SIGNATURE} eventId={6072} />
     );
     const ground = container.querySelector('table')?.closest('.overflow-x-auto');
-    expect(ground?.className).toContain('bg-white');
-    expect(ground?.className).not.toContain('prose-invert');
+    expect(ground?.className).toContain('email-body');
+    // ⛔ Without this the links, quotes and table heads inside a reply WE wrote are painted for
+    // the incoming ground, which in light theme is a tint they sit on top of.
+    expect(ground?.className).toContain('bubble-agent');
+    expect(ground?.className).not.toContain('bg-white');
+  });
+
+  it('puts the agent roles on an agent reply ONLY', () => {
+    // Negative control for the assertion above: it must key on who wrote the message, not be
+    // present on every email body.
+    useAuthStore.setState({ selectedOrganizationId: 21 });
+    const { container } = render(
+      <ThreadBubble content="" isAgent={false} html={SIGNATURE} eventId={6073} />
+    );
+    const ground = container.querySelector('table')?.closest('.overflow-x-auto');
+    expect(ground?.className).not.toContain('bubble-agent');
   });
 
   it('leaves a PLAIN-TEXT body following the app theme, untouched', () => {
@@ -225,13 +259,22 @@ describe("the sender's own colours", () => {
     expect(cell.getAttribute('style')).toContain('color: #333333');
   });
 
-  it('are readable, because the ground under them is light', () => {
-    // The pair is the point: honouring `color:#333` on a blue ground would be WORSE than
-    // stripping it. Neither assertion alone is the guarantee.
+  it('are overridden for READING, while the attribute itself survives for geometry', () => {
+    /**
+     * The pair is still the point, with the halves swapped. Honouring `color:#333` on a dark
+     * ground would be worse than ignoring it — so the declaration stays in the DOM (the same
+     * `style` attribute carries the padding and widths that hold a signature together) and
+     * `.email-body` overrides the four properties that decide legibility: colour, background,
+     * border-colour, font-family. Each needs `!important` precisely because it is fighting an
+     * inline style the filter deliberately preserved.
+     *
+     * 🪤 jsdom applies no stylesheet, so what is asserted here is that the attribute survived
+     * and the neutralising class is present — not the resulting colour. See the note above.
+     */
     const { container } = renderSignature();
     const ground = container.querySelector('table')?.closest('.overflow-x-auto');
     const cell = container.querySelectorAll('td')[1];
-    expect(ground?.className).toContain('bg-white');
     expect(cell.getAttribute('style')).toContain('color: #333333');
+    expect(ground?.className).toContain('email-body');
   });
 });

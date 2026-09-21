@@ -457,15 +457,15 @@ export const TrackingPage = () => {
 
   if (state.kind === 'loading') {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <p className="text-sm text-[hsl(215.4,16.3%,46.9%)]">Loading…</p>
+      <div className="surface-light flex justify-center items-center min-h-screen bg-background">
+        <p className="text-sm text-muted-foreground">Loading…</p>
       </div>
     );
   }
 
   if (state.kind === 'error') {
     return (
-      <div className="flex justify-center items-center px-4 min-h-screen bg-gray-50">
+      <div className="surface-light flex justify-center items-center px-4 min-h-screen bg-background">
         {/*
           ⛔ LITERAL colours, never `text-foreground`/`text-muted-foreground`. This page is
           public and always light — every other surface on it is hard-coded the same way, and
@@ -475,11 +475,9 @@ export const TrackingPage = () => {
           WHITE: measured contrast 1.05:1, against 20.01:1 with the class removed. The heading
           was invisible.
         */}
-        <div className="w-full max-w-md p-6 text-center bg-white rounded-lg shadow-sm">
-          <h1 className="text-lg font-medium text-[hsl(222.2,84%,4.9%)]">
-            Tracking link unavailable
-          </h1>
-          <p className="mt-2 text-sm text-[hsl(215.4,16.3%,46.9%)]">{state.message}</p>
+        <div className="w-full max-w-md p-6 text-center bg-card rounded-lg shadow-sm">
+          <h1 className="text-lg font-medium text-foreground">Tracking link unavailable</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{state.message}</p>
         </div>
       </div>
     );
@@ -590,7 +588,18 @@ export const TrackingPage = () => {
     : null;
 
   return (
-    <div className="min-h-screen bg-[hsl(210,20%,98%)] text-[hsl(222.2,84%,4.9%)] font-sans">
+    <div
+      /**
+       * ⛔ `surface-light` is load-bearing, not decoration. This page is opened by a
+       * CUSTOMER without auth, and any visitor who has used the app carries `.dark`
+       * on <html> — so when this page used theme tokens its heading rendered at
+       * 1.05:1, i.e. invisible. The ~40 hardcoded hsl() literals that used to be
+       * here were the fix; the scope is the same fix without giving up tokens.
+       * It re-declares the light values AND paints its own ink and ground, because
+       * `color` is inherited from outside the scope.
+       */
+      className="surface-light min-h-screen bg-background text-foreground font-sans"
+    >
       {isPreview && (
         <div className="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-5 py-2 text-center">
           <strong>Preview mode</strong> — showing sample data. Real customer tracking links include
@@ -602,7 +611,7 @@ export const TrackingPage = () => {
         </div>
       )}
       {/* Top bar */}
-      <header className="border-b border-[hsl(214.3,31.8%,91.4%)] bg-white">
+      <header className="border-b border-border bg-card">
         <div className="max-w-5xl mx-auto px-5 h-16 flex items-center gap-3">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-md bg-blue-600 text-white flex items-center justify-center text-sm font-bold">
@@ -612,9 +621,9 @@ export const TrackingPage = () => {
               {organization.name ?? 'Support'}
             </span>
           </div>
-          <div className="ml-auto flex items-center gap-2 text-sm text-[hsl(215.4,16.3%,46.9%)]">
+          <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
             <span className="hidden sm:inline">Request</span>
-            <span className="font-mono font-medium text-[hsl(222.2,84%,4.9%)] bg-[hsl(210,20%,98%)] border border-[hsl(214.3,31.8%,91.4%)] rounded-md px-2 py-0.5 text-[13px]">
+            <span className="font-mono font-medium text-foreground bg-background border border-border rounded-md px-2 py-0.5 text-[13px]">
               {referenceNumber}
             </span>
           </div>
@@ -623,7 +632,7 @@ export const TrackingPage = () => {
 
       <main className="max-w-5xl mx-auto px-5 py-8">
         {/* Status hero */}
-        <section className="bg-white border border-[hsl(214.3,31.8%,91.4%)] rounded-xl p-6 sm:p-7 mb-6">
+        <section className="bg-card border border-border rounded-xl p-6 sm:p-7 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-start gap-5">
             <div className="flex-shrink-0">
               <div
@@ -674,14 +683,12 @@ export const TrackingPage = () => {
                 </span>
               </div>
               <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">{heroHeadline}</h1>
-              <p className="text-[hsl(215.4,16.3%,46.9%)] mt-1.5 text-[15px] leading-relaxed">
-                {heroSub}
-              </p>
+              <p className="text-muted-foreground mt-1.5 text-[15px] leading-relaxed">{heroSub}</p>
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4 text-sm">
                 {!isResolved &&
                   !firstHumanReplyAt &&
                   typeof conversation.slaResponseMinutes === 'number' && (
-                    <div className="flex items-center gap-1.5 text-[hsl(215.4,16.3%,46.9%)]">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
                       <svg
                         width="15"
                         height="15"
@@ -697,12 +704,12 @@ export const TrackingPage = () => {
                         <polyline points="12 7 12 12 15 14" />
                       </svg>
                       Expected reply{' '}
-                      <span className="text-[hsl(222.2,84%,4.9%)] font-medium">
+                      <span className="text-foreground font-medium">
                         {fmtSLAWindow(conversation.slaResponseMinutes)}
                       </span>
                     </div>
                   )}
-                <div className="flex items-center gap-1.5 text-[hsl(215.4,16.3%,46.9%)]">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
                   <svg
                     width="15"
                     height="15"
@@ -718,7 +725,7 @@ export const TrackingPage = () => {
                     <circle cx="12" cy="7" r="4" />
                   </svg>
                   Handled by{' '}
-                  <span className="text-[hsl(222.2,84%,4.9%)] font-medium">
+                  <span className="text-foreground font-medium">
                     {department.name ? `the ${department.name} team` : 'our support team'}
                   </span>
                 </div>
@@ -731,7 +738,7 @@ export const TrackingPage = () => {
           {/* Left column */}
           <div className="space-y-6 min-w-0">
             {/* Progress stepper */}
-            <section className="bg-white border border-[hsl(214.3,31.8%,91.4%)] rounded-xl p-6">
+            <section className="bg-card border border-border rounded-xl p-6">
               <h2 className="text-sm font-semibold mb-5">Progress</h2>
               <ol className="relative">
                 {timeline.map((stage, idx) => {
@@ -756,23 +763,21 @@ export const TrackingPage = () => {
                             // Connector lights up only when BOTH this stage
                             // and the next stage are reached — gaps stay gray
                             // so a skipped stage reads as actually skipped.
-                            reached && timeline[idx + 1].reachedAt
-                              ? 'bg-blue-600'
-                              : 'bg-[hsl(214.3,31.8%,91.4%)]'
+                            reached && timeline[idx + 1].reachedAt ? 'bg-blue-600' : 'bg-border'
                           }`}
                         />
                       )}
                       {!reached ? (
                         <div
                           aria-hidden="true"
-                          className="relative z-10 w-6 h-6 rounded-full bg-white border-2 border-[hsl(214.3,31.8%,91.4%)] flex-shrink-0"
+                          className="relative z-10 w-6 h-6 rounded-full bg-card border-2 border-border flex-shrink-0"
                         />
                       ) : isCurrent ? (
                         <div
                           aria-hidden="true"
                           className="relative z-10 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center flex-shrink-0 ring-4 ring-blue-50"
                         >
-                          <span className="w-2 h-2 rounded-full bg-white" />
+                          <span className="w-2 h-2 rounded-full bg-card" />
                         </div>
                       ) : (
                         <div
@@ -798,20 +803,20 @@ export const TrackingPage = () => {
                           <p
                             className={`text-[15px] ${
                               isCurrent ? 'font-semibold' : 'font-medium'
-                            } ${reached ? '' : 'text-[hsl(215.4,16.3%,46.9%)]'}`}
+                            } ${reached ? '' : 'text-muted-foreground'}`}
                           >
                             {stage.label}
                           </p>
                           {stageTime && (
                             <span
-                              className="text-xs text-[hsl(215.4,16.3%,46.9%)] whitespace-nowrap"
+                              className="text-xs text-muted-foreground whitespace-nowrap"
                               title={stage.reachedAt ? fmtTime(stage.reachedAt) : undefined}
                             >
                               {isCurrent ? 'Now' : stageTime}
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-[hsl(215.4,16.3%,46.9%)] mt-0.5">{stage.desc}</p>
+                        <p className="text-sm text-muted-foreground mt-0.5">{stage.desc}</p>
                       </div>
                     </li>
                   );
@@ -820,11 +825,11 @@ export const TrackingPage = () => {
             </section>
 
             {/* Conversation */}
-            <section className="bg-white border border-[hsl(214.3,31.8%,91.4%)] rounded-xl p-6">
+            <section className="bg-card border border-border rounded-xl p-6">
               <h2 className="text-sm font-semibold mb-4">Conversation</h2>
               <div className="space-y-4">
                 {events.length === 0 ? (
-                  <p className="text-sm text-[hsl(215.4,16.3%,46.9%)]">No messages yet.</p>
+                  <p className="text-sm text-muted-foreground">No messages yet.</p>
                 ) : (
                   events.map((event) => {
                     const isCustomer = event.direction === 'customer';
@@ -861,7 +866,7 @@ export const TrackingPage = () => {
                           className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${
                             isCustomer
                               ? 'bg-blue-600 text-white'
-                              : 'bg-[hsl(210,20%,98%)] border border-[hsl(214.3,31.8%,91.4%)] text-[hsl(215.4,16.3%,46.9%)]'
+                              : 'bg-background border border-border text-muted-foreground'
                           }`}
                           aria-hidden="true"
                         >
@@ -879,7 +884,7 @@ export const TrackingPage = () => {
                           >
                             <span className="text-sm font-medium">{senderLabel}</span>
                             <span
-                              className="text-xs text-[hsl(215.4,16.3%,46.9%)]"
+                              className="text-xs text-muted-foreground"
                               title={fmtTime(event.sentAt)}
                             >
                               {time}
@@ -889,7 +894,7 @@ export const TrackingPage = () => {
                             className={`text-[15px] leading-relaxed px-3.5 py-2.5 rounded-lg max-w-[92%] prose prose-sm prose-a:underline ${
                               isCustomer
                                 ? 'bg-blue-600 text-white rounded-tr-sm prose-invert prose-a:text-white'
-                                : 'bg-[hsl(210,20%,98%)] border border-[hsl(214.3,31.8%,91.4%)] rounded-tl-sm prose-a:text-blue-700'
+                                : 'bg-background border border-border rounded-tl-sm prose-a:text-blue-700'
                             }`}
                             dangerouslySetInnerHTML={{ __html: renderEventHtml(event.content) }}
                           />
@@ -901,7 +906,7 @@ export const TrackingPage = () => {
               </div>
 
               {!isResolved && (
-                <div className="mt-5 pt-5 border-t border-[hsl(214.3,31.8%,91.4%)]">
+                <div className="mt-5 pt-5 border-t border-border">
                   <label htmlFor="tracking-reply" className="text-sm font-medium mb-2 block">
                     Add to this request
                   </label>
@@ -909,7 +914,7 @@ export const TrackingPage = () => {
                     className={`rounded-lg border transition ${
                       replyState.kind === 'error'
                         ? 'border-red-500 focus-within:ring-2 focus-within:ring-red-500/20'
-                        : 'border-[hsl(214.3,31.8%,91.4%)] focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/20'
+                        : 'border-border focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/20'
                     }`}
                   >
                     <Textarea
@@ -931,8 +936,8 @@ export const TrackingPage = () => {
                       placeholder="Reply, add details, or context that helps us answer…"
                       className="px-3.5 py-2.5 text-[15px] bg-transparent border-0 resize-none rounded-lg disabled:opacity-60"
                     />
-                    <div className="flex items-center gap-2 px-3 py-2 border-t border-[hsl(214.3,31.8%,91.4%)]">
-                      <span className="text-xs text-[hsl(215.4,16.3%,46.9%)]">
+                    <div className="flex items-center gap-2 px-3 py-2 border-t border-border">
+                      <span className="text-xs text-muted-foreground">
                         {replyText.length > 0
                           ? `${replyText.length.toLocaleString()} / 4,000`
                           : "We'll email you a copy of your reply."}
@@ -958,15 +963,15 @@ export const TrackingPage = () => {
 
           {/* Right column — details */}
           <aside className="space-y-6">
-            <section className="bg-white border border-[hsl(214.3,31.8%,91.4%)] rounded-xl p-5">
+            <section className="bg-card border border-border rounded-xl p-5">
               <h2 className="text-sm font-semibold mb-4">Request details</h2>
               <dl className="space-y-3 text-sm">
                 <div className="flex justify-between gap-3">
-                  <dt className="text-[hsl(215.4,16.3%,46.9%)]">Reference</dt>
+                  <dt className="text-muted-foreground">Reference</dt>
                   <dd className="font-mono font-medium">{referenceNumber}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-[hsl(215.4,16.3%,46.9%)]">Submitted</dt>
+                  <dt className="text-muted-foreground">Submitted</dt>
                   <dd className="font-medium text-right" title={fmtTime(conversation.createdAt)}>
                     {new Date(conversation.createdAt).toLocaleDateString(undefined, {
                       year: 'numeric',
@@ -977,13 +982,13 @@ export const TrackingPage = () => {
                 </div>
                 {inboundChannel && (
                   <div className="flex justify-between gap-3">
-                    <dt className="text-[hsl(215.4,16.3%,46.9%)]">Channel</dt>
+                    <dt className="text-muted-foreground">Channel</dt>
                     <dd className="font-medium">{inboundChannel}</dd>
                   </div>
                 )}
                 {department.name && (
                   <div className="flex justify-between gap-3">
-                    <dt className="text-[hsl(215.4,16.3%,46.9%)]">Team</dt>
+                    <dt className="text-muted-foreground">Team</dt>
                     <dd className="font-medium">{department.name}</dd>
                   </div>
                 )}
@@ -991,7 +996,7 @@ export const TrackingPage = () => {
                   conversation.priority !== 'low' &&
                   conversation.priority !== 'medium' && (
                     <div className="flex justify-between gap-3">
-                      <dt className="text-[hsl(215.4,16.3%,46.9%)]">Priority</dt>
+                      <dt className="text-muted-foreground">Priority</dt>
                       <dd
                         className={`font-medium capitalize ${
                           conversation.priority === 'critical' ? 'text-red-600' : 'text-orange-600'
@@ -1002,8 +1007,8 @@ export const TrackingPage = () => {
                     </div>
                   )}
                 {firstHumanReplyAt && (
-                  <div className="flex justify-between gap-3 pt-3 border-t border-[hsl(214.3,31.8%,91.4%)]">
-                    <dt className="text-[hsl(215.4,16.3%,46.9%)]">First reply</dt>
+                  <div className="flex justify-between gap-3 pt-3 border-t border-border">
+                    <dt className="text-muted-foreground">First reply</dt>
                     <dd className="font-medium text-right" title={fmtTime(firstHumanReplyAt)}>
                       {fmtRelative(firstHumanReplyAt) ?? fmtTime(firstHumanReplyAt)}
                     </dd>
@@ -1012,15 +1017,15 @@ export const TrackingPage = () => {
               </dl>
             </section>
 
-            <section className="bg-white border border-[hsl(214.3,31.8%,91.4%)] rounded-xl p-5">
+            <section className="bg-card border border-border rounded-xl p-5">
               <h2 className="text-sm font-semibold mb-2">Need to reach us another way?</h2>
-              <p className="text-sm text-[hsl(215.4,16.3%,46.9%)] mb-3">
+              <p className="text-sm text-muted-foreground mb-3">
                 Reply to your confirmation email — that's the channel we currently watch and you'll
                 land back on this page.
               </p>
             </section>
 
-            <p className="text-xs text-[hsl(215.4,16.3%,46.9%)] px-1 leading-relaxed">
+            <p className="text-xs text-muted-foreground px-1 leading-relaxed">
               This page updates as your request progresses. Bookmark it to check back anytime —
               we'll also email you at each step.
             </p>
@@ -1028,8 +1033,8 @@ export const TrackingPage = () => {
         </div>
       </main>
 
-      <footer className="border-t border-[hsl(214.3,31.8%,91.4%)] mt-10">
-        <div className="max-w-5xl mx-auto px-5 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-[hsl(215.4,16.3%,46.9%)]">
+      <footer className="border-t border-border mt-10">
+        <div className="max-w-5xl mx-auto px-5 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
           <span>
             © {new Date().getFullYear()} {organization.name ?? 'odly'} · Support
           </span>

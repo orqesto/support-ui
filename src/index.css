@@ -3,57 +3,250 @@
 @tailwind utilities;
 
 @layer base {
+  /* ── odly app tokens ───────────────────────────────────────────────────
+     Values stay in shadcn's "H S% L%" shape, so `bg-background`,
+     `text-muted-foreground` and every other existing utility keeps working.
+     Brand blue is unchanged.
+
+     Four things are new:
+       1. Elevation  — canvas / card / raised / sunken, instead of one flat white.
+       2. Roles      — --ai (a machine did it) and --note (internal-only), on top
+                       of success / warning / destructive / info.
+       3. Contrast   — every text token clears 4.5:1 against --card in BOTH
+                       themes.
+       4. .surface-light — pins light values inside a subtree whatever the user's
+                       theme, for public pages a customer opens without auth. */
+
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
+    /* ── elevation ─────────────────────────────── */
+    --background: 220 16% 96%; /* app canvas — was flat white */
+    --foreground: 222 25% 9%;
+    --card: 0 0% 100%; /* panels, bubbles, popovers */
+    --card-foreground: 222 25% 9%;
+    --raised: 220 20% 98%; /* inputs, meta strips, chips */
+    --sunken: 220 14% 93%; /* table heads, code, wells */
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 25% 9%;
+
+    /* ── text ──────────────────────────────────── */
+    --muted: 220 14% 93%;
+    --muted-foreground: 220 10% 38%;
+    --faint-foreground: 220 9% 42%; /* smallest labels */
+
+    /* ── interactive (brand blue, unchanged) ───── */
+    --primary: 221 83% 53%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210, 20%, 95%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --success: 142 71% 45%;
-    --success-foreground: 210 40% 98%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 26 83% 14%;
+    --primary-muted: 219 96% 95%; /* tinted fills behind primary text */
+    --primary-line: 219 89% 86%;
+    --secondary: 220 14% 93%;
+    --secondary-foreground: 222 25% 14%;
+    --accent: 220 14% 93%;
+    --accent-foreground: 222 25% 14%;
+
+    /* ── AI & automation ───────────────────────── */
+    --ai: 176 76% 26%;
+    --ai-foreground: 0 0% 100%;
+    --ai-muted: 170 42% 93%;
+    --ai-line: 172 40% 73%;
+
+    /* ── internal-only (never customer-visible) ── */
+    --note: 36 92% 27%;
+    --note-foreground: 0 0% 100%;
+    --note-muted: 43 79% 94%;
+    --note-line: 41 66% 68%;
+
+    /* ── state ─────────────────────────────────── */
+    --success: 162 84% 22%;
+    --success-foreground: 0 0% 100%;
+    --success-muted: 160 48% 93%;
+    --success-line: 158 42% 76%;
+    --warning: 28 88% 32%;
+    --warning-foreground: 0 0% 100%;
+    --warning-muted: 36 92% 94%;
+    --warning-line: 33 78% 76%;
+    --destructive: 4 76% 40%;
+    --destructive-foreground: 0 0% 100%;
+    --destructive-muted: 6 82% 96%;
+    --destructive-line: 6 73% 84%;
     --info: 221 83% 53%;
     --info-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+
+    /* ── lines & shape ─────────────────────────── */
+    --border: 220 14% 88%;
+    --border-strong: 220 13% 77%;
+    --hair: 220 16% 91%; /* inside-card dividers */
+    --input: 220 14% 88%;
+    --ring: 221 83% 53%;
     --radius: 0.5rem;
+
+    /* ── message bubbles ───────────────────────── */
+    /* An incoming message is a CARD on the thread canvas, so it gets its own
+       ground rather than borrowing --card: panels and bars sit level with the
+       canvas, a message has to sit above it. Same as --card in light; the two
+       part company in dark. */
+    --bubble: 0 0% 100%;
+    --bubble-line: 220 11% 88%;
+    --bubble-well: 220 14% 93%; /* code, pre, table heads INSIDE a bubble */
+
+    /* ── outgoing / agent-written ──────────────── */
+    /* A tint, not ink. A near-black reply fill made the agent's own words the
+       heaviest object on a light thread. --agent-* are the on-bubble roles, so
+       chips, links, table heads and quotes inside a reply stop being hardcoded
+       light-on-dark. */
+    --agent: 222 70% 95%;
+    --agent-foreground: 222 25% 9%;
+    --agent-line: 218 74% 86%;
+    --agent-dim: 220 22% 36%; /* secondary ink on a reply */
+    --agent-link: 221 76% 48%;
+    --agent-hair: 217 66% 88%; /* dividers on a reply */
+    --agent-fill: 220 62% 20% / 0.06; /* chip / well ground on a reply */
+
+    /* Sender-image plate. A white-ground PNG cannot be re-tinted, so it sits on
+       an explicit plate instead of punching a hole in the surface. */
+    --plate: 0 0% 100%;
+    --plate-line: 220 16% 90%;
   }
 
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 14%;
-    --card-foreground: 210 40% 98%;
-    --primary: 221.2 83.2% 53.3%;
+    --background: 220 16% 9%;
+    --foreground: 220 20% 92%;
+    --card: 220 15% 12%;
+    --card-foreground: 220 20% 92%;
+    --raised: 220 14% 15%;
+    --sunken: 220 16% 8%;
+    --popover: 220 15% 12%;
+    --popover-foreground: 220 20% 92%;
+
+    --muted: 220 14% 17%;
+    --muted-foreground: 220 12% 68%;
+    --faint-foreground: 220 11% 63%;
+
+    /* Text-weight blue for dark grounds; --primary-solid keeps the saturated
+       brand blue for filled buttons, where white sits on top. */
+    --primary: 219 100% 78%;
+    --primary-solid: 221 78% 57%;
+    --primary-foreground: 220 20% 8%;
+    --primary-muted: 220 40% 17%;
+    --primary-line: 219 37% 28%;
+    --secondary: 220 14% 17%;
+    --secondary-foreground: 220 20% 92%;
+    --accent: 220 14% 19%;
+    --accent-foreground: 220 20% 92%;
+
+    --ai: 172 55% 60%;
+    --ai-foreground: 180 40% 8%;
+    --ai-muted: 174 36% 10%;
+    --ai-line: 174 38% 23%;
+
+    --note: 40 72% 68%;
+    --note-foreground: 36 60% 8%;
+    --note-muted: 40 46% 9%;
+    --note-line: 40 53% 26%;
+
+    --success: 158 56% 60%;
+    --success-foreground: 160 50% 8%;
+    --success-muted: 160 40% 10%;
+    --success-line: 158 42% 20%;
+    --warning: 38 82% 68%;
+    --warning-foreground: 30 60% 8%;
+    --warning-muted: 36 45% 10%;
+    --warning-line: 36 50% 24%;
+    --destructive: 5 82% 75%;
+    --destructive-foreground: 5 60% 8%;
+    --destructive-muted: 6 42% 12%;
+    --destructive-line: 6 44% 25%;
+    --info: 219 100% 78%;
+    --info-foreground: 220 20% 8%;
+
+    --border: 220 14% 20%;
+    --border-strong: 220 13% 27%;
+    --hair: 220 15% 16%;
+    --input: 220 14% 18%;
+    --ring: 219 90% 66%;
+
+    /* --card (12%) is only 3 points above --background (9%), which reads as a
+       hole punched in the thread rather than paper lying on it. A message card
+       is lifted clear, and its well is lifted FURTHER — a recessed well in a
+       dark theme is just another hole. */
+    --bubble: 220 16% 17%;
+    --bubble-line: 220 15% 24%;
+    --bubble-well: 220 16% 21%;
+
+    /* Dark keeps a saturated navy fill: on a dark canvas a fill READS as
+       ownership, which is what the light theme cannot do without going too
+       heavy. */
+    --agent: 219 37% 23%;
+    --agent-foreground: 220 30% 95%;
+    --agent-line: 219 37% 30%;
+    --agent-dim: 217 34% 72%;
+    --agent-link: 217 73% 84%;
+    --agent-hair: 0 0% 100% / 0.16;
+    --agent-fill: 0 0% 100% / 0.08;
+
+    --plate: 220 14% 89%; /* light plate under sender images */
+    --plate-line: 220 14% 21%;
+  }
+
+  /* Public, always-light surfaces — anything a customer opens without auth.
+     ⛔ Re-declaring the variables alone is NOT enough: `color` is inherited from
+     OUTSIDE the scope (usually <body>, still carrying .dark), which is the exact
+     mechanism that rendered the tracking heading at 1.05:1. The scope paints its
+     own ink and ground, below. */
+  .surface-light,
+  .dark .surface-light {
+    --background: 220 16% 97%;
+    --foreground: 222 25% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 25% 9%;
+    --raised: 220 20% 98%;
+    --sunken: 220 14% 93%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 25% 9%;
+    --muted: 220 14% 93%;
+    --muted-foreground: 220 10% 38%;
+    --faint-foreground: 220 9% 42%;
+    --primary: 221 83% 53%;
+    --primary-solid: 221 83% 53%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 20%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 50%;
-    --destructive-foreground: 210 40% 98%;
-    --success: 142 65% 40%;
-    --success-foreground: 210 40% 98%;
-    --warning: 38 88% 50%;
-    --warning-foreground: 26 83% 14%;
-    --info: 217 91% 60%;
-    --info-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 20%;
-    --input: 217.2 32.6% 18%;
-    --ring: 221.2 83.2% 53.3%;
+    --primary-muted: 219 96% 95%;
+    --primary-line: 219 89% 86%;
+    --ai: 176 76% 26%;
+    --ai-muted: 170 42% 93%;
+    --ai-line: 172 40% 73%;
+    --note: 36 92% 27%;
+    --note-muted: 43 79% 94%;
+    --note-line: 41 66% 68%;
+    --success: 162 84% 22%;
+    --success-muted: 160 48% 93%;
+    --success-line: 158 42% 76%;
+    --warning: 28 88% 32%;
+    --warning-muted: 36 92% 94%;
+    --warning-line: 33 78% 76%;
+    --destructive: 4 76% 40%;
+    --destructive-muted: 6 82% 96%;
+    --destructive-line: 6 73% 84%;
+    --border: 220 14% 88%;
+    --border-strong: 220 13% 77%;
+    --hair: 220 16% 91%;
+    --input: 220 14% 88%;
+    --ring: 221 83% 53%;
+    --bubble: 0 0% 100%;
+    --bubble-line: 220 11% 88%;
+    --bubble-well: 220 14% 93%;
+    --agent: 222 70% 95%;
+    --agent-foreground: 222 25% 9%;
+    --agent-line: 218 74% 86%;
+    --agent-dim: 220 22% 36%;
+    --agent-link: 221 76% 48%;
+    --agent-hair: 217 66% 88%;
+    --agent-fill: 220 62% 20% / 0.06;
+    --plate: 0 0% 100%;
+    --plate-line: 220 16% 90%;
+  }
+
+  .surface-light {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 
   * {
@@ -109,7 +302,14 @@
   *::-webkit-scrollbar-thumb {
     background-color: hsl(var(--muted-foreground) / 0.3);
     border-radius: 6px;
-    border: 3px solid hsl(var(--background));
+    /* ⛔ transparent + clip, NOT `hsl(var(--background))`. The 3px inset fakes a
+       rail by painting the PAGE colour; that held while --background was flat
+       white and every card was too. With an elevation scale it does not: a thumb
+       inside a card paints a grey halo in light and a near-black one in dark.
+       🪤 There are TWO of these — this rule and its `.dark` override. Fixing one
+       leaves the other haloing in exactly the theme nobody screenshots. */
+    border: 3px solid transparent;
+    background-clip: padding-box;
   }
 
   *::-webkit-scrollbar-thumb:hover {
@@ -128,7 +328,8 @@
   /* Dark theme specific adjustments */
   .dark *::-webkit-scrollbar-thumb {
     background-color: hsl(var(--muted-foreground) / 0.4);
-    border: 3px solid hsl(var(--background));
+    border: 3px solid transparent;
+    background-clip: padding-box;
   }
 
   .dark *::-webkit-scrollbar-thumb:hover {
@@ -197,3 +398,98 @@
     height: 12px;
   }
 }
+
+/* ── sender HTML follows the APP theme ────────────────────────────────────
+   An email body does not render on its own white sheet. A light sheet nested in
+   a dark thread is a second container around the same message, and the
+   brightest object on screen — the thing the elevation scale exists to fix.
+
+   ⛔ This does NOT undo the sanitiser work in `src/lib/emailCss.ts`. That win is
+   GEOMETRY, not colour: table width/valign/align/colspan, inline padding and
+   real <table> layout survive, which is what un-collapsed two-column
+   signatures. All of it is kept. Exactly four properties are overridden —
+   colour, background, border-colour, font-family — and each needs `!important`,
+   because from here it is fighting an inline `style` the filter deliberately
+   preserved.
+
+   ⛔ NOTHING below may set padding, alignment, width or display on a table, cell
+   or image, and no `min-width` on a table: the first re-collapses the signature,
+   the second is ORB-SUP-1358 (the thread panel turns into a sideways scroller). */
+
+.email-body * {
+  color: inherit !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: hsl(var(--bubble-line)) !important;
+  font-family: inherit !important;
+}
+
+.email-body table {
+  border-collapse: collapse;
+  max-width: 100%;
+}
+.email-body pre {
+  white-space: pre-wrap;
+}
+.email-body th {
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.email-body th,
+.email-body blockquote {
+  color: hsl(var(--faint-foreground)) !important;
+}
+.email-body blockquote {
+  border-left: 2px solid hsl(var(--border-strong)) !important;
+}
+.email-body code,
+.email-body pre {
+  background: hsl(var(--bubble-well)) !important;
+}
+.email-body a {
+  color: hsl(var(--primary)) !important;
+}
+
+/* The one thing that cannot be neutralised is pixels. A white-ground logo keeps
+   an explicit plate, so it reads as an object rather than a hole in the surface. */
+.email-body img {
+  background: hsl(var(--plate)) !important;
+  border: 1px solid hsl(var(--plate-line));
+}
+.dark .email-body img {
+  filter: brightness(0.92) contrast(1.02);
+}
+.dark .email-body img:hover {
+  filter: none;
+}
+
+/* On an outgoing reply the same body sits on --agent, so its on-bubble roles take
+   over. Without this a reply renders in the INCOMING colours. */
+.bubble-agent .email-body *,
+.bubble-agent.email-body * {
+  border-color: hsl(var(--agent-hair)) !important;
+}
+.bubble-agent .email-body th,
+.bubble-agent .email-body blockquote,
+.bubble-agent.email-body th,
+.bubble-agent.email-body blockquote {
+  color: hsl(var(--agent-dim)) !important;
+}
+.bubble-agent .email-body blockquote,
+.bubble-agent.email-body blockquote {
+  border-left-color: hsl(var(--agent-hair)) !important;
+}
+.bubble-agent .email-body code,
+.bubble-agent .email-body pre,
+.bubble-agent.email-body code,
+.bubble-agent.email-body pre {
+  background: hsl(var(--agent-fill)) !important;
+}
+.bubble-agent .email-body a,
+.bubble-agent.email-body a {
+  color: hsl(var(--agent-link)) !important;
+}
+
+/* Plain-text bodies need none of this: there is no sender styling to respect, so
+   they simply follow the app theme. */
