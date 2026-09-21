@@ -10,6 +10,7 @@ import {
 import { MessageAttachments, type Attachment } from './MessageAttachments';
 import { MessageKBReferences } from './MessageKBReferences';
 import { AiTabPanel, type KBAttachment } from './AiTabPanel';
+import { CustomerTabPanels } from './CustomerTabPanels';
 import {
   messageService,
   type MessageNote,
@@ -28,11 +29,7 @@ import RichTextEditor from '@/components/shared/RichTextEditor';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import DOMPurify from 'dompurify';
 import { MONO, relativeTime, getInitials } from './messageDetailConstants';
-import {
-  CustomApiLookupPanel,
-  NO_EMAIL_IDENTITY_NOTE,
-  hasLookupEmailIdentity,
-} from './CustomApiLookupPanel';
+import { hasLookupEmailIdentity } from './CustomApiLookupPanel';
 
 type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
 
@@ -311,12 +308,12 @@ export function MessagePanelTabs({
                 ))}
               </div>
 
-              {/* CA-3: what the connected integrations know about this customer. Nothing is
-                  fetched until the agent presses Look up (SC1). */}
-              <CustomApiLookupPanel
-                className="pt-1"
-                conversationId={message.id}
-                identityNote={hasEmailIdentity ? undefined : NO_EMAIL_IDENTITY_NOTE}
+
+              {/* What the connected systems know, and which other threads are the same work. */}
+              <CustomerTabPanels
+                message={message}
+                hasEmailIdentity={hasEmailIdentity}
+                onChanged={onRefresh}
               />
 
               {/* Full contact profile — assigned manager, labels, channel
