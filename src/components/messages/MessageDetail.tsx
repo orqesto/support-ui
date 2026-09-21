@@ -3,11 +3,7 @@
 // wiring out is the natural follow-up refactor.
 /* eslint-disable max-lines */
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import {
-  draftToRecipients,
-  emptyRecipientDraft,
-  type RecipientDraft,
-} from './RecipientFields';
+import { draftToRecipients, emptyRecipientDraft, type RecipientDraft } from './RecipientFields';
 import {
   messageService,
   type AiDraft,
@@ -36,6 +32,7 @@ import {
   type AssignOnReplyPrompt,
 } from './assignOnReplyPrompt';
 import type { Message, MessageEvent } from '@/types';
+import { shouldShowHistoryBanner } from './historyBanner';
 import { MessageDetailHeader } from './MessageDetailHeader';
 import { MessageComposer } from './MessageComposer';
 import { MessageActionStrip } from './MessageActionStrip';
@@ -428,70 +425,84 @@ export function MessageDetail({
   const supportsRecipients = message.channel === 'email';
   const [recipientDraft, setRecipientDraft] = useState<RecipientDraft>(emptyRecipientDraft);
 
-  const performSend = useCallback(async (assign?: ReplyAssignIntent) => {
-    setSubmitting(true);
-    setSendFailedError(null);
-    // Notes aren't emails — no idempotency needed. For replies, reuse a prior failed attempt's
-    // token (retry) so the BE dedups; otherwise mint a fresh one for this logical send.
-    if (composerMode !== 'note' && !sendIdempotencyKeyRef.current) {
-      sendIdempotencyKeyRef.current = crypto.randomUUID();
-    }
-    const idempotencyKey = sendIdempotencyKeyRef.current ?? undefined;
-    // Undefined unless the agent actually addressed this reply somewhere, which
-    // the BE reads as "the requester and nobody else".
-    const recipients = supportsRecipients ? draftToRecipients(recipientDraft) : undefined;
-    try {
-      if (composerMode === 'note') {
-        await messageService.addNote(message.id, composer);
-      } else if (selectedFiles.length > 0) {
-        await messageService.replyWithAttachments(
-          message.id,
-          composer,
-          selectedFiles,
-          false,
-          aiSource !== null,
-          aiSource ?? undefined,
-          idempotencyKey,
-          aiDraft ?? undefined,
-          recipients,
-          assign
-        );
-      } else {
-        await messageService.reply(
-          message.id,
-          composer,
-          false,
-          aiSource !== null,
-          aiSource ?? undefined,
-          idempotencyKey,
-          aiDraft ?? undefined,
-          undefined,
-          recipients,
-          assign
-        );
+  const performSend = useCallback(
+    async (assign?: ReplyAssignIntent) => {
+      setSubmitting(true);
+      setSendFailedError(null);
+      // Notes aren't emails — no idempotency needed. For replies, reuse a prior failed attempt's
+      // token (retry) so the BE dedups; otherwise mint a fresh one for this logical send.
+      if (composerMode !== 'note' && !sendIdempotencyKeyRef.current) {
+        sendIdempotencyKeyRef.current = crypto.randomUUID();
       }
-      sendIdempotencyKeyRef.current = null; // success — the next send is a new logical send
-      setComposer('');
-      setAiSource(null);
-      setAiDraft(null);
-      setSelectedFiles([]);
-      setRecipientDraft(emptyRecipientDraft());
-      setThreadRefreshKey((key) => key + 1);
-      // A sent reply (not an internal note) flips the conversation to Pending —
-      // move the board card optimistically before the heavier onRefresh reconcile.
-      if (composerMode !== 'note') onReplied?.();
-      onRefresh?.();
-    } catch (err) {
-      // Keep the token so a retry of THIS send reuses it and the BE dedups the duplicate.
-      logger.error('Failed to send:', err);
-      // Surface the server's own explanation for client errors — see
-      // resolveSendFailureMessage for why "please try again" is wrong for some of them.
-      setSendFailedError(resolveSendFailureMessage(err));
-    } finally {
-      setSubmitting(false);
-      setAssignPrompt(null);
-    }
-  }, [aiDraft, aiSource, composer, composerMode, message.id, onRefresh, onReplied, recipientDraft, selectedFiles, supportsRecipients]);
+      const idempotencyKey = sendIdempotencyKeyRef.current ?? undefined;
+      // Undefined unless the agent actually addressed this reply somewhere, which
+      // the BE reads as "the requester and nobody else".
+      const recipients = supportsRecipients ? draftToRecipients(recipientDraft) : undefined;
+      try {
+        if (composerMode === 'note') {
+          await messageService.addNote(message.id, composer);
+        } else if (selectedFiles.length > 0) {
+          await messageService.replyWithAttachments(
+            message.id,
+            composer,
+            selectedFiles,
+            false,
+            aiSource !== null,
+            aiSource ?? undefined,
+            idempotencyKey,
+            aiDraft ?? undefined,
+            recipients,
+            assign
+          );
+        } else {
+          await messageService.reply(
+            message.id,
+            composer,
+            false,
+            aiSource !== null,
+            aiSource ?? undefined,
+            idempotencyKey,
+            aiDraft ?? undefined,
+            undefined,
+            recipients,
+            assign
+          );
+        }
+        sendIdempotencyKeyRef.current = null; // success — the next send is a new logical send
+        setComposer('');
+        setAiSource(null);
+        setAiDraft(null);
+        setSelectedFiles([]);
+        setRecipientDraft(emptyRecipientDraft());
+        setThreadRefreshKey((key) => key + 1);
+        // A sent reply (not an internal note) flips the conversation to Pending —
+        // move the board card optimistically before the heavier onRefresh reconcile.
+        if (composerMode !== 'note') onReplied?.();
+        onRefresh?.();
+      } catch (err) {
+        // Keep the token so a retry of THIS send reuses it and the BE dedups the duplicate.
+        logger.error('Failed to send:', err);
+        // Surface the server's own explanation for client errors — see
+        // resolveSendFailureMessage for why "please try again" is wrong for some of them.
+        setSendFailedError(resolveSendFailureMessage(err));
+      } finally {
+        setSubmitting(false);
+        setAssignPrompt(null);
+      }
+    },
+    [
+      aiDraft,
+      aiSource,
+      composer,
+      composerMode,
+      message.id,
+      onRefresh,
+      onReplied,
+      recipientDraft,
+      selectedFiles,
+      supportsRecipients,
+    ]
+  );
 
   const handleSend = useCallback(async () => {
     // Require real text — blocks Ctrl+Enter attachment-only sends the disabled
@@ -513,7 +524,15 @@ export function MessageDetail({
       }
     }
     await performSend();
-  }, [composer, composerMode, currentOrganization, currentUserId, message.assigneeId, message.assigneeName, performSend]);
+  }, [
+    composer,
+    composerMode,
+    currentOrganization,
+    currentUserId,
+    message.assigneeId,
+    message.assigneeName,
+    performSend,
+  ]);
 
   const handleOpenTemplates = useCallback(async () => {
     setTemplateError(null);
@@ -752,7 +771,10 @@ export function MessageDetail({
   }, [message.id, onRefresh]);
 
   // ── History banner ─────────────────────────────────────────────────────────
-  const showHistoryBanner = sortedThread.length > 0 && sortedThread[0].type !== 'inbound';
+  // The predicate lives in `historyBanner.ts` with the reasoning: it must match the backend's
+  // definition of "we did not write this", and it is unit-tested there — every test that renders
+  // the page around this component mocks the component itself out.
+  const showHistoryBanner = shouldShowHistoryBanner(sortedThread);
 
   const flatAttachments = useMemo(
     () => Array.from(attachmentsByMessageId.values()).flat(),
@@ -828,7 +850,9 @@ export function MessageDetail({
           message — an unwrapped <pre> body, a fixed-width email table — turned the
           WHOLE thread into a sideways-scrolling pane that clipped every message
           (ORB-SUP-1358). Wide content is contained per-bubble in ThreadBubble. */}
-      <div className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden ${panelOpen ? 'hidden' : ''}`}>
+      <div
+        className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden ${panelOpen ? 'hidden' : ''}`}
+      >
         <div className="px-4 py-3 space-y-3">
           {threadLoading && sortedThread.length === 0 && (
             <div className="py-8 text-sm text-center text-muted-foreground">
