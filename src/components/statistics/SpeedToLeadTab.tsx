@@ -269,7 +269,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
                             </span>
                           </div>
                           <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
-                            <div className="h-2 rounded-full bg-blue-500" style={{ width: `${humanPct}%` }} />
+                            <div className="h-2 rounded-full bg-primary" style={{ width: `${humanPct}%` }} />
                           </div>
                         </div>
                         <p className="text-xs text-muted-foreground flex items-start gap-1.5 pt-1">

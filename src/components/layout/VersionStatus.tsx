@@ -20,10 +20,10 @@ const driftBetween = (left: string, right: string): Drift => {
 };
 
 const dotColor: Record<Drift, string> = {
-  sync: 'bg-emerald-500',
-  patch: 'bg-emerald-500',
-  minor: 'bg-amber-500',
-  major: 'bg-red-500',
+  sync: 'bg-success',
+  patch: 'bg-success',
+  minor: 'bg-warning',
+  major: 'bg-destructive',
   unknown: 'bg-muted-foreground/40',
 };
 

@@ -178,7 +178,7 @@ export function StatisticsOverviewTab({ stats, aiStats, aiLoading, isOrgAdmin, o
                     <div className={`text-sm font-medium ${isSpamCat ? 'text-destructive' : 'text-success'}`}>{ticketRate.toFixed(0)}% conversion</div>
                   </div>
                   <div className="w-full h-2 rounded-full bg-muted">
-                    <div className={`h-2 rounded-full ${isSpamCat ? 'bg-red-500' : 'bg-primary'}`} style={{ width: `${Math.min((category.totalMessages / stats.overview.totalMessages) * 100, 100)}%` }} />
+                    <div className={`h-2 rounded-full ${isSpamCat ? 'bg-destructive' : 'bg-primary'}`} style={{ width: `${Math.min((category.totalMessages / stats.overview.totalMessages) * 100, 100)}%` }} />
                   </div>
                 </div>
               );
@@ -264,7 +264,7 @@ export function StatisticsOverviewTab({ stats, aiStats, aiLoading, isOrgAdmin, o
                         return Object.entries(aiStats.aiReplyDistribution).map(([bucket, cnt]) => (
                           <div key={bucket} className="flex justify-between items-center">
                             <span className="text-sm text-muted-foreground">{bucket} AI {bucket === '1' ? 'reply' : 'replies'}</span>
-                            <div className="flex items-center gap-3"><div className="w-24 h-2 rounded-full bg-muted overflow-hidden"><div className="h-2 rounded-full bg-blue-500" style={{ width: total > 0 ? `${Math.round((cnt / total) * 100)}%` : '0%' }} /></div><span className="text-sm font-medium tabular-nums w-8 text-right">{cnt}</span></div>
+                            <div className="flex items-center gap-3"><div className="w-24 h-2 rounded-full bg-muted overflow-hidden"><div className="h-2 rounded-full bg-primary" style={{ width: total > 0 ? `${Math.round((cnt / total) * 100)}%` : '0%' }} /></div><span className="text-sm font-medium tabular-nums w-8 text-right">{cnt}</span></div>
                           </div>
                         ));
                       })()}
@@ -279,7 +279,7 @@ export function StatisticsOverviewTab({ stats, aiStats, aiLoading, isOrgAdmin, o
                         {aiStats.suggestedAnswerUsage.bySource.map((item) => (
                           <div key={item.source} className="flex justify-between items-center">
                             <span className="text-sm capitalize">{item.source === 'ai-generated' ? 'AI Generated' : item.source === 'lead_qualification' ? 'Lead Qualification' : item.source}</span>
-                            <div className="flex items-center gap-3"><div className="w-24 h-2 rounded-full bg-muted overflow-hidden"><div className="h-2 rounded-full bg-amber-500" style={{ width: `${item.percentage}%` }} /></div><span className="text-sm font-medium tabular-nums w-8 text-right">{item.count}</span></div>
+                            <div className="flex items-center gap-3"><div className="w-24 h-2 rounded-full bg-muted overflow-hidden"><div className="h-2 rounded-full bg-warning" style={{ width: `${item.percentage}%` }} /></div><span className="text-sm font-medium tabular-nums w-8 text-right">{item.count}</span></div>
                           </div>
                         ))}
                       </CardContent>

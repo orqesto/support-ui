@@ -44,7 +44,7 @@ export const KBStatusBadge = ({
   if (entry.approved) {
     return (
       <>
-        <Badge className={`bg-green-600 ${className}`}>Approved</Badge>
+        <Badge className={`bg-success text-success-foreground ${className}`}>Approved</Badge>
         {/* "Approved" alone hides whether anyone looked. */}
         {withProvenance && <KBApprovalBadge entry={entry} />}
       </>

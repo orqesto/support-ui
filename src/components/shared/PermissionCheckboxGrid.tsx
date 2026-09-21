@@ -224,9 +224,9 @@ export const PermissionCheckboxGrid = ({
                 // Render hint: blue dot = explicit add, orange dot = explicit remove,
                 // gray = role default (checked or not)
                 const indicator = isAdded
-                  ? 'bg-blue-500'
+                  ? 'bg-primary'
                   : isRemoved
-                    ? 'bg-orange-500'
+                    ? 'bg-warning'
                     : 'bg-transparent';
                 return (
                   <label

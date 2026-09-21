@@ -185,9 +185,9 @@ export const TicketFilters = ({
                     <div className="flex items-center gap-2">
                       {option.value !== 'all' && (
                         <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${
-                          option.value === 'low'      ? 'bg-green-500'  :
-                          option.value === 'medium'   ? 'bg-amber-500' :
-                          option.value === 'high'     ? 'bg-orange-500' : 'bg-red-500'
+                          option.value === 'low'      ? 'bg-success'  :
+                          option.value === 'medium'   ? 'bg-warning' :
+                          option.value === 'high'     ? 'bg-warning' : 'bg-destructive'
                         }`} />
                       )}
                       <span>{option.label}</span>

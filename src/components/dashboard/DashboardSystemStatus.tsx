@@ -51,7 +51,7 @@ function ServiceRow({
             isActive
               ? `${activeDotColor} animate-pulse`
               : isError
-                ? 'bg-red-500'
+                ? 'bg-destructive'
                 : 'bg-gray-400'
           }`}
         />
@@ -90,7 +90,7 @@ export function DashboardSystemStatus({ health, isWebSocketConnected }: Props) {
               activeColor="text-success"
               activeBg="bg-green-500/10 dark:bg-green-500/10"
               activeBorder="border-green-500/20 dark:border-green-500/20"
-              activeDotColor="bg-green-500"
+              activeDotColor="bg-success"
             />
           )}
           {health?.services.email && (
@@ -100,7 +100,7 @@ export function DashboardSystemStatus({ health, isWebSocketConnected }: Props) {
               activeColor="text-success"
               activeBg="bg-green-500/10 dark:bg-green-500/10"
               activeBorder="border-green-500/20 dark:border-green-500/20"
-              activeDotColor="bg-green-500"
+              activeDotColor="bg-success"
             />
           )}
           {health?.services.telegram && (
@@ -123,7 +123,7 @@ export function DashboardSystemStatus({ health, isWebSocketConnected }: Props) {
             }`}
           >
             <div className="flex gap-2 items-center">
-              <div className={`w-2 h-2 flex-shrink-0 rounded-full ${isWebSocketConnected ? 'bg-blue-500 animate-pulse' : 'bg-gray-400'}`} />
+              <div className={`w-2 h-2 flex-shrink-0 rounded-full ${isWebSocketConnected ? 'bg-primary animate-pulse' : 'bg-gray-400'}`} />
               <span className="text-sm font-medium">WebSocket</span>
             </div>
             <span className={`text-xs font-medium ${isWebSocketConnected ? 'text-primary' : 'text-muted-foreground'}`}>
@@ -142,7 +142,7 @@ export function DashboardSystemStatus({ health, isWebSocketConnected }: Props) {
               }`}
             >
               <div className="flex flex-shrink-0 gap-2 items-center">
-                <div className={`w-2 h-2 flex-shrink-0 rounded-full ${health.services.ai.status === 'active' ? 'bg-purple-500 animate-pulse' : health.services.ai.status === 'error' ? 'bg-red-500' : 'bg-gray-400'}`} />
+                <div className={`w-2 h-2 flex-shrink-0 rounded-full ${health.services.ai.status === 'active' ? 'bg-purple-500 animate-pulse' : health.services.ai.status === 'error' ? 'bg-destructive' : 'bg-gray-400'}`} />
                 <span className="text-sm font-medium whitespace-nowrap">AI Processing</span>
               </div>
               <span className={`text-xs font-medium break-words ${health.services.ai.status === 'active' ? 'text-purple-600 dark:text-purple-400' : health.services.ai.status === 'error' ? 'text-destructive' : 'text-muted-foreground'}`}>

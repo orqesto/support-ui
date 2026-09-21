@@ -107,7 +107,7 @@ export const getUsageBadge = (current: number, limit: number, percentage: number
 
 export const UsageProgressBar = ({ percentage }: { percentage: number }) => {
   const bgColor =
-    percentage >= 100 ? 'bg-red-500' : percentage >= 80 ? 'bg-yellow-500' : 'bg-green-500';
+    percentage >= 100 ? 'bg-destructive' : percentage >= 80 ? 'bg-warning' : 'bg-success';
   return (
     <div className="w-full h-2 bg-muted rounded-full">
       <div

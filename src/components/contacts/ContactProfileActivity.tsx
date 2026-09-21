@@ -13,11 +13,11 @@ export type ActivityItem = {
 };
 
 const STATUS_STYLE: Record<string, { dot: string; text: string; label: string }> = {
-  open: { dot: 'bg-blue-500', text: 'text-primary', label: 'Open' },
-  in_progress: { dot: 'bg-amber-500', text: 'text-warning', label: 'In progress' },
-  awaiting_response: { dot: 'bg-amber-500', text: 'text-warning', label: 'Awaiting' },
-  client_replied: { dot: 'bg-blue-500', text: 'text-primary', label: 'Replied' },
-  resolved: { dot: 'bg-emerald-500', text: 'text-success', label: 'Resolved' },
+  open: { dot: 'bg-primary', text: 'text-primary', label: 'Open' },
+  in_progress: { dot: 'bg-warning', text: 'text-warning', label: 'In progress' },
+  awaiting_response: { dot: 'bg-warning', text: 'text-warning', label: 'Awaiting' },
+  client_replied: { dot: 'bg-primary', text: 'text-primary', label: 'Replied' },
+  resolved: { dot: 'bg-success', text: 'text-success', label: 'Resolved' },
   closed: { dot: 'bg-muted-foreground', text: 'text-muted-foreground', label: 'Closed' },
 };
 

@@ -225,7 +225,7 @@ export const OrgFeatureOverridesSection = ({ orgId }: { orgId: number }) => {
                     <div key={feat.key} className="flex gap-3 justify-between items-center py-1">
                       <div className="flex gap-2 items-center min-w-0">
                         <span
-                          className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${feat.effective ? 'bg-green-500' : 'bg-gray-500'}`}
+                          className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${feat.effective ? 'bg-success' : 'bg-gray-500'}`}
                         />
                         <span className="text-sm truncate">{feat.label}</span>
                         <span

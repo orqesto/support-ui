@@ -118,7 +118,7 @@ export const AdminPlansTab = () => {
         <div className="flex absolute top-4 right-4 flex-col gap-2 items-end">
           {plan.isActive && (
             <Badge
-              className={`text-white ${plan.planType === 'base' ? 'bg-blue-500' : 'bg-purple-500'}`}
+              className={`text-primary-foreground ${plan.planType === 'base' ? 'bg-primary' : 'bg-purple-500'}`}
             >
               <Check className="mr-1 w-3 h-3" />
               Active
