@@ -501,6 +501,63 @@ describe('CustomerRecordsPage', () => {
     expect(screen.queryByText(/The number the customer quotes/i)).not.toBeInTheDocument();
   });
 
+  it('⛔ a live answer renders as LABELLED FIELDS, like the panel it was opened from', async () => {
+    /**
+     * 🔴 PARITY WITH THE SURFACE IT CAME FROM. This page is opened from the thread panel, and it
+     * rendered raw JSON where that panel renders named fields — a page that flattens what the
+     * surface before it said makes an agent doubt which one is true. Both now use the same
+     * renderer. RED: restore the `<pre>{JSON.stringify(row)}</pre>` and the label is absent.
+     */
+    run.mockResolvedValue([
+      {
+        endpointId: 20,
+        label: 'this order',
+        connectionName: 'DeusPower',
+        status: 'ok',
+        fields: [{ path: 'status', label: 'Where it is', kind: 'plain' }],
+        rows: [{ status: 'out for delivery', customer_ip: '203.0.113.7' }],
+      },
+    ]);
+    renderPage();
+
+    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '42');
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(await screen.findByText('WHERE IT IS')).toBeInTheDocument();
+    expect(screen.getByText('out for delivery')).toBeInTheDocument();
+  });
+
+  it('⛔ what nobody tagged is NOT in the page until the agent asks for it', async () => {
+    /**
+     * 🔴 A collapsed `<details>` still renders its children, so "hidden" would have meant "in the
+     * DOM, findable by the browser's own search and copied by any select-all". On the measured
+     * vendor the untagged remainder is 77 fields including the customer's email, telephone, both
+     * addresses, postcode, IP and user-agent — a previous "show everything" put exactly that into
+     * the thread view. RED: use `<details>` and the IP is present before anything is clicked.
+     */
+    run.mockResolvedValue([
+      {
+        endpointId: 20,
+        label: 'this order',
+        connectionName: 'DeusPower',
+        status: 'ok',
+        fields: [{ path: 'status', label: 'Where it is', kind: 'plain' }],
+        rows: [{ status: 'out for delivery', customer_ip: '203.0.113.7' }],
+      },
+    ]);
+    renderPage();
+
+    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '42');
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await screen.findByText('WHERE IT IS');
+
+    expect(screen.queryByText(/203\.0\.113\.7/)).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: /Everything this system returned/ }));
+
+    expect(await screen.findByText(/203\.0\.113\.7/)).toBeInTheDocument();
+  });
+
   it('a non-numeric id is a not-found state, not a request', async () => {
     renderPage('not-a-number');
 

@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { createRef, type ReactNode } from 'react';
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import { MessagePanelTabs, type MessagePanelTabsProps } from '../MessagePanelTabs';
 import { NO_EMAIL_IDENTITY_NOTE } from '../CustomApiLookupPanel';
 import type * as LookupService from '@/services/customApiLookup.service';
@@ -68,8 +69,16 @@ const renderTabs = (sender: string) => {
     noteEditorRef: createRef(),
   } as unknown as MessagePanelTabsProps;
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  /*
+    ⚠️ A ROUTER, added 2026-09-21. The CUSTOMER tab now offers "Open the full records page" from a
+    THREAD (support-service #800), which resolves the customer and navigates — so the panel calls
+    `useNavigate` and throws outside a Router. In the app this component only ever renders inside
+    `<Routes>`; the harness simply never needed one. The assertions below are untouched.
+  */
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    <MemoryRouter>
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    </MemoryRouter>
   );
   return render(<MessagePanelTabs {...props} />, { wrapper });
 };

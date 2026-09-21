@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AlertTriangle, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useCustomApiLookup, useCustomApiLookupAvailability } from '@/hooks/useCustomApiLookup';
-import type { CustomApiLookupResult, LookupField } from '@/services/customApiLookup.service';
+import { getApiErrorMessage } from '@/lib/errorMessages';
+import { logger } from '@/lib/logger';
+import { conversationContactService } from '@/services/conversationContact.service';
+import type { CustomApiLookupResult } from '@/services/customApiLookup.service';
 import { MONO } from './messageDetailConstants';
+import { projectFields, RowFields, UNCONFIGURED_FIELD_PREVIEW } from './customApiRowFields';
 
 /**
  * What the connected integrations know about THIS customer (CA-3).
@@ -149,41 +153,6 @@ export const ownershipNotice = (
   }
 };
 
-/**
- * How many fields to preview when an admin has chosen none. Small on purpose: see the note where
- * it is used — the alternative is the vendor's whole record, PII included, in the thread view.
- */
-const UNCONFIGURED_FIELD_PREVIEW = 6;
-
-/**
- * A vendor value is `unknown` — the shape is whatever that vendor returned, discovered at run time.
- *
- * ⛔ Never `String(value)` on it: a configured path that resolves to an object renders as
- * "[object Object]" in front of an agent, which looks like data and is not. A nested value is
- * shown as JSON instead, so it is at least readable and obviously structured.
- */
-const asText = (value: unknown): string | null => {
-  if (value === null || value === undefined || value === '') return null;
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return null;
-  }
-};
-
-/** D23: a money figure without its currency is a misquote waiting to happen. */
-const renderValue = (row: Record<string, unknown>, field: LookupField): string => {
-  const value = asText(row[field.path]);
-  if (value === null) return '—';
-  if (field.kind !== 'money') return value;
-  // The currency is either configured as a literal or travels WITH the row, because on a vendor
-  // that prices per row the same figure means different currencies from different endpoints.
-  const currency = field.currency ?? asText(row[`${field.path}__currency`]);
-  return currency ? `${value} ${currency}` : value;
-};
-
 const ResultCard = ({
   result,
   onRunManual,
@@ -207,15 +176,7 @@ const ResultCard = ({
   // Audit pass 2 replaced a blank card with this fallback; audit pass 3 found that the fallback
   // then dumped all of it into the thread view. Showing a bounded preview and naming the rest is
   // the honest middle: the agent can see there IS data, without the panel becoming a dossier.
-  const fallbackKeys = Object.keys(result.rows?.[0] ?? {}).filter(
-    (key) => !key.endsWith('__currency')
-  );
-  const usingFallback = !result.fields?.length;
-  const fields: LookupField[] = usingFallback
-    ? fallbackKeys
-        .slice(0, UNCONFIGURED_FIELD_PREVIEW)
-        .map((key) => ({ path: key, label: key, kind: 'plain' as const }))
-    : (result.fields ?? []);
+  const { fields, fallbackKeys, usingFallback } = projectFields(result);
 
   return (
     <div className="rounded border border-border p-2 space-y-1.5">
@@ -302,16 +263,7 @@ const ResultCard = ({
         (result.rows?.length ? (
           <div className="space-y-1.5">
             {result.rows.map((row, index) => (
-              <div key={index} className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-0.5">
-                {fields.map((field) => (
-                  <div key={field.path} className="contents">
-                    <p className={`${MONO} text-muted-foreground`}>{field.label.toUpperCase()}</p>
-                    <p className="text-[11px] text-foreground break-words">
-                      {renderValue(row, field)}
-                    </p>
-                  </div>
-                ))}
-              </div>
+              <RowFields key={index} row={row} fields={fields} />
             ))}
             {usingFallback && fallbackKeys.length > UNCONFIGURED_FIELD_PREVIEW && (
               <p className="text-[10px] text-muted-foreground">
@@ -349,6 +301,35 @@ export const CustomApiLookupPanel = ({
   // ⛔ ASK FIRST, RENDER ONLY ON A YES. Mirrors the backend: a conversation runs the THREAD
   // surface, anything else the CONTACT surface. Nothing is looked up by asking (SC1).
   const available = useCustomApiLookupAvailability(conversationId ? 'thread' : 'contact');
+  const navigate = useNavigate();
+  const [resolving, setResolving] = useState(false);
+  const [resolveError, setResolveError] = useState<string | null>(null);
+
+  /**
+   * Take the agent from this thread to the customer's records page, resolving (and if necessary
+   * creating) the contact on the way — your decision, 2026-09-20: "resolve or create on click".
+   *
+   * ⛔ The failure is SAID, not swallowed. A conversation with no customer address answers 400,
+   * and an agent who pressed a link that silently did nothing would reasonably conclude the page
+   * is broken — which is exactly the reading this feature already cost three times.
+   */
+  const openRecords = async () => {
+    if (resolving) return;
+    setResolving(true);
+    setResolveError(null);
+    try {
+      const resolved = await conversationContactService.resolve(conversationId as number);
+      if (resolved?.contactId) navigate(`/contacts/${resolved.contactId}/records`);
+      else setResolveError('That customer could not be opened.');
+    } catch (error) {
+      logger.error('Failed to resolve the conversation contact', error);
+      setResolveError(
+        getApiErrorMessage(error) ?? 'That customer could not be opened from this thread.'
+      );
+    } finally {
+      setResolving(false);
+    }
+  };
   if (!available) return null;
 
   // ⚠️ FE/BE SKEW: this deployment has no lookup endpoint yet. Show nothing rather than a button
@@ -376,18 +357,37 @@ export const CustomApiLookupPanel = ({
 
       {/*
         CA-6: the way OUT of the panel. The owner's objection on 2026-09-20 was that records lived
-        only here — a popup an agent had to know to press, with no URL to link or return to. Shown
-        only when we know WHICH customer: the thread surface mounts this panel without a contact id,
-        and a link that guesses one would open a stranger's page.
+        only here — a popup an agent had to know to press, with no URL to link or return to.
       */}
-      {contactId !== undefined && (
+      {contactId !== undefined ? (
         <Link
           to={`/contacts/${contactId}/records`}
           className="text-[11px] text-primary hover:underline inline-block"
         >
           Open the full records page
         </Link>
+      ) : (
+        conversationId !== undefined && (
+          /*
+            ⛔ THE THREAD SURFACE, which had no way there at all. It mounts this panel with a
+            conversation and no contact id, because a link that GUESSED one would open a stranger's
+            page — so until support-service #800 the page simply did not exist from a thread, which
+            is the half of "easy to find" that stayed unmet.
+            It is a BUTTON, not a Link: resolving the customer may CREATE a contact row, and that
+            must be an agent's press rather than something a hover or a prefetch can trigger.
+          */
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-0 text-[11px] text-primary hover:underline"
+            disabled={resolving}
+            onClick={() => void openRecords()}
+          >
+            {resolving ? 'Opening…' : 'Open the full records page'}
+          </Button>
+        )
       )}
+      {resolveError && <p className="text-[11px] text-destructive">{resolveError}</p>}
 
       {/*
         The results arrive asynchronously after a press, and a screen reader is given no reason to
