@@ -161,7 +161,7 @@ export function MessageActionStrip({
               variant="ghost"
               onClick={() => void handleClassify('confirm_spam')}
               disabled={classifying}
-              className={`text-red-600 border border-red-300 ${btnBase} h-auto hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30`}
+              className={`text-destructive border border-destructive-line ${btnBase} h-auto hover:bg-red-50 dark:hover:bg-red-950/30`}
             >
               <Trash2 className="w-3.5 h-3.5" />
               {classifying ? 'Confirming…' : 'Confirm — it is spam'}
@@ -250,7 +250,7 @@ export function MessageActionStrip({
               variant="ghost"
               onClick={() => void handleClassify('move_to_spam', undefined, trainSpamFilter)}
               disabled={classifying}
-              className={`text-red-600 border border-red-300 ${btnBase} h-auto hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30`}
+              className={`text-destructive border border-destructive-line ${btnBase} h-auto hover:bg-red-50 dark:hover:bg-red-950/30`}
             >
               <Trash2 className="w-3.5 h-3.5" />
               {classifying ? 'Moving…' : 'Move to Spam'}

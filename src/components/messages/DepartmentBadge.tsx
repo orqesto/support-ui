@@ -61,9 +61,7 @@ export const DepartmentBadge = ({ variant, dept, label }: Props) => {
   if (variant === 'needs') {
     return (
       <Tooltip content={tooltipContent} size="sm">
-        <span
-          className={`${baseChipClasses} bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200`}
-        >
+        <span className={`${baseChipClasses} bg-warning-muted text-warning`}>
           <AlertTriangle className="w-2.5 h-2.5" />
           <span>{label ?? 'Needs routing'}</span>
         </span>
@@ -76,9 +74,7 @@ export const DepartmentBadge = ({ variant, dept, label }: Props) => {
   if (variant === 'near-miss') {
     return (
       <Tooltip content={tooltipContent} size="sm">
-        <span
-          className={`${baseChipClasses} bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-200`}
-        >
+        <span className={`${baseChipClasses} bg-primary-muted text-primary`}>
           <GitBranch className="w-2.5 h-2.5" />
           <span>{label ?? dept.name}</span>
         </span>

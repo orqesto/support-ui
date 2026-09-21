@@ -203,7 +203,7 @@ export function MessageComposer({
 
         {/* Toolbar */}
         <div
-          className={`flex items-center gap-1.5 px-2 py-1.5 border-t ${composerMode === 'note' ? 'border-amber-200 dark:border-amber-800/50' : 'border-border'}`}
+          className={`flex items-center gap-1.5 px-2 py-1.5 border-t ${composerMode === 'note' ? 'border-warning-line' : 'border-border'}`}
         >
           <label
             className="transition-colors cursor-pointer text-muted-foreground hover:text-foreground"

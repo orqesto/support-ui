@@ -57,9 +57,9 @@ export const getSpine = (message: Message, thread: MessageThread): SpineColor =>
 
 /** Maps spine color → Tailwind classes (dark+light tuned). */
 export const SPINE_BG: Record<SpineColor, string> = {
-  red: 'bg-rose-500/90 dark:bg-rose-400/80',
-  amber: 'bg-amber-500/90 dark:bg-amber-400/80',
-  blue: 'bg-blue-500/80 dark:bg-blue-400/70',
+  red: 'bg-destructive',
+  amber: 'bg-warning',
+  blue: 'bg-primary',
   none: 'bg-transparent',
 };
 

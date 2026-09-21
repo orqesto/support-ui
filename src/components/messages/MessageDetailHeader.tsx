@@ -300,8 +300,8 @@ export function MessageDetailHeader({
         done: true,
         barColor: breached ? 'bg-destructive' : 'bg-success',
         colorClasses: breached
-          ? 'text-destructive border-destructive-line bg-red-50 dark:bg-red-950/30'
-          : 'text-success border-success-line bg-emerald-50 dark:bg-emerald-950/30',
+          ? 'text-destructive border-destructive-line bg-destructive-muted'
+          : 'text-success border-success-line bg-success-muted',
       };
     }
     const elapsed = Math.floor((Date.now() - startTime.getTime()) / 60000);
@@ -315,9 +315,9 @@ export function MessageDetailHeader({
       done: false,
       barColor: breached ? 'bg-destructive' : atRisk ? 'bg-warning' : 'bg-success',
       colorClasses: breached
-        ? 'text-destructive border-destructive-line bg-red-50 dark:bg-red-950/30'
+        ? 'text-destructive border-destructive-line bg-destructive-muted'
         : atRisk
-          ? 'text-warning border-warning-line bg-amber-50 dark:bg-amber-950/30'
+          ? 'text-warning border-warning-line bg-warning-muted'
           : 'text-muted-foreground border-border bg-muted',
     };
   }, [
@@ -333,13 +333,13 @@ export function MessageDetailHeader({
       return {
         label: 'SPAM',
         icon: <ShieldAlert className="w-2.5 h-2.5" />,
-        cls: 'text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950/30 dark:border-red-800',
+        cls: 'text-destructive bg-destructive-muted border-destructive-line',
       };
     if (isSuspicious)
       return {
         label: 'SUSPICIOUS',
         icon: <AlertTriangle className="w-2.5 h-2.5" />,
-        cls: 'text-amber-900 bg-amber-100 border-amber-300 dark:text-amber-300 dark:bg-amber-950/30 dark:border-amber-800',
+        cls: 'text-warning bg-warning-muted border-warning-line',
       };
     // Customer just followed up via the tracking page and the BE is re-running
     // analysis on the fresh thread. Shows until the processor emits 'complete'
@@ -816,7 +816,7 @@ export function MessageDetailHeader({
         message.status !== 'resolved' &&
         message.status !== 'closed' && (
           <div className="px-4 pb-2">
-            <div className="flex flex-wrap items-center gap-1.5 px-2 py-1 rounded border border-blue-200 bg-blue-50 dark:border-blue-800/60 dark:bg-blue-950/20">
+            <div className="flex flex-wrap items-center gap-1.5 px-2 py-1 rounded border border-primary-line bg-primary-muted">
               <span className="text-[11px] text-primary">🔀 Also matched:</span>
               {message.nearMissDepts!.map((deptId) => {
                 const dept = allDepts.find((entry) => entry.id === deptId);
@@ -831,7 +831,7 @@ export function MessageDetailHeader({
                       onClick={() => void handleManualRoute(deptId, false)}
                       disabled={busy}
                       title={`Move this conversation to ${dept.name} (one-off, no rule)`}
-                      className="text-[11px] px-1.5 py-0.5 h-auto rounded-l font-medium bg-blue-100 text-blue-900 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-200 dark:hover:bg-blue-900/60 disabled:opacity-50"
+                      className="text-[11px] px-1.5 py-0.5 h-auto rounded-l font-medium bg-primary-muted text-primary hover:bg-blue-200 dark:hover:bg-blue-900/60 disabled:opacity-50"
                     >
                       {busy && !routingLearn ? `Moving to ${dept.name}…` : `Move to ${dept.name} →`}
                     </Button>
@@ -842,7 +842,7 @@ export function MessageDetailHeader({
                       onClick={() => void handleManualRoute(deptId, true)}
                       disabled={busy}
                       title={`Move to ${dept.name} AND create a routing rule so similar future emails auto-route here`}
-                      className="text-[11px] px-1.5 py-0.5 h-auto rounded-r font-medium border-l border-blue-300 bg-blue-200 text-blue-900 hover:bg-blue-300 dark:border-blue-700 dark:bg-blue-900/60 dark:text-blue-200 dark:hover:bg-blue-900/80 disabled:opacity-50"
+                      className="text-[11px] px-1.5 py-0.5 h-auto rounded-r font-medium border-l border-primary-line bg-primary-muted text-primary hover:bg-blue-300 dark:hover:bg-blue-900/80 disabled:opacity-50"
                     >
                       {busy && routingLearn ? 'Adding rule…' : '+ rule'}
                     </Button>
@@ -896,7 +896,7 @@ export function MessageDetailHeader({
         )}
         {message.isLead && (
           <span
-            className={`text-emerald-700 bg-emerald-50 border-emerald-200 ${CHIP_BASE} dark:text-emerald-400 dark:border-emerald-800 dark:bg-emerald-950/30`}
+            className={`text-success bg-success-muted border-success-line ${CHIP_BASE}`}
           >
             <Target className="w-2.5 h-2.5" />
             LEAD

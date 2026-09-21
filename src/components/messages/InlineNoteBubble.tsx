@@ -69,7 +69,7 @@ export function InlineNoteBubble({ note, messageId, currentUserId, onUpdated, on
                   setIsEditing(true);
                   setEditContent(note.content);
                 }}
-                className="p-0 w-auto h-auto text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300"
+                className="p-0 w-auto h-auto text-note hover:text-amber-900 dark:hover:text-amber-300"
               >
                 <Pencil className="w-2.5 h-2.5" />
               </Button>
@@ -79,7 +79,7 @@ export function InlineNoteBubble({ note, messageId, currentUserId, onUpdated, on
                 aria-label="Delete note"
                 onClick={() => void handleDelete()}
                 disabled={deleting}
-                className="p-0 w-auto h-auto text-amber-700 hover:text-red-600 dark:text-amber-400 dark:hover:text-red-400 disabled:opacity-40"
+                className="p-0 w-auto h-auto text-note hover:text-red-600 dark:hover:text-red-400 disabled:opacity-40"
               >
                 <Trash2 className="w-2.5 h-2.5" />
               </Button>
