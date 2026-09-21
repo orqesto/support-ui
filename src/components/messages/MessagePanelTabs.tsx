@@ -28,7 +28,7 @@ import { logger } from '@/lib/logger';
 import RichTextEditor from '@/components/shared/RichTextEditor';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import DOMPurify from 'dompurify';
-import { MONO, relativeTime, getInitials } from './messageDetailConstants';
+import { LABEL, relativeTime, getInitials } from './messageDetailConstants';
 import { hasLookupEmailIdentity } from './CustomApiLookupPanel';
 
 type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
@@ -196,7 +196,7 @@ export function MessagePanelTabs({
             setPanelOpen(false);
             setComposerMode('reply');
           }}
-          className={`flex flex-1 justify-center items-center px-2 h-[33px] rounded-none hover:bg-transparent ${MONO} border-b-2 transition-colors ${
+          className={`flex flex-1 justify-center items-center px-2 h-[33px] rounded-none hover:bg-transparent ${LABEL} border-b-2 transition-colors ${
             !panelOpen
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -230,7 +230,7 @@ export function MessagePanelTabs({
                 setComposerMode(id === 'notes' ? 'note' : 'reply');
               }
             }}
-            className={`flex flex-1 justify-center items-center gap-1 px-2 h-[33px] rounded-none hover:bg-transparent ${MONO} border-b-2 transition-colors ${
+            className={`flex flex-1 justify-center items-center gap-1 px-2 h-[33px] rounded-none hover:bg-transparent ${LABEL} border-b-2 transition-colors ${
               tab === id && panelOpen
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -302,7 +302,7 @@ export function MessagePanelTabs({
                   ] as { label: string; value: string }[]
                 ).map((row) => (
                   <div key={row.label} className="contents">
-                    <span className={`self-center ${MONO} text-muted-foreground`}>{row.label}</span>
+                    <span className={`self-center ${LABEL} text-muted-foreground`}>{row.label}</span>
                     <span className="text-[11px] truncate self-center">{row.value}</span>
                   </div>
                 ))}
@@ -322,7 +322,7 @@ export function MessagePanelTabs({
                   NOTES tab. */}
               <div className="pt-1">
                 <div className="flex gap-2 items-center mb-3">
-                  <span className={`${MONO} text-muted-foreground`}>CONTACT</span>
+                  <span className={`${LABEL} text-muted-foreground`}>CONTACT</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
                 {contactProfile.loading ? (
@@ -418,13 +418,13 @@ export function MessagePanelTabs({
                   </div>
                   {check.claimToVerify && (
                     <div>
-                      <p className={`${MONO} text-muted-foreground mb-0.5`}>CLAIM CHECKED</p>
+                      <p className={`${LABEL} text-muted-foreground mb-0.5`}>CLAIM CHECKED</p>
                       <p className="text-[11px] italic text-foreground">"{check.claimToVerify}"</p>
                     </div>
                   )}
                   {check.result.explanation && (
                     <div>
-                      <p className={`${MONO} text-muted-foreground mb-0.5`}>ANALYSIS</p>
+                      <p className={`${LABEL} text-muted-foreground mb-0.5`}>ANALYSIS</p>
                       <p className="text-[11px] text-muted-foreground">
                         {check.result.explanation}
                       </p>

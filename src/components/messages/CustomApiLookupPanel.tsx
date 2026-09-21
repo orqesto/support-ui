@@ -8,7 +8,7 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { conversationContactService } from '@/services/conversationContact.service';
 import type { CustomApiLookupResult } from '@/services/customApiLookup.service';
-import { MONO } from './messageDetailConstants';
+import { LABEL } from './messageDetailConstants';
 import { projectFields, RowFields, UNCONFIGURED_FIELD_PREVIEW } from './customApiRowFields';
 
 /**
@@ -182,7 +182,7 @@ const ResultCard = ({
     <div className="rounded border border-border p-2 space-y-1.5">
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-[11px] font-medium text-foreground">{result.label}</p>
-        <p className={`${MONO} text-muted-foreground`}>{result.connectionName}</p>
+        <p className={`${LABEL} text-muted-foreground`}>{result.connectionName}</p>
       </div>
 
       {notice && (
@@ -340,7 +340,7 @@ export const CustomApiLookupPanel = ({
   return (
     <div className={className ? `space-y-2 ${className}` : 'space-y-2'}>
       <div className="flex items-center justify-between gap-2">
-        <p className={`${MONO} text-muted-foreground`}>CONNECTED SYSTEMS</p>
+        <p className={`${LABEL} text-muted-foreground`}>CONNECTED SYSTEMS</p>
         <Button
           size="sm"
           variant="outline"

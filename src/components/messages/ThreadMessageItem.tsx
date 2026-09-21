@@ -88,7 +88,9 @@ export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: P
             <span className="truncate" title={msg.authorUserEmail ?? undefined}>
               {authorName ? (
                 <>
-                  <span className="font-semibold text-foreground/75">{authorName}</span>
+                  <span className="font-display font-semibold text-foreground/75">
+                    {authorName}
+                  </span>
                   {msg.authorEmail ? <span> · via {msg.authorEmail}</span> : null}
                 </>
               ) : (
@@ -140,7 +142,7 @@ export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: P
             </div>
           )}
           {msg.type !== 'inbound' && (
-            <span className="font-mono text-[9px] text-foreground/55 mt-0.5">✓ Sent</span>
+            <span className="font-display text-[9px] text-foreground/55 mt-0.5">✓ Sent</span>
           )}
         </div>
       </div>
@@ -157,7 +159,7 @@ export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: P
           <span className="truncate" title={msg.authorEmail ?? undefined}>
             {relayedFrom ? (
               <>
-                <span className="font-semibold text-foreground/75">
+                <span className="font-display font-semibold text-foreground/75">
                   {relayedFrom.name ?? relayedFrom.email}
                 </span>
                 <span> · via {relayedFrom.via}</span>

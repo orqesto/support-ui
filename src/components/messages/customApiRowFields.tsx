@@ -1,4 +1,4 @@
-import { MONO } from './messageDetailConstants';
+import { LABEL } from './messageDetailConstants';
 import type { CustomApiLookupResult, LookupField } from '@/services/customApiLookup.service';
 
 /**
@@ -87,7 +87,7 @@ export const RowFields = ({
   <div className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-0.5">
     {fields.map((field) => (
       <div key={field.path} className="contents">
-        <p className={`${MONO} text-muted-foreground`}>{field.label.toUpperCase()}</p>
+        <p className={`${LABEL} text-muted-foreground`}>{field.label.toUpperCase()}</p>
         <p className="text-[11px] text-foreground break-words">{renderValue(row, field)}</p>
       </div>
     ))}

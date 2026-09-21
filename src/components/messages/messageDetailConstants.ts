@@ -5,8 +5,11 @@ import type { ThreadStatus, TicketPriority } from '@/types';
 
 // ─── Visual constants ─────────────────────────────────────────────────────────
 
-export const MONO = 'text-[10px] font-medium uppercase tracking-wide';
-export const CHIP_BASE = `inline-flex items-center gap-1 px-2 py-0.5 rounded border ${MONO} transition-colors`;
+// The scanned-label face (tab names, chip labels, field labels, small buttons). It was named
+// LABEL and never set a face at all, so every one of these rendered in body Sans — and a grep
+// for `font-mono` or `font-display` could not find them. Identifiers take `font-mono`.
+export const LABEL = 'font-display text-[10px] font-medium uppercase tracking-[0.09em]';
+export const CHIP_BASE = `inline-flex items-center gap-1 px-2 py-0.5 rounded border ${LABEL} transition-colors`;
 
 // ─── Status display ───────────────────────────────────────────────────────────
 

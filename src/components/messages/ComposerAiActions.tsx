@@ -14,7 +14,7 @@ import {
   isAiNotConfiguredError,
 } from '@/lib/errorMessages';
 import { messageService, type AiDraft } from '@/services/message.service';
-import { answerToEditorHtml, MONO } from './messageDetailConstants';
+import { answerToEditorHtml, LABEL } from './messageDetailConstants';
 
 /**
  * AI drafting for the reply composer.
@@ -284,14 +284,14 @@ export function ComposerAiActions({
           className="flex items-center gap-1 px-2 py-1 h-auto rounded text-muted-foreground hover:text-foreground"
         >
           <Undo2 className="w-3.5 h-3.5" />
-          <span className={MONO}>undo</span>
+          <span className={LABEL}>undo</span>
         </Button>
       )}
 
       {open && (
         <div className="absolute bottom-full left-0 right-0 mb-2 z-20 rounded-lg border border-ai-line bg-card shadow-lg p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <span className={`${MONO} text-ai`}>AI draft</span>
+            <span className={`${LABEL} text-ai`}>AI draft</span>
             <Button
               variant="ghost"
               size="icon"
