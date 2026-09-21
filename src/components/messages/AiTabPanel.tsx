@@ -135,18 +135,14 @@ export const similarResultsCache = {
 
 const PILL_BASE: Record<ReplyOption['type'], string> = {
   lead: 'text-ai border-ai-line bg-ai-muted',
-  documentation:
-    'text-sky-600 border-sky-200 bg-sky-50 dark:text-sky-400 dark:border-sky-800/50 dark:bg-sky-950/20',
-  similar:
-    'text-amber-600 border-amber-200 bg-amber-50 dark:text-amber-400 dark:border-amber-800/50 dark:bg-amber-950/20',
+  documentation: 'text-primary border-primary-line bg-primary-muted',
+  similar: 'text-warning border-warning-line bg-warning-muted',
 };
 
 const PILL_ACTIVE: Record<ReplyOption['type'], string> = {
   lead: 'text-ai border-ai-line bg-ai-muted ring-1 ring-ai-line/50',
-  documentation:
-    'text-sky-700 border-sky-500 bg-sky-100 ring-1 ring-sky-400/50 dark:text-sky-300 dark:border-sky-500 dark:bg-sky-900/40',
-  similar:
-    'text-amber-700 border-amber-500 bg-amber-100 ring-1 ring-amber-400/50 dark:text-amber-300 dark:border-amber-500 dark:bg-amber-900/40',
+  documentation: 'text-primary border-primary-line bg-primary-muted ring-1 ring-sky-400/50',
+  similar: 'text-warning border-warning-line bg-warning-muted ring-1 ring-amber-400/50',
 };
 
 export function AiTabPanel({
@@ -582,7 +578,7 @@ export function AiTabPanel({
       )}
 
       {section !== 'suggested' && spamCheck?.redFlags && spamCheck.redFlags.length > 0 && (
-        <div className="p-2 rounded border border-destructive-line bg-red-50/50 dark:bg-red-950/10">
+        <div className="p-2 rounded border border-destructive-line bg-destructive-muted">
           <p className={`mb-1 text-destructive ${MONO}`}>RED FLAGS</p>
           {spamCheck.redFlags.map((flag: string) => (
             <p key={flag} className="text-[11px] text-destructive">
@@ -593,7 +589,7 @@ export function AiTabPanel({
       )}
 
       {section !== 'suggested' && spamCheck?.greenFlags && spamCheck.greenFlags.length > 0 && (
-        <div className="p-2 rounded border border-success-line bg-green-50/50 dark:bg-green-950/10">
+        <div className="p-2 rounded border border-success-line bg-success-muted">
           <p className={`mb-1 text-success ${MONO}`}>GREEN FLAGS</p>
           {spamCheck.greenFlags.map((flag: string) => (
             <p key={flag} className="text-[11px] text-success">

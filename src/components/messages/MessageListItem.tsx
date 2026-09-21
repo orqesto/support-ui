@@ -312,7 +312,7 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
           */}
           {isBlockedSpamLog && (
             <span
-              className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100"
+              className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-warning-muted text-warning"
               title="Rejected by a spam rule before it became a conversation — there is no thread to open"
             >
               blocked · no thread

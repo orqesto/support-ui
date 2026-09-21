@@ -191,11 +191,7 @@ export function HeaderMetaStrip({
             }
             className={`inline-flex gap-1 items-center px-1.5 py-0.5 h-auto text-[11px] font-medium rounded ${
               canRoute ? 'cursor-pointer hover:ring-1 hover:ring-border' : 'cursor-default'
-            } ${
-              needsRouting
-                ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200'
-                : ''
-            }`}
+            } ${needsRouting ? 'bg-warning-muted text-warning' : ''}`}
             style={
               !needsRouting && primaryDept
                 ? {
