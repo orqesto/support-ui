@@ -19,9 +19,9 @@ export type UsageItem = {
 };
 
 const barColor = (item: UsageItem) => {
-  if (item.critical) return 'bg-red-500';
-  if (item.warning) return 'bg-orange-500';
-  return 'bg-blue-500';
+  if (item.critical) return 'bg-destructive';
+  if (item.warning) return 'bg-warning';
+  return 'bg-primary';
 };
 
 /** One usage meter on the Subscription page: used / limit, a bar, and the state in words. */

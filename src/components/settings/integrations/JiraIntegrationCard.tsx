@@ -123,7 +123,7 @@ export const JiraIntegrationCard = ({
                 >
                   <div className="flex flex-1 gap-3 items-center min-w-0">
                     <div
-                      className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                      className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-success' : 'bg-gray-400'}`}
                     />
                     <div>
                       <div className="flex items-center gap-2">

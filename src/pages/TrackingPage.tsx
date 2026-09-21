@@ -614,7 +614,7 @@ export const TrackingPage = () => {
       <header className="border-b border-border bg-card">
         <div className="max-w-5xl mx-auto px-5 h-16 flex items-center gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-md bg-blue-600 text-white flex items-center justify-center text-sm font-bold">
+            <div className="w-8 h-8 rounded-md bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
               {organization.name?.[0]?.toUpperCase() ?? 'O'}
             </div>
             <span className="font-semibold tracking-tight text-[15px]">
@@ -763,7 +763,7 @@ export const TrackingPage = () => {
                             // Connector lights up only when BOTH this stage
                             // and the next stage are reached — gaps stay gray
                             // so a skipped stage reads as actually skipped.
-                            reached && timeline[idx + 1].reachedAt ? 'bg-blue-600' : 'bg-border'
+                            reached && timeline[idx + 1].reachedAt ? 'bg-primary' : 'bg-border'
                           }`}
                         />
                       )}
@@ -775,14 +775,14 @@ export const TrackingPage = () => {
                       ) : isCurrent ? (
                         <div
                           aria-hidden="true"
-                          className="relative z-10 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center flex-shrink-0 ring-4 ring-blue-50"
+                          className="relative z-10 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 ring-4 ring-blue-50"
                         >
                           <span className="w-2 h-2 rounded-full bg-card" />
                         </div>
                       ) : (
                         <div
                           aria-hidden="true"
-                          className="relative z-10 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center flex-shrink-0"
+                          className="relative z-10 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0"
                         >
                           <svg
                             width="13"
@@ -865,7 +865,7 @@ export const TrackingPage = () => {
                         <div
                           className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${
                             isCustomer
-                              ? 'bg-blue-600 text-white'
+                              ? 'bg-primary text-primary-foreground'
                               : 'bg-background border border-border text-muted-foreground'
                           }`}
                           aria-hidden="true"
@@ -893,7 +893,7 @@ export const TrackingPage = () => {
                           <div
                             className={`text-[15px] leading-relaxed px-3.5 py-2.5 rounded-lg max-w-[92%] prose prose-sm prose-a:underline ${
                               isCustomer
-                                ? 'bg-blue-600 text-white rounded-tr-sm prose-invert prose-a:text-white'
+                                ? 'bg-primary text-primary-foreground rounded-tr-sm prose-invert prose-a:text-primary-foreground'
                                 : 'bg-background border border-border rounded-tl-sm prose-a:text-blue-700'
                             }`}
                             dangerouslySetInnerHTML={{ __html: renderEventHtml(event.content) }}
@@ -947,7 +947,7 @@ export const TrackingPage = () => {
                         variant="primary"
                         onClick={() => void submitReply()}
                         disabled={replyState.kind === 'submitting' || replyText.trim().length === 0}
-                        className="ml-auto bg-blue-600 text-white text-sm font-medium px-4 py-1.5 h-auto rounded-md hover:bg-blue-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="ml-auto bg-primary text-primary-foreground text-sm font-medium px-4 py-1.5 h-auto rounded-md hover:bg-primary/90 transition disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         {replyState.kind === 'submitting' ? 'Sending…' : 'Send'}
                       </Button>

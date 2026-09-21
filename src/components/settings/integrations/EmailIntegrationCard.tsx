@@ -365,7 +365,7 @@ export const EmailIntegrationCard = ({
                   <div className="flex flex-col gap-3 p-3 rounded-lg border sm:flex-row sm:justify-between sm:items-center">
                     <div className="flex flex-1 gap-3 items-center min-w-0">
                       <div
-                        className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                        className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-success' : 'bg-gray-400'}`}
                       />
                       <div className="min-w-0">
                         <div className="flex flex-wrap gap-2 items-center">

@@ -386,7 +386,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
       >
         <Bell className="w-4 h-4" />
         {badgeCount > 0 && (
-          <span className="absolute top-0.5 right-0.5 flex justify-center items-center w-4 h-4 text-[10px] font-bold leading-none text-white bg-red-500 rounded-full">
+          <span className="absolute top-0.5 right-0.5 flex justify-center items-center w-4 h-4 text-[10px] font-bold leading-none text-destructive-foreground bg-destructive rounded-full">
             {badgeCount > 9 ? '9+' : badgeCount}
           </span>
         )}

@@ -275,7 +275,7 @@ export const LeadQualificationPanel = ({
       {leadState.stage === 'escalated' && (
         <div className="p-3 rounded-lg border border-red-500/20 bg-red-500/5">
           <div className="flex gap-2 items-center">
-            <div className="w-2 h-2 bg-red-500 rounded-full" />
+            <div className="w-2 h-2 bg-destructive rounded-full" />
             <p className="text-sm font-medium text-destructive">
               This lead has been escalated and requires immediate attention from a senior team
               member.

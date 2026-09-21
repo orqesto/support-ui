@@ -428,11 +428,11 @@ export const getInitials = (raw: string | null | undefined): string => {
  * assignee avatars when no explicit color is available.
  */
 const AVATAR_PALETTE = [
-  'bg-blue-500',
-  'bg-emerald-500',
-  'bg-amber-500',
+  'bg-primary',
+  'bg-success',
+  'bg-warning',
   'bg-violet-500',
-  'bg-rose-500',
+  'bg-destructive',
   'bg-cyan-500',
   'bg-fuchsia-500',
   'bg-teal-500',

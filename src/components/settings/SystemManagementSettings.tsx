@@ -413,7 +413,7 @@ export const SystemManagementSettings = () => {
             variant="destructive"
             size="md"
             onClick={handleNuclear}
-            className="w-full bg-red-600 hover:bg-red-700"
+            className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground"
           >
             <AlertTriangle className="mr-2 w-4 h-4" />
             Nuclear Cleanup - Delete Everything

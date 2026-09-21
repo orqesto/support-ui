@@ -298,7 +298,7 @@ export function MessageDetailHeader({
         breached,
         atRisk: false,
         done: true,
-        barColor: breached ? 'bg-red-500' : 'bg-emerald-500',
+        barColor: breached ? 'bg-destructive' : 'bg-success',
         colorClasses: breached
           ? 'text-destructive border-destructive-line bg-red-50 dark:bg-red-950/30'
           : 'text-success border-success-line bg-emerald-50 dark:bg-emerald-950/30',
@@ -313,7 +313,7 @@ export function MessageDetailHeader({
       breached,
       atRisk,
       done: false,
-      barColor: breached ? 'bg-red-500' : atRisk ? 'bg-amber-500' : 'bg-emerald-500',
+      barColor: breached ? 'bg-destructive' : atRisk ? 'bg-warning' : 'bg-success',
       colorClasses: breached
         ? 'text-destructive border-destructive-line bg-red-50 dark:bg-red-950/30'
         : atRisk

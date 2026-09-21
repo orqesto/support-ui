@@ -17,8 +17,8 @@ export const WebSocketStatus = () => {
           onClick={() => setIsExpanded(true)}
           className={`fixed right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg shadow-lg transition-all z-50 group ${
             isConnected
-              ? 'text-white bg-green-600 hover:bg-green-700'
-              : 'text-white bg-red-600 hover:bg-red-700'
+              ? 'text-success-foreground bg-success hover:bg-success/90'
+              : 'text-destructive-foreground bg-destructive hover:bg-destructive/90'
           }`}
           title={isConnected ? 'Connected' : 'Disconnected'}
         >
@@ -38,7 +38,7 @@ export const WebSocketStatus = () => {
         <div className="fixed right-0 top-1/2 z-50 w-64 -translate-y-1/2">
           <div
             className={`shadow-xl rounded-l-lg overflow-hidden ${
-              isConnected ? 'bg-green-600' : 'bg-red-600'
+              isConnected ? 'bg-success' : 'bg-destructive'
             }`}
           >
             {/* Header */}

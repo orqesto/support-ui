@@ -26,7 +26,7 @@ export const WebSocketDebug = () => {
       {/* {!isOpen && (
         <Button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-0 right-2 z-50 p-2 text-white bg-blue-600 rounded-lg shadow-lg transition-all -translate-y-1/2 hover:bg-blue-700 group"
+          className="fixed bottom-0 right-2 z-50 p-2 text-primary-foreground bg-primary rounded-lg shadow-lg transition-all -translate-y-1/2 hover:bg-primary/90 group"
           title="Open WebSocket Debug"
         >
           <Activity className="w-4 h-4" />
@@ -40,7 +40,7 @@ export const WebSocketDebug = () => {
       {isOpen && (
         <div className="fixed right-2 bottom-2 z-50 w-80">
           <Card className="shadow-xl">
-            <CardHeader className="text-white bg-blue-600">
+            <CardHeader className="text-primary-foreground bg-primary">
               <CardTitle className="flex justify-between items-center text-sm">
                 <div className="flex gap-2 items-center">
                   <Activity className="w-4 h-4" />

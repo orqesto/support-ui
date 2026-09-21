@@ -152,7 +152,7 @@ export const OAuthCallbackPage = () => {
             <p className="mt-4 text-lg font-medium text-destructive">{message}</p>
             <Button
               onClick={() => window.close()}
-              className="px-4 py-2 mt-4 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+              className="px-4 py-2 mt-4 text-sm font-medium text-destructive-foreground bg-destructive rounded-md hover:bg-destructive/90"
             >
               Close Window
             </Button>

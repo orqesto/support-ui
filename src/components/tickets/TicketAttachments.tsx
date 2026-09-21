@@ -257,7 +257,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
             <Button
               onClick={handleUpload}
               disabled={isUploading}
-              className="px-3 py-1 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50"
+              className="px-3 py-1 text-sm font-medium text-primary-foreground bg-primary rounded hover:bg-primary/90 disabled:opacity-50"
             >
               {isUploading ? 'Uploading...' : 'Upload'}
             </Button>

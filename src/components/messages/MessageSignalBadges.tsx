@@ -209,7 +209,7 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
       )}
       {message.status === 'resolved' && (
         <Tooltip content="Message resolved" size="sm">
-          <Badge className="text-white bg-green-600 hover:bg-green-700">✓ Resolved</Badge>
+          <Badge className="text-success-foreground bg-success hover:bg-success/90">✓ Resolved</Badge>
         </Tooltip>
       )}
     </>

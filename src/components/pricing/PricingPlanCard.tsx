@@ -67,7 +67,7 @@ export function BasePlanCard({ plan, currentPlanName, upgrading, onSelect }: Bas
   const isPopular = plan.name === 'pro';
   return (
     <Card className={`relative flex flex-col justify-between ${isPopular ? 'border-2 border-blue-500 shadow-lg' : ''}`}>
-      {isPopular && <Badge className="absolute -top-3 left-1/2 text-white bg-blue-500 -translate-x-1/2">Most Popular</Badge>}
+      {isPopular && <Badge className="absolute -top-3 left-1/2 text-primary-foreground bg-primary -translate-x-1/2">Most Popular</Badge>}
       <CardHeader>
         <CardTitle className="text-center">
           <div className="text-2xl font-bold">{plan.displayName}</div>

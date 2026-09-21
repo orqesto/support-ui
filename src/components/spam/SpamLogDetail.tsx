@@ -11,9 +11,9 @@ type SpamLogDetailProps = {
 };
 
 const getSeverityColor = (severity: number): string => {
-  if (severity >= 100) return 'bg-red-600';
-  if (severity >= 75) return 'bg-orange-500';
-  if (severity >= 50) return 'bg-amber-500';
+  if (severity >= 100) return 'bg-destructive';
+  if (severity >= 75) return 'bg-warning';
+  if (severity >= 50) return 'bg-warning';
   return 'bg-gray-500';
 };
 
@@ -139,7 +139,7 @@ export const SpamLogDetail = ({ log, onClose }: SpamLogDetailProps) => (
           </h3>
           <div className="flex flex-wrap gap-2">
             {log.greenFlags.map((flag) => (
-              <Badge key={flag} variant="default" className="bg-green-600 text-white">
+              <Badge key={flag} variant="default" className="bg-success text-success-foreground">
                 {flag}
               </Badge>
             ))}
