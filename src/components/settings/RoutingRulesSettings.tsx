@@ -458,7 +458,7 @@ export const RoutingRulesSettings = () => {
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <label className="text-sm font-medium">Score</label>
-              <span className="text-sm font-medium text-primary">{formData.weight}</span>
+              <span className="text-sm font-medium text-foreground">{formData.weight}</span>
             </div>
             <input
               type="range"

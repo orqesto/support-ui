@@ -13,10 +13,10 @@ export type ActivityItem = {
 };
 
 const STATUS_STYLE: Record<string, { dot: string; text: string; label: string }> = {
-  open: { dot: 'bg-primary', text: 'text-primary', label: 'Open' },
-  in_progress: { dot: 'bg-warning', text: 'text-warning', label: 'In progress' },
+  open: { dot: 'bg-foreground', text: 'text-foreground', label: 'Open' },
+  in_progress: { dot: 'bg-muted-foreground', text: 'text-muted-foreground', label: 'In progress' },
   awaiting_response: { dot: 'bg-warning', text: 'text-warning', label: 'Awaiting' },
-  client_replied: { dot: 'bg-primary', text: 'text-primary', label: 'Replied' },
+  client_replied: { dot: 'bg-foreground', text: 'text-foreground', label: 'Replied' },
   resolved: { dot: 'bg-success', text: 'text-success', label: 'Resolved' },
   closed: { dot: 'bg-muted-foreground', text: 'text-muted-foreground', label: 'Closed' },
 };
@@ -24,7 +24,7 @@ const STATUS_STYLE: Record<string, { dot: string; text: string; label: string }>
 const RING = {
   message: 'bg-muted text-muted-foreground',
   ticket: 'bg-warning-muted text-warning',
-  note: 'bg-muted text-muted-foreground',
+  note: 'bg-note-muted text-note',
 };
 
 const KIND_ICON = { message: Mail, ticket: Ticket, note: StickyNote };

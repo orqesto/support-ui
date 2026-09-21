@@ -22,7 +22,7 @@ export const StepIndicator = ({ activeStep, labels = STEP_LABELS }: Props) => (
                 className={cn(
                   'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-medium',
                   done && 'border-primary bg-primary text-primary-foreground',
-                  current && 'border-primary text-primary',
+                  current && 'border-primary text-foreground',
                   !done && !current && 'border-border text-muted-foreground'
                 )}
                 aria-current={current ? 'step' : undefined}

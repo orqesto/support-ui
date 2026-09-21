@@ -382,7 +382,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                           >
                             Auto-send threshold
                           </label>
-                          <span className="text-sm font-medium text-primary">
+                          <span className="text-sm font-medium text-foreground">
                             {formatThreshold(orgThreshold)}
                           </span>
                         </div>
@@ -538,7 +538,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                               </span>
                             )}
                           </label>
-                          <span className="text-xs font-medium text-primary">
+                          <span className="text-xs font-medium text-foreground">
                             {formatThreshold(sliderThreshold)}
                           </span>
                         </div>

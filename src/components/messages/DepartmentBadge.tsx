@@ -61,7 +61,9 @@ export const DepartmentBadge = ({ variant, dept, label }: Props) => {
   if (variant === 'needs') {
     return (
       <Tooltip content={tooltipContent} size="sm">
-        <span className={`${baseChipClasses} bg-warning-muted text-warning`}>
+        <span
+          className={`${baseChipClasses} border border-dashed border-border-strong text-foreground`}
+        >
           <AlertTriangle className="w-2.5 h-2.5" />
           <span>{label ?? 'Needs routing'}</span>
         </span>

@@ -522,7 +522,7 @@ export const LoginPage = () => {
               </div>
             )}
 
-            {info && <div className="p-3 text-sm text-primary bg-primary-muted rounded-md">{info}</div>}
+            {info && <div className="p-3 text-sm text-foreground bg-muted rounded-md">{info}</div>}
             {error && (
               <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">
                 {error}

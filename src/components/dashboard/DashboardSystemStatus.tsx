@@ -123,10 +123,10 @@ export function DashboardSystemStatus({ health, isWebSocketConnected }: Props) {
             }`}
           >
             <div className="flex gap-2 items-center">
-              <div className={`w-2 h-2 flex-shrink-0 rounded-full ${isWebSocketConnected ? 'bg-primary animate-pulse' : 'bg-faint-foreground'}`} />
+              <div className={`w-2 h-2 flex-shrink-0 rounded-full ${isWebSocketConnected ? 'bg-success animate-pulse' : 'bg-faint-foreground'}`} />
               <span className="text-sm font-medium">WebSocket</span>
             </div>
-            <span className={`text-xs font-medium ${isWebSocketConnected ? 'text-primary' : 'text-muted-foreground'}`}>
+            <span className={`text-xs font-medium ${isWebSocketConnected ? 'text-success' : 'text-muted-foreground'}`}>
               {isWebSocketConnected ? 'Connected' : 'Disconnected'}
             </span>
           </div>

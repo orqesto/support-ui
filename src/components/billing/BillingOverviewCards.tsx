@@ -17,7 +17,7 @@ export const BillingOverviewCards = () => {
         {Array.from({ length: 4 }, (_, idx) => (
           <Card key={`skeleton-${idx}`} className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
-              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="h-8 bg-muted rounded animate-pulse mb-2" />
@@ -51,7 +51,7 @@ export const BillingOverviewCards = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-primary">
+          <div className="text-3xl font-bold text-foreground">
             {data.activeSubscriptions}
           </div>
           <p className="text-xs text-muted-foreground mt-1">Registered vendors</p>

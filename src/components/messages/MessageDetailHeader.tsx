@@ -791,7 +791,7 @@ export function MessageDetailHeader({
             className={`flex items-center justify-between px-2 py-1 rounded border-l-2 border border-border bg-card ${linkedTicketStatus === 'in_progress' ? 'border-l-success' : 'border-l-border-strong'}`}
           >
             <span
-              className={`text-[11px] font-medium ${linkedTicketStatus === 'in_progress' ? 'text-success' : 'text-primary'}`}
+              className={`text-[11px] font-medium ${linkedTicketStatus === 'in_progress' ? 'text-success' : 'text-foreground'}`}
             >
               ✓ Ticket #{linkedTicketId}
               {linkedTicketStatus && (
@@ -817,7 +817,7 @@ export function MessageDetailHeader({
         message.status !== 'closed' && (
           <div className="px-4 pb-2">
             <div className="flex flex-wrap items-center gap-1.5 px-2 py-1 rounded border border-primary-line bg-primary-muted">
-              <span className="text-[11px] text-primary">🔀 Also matched:</span>
+              <span className="text-[11px] text-foreground">🔀 Also matched:</span>
               {message.nearMissDepts!.map((deptId) => {
                 const dept = allDepts.find((entry) => entry.id === deptId);
                 if (!dept) return null;

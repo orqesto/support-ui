@@ -397,7 +397,7 @@ export function AiTabPanel({
                       setSelectedId(opt.id);
                       onOptionSelect?.(opt.answer, opt.label, opt.type);
                     }}
-                    className={`${LABEL} px-1.5 py-0.5 rounded border text-[9px] transition-colors ${
+                    className={`font-display ${LABEL} px-1.5 py-0.5 rounded border text-[9px] transition-colors ${
                       isActive ? PILL_ACTIVE[opt.type] : PILL_BASE[opt.type]
                     }`}
                   >
@@ -426,7 +426,7 @@ export function AiTabPanel({
               />
               {activeOption.documentationId && (
                 <div className="mt-1.5 pt-1.5 border-t border-border flex items-center gap-1 min-w-0">
-                  <BookOpen className="flex-shrink-0 w-3 h-3 text-primary" />
+                  <BookOpen className="flex-shrink-0 w-3 h-3 text-muted-foreground" />
                   {activeOption.references && activeOption.references.length > 1 ? (
                     <Button
                       variant="ghost"

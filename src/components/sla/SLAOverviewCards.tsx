@@ -23,7 +23,7 @@ export const SLAOverviewCards = ({ days = SLA_DEFAULT_DAYS }: SLAOverviewCardsPr
         {Array.from({ length: 4 }, (_, idx) => (
           <Card key={`skeleton-${idx}`} className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
-              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="h-10 bg-muted rounded animate-pulse mb-2" />
@@ -66,7 +66,7 @@ export const SLAOverviewCards = ({ days = SLA_DEFAULT_DAYS }: SLAOverviewCardsPr
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-primary">
+          <div className="text-3xl font-bold text-foreground">
             {data.messages.avgResponseTime !== null && data.messages.avgResponseTime !== undefined ? `${data.messages.avgResponseTime}m` : '\u2014'}
           </div>
           <p className="text-xs text-muted-foreground mt-1">

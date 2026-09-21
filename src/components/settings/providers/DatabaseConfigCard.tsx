@@ -352,14 +352,14 @@ export const DatabaseConfigCard = ({
                 <button
                   type="button"
                   onClick={() => setMode('managed')}
-                  className={`rounded-md px-3 py-1.5 text-sm ${mode === 'managed' ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}`}
+                  className={`font-display rounded-md px-3 py-1.5 text-sm ${mode === 'managed' ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}`}
                 >
                   Odly-managed
                 </button>
                 <button
                   type="button"
                   onClick={() => setMode('own')}
-                  className={`rounded-md px-3 py-1.5 text-sm ${mode === 'own' ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}`}
+                  className={`font-display rounded-md px-3 py-1.5 text-sm ${mode === 'own' ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}`}
                 >
                   Bring your own Postgres
                 </button>

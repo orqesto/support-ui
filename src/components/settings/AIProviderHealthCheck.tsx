@@ -212,9 +212,9 @@ export const AIProviderHealthCheck = () => {
                   {healthData.summary.unhealthy}
                 </p>
               </div>
-              <div className="p-4 bg-primary/10 rounded-md">
-                <p className="text-sm text-primary">Enabled</p>
-                <p className="text-2xl font-bold mt-1 text-primary">{healthData.summary.enabled}</p>
+              <div className="p-4 bg-muted rounded-md">
+                <p className="text-sm text-muted-foreground">Enabled</p>
+                <p className="text-2xl font-bold mt-1 text-foreground">{healthData.summary.enabled}</p>
               </div>
             </div>
 

@@ -228,7 +228,7 @@ export const ProfileSettings = () => {
                     {values.map((val) => (
                       <span
                         key={val}
-                        className="flex gap-1 items-center px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary"
+                        className="flex gap-1 items-center px-2 py-0.5 text-xs rounded-full bg-muted text-foreground"
                       >
                         {val}
                         {canEditSkills && (

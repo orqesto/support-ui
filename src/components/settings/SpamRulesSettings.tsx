@@ -240,7 +240,7 @@ export const SpamRulesSettings = () => {
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <label className="text-sm font-medium">Severity</label>
-                <span className="text-sm font-medium text-primary">
+                <span className="text-sm font-medium text-foreground">
                   {formData.severity}
                   {formData.severity >= 100 && ' 🚫 Auto-Reject'}
                   {formData.severity >= 50 && formData.severity < 100 && ' ⚠️ Mark as Spam'}

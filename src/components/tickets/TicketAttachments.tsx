@@ -253,7 +253,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       {selectedFiles.length > 0 && (
         <div className="p-3 mb-3 bg-primary-muted rounded-md border border-primary-line">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-primary">{selectedFiles.length} file(s) selected</span>
+            <span className="text-sm text-foreground">{selectedFiles.length} file(s) selected</span>
             <Button
               onClick={handleUpload}
               disabled={isUploading}

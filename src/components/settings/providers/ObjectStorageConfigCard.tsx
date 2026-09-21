@@ -279,14 +279,14 @@ export const ObjectStorageConfigCard = () => {
             <button
               type="button"
               onClick={() => setMode('managed')}
-              className={`rounded-md px-3 py-1.5 text-sm ${mode === 'managed' ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}`}
+              className={`font-display rounded-md px-3 py-1.5 text-sm ${mode === 'managed' ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}`}
             >
               Odly-managed
             </button>
             <button
               type="button"
               onClick={() => setMode('byo')}
-              className={`rounded-md px-3 py-1.5 text-sm ${mode === 'byo' ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}`}
+              className={`font-display rounded-md px-3 py-1.5 text-sm ${mode === 'byo' ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}`}
             >
               Bring your own S3
             </button>

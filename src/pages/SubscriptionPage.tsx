@@ -392,7 +392,7 @@ export const SubscriptionPage = () => {
                     : 'N/A'}
                 </p>
                 {subscription.trialEndsAt && (
-                  <p className="text-sm text-primary">
+                  <p className="text-sm text-foreground">
                     Trial ends: {new Date(subscription.trialEndsAt).toLocaleDateString()}
                   </p>
                 )}

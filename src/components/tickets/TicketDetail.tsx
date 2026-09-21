@@ -395,7 +395,7 @@ export const TicketDetail = ({
           {ticket.externalId && (
             <div className="flex gap-2 items-center p-3 mt-3 text-sm rounded-lg border bg-muted border-border">
               <ExternalLinkIcon className="w-4 h-4 text-muted-foreground" />
-              <p className="text-primary">
+              <p className="text-foreground">
                 <strong>Synced with Jira.</strong> This ticket is managed in Jira. Changes made in
                 Jira will automatically sync here.
               </p>

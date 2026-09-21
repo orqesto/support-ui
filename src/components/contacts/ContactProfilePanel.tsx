@@ -287,7 +287,7 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
                   key={entry.id}
                   type="button"
                   onClick={() => setTab(entry.id)}
-                  className={`px-3 py-2 text-[12.5px] font-semibold border-b-2 -mb-px transition-colors ${
+                  className={`font-display px-3 py-2 text-[12.5px] font-semibold border-b-2 -mb-px transition-colors ${
                     tab === entry.id
                       ? 'border-primary text-primary'
                       : 'border-transparent text-muted-foreground hover:text-foreground'

@@ -76,9 +76,9 @@ export const AUTOMATIC_WORK_STATUSES: readonly WorkflowStatus[] = ['open', 'in_p
 
 /** Single source of the label + chip colors per work status (badge, header, select all read this). */
 export const WORKFLOW_STATUS_META: Record<WorkflowStatus, { label: string; className: string }> = {
-  open: { label: 'Open', className: 'bg-muted text-muted-foreground' },
+  open: { label: 'Open', className: 'bg-foreground/10 text-foreground' },
   in_progress: { label: 'In Progress', className: 'bg-muted text-muted-foreground' },
-  pending: { label: 'Pending', className: 'bg-warning/15 text-warning' },
+  pending: { label: 'Pending', className: 'text-warning border border-warning-line' },
   on_hold: { label: 'On-hold', className: 'bg-warning/15 text-warning' },
   resolved: { label: 'Resolved', className: 'bg-success/15 text-success' },
 };
@@ -134,7 +134,7 @@ export const getRoutingBadge = (message: {
   status: Message['status'] | 'new' | 'awaiting_response' | 'client_replied';
 }): { label: string; className: string } | null =>
   message.status === 'needs_routing'
-    ? { label: 'Needs Routing', className: 'bg-muted text-muted-foreground' }
+    ? { label: 'Needs Routing', className: 'text-foreground border border-dashed border-border-strong' }
     : null;
 
 /**

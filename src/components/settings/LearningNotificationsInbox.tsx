@@ -185,7 +185,7 @@ export const LearningNotificationsInbox = () => {
             <Bell className="w-5 h-5" />
             Engine Auto-Actions
             {rows.length > 0 && (
-              <span className="px-2 py-0.5 ml-1 text-xs font-medium rounded-full bg-primary/10 text-primary">
+              <span className="px-2 py-0.5 ml-1 text-xs font-medium rounded-full bg-muted text-foreground">
                 {rows.length}
               </span>
             )}

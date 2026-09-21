@@ -36,7 +36,7 @@
     /* ── interactive (brand blue, unchanged) ───── */
     --primary: 221 83% 53%;
     --primary-foreground: 210 40% 98%;
-    --primary-muted: 219 96% 95%; /* tinted fills behind primary text */
+    --primary-muted: 219 96% 97%; /* tinted fills behind primary text */
     --primary-line: 219 89% 86%;
     --secondary: 220 14% 93%;
     --secondary-foreground: 222 25% 14%;
@@ -208,7 +208,7 @@
     --primary: 221 83% 53%;
     --primary-solid: 221 83% 53%;
     --primary-foreground: 210 40% 98%;
-    --primary-muted: 219 96% 95%;
+    --primary-muted: 219 96% 97%;
     --primary-line: 219 89% 86%;
     --ai: 176 76% 26%;
     --ai-muted: 170 42% 93%;

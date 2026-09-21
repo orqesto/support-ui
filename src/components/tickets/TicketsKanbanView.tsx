@@ -142,7 +142,7 @@ function TicketCardContent({ ticket }: { ticket: TicketType }) {
           </span>
         )}
         {ticketWithExtras.jiraKey && (
-          <span className="text-[10px] font-mono text-primary">{ticketWithExtras.jiraKey}</span>
+          <span className="text-[10px] font-mono text-foreground">{ticketWithExtras.jiraKey}</span>
         )}
       </div>
     </div>

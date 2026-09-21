@@ -110,7 +110,7 @@ export const PromptsSettings = () => {
 
       {/* Info Banner */}
       <div className="p-4 rounded-lg border bg-muted dark:bg-muted border-border">
-        <p className="text-sm text-primary">
+        <p className="text-sm text-foreground">
           <strong>Template Variables:</strong> Use{' '}
           <code className="px-1 rounded bg-sunken">{'{{variable}}'}</code> for dynamic content.
           Available: <code className="px-1 rounded bg-sunken">{'{{subject}}'}</code>,{' '}

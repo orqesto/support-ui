@@ -445,7 +445,7 @@ export const CreateTicketPage = () => {
                   placeholder="Select priority"
                 />
                 {aiSuggestions.priority && (
-                  <p className="mt-1 text-xs text-primary">
+                  <p className="mt-1 text-xs text-ai">
                     ✨ AI suggested: {aiSuggestions.priority}
                   </p>
                 )}
@@ -494,7 +494,7 @@ export const CreateTicketPage = () => {
                   isDisabled={creatingCategory}
                 />
                 {aiSuggestions.category && !formData.categoryId && (
-                  <p className="mt-1 text-xs text-primary">
+                  <p className="mt-1 text-xs text-ai">
                     ✨ AI suggested: {aiSuggestions.category}
                     {suggestedNewCategory
                       ? ' — not in your list yet, select above to create it'

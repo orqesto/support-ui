@@ -604,7 +604,7 @@ export const Layout = ({ children }: LayoutProps) => {
                               </span>
                             )}
                             {badge > 0 && (
-                              <span className="flex-shrink-0 flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-[10px] font-bold rounded-full bg-destructive text-destructive-foreground">
+                              <span className="flex-shrink-0 flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-[10px] font-bold rounded-full bg-foreground text-background">
                                 {badge > 99 ? '99+' : badge}
                               </span>
                             )}

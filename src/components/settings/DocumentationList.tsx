@@ -381,7 +381,7 @@ export const DocumentationList = ({
                         <span className="text-muted-foreground">
                           {docProgress[doc.id].message ?? 'Processing...'}
                         </span>
-                        <span className="font-medium text-primary">
+                        <span className="font-medium text-foreground">
                           {docProgress[doc.id].percentage}%
                         </span>
                       </div>

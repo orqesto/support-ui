@@ -44,7 +44,7 @@ export const SegmentedControl = <T extends string>({
           aria-pressed={active}
           title={segment.title}
           onClick={() => onChange(segment.value)}
-          className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-[5px] text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+          className={`font-display inline-flex items-center gap-1.5 h-6 px-2.5 rounded-[5px] text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
             active
               ? 'bg-card text-foreground font-semibold shadow-sm ring-1 ring-border'
               : 'text-muted-foreground font-medium hover:text-foreground'

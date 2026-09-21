@@ -265,7 +265,7 @@ const EvidenceSection = ({ suggestionId }: { suggestionId: number }) => {
                       </span>
                     )}
                     {item.ruleBMatched && (
-                      <span className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-primary-muted text-primary">
+                      <span className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-ai-muted text-ai">
                         B
                       </span>
                     )}

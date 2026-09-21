@@ -183,34 +183,34 @@ export const EmailTemplates = () => {
                     </p>
                     <div className="p-3 space-y-1 font-mono text-xs rounded bg-muted">
                       <div>
-                        <span className="text-primary">{'{{appName}}'}</span> - Application name
+                        <span className="font-mono text-foreground">{'{{appName}}'}</span> - Application name
                       </div>
                       <div>
-                        <span className="text-primary">{'{{year}}'}</span> - Current year
+                        <span className="font-mono text-foreground">{'{{year}}'}</span> - Current year
                       </div>
                       {selectedTemplate === 'invitation' && (
                         <>
                           <div>
-                            <span className="text-primary">{'{{organizationName}}'}</span> -
+                            <span className="font-mono text-foreground">{'{{organizationName}}'}</span> -
                             Workspace
                           </div>
                           <div>
-                            <span className="text-primary">{'{{role}}'}</span> - User role
+                            <span className="font-mono text-foreground">{'{{role}}'}</span> - User role
                           </div>
                           <div>
-                            <span className="text-primary">{'{{signupUrl}}'}</span> - Signup link
+                            <span className="font-mono text-foreground">{'{{signupUrl}}'}</span> - Signup link
                           </div>
                         </>
                       )}
                       {selectedTemplate === 'verification' && (
                         <div>
-                          <span className="text-primary">{'{{verificationUrl}}'}</span> -
+                          <span className="font-mono text-foreground">{'{{verificationUrl}}'}</span> -
                           Verification link
                         </div>
                       )}
                       {selectedTemplate === 'password_reset' && (
                         <div>
-                          <span className="text-primary">{'{{resetUrl}}'}</span> - Reset link
+                          <span className="font-mono text-foreground">{'{{resetUrl}}'}</span> - Reset link
                         </div>
                       )}
                     </div>

@@ -108,7 +108,7 @@ export function StatisticsOverviewTab({ stats, aiStats, aiLoading, isOrgAdmin, o
                     : '0% of tickets'}
                 </p>
               </div>
-              <Link2 className="w-10 h-10 text-primary" />
+              <Link2 className="w-10 h-10 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -207,7 +207,7 @@ export function StatisticsOverviewTab({ stats, aiStats, aiLoading, isOrgAdmin, o
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Needs Info</span><span className="font-medium text-warning">{channelStats.needsInfoCount}</span></div>
                   <div className="flex justify-between pt-2 text-sm border-t">
                     <span className="flex gap-1 items-center text-muted-foreground"><ExternalLink className="w-3 h-3" />Jira Synced</span>
-                    <span className="font-medium text-primary">{channelStats.jiraSyncedTickets}{channelStats.totalTickets > 0 && <span className="ml-1 text-xs text-muted-foreground">({((channelStats.jiraSyncedTickets / channelStats.totalTickets) * 100).toFixed(0)}%)</span>}</span>
+                    <span className="font-medium text-foreground">{channelStats.jiraSyncedTickets}{channelStats.totalTickets > 0 && <span className="ml-1 text-xs text-muted-foreground">({((channelStats.jiraSyncedTickets / channelStats.totalTickets) * 100).toFixed(0)}%)</span>}</span>
                   </div>
                 </div>
                 {channelStats.categories.length > 0 && (
@@ -251,7 +251,7 @@ export function StatisticsOverviewTab({ stats, aiStats, aiLoading, isOrgAdmin, o
             ) : aiStats ? (
               <>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">AI Responded</p><p className="mt-2 text-3xl font-bold text-primary">{aiStats.summary.aiResponded}</p><p className="mt-1 text-xs text-muted-foreground">{aiStats.summary.aiPercentage}% of responded</p></div><Bot className="w-10 h-10 text-ai" /></div></CardContent></Card>
+                  <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">AI Responded</p><p className="mt-2 text-3xl font-bold text-foreground">{aiStats.summary.aiResponded}</p><p className="mt-1 text-xs text-muted-foreground">{aiStats.summary.aiPercentage}% of responded</p></div><Bot className="w-10 h-10 text-ai" /></div></CardContent></Card>
                   <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Human Responded</p><p className="mt-2 text-3xl font-bold text-success">{aiStats.summary.humanResponded}</p><p className="mt-1 text-xs text-muted-foreground">{(aiStats.summary.aiResponded + aiStats.summary.humanResponded) > 0 ? Math.round((aiStats.summary.humanResponded / (aiStats.summary.aiResponded + aiStats.summary.humanResponded)) * 100) : 0}% of responded</p></div><Users className="w-10 h-10 text-success" /></div></CardContent></Card>
                   <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">No Response</p><p className="mt-2 text-3xl font-bold text-muted-foreground">{aiStats.summary.noResponse}</p></div><Inbox className="w-10 h-10 text-faint-foreground" /></div></CardContent></Card>
                 </div>
