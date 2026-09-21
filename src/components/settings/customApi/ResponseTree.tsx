@@ -141,7 +141,7 @@ export const ResponseTree = ({ paths, picked, onToggle, missing = [] }: Props) =
          * — a field that quietly disappears is a column that goes blank for agents with no
          * explanation anywhere.
          */
-        <p className="text-xs text-amber-700 dark:text-amber-300">
+        <p className="text-xs text-warning">
           Your system did not return {missing.join(', ')} this time. We have kept{' '}
           {missing.length === 1 ? 'it' : 'them'} selected, but agents will not see{' '}
           {missing.length === 1 ? 'that field' : 'those fields'} until it comes back.

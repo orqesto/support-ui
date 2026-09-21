@@ -259,7 +259,7 @@ export const MessageFilterBar = ({
           </div>
           {viewSwitch && <div className="ml-3 shrink-0">{viewSwitch}</div>}
         </div>
-        {viewError && <p className="text-[12px] text-amber-600 dark:text-amber-400">{viewError}</p>}
+        {viewError && <p className="text-[12px] text-warning">{viewError}</p>}
 
         {/* ── desktop: the token bar ──────────────────────────────────── */}
         <div className="hidden md:block">

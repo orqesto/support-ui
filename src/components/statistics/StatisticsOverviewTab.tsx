@@ -141,14 +141,14 @@ export function StatisticsOverviewTab({ stats, aiStats, aiLoading, isOrgAdmin, o
       {/* Spam/Scam Alert Section */}
       {stats.topCategories.some((cat) => isSpamOrScam(cat.categoryName)) && (
         <Card className="bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800">
-          <CardHeader><CardTitle className="flex gap-2 items-center text-red-700 dark:text-red-400"><ShieldAlert className="w-5 h-5" />Spam &amp; Scam Detection</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="flex gap-2 items-center text-destructive"><ShieldAlert className="w-5 h-5" />Spam &amp; Scam Detection</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-3">
               {stats.topCategories.filter((cat) => isSpamOrScam(cat.categoryName)).map((category) => (
                 <div key={category.categoryId} className="p-3 rounded-lg border bg-red-500/10 dark:bg-red-500/10 border-red-500/20">
                   <div className="flex justify-between items-center">
-                    <div className="flex gap-2 items-center"><ShieldAlert className="w-4 h-4 text-red-600" /><span className="font-medium text-red-600 dark:text-red-400">{category.categoryName}</span></div>
-                    <div className="text-sm font-medium text-red-600 dark:text-red-400">{category.totalMessages} messages detected</div>
+                    <div className="flex gap-2 items-center"><ShieldAlert className="w-4 h-4 text-red-600" /><span className="font-medium text-destructive">{category.categoryName}</span></div>
+                    <div className="text-sm font-medium text-destructive">{category.totalMessages} messages detected</div>
                   </div>
                 </div>
               ))}

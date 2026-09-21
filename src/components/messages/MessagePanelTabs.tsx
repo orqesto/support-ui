@@ -399,15 +399,15 @@ export function MessagePanelTabs({
               const checkWasRun = !!crossCheck || !!intraCheck;
 
               const confidencePill: Record<string, string> = {
-                high: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-                medium: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+                high: 'bg-emerald-500/10 text-success',
+                medium: 'bg-amber-500/10 text-warning',
                 low: 'bg-muted text-muted-foreground',
               };
 
               const CleanResult = ({ check }: { check: ContradictionCheckMetadata }) => (
                 <div className="p-2 rounded border border-border bg-card space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                    <span className="text-[10px] font-medium text-success">
                       No contradiction found
                     </span>
                     <span
@@ -560,7 +560,7 @@ export function MessagePanelTabs({
                     className="p-1.5 bg-card rounded border-l-2 border-l-amber-400 border border-border dark:border-amber-800/50 dark:bg-amber-300/5"
                   >
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-[10px] font-medium text-amber-800 dark:text-amber-300">
+                      <span className="text-[10px] font-medium text-warning">
                         {who} · {relativeTime(note.createdAt)}
                       </span>
                       {isOwner && !isEditing && (
@@ -573,7 +573,7 @@ export function MessagePanelTabs({
                               setEditingNoteId(note.id);
                               setEditNoteContent(note.content);
                             }}
-                            className="p-0 w-auto h-auto text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300"
+                            className="p-0 w-auto h-auto text-amber-700 hover:text-warning dark:hover:text-amber-300"
                           >
                             <Pencil className="w-2.5 h-2.5" />
                           </Button>
@@ -592,7 +592,7 @@ export function MessagePanelTabs({
                     </div>
                     {isEditing ? (
                       <div className="space-y-1">
-                        <div className="rounded border border-amber-300 dark:border-amber-700">
+                        <div className="rounded border border-warning-line">
                           <RichTextEditor
                             content={editNoteContent}
                             onChange={setEditNoteContent}
@@ -656,7 +656,7 @@ export function MessagePanelTabs({
                   setComposerMode('note');
                   setTimeout(() => noteEditorRef.current?.focus(), 50);
                 }}
-                className="mt-1 w-full flex items-center justify-center gap-1.5 px-3 py-2 h-auto rounded border border-dashed border-amber-400 dark:border-amber-700 text-[11px] text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors"
+                className="mt-1 w-full flex items-center justify-center gap-1.5 px-3 py-2 h-auto rounded border border-dashed border-warning-line text-[11px] text-warning hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors"
               >
                 <StickyNote className="w-3 h-3" />
                 Add a note via the composer

@@ -98,7 +98,7 @@ export const KBEntryCard = ({
               <span>•</span>
               <a
                 href={`/messages?id=${entry.metadata.sourceMessageId}`}
-                className="font-mono text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline"
+                className="font-mono text-blue-600 hover:text-primary hover:underline"
                 onClick={(event) => event.stopPropagation()}
               >
                 #{entry.metadata.sourceMessageId}

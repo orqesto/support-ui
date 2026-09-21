@@ -289,9 +289,7 @@ export const FilterTokenBar = ({
         </div>
       )}
 
-      {notice && !open && (
-        <p className="mt-2 text-[12px] text-amber-600 dark:text-amber-400">{notice}</p>
-      )}
+      {notice && !open && <p className="mt-2 text-[12px] text-warning">{notice}</p>}
     </div>
   );
 };

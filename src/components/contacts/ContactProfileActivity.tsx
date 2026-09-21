@@ -13,17 +13,17 @@ export type ActivityItem = {
 };
 
 const STATUS_STYLE: Record<string, { dot: string; text: string; label: string }> = {
-  open: { dot: 'bg-blue-500', text: 'text-blue-600 dark:text-blue-300', label: 'Open' },
-  in_progress: { dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-300', label: 'In progress' },
-  awaiting_response: { dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-300', label: 'Awaiting' },
-  client_replied: { dot: 'bg-blue-500', text: 'text-blue-600 dark:text-blue-300', label: 'Replied' },
-  resolved: { dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-300', label: 'Resolved' },
+  open: { dot: 'bg-blue-500', text: 'text-primary', label: 'Open' },
+  in_progress: { dot: 'bg-amber-500', text: 'text-warning', label: 'In progress' },
+  awaiting_response: { dot: 'bg-amber-500', text: 'text-warning', label: 'Awaiting' },
+  client_replied: { dot: 'bg-blue-500', text: 'text-primary', label: 'Replied' },
+  resolved: { dot: 'bg-emerald-500', text: 'text-success', label: 'Resolved' },
   closed: { dot: 'bg-muted-foreground', text: 'text-muted-foreground', label: 'Closed' },
 };
 
 const RING = {
-  message: 'bg-blue-100 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300',
-  ticket: 'bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300',
+  message: 'bg-blue-100 dark:bg-blue-500/15 text-primary',
+  ticket: 'bg-amber-100 dark:bg-amber-500/15 text-warning',
   note: 'bg-muted text-muted-foreground',
 };
 

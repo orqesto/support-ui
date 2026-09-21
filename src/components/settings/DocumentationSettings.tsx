@@ -526,7 +526,7 @@ export const DocumentationSettings = ({
                 }
               />
             </DialogHeader>
-            <DialogContent className="overflow-auto max-h-[60vh] bg-gray-50 dark:bg-gray-900">
+            <DialogContent className="overflow-auto max-h-[60vh] bg-muted">
               {viewerDialog.loading ? (
                 <div className="flex flex-col justify-center items-center py-12 text-center">
                   <Clock className="mb-4 w-12 h-12 text-primary animate-spin" />

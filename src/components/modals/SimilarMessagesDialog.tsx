@@ -377,13 +377,13 @@ export const SimilarMessagesDialog = ({
                 {showTranslation && translatedAiResponse && (
                   <div className="p-3 mt-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded border border-blue-200 dark:from-blue-950/20 dark:to-blue-900/30 dark:border-blue-800">
                     <div className="flex justify-between items-center mb-2">
-                      <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                      <p className="text-sm font-medium text-primary">
                         Translated to {languages?.find((lang) => lang.code === selectedLanguage)?.name}:
                       </p>
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-auto px-2 py-0.5 text-xs text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800"
+                        className="h-auto px-2 py-0.5 text-xs text-primary hover:bg-blue-200 dark:hover:bg-blue-800"
                         onClick={(event) => {
                           event.stopPropagation();
                           void handleUseAnswer(aiResponse);
@@ -395,7 +395,7 @@ export const SimilarMessagesDialog = ({
                     <div className="overflow-y-auto max-h-[200px]">
                       <AnswerPreview
                         answer={translatedAiResponse}
-                        className="text-sm leading-relaxed text-blue-900 dark:text-blue-100"
+                        className="text-sm leading-relaxed text-primary"
                       />
                     </div>
                   </div>
@@ -603,8 +603,8 @@ export const SimilarMessagesDialog = ({
                       <p
                         className={`text-xs font-medium ${
                           msg.source === 'documentation'
-                            ? 'text-blue-700 dark:text-blue-300'
-                            : 'text-green-700 dark:text-green-300'
+                            ? 'text-primary'
+                            : 'text-success'
                         }`}
                       >
                         {msg.source === 'documentation' ? 'From Documentation:' : 'Support Answer:'}
@@ -650,8 +650,8 @@ export const SimilarMessagesDialog = ({
                         }
                         className={`text-sm ${
                           msg.source === 'documentation'
-                            ? 'text-blue-900 dark:text-blue-50'
-                            : 'text-green-900 dark:text-green-50'
+                            ? 'text-primary'
+                            : 'text-success'
                         }`}
                       />
                     </div>
@@ -749,7 +749,7 @@ export const SimilarMessagesDialog = ({
             not improvise". The insert is still allowed (agents legitimately paste a passage
             and edit it); what is removed is the false equivalence with a written answer. */}
         {selectedIsRawSource && (
-          <div className="flex gap-2 items-start px-6 pt-3 text-[13px] text-amber-700 dark:text-amber-400">
+          <div className="flex gap-2 items-start px-6 pt-3 text-[13px] text-warning">
             <AlertTriangle className="flex-shrink-0 mt-0.5 w-4 h-4" />
             <span>
               This is raw documentation written for agents, not a reply to a customer. It may

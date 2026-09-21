@@ -87,7 +87,7 @@ export const DashboardQuickActions = ({
           </p>
         )}
         {blockedByActive && (
-          <p className="flex gap-1 justify-center items-center text-xs text-blue-600 dark:text-blue-400">
+          <p className="flex gap-1 justify-center items-center text-xs text-primary">
             <Loader2 className="w-3 h-3 animate-spin" />
             {processingStatus === 'complete'
               ? 'Processing completed. Widget will close automatically...'
@@ -97,7 +97,7 @@ export const DashboardQuickActions = ({
           </p>
         )}
         {noNewMessagesInfo.show && (
-          <p className="flex gap-1 justify-center items-center text-xs text-green-600 dark:text-green-400">
+          <p className="flex gap-1 justify-center items-center text-xs text-success">
             <CheckCircle className="w-3 h-3" />
             All caught up! No new{' '}
             {noNewMessagesInfo.type === 'email'

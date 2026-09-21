@@ -130,12 +130,12 @@ export const DocumentationUploadForm = ({
               {/* AI Helper - PDF Requirements */}
               <div className="p-4 mt-4 bg-blue-50 rounded-lg border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
                 <div className="flex gap-2 items-start">
-                  <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                  <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                   <div className="text-left">
-                    <p className="mb-2 text-sm font-semibold text-blue-900 dark:text-blue-100">
+                    <p className="mb-2 text-sm font-semibold text-primary">
                       📄 PDF Requirements
                     </p>
-                    <ul className="space-y-1 text-xs text-blue-800 dark:text-blue-200">
+                    <ul className="space-y-1 text-xs text-primary">
                       <li>
                         • <strong>Text-searchable PDFs:</strong> ✅ Automatic table detection &
                         conversion
@@ -151,7 +151,7 @@ export const DocumentationUploadForm = ({
                         • <strong>TXT/Markdown:</strong> ✅ Perfect support, including tables
                       </li>
                     </ul>
-                    <p className="mt-2 text-xs italic text-blue-700 dark:text-blue-300">
+                    <p className="mt-2 text-xs italic text-primary">
                       💡 Scanned PDFs: All pages auto-processed. Large docs may take 3-5 minutes!
                     </p>
                   </div>
@@ -229,7 +229,7 @@ export const DocumentationUploadForm = ({
                           </div>
                         )}
                         {progress?.status === 'error' && progress.error && (
-                          <div className="mt-2 text-xs text-red-600 dark:text-red-400">
+                          <div className="mt-2 text-xs text-destructive">
                             {progress.error}
                           </div>
                         )}

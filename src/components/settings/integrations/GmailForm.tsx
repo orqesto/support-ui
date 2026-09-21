@@ -184,7 +184,7 @@ export const GmailForm = ({
           onDefaultChange={onDefaultDepartmentChange}
         />
         {!departmentsLoading && departments.length === 0 && (
-          <p className="text-xs text-amber-600 dark:text-amber-400">
+          <p className="text-xs text-warning">
             No active departments. Create one before connecting a source.
           </p>
         )}

@@ -26,7 +26,7 @@ export const DashboardKBSection = ({ kbQAPairs, kbDocuments, kbDocumentation }: 
       label: 'Documents',
       value: kbDocuments,
       icon: FileText,
-      iconColor: 'text-emerald-600 dark:text-emerald-400',
+      iconColor: 'text-success',
       bg: 'bg-emerald-50 dark:bg-emerald-950/50',
       borderColor: '#059669',
       hint: 'Processed attachments',

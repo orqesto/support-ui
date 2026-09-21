@@ -106,8 +106,8 @@ const SLABreachItem = ({
       className={cn(
         'relative flex gap-3 items-start p-3 text-sm rounded-lg border transition-opacity hover:opacity-90',
         isCritical
-          ? 'bg-red-50 border-red-200 dark:border-red-900 dark:bg-red-950/30'
-          : 'bg-amber-50 border-amber-200 dark:border-amber-900 dark:bg-amber-950/30'
+          ? 'bg-red-50 border-destructive-line dark:bg-red-950/30'
+          : 'bg-amber-50 border-warning-line dark:bg-amber-950/30'
       )}
     >
       <AlertTriangle
@@ -120,7 +120,7 @@ const SLABreachItem = ({
             <span
               className={cn(
                 'text-xs font-semibold shrink-0',
-                isCritical ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'
+                isCritical ? 'text-destructive' : 'text-warning'
               )}
             >
               {formatBreachAmount(notification.breachAmount)}

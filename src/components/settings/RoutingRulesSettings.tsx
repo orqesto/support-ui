@@ -488,7 +488,7 @@ export const RoutingRulesSettings = () => {
               Enabled
             </label>
           </div>
-          {formError && <p className="text-sm text-red-600 dark:text-red-400">{formError}</p>}
+          {formError && <p className="text-sm text-destructive">{formError}</p>}
         </>
       )}
       isSaveDisabled={(formData) =>

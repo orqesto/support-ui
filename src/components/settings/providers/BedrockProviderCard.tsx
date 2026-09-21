@@ -643,8 +643,8 @@ export const BedrockProviderCard = ({
                   <div
                     className={`p-3 text-xs rounded border ${
                       testResult.invoke === 'ok'
-                        ? 'border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300'
-                        : 'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300'
+                        ? 'border-green-500/40 bg-green-500/10 text-success'
+                        : 'border-red-500/40 bg-red-500/10 text-destructive'
                     }`}
                   >
                     <p>

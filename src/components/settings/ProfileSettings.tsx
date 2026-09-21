@@ -155,33 +155,31 @@ export const ProfileSettings = () => {
       )}
 
       {/* User Info */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
         <h3 className="text-md font-semibold mb-4 flex items-center gap-2">
           <User className="w-5 h-5 text-blue-500" />
           Profile Information
         </h3>
         <div className="space-y-3">
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
-            <p className="text-sm text-gray-900 dark:text-gray-100">{user?.email}</p>
+            <label className="text-sm font-medium text-muted-foreground">Email</label>
+            <p className="text-sm text-foreground">{user?.email}</p>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
-            <p className="text-sm text-gray-900 dark:text-gray-100">
+            <label className="text-sm font-medium text-muted-foreground">Name</label>
+            <p className="text-sm text-foreground">
               {user?.firstName} {user?.lastName}
             </p>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
-            <p className="text-sm text-gray-900 dark:text-gray-100 capitalize">
-              {user?.role?.replace('_', ' ')}
-            </p>
+            <label className="text-sm font-medium text-muted-foreground">Role</label>
+            <p className="text-sm text-foreground capitalize">{user?.role?.replace('_', ' ')}</p>
           </div>
         </div>
       </div>
 
       {/* Signature */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
         <h3 className="text-md font-semibold mb-1 flex items-center gap-2">
           <PenLine className="w-5 h-5 text-blue-500" />
           Email Signature
@@ -208,7 +206,7 @@ export const ProfileSettings = () => {
 
       {/* Routing Skills */}
       {routingKeys.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
           <h3 className="text-md font-semibold mb-4 flex items-center gap-2">
             <Tag className="w-5 h-5 text-blue-500" />
             Routing Skills
@@ -296,13 +294,13 @@ export const ProfileSettings = () => {
       )}
 
       {/* Change Password */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
         <h3 className="text-md font-semibold mb-4 flex items-center gap-2">
           <Lock className="w-5 h-5 text-blue-500" />
           {ssoOnlyAccount ? 'Password' : 'Change Password'}
         </h3>
         {ssoOnlyAccount ? (
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             This account is managed by your identity provider and signs in with SSO, so it has no
             password. If you need one, ask an administrator.
           </p>
@@ -311,7 +309,7 @@ export const ProfileSettings = () => {
             <div>
               <label
                 htmlFor="current-password"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                className="block text-sm font-medium text-muted-foreground mb-1"
               >
                 Current Password
               </label>
@@ -329,7 +327,7 @@ export const ProfileSettings = () => {
             <div>
               <label
                 htmlFor="new-password"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                className="block text-sm font-medium text-muted-foreground mb-1"
               >
                 New Password
               </label>
@@ -347,7 +345,7 @@ export const ProfileSettings = () => {
             <div>
               <label
                 htmlFor="confirm-password"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                className="block text-sm font-medium text-muted-foreground mb-1"
               >
                 Confirm New Password
               </label>
@@ -369,7 +367,7 @@ export const ProfileSettings = () => {
       </div>
 
       {/* Two-Factor Authentication */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
         <h3 className="flex gap-2 items-center mb-4 text-lg font-semibold">
           <ShieldCheck className="w-5 h-5 text-blue-500" />
           Two-Factor Authentication
@@ -378,7 +376,7 @@ export const ProfileSettings = () => {
       </div>
 
       {/* Signed-in devices */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
         <h3 className="flex gap-2 items-center mb-4 text-lg font-semibold">
           <MonitorSmartphone className="w-5 h-5 text-blue-500" />
           Signed-in devices

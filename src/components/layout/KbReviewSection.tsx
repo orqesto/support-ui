@@ -36,7 +36,7 @@ export const KbReviewSection = ({
   return (
     <>
       {showLabel && <SectionLabel>Knowledge base review ({alerts.length})</SectionLabel>}
-      {error && <p className="px-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="px-1 text-xs text-destructive">{error}</p>}
       {alerts.map((alert) => {
         const acting = actingId === alert.id;
         return (

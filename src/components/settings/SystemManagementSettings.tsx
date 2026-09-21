@@ -57,12 +57,12 @@ export const SystemManagementSettings = () => {
   if (!canManageSystem) {
     return (
       <div className="space-y-6">
-        <div className="bg-red-50 dark:bg-red-950/20 rounded-lg border-2 border-red-500 dark:border-red-800 p-8 text-center">
+        <div className="bg-red-50 dark:bg-red-950/20 rounded-lg border-2 border-destructive-line p-8 text-center">
           <ShieldAlert className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-red-600 dark:text-red-400 mb-2">
+          <h2 className="text-xl font-semibold text-destructive mb-2">
             Access Denied
           </h2>
-          <p className="text-gray-700 dark:text-gray-300">
+          <p className="text-muted-foreground">
             You don't have permission to access System Management. These operations are restricted
             to platform (global) administrators only.
           </p>
@@ -235,7 +235,7 @@ export const SystemManagementSettings = () => {
 
       <div>
         <h2 className="mb-2 text-lg font-semibold">System Management</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-muted-foreground">
           Dangerous system operations that affect your entire workspace. Use with extreme
           caution.
         </p>
@@ -251,7 +251,7 @@ export const SystemManagementSettings = () => {
           <div className="flex justify-between items-start">
             <div>
               <p className="font-medium">Stop All Queues</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 Pause all background processing (messages, tickets, KB processing)
               </p>
             </div>
@@ -265,10 +265,10 @@ export const SystemManagementSettings = () => {
             outside — jobs simply accumulate — so the way back has to sit where
             someone looks when processing seems frozen, not on another page.
           */}
-          <div className="flex justify-between items-start pt-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex justify-between items-start pt-3 border-t border-border">
             <div>
               <p className="font-medium">Start All Queues</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 Resume background processing and restart email polling. Queues stay paused
                 across restarts and releases until this is run.
               </p>
@@ -278,10 +278,10 @@ export const SystemManagementSettings = () => {
             </Button>
           </div>
 
-          <div className="flex justify-between items-start pt-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex justify-between items-start pt-3 border-t border-border">
             <div>
-              <p className="font-medium text-orange-600 dark:text-orange-400">Clear All Queues</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="font-medium text-warning">Clear All Queues</p>
+              <p className="text-sm text-muted-foreground">
                 Delete all pending jobs from Redis (unprocessed work will be lost)
               </p>
             </div>
@@ -300,7 +300,7 @@ export const SystemManagementSettings = () => {
         </h3>
 
         {/* Department Filter */}
-        <div className="mb-4 pb-4 border-b border-red-200 dark:border-red-900">
+        <div className="mb-4 pb-4 border-b border-destructive-line">
           <ReactSelect
             label="Department Scope"
             value={selectedDepartment}
@@ -311,7 +311,7 @@ export const SystemManagementSettings = () => {
             ]}
             placeholder="Select department scope"
           />
-          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          <p className="mt-2 text-xs text-muted-foreground">
             Filter cleanup operations by department. Select "All Departments" to affect the entire
             workspace.
           </p>
@@ -320,8 +320,8 @@ export const SystemManagementSettings = () => {
         <div className="space-y-3">
           <div className="flex justify-between items-start">
             <div>
-              <p className="font-medium text-red-600 dark:text-red-400">Delete All Messages</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="font-medium text-destructive">Delete All Messages</p>
+              <p className="text-sm text-muted-foreground">
                 Permanently delete all messages for your workspace
               </p>
             </div>
@@ -331,10 +331,10 @@ export const SystemManagementSettings = () => {
             </Button>
           </div>
 
-          <div className="flex justify-between items-start pt-3 border-t border-red-200 dark:border-red-900">
+          <div className="flex justify-between items-start pt-3 border-t border-destructive-line">
             <div>
-              <p className="font-medium text-red-600 dark:text-red-400">Delete All Tickets</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="font-medium text-destructive">Delete All Tickets</p>
+              <p className="text-sm text-muted-foreground">
                 Permanently delete all tickets for your workspace
               </p>
             </div>
@@ -344,12 +344,12 @@ export const SystemManagementSettings = () => {
             </Button>
           </div>
 
-          <div className="flex justify-between items-start pt-3 border-t border-red-200 dark:border-red-900">
+          <div className="flex justify-between items-start pt-3 border-t border-destructive-line">
             <div>
-              <p className="font-medium text-red-600 dark:text-red-400">
+              <p className="font-medium text-destructive">
                 Delete All Knowledge Base
               </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 Permanently delete all KB entries and documentation
               </p>
             </div>
@@ -359,10 +359,10 @@ export const SystemManagementSettings = () => {
             </Button>
           </div>
 
-          <div className="flex justify-between items-start pt-3 border-t border-red-200 dark:border-red-900">
+          <div className="flex justify-between items-start pt-3 border-t border-destructive-line">
             <div className="flex-1">
-              <p className="font-medium text-red-600 dark:text-red-400">Clear Spam Log</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="font-medium text-destructive">Clear Spam Log</p>
+              <p className="text-sm text-muted-foreground">
                 Delete spam log entries older than the selected number of days
               </p>
               <div className="mt-2 w-40">
@@ -395,10 +395,10 @@ export const SystemManagementSettings = () => {
           Danger Zone - Nuclear Cleanup
         </h3>
         <div className="space-y-3">
-          <p className="text-sm text-gray-700 dark:text-gray-300">
+          <p className="text-sm text-muted-foreground">
             This will delete <strong>EVERYTHING</strong> for your workspace:
           </p>
-          <ul className="space-y-1 text-sm list-disc list-inside text-gray-700 dark:text-gray-300">
+          <ul className="space-y-1 text-sm list-disc list-inside text-muted-foreground">
             <li>All messages and responses</li>
             <li>All tickets and comments</li>
             <li>All knowledge base entries</li>
@@ -406,7 +406,7 @@ export const SystemManagementSettings = () => {
             <li>All processing queues</li>
             <li>All sync checkpoints</li>
           </ul>
-          <p className="text-sm font-semibold text-red-600 dark:text-red-400">
+          <p className="text-sm font-semibold text-destructive">
             This action is IRREVERSIBLE. Your workspace will be reset to a clean state.
           </p>
           <Button
@@ -435,7 +435,7 @@ export const SystemManagementSettings = () => {
         </DialogHeader>
         <DialogContent>
           <div className="space-y-4">
-            <p className="text-sm text-gray-700 dark:text-gray-300">{confirmDialog.description}</p>
+            <p className="text-sm text-muted-foreground">{confirmDialog.description}</p>
 
             {confirmDialog.requiresTyping && (
               <div>
@@ -456,7 +456,7 @@ export const SystemManagementSettings = () => {
             )}
 
             <div className="p-3 bg-red-50 rounded border border-red-200 dark:bg-red-950/20 dark:border-red-800">
-              <p className="text-sm font-semibold text-red-600 dark:text-red-400">
+              <p className="text-sm font-semibold text-destructive">
                 ⚠️ This action cannot be undone!
               </p>
             </div>

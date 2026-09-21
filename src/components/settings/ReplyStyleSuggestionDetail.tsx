@@ -121,7 +121,7 @@ export const ReplyStyleSuggestionDetail = ({
               return (
                 <span
                   key={index}
-                  className="rounded-sm bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                  className="rounded-sm bg-emerald-500/10 text-success"
                 >
                   {segment.text}
                 </span>

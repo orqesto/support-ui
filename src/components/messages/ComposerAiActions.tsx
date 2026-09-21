@@ -343,7 +343,7 @@ export function ComposerAiActions({
                 draft with an empty KB answers nothing and must not be sent as if it did.
               */}
               {draft.groundedInKb === false && (
-                <p className="text-[11px] text-amber-600 dark:text-amber-500">
+                <p className="text-[11px] text-warning">
                   {draft.mode === 'guided'
                     ? 'Written from what you said, not from the knowledge base — check the facts before sending.'
                     : 'Nothing in the knowledge base matched, so this acknowledges the question without answering it. Add the answer before sending.'}
@@ -363,7 +363,7 @@ export function ComposerAiActions({
                 </p>
               )}
               {appliesForeignLanguage && (
-                <p className="text-[11px] text-amber-600 dark:text-amber-500">
+                <p className="text-[11px] text-warning">
                   This will reply in {translation?.language?.toUpperCase()}, but the customer
                   wrote in {draft.language?.toUpperCase()}. Show the original to send{' '}
                   {draft.language?.toUpperCase()} instead.

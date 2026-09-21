@@ -784,7 +784,7 @@ export function MessageDetail({
 
       {/* History banner */}
       {showHistoryBanner && (
-        <div className="flex-shrink-0 px-4 py-1.5 text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border-b border-amber-200 dark:border-amber-800">
+        <div className="flex-shrink-0 px-4 py-1.5 text-[11px] text-warning bg-amber-50 dark:bg-amber-950/20 border-b border-warning-line">
           This thread starts with an outbound message — older history may be missing.
         </div>
       )}

@@ -278,10 +278,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
 
   const deptBadges = (user: User) =>
     user.departmentIds?.map((deptId) => (
-      <Badge
-        key={deptId}
-        className="text-xs text-blue-700 bg-blue-100 dark:bg-blue-900 dark:text-blue-300"
-      >
+      <Badge key={deptId} className="text-xs text-blue-700 bg-primary-muted dark:text-blue-300">
         {deptNameById(deptId)}
       </Badge>
     )) ?? null;
@@ -301,7 +298,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
         className={
           createdOnly
             ? 'flex gap-1 items-center text-xs text-muted-foreground bg-muted'
-            : 'flex gap-1 items-center text-xs text-amber-700 bg-amber-100 dark:bg-amber-900 dark:text-amber-300'
+            : 'flex gap-1 items-center text-xs text-amber-700 bg-warning-muted dark:text-amber-300'
         }
         title={
           createdOnly
@@ -609,7 +606,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
         </div>
 
         {/* Role Information Panel */}
-        <Card className="border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20">
+        <Card className="border-primary-line bg-blue-50/50 dark:bg-blue-950/20">
           <Button
             variant="ghost"
             onClick={() => setShowRoleInfo(!showRoleInfo)}
@@ -617,18 +614,16 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
           >
             <div className="flex justify-between items-center">
               <div className="flex gap-2 items-center">
-                <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                <h3 className="font-semibold text-blue-900 dark:text-blue-100">
-                  Role Permissions Guide
-                </h3>
+                <Info className="w-5 h-5 text-primary" />
+                <h3 className="font-semibold text-primary">Role Permissions Guide</h3>
               </div>
               {showRoleInfo ? (
-                <ChevronUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <ChevronUp className="w-5 h-5 text-primary" />
               ) : (
-                <ChevronDown className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <ChevronDown className="w-5 h-5 text-primary" />
               )}
             </div>
-            <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+            <p className="mt-1 text-sm text-primary">
               {showRoleInfo ? 'Hide' : 'View'} detailed permissions for each workspace role
             </p>
           </Button>

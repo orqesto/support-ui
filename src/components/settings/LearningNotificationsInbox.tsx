@@ -50,22 +50,22 @@ const ACTION_META: Record<LearningAutoActionType, {
   promote: {
     label: 'Promoted',
     icon: CheckCircle2,
-    className: 'text-emerald-600 dark:text-emerald-400',
+    className: 'text-success',
   },
   consolidate: {
     label: 'Consolidated',
     icon: Layers,
-    className: 'text-blue-600 dark:text-blue-400',
+    className: 'text-primary',
   },
   disable_provisional: {
     label: 'Disabled provisional',
     icon: XCircle,
-    className: 'text-amber-600 dark:text-amber-400',
+    className: 'text-warning',
   },
   delete_provisional: {
     label: 'Deleted provisional',
     icon: Trash2,
-    className: 'text-red-600 dark:text-red-400',
+    className: 'text-destructive',
   },
 };
 

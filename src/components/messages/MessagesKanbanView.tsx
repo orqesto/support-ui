@@ -370,7 +370,7 @@ const ApproveDropZone = ({ activeDragColId }: { activeDragColId: string | null }
       className={cn(
         'flex items-center justify-center gap-2 rounded-lg border-2 border-dashed py-3 text-sm font-medium transition-colors',
         isOver
-          ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+          ? 'border-emerald-500 bg-emerald-500/10 text-success'
           : 'border-border text-muted-foreground'
       )}
     >

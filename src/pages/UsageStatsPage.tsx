@@ -174,7 +174,7 @@ export const UsageStatsPage = () => {
               <div className="flex gap-2 items-start">
                 <AlertTriangle className="mt-0.5 w-4 h-4 text-orange-600 flex-shrink-0" />
                 <div className="space-y-1">
-                  <p className="text-sm font-semibold text-orange-800 dark:text-orange-400">
+                  <p className="text-sm font-semibold text-warning">
                     Usage Alert
                   </p>
                   {usage
@@ -182,7 +182,7 @@ export const UsageStatsPage = () => {
                     .map((mod) => (
                       <p
                         key={mod.moduleName}
-                        className="text-sm text-orange-700 dark:text-orange-300"
+                        className="text-sm text-warning"
                       >
                         <span className="font-medium">{mod.displayName}</span> is at{' '}
                         {((mod.current / mod.included) * 100).toFixed(0)}% of limit
@@ -201,7 +201,7 @@ export const UsageStatsPage = () => {
             <CardTitle>💡 Cost Optimization Tips</CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+            <ul className="space-y-2 text-sm text-muted-foreground">
               <li>• Monitor usage regularly to avoid unexpected overage charges</li>
               <li>• Consider upgrading your plan if you consistently hit limits</li>
               <li>• Review usage patterns to optimize your subscription</li>

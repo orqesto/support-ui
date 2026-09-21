@@ -360,9 +360,9 @@ export const FilterSheet = ({
                             <span
                               className={`text-[14.5px] ${
                                 def.tone === 'red'
-                                  ? 'text-red-600 dark:text-red-400'
+                                  ? 'text-destructive'
                                   : def.tone === 'amber'
-                                    ? 'text-amber-600 dark:text-amber-400'
+                                    ? 'text-warning'
                                     : ''
                               }`}
                             >

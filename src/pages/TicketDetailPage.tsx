@@ -135,10 +135,10 @@ export const TicketDetailPage = () => {
           <p>Are you sure you want to delete this ticket? This action cannot be undone.</p>
           {ticket && (
             <div className="p-3 mt-3 bg-gray-50 rounded-md border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
-              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <p className="text-sm font-semibold text-foreground">
                 {ticket.title}
               </p>
-              <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Status: <span className="font-medium">{ticket.status}</span> | Priority:{' '}
                 <span className="font-medium">{ticket.priority}</span>
               </p>

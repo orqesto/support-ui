@@ -83,11 +83,11 @@ export const RecordFormatStep = ({ value, onChange }: Props) => {
              * ⛔ "we would suggest", not "we will find". This preview mirrors the backend's
              * matcher rather than calling it, so it must not assert what the server will do.
              */
-            <p className="text-xs text-green-700 dark:text-green-300">
+            <p className="text-xs text-success">
               In that message we would suggest: <strong>{matches.join(', ')}</strong>.
             </p>
           ) : (
-            <p className="text-xs text-amber-700 dark:text-amber-300">
+            <p className="text-xs text-warning">
               We would not find anything in that message. Try a sentence containing a number in this
               format — otherwise nothing will be pre-filled for your agents.
             </p>

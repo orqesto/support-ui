@@ -24,9 +24,9 @@ export const FilterToken = ({
   const { def, text, dot, negated } = token;
   const tone =
     def.tone === 'red'
-      ? 'border-destructive/40 text-red-600 dark:text-red-400'
+      ? 'border-destructive/40 text-destructive'
       : def.tone === 'amber'
-        ? 'border-warning/50 text-amber-600 dark:text-amber-400'
+        ? 'border-warning/50 text-warning'
         : 'border-border';
 
   return (
@@ -39,7 +39,7 @@ export const FilterToken = ({
           {/* An inverted filter has to be unmissable at a glance: "status Resolved" and
               "status is not Resolved" are opposite sets and the difference is two words. */}
           {negated && (
-            <span className="font-semibold text-red-600 dark:text-red-400">is not</span>
+            <span className="font-semibold text-destructive">is not</span>
           )}
         </span>
       )}

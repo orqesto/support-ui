@@ -184,12 +184,12 @@ export const ConsoleSettings = () => {
               Lowercase letters, numbers and hyphens only.
             </p>
             {trimmedSlug.length > 0 && !slugFormatValid && (
-              <p className="text-xs text-red-600 dark:text-red-400">
+              <p className="text-xs text-destructive">
                 Use only lowercase letters, numbers and hyphens (no spaces or uppercase).
               </p>
             )}
             {slugCollision && (
-              <p className="text-xs text-red-600 dark:text-red-400">{saveError}</p>
+              <p className="text-xs text-destructive">{saveError}</p>
             )}
           </div>
 
@@ -209,7 +209,7 @@ export const ConsoleSettings = () => {
       {/* ─── Danger zone ─────────────────────────────────────────────────── */}
       <Card className="border-red-200 dark:border-red-900/50">
         <CardHeader>
-          <CardTitle className="flex gap-2 items-center text-red-600 dark:text-red-400">
+          <CardTitle className="flex gap-2 items-center text-destructive">
             <AlertTriangle className="w-5 h-5" />
             Danger zone
           </CardTitle>

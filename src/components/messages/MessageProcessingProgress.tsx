@@ -654,7 +654,7 @@ export const MessageProcessingProgress = ({
           {/* Success Message */}
           {status === 'complete' && !error && (
             <div className="space-y-1.5">
-              <div className="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1.5 rounded text-xs">
+              <div className="bg-green-50 dark:bg-green-900/20 text-success px-3 py-1.5 rounded text-xs">
                 ✅ Processed {processed} {sourceType}
                 {processed !== 1 ? 's' : ''}
                 {failed > 0 && ` (${failed} failed)`}

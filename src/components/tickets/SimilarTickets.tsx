@@ -157,7 +157,7 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
       <div className="p-4 rounded-lg border border-slate-200 bg-slate-50/60 dark:bg-slate-900/20 dark:border-slate-700/50">
         <div className="flex gap-2 items-center">
           <Spinner className="text-slate-400" />
-          <span className="text-sm text-slate-500 dark:text-slate-400">
+          <span className="text-sm text-muted-foreground">
             Searching similar resolved issues…
           </span>
         </div>
@@ -177,13 +177,13 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
         onClick={() => setExpanded((prev) => !prev)}
       >
         <div className="p-1.5 rounded-md bg-slate-200/70 dark:bg-slate-700/50">
-          <Search className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+          <Search className="w-3.5 h-3.5 text-muted-foreground" />
         </div>
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+          <span className="text-sm font-semibold text-foreground">
             Similar Resolved Issues
           </span>
-          <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">
+          <span className="ml-2 text-xs text-muted-foreground">
             {similarTickets.length} found
           </span>
         </div>
@@ -216,7 +216,7 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
                       to={`/tickets/${ticket.ticketId}`}
                       className="flex gap-1 items-center group min-w-0"
                     >
-                      <span className="text-sm font-medium truncate text-slate-800 dark:text-slate-100 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                      <span className="text-sm font-medium truncate text-foreground group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
                         {ticket.ticketTitle}
                       </span>
                       <ExternalLink className="flex-shrink-0 w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -226,7 +226,7 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
                       to={`/knowledge-base?id=${ticket.documentationId}`}
                       className="flex gap-1 items-center group min-w-0"
                     >
-                      <span className="text-sm font-medium truncate text-slate-800 dark:text-slate-100 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                      <span className="text-sm font-medium truncate text-foreground group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
                         {ticket.ticketTitle}
                       </span>
                       <ExternalLink className="flex-shrink-0 w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -236,13 +236,13 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
                       to={`/messages/${ticket.messageId}`}
                       className="flex gap-1 items-center group min-w-0"
                     >
-                      <span className="text-sm font-medium truncate text-slate-800 dark:text-slate-100 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                      <span className="text-sm font-medium truncate text-foreground group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
                         {ticket.ticketTitle}
                       </span>
                       <ExternalLink className="flex-shrink-0 w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </Link>
                   ) : (
-                    <span className="text-sm font-medium truncate text-slate-800 dark:text-slate-100">
+                    <span className="text-sm font-medium truncate text-foreground">
                       {ticket.ticketTitle}
                     </span>
                   )}
@@ -282,7 +282,7 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
                   {ticket.responses.map((response) => (
                     <div key={response.id}>
                       <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+                        <span className="text-xs text-muted-foreground font-medium">
                           Successful response
                           {response.sentAt && (
                             <span className="font-normal text-muted-foreground ml-1">
@@ -300,7 +300,7 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
                             size="sm"
                             variant="outline"
                             onClick={() => handleUseResponse(response.content)}
-                            className="text-xs h-7 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800/50"
+                            className="text-xs h-7 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-border dark:text-slate-300 dark:hover:bg-slate-800/50"
                           >
                             Use This Response
                           </Button>

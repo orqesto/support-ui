@@ -154,7 +154,7 @@ export const CreateWorkspacePage = () => {
           {selectedPlan && (
             <div className="flex gap-2 items-center pt-1">
               <Badge variant="secondary">{PRESELECTABLE_PLANS[selectedPlan]} plan</Badge>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-xs text-muted-foreground">
                 selected — you won&apos;t be charged during the trial
               </span>
             </div>

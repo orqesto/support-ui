@@ -402,7 +402,7 @@ export const EmailForm = ({
       {/* Message Count Display */}
       {messageCount !== null && (
         <div className="p-3 bg-green-50 rounded-lg border border-green-200 dark:bg-green-950 dark:border-green-800">
-          <p className="text-sm text-green-800 dark:text-green-200">
+          <p className="text-sm text-success">
             ✅ Found {messageCount} message{messageCount !== 1 ? 's' : ''} matching your criteria
           </p>
         </div>
@@ -422,7 +422,7 @@ export const EmailForm = ({
             onDefaultChange={onDefaultDepartmentChange}
           />
           {!departmentsLoading && departments.length === 0 && (
-            <p className="text-xs text-amber-600 dark:text-amber-400">
+            <p className="text-xs text-warning">
               No active departments. Create one before connecting a source.
             </p>
           )}

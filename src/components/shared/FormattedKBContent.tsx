@@ -44,7 +44,7 @@ export const FormattedKBContent = ({ content }: FormattedKBContentProps) => {
                   Question
                 </div>
               </div>
-              <div className="pl-4 text-base leading-relaxed border-l-2 border-blue-500 dark:border-blue-400">
+              <div className="pl-4 text-base leading-relaxed border-l-2 border-primary-line">
                 <LinkifiedText>{section.content}</LinkifiedText>
               </div>
             </div>
@@ -59,7 +59,7 @@ export const FormattedKBContent = ({ content }: FormattedKBContentProps) => {
                   Answer
                 </div>
               </div>
-              <div className="pl-4 text-base leading-relaxed border-l-2 border-green-500 dark:border-green-400">
+              <div className="pl-4 text-base leading-relaxed border-l-2 border-success-line">
                 <LinkifiedText>{section.content}</LinkifiedText>
               </div>
             </div>

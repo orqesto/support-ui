@@ -153,7 +153,7 @@ export const PlatformUsers = () => {
                 : 'Every workspace membership of this account is owned by an identity provider.'
             }
           >
-            <Badge className="flex gap-1 items-center text-xs text-amber-700 bg-amber-100 dark:bg-amber-900 dark:text-amber-300">
+            <Badge className="flex gap-1 items-center text-xs text-amber-700 bg-warning-muted dark:text-amber-300">
               <Lock className="w-3 h-3" />
               {partly ? `IdP-managed (${owned}/${row.workspaces.length})` : 'IdP-managed'}
             </Badge>

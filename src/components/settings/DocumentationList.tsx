@@ -66,12 +66,12 @@ const getDocumentTypeBadge = (type: DocumentType) => {
   const { icon: Icon, label, color } = config[type] || config.general;
 
   const colorClasses = {
-    blue: 'text-blue-700 bg-blue-100 dark:bg-blue-900 dark:text-blue-200',
-    red: 'text-red-700 bg-red-100 dark:bg-red-900 dark:text-red-200',
+    blue: 'text-blue-700 bg-primary-muted dark:text-blue-200',
+    red: 'text-red-700 bg-destructive-muted dark:text-red-200',
     purple: 'text-purple-700 bg-purple-100 dark:bg-purple-900 dark:text-purple-200',
-    indigo: 'text-indigo-700 bg-indigo-100 dark:bg-indigo-900 dark:text-indigo-200',
-    green: 'text-green-700 bg-green-100 dark:bg-green-900 dark:text-green-200',
-    gray: 'text-gray-700 bg-gray-100 dark:bg-gray-800 dark:text-gray-300',
+    indigo: 'text-indigo-700 bg-primary-muted dark:text-indigo-200',
+    green: 'text-green-700 bg-success-muted dark:text-green-200',
+    gray: 'text-gray-700 bg-muted dark:text-gray-300',
   };
 
   return (
@@ -366,7 +366,7 @@ export const DocumentationList = ({
                     */}
                     {isStale(doc.updatedAt) && (
                       <span
-                        className="inline-flex gap-1 items-center font-medium text-amber-600 dark:text-amber-400"
+                        className="inline-flex gap-1 items-center font-medium text-warning"
                         title={`Last changed ${formatDate(doc.updatedAt)}. Documents unchanged for ${KB_STALE_AFTER_DAYS} days are flagged for review — nothing is disabled.`}
                       >
                         <FileClock className="w-3 h-3" />

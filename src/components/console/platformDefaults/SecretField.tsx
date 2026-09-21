@@ -141,11 +141,11 @@ export const SecretField = ({
       </div>
 
       {rejection && (
-        <div className="mt-2 p-3 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
+        <div className="mt-2 p-3 rounded-md border border-destructive-line bg-red-50 dark:bg-red-900/20">
           <div className="flex gap-2">
-            <AlertTriangle className="w-4 h-4 mt-0.5 text-red-600 dark:text-red-400 flex-shrink-0" />
+            <AlertTriangle className="w-4 h-4 mt-0.5 text-destructive flex-shrink-0" />
             <div className="flex-1">
-              <p className="text-sm text-red-800 dark:text-red-300">{rejection}</p>
+              <p className="text-sm text-destructive">{rejection}</p>
               {/*
                 The override exists because the check is only as available as the provider is.
                 It is a deliberate second press, not a dialog to click through.
@@ -168,12 +168,12 @@ export const SecretField = ({
         <p className="mt-2 text-xs text-muted-foreground flex gap-1 items-start">
           {outcome.verified ? (
             <>
-              <ShieldCheck className="w-3.5 h-3.5 mt-0.5 text-green-600 dark:text-green-400 flex-shrink-0" />
+              <ShieldCheck className="w-3.5 h-3.5 mt-0.5 text-success flex-shrink-0" />
               <span>Saved, and the provider accepted it.</span>
             </>
           ) : (
             <>
-              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 text-warning flex-shrink-0" />
               <span>
                 Saved, but not verified.
                 {outcome.reason ? ` ${outcome.reason}` : ''}

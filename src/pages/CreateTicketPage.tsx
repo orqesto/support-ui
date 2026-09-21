@@ -418,7 +418,7 @@ export const CreateTicketPage = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleRemoveFile(index)}
-                          className="p-1 h-auto text-red-600 dark:text-red-400 hover:bg-red-500/10"
+                          className="p-1 h-auto text-destructive hover:bg-red-500/10"
                           disabled={loading}
                         >
                           <X className="w-4 h-4" />
@@ -445,7 +445,7 @@ export const CreateTicketPage = () => {
                   placeholder="Select priority"
                 />
                 {aiSuggestions.priority && (
-                  <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                  <p className="mt-1 text-xs text-primary">
                     ✨ AI suggested: {aiSuggestions.priority}
                   </p>
                 )}
@@ -494,7 +494,7 @@ export const CreateTicketPage = () => {
                   isDisabled={creatingCategory}
                 />
                 {aiSuggestions.category && !formData.categoryId && (
-                  <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                  <p className="mt-1 text-xs text-primary">
                     ✨ AI suggested: {aiSuggestions.category}
                     {suggestedNewCategory
                       ? ' — not in your list yet, select above to create it'

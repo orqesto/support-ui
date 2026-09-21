@@ -76,11 +76,11 @@ export const AUTOMATIC_WORK_STATUSES: readonly WorkflowStatus[] = ['open', 'in_p
 
 /** Single source of the label + chip colors per work status (badge, header, select all read this). */
 export const WORKFLOW_STATUS_META: Record<WorkflowStatus, { label: string; className: string }> = {
-  open: { label: 'Open', className: 'bg-slate-500/15 text-slate-700 dark:text-slate-300' },
-  in_progress: { label: 'In Progress', className: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' },
-  pending: { label: 'Pending', className: 'bg-orange-500/15 text-orange-700 dark:text-orange-300' },
-  on_hold: { label: 'On-hold', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
-  resolved: { label: 'Resolved', className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
+  open: { label: 'Open', className: 'bg-slate-500/15 text-muted-foreground' },
+  in_progress: { label: 'In Progress', className: 'bg-blue-500/15 text-primary' },
+  pending: { label: 'Pending', className: 'bg-orange-500/15 text-warning' },
+  on_hold: { label: 'On-hold', className: 'bg-amber-500/15 text-warning' },
+  resolved: { label: 'Resolved', className: 'bg-emerald-500/15 text-success' },
 };
 
 /**
@@ -157,7 +157,7 @@ export const getSuspicionBadge = (message: {
   isSuspicious?: boolean;
 }): { label: string; className: string } | null =>
   message.isSuspicious === true
-    ? { label: 'Suspicious', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' }
+    ? { label: 'Suspicious', className: 'bg-amber-500/15 text-warning' }
     : null;
 
 /** Priority chip for the inbox cards — all four levels. */
@@ -166,13 +166,13 @@ export const getPriorityBadge = (
 ): { label: string; className: string } | null => {
   switch (priority) {
     case 'critical':
-      return { label: 'Critical', className: 'bg-red-500/15 text-red-700 dark:text-red-300' };
+      return { label: 'Critical', className: 'bg-red-500/15 text-destructive' };
     case 'high':
-      return { label: 'High', className: 'bg-orange-500/15 text-orange-700 dark:text-orange-300' };
+      return { label: 'High', className: 'bg-orange-500/15 text-warning' };
     case 'medium':
-      return { label: 'Medium', className: 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-400' };
+      return { label: 'Medium', className: 'bg-yellow-500/15 text-warning' };
     case 'low':
-      return { label: 'Low', className: 'bg-slate-500/10 text-slate-500 dark:text-slate-400' };
+      return { label: 'Low', className: 'bg-slate-500/10 text-muted-foreground' };
     default:
       return null;
   }

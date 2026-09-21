@@ -239,7 +239,7 @@ export const SlackIntegrationCard = ({
                     onDefaultChange={deptPicker.setDefaultId}
                   />
                   {!deptPicker.loading && deptPicker.departments.length === 0 && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                    <p className="text-xs text-warning">
                       No active departments. Create one before adding a source.
                     </p>
                   )}
