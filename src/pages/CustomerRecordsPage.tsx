@@ -3,6 +3,11 @@ import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { ownershipNotice } from '@/components/messages/CustomApiLookupPanel';
+import {
+  projectFields,
+  RowFields,
+  UNCONFIGURED_FIELD_PREVIEW,
+} from '@/components/messages/customApiRowFields';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -115,6 +120,8 @@ const recordColumns: ColumnDef<CustomApiStoredRecord>[] = [
 /** One live result, rendered with the SAME verdict wording the thread panel uses. */
 const LiveResult = ({ result }: { result: CustomApiLookupResult }) => {
   const notice = ownershipNotice(result.ownership, result.ownershipReason);
+  const { fields, fallbackKeys, usingFallback } = projectFields(result);
+  const [rawOpen, setRawOpen] = useState(false);
   return (
     <div className="rounded border border-border p-3 space-y-2">
       <div className="flex items-baseline justify-between gap-2">
@@ -130,16 +137,49 @@ const LiveResult = ({ result }: { result: CustomApiLookupResult }) => {
 
       {result.status === 'ok' && result.rows && result.rows.length > 0 ? (
         <div className="space-y-1">
-          {/* A vendor row has no id of its own, so its CONTENT is its identity — an index key
-              would reuse a DOM node for a different record when a second check returns fewer. */}
+          {/*
+            ⛔ THE SAME LABELLED FIELDS THE THREAD PANEL RENDERS, from the same module. This page
+            showed raw JSON where the panel an agent opened it FROM showed named fields — a page
+            that flattens what the surface before it said makes the reader doubt which is true.
+            The fallback cap comes with it: when no fields are configured the vendor's WHOLE record
+            comes back, which on the measured vendor is 77 fields including the customer's IP.
+          */}
           {result.rows.map((row) => (
-            <pre
-              key={`${result.endpointId}-${JSON.stringify(row)}`}
-              className="text-[11px] whitespace-pre-wrap break-words bg-muted/40 rounded p-2"
-            >
-              {JSON.stringify(row, null, 1)}
-            </pre>
+            <RowFields key={`${result.endpointId}-${JSON.stringify(row)}`} row={row} fields={fields} />
           ))}
+          {usingFallback && fallbackKeys.length > UNCONFIGURED_FIELD_PREVIEW && (
+            <p className="text-[10px] text-muted-foreground">
+              No fields chosen for this lookup, so this is a preview of {UNCONFIGURED_FIELD_PREVIEW}{' '}
+              of {fallbackKeys.length} fields the vendor returned.
+            </p>
+          )}
+          {/*
+            Everything the vendor sent, for what the labelled view cannot cover: a field nobody
+            tagged, or a value an agent needs to quote exactly.
+
+            ⛔ NOT IN THE DOM UNTIL IT IS OPENED, and that is why this is state rather than a bare
+            `<details>`: a collapsed `<details>` still RENDERS its children, so the vendor's whole
+            record would sit in the page, findable by a browser search and copied by any
+            select-all. On the measured vendor that is 77 fields including the customer's email,
+            telephone, both addresses, postcode, IP and user-agent — a previous "show everything"
+            put exactly that into the thread view. I wrote "never rendered until opened" as a
+            comment above a `<details>` first, which was simply false; the test that found it was
+            matching the value twice.
+          */}
+          <div className="pt-1">
+            <button
+              type="button"
+              className="text-[11px] text-muted-foreground underline"
+              onClick={() => setRawOpen((open) => !open)}
+            >
+              {rawOpen ? 'Hide what this system returned' : 'Everything this system returned'}
+            </button>
+            {rawOpen && (
+              <pre className="mt-1 text-[11px] whitespace-pre-wrap break-words bg-muted/40 rounded p-2">
+                {JSON.stringify(result.rows, null, 1)}
+              </pre>
+            )}
+          </div>
         </div>
       ) : (
         <p className="text-[11px] text-muted-foreground">
