@@ -117,20 +117,21 @@ export function MessageActionStrip({
      */
     const confirmedAt = message.spamConfirmedAt;
     /**
-     * ⚠️ KNOWN GAP, named rather than hidden: this reads the FROZEN verdict in
-     * `metadata.spamCheck`, while the queue halves resolve the category from the newest inbound
-     * event server-side. The two can disagree — that exact disagreement hid three live CoreSarms
-     * threads in 2026-09 — so a row sitting in `spam_unconfirmed` whose frozen copy says
-     * otherwise will not offer this button.
+     * ⛔ THE LANE'S OWN ANSWER FIRST, the frozen copy only as a fallback.
      *
-     * The conservative direction is deliberate: the alternative (offer it on any `filtered`
-     * thread) puts a confirm button on not-analysed and archived rows, where the backend refuses
-     * the action because the system never called them junk — a button that reliably errors is
-     * worse than one that is sometimes absent. The real fix is a server-sent lane flag, the way
-     * `isSuspicious` was added for the same reason; that is support-ui#430's follow-up, not a
-     * thing to fake here.
+     * `message.isSpam` is resolved server-side from the newest inbound event — the same predicate
+     * the Spam lane and its halves claim rows by (support-service #799). `metadata.spamCheck` is
+     * frozen at thread creation and the two disagree on real threads: three live CoreSarms ones
+     * in 2026-09, one a customer asking about an order. Reading the frozen copy meant a row in
+     * `spam_unconfirmed` could offer no way to confirm it — work in the queue nobody could finish.
+     *
+     * ⚠️ `undefined` IS NOT `false`. This frontend deploys on merge and the backend ships on a
+     * tag, so a bundle meets responses with no flag at all; treating absent as "not spam" would
+     * remove the button from every thread on an older deployment. Absent falls back to the frozen
+     * copy — the previous behaviour, which is imperfect but not a regression.
      */
-    const canConfirm = !isSecurityThreat && spamCheck?.isSpam === true && !confirmedAt;
+    const inSpamLane = message.isSpam ?? spamCheck?.isSpam === true;
+    const canConfirm = !isSecurityThreat && inSpamLane && !confirmedAt;
     return (
       <div className={strip}>
         <p className={`${statusLabel} ${meta.statusClass}`}>{meta.statusText}</p>

@@ -164,3 +164,62 @@ describe('confirming a spam thread', () => {
     expect(screen.queryByRole('button', { name: /Confirm — it is spam/ })).toBeNull();
   });
 });
+
+/**
+ * The lane flag (support-service #799) replaces the frozen-copy guess.
+ *
+ * `metadata.spamCheck` is frozen at thread creation; the lane resolves the newest inbound event.
+ * Three live CoreSarms threads differed between the two in 2026-09, one a customer asking about
+ * an order — and for those the confirm button simply was not there, in the very queue that
+ * contains them.
+ */
+describe('which verdict decides the confirm button', () => {
+  const filtered = (over: Record<string, unknown>) =>
+    strip({
+      message: message({ status: 'filtered', ...over }),
+      isFiltered: true,
+      onClassify: vi.fn(),
+    });
+
+  it('⛔ offers it when the LANE says spam and the frozen copy disagrees', async () => {
+    /**
+     * 🔴 THE DEFECT THIS CLOSES. RED before the switch: the frozen copy says legitimate, so the
+     * button is absent on a thread the server puts in `spam_unconfirmed`.
+     */
+    render(
+      filtered({
+        isSpam: true,
+        spamConfirmedAt: null,
+        metadata: { spamCheck: { isSpam: false, category: 'legitimate' } },
+      })
+    );
+
+    expect(await screen.findByRole('button', { name: /Confirm — it is spam/ })).toBeInTheDocument();
+  });
+
+  it('⛔ withholds it when the LANE says not spam, whatever the frozen copy claims', () => {
+    // The other direction, and the control: a stale frozen verdict must not put a confirm button
+    // on a thread the server no longer counts as junk — the backend would refuse the action.
+    render(
+      filtered({
+        isSpam: false,
+        spamConfirmedAt: null,
+        metadata: { spamCheck: { isSpam: true, category: 'spam' } },
+      })
+    );
+
+    expect(screen.queryByRole('button', { name: /Confirm — it is spam/ })).toBeNull();
+  });
+
+  it('⚠️ falls back to the frozen copy when the deployment sends no flag', async () => {
+    /**
+     * ⛔ THE SKEW CONTROL. `undefined` is not `false`: this frontend deploys on merge and the
+     * backend ships on a tag, so a bundle meets responses with no `isSpam` at all. Treating
+     * absent as "not spam" would remove the button from every thread on an older deployment.
+     * RED: use `message.isSpam === true` instead of `??` and this fails.
+     */
+    render(filtered({ spamConfirmedAt: null, metadata: { spamCheck: { isSpam: true, category: 'spam' } } }));
+
+    expect(await screen.findByRole('button', { name: /Confirm — it is spam/ })).toBeInTheDocument();
+  });
+});
