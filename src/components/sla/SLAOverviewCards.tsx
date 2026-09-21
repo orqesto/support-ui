@@ -26,8 +26,8 @@ export const SLAOverviewCards = ({ days = SLA_DEFAULT_DAYS }: SLAOverviewCardsPr
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-2" />
-              <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              <div className="h-10 bg-muted rounded animate-pulse mb-2" />
+              <div className="h-4 w-2/3 bg-muted rounded animate-pulse" />
             </CardContent>
           </Card>
         ))}
@@ -61,12 +61,12 @@ export const SLAOverviewCards = ({ days = SLA_DEFAULT_DAYS }: SLAOverviewCardsPr
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Avg Response Time
           </CardTitle>
-          <div className="p-2 bg-blue-50 dark:bg-blue-950 rounded-lg">
-            <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          <div className="p-2 bg-primary-muted rounded-lg">
+            <Clock className="h-5 w-5 text-primary" />
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+          <div className="text-3xl font-bold text-primary">
             {data.messages.avgResponseTime !== null && data.messages.avgResponseTime !== undefined ? `${data.messages.avgResponseTime}m` : '\u2014'}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
@@ -83,12 +83,12 @@ export const SLAOverviewCards = ({ days = SLA_DEFAULT_DAYS }: SLAOverviewCardsPr
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Message SLA Rate
           </CardTitle>
-          <div className="p-2 bg-green-50 dark:bg-green-950 rounded-lg">
-            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+          <div className="p-2 bg-success-muted rounded-lg">
+            <CheckCircle2 className="h-5 w-5 text-success" />
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+          <div className="text-3xl font-bold text-success">
             {data.messages.complianceRate !== null && data.messages.complianceRate !== undefined
               ? `${data.messages.complianceRate.toFixed(1)}%`
               : '—'}
@@ -103,12 +103,12 @@ export const SLAOverviewCards = ({ days = SLA_DEFAULT_DAYS }: SLAOverviewCardsPr
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Breaches (24h)
           </CardTitle>
-          <div className="p-2 bg-red-50 dark:bg-red-950 rounded-lg">
-            <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+          <div className="p-2 bg-destructive-muted rounded-lg">
+            <AlertCircle className="h-5 w-5 text-destructive" />
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-red-600 dark:text-red-400">
+          <div className="text-3xl font-bold text-destructive">
             {data.messages.breaches24h + data.tickets.firstResponseBreaches24h + data.tickets.resolutionBreaches24h}
           </div>
           <p className="text-xs text-muted-foreground mt-1">

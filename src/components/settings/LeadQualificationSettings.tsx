@@ -206,19 +206,19 @@ export const LeadQualificationSettings = () => {
       {/* How it works */}
       <div className="p-4 rounded-lg border bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
         <div className="flex gap-2 items-start mb-3">
-          <Info className="w-4 h-4 mt-0.5 text-blue-600 dark:text-blue-400 shrink-0" />
-          <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100">How it works</h3>
+          <Info className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+          <h3 className="text-sm font-semibold text-primary">How it works</h3>
         </div>
-        <div className="flex flex-wrap gap-2 items-center text-xs text-blue-800 dark:text-blue-200 mb-3">
-          <span className="px-2 py-1 rounded bg-blue-100 dark:bg-blue-900">Lead writes in</span>
+        <div className="flex flex-wrap gap-2 items-center text-xs text-primary mb-3">
+          <span className="px-2 py-1 rounded bg-primary-muted">Lead writes in</span>
           <ArrowRight className="w-3 h-3 shrink-0" />
-          <span className="px-2 py-1 rounded bg-blue-100 dark:bg-blue-900">AI extracts info</span>
+          <span className="px-2 py-1 rounded bg-primary-muted">AI extracts info</span>
           <ArrowRight className="w-3 h-3 shrink-0" />
-          <span className="px-2 py-1 rounded bg-blue-100 dark:bg-blue-900">Asks follow-up (up to 8 turns)</span>
+          <span className="px-2 py-1 rounded bg-primary-muted">Asks follow-up (up to 8 turns)</span>
           <ArrowRight className="w-3 h-3 shrink-0" />
-          <span className="px-2 py-1 rounded bg-blue-100 dark:bg-blue-900">Category assigned → escalate</span>
+          <span className="px-2 py-1 rounded bg-primary-muted">Category assigned → escalate</span>
         </div>
-        <ul className="space-y-1.5 text-xs text-blue-800 dark:text-blue-200">
+        <ul className="space-y-1.5 text-xs text-primary">
           <li>
             <span className="font-medium">Qualification Fields</span> — tell the AI what data to
             collect (e.g. budget, timeline). Answers accumulate across turns and are visible on the

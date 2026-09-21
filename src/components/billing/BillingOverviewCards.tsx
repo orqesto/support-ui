@@ -20,8 +20,8 @@ export const BillingOverviewCards = () => {
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-2" />
-              <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              <div className="h-8 bg-muted rounded animate-pulse mb-2" />
+              <div className="h-4 w-2/3 bg-muted rounded animate-pulse" />
             </CardContent>
           </Card>
         ))}
@@ -46,12 +46,12 @@ export const BillingOverviewCards = () => {
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Active Subscriptions
           </CardTitle>
-          <div className="p-2 bg-blue-50 dark:bg-blue-950 rounded-lg">
-            <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          <div className="p-2 bg-primary-muted rounded-lg">
+            <DollarSign className="h-5 w-5 text-primary" />
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+          <div className="text-3xl font-bold text-primary">
             {data.activeSubscriptions}
           </div>
           <p className="text-xs text-muted-foreground mt-1">Registered vendors</p>
@@ -61,12 +61,12 @@ export const BillingOverviewCards = () => {
       <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-green-500">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">Total MRR</CardTitle>
-          <div className="p-2 bg-green-50 dark:bg-green-950 rounded-lg">
-            <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+          <div className="p-2 bg-success-muted rounded-lg">
+            <TrendingUp className="h-5 w-5 text-success" />
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+          <div className="text-3xl font-bold text-success">
             ${data.totalMonthlySpend.toLocaleString()}
           </div>
           <p className="text-xs text-muted-foreground mt-1">Monthly spend baseline</p>
@@ -76,12 +76,12 @@ export const BillingOverviewCards = () => {
       <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-red-500">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">Anomalies</CardTitle>
-          <div className="p-2 bg-red-50 dark:bg-red-950 rounded-lg">
-            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+          <div className="p-2 bg-destructive-muted rounded-lg">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-red-600 dark:text-red-400">
+          <div className="text-3xl font-bold text-destructive">
             {data.anomalyCount}
           </div>
           <p className="text-xs text-muted-foreground mt-1">Flagged charges</p>
@@ -91,12 +91,12 @@ export const BillingOverviewCards = () => {
       <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-yellow-500">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">Ghost Charges</CardTitle>
-          <div className="p-2 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
-            <Ghost className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+          <div className="p-2 bg-warning-muted rounded-lg">
+            <Ghost className="h-5 w-5 text-warning" />
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
+          <div className="text-3xl font-bold text-warning">
             {data.ghostCharges}
           </div>
           <p className="text-xs text-muted-foreground mt-1">Unregistered vendors</p>

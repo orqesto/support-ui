@@ -135,7 +135,7 @@ export function MessageComposer({
           className={`mb-2 px-3 py-2 text-xs rounded-md border ${
             windowTone === 'blocked'
               ? 'border-destructive/40 bg-destructive/10 text-destructive'
-              : 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+              : 'border-amber-500/40 bg-amber-500/10 text-warning'
           }`}
         >
           {sendBlockedReason}
@@ -203,7 +203,7 @@ export function MessageComposer({
 
         {/* Toolbar */}
         <div
-          className={`flex items-center gap-1.5 px-2 py-1.5 border-t ${composerMode === 'note' ? 'border-amber-200 dark:border-amber-800/50' : 'border-stone-100 dark:border-zinc-800'}`}
+          className={`flex items-center gap-1.5 px-2 py-1.5 border-t ${composerMode === 'note' ? 'border-amber-200 dark:border-amber-800/50' : 'border-border'}`}
         >
           <label
             className="transition-colors cursor-pointer text-muted-foreground hover:text-foreground"

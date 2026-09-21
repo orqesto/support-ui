@@ -297,7 +297,7 @@ export const DatabaseConfigCard = ({
               <div
                 className={`rounded-md border p-3 text-xs ${
                   display.move.status === 'failed'
-                    ? 'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300'
+                    ? 'border-red-500/40 bg-red-500/10 text-destructive'
                     : 'border-primary/30 bg-primary/5 text-foreground'
                 }`}
                 data-testid="database-move-status"
@@ -307,7 +307,7 @@ export const DatabaseConfigCard = ({
             )}
 
             {display.status === 'degraded' && (
-              <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-700 dark:text-red-300">
+              <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-xs text-destructive">
                 Your database is not answering. Ingestion and the inbox are paused — nothing is
                 written to Odly's database in the meantime. Once it answers again the workspace
                 resumes by itself; use Re-verify to check now.
@@ -376,8 +376,8 @@ export const DatabaseConfigCard = ({
                   <p
                     className={`rounded-md border p-3 text-xs ${
                       retention.tone === 'danger'
-                        ? 'border-red-500/40 bg-red-500/10 text-red-800 dark:text-red-200'
-                        : 'border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200'
+                        ? 'border-red-500/40 bg-red-500/10 text-destructive'
+                        : 'border-amber-500/40 bg-amber-500/10 text-warning'
                     }`}
                     data-testid="database-retention-note"
                   >
@@ -437,8 +437,8 @@ export const DatabaseConfigCard = ({
                     <div
                       className={`p-3 text-xs rounded border ${
                         testResult.ok
-                          ? 'border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300'
-                          : 'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300'
+                          ? 'border-green-500/40 bg-green-500/10 text-success'
+                          : 'border-red-500/40 bg-red-500/10 text-destructive'
                       }`}
                       data-testid="database-test-result"
                     >

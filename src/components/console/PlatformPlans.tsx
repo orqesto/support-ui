@@ -492,7 +492,7 @@ export const PlatformPlans = () => {
                 Unique identifier — lowercase letters, numbers and hyphens only.
               </p>
               {createErrors.name && (
-                <p className="text-xs text-red-600 dark:text-red-400">{createErrors.name}</p>
+                <p className="text-xs text-destructive">{createErrors.name}</p>
               )}
             </div>
 
@@ -504,7 +504,7 @@ export const PlatformPlans = () => {
                 onChange={(event) => patchCreate({ displayName: event.target.value })}
               />
               {createErrors.displayName && (
-                <p className="text-xs text-red-600 dark:text-red-400">{createErrors.displayName}</p>
+                <p className="text-xs text-destructive">{createErrors.displayName}</p>
               )}
             </div>
 
@@ -537,7 +537,7 @@ export const PlatformPlans = () => {
                 onChange={(event) => patchCreate({ priceEuros: event.target.value })}
               />
               {createErrors.price && (
-                <p className="text-xs text-red-600 dark:text-red-400">{createErrors.price}</p>
+                <p className="text-xs text-destructive">{createErrors.price}</p>
               )}
             </div>
 
@@ -551,7 +551,7 @@ export const PlatformPlans = () => {
                 disabled={createDraft.createStripePrice}
               />
               {createErrors.stripePriceId && (
-                <p className="text-xs text-red-600 dark:text-red-400">
+                <p className="text-xs text-destructive">
                   {createErrors.stripePriceId}
                 </p>
               )}
@@ -597,7 +597,7 @@ export const PlatformPlans = () => {
                 />
               </div>
               {createErrors.limits && (
-                <p className="text-xs text-red-600 dark:text-red-400">{createErrors.limits}</p>
+                <p className="text-xs text-destructive">{createErrors.limits}</p>
               )}
             </div>
           </div>

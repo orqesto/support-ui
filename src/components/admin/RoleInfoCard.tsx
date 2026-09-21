@@ -159,13 +159,9 @@ const RolePermissionMatrix = ({ role, size }: { role: OrganizationRole; size: Si
               return (
                 <li key={permission} className={`flex items-start gap-1.5 ${textSize}`}>
                   {granted ? (
-                    <Check
-                      className={`${iconSize} text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5`}
-                    />
+                    <Check className={`${iconSize} text-success flex-shrink-0 mt-0.5`} />
                   ) : (
-                    <X
-                      className={`${iconSize} text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5`}
-                    />
+                    <X className={`${iconSize} text-destructive flex-shrink-0 mt-0.5`} />
                   )}
                   <span className={granted ? '' : 'text-muted-foreground'}>{label}</span>
                 </li>

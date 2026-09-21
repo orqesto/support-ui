@@ -111,7 +111,7 @@ export const InviteTeamStep = () => {
       </div>
 
       {atLimit && (
-        <p className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm text-amber-600 dark:text-amber-500">
+        <p className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm text-warning">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           You&apos;ve reached your plan&apos;s user limit. Upgrade your plan to add more seats.
         </p>

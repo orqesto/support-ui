@@ -99,7 +99,7 @@ const EngineRunReport = ({ summary }: { summary: EngineRunSummary }) => {
             <li key={dom.domain}>
               <strong className="capitalize">{dom.domain}</strong>:{' '}
               {dom.error
-                ? <span className="text-red-700 dark:text-red-300">error — {dom.error}</span>
+                ? <span className="text-destructive">error — {dom.error}</span>
                 : (
                   <>
                     pass1 scored {dom.pass1RulesScored} rules

@@ -297,7 +297,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       </CardHeader>
       <CardContent>
         {error && (
-          <div className="flex gap-2 items-start px-3 py-2 mb-4 text-sm text-red-700 rounded-md border border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-900 dark:text-red-300">
+          <div className="flex gap-2 items-start px-3 py-2 mb-4 text-sm text-red-700 rounded-md border border-red-200 bg-destructive-muted dark:border-red-900 dark:text-red-300">
             <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -317,7 +317,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                 <span
                   className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
                     orgEnabled
-                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                      ? 'bg-emerald-500/10 text-success'
                       : 'bg-muted text-muted-foreground'
                   }`}
                 >
@@ -455,11 +455,11 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
 
             const summaryClass =
               summary.tone === 'green'
-                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                ? 'bg-emerald-500/10 text-success'
                 : summary.tone === 'red'
-                  ? 'bg-rose-500/10 text-rose-700 dark:text-rose-300'
+                  ? 'bg-rose-500/10 text-destructive'
                   : summary.tone === 'amber'
-                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                    ? 'bg-amber-500/10 text-warning'
                     : 'bg-muted text-muted-foreground';
 
             return (

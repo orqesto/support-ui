@@ -89,9 +89,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
           </p>
         )}
         {success && !error && (
-          <p className={cn(getInputErrorClasses(props.size), 'text-green-600 dark:text-green-400')}>
-            {success}
-          </p>
+          <p className={cn(getInputErrorClasses(props.size), 'text-success')}>{success}</p>
         )}
       </div>
     );

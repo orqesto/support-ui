@@ -81,19 +81,17 @@ export const AnomalyAlertsList = () => {
 
   if (records.length === 0) {
     return (
-      <Card className="border-green-200 dark:border-green-900 bg-green-50/50 dark:bg-green-950/20">
+      <Card className="border-success-line bg-green-50/50 dark:bg-green-950/20">
         <CardHeader>
-          <CardTitle className="flex gap-2 items-center text-green-700 dark:text-green-400">
+          <CardTitle className="flex gap-2 items-center text-success">
             <AlertTriangle className="w-5 h-5" />
             Anomaly Alerts (0)
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="py-12 text-center">
-            <p className="mb-2 text-lg font-medium text-green-700 dark:text-green-400">
-              No anomalies detected
-            </p>
-            <p className="text-sm text-green-600 dark:text-green-500">
+            <p className="mb-2 text-lg font-medium text-success">No anomalies detected</p>
+            <p className="text-sm text-success">
               All charges are within normal parameters. Check back after the next daily scan
             </p>
           </div>

@@ -127,7 +127,7 @@ export const DetectionRulesSettings = () => {
       dialogTitle="Detection Rule"
       renderBanners={() => (
         <div className="p-4 rounded-lg border bg-blue-500/10 border-blue-500/20">
-          <p className="text-sm text-blue-600 dark:text-blue-400">
+          <p className="text-sm text-primary">
             <strong>Pattern Matching:</strong> Use regex or keywords separated by{' '}
             <code className="px-1 rounded bg-blue-500/20">|</code> (pipe). Higher confidence scores
             (0-100) indicate stronger support signals.

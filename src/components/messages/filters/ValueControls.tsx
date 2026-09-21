@@ -47,7 +47,7 @@ export const NegateSwitch = ({
             className={`px-2 h-full rounded ${text} ${
               on
                 ? option
-                  ? 'bg-card text-red-600 dark:text-red-400 dark:bg-accent font-semibold shadow-sm'
+                  ? 'bg-card text-destructive dark:bg-accent font-semibold shadow-sm'
                   : 'bg-card dark:bg-accent text-foreground font-semibold shadow-sm'
                 : 'font-medium text-muted-foreground hover:text-foreground'
             }`}

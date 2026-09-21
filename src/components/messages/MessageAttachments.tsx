@@ -188,7 +188,7 @@ export const MessageAttachments = ({
                   `isOutgoing` field was never populated → this always rendered
                   "Received"). Preserved as-is; deriving true direction from the
                   owning message event is a follow-up (Bucket-B). */}
-              <span className="inline-flex items-center gap-0.5 text-emerald-500 dark:text-emerald-400">
+              <span className="inline-flex items-center gap-0.5 text-success">
                 <ArrowDownLeft className="w-2.5 h-2.5" />
                 Received
               </span>

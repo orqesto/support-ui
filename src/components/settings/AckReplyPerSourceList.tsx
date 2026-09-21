@@ -106,11 +106,11 @@ export const AckReplyPerSourceList = ({ onShowAlert }: Props) => {
                   </div>
                   <div className="flex gap-2 items-center shrink-0">
                     {inactive ? (
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-warning">
                         On · no body
                       </span>
                     ) : enabled ? (
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-success">
                         On
                       </span>
                     ) : (

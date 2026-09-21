@@ -267,7 +267,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
 
       {/* Table */}
       {attachments.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
               <tr>
@@ -297,22 +297,22 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                           className="object-cover w-10 h-10 rounded"
                         />
                       ) : (
-                        <File className="w-10 h-10 text-gray-400 dark:text-gray-500" />
+                        <File className="w-10 h-10 text-muted-foreground" />
                       )}
                       <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        <p className="text-sm font-medium text-foreground">
                           {attachment.originalFilename}
                         </p>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="text-xs text-muted-foreground">
                           {getAttachmentSource(attachment)}
                         </span>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
                     {formatFileSize(attachment.size)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
                     {new Date(attachment.createdAt).toLocaleString('en-US', {
                       day: 'numeric',
                       month: 'short',
@@ -327,7 +327,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                       {isPreviewable(attachment.mimeType) && (
                         <Button
                           onClick={() => setPreviewAttachment(attachment)}
-                          className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                          className="p-1.5 text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                           title="Preview"
                           aria-label="Preview"
                         >
@@ -336,7 +336,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                       )}
                       <Button
                         onClick={() => void handleDownload(attachment)}
-                        className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                        className="p-1.5 text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                         title="Download"
                         aria-label="Download"
                       >
@@ -350,7 +350,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                           onClick={() =>
                             handleDeleteClick(attachment.id, attachment.originalFilename)
                           }
-                          className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                          className="p-1.5 text-destructive hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                           title="Delete"
                           aria-label="Delete"
                         >

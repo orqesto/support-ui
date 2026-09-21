@@ -241,7 +241,7 @@ export const KBEntryDetail = ({
                               kind=event so getById skips its conv-first fallback. */}
                           <a
                             href={`/messages?id=${typeData.questionMessageId}&kind=event`}
-                            className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-400"
+                            className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-primary-muted dark:text-blue-400"
                             title="Question Message"
                           >
                             ❓ Question: #{typeData.questionMessageId}
@@ -250,7 +250,7 @@ export const KBEntryDetail = ({
                           {/* Answer Message - always show even if same as question */}
                           <a
                             href={`/messages?id=${typeData.answerMessageId}&kind=event`}
-                            className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-green-600 bg-green-50 rounded hover:bg-green-100 dark:bg-green-950 dark:text-green-400"
+                            className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-green-600 bg-green-50 rounded hover:bg-success-muted dark:text-green-400"
                             title="Answer Message"
                           >
                             ✅ Answer: #{typeData.answerMessageId}
@@ -275,7 +275,7 @@ export const KBEntryDetail = ({
                             <a
                               key={msgId}
                               href={`/messages?id=${msgId}&kind=event`}
-                              className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-gray-600 bg-gray-50 rounded hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400"
+                              className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-gray-600 bg-gray-50 rounded hover:bg-muted dark:text-gray-400"
                               title="Other Thread Message"
                             >
                               💬 #{msgId}

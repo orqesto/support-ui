@@ -105,7 +105,7 @@ export const MessageKBReferences = ({ messageId }: MessageKBReferencesProps) => 
                     {getTypeLabel(ref.type)}
                   </span>
                   {ref.approved && (
-                    <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
+                    <CheckCircle className="w-3 h-3 text-success" />
                   )}
                   {ref.topics && ref.topics.length > 0 && (
                     <span className="text-xs text-purple-600 dark:text-purple-400">

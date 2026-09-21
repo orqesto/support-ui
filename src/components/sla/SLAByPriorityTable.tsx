@@ -143,8 +143,8 @@ export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS }: SLAByPriorityTab
                     <span
                       className={
                         row.firstResponseBreached > 0
-                          ? 'text-red-600 dark:text-red-400 font-bold'
-                          : 'text-green-600 dark:text-green-400 font-bold'
+                          ? 'text-destructive font-bold'
+                          : 'text-success font-bold'
                       }
                     >
                       {row.firstResponseBreached}
@@ -158,8 +158,8 @@ export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS }: SLAByPriorityTab
                     <span
                       className={
                         row.resolutionBreached > 0
-                          ? 'text-red-600 dark:text-red-400 font-bold'
-                          : 'text-green-600 dark:text-green-400 font-bold'
+                          ? 'text-destructive font-bold'
+                          : 'text-success font-bold'
                       }
                     >
                       {row.resolutionBreached}

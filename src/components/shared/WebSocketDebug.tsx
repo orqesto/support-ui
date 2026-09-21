@@ -80,10 +80,10 @@ export const WebSocketDebug = () => {
                 <div className="font-mono">{current}</div>
 
                 <div className="font-medium text-muted-foreground">Processed:</div>
-                <div className="font-mono text-green-600 dark:text-green-400">{processed}</div>
+                <div className="font-mono text-success">{processed}</div>
 
                 <div className="font-medium text-muted-foreground">Failed:</div>
-                <div className="font-mono text-red-600 dark:text-red-400">{failed}</div>
+                <div className="font-mono text-destructive">{failed}</div>
               </div>
 
               <div className="pt-2 border-t border-border">

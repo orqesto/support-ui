@@ -37,9 +37,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           </p>
         )}
         {success && !error && (
-          <p className={cn(getTextareaErrorClasses(size), 'text-green-600 dark:text-green-400')}>
-            {success}
-          </p>
+          <p className={cn(getTextareaErrorClasses(size), 'text-success')}>{success}</p>
         )}
       </div>
     );

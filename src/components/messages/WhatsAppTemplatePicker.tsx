@@ -127,7 +127,7 @@ export function WhatsAppTemplatePicker({
                   <p className="mt-0.5 text-xs line-clamp-2 text-muted-foreground">
                     {template.bodyText}
                   </p>
-                  <p className="mt-1 text-[10px] text-amber-700 dark:text-amber-400">
+                  <p className="mt-1 text-[10px] text-warning">
                     {template.cost}
                   </p>
                 </button>

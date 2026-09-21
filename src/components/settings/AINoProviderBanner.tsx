@@ -14,12 +14,12 @@ export const AINoProviderBanner = () => {
       >
         <div className="flex gap-2 items-center">
           <AlertCircle className="flex-shrink-0 w-4 h-4 text-amber-600" />
-          <span className="text-sm font-medium text-amber-900 dark:text-amber-100">
+          <span className="text-sm font-medium text-warning">
             No AI provider configured. Some features unavailable.
           </span>
         </div>
         <div className="flex gap-2 items-center">
-          <span className="text-xs text-amber-700 dark:text-amber-300">Details</span>
+          <span className="text-xs text-warning">Details</span>
           {showFeatureDetails ? (
             <ChevronUp className="w-4 h-4 text-amber-600" />
           ) : (

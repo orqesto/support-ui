@@ -466,7 +466,7 @@ export const ConsoleIdentity = () => {
                   : 'Required to complete the connection.'}
               </p>
               {secretRequiredMissing && (
-                <p className="text-xs text-red-600 dark:text-red-400">
+                <p className="text-xs text-destructive">
                   Enter a client secret before enabling SSO — otherwise every login will fail.
                 </p>
               )}

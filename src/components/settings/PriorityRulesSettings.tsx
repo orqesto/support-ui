@@ -82,7 +82,7 @@ export const PriorityRulesSettings = () => {
       }
       renderBanners={() => (
         <div className="p-4 rounded-lg border bg-blue-500/10 border-blue-500/20">
-          <p className="text-sm text-blue-600 dark:text-blue-400">
+          <p className="text-sm text-primary">
             <strong>Written as sentences, not keywords:</strong> a message is matched against the
             example text by meaning, so write a few sentences that read like the real messages
             belonging in this tier. A pipe-separated keyword list matches poorly here. Priority

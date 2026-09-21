@@ -93,7 +93,7 @@ export const SourceKbStrip = ({
         ) : (
           // Flag-on with no cutoff means nothing is ever mined. Surfacing it beats showing
           // a confident-looking strip for a source that silently produces nothing.
-          <span className="truncate text-amber-600 dark:text-amber-500">
+          <span className="truncate text-warning">
             · no cutoff recorded — nothing is being mined. Re-save this channel to set one.
           </span>
         )}

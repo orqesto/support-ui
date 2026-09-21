@@ -54,7 +54,7 @@ const SeverityBadge = ({ suggestion }: { suggestion: LearningSuggestion }) => {
   if (conflictType === 'cross_dept_warn_overlap') {
     return (
       <span
-        className="inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-amber-500/15 text-amber-700 dark:text-amber-300"
+        className="inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-amber-500/15 text-warning"
         title="Borderline cross-dept overlap (cosine 0.85-0.92). Soft signal — these rules may converge over time. Not blocking."
       >
         Soft
@@ -64,7 +64,7 @@ const SeverityBadge = ({ suggestion }: { suggestion: LearningSuggestion }) => {
   if (conflictType === 'cross_dept_overlap' || conflictType === 'category_mismatch') {
     return (
       <span
-        className="inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-red-500/15 text-red-700 dark:text-red-300"
+        className="inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-red-500/15 text-destructive"
         title="Hard conflict — two rules disagree at high similarity. Admin action needed."
       >
         Hard
@@ -231,7 +231,7 @@ const EvidenceSection = ({ suggestionId }: { suggestionId: number }) => {
         <div className="mt-2">
           {loading && <p className="text-xs text-muted-foreground">Loading…</p>}
           {error && (
-            <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+            <p className="text-xs text-destructive">{error}</p>
           )}
           {!loading && !error && items !== null && items.length === 0 && (
             <p className="text-xs text-muted-foreground italic">
@@ -260,18 +260,18 @@ const EvidenceSection = ({ suggestionId }: { suggestionId: number }) => {
                         : '(no subject)'}
                     </Link>
                     {item.ruleAMatched && (
-                      <span className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                      <span className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-amber-500/15 text-warning">
                         A
                       </span>
                     )}
                     {item.ruleBMatched && (
-                      <span className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-sky-500/15 text-sky-700 dark:text-sky-300">
+                      <span className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-sky-500/15 text-primary">
                         B
                       </span>
                     )}
                     {item.ruleAMatched && item.ruleBMatched && (
                       <span
-                        className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-red-500/15 text-red-700 dark:text-red-300"
+                        className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-red-500/15 text-destructive"
                         title="This message matches both rules — the conflict is real here"
                       >
                         Overlap
@@ -691,11 +691,11 @@ export const LearningSuggestionsSettings = () => {
                                     )}
                                     <div className="flex flex-wrap items-center gap-1.5">
                                       <span className="text-muted-foreground">Rule #{refinement.targetRuleId}:</span>
-                                      <code className="px-1 py-0.5 rounded bg-red-500/10 text-red-700 dark:text-red-300 line-through break-all">
+                                      <code className="px-1 py-0.5 rounded bg-red-500/10 text-destructive line-through break-all">
                                         {refinement.oldValue}
                                       </code>
                                       <span className="text-muted-foreground">→</span>
-                                      <code className="px-1 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 break-all">
+                                      <code className="px-1 py-0.5 rounded bg-emerald-500/10 text-success break-all">
                                         {refinement.proposedValue}
                                       </code>
                                     </div>

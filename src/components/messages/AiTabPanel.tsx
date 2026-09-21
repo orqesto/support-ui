@@ -377,7 +377,7 @@ export function AiTabPanel({
           </div>
 
           {!aiConfigured && (
-            <p className="text-[10px] leading-snug text-amber-600 dark:text-amber-400 mb-1.5">
+            <p className="text-[10px] leading-snug text-warning mb-1.5">
               Connect an AI provider in Settings to get suggested replies — showing similar messages
               instead.
             </p>
@@ -439,7 +439,7 @@ export function AiTabPanel({
                         event.stopPropagation();
                         setViewKBSources(activeOption);
                       }}
-                      className="inline-block p-0 h-auto text-[10px] text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300 truncate"
+                      className="inline-block p-0 h-auto text-[10px] text-sky-600 hover:text-primary dark:hover:text-sky-300 truncate"
                     >
                       {activeOption.documentTitle
                         ?.replace(/^Q:\s*/i, '')
@@ -453,7 +453,7 @@ export function AiTabPanel({
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(event) => event.stopPropagation()}
-                      className="text-[10px] text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300 truncate"
+                      className="text-[10px] text-sky-600 hover:text-primary dark:hover:text-sky-300 truncate"
                     >
                       {activeOption.documentTitle
                         ? activeOption.documentTitle
@@ -504,7 +504,7 @@ export function AiTabPanel({
                           event.stopPropagation();
                           setViewOriginal(activeOption);
                         }}
-                        className="p-0 h-auto text-[10px] text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
+                        className="p-0 h-auto text-[10px] text-amber-600 hover:text-warning dark:hover:text-amber-300"
                       >
                         View original message
                       </Button>
@@ -512,7 +512,7 @@ export function AiTabPanel({
                       <Link
                         to={`/messages/${activeOption.messageId}`}
                         onClick={(event) => event.stopPropagation()}
-                        className="text-[10px] text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
+                        className="text-[10px] text-amber-600 hover:text-warning dark:hover:text-amber-300"
                       >
                         View original message
                       </Link>
@@ -582,10 +582,10 @@ export function AiTabPanel({
       )}
 
       {section !== 'suggested' && spamCheck?.redFlags && spamCheck.redFlags.length > 0 && (
-        <div className="p-2 rounded border border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/10">
+        <div className="p-2 rounded border border-destructive-line bg-red-50/50 dark:bg-red-950/10">
           <p className={`mb-1 text-red-500 ${MONO}`}>RED FLAGS</p>
           {spamCheck.redFlags.map((flag: string) => (
-            <p key={flag} className="text-[11px] text-red-600 dark:text-red-400">
+            <p key={flag} className="text-[11px] text-destructive">
               • {humanizeSignalFlag(flag)}
             </p>
           ))}
@@ -593,10 +593,10 @@ export function AiTabPanel({
       )}
 
       {section !== 'suggested' && spamCheck?.greenFlags && spamCheck.greenFlags.length > 0 && (
-        <div className="p-2 rounded border border-green-200 dark:border-green-900 bg-green-50/50 dark:bg-green-950/10">
+        <div className="p-2 rounded border border-success-line bg-green-50/50 dark:bg-green-950/10">
           <p className={`mb-1 text-green-600 ${MONO}`}>GREEN FLAGS</p>
           {spamCheck.greenFlags.map((flag: string) => (
-            <p key={flag} className="text-[11px] text-green-700 dark:text-green-400">
+            <p key={flag} className="text-[11px] text-success">
               • {humanizeSignalFlag(flag)}
             </p>
           ))}

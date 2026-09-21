@@ -96,7 +96,7 @@ export const TwoFactorSettings = () => {
         <div className="flex-1">
           <p className="text-sm font-medium">
             Two-factor authentication is{' '}
-            <span className={enabled ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}>
+            <span className={enabled ? 'text-success' : 'text-muted-foreground'}>
               {enabled ? 'enabled' : 'disabled'}
             </span>
           </p>

@@ -73,22 +73,22 @@ export const AIProviderHealthCheck = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'healthy':
-        return <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />;
+        return <CheckCircle className="w-5 h-5 text-success" />;
       case 'unhealthy':
-        return <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />;
+        return <XCircle className="w-5 h-5 text-destructive" />;
       default:
-        return <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />;
+        return <AlertTriangle className="w-5 h-5 text-warning" />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'healthy':
-        return 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800';
+        return 'bg-green-50 dark:bg-green-900/20 border-success-line';
       case 'unhealthy':
-        return 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800';
+        return 'bg-red-50 dark:bg-red-900/20 border-destructive-line';
       default:
-        return 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800';
+        return 'bg-amber-50 dark:bg-amber-900/20 border-warning-line';
     }
   };
 
@@ -132,7 +132,7 @@ export const AIProviderHealthCheck = () => {
                     Not in use
                   </span>
                 ) : provider.enabled ? (
-                  <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
+                  <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-success rounded-full">
                     Enabled
                   </span>
                 ) : (
@@ -145,7 +145,7 @@ export const AIProviderHealthCheck = () => {
                 {provider.message}
               </p>
               {provider.error && serving && (
-                <p className="text-sm mt-2 text-red-600 dark:text-red-400 font-mono">
+                <p className="text-sm mt-2 text-destructive font-mono">
                   {provider.error}
                 </p>
               )}
@@ -181,8 +181,8 @@ export const AIProviderHealthCheck = () => {
         </p>
 
         {error && (
-          <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-            <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
+          <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-destructive-line rounded-md">
+            <p className="text-sm text-destructive">{error}</p>
           </div>
         )}
 
@@ -201,14 +201,14 @@ export const AIProviderHealthCheck = () => {
                 )}
               </div>
               <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-md">
-                <p className="text-sm text-green-700 dark:text-green-400">Healthy</p>
-                <p className="text-2xl font-bold mt-1 text-green-700 dark:text-green-400">
+                <p className="text-sm text-success">Healthy</p>
+                <p className="text-2xl font-bold mt-1 text-success">
                   {healthData.summary.healthy}
                 </p>
               </div>
               <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-md">
-                <p className="text-sm text-red-700 dark:text-red-400">Unhealthy</p>
-                <p className="text-2xl font-bold mt-1 text-red-700 dark:text-red-400">
+                <p className="text-sm text-destructive">Unhealthy</p>
+                <p className="text-2xl font-bold mt-1 text-destructive">
                   {healthData.summary.unhealthy}
                 </p>
               </div>
@@ -251,14 +251,14 @@ export const AIProviderHealthCheck = () => {
             )}
 
             {healthData.summary.unhealthy > 0 && (
-              <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
+              <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-warning-line rounded-md">
                 <div className="flex gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                  <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0" />
                   <div>
-                    <p className="font-medium text-amber-800 dark:text-amber-400">
+                    <p className="font-medium text-warning">
                       Action Required
                     </p>
-                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                    <p className="text-sm text-warning mt-1">
                       Some AI providers are unhealthy. Please check their configuration and API
                       keys. Message processing may be affected for providers marked as unhealthy.
                     </p>

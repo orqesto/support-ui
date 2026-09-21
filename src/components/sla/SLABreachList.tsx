@@ -60,20 +60,20 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS }: SLABreachListProps) =
 
   if (!data || data.breaches.length === 0) {
     return (
-      <Card className="border-green-200 dark:border-green-900 bg-green-50/50 dark:bg-green-950/20">
+      <Card className="border-success-line bg-green-50/50 dark:bg-green-950/20">
         <CardHeader>
-          <CardTitle className="flex gap-2 items-center text-green-700 dark:text-green-400">
+          <CardTitle className="flex gap-2 items-center text-success">
             <CheckCircle className="w-5 h-5" />
             Recent SLA Breaches (0)
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="py-12 text-center">
-            <CheckCircle className="h-12 w-12 text-green-600 dark:text-green-400 mb-4 mx-auto" />
-            <p className="mb-2 text-lg font-medium text-green-700 dark:text-green-400">
+            <CheckCircle className="h-12 w-12 text-success mb-4 mx-auto" />
+            <p className="mb-2 text-lg font-medium text-success">
               No active SLA breaches
             </p>
-            <p className="text-sm text-green-600 dark:text-green-500">
+            <p className="text-sm text-success">
               No SLA breaches in the {windowLabel(days)}
             </p>
           </div>
@@ -131,7 +131,7 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS }: SLABreachListProps) =
                   )}
                 </div>
 
-                <p className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                <p className="mt-2 text-sm font-medium text-foreground">
                   {breach.subject ?? breach.title ?? 'No subject'}
                 </p>
 
@@ -139,7 +139,7 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS }: SLABreachListProps) =
               </div>
 
               <div className="ml-4 text-right">
-                <p className="text-sm font-semibold text-red-600 dark:text-red-400">
+                <p className="text-sm font-semibold text-destructive">
                   +{breach.breachAmount}m
                 </p>
                 <p className="text-xs text-muted-foreground">

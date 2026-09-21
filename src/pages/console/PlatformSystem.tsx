@@ -416,7 +416,7 @@ export const PlatformSystem = () => {
               <Spinner />
             </div>
           ) : failedJobsQuery.isError ? (
-            <p className="py-4 text-sm text-red-600 dark:text-red-400">
+            <p className="py-4 text-sm text-destructive">
               Could not load failed jobs. Please try again.
             </p>
           ) : (failedJobsQuery.data ?? []).length === 0 ? (

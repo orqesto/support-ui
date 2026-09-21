@@ -477,7 +477,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                         size="sm"
                         variant="ghost"
                         onClick={() => handleDeleteClick(comment.id)}
-                        className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10"
+                        className="text-destructive hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10"
                       >
                         <Trash2 className="mr-1 w-3 h-3" />
                         Delete

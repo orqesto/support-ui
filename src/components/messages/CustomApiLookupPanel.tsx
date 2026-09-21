@@ -146,7 +146,7 @@ export const ownershipNotice = (
         // `?? 'unknown'` AND the lookup's own fallback: a reason this build does not know yet (a
         // newer backend) must not render as `undefined`.
         text: UNVERIFIED_TEXT[reason ?? 'unknown'] ?? UNVERIFIED_TEXT.unknown,
-        className: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/40',
+        className: 'bg-amber-500/15 text-warning border border-amber-500/40',
       };
     default:
       return null;
@@ -243,7 +243,7 @@ const ResultCard = ({
       )}
 
       {result.status === 'shape_changed' && (
-        <p className="text-[11px] text-amber-700 dark:text-amber-400">
+        <p className="text-[11px] text-warning">
           {/*
             ⛔ "NO LONGER" IS A CLAIM ABOUT HISTORY, and it is false for the case this status now
             also carries: a lookup whose RECORD LIST was never found never matched in the first

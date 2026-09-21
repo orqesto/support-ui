@@ -26,16 +26,16 @@ export const FeatureUnavailable = ({ title, description }: FeatureUnavailablePro
     <Card className="max-w-md text-center">
       <CardContent className="flex flex-col items-center gap-4 py-10">
         <span
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800"
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-muted"
           aria-hidden="true"
         >
-          <Construction className="h-6 w-6 text-gray-500 dark:text-gray-400" />
+          <Construction className="h-6 w-6 text-muted-foreground" />
         </span>
         <div className="space-y-1">
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h1 className="text-lg font-semibold text-foreground">
             {title ? `${title} isn’t available yet` : 'This page isn’t available yet'}
           </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             {description ?? 'We’re still building this. It’ll show up here once it’s ready.'}
           </p>
         </div>
