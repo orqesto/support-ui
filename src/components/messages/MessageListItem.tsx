@@ -269,7 +269,7 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
                 {effectiveIsRead ? (
                   <MailOpen className="w-3.5 h-3.5" />
                 ) : (
-                  <Mail className="w-3.5 h-3.5 text-primary" />
+                  <Mail className="w-3.5 h-3.5 text-muted-foreground" />
                 )}
               </Button>
             </Tooltip>

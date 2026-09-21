@@ -378,7 +378,7 @@ export const MessageProcessingProgress = ({
           ) : status === 'error' ? (
             <XCircle className="w-4 h-4 text-destructive" />
           ) : isProcessing || status === 'processing' || status === 'started' ? (
-            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
           ) : (
             <CheckCircle className="w-4 h-4 text-muted-foreground" />
           )}
@@ -462,7 +462,7 @@ export const MessageProcessingProgress = ({
           <div className="flex justify-around text-center">
             <div>
               <div className="flex gap-1 justify-center items-center">
-                <SourceIcon className="w-3 h-3 text-primary" />
+                <SourceIcon className="w-3 h-3 text-muted-foreground" />
                 <span className="text-lg font-bold">{(emailTotal ?? total) || 0}</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Found</p>
@@ -502,7 +502,7 @@ export const MessageProcessingProgress = ({
             {sourceType === 'email' && (linkedReplies ?? 0) > 0 && (
               <div>
                 <div className="flex gap-1 justify-center items-center">
-                  <Mail className="w-3 h-3 text-primary" />
+                  <Mail className="w-3 h-3 text-muted-foreground" />
                   <span className="text-lg font-bold">{linkedReplies}</span>
                 </div>
                 <p className="text-[10px] text-muted-foreground">Linked</p>
@@ -542,10 +542,10 @@ export const MessageProcessingProgress = ({
             (kbStandaloneKnowledge ?? 0) > 0 ||
             session.stage === 'kb-processing') && (
             <div className="pt-2 border-t">
-              <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 mb-1.5 flex items-center gap-1">
+              <p className="text-xs font-semibold text-ai mb-1.5 flex items-center gap-1">
                 <BookOpen className="w-3 h-3" />
                 Knowledge Base
-                {isProcessing && <Loader2 className="w-3 h-3 text-purple-500 animate-spin" />}
+                {isProcessing && <Loader2 className="w-3 h-3 text-ai animate-spin" />}
               </p>
 
               {/* KB Message Processing Progress Bar */}
@@ -565,9 +565,9 @@ export const MessageProcessingProgress = ({
                         </span>
                         <span>{kbPct}%</span>
                       </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-purple-200 dark:bg-purple-900">
+                      <div className="h-1.5 overflow-hidden rounded-full bg-ai">
                         <div
-                          className="h-full bg-purple-600 transition-all duration-300 dark:bg-purple-400"
+                          className="h-full bg-ai transition-all duration-300"
                           style={{ width: `${kbPct}%` }}
                         />
                       </div>
@@ -582,7 +582,7 @@ export const MessageProcessingProgress = ({
                       <span
                         className={`text-lg font-bold ${
                           kbEntriesTotal > 0
-                            ? 'text-purple-600 dark:text-purple-400'
+                            ? 'text-ai'
                             : 'text-muted-foreground'
                         }`}
                       >
@@ -598,7 +598,7 @@ export const MessageProcessingProgress = ({
                       <span
                         className={`text-lg font-bold ${
                           kbQAPairs > 0
-                            ? 'text-purple-600 dark:text-purple-400'
+                            ? 'text-ai'
                             : 'text-muted-foreground'
                         }`}
                       >
@@ -614,7 +614,7 @@ export const MessageProcessingProgress = ({
                       <span
                         className={`text-lg font-bold ${
                           kbDocuments > 0
-                            ? 'text-purple-600 dark:text-purple-400'
+                            ? 'text-ai'
                             : 'text-muted-foreground'
                         }`}
                       >
@@ -630,7 +630,7 @@ export const MessageProcessingProgress = ({
                       <span
                         className={`text-lg font-bold ${
                           kbStandaloneKnowledge > 0
-                            ? 'text-purple-600 dark:text-purple-400'
+                            ? 'text-ai'
                             : 'text-muted-foreground'
                         }`}
                       >
@@ -662,7 +662,7 @@ export const MessageProcessingProgress = ({
 
               {/* KB Entries Stats */}
               {kbEntriesTotal !== undefined && kbEntriesTotal > 0 && (
-                <div className="bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 px-3 py-1.5 rounded text-xs">
+                <div className="bg-ai-muted text-ai px-3 py-1.5 rounded text-xs">
                   📚 KB: {kbEntriesTotal} {kbEntriesTotal === 1 ? 'entry' : 'entries'}
                   {kbQAPairs !== undefined && kbQAPairs > 0 && ` (${kbQAPairs} Q&A`}
                   {kbStandaloneKnowledge !== undefined &&

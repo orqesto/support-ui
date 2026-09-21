@@ -40,7 +40,7 @@ export const AllianceAdminProposalsCard = ({ allianceId }: { allianceId: number 
     <Card>
       <CardHeader>
         <CardTitle className="flex gap-2 items-center">
-          <ShieldAlert className="w-5 h-5 text-primary" />
+          <ShieldAlert className="w-5 h-5 text-muted-foreground" />
           Suggested alliance admins
         </CardTitle>
         <CardDescription>

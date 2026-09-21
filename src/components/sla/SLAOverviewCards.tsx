@@ -62,7 +62,7 @@ export const SLAOverviewCards = ({ days = SLA_DEFAULT_DAYS }: SLAOverviewCardsPr
             Avg Response Time
           </CardTitle>
           <div className="p-2 bg-primary-muted rounded-lg">
-            <Clock className="h-5 w-5 text-primary" />
+            <Clock className="h-5 w-5 text-muted-foreground" />
           </div>
         </CardHeader>
         <CardContent>

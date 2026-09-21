@@ -173,7 +173,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
 
         <div className="flex gap-3 items-center mb-6">
           <div className="flex justify-center items-center w-12 h-12 rounded-lg bg-primary/10">
-            <UserPlus className="w-6 h-6 text-primary" />
+            <UserPlus className="w-6 h-6 text-muted-foreground" />
           </div>
           <div>
             <h2 className="text-xl font-semibold">Create User</h2>

@@ -40,7 +40,7 @@ export const AssignOnReplyDialog = ({
           </DialogTitle>
         </DialogHeader>
         <div className="flex gap-4">
-          <UserCheck className="w-6 h-6 shrink-0 text-primary" />
+          <UserCheck className="w-6 h-6 shrink-0 text-muted-foreground" />
           <p className="text-sm text-foreground">
             {takeover
               ? `${prompt.ownerName} owns this thread. Your reply is sent either way; taking over makes you the owner from now on.`

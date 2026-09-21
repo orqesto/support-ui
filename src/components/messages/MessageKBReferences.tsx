@@ -77,18 +77,18 @@ export const MessageKBReferences = ({ messageId }: MessageKBReferencesProps) => 
   };
 
   return (
-    <div className="p-4 mb-4 bg-purple-50 rounded-lg border-2 border-purple-200 dark:bg-purple-950/20 dark:border-purple-800">
+    <div className="p-4 mb-4 bg-ai-muted rounded-lg border-2 border-ai-line">
       <div className="flex gap-2 items-center mb-3">
-        <BookOpen className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-        <h3 className="font-semibold text-purple-900 dark:text-purple-100">
+        <BookOpen className="w-5 h-5 text-ai" />
+        <h3 className="font-semibold text-ai">
           Knowledge Base References
         </h3>
-        <span className="text-xs text-purple-600 dark:text-purple-400">
+        <span className="text-xs text-ai">
           {references.length} {references.length === 1 ? 'entry' : 'entries'}
         </span>
       </div>
 
-      <p className="mb-3 text-xs text-purple-700 dark:text-purple-300">
+      <p className="mb-3 text-xs text-ai">
         This message was used to create the following knowledge base entries:
       </p>
 
@@ -96,28 +96,28 @@ export const MessageKBReferences = ({ messageId }: MessageKBReferencesProps) => 
         {references.map((ref) => (
           <div
             key={ref.id}
-            className="p-3 bg-white rounded border border-purple-200 dark:bg-purple-950/40 dark:border-purple-700"
+            className="p-3 bg-white rounded border border-ai-line"
           >
             <div className="flex gap-2 items-start justify-between mb-2">
               <div className="flex-1">
                 <div className="flex gap-2 items-center mb-1">
-                  <span className="px-2 py-0.5 text-xs font-medium text-purple-700 bg-purple-100 rounded dark:text-purple-300 dark:bg-purple-900">
+                  <span className="px-2 py-0.5 text-xs font-medium text-ai bg-ai-muted rounded">
                     {getTypeLabel(ref.type)}
                   </span>
                   {ref.approved && (
                     <CheckCircle className="w-3 h-3 text-success" />
                   )}
                   {ref.topics && ref.topics.length > 0 && (
-                    <span className="text-xs text-purple-600 dark:text-purple-400">
+                    <span className="text-xs text-ai">
                       {ref.topics.slice(0, 2).join(', ')}
                       {ref.topics.length > 2 && '...'}
                     </span>
                   )}
                 </div>
-                <h4 className="text-sm font-semibold text-purple-900 dark:text-purple-100">
+                <h4 className="text-sm font-semibold text-ai">
                   {ref.title}
                 </h4>
-                <p className="mt-1 text-xs text-purple-700 line-clamp-2 dark:text-purple-300">
+                <p className="mt-1 text-xs text-ai line-clamp-2">
                   {ref.content}
                 </p>
               </div>
@@ -133,7 +133,7 @@ export const MessageKBReferences = ({ messageId }: MessageKBReferencesProps) => 
               </Button>
             </div>
 
-            <div className="flex gap-3 items-center text-xs text-purple-600 dark:text-purple-400">
+            <div className="flex gap-3 items-center text-xs text-ai">
               {ref.qualityScore && <span>Quality: {Math.round(ref.qualityScore * 100)}%</span>}
               <span>Referenced: {ref.timesReferenced}×</span>
               <span>Created: {formatDate(ref.createdAt)}</span>

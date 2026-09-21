@@ -620,9 +620,9 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
                 <h3 className="font-semibold text-primary">Role Permissions Guide</h3>
               </div>
               {showRoleInfo ? (
-                <ChevronUp className="w-5 h-5 text-primary" />
+                <ChevronUp className="w-5 h-5 text-muted-foreground" />
               ) : (
-                <ChevronDown className="w-5 h-5 text-primary" />
+                <ChevronDown className="w-5 h-5 text-muted-foreground" />
               )}
             </div>
             <p className="mt-1 text-sm text-primary">

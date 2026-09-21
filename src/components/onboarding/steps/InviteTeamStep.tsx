@@ -124,7 +124,7 @@ export const InviteTeamStep = () => {
               key={member.email}
               className="flex items-center gap-2 text-sm text-foreground"
             >
-              <CheckCircle className="h-4 w-4 text-primary" />
+              <CheckCircle className="h-4 w-4 text-muted-foreground" />
               {member.email} {member.kind === 'created' ? 'created' : 'invited'}
             </li>
           ))}

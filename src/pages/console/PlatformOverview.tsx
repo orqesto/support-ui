@@ -102,7 +102,7 @@ export const PlatformOverview = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex gap-2 items-center">
-              <CreditCard className="w-5 h-5 text-primary" />
+              <CreditCard className="w-5 h-5 text-muted-foreground" />
               Subscriptions
             </CardTitle>
           </CardHeader>

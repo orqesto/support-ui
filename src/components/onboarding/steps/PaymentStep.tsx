@@ -237,7 +237,7 @@ export const PaymentStep = ({
                   <CardContent className="space-y-1 p-4">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-foreground">{plan.displayName}</span>
-                      {active && <Check className="ml-auto h-4 w-4 text-primary" />}
+                      {active && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {`${formatMoneyExVat(plan.price, plan.currency)}/${plan.billingInterval}`}

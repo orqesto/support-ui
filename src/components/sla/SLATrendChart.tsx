@@ -21,7 +21,7 @@ export const SLATrendChart = ({ days = SLA_DEFAULT_DAYS }: SLATrendChartProps) =
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
+            <TrendingUp className="h-5 w-5 text-muted-foreground" />
             SLA Performance Trend ({days} Days)
           </CardTitle>
         </CardHeader>
@@ -80,7 +80,7 @@ export const SLATrendChart = ({ days = SLA_DEFAULT_DAYS }: SLATrendChartProps) =
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-primary" />
+          <TrendingUp className="h-5 w-5 text-muted-foreground" />
           SLA Performance Trend ({days} Days)
         </CardTitle>
       </CardHeader>

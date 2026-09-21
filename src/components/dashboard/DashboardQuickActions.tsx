@@ -58,7 +58,7 @@ export const DashboardQuickActions = ({
     <Card>
       <CardHeader>
         <CardTitle className="flex gap-2 items-center">
-          <PlayCircle className="w-5 h-5 text-primary" />
+          <PlayCircle className="w-5 h-5 text-muted-foreground" />
           Quick Actions
         </CardTitle>
         <p className="mt-1 text-sm text-muted-foreground">

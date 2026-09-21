@@ -47,9 +47,9 @@ export const AiProviderModeSwitch = ({ mode, managedAvailable, saving, onSelect 
           >
             <CardContent className="space-y-2 p-5">
               <div className="flex items-center gap-2">
-                <Bot className="h-5 w-5 text-primary" />
+                <Bot className="h-5 w-5 text-ai" />
                 <span className="font-medium text-foreground">Use our AI</span>
-                {mode === 'managed' && <Check className="ml-auto h-4 w-4 text-primary" />}
+                {mode === 'managed' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
               </div>
               <p className="text-sm text-muted-foreground">
                 We provide the AI — no keys to manage, nothing to configure. Included in your plan.
@@ -92,9 +92,9 @@ export const AiProviderModeSwitch = ({ mode, managedAvailable, saving, onSelect 
         >
           <CardContent className="space-y-2 p-5">
             <div className="flex items-center gap-2">
-              <KeyRound className="h-5 w-5 text-primary" />
+              <KeyRound className="h-5 w-5 text-muted-foreground" />
               <span className="font-medium text-foreground">Bring your own keys</span>
-              {mode === 'byo' && <Check className="ml-auto h-4 w-4 text-primary" />}
+              {mode === 'byo' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
             </div>
             <p className="text-sm text-muted-foreground">
               Connect your own provider (OpenAI, Anthropic, Bedrock, …) below. You pay the provider

@@ -431,7 +431,7 @@ export const DocumentationSettings = ({
             <div className="grid grid-cols-3 gap-4">
               <Card className="p-4">
                 <div className="flex flex-col gap-3 items-center text-center sm:items-center sm:flex-row sm:text-left">
-                  <BookOpen className="hidden w-8 h-8 text-primary sm:block" />
+                  <BookOpen className="hidden w-8 h-8 text-muted-foreground sm:block" />
                   <div>
                     <p className="text-2xl font-bold">{stats.totalDocs}</p>
                     <p className="text-sm text-muted-foreground">Documents</p>
@@ -529,7 +529,7 @@ export const DocumentationSettings = ({
             <DialogContent className="overflow-auto max-h-[60vh] bg-muted">
               {viewerDialog.loading ? (
                 <div className="flex flex-col justify-center items-center py-12 text-center">
-                  <Clock className="mb-4 w-12 h-12 text-primary animate-spin" />
+                  <Clock className="mb-4 w-12 h-12 text-muted-foreground animate-spin" />
                   <p className="text-muted-foreground">Loading content...</p>
                 </div>
               ) : (

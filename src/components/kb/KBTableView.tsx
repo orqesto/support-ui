@@ -19,7 +19,7 @@ import type { KBEntry } from '@/services/kb.service';
 const getTypeIcon = (type: string) => {
   switch (type) {
     case 'qa_pair':
-      return <MessageSquare className="w-4 h-4 text-primary" />;
+      return <MessageSquare className="w-4 h-4 text-muted-foreground" />;
     case 'document':
       return <FileText className="w-4 h-4 text-success" />;
     default:

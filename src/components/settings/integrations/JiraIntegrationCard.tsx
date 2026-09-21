@@ -98,7 +98,7 @@ export const JiraIntegrationCard = ({
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle className="flex gap-2 items-center">
-              <ExternalLink className="w-5 h-5 text-primary" />
+              <ExternalLink className="w-5 h-5 text-muted-foreground" />
               Jira Instances
             </CardTitle>
             <Button

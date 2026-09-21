@@ -206,7 +206,7 @@ export const LeadQualificationSettings = () => {
       {/* How it works */}
       <div className="p-4 rounded-lg border bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
         <div className="flex gap-2 items-start mb-3">
-          <Info className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+          <Info className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
           <h3 className="text-sm font-semibold text-primary">How it works</h3>
         </div>
         <div className="flex flex-wrap gap-2 items-center text-xs text-primary mb-3">

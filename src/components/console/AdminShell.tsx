@@ -105,9 +105,9 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
       <aside className="flex overflow-hidden flex-col w-64 border-r border-border bg-card">
         <div className="flex flex-shrink-0 gap-2 items-center px-4 h-16 border-b border-border">
           {isPlatform ? (
-            <ShieldAlert className="w-5 h-5 text-primary" />
+            <ShieldAlert className="w-5 h-5 text-muted-foreground" />
           ) : (
-            <Network className="w-5 h-5 text-primary" />
+            <Network className="w-5 h-5 text-muted-foreground" />
           )}
           <span className="font-semibold text-foreground">
             {isPlatform ? 'Platform Admin' : 'Alliance Admin'}

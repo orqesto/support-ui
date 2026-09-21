@@ -62,7 +62,7 @@ export function DiagnosticsTab({ stats }: Props) {
               )}
               {stats.aiModels.embeddingProviders.length > 0 && (
                 <div>
-                  <div className="flex gap-2 items-center mb-3"><Cpu className="w-4 h-4 text-primary" /><h3 className="text-sm font-semibold">Embedding Providers</h3><span className="text-xs text-muted-foreground">({stats.aiModels.totalEmbedded} messages)</span></div>
+                  <div className="flex gap-2 items-center mb-3"><Cpu className="w-4 h-4 text-ai" /><h3 className="text-sm font-semibold">Embedding Providers</h3><span className="text-xs text-muted-foreground">({stats.aiModels.totalEmbedded} messages)</span></div>
                   <div className="space-y-2">{stats.aiModels.embeddingProviders.map((item) => (<div key={item.provider} className="flex justify-between items-center"><span className="text-sm capitalize">{item.provider}</span><div className="flex gap-2 items-center"><span className="text-sm font-medium">{item.count}</span><span className="text-xs text-muted-foreground">({item.percentage}%)</span></div></div>))}</div>
                 </div>
               )}

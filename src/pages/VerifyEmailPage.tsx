@@ -45,7 +45,7 @@ export const VerifyEmailPage = () => {
       case 'loading':
         return (
           <div className="mx-auto mb-4 w-16 h-16 bg-primary-muted rounded-full flex items-center justify-center">
-            <Loader2 className="w-10 h-10 text-primary animate-spin" />
+            <Loader2 className="w-10 h-10 text-muted-foreground animate-spin" />
           </div>
         );
       case 'success':

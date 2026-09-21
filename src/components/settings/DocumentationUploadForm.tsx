@@ -130,7 +130,7 @@ export const DocumentationUploadForm = ({
               {/* AI Helper - PDF Requirements */}
               <div className="p-4 mt-4 bg-blue-50 rounded-lg border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
                 <div className="flex gap-2 items-start">
-                  <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <AlertCircle className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
                   <div className="text-left">
                     <p className="mb-2 text-sm font-semibold text-primary">
                       📄 PDF Requirements
@@ -180,7 +180,7 @@ export const DocumentationUploadForm = ({
                       >
                         <div className="flex gap-2 justify-between items-center mb-2">
                           <div className="flex flex-1 gap-2 items-center min-w-0">
-                            <FileText className="w-4 h-4 text-primary shrink-0" />
+                            <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
                             <span className="text-sm font-medium truncate">{file.name}</span>
                             <span className="text-xs text-muted-foreground shrink-0">
                               ({formatFileSize(file.size)})
@@ -188,7 +188,7 @@ export const DocumentationUploadForm = ({
                           </div>
                           <div className="flex gap-2 items-center shrink-0">
                             {progress?.status === 'uploading' && (
-                              <Clock className="w-4 h-4 text-primary animate-spin" />
+                              <Clock className="w-4 h-4 text-muted-foreground animate-spin" />
                             )}
                             {progress?.status === 'success' && (
                               <CheckCircle className="w-4 h-4 text-success" />

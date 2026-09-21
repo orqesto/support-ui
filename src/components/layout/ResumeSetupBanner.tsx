@@ -52,7 +52,7 @@ export const ResumeSetupBanner = () => {
   return (
     <div className="mb-3 flex items-center justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
       <span className="flex items-center gap-2 text-foreground">
-        <Wand2 className="h-4 w-4 text-primary" />
+        <Wand2 className="h-4 w-4 text-ai" />
         {showGaSetup
           ? 'This workspace is not set up yet.'
           : 'Your workspace setup is unfinished — connect a channel and choose how AI works.'}

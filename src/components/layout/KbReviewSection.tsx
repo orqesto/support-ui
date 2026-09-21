@@ -44,7 +44,7 @@ export const KbReviewSection = ({
             key={alert.id}
             className="flex gap-3 items-start p-3 text-sm rounded-lg border bg-background border-border"
           >
-            <BookCheck className="mt-0.5 w-4 h-4 shrink-0 text-primary" />
+            <BookCheck className="mt-0.5 w-4 h-4 shrink-0 text-muted-foreground" />
             <div className="flex-1 min-w-0">
               <p className="font-medium break-words text-foreground">{describe(alert)}</p>
               <p className="mt-0.5 text-muted-foreground">

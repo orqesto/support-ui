@@ -328,7 +328,7 @@ export const GmailIntegrationCard = ({
         <CardContent className="space-y-4">
           {finishingOAuth && (
             <div className="flex gap-3 items-center p-4 rounded-lg border bg-muted/40">
-              <Spinner size={20} className="text-primary" />
+              <Spinner size={20} className="text-muted-foreground" />
               <div>
                 <p className="text-sm font-medium text-foreground">Finishing Gmail connection…</p>
                 <p className="text-xs text-muted-foreground">

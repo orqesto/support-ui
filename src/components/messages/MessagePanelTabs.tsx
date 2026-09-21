@@ -676,8 +676,8 @@ export function MessagePanelTabs({
                   onLeadStateUpdate={setLeadState}
                 />
               ) : (
-                <div className="p-3 rounded border border-violet-500/20 bg-violet-500/5">
-                  <p className="text-[11px] font-medium text-violet-700 dark:text-violet-400">
+                <div className="p-3 rounded border border-ai-line/20 bg-ai/5">
+                  <p className="text-[11px] font-medium text-ai">
                     Lead Qualification
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">

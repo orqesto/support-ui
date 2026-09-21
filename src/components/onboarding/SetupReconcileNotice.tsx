@@ -39,7 +39,7 @@ export const SetupReconcileNotice = ({ setup, activeStep }: Props) => {
       className="flex items-start gap-2 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm"
       data-testid="setup-already-configured"
     >
-      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <p className="text-foreground">
         <span className="font-medium">Already set up.</span>{' '}
         <span className="text-muted-foreground">{step.detail}. You can move on, or change it here.</span>

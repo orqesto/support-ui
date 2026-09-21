@@ -68,9 +68,9 @@ export const DatabaseStep = ({
           >
             <CardContent className="space-y-2 p-5">
               <div className="flex items-center gap-2">
-                <Cloud className="h-5 w-5 text-primary" />
+                <Cloud className="h-5 w-5 text-muted-foreground" />
                 <span className="font-medium text-foreground">Use Odly's managed database</span>
-                {value === 'managed' && <Check className="ml-auto h-4 w-4 text-primary" />}
+                {value === 'managed' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
               </div>
               <p className="text-sm text-muted-foreground">
                 {managedAllowed
@@ -96,9 +96,9 @@ export const DatabaseStep = ({
           >
             <CardContent className="space-y-2 p-5">
               <div className="flex items-center gap-2">
-                <Database className="h-5 w-5 text-primary" />
+                <Database className="h-5 w-5 text-muted-foreground" />
                 <span className="font-medium text-foreground">Bring your own Postgres</span>
-                {value === 'own' && <Check className="ml-auto h-4 w-4 text-primary" />}
+                {value === 'own' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
               </div>
               <p className="text-sm text-muted-foreground">
                 Your data is read and written in a database you run. Odly keeps only sign-in,

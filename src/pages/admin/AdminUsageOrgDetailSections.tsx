@@ -46,7 +46,7 @@ export const UsageSummaryCards = ({
             <p className="mt-2 text-3xl font-bold">{total}</p>
           </div>
           <div className="p-3 bg-primary-muted rounded-full">
-            <Users className="w-6 h-6 text-primary" />
+            <Users className="w-6 h-6 text-muted-foreground" />
           </div>
         </div>
       </CardContent>

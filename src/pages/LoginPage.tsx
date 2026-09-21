@@ -471,7 +471,7 @@ export const LoginPage = () => {
             {step === 'totp' && (
               <div className="space-y-3">
                 <div className="flex justify-center">
-                  <ShieldCheck className="w-10 h-10 text-primary" />
+                  <ShieldCheck className="w-10 h-10 text-muted-foreground" />
                 </div>
                 <p className="text-sm text-center text-muted-foreground">
                   Open your authenticator app and enter the 6-digit code.
@@ -493,7 +493,7 @@ export const LoginPage = () => {
             {step === 'setup2fa' && (
               <div className="space-y-3">
                 <div className="flex justify-center">
-                  <ShieldCheck className="w-10 h-10 text-primary" />
+                  <ShieldCheck className="w-10 h-10 text-muted-foreground" />
                 </div>
                 <p className="text-sm text-center text-muted-foreground">
                   Scan this QR code with your authenticator app (e.g. Google Authenticator, Authy).

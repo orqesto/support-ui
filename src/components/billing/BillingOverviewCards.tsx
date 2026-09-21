@@ -47,7 +47,7 @@ export const BillingOverviewCards = () => {
             Active Subscriptions
           </CardTitle>
           <div className="p-2 bg-primary-muted rounded-lg">
-            <DollarSign className="h-5 w-5 text-primary" />
+            <DollarSign className="h-5 w-5 text-muted-foreground" />
           </div>
         </CardHeader>
         <CardContent>

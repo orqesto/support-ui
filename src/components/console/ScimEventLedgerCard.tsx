@@ -186,7 +186,7 @@ export const ScimEventLedgerCard = ({
     <Card>
       <CardHeader>
         <CardTitle className="flex gap-2 items-center">
-          <Activity className="w-5 h-5 text-primary" />
+          <Activity className="w-5 h-5 text-muted-foreground" />
           Activity
         </CardTitle>
         <CardDescription>

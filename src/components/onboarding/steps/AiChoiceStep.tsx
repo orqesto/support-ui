@@ -40,9 +40,9 @@ export const AiChoiceStep = ({ value, onChoose, managedAvailable }: Props) => (
           >
             <CardContent className="space-y-2 p-5">
               <div className="flex items-center gap-2">
-                <Bot className="h-5 w-5 text-primary" />
+                <Bot className="h-5 w-5 text-ai" />
                 <span className="font-medium text-foreground">Use our AI</span>
-                {value === 'managed' && <Check className="ml-auto h-4 w-4 text-primary" />}
+                {value === 'managed' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
               </div>
               <p className="text-sm text-muted-foreground">
                 We provide the AI — no keys to manage, nothing to configure. Included in your plan;
@@ -86,9 +86,9 @@ export const AiChoiceStep = ({ value, onChoose, managedAvailable }: Props) => (
         >
           <CardContent className="space-y-2 p-5">
             <div className="flex items-center gap-2">
-              <KeyRound className="h-5 w-5 text-primary" />
+              <KeyRound className="h-5 w-5 text-muted-foreground" />
               <span className="font-medium text-foreground">Bring your own keys</span>
-              {value === 'byo' && <Check className="ml-auto h-4 w-4 text-primary" />}
+              {value === 'byo' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
             </div>
             <p className="text-sm text-muted-foreground">
               Connect your own provider (OpenAI, Anthropic, Bedrock, …) below. You pay the provider
@@ -100,7 +100,7 @@ export const AiChoiceStep = ({ value, onChoose, managedAvailable }: Props) => (
     </div>
     {value === 'managed' && managedAvailable && (
       <div className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
-        <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+        <Check className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">
           You&apos;re all set — we handle the AI. Features switch on when you finish setup. You can
           switch to your own provider anytime in Settings → Integrations → AI Providers.

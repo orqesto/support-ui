@@ -134,7 +134,7 @@ export const similarResultsCache = {
 };
 
 const PILL_BASE: Record<ReplyOption['type'], string> = {
-  lead: 'text-violet-600 border-violet-200 bg-violet-50 dark:text-violet-400 dark:border-violet-800/50 dark:bg-violet-950/20',
+  lead: 'text-ai border-ai-line bg-ai-muted',
   documentation:
     'text-sky-600 border-sky-200 bg-sky-50 dark:text-sky-400 dark:border-sky-800/50 dark:bg-sky-950/20',
   similar:
@@ -142,7 +142,7 @@ const PILL_BASE: Record<ReplyOption['type'], string> = {
 };
 
 const PILL_ACTIVE: Record<ReplyOption['type'], string> = {
-  lead: 'text-violet-700 border-violet-500 bg-violet-100 ring-1 ring-violet-400/50 dark:text-violet-300 dark:border-violet-500 dark:bg-violet-900/40',
+  lead: 'text-ai border-ai-line bg-ai-muted ring-1 ring-ai-line/50',
   documentation:
     'text-sky-700 border-sky-500 bg-sky-100 ring-1 ring-sky-400/50 dark:text-sky-300 dark:border-sky-500 dark:bg-sky-900/40',
   similar:
@@ -470,7 +470,7 @@ export function AiTabPanel({
                 activeOption.kbSources.length > 0 &&
                 !activeOption.documentationId && (
                   <div className="mt-1.5 pt-1.5 border-t border-border flex items-center gap-1 min-w-0">
-                    <BookOpen className="flex-shrink-0 w-3 h-3 text-violet-500" />
+                    <BookOpen className="flex-shrink-0 w-3 h-3 text-ai" />
                     <Button
                       variant="ghost"
                       size="sm"
@@ -478,7 +478,7 @@ export function AiTabPanel({
                         event.stopPropagation();
                         setViewLeadSources(activeOption);
                       }}
-                      className="inline-block p-0 h-auto text-[10px] text-violet-600 hover:text-violet-800 dark:text-violet-400 dark:hover:text-violet-300 truncate"
+                      className="inline-block p-0 h-auto text-[10px] text-ai hover:text-ai/80 truncate"
                     >
                       {activeOption.kbSources.length === 1
                         ? (activeOption.kbSources[0].title

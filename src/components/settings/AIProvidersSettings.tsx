@@ -410,7 +410,7 @@ export const AIProvidersSettings = ({ showModeSwitch = false }: { showModeSwitch
               backend reports a platform entry for exactly this case. */}
           <AIProviderHealthCheck />
           <div className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
-            <Bot className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <Bot className="mt-0.5 h-4 w-4 shrink-0 text-ai" />
             <p className="text-sm text-muted-foreground">
               Managed AI is on — we handle model access for this workspace, so there&apos;s nothing
               to configure here. Switch to <strong>Bring your own keys</strong> above to use your

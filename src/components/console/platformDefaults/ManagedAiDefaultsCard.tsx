@@ -420,7 +420,7 @@ export const ManagedAiDefaultsCard = ({
   return (
     <ConfigCard
       title="Managed AI Defaults"
-      icon={<Bot className="w-5 h-5 text-primary" />}
+      icon={<Bot className="w-5 h-5 text-ai" />}
       description="The provider, models, and cost-per-1k-token rates the platform uses to serve managed-mode workspaces. Leave a model blank to fall back to the environment or the built-in default for that provider."
       state={card.state}
       summary={summary}
