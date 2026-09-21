@@ -58,7 +58,7 @@ export const SystemManagementSettings = () => {
     return (
       <div className="space-y-6">
         <div className="bg-red-50 dark:bg-red-950/20 rounded-lg border-2 border-destructive-line p-8 text-center">
-          <ShieldAlert className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <ShieldAlert className="w-16 h-16 text-destructive mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-destructive mb-2">
             Access Denied
           </h2>
@@ -244,7 +244,7 @@ export const SystemManagementSettings = () => {
       {/* Queue Management */}
       <div className="p-6 bg-white rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
         <h3 className="flex gap-2 items-center mb-4 font-semibold text-md">
-          <StopCircle className="w-5 h-5 text-amber-500" />
+          <StopCircle className="w-5 h-5 text-warning" />
           Queue Management
         </h3>
         <div className="space-y-3">
@@ -295,7 +295,7 @@ export const SystemManagementSettings = () => {
       {/* Data Cleanup */}
       <div className="p-6 bg-white rounded-lg border border-red-200 dark:bg-gray-800 dark:border-red-900">
         <h3 className="flex gap-2 items-center mb-4 font-semibold text-md">
-          <Database className="w-5 h-5 text-red-500" />
+          <Database className="w-5 h-5 text-destructive" />
           Data Cleanup
         </h3>
 
@@ -428,7 +428,7 @@ export const SystemManagementSettings = () => {
       >
         <DialogHeader>
           <DialogTitle className="flex gap-2 items-center">
-            <AlertTriangle className="w-5 h-5 text-red-500" />
+            <AlertTriangle className="w-5 h-5 text-destructive" />
             {confirmDialog.title}
           </DialogTitle>
           <DialogClose onClose={() => setConfirmDialog({ ...confirmDialog, open: false })} />

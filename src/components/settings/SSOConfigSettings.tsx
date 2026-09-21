@@ -341,7 +341,7 @@ export const SSOConfigSettings = () => {
                   className="flex shrink-0 gap-1 items-center px-3 py-2 h-auto text-sm"
                 >
                   {copied ? (
-                    <Check className="w-4 h-4 text-green-600" />
+                    <Check className="w-4 h-4 text-success" />
                   ) : (
                     <Copy className="w-4 h-4" />
                   )}
@@ -475,7 +475,7 @@ export const SSOConfigSettings = () => {
                 <div
                   className={`p-3 text-sm rounded-md ${
                     testResult.ok
-                      ? 'text-green-700 bg-green-50'
+                      ? 'text-success bg-success-muted'
                       : 'text-destructive bg-destructive/10'
                   }`}
                 >
@@ -495,7 +495,7 @@ export const SSOConfigSettings = () => {
               </div>
             )}
             {saved && !error && (
-              <div className="p-3 text-sm text-green-700 rounded-md bg-green-50">
+              <div className="p-3 text-sm text-success rounded-md bg-success-muted">
                 SSO configuration saved{enabled ? ' and enabled' : ''}.
               </div>
             )}

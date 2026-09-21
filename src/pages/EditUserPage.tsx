@@ -478,12 +478,12 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
                     isDisabled={roleReadOnly || (!isAdmin && isLastOrgAdmin)}
                   />
                   {roleReadOnly ? (
-                    <p className="flex gap-1 items-center mt-1 text-xs font-medium text-amber-600">
+                    <p className="flex gap-1 items-center mt-1 text-xs font-medium text-warning">
                       <Lock className="w-3 h-3" />
                       Managed by IdP (SCIM) — change this member&apos;s role in your identity provider.
                     </p>
                   ) : !isAdmin && isLastOrgAdmin ? (
-                    <p className="flex gap-1 items-center mt-1 text-xs font-medium text-red-600">
+                    <p className="flex gap-1 items-center mt-1 text-xs font-medium text-destructive">
                       <AlertTriangle className="w-3 h-3" />
                       Cannot change role - you are the last Workspace Administrator
                     </p>

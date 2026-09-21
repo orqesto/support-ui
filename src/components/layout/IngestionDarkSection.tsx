@@ -50,7 +50,7 @@ export const IngestionDarkSection = ({
           key={alert.id}
           className="flex gap-3 items-start p-3 text-sm rounded-lg border bg-background border-border"
         >
-          <MailX className="mt-0.5 w-4 h-4 shrink-0 text-red-500" />
+          <MailX className="mt-0.5 w-4 h-4 shrink-0 text-destructive" />
           <div className="flex-1 min-w-0">
             <p className="font-medium break-words text-foreground">
               {/* ⛔ "Not checked", NEVER "no mail received". `minutesSince` measures the time

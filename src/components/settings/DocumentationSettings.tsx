@@ -431,7 +431,7 @@ export const DocumentationSettings = ({
             <div className="grid grid-cols-3 gap-4">
               <Card className="p-4">
                 <div className="flex flex-col gap-3 items-center text-center sm:items-center sm:flex-row sm:text-left">
-                  <BookOpen className="hidden w-8 h-8 text-blue-500 sm:block" />
+                  <BookOpen className="hidden w-8 h-8 text-primary sm:block" />
                   <div>
                     <p className="text-2xl font-bold">{stats.totalDocs}</p>
                     <p className="text-sm text-muted-foreground">Documents</p>
@@ -440,7 +440,7 @@ export const DocumentationSettings = ({
               </Card>
               <Card className="p-4">
                 <div className="flex flex-col gap-3 text-center items-centersm:items-center sm:flex-row sm:text-left">
-                  <FileText className="hidden w-8 h-8 text-green-500 sm:block" />
+                  <FileText className="hidden w-8 h-8 text-success sm:block" />
                   <div>
                     <p className="text-2xl font-bold">{stats.totalChunks}</p>
                     <p className="text-sm text-muted-foreground">Chunks</p>

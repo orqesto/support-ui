@@ -224,7 +224,7 @@ export const ConfluenceIntegrationCard = ({
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle className="flex gap-2 items-center">
-              <BookOpen className="w-5 h-5 text-blue-700" />
+              <BookOpen className="w-5 h-5 text-primary" />
               Confluence Spaces
             </CardTitle>
             <Button
@@ -346,7 +346,7 @@ export const ConfluenceIntegrationCard = ({
                             ? 'Pause — stop syncing and exclude its pages from AI answers'
                             : 'Enable — resume syncing its pages'
                         }
-                        className={integration.enabled ? 'text-green-600' : 'text-gray-400'}
+                        className={integration.enabled ? 'text-success' : 'text-gray-400'}
                       >
                         <Power className="w-4 h-4" />
                       </Button>
@@ -358,7 +358,7 @@ export const ConfluenceIntegrationCard = ({
                         }
                         isLoading={deleting === integration.id}
                       >
-                        <Trash2 className="w-4 h-4 text-red-600" />
+                        <Trash2 className="w-4 h-4 text-destructive" />
                         <span className="sr-only">Delete</span>
                       </Button>
                     </div>
@@ -542,7 +542,7 @@ export const ConfluenceIntegrationCard = ({
               Pages already synced into the Knowledge Base are <strong>kept</strong>. They stop
               syncing and become regular documents you can manage under Documentation.
             </p>
-            <p className="mb-6 text-sm text-red-600">
+            <p className="mb-6 text-sm text-destructive">
               The connection itself cannot be restored — you would need to add the space again.
             </p>
             <div className="flex gap-3 justify-end">

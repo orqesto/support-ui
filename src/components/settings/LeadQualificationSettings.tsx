@@ -605,7 +605,7 @@ export const LeadQualificationSettings = () => {
       {/* Speed-to-Lead report */}
       <div className="p-4 space-y-4 rounded-lg border">
         <div className="flex items-center gap-2">
-          <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+          <Zap className="w-4 h-4 text-warning shrink-0" />
           <div>
             <h3 className="text-sm font-semibold">Speed-to-Lead Report</h3>
             <p className="text-xs text-muted-foreground">
@@ -702,7 +702,7 @@ export const LeadQualificationSettings = () => {
         <Button onClick={save} isLoading={saving} disabled={saving}>
           {saved ? 'Saved!' : 'Save Changes'}
         </Button>
-        {saved && <span className="text-sm text-green-600">Settings saved.</span>}
+        {saved && <span className="text-sm text-success">Settings saved.</span>}
       </div>
     </div>
   );

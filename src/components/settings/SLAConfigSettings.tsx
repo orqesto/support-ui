@@ -208,7 +208,7 @@ export const SLAConfigSettings = () => {
 
       {error && <p className="text-xs text-destructive">{error}</p>}
       {saving && <p className="text-xs text-muted-foreground">Saving…</p>}
-      {saved && <p className="text-xs text-green-600">Saved</p>}
+      {saved && <p className="text-xs text-success">Saved</p>}
 
       <Button
         onClick={save}

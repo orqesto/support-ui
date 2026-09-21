@@ -232,7 +232,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
         <h3 className="flex gap-2 items-center text-base font-semibold">
           <Paperclip className="w-4 h-4" />
           Attachments
-          <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
+          <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground rounded-full">
             {attachments.length}
           </span>
         </h3>
@@ -240,7 +240,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
         {/* Upload Actions */}
         <div className="flex gap-2 items-center">
           <label
-            className="p-2 text-gray-600 rounded cursor-pointer hover:bg-gray-100"
+            className="p-2 text-muted-foreground rounded cursor-pointer hover:bg-gray-100"
             title="Add attachment"
           >
             <Plus className="w-4 h-4" />
@@ -251,9 +251,9 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
 
       {/* Upload Progress */}
       {selectedFiles.length > 0 && (
-        <div className="p-3 mb-3 bg-blue-50 rounded-md border border-blue-200">
+        <div className="p-3 mb-3 bg-primary-muted rounded-md border border-primary-line">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-blue-900">{selectedFiles.length} file(s) selected</span>
+            <span className="text-sm text-primary">{selectedFiles.length} file(s) selected</span>
             <Button
               onClick={handleUpload}
               disabled={isUploading}
@@ -373,11 +373,11 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
           <DialogClose onClose={() => setDeleteDialogOpen(false)} />
         </DialogHeader>
         <div className="p-6">
-          <p className="mb-4 text-sm text-gray-600">
+          <p className="mb-4 text-sm text-muted-foreground">
             Are you sure you want to delete &quot;{attachmentToDelete?.name}&quot;?
             {attachmentToDelete &&
               attachments.find((att) => att.id === attachmentToDelete.id)?.externalId && (
-                <span className="block mt-2 font-medium text-red-600">
+                <span className="block mt-2 font-medium text-destructive">
                   This will also delete the file from Jira.
                 </span>
               )}

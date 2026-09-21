@@ -88,9 +88,9 @@ export const fetchAllOrganizationsUsage = async (): Promise<OrganizationUsage[]>
 };
 
 export const getUsageColor = (percentage: number) => {
-  if (percentage >= 100) return 'text-red-600 bg-red-50';
-  if (percentage >= 80) return 'text-yellow-600 bg-yellow-50';
-  return 'text-green-600 bg-green-50';
+  if (percentage >= 100) return 'text-destructive bg-destructive-muted';
+  if (percentage >= 80) return 'text-warning bg-warning-muted';
+  return 'text-success bg-success-muted';
 };
 
 export const getUsageBadge = (current: number, limit: number, percentage: number) => {
@@ -109,7 +109,7 @@ export const UsageProgressBar = ({ percentage }: { percentage: number }) => {
   const bgColor =
     percentage >= 100 ? 'bg-red-500' : percentage >= 80 ? 'bg-yellow-500' : 'bg-green-500';
   return (
-    <div className="w-full h-2 bg-gray-200 rounded-full">
+    <div className="w-full h-2 bg-muted rounded-full">
       <div
         className={`h-2 rounded-full transition-all ${bgColor}`}
         style={{ width: `${Math.min(percentage, 100)}%` }}
@@ -121,11 +121,11 @@ export const UsageProgressBar = ({ percentage }: { percentage: number }) => {
 export const getPlanTypeBadgeColor = (planType: string) => {
   switch (planType) {
     case 'base':
-      return 'bg-blue-100 text-blue-700';
+      return 'bg-primary-muted text-primary';
     case 'enterprise':
-      return 'bg-amber-100 text-amber-700';
+      return 'bg-warning-muted text-warning';
     default:
-      return 'bg-gray-100 text-gray-700';
+      return 'bg-muted text-muted-foreground';
   }
 };
 

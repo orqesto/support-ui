@@ -412,7 +412,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                           key={attachment.id}
                           className="flex gap-2 items-center p-2 rounded border bg-muted border-border"
                         >
-                          <File className="w-4 h-4 text-gray-500" />
+                          <File className="w-4 h-4 text-muted-foreground" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">
                               {attachment.originalFilename}
@@ -430,7 +430,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                               onClick={() => setPreviewAttachment(attachment)}
                               className="p-1 w-auto h-auto rounded hover:bg-accent"
                             >
-                              <Eye className="w-4 h-4 text-gray-600" />
+                              <Eye className="w-4 h-4 text-muted-foreground" />
                             </Button>
                           )}
                           <Button
@@ -447,7 +447,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                             }}
                             className="p-1 w-auto h-auto rounded hover:bg-accent"
                           >
-                            <Download className="w-4 h-4 text-gray-600" />
+                            <Download className="w-4 h-4 text-muted-foreground" />
                           </Button>
                           {canEditComment(comment) && (
                             <Button
@@ -509,7 +509,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                 key={file.name}
                 className="flex gap-2 items-center p-2 rounded border bg-muted border-border"
               >
-                <Paperclip className="w-4 h-4 text-gray-500" />
+                <Paperclip className="w-4 h-4 text-muted-foreground" />
                 <span className="flex-1 text-sm truncate">{file.name}</span>
                 <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
                 <Button
@@ -577,7 +577,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
           <DialogClose onClose={() => setDeleteDialogOpen(false)} />
         </DialogHeader>
         <div className="p-6">
-          <p className="mb-4 text-sm text-gray-600">
+          <p className="mb-4 text-sm text-muted-foreground">
             Are you sure you want to delete this comment? This action cannot be undone.
           </p>
           <div className="flex gap-3 justify-end">
@@ -604,8 +604,8 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
           <DialogClose onClose={() => setDeleteAttachmentDialogOpen(false)} />
         </DialogHeader>
         <DialogContent>
-          <p className="text-sm text-gray-700">Are you sure you want to delete this attachment?</p>
-          <p className="mt-2 text-sm text-gray-500">This action cannot be undone.</p>
+          <p className="text-sm text-muted-foreground">Are you sure you want to delete this attachment?</p>
+          <p className="mt-2 text-sm text-muted-foreground">This action cannot be undone.</p>
         </DialogContent>
         <DialogFooter>
           <Button

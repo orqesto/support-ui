@@ -45,7 +45,7 @@ export const UsageTile = ({
       </div>
       {item.warning && (
         <AlertTriangle
-          className={`w-4 h-4 ${item.critical ? 'text-red-500' : 'text-orange-500'}`}
+          className={`w-4 h-4 ${item.critical ? 'text-destructive' : 'text-warning'}`}
         />
       )}
     </div>
@@ -56,9 +56,11 @@ export const UsageTile = ({
     <Progress value={Math.min(item.percentage, 100)} className={barColor(item)} />
     <div className="flex justify-between items-center mt-1">
       <span className="text-xs text-muted-foreground">{item.percentage}% used</span>
-      {item.critical && <span className="text-xs font-medium text-red-600">Limit reached!</span>}
+      {item.critical && (
+        <span className="text-xs font-medium text-destructive">Limit reached!</span>
+      )}
       {item.warning && !item.critical && (
-        <span className="text-xs font-medium text-orange-600">Approaching limit</span>
+        <span className="text-xs font-medium text-warning">Approaching limit</span>
       )}
     </div>
     {/* A bought pack is part of `limit`; say so, or the number looks wrong next to the plan. */}

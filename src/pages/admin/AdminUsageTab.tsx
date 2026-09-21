@@ -257,7 +257,7 @@ export const AdminUsageTab = () => {
       />
 
       {actionError && (
-        <div className="flex-shrink-0 px-4 py-3 text-sm text-red-700 bg-red-50 rounded-lg border border-red-200">
+        <div className="flex-shrink-0 px-4 py-3 text-sm text-destructive bg-destructive-muted rounded-lg border border-destructive-line">
           {actionError}
         </div>
       )}

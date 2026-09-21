@@ -903,8 +903,8 @@ export const MessagesPage = () => {
                   {[0, 1, 2, 3, 4].map((idx) => (
                     <Card key={idx} className="animate-pulse">
                       <CardContent className="p-6">
-                        <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
-                        <div className="w-1/2 h-4 bg-gray-200 rounded" />
+                        <div className="mb-4 w-3/4 h-4 bg-muted rounded" />
+                        <div className="w-1/2 h-4 bg-muted rounded" />
                       </CardContent>
                     </Card>
                   ))}

@@ -157,7 +157,7 @@ export const ProfileSettings = () => {
       {/* User Info */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
         <h3 className="text-md font-semibold mb-4 flex items-center gap-2">
-          <User className="w-5 h-5 text-blue-500" />
+          <User className="w-5 h-5 text-primary" />
           Profile Information
         </h3>
         <div className="space-y-3">
@@ -181,7 +181,7 @@ export const ProfileSettings = () => {
       {/* Signature */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
         <h3 className="text-md font-semibold mb-1 flex items-center gap-2">
-          <PenLine className="w-5 h-5 text-blue-500" />
+          <PenLine className="w-5 h-5 text-primary" />
           Email Signature
         </h3>
         <p className="text-sm text-muted-foreground mb-4">
@@ -208,7 +208,7 @@ export const ProfileSettings = () => {
       {routingKeys.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
           <h3 className="text-md font-semibold mb-4 flex items-center gap-2">
-            <Tag className="w-5 h-5 text-blue-500" />
+            <Tag className="w-5 h-5 text-primary" />
             Routing Skills
           </h3>
           <div className="space-y-3">
@@ -296,7 +296,7 @@ export const ProfileSettings = () => {
       {/* Change Password */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
         <h3 className="text-md font-semibold mb-4 flex items-center gap-2">
-          <Lock className="w-5 h-5 text-blue-500" />
+          <Lock className="w-5 h-5 text-primary" />
           {ssoOnlyAccount ? 'Password' : 'Change Password'}
         </h3>
         {ssoOnlyAccount ? (
@@ -369,7 +369,7 @@ export const ProfileSettings = () => {
       {/* Two-Factor Authentication */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
         <h3 className="flex gap-2 items-center mb-4 text-lg font-semibold">
-          <ShieldCheck className="w-5 h-5 text-blue-500" />
+          <ShieldCheck className="w-5 h-5 text-primary" />
           Two-Factor Authentication
         </h3>
         <TwoFactorSettings />
@@ -378,7 +378,7 @@ export const ProfileSettings = () => {
       {/* Signed-in devices */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-border p-6">
         <h3 className="flex gap-2 items-center mb-4 text-lg font-semibold">
-          <MonitorSmartphone className="w-5 h-5 text-blue-500" />
+          <MonitorSmartphone className="w-5 h-5 text-primary" />
           Signed-in devices
         </h3>
         <ActiveSessionsSettings />

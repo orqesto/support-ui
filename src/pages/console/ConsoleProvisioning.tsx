@@ -81,7 +81,7 @@ const CopyField = ({ label, value }: { label: string; value: string }) => {
         />
         <Tooltip content={copied ? 'Copied' : `Copy ${label}`}>
           <Button type="button" variant="secondary" onClick={() => void copy()} aria-label={`Copy ${label}`}>
-            {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+            {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
           </Button>
         </Tooltip>
       </div>
@@ -443,7 +443,7 @@ export const ConsoleProvisioning = () => {
             />
             <Tooltip content={mintedCopied ? 'Copied' : 'Copy token'}>
               <Button type="button" variant="secondary" onClick={() => void copyMinted()} aria-label="Copy token">
-                {mintedCopied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                {mintedCopied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
               </Button>
             </Tooltip>
           </div>

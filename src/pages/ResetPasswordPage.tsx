@@ -79,10 +79,10 @@ export const ResetPasswordPage = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="p-4 text-sm text-green-700 bg-green-50 rounded-md">
+              <div className="p-4 text-sm text-success bg-success-muted rounded-md">
                 <p className="mb-2 font-medium">Success!</p>
                 <p>You can now log in with your new password.</p>
-                <p className="mt-2 text-xs text-green-600">Redirecting to login page...</p>
+                <p className="mt-2 text-xs text-success">Redirecting to login page...</p>
               </div>
               <Link to="/login">
                 <Button className="w-full">Go to Login</Button>

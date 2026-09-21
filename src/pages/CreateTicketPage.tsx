@@ -534,7 +534,7 @@ export const CreateTicketPage = () => {
                     onChange={(event) =>
                       setFormData((prev) => ({ ...prev, syncToJira: event.target.checked }))
                     }
-                    className="mt-0.5 w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary focus:ring-2"
+                    className="mt-0.5 w-4 h-4 text-primary rounded border-border focus:ring-primary focus:ring-2"
                   />
                   <label htmlFor="syncToJira" className="flex-1 text-sm cursor-pointer">
                     <span className="font-medium">Sync to Jira</span>

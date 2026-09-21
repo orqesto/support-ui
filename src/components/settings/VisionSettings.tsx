@@ -144,7 +144,7 @@ export const VisionSettings = () => {
         <Button onClick={save} disabled={saving}>
           {saving ? 'Saving…' : 'Save'}
         </Button>
-        {saved && <span className="text-xs text-green-600">Saved</span>}
+        {saved && <span className="text-xs text-success">Saved</span>}
       </div>
     </div>
   );

@@ -92,7 +92,7 @@ export const AnthropicProviderCard = ({
       <CardHeader>
         <div className="flex justify-between items-center">
           <CardTitle className="flex gap-2 items-center">
-            <Brain className="w-5 h-5 text-orange-600" />
+            <Brain className="w-5 h-5 text-warning" />
             Anthropic (Claude)
           </CardTitle>
           <Button
@@ -194,7 +194,7 @@ export const AnthropicProviderCard = ({
                       onClick={() => onDelete(integration.id, integration.name, integration.type)}
                       isLoading={deleting === integration.id}
                     >
-                      <Trash2 className="w-4 h-4 text-red-600" />
+                      <Trash2 className="w-4 h-4 text-destructive" />
                     </Button>
                   </div>
                 </div>

@@ -448,7 +448,7 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
           >
             {formatConvId(msg, orgCode)}
             {copied ? (
-              <Check className="w-3 h-3 text-green-600" />
+              <Check className="w-3 h-3 text-success" />
             ) : (
               <Copy className="w-3 h-3 opacity-50" />
             )}

@@ -601,7 +601,7 @@ export const TrackingPage = () => {
       className="surface-light min-h-screen bg-background text-foreground font-sans"
     >
       {isPreview && (
-        <div className="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-5 py-2 text-center">
+        <div className="bg-warning-muted border-b border-warning-line text-warning text-xs px-5 py-2 text-center">
           <strong>Preview mode</strong> — showing sample data. Real customer tracking links include
           a conversation id and token (
           <code className="font-mono">
@@ -637,7 +637,7 @@ export const TrackingPage = () => {
             <div className="flex-shrink-0">
               <div
                 className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                  isResolved ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'
+                  isResolved ? 'bg-success-muted text-success' : 'bg-primary-muted text-primary'
                 }`}
               >
                 {isResolved ? (
@@ -676,7 +676,7 @@ export const TrackingPage = () => {
               <div className="flex items-center gap-2 mb-1">
                 <span
                   className={`text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${
-                    isResolved ? 'text-emerald-700 bg-emerald-50' : 'text-blue-700 bg-blue-50'
+                    isResolved ? 'text-success bg-success-muted' : 'text-primary bg-primary-muted'
                   }`}
                 >
                   {STATUS_LABELS[conversation.status]?.label ?? conversation.status}
@@ -954,7 +954,7 @@ export const TrackingPage = () => {
                     </div>
                   </div>
                   {replyState.kind === 'error' && (
-                    <p className="mt-2 text-xs text-red-600">{replyState.message}</p>
+                    <p className="mt-2 text-xs text-destructive">{replyState.message}</p>
                   )}
                 </div>
               )}
@@ -999,7 +999,7 @@ export const TrackingPage = () => {
                       <dt className="text-muted-foreground">Priority</dt>
                       <dd
                         className={`font-medium capitalize ${
-                          conversation.priority === 'critical' ? 'text-red-600' : 'text-orange-600'
+                          conversation.priority === 'critical' ? 'text-destructive' : 'text-warning'
                         }`}
                       >
                         {conversation.priority}

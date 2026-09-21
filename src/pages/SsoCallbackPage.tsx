@@ -64,10 +64,10 @@ export const SsoCallbackPage = () => {
   }, [navigate]);
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-50">
+    <div className="flex justify-center items-center min-h-screen bg-muted">
       <div className="p-8 w-full max-w-md text-center bg-white rounded-lg shadow-lg">
         <div className="mx-auto w-16 h-16 rounded-full border-4 border-blue-600 animate-spin border-t-transparent" />
-        <p className="mt-4 text-lg font-medium text-gray-700">{message}</p>
+        <p className="mt-4 text-lg font-medium text-muted-foreground">{message}</p>
       </div>
     </div>
   );

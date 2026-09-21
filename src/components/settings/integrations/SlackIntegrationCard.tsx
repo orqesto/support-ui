@@ -158,7 +158,7 @@ export const SlackIntegrationCard = ({
                         }
                         isLoading={deleting === integration.id}
                       >
-                        <Trash2 className="w-4 h-4 text-red-600" />
+                        <Trash2 className="w-4 h-4 text-destructive" />
                         <span className="sr-only">Delete</span>
                       </Button>
                     </div>
@@ -219,7 +219,7 @@ export const SlackIntegrationCard = ({
                   href="https://api.slack.com/apps"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600"
+                  className="text-primary"
                 >
                   api.slack.com/apps
                 </a>
@@ -289,7 +289,7 @@ export const SlackIntegrationCard = ({
             <p className="mb-4 text-muted-foreground">
               Are you sure you want to delete <strong>{deleteConfirm.name}</strong>?
             </p>
-            <p className="mb-6 text-sm text-red-600">This action cannot be undone.</p>
+            <p className="mb-6 text-sm text-destructive">This action cannot be undone.</p>
             <div className="flex gap-3 justify-end">
               <Button
                 variant="outline"

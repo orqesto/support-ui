@@ -73,7 +73,7 @@ export const ForgotPasswordPage = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="p-4 text-sm text-green-700 bg-green-50 rounded-md">
+              <div className="p-4 text-sm text-success bg-success-muted rounded-md">
                 <p className="mb-2 font-medium">Email sent successfully!</p>
                 <p>Check your inbox for a link to reset your password.</p>
                 <p className="mt-2">The link will expire in 1 hour.</p>

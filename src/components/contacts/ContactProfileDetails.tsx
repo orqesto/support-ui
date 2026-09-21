@@ -23,10 +23,10 @@ function SectionLabel({ children, action }: { children: React.ReactNode; action?
 }
 
 const profileIcon = (type: ContactProfileType) => {
-  if (type === 'telegram_username') return <Hash className="w-3.5 h-3.5 shrink-0 text-sky-500" />;
-  if (type === 'telegram_phone') return <Phone className="w-3.5 h-3.5 shrink-0 text-sky-500" />;
+  if (type === 'telegram_username') return <Hash className="w-3.5 h-3.5 shrink-0 text-primary" />;
+  if (type === 'telegram_phone') return <Phone className="w-3.5 h-3.5 shrink-0 text-primary" />;
   if (type === 'slack') return <MessageSquare className="w-3.5 h-3.5 shrink-0 text-violet-500" />;
-  if (type === 'whatsapp_phone') return <Phone className="w-3.5 h-3.5 shrink-0 text-emerald-500" />;
+  if (type === 'whatsapp_phone') return <Phone className="w-3.5 h-3.5 shrink-0 text-success" />;
   return <AtSign className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />;
 };
 

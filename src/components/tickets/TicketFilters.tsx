@@ -240,7 +240,7 @@ export const TicketFilters = ({
                 </FilterCell>
               )}
 
-              <FilterCell label="Linked" icon={<Link className="w-3 h-3 text-blue-500" />}>
+              <FilterCell label="Linked" icon={<Link className="w-3 h-3 text-primary" />}>
                 <ReactSelect
                   value={filters.linked ?? 'all'}
                   onChange={(value) => onFilterChange('linked', value)}
@@ -280,16 +280,16 @@ export const TicketFilters = ({
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs text-muted-foreground shrink-0">Quick:</span>
               <Button type="button" variant="outline" size="sm" onClick={() => onApplyPreset('urgent')} className="gap-1 items-center px-2 py-0.5 h-auto text-xs">
-                <AlertTriangle className="w-3 h-3 text-orange-500" />Urgent
+                <AlertTriangle className="w-3 h-3 text-warning" />Urgent
               </Button>
               <Button type="button" variant="outline" size="sm" onClick={() => onApplyPreset('in-progress')} className="gap-1 items-center px-2 py-0.5 h-auto text-xs">
-                <Zap className="w-3 h-3 text-blue-500" />In Progress
+                <Zap className="w-3 h-3 text-primary" />In Progress
               </Button>
               <Button type="button" variant="outline" size="sm" onClick={() => onApplyPreset('pending')} className="gap-1 items-center px-2 py-0.5 h-auto text-xs">
                 <Clock className="w-3 h-3" />Pending
               </Button>
               <Button type="button" variant="outline" size="sm" onClick={() => onApplyPreset('recent')} className="gap-1 items-center px-2 py-0.5 h-auto text-xs">
-                <CheckCircle className="w-3 h-3 text-green-500" />Recent
+                <CheckCircle className="w-3 h-3 text-success" />Recent
               </Button>
             </div>
           </div>

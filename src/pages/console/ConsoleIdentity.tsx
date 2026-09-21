@@ -153,7 +153,7 @@ const CopyField = ({ label, value }: { label: string; value: string }) => {
             onClick={() => void copy()}
             aria-label={`Copy ${label}`}
           >
-            {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+            {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
           </Button>
         </Tooltip>
       </div>
@@ -584,9 +584,9 @@ export const ConsoleIdentity = () => {
                   {testSso.data.checks.map((check) => (
                     <li key={check.name} className="flex gap-2 items-start text-sm">
                       {check.ok ? (
-                        <CheckCircle2 className="mt-0.5 w-4 h-4 shrink-0 text-green-600" />
+                        <CheckCircle2 className="mt-0.5 w-4 h-4 shrink-0 text-success" />
                       ) : (
-                        <XCircle className="mt-0.5 w-4 h-4 shrink-0 text-red-600" />
+                        <XCircle className="mt-0.5 w-4 h-4 shrink-0 text-destructive" />
                       )}
                       <span>
                         <span className="font-medium text-foreground">

@@ -221,15 +221,15 @@ export const EditTicketPage = () => {
         </div>
 
         {ticket?.externalId && (
-          <Card className="bg-yellow-50 border-yellow-500">
+          <Card className="bg-warning-muted border-yellow-500">
             <CardContent className="pt-6">
               <div className="flex gap-3 items-start">
-                <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <h3 className="mb-1 font-semibold text-yellow-900">
+                  <h3 className="mb-1 font-semibold text-warning">
                     This ticket is synced with Jira
                   </h3>
-                  <p className="mb-3 text-sm text-yellow-800">
+                  <p className="mb-3 text-sm text-warning">
                     This ticket has been pushed to Jira and should be edited there to maintain
                     consistency. Changes made here will not sync back to Jira.
                   </p>
@@ -238,7 +238,7 @@ export const EditTicketPage = () => {
                       href={safeExternalUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex gap-2 items-center text-sm font-medium text-blue-600 hover:text-blue-800"
+                      className="inline-flex gap-2 items-center text-sm font-medium text-primary hover:text-blue-800"
                     >
                       Open in Jira
                       <ExternalLink className="w-4 h-4" />
@@ -262,7 +262,7 @@ export const EditTicketPage = () => {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {ticket?.externalId && (
-                <div className="flex gap-2 items-start p-3 text-sm text-gray-700 bg-gray-100 rounded-md border border-gray-300">
+                <div className="flex gap-2 items-start p-3 text-sm text-muted-foreground bg-muted rounded-md border border-border">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span>
                     Warning: This form is disabled because the ticket is synced with Jira.

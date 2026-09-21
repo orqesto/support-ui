@@ -188,14 +188,14 @@ export const DocumentationUploadForm = ({
                           </div>
                           <div className="flex gap-2 items-center shrink-0">
                             {progress?.status === 'uploading' && (
-                              <Clock className="w-4 h-4 text-blue-500 animate-spin" />
+                              <Clock className="w-4 h-4 text-primary animate-spin" />
                             )}
                             {progress?.status === 'success' && (
-                              <CheckCircle className="w-4 h-4 text-green-500" />
+                              <CheckCircle className="w-4 h-4 text-success" />
                             )}
                             {progress?.status === 'error' && (
                               <span title={progress.error}>
-                                <AlertCircle className="w-4 h-4 text-red-500" />
+                                <AlertCircle className="w-4 h-4 text-destructive" />
                               </span>
                             )}
                             {!uploading && (

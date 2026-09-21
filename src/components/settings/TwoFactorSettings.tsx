@@ -88,7 +88,7 @@ export const TwoFactorSettings = () => {
       <div className="flex gap-3 items-start">
         <div className="mt-0.5">
           {enabled ? (
-            <ShieldCheck className="w-5 h-5 text-green-500" />
+            <ShieldCheck className="w-5 h-5 text-success" />
           ) : (
             <ShieldOff className="w-5 h-5 text-muted-foreground" />
           )}

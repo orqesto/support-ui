@@ -48,7 +48,7 @@ export const AnomalyAlertsList = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex gap-2 items-center">
-            <AlertTriangle className="w-5 h-5 text-orange-500" />
+            <AlertTriangle className="w-5 h-5 text-warning" />
             Anomaly Alerts
           </CardTitle>
         </CardHeader>
@@ -66,7 +66,7 @@ export const AnomalyAlertsList = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex gap-2 items-center">
-            <AlertTriangle className="w-5 h-5 text-orange-500" />
+            <AlertTriangle className="w-5 h-5 text-warning" />
             Anomaly Alerts
           </CardTitle>
         </CardHeader>
@@ -104,7 +104,7 @@ export const AnomalyAlertsList = () => {
     <Card className="animate-in fade-in duration-500 delay-100">
       <CardHeader>
         <CardTitle className="flex gap-2 items-center">
-          <AlertTriangle className="w-5 h-5 text-orange-500" />
+          <AlertTriangle className="w-5 h-5 text-warning" />
           Anomaly Alerts ({data?.total ?? 0})
         </CardTitle>
         {/* The count above is the server total; this list is one page of 10 with no paging,

@@ -116,7 +116,7 @@ export function TicketPanelTabs({
                     className="flex gap-3 items-start p-3 rounded-lg border transition-colors bg-muted border-border hover:bg-accent group"
                   >
                     <div className="p-2 rounded bg-blue-500/10 flex-shrink-0">
-                      <Mail className="w-4 h-4 text-blue-600" />
+                      <Mail className="w-4 h-4 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex gap-2 items-center mb-1">

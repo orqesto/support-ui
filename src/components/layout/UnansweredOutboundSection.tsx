@@ -51,7 +51,7 @@ export const UnansweredOutboundSection = ({
             key={alert.id}
             className="flex gap-3 items-start p-3 text-sm rounded-lg border bg-background border-border"
           >
-            <MailWarning className="mt-0.5 w-4 h-4 shrink-0 text-amber-500" />
+            <MailWarning className="mt-0.5 w-4 h-4 shrink-0 text-warning" />
             <div className="flex-1 min-w-0">
               <p className="font-medium break-words text-foreground">
                 {isSpam

@@ -101,7 +101,7 @@ export const UsageStatsPage = () => {
     return (
       <Layout>
         <div className="flex justify-center items-center h-64">
-          <div className="text-gray-500">Loading usage statistics...</div>
+          <div className="text-muted-foreground">Loading usage statistics...</div>
         </div>
       </Layout>
     );
@@ -151,7 +151,7 @@ export const UsageStatsPage = () => {
           <Card>
             <CardContent className="p-6">
               <p className="mb-1 text-sm text-foreground/70">Overage</p>
-              <p className="text-2xl font-bold text-orange-600">{totalOverage.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-warning">{totalOverage.toLocaleString()}</p>
               <p className="mt-1 text-xs text-foreground/60">extra units</p>
             </CardContent>
           </Card>
@@ -159,7 +159,7 @@ export const UsageStatsPage = () => {
           <Card>
             <CardContent className="p-6">
               <p className="mb-1 text-sm text-foreground/70">Est. Overage Cost</p>
-              <p className="text-2xl font-bold text-red-600">
+              <p className="text-2xl font-bold text-destructive">
                 €{(totalOverageCost / 100).toFixed(2)}
               </p>
               <p className="mt-1 text-xs text-foreground/60">this billing period</p>
@@ -172,7 +172,7 @@ export const UsageStatsPage = () => {
           <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
             <CardContent className="p-4">
               <div className="flex gap-2 items-start">
-                <AlertTriangle className="mt-0.5 w-4 h-4 text-orange-600 flex-shrink-0" />
+                <AlertTriangle className="mt-0.5 w-4 h-4 text-warning flex-shrink-0" />
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-warning">
                     Usage Alert

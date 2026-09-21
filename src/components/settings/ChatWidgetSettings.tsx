@@ -176,7 +176,7 @@ export const ChatWidgetSettings = () => {
                   title={widget.enabled ? 'Disable' : 'Enable'}
                 >
                   <Power
-                    className={`h-4 w-4 ${widget.enabled ? 'text-green-600' : 'text-gray-400'}`}
+                    className={`h-4 w-4 ${widget.enabled ? 'text-success' : 'text-gray-400'}`}
                   />
                 </Button>
               </div>
@@ -220,7 +220,7 @@ export const ChatWidgetSettings = () => {
                   title="Copy widget key"
                 >
                   {copiedId === widget.id ? (
-                    <Check className="h-4 w-4 text-green-600" />
+                    <Check className="h-4 w-4 text-success" />
                   ) : (
                     <Copy className="h-4 w-4" />
                   )}
@@ -252,7 +252,7 @@ export const ChatWidgetSettings = () => {
                   variant="ghost"
                   size="sm"
                   onClick={() => handleDeleteClick(widget)}
-                  className="text-red-600 hover:text-red-700"
+                  className="text-destructive hover:text-red-700"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>

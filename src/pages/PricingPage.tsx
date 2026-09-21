@@ -92,7 +92,7 @@ export const PricingPage = () => {
   const enterprisePlans = plans.filter((plan) => plan.planType === 'enterprise' && (isGlobalAdmin || plan.name !== 'admin'));
 
   if (loading) {
-    return <Layout><div className="flex justify-center items-center h-64"><div className="text-gray-500">Loading pricing...</div></div></Layout>;
+    return <Layout><div className="flex justify-center items-center h-64"><div className="text-muted-foreground">Loading pricing...</div></div></Layout>;
   }
 
   return (
@@ -132,7 +132,7 @@ export const PricingPage = () => {
                 <div key={feat} className="flex gap-2 items-center"><Check className="w-5 h-5" /><span>{feat}</span></div>
               ))}
             </div>
-            <Button size="lg" variant="outline" className="text-gray-900 bg-white">Contact Sales</Button>
+            <Button size="lg" variant="outline" className="text-foreground bg-white">Contact Sales</Button>
           </CardContent>
         </Card>
 

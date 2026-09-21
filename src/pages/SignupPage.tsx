@@ -165,8 +165,8 @@ export const SignupPage = () => {
       <div className="flex justify-center items-center px-4 min-h-screen auth-surface">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="flex justify-center items-center mx-auto mb-4 w-16 h-16 bg-green-100 rounded-full">
-              <Check className="w-10 h-10 text-green-600" />
+            <div className="flex justify-center items-center mx-auto mb-4 w-16 h-16 bg-success-muted rounded-full">
+              <Check className="w-10 h-10 text-success" />
             </div>
             <CardTitle className="text-2xl">Account Created!</CardTitle>
             <CardDescription className="text-base">
@@ -174,7 +174,7 @@ export const SignupPage = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="p-4 text-sm text-gray-700 bg-green-50 rounded-lg">
+            <div className="p-4 text-sm text-muted-foreground bg-success-muted rounded-lg">
               <p className="mb-2 font-medium">You&apos;re all set!</p>
               <p>Your account is ready to use. You can now log in with your credentials.</p>
             </div>
@@ -230,9 +230,9 @@ export const SignupPage = () => {
               />
             </div>
 
-            <div className="p-3 bg-blue-50 rounded-md border border-blue-200">
-              <p className="mb-1 text-xs font-medium text-gray-700">Invitation Email</p>
-              <p className="text-sm font-semibold text-gray-900">{invitationEmail}</p>
+            <div className="p-3 bg-primary-muted rounded-md border border-primary-line">
+              <p className="mb-1 text-xs font-medium text-muted-foreground">Invitation Email</p>
+              <p className="text-sm font-semibold text-foreground">{invitationEmail}</p>
             </div>
 
             <Input

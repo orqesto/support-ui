@@ -111,7 +111,7 @@ const SLABreachItem = ({
       )}
     >
       <AlertTriangle
-        className={cn('mt-0.5 w-4 h-4 shrink-0', isCritical ? 'text-red-500' : 'text-amber-500')}
+        className={cn('mt-0.5 w-4 h-4 shrink-0', isCritical ? 'text-destructive' : 'text-warning')}
       />
       <div className="flex-1 min-w-0">
         <div className="flex gap-2 justify-between items-center">
@@ -184,7 +184,7 @@ const ARRIVAL_QUEUES: {
   Icon: typeof ShieldAlert;
   iconClass: string;
 }[] = [
-  { kind: 'spam_arrival', label: 'Spam', queue: 'spam', Icon: Ban, iconClass: 'text-red-500' },
+  { kind: 'spam_arrival', label: 'Spam', queue: 'spam', Icon: Ban, iconClass: 'text-destructive' },
 ];
 
 type Props = {
@@ -558,7 +558,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                         key={alert.id}
                         className="flex gap-3 items-start p-3 text-sm rounded-lg border bg-background border-border"
                       >
-                        <FileClock className="mt-0.5 w-4 h-4 shrink-0 text-amber-500" />
+                        <FileClock className="mt-0.5 w-4 h-4 shrink-0 text-warning" />
                         <div className="flex-1 min-w-0">
                           <p className="font-medium break-words text-foreground">{alert.title}</p>
                           <p className="mt-0.5 text-muted-foreground">
@@ -647,7 +647,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                         }}
                         className="flex gap-3 items-center p-3 w-full h-auto text-sm text-left rounded-lg border bg-background hover:bg-accent border-border"
                       >
-                        <GitBranch className="w-4 h-4 shrink-0 text-amber-500" />
+                        <GitBranch className="w-4 h-4 shrink-0 text-warning" />
                         <span className="flex-1 font-medium text-foreground">Needs Routing</span>
                         <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
                           {needsRoutingCount > 99 ? '99+' : needsRoutingCount}
@@ -734,7 +734,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                           onClick={() => goToAiSettings(sug.id)}
                           className="flex gap-2 items-start p-2 w-full h-auto text-sm text-left rounded border bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900 hover:bg-amber-100 dark:hover:bg-amber-950/50"
                         >
-                          <Lightbulb className="mt-0.5 w-3.5 h-3.5 shrink-0 text-amber-500" />
+                          <Lightbulb className="mt-0.5 w-3.5 h-3.5 shrink-0 text-warning" />
                           <div className="flex-1 min-w-0">
                             <p className="truncate text-foreground">{summary}</p>
                             <p className="text-[11px] text-muted-foreground">

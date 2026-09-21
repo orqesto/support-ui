@@ -74,7 +74,7 @@ export function StatisticsTeamTab({ teamData, teamLoading, teamError, teamDays }
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.ticketsAssigned}</td>
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.ticketsResolved}</td>
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.notesAdded}</td>
-                          <td className="px-4 py-3 text-right tabular-nums text-orange-600">{entry.stats.unresolvedMessages}</td>
+                          <td className="px-4 py-3 text-right tabular-nums text-warning">{entry.stats.unresolvedMessages}</td>
                           <td className="px-4 py-3 text-right tabular-nums uppercase text-xs font-mono">{topLang}</td>
                         </tr>
                       );

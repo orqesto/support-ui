@@ -49,7 +49,7 @@ const COLUMNS: KanbanColumnDef[] = [
     label: 'Open',
     icon: Ticket,
     accentColor: '#3b82f6',
-    iconClass: 'text-blue-500',
+    iconClass: 'text-primary',
     emptyText: 'No open tickets',
   },
   {
@@ -58,7 +58,7 @@ const COLUMNS: KanbanColumnDef[] = [
     label: 'In Progress',
     icon: Loader2,
     accentColor: '#f59e0b',
-    iconClass: 'text-amber-500',
+    iconClass: 'text-warning',
     emptyText: 'No tickets in progress',
   },
   {
@@ -76,7 +76,7 @@ const COLUMNS: KanbanColumnDef[] = [
     label: 'Resolved',
     icon: CheckCircle2,
     accentColor: '#22c55e',
-    iconClass: 'text-green-500',
+    iconClass: 'text-success',
     emptyText: 'No resolved tickets',
   },
   {
@@ -142,7 +142,7 @@ function TicketCardContent({ ticket }: { ticket: TicketType }) {
           </span>
         )}
         {ticketWithExtras.jiraKey && (
-          <span className="text-[10px] font-mono text-blue-500">{ticketWithExtras.jiraKey}</span>
+          <span className="text-[10px] font-mono text-primary">{ticketWithExtras.jiraKey}</span>
         )}
       </div>
     </div>

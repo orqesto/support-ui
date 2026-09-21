@@ -182,7 +182,7 @@ export function MessageActionStrip({
   if (isSpamFlaggedOutsideTriage && onClassify) {
     return (
       <div className={strip}>
-        <p className={`${statusLabel} text-red-500`}>
+        <p className={`${statusLabel} text-destructive`}>
           Flagged as spam — hidden from the inbox until approved
         </p>
         <div className="flex gap-2">
@@ -210,7 +210,7 @@ export function MessageActionStrip({
       : 'Flagged as suspicious by spam filter';
     return (
       <div className={strip}>
-        <p className={`${statusLabel} ${isSecurityThreat ? 'text-red-500' : ''}`}>{statusText}</p>
+        <p className={`${statusLabel} ${isSecurityThreat ? 'text-destructive' : ''}`}>{statusText}</p>
         <div
           className="mb-2"
           title="Also creates a detection rule (green flag) so semantically similar future messages aren't flagged as suspicious."

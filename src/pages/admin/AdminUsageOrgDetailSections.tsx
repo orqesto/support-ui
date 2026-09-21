@@ -45,8 +45,8 @@ export const UsageSummaryCards = ({
             <p className="text-sm font-medium text-gray-400">Total Workspaces</p>
             <p className="mt-2 text-3xl font-bold">{total}</p>
           </div>
-          <div className="p-3 bg-blue-100 rounded-full">
-            <Users className="w-6 h-6 text-blue-600" />
+          <div className="p-3 bg-primary-muted rounded-full">
+            <Users className="w-6 h-6 text-primary" />
           </div>
         </div>
       </CardContent>
@@ -64,10 +64,10 @@ export const UsageSummaryCards = ({
         <div className="flex justify-between items-center">
           <div>
             <p className="text-sm font-medium text-gray-400">At Risk (≥80% usage)</p>
-            <p className="mt-2 text-3xl font-bold text-yellow-600">{atRisk}</p>
+            <p className="mt-2 text-3xl font-bold text-warning">{atRisk}</p>
           </div>
-          <div className="p-3 bg-yellow-100 rounded-full">
-            <AlertTriangle className="w-6 h-6 text-yellow-600" />
+          <div className="p-3 bg-warning-muted rounded-full">
+            <AlertTriangle className="w-6 h-6 text-warning" />
           </div>
         </div>
       </CardContent>
@@ -85,10 +85,10 @@ export const UsageSummaryCards = ({
         <div className="flex justify-between items-center">
           <div>
             <p className="text-sm font-medium text-gray-400">Over Limit</p>
-            <p className="mt-2 text-3xl font-bold text-red-600">{overLimit}</p>
+            <p className="mt-2 text-3xl font-bold text-destructive">{overLimit}</p>
           </div>
-          <div className="p-3 bg-red-100 rounded-full">
-            <AlertTriangle className="w-6 h-6 text-red-600" />
+          <div className="p-3 bg-destructive-muted rounded-full">
+            <AlertTriangle className="w-6 h-6 text-destructive" />
           </div>
         </div>
       </CardContent>
@@ -109,7 +109,7 @@ export const OrgAiUsageSection = ({ aiCalls }: OrgAiUsageSectionProps) => (
           <div className="text-sm font-medium">AI API Calls</div>
           <div className="text-xs text-muted-foreground">All AI features combined</div>
         </div>
-        <Zap className="w-4 h-4 text-amber-500" />
+        <Zap className="w-4 h-4 text-warning" />
       </div>
       <div className="space-y-2">
         <div className="flex justify-between text-xs">
@@ -120,15 +120,15 @@ export const OrgAiUsageSection = ({ aiCalls }: OrgAiUsageSectionProps) => (
         </div>
         <UsageProgressBar percentage={aiCalls.percentage} />
         {aiCalls.critical && (
-          <div className="p-2 text-xs bg-red-50 rounded border border-red-200">
-            <span className="font-medium text-red-700">
+          <div className="p-2 text-xs bg-destructive-muted rounded border border-destructive-line">
+            <span className="font-medium text-destructive">
               AI call limit reached! Some AI features may be unavailable.
             </span>
           </div>
         )}
         {aiCalls.warning && !aiCalls.critical && (
-          <div className="p-2 text-xs bg-orange-50 rounded border border-orange-200">
-            <span className="font-medium text-orange-700">
+          <div className="p-2 text-xs bg-warning-muted rounded border border-warning-line">
+            <span className="font-medium text-warning">
               Approaching AI call limit ({aiCalls.percentage}% used)
             </span>
           </div>
@@ -201,7 +201,7 @@ export const OrgFeatureOverridesSection = ({ orgId }: { orgId: number }) => {
           <h4 className="text-sm font-semibold text-muted-foreground">
             Feature Access — per-org overrides
           </h4>
-          {error && <span className="text-xs text-red-500">{error}</span>}
+          {error && <span className="text-xs text-destructive">{error}</span>}
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
           <span className="font-medium">Inherit</span> follows the plan ·{' '}
@@ -229,7 +229,7 @@ export const OrgFeatureOverridesSection = ({ orgId }: { orgId: number }) => {
                         />
                         <span className="text-sm truncate">{feat.label}</span>
                         <span
-                          className={`flex-shrink-0 text-xs font-medium ${feat.effective ? 'text-green-600' : 'text-gray-500'}`}
+                          className={`flex-shrink-0 text-xs font-medium ${feat.effective ? 'text-success' : 'text-muted-foreground'}`}
                         >
                           {feat.effective ? 'On' : 'Off'}
                         </span>

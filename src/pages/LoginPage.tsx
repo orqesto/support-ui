@@ -522,7 +522,7 @@ export const LoginPage = () => {
               </div>
             )}
 
-            {info && <div className="p-3 text-sm text-blue-700 bg-blue-50 rounded-md">{info}</div>}
+            {info && <div className="p-3 text-sm text-primary bg-primary-muted rounded-md">{info}</div>}
             {error && (
               <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">
                 {error}
@@ -530,7 +530,7 @@ export const LoginPage = () => {
             )}
 
             {needsVerification && (
-              <div className="p-3 space-y-2 text-sm rounded-md bg-amber-50 text-amber-800">
+              <div className="p-3 space-y-2 text-sm rounded-md bg-warning-muted text-warning">
                 <p>
                   Your password is correct, but this address has not been verified yet. Check your
                   inbox for the verification link.

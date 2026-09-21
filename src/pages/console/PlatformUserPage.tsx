@@ -544,7 +544,7 @@ export const PlatformUserPage = () => {
               <div className="flex flex-wrap gap-3 justify-between items-center">
                 <Badge variant="danger">Suspended</Badge>
                 <Button variant="outline" size="sm" onClick={() => setReactivateConfirmOpen(true)}>
-                  <RotateCcw className="mr-2 w-4 h-4 text-green-600" />
+                  <RotateCcw className="mr-2 w-4 h-4 text-success" />
                   Reactivate
                 </Button>
               </div>

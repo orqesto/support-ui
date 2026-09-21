@@ -66,10 +66,10 @@ export const WebSocketStatus = () => {
             {/* Content */}
             <div className="p-4 space-y-2 text-xs bg-white">
               <div className="flex justify-between">
-                <span className="font-medium text-gray-600">Status:</span>
+                <span className="font-medium text-muted-foreground">Status:</span>
                 <span
                   className={`font-mono font-semibold ${
-                    isConnected ? 'text-green-600' : 'text-red-600'
+                    isConnected ? 'text-success' : 'text-destructive'
                   }`}
                 >
                   {isConnected ? 'Live ✅' : 'Offline ❌'}
@@ -78,14 +78,14 @@ export const WebSocketStatus = () => {
 
               {isConnected && (
                 <div className="flex justify-between">
-                  <span className="font-medium text-gray-600">Socket ID:</span>
+                  <span className="font-medium text-muted-foreground">Socket ID:</span>
                   <span className="ml-2 font-mono text-xs truncate" title={socketId}>
                     {socketId.substring(0, 12)}...
                   </span>
                 </div>
               )}
 
-              <div className="pt-2 text-xs text-gray-500 border-t">
+              <div className="pt-2 text-xs text-muted-foreground border-t">
                 {isConnected ? <>Real-time updates active</> : <>Reconnecting...</>}
               </div>
             </div>

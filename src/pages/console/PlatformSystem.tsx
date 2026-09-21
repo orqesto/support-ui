@@ -362,7 +362,7 @@ export const PlatformSystem = () => {
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-4 justify-between items-center">
             <div className="flex gap-3 items-start">
-              <RefreshCw className="mt-0.5 w-5 h-5 text-amber-500" />
+              <RefreshCw className="mt-0.5 w-5 h-5 text-warning" />
               <div>
                 <p className="font-medium text-foreground">Sync checkpoints</p>
                 <p className="text-sm text-muted-foreground">

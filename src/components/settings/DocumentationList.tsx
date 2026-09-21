@@ -304,7 +304,7 @@ export const DocumentationList = ({
                 </Button>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap gap-2 items-center mb-1">
-                    <FileText className="flex-shrink-0 w-5 h-5 text-blue-500" />
+                    <FileText className="flex-shrink-0 w-5 h-5 text-primary" />
                     <h4 className="font-semibold truncate">{doc.title}</h4>
                     {getDocumentTypeBadge(doc.documentType)}
                     {doc.externalSource?.split(':')[0] === 'confluence' && (
@@ -428,7 +428,7 @@ export const DocumentationList = ({
                   title={
                     doc.enabled ? 'Disable in suggested answers' : 'Enable in suggested answers'
                   }
-                  className={doc.enabled ? 'text-green-600' : 'text-gray-400'}
+                  className={doc.enabled ? 'text-success' : 'text-gray-400'}
                 >
                   <Power className="w-4 h-4" />
                 </Button>

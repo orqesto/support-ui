@@ -80,7 +80,7 @@ export const DashboardQuickActions = ({
             : 'Start All Services'}
         </Button>
         {!hasMessageSources && (
-          <p className="flex gap-1 justify-center items-center text-xs text-amber-600">
+          <p className="flex gap-1 justify-center items-center text-xs text-warning">
             <AlertTriangle className="w-3 h-3" />
             No message sources configured. Go to Settings to add email, Gmail, Telegram, or Slack
             integrations.
