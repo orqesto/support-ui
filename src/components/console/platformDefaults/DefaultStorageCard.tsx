@@ -248,7 +248,7 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
   return (
     <ConfigCard
       title="Default Storage"
-      icon={<HardDrive className="w-5 h-5 text-primary" />}
+      icon={<HardDrive className="w-5 h-5 text-muted-foreground" />}
       description="Where the platform stores attachments by default (workspaces can still override per-tenant). Credentials are stored encrypted; test an S3 target before saving."
       state={card.state}
       summary={summary}

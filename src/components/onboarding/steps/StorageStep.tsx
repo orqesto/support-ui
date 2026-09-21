@@ -73,9 +73,11 @@ export const StorageStep = ({ onChoiceChange }: StorageStepProps) => {
           >
             <CardContent className="space-y-2 p-5">
               <div className="flex items-center gap-2">
-                <Cloud className="h-5 w-5 text-primary" />
+                <Cloud className="h-5 w-5 text-muted-foreground" />
                 <span className="font-medium text-foreground">Use built-in storage</span>
-                {choice === 'managed' && <Check className="ml-auto h-4 w-4 text-primary" />}
+                {choice === 'managed' && (
+                  <Check className="ml-auto h-4 w-4 text-muted-foreground" />
+                )}
               </div>
               <p className="text-sm text-muted-foreground">
                 Files are stored on the platform — nothing to set up. For production we recommend
@@ -99,9 +101,9 @@ export const StorageStep = ({ onChoiceChange }: StorageStepProps) => {
           >
             <CardContent className="space-y-2 p-5">
               <div className="flex items-center gap-2">
-                <HardDrive className="h-5 w-5 text-primary" />
+                <HardDrive className="h-5 w-5 text-muted-foreground" />
                 <span className="font-medium text-foreground">Bring your own S3 bucket</span>
-                {choice === 'byo' && <Check className="ml-auto h-4 w-4 text-primary" />}
+                {choice === 'byo' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
               </div>
               <p className="text-sm text-muted-foreground">
                 Keep files in your own S3-compatible storage (AWS, Hetzner, MinIO) — recommended for

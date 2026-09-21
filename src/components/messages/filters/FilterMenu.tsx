@@ -59,7 +59,7 @@ const OptionRow = ({
         {option.hint}
       </span>
     )}
-    {selected && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
+    {selected && <Check className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
   </Button>
 );
 

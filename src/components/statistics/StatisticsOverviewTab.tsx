@@ -238,7 +238,7 @@ export function StatisticsOverviewTab({ stats, aiStats, aiLoading, isOrgAdmin, o
       {/* AI Usage Section (customer-facing: how much AI vs human handled). Model/provider
           internals + prediction accuracy live in the admin-only Diagnostics tab. */}
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Bot className="h-5 w-5 text-primary" />AI Usage</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Bot className="h-5 w-5 text-ai" />AI Usage</CardTitle></CardHeader>
         <CardContent>
           <div className="pt-2">
             {aiLoading ? (
@@ -251,7 +251,7 @@ export function StatisticsOverviewTab({ stats, aiStats, aiLoading, isOrgAdmin, o
             ) : aiStats ? (
               <>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">AI Responded</p><p className="mt-2 text-3xl font-bold text-primary">{aiStats.summary.aiResponded}</p><p className="mt-1 text-xs text-muted-foreground">{aiStats.summary.aiPercentage}% of responded</p></div><Bot className="w-10 h-10 text-primary" /></div></CardContent></Card>
+                  <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">AI Responded</p><p className="mt-2 text-3xl font-bold text-primary">{aiStats.summary.aiResponded}</p><p className="mt-1 text-xs text-muted-foreground">{aiStats.summary.aiPercentage}% of responded</p></div><Bot className="w-10 h-10 text-ai" /></div></CardContent></Card>
                   <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Human Responded</p><p className="mt-2 text-3xl font-bold text-success">{aiStats.summary.humanResponded}</p><p className="mt-1 text-xs text-muted-foreground">{(aiStats.summary.aiResponded + aiStats.summary.humanResponded) > 0 ? Math.round((aiStats.summary.humanResponded / (aiStats.summary.aiResponded + aiStats.summary.humanResponded)) * 100) : 0}% of responded</p></div><Users className="w-10 h-10 text-success" /></div></CardContent></Card>
                   <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">No Response</p><p className="mt-2 text-3xl font-bold text-muted-foreground">{aiStats.summary.noResponse}</p></div><Inbox className="w-10 h-10 text-gray-400" /></div></CardContent></Card>
                 </div>

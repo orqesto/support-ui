@@ -100,7 +100,7 @@ export const AllianceSwitcher = () => {
                   </span>
                 </span>
                 {alliance.id === currentId && (
-                  <Check className="flex-shrink-0 ml-2 w-4 h-4 text-primary" />
+                  <Check className="flex-shrink-0 ml-2 w-4 h-4 text-muted-foreground" />
                 )}
               </Button>
             ))}

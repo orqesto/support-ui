@@ -61,7 +61,7 @@ export const FailureAnalysisCard = () => {
     <Card>
       <CardHeader>
         <CardTitle className="flex gap-2 items-center">
-          <AlertTriangle className="w-5 h-5 text-primary" />
+          <AlertTriangle className="w-5 h-5 text-muted-foreground" />
           Failure analysis
         </CardTitle>
         <CardDescription>

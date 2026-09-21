@@ -221,7 +221,7 @@ function ContactRow({
                   <span className="flex-1 text-[12.5px] truncate text-muted-foreground group-hover/topic:text-foreground">
                     {subject.displaySubject || '(no subject)'}
                   </span>
-                  {subject.isLead && <Target className="w-3 h-3 text-primary shrink-0" />}
+                  {subject.isLead && <Target className="w-3 h-3 text-muted-foreground shrink-0" />}
                   {subject.hasTicket && <Ticket className="w-3 h-3 text-muted-foreground shrink-0" />}
                   <span className="inline-flex gap-1 items-center text-[11px] text-muted-foreground tabular-nums">
                     <MessageSquare className="w-3 h-3" />

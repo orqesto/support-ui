@@ -208,7 +208,7 @@ export const ConsoleProvisioning = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex gap-2 items-center">
-            <ShieldCheck className="w-5 h-5 text-primary" />
+            <ShieldCheck className="w-5 h-5 text-muted-foreground" />
             SCIM connector
           </CardTitle>
           <CardDescription>
@@ -257,7 +257,7 @@ export const ConsoleProvisioning = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex gap-2 items-center">
-            <KeyRound className="w-5 h-5 text-primary" />
+            <KeyRound className="w-5 h-5 text-muted-foreground" />
             Bearer tokens
           </CardTitle>
           <CardDescription>
@@ -346,7 +346,7 @@ export const ConsoleProvisioning = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex gap-2 items-center">
-              <UserCog className="w-5 h-5 text-primary" />
+              <UserCog className="w-5 h-5 text-muted-foreground" />
               IdP group → alliance role
             </CardTitle>
             <CardDescription>

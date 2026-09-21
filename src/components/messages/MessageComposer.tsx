@@ -238,7 +238,7 @@ export function MessageComposer({
             <Button
               variant="ghost"
               onClick={onOpenSimilarMessages}
-              className="flex items-center gap-1.5 px-2.5 py-1 h-auto rounded bg-violet-600 hover:bg-violet-700 text-white transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1 h-auto rounded bg-ai hover:bg-ai/90 text-ai-foreground transition-colors"
               title="Search knowledge base"
             >
               <BookOpen className="w-3.5 h-3.5" />

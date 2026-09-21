@@ -148,7 +148,7 @@ export const WorkspaceShell = () => {
     <div className="flex overflow-hidden h-screen bg-background">
       <aside className="flex overflow-hidden flex-col w-64 border-r border-border bg-card">
         <div className="flex flex-shrink-0 gap-2 items-center px-4 h-16 border-b border-border">
-          <Building2 className="w-5 h-5 text-primary" />
+          <Building2 className="w-5 h-5 text-muted-foreground" />
           <span className="font-semibold text-foreground">Manage workspace</span>
         </div>
         <nav className="overflow-y-auto flex-1 p-3 space-y-1">

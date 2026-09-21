@@ -200,7 +200,7 @@ export const FilterSheet = ({
                       {option.hint}
                     </span>
                   )}
-                  {on && <Check className="w-4 h-4 text-primary shrink-0" />}
+                  {on && <Check className="w-4 h-4 text-muted-foreground shrink-0" />}
                 </Button>
               );
             })}

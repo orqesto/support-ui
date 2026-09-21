@@ -170,7 +170,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
                         {formatSeconds(speedData.fastestSeconds)}
                       </p>
                     </div>
-                    <Zap className="w-9 h-9 text-primary shrink-0" />
+                    <Zap className="w-9 h-9 text-muted-foreground shrink-0" />
                   </div>
                 </CardContent>
               </Card>
@@ -249,7 +249,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
                         <div>
                           <div className="flex justify-between items-center mb-1">
                             <span className="flex items-center gap-2 text-sm">
-                              <Bot className="w-4 h-4 text-primary" /> AI / auto-reply
+                              <Bot className="w-4 h-4 text-ai" /> AI / auto-reply
                             </span>
                             <span className="text-sm font-medium tabular-nums">
                               {speedData.aiResponses} ({aiPct}%)
@@ -262,7 +262,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
                         <div>
                           <div className="flex justify-between items-center mb-1">
                             <span className="flex items-center gap-2 text-sm">
-                              <User className="w-4 h-4 text-primary" /> Human agent
+                              <User className="w-4 h-4 text-muted-foreground" /> Human agent
                             </span>
                             <span className="text-sm font-medium tabular-nums">
                               {speedData.humanResponses} ({humanPct}%)

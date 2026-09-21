@@ -82,7 +82,7 @@ export const TelegramIntegrationCard = ({
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle className="flex gap-2 items-center text-md md:text-lg lg:text-xl">
-              <MessageSquare className="w-5 h-5 text-primary" />
+              <MessageSquare className="w-5 h-5 text-muted-foreground" />
               Telegram Bots
             </CardTitle>
             <Button

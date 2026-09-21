@@ -108,7 +108,7 @@ export const OrganizationSwitcher = () => {
             Workspace
           </p>
           <div className="flex gap-2 items-center mb-1.5">
-            <Building2 className="w-3.5 h-3.5 text-primary" />
+            <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
             <span className="text-sm font-medium truncate text-foreground">
               {selectedOrg?.name}
             </span>
@@ -173,7 +173,7 @@ export const OrganizationSwitcher = () => {
                         )}
                       </div>
                       {selectedOrganizationId === org.id && (
-                        <Check className="flex-shrink-0 ml-2 w-4 h-4 text-primary" />
+                        <Check className="flex-shrink-0 ml-2 w-4 h-4 text-muted-foreground" />
                       )}
                     </Button>
                   ))

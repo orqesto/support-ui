@@ -91,7 +91,7 @@ const GlobalAdminMembershipsCard = () => {
     <Card>
       <CardHeader>
         <CardTitle className="flex gap-2 items-center">
-          <ShieldAlert className="w-5 h-5 text-primary" />
+          <ShieldAlert className="w-5 h-5 text-muted-foreground" />
           Global-admin memberships
         </CardTitle>
         <CardDescription>
@@ -220,7 +220,7 @@ export const PlatformSystem = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex gap-2 items-center">
-            <KeyRound className="w-5 h-5 text-primary" />
+            <KeyRound className="w-5 h-5 text-muted-foreground" />
             License
           </CardTitle>
         </CardHeader>
@@ -258,7 +258,7 @@ export const PlatformSystem = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex gap-2 items-center">
-            <Activity className="w-5 h-5 text-primary" />
+            <Activity className="w-5 h-5 text-muted-foreground" />
             Resources &amp; queues
           </CardTitle>
           <CardDescription>Live worker resource usage and background queue depth.</CardDescription>

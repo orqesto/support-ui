@@ -187,7 +187,7 @@ export const PlatformAudit = () => {
       <Card className="flex overflow-hidden flex-col flex-1 min-h-0">
         <CardHeader className="flex-shrink-0">
           <CardTitle className="flex gap-2 items-center">
-            <ScrollText className="w-5 h-5 text-primary" />
+            <ScrollText className="w-5 h-5 text-muted-foreground" />
             Events
           </CardTitle>
           <CardDescription>Read-only. Spans all workspaces.</CardDescription>

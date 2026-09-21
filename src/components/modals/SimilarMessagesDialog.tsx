@@ -306,7 +306,7 @@ export const SimilarMessagesDialog = ({
               >
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex gap-2 items-center">
-                    <Sparkles className="w-5 h-5 text-primary" />
+                    <Sparkles className="w-5 h-5 text-ai" />
                     <h3 className="text-base font-semibold">AI-Generated Response</h3>
                   </div>
                   <div className="flex flex-col gap-1 items-end">
@@ -431,7 +431,7 @@ export const SimilarMessagesDialog = ({
 
           {loading && (
             <div className="flex justify-center items-center py-12">
-              <Spinner size={20} className="text-primary" />
+              <Spinner size={20} className="text-muted-foreground" />
             </div>
           )}
 
@@ -476,7 +476,7 @@ export const SimilarMessagesDialog = ({
                         <h3 className="flex gap-2 items-center text-sm font-semibold">
                           {msg.source === 'documentation' ? (
                             <>
-                              <BookOpen className="w-4 h-4 text-primary" />
+                              <BookOpen className="w-4 h-4 text-muted-foreground" />
                               {msg.documentTitle ?? 'Documentation'}
                             </>
                           ) : (

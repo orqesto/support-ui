@@ -386,7 +386,7 @@ export const ConsoleIdentity = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex gap-2 items-center">
-            <KeyRound className="w-5 h-5 text-primary" />
+            <KeyRound className="w-5 h-5 text-muted-foreground" />
             OIDC connection
           </CardTitle>
           <CardDescription>
@@ -607,7 +607,7 @@ export const ConsoleIdentity = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex gap-2 items-center">
-            <ShieldCheck className="w-5 h-5 text-primary" />
+            <ShieldCheck className="w-5 h-5 text-muted-foreground" />
             Verified domains
           </CardTitle>
           <CardDescription>

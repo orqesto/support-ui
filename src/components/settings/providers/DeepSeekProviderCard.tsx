@@ -92,7 +92,7 @@ export const DeepSeekProviderCard = ({
       <CardHeader>
         <div className="flex justify-between items-center gap-3">
           <CardTitle className="flex gap-2 items-center">
-            <Brain className="w-5 h-5 text-primary" />
+            <Brain className="w-5 h-5 text-ai" />
             DeepSeek
           </CardTitle>
           <Button

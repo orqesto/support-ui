@@ -504,7 +504,7 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
         <div className="flex flex-wrap gap-2 justify-between items-start">
           <div>
             <CardTitle className="flex gap-2 items-center">
-              <Users className="w-5 h-5 text-primary" />
+              <Users className="w-5 h-5 text-muted-foreground" />
               Synced IdP groups
             </CardTitle>
             <CardDescription>

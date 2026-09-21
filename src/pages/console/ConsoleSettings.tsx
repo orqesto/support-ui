@@ -153,7 +153,7 @@ export const ConsoleSettings = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex gap-2 items-center">
-            <SettingsIcon className="w-5 h-5 text-primary" />
+            <SettingsIcon className="w-5 h-5 text-muted-foreground" />
             General
           </CardTitle>
           <CardDescription>

@@ -717,7 +717,7 @@ export function MessageDetailHeader({
               {isRead ? (
                 <MailOpen className="w-3.5 h-3.5" />
               ) : (
-                <Mail className="w-3.5 h-3.5 text-primary" />
+                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
               )}
             </Button>
           )}

@@ -270,7 +270,7 @@ export function ComposerAiActions({
         disabled={disabled}
         title="Draft this reply with AI"
         aria-expanded={open}
-        className="flex items-center gap-1.5 px-2.5 py-1 h-auto rounded text-violet-600 hover:text-violet-700 hover:bg-violet-50 dark:text-violet-400 dark:hover:text-violet-300 dark:hover:bg-violet-950/30 transition-colors"
+        className="flex items-center gap-1.5 px-2.5 py-1 h-auto rounded text-ai hover:text-ai/80 hover:bg-ai-muted transition-colors"
       >
         <Sparkles className="w-3.5 h-3.5" />
         <span className="font-mono text-xs font-semibold">AI</span>
@@ -289,9 +289,9 @@ export function ComposerAiActions({
       )}
 
       {open && (
-        <div className="absolute bottom-full left-0 right-0 mb-2 z-20 rounded-lg border border-violet-200 dark:border-violet-800/60 bg-card shadow-lg p-3 space-y-2">
+        <div className="absolute bottom-full left-0 right-0 mb-2 z-20 rounded-lg border border-ai-line bg-card shadow-lg p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <span className={`${MONO} text-violet-600 dark:text-violet-400`}>AI draft</span>
+            <span className={`${MONO} text-ai`}>AI draft</span>
             <Button
               variant="ghost"
               size="icon"

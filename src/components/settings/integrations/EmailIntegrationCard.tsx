@@ -342,7 +342,7 @@ export const EmailIntegrationCard = ({
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle className="flex gap-2 items-center">
-              <Mail className="w-5 h-5 text-primary" />
+              <Mail className="w-5 h-5 text-muted-foreground" />
               {defaultKB ? 'Email KB Sources (IMAP)' : 'Email Accounts (IMAP)'}
             </CardTitle>
             <Button
