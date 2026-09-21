@@ -81,7 +81,7 @@ export const SecuritySettings = () => {
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {success && <p className="text-sm text-green-600">{success}</p>}
+      {success && <p className="text-sm text-success">{success}</p>}
 
       <Button onClick={handleSave} disabled={saving}>
         {saving ? 'Saving...' : 'Save changes'}

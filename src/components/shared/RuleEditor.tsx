@@ -420,8 +420,8 @@ export function RuleEditor<
                         >
                           {rule.active ? (
                             <>
-                              <Eye className="w-4 h-4 text-green-600" />
-                              <span className="text-xs text-green-600">Active</span>
+                              <Eye className="w-4 h-4 text-success" />
+                              <span className="text-xs text-success">Active</span>
                             </>
                           ) : (
                             <>
@@ -548,8 +548,8 @@ export function RuleEditor<
                     >
                       {rule.active ? (
                         <>
-                          <Eye className="w-4 h-4 text-green-600" />
-                          <span className="text-xs text-green-600">Active</span>
+                          <Eye className="w-4 h-4 text-success" />
+                          <span className="text-xs text-success">Active</span>
                         </>
                       ) : (
                         <>

@@ -214,7 +214,7 @@ export const AdminPlansTab = () => {
               renderPlanCard({ ...plan, isActive: plan.id === currentPlan?.id })
             )
           ) : (
-            <p className="text-gray-500">No base plans available</p>
+            <p className="text-muted-foreground">No base plans available</p>
           )}
         </div>
       </div>
@@ -229,7 +229,7 @@ export const AdminPlansTab = () => {
               renderPlanCard({ ...plan, isActive: plan.id === currentPlan?.id })
             )
           ) : (
-            <p className="text-gray-500">No enterprise plans available</p>
+            <p className="text-muted-foreground">No enterprise plans available</p>
           )}
         </div>
       </div>

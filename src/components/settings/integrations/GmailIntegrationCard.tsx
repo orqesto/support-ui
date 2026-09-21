@@ -309,7 +309,7 @@ export const GmailIntegrationCard = ({
         <CardHeader>
           <div className="flex justify-between items-center gap-1">
             <CardTitle className="flex gap-2 items-center text-md md:text-lg lg:text-xl ">
-              <Mail className="w-5 h-5 text-red-600 " />
+              <Mail className="w-5 h-5 text-destructive " />
               {defaultKB ? 'Gmail KB Sources (OAuth2)' : 'Gmail Accounts (OAuth2)'}
             </CardTitle>
             <Button
@@ -380,7 +380,7 @@ export const GmailIntegrationCard = ({
                             ).gmail;
                             const bulkDays = gmailConfig?.bulkImportDays ?? 0;
                             return bulkDays === 0 ? (
-                              <span className="ml-2 font-medium text-orange-600">
+                              <span className="ml-2 font-medium text-warning">
                                 ⚠️ Bulk: All time
                               </span>
                             ) : (
@@ -449,7 +449,7 @@ export const GmailIntegrationCard = ({
                                 />
                                 <Button
                                   variant="ghost"
-                                  className="flex justify-start items-center px-3 py-2 w-full h-auto text-sm text-red-600 hover:bg-accent"
+                                  className="flex justify-start items-center px-3 py-2 w-full h-auto text-sm text-destructive hover:bg-accent"
                                   onClick={() => {
                                     setDeleteConfirm({
                                       id: integration.id,
@@ -619,7 +619,7 @@ export const GmailIntegrationCard = ({
             <p className="mb-4 text-muted-foreground">
               Are you sure you want to delete <strong>{deleteConfirm.name}</strong>?
             </p>
-            <p className="mb-6 text-sm text-red-600">This action cannot be undone.</p>
+            <p className="mb-6 text-sm text-destructive">This action cannot be undone.</p>
             <div className="flex gap-3 justify-end">
               <Button
                 variant="outline"

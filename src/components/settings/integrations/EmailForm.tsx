@@ -185,7 +185,7 @@ export const EmailForm = ({
           <div className="flex gap-2 items-center mb-1">
             <span className="text-sm font-medium">Email</span>
             {isProviderSupported(config.user) && (
-              <span className="text-xs text-green-500">✓ Auto-detected</span>
+              <span className="text-xs text-success">✓ Auto-detected</span>
             )}
           </div>
           {/*

@@ -366,7 +366,7 @@ export const SCIMConfigSettings = () => {
                   onClick={copyBaseUrl}
                   icon={
                     copied ? (
-                      <Check className="w-4 h-4 text-green-600" />
+                      <Check className="w-4 h-4 text-success" />
                     ) : (
                       <Copy className="w-4 h-4" />
                     )
@@ -408,7 +408,7 @@ export const SCIMConfigSettings = () => {
                         onClick={copyMinted}
                         icon={
                           mintedCopied ? (
-                            <Check className="w-4 h-4 text-green-600" />
+                            <Check className="w-4 h-4 text-success" />
                           ) : (
                             <Copy className="w-4 h-4" />
                           )

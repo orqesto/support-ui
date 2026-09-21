@@ -575,7 +575,7 @@ export const AIProvidersSettings = ({ showModeSwitch = false }: { showModeSwitch
             <p className="mb-4 text-muted-foreground">
               Are you sure you want to delete <strong>{deleteConfirm.name}</strong>?
             </p>
-            <p className="mb-6 text-sm text-red-600">This action cannot be undone.</p>
+            <p className="mb-6 text-sm text-destructive">This action cannot be undone.</p>
             <div className="flex gap-3 justify-end">
               <Button
                 variant="outline"

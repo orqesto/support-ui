@@ -143,8 +143,8 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : link.autoReplyEnabled ? (
                       <>
-                        <MessageCircleReply className="w-3.5 h-3.5 text-green-600" />
-                        <span className="text-green-600">Auto-reply on</span>
+                        <MessageCircleReply className="w-3.5 h-3.5 text-success" />
+                        <span className="text-success">Auto-reply on</span>
                       </>
                     ) : (
                       <>

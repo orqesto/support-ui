@@ -75,7 +75,7 @@ const CopyButton = ({ value, label }: { value: string; label: string }) => {
   };
   return (
     <Button variant="outline" size="sm" onClick={click} aria-label={`Copy ${label}`}>
-      {done ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+      {done ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
       <span className="hidden ml-1 sm:inline">{done ? 'Copied' : 'Copy'}</span>
     </Button>
   );
@@ -289,7 +289,7 @@ export const BedrockProviderCard = ({
       <CardHeader>
         <div className="flex justify-between items-center">
           <CardTitle className="flex gap-2 items-center">
-            <Brain className="w-5 h-5 text-orange-500" />
+            <Brain className="w-5 h-5 text-warning" />
             AWS Bedrock
           </CardTitle>
           <Button
@@ -381,7 +381,7 @@ export const BedrockProviderCard = ({
                         onClick={() => onDelete(integration.id, integration.name, integration.type)}
                         isLoading={deleting === integration.id}
                       >
-                        <Trash2 className="w-4 h-4 text-red-600" />
+                        <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
                     </div>
                   </div>

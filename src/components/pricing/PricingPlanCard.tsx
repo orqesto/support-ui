@@ -87,7 +87,7 @@ export function BasePlanCard({ plan, currentPlanName, upgrading, onSelect }: Bas
         <PlanLimits plan={plan} />
         <div className="mb-6 space-y-3">
           {Object.entries(plan.features).filter(([_, enabled]) => enabled).map(([key]) => (
-            <div key={key} className="flex gap-2 items-start"><Check className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" /><span className="text-sm">{getFeatureLabel(key)}</span></div>
+            <div key={key} className="flex gap-2 items-start"><Check className="h-5 w-5 text-success flex-shrink-0 mt-0.5" /><span className="text-sm">{getFeatureLabel(key)}</span></div>
           ))}
         </div>
         <Button className="w-full" variant={isPopular ? 'primary' : 'outline'} onClick={() => onSelect(plan.name)} disabled={upgrading === plan.name || plan.name === 'admin' || plan.name === currentPlanName}>

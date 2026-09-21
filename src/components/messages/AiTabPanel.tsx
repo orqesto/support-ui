@@ -430,7 +430,7 @@ export function AiTabPanel({
               />
               {activeOption.documentationId && (
                 <div className="mt-1.5 pt-1.5 border-t border-border flex items-center gap-1 min-w-0">
-                  <BookOpen className="flex-shrink-0 w-3 h-3 text-sky-500" />
+                  <BookOpen className="flex-shrink-0 w-3 h-3 text-primary" />
                   {activeOption.references && activeOption.references.length > 1 ? (
                     <Button
                       variant="ghost"
@@ -495,7 +495,7 @@ export function AiTabPanel({
                 !activeOption.documentationId &&
                 !activeOption.kbSources && (
                   <div className="mt-1.5 pt-1.5 border-t border-border flex items-center gap-1">
-                    <MessageSquare className="flex-shrink-0 w-3 h-3 text-amber-500" />
+                    <MessageSquare className="flex-shrink-0 w-3 h-3 text-warning" />
                     {activeOption.content ? (
                       <Button
                         variant="ghost"
@@ -583,7 +583,7 @@ export function AiTabPanel({
 
       {section !== 'suggested' && spamCheck?.redFlags && spamCheck.redFlags.length > 0 && (
         <div className="p-2 rounded border border-destructive-line bg-red-50/50 dark:bg-red-950/10">
-          <p className={`mb-1 text-red-500 ${MONO}`}>RED FLAGS</p>
+          <p className={`mb-1 text-destructive ${MONO}`}>RED FLAGS</p>
           {spamCheck.redFlags.map((flag: string) => (
             <p key={flag} className="text-[11px] text-destructive">
               • {humanizeSignalFlag(flag)}
@@ -594,7 +594,7 @@ export function AiTabPanel({
 
       {section !== 'suggested' && spamCheck?.greenFlags && spamCheck.greenFlags.length > 0 && (
         <div className="p-2 rounded border border-success-line bg-green-50/50 dark:bg-green-950/10">
-          <p className={`mb-1 text-green-600 ${MONO}`}>GREEN FLAGS</p>
+          <p className={`mb-1 text-success ${MONO}`}>GREEN FLAGS</p>
           {spamCheck.greenFlags.map((flag: string) => (
             <p key={flag} className="text-[11px] text-success">
               • {humanizeSignalFlag(flag)}

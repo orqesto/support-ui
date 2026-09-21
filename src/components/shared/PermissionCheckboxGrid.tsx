@@ -247,7 +247,7 @@ export const PermissionCheckboxGrid = ({
                       checked={checked}
                       onChange={() => togglePermission(perm)}
                       disabled={disabled}
-                      className="w-3.5 h-3.5 mt-0.5 rounded border-gray-300 text-primary focus:ring-primary"
+                      className="w-3.5 h-3.5 mt-0.5 rounded border-border text-primary focus:ring-primary"
                     />
                     <span className="flex-1">{labelFor(perm)}</span>
                     <span

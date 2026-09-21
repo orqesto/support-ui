@@ -53,7 +53,7 @@ export const MessageCapBanner = () => {
       className="mb-3 flex items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm"
     >
       <span className="flex items-center gap-2 text-foreground">
-        <MessageSquareOff className="h-4 w-4 text-amber-600" />
+        <MessageSquareOff className="h-4 w-4 text-warning" />
         <span>
           Message allowance used up
           {resetDay ? ` until ${resetDay}` : ''}. New messages still arrive and you can reply; AI

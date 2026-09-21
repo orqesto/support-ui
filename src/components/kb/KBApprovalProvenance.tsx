@@ -106,7 +106,7 @@ export const KBApprovalProvenance = ({ entry }: { entry: KBEntry }) => {
         </div>
       ) : (
         <div className="flex gap-2 items-center mt-1 font-medium">
-          <UserCheck className="w-4 h-4 text-green-600" />
+          <UserCheck className="w-4 h-4 text-success" />
           <span>Reviewed by {approverName ?? 'a team member'}</span>
           {approvedAt && <span className="font-normal text-muted-foreground">on {approvedAt}</span>}
         </div>

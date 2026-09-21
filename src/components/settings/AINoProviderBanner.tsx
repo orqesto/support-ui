@@ -13,7 +13,7 @@ export const AINoProviderBanner = () => {
         className="flex justify-between items-center w-full text-left p-0 h-auto hover:bg-transparent"
       >
         <div className="flex gap-2 items-center">
-          <AlertCircle className="flex-shrink-0 w-4 h-4 text-amber-600" />
+          <AlertCircle className="flex-shrink-0 w-4 h-4 text-warning" />
           <span className="text-sm font-medium text-warning">
             No AI provider configured. Some features unavailable.
           </span>
@@ -21,9 +21,9 @@ export const AINoProviderBanner = () => {
         <div className="flex gap-2 items-center">
           <span className="text-xs text-warning">Details</span>
           {showFeatureDetails ? (
-            <ChevronUp className="w-4 h-4 text-amber-600" />
+            <ChevronUp className="w-4 h-4 text-warning" />
           ) : (
-            <ChevronDown className="w-4 h-4 text-amber-600" />
+            <ChevronDown className="w-4 h-4 text-warning" />
           )}
         </div>
       </Button>
@@ -33,7 +33,7 @@ export const AINoProviderBanner = () => {
           {/* Features that work */}
           <div className="p-2 rounded border bg-background">
             <h4 className="flex gap-1.5 items-center mb-1.5 font-semibold text-xs">
-              <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+              <CheckCircle className="w-3.5 h-3.5 text-success" />
               Works Without AI
             </h4>
             <ul className="space-y-0.5 text-muted-foreground text-xs">
@@ -47,7 +47,7 @@ export const AINoProviderBanner = () => {
           {/* Features that require AI */}
           <div className="p-2 rounded border bg-background">
             <h4 className="flex gap-1.5 items-center mb-1.5 font-semibold text-xs">
-              <XCircle className="w-3.5 h-3.5 text-red-600" />
+              <XCircle className="w-3.5 h-3.5 text-destructive" />
               Requires AI Provider
             </h4>
             <ul className="space-y-0.5 text-muted-foreground text-xs">

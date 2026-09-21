@@ -19,18 +19,18 @@ import type { KBEntry } from '@/services/kb.service';
 const getTypeIcon = (type: string) => {
   switch (type) {
     case 'qa_pair':
-      return <MessageSquare className="w-4 h-4 text-blue-500" />;
+      return <MessageSquare className="w-4 h-4 text-primary" />;
     case 'document':
-      return <FileText className="w-4 h-4 text-green-500" />;
+      return <FileText className="w-4 h-4 text-success" />;
     default:
-      return <FileText className="w-4 h-4 text-gray-500" />;
+      return <FileText className="w-4 h-4 text-muted-foreground" />;
   }
 };
 
 const getQualityColor = (score: number) => {
-  if (score >= 0.8) return 'text-green-600';
-  if (score >= 0.6) return 'text-amber-600';
-  return 'text-red-600';
+  if (score >= 0.8) return 'text-success';
+  if (score >= 0.6) return 'text-warning';
+  return 'text-destructive';
 };
 
 type KBTableViewProps = {
@@ -209,7 +209,7 @@ export const KBTableView = ({
                     onClick={() => onDelete(entry)}
                     title="Delete"
                     aria-label="Delete"
-                    className="text-red-600 hover:text-red-700"
+                    className="text-destructive hover:text-red-700"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>

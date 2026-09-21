@@ -60,8 +60,8 @@ export function TicketSyncAllDialog({ open, onOpenChange, onCancel, onConfirm }:
         <DialogClose onClose={onCancel} />
       </DialogHeader>
       <DialogContent>
-        <p className="text-sm text-gray-700">Are you sure you want to sync all unsynced tickets to Jira?</p>
-        <p className="mt-2 text-sm text-gray-500">This will create Jira issues for all tickets that haven&apos;t been synced yet.</p>
+        <p className="text-sm text-muted-foreground">Are you sure you want to sync all unsynced tickets to Jira?</p>
+        <p className="mt-2 text-sm text-muted-foreground">This will create Jira issues for all tickets that haven&apos;t been synced yet.</p>
       </DialogContent>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Cancel</Button>

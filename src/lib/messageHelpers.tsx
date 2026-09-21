@@ -213,7 +213,7 @@ export const getFilteredCategoryMeta = (category?: string): FilteredCategoryMeta
     case 'phishing':
       return {
         statusText: 'Quarantined · Phishing threat detected',
-        statusClass: 'text-red-500',
+        statusClass: 'text-destructive',
         approveLabel: 'Not a Threat — Approve',
         approveClass:
           'border border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30',
@@ -222,7 +222,7 @@ export const getFilteredCategoryMeta = (category?: string): FilteredCategoryMeta
     case 'scam':
       return {
         statusText: 'Quarantined · Scam detected',
-        statusClass: 'text-red-500',
+        statusClass: 'text-destructive',
         approveLabel: 'Not a Threat — Approve',
         approveClass:
           'border border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30',

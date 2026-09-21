@@ -341,7 +341,7 @@ export const RoutingRulesSettings = () => {
               {rule.provisional ? (
                 <Badge
                   variant="secondary"
-                  className="text-amber-700 border-amber-300 bg-amber-50"
+                  className="text-warning border-warning-line bg-warning-muted"
                   title="Auto-learned from a manual route. Will auto-promote or auto-disable based on outcomes."
                 >
                   Learned
@@ -350,7 +350,7 @@ export const RoutingRulesSettings = () => {
               {rule.metadata?.provenance === 'promoted' ? (
                 <Badge
                   variant="secondary"
-                  className="text-emerald-700 border-emerald-300 bg-emerald-50"
+                  className="text-success border-success-line bg-success-muted"
                   title="Auto-promoted by the learning engine after proving itself."
                 >
                   Promoted

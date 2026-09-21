@@ -423,7 +423,7 @@ const IntegrationCatalog = ({
           <Button
             variant="ghost"
             size="sm"
-            className="text-red-600 shrink-0 hover:text-red-700"
+            className="text-destructive shrink-0 hover:text-red-700"
             onClick={() => requestRemoveFolder(folder, childPages)}
           >
             Remove from KB
@@ -450,7 +450,7 @@ const IntegrationCatalog = ({
           <Button
             variant="ghost"
             size="sm"
-            className="text-red-600 shrink-0 hover:text-red-700"
+            className="text-destructive shrink-0 hover:text-red-700"
             disabled={isRemoving}
             onClick={() => removePage(page)}
           >
@@ -496,7 +496,7 @@ const IntegrationCatalog = ({
             )}
             {isFolder ? (
               folderSelected ? (
-                <FolderCheck className="w-4 h-4 shrink-0 text-green-600" />
+                <FolderCheck className="w-4 h-4 shrink-0 text-success" />
               ) : (
                 <Folder className="w-4 h-4 shrink-0 text-muted-foreground" />
               )
@@ -609,7 +609,7 @@ const IntegrationCatalog = ({
 
       {error && (
         <div className="px-4 py-3">
-          <p className="mb-2 text-xs text-red-600">{error}</p>
+          <p className="mb-2 text-xs text-destructive">{error}</p>
           <Button variant="outline" size="sm" onClick={() => void refresh()}>
             Retry
           </Button>

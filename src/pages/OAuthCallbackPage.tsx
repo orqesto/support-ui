@@ -101,20 +101,20 @@ export const OAuthCallbackPage = () => {
   }, [searchParams]);
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-50">
+    <div className="flex justify-center items-center min-h-screen bg-muted">
       <div className="p-8 w-full max-w-md bg-white rounded-lg shadow-lg">
         {status === 'processing' && (
           <div className="text-center">
             <div className="mx-auto w-16 h-16 rounded-full border-4 border-blue-600 animate-spin border-t-transparent" />
-            <p className="mt-4 text-lg font-medium text-gray-700">{message}</p>
+            <p className="mt-4 text-lg font-medium text-muted-foreground">{message}</p>
           </div>
         )}
 
         {status === 'success' && (
           <div className="text-center">
-            <div className="flex justify-center items-center mx-auto w-16 h-16 bg-green-100 rounded-full">
+            <div className="flex justify-center items-center mx-auto w-16 h-16 bg-success-muted rounded-full">
               <svg
-                className="w-8 h-8 text-green-600"
+                className="w-8 h-8 text-success"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -127,16 +127,16 @@ export const OAuthCallbackPage = () => {
                 />
               </svg>
             </div>
-            <p className="mt-4 text-lg font-medium text-gray-700">{message}</p>
-            <p className="mt-2 text-sm text-gray-500">This window will close automatically.</p>
+            <p className="mt-4 text-lg font-medium text-muted-foreground">{message}</p>
+            <p className="mt-2 text-sm text-muted-foreground">This window will close automatically.</p>
           </div>
         )}
 
         {status === 'error' && (
           <div className="text-center">
-            <div className="flex justify-center items-center mx-auto w-16 h-16 bg-red-100 rounded-full">
+            <div className="flex justify-center items-center mx-auto w-16 h-16 bg-destructive-muted rounded-full">
               <svg
-                className="w-8 h-8 text-red-600"
+                className="w-8 h-8 text-destructive"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -149,7 +149,7 @@ export const OAuthCallbackPage = () => {
                 />
               </svg>
             </div>
-            <p className="mt-4 text-lg font-medium text-red-600">{message}</p>
+            <p className="mt-4 text-lg font-medium text-destructive">{message}</p>
             <Button
               onClick={() => window.close()}
               className="px-4 py-2 mt-4 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"

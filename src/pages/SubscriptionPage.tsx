@@ -234,14 +234,14 @@ export const SubscriptionPage = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
-        return 'bg-green-100 text-green-800';
+        return 'bg-success-muted text-success';
       case 'trialing':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-primary-muted text-primary';
       case 'past_due':
-        return 'bg-orange-100 text-orange-800';
+        return 'bg-warning-muted text-warning';
       case 'cancelled':
       case 'expired':
-        return 'bg-red-100 text-red-800';
+        return 'bg-destructive-muted text-destructive';
       default:
         return 'bg-muted text-muted-foreground';
     }
@@ -321,7 +321,7 @@ export const SubscriptionPage = () => {
           <Card className="border-amber-500/50">
             <CardContent className="flex flex-wrap gap-3 justify-between items-center p-4">
               <div className="flex gap-3 items-start">
-                <AlertTriangle className="mt-0.5 w-5 h-5 text-amber-600" />
+                <AlertTriangle className="mt-0.5 w-5 h-5 text-warning" />
                 <div>
                   <p className="font-medium">
                     {`Cancelled — your subscription ends on ${formatAccessEnd(subscription.cancelAt)}`}
@@ -392,7 +392,7 @@ export const SubscriptionPage = () => {
                     : 'N/A'}
                 </p>
                 {subscription.trialEndsAt && (
-                  <p className="text-sm text-blue-600">
+                  <p className="text-sm text-primary">
                     Trial ends: {new Date(subscription.trialEndsAt).toLocaleDateString()}
                   </p>
                 )}
@@ -408,7 +408,7 @@ export const SubscriptionPage = () => {
                     .filter(([, enabled]) => enabled)
                     .map(([feature]) => (
                       <div key={feature} className="flex gap-2 items-center">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <CheckCircle className="w-4 h-4 text-success" />
                         <span className="text-sm capitalize">
                           {feature.replace(/([A-Z])/g, ' $1').trim()}
                         </span>
@@ -470,13 +470,13 @@ export const SubscriptionPage = () => {
               usage.messages.warning ||
               usage.aiCalls.warning ||
               usage.storage.warning) && (
-              <div className="flex gap-3 items-start p-4 mt-4 bg-orange-50 rounded-lg border border-orange-200">
-                <AlertTriangle className="w-5 h-5 text-orange-600 shrink-0" />
+              <div className="flex gap-3 items-start p-4 mt-4 bg-warning-muted rounded-lg border border-warning-line">
+                <AlertTriangle className="w-5 h-5 text-warning shrink-0" />
                 <div>
-                  <p className="font-medium text-orange-800">
+                  <p className="font-medium text-warning">
                     {usage.messages.critical ? 'Message limit reached' : 'Approaching Usage Limits'}
                   </p>
-                  <p className="text-sm text-orange-700">
+                  <p className="text-sm text-warning">
                     {usage.messages.critical
                       ? 'New messages still arrive in your inbox and you can keep replying. AI analysis, routing and drafts are paused until the period resets, you upgrade, or you add a message pack.'
                       : 'Some of your usage metrics are approaching their limits. Consider upgrading your plan for more capacity.'}
@@ -545,7 +545,7 @@ export const SubscriptionPage = () => {
             onClick={() => navigate('/settings/usage')}
           >
             <CardContent className="p-6">
-              <TrendingUp className="mb-3 w-8 h-8 text-blue-600" />
+              <TrendingUp className="mb-3 w-8 h-8 text-primary" />
               <h3 className="mb-1 font-semibold">Usage Statistics</h3>
               <p className="text-sm text-foreground/70">View detailed usage trends and analytics</p>
             </CardContent>
@@ -557,7 +557,7 @@ export const SubscriptionPage = () => {
               onClick={() => navigate('/pricing')}
             >
               <CardContent className="p-6">
-                <CreditCard className="mb-3 w-8 h-8 text-green-600" />
+                <CreditCard className="mb-3 w-8 h-8 text-success" />
                 <h3 className="mb-1 font-semibold">Change Plan</h3>
                 <p className="text-sm text-foreground/70">
                   {/* This navigates to /pricing, which can upgrade and downgrade
@@ -579,7 +579,7 @@ export const SubscriptionPage = () => {
               onClick={() => navigate('/pricing')}
             >
               <CardContent className="p-6">
-                <CreditCard className="mb-3 w-8 h-8 text-blue-600" />
+                <CreditCard className="mb-3 w-8 h-8 text-primary" />
                 <h3 className="mb-1 font-semibold">Choose a Plan</h3>
                 <p className="text-sm text-foreground/70">
                   Pick a plan and add a card to keep working after the trial
@@ -598,7 +598,7 @@ export const SubscriptionPage = () => {
               onClick={() => setAddingPaymentMethod(true)}
             >
               <CardContent className="p-6">
-                <CreditCard className="mb-3 w-8 h-8 text-blue-600" />
+                <CreditCard className="mb-3 w-8 h-8 text-primary" />
                 <h3 className="mb-1 font-semibold">Add a Payment Method</h3>
                 <p className="text-sm text-foreground/70">
                   Save a card now so your plan continues when the trial ends

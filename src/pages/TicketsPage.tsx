@@ -513,8 +513,8 @@ export const TicketsPage = () => {
               // eslint-disable-next-line react/no-array-index-key
               <Card key={`ticket-skeleton-${idx}`} className="animate-pulse">
                 <CardContent className="p-6">
-                  <div className="mb-4 w-3/4 h-4 bg-gray-200 rounded" />
-                  <div className="w-1/2 h-4 bg-gray-200 rounded" />
+                  <div className="mb-4 w-3/4 h-4 bg-muted rounded" />
+                  <div className="w-1/2 h-4 bg-muted rounded" />
                 </CardContent>
               </Card>
             ))}

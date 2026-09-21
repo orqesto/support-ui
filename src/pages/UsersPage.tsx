@@ -386,12 +386,14 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
     {
       id: 'position',
       header: 'Position',
-      cell: (user) => <span className="text-sm text-gray-500">{user.position ?? '—'}</span>,
+      cell: (user) => <span className="text-sm text-muted-foreground">{user.position ?? '—'}</span>,
     },
     {
       id: 'joined',
       header: 'Joined',
-      cell: (user) => <span className="text-sm text-gray-500">{formatDate(user.createdAt)}</span>,
+      cell: (user) => (
+        <span className="text-sm text-muted-foreground">{formatDate(user.createdAt)}</span>
+      ),
     },
     {
       id: 'skills',
@@ -441,7 +443,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
             size="sm"
             variant="outline"
             onClick={() => handleDeleteUser(user)}
-            className="text-red-600 hover:text-red-700 hover:border-red-300"
+            className="text-destructive hover:text-red-700 hover:border-red-300"
           >
             <Trash2 className="w-4 h-4" />
           </Button>
@@ -515,7 +517,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
                   title="Delete user"
                   size="sm"
                   variant="outline"
-                  className="flex-shrink-0 text-red-600 hover:text-red-700 hover:border-red-300"
+                  className="flex-shrink-0 text-destructive hover:text-red-700 hover:border-red-300"
                   onClick={() => handleDeleteUser(user)}
                 >
                   <Trash2 className="w-4 h-4" />
@@ -549,7 +551,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
               {idpBlockedBadge(user)}
               {deptBadges(user)}
             </div>
-            <div className="flex flex-col gap-1 text-xs text-gray-500">
+            <div className="flex flex-col gap-1 text-xs text-muted-foreground">
               {user.position && (
                 <div>
                   <span className="font-medium">Position:</span> {user.position}

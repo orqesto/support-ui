@@ -374,9 +374,9 @@ export const MessageProcessingProgress = ({
       >
         <div className="flex flex-1 gap-2 items-center">
           {allMessagesProcessed || status === 'complete' ? (
-            <CheckCircle className="w-4 h-4 text-green-500" />
+            <CheckCircle className="w-4 h-4 text-success" />
           ) : status === 'error' ? (
-            <XCircle className="w-4 h-4 text-red-500" />
+            <XCircle className="w-4 h-4 text-destructive" />
           ) : isProcessing || status === 'processing' || status === 'started' ? (
             <Loader2 className="w-4 h-4 animate-spin text-primary" />
           ) : (
@@ -462,7 +462,7 @@ export const MessageProcessingProgress = ({
           <div className="flex justify-around text-center">
             <div>
               <div className="flex gap-1 justify-center items-center">
-                <SourceIcon className="w-3 h-3 text-blue-500" />
+                <SourceIcon className="w-3 h-3 text-primary" />
                 <span className="text-lg font-bold">{(emailTotal ?? total) || 0}</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Found</p>
@@ -483,7 +483,7 @@ export const MessageProcessingProgress = ({
             )}
             <div title={hasGapInfo ? `${truthCount} convs have AI analysis written to DB` : undefined}>
               <div className="flex gap-1 justify-center items-center">
-                <CheckCircle className="w-3 h-3 text-green-500" />
+                <CheckCircle className="w-3 h-3 text-success" />
                 <span className="text-lg font-bold">{truthCount}</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Analyzed</p>
@@ -493,8 +493,8 @@ export const MessageProcessingProgress = ({
                 title={`${missingAnalysis} message${missingAnalysis === 1 ? '' : 's'} saved without AI analysis (likely cap-throttled by BACKFILL_AI_JOBS_LIMIT). Re-trigger the backfill with a higher cap to fill the gap.`}
               >
                 <div className="flex gap-1 justify-center items-center">
-                  <XCircle className="w-3 h-3 text-amber-500" />
-                  <span className="text-lg font-bold text-amber-500">{missingAnalysis}</span>
+                  <XCircle className="w-3 h-3 text-warning" />
+                  <span className="text-lg font-bold text-warning">{missingAnalysis}</span>
                 </div>
                 <p className="text-[10px] text-muted-foreground">Missing AI</p>
               </div>
@@ -502,7 +502,7 @@ export const MessageProcessingProgress = ({
             {sourceType === 'email' && (linkedReplies ?? 0) > 0 && (
               <div>
                 <div className="flex gap-1 justify-center items-center">
-                  <Mail className="w-3 h-3 text-blue-400" />
+                  <Mail className="w-3 h-3 text-primary" />
                   <span className="text-lg font-bold">{linkedReplies}</span>
                 </div>
                 <p className="text-[10px] text-muted-foreground">Linked</p>
@@ -527,7 +527,7 @@ export const MessageProcessingProgress = ({
               title={failed > 0 ? 'Click to view failed messages' : 'No failed messages'}
             >
               <div className="flex gap-1 justify-center items-center">
-                <XCircle className="w-3 h-3 text-red-500" />
+                <XCircle className="w-3 h-3 text-destructive" />
                 <span className="text-lg font-bold">{failed}</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Failed</p>
@@ -701,7 +701,7 @@ export const MessageProcessingProgress = ({
                   ) : null}
                   {totalTime && totalTime > 0 ? (
                     <div>
-                      <p className="font-mono text-xs font-semibold text-blue-600">
+                      <p className="font-mono text-xs font-semibold text-primary">
                         {totalTime < 1000 ? `${totalTime}ms` : `${(totalTime / 1000).toFixed(1)}s`}
                       </p>
                       <p className="text-[10px] text-muted-foreground">Total</p>

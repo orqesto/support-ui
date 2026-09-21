@@ -23,7 +23,7 @@ export const SpamLogDetail = ({ log, onClose }: SpamLogDetailProps) => (
     <div className="p-6 border-b">
       <div className="flex justify-between items-start mb-4">
         <div className="flex gap-2 items-center">
-          <ShieldX className="w-6 h-6 text-red-600" />
+          <ShieldX className="w-6 h-6 text-destructive" />
           <h2 className="text-xl font-bold">Spam Log Details</h2>
         </div>
         <Button aria-label="Close" title="Close" size="sm" variant="ghost" onClick={onClose}>
@@ -116,7 +116,7 @@ export const SpamLogDetail = ({ log, onClose }: SpamLogDetailProps) => (
       {/* Red Flags */}
       {log.redFlags && log.redFlags.length > 0 && (
         <div>
-          <h3 className="flex gap-2 items-center mb-2 text-sm font-semibold text-red-600">
+          <h3 className="flex gap-2 items-center mb-2 text-sm font-semibold text-destructive">
             <AlertTriangle className="w-4 h-4" />
             Red Flags ({log.redFlags.length})
           </h3>
@@ -133,7 +133,7 @@ export const SpamLogDetail = ({ log, onClose }: SpamLogDetailProps) => (
       {/* Green Flags */}
       {log.greenFlags && log.greenFlags.length > 0 && (
         <div>
-          <h3 className="flex gap-2 items-center mb-2 text-sm font-semibold text-green-600">
+          <h3 className="flex gap-2 items-center mb-2 text-sm font-semibold text-success">
             <Info className="w-4 h-4" />
             Green Flags ({log.greenFlags.length})
           </h3>

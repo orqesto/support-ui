@@ -184,7 +184,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block mb-1 text-sm font-medium">
-              Email <span className="text-red-500">*</span>
+              Email <span className="text-destructive">*</span>
             </label>
             <Input
               type="email"
@@ -197,7 +197,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
 
           <div>
             <label className="block mb-1 text-sm font-medium">
-              Password <span className="text-red-500">*</span>
+              Password <span className="text-destructive">*</span>
             </label>
             <PasswordInput
               value={password}
@@ -211,7 +211,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block mb-1 text-sm font-medium">
-                First Name <span className="text-red-500">*</span>
+                First Name <span className="text-destructive">*</span>
               </label>
               <Input
                 type="text"

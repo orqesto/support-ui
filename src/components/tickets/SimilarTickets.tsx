@@ -313,7 +313,7 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
                         >
                           {copiedId === response.id ? (
                             <>
-                              <CheckCircle className="mr-1 w-3 h-3 text-green-500" />
+                              <CheckCircle className="mr-1 w-3 h-3 text-success" />
                               Copied
                             </>
                           ) : (

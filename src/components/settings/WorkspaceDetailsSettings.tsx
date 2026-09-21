@@ -118,8 +118,8 @@ export const WorkspaceDetailsSettings = () => {
     return (
       <div className="flex flex-col justify-center items-center min-h-[200px]">
         <Building2 className="mb-4 w-16 h-16 text-gray-400" />
-        <h2 className="mb-2 text-2xl font-bold text-gray-900">No Workspace</h2>
-        <p className="max-w-md text-center text-gray-600">
+        <h2 className="mb-2 text-2xl font-bold text-foreground">No Workspace</h2>
+        <p className="max-w-md text-center text-muted-foreground">
           You are not currently associated with a workspace.
         </p>
       </div>
@@ -136,7 +136,7 @@ export const WorkspaceDetailsSettings = () => {
             </div>
             <div>
               <CardTitle className="text-xl font-bold sm:text-xl">Workspace Details</CardTitle>
-              <CardDescription className="mt-1 text-sm text-gray-600 sm:text-base">
+              <CardDescription className="mt-1 text-sm text-muted-foreground sm:text-base">
                 Basic information about your workspace
               </CardDescription>
             </div>
@@ -180,27 +180,27 @@ export const WorkspaceDetailsSettings = () => {
         ) : (
           <div className="space-y-4">
             <div>
-              <label htmlFor="name" className="text-sm font-medium text-gray-500">
+              <label htmlFor="name" className="text-sm font-medium text-muted-foreground">
                 Name
               </label>
               <p className="mt-1 text-base font-medium">{organization.name}</p>
             </div>
             <div>
-              <label htmlFor="slug" className="text-sm font-medium text-gray-500">
+              <label htmlFor="slug" className="text-sm font-medium text-muted-foreground">
                 Slug
               </label>
               <p className="mt-1 font-mono text-base">{organization.slug}</p>
             </div>
             {organization.description && (
               <div>
-                <label htmlFor="description" className="text-sm font-medium text-gray-500">
+                <label htmlFor="description" className="text-sm font-medium text-muted-foreground">
                   Description
                 </label>
                 <p className="mt-1 text-base">{organization.description}</p>
               </div>
             )}
             <div>
-              <label htmlFor="active" className="text-sm font-medium text-gray-500">
+              <label htmlFor="active" className="text-sm font-medium text-muted-foreground">
                 Status
               </label>
               <div className="mt-1">
@@ -211,13 +211,13 @@ export const WorkspaceDetailsSettings = () => {
             </div>
             <div className="grid grid-cols-2 gap-4 pt-4 border-t">
               <div>
-                <label htmlFor="createdAt" className="text-sm font-medium text-gray-500">
+                <label htmlFor="createdAt" className="text-sm font-medium text-muted-foreground">
                   Created
                 </label>
                 <p className="mt-1 text-sm">{formatDate(organization.createdAt)}</p>
               </div>
               <div>
-                <label htmlFor="updatedAt" className="text-sm font-medium text-gray-500">
+                <label htmlFor="updatedAt" className="text-sm font-medium text-muted-foreground">
                   Last Updated
                 </label>
                 <p className="mt-1 text-sm">{formatDate(organization.updatedAt)}</p>

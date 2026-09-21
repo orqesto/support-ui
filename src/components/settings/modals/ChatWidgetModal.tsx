@@ -293,7 +293,7 @@ export const ChatWidgetModal = ({
               id="collectUserInfo"
               checked={formData.collectUserInfo}
               onChange={(event) => setFormData({ ...formData, collectUserInfo: event.target.checked })}
-              className="h-4 w-4 rounded border-gray-300"
+              className="h-4 w-4 rounded border-border"
             />
             <Label htmlFor="collectUserInfo" className="!mb-0">
               Ask visitors for name &amp; email in the chat

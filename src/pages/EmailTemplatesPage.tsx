@@ -293,7 +293,7 @@ export const EmailTemplates = () => {
               </CardHeader>
               <CardContent>
                 {!selectedTemplate && (
-                  <div className="py-12 text-center text-gray-500">
+                  <div className="py-12 text-center text-muted-foreground">
                     <Mail className="mx-auto mb-4 w-16 h-16 text-gray-300" />
                     <p>Select a template from the list to preview it</p>
                   </div>
@@ -302,24 +302,24 @@ export const EmailTemplates = () => {
                 {isLoadingPreview && (
                   <div className="py-12 text-center">
                     <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 animate-spin border-primary" />
-                    <p className="text-gray-500">Loading preview...</p>
+                    <p className="text-muted-foreground">Loading preview...</p>
                   </div>
                 )}
 
                 {error && (
-                  <div className="flex gap-3 items-start p-4 bg-red-50 rounded-lg border border-red-200">
-                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex gap-3 items-start p-4 bg-destructive-muted rounded-lg border border-destructive-line">
+                    <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
                     <div>
-                      <h4 className="text-sm font-medium text-red-900">Error</h4>
-                      <p className="mt-1 text-sm text-red-700">{error}</p>
+                      <h4 className="text-sm font-medium text-destructive">Error</h4>
+                      <p className="mt-1 text-sm text-destructive">{error}</p>
                     </div>
                   </div>
                 )}
 
                 {saveError && (
-                  <div className="flex gap-3 items-start p-4 mb-4 bg-red-50 rounded-lg border border-red-200">
-                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-red-700">{saveError}</p>
+                  <div className="flex gap-3 items-start p-4 mb-4 bg-destructive-muted rounded-lg border border-destructive-line">
+                    <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-destructive">{saveError}</p>
                   </div>
                 )}
 
@@ -339,7 +339,7 @@ export const EmailTemplates = () => {
 
                 {selectedTemplate && !isLoadingPreview && !error && previewHtml && !isEditing && (
                   <div className="overflow-hidden rounded-lg border">
-                    <div className="px-4 py-2 text-xs text-gray-600 bg-gray-100 border-b">
+                    <div className="px-4 py-2 text-xs text-muted-foreground bg-muted border-b">
                       Preview with sample data
                     </div>
                     <iframe

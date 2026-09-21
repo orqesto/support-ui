@@ -296,7 +296,7 @@ export const KBEntryDetail = ({
                   <div className="font-medium">
                     <a
                       href={`/messages?id=${displayEntry.metadata.sourceMessageId}`}
-                      className="text-blue-600 hover:text-blue-700 hover:underline"
+                      className="text-primary hover:text-blue-700 hover:underline"
                     >
                       #{displayEntry.metadata.sourceMessageId}
                     </a>
@@ -470,7 +470,7 @@ export const KBEntryDetail = ({
               ))}
             <Button
               variant="outline"
-              className="text-red-600 hover:text-red-700"
+              className="text-destructive hover:text-red-700"
               onClick={() => {
                 onClose();
                 onDelete(entry);

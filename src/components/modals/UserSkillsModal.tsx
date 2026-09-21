@@ -191,7 +191,7 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
           <div className="flex items-center gap-3">
             {globalSelfEdit ? (
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <ShieldCheck className="w-3.5 h-3.5 text-green-500" />
+                <ShieldCheck className="w-3.5 h-3.5 text-success" />
                 Self-edit enabled org-wide
               </span>
             ) : (

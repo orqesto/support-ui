@@ -44,20 +44,20 @@ export const VerifyEmailPage = () => {
     switch (status) {
       case 'loading':
         return (
-          <div className="mx-auto mb-4 w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-            <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+          <div className="mx-auto mb-4 w-16 h-16 bg-primary-muted rounded-full flex items-center justify-center">
+            <Loader2 className="w-10 h-10 text-primary animate-spin" />
           </div>
         );
       case 'success':
         return (
-          <div className="mx-auto mb-4 w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-            <Check className="w-10 h-10 text-green-600" />
+          <div className="mx-auto mb-4 w-16 h-16 bg-success-muted rounded-full flex items-center justify-center">
+            <Check className="w-10 h-10 text-success" />
           </div>
         );
       case 'error':
         return (
-          <div className="mx-auto mb-4 w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
-            <X className="w-10 h-10 text-red-600" />
+          <div className="mx-auto mb-4 w-16 h-16 bg-destructive-muted rounded-full flex items-center justify-center">
+            <X className="w-10 h-10 text-destructive" />
           </div>
         );
     }
@@ -84,7 +84,7 @@ export const VerifyEmailPage = () => {
               <CardDescription>{message}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="bg-green-50 p-4 rounded-lg text-sm text-gray-700">
+              <div className="bg-success-muted p-4 rounded-lg text-sm text-muted-foreground">
                 <p className="font-medium mb-2">You&apos;re all set!</p>
                 <p>
                   Your email has been successfully verified. You can now log in to your account.
@@ -105,7 +105,7 @@ export const VerifyEmailPage = () => {
               <CardDescription>{message}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="bg-red-50 p-4 rounded-lg text-sm text-gray-700">
+              <div className="bg-destructive-muted p-4 rounded-lg text-sm text-muted-foreground">
                 <p className="font-medium mb-2">What went wrong?</p>
                 <ul className="list-disc list-inside space-y-1">
                   <li>The verification link may have expired</li>

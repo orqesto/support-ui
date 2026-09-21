@@ -302,7 +302,7 @@ export const PromptsSettings = () => {
                   </div>
                 </div>
                 <details className="group">
-                  <summary className="text-sm text-blue-600 cursor-pointer hover:text-blue-800">
+                  <summary className="text-sm text-primary cursor-pointer hover:text-blue-800">
                     View Prompt Template ({prompt.prompt.length} characters)
                   </summary>
                   <div className="p-3 mt-3 rounded-lg border bg-muted border-border">

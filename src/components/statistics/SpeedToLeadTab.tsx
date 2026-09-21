@@ -151,7 +151,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
                         of {speedData.totalLeads} leads ({speedData.slowLeadRate}%)
                       </p>
                     </div>
-                    <Clock className="w-9 h-9 text-amber-500 shrink-0" />
+                    <Clock className="w-9 h-9 text-warning shrink-0" />
                   </div>
                 </CardContent>
               </Card>
@@ -170,7 +170,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
                         {formatSeconds(speedData.fastestSeconds)}
                       </p>
                     </div>
-                    <Zap className="w-9 h-9 text-blue-500 shrink-0" />
+                    <Zap className="w-9 h-9 text-primary shrink-0" />
                   </div>
                 </CardContent>
               </Card>
@@ -262,7 +262,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
                         <div>
                           <div className="flex justify-between items-center mb-1">
                             <span className="flex items-center gap-2 text-sm">
-                              <User className="w-4 h-4 text-blue-500" /> Human agent
+                              <User className="w-4 h-4 text-primary" /> Human agent
                             </span>
                             <span className="text-sm font-medium tabular-nums">
                               {speedData.humanResponses} ({humanPct}%)

@@ -80,9 +80,9 @@ const isValidLeadState = (state: unknown): state is LeadQualificationState => {
 const StatusIcon = ({ value }: { value: boolean | null }) => {
   if (value === null) return <Clock className="w-4 h-4 text-muted-foreground" />;
   return value ? (
-    <CheckCircle className="w-4 h-4 text-green-500" />
+    <CheckCircle className="w-4 h-4 text-success" />
   ) : (
-    <XCircle className="w-4 h-4 text-red-500" />
+    <XCircle className="w-4 h-4 text-destructive" />
   );
 };
 
@@ -415,7 +415,7 @@ export const LeadQualificationPanel = ({
       {/* Files received indicator */}
       {filesReceived && (
         <div className="flex gap-2 items-center text-sm">
-          <CheckCircle className="w-4 h-4 text-green-500" />
+          <CheckCircle className="w-4 h-4 text-success" />
           <span>{filesCount ? `${filesCount} file(s) received` : 'Files received'}</span>
         </div>
       )}
