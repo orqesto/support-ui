@@ -183,7 +183,23 @@ const LiveResult = ({ result }: { result: CustomApiLookupResult }) => {
         </div>
       ) : (
         <p className="text-[11px] text-muted-foreground">
-          {result.reason ?? 'Nothing found for that reference.'}
+          {/*
+            🔴 FOUND BY USING IT ON STAGING, 2026-09-21. "Refresh from source" runs every eligible
+            lookup for this customer, and a MANUAL one has no value to run with — the backend
+            answers `needs_input`, carrying no reason. This fell through to the catch-all and said
+            "Nothing found for that reference", which is false twice over: no reference was
+            submitted, and nothing was looked up. An agent reads it as "this customer has no such
+            record" and stops looking.
+
+            ⛔ `no_identity` gets the same treatment for the same reason: not asking is not the
+            same answer as asking and finding nothing, and only one of them is about the customer.
+          */}
+          {result.reason ??
+            (result.status === 'needs_input'
+              ? 'Type a reference above to check this one.'
+              : result.status === 'no_identity'
+                ? 'This customer has no email address for us to look them up by.'
+                : 'Nothing found for that reference.')}
         </p>
       )}
     </div>

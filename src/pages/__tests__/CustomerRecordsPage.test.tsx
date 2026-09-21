@@ -558,6 +558,53 @@ describe('CustomerRecordsPage', () => {
     expect(await screen.findByText(/203\.0\.113\.7/)).toBeInTheDocument();
   });
 
+  it('⛔ a lookup we never ran does not report "nothing found"', async () => {
+    /**
+     * 🔴 SEEN ON STAGING, 2026-09-21, by pressing Refresh on a real customer. Refresh runs every
+     * eligible lookup, and a MANUAL one has no value to run with — the backend answers
+     * `needs_input` carrying no reason, which fell through to "Nothing found for that reference".
+     * That is false twice over: no reference was submitted, and nothing was looked up. An agent
+     * reads it as "this customer has no such record" and stops looking.
+     * RED: restore the bare fallback and this fails.
+     */
+    run.mockResolvedValue([
+      { endpointId: 20, label: 'this order', connectionName: 'DeusPower', status: 'needs_input', rows: [] },
+    ]);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Refresh from source/ }));
+
+    expect(await screen.findByText(/Type a reference above to check this one/)).toBeInTheDocument();
+    expect(screen.queryByText(/Nothing found for that reference/)).toBeNull();
+  });
+
+  it('⛔ nor does a lookup that had no address to key on', async () => {
+    // `no_identity` is the same class: not asking is not the same answer as asking and finding
+    // nothing, and only one of the two says anything about the customer.
+    run.mockResolvedValue([
+      { endpointId: 20, label: 'their account', connectionName: 'DeusPower', status: 'no_identity', rows: [] },
+    ]);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Refresh from source/ }));
+
+    expect(await screen.findByText(/no email address for us to look them up by/)).toBeInTheDocument();
+  });
+
+  it('⛔ a real miss still says so — the control', async () => {
+    // Without this, copy that never said "nothing found" would pass both tests above while
+    // hiding the one state where that sentence is true.
+    run.mockResolvedValue([
+      { endpointId: 20, label: 'this order', connectionName: 'DeusPower', status: 'no_match', rows: [] },
+    ]);
+    renderPage();
+
+    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '999');
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(await screen.findByText(/Nothing found for that reference/)).toBeInTheDocument();
+  });
+
   it('a non-numeric id is a not-found state, not a request', async () => {
     renderPage('not-a-number');
 
