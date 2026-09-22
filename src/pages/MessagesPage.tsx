@@ -814,6 +814,10 @@ export const MessagesPage = () => {
                   threads-only controls that shared the old toggle row. */}
               {displayMode === 'threads' && (
                 <QuickFilterChips
+                  // Counts come from the same scope read as the "hidden by the current view"
+                  // line, so a chip and that sentence can never disagree. Undefined on an older
+                  // backend — the chip then renders bare rather than claiming zero.
+                  counts={listScope?.columnCounts}
                   trailing={
                     <>
                       <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
