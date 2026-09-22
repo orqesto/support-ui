@@ -79,7 +79,10 @@ const formatMonth = (month: string): string => {
 const monthStart = (month: string): Date => new Date(`${month}-01T00:00:00.000Z`);
 
 /** A cap bar. Amber past 75%, red past 90% — the point is to notice before it bites. */
-const CallCap = ({ calls }: { calls: ManagedAiOrgUsage['calls'] }) => {
+const CallCap = ({ calls, via }: { calls: ManagedAiOrgUsage['calls']; via?: ManagedAiOrgUsage['via'] }) => {
+  // The monthly cap governs the PLATFORM key; on its own key a workspace has none — that is
+  // not "unknown", and saying so would send someone looking for a missing number.
+  if (!calls && via === 'own_key') return <span className="text-muted-foreground">own key · no cap</span>;
   if (!calls) return <span className="text-muted-foreground">unknown</span>;
   const pct = calls.limit > 0 ? Math.min(100, Math.round((calls.used / calls.limit) * 100)) : 0;
   const tone = pct >= 90 ? 'bg-destructive' : pct >= 75 ? 'bg-warning' : 'bg-primary';
@@ -113,6 +116,13 @@ export const PlatformAiSpend = () => {
 
   const usage = data?.usage;
   const totalTokens = usage?.totals.byTier.reduce((sum, tier) => sum + tier.totalTokens, 0) ?? 0;
+  // The all-spend split. `split` is false on an older backend (managed mode only) — every label
+  // below keeps that backend's wording then, because it genuinely could not see the rest.
+  const split = usage?.totals.ownKeyOrgCount !== undefined;
+  const orgCount =
+    (usage?.totals.managedOrgCount ?? 0) +
+    (usage?.totals.defaultKeyOrgCount ?? 0) +
+    (usage?.totals.ownKeyOrgCount ?? 0);
   const totalRequests = usage?.totals.byTier.reduce((sum, tier) => sum + tier.requests, 0) ?? 0;
   /**
    * The backend now prices per MODEL and reports the rollup, because a per-tier rate
@@ -214,7 +224,7 @@ export const PlatformAiSpend = () => {
     <div className="flex flex-col gap-4 h-full min-h-0">
       <ConsolePageHeader
         title="AI Spend"
-        description="Token spend on the platform provider key, by workspace. Every managed workspace bills here — this is the key that pays, not theirs."
+        description="AI token spend by workspace, split by the key that paid: the platform key (managed workspaces, or own AI settings holding the platform key) or the workspace's own key."
       />
 
       <div className="flex gap-2 items-center">
@@ -248,6 +258,15 @@ export const PlatformAiSpend = () => {
               <CardContent className="flex flex-col gap-1 p-4">
                 <span className="text-xs text-muted-foreground">Tokens</span>
                 <span className="font-mono text-2xl font-semibold">{formatTokens(totalTokens)}</span>
+                {split && (
+                  <span
+                    className="text-xs text-muted-foreground"
+                    title="Usage is tagged with the key that paid from this release on. Before it, a workspace whose own AI settings held the platform key is counted as own key."
+                  >
+                    {formatTokens(usage.totals.platformKeyTokens ?? 0)} on the platform key ·{' '}
+                    {formatTokens(usage.totals.ownKeyTokens ?? 0)} on own keys
+                  </span>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -289,8 +308,16 @@ export const PlatformAiSpend = () => {
             </Card>
             <Card>
               <CardContent className="flex flex-col gap-1 p-4">
-                <span className="text-xs text-muted-foreground">Managed workspaces</span>
-                <span className="text-2xl font-semibold">{usage.totals.managedOrgCount}</span>
+                <span className="text-xs text-muted-foreground">
+                  {split ? 'Workspaces' : 'Managed workspaces'}
+                </span>
+                <span className="text-2xl font-semibold">{orgCount}</span>
+                {split && (
+                  <span className="text-xs text-muted-foreground">
+                    {usage.totals.managedOrgCount} managed · {usage.totals.defaultKeyOrgCount ?? 0}{' '}
+                    platform key via settings · {usage.totals.ownKeyOrgCount} own key
+                  </span>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -320,15 +347,17 @@ export const PlatformAiSpend = () => {
 
           <Card className="flex overflow-hidden flex-col flex-1 min-h-0">
             <CardContent padding="none" className="flex overflow-auto flex-col flex-1 min-h-0">
-              {usage.totals.managedOrgCount === 0 ? (
+              {orgCount === 0 ? (
                 <p className="flex flex-1 gap-2 justify-center items-center py-8 text-sm text-center text-muted-foreground">
                   <Coins className="w-4 h-4" />
-                  No workspace is in managed mode, so nothing bills to the platform key.
+                  {split
+                    ? 'No AI spend in this window, on any key.'
+                    : 'No workspace is in managed mode, so nothing bills to the platform key.'}
                 </p>
               ) : totalTokens === 0 ? (
                 <p className="flex flex-1 justify-center items-center py-8 text-sm text-center text-muted-foreground">
-                  {usage.totals.managedOrgCount} managed workspace
-                  {usage.totals.managedOrgCount === 1 ? '' : 's'}, and no AI spend in this window.
+                  {orgCount} {split ? 'workspace' : 'managed workspace'}
+                  {orgCount === 1 ? '' : 's'}, and no AI spend in this window.
                 </p>
               ) : (
                 <table className="w-full text-sm">
@@ -360,6 +389,18 @@ export const PlatformAiSpend = () => {
                           <span className="ml-2 text-xs text-muted-foreground">
                             #{org.organizationId}
                           </span>
+                          {(org.via === 'default_key' || org.via === 'own_key') && (
+                            <span
+                              title={
+                                org.via === 'own_key'
+                                  ? 'Ran on the workspace\'s own AI key — not billed to the platform key.'
+                                  : 'Not in managed mode: its own AI settings hold the platform key, so this spend bills the platform. Counted from the release that started recording it.'
+                              }
+                              className="ml-2 rounded px-1 py-0.5 text-[10px] font-semibold uppercase tracking-[0.09em] bg-muted text-muted-foreground"
+                            >
+                              {org.via === 'own_key' ? 'own key' : 'platform key via settings'}
+                            </span>
+                          )}
                         </td>
                         <td className="font-mono px-3 py-2 text-right">
                           {formatTokens(org.totalTokens)}
@@ -378,7 +419,7 @@ export const PlatformAiSpend = () => {
                           </td>
                         ))}
                         <td className="px-3 py-2">
-                          <CallCap calls={org.calls} />
+                          <CallCap calls={org.calls} via={org.via} />
                         </td>
                       </tr>
                     ))}
