@@ -237,8 +237,8 @@ export const AckReplyEditor = ({
           <p
             className={
               body.length > BODY_LIMIT
-                ? 'text-xs text-destructive shrink-0 ml-3'
-                : 'text-xs text-muted-foreground shrink-0 ml-3'
+                ? 'font-mono text-xs text-destructive shrink-0 ml-3'
+                : 'font-mono text-xs text-muted-foreground shrink-0 ml-3'
             }
           >
             {body.length.toLocaleString()} / {BODY_LIMIT.toLocaleString()}

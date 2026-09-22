@@ -50,8 +50,10 @@ export const UsageTile = ({
       )}
     </div>
     <div className="flex justify-between items-baseline mb-2">
-      <span className="text-2xl font-bold">{item.current.toLocaleString()}</span>
-      <span className="text-sm text-muted-foreground">/ {item.limit.toLocaleString()}</span>
+      <span className="font-mono text-2xl font-bold">{item.current.toLocaleString()}</span>
+      <span className="font-mono text-sm text-muted-foreground">
+        / {item.limit.toLocaleString()}
+      </span>
     </div>
     <Progress value={Math.min(item.percentage, 100)} className={barColor(item)} />
     <div className="flex justify-between items-center mt-1">

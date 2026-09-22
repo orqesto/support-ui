@@ -47,7 +47,10 @@ export const SuggestionMeta = ({
     <>
       <span>Evidence: {suggestion.evidenceCount}</span>
       {confidence !== null && <span>Confidence: {confidence}%</span>}
-      <span>Expires: {new Date(suggestion.expiresAt).toLocaleDateString()}</span>
+      <span>
+        Expires:{' '}
+        <span className="font-mono">{new Date(suggestion.expiresAt).toLocaleDateString()}</span>
+      </span>
     </>
   );
 

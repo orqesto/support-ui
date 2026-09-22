@@ -102,7 +102,10 @@ describe('EditUserPage', () => {
   it('loads the member and seeds the form', async () => {
     renderAt('/users/7/edit', '/users/:id/edit');
     expect(await screen.findByDisplayValue('Ada')).toBeInTheDocument();
-    expect(screen.getByText('ada@example.com')).toBeInTheDocument();
+    // The header renders the address in its own (mono) span, so the plain-text query now
+    // matches more than one node; assert the header's copy explicitly instead of loosening it.
+    expect(screen.getAllByText('ada@example.com').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Ada Lovelace ·/)).toBeInTheDocument();
   });
 
   it('saves and returns to the member list', async () => {

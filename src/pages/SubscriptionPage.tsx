@@ -393,7 +393,7 @@ export const SubscriptionPage = () => {
                 </p>
                 {subscription.trialEndsAt && (
                   <p className="text-sm text-foreground">
-                    Trial ends: {new Date(subscription.trialEndsAt).toLocaleDateString()}
+                    Trial ends: <span className="font-mono">{new Date(subscription.trialEndsAt).toLocaleDateString()}</span>
                   </p>
                 )}
               </div>
@@ -504,19 +504,19 @@ export const SubscriptionPage = () => {
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-xs text-muted-foreground">Max Users</p>
-                <p className="text-lg font-semibold">
+                <p className="font-mono text-lg font-semibold">
                   {dashboard.limits.maxUsers.toLocaleString()}
                 </p>
               </div>
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-xs text-muted-foreground">Max Integrations</p>
-                <p className="text-lg font-semibold">
+                <p className="font-mono text-lg font-semibold">
                   {dashboard.limits.maxIntegrations.toLocaleString()}
                 </p>
               </div>
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-xs text-muted-foreground">Messages / Month</p>
-                <p className="text-lg font-semibold">
+                <p className="font-mono text-lg font-semibold">
                   {dashboard.limits.maxMessagesPerMonth.toLocaleString()}
                 </p>
               </div>
@@ -530,7 +530,7 @@ export const SubscriptionPage = () => {
               </div>
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-xs text-muted-foreground">Storage</p>
-                <p className="text-lg font-semibold">
+                <p className="font-mono text-lg font-semibold">
                   {dashboard.limits.maxStorageMb.toLocaleString()} MB
                 </p>
               </div>

@@ -271,7 +271,7 @@ export const LearningTrustSettings = () => {
                 </p>
                 <p className="mt-1 text-lg font-semibold capitalize">{state.trustMode}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Since {formatDate(state.trustModeSetAt)}
+                  Since <span className="font-mono">{formatDate(state.trustModeSetAt)}</span>
                 </p>
               </div>
               <div className="p-3 rounded-lg border border-border bg-background">

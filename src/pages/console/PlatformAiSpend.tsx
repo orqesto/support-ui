@@ -230,7 +230,7 @@ export const PlatformAiSpend = () => {
         ))}
         {data?.meta.from && (
           <span className="ml-2 text-xs text-muted-foreground">
-            since {new Date(data.meta.from).toLocaleDateString()}
+            since <span className="font-mono">{new Date(data.meta.from).toLocaleDateString()}</span>
           </span>
         )}
       </div>

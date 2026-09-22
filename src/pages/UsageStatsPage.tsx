@@ -135,7 +135,7 @@ export const UsageStatsPage = () => {
           <Card>
             <CardContent className="p-6">
               <p className="mb-1 text-sm text-foreground/70">Total Used</p>
-              <p className="text-2xl font-bold">{totalUsed.toLocaleString()}</p>
+              <p className="font-mono text-2xl font-bold">{totalUsed.toLocaleString()}</p>
               <p className="mt-1 text-xs text-foreground/60">units this period</p>
             </CardContent>
           </Card>
@@ -143,7 +143,7 @@ export const UsageStatsPage = () => {
           <Card>
             <CardContent className="p-6">
               <p className="mb-1 text-sm text-foreground/70">Included</p>
-              <p className="text-2xl font-bold">{totalIncluded.toLocaleString()}</p>
+              <p className="font-mono text-2xl font-bold">{totalIncluded.toLocaleString()}</p>
               <p className="mt-1 text-xs text-foreground/60">total limit</p>
             </CardContent>
           </Card>
@@ -151,7 +151,7 @@ export const UsageStatsPage = () => {
           <Card>
             <CardContent className="p-6">
               <p className="mb-1 text-sm text-foreground/70">Overage</p>
-              <p className="text-2xl font-bold text-warning">{totalOverage.toLocaleString()}</p>
+              <p className="font-mono text-2xl font-bold text-warning">{totalOverage.toLocaleString()}</p>
               <p className="mt-1 text-xs text-foreground/60">extra units</p>
             </CardContent>
           </Card>

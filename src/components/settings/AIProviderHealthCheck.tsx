@@ -151,7 +151,7 @@ export const AIProviderHealthCheck = () => {
               )}
               {provider.lastTested && (
                 <p className="text-xs text-muted-foreground mt-2">
-                  Last tested: {new Date(provider.lastTested).toLocaleString()}
+                  Last tested: <span className="font-mono">{new Date(provider.lastTested).toLocaleString()}</span>
                 </p>
               )}
             </div>

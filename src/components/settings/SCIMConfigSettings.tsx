@@ -459,12 +459,12 @@ export const SCIMConfigSettings = () => {
                       {tokens.map((token) => (
                         <tr key={token.id} className="border-t border-border">
                           <td className="px-3 py-2">{token.label ?? '—'}</td>
-                          <td className="px-3 py-2 text-muted-foreground">
+                          <td className="font-mono px-3 py-2 text-muted-foreground">
                             {token.lastUsedAt
                               ? new Date(token.lastUsedAt).toLocaleString()
                               : 'Never'}
                           </td>
-                          <td className="px-3 py-2 text-muted-foreground">
+                          <td className="font-mono px-3 py-2 text-muted-foreground">
                             {new Date(token.createdAt).toLocaleDateString()}
                           </td>
                           <td className="px-3 py-2 text-right">

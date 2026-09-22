@@ -44,7 +44,7 @@ export const SpamLogListItem = ({ log, onOpen }: SpamLogListItemProps) => (
           title={`Detected: ${formatDate(log.detectedAt)}`}
         >
           <Clock className="inline w-3 h-3 mr-0.5 -mt-0.5" />
-          {formatAge(log.detectedAt)}
+          <span className="font-mono">{formatAge(log.detectedAt)}</span>
         </span>
         <Button
           variant="outline"

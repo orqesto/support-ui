@@ -206,7 +206,7 @@ export const DeletedMessages = () => {
                           <td className="px-4 py-3">
                             <DepartmentBadge departmentId={msg.departmentId} />
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                          <td className="font-mono px-4 py-3 text-muted-foreground whitespace-nowrap">
                             {msg.deletedAt ? formatDate(msg.deletedAt) : '—'}
                           </td>
                           <td className="px-4 py-3 text-right">

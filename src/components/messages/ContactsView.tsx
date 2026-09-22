@@ -227,7 +227,7 @@ function ContactRow({
                     <MessageSquare className="w-3 h-3" />
                     {subject.messageCount}
                   </span>
-                  <span className="text-[11px] text-muted-foreground w-9 text-right tabular-nums">
+                  <span className="font-mono text-[11px] text-muted-foreground w-9 text-right">
                     {openingId === subject.latestMessageId ? '…' : formatAge(subject.lastMessageAt)}
                   </span>
                 </Button>

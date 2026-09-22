@@ -560,7 +560,8 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
                 </div>
               )}
               <div>
-                <span className="font-medium">Joined:</span> {formatDate(user.createdAt)}
+                <span className="font-medium">Joined:</span>{' '}
+                <span className="font-mono">{formatDate(user.createdAt)}</span>
               </div>
             </div>
           </div>
