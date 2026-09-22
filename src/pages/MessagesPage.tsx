@@ -3,7 +3,7 @@
 // this page is a separate refactor (see backlog #15 contact rework, which will
 // touch the same surface).
 /* eslint-disable max-lines */
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Mail, PenSquare, RefreshCw } from 'lucide-react';
 import { MessagesViewToggle } from '@/components/messages/MessagesViewToggle';
@@ -36,6 +36,14 @@ import { cn, formatDate } from '@/lib/utils';
 import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
 import type { Message, MessagesDisplayMode } from '@/types';
 import { Permission } from '@/types/roles';
+import { BulkActionBar } from '@/components/messages/bulk/BulkActionBar';
+import { BulkConfirmDialog, type BulkConfirmValues } from '@/components/messages/bulk/BulkConfirmDialog';
+import { describeResult } from '@/components/messages/bulk/bulkResultMessage';
+import { type BulkAction } from '@/components/messages/bulk/bulkActions';
+import { useBulkSelection } from '@/components/messages/bulk/useBulkSelection';
+import { bulkService } from '@/services/bulk.service';
+import { toast } from '@/lib/toast';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { ComposeNewModal } from '@/components/messages/ComposeNewModal';
 import { MessageFilterBar } from '@/components/messages/filters/MessageFilterBar';
 import { ListScopeNotice } from '@/components/messages/ListScopeNotice';
@@ -136,9 +144,17 @@ export const MessagesPage = () => {
     );
   }, [displayMode, setSearchParams]);
   const [kanbanRefreshKey, setKanbanRefreshKey] = useState(0);
+  /**
+   * Bulk selection. Owned HERE rather than inside the board because it must outlive a board
+   * refresh (marking one thread read refreshes the board; the other fourteen stay picked) and
+   * because the action bar sits outside the board.
+   */
+  const [bulkAction, setBulkAction] = useState<BulkAction | null>(null);
+  const [bulkRunning, setBulkRunning] = useState(false);
   /** What the board says it is holding — see the `pagination` prop on MessageFilterBar. */
   const [boardTotal, setBoardTotal] = useState(0);
   const bumpKanban = useCallback(() => setKanbanRefreshKey((key) => key + 1), []);
+
   // Imperative handle to the Kanban view for optimistic single-card moves, plus the
   // threadId of the currently-open conversation (captured on open) so we know which
   // card to move without a full board refetch.
@@ -212,6 +228,9 @@ export const MessagesPage = () => {
   }>({ open: false, title: '', description: '', variant: 'info' });
 
   const filters = useMessagesStore((state) => state.filters);
+  // The scope key: a change to what the board is SHOWING clears the selection, because the
+  // ids then name rows the agent can no longer see.
+  const bulkSelection = useBulkSelection(JSON.stringify(filters));
   const sorting = useMessagesStore((state) => state.sorting);
   const updateFilter = useMessagesStore((state) => state.updateFilter);
   const setSorting = useMessagesStore((state) => state.setSorting);
@@ -292,7 +311,70 @@ export const MessagesPage = () => {
     handleRefresh,
     clearCache,
   } = useMessagesData({ urlSyncedRef, isKanban });
+
+
+  /**
+   * Run the chosen bulk action over the current selection.
+   *
+   * The SERVER decides eligibility again at this point — the preview the dialog showed may be
+   * seconds old, and a thread can change in between. Whatever comes back is reported as it is:
+   * applied, skipped with a reason, or failed.
+   */
+  const runBulkAction = useCallback(
+    async (values: BulkConfirmValues) => {
+      if (!bulkAction) return;
+      setBulkRunning(true);
+      try {
+        const response = await bulkService.run(bulkAction, bulkSelection.selectedIds, {
+          title: values.title,
+          trainFilter: values.trainFilter,
+          assigneeId: values.assigneeId,
+        });
+        if (!response.success) {
+          toast.error('The bulk action could not be run');
+          return;
+        }
+        if (!response.data) {
+          toast.error('The bulk action returned nothing to report');
+          return;
+        }
+        const outcome = describeResult(bulkAction, response.data);
+        if (outcome.tone === 'warning') toast.error(outcome.text);
+        else toast.success(outcome.text);
+
+        bulkSelection.clear();
+        setBulkAction(null);
+        // One refresh for the whole run: the board keeps its loaded pages and scroll (#453).
+        bumpKanban();
+        void fetchMessages(messagesPagination.page, true);
+      } catch (err) {
+        toast.error(getApiErrorMessage(err) ?? 'The bulk action could not be run');
+      } finally {
+        setBulkRunning(false);
+      }
+    },
+    [bulkAction, bulkSelection, bumpKanban, fetchMessages, messagesPagination.page]
+  );
+
   const threads: MessageThread[] = rawThreads;
+
+  /**
+   * What the list view's "select every message on this page" can offer: the loaded rows that
+   * are real conversations. A `spamlog_` row has none behind it and every bulk action refuses
+   * it, so offering it would be an invitation to a guaranteed refusal.
+   */
+  const listSelectableIds = useMemo(
+    () =>
+      threads
+        .filter(
+          (thread) =>
+            !thread.threadId.startsWith('spamlog_') && (thread.latestMessage?.id ?? 0) > 0
+        )
+        .map((thread) => thread.latestMessage!.id),
+    [threads]
+  );
+  const listSelectedCount = listSelectableIds.filter((id) => bulkSelection.isSelected(id)).length;
+
 
   const pagination = messagesPagination;
 
@@ -892,14 +974,20 @@ export const MessagesPage = () => {
               )}
 
               {displayMode === 'kanban' ? (
-                <MessagesKanbanView
-                  ref={kanbanRef}
-                  filters={filters}
-                  onOpen={handleOpenThread}
-                  refreshKey={kanbanRefreshKey}
-                  onScopeJump={handleScopeJump}
-                  onTotalChange={setBoardTotal}
-                />
+                <>
+                  <MessagesKanbanView
+                    ref={kanbanRef}
+                    filters={filters}
+                    onOpen={handleOpenThread}
+                    refreshKey={kanbanRefreshKey}
+                    onScopeJump={handleScopeJump}
+                    onTotalChange={setBoardTotal}
+                    isSelected={bulkSelection.isSelected}
+                    onToggleSelected={bulkSelection.toggle}
+                    onSelectMany={bulkSelection.selectMany}
+                    onDeselectMany={bulkSelection.deselectMany}
+                  />
+                </>
               ) : displayMode === 'contacts' ? (
                 <ContactsView
                   apiFilters={buildContactsApiFilters(filters)}
@@ -937,11 +1025,44 @@ export const MessagesPage = () => {
                 </Card>
               ) : (
                 <div className="grid gap-4">
+                  {/* Select every row on this page — the companion to filtering first and then
+                      acting. Only what is LOADED: claiming "all" would select rows the agent
+                      has not seen. */}
+                  <label className="flex gap-2 items-center px-1 text-xs text-muted-foreground">
+                    <Checkbox
+                      checked={
+                        listSelectableIds.length > 0 &&
+                        listSelectedCount === listSelectableIds.length
+                      }
+                      ref={(node) => {
+                        if (node)
+                          node.indeterminate =
+                            listSelectedCount > 0 && listSelectedCount < listSelectableIds.length;
+                      }}
+                      disabled={listSelectableIds.length === 0}
+                      aria-label="Select every message on this page"
+                      onChange={() =>
+                        listSelectedCount === listSelectableIds.length
+                          ? bulkSelection.deselectMany(listSelectableIds)
+                          : bulkSelection.selectMany(listSelectableIds)
+                      }
+                    />
+                    {listSelectedCount > 0
+                      ? `${listSelectedCount} of ${listSelectableIds.length} on this page selected`
+                      : 'Select every message on this page'}
+                  </label>
+
                   {threads.map((thread) => (
                     <MessageListItem
                       key={thread.threadId}
                       thread={thread}
                       onOpen={handleOpenThread}
+                      selected={
+                        thread.latestMessage
+                          ? bulkSelection.isSelected(thread.latestMessage.id)
+                          : false
+                      }
+                      onToggleSelected={bulkSelection.toggle}
                       onReadChanged={() => {
                         bumpKanban();
                         void fetchMessages(messagesPagination.page, true);
@@ -962,6 +1083,17 @@ export const MessagesPage = () => {
                 />
               )}
             </>
+
+            {/* ⛔ OUTSIDE the view switch, so it serves the board AND the thread list. It lived
+                inside the kanban branch first, which left the list view able to select rows
+                with nothing to do with them. Sticky at the bottom of whichever view is open. */}
+            <BulkActionBar
+              selectedCount={bulkSelection.selectedIds.length}
+              previews={bulkSelection.previews}
+              loading={bulkSelection.loading}
+              onPick={setBulkAction}
+              onClear={bulkSelection.clear}
+            />
           </div>
         </div>
         {/* end list panel inner container */}
@@ -1140,6 +1272,18 @@ export const MessagesPage = () => {
           <Button onClick={() => setSpamPreview(null)}>Close</Button>
         </DialogFooter>
       </Dialog>
+
+      <BulkConfirmDialog
+        open={bulkAction !== null}
+        action={bulkAction}
+        preview={bulkAction ? (bulkSelection.previews[bulkAction] ?? null) : null}
+        selectedCount={bulkSelection.selectedIds.length}
+        running={bulkRunning}
+        onOpenChange={(open) => {
+          if (!open) setBulkAction(null);
+        }}
+        onConfirm={(values) => void runBulkAction(values)}
+      />
 
       <ComposeNewModal open={composeOpen} onClose={() => setComposeOpen(false)} />
     </Layout>

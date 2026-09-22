@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { createPortal } from 'react-dom';
 import {
   BookOpen,
@@ -28,7 +29,7 @@ import {
 } from '@/lib/messageHelpers';
 import { logger } from '@/lib/logger';
 import { stripHtml } from '@/lib/stripHtml';
-import { formatDate, formatWhen, safeCssColor } from '@/lib/utils';
+import { cn, formatDate, formatWhen, safeCssColor } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { DepartmentBadge } from './DepartmentBadge';
@@ -51,9 +52,18 @@ type MessageListItemProps = {
   onOpen: (thread: MessageThread) => void;
   /** Refresh the list after a read/unread toggle so server truth catches up. */
   onReadChanged?: () => void;
+  /** Bulk selection — same contract as the kanban card. Absent = no checkbox. */
+  selected?: boolean;
+  onToggleSelected?: (conversationId: number) => void;
 };
 
-export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListItemProps) => {
+export const MessageListItem = ({
+  thread,
+  onOpen,
+  onReadChanged,
+  selected,
+  onToggleSelected,
+}: MessageListItemProps) => {
   const msg = thread.latestMessage;
   const { data: allDepts = [] } = useDepartments();
   const currentUser = useAuthStore((state) => state.user);
@@ -233,7 +243,27 @@ export const MessageListItem = ({ thread, onOpen, onReadChanged }: MessageListIt
         aria-hidden="true"
         className={`absolute left-0 top-0 bottom-0 w-[3px] ${SPINE_BG[spine]}`}
       />
-      <CardContent className="p-2.5 pl-4 space-y-1">
+
+      {/* Top-right, matching the kanban card so the gesture is the same in both views.
+          stopPropagation: the whole row opens the thread on click, and an agent selecting
+          rows is doing so precisely to avoid opening them. */}
+      {onToggleSelected && !thread.threadId.startsWith('spamlog_') && msg.id > 0 && (
+        <div
+          className="absolute top-2 right-2 z-20"
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+          role="presentation"
+        >
+          <Checkbox
+            checked={selected === true}
+            aria-label={`Select message from ${msg.sender}`}
+            onChange={() => onToggleSelected(msg.id)}
+          />
+        </div>
+      )}
+      {/* pr-8 when a checkbox is drawn: the row's top-right already holds the timestamp, and
+          an absolutely-placed box would sit on top of it. */}
+      <CardContent className={cn('p-2.5 pl-4 space-y-1', onToggleSelected && 'pr-8')}>
         {/* Identity line — dept + channel + sender + read toggle + age on ONE row.
             The conversation id moved down to the reference footer: it is looked
             up, not scanned, and a header row of its own cost every row a full

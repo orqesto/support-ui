@@ -28,6 +28,7 @@ import {
 import { RotateCcw, GripVertical, ArrowRightCircle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/Badge';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { messageService, type ListScope, type MessageThread } from '@/services/message.service';
@@ -69,11 +70,15 @@ function DraggableMessageCard({
   colId,
   onOpen,
   weRepliedLast,
+  selected,
+  onToggleSelected,
 }: {
   thread: MessageThread;
   colId: string;
   onOpen: (t: MessageThread) => void;
   weRepliedLast?: boolean;
+  selected?: boolean;
+  onToggleSelected?: (conversationId: number) => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: thread.threadId,
@@ -95,11 +100,23 @@ function DraggableMessageCard({
         aria-label="Drag to move card"
         {...attributes}
         {...listeners}
-        className="absolute top-1.5 right-1.5 z-10 p-1 w-auto h-auto rounded text-muted-foreground opacity-30 group-hover:opacity-80 transition-opacity cursor-grab active:cursor-grabbing focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+        className={cn(
+          'absolute top-1.5 z-10 p-1 w-auto h-auto rounded text-muted-foreground opacity-30 group-hover:opacity-80 transition-opacity cursor-grab active:cursor-grabbing focus:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+          // The checkbox owns the corner in selection mode; the grip steps aside rather than
+          // sitting under it.
+          onToggleSelected ? 'right-7' : 'right-1.5'
+        )}
       >
         <GripVertical className="w-3.5 h-3.5" />
       </Button>
-      <KanbanCard thread={thread} onOpen={onOpen} weRepliedLast={weRepliedLast} colId={colId} />
+      <KanbanCard
+        thread={thread}
+        onOpen={onOpen}
+        weRepliedLast={weRepliedLast}
+        colId={colId}
+        selected={selected}
+        onToggleSelected={onToggleSelected}
+      />
     </div>
   );
 }
@@ -118,6 +135,12 @@ type KanbanColumnProps = {
   // P2: unread auto-arrival count for this column (Suspicious/Spam only) + clear handler.
   newCount?: number;
   onClearNew?: () => void;
+  /** Bulk selection, threaded down to the cards. Absent = no checkboxes anywhere. */
+  isSelected?: (conversationId: number) => boolean;
+  onToggleSelected?: (conversationId: number) => void;
+  /** Select / clear every LOADED card in this column (what "Load more" has fetched, no more). */
+  onSelectMany?: (conversationIds: number[]) => void;
+  onDeselectMany?: (conversationIds: number[]) => void;
 };
 
 const KanbanColumn = ({
@@ -133,11 +156,22 @@ const KanbanColumn = ({
   onOpen,
   newCount,
   onClearNew,
+  isSelected,
+  onToggleSelected,
+  onSelectMany,
+  onDeselectMany,
 }: KanbanColumnProps) => {
   // Always call useDroppable — only attach ref when this column can receive a drop.
   // Without setNodeRef, the droppable has no bounding rect so collision detection ignores it.
   const { setNodeRef, isOver } = useDroppable({ id: col.id });
   const Icon = col.icon;
+
+  // What this lane can offer a bulk run: the loaded cards that are real conversations
+  // (a `spamlog_` row has none behind it, so it can never be acted on).
+  const selectableIds = state.threads
+    .filter((thread) => !thread.threadId.startsWith('spamlog_') && (thread.latestMessage?.id ?? 0) > 0)
+    .map((thread) => thread.latestMessage!.id);
+  const selectedHere = isSelected ? selectableIds.filter((id) => isSelected(id)).length : 0;
 
   // Only highlight when this column is a valid target for the currently dragged card.
   const isValidTarget =
@@ -164,6 +198,26 @@ const KanbanColumn = ({
     >
       {/* Column header */}
       <div className="flex items-center gap-2 px-3 py-2.5 border-b bg-background">
+        {/* Select every LOADED card in this lane — the point of filtering first and then
+            selecting. Deliberately NOT "all 74 in the column": it can only pick what has been
+            fetched, and claiming otherwise would select rows the agent has never seen. */}
+        {onSelectMany && onDeselectMany && (
+          <Checkbox
+            checked={selectableIds.length > 0 && selectedHere === selectableIds.length}
+            ref={(node) => {
+              // Indeterminate is a DOM property, not an attribute: it cannot be set in JSX.
+              if (node) node.indeterminate = selectedHere > 0 && selectedHere < selectableIds.length;
+            }}
+            aria-label={`Select the loaded ${col.label} cards`}
+            disabled={selectableIds.length === 0}
+            onChange={() =>
+              selectedHere === selectableIds.length
+                ? onDeselectMany(selectableIds)
+                : onSelectMany(selectableIds)
+            }
+            className="shrink-0"
+          />
+        )}
         <Icon className={`w-4 h-4 shrink-0 ${col.iconClass}`} />
         <span className="flex-1 min-w-0 text-sm font-semibold truncate">{col.label}</span>
         {/* P2: unread auto-arrival badge (Suspicious/Spam). Click = "reviewed" → clears
@@ -223,6 +277,10 @@ const KanbanColumn = ({
                     colId={col.id}
                     onOpen={onOpen}
                     weRepliedLast={col.id === 'awaiting'}
+                    selected={
+                      thread.latestMessage ? isSelected?.(thread.latestMessage.id) : false
+                    }
+                    onToggleSelected={onToggleSelected}
                   />
                 </div>
               ) : (
@@ -240,6 +298,10 @@ const KanbanColumn = ({
                     onOpen={onOpen}
                     weRepliedLast={col.id === 'awaiting'}
                     colId={col.id}
+                    selected={
+                      thread.latestMessage ? isSelected?.(thread.latestMessage.id) : false
+                    }
+                    onToggleSelected={onToggleSelected}
                   />
                 </div>
               )
@@ -280,6 +342,14 @@ type MessagesKanbanViewProps = {
    * data, because all three change what the agent is actually looking at.
    */
   onTotalChange?: (total: number) => void;
+  /**
+   * Bulk selection, owned by the page (it outlives a board refresh and is shared with the
+   * action bar). Absent = no checkboxes: the board renders exactly as it did before.
+   */
+  isSelected?: (conversationId: number) => boolean;
+  onToggleSelected?: (conversationId: number) => void;
+  onSelectMany?: (conversationIds: number[]) => void;
+  onDeselectMany?: (conversationIds: number[]) => void;
 };
 
 export type MessagesKanbanHandle = {
@@ -392,7 +462,20 @@ const ApproveDropZone = ({ activeDragColId }: { activeDragColId: string | null }
 };
 
 export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanbanViewProps>(
-  ({ filters, onOpen, refreshKey, onScopeJump, onTotalChange }, ref) => {
+  (
+    {
+      filters,
+      onOpen,
+      refreshKey,
+      onScopeJump,
+      onTotalChange,
+      isSelected,
+      onToggleSelected,
+      onSelectMany,
+      onDeselectMany,
+    },
+    ref
+  ) => {
   const queryClient = useQueryClient();
   // Which axis's columns are shown. Lifecycle = the work board; Triage = the
   // pre-lifecycle classification queues. (Option A: separate tabs.)
@@ -606,7 +689,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
          * presence is the signal that the answer means what we think. `scope` absent or
          * null already means "no information"; so does an old shape.
          */
-        const usable = res.scope && res.scope.hiddenBecause.orphanOutgoing !== undefined;
+        const usable = res.scope?.hiddenBecause.orphanOutgoing !== undefined;
         setBoardScope(
           usable ? { scope: res.scope as ListScope, shown: res.pagination.total } : null
         );
@@ -1067,6 +1150,10 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
               }
               onLoadMore={() => loadMore(col.id)}
               onOpen={onOpen}
+              isSelected={isSelected}
+              onToggleSelected={onToggleSelected}
+              onSelectMany={onSelectMany}
+              onDeselectMany={onDeselectMany}
               newCount={
                 ARRIVAL_KIND_BY_COL[col.id]
                   ? (arrivalCounts[ARRIVAL_KIND_BY_COL[col.id]] ?? 0)
