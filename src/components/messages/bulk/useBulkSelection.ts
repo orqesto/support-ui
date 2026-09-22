@@ -37,6 +37,12 @@ export type BulkSelection = {
 export const useBulkSelection = (scopeKey: string): BulkSelection => {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [previews, setPreviews] = useState<Partial<Record<BulkAction, BulkPreview>>>({});
+  /**
+   * Which selection the previews describe. Without it the bar keeps the PREVIOUS selection's
+   * counts until the new ones land, so it can read "6 selected" beside "Resolve 5 of 5" — two
+   * numbers about two different selections, side by side.
+   */
+  const [previewKey, setPreviewKey] = useState('');
   const [loading, setLoading] = useState(false);
 
   // A scope change makes the current ids meaningless — they name rows that are no longer on
@@ -47,6 +53,7 @@ export const useBulkSelection = (scopeKey: string): BulkSelection => {
     previousScope.current = scopeKey;
     setSelectedIds([]);
     setPreviews({});
+    setPreviewKey('');
   }, [scopeKey]);
 
   const selectedKey = useMemo(() => selectedIds.join(','), [selectedIds]);
@@ -56,6 +63,7 @@ export const useBulkSelection = (scopeKey: string): BulkSelection => {
   useEffect(() => {
     if (selectedIds.length === 0) {
       setPreviews({});
+      setPreviewKey('');
       return;
     }
     let cancelled = false;
@@ -86,6 +94,7 @@ export const useBulkSelection = (scopeKey: string): BulkSelection => {
           if (entry) next[entry[0]] = entry[1];
         }
         setPreviews(next);
+        setPreviewKey(ids.join(','));
         setLoading(false);
       });
     }, PREVIEW_DEBOUNCE_MS);
@@ -117,9 +126,22 @@ export const useBulkSelection = (scopeKey: string): BulkSelection => {
   const clear = useCallback(() => {
     setSelectedIds([]);
     setPreviews({});
+    setPreviewKey('');
   }, []);
 
   const isSelected = useCallback((id: number) => selectedIds.includes(id), [selectedIds]);
 
-  return { selectedIds, isSelected, toggle, clear, selectMany, deselectMany, previews, loading };
+  // Stale previews are withheld rather than shown: an action bar describing a selection the
+  // agent has already changed is worse than one that says it is still working.
+  const current = previewKey === selectedKey;
+  return {
+    selectedIds,
+    isSelected,
+    toggle,
+    clear,
+    selectMany,
+    deselectMany,
+    previews: current ? previews : {},
+    loading: loading || !current,
+  };
 };
