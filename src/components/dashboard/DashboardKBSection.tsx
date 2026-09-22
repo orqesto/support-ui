@@ -1,6 +1,7 @@
 import { BarChart3, BookOpen, FileText, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { TONE_BORDER } from './dashboardTones';
 
 type Props = {
   kbQAPairs: number;
@@ -18,7 +19,7 @@ export const DashboardKBSection = ({ kbQAPairs, kbDocuments, kbDocumentation }: 
       icon: MessageSquare,
       iconColor: 'text-muted-foreground',
       bg: 'bg-muted',
-      borderColor: '#0891b2',
+      tone: 'ai' as const,
       hint: 'Extracted pairs',
       path: '/knowledge-base#qa_pair',
     },
@@ -28,7 +29,7 @@ export const DashboardKBSection = ({ kbQAPairs, kbDocuments, kbDocumentation }: 
       icon: FileText,
       iconColor: 'text-success',
       bg: 'bg-success-muted',
-      borderColor: '#059669',
+      tone: 'caution' as const,
       hint: 'Processed attachments',
       path: '/knowledge-base#document',
     },
@@ -38,7 +39,7 @@ export const DashboardKBSection = ({ kbQAPairs, kbDocuments, kbDocumentation }: 
       icon: BookOpen,
       iconColor: 'text-ai',
       bg: 'bg-ai-muted',
-      borderColor: '#7c3aed',
+      tone: 'pending' as const,
       hint: 'Uploaded files',
       path: '/knowledge-base#documentation',
     },
@@ -56,8 +57,7 @@ export const DashboardKBSection = ({ kbQAPairs, kbDocuments, kbDocumentation }: 
             <Card
               key={kb.label}
               onClick={() => navigate(kb.path)}
-              className="border-l-4 transition-all cursor-pointer hover:shadow-lg hover:-translate-y-1 hover:border-primary/50 group"
-              style={{ borderLeftColor: kb.borderColor }}
+              className={`border-l-4 ${TONE_BORDER[kb.tone]} transition-all cursor-pointer hover:shadow-lg hover:-translate-y-1 hover:border-primary/50 group`}
             >
               <CardHeader className="flex flex-row justify-between items-center pt-4 pb-2 space-y-0">
                 <CardTitle className="text-sm font-medium transition-colors text-muted-foreground group-hover:text-foreground">

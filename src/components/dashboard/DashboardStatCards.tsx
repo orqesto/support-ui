@@ -2,6 +2,7 @@ import { BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import type { ElementType } from 'react';
+import { TONE_BORDER, TONE_FILL, type Tone } from './dashboardTones';
 
 export interface StatCard {
   title: string;
@@ -9,7 +10,8 @@ export interface StatCard {
   icon: ElementType;
   color: string;
   bg: string;
-  borderColor: string;
+  /** Palette role for the accent — see dashboardTones.ts. */
+  tone: Tone;
   hint: string;
   onClick: () => void;
   isClickable?: boolean;
@@ -32,8 +34,7 @@ export function DashboardSLASection({ cards }: SLASectionProps) {
             <Card
               key={card.title}
               onClick={card.isClickable ? card.onClick : undefined}
-              className={`border-l-4 transition-all ${card.isClickable ? 'cursor-pointer hover:shadow-lg hover:-translate-y-1 hover:border-primary/50 group' : ''}`}
-              style={{ borderLeftColor: card.borderColor }}
+              className={`border-l-4 ${TONE_BORDER[card.tone]} transition-all ${card.isClickable ? 'cursor-pointer hover:shadow-lg hover:-translate-y-1 hover:border-primary/50 group' : ''}`}
             >
               <CardHeader className="flex flex-row justify-between items-center pt-4 pb-2 space-y-0">
                 <CardTitle className="text-sm font-medium transition-colors text-muted-foreground group-hover:text-foreground">
@@ -64,7 +65,8 @@ export function DashboardSLASection({ cards }: SLASectionProps) {
 interface StatusRowCard {
   title: string;
   value: number;
-  borderColor: string;
+  /** Palette role for the accent — see dashboardTones.ts. */
+  tone: Tone;
   onClick: () => void;
 }
 
@@ -94,10 +96,10 @@ export function DashboardStatusBarSection({ label, cards }: StatusBarSectionProp
             onClick={row.onClick}
             className="flex gap-3 items-center px-1 py-1 w-full h-auto rounded transition-colors group hover:bg-muted/50"
           >
-            <div className="flex-shrink-0 w-2 h-2 rounded-full" style={{ backgroundColor: row.borderColor }} />
+            <div className={`flex-shrink-0 w-2 h-2 rounded-full ${TONE_FILL[row.tone]}`} />
             <span className="w-36 text-sm font-medium text-left text-foreground/80 group-hover:text-foreground">{row.title}</span>
             <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-muted">
-              <div className="h-full rounded-full transition-all" style={{ width: `${total ? (row.value / total) * 100 : 0}%`, backgroundColor: row.borderColor }} />
+              <div className={`h-full rounded-full transition-all ${TONE_FILL[row.tone]}`} style={{ width: `${total ? (row.value / total) * 100 : 0}%` }} />
             </div>
             <span className="w-6 text-sm font-semibold text-right">{row.value}</span>
             <span className="opacity-0 text-muted-foreground transition-opacity group-hover:opacity-100">→</span>

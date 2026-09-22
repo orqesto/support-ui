@@ -34,7 +34,7 @@
     --faint-foreground: 220 9% 42%; /* smallest labels */
 
     /* ── interactive (brand blue, unchanged) ───── */
-    --primary: 221 83% 53%;
+    --primary: 221 83% 51%; /* 53→51 2026-09-22: links on muted/accent were 4.41:1 */
     --primary-foreground: 210 40% 98%;
     --primary-muted: 219 96% 97%; /* tinted fills behind primary text */
     --primary-line: 219 89% 86%;
@@ -64,11 +64,31 @@
     --warning-foreground: 0 0% 100%;
     --warning-muted: 36 92% 94%;
     --warning-line: 33 78% 76%;
+    /* ── identity hues for counts (dashboard tiles) ── 2026-09-22
+       Three roles so every tile keeps a DISTINCT colour within its group, and switches for
+       dark, instead of the eight inline hexes the dashboard used. Named by meaning:
+       attention = a customer is waiting on us (magenta — the warm range is
+       too crowded in dark: red/orange/amber/yellow read alike there), caution = in motion / waiting
+       (yellow), pending = parked (violet). Hues chosen apart from --warning (28 light /
+       38 dark) so the warm three stay tellable. OURS, not from the design (it had none). */
+    --attention: 330 70% 42%;
+    --attention-foreground: 0 0% 100%;
+    --attention-muted: 330 80% 96%;
+    --attention-line: 330 60% 84%;
+    --caution: 50 100% 23%;
+    --caution-foreground: 0 0% 100%;
+    --caution-muted: 50 90% 92%;
+    --caution-line: 48 70% 68%;
+    --caution-solid: 42 100% 36%; /* shapes only (bars, dots, borders): gold, ≥3:1 on card; text uses --caution */
+    --pending: 270 58% 45%;
+    --pending-foreground: 0 0% 100%;
+    --pending-muted: 270 70% 96%;
+    --pending-line: 270 50% 83%;
     --destructive: 4 76% 40%;
     --destructive-foreground: 0 0% 100%;
     --destructive-muted: 6 82% 96%;
     --destructive-line: 6 73% 84%;
-    --info: 221 83% 53%;
+    --info: 221 83% 51%;
     --info-foreground: 210 40% 98%;
 
     /* ── lines & shape ─────────────────────────── */
@@ -76,7 +96,7 @@
     --border-strong: 220 13% 77%;
     --hair: 220 16% 91%; /* inside-card dividers */
     --input: 220 14% 88%;
-    --ring: 221 83% 53%;
+    --ring: 221 83% 51%;
     --radius: 0.5rem;
 
     /* ── message bubbles ───────────────────────── */
@@ -108,18 +128,18 @@
   }
 
   .dark {
-    --background: 220 16% 9%;
+    --background: 220 16% 12%;
     --foreground: 220 20% 92%;
-    --card: 220 15% 12%;
+    --card: 220 15% 16%;
     --card-foreground: 220 20% 92%;
-    --raised: 220 14% 15%;
-    --sunken: 220 16% 8%;
-    --popover: 220 15% 12%;
+    --raised: 220 14% 19%;
+    --sunken: 220 16% 10%;
+    --popover: 220 15% 16%;
     --popover-foreground: 220 20% 92%;
 
-    --muted: 220 14% 17%;
+    --muted: 220 14% 21%;
     --muted-foreground: 220 12% 68%;
-    --faint-foreground: 220 11% 63%;
+    --faint-foreground: 220 11% 64%;
 
     /* Text-weight blue for dark grounds; --primary-solid keeps the saturated
        brand blue for filled buttons, where white sits on top. */
@@ -128,9 +148,9 @@
     --primary-foreground: 220 20% 8%;
     --primary-muted: 220 40% 17%;
     --primary-line: 219 37% 28%;
-    --secondary: 220 14% 17%;
+    --secondary: 220 14% 21%;
     --secondary-foreground: 220 20% 92%;
-    --accent: 220 14% 19%;
+    --accent: 220 14% 22%;
     --accent-foreground: 220 20% 92%;
 
     --ai: 172 55% 60%;
@@ -151,6 +171,19 @@
     --warning-foreground: 30 60% 8%;
     --warning-muted: 36 45% 10%;
     --warning-line: 36 50% 24%;
+    --attention: 330 80% 76%;
+    --attention-foreground: 330 50% 8%;
+    --attention-muted: 330 32% 13%;
+    --attention-line: 330 35% 29%;
+    --caution: 52 85% 64%;
+    --caution-foreground: 50 60% 8%;
+    --caution-muted: 50 40% 11%;
+    --caution-line: 50 45% 25%;
+    --caution-solid: 52 85% 64%;
+    --pending: 270 85% 80%;
+    --pending-foreground: 270 40% 8%;
+    --pending-muted: 270 30% 14%;
+    --pending-line: 270 32% 30%;
     --destructive: 5 82% 75%;
     --destructive-foreground: 5 60% 8%;
     --destructive-muted: 6 42% 12%;
@@ -158,19 +191,20 @@
     --info: 219 100% 78%;
     --info-foreground: 220 20% 8%;
 
-    --border: 220 14% 20%;
-    --border-strong: 220 13% 27%;
-    --hair: 220 15% 16%;
-    --input: 220 14% 18%;
+    --border: 220 14% 24%;
+    --border-strong: 220 13% 30%;
+    --hair: 220 15% 20%;
+    --input: 220 14% 22%;
     --ring: 219 90% 66%;
 
-    /* --card (12%) is only 3 points above --background (9%), which reads as a
+    /* (2026-09-22: stack widened — canvas 12 / card 16 / bubble 19 / well 23.) Before, --card
+       (12%) was only 3 points above --background (9%), which read as a
        hole punched in the thread rather than paper lying on it. A message card
        is lifted clear, and its well is lifted FURTHER — a recessed well in a
        dark theme is just another hole. */
-    --bubble: 220 16% 17%;
-    --bubble-line: 220 15% 24%;
-    --bubble-well: 220 16% 21%;
+    --bubble: 220 16% 19%;
+    --bubble-line: 220 15% 26%;
+    --bubble-well: 220 16% 23%;
 
     /* Dark keeps a saturated navy fill: on a dark canvas a fill READS as
        ownership, which is what the light theme cannot do without going too
@@ -205,8 +239,8 @@
     --muted: 220 14% 93%;
     --muted-foreground: 220 10% 38%;
     --faint-foreground: 220 9% 42%;
-    --primary: 221 83% 53%;
-    --primary-solid: 221 83% 53%;
+    --primary: 221 83% 51%;
+    --primary-solid: 221 83% 51%;
     --primary-foreground: 210 40% 98%;
     --primary-muted: 219 96% 97%;
     --primary-line: 219 89% 86%;
@@ -222,6 +256,19 @@
     --warning: 28 88% 32%;
     --warning-muted: 36 92% 94%;
     --warning-line: 33 78% 76%;
+    --attention: 330 70% 42%;
+    --attention-foreground: 0 0% 100%;
+    --attention-muted: 330 80% 96%;
+    --attention-line: 330 60% 84%;
+    --caution: 50 100% 23%;
+    --caution-foreground: 0 0% 100%;
+    --caution-muted: 50 90% 92%;
+    --caution-line: 48 70% 68%;
+    --caution-solid: 42 100% 36%; /* shapes only (bars, dots, borders): gold, ≥3:1 on card; text uses --caution */
+    --pending: 270 58% 45%;
+    --pending-foreground: 0 0% 100%;
+    --pending-muted: 270 70% 96%;
+    --pending-line: 270 50% 83%;
     --destructive: 4 76% 40%;
     --destructive-muted: 6 82% 96%;
     --destructive-line: 6 73% 84%;
@@ -229,7 +276,7 @@
     --border-strong: 220 13% 77%;
     --hair: 220 16% 91%;
     --input: 220 14% 88%;
-    --ring: 221 83% 53%;
+    --ring: 221 83% 51%;
     --bubble: 0 0% 100%;
     --bubble-line: 220 11% 88%;
     --bubble-well: 220 14% 93%;
