@@ -173,18 +173,24 @@ describe('the header carries the decision', () => {
     expect(screen.queryByRole('button', { name: 'Assign to me' })).toBeNull();
   });
 
-  it('the decisions always sit on their own full-width line (never beside the chips)', () => {
-    // Owner, 2026-09-22: sharing the chip row made them jump to a second line whenever a thread
-    // had one chip more. jsdom has no layout, so this pins the structure that forces the line.
+  it('the decisions sit under the icon row and above the subject (never among the chips)', () => {
+    // Owner, 2026-09-22. jsdom has no layout, so this pins DOM ORDER: icon row → decisions →
+    // subject. On the chip row they jumped lines with the chip count.
     renderDetail({ status: 'in_progress' as Message['status'], lastReplyFromClient: true });
     const row = screen.getByRole('button', { name: 'Assign to me' }).parentElement!;
-    expect(row.className).toContain('basis-full');
+    const subject = screen.getByRole('heading', { level: 2 });
+    const more = screen.getByRole('button', { name: 'More actions' });
     expect(within(row).getByRole('button', { name: /^Resolve$/ })).toBeTruthy();
+    expect(row.compareDocumentPosition(subject) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(more.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // …and not inside the chip row.
+    expect(row.closest('.flex-wrap')).toBeNull();
   });
 
   it('CONTROL: a thread with no decision renders no empty decisions line', () => {
     renderDetail({ status: 'resolved' as Message['status'], assigneeId: 7 });
-    expect(document.querySelector('.basis-full.justify-end')).toBeNull();
+    // The decisions line itself (its classes), not the button — a missing button proves nothing.
+    expect(document.querySelector('.justify-end.pt-1\\.5')).toBeNull();
   });
 
   it('Assign to me is hidden when the thread is already mine', () => {
