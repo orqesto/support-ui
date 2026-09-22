@@ -1,4 +1,11 @@
-import { useState, useMemo, useEffect, useCallback, type ReactNode } from 'react';
+import {
+  useState,
+  useMemo,
+  useEffect,
+  useCallback,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import {
   LayoutDashboard,
   Mail,
@@ -28,8 +35,14 @@ import { useUiFlags } from '@/hooks/useUiFlags';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { joinOrganizationRoom, leaveOrganizationRoom } from '@/lib/socketManager';
 import { cn } from '@/lib/utils';
-import { useSidebarStore } from '@/stores/sidebarStore';
-import { NavTip, RAIL_QUERY, SidebarCollapseToggle } from './SidebarNav';
+import { sidebarWidthPx, useSidebarStore } from '@/stores/sidebarStore';
+import {
+  NavTip,
+  RAIL_QUERY,
+  SidebarCollapseToggle,
+  SidebarResizeHandle,
+  useSidebarShell,
+} from './SidebarNav';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useAuthStore } from '@/stores/authStore';
 import { useOnboardingStore } from '@/stores/onboardingStore';
@@ -255,6 +268,8 @@ export const Layout = ({ children }: LayoutProps) => {
   // Icon-only rail on desktop. Every collapsed style is `lg:`-scoped, so the mobile
   // drawer keeps its labels whatever this says.
   const collapsed = useSidebarStore((state) => state.collapsed);
+  const sidebarWidth = useSidebarStore(sidebarWidthPx);
+  useSidebarShell();
   const hideWhenCollapsed = collapsed ? 'lg:hidden' : '';
   // The switchers position their menu in JS, so they need the breakpoint as a value.
   const isDesktop = useMediaQuery(RAIL_QUERY);
@@ -543,12 +558,14 @@ export const Layout = ({ children }: LayoutProps) => {
         {/* Sidebar - Hidden on mobile, visible on desktop */}
         <aside
           className={cn(
-            'fixed inset-y-0 left-0 z-50 w-64 border-r transition-transform duration-300 transform bg-card flex-shrink-0',
-            collapsed && 'lg:w-16',
+            // Mobile drawer: fixed w-64. Desktop: the dragged width, or the rail.
+            'fixed inset-y-0 left-0 z-50 w-64 border-r transition-transform duration-300 transform bg-card flex-shrink-0 lg:w-[var(--sidebar-w)]',
             'lg:sticky lg:top-0 lg:h-screen lg:transform-none',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           )}
+          style={{ '--sidebar-w': `${sidebarWidth}px` } as CSSProperties}
         >
+          <SidebarResizeHandle className="hidden lg:block" />
           <div className="flex overflow-hidden flex-col h-full">
             <div
               className={cn(

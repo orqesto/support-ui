@@ -34,7 +34,6 @@ import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { useSharedLinkWorkspace } from '@/hooks/useSharedLinkWorkspace';
 import { cn, formatDate } from '@/lib/utils';
 import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
-import { useSidebarStore } from '@/stores/sidebarStore';
 import type { Message, MessagesDisplayMode } from '@/types';
 import { Permission } from '@/types/roles';
 import { ComposeNewModal } from '@/components/messages/ComposeNewModal';
@@ -77,7 +76,6 @@ const LIST_ONLY_FILTER_PARAMS = [
 ];
 
 export const MessagesPage = () => {
-  const sidebarCollapsed = useSidebarStore((state) => state.collapsed);
   const [searchParams, setSearchParams] = useSearchParams();
   // Unread Suspicious/Spam arrivals — the board badges its columns with these; the list shows
   // them on "Not shown", where both queues are hidden by default.
@@ -966,8 +964,8 @@ export const MessagesPage = () => {
               aria-label="Close"
               className={cn(
                 'fixed inset-0 z-20 cursor-default bg-black/25 dark:bg-black/50',
-                // Leave the sidebar undimmed: offset by whatever width it has now.
-                sidebarCollapsed ? 'lg:left-16' : 'lg:left-64'
+                // Leave the sidebar undimmed: offset by its current width (set by the shell).
+                'lg:left-[var(--sidebar-w,16rem)]'
               )}
               onClick={() => {
                 if (detailRequestCloseRef.current) {

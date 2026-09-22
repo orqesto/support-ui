@@ -6,8 +6,13 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { cn } from '@/lib/utils';
-import { useSidebarStore } from '@/stores/sidebarStore';
-import { NavTip, SidebarCollapseToggle } from '@/components/layout/SidebarNav';
+import { sidebarWidthPx, useSidebarStore } from '@/stores/sidebarStore';
+import {
+  NavTip,
+  SidebarCollapseToggle,
+  SidebarResizeHandle,
+  useSidebarShell,
+} from '@/components/layout/SidebarNav';
 import { WorkspaceScopeProvider } from '@/contexts/WorkspaceScopeContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { organizationService } from '@/services/organization.service';
@@ -53,6 +58,8 @@ export const WorkspaceShell = () => {
   const clearScope = useScopeStore((state) => state.clearScope);
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
   const collapsed = useSidebarStore((state) => state.collapsed);
+  const sidebarWidth = useSidebarStore(sidebarWidthPx);
+  useSidebarShell();
   // The departments budget lever is global-admin only (its BE endpoints are
   // requireGlobalAdmin) — hide the tab for an alliance_admin, who reaches this shell
   // as org_admin and would only get 403s.
@@ -158,10 +165,13 @@ export const WorkspaceShell = () => {
     <div className="flex overflow-hidden h-screen bg-background">
       <aside
         className={cn(
-          'flex overflow-hidden flex-col flex-shrink-0 w-64 border-r border-border bg-card',
-          collapsed && 'w-16'
+          'flex relative flex-col flex-shrink-0 border-r border-border bg-card',
+          // The resize handle overhangs the edge, so only the nav scrolls/clips.
+          'overflow-visible'
         )}
+        style={{ width: sidebarWidth }}
       >
+        <SidebarResizeHandle />
         <div
           className={cn(
             'flex flex-shrink-0 gap-2 items-center px-4 h-16 border-b border-border',

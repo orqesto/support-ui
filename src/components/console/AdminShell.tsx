@@ -10,8 +10,13 @@ import { useMyAlliances } from '@/hooks/useAllianceAdmin';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { useScopeStore, type AdminScope } from '@/stores/scopeStore';
 import { cn } from '@/lib/utils';
-import { useSidebarStore } from '@/stores/sidebarStore';
-import { NavTip, SidebarCollapseToggle } from '@/components/layout/SidebarNav';
+import { sidebarWidthPx, useSidebarStore } from '@/stores/sidebarStore';
+import {
+  NavTip,
+  SidebarCollapseToggle,
+  SidebarResizeHandle,
+  useSidebarShell,
+} from '@/components/layout/SidebarNav';
 import { ConsoleLoading } from './ConsoleLoading';
 import { CONSOLE_SECTIONS, PLATFORM_SECTIONS, type ConsoleScopeCtx } from './consoleSections';
 import { AllianceSwitcher } from './AllianceSwitcher';
@@ -38,6 +43,8 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
   const numericId = Number.isFinite(parsedId) ? parsedId : null;
   const setScope = useScopeStore((state) => state.setScope);
   const collapsed = useSidebarStore((state) => state.collapsed);
+  const sidebarWidth = useSidebarStore(sidebarWidthPx);
+  useSidebarShell();
   const clearScope = useScopeStore((state) => state.clearScope);
   const { isAdmin } = usePermissions();
   const { data: alliances = [], isLoading: alliancesLoading } = useMyAlliances();
@@ -108,10 +115,13 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
     <div className="flex overflow-hidden h-screen bg-background">
       <aside
         className={cn(
-          'flex overflow-hidden flex-col flex-shrink-0 w-64 border-r border-border bg-card',
-          collapsed && 'w-16'
+          'flex relative flex-col flex-shrink-0 border-r border-border bg-card',
+          // The resize handle overhangs the edge, so only the nav scrolls/clips.
+          'overflow-visible'
         )}
+        style={{ width: sidebarWidth }}
       >
+        <SidebarResizeHandle />
         <div
           className={cn(
             'flex flex-shrink-0 gap-2 items-center px-4 h-16 border-b border-border',
