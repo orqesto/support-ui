@@ -200,7 +200,10 @@ export function AiTabPanel({
         return true;
       });
       setSimilarResults(deduped);
-      const hasSuggested = !!suggestedAnswer?.answer;
+      // The SAME condition the options list renders the AI answer on (below): once an auto-reply
+      // was sent it is not offered, so it must not be counted — the KB tab badge and the ghost
+      // bubble's "+N more" both read this number.
+      const hasSuggested = !!suggestedAnswer?.answer && !autoReply?.sent;
       onOptionsLoaded?.((hasSuggested ? 1 : 0) + deduped.length);
       // Call directly so aiLoading clears even when loadingSimilar didn't change (cache hit path).
       onLoadingChange?.(false);

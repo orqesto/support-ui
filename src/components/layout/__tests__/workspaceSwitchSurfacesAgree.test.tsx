@@ -9,6 +9,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 
 type Org = { id: number; name: string; slug: string };
 const getAll = vi.fn<() => Promise<{ data: Org[] }>>();
@@ -55,14 +56,18 @@ const session = (role: string, memberships: Org[]) => {
   getAll.mockResolvedValue({ data: memberships });
 };
 
+// On a settings screen: the banner is hidden on the work surfaces by route (workspaceBannerRoutes),
+// which is a separate decision from WHO sees it — the one this file pins.
 const renderBoth = () =>
   render(
-    <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-    >
-      <OrganizationSwitcher />
-      <WorkspaceBanner />
-    </QueryClientProvider>
+    <MemoryRouter initialEntries={['/settings']}>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <OrganizationSwitcher />
+        <WorkspaceBanner />
+      </QueryClientProvider>
+    </MemoryRouter>
   );
 
 const switcherShown = () =>
