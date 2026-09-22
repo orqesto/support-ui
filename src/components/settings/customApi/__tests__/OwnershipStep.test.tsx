@@ -53,6 +53,8 @@ const endpoint = (over: Partial<Endpoint> = {}): Endpoint => ({
   resultShape: 'many',
   rowCap: 25,
   surface: 'both',
+  // L2: every endpoint that predates categories has none, which stays valid.
+  category: null,
   enabled: true,
   effectivelyEnabled: true,
   chainBroken: false,

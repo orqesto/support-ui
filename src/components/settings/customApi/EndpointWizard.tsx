@@ -1,5 +1,11 @@
 import { useState } from 'react';
 import { ROLE_OPTIONS, applyRole, roleOption } from './fieldRoles';
+import {
+  CATEGORY_LABELS,
+  CUSTOM_API_CATEGORIES,
+  readCategory,
+  type CustomApiCategory,
+} from './categories';
 import { OwnershipStep } from './OwnershipStep';
 import { RecordFormatStep } from './RecordFormatStep';
 import type { RecordFormat } from './recordFormat';
@@ -84,6 +90,25 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
    * `x-total-count` is consulted too, which covers the common case of a paged list.
    * ⛔ Upgrade only — never silently downgrade a lookup an admin or an earlier test made `many`.
    */
+  /**
+   * L2 (B2 P1): WHAT KIND of record this lookup returns.
+   *
+   * ⛔ ASKED, not inferred — and this is the one field in this wizard where inference is
+   * forbidden rather than merely unreliable. The standing constraint on custom APIs (owner,
+   * 2026-09-21) is that they stay flexible and do not rely on AI; a category is also the only
+   * thing that can be right about a vendor nobody here has seen. `resultShape` above is inferred
+   * from what the vendor returned because the vendor's own response answers it. Nothing in a
+   * payload says "this is an order".
+   *
+   * Empty string = no category, which every lookup that exists today has and keeps.
+   */
+  const [category, setCategory] = useState<CustomApiCategory | ''>(
+    // ⛔ Through `readCategory`, not a cast. A deployed frontend can meet an OLDER API that does
+    // not send the field at all, and a newer one that sends a category this build has no option
+    // for; both must land on "not set" rather than selecting nothing and silently clearing the
+    // admin's choice on the next save.
+    readCategory(endpoint?.category) ?? ''
+  );
   const [resultShape, setResultShape] = useState<'one' | 'many'>(
     (endpoint?.resultShape as 'one' | 'many') ?? 'one'
   );
@@ -232,6 +257,10 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
         path: path.trim(),
         dataPath: dataPath.trim() === '' ? null : dataPath.trim(),
         resultShape,
+        // ⛔ `null`, never omitted, when the admin picks "no category" — omitting it means "leave
+        // what is stored", so an admin could never take a category off. Same shape as `dataPath`
+        // directly above, and for the same reason its comment gives.
+        category: category === '' ? null : category,
         ...parameterFields,
       });
       invalidateAvailability();
@@ -243,6 +272,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
       path: path.trim(),
       dataPath: dataPath.trim() === '' ? null : dataPath.trim(),
       resultShape,
+      category: category === '' ? null : category,
       ...parameterFields,
     });
     invalidateAvailability();
@@ -404,6 +434,29 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
             onChange={(event) => setLabel(event.target.value)}
             placeholder="This customer's orders"
           />
+          <div className="space-y-1">
+            <Label htmlFor="ca-category">What kind of record does this return?</Label>
+            <Select
+              id="ca-category"
+              value={category}
+              onChange={(event) => setCategory(event.target.value as CustomApiCategory | '')}
+            >
+              {/* ⛔ First, and the default. Every lookup that exists today has no category and
+                  keeps working; making one mandatory would turn an L1 lookup into an invalid
+                  thing to be. */}
+              <option value="">Not set — just show the fields</option>
+              {CUSTOM_API_CATEGORIES.map((one) => (
+                <option key={one} value={one}>
+                  {CATEGORY_LABELS[one]}
+                </option>
+              ))}
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Tell us what these records ARE and we can lay them out as such for the agent. Leave it
+              unset and nothing changes — the fields you pick are shown as they are.
+            </p>
+          </div>
+
           <Input
             label="Address in your system"
             value={path}

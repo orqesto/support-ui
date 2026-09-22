@@ -282,6 +282,8 @@ export interface components {
                 title?: string;
                 targetMinutes?: number;
                 actualMinutes?: number;
+                ageHours?: number;
+                escalated?: boolean;
             };
             dismissedAt: string | null;
             createdAt: string;
@@ -355,6 +357,8 @@ export interface components {
             rowCap: number | null;
             /** @enum {string} */
             surface: "thread" | "contact" | "both";
+            /** @enum {string|null} */
+            category: "order" | "shipment" | "invoice" | "account" | null;
             enabled: boolean;
             effectivelyEnabled: boolean;
             chainBroken: boolean;
@@ -413,6 +417,7 @@ export interface components {
             label: string;
             connectionName: string;
             resultShape: string;
+            category?: string | null;
             /** @enum {string} */
             status: "ok" | "no_match" | "shape_changed" | "failed" | "needs_input" | "no_identity";
             rows?: {
