@@ -302,6 +302,16 @@ const COL_STATE_PATCH: Record<string, Partial<MessageThread>> = {
   resolved: { isResolved: true },
 };
 
+/** First occurrence wins, so a row keeps the position the agent already saw it in. */
+export const uniqueThreads = (threads: MessageThread[]): MessageThread[] => {
+  const seen = new Set<string>();
+  return threads.filter((thread) => {
+    if (seen.has(thread.threadId)) return false;
+    seen.add(thread.threadId);
+    return true;
+  });
+};
+
 const initialColStates = (): Record<string, ColumnState> =>
   Object.fromEntries(
     COLUMNS.map((col) => [
@@ -436,33 +446,52 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
   const colSortRef = useRef(colSort);
   colSortRef.current = colSort;
 
-  // Load (reset to page 1) a single column with ITS current sort. Reads sort +
-  // filters from refs so the identity stays stable and effects can call it freely.
-  const loadColumn = useCallback((colId: string) => {
+  // Load a single column with ITS current sort. Reads sort + filters from refs so the
+  // identity stays stable and effects can call it freely.
+  // `keepDepth` (post-action reconcile, same scope): re-fetch EVERY page the agent has
+  // already loaded, not just page 1. Reloading page 1 alone replaced the column with 20
+  // rows, which threw away each "Load more" page and jumped the scroll back to the top
+  // on every mark-as-read. One larger request can't stand in: the API caps `limit` at 50.
+  const loadColumn = useCallback((colId: string, keepDepth = false) => {
     const col = COLUMNS.find((kanbanCol) => kanbanCol.id === colId);
     if (!col) return () => {};
     let cancelled = false;
     setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: true } }));
     const sort = colSortRef.current[colId] ?? { sortBy: 'time', sortOrder: 'desc' };
     const requestFilters = { ...sharedFiltersRef.current, ...col.fixedFilters };
+    const pages = keepDepth ? Math.max(1, colStatesRef.current[colId]?.page ?? 1) : 1;
     void (async () => {
       try {
-        const res = await messageService.getThreads(
-          requestFilters,
-          1,
-          PAGE_SIZE,
-          sort.sortOrder,
-          sort.sortBy
+        const results = await Promise.all(
+          Array.from({ length: pages }, (_, idx) =>
+            messageService.getThreads(
+              requestFilters,
+              idx + 1,
+              PAGE_SIZE,
+              sort.sortOrder,
+              sort.sortBy
+            )
+          )
         );
-        if (cancelled || !res.success) return;
+        if (cancelled) return;
+        if (!results.every((res) => res.success)) {
+          // Keep what is on screen rather than half a column; just stop "Loading…".
+          setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: false } }));
+          return;
+        }
+        const last = results[results.length - 1];
         setColStates((prev) => ({
           ...prev,
           [colId]: {
-            threads: res.data.filter((thread) => thread.latestMessage !== null),
-            total: res.pagination.total,
+            threads: uniqueThreads(
+              results.flatMap((res) => res.data.filter((thread) => thread.latestMessage !== null))
+            ),
+            total: last.pagination.total,
             loading: false,
-            hasMore: res.pagination.page < res.pagination.totalPages,
-            page: res.pagination.page,
+            hasMore: last.pagination.page < last.pagination.totalPages,
+            // Rows can leave the column between loads; never claim a page past the end,
+            // or the next "Load more" would ask for one that does not exist.
+            page: Math.max(1, Math.min(last.pagination.page, last.pagination.totalPages)),
           },
         }));
       } catch (err) {
@@ -645,7 +674,9 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
     prevFilterKeyRef.current = filterKey;
     prevDeptKeyRef.current = selectedDeptKey;
     if (scopeChanged) setColStates(initialColStates);
-    const cancels = COLUMNS.map((col) => loadColumn(col.id));
+    // Same scope ⇒ keep every loaded page (and so the scroll position); a new scope
+    // starts again from page 1.
+    const cancels = COLUMNS.map((col) => loadColumn(col.id, !scopeChanged));
     // Same triggers as the columns themselves, so the unread badge can never drift
     // out of step with the totals beside it.
     cancels.push(loadTriageUnread());
@@ -697,10 +728,12 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
         setColStates((prev) => ({
           ...prev,
           [colId]: {
-            threads: [
+            // Offset pages shift when a row leaves the column, so the next page can
+            // repeat one already shown; a duplicate key would confuse React's reconcile.
+            threads: uniqueThreads([
               ...prev[colId].threads,
               ...res.data.filter((thread) => thread.latestMessage !== null),
-            ],
+            ]),
             total: res.pagination.total,
             loading: false,
             hasMore: res.pagination.page < res.pagination.totalPages,
