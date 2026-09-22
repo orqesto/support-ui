@@ -12,16 +12,16 @@ import {
   AlertTriangle,
   Target,
   ShieldAlert,
-  Ban,
-  Clock,
-  ChevronDown,
   Maximize2,
   Sparkles,
   MessageSquare,
   Mail,
   MailOpen,
+  MoreHorizontal,
+  History as HistoryIcon,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Button } from '@/components/ui/Button';
@@ -47,6 +47,9 @@ import type { Message, Category, TicketPriority, ThreadStatus } from '@/types';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
+import { useAssignToMe } from './useAssignToMe';
+import { ResolveSplitButton } from './ResolveSplitButton';
+import type { ResolveMode } from './resolveMode';
 import { isAiNotConfiguredError, AI_NOT_CONFIGURED_MESSAGE } from '@/lib/errorMessages';
 import {
   LABEL,
@@ -74,7 +77,9 @@ export type MessageDetailHeaderProps = {
   onClassify?: (
     action: 'approve' | 'mark_suspicious' | 'move_to_spam' | 'confirm_spam',
     createDetectionRule?: boolean,
-    trainSpamFilter?: boolean
+    trainSpamFilter?: boolean,
+    /** move_to_spam only: the agent's own decision — bin AND record it as confirmed spam. */
+    confirm?: boolean
   ) => Promise<void>;
   /**
    * Optimistically move the board card to a kanban column right after a manual
@@ -98,6 +103,24 @@ export type MessageDetailHeaderProps = {
   isRead?: boolean;
   /** Toggle the per-user read/unread state. */
   onToggleRead?: () => void;
+  /**
+   * The resolve decision, now in the header beside status and SLA — "status and SLA are what
+   * you judge before pressing Resolve". Null/absent renders no button (see resolveMode.ts).
+   */
+  resolveMode?: ResolveMode;
+  resolving?: boolean;
+  /** Opens the same confirm dialog the old footer's "Resolve (no KB)" did. */
+  onResolve?: () => void;
+  onResolveToKb?: () => void;
+  onNotCustomerWork?: () => void;
+  /** Enables "Assign to me"; hidden when the conversation is already this user's. */
+  currentUserId?: number | null;
+  /**
+   * Full page (v3): the Dept / Assigned / Category / Labels block renders into this node — the
+   * right sidebar — as stacked rows, instead of as the inline meta row under the chips. Portal,
+   * so its state and handlers stay here with the rest of the header's.
+   */
+  metaTarget?: HTMLElement | null; // undefined = inline; null = sidebar not mounted yet
 };
 
 // Manual BE status → kanban column id, so the acting agent's card moves instantly
@@ -111,6 +134,10 @@ const BE_STATUS_TO_COLUMN: Partial<Record<ThreadStatus, string>> = {
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
+
+// v3 header icon action: 30px target, 15px glyph; the tooltip carries the name (and key).
+const ICON_BTN =
+  'relative inline-grid place-items-center w-[30px] h-[30px] rounded-[7px] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors';
 
 export function MessageDetailHeader({
   message,
@@ -128,6 +155,13 @@ export function MessageDetailHeader({
   showReadToggle,
   isRead,
   onToggleRead,
+  resolveMode = null,
+  resolving = false,
+  onResolve,
+  onResolveToKb,
+  onNotCustomerWork,
+  currentUserId = null,
+  metaTarget,
 }: MessageDetailHeaderProps) {
   const { hasPermission } = usePermissions();
   const hasManageLabels = hasPermission(Permission.MANAGE_LABELS);
@@ -135,12 +169,18 @@ export function MessageDetailHeader({
   const orgCode = useCurrentOrgCode();
   const { data: allDepts = [] } = useDepartments();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [moreOpen, setMoreOpen] = useState(false);
   // Sender name → opens the contact profile drawer (same overlay as the
   // Contacts page). Resolved by the requester's email; sender may be "Name <email>".
   const [profileEmail, setProfileEmail] = useState<string | null>(null);
   const senderEmail = message.sender?.match(/<(.+?)>/)?.[1] ?? message.sender ?? '';
+  // "Marta Kowalczyk <marta@…>" → the name bold, the address beside it (v3). A bare address has
+  // no name part and is shown once, as the name.
+  const senderName = message.sender?.includes('<')
+    ? message.sender.slice(0, message.sender.indexOf('<')).trim().replace(/^"|"$/g, '')
+    : '';
   const [routingTo, setRoutingTo] = useState<number | null>(null);
   // Tracks whether the in-flight near-miss route is the "+ rule" (learn) variant,
   // so only the clicked button shows its busy label while both are disabled.
@@ -276,6 +316,34 @@ export function MessageDetailHeader({
     (message.metadata?.spamCheck as Record<string, unknown> | undefined)?.category === 'suspicious';
   const isActive =
     message.status !== 'resolved' && !isFiltered && !isSuspicious && message.status !== 'closed';
+
+  // "Assign to me" beside the decisions it usually precedes (useAssignToMe.ts). Offered only
+  // while there IS a decision to make — assigning a resolved or binned thread is not the job.
+  const {
+    canAssign,
+    assigning: assigningMe,
+    assignToMe,
+  } = useAssignToMe({
+    messageId: message.id,
+    assigneeId: message.assigneeId,
+    currentUserId,
+    onAssigned: onRefresh,
+  });
+  const canAssignToMe = canAssign && resolveMode !== null;
+
+  // Esc closes the open popover (ACTIONS menu or label picker) and only it — their roles keep
+  // the rail's own Esc out (detailShortcuts.ts dialogIsOpen). Listened on the document, so it
+  // also works from the label search box, where the rail's shortcuts are off.
+  useEffect(() => {
+    if (!moreOpen && !showLabelPicker) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setMoreOpen(false);
+      setShowLabelPicker(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [moreOpen, showLabelPicker]);
   // System-set statuses have no dropdown entry — map to nearest user-facing equivalent for display
   // The current work status is DERIVED (canonical), not the raw enum.
   const currentWorkflowStatus: WorkflowStatus = deriveWorkflowStatus(message) ?? 'open';
@@ -360,7 +428,11 @@ export function MessageDetailHeader({
     if (!wf) return null; // filtered/needs_routing — Queue axis
     const hasAnalysis = !!(message.metadata as Record<string, unknown> | undefined)?.analysis;
     if (wf.label === 'Open' && !hasAnalysis)
-      return { label: 'NOT ANALYSED', icon: null, cls: 'text-muted-foreground border-border bg-muted/60' };
+      return {
+        label: 'NOT ANALYSED',
+        icon: null,
+        cls: 'text-muted-foreground border-border bg-muted/60',
+      };
     return null; // plain work status → shown by the select, not duplicated here
   })();
 
@@ -594,11 +666,13 @@ export function MessageDetailHeader({
           setMoreOpen(false);
         },
       },
+    // Was the "History" link beside the sender; v3 has no room for it there, and dropping it
+    // would remove the only path from a message to the customer's other conversations.
     {
-      label: linkCopied ? 'Link Copied!' : 'Copy Link',
-      icon: <LinkIcon className="w-3 h-3" />,
+      label: 'Conversation history',
+      icon: <HistoryIcon className="w-3 h-3" />,
       action: () => {
-        handleCopyLink();
+        navigate(`/messages?mode=contacts&sender=${encodeURIComponent(message.sender)}`);
         setMoreOpen(false);
       },
     },
@@ -653,16 +727,8 @@ export function MessageDetailHeader({
           setMoreOpen(false);
         },
       },
-    isActive &&
-      onClassify && {
-        label: 'Move to Spam',
-        icon: <Ban className="w-3 h-3" />,
-        action: () => {
-          void onClassify('move_to_spam');
-          setMoreOpen(false);
-        },
-        danger: true,
-      },
+    // No "Move to Spam" here (owner, 2026-09-22): the caret's "Resolve & move to spam" is the
+    // one agent path, and it records CONFIRMED spam.
     onDelete && {
       label: 'Delete Message',
       icon: <Trash2 className="w-3 h-3" />,
@@ -684,105 +750,144 @@ export function MessageDetailHeader({
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex-shrink-0 border-b border-border bg-background">
-      {/* Top strip */}
-      <div className="flex items-center gap-1.5 px-4 pt-3 pb-1">
-        <span className="font-mono text-[10px] text-muted-foreground">{formatConvId(message, orgCode)}</span>
-        <span className="text-[10px] text-muted-foreground" title={message.channel}>
-          {CHANNEL_ICONS[message.channel] ?? '◌'}
-        </span>
-        <span className={`${LABEL} text-muted-foreground`}>{message.channel}</span>
-        {threadCount > 1 && (
-          <span className="text-[10px] text-muted-foreground">· {threadCount} msgs</span>
+    <div className="flex-shrink-0 border-b border-border bg-card">
+      {/* Top row (v3): identity line left, 30px icon actions right — each with a tooltip that
+          names its key where one exists. The More menu lives here now ("…", was ACTIONS). */}
+      <div className="flex items-center gap-[5px] px-3.5 pt-2.5">
+        <div className="flex items-center gap-2 mr-1 min-w-0 text-muted-foreground">
+          <span className="font-mono text-[10.5px]">{formatConvId(message, orgCode)}</span>
+          <span className={LABEL} title={message.channel}>
+            {CHANNEL_ICONS[message.channel] ?? '◌'} {message.channel}
+            {threadCount > 1 && ` · ${threadCount} msgs`}
+          </span>
+        </div>
+        <span className="flex-1" />
+        {showLabelPicker && (
+          <button
+            type="button"
+            aria-label="Close"
+            className="fixed inset-0 z-30 cursor-default"
+            onClick={() => setShowLabelPicker(false)}
+          />
         )}
-        <div className="flex gap-1 items-center ml-auto">
-          {showLabelPicker && (
+        <Tooltip content={linkCopied ? 'Link copied' : 'Copy link'} side="bottom" size="sm">
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            aria-label="Copy link"
+            className={ICON_BTN}
+          >
+            <LinkIcon className="w-[15px] h-[15px]" />
+          </button>
+        </Tooltip>
+        {onRefresh && (
+          <Tooltip content="Refresh thread" side="bottom" size="sm">
             <button
               type="button"
-              aria-label="Close"
-              className="fixed inset-0 z-30 cursor-default"
-              onClick={() => setShowLabelPicker(false)}
-            />
-          )}
-          {showReadToggle && onToggleRead && (
-            <Button
+              onClick={onRefresh}
+              aria-label="Refresh thread"
+              className={ICON_BTN}
+            >
+              <RefreshCw className="w-[15px] h-[15px]" />
+            </button>
+          </Tooltip>
+        )}
+        {showReadToggle && onToggleRead && (
+          <Tooltip content={isRead ? 'Mark as unread' : 'Mark as read'} side="bottom" size="sm">
+            <button
               type="button"
-              variant="ghost"
-              size="icon"
               onClick={onToggleRead}
-              className="p-1 w-auto h-auto rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
-              title={isRead ? 'Mark as unread' : 'Mark as read'}
               aria-label={isRead ? 'Mark as unread' : 'Mark as read'}
+              className={ICON_BTN}
             >
               {isRead ? (
-                <MailOpen className="w-3.5 h-3.5" />
+                <MailOpen className="w-[15px] h-[15px]" />
               ) : (
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                <Mail className="w-[15px] h-[15px]" />
               )}
-            </Button>
-          )}
-          {showFullPageButton && !isFullPage && (
-            <Link to={`/messages/${message.id}`} title="Open full page">
-              <Button variant="ghost" size="icon" aria-label="Open full page" className="p-1 w-auto h-auto rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent">
-                <Maximize2 className="w-3.5 h-3.5" />
-              </Button>
+            </button>
+          </Tooltip>
+        )}
+        {showFullPageButton && !isFullPage && (
+          <Tooltip content="Open full page" side="bottom" size="sm">
+            <Link to={`/messages/${message.id}`} aria-label="Open full page" className={ICON_BTN}>
+              <Maximize2 className="w-[15px] h-[15px]" />
             </Link>
-          )}
-          {onClose && !isFullPage && (
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Close"
-              onClick={onClose}
-              className="p-1 w-auto h-auto rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
-              title="Close (Esc)"
+          </Tooltip>
+        )}
+        <div className="relative">
+          <Tooltip content="More actions" side="bottom" size="sm">
+            <button
+              type="button"
+              onClick={() => setMoreOpen((val) => !val)}
+              aria-label="More actions"
+              aria-haspopup="menu"
+              aria-expanded={moreOpen}
+              className={`${ICON_BTN} ${moreOpen ? 'bg-muted text-foreground' : ''}`}
             >
-              <X className="w-3.5 h-3.5" />
-            </Button>
+              <MoreHorizontal className="w-[15px] h-[15px]" />
+            </button>
+          </Tooltip>
+          {moreOpen && (
+            <>
+              <button
+                type="button"
+                aria-label="Close"
+                className="fixed inset-0 z-40 cursor-default"
+                onClick={() => setMoreOpen(false)}
+              />
+              {/* role=menu: the detail's single-key shortcuts stand down while a menu is open,
+                  so Esc closes THIS, not the rail behind it (detailShortcuts.ts dialogIsOpen). */}
+              <div
+                role="menu"
+                className="absolute top-full right-0 mt-1 z-50 rounded-lg border border-border bg-card shadow-lg p-1 min-w-[190px]"
+              >
+                {moreMenuItems.map((item) => {
+                  const btn = (
+                    <Button
+                      key={item.label}
+                      variant="ghost"
+                      onClick={item.action}
+                      disabled={item.disabled}
+                      className={`w-full flex justify-start items-center gap-2 px-2 py-1.5 h-auto rounded text-xs text-left transition-colors ${item.danger ? 'text-destructive hover:bg-destructive-muted' : 'text-foreground hover:bg-accent'} ${item.disabled ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}`}
+                    >
+                      {item.icon}
+                      {item.label}
+                    </Button>
+                  );
+                  return item.tooltip ? (
+                    <Tooltip key={item.label} content={item.tooltip} side="left" size="sm">
+                      <span className="block w-full">{btn}</span>
+                    </Tooltip>
+                  ) : (
+                    btn
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
+        {onClose && !isFullPage && (
+          <>
+            <span className="w-px h-[18px] mx-0.5 bg-border flex-none" aria-hidden />
+            <Tooltip content="Close · Esc" side="bottom" size="sm">
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className={`${ICON_BTN} hover:!bg-destructive-muted hover:!text-destructive`}
+              >
+                <X className="w-[15px] h-[15px]" />
+              </button>
+            </Tooltip>
+          </>
+        )}
       </div>
 
-      {/* Subject + Sender */}
-      <div className="px-4 pb-2">
-        <h2 className="font-display text-[15px] font-medium leading-snug line-clamp-2 mb-1.5 text-foreground">
-          {message.subject ?? '(no subject)'}
-        </h2>
-        <div className="flex gap-2 items-center">
-          <div className="w-[18px] h-[18px] rounded-full bg-muted flex items-center justify-center text-[9px] font-semibold text-muted-foreground flex-shrink-0">
-            {getInitials(message.sender)}
-          </div>
-          {senderEmail.includes('@') ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setProfileEmail(senderEmail)}
-              className="inline-block p-0 h-auto text-xs truncate text-foreground hover:text-primary hover:underline"
-              title="View contact profile"
-            >
-              {message.sender}
-            </Button>
-          ) : (
-            <span className="text-xs truncate text-foreground">{message.sender}</span>
-          )}
-          <Link
-            to={`/messages?mode=contacts&sender=${encodeURIComponent(message.sender)}`}
-            className="ml-auto text-[10px] text-muted-foreground hover:text-foreground flex-shrink-0"
-            title="View all conversations with this sender"
-          >
-            History
-          </Link>
-        </div>
-        {/* Which of our addresses the customer wrote to, listed To/Cc/Bcc the way
-            a mail client does. The integration answers to several aliases, so
-            this is the only thing that distinguishes them. */}
-        <ReceivedAtAddresses
-          recipients={message.recipients}
-          variant="detail"
-          className="mt-1.5 pl-[26px]"
-        />
-      </div>
+      {/* Subject */}
+      <h2 className="font-display text-[16.5px] font-semibold leading-[1.3] tracking-[-0.015em] line-clamp-2 my-1.5 px-3.5 text-foreground">
+        {message.subject ?? '(no subject)'}
+      </h2>
 
       {/* Ticket bar */}
       {linkedTicketId && message.status !== 'resolved' && message.status !== 'closed' && (
@@ -810,51 +915,50 @@ export function MessageDetailHeader({
         </div>
       )}
 
-      {/* Re-route banner — runner-up depts from the routing engine.
-          Lets an agent move the conversation to a near-miss dept in one click. */}
-      {(message.nearMissDepts?.length ?? 0) > 0 &&
-        message.status !== 'resolved' &&
-        message.status !== 'closed' && (
-          <div className="px-4 pb-2">
-            <div className="flex flex-wrap items-center gap-1.5 px-2 py-1 rounded border border-primary-line bg-primary-muted">
-              <span className="text-[11px] text-foreground">🔀 Also matched:</span>
-              {message.nearMissDepts!.map((deptId) => {
-                const dept = allDepts.find((entry) => entry.id === deptId);
-                if (!dept) return null;
-                const busy = routingTo === deptId;
-                return (
-                  <span key={deptId} className="inline-flex items-center">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void handleManualRoute(deptId, false)}
-                      disabled={busy}
-                      title={`Move this conversation to ${dept.name} (one-off, no rule)`}
-                      className="text-[11px] px-1.5 py-0.5 h-auto rounded-l font-medium bg-primary-muted text-primary hover:bg-primary-muted/70 disabled:opacity-50"
-                    >
-                      {busy && !routingLearn ? `Moving to ${dept.name}…` : `Move to ${dept.name} →`}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void handleManualRoute(deptId, true)}
-                      disabled={busy}
-                      title={`Move to ${dept.name} AND create a routing rule so similar future emails auto-route here`}
-                      className="text-[11px] px-1.5 py-0.5 h-auto rounded-r font-medium border-l border-primary-line bg-primary-muted text-primary hover:bg-primary-muted/70 disabled:opacity-50"
-                    >
-                      {busy && routingLearn ? 'Adding rule…' : '+ rule'}
-                    </Button>
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
       {/* Action chip row */}
-      <div className="flex items-center gap-1.5 flex-nowrap px-4 pb-3 overflow-visible">
+      {/* Wraps on purpose: in slide-over the chips and the decisions never fit one line, so the
+          decisions group is pinned right and drops onto its own right-aligned line rather than
+          breaking wherever the row runs out. */}
+      <div className="flex items-center gap-[7px] flex-wrap px-3.5 pb-2.5 overflow-visible">
+        {/* Identity: who wrote + which of OUR addresses they wrote to. A full-width group, so the
+            state chips and the decisions always start their own line beneath it. The received-at
+            line is compact (first address + "+N"); the full To/Cc/Bcc is on hover AND focus. */}
+        <div className="flex basis-full flex-wrap items-center gap-x-[9px] gap-y-0.5 min-w-0">
+          <div className="flex items-center gap-[7px] min-w-0 overflow-hidden">
+            <div className="w-[21px] h-[21px] rounded-full bg-muted border border-border grid place-items-center font-display text-[9px] font-semibold text-muted-foreground flex-none">
+              {getInitials(message.sender)}
+            </div>
+            {senderEmail.includes('@') ? (
+              <button
+                type="button"
+                onClick={() => setProfileEmail(senderEmail)}
+                className="group flex items-baseline gap-[7px] min-w-0 text-left"
+                title="View contact profile"
+              >
+                {senderName && (
+                  <b className="font-medium text-[12.5px] whitespace-nowrap text-foreground group-hover:text-primary group-hover:underline">
+                    {senderName}
+                  </b>
+                )}
+                <span
+                  className={`truncate ${senderName ? 'text-[11.5px] text-muted-foreground' : 'text-[12.5px] font-medium text-foreground group-hover:text-primary group-hover:underline'}`}
+                >
+                  {senderEmail}
+                </span>
+              </button>
+            ) : (
+              <span className="text-[12.5px] font-medium truncate text-foreground">
+                {message.sender}
+              </span>
+            )}
+          </div>
+          <ReceivedAtAddresses
+            recipients={message.recipients}
+            variant="card"
+            prefix="received at"
+            focusable
+          />
+        </div>
         <ReactSelect
           variant="chip"
           value={currentWorkflowStatus}
@@ -867,7 +971,7 @@ export function MessageDetailHeader({
         />
         {slaInfo && (
           <div className={`${CHIP_BASE} ${slaInfo.colorClasses}`}>
-            <Clock className="w-2.5 h-2.5" />
+            <span>SLA</span>
             <span className="tabular-nums">
               {fmtMin(slaInfo.elapsed)}/{fmtMin(slaInfo.target)}
             </span>
@@ -895,78 +999,131 @@ export function MessageDetailHeader({
           </span>
         )}
         {message.isLead && (
-          <span
-            className={`text-success bg-success-muted border-success-line ${CHIP_BASE}`}
-          >
+          <span className={`text-success bg-success-muted border-success-line ${CHIP_BASE}`}>
             <Target className="w-2.5 h-2.5" />
             LEAD
           </span>
         )}
-        <div className="relative ml-auto">
-          <Button
-            variant="ghost"
-            onClick={() => setMoreOpen((val) => !val)}
-            className={`${CHIP_BASE} h-auto text-muted-foreground border-border bg-card hover:bg-accent hover:text-foreground ${moreOpen ? 'bg-accent text-foreground' : ''}`}
-            title="More actions"
-          >
-            ACTIONS
-            <ChevronDown
-              className={`w-3 h-3 transition-transform ${moreOpen ? 'rotate-180' : ''}`}
+        <div className="flex items-center gap-1.5 ml-auto">
+          {canAssignToMe && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void assignToMe()}
+              disabled={assigningMe}
+              className="h-[27px] px-[11px] rounded-[7px] text-[12px] bg-card"
+            >
+              {assigningMe ? 'Assigning…' : 'Assign to me'}
+            </Button>
+          )}
+          {onResolve && (
+            <ResolveSplitButton
+              mode={resolveMode}
+              busy={resolving}
+              onResolve={onResolve}
+              onResolveToKb={onResolveToKb}
+              onNotCustomerWork={onNotCustomerWork}
+              // Owner, 2026-09-22: the agent resolving AS spam is the CONFIRMED layer; spam our
+              // filters bin stays unconfirmed until a person acts. Hence confirm=true here.
+              onMoveToSpam={
+                isActive && onClassify
+                  ? () => void onClassify('move_to_spam', undefined, undefined, true)
+                  : undefined
+              }
             />
-          </Button>
-          {moreOpen && (
-            <>
-              <button
-                type="button"
-                aria-label="Close"
-                className="fixed inset-0 z-40 cursor-default"
-                onClick={() => setMoreOpen(false)}
-              />
-              <div className="absolute top-full right-0 mt-1 z-50 rounded-lg border border-border bg-card shadow-lg p-1 min-w-[180px]">
-                {moreMenuItems.map((item) => {
-                  const btn = (
-                    <Button
-                      key={item.label}
-                      variant="ghost"
-                      onClick={item.action}
-                      disabled={item.disabled}
-                      className={`w-full flex justify-start items-center gap-2 px-2 py-1.5 h-auto rounded text-xs text-left transition-colors ${item.danger ? 'text-destructive hover:bg-destructive-muted' : 'text-foreground hover:bg-accent'} ${item.disabled ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}`}
-                    >
-                      {item.icon}
-                      {item.label}
-                    </Button>
-                  );
-                  return item.tooltip ? (
-                    <Tooltip key={item.label} content={item.tooltip} side="left" size="sm">
-                      <span className="block w-full">{btn}</span>
-                    </Tooltip>
-                  ) : (
-                    btn
-                  );
-                })}
-              </div>
-            </>
           )}
         </div>
       </div>
 
-      {/* Meta strip */}
-      <HeaderMetaStrip
-        message={message}
-        categories={categories}
-        messageLabels={messageLabels}
-        allLabels={allLabels}
-        hasManageLabels={hasManageLabels}
-        showLabelPicker={showLabelPicker}
-        updatingCategory={updatingCategory}
-        onAssign={onRefresh}
-        onSetCategory={(id) => void handleSetCategory(id)}
-        onToggleLabel={(label) => void handleToggleLabel(label)}
-        onToggleLabelPicker={() => setShowLabelPicker((val) => !val)}
-        onCloseLabelPicker={() => setShowLabelPicker(false)}
-        onCreateLabel={hasManageLabels ? (name) => void handleCreateLabel(name) : undefined}
-        onDepartmentChange={onRefresh}
-      />
+      {/* Re-route banner — runner-up depts from the routing engine.
+          Lets an agent move the conversation to a near-miss dept in one click. */}
+      {(message.nearMissDepts?.length ?? 0) > 0 &&
+        message.status !== 'resolved' &&
+        message.status !== 'closed' && (
+          <div className="px-3.5 pb-[9px]">
+            <div className="flex flex-wrap items-center gap-2 px-[9px] py-1.5 rounded-lg border border-primary-line bg-primary-muted">
+              <span className={`${LABEL} text-primary`}>Also matched</span>
+              <span className="flex-1 min-w-[150px] text-[12px] text-muted-foreground">
+                Routing also scored this for{' '}
+                {message.nearMissDepts!.length === 1 ? 'another department' : 'other departments'}.
+              </span>
+              {message.nearMissDepts!.map((deptId) => {
+                const dept = allDepts.find((entry) => entry.id === deptId);
+                if (!dept) return null;
+                const busy = routingTo === deptId;
+                return (
+                  <span key={deptId} className="inline-flex items-center">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void handleManualRoute(deptId, false)}
+                      disabled={busy}
+                      title={`Move this conversation to ${dept.name} (one-off, no rule)`}
+                      className="h-[27px] px-[11px] rounded-l-[7px] border border-border bg-card text-[12px] font-normal text-foreground hover:border-border-strong hover:bg-card disabled:opacity-50"
+                    >
+                      {busy && !routingLearn ? `Moving to ${dept.name}…` : `Move to ${dept.name} →`}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void handleManualRoute(deptId, true)}
+                      disabled={busy}
+                      title={`Move to ${dept.name} AND create a routing rule so similar future emails auto-route here`}
+                      className="h-[27px] px-[11px] rounded-r-[7px] border border-l-0 border-border bg-card text-[12px] font-normal text-foreground hover:border-border-strong hover:bg-card disabled:opacity-50"
+                    >
+                      {busy && routingLearn ? 'Adding rule…' : '+ rule'}
+                    </Button>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+      {/* Meta strip. null = the sidebar exists but its node is not mounted yet (first paint):
+          render nothing rather than inline-then-move, which jumped the layout and briefly
+          showed Dept/Assigned twice. */}
+      {metaTarget === null ? null : metaTarget ? (
+        createPortal(
+          <HeaderMetaStrip
+            layout="rows"
+            message={message}
+            categories={categories}
+            messageLabels={messageLabels}
+            allLabels={allLabels}
+            hasManageLabels={hasManageLabels}
+            showLabelPicker={showLabelPicker}
+            updatingCategory={updatingCategory}
+            onAssign={onRefresh}
+            onSetCategory={(id) => void handleSetCategory(id)}
+            onToggleLabel={(label) => void handleToggleLabel(label)}
+            onToggleLabelPicker={() => setShowLabelPicker((val) => !val)}
+            onCloseLabelPicker={() => setShowLabelPicker(false)}
+            onCreateLabel={hasManageLabels ? (name) => void handleCreateLabel(name) : undefined}
+            onDepartmentChange={onRefresh}
+          />,
+          metaTarget
+        )
+      ) : (
+        <HeaderMetaStrip
+          message={message}
+          categories={categories}
+          messageLabels={messageLabels}
+          allLabels={allLabels}
+          hasManageLabels={hasManageLabels}
+          showLabelPicker={showLabelPicker}
+          updatingCategory={updatingCategory}
+          onAssign={onRefresh}
+          onSetCategory={(id) => void handleSetCategory(id)}
+          onToggleLabel={(label) => void handleToggleLabel(label)}
+          onToggleLabelPicker={() => setShowLabelPicker((val) => !val)}
+          onCloseLabelPicker={() => setShowLabelPicker(false)}
+          onCreateLabel={hasManageLabels ? (name) => void handleCreateLabel(name) : undefined}
+          onDepartmentChange={onRefresh}
+        />
+      )}
 
       {profileEmail && (
         <ContactProfilePanel

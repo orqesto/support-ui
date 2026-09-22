@@ -34,10 +34,7 @@ const strip = (over: Record<string, unknown> = {}) => (
     isFiltered={false}
     isSuspicious={false}
     isActive={false}
-    resolving={false}
     hasLinkedTicket={false}
-    onResolveWithoutReply={() => {}}
-    setRejectDialogOpen={() => {}}
     setReopenDialogOpen={() => {}}
     {...(over as object)}
   />

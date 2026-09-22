@@ -8,11 +8,18 @@ import { DropdownIndicator } from './DropdownIndicator';
 import { ChipDropdownIndicator } from './ChipDropdownIndicator';
 import type { SelectProps, Option } from './reactSelect.types';
 
+// 'value': a compact field value in sentence case (message detail v3 meta row — Assigned,
+// Category). Same unstyled machinery as 'chip', none of the uppercase-label styling.
+const VALUE_CONTROL =
+  'inline-flex items-center gap-1 h-[23px] px-2 rounded-md border border-border bg-card text-[11.5px] text-foreground hover:border-border-strong transition-colors cursor-pointer !min-h-0 shadow-none outline-none max-w-[220px]';
 const CHIP_CONTROL =
   'font-display inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-medium uppercase tracking-[0.09em] transition-colors cursor-pointer !min-h-0 h-auto shadow-none outline-none';
 
 export const ReactSelect = forwardRef<unknown, SelectProps>(
-  ({ label, error, value, onChange, options, id, className, variant = 'default', ...props }, _ref) => {
+  (
+    { label, error, value, onChange, options, id, className, variant = 'default', ...props },
+    _ref
+  ) => {
     const generatedId = useId();
     const selectId = id ?? generatedId;
     const { theme } = useTheme();
@@ -21,8 +28,12 @@ export const ReactSelect = forwardRef<unknown, SelectProps>(
     const customStyles = getReactSelectStyles(isDark, !!error);
     const selectedOption = options.find((opt) => opt.value === value) ?? null;
 
-    if (variant === 'chip') {
-      const chipColor = selectedOption?.chipClassName ?? 'text-muted-foreground border-border bg-muted hover:bg-accent hover:text-foreground';
+    if (variant === 'chip' || variant === 'value') {
+      const chipColor =
+        variant === 'value'
+          ? ''
+          : (selectedOption?.chipClassName ??
+            'text-muted-foreground border-border bg-muted hover:bg-accent hover:text-foreground');
       return (
         <ReactSelectLib<Option, false>
           inputId={selectId}
@@ -57,7 +68,9 @@ export const ReactSelect = forwardRef<unknown, SelectProps>(
               return (
                 <div className="flex items-center gap-2 w-full">
                   {data.dotClassName && (
-                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${data.dotClassName}`} />
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${data.dotClassName}`}
+                    />
                   )}
                   <span className="whitespace-nowrap">{data.menuLabel ?? data.label}</span>
                   {isSelected && <Check className="ml-auto w-3 h-3 flex-shrink-0 opacity-70" />}
@@ -74,19 +87,23 @@ export const ReactSelect = forwardRef<unknown, SelectProps>(
             );
           }}
           classNames={{
-            control: () => cn(CHIP_CONTROL, chipColor),
-            valueContainer: () => 'flex items-center !p-0 !m-0',
-            singleValue: () => 'text-inherit leading-none !m-0',
+            control: () => cn(variant === 'value' ? VALUE_CONTROL : CHIP_CONTROL, chipColor),
+            valueContainer: () => 'flex items-center !p-0 !m-0 min-w-0',
+            singleValue: () => 'text-inherit leading-none !m-0 truncate',
+            placeholder: () => 'text-muted-foreground leading-none',
+            input: () => 'text-[11.5px] !m-0 !p-0',
             indicatorsContainer: () => 'flex items-center !p-0',
             dropdownIndicator: () => '!p-0 ml-0.5',
-            menu: () =>
-              'mt-1 rounded-lg border border-border bg-card shadow-lg p-1 min-w-[150px]',
+            menu: () => 'mt-1 rounded-lg border border-border bg-card shadow-lg p-1 min-w-[150px]',
             option: ({ data, isFocused, isSelected }) =>
               cn(
                 'flex items-center rounded text-[13px] px-2 py-1.5 cursor-pointer transition-colors font-normal',
                 // Keep only text-color classes from chipClassName, drop bg/border
                 data.chipClassName
-                  ? data.chipClassName.split(' ').filter(cls => cls.startsWith('text-') || cls.startsWith('dark:text-')).join(' ')
+                  ? data.chipClassName
+                      .split(' ')
+                      .filter((cls) => cls.startsWith('text-') || cls.startsWith('dark:text-'))
+                      .join(' ')
                   : 'text-foreground',
                 isFocused && 'bg-accent',
                 isSelected && 'font-medium'

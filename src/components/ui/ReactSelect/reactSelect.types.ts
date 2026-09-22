@@ -18,5 +18,5 @@ export type SelectProps = Omit<
   value?: string;
   onChange?: (value: string) => void;
   options: Option[];
-  variant?: 'default' | 'chip';
+  variant?: 'default' | 'chip' | 'value';
 };

@@ -2,7 +2,7 @@ import { safeCssColor } from '@/lib/utils';
 import { useRef, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Building2, Check, X, Tag, Plus } from 'lucide-react';
+import { AlertTriangle, Building2, Check, X, Plus } from 'lucide-react';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { WhyParked } from '@/components/messages/WhyParked';
 import { ReactSelect } from '@/components/ui/ReactSelect';
@@ -19,6 +19,8 @@ import { logger } from '@/lib/logger';
 import { LABEL } from './messageDetailConstants';
 
 type Props = {
+  /** 'rows' — stacked label/value rows for the full page's sidebar (v3); default inline row. */
+  layout?: 'inline' | 'rows';
   message: Message;
   categories: Category[];
   messageLabels: Label[];
@@ -40,6 +42,7 @@ type Props = {
 };
 
 export function HeaderMetaStrip({
+  layout = 'inline',
   message,
   categories,
   messageLabels,
@@ -55,6 +58,7 @@ export function HeaderMetaStrip({
   onCreateLabel,
   onDepartmentChange,
 }: Props) {
+  const rows = layout === 'rows';
   const labelPickerRef = useRef<HTMLDivElement>(null);
   const labelBtnRef = useRef<HTMLButtonElement>(null);
   const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
@@ -147,10 +151,20 @@ export function HeaderMetaStrip({
   const threadItemId = `conv_${message.id}`;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-1 gap-y-2 px-4 pt-2 pb-3 border-t border-border/40">
+    // v3 meta row: Dept / Assigned / Category as compact values, labels inline — one wrapping
+    // row instead of three large selects and a separate Labels line.
+    <div
+      className={
+        rows
+          ? 'flex flex-col items-stretch gap-1.5 px-[13px] py-[11px] bg-raised border-b border-border [&>div]:gap-2'
+          : 'flex flex-wrap items-center gap-x-[9px] gap-y-1.5 px-3.5 pb-2.5'
+      }
+    >
       {/* Department (resolved by smart routing; admins can re-route inline) */}
       <div className="flex items-center gap-2 min-w-0">
-        <span className={`flex-shrink-0 ${LABEL} text-muted-foreground/70`}>Department</span>
+        <span className={`flex-shrink-0 ${LABEL} text-muted-foreground ${rows ? 'w-[62px]' : ''}`}>
+          Dept
+        </span>
         {editingDept && canRoute ? (
           <div className="flex items-center gap-2">
             <ReactSelect
@@ -189,19 +203,11 @@ export function HeaderMetaStrip({
                 ? 'Click to change department'
                 : 'You need ticket management permission to re-route'
             }
-            className={`inline-flex gap-1 items-center px-1.5 py-0.5 h-auto text-[11px] font-medium rounded ${
-              canRoute ? 'cursor-pointer hover:ring-1 hover:ring-border' : 'cursor-default'
-            } ${needsRouting ? 'bg-warning-muted text-warning' : ''}`}
-            style={
-              !needsRouting && primaryDept
-                ? {
-                    backgroundColor: primaryDept.color
-                      ? `${safeCssColor(primaryDept.color)}22`
-                      : undefined,
-                    color: primaryDept.color ? safeCssColor(primaryDept.color) : undefined,
-                  }
-                : undefined
-            }
+            // A v3 value like Assigned/Category beside it; the department's own colour stays
+            // on the icon. Needs routing keeps its state tone — it is a condition, not a value.
+            className={`inline-flex gap-1 items-center h-[23px] px-2 rounded-md border text-[11.5px] font-normal ${
+              canRoute ? 'cursor-pointer hover:border-border-strong' : 'cursor-default'
+            } ${needsRouting ? 'bg-warning-muted text-warning border-warning-line' : 'bg-card text-foreground border-border'}`}
           >
             {needsRouting ? (
               <>
@@ -210,7 +216,10 @@ export function HeaderMetaStrip({
               </>
             ) : primaryDept ? (
               <>
-                <Building2 className="w-3 h-3" />
+                <Building2
+                  className="w-3 h-3"
+                  style={primaryDept.color ? { color: safeCssColor(primaryDept.color) } : undefined}
+                />
                 {primaryDept.name}
               </>
             ) : (
@@ -221,26 +230,30 @@ export function HeaderMetaStrip({
         {needsRouting && <WhyParked conversationId={message.id} />}
       </div>
 
-      <span className="text-border/60 select-none px-1">·</span>
-
       {/* Assignee */}
       <div className="flex items-center gap-2 min-w-0">
-        <span className={`flex-shrink-0 ${LABEL} text-muted-foreground/70`}>Assigned</span>
+        <span className={`flex-shrink-0 ${LABEL} text-muted-foreground ${rows ? 'w-[62px]' : ''}`}>
+          Assigned
+        </span>
         <AssignmentSelect
           type="thread"
           itemId={threadItemId}
           currentAssigneeId={message.assigneeId}
           departmentId={message.departmentId ?? null}
           onAssign={onAssign}
+          variant="value"
         />
       </div>
 
       {/* Category */}
       {categories.length > 0 && (
         <>
-          <span className="text-border/60 select-none px-1">·</span>
           <div className="flex items-center gap-2 min-w-0">
-            <span className={`flex-shrink-0 ${LABEL} text-muted-foreground/70`}>Category</span>
+            <span
+              className={`flex-shrink-0 ${LABEL} text-muted-foreground ${rows ? 'w-[62px]' : ''}`}
+            >
+              Category
+            </span>
             <ReactSelect
               value={
                 message.categoryId !== null && message.categoryId !== undefined
@@ -253,6 +266,7 @@ export function HeaderMetaStrip({
                 ...categories.map((cat) => ({ value: String(cat.id), label: cat.name })),
               ]}
               isDisabled={updatingCategory}
+              variant="value"
               className="min-w-0"
             />
           </div>
@@ -265,14 +279,16 @@ export function HeaderMetaStrip({
           a workspace with no labels could never create one from a message. */}
       {showLabelRow && (
         <>
-          <span className="text-border/60 select-none px-1">·</span>
-          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-            <span className={`flex-shrink-0 ${LABEL} text-muted-foreground/70`}>Labels</span>
-
+          <div className="flex items-center gap-[5px] min-w-0 flex-wrap">
+            {rows && (
+              <span className={`flex-shrink-0 ${LABEL} text-muted-foreground w-[62px]`}>
+                Labels
+              </span>
+            )}
             {messageLabels.map((label) => (
               <span
                 key={label.id}
-                className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full text-[10px] font-semibold text-white shadow-sm whitespace-nowrap"
+                className="inline-flex items-center gap-1 h-5 pl-2 pr-1 rounded-full text-[10.5px] font-semibold text-white whitespace-nowrap"
                 style={{ backgroundColor: safeCssColor(label.color) }}
               >
                 {label.name}
@@ -296,10 +312,10 @@ export function HeaderMetaStrip({
                   ref={labelBtnRef}
                   variant="ghost"
                   onClick={onToggleLabelPicker}
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 h-auto rounded-full text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent border border-dashed border-border/70 transition-colors"
+                  className="inline-grid place-items-center h-5 px-2 rounded-full text-[10.5px] text-muted-foreground hover:text-foreground hover:bg-accent border border-dashed border-border-strong transition-colors"
                   aria-label="Add label"
+                  title="Add label"
                 >
-                  <Tag className="w-2.5 h-2.5" />
                   <Plus className="w-2.5 h-2.5" />
                 </Button>
 
@@ -318,6 +334,9 @@ export function HeaderMetaStrip({
                       return (
                         <div
                           data-label-picker
+                          // A non-modal dialog: the detail's shortcuts stand down while it is open.
+                          role="dialog"
+                          aria-label="Labels"
                           style={{ top: pickerPos.top, left: pickerPos.left, width: 200 }}
                           className="absolute z-[9999] rounded-lg border border-border shadow-xl p-1 bg-card text-card-foreground"
                         >
