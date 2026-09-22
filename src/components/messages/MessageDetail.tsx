@@ -1120,8 +1120,10 @@ export function MessageDetail({
         )}
       </div>
 
+      {/* 312px is the v3 design width; wide screens get more so the tabs and the why-parked
+          text beside Dept stop wrapping into a narrow column (owner, 2026-09-22). */}
       {twoColumn && (
-        <aside className="flex flex-col flex-none w-[312px] min-h-0 border-l border-border bg-card">
+        <aside className="flex flex-col flex-none w-[312px] xl:w-[360px] 2xl:w-[420px] min-h-0 border-l border-border bg-card">
           <div ref={setSideMetaEl} className="flex-none" />
           {panelTabs}
         </aside>

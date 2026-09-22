@@ -205,22 +205,24 @@ export function HeaderMetaStrip({
             }
             // A v3 value like Assigned/Category beside it; the department's own colour stays
             // on the icon. Needs routing keeps its state tone — it is a condition, not a value.
-            className={`inline-flex gap-1 items-center h-[23px] px-2 rounded-md border text-[11.5px] font-normal ${
+            // v3 `.val`: one line, never wraps. It must not SHRINK either: the why-parked text beside
+            // it would squeeze it to its icon. max-w-full still ellipsizes a very long name.
+            className={`inline-flex flex-shrink-0 gap-1 items-center h-[23px] max-w-full px-2 rounded-md border text-[11.5px] font-normal whitespace-nowrap overflow-hidden ${
               canRoute ? 'cursor-pointer hover:border-border-strong' : 'cursor-default'
             } ${needsRouting ? 'bg-warning-muted text-warning border-warning-line' : 'bg-card text-foreground border-border'}`}
           >
             {needsRouting ? (
               <>
-                <AlertTriangle className="w-3 h-3" />
-                Needs routing
+                <AlertTriangle className="flex-shrink-0 w-3 h-3" />
+                <span className="truncate">Needs routing</span>
               </>
             ) : primaryDept ? (
               <>
                 <Building2
-                  className="w-3 h-3"
+                  className="flex-shrink-0 w-3 h-3"
                   style={primaryDept.color ? { color: safeCssColor(primaryDept.color) } : undefined}
                 />
-                {primaryDept.name}
+                <span className="truncate">{primaryDept.name}</span>
               </>
             ) : (
               <span className="text-muted-foreground">—</span>
@@ -312,7 +314,7 @@ export function HeaderMetaStrip({
                   ref={labelBtnRef}
                   variant="ghost"
                   onClick={onToggleLabelPicker}
-                  className="inline-grid place-items-center h-5 px-2 rounded-full text-[10.5px] text-muted-foreground hover:text-foreground hover:bg-accent border border-dashed border-border-strong transition-colors"
+                  className="inline-flex flex-shrink-0 justify-center items-center py-0 px-2 h-5 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent border border-dashed border-border-strong transition-colors"
                   aria-label="Add label"
                   title="Add label"
                 >
