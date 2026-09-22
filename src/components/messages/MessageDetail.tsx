@@ -204,6 +204,7 @@ export function MessageDetail({
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
   const [resolveConfirmOpen, setResolveConfirmOpen] = useState(false);
+  const [notCustomerWorkOpen, setNotCustomerWorkOpen] = useState(false);
   // Offered on a finished conversation: "Resolve & Save to KB" captures only while resolving.
   const [promoteToKbOpen, setPromoteToKbOpen] = useState(false);
   const { hasPermission } = usePermissions();
@@ -691,6 +692,26 @@ export function MessageDetail({
     }
   }, [message.id, onReject]);
 
+  /**
+   * Bin the thread as not customer work.
+   *
+   * ⚠️ Failure is SURFACED, unlike the neighbouring `handleReject`, which logs and moves on. The
+   * backend refuses this with a 400 in one real case — combining it with a KB save — and a silent
+   * failure here would leave the thread in the queue while the agent believes it is gone.
+   */
+  const handleNotCustomerWork = useCallback(
+    async (reason: string) => {
+      try {
+        await messageService.markAsNotCustomerWork(message.id, reason);
+        onReject?.();
+      } catch (err) {
+        logger.error('Failed to mark as not customer work:', err);
+        toast.failure('mark as not customer work', err);
+      }
+    },
+    [message.id, onReject]
+  );
+
   const handleReopen = useCallback(async () => {
     try {
       await messageService.reopen(message.id);
@@ -983,6 +1004,7 @@ export function MessageDetail({
         onDelete={handleDelete}
         onClassify={handleClassify}
         onResolveWithoutReply={() => setResolveConfirmOpen(true)}
+        onNotCustomerWork={() => setNotCustomerWorkOpen(true)}
         // UX gate only — the BE re-validates (MANAGE_TICKETS on both endpoints). Offering an
         // action that answers 403 is worse than not offering it.
         onPromoteToKb={
@@ -1014,6 +1036,9 @@ export function MessageDetail({
         reopenDialogOpen={reopenDialogOpen}
         setReopenDialogOpen={setReopenDialogOpen}
         resolveConfirmOpen={resolveConfirmOpen}
+        notCustomerWorkOpen={notCustomerWorkOpen}
+        setNotCustomerWorkOpen={setNotCustomerWorkOpen}
+        onNotCustomerWork={handleNotCustomerWork}
         setResolveConfirmOpen={setResolveConfirmOpen}
         closeConfirmOpen={closeConfirmOpen}
         setCloseConfirmOpen={setCloseConfirmOpen}
