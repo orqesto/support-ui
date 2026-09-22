@@ -173,6 +173,20 @@ describe('the header carries the decision', () => {
     expect(screen.queryByRole('button', { name: 'Assign to me' })).toBeNull();
   });
 
+  it('the decisions always sit on their own full-width line (never beside the chips)', () => {
+    // Owner, 2026-09-22: sharing the chip row made them jump to a second line whenever a thread
+    // had one chip more. jsdom has no layout, so this pins the structure that forces the line.
+    renderDetail({ status: 'in_progress' as Message['status'], lastReplyFromClient: true });
+    const row = screen.getByRole('button', { name: 'Assign to me' }).parentElement!;
+    expect(row.className).toContain('basis-full');
+    expect(within(row).getByRole('button', { name: /^Resolve$/ })).toBeTruthy();
+  });
+
+  it('CONTROL: a thread with no decision renders no empty decisions line', () => {
+    renderDetail({ status: 'resolved' as Message['status'], assigneeId: 7 });
+    expect(document.querySelector('.basis-full.justify-end')).toBeNull();
+  });
+
   it('Assign to me is hidden when the thread is already mine', () => {
     renderDetail({ status: 'in_progress' as Message['status'], assigneeId: 7 });
     expect(screen.queryByRole('button', { name: 'Assign to me' })).toBeNull();
