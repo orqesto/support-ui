@@ -114,7 +114,7 @@ export const WorkspaceDatabaseDialog = ({ org, onClose }: Props) => {
                   <dt className="text-muted-foreground">Schema version</dt>
                   <dd className="text-foreground">{display.schemaVersion ?? 'Not migrated yet'}</dd>
                   <dt className="text-muted-foreground">Last verified</dt>
-                  <dd className="text-foreground">{display.verifiedAt ? formatDate(display.verifiedAt) : 'Never'}</dd>
+                  <dd className="font-mono text-foreground">{display.verifiedAt ? formatDate(display.verifiedAt) : 'Never'}</dd>
                 </>
               )}
               {!own && (
@@ -175,9 +175,9 @@ export const WorkspaceDatabaseDialog = ({ org, onClose }: Props) => {
                             return (
                               <tr key={table} className={mismatch ? 'text-destructive' : ''}>
                                 <td className="px-2 py-0.5 font-mono">{table}</td>
-                                <td className="px-2 py-0.5 text-right">{counts.source.toLocaleString()}</td>
-                                <td className="px-2 py-0.5 text-right">{counts.copied.toLocaleString()}</td>
-                                <td className="px-2 py-0.5 text-right">{counts.target === null ? '—' : counts.target.toLocaleString()}</td>
+                                <td className="font-mono px-2 py-0.5 text-right">{counts.source.toLocaleString()}</td>
+                                <td className="font-mono px-2 py-0.5 text-right">{counts.copied.toLocaleString()}</td>
+                                <td className="font-mono px-2 py-0.5 text-right">{counts.target === null ? '—' : counts.target.toLocaleString()}</td>
                               </tr>
                             );
                           })}

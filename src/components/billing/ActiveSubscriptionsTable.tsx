@@ -92,13 +92,13 @@ export const ActiveSubscriptionsTable = () => {
               {entries.map((entry) => (
                 <tr key={entry.id} className="border-b hover:bg-muted/30 transition-colors">
                   <td className="py-2 pr-4 font-medium">{entry.vendorName}</td>
-                  <td className="py-2 pr-4 text-right">
+                  <td className="font-mono py-2 pr-4 text-right">
                     {entry.baselineAmount !== null
                       ? `${entry.currency} ${entry.baselineAmount.toLocaleString()}`
                       : '—'}
                   </td>
                   <td className="py-2 pr-4 capitalize">{entry.billingCycle}</td>
-                  <td className="py-2 pr-4 text-muted-foreground">
+                  <td className="font-mono py-2 pr-4 text-muted-foreground">
                     {entry.lastSeenAt ? format(new Date(entry.lastSeenAt), 'MMM d, yyyy') : '—'}
                   </td>
                   <td className="py-2">

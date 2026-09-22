@@ -285,7 +285,7 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
                         <span className="text-xs text-muted-foreground font-medium">
                           Successful response
                           {response.sentAt && (
-                            <span className="font-normal text-muted-foreground ml-1">
+                            <span className="font-mono font-normal text-muted-foreground ml-1">
                               · {formatDate(new Date(response.sentAt))}
                             </span>
                           )}

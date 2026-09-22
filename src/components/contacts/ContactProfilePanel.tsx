@@ -267,7 +267,9 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
                   </span>
                 )}
               </Fact>
-              <Fact label="Customer since">{formatAge(contact.createdAt)} ago</Fact>
+              <Fact label="Customer since">
+                <span className="font-mono">{formatAge(contact.createdAt)}</span> ago
+              </Fact>
               <Fact label="Last active">
                 {contact.stats?.lastMessageAt
                   ? `${formatAge(contact.stats.lastMessageAt)} ago`

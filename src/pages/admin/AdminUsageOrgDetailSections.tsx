@@ -117,7 +117,10 @@ export const OrgAiUsageSection = ({ aiCalls }: OrgAiUsageSectionProps) => (
         <div className="flex justify-between text-xs">
           <span className="text-muted-foreground">Usage:</span>
           <span className="font-medium">
-            {aiCalls.current.toLocaleString()} / {aiCalls.limit.toLocaleString()} calls
+            <span className="font-mono">
+              {aiCalls.current.toLocaleString()} / {aiCalls.limit.toLocaleString()}
+            </span>{' '}
+            calls
           </span>
         </div>
         <UsageProgressBar percentage={aiCalls.percentage} />

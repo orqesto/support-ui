@@ -142,7 +142,7 @@ export const PlatformDatabases = () => {
                     <Badge variant={STATUS_BADGE[row.status]} size="sm">{STATUS_LABEL[row.status]}</Badge>
                   </span>
                   <span className="flex items-center gap-3 text-xs text-muted-foreground">
-                    last answered {row.verifiedAt ? formatDate(row.verifiedAt) : 'never'}
+                    last answered <span className="font-mono">{row.verifiedAt ? formatDate(row.verifiedAt) : 'never'}</span>
                     <Button variant="outline" size="sm" onClick={() => setTarget({ id: row.organizationId, name: row.organizationName })}>
                       Open
                     </Button>
@@ -187,7 +187,7 @@ export const PlatformDatabases = () => {
                       <Badge variant={overdue ? 'danger' : (row.daysLeft ?? 99) <= 7 ? 'warning' : 'secondary'} size="sm">
                         {row.daysLeft === null ? 'no deadline' : overdue ? 'overdue' : `${row.daysLeft} day${row.daysLeft === 1 ? '' : 's'} left`}
                       </Badge>
-                      {row.sharedRetentionUntil && formatDate(row.sharedRetentionUntil)}
+                      {row.sharedRetentionUntil && (<span className="font-mono">{formatDate(row.sharedRetentionUntil)}</span>)}
                       <span>warned: {row.warningsSent.length ? row.warningsSent.map((mark) => `${mark}d`).join(', ') : 'not yet'}</span>
                       <Button variant="outline" size="sm" onClick={() => setTarget({ id: row.organizationId, name: row.organizationName })}>
                         Open

@@ -515,7 +515,7 @@ export const SimilarMessagesDialog = ({
                         {msg.repliedAt && (
                           <span className="flex gap-1 items-center">
                             <Clock className="w-3 h-3" />
-                            {formatDate(new Date(msg.repliedAt))}
+                            <span className="font-mono">{formatDate(new Date(msg.repliedAt))}</span>
                           </span>
                         )}
                       </div>

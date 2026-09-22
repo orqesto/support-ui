@@ -88,7 +88,7 @@ export const PlatformUsers = () => {
       header: 'Email',
       cell: (row) => (
         <span className="flex gap-2 items-center text-muted-foreground">
-          {row.email}
+          <span className="font-mono">{row.email}</span>
           {!row.emailVerified && <Badge variant="warning">unverified</Badge>}
         </span>
       ),

@@ -463,7 +463,7 @@ export const MessageProcessingProgress = ({
             <div>
               <div className="flex gap-1 justify-center items-center">
                 <SourceIcon className="w-3 h-3 text-muted-foreground" />
-                <span className="text-lg font-bold">{(emailTotal ?? total) || 0}</span>
+                <span className="font-mono text-lg font-bold">{(emailTotal ?? total) || 0}</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Found</p>
             </div>
@@ -474,7 +474,7 @@ export const MessageProcessingProgress = ({
                   <Loader2
                     className={`w-3 h-3 ${isProcessing ? 'animate-spin text-muted-foreground' : 'text-muted-foreground'}`}
                   />
-                  <span className="text-lg font-bold">
+                  <span className="font-mono text-lg font-bold">
                     {Math.min(processed > 0 ? processed : current, (emailTotal ?? total) || 999)}
                   </span>
                 </div>

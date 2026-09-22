@@ -345,7 +345,7 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
             </Button>
             <h1 className="font-display mt-2 text-3xl font-bold">{isEditingSelf ? 'Edit Profile' : 'Edit User'}</h1>
             <p className="mt-2 text-muted-foreground">
-              {user.firstName} {user.lastName} · {user.email}
+              {user.firstName} {user.lastName} · <span className="font-mono">{user.email}</span>
             </p>
           </div>
 

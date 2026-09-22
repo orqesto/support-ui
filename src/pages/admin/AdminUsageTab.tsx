@@ -572,7 +572,7 @@ export const AdminUsageTab = () => {
                                 {org.subscription?.trialEndsAt && (
                                   <div>
                                     <span className="text-muted-foreground">Trial Ends:</span>{' '}
-                                    <span className="font-medium">
+                                    <span className="font-mono font-medium">
                                       {new Date(org.subscription.trialEndsAt).toLocaleDateString()}
                                     </span>
                                   </div>

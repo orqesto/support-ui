@@ -39,7 +39,14 @@ type GroupEditorProps = {
  * alliance's own orgs, so a group can never grant into an outside org. Preview is
  * a floor — actual effective role is highest-wins, so a member may end up higher.
  */
-export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }: GroupEditorProps) => {
+export const GroupEditor = ({
+  open,
+  onClose,
+  allianceId,
+  group,
+  orgs,
+  members,
+}: GroupEditorProps) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [orgRole, setOrgRole] = useState<OrganizationRole>('support');
@@ -55,7 +62,9 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
   // hand-authored group that was wired later is the admin's: their name, editable. An older
   // backend omits the flag; then nothing is derived (never overwrite a name we can't classify).
   const minted = group?.idpGroup?.mintedByWire === true;
-  const idpName = group?.idpGroup ? (group.idpGroup.displayName ?? group.idpGroup.externalId) : null;
+  const idpName = group?.idpGroup
+    ? (group.idpGroup.displayName ?? group.idpGroup.externalId)
+    : null;
   const derivedName = minted && idpName ? backingGroupName(idpName, orgRole) : null;
   // Absent (old backend) is not the same as empty: with no field we simply can't tell who
   // is IdP-managed, and marking nobody is the honest answer — never marking everybody.
@@ -75,14 +84,18 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
   }, [open, group]);
 
   const memberName = useMemo(() => {
-    const byId = new Map(members.map((member) => [member.userId, member.name || `User #${member.userId}`]));
+    const byId = new Map(
+      members.map((member) => [member.userId, member.name || `User #${member.userId}`])
+    );
     return (userId: number) => byId.get(userId) ?? `User #${userId}`;
   }, [members]);
 
   // Secondary identifier for a member — email when known, else the numeric id —
   // so two members with the same display name are still distinguishable.
   const memberSecondary = useMemo(() => {
-    const byId = new Map(members.map((member) => [member.userId, member.email ?? `#${member.userId}`]));
+    const byId = new Map(
+      members.map((member) => [member.userId, member.email ?? `#${member.userId}`])
+    );
     return (userId: number) => byId.get(userId) ?? `#${userId}`;
   }, [members]);
 
@@ -184,20 +197,29 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
           />
           {derivedName !== null && (
             <p className="text-xs text-muted-foreground">
-              Named after the IdP group that feeds it and the role it grants — the name follows
-              the mapping.
+              Named after the IdP group that feeds it and the role it grants — the name follows the
+              mapping.
             </p>
           )}
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="group-desc">Description</Label>
-          <Input id="group-desc" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Optional" />
+          <Input
+            id="group-desc"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder="Optional"
+          />
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="group-role">Grants role</Label>
-          <Select id="group-role" value={orgRole} onChange={(event) => setOrgRole(event.target.value as OrganizationRole)}>
+          <Select
+            id="group-role"
+            value={orgRole}
+            onChange={(event) => setOrgRole(event.target.value as OrganizationRole)}
+          >
             {ROLE_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -213,7 +235,11 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
                 with its own (older, softer) copy is how two screens end up disagreeing. */}
             <span className="text-sm">
               Members are synced from IdP group{' '}
-              <strong>{group.idpGroup.displayName ?? group.idpGroup.externalId}</strong>
+              <strong>
+                {group.idpGroup.displayName ?? (
+                  <span className="font-mono">{group.idpGroup.externalId}</span>
+                )}
+              </strong>
               {group.idpGroup.displayName && (
                 <span className="font-mono text-xs text-muted-foreground">
                   {' '}
@@ -266,12 +292,17 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
         </div>
 
         <div className="space-y-2">
-          <Label>Members {members.length === 0 && <span className="font-normal text-muted-foreground">(optional)</span>}</Label>
+          <Label>
+            Members{' '}
+            {members.length === 0 && (
+              <span className="font-normal text-muted-foreground">(optional)</span>
+            )}
+          </Label>
           {members.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No alliance members yet — add them in the Members tab or let SCIM provision
-              them. You can still create this group now (name + role) and map an identity-provider
-              group to it; members are filled in automatically as they&apos;re provisioned.
+              No alliance members yet — add them in the Members tab or let SCIM provision them. You
+              can still create this group now (name + role) and map an identity-provider group to
+              it; members are filled in automatically as they&apos;re provisioned.
             </p>
           ) : (
             <>
@@ -328,7 +359,9 @@ export const GroupEditor = ({ open, onClose, allianceId, group, orgs, members }:
 
         <Card>
           <CardContent>
-            <h3 className="font-display mb-2 text-sm font-semibold text-foreground">Effective access preview</h3>
+            <h3 className="font-display mb-2 text-sm font-semibold text-foreground">
+              Effective access preview
+            </h3>
             {selectedMemberIds.length === 0 || selectedOrgIds.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Select at least one member and one workspace to preview.

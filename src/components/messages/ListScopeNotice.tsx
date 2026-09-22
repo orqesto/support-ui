@@ -300,17 +300,22 @@ export const ListScopeNotice = ({
       {isBoard ? (
         <span className="truncate min-w-0">
           This board has a lane for{' '}
-          <strong className="text-foreground">
+          <strong className="font-mono text-foreground">
             {(scope.withoutLens - scope.hidden).toLocaleString()}
           </strong>{' '}
-          of <strong className="text-foreground">{scope.withoutLens.toLocaleString()}</strong> —{' '}
-          {scope.hidden.toLocaleString()} have none
+          of{' '}
+          <strong className="font-mono text-foreground">
+            {scope.withoutLens.toLocaleString()}
+          </strong>{' '}
+          — {scope.hidden.toLocaleString()} have none
         </span>
       ) : (
         <span className="truncate min-w-0">
-          Showing <strong className="text-foreground">{shown.toLocaleString()}</strong> of{' '}
-          <strong className="text-foreground">{scope.withoutLens.toLocaleString()}</strong> —{' '}
-          {scope.hidden.toLocaleString()} hidden by the current view
+          Showing <strong className="font-mono text-foreground">{shown.toLocaleString()}</strong> of{' '}
+          <strong className="font-mono text-foreground">
+            {scope.withoutLens.toLocaleString()}
+          </strong>{' '}
+          — {scope.hidden.toLocaleString()} hidden by the current view
         </span>
       )}
       {hasMenu && (
@@ -334,7 +339,9 @@ export const ListScopeNotice = ({
               leaving the misleading badge as the only number visible. Reported exactly that
               way from the board.
             */}
-            <b className="font-semibold text-foreground">{scope.hidden.toLocaleString()}</b>
+            <b className="font-mono font-semibold text-foreground">
+              {scope.hidden.toLocaleString()}
+            </b>
             {newTotal > 0 && (
               <span className={NEW_BADGE_CLASS} aria-label={`${newTotal} new in hidden queues`}>
                 {formatNew(newTotal)}
@@ -388,7 +395,7 @@ export const ListScopeNotice = ({
                     {isArrivalQueue(reason.key) && newFor(reason.key) > 0 && (
                       <span className={NEW_BADGE_CLASS}>{formatNew(newFor(reason.key))}</span>
                     )}
-                    <span className="ml-auto font-semibold tabular-nums text-muted-foreground">
+                    <span className="font-mono ml-auto font-semibold text-muted-foreground">
                       {reason.count.toLocaleString()}
                     </span>
                   </button>
@@ -401,7 +408,7 @@ export const ListScopeNotice = ({
                     className="flex items-center gap-2 px-2 py-1.5 text-[13px] text-muted-foreground"
                   >
                     <span className="truncate">{reason.label}</span>
-                    <span className="ml-auto font-semibold tabular-nums">
+                    <span className="font-mono ml-auto font-semibold">
                       {reason.count.toLocaleString()}
                     </span>
                   </div>
@@ -430,7 +437,7 @@ export const ListScopeNotice = ({
                     <span className="shrink-0 text-[11px] text-muted-foreground/70">
                       clear the view
                     </span>
-                    <span className="ml-auto font-semibold tabular-nums">
+                    <span className="font-mono ml-auto font-semibold">
                       {reason.count.toLocaleString()}
                     </span>
                   </button>
@@ -441,7 +448,7 @@ export const ListScopeNotice = ({
                     className="flex items-center gap-2 px-2 py-1.5 mt-1 border-t border-border text-[12.5px] text-muted-foreground"
                   >
                     <span className="truncate">{reason.label}</span>
-                    <span className="ml-auto font-semibold tabular-nums">
+                    <span className="font-mono ml-auto font-semibold">
                       {reason.count.toLocaleString()}
                     </span>
                   </div>

@@ -290,7 +290,7 @@ export const LeadQualificationPanel = ({
         {leadState.qualifiedAt && (
           <>
             <span>·</span>
-            <span>Qualified {new Date(leadState.qualifiedAt).toLocaleDateString()}</span>
+            <span>Qualified <span className="font-mono">{new Date(leadState.qualifiedAt).toLocaleDateString()}</span></span>
           </>
         )}
       </div>
@@ -344,7 +344,7 @@ export const LeadQualificationPanel = ({
               </div>
               <div className="flex gap-2 items-center text-sm">
                 <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                <span className={leadState.contactInfo.email ? '' : 'text-muted-foreground italic'}>
+                <span className={`font-mono ${leadState.contactInfo.email ? '' : 'text-muted-foreground italic'}`}>
                   {leadState.contactInfo.email ?? 'Email not captured'}
                 </span>
               </div>

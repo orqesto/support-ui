@@ -132,7 +132,7 @@ export const AnomalyAlertsList = () => {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium text-sm truncate">{record.vendorName}</span>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="font-mono text-sm text-muted-foreground">
                     {record.currency} {record.amount.toLocaleString()}
                   </span>
                 </div>

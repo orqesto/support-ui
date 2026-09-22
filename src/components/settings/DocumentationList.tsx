@@ -347,9 +347,9 @@ export const DocumentationList = ({
                         {doc.timesReferenced === 1 ? 'time' : 'times'}
                       </span>
                     )}
-                    <span>Uploaded {formatDate(doc.createdAt)}</span>
+                    <span>Uploaded <span className="font-mono">{formatDate(doc.createdAt)}</span></span>
                     {doc.lastReferencedAt && (
-                      <span>Last used {formatDate(doc.lastReferencedAt)}</span>
+                      <span>Last used <span className="font-mono">{formatDate(doc.lastReferencedAt)}</span></span>
                     )}
                     {/*
                       The same fact the notification carries, said where the document lives.

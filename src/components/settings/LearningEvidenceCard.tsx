@@ -36,7 +36,7 @@ const EvidenceRow = ({ evidence }: { evidence: DomainEvidence }) => (
       {DOMAIN_TITLES[evidence.domain] ?? evidence.domain}
     </span>
     <span className="text-sm text-foreground">
-      <span className="font-semibold tabular-nums">{evidence.count.toLocaleString()}</span>{' '}
+      <span className="font-mono font-semibold">{evidence.count.toLocaleString()}</span>{' '}
       <span className="text-muted-foreground">{evidence.unit}</span>
     </span>
     {evidence.threshold && (
@@ -48,7 +48,7 @@ const EvidenceRow = ({ evidence }: { evidence: DomainEvidence }) => (
         different situation from input arriving and nothing happening. */}
     {evidence.lastAt && (
       <span className="text-xs text-muted-foreground">
-        last {new Date(evidence.lastAt).toLocaleDateString()}
+        last <span className="font-mono">{new Date(evidence.lastAt).toLocaleDateString()}</span>
       </span>
     )}
     {evidence.note && (

@@ -134,7 +134,7 @@ const ContradictionRow = ({ item }: { item: ContradictionItem }) => (
           </Link>
           {item.contradictingMessageDate && (
             <span className="text-xs text-muted-foreground">
-              ({new Date(item.contradictingMessageDate).toLocaleDateString()})
+              (<span className="font-mono">{new Date(item.contradictingMessageDate).toLocaleDateString()}</span>)
             </span>
           )}
         </div>

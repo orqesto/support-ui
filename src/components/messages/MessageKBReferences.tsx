@@ -136,7 +136,7 @@ export const MessageKBReferences = ({ messageId }: MessageKBReferencesProps) => 
             <div className="flex gap-3 items-center text-xs text-ai">
               {ref.qualityScore && <span>Quality: {Math.round(ref.qualityScore * 100)}%</span>}
               <span>Referenced: {ref.timesReferenced}×</span>
-              <span>Created: {formatDate(ref.createdAt)}</span>
+              <span>Created: <span className="font-mono">{formatDate(ref.createdAt)}</span></span>
             </div>
           </div>
         ))}

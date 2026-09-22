@@ -288,7 +288,7 @@ export const PlatformPlans = () => {
               <strong className="text-foreground">{plan.limits.maxUsers}</strong> users
             </p>
             <p>
-              <strong className="text-foreground">
+              <strong className="font-mono text-foreground">
                 {plan.limits.maxMessagesPerMonth?.toLocaleString() ?? '—'}
               </strong>{' '}
               messages/month

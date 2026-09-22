@@ -160,7 +160,9 @@ export const AdminPlansTab = () => {
               <strong>{plan.limits.maxUsers}</strong> users
             </p>
             <p>
-              <strong>{plan.limits.maxMessagesPerMonth?.toLocaleString() ?? '—'}</strong>{' '}
+              <strong className="font-mono">
+                {plan.limits.maxMessagesPerMonth?.toLocaleString() ?? '—'}
+              </strong>{' '}
               messages/month
             </p>
             <p>

@@ -66,7 +66,7 @@ export const BillingOverviewCards = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-success">
+          <div className="font-mono text-3xl font-bold text-success">
             ${data.totalMonthlySpend.toLocaleString()}
           </div>
           <p className="text-xs text-muted-foreground mt-1">Monthly spend baseline</p>
