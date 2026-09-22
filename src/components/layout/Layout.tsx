@@ -29,7 +29,8 @@ import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { joinOrganizationRoom, leaveOrganizationRoom } from '@/lib/socketManager';
 import { cn } from '@/lib/utils';
 import { useSidebarStore } from '@/stores/sidebarStore';
-import { NavTip, SidebarCollapseToggle } from './SidebarNav';
+import { NavTip, RAIL_QUERY, SidebarCollapseToggle } from './SidebarNav';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useAuthStore } from '@/stores/authStore';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 import { useSubscriptionGateStore } from '@/stores/subscriptionGateStore';
@@ -255,6 +256,9 @@ export const Layout = ({ children }: LayoutProps) => {
   // drawer keeps its labels whatever this says.
   const collapsed = useSidebarStore((state) => state.collapsed);
   const hideWhenCollapsed = collapsed ? 'lg:hidden' : '';
+  // The switchers position their menu in JS, so they need the breakpoint as a value.
+  const isDesktop = useMediaQuery(RAIL_QUERY);
+  const onRail = collapsed && isDesktop;
 
   // Onboarding gate (shell-level so it covers every protected route, not just the
   // dashboard — closes the deep-link bypass). Redirect an org_admin whose org
@@ -611,7 +615,13 @@ export const Layout = ({ children }: LayoutProps) => {
                           >
                             <Link
                               to={item.href}
-                              aria-label={collapsed ? item.name : undefined}
+                              aria-label={
+                                collapsed
+                                  ? badge > 0
+                                    ? `${item.name} (${badge})`
+                                    : item.name
+                                  : undefined
+                              }
                               className={cn(
                                 'flex relative gap-3 items-center px-3 py-2 w-full text-sm font-medium rounded-md transition-colors',
                                 collapsed && 'lg:justify-center lg:px-0',
@@ -658,14 +668,10 @@ export const Layout = ({ children }: LayoutProps) => {
             </nav>
 
             <div className={cn('p-4 border-t', collapsed && 'lg:px-2')}>
-              {/* Org / department switchers need their full width — on the rail they are
-                  hidden and the user expands the sidebar to switch. */}
-              <div className={hideWhenCollapsed}>
-                {/* Organization Switcher for Global Admins */}
-                <OrganizationSwitcher />
-                {/* Department filter switcher for multi-dept users */}
-                <DepartmentSwitcher />
-              </div>
+              {/* Organization Switcher for Global Admins */}
+              <OrganizationSwitcher compact={onRail} />
+              {/* Department filter switcher for multi-dept users */}
+              <DepartmentSwitcher compact={onRail} />
 
               <div
                 className={cn(

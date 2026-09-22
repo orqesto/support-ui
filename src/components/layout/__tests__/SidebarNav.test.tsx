@@ -48,4 +48,13 @@ describe('collapsible sidebar', () => {
     fireEvent.mouseEnter(link.parentElement!);
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Messages');
   });
+
+  it('toggling closes the toggle tooltip instead of leaving it where the button was', async () => {
+    renderNav();
+    const toggle = screen.getByRole('button', { name: 'Collapse sidebar' });
+    fireEvent.mouseEnter(toggle.parentElement!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Collapse sidebar');
+    fireEvent.click(toggle);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
 });

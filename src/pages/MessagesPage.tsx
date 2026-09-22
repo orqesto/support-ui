@@ -32,8 +32,9 @@ import { messageService, type MessageThread } from '@/services/message.service';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { useSharedLinkWorkspace } from '@/hooks/useSharedLinkWorkspace';
-import { formatDate } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
+import { useSidebarStore } from '@/stores/sidebarStore';
 import type { Message, MessagesDisplayMode } from '@/types';
 import { Permission } from '@/types/roles';
 import { ComposeNewModal } from '@/components/messages/ComposeNewModal';
@@ -76,6 +77,7 @@ const LIST_ONLY_FILTER_PARAMS = [
 ];
 
 export const MessagesPage = () => {
+  const sidebarCollapsed = useSidebarStore((state) => state.collapsed);
   const [searchParams, setSearchParams] = useSearchParams();
   // Unread Suspicious/Spam arrivals — the board badges its columns with these; the list shows
   // them on "Not shown", where both queues are hidden by default.
@@ -962,7 +964,11 @@ export const MessagesPage = () => {
             <button
               type="button"
               aria-label="Close"
-              className="fixed inset-0 z-20 cursor-default lg:left-64 bg-black/25 dark:bg-black/50"
+              className={cn(
+                'fixed inset-0 z-20 cursor-default bg-black/25 dark:bg-black/50',
+                // Leave the sidebar undimmed: offset by whatever width it has now.
+                sidebarCollapsed ? 'lg:left-16' : 'lg:left-64'
+              )}
               onClick={() => {
                 if (detailRequestCloseRef.current) {
                   detailRequestCloseRef.current();

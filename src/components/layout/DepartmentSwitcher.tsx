@@ -1,12 +1,19 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Layers, ChevronDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useAuthStore } from '@/stores/authStore';
 import { useDepartmentContextStore } from '@/stores/departmentContextStore';
 import { useDepartments } from '@/hooks/useDepartments';
 import { isDepartmentServed } from '@/utils/departmentReachability';
+import { cn } from '@/lib/utils';
+import { NavTip, railMenuStyle } from './SidebarNav';
 
-export const DepartmentSwitcher = () => {
+type DepartmentSwitcherProps = {
+  /** Icon-only trigger for the collapsed desktop rail; the menu opens beside it. */
+  compact?: boolean;
+};
+
+export const DepartmentSwitcher = ({ compact = false }: DepartmentSwitcherProps = {}) => {
   const user = useAuthStore((state) => state.user);
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
 
@@ -14,6 +21,7 @@ export const DepartmentSwitcher = () => {
   const { getSelectedDeptIds, setSelected, clear } = useDepartmentContextStore();
 
   const [isOpen, setIsOpen] = useState(false);
+  const triggerRef = useRef<HTMLDivElement>(null);
 
   // User's accessible dept IDs (from auth store); global admins see all
   const accessibleDeptIds: number[] =
@@ -90,22 +98,41 @@ export const DepartmentSwitcher = () => {
       : `${selectedIds.length} departments`;
 
   return (
-    <div className="relative mb-3">
-      <Button
-        onClick={() => setIsOpen((prev) => !prev)}
-        className="flex justify-between items-center px-3 py-2 w-full text-sm font-medium rounded-md border text-foreground bg-card border-border hover:bg-accent focus:outline-none focus:ring-2 focus:ring-primary"
-      >
-        <div className="flex flex-1 gap-2 items-center min-w-0">
-          <Layers className="flex-shrink-0 w-4 h-4" />
-          <span className="truncate">{label}</span>
-          {!isAll && (
-            <span className="flex-shrink-0 ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-primary text-primary-foreground">
-              {selectedIds.length}
-            </span>
-          )}
-        </div>
-        <ChevronDown className="flex-shrink-0 w-4 h-4" />
-      </Button>
+    <div ref={triggerRef} className="relative mb-3">
+      {compact ? (
+        <NavTip label={`Departments: ${label}`}>
+          <Button
+            variant="ghost"
+            onClick={() => setIsOpen((prev) => !prev)}
+            aria-label={`Filter by department (current: ${label})`}
+            aria-expanded={isOpen}
+            className="flex relative justify-center items-center p-0 w-full h-9 rounded-md border text-foreground bg-card border-border hover:bg-accent"
+          >
+            <Layers className="w-4 h-4" />
+            {!isAll && (
+              <span className="flex absolute top-0 right-0.5 justify-center items-center min-w-[1rem] h-4 px-1 text-[9px] font-semibold rounded-full bg-primary text-primary-foreground">
+                {selectedIds.length}
+              </span>
+            )}
+          </Button>
+        </NavTip>
+      ) : (
+        <Button
+          onClick={() => setIsOpen((prev) => !prev)}
+          className="flex justify-between items-center px-3 py-2 w-full text-sm font-medium rounded-md border text-foreground bg-card border-border hover:bg-accent focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          <div className="flex flex-1 gap-2 items-center min-w-0">
+            <Layers className="flex-shrink-0 w-4 h-4" />
+            <span className="truncate">{label}</span>
+            {!isAll && (
+              <span className="flex-shrink-0 ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-primary text-primary-foreground">
+                {selectedIds.length}
+              </span>
+            )}
+          </div>
+          <ChevronDown className="flex-shrink-0 w-4 h-4" />
+        </Button>
+      )}
 
       {isOpen && (
         <>
@@ -122,7 +149,13 @@ export const DepartmentSwitcher = () => {
           />
 
           {/* Dropdown */}
-          <div className="overflow-y-auto absolute left-0 bottom-full z-20 mb-2 w-full max-h-80 rounded-md border shadow-lg bg-card border-border">
+          <div
+            style={compact ? railMenuStyle(triggerRef.current) : undefined}
+            className={cn(
+              'overflow-y-auto z-20 max-h-80 rounded-md border shadow-lg bg-card border-border',
+              compact ? 'w-64' : 'absolute left-0 bottom-full mb-2 w-full'
+            )}
+          >
             <div className="p-2">
               <p className="font-display px-2 mb-1 text-[10px] font-semibold tracking-[0.09em] uppercase text-muted-foreground">
                 Filter by department

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { cn } from '@/lib/utils';
@@ -32,7 +32,9 @@ export const SidebarCollapseToggle = ({ className }: { className?: string }) => 
   const label = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
   const Icon = collapsed ? PanelLeftOpen : PanelLeftClose;
   return (
-    <Tooltip content={label} side="right">
+    // Keyed on state: the button moves when the rail toggles, and a still-open tip
+    // would otherwise stay where the button used to be.
+    <Tooltip key={String(collapsed)} content={label} side="right">
       <button
         type="button"
         onClick={toggle}
@@ -48,3 +50,16 @@ export const SidebarCollapseToggle = ({ className }: { className?: string }) => 
     </Tooltip>
   );
 };
+
+/**
+ * Where a switcher's menu opens from the collapsed rail: beside the rail, bottom-aligned
+ * with its trigger. Fixed-positioned because the sidebar clips overflow, so an absolute
+ * menu hanging off a 64px rail would be cut off.
+ */
+export const railMenuStyle = (trigger: HTMLElement | null): CSSProperties => {
+  if (!trigger) return {};
+  const rect = trigger.getBoundingClientRect();
+  return { position: 'fixed', left: rect.right + 8, bottom: window.innerHeight - rect.bottom };
+};
+
+export const RAIL_QUERY = '(min-width: 1024px)';
