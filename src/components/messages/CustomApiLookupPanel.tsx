@@ -8,6 +8,7 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { conversationContactService } from '@/services/conversationContact.service';
 import type { CustomApiLookupResult } from '@/services/customApiLookup.service';
+import { CATEGORY_RECORD_LABELS, readCategory } from '@/components/settings/customApi/categories';
 import { LABEL } from './messageDetailConstants';
 import { projectFields, RowFields, UNCONFIGURED_FIELD_PREVIEW } from './customApiRowFields';
 
@@ -177,11 +178,30 @@ const ResultCard = ({
   // then dumped all of it into the thread view. Showing a bounded preview and naming the rest is
   // the honest middle: the agent can see there IS data, without the panel becoming a dossier.
   const { fields, fallbackKeys, usingFallback } = projectFields(result);
+  /*
+    ⛔ Narrowed here, not trusted. The backend sends `category` as a plain string precisely so an
+    older or newer deploy cannot make this panel throw — which means a word this build has no label
+    for arrives as an ordinary value. `readCategory` turns that into null, and the heading simply
+    says what it always said. The file header's FE/BE skew note is the reason this is not a cast.
+  */
+  const category = readCategory((result as { category?: unknown }).category);
 
   return (
     <div className="rounded border border-border p-2 space-y-1.5">
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[11px] font-medium text-foreground">{result.label}</p>
+        <p className="text-[11px] font-medium text-foreground">
+          {result.label}
+          {category && (
+            /* ⛔ Beside the admin's own label, never instead of it. The label is what the agents of
+               THIS workspace call the lookup ("This customer's orders"); the category is what the
+               product knows the records to be. Replacing one with the other would rename a thing
+               an admin deliberately named — the parity rule an audit caught on 2026-09-09, where a
+               page renamed what the list it was opened from had said. */
+            <span className={`${LABEL} ml-1.5 font-normal text-muted-foreground`}>
+              · {CATEGORY_RECORD_LABELS[category]}
+            </span>
+          )}
+        </p>
         <p className={`${LABEL} text-muted-foreground`}>{result.connectionName}</p>
       </div>
 

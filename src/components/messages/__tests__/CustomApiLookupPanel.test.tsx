@@ -820,3 +820,52 @@ describe('a status this build does not know (a newer backend)', () => {
     expect(text.className).not.toContain('text-destructive');
   });
 });
+
+/**
+ * L2 (B2 P1): the category on the card.
+ *
+ * ⛔ Beside the admin's label, never replacing it. The label is what this workspace's agents call
+ * the lookup; the category is what the product knows the records to be. Renaming what the admin
+ * named is the parity failure an audit caught on 2026-09-09, where a page renamed what the list it
+ * was opened from had said.
+ */
+describe('the record category', () => {
+  it('🔴 names the kind of record beside the label', async () => {
+    run.mockResolvedValueOnce([card({ category: 'order' })]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    expect(await screen.findByText(/this order/)).toBeTruthy();
+    expect(screen.getByText(/Order$/)).toBeTruthy();
+  });
+
+  it('CONTROL: an uncategorised lookup renders exactly as it did before', async () => {
+    // Every lookup that exists today has no category. If this changed, the feature would be a
+    // regression for everyone who has not set one.
+    run.mockResolvedValueOnce([card()]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    expect(await screen.findByText('this order')).toBeTruthy();
+    expect(screen.queryByText(/· Order/)).toBeNull();
+  });
+
+  it('a category this build does not know is ignored, not rendered raw', async () => {
+    // A newer backend. The card must not print "· parcel" from a label lookup that returned
+    // undefined, and must not throw.
+    run.mockResolvedValueOnce([card({ category: 'parcel' } as Partial<CustomApiLookupResult>)]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+
+    const heading = await screen.findByText(/this order/);
+    /*
+      ⛔ Asserting the ABSENCE of 'parcel' was not enough, and the mutation proved it: a blind cast
+      also renders nothing recognisable, because the label lookup returns `undefined` — so the test
+      passed on the broken version. What a blind cast actually produces is the SEPARATOR with an
+      empty or `undefined` tail, so that is what this checks.
+    */
+    expect(heading.textContent).toBe('this order');
+    expect(heading.textContent).not.toMatch(/·/);
+    expect(heading.textContent).not.toMatch(/undefined/);
+  });
+});
