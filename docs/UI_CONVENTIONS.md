@@ -109,7 +109,10 @@ them through `components/dashboard/dashboardTones.ts`; never as inline hex.
 (inputs, chips) → `sunken` (table heads, code). A message is a card ON the canvas, so
 it has its own `bubble` ground; a reply we wrote uses the `agent-*` family. Dark stack (widened
 2026-09-22 so a card reads as lying ON the canvas): canvas 12% · card 16% · raised 18% ·
-sunken 10% · bubble 19% · well 23%.
+sunken 10% · bubble 19% · well 23%. The fills that sit ON a card were lifted with it (muted/secondary 21%, accent
+22%, hair 20%, raised 19%, input 22%, border 24%, border-strong 30%) — lifting only the card
+left chips at ΔE 1.2 from it, i.e. invisible. Measured, both themes: every text/ground pair
+≥4.5:1 except light `primary` on `muted`/`accent` (4.41, pre-existing, light untouched).
 
 ### Two traps that have already cost real time
 

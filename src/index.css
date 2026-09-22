@@ -75,7 +75,7 @@
     --attention-foreground: 0 0% 100%;
     --attention-muted: 330 80% 96%;
     --attention-line: 330 60% 84%;
-    --caution: 48 96% 30%;
+    --caution: 50 100% 23%;
     --caution-foreground: 0 0% 100%;
     --caution-muted: 50 90% 92%;
     --caution-line: 48 70% 68%;
@@ -131,14 +131,14 @@
     --foreground: 220 20% 92%;
     --card: 220 15% 16%;
     --card-foreground: 220 20% 92%;
-    --raised: 220 14% 18%;
+    --raised: 220 14% 19%;
     --sunken: 220 16% 10%;
     --popover: 220 15% 16%;
     --popover-foreground: 220 20% 92%;
 
-    --muted: 220 14% 17%;
+    --muted: 220 14% 21%;
     --muted-foreground: 220 12% 68%;
-    --faint-foreground: 220 11% 63%;
+    --faint-foreground: 220 11% 64%;
 
     /* Text-weight blue for dark grounds; --primary-solid keeps the saturated
        brand blue for filled buttons, where white sits on top. */
@@ -147,9 +147,9 @@
     --primary-foreground: 220 20% 8%;
     --primary-muted: 220 40% 17%;
     --primary-line: 219 37% 28%;
-    --secondary: 220 14% 17%;
+    --secondary: 220 14% 21%;
     --secondary-foreground: 220 20% 92%;
-    --accent: 220 14% 19%;
+    --accent: 220 14% 22%;
     --accent-foreground: 220 20% 92%;
 
     --ai: 172 55% 60%;
@@ -189,10 +189,10 @@
     --info: 219 100% 78%;
     --info-foreground: 220 20% 8%;
 
-    --border: 220 14% 22%;
-    --border-strong: 220 13% 28%;
-    --hair: 220 15% 18%;
-    --input: 220 14% 20%;
+    --border: 220 14% 24%;
+    --border-strong: 220 13% 30%;
+    --hair: 220 15% 20%;
+    --input: 220 14% 22%;
     --ring: 219 90% 66%;
 
     /* (2026-09-22: stack widened — canvas 12 / card 16 / bubble 19 / well 23.) Before, --card
@@ -258,7 +258,7 @@
     --attention-foreground: 0 0% 100%;
     --attention-muted: 330 80% 96%;
     --attention-line: 330 60% 84%;
-    --caution: 48 96% 30%;
+    --caution: 50 100% 23%;
     --caution-foreground: 0 0% 100%;
     --caution-muted: 50 90% 92%;
     --caution-line: 48 70% 68%;
