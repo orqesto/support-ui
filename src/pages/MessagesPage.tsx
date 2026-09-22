@@ -42,6 +42,7 @@ import { ListScopeNotice } from '@/components/messages/ListScopeNotice';
 import { MessageListItem } from '@/components/messages/MessageListItem';
 import { MessageDetail } from '@/components/messages/MessageDetail';
 import { neighbourThread } from '@/components/messages/detailShortcuts';
+import { threadIdForMessage } from '@/components/messages/threadForMessage';
 import { ThreadBubble } from '@/components/messages/ThreadBubble';
 import { ContactsView } from '@/components/messages/ContactsView';
 import { QuickFilterChips } from '@/components/messages/QuickFilterChips';
@@ -399,6 +400,16 @@ export const MessagesPage = () => {
     },
     [searchParams, setSearchParams, fetchedMessageIdRef]
   );
+
+  // A thread opened from a deep link / reload never went through `handleOpenThread`, so the ref
+  // below was null: J/K had nothing to step from, and a status change could not move the card.
+  // Recover it from the loaded threads (threadForMessage.ts has the matching rule).
+  useEffect(() => {
+    if (!selectedMessage) return;
+    if (selectedThreadIdRef.current) return;
+    const recovered = threadIdForMessage(threads, selectedMessage.id);
+    if (recovered) selectedThreadIdRef.current = recovered;
+  }, [selectedMessage, threads]);
 
   // J/K from the detail rail — neighbourThread (detailShortcuts.ts) has the rules.
   const handleNavigate = useCallback(
