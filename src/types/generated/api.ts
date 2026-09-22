@@ -359,6 +359,10 @@ export interface components {
             surface: "thread" | "contact" | "both";
             /** @enum {string|null} */
             category: "order" | "shipment" | "invoice" | "account" | null;
+            statusLabels: {
+                [key: string]: string;
+            };
+            seenStatuses: string[];
             enabled: boolean;
             effectivelyEnabled: boolean;
             chainBroken: boolean;

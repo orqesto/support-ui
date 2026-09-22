@@ -44,6 +44,16 @@ const asText = (value: unknown): string | null => {
 export const renderValue = (row: Record<string, unknown>, field: LookupField): string => {
   const value = asText(row[field.path]);
   if (value === null) return '—';
+  /*
+    L2 P2: the admin's word for a vendor status, when they have written one. Same sibling-key
+    convention as `__currency` below.
+
+    ⛔ The backend emits this ONLY for a field tagged `status` and only when the value is mapped,
+    so an unmapped value falls through and the agent reads what the vendor literally said — which
+    is honest, and is what P2's acceptance asks for. The product never invents a word for `3`.
+  */
+  const statusWord = asText(row[`${field.path}__label`]);
+  if (statusWord !== null) return statusWord;
   if (field.kind !== 'money') return value;
   // The currency is either configured as a literal or travels WITH the row, because on a vendor
   // that prices per row the same figure means different currencies from different endpoints.
@@ -63,7 +73,9 @@ export const projectFields = (
   result: CustomApiLookupResult
 ): { fields: LookupField[]; fallbackKeys: string[]; usingFallback: boolean } => {
   const fallbackKeys = Object.keys(result.rows?.[0] ?? {}).filter(
-    (key) => !key.endsWith('__currency')
+    // ⛔ `__label` joins `__currency` here. Both are the projection's own bookkeeping; rendering
+    // one as a vendor field would show an agent a column called `status__label`.
+    (key) => !key.endsWith('__currency') && !key.endsWith('__label')
   );
   const usingFallback = !result.fields?.length;
   return {

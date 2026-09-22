@@ -7,6 +7,7 @@ import {
   type CustomApiCategory,
 } from './categories';
 import { OwnershipStep } from './OwnershipStep';
+import { StatusVocabularyStep } from './StatusVocabularyStep';
 import { RecordFormatStep } from './RecordFormatStep';
 import type { RecordFormat } from './recordFormat';
 import { ResponseTree } from './ResponseTree';
@@ -68,6 +69,17 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
   const [path, setPath] = useState(endpoint?.path ?? '');
   const [endpointId, setEndpointId] = useState<number | null>(endpoint?.id ?? null);
   const [picked, setPicked] = useState<FieldPick[]>(endpoint?.fieldPaths ?? []);
+  /**
+   * L2 P2: the vendor's status values in this admin's words, and what the lookup has SEEN and
+   * nobody has mapped.
+   *
+   * ⛔ `seenStatuses` is read-only here — an observation written by the lookup, never a setting.
+   * An admin typing into it would turn evidence about a vendor into a guess about one.
+   */
+  const [statusLabels, setStatusLabels] = useState<Record<string, string>>(
+    endpoint?.statusLabels ?? {}
+  );
+  const seenStatuses = endpoint?.seenStatuses ?? [];
   const [paths, setPaths] = useState<string[]>([]);
   /**
    * WHERE THE RECORDS LIVE in the vendor's answer. Blank means "work it out" — a top-level array is
@@ -261,6 +273,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
         // what is stored", so an admin could never take a category off. Same shape as `dataPath`
         // directly above, and for the same reason its comment gives.
         category: category === '' ? null : category,
+        statusLabels,
         ...parameterFields,
       });
       invalidateAvailability();
@@ -273,6 +286,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
       dataPath: dataPath.trim() === '' ? null : dataPath.trim(),
       resultShape,
       category: category === '' ? null : category,
+      statusLabels,
       ...parameterFields,
     });
     invalidateAvailability();
@@ -592,6 +606,20 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
             <p className="text-xs font-medium text-foreground">What should agents see?</p>
             <ResponseTree paths={paths} picked={picked} onToggle={toggle} missing={missing} />
           </div>
+
+          {/*
+            ⛔ Only when a field is actually tagged `status`. The vocabulary has nothing to map
+            without one, and offering it anyway would ask an admin to configure something the
+            lookup can never use — the shape D35 documents for asking an identity lookup about
+            ownership: a question with one possible answer.
+          */}
+          {picked.some((field) => field.role === 'status') && (
+            <StatusVocabularyStep
+              labels={statusLabels}
+              seen={seenStatuses}
+              onChange={setStatusLabels}
+            />
+          )}
 
           {picked.length > 0 && (
             <div className="space-y-3">

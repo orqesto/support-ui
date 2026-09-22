@@ -110,6 +110,9 @@ const withNewEndpoint = (): Connection => ({
       surface: 'both',
       // L2: every endpoint that predates categories has none, which stays valid.
       category: null,
+      // L2 P2: no vocabulary yet, which every lookup that predates it has.
+      statusLabels: {},
+      seenStatuses: [],
       enabled: true,
       effectivelyEnabled: true,
       chainBroken: false,
