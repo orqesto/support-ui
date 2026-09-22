@@ -159,7 +159,7 @@ export const WorkspaceShell = () => {
   return (
     <div className="flex overflow-hidden h-screen bg-background">
       <aside
-        className={cn('flex overflow-hidden flex-col flex-shrink-0 border-r border-border bg-card')}
+        className="flex overflow-hidden flex-col flex-shrink-0 border-r border-border bg-card"
         style={{ width: sidebarWidth }}
       >
         <div
