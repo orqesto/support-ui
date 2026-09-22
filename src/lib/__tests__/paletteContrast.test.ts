@@ -83,10 +83,7 @@ const GROUNDS = ['card', 'background', 'raised', 'muted', 'accent', 'bubble'];
  * Known misses, each with its reason. Kept EXACT: the test also fails when one of these starts
  * passing, so a fix is noticed and the exception removed rather than left to hide a regression.
  */
-const KNOWN: Record<string, string> = {
-  'light primary on muted': 'pre-existing 4.41:1 — light theme deliberately untouched 2026-09-22',
-  'light primary on accent': 'pre-existing 4.41:1 — light theme deliberately untouched 2026-09-22',
-};
+const KNOWN: Record<string, string> = {};
 
 /** Fills that sit ON a card, and the least ΔE from it that still reads as a separate surface. */
 const ON_CARD: Record<string, number> = {
@@ -122,6 +119,14 @@ describe('palette contrast (measured from index.css)', () => {
         if (tokens[`${role}-muted`] && contrast(tokens[role], tokens[`${role}-muted`]) < 4.5)
           failing.push(`${theme} ${role} on ${role}-muted`);
     expect(failing).toEqual([]);
+  });
+
+  it('shape-weight colours (bars, dots, borders) clear 3:1 on a card (WCAG 1.4.11)', () => {
+    for (const [theme, tokens] of Object.entries(themes))
+      expect(
+        contrast(tokens['caution-solid'], tokens.card),
+        `${theme} caution-solid`
+      ).toBeGreaterThanOrEqual(3);
   });
 
   it('fills that sit on a card stay visibly apart from it, in both themes', () => {

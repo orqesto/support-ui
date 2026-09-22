@@ -104,6 +104,9 @@ us (Client Replied), `caution` = in motion / waiting (Awaiting, In Progress), `p
 dark. `attention` is magenta (330°), not orange: in dark, red/orange/amber/yellow read alike
 (measured 2026-09-22 — Client Replied and Not Analysed were indistinguishable). Use
 them through `components/dashboard/dashboardTones.ts`; never as inline hex.
+`caution` has a second, SHAPE weight: `caution-solid` (gold) for bars, dots and borders, which
+only need 3:1 — the text weight is an olive (yellow cannot reach 4.5:1 on white and still look
+yellow). The same split as `primary` / `primary-solid`.
 
 **Elevation, not one flat white:** `background` (the canvas) → `card` → `raised`
 (inputs, chips) → `sunken` (table heads, code). A message is a card ON the canvas, so
@@ -112,7 +115,8 @@ it has its own `bubble` ground; a reply we wrote uses the `agent-*` family. Dark
 sunken 10% · bubble 19% · well 23%. The fills that sit ON a card were lifted with it (muted/secondary 21%, accent
 22%, hair 20%, raised 19%, input 22%, border 24%, border-strong 30%) — lifting only the card
 left chips at ΔE 1.2 from it, i.e. invisible. Measured, both themes: every text/ground pair
-≥4.5:1 except light `primary` on `muted`/`accent` (4.41, pre-existing, light untouched).
+≥4.5:1 (light `primary` 53→51% for it: links on muted/accent were 4.41). Enforced by
+`src/lib/__tests__/paletteContrast.test.ts`, which also checks fills stay apart from the card.
 
 ### Two traps that have already cost real time
 

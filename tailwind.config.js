@@ -117,6 +117,7 @@ export default {
           foreground: 'hsl(var(--caution-foreground))',
           muted: 'hsl(var(--caution-muted))',
           line: 'hsl(var(--caution-line))',
+          solid: 'hsl(var(--caution-solid))',
         },
         pending: {
           DEFAULT: 'hsl(var(--pending))',

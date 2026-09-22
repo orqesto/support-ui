@@ -28,11 +28,12 @@ export const TONE_BORDER: Record<Tone, string> = {
   success: '!border-l-success',
   neutral: '!border-l-muted-foreground',
   attention: '!border-l-attention',
-  caution: '!border-l-caution',
+  caution: '!border-l-caution-solid',
   pending: '!border-l-pending',
   ai: '!border-l-ai',
 };
 
+// caution uses its -solid (shape) weight: its text weight is an olive that stops reading as yellow.
 export const TONE_FILL: Record<Tone, string> = {
   destructive: 'bg-destructive',
   warning: 'bg-warning',
@@ -40,7 +41,7 @@ export const TONE_FILL: Record<Tone, string> = {
   success: 'bg-success',
   neutral: 'bg-muted-foreground',
   attention: 'bg-attention',
-  caution: 'bg-caution',
+  caution: 'bg-caution-solid',
   pending: 'bg-pending',
   ai: 'bg-ai',
 };
