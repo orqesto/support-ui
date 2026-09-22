@@ -884,6 +884,43 @@ export function MessageDetailHeader({
         )}
       </div>
 
+      {/* The decisions (Assign to me, Resolve): their own right-aligned line UNDER the icon row and
+          ABOVE the subject (owner, 2026-09-22). On the chip row they jumped to a second line
+          whenever a thread had one chip more; here they sit at one fixed place on every thread,
+          next to the other controls, and the subject, sender and chips below keep their width.
+          Not rendered when there is no decision. */}
+      {(canAssignToMe || (onResolve && resolveMode !== null)) && (
+        <div className="flex justify-end items-center gap-[7px] px-3.5 pt-1.5">
+          {canAssignToMe && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void assignToMe()}
+              disabled={assigningMe}
+              className="h-[27px] px-[11px] rounded-[7px] text-[12px] bg-card"
+            >
+              {assigningMe ? 'Assigning…' : 'Assign to me'}
+            </Button>
+          )}
+          {onResolve && (
+            <ResolveSplitButton
+              mode={resolveMode}
+              busy={resolving}
+              onResolve={onResolve}
+              onResolveToKb={onResolveToKb}
+              onNotCustomerWork={onNotCustomerWork}
+              // Owner, 2026-09-22: the agent resolving AS spam is the CONFIRMED layer; spam our
+              // filters bin stays unconfirmed until a person acts. Hence confirm=true here.
+              onMoveToSpam={
+                isActive && onClassify
+                  ? () => void onClassify('move_to_spam', undefined, undefined, true)
+                  : undefined
+              }
+            />
+          )}
+        </div>
+      )}
+
       {/* Subject */}
       <h2 className="font-display text-[16.5px] font-semibold leading-[1.3] tracking-[-0.015em] line-clamp-2 my-1.5 px-3.5 text-foreground">
         {message.subject ?? '(no subject)'}
@@ -916,9 +953,6 @@ export function MessageDetailHeader({
       )}
 
       {/* Action chip row */}
-      {/* The decisions (Assign to me, Resolve) ALWAYS take their own right-aligned line under the
-          chips (owner, 2026-09-22): when they shared the chip row they jumped to a second line
-          whenever a thread had one chip more, so the main action moved between threads. */}
       <div className="flex items-center gap-[7px] flex-wrap px-3.5 pb-2.5 overflow-visible">
         {/* Identity: who wrote + which of OUR addresses they wrote to. A full-width group, so the
             state chips and the decisions always start their own line beneath it. The received-at
@@ -1003,37 +1037,6 @@ export function MessageDetailHeader({
             <Target className="w-2.5 h-2.5" />
             LEAD
           </span>
-        )}
-        {(canAssignToMe || (onResolve && resolveMode !== null)) && (
-          <div className="flex basis-full justify-end items-center gap-[7px]">
-            {canAssignToMe && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void assignToMe()}
-                disabled={assigningMe}
-                className="h-[27px] px-[11px] rounded-[7px] text-[12px] bg-card"
-              >
-                {assigningMe ? 'Assigning…' : 'Assign to me'}
-              </Button>
-            )}
-            {onResolve && (
-              <ResolveSplitButton
-                mode={resolveMode}
-                busy={resolving}
-                onResolve={onResolve}
-                onResolveToKb={onResolveToKb}
-                onNotCustomerWork={onNotCustomerWork}
-                // Owner, 2026-09-22: the agent resolving AS spam is the CONFIRMED layer; spam our
-                // filters bin stays unconfirmed until a person acts. Hence confirm=true here.
-                onMoveToSpam={
-                  isActive && onClassify
-                    ? () => void onClassify('move_to_spam', undefined, undefined, true)
-                    : undefined
-                }
-              />
-            )}
-          </div>
         )}
       </div>
 
