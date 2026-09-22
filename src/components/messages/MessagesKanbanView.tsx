@@ -48,6 +48,7 @@ import {
   DROPPABLE_COLS,
   VALID_TARGETS,
   getDndAction,
+  dndConfirmsSpam,
   type ColumnAxis,
   type KanbanColumnDef,
 } from './kanbanColumns';
@@ -822,7 +823,8 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
         if (action === 'reopen') {
           await messageService.reopen(msgId);
         } else {
-          await messageService.classify(msgId, action);
+          // A drag onto Spam is an agent decision = confirmed spam (see dndConfirmsSpam).
+          await messageService.classify(msgId, action, undefined, undefined, dndConfirmsSpam(action));
           // approve/move_to_spam on a needs_routing conv changes the badge — invalidate
           // so the sidebar count doesn't lag behind the 60s auto-refetch interval.
           void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });

@@ -244,6 +244,12 @@ export const VALID_TARGETS: Record<string, Set<string>> = {
 
 export type DndAction = 'approve' | 'move_to_spam' | 'reopen';
 
+/**
+ * A drag onto Spam is an agent's decision, so it records CONFIRMED spam (owner, 2026-09-22:
+ * what our filters bin is unconfirmed; a person moving it there confirms it).
+ */
+export const dndConfirmsSpam = (action: DndAction): boolean => action === 'move_to_spam';
+
 export function getDndAction(from: string, to: string): DndAction | null {
   if (from === 'resolved' && to === 'open') return 'reopen';
   if (
