@@ -916,9 +916,9 @@ export function MessageDetailHeader({
       )}
 
       {/* Action chip row */}
-      {/* Wraps on purpose: in slide-over the chips and the decisions never fit one line, so the
-          decisions group is pinned right and drops onto its own right-aligned line rather than
-          breaking wherever the row runs out. */}
+      {/* The decisions (Assign to me, Resolve) ALWAYS take their own right-aligned line under the
+          chips (owner, 2026-09-22): when they shared the chip row they jumped to a second line
+          whenever a thread had one chip more, so the main action moved between threads. */}
       <div className="flex items-center gap-[7px] flex-wrap px-3.5 pb-2.5 overflow-visible">
         {/* Identity: who wrote + which of OUR addresses they wrote to. A full-width group, so the
             state chips and the decisions always start their own line beneath it. The received-at
@@ -1004,35 +1004,37 @@ export function MessageDetailHeader({
             LEAD
           </span>
         )}
-        <div className="flex items-center gap-1.5 ml-auto">
-          {canAssignToMe && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void assignToMe()}
-              disabled={assigningMe}
-              className="h-[27px] px-[11px] rounded-[7px] text-[12px] bg-card"
-            >
-              {assigningMe ? 'Assigning…' : 'Assign to me'}
-            </Button>
-          )}
-          {onResolve && (
-            <ResolveSplitButton
-              mode={resolveMode}
-              busy={resolving}
-              onResolve={onResolve}
-              onResolveToKb={onResolveToKb}
-              onNotCustomerWork={onNotCustomerWork}
-              // Owner, 2026-09-22: the agent resolving AS spam is the CONFIRMED layer; spam our
-              // filters bin stays unconfirmed until a person acts. Hence confirm=true here.
-              onMoveToSpam={
-                isActive && onClassify
-                  ? () => void onClassify('move_to_spam', undefined, undefined, true)
-                  : undefined
-              }
-            />
-          )}
-        </div>
+        {(canAssignToMe || (onResolve && resolveMode !== null)) && (
+          <div className="flex basis-full justify-end items-center gap-[7px]">
+            {canAssignToMe && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void assignToMe()}
+                disabled={assigningMe}
+                className="h-[27px] px-[11px] rounded-[7px] text-[12px] bg-card"
+              >
+                {assigningMe ? 'Assigning…' : 'Assign to me'}
+              </Button>
+            )}
+            {onResolve && (
+              <ResolveSplitButton
+                mode={resolveMode}
+                busy={resolving}
+                onResolve={onResolve}
+                onResolveToKb={onResolveToKb}
+                onNotCustomerWork={onNotCustomerWork}
+                // Owner, 2026-09-22: the agent resolving AS spam is the CONFIRMED layer; spam our
+                // filters bin stays unconfirmed until a person acts. Hence confirm=true here.
+                onMoveToSpam={
+                  isActive && onClassify
+                    ? () => void onClassify('move_to_spam', undefined, undefined, true)
+                    : undefined
+                }
+              />
+            )}
+          </div>
+        )}
       </div>
 
       {/* Re-route banner — runner-up depts from the routing engine.
