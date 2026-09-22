@@ -17,6 +17,12 @@ export type ShortcutContext = {
   canNavigate: boolean;
   /** Esc closes only a surface that can close (the slide-over, not the full page). */
   canClose: boolean;
+  /**
+   * A resolve / dismiss request is in flight. Every key is off: the confirm dialog has already
+   * closed, and the request's callback moves "the selected card" — J/K in that gap would make it
+   * move the conversation just opened, and E would post the resolve a second time.
+   */
+  busy?: boolean;
 };
 
 type KeyLike = Pick<
@@ -41,6 +47,7 @@ export const shortcutFor = (event: KeyLike, context: ShortcutContext): DetailSho
   if (event.ctrlKey || event.metaKey || event.altKey) return null;
   if (isTypingTarget(event.target)) return null;
   if (dialogIsOpen()) return null;
+  if (context.busy) return null;
 
   switch (event.key) {
     case 'r':

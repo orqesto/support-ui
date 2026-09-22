@@ -318,6 +318,9 @@ export function HeaderMetaStrip({
                       return (
                         <div
                           data-label-picker
+                          // A non-modal dialog: the detail's shortcuts stand down while it is open.
+                          role="dialog"
+                          aria-label="Labels"
                           style={{ top: pickerPos.top, left: pickerPos.left, width: 200 }}
                           className="absolute z-[9999] rounded-lg border border-border shadow-xl p-1 bg-card text-card-foreground"
                         >

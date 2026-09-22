@@ -300,13 +300,31 @@ export function MessageDetailHeader({
 
   // "Assign to me" beside the decisions it usually precedes (useAssignToMe.ts). Offered only
   // while there IS a decision to make — assigning a resolved or binned thread is not the job.
-  const { canAssign, assigning: assigningMe, assignToMe } = useAssignToMe({
+  const {
+    canAssign,
+    assigning: assigningMe,
+    assignToMe,
+  } = useAssignToMe({
     messageId: message.id,
     assigneeId: message.assigneeId,
     currentUserId,
     onAssigned: onRefresh,
   });
   const canAssignToMe = canAssign && resolveMode !== null;
+
+  // Esc closes the open popover (ACTIONS menu or label picker) and only it — their roles keep
+  // the rail's own Esc out (detailShortcuts.ts dialogIsOpen). Listened on the document, so it
+  // also works from the label search box, where the rail's shortcuts are off.
+  useEffect(() => {
+    if (!moreOpen && !showLabelPicker) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setMoreOpen(false);
+      setShowLabelPicker(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [moreOpen, showLabelPicker]);
   // System-set statuses have no dropdown entry — map to nearest user-facing equivalent for display
   // The current work status is DERIVED (canonical), not the raw enum.
   const currentWorkflowStatus: WorkflowStatus = deriveWorkflowStatus(message) ?? 'open';
@@ -391,7 +409,11 @@ export function MessageDetailHeader({
     if (!wf) return null; // filtered/needs_routing — Queue axis
     const hasAnalysis = !!(message.metadata as Record<string, unknown> | undefined)?.analysis;
     if (wf.label === 'Open' && !hasAnalysis)
-      return { label: 'NOT ANALYSED', icon: null, cls: 'text-muted-foreground border-border bg-muted/60' };
+      return {
+        label: 'NOT ANALYSED',
+        icon: null,
+        cls: 'text-muted-foreground border-border bg-muted/60',
+      };
     return null; // plain work status → shown by the select, not duplicated here
   })();
 
@@ -718,7 +740,9 @@ export function MessageDetailHeader({
     <div className="flex-shrink-0 border-b border-border bg-background">
       {/* Top strip */}
       <div className="flex items-center gap-1.5 px-4 pt-3 pb-1">
-        <span className="font-mono text-[10px] text-muted-foreground">{formatConvId(message, orgCode)}</span>
+        <span className="font-mono text-[10px] text-muted-foreground">
+          {formatConvId(message, orgCode)}
+        </span>
         <span className="text-[10px] text-muted-foreground" title={message.channel}>
           {CHANNEL_ICONS[message.channel] ?? '◌'}
         </span>
@@ -754,7 +778,12 @@ export function MessageDetailHeader({
           )}
           {showFullPageButton && !isFullPage && (
             <Link to={`/messages/${message.id}`} title="Open full page">
-              <Button variant="ghost" size="icon" aria-label="Open full page" className="p-1 w-auto h-auto rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Open full page"
+                className="p-1 w-auto h-auto rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
+              >
                 <Maximize2 className="w-3.5 h-3.5" />
               </Button>
             </Link>
@@ -932,9 +961,7 @@ export function MessageDetailHeader({
           </span>
         )}
         {message.isLead && (
-          <span
-            className={`text-success bg-success-muted border-success-line ${CHIP_BASE}`}
-          >
+          <span className={`text-success bg-success-muted border-success-line ${CHIP_BASE}`}>
             <Target className="w-2.5 h-2.5" />
             LEAD
           </span>
@@ -958,55 +985,62 @@ export function MessageDetailHeader({
               onResolve={onResolve}
               onResolveToKb={onResolveToKb}
               onNotCustomerWork={onNotCustomerWork}
-              onMoveToSpam={isActive && onClassify ? () => void onClassify('move_to_spam') : undefined}
+              onMoveToSpam={
+                isActive && onClassify ? () => void onClassify('move_to_spam') : undefined
+              }
             />
           )}
-        <div className="relative">
-          <Button
-            variant="ghost"
-            onClick={() => setMoreOpen((val) => !val)}
-            className={`${CHIP_BASE} h-auto text-muted-foreground border-border bg-card hover:bg-accent hover:text-foreground ${moreOpen ? 'bg-accent text-foreground' : ''}`}
-            title="More actions"
-          >
-            ACTIONS
-            <ChevronDown
-              className={`w-3 h-3 transition-transform ${moreOpen ? 'rotate-180' : ''}`}
-            />
-          </Button>
-          {moreOpen && (
-            <>
-              <button
-                type="button"
-                aria-label="Close"
-                className="fixed inset-0 z-40 cursor-default"
-                onClick={() => setMoreOpen(false)}
+          <div className="relative">
+            <Button
+              variant="ghost"
+              onClick={() => setMoreOpen((val) => !val)}
+              className={`${CHIP_BASE} h-auto text-muted-foreground border-border bg-card hover:bg-accent hover:text-foreground ${moreOpen ? 'bg-accent text-foreground' : ''}`}
+              title="More actions"
+            >
+              ACTIONS
+              <ChevronDown
+                className={`w-3 h-3 transition-transform ${moreOpen ? 'rotate-180' : ''}`}
               />
-              <div className="absolute top-full right-0 mt-1 z-50 rounded-lg border border-border bg-card shadow-lg p-1 min-w-[180px]">
-                {moreMenuItems.map((item) => {
-                  const btn = (
-                    <Button
-                      key={item.label}
-                      variant="ghost"
-                      onClick={item.action}
-                      disabled={item.disabled}
-                      className={`w-full flex justify-start items-center gap-2 px-2 py-1.5 h-auto rounded text-xs text-left transition-colors ${item.danger ? 'text-destructive hover:bg-destructive-muted' : 'text-foreground hover:bg-accent'} ${item.disabled ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}`}
-                    >
-                      {item.icon}
-                      {item.label}
-                    </Button>
-                  );
-                  return item.tooltip ? (
-                    <Tooltip key={item.label} content={item.tooltip} side="left" size="sm">
-                      <span className="block w-full">{btn}</span>
-                    </Tooltip>
-                  ) : (
-                    btn
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </div>
+            </Button>
+            {moreOpen && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  className="fixed inset-0 z-40 cursor-default"
+                  onClick={() => setMoreOpen(false)}
+                />
+                {/* role=menu: the detail's single-key shortcuts stand down while a menu is open,
+                  so Esc closes THIS, not the rail behind it (detailShortcuts.ts dialogIsOpen). */}
+                <div
+                  role="menu"
+                  className="absolute top-full right-0 mt-1 z-50 rounded-lg border border-border bg-card shadow-lg p-1 min-w-[180px]"
+                >
+                  {moreMenuItems.map((item) => {
+                    const btn = (
+                      <Button
+                        key={item.label}
+                        variant="ghost"
+                        onClick={item.action}
+                        disabled={item.disabled}
+                        className={`w-full flex justify-start items-center gap-2 px-2 py-1.5 h-auto rounded text-xs text-left transition-colors ${item.danger ? 'text-destructive hover:bg-destructive-muted' : 'text-foreground hover:bg-accent'} ${item.disabled ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}`}
+                      >
+                        {item.icon}
+                        {item.label}
+                      </Button>
+                    );
+                    return item.tooltip ? (
+                      <Tooltip key={item.label} content={item.tooltip} side="left" size="sm">
+                        <span className="block w-full">{btn}</span>
+                      </Tooltip>
+                    ) : (
+                      btn
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 

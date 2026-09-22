@@ -680,6 +680,7 @@ export function MessageDetail({
     canNavigate: onNavigate !== undefined,
     // Esc closes the slide-over only; the full page has its own Back bar.
     canClose: onClose !== undefined && !fullPage,
+    busy: resolving,
   };
   useDetailShortcuts(shortcutContext, {
     reply: () => {
@@ -733,12 +734,17 @@ export function MessageDetail({
     [handleAiSourceChange]
   );
 
+  // `resolving` is set here too (not only on close/resolve): the header button and the
+  // shortcuts read it, and this request is just as much in flight after its dialog has closed.
   const handleReject = useCallback(async () => {
+    setResolving(true);
     try {
       await messageService.markAsProcessed(message.id);
       onReject?.();
     } catch (err) {
       logger.error('Failed to mark as processed:', err);
+    } finally {
+      setResolving(false);
     }
   }, [message.id, onReject]);
 
@@ -751,12 +757,15 @@ export function MessageDetail({
    */
   const handleNotCustomerWork = useCallback(
     async (reason: string) => {
+      setResolving(true);
       try {
         await messageService.markAsNotCustomerWork(message.id, reason);
         onReject?.();
       } catch (err) {
         logger.error('Failed to mark as not customer work:', err);
         toast.failure('mark as not customer work', err);
+      } finally {
+        setResolving(false);
       }
     },
     [message.id, onReject]
