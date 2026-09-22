@@ -58,9 +58,18 @@ export interface ManagedAiModelStat {
   rateSource: 'operator' | 'list' | null;
 }
 
+export type SpendVia = 'managed_mode' | 'default_key' | 'own_key';
+
 export interface ManagedAiOrgUsage {
   organizationId: number;
   name: string;
+  /**
+   * Which key paid: managed mode (platform key), its own AI settings holding the platform key
+   * ("default key"), or its own key. Optional: an older backend listed managed mode only.
+   */
+  via?: SpendVia;
+  platformKeyTokens?: number;
+  ownKeyTokens?: number;
   /**
    * Monthly AI-call cap consumption. Null when the org's limits could not be read.
    *
@@ -85,6 +94,14 @@ export interface ManagedAiUsage {
   totals: {
     byTier: ManagedAiTierStat[];
     managedOrgCount: number;
+    /**
+     * All-spend split (newer backend). Undefined on an older backend that counted managed mode
+     * only and could not see the rest — never read undefined as 0.
+     */
+    defaultKeyOrgCount?: number;
+    ownKeyOrgCount?: number;
+    platformKeyTokens?: number;
+    ownKeyTokens?: number;
     /**
      * The daily TOKEN ceiling — the only guard that counts tokens rather than round-trips.
      * `tokenCeilingIsDefault` says whether an operator chose this number or is relying on
