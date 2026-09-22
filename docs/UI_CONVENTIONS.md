@@ -138,18 +138,23 @@ left nothing distinguishing `DEPT` from an order number.
 digits already advance equally; the class is for proportional faces. Figures set in mono
 are already tabular.
 
-## Conformance, as of 2026-09-21
+## Conformance, as of 2026-09-22
 
-The token system is in place and partly adopted. Measured on `staging`:
+Measured on `feat/message-detail-v3-logic` (= `staging` + message-detail v3; the numbers below
+did not change in it):
 
-- **1,010** raw Tailwind palette classes remain, across **140** files
-- **79** `bg-white` / `text-black` / `bg-black`
-- **0** arbitrary `hsl()` / `rgb()` in classes
-- **278** `font-display` usages (was 0 — Space Grotesk was loaded and painted nothing)
+- **13** raw Tailwind palette classes, in **3** files — all deliberate: the categorical avatar
+  hues and documentation colour map (`inboxCardHelpers.tsx`, `DocumentationList.tsx`) and the
+  modal scrim (`Layout.tsx`). Was 1,179 before #449.
+- **36** `bg-white` / `text-white` / `text-black` / `bg-black` — white text on user-chosen label
+  and avatar colours (set inline from data) and scrims. Not a role; leave them.
+- **309** `font-display`, **293** `font-mono` usages. The shared `Button`, `Badge`, `CardTitle`,
+  `DialogTitle` and `Typography` heading/label variants carry Grotesk themselves.
+- "Needs Routing" is **neutral** (owner, 2026-09-21): a dashed outline on the list chip and
+  card badge, a strong-neutral sidebar count.
 
-New code uses tokens. The remainder is a migration in progress, and what is left is the
-judgement-shaped tail: light greys sitting on coloured grounds, solid fills whose label
-lives in another component, and the violet "Needs Routing" chip, which has no role yet.
+⚠️ Known and not fixed: assignee initials on the categorical avatar palette measure
+**2.04–3.46:1** (white on the lighter hues). The palette is data, so this needs a decision.
 
 ### If you migrate some of it
 
