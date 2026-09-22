@@ -173,14 +173,15 @@ export const NeedsRoutingPage = () => {
     }
   };
 
-  // Mark-as-spam for messages that reached needs_routing but the admin recognises
-  // as spam on sight (e.g. a sophisticated phishing attempt that passed spam check).
+  // Resolve as spam, for messages that reached needs_routing but the admin recognises as spam on
+  // sight (e.g. a sophisticated phishing attempt that passed spam check). A person's decision, so
+  // it is CONFIRMED spam (owner, 2026-09-22: filters bin = unconfirmed, an agent = confirmed).
   // Mirrors handleRoute's optimistic-removal + badge-invalidate flow.
   const handleMarkSpam = async (id: number) => {
     setSpamId(id);
     setRouteError(null);
     try {
-      await messageService.classify(id, 'move_to_spam');
+      await messageService.classify(id, 'move_to_spam', undefined, undefined, true);
       void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
       const remaining = messages.filter((msg) => msg.id !== id);
       const nextTotal = Math.max(total - 1, 0);
@@ -201,7 +202,7 @@ export const NeedsRoutingPage = () => {
       }
     } catch (err) {
       logger.error('Failed to mark message as spam:', err);
-      setRouteError('Failed to mark the message as spam. Please try again.');
+      setRouteError('Failed to move the message to spam. Please try again.');
     } finally {
       setSpamId(null);
     }
@@ -399,15 +400,15 @@ export const NeedsRoutingPage = () => {
                             variant="outline"
                             onClick={() => void handleMarkSpam(msg.id)}
                             disabled={spamId === msg.id || routingId === msg.id}
-                            aria-label="Mark as spam"
-                            title="Mark as spam"
+                            aria-label="Resolve & move to spam"
+                            title="Resolve & move to spam"
                           >
                             {spamId === msg.id ? (
                               '…'
                             ) : (
                               <>
                                 <Ban className="w-3.5 h-3.5 mr-1" />
-                                Spam
+                                Resolve &amp; move to spam
                               </>
                             )}
                           </Button>
@@ -504,15 +505,15 @@ export const NeedsRoutingPage = () => {
                           void handleMarkSpam(msg.id);
                         }}
                         disabled={spamId === msg.id || routingId === msg.id}
-                        aria-label="Mark as spam"
-                        title="Mark as spam"
+                        aria-label="Resolve & move to spam"
+                        title="Resolve & move to spam"
                       >
                         {spamId === msg.id ? (
                           '…'
                         ) : (
                           <>
                             <Ban className="mr-1 w-4 h-4" />
-                            Spam
+                            Resolve &amp; move to spam
                           </>
                         )}
                       </Button>

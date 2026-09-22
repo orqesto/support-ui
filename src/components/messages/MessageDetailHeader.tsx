@@ -12,7 +12,6 @@ import {
   AlertTriangle,
   Target,
   ShieldAlert,
-  Ban,
   Maximize2,
   Sparkles,
   MessageSquare,
@@ -728,16 +727,8 @@ export function MessageDetailHeader({
           setMoreOpen(false);
         },
       },
-    isActive &&
-      onClassify && {
-        label: 'Move to Spam',
-        icon: <Ban className="w-3 h-3" />,
-        action: () => {
-          void onClassify('move_to_spam');
-          setMoreOpen(false);
-        },
-        danger: true,
-      },
+    // No "Move to Spam" here (owner, 2026-09-22): the caret's "Resolve & move to spam" is the
+    // one agent path, and it records CONFIRMED spam.
     onDelete && {
       label: 'Delete Message',
       icon: <Trash2 className="w-3 h-3" />,
