@@ -81,7 +81,9 @@ export function ThreadBubble({
   const base =
     'prose prose-sm max-w-none break-words [overflow-wrap:anywhere] [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 ' +
     '[&_pre]:whitespace-pre-wrap [&_img]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto';
-  const prose = isAgent ? `${base} prose-invert dark:prose-invert` : base;
+  // v3: a reply sits on the soft --agent ground, not solid primary, so it reads with the
+  // same ink as an incoming message — only links take the agent role.
+  const prose = isAgent ? `${base} [&_a]:text-agent-link` : base;
 
   /**
    * The ground an EMAIL renders on, as opposed to the bubble it sits in.
@@ -271,10 +273,10 @@ export function ThreadBubble({
             event.stopPropagation();
             setShowQuote((val) => !val);
           }}
-          className={`text-[10px] mt-1.5 flex items-center gap-0.5 p-0 h-auto transition-opacity ${
+          className={`font-display text-[10.5px] mt-1.5 flex items-center gap-0.5 p-0 h-auto transition-opacity ${
             isAgent
-              ? 'text-primary-foreground/55 hover:text-primary-foreground/90'
-              : 'text-muted-foreground/55 hover:text-muted-foreground'
+              ? 'text-agent-dim hover:text-agent-foreground'
+              : 'text-faint-foreground hover:text-foreground'
           }`}
         >
           <ChevronDown
@@ -285,7 +287,7 @@ export function ThreadBubble({
       )}
       {quote && showQuote && (
         <div
-          className={`mt-1 border-l-2 pl-2 opacity-60 ${isAgent ? 'border-primary-foreground/25' : 'border-border'}`}
+          className={`mt-1 border-l-2 pl-2.5 text-faint-foreground ${isAgent ? 'border-agent-hair' : 'border-border-strong'}`}
         >
           {render(quote)}
         </div>

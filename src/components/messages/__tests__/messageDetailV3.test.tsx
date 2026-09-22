@@ -60,6 +60,8 @@ vi.mock('@/hooks/useDepartments', () => ({
   useDepartmentById: () => null,
 }));
 vi.mock('@/hooks/useAiConfigured', () => ({ useAiConfigured: () => ({ configured: true }) }));
+const media = vi.hoisted(() => ({ wide: false }));
+vi.mock('@/hooks/useMediaQuery', () => ({ useMediaQuery: () => media.wide }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'acme' }));
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: (select: (store: unknown) => unknown) => select({ user: { id: 7 } }),
@@ -73,7 +75,11 @@ vi.mock('../MessageComposer', () => ({
 vi.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ theme: 'light', resolvedTheme: 'light', setTheme: vi.fn() }),
 }));
-vi.mock('../MessagePanelTabs', () => ({ MessagePanelTabs: () => null }));
+vi.mock('../MessagePanelTabs', () => ({
+  MessagePanelTabs: ({ variant }: { variant?: string }) => (
+    <div data-testid="panel-tabs" data-variant={variant ?? 'rail'} />
+  ),
+}));
 vi.mock('../ThreadMessageItem', () => ({ ThreadMessageItem: () => null }));
 vi.mock('../MessageGhostBubble', () => ({ MessageGhostBubble: () => null }));
 vi.mock('@/components/contacts/ContactProfilePanel', () => ({ ContactProfilePanel: () => null }));
@@ -115,6 +121,7 @@ beforeEach(() => {
   svc.message.markAsNotCustomerWork = vi.fn().mockResolvedValue({ success: true });
 });
 afterEach(() => {
+  media.wide = false;
   cleanup();
   vi.clearAllMocks();
 });
@@ -172,6 +179,20 @@ describe('the header carries the decision', () => {
   });
 });
 
+describe('Resolve & move to spam = CONFIRMED spam (owner, 2026-09-22)', () => {
+  it('sends move_to_spam WITH confirm, so it lands in the confirmed layer', async () => {
+    const onClassify = vi.fn().mockResolvedValue(undefined);
+    renderDetail(
+      { status: 'in_progress' as Message['status'], lastReplyFromClient: true },
+      { onClassify }
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Other resolve options' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Resolve & move to spam' }));
+    await waitFor(() => expect(onClassify).toHaveBeenCalledTimes(1));
+    expect(onClassify).toHaveBeenCalledWith('move_to_spam', undefined, undefined, true);
+  });
+});
+
 describe('v3 header keeps every action it moved', () => {
   it('History (was a link beside the sender) is in the More menu; Copy link is an icon', () => {
     renderDetail({ status: 'in_progress' as Message['status'] });
@@ -184,6 +205,32 @@ describe('v3 header keeps every action it moved', () => {
     renderDetail({ sender: '"Marta K" <marta@northwind.example>' } as Partial<Message>);
     expect(screen.getByText('Marta K').tagName).toBe('B');
     expect(screen.getByText('marta@northwind.example')).toBeTruthy();
+  });
+});
+
+describe('full page (v3) = two columns on a wide screen', () => {
+  it('moves Dept/Assigned/Category/Labels and the context tabs into the right sidebar', () => {
+    media.wide = true;
+    renderDetail({ status: 'in_progress' as Message['status'] }, { isFullPage: true });
+    const aside = document.querySelector('aside');
+    expect(aside).not.toBeNull();
+    const side = within(aside as HTMLElement);
+    expect(side.getByText('Dept')).toBeTruthy();
+    expect(side.getByText('Labels')).toBeTruthy();
+    // The context tabs render IN the sidebar, in their sidebar form (no Thread tab — the
+    // thread is always beside them)…
+    expect(side.getByTestId('panel-tabs').getAttribute('data-variant')).toBe('sidebar');
+    expect(screen.getAllByTestId('panel-tabs')).toHaveLength(1);
+    // …and the meta block is not ALSO inline in the header.
+    expect(screen.getAllByText('Dept')).toHaveLength(1);
+  });
+
+  it('CONTROL: narrow full page keeps the slide-over layout — nothing hidden', () => {
+    media.wide = false;
+    renderDetail({ status: 'in_progress' as Message['status'] }, { isFullPage: true });
+    expect(document.querySelector('aside')).toBeNull();
+    expect(screen.getByText('Dept')).toBeTruthy();
+    expect(screen.getByTestId('panel-tabs').getAttribute('data-variant')).toBe('rail');
   });
 });
 

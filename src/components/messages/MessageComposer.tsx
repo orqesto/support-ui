@@ -63,11 +63,16 @@ export type MessageComposerProps = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+// v3 ".ibtn": a quiet bordered tool button.
+const IBTN =
+  'inline-flex items-center gap-[5px] px-[9px] py-1 rounded-[7px] border border-border bg-card text-muted-foreground text-[11.5px] hover:border-border-strong hover:text-foreground transition-colors';
+
 export function MessageComposer({
   message,
   composer,
   setComposer,
   composerMode,
+  setComposerMode,
   recipientDraft,
   onRecipientDraftChange,
   submitting,
@@ -104,7 +109,7 @@ export function MessageComposer({
 
   return (
     <div
-      className="flex-shrink-0 px-4 pt-2 pb-3 border-t border-border"
+      className="flex-shrink-0 px-3.5 pt-[9px] pb-[11px] border-t border-border bg-card"
       onDragOver={(event) => {
         if (submitting) return;
         event.preventDefault();
@@ -129,16 +134,50 @@ export function MessageComposer({
         if (images.length) addImageFiles(images);
       }}
     >
+      {/* v3: the two things this box can do, as tabs — the mode used to be reachable only from
+          the Notes tab or the N key, so nothing on screen said a note was an option here. The
+          key hint sits on the right, built from the same context the shortcuts read. */}
+      <div className="flex items-center gap-[15px] mb-2" role="group" aria-label="Composer mode">
+        {(['reply', 'note'] as const).map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            aria-pressed={composerMode === mode}
+            onClick={() => {
+              setComposerMode(mode);
+              setTimeout(
+                () => (mode === 'note' ? noteEditorRef : richEditorRef).current?.focus(),
+                0
+              );
+            }}
+            className={`pb-[5px] border-b-2 ${LABEL} tracking-[0.1em] transition-colors ${
+              composerMode === mode
+                ? mode === 'note'
+                  ? 'border-note text-note'
+                  : 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {mode === 'reply' ? 'Reply' : 'Internal note'}
+          </button>
+        ))}
+        {shortcutHint && (
+          <span className="ml-auto font-mono text-[10px] text-muted-foreground hidden sm:inline">
+            {shortcutHint}
+          </span>
+        )}
+      </div>
+
       {/* WhatsApp 24-hour window. Shown ABOVE the input so the agent reads it before
           typing, not after pressing send. Only rendered when there is something to say —
           a permanent banner would train people to ignore this space. */}
       {(sendBlockedReason || windowRemaining) && windowTone !== 'info' && (
         <div
           role={windowTone === 'blocked' ? 'alert' : 'status'}
-          className={`mb-2 px-3 py-2 text-xs rounded-md border ${
+          className={`mb-2 px-2.5 py-[7px] text-[12.5px] rounded-[9px] border ${
             windowTone === 'blocked'
-              ? 'border-destructive/40 bg-destructive/10 text-destructive'
-              : 'border-warning/40 bg-warning/10 text-warning'
+              ? 'border-destructive-line bg-destructive-muted text-destructive'
+              : 'border-warning-line bg-warning-muted text-warning'
           }`}
         >
           {sendBlockedReason}
@@ -163,12 +202,12 @@ export function MessageComposer({
 
       {/* Input frame — `relative` anchors the AI panel, which opens upward. */}
       <div
-        className={`relative rounded border transition-colors ${
+        className={`relative rounded-[10px] border transition-[border-color,box-shadow] ${
           isDragging
             ? 'border-primary border-dashed ring-2 ring-primary/30'
             : composerMode === 'note'
-              ? 'border-l-2 border-l-note-line border-border dark:bg-note-muted'
-              : 'border-border bg-card'
+              ? 'border-note-line border-l-[3px] border-l-note bg-note-muted'
+              : 'border-border bg-raised focus-within:border-primary focus-within:ring-[3px] focus-within:ring-primary-muted'
         }`}
       >
         {/* Addressing, above the editor as in any mail client. Reply-only: an
@@ -183,6 +222,10 @@ export function MessageComposer({
         )}
         {composerMode === 'reply' ? (
           <RichTextEditor
+            // Keyed by mode: both branches are the same component in the same slot, so without
+            // a key React REUSES the instance and TipTap keeps the first placeholder — a note
+            // said "Reply as …", which is exactly the confusion the placeholder exists to stop.
+            key="reply"
             ref={richEditorRef}
             content={composer}
             onChange={setComposer}
@@ -191,10 +234,12 @@ export function MessageComposer({
             placeholder={`Reply as ${user?.firstName ?? 'you'}…`}
             minHeight="52px"
             maxHeight="180px"
+            transparent
             className="rounded-none border-0 shadow-none"
           />
         ) : (
           <RichTextEditor
+            key="note"
             ref={noteEditorRef}
             content={composer}
             onChange={setComposer}
@@ -203,19 +248,18 @@ export function MessageComposer({
             placeholder="Internal note — only visible to the team…"
             minHeight="52px"
             maxHeight="180px"
+            transparent
             className="rounded-none border-0 shadow-none"
           />
         )}
 
         {/* Toolbar */}
         <div
-          className={`flex items-center gap-1.5 px-2 py-1.5 border-t ${composerMode === 'note' ? 'border-note-line' : 'border-border'}`}
+          className={`flex flex-wrap items-center gap-[7px] px-[9px] py-1.5 border-t ${composerMode === 'note' ? 'border-note-line' : 'border-hair'}`}
         >
-          <label
-            className="transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
-            title="Attach files"
-          >
-            <Paperclip className="w-3.5 h-3.5" />
+          <label className={`${IBTN} cursor-pointer`} title="Attach files">
+            <Paperclip className="w-3 h-3" />
+            Attach
             <input
               type="file"
               multiple
@@ -244,21 +288,17 @@ export function MessageComposer({
             <Button
               variant="ghost"
               onClick={onOpenSimilarMessages}
-              className="flex items-center gap-1.5 px-2.5 py-1 h-auto rounded bg-ai hover:bg-ai/90 text-ai-foreground transition-colors"
+              className={`${IBTN} h-auto`}
               title="Search knowledge base"
             >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span className="font-mono text-xs font-semibold">KB</span>
+              <BookOpen className="w-3 h-3" />
+              KB
             </Button>
           )}
-          <span className="font-mono text-[9px] text-muted-foreground/70 ml-1 hidden sm:inline">
-            ⌘↵ {composerMode === 'note' ? 'send internal note' : 'send reply'}
+          <span className="flex-1" />
+          <span className="font-mono text-[10.5px] text-muted-foreground hidden sm:inline">
+            ⌘↵ {composerMode === 'note' ? 'post' : 'send'}
           </span>
-          {shortcutHint && (
-            <span className="font-mono text-[9px] text-faint-foreground ml-1 hidden md:inline">
-              {shortcutHint}
-            </span>
-          )}
           <Button
             variant="ghost"
             onClick={onSend}
@@ -272,7 +312,7 @@ export function MessageComposer({
                 ? 'Add a message — attachments alone can’t be sent'
                 : undefined)
             }
-            className={`ml-auto flex items-center gap-1 px-2.5 py-1 h-auto rounded ${LABEL} transition-colors disabled:opacity-50 ${
+            className={`flex items-center gap-1 px-[13px] py-[5px] h-auto rounded-[7px] font-display text-[10.5px] font-semibold uppercase tracking-[0.07em] transition-colors disabled:opacity-50 ${
               composerMode === 'note'
                 ? 'bg-note hover:bg-note/90 text-note-foreground'
                 : 'bg-primary text-primary-foreground hover:bg-primary/90'
@@ -286,14 +326,14 @@ export function MessageComposer({
 
       {/* Selected files */}
       {selectedFiles.length > 0 && (
-        <div className="mt-1 space-y-0.5">
+        <div className="flex flex-wrap gap-1.5 mt-1.5">
           {selectedFiles.map((file, idx) => (
             <div
               key={`${file.name}-${file.size}-${idx}`}
-              className="flex items-center gap-2 text-[11px] text-foreground"
+              className="inline-flex items-center gap-1.5 max-w-full text-[11.5px] text-muted-foreground border border-border bg-raised rounded-md px-2 py-[3px]"
             >
-              <Paperclip className="w-2.5 h-2.5 flex-shrink-0 text-muted-foreground" />
-              <span className="flex-1 truncate">{file.name}</span>
+              <Paperclip className="w-2.5 h-2.5 flex-shrink-0" />
+              <span className="truncate">{file.name}</span>
               <Button
                 variant="ghost"
                 size="icon"

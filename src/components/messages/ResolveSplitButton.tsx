@@ -14,7 +14,7 @@ export type ResolveSplitButtonProps = {
   onResolve: () => void;
   /** Active only: an unreviewed conversation has no answer to capture. */
   onResolveToKb?: () => void;
-  /** Passed only where the header's More menu already offers Move to Spam. */
+  /** Confirmed spam: the agent's own decision (see below). */
   onMoveToSpam?: () => void;
   onNotCustomerWork?: () => void;
 };
@@ -30,11 +30,11 @@ type Item = {
 /**
  * Resolve as a split button: the common case is one press, the variants live under the caret.
  *
- * ⛔ No variant is labelled "Resolve & move to spam", although the design asked for one. A
- * binned thread keeps `status='filtered'` and never appears under Resolved, so the word sends
- * agents looking for it where it can never be — backend decision SP-D5
- * (messageActionController.ts). The item is "Move to spam", the same action and wording as the
- * More menu.
+ * "Resolve & move to spam" is the agent's decision that this is spam, recorded as CONFIRMED
+ * (`move_to_spam` + `confirm`). Owner, 2026-09-22 — two layers of spam: what our filters bin is
+ * unconfirmed until a person acts; an agent resolving it as spam confirms it. This supersedes
+ * the SP-D5 wording rule for this control. Note the thread lands in Spam (confirmed), not in
+ * the Resolved column: the status stays `filtered`.
  *
  * ⛔ "Not customer work" lives here although the design omits it: it was on the footer this
  * replaces, and it is the only way to clear a newsletter off the queue WITHOUT claiming anyone
@@ -97,7 +97,7 @@ export function ResolveSplitButton({
   if (onMoveToSpam) {
     items.push({
       key: 'spam',
-      label: 'Move to spam',
+      label: 'Resolve & move to spam',
       icon: <Trash2 className="w-3.5 h-3.5" />,
       onSelect: onMoveToSpam,
       danger: true,

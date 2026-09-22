@@ -19,6 +19,8 @@ import { logger } from '@/lib/logger';
 import { LABEL } from './messageDetailConstants';
 
 type Props = {
+  /** 'rows' — stacked label/value rows for the full page's sidebar (v3); default inline row. */
+  layout?: 'inline' | 'rows';
   message: Message;
   categories: Category[];
   messageLabels: Label[];
@@ -40,6 +42,7 @@ type Props = {
 };
 
 export function HeaderMetaStrip({
+  layout = 'inline',
   message,
   categories,
   messageLabels,
@@ -55,6 +58,7 @@ export function HeaderMetaStrip({
   onCreateLabel,
   onDepartmentChange,
 }: Props) {
+  const rows = layout === 'rows';
   const labelPickerRef = useRef<HTMLDivElement>(null);
   const labelBtnRef = useRef<HTMLButtonElement>(null);
   const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
@@ -149,10 +153,18 @@ export function HeaderMetaStrip({
   return (
     // v3 meta row: Dept / Assigned / Category as compact values, labels inline — one wrapping
     // row instead of three large selects and a separate Labels line.
-    <div className="flex flex-wrap items-center gap-x-[9px] gap-y-1.5 px-3.5 pb-2.5">
+    <div
+      className={
+        rows
+          ? 'flex flex-col items-stretch gap-1.5 px-[13px] py-[11px] bg-raised border-b border-border [&>div]:gap-2'
+          : 'flex flex-wrap items-center gap-x-[9px] gap-y-1.5 px-3.5 pb-2.5'
+      }
+    >
       {/* Department (resolved by smart routing; admins can re-route inline) */}
       <div className="flex items-center gap-2 min-w-0">
-        <span className={`flex-shrink-0 ${LABEL} text-muted-foreground`}>Dept</span>
+        <span className={`flex-shrink-0 ${LABEL} text-muted-foreground ${rows ? 'w-[62px]' : ''}`}>
+          Dept
+        </span>
         {editingDept && canRoute ? (
           <div className="flex items-center gap-2">
             <ReactSelect
@@ -220,7 +232,9 @@ export function HeaderMetaStrip({
 
       {/* Assignee */}
       <div className="flex items-center gap-2 min-w-0">
-        <span className={`flex-shrink-0 ${LABEL} text-muted-foreground`}>Assigned</span>
+        <span className={`flex-shrink-0 ${LABEL} text-muted-foreground ${rows ? 'w-[62px]' : ''}`}>
+          Assigned
+        </span>
         <AssignmentSelect
           type="thread"
           itemId={threadItemId}
@@ -235,7 +249,11 @@ export function HeaderMetaStrip({
       {categories.length > 0 && (
         <>
           <div className="flex items-center gap-2 min-w-0">
-            <span className={`flex-shrink-0 ${LABEL} text-muted-foreground`}>Category</span>
+            <span
+              className={`flex-shrink-0 ${LABEL} text-muted-foreground ${rows ? 'w-[62px]' : ''}`}
+            >
+              Category
+            </span>
             <ReactSelect
               value={
                 message.categoryId !== null && message.categoryId !== undefined
@@ -262,6 +280,11 @@ export function HeaderMetaStrip({
       {showLabelRow && (
         <>
           <div className="flex items-center gap-[5px] min-w-0 flex-wrap">
+            {rows && (
+              <span className={`flex-shrink-0 ${LABEL} text-muted-foreground w-[62px]`}>
+                Labels
+              </span>
+            )}
             {messageLabels.map((label) => (
               <span
                 key={label.id}

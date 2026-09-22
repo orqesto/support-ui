@@ -72,11 +72,18 @@ export function MessageActionStrip({
     [onClassify]
   );
 
+  // v3 state strip: a tinted row under the header — what state this is and why on the left,
+  // its decisions inline on the right. Tone by state: amber = suspicious (a judgement is
+  // pending), red = filtered/spam, neutral = finished (resolved, not customer work).
   const btnBase =
-    'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded font-display text-[11px] font-medium transition-colors disabled:opacity-50';
+    'inline-flex items-center justify-center gap-1.5 h-[27px] px-[11px] rounded-[7px] font-display text-[12px] font-medium transition-colors disabled:opacity-50';
   const statusLabel =
-    'font-display text-[9px] tracking-[0.09em] uppercase text-muted-foreground mb-1.5 font-medium';
-  const strip = 'flex-shrink-0 px-4 pt-2 pb-2.5 border-t border-border';
+    'font-display text-[10px] tracking-[0.1em] uppercase text-muted-foreground font-semibold';
+  const stripBase =
+    'flex-shrink-0 flex flex-wrap items-center gap-x-2 gap-y-1.5 px-3.5 py-[9px] border-b';
+  const strip = `${stripBase} border-border bg-raised`;
+  const stripWarn = `${stripBase} border-warning-line bg-warning-muted`;
+  const stripBad = `${stripBase} border-destructive-line bg-destructive-muted`;
 
   // Filtered: category-aware label and actions
   if (isFiltered && onClassify) {
@@ -112,16 +119,18 @@ export function MessageActionStrip({
     const inSpamLane = message.isSpam ?? spamCheck?.isSpam === true;
     const canConfirm = !isSecurityThreat && inSpamLane && !confirmedAt;
     return (
-      <div className={strip}>
-        <p className={`${statusLabel} ${meta.statusClass}`}>{meta.statusText}</p>
-        {confirmedAt && (
-          // ⛔ NOT "resolved" (SP-D5). A confirmed spam thread keeps `filtered` and never enters
-          // the Resolved column; the word would send an agent looking where it cannot be.
-          <p className="text-[11px] text-muted-foreground mb-2">
-            Confirmed as spam on {new Date(confirmedAt).toLocaleDateString()}.
-          </p>
-        )}
-        <div className="flex gap-2">
+      <div className={stripBad}>
+        <div className="flex-1 min-w-[190px] space-y-1">
+          <p className={`${statusLabel} ${meta.statusClass}`}>{meta.statusText}</p>
+          {confirmedAt && (
+            // ⛔ NOT "resolved" (SP-D5). A confirmed spam thread keeps `filtered` and never enters
+            // the Resolved column; the word would send an agent looking where it cannot be.
+            <p className="text-[11px] text-muted-foreground">
+              Confirmed as spam on {new Date(confirmedAt).toLocaleDateString()}.
+            </p>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="ghost"
             onClick={() => void handleClassify('approve')}
@@ -160,11 +169,13 @@ export function MessageActionStrip({
   // retires it) and mints a green-flag rule from this message.
   if (isSpamFlaggedOutsideTriage && onClassify) {
     return (
-      <div className={strip}>
-        <p className={`${statusLabel} text-destructive`}>
-          Flagged as spam — hidden from the inbox until approved
-        </p>
-        <div className="flex gap-2">
+      <div className={stripBad}>
+        <div className="flex-1 min-w-[190px] space-y-1">
+          <p className={`${statusLabel} text-destructive`}>
+            Flagged as spam — hidden from the inbox until approved
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="primary"
             onClick={() => void handleClassify('approve')}
@@ -188,35 +199,31 @@ export function MessageActionStrip({
       ? `Flagged as possible ${category} — review before approving`
       : 'Flagged as suspicious by spam filter';
     return (
-      <div className={strip}>
-        <p className={`${statusLabel} ${isSecurityThreat ? 'text-destructive' : ''}`}>
-          {statusText}
-        </p>
-        <div
-          className="mb-2"
-          title="Also creates a detection rule (green flag) so semantically similar future messages aren't flagged as suspicious."
-        >
-          <Toggle
-            checked={createRule}
-            onChange={setCreateRule}
-            disabled={classifying}
-            label="Also teach the filter (create a detection rule)"
-          />
-        </div>
-        {!isSecurityThreat && (
-          <div
-            className="mb-2"
-            title="Also mints a learned spam rule from this message so similar future messages are caught. The rule stays inert until it's corroborated by another spam message, so a one-off won't affect classification."
-          >
+      <div className={stripWarn}>
+        <div className="flex-1 min-w-[190px] space-y-1">
+          <p className={`${statusLabel} ${isSecurityThreat ? 'text-destructive' : ''}`}>
+            {statusText}
+          </p>
+          <div title="Also creates a detection rule (green flag) so semantically similar future messages aren't flagged as suspicious.">
             <Toggle
-              checked={trainSpamFilter}
-              onChange={setTrainSpamFilter}
+              checked={createRule}
+              onChange={setCreateRule}
               disabled={classifying}
-              label="Also train the spam filter (learn from this message)"
+              label="Also teach the filter (create a detection rule)"
             />
           </div>
-        )}
-        <div className="flex gap-2">
+          {!isSecurityThreat && (
+            <div title="Also mints a learned spam rule from this message so similar future messages are caught. The rule stays inert until it's corroborated by another spam message, so a one-off won't affect classification.">
+              <Toggle
+                checked={trainSpamFilter}
+                onChange={setTrainSpamFilter}
+                disabled={classifying}
+                label="Also train the spam filter (learn from this message)"
+              />
+            </div>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="primary"
             onClick={() => void handleClassify('approve', createRule)}
@@ -253,8 +260,10 @@ export function MessageActionStrip({
   if (message.status === 'resolved' && !hasLinkedTicket && onReopen) {
     return (
       <div className={strip}>
-        <p className={statusLabel}>Resolved</p>
-        <div className="flex gap-2">
+        <div className="flex-1 min-w-[190px] space-y-1">
+          <p className={statusLabel}>Resolved</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
           {onPromoteToKb && (
             <Button
               variant="ghost"
@@ -287,16 +296,18 @@ export function MessageActionStrip({
     const binned = notCustomerWorkMark(message);
     return (
       <div className={strip}>
-        <p className={statusLabel}>
-          {binned ? 'Not customer work' : 'Closed'}
-          {binned?.at && (
-            <span className="ml-1 font-normal text-muted-foreground">
-              · binned {new Date(binned.at).toLocaleDateString()}
-            </span>
-          )}
-        </p>
-        {binned?.reason && <p className="text-xs text-muted-foreground">“{binned.reason}”</p>}
-        <div className="flex gap-2">
+        <div className="flex-1 min-w-[190px] space-y-1">
+          <p className={statusLabel}>
+            {binned ? 'Not customer work' : 'Closed'}
+            {binned?.at && (
+              <span className="ml-1 font-normal text-muted-foreground">
+                · binned {new Date(binned.at).toLocaleDateString()}
+              </span>
+            )}
+          </p>
+          {binned?.reason && <p className="text-xs text-muted-foreground">“{binned.reason}”</p>}
+        </div>
+        <div className="flex flex-wrap gap-2">
           {onPromoteToKb && !binned && (
             <Button
               variant="ghost"

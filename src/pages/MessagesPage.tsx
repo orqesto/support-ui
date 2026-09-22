@@ -1032,12 +1032,13 @@ export const MessagesPage = () => {
                   detailRequestCloseRef.current = fn;
                 }}
                 onRefresh={handleRefreshMessage}
-                onClassify={async (action, createDetectionRule, trainSpamFilter) => {
+                onClassify={async (action, createDetectionRule, trainSpamFilter, confirm) => {
                   await messageService.classify(
                     selectedMessage.id,
                     action,
                     createDetectionRule,
-                    trainSpamFilter
+                    trainSpamFilter,
+                    confirm
                   );
                   clearCache();
                   bumpKanban();

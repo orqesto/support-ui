@@ -47,10 +47,17 @@ export const MessageDetailPage = () => {
     async (
       action: 'approve' | 'mark_suspicious' | 'move_to_spam' | 'confirm_spam',
       createDetectionRule?: boolean,
-      trainSpamFilter?: boolean
+      trainSpamFilter?: boolean,
+      confirm?: boolean
     ) => {
       if (!message) return;
-      await messageService.classify(message.id, action, createDetectionRule, trainSpamFilter);
+      await messageService.classify(
+        message.id,
+        action,
+        createDetectionRule,
+        trainSpamFilter,
+        confirm
+      );
       // Re-read rather than patch locally: approve moves the status server-side
       // (filtered → new) and the action strip renders off that status, so a stale
       // copy would keep offering the action that has already been taken.

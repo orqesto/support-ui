@@ -71,44 +71,95 @@ export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: P
    * would otherwise render as "someone · via someone".
    */
   const relayedFrom = relayedFromLabel(msg);
+  // v3 thread row: a 21px avatar, a Grotesk meta line ("Name · via address · when") above the
+  // bubble, the bubble itself, and attachments INSIDE it under a hairline. An incoming bubble
+  // is a card above the canvas; a reply WE wrote sits on the soft --agent ground (it used to be
+  // solid primary, which made every reply the loudest thing on screen).
+  const avatar = (
+    <div className="w-[21px] h-[21px] mt-px rounded-full bg-sunken border border-border grid place-items-center font-display text-[9px] font-semibold text-muted-foreground flex-none">
+      {initials || <User className="w-3 h-3" />}
+    </div>
+  );
+  const when = (
+    <span className="text-muted-foreground" title={formatDate(msgTime)}>
+      · {formatWhen(msgTime)}
+    </span>
+  );
+  // Mono row, display-face NAME: addresses and times are identifiers and stay mono (the type
+  // rule, #448/#452) even though the v3 mock sets the whole line in the display face.
+  const meta =
+    'font-mono text-[10.5px] text-faint-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5';
+  const translate = (onAgent: boolean) => (
+    <div className="flex-none mt-px">
+      <TranslateButton
+        messageId={msg.id}
+        onTranslated={(content) => setTranslatedContent(content)}
+        onCleared={() => setTranslatedContent(null)}
+        buttonClassName={`grid place-items-center w-7 h-7 rounded-[7px] border transition-colors ${
+          onAgent
+            ? 'bg-agent-fill border-agent-hair text-agent-dim hover:text-agent-foreground hover:border-agent-foreground'
+            : 'bg-bubble-well border-bubble-line text-faint-foreground hover:text-foreground hover:border-border-strong'
+        }`}
+        spinnerClassName={onAgent ? 'text-agent-dim' : 'text-muted-foreground'}
+        clearClassName={`grid place-items-center w-7 h-7 rounded-[7px] border transition-colors flex-none ${
+          onAgent
+            ? 'bg-agent-fill border-agent-hair text-agent-dim hover:text-agent-foreground'
+            : 'bg-bubble-well border-bubble-line text-faint-foreground hover:text-foreground'
+        }`}
+      />
+    </div>
+  );
+  const attachmentRow = (onAgent: boolean) =>
+    attachments.length > 0 && (
+      <div
+        className={`flex flex-wrap gap-1.5 mt-[9px] pt-[9px] border-t ${onAgent ? 'border-agent-hair' : 'border-hair'}`}
+      >
+        {attachments.map((att) => (
+          <ThreadAttachmentChip
+            key={att.id}
+            attachment={att}
+            onOpen={onOpenAttachment}
+            className={`!text-[11.5px] !px-2 !py-[3px] !rounded-md border ${
+              onAgent
+                ? 'text-agent-dim border-agent-hair bg-agent-fill hover:border-agent-foreground'
+                : 'text-muted-foreground border-border bg-raised hover:border-border-strong'
+            }`}
+          />
+        ))}
+      </div>
+    );
+
   if (isAgent) {
     return (
-      <div className="flex flex-row-reverse gap-2">
-        <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-[9px] font-semibold text-primary-foreground flex-shrink-0 mt-1">
-          {initials}
-        </div>
-        <div className="flex flex-col items-end max-w-[88%]">
-          <div className="flex justify-between gap-2 w-full font-mono text-[9px] text-muted-foreground mb-0.5">
-            {/* Who sent this, then what the customer saw it come from. They are
-                different facts: `authorEmail` is the shared mailbox, identical on
-                every agent's reply, so on its own the thread reads as though the
-                mailbox answered itself. Without `authorName` — AI and automated
-                replies, and mail imported from the mailbox rather than sent here —
-                this stays exactly as it was rather than guessing at a person. */}
-            <span className="truncate" title={msg.authorUserEmail ?? undefined}>
-              {authorName ? (
-                <>
-                  <span className="font-display font-semibold text-foreground/75">
-                    {authorName}
-                  </span>
-                  {msg.authorEmail ? <span> · via {msg.authorEmail}</span> : null}
-                </>
-              ) : (
-                (msg.authorEmail ?? 'Support')
-              )}
-            </span>
-            <span className="font-mono whitespace-nowrap shrink-0" title={formatDate(msgTime)}>
-              {formatWhen(msgTime)}
-            </span>
+      <div className="flex flex-row-reverse items-start gap-[9px]">
+        {avatar}
+        <div className="flex flex-col items-end gap-1 min-w-0 max-w-[90%]">
+          {/* Who sent this, then what the customer saw it come from. They are different facts:
+              `authorEmail` is the shared mailbox, identical on every agent's reply, so on its
+              own the thread reads as though the mailbox answered itself. Without `authorName`
+              — AI and automated replies, and mail imported from the mailbox rather than sent
+              here — this stays exactly as it was rather than guessing at a person. */}
+          <div className={`${meta} justify-end`} title={msg.authorUserEmail ?? undefined}>
+            {authorName ? (
+              <>
+                <b className="font-display font-semibold text-foreground">{authorName}</b>
+                {msg.authorEmail ? (
+                  <span className="text-muted-foreground">· via {msg.authorEmail}</span>
+                ) : null}
+              </>
+            ) : (
+              <span>{msg.authorEmail ?? 'Support'}</span>
+            )}
+            {when}
           </div>
-          {/* Who this particular reply went to. Per-message, not per-thread: a
-              reply can be addressed differently from the message that opened the
-              conversation. This is also the ONLY place a bcc is ever visible —
-              it cannot be recovered from the mail itself, so if the shared inbox
-              doesn't show it here, nobody can answer "who else got this". */}
-          <ReceivedAtAddresses recipients={msg.recipients} variant="detail" className="mb-0.5" />
-          <div className="rounded-lg px-3 py-2 bg-primary text-primary-foreground text-[12px] leading-relaxed">
-            <div className="flex items-start gap-1.5">
+          {/* Who this particular reply went to. Per-message, not per-thread: a reply can be
+              addressed differently from the message that opened the conversation. This is
+              also the ONLY place a bcc is ever visible — it cannot be recovered from the mail
+              itself, so if the shared inbox doesn't show it here, nobody can answer "who
+              else got this". */}
+          <ReceivedAtAddresses recipients={msg.recipients} variant="detail" />
+          <div className="rounded-xl px-[13px] py-[11px] bg-agent border border-agent-line text-agent-foreground text-[13.5px] leading-[1.62] max-w-full">
+            <div className="flex items-start gap-2">
               <div className="flex-1 min-w-0 break-words">
                 <ThreadBubble
                   content={translatedContent ?? msg.content}
@@ -117,32 +168,14 @@ export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: P
                   eventId={msg.id}
                 />
               </div>
-              <div className="flex-shrink-0 mt-0.5">
-                <TranslateButton
-                  messageId={msg.id}
-                  onTranslated={(content) => setTranslatedContent(content)}
-                  onCleared={() => setTranslatedContent(null)}
-                  buttonClassName="inline-flex items-center justify-center w-5 h-5 rounded transition-colors text-primary-foreground/40 hover:text-primary-foreground"
-                  spinnerClassName="text-primary-foreground/70"
-                  clearClassName="inline-flex items-center justify-center w-4 h-4 rounded transition-colors text-primary-foreground/50 hover:text-primary-foreground flex-shrink-0"
-                />
-              </div>
+              {translate(true)}
             </div>
+            {attachmentRow(true)}
           </div>
-          {attachments.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {attachments.map((att) => (
-                <ThreadAttachmentChip
-                  key={att.id}
-                  attachment={att}
-                  onOpen={onOpenAttachment}
-                  className="bg-primary-foreground/15 text-primary-foreground border border-primary-foreground/25 hover:bg-primary-foreground/25"
-                />
-              ))}
-            </div>
-          )}
           {msg.type !== 'inbound' && (
-            <span className="font-display text-[9px] text-foreground/55 mt-0.5">✓ Sent</span>
+            <span className="font-display text-[10px] tracking-[0.08em] uppercase text-muted-foreground">
+              ✓ Sent
+            </span>
           )}
         </div>
       </div>
@@ -150,42 +183,31 @@ export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: P
   }
 
   return (
-    <div className="flex gap-2">
-      <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[9px] font-semibold text-muted-foreground flex-shrink-0 mt-1">
-        <User className="w-3 h-3" />
-      </div>
-      <div className="flex flex-col max-w-[88%]">
-        <div className="flex justify-between gap-2 w-full font-mono text-[9px] text-foreground/55 mb-0.5">
-          <span className="truncate" title={msg.authorEmail ?? undefined}>
-            {relayedFrom ? (
-              <>
-                <span className="font-display font-semibold text-foreground/75">
-                  {relayedFrom.name ?? relayedFrom.email}
-                </span>
-                <span> · via {relayedFrom.via}</span>
-              </>
-            ) : (
-              (msg.authorEmail ?? 'Customer')
-            )}
-          </span>
-          <span className="font-mono whitespace-nowrap shrink-0" title={formatDate(msgTime)}>
-            {formatWhen(msgTime)}
-          </span>
+    <div className="flex items-start gap-[9px]">
+      {avatar}
+      <div className="flex flex-col gap-1 min-w-0 max-w-[90%]">
+        <div className={meta} title={msg.authorEmail ?? undefined}>
+          {relayedFrom ? (
+            <>
+              <b className="font-display font-semibold text-foreground">
+                {relayedFrom.name ?? relayedFrom.email}
+              </b>
+              <span className="text-muted-foreground">· via {relayedFrom.via}</span>
+            </>
+          ) : (
+            <span>{msg.authorEmail ?? 'Customer'}</span>
+          )}
+          {when}
         </div>
-        {/* 2026-06-17: customer bubbles are no longer clickable. The previous
-            implementation called `onMessageNavigate(msg.id)` with a
-            `messageEvents.id`, and the BE's getMessageById falls back from
-            conv_id → event_id resolution — so any event_id that numerically
-            collided with another conversation_id silently swapped the
-            displayed conversation, wiping composer state on the
-            `key={message.id}` remount in MessagesPage / MessageDetailPage.
-            Reproduced by the 2026-06-17 routing audit (reply intended for
-            conv_4 landed on conv_5). The same-conversation "focus an older
-            message" intent (suggestedAnswer for that specific message) was
-            never wired up beyond the URL navigation, so removing the click
-            is non-regressive. */}
-        <div className="rounded-lg px-3 py-2 text-[12px] leading-relaxed bg-card border border-border text-foreground">
-          <div className="flex items-start gap-1.5">
+        {/* 2026-06-17: customer bubbles are no longer clickable. The previous implementation
+            called `onMessageNavigate(msg.id)` with a `messageEvents.id`, and the BE's
+            getMessageById falls back from conv_id → event_id resolution — so any event_id that
+            numerically collided with another conversation_id silently swapped the displayed
+            conversation (2026-06-17 routing audit: a reply meant for conv_4 landed on conv_5).
+            The "focus an older message" intent was never wired up beyond the URL navigation,
+            so removing the click is non-regressive. */}
+        <div className="rounded-xl px-[13px] py-[11px] bg-bubble border border-bubble-line text-foreground text-[13.5px] leading-[1.62] max-w-full">
+          <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0 break-words">
               <ThreadBubble
                 content={translatedContent ?? msg.content}
@@ -194,27 +216,10 @@ export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: P
                 eventId={msg.id}
               />
             </div>
-            <div className="flex-shrink-0 mt-0.5">
-              <TranslateButton
-                messageId={msg.id}
-                onTranslated={(content) => setTranslatedContent(content)}
-                onCleared={() => setTranslatedContent(null)}
-              />
-            </div>
+            {translate(false)}
           </div>
+          {attachmentRow(false)}
         </div>
-        {attachments.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
-            {attachments.map((att) => (
-              <ThreadAttachmentChip
-                key={att.id}
-                attachment={att}
-                onOpen={onOpenAttachment}
-                className="bg-muted text-muted-foreground border border-border hover:bg-muted/80"
-              />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

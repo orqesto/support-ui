@@ -73,7 +73,9 @@ import type { MessageListItem, MessageDetail } from '@/types/api';
 
 // Strip undefined/null values so URLSearchParams never sends "?status=undefined"
 const cleanFilters = (filters?: Record<string, string>): Record<string, string> =>
-  Object.fromEntries(Object.entries(filters ?? {}).filter(([, val]) => val !== null && val !== undefined));
+  Object.fromEntries(
+    Object.entries(filters ?? {}).filter(([, val]) => val !== null && val !== undefined)
+  );
 
 // Compact message source for populating list filters (GET /api/messages/sources).
 export type MessageSourceOption = {
@@ -372,7 +374,18 @@ export const messageService = {
     return response.data;
   },
 
-  reply: async (id: number, content: string, resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string, aiDraft?: AiDraft, whatsappTemplate?: WhatsAppTemplateSend, recipients?: ReplyRecipients, assign?: ReplyAssignIntent) => {
+  reply: async (
+    id: number,
+    content: string,
+    resolve = true,
+    usedSuggestedAnswer = false,
+    suggestedAnswerSource?: string,
+    idempotencyKey?: string,
+    aiDraft?: AiDraft,
+    whatsappTemplate?: WhatsAppTemplateSend,
+    recipients?: ReplyRecipients,
+    assign?: ReplyAssignIntent
+  ) => {
     const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/reply`, {
       // The agent's answer to the ownership prompt; omitted when nothing was asked.
       ...(assign && { assign }),
@@ -414,7 +427,18 @@ export const messageService = {
     }
   },
 
-  replyWithAttachments: async (id: number, content: string, files: File[], resolve = true, usedSuggestedAnswer = false, suggestedAnswerSource?: string, idempotencyKey?: string, aiDraft?: AiDraft, recipients?: ReplyRecipients, assign?: ReplyAssignIntent) => {
+  replyWithAttachments: async (
+    id: number,
+    content: string,
+    files: File[],
+    resolve = true,
+    usedSuggestedAnswer = false,
+    suggestedAnswerSource?: string,
+    idempotencyKey?: string,
+    aiDraft?: AiDraft,
+    recipients?: ReplyRecipients,
+    assign?: ReplyAssignIntent
+  ) => {
     const formData = new FormData();
     formData.append('content', content);
     if (assign) formData.append('assign', assign);
@@ -436,10 +460,7 @@ export const messageService = {
       formData.append('attachments', file);
     });
 
-    const response = await apiClient.post<ApiResponse<void>>(
-      `/api/messages/${id}/reply`,
-      formData
-    );
+    const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/reply`, formData);
     return response.data;
   },
 
@@ -495,20 +516,22 @@ export const messageService = {
       // Normalised here rather than at the render site: a field this service does
       // not defend becomes a white screen the first time an older backend omits it.
       return {
-        addresses: rows.map((row) => ({
-          address: String(row.address ?? ''),
-          conversations: Number(row.conversations ?? 0),
-          lastSeenAt: row.lastSeenAt ?? null,
-          messageSourceIds: Array.isArray(row.messageSourceIds) ? row.messageSourceIds : [],
-          configured: row.configured === true,
-          declared: row.declared === true,
-          attachedToSourceId: row.attachedToSourceId ?? null,
-          // Both of these were being DROPPED here while the backend sent them, so the
-          // panel scored delivery rows as if no evidence existed — the one list that
-          // matters once a workspace has delivery data.
-          likelyOurs: row.likelyOurs === true,
-          deliveredConversations: Number(row.deliveredConversations ?? 0),
-        })).filter((row) => row.address.length > 0),
+        addresses: rows
+          .map((row) => ({
+            address: String(row.address ?? ''),
+            conversations: Number(row.conversations ?? 0),
+            lastSeenAt: row.lastSeenAt ?? null,
+            messageSourceIds: Array.isArray(row.messageSourceIds) ? row.messageSourceIds : [],
+            configured: row.configured === true,
+            declared: row.declared === true,
+            attachedToSourceId: row.attachedToSourceId ?? null,
+            // Both of these were being DROPPED here while the backend sent them, so the
+            // panel scored delivery rows as if no evidence existed — the one list that
+            // matters once a workspace has delivery data.
+            likelyOurs: row.likelyOurs === true,
+            deliveredConversations: Number(row.deliveredConversations ?? 0),
+          }))
+          .filter((row) => row.address.length > 0),
         // Absent on a backend that predates sender candidates — an empty list, not a
         // crash, so the panel simply offers one source instead of two.
         senderCandidates: candidates
@@ -591,12 +614,15 @@ export const messageService = {
     action: 'approve' | 'mark_suspicious' | 'move_to_spam' | 'confirm_spam',
     createDetectionRule?: boolean,
     // move_to_spam only: opt in to mint a learned spam rule from this message.
-    trainSpamFilter?: boolean
+    trainSpamFilter?: boolean,
+    // move_to_spam only: bin AND stamp the agent's confirmation in the same write (SP-D1).
+    confirm?: boolean
   ) => {
     const response = await apiClient.patch<ApiResponse<void>>(`/api/messages/${id}/classify`, {
       action,
       ...(createDetectionRule ? { createDetectionRule: true } : {}),
       ...(trainSpamFilter ? { trainFilter: true } : {}),
+      ...(confirm ? { confirm: true } : {}),
     });
     return response.data;
   },

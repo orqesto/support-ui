@@ -76,8 +76,7 @@ const MAX_INSTRUCTIONS = 2000;
  * only the agent's own draft), so name that way out. The bare backend sentence is
  * true and still reads as a dead end.
  */
-const NO_INBOUND_GUIDANCE =
-  'Write the reply yourself below, then use “Make it customer-ready”.';
+const NO_INBOUND_GUIDANCE = 'Write the reply yourself below, then use “Make it customer-ready”.';
 /**
  * ⛔ There is no "agent language" constant here any more. The first version hardcoded
  * English and offered one "Show in English" toggle only when the draft was NOT English —
@@ -270,10 +269,11 @@ export function ComposerAiActions({
         disabled={disabled}
         title="Draft this reply with AI"
         aria-expanded={open}
-        className="flex items-center gap-1.5 px-2.5 py-1 h-auto rounded text-ai hover:text-ai/80 hover:bg-ai-muted transition-colors"
+        // v3 ".ibtn.aib": the AI role, soft — the draft is a suggestion, not an action.
+        className="inline-flex items-center gap-[5px] h-auto px-[9px] py-1 rounded-[7px] border border-ai-line bg-ai-muted text-ai text-[11.5px] hover:bg-ai-muted hover:brightness-95 transition-colors"
       >
-        <Sparkles className="w-3.5 h-3.5" />
-        <span className="font-mono text-xs font-semibold">AI</span>
+        <Sparkles className="w-3 h-3" />
+        AI draft
       </Button>
 
       {previous !== null && !open && (
@@ -289,7 +289,7 @@ export function ComposerAiActions({
       )}
 
       {open && (
-        <div className="absolute bottom-full left-0 right-0 mb-2 z-20 rounded-lg border border-ai-line bg-card shadow-lg p-3 space-y-2">
+        <div className="absolute bottom-full left-0 right-0 mb-2 z-20 rounded-[10px] border border-ai-line bg-ai-muted shadow-lg px-[11px] py-[9px] space-y-2">
           <div className="flex items-center justify-between">
             <span className={`${LABEL} text-ai`}>AI draft</span>
             <Button
@@ -358,14 +358,15 @@ export function ComposerAiActions({
               */}
               {translation && !appliesForeignLanguage && (
                 <p className="text-[11px] text-muted-foreground">
-                  Translated{translation.language ? ` to ${translation.language.toUpperCase()}` : ''}{' '}
-                  — this is what gets used.
+                  Translated
+                  {translation.language ? ` to ${translation.language.toUpperCase()}` : ''} — this
+                  is what gets used.
                 </p>
               )}
               {appliesForeignLanguage && (
                 <p className="text-[11px] text-warning">
-                  This will reply in {translation?.language?.toUpperCase()}, but the customer
-                  wrote in {draft.language?.toUpperCase()}. Show the original to send{' '}
+                  This will reply in {translation?.language?.toUpperCase()}, but the customer wrote
+                  in {draft.language?.toUpperCase()}. Show the original to send{' '}
                   {draft.language?.toUpperCase()} instead.
                 </p>
               )}

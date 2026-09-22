@@ -42,6 +42,8 @@ export type MessagePanelTabsProps = {
     t: 'ai' | 'customer' | 'attachments' | 'kb' | 'activity' | 'notes' | 'lead' | 'contradiction'
   ) => void;
   panelOpen: boolean;
+  /** 'sidebar' = full page's right column (v3): no Thread tab, wrapping tabs, always open. */
+  variant?: 'rail' | 'sidebar';
   setPanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
   notes: MessageNote[];
   onNoteUpdated: (noteId: number, content: string) => void;
@@ -77,7 +79,8 @@ export function MessagePanelTabs({
   message,
   tab,
   setTab,
-  panelOpen,
+  panelOpen: panelOpenProp,
+  variant = 'rail',
   setPanelOpen,
   notes,
   onNoteUpdated,
@@ -183,20 +186,23 @@ export function MessagePanelTabs({
     | { detectedCategory?: string; routingAttributes?: { lang?: string } }
     | undefined;
 
+  const sidebar = variant === 'sidebar';
+  const panelOpen = sidebar || panelOpenProp;
+
   return (
     <div
-      className={`flex flex-col border-b border-border ${panelOpen ? 'flex-1 min-h-0' : 'flex-shrink-0'}`}
+      className={`flex flex-col ${sidebar ? '' : 'border-b border-border'} ${panelOpen ? 'flex-1 min-h-0' : 'flex-shrink-0'}`}
     >
       {/* Tab bar */}
-      <div className="flex w-full border-b border-border">
-        {/* Thread tab — active when panel is closed */}
+      <div className={`flex w-full border-b border-border bg-card ${sidebar ? 'flex-wrap' : ''}`}>
+        {/* Thread tab — active when panel is closed. Not in the sidebar: the thread is beside it. */}
         <Button
           variant="ghost"
           onClick={() => {
             setPanelOpen(false);
             setComposerMode('reply');
           }}
-          className={`flex flex-1 justify-center items-center px-2 h-[33px] rounded-none hover:bg-transparent ${LABEL} border-b-2 transition-colors ${
+          className={`${sidebar ? 'hidden' : 'flex'} flex-1 justify-center items-center px-2 h-[33px] rounded-none hover:bg-transparent ${LABEL} border-b-2 transition-colors ${
             !panelOpen
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -209,7 +215,7 @@ export function MessagePanelTabs({
           [
             { id: 'ai', label: 'AI', badge: 0 },
             { id: 'customer', label: 'Customer', badge: 0 },
-            { id: 'attachments', label: 'Files', badge: 0 },
+            { id: 'attachments', label: 'Files', badge: attachments?.length ?? 0 },
             { id: 'kb', label: 'KB', badge: 0 },
             { id: 'activity', label: 'Activity', badge: 0 },
             { id: 'notes', label: 'Notes', badge: notes.length },
@@ -221,16 +227,18 @@ export function MessagePanelTabs({
             key={id}
             variant="ghost"
             onClick={() => {
-              if (panelOpen && tab === id) {
+              if (!sidebar && panelOpen && tab === id) {
                 setPanelOpen(false);
                 setComposerMode('reply');
               } else {
                 setTab(id);
                 setPanelOpen(true);
-                setComposerMode(id === 'notes' ? 'note' : 'reply');
+                // Sidebar tabs never switch the composer: they sit beside a draft, and flipping a
+                // half-written internal note to Reply put it one ⌘↵ from the customer.
+                if (!sidebar) setComposerMode(id === 'notes' ? 'note' : 'reply');
               }
             }}
-            className={`flex flex-1 justify-center items-center gap-1 px-2 h-[33px] rounded-none hover:bg-transparent ${LABEL} border-b-2 transition-colors ${
+            className={`flex flex-1 ${sidebar ? 'basis-1/5' : ''} justify-center items-center gap-1 px-2 h-[33px] rounded-none hover:bg-transparent ${LABEL} border-b-2 transition-colors ${
               tab === id && panelOpen
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -239,10 +247,10 @@ export function MessagePanelTabs({
             {label}
             {badge > 0 && (
               <span
-                className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[9px] font-semibold ${
+                className={`inline-grid place-items-center min-w-[15px] h-[15px] px-1 rounded-[5px] font-sans text-[9.5px] tracking-normal ${
                   tab === id && panelOpen
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-foreground/15 text-foreground/70'
+                    ? 'bg-primary-muted text-primary'
+                    : 'bg-sunken text-muted-foreground'
                 }`}
               >
                 {badge}
@@ -253,8 +261,8 @@ export function MessagePanelTabs({
       </div>
 
       {/* Tab content */}
-      <div className={`${panelOpen ? 'flex-1 min-h-0 overflow-y-auto' : 'hidden'}`}>
-        <div className="p-2 text-[12px] text-foreground">
+      <div className={`${panelOpen ? 'flex-1 min-h-0 overflow-y-auto bg-raised' : 'hidden'}`}>
+        <div className="px-3.5 py-3 text-[12.5px] text-foreground">
           {/* AI Tab */}
           {tab === 'ai' && (
             <div className="space-y-2">
@@ -302,12 +310,13 @@ export function MessagePanelTabs({
                   ] as { label: string; value: string }[]
                 ).map((row) => (
                   <div key={row.label} className="contents">
-                    <span className={`self-center ${LABEL} text-muted-foreground`}>{row.label}</span>
+                    <span className={`self-center ${LABEL} text-muted-foreground`}>
+                      {row.label}
+                    </span>
                     <span className="text-[11px] truncate self-center">{row.value}</span>
                   </div>
                 ))}
               </div>
-
 
               {/* What the connected systems know, and which other threads are the same work. */}
               <CustomerTabPanels
@@ -677,9 +686,7 @@ export function MessagePanelTabs({
                 />
               ) : (
                 <div className="p-3 rounded border border-ai-line/20 bg-ai/5">
-                  <p className="text-[11px] font-medium text-ai">
-                    Lead Qualification
-                  </p>
+                  <p className="text-[11px] font-medium text-ai">Lead Qualification</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     No qualification data yet. Collected as AI engages with this lead.
                   </p>

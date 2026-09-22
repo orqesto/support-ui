@@ -78,7 +78,7 @@ describe('ResolveSplitButton', () => {
     expect(onResolve).toHaveBeenCalledTimes(1);
   });
 
-  it('an active conversation offers KB capture, Not customer work and Move to spam under the caret', () => {
+  it('an active conversation offers KB capture, Not customer work and Resolve & move to spam', () => {
     const onResolveToKb = vi.fn();
     render(
       <ResolveSplitButton
@@ -90,7 +90,11 @@ describe('ResolveSplitButton', () => {
       />
     );
     openMenu();
-    expect(items()).toEqual(['Resolve & save to KB', 'Not customer work', 'Move to spam']);
+    expect(items()).toEqual([
+      'Resolve & save to KB',
+      'Not customer work',
+      'Resolve & move to spam',
+    ]);
     fireEvent.click(screen.getByRole('menuitem', { name: 'Resolve & save to KB' }));
     expect(onResolveToKb).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('menu')).toBeNull();
@@ -136,22 +140,6 @@ describe('ResolveSplitButton', () => {
   it('shows no caret at all when there are no variants', () => {
     render(<ResolveSplitButton mode="unreviewed" onResolve={vi.fn()} />);
     expect(screen.queryByRole('button', { name: 'Other resolve options' })).toBeNull();
-  });
-
-  it('⛔ never calls a spam action a resolve (SP-D5)', () => {
-    render(
-      <ResolveSplitButton
-        mode="active"
-        onResolve={vi.fn()}
-        onResolveToKb={vi.fn()}
-        onNotCustomerWork={vi.fn()}
-        onMoveToSpam={vi.fn()}
-      />
-    );
-    openMenu();
-    const spamItems = items().filter((label) => /spam/i.test(label ?? ''));
-    expect(spamItems).toEqual(['Move to spam']);
-    expect(spamItems.some((label) => /resolve/i.test(label ?? ''))).toBe(false);
   });
 
   it('Escape closes the menu without reaching the detail view’s own Escape (close the rail)', () => {

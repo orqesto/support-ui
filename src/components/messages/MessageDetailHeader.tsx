@@ -22,6 +22,7 @@ import {
   History as HistoryIcon,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Button } from '@/components/ui/Button';
@@ -77,7 +78,9 @@ export type MessageDetailHeaderProps = {
   onClassify?: (
     action: 'approve' | 'mark_suspicious' | 'move_to_spam' | 'confirm_spam',
     createDetectionRule?: boolean,
-    trainSpamFilter?: boolean
+    trainSpamFilter?: boolean,
+    /** move_to_spam only: the agent's own decision — bin AND record it as confirmed spam. */
+    confirm?: boolean
   ) => Promise<void>;
   /**
    * Optimistically move the board card to a kanban column right after a manual
@@ -113,6 +116,12 @@ export type MessageDetailHeaderProps = {
   onNotCustomerWork?: () => void;
   /** Enables "Assign to me"; hidden when the conversation is already this user's. */
   currentUserId?: number | null;
+  /**
+   * Full page (v3): the Dept / Assigned / Category / Labels block renders into this node — the
+   * right sidebar — as stacked rows, instead of as the inline meta row under the chips. Portal,
+   * so its state and handlers stay here with the rest of the header's.
+   */
+  metaTarget?: HTMLElement | null; // undefined = inline; null = sidebar not mounted yet
 };
 
 // Manual BE status → kanban column id, so the acting agent's card moves instantly
@@ -153,6 +162,7 @@ export function MessageDetailHeader({
   onResolveToKb,
   onNotCustomerWork,
   currentUserId = null,
+  metaTarget,
 }: MessageDetailHeaderProps) {
   const { hasPermission } = usePermissions();
   const hasManageLabels = hasPermission(Permission.MANAGE_LABELS);
@@ -1022,8 +1032,12 @@ export function MessageDetailHeader({
               onResolve={onResolve}
               onResolveToKb={onResolveToKb}
               onNotCustomerWork={onNotCustomerWork}
+              // Owner, 2026-09-22: the agent resolving AS spam is the CONFIRMED layer; spam our
+              // filters bin stays unconfirmed until a person acts. Hence confirm=true here.
               onMoveToSpam={
-                isActive && onClassify ? () => void onClassify('move_to_spam') : undefined
+                isActive && onClassify
+                  ? () => void onClassify('move_to_spam', undefined, undefined, true)
+                  : undefined
               }
             />
           )}
@@ -1077,23 +1091,48 @@ export function MessageDetailHeader({
           </div>
         )}
 
-      {/* Meta strip */}
-      <HeaderMetaStrip
-        message={message}
-        categories={categories}
-        messageLabels={messageLabels}
-        allLabels={allLabels}
-        hasManageLabels={hasManageLabels}
-        showLabelPicker={showLabelPicker}
-        updatingCategory={updatingCategory}
-        onAssign={onRefresh}
-        onSetCategory={(id) => void handleSetCategory(id)}
-        onToggleLabel={(label) => void handleToggleLabel(label)}
-        onToggleLabelPicker={() => setShowLabelPicker((val) => !val)}
-        onCloseLabelPicker={() => setShowLabelPicker(false)}
-        onCreateLabel={hasManageLabels ? (name) => void handleCreateLabel(name) : undefined}
-        onDepartmentChange={onRefresh}
-      />
+      {/* Meta strip. null = the sidebar exists but its node is not mounted yet (first paint):
+          render nothing rather than inline-then-move, which jumped the layout and briefly
+          showed Dept/Assigned twice. */}
+      {metaTarget === null ? null : metaTarget ? (
+        createPortal(
+          <HeaderMetaStrip
+            layout="rows"
+            message={message}
+            categories={categories}
+            messageLabels={messageLabels}
+            allLabels={allLabels}
+            hasManageLabels={hasManageLabels}
+            showLabelPicker={showLabelPicker}
+            updatingCategory={updatingCategory}
+            onAssign={onRefresh}
+            onSetCategory={(id) => void handleSetCategory(id)}
+            onToggleLabel={(label) => void handleToggleLabel(label)}
+            onToggleLabelPicker={() => setShowLabelPicker((val) => !val)}
+            onCloseLabelPicker={() => setShowLabelPicker(false)}
+            onCreateLabel={hasManageLabels ? (name) => void handleCreateLabel(name) : undefined}
+            onDepartmentChange={onRefresh}
+          />,
+          metaTarget
+        )
+      ) : (
+        <HeaderMetaStrip
+          message={message}
+          categories={categories}
+          messageLabels={messageLabels}
+          allLabels={allLabels}
+          hasManageLabels={hasManageLabels}
+          showLabelPicker={showLabelPicker}
+          updatingCategory={updatingCategory}
+          onAssign={onRefresh}
+          onSetCategory={(id) => void handleSetCategory(id)}
+          onToggleLabel={(label) => void handleToggleLabel(label)}
+          onToggleLabelPicker={() => setShowLabelPicker((val) => !val)}
+          onCloseLabelPicker={() => setShowLabelPicker(false)}
+          onCreateLabel={hasManageLabels ? (name) => void handleCreateLabel(name) : undefined}
+          onDepartmentChange={onRefresh}
+        />
+      )}
 
       {profileEmail && (
         <ContactProfilePanel

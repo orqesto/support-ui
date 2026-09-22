@@ -188,7 +188,9 @@ describe('the ground an email renders on', () => {
     // There is no sender styling to respect, so there is nothing to protect it from.
     const { container } = render(<ThreadBubble content={'Hello\n\nBest regards'} isAgent={true} />);
     expect(container.querySelector('.overflow-x-auto')).toBeNull();
-    expect(container.querySelector('.prose')?.className).toContain('prose-invert');
+    // v3: a reply sits on the soft --agent ground, not solid primary, so following the app theme
+    // now means NOT inverting — white ink on --agent is unreadable in the light theme.
+    expect(container.querySelector('.prose')?.className).not.toContain('prose-invert');
   });
 });
 

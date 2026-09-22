@@ -26,6 +26,8 @@ type RichTextEditorProps = {
   placeholder?: string;
   editable?: boolean;
   className?: string;
+  /** Let the surrounding field's ground show through (message composer: the note mode is amber). */
+  transparent?: boolean;
   minHeight?: string;
   maxHeight?: string;
   initiallyHidden?: boolean;
@@ -84,6 +86,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       placeholder = 'Start typing...',
       editable = true,
       className,
+      transparent = false,
       minHeight = '150px',
       maxHeight,
       initiallyHidden = true,
@@ -128,8 +131,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       },
       editorProps: {
         attributes: {
-          class:
-            'prose prose-sm max-w-none focus:outline-none p-4 bg-background text-foreground dark:prose-invert',
+          class: `prose prose-sm max-w-none focus:outline-none p-4 ${transparent ? 'bg-transparent' : 'bg-background'} text-foreground dark:prose-invert`,
         },
         handleKeyDown: (_view, event) => {
           if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
@@ -182,26 +184,29 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       },
     }));
 
-    const submitLink = useCallback((url: string) => {
-      if (!editor) return;
-      setLinkInputOpen(false);
-      setLinkInputValue('');
-      if (url === '') {
-        editor.chain().focus().extendMarkRange('link').unsetLink().run();
-        return;
-      }
-      // Accept http(s) URLs, root-relative paths, AND template placeholders
-      // like `{{tracking_url}}` so this editor can be used for email-template
-      // editing (AckReplyEditor) without a second special-case editor.
-      if (
-        !/^https?:\/\//i.test(url) &&
-        !/^\/[^/]/i.test(url) &&
-        !/^\{\{[a-z0-9_]+\}\}$/i.test(url)
-      ) {
-        return;
-      }
-      editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
-    }, [editor]);
+    const submitLink = useCallback(
+      (url: string) => {
+        if (!editor) return;
+        setLinkInputOpen(false);
+        setLinkInputValue('');
+        if (url === '') {
+          editor.chain().focus().extendMarkRange('link').unsetLink().run();
+          return;
+        }
+        // Accept http(s) URLs, root-relative paths, AND template placeholders
+        // like `{{tracking_url}}` so this editor can be used for email-template
+        // editing (AckReplyEditor) without a second special-case editor.
+        if (
+          !/^https?:\/\//i.test(url) &&
+          !/^\/[^/]/i.test(url) &&
+          !/^\{\{[a-z0-9_]+\}\}$/i.test(url)
+        ) {
+          return;
+        }
+        editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+      },
+      [editor]
+    );
 
     if (!editor) {
       return null;
@@ -212,7 +217,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
         <button
           type="button"
           className={cn(
-            'w-full flex items-center justify-between border rounded-lg bg-background border-border px-4 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-ring transition-colors',
+            'w-full flex items-center justify-between border rounded-lg border-border px-4 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-ring transition-colors',
+            transparent ? 'bg-transparent' : 'bg-background',
             className
           )}
           onClick={() => {
@@ -234,7 +240,11 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
 
     return (
       <div
-        className={cn('border rounded-lg overflow-hidden bg-background border-border', className)}
+        className={cn(
+          'border rounded-lg overflow-hidden border-border',
+          transparent ? 'bg-transparent' : 'bg-background',
+          className
+        )}
       >
         {editable && (
           <div className="border-b bg-muted/50 p-2 flex flex-wrap gap-1">
@@ -380,16 +390,39 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
               value={linkInputValue}
               onChange={(evt) => setLinkInputValue(evt.target.value)}
               onKeyDown={(evt) => {
-                if (evt.key === 'Enter') { evt.preventDefault(); submitLink(linkInputValue); }
-                if (evt.key === 'Escape') { setLinkInputOpen(false); setLinkInputValue(''); }
+                if (evt.key === 'Enter') {
+                  evt.preventDefault();
+                  submitLink(linkInputValue);
+                }
+                if (evt.key === 'Escape') {
+                  setLinkInputOpen(false);
+                  setLinkInputValue('');
+                }
               }}
               placeholder="https://example.com"
               className="flex-1 text-sm bg-background border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring"
             />
-            <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs"
-              onClick={() => submitLink(linkInputValue)}>Apply</Button>
-            <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs"
-              onClick={() => { setLinkInputOpen(false); setLinkInputValue(''); }}>Cancel</Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs"
+              onClick={() => submitLink(linkInputValue)}
+            >
+              Apply
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs"
+              onClick={() => {
+                setLinkInputOpen(false);
+                setLinkInputValue('');
+              }}
+            >
+              Cancel
+            </Button>
           </div>
         )}
 

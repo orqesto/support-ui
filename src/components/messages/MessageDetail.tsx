@@ -43,8 +43,10 @@ import { dayLabel, dayStarts, threadTimeOf } from './threadDays';
 import { MessageDetailConfirmDialogs } from './MessageDetailConfirmDialogs';
 import { PromoteToKbDialog } from './PromoteToKbDialog';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { Permission } from '@/types/roles';
 import { ThreadMessageItem } from './ThreadMessageItem';
+import { ThreadNoteItem } from './ThreadNoteItem';
 import { similarResultsCache } from './AiTabPanel';
 import type { KBAttachment } from './AiTabPanel';
 import { MessagePanelTabs } from './MessagePanelTabs';
@@ -115,7 +117,9 @@ export type MessageDetailProps = {
   onClassify?: (
     action: 'approve' | 'mark_suspicious' | 'move_to_spam' | 'confirm_spam',
     createDetectionRule?: boolean,
-    trainSpamFilter?: boolean
+    trainSpamFilter?: boolean,
+    /** move_to_spam only: the agent's own decision — bin AND record it as confirmed spam. */
+    confirm?: boolean
   ) => Promise<void>;
 };
 
@@ -180,7 +184,6 @@ export function MessageDetail({
   }, [threadMessages]);
   // Day separators group by the SAME time the thread is sorted by (threadDays.ts), so one can
   // only ever sit between days, in order.
-  const threadDayStarts = useMemo(() => dayStarts(sortedThread.map(threadTimeOf)), [sortedThread]);
 
   // ── Composer state ─────────────────────────────────────────────────────────
   const [composer, setComposer] = useState('');
@@ -315,6 +318,11 @@ export function MessageDetail({
   // ── Panel tab state ────────────────────────────────────────────────────────
   const [tab, setTab] = useState<PanelTab>('ai');
   const [panelOpen, setPanelOpen] = useState(false);
+  // v3 full page = two columns, but only where there is room for a 312px sidebar; narrower,
+  // the page keeps the slide-over layout so nothing is hidden.
+  const isWide = useMediaQuery('(min-width: 1024px)');
+  const [sideMetaEl, setSideMetaEl] = useState<HTMLDivElement | null>(null);
+  const twoColumn = fullPage && isWide;
   const [highlightAttachmentId, setHighlightAttachmentId] = useState<number | null>(null);
 
   // Reset panel when message changes
@@ -787,9 +795,10 @@ export function MessageDetail({
     async (
       action: 'approve' | 'mark_suspicious' | 'move_to_spam' | 'confirm_spam',
       createDetectionRule?: boolean,
-      trainSpamFilter?: boolean
+      trainSpamFilter?: boolean,
+      confirm?: boolean
     ) => {
-      if (onClassify) await onClassify(action, createDetectionRule, trainSpamFilter);
+      if (onClassify) await onClassify(action, createDetectionRule, trainSpamFilter, confirm);
     },
     [onClassify]
   );
@@ -856,6 +865,22 @@ export function MessageDetail({
   // the page around this component mocks the component itself out.
   const showHistoryBanner = shouldShowHistoryBanner(sortedThread);
 
+  // v3: internal notes sit in the thread at the moment they were written, between the messages
+  // they comment on. A stable sort keeps the messages in their own order (a note tied to the
+  // millisecond with a message goes after it). Day separators group this merged list, so a
+  // separator can only ever sit between days, in order.
+  const timeline = useMemo(() => {
+    const rows: (
+      | { kind: 'message'; time: number; msg: MessageEvent }
+      | { kind: 'note'; time: number; note: MessageNote }
+    )[] = [
+      ...sortedThread.map((msg) => ({ kind: 'message' as const, time: threadTimeOf(msg), msg })),
+      ...notes.map((note) => ({ kind: 'note' as const, time: Date.parse(note.createdAt), note })),
+    ];
+    return rows.sort((left, right) => (left.time || 0) - (right.time || 0));
+  }, [sortedThread, notes]);
+  const threadDayStarts = useMemo(() => dayStarts(timeline.map((row) => row.time)), [timeline]);
+
   const flatAttachments = useMemo(
     () => Array.from(attachmentsByMessageId.values()).flat(),
     [attachmentsByMessageId]
@@ -863,202 +888,243 @@ export function MessageDetail({
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  // Tabbed panel. In the slide-over it sits above the thread and its Thread tab gives the space
+  // back; on the wide full page (v3) it is the right sidebar, always showing, beside the thread.
+  const panelTabs = (
+    <MessagePanelTabs
+      variant={twoColumn ? 'sidebar' : 'rail'}
+      message={message}
+      tab={tab}
+      setTab={setTab}
+      panelOpen={panelOpen}
+      setPanelOpen={setPanelOpen}
+      notes={notes}
+      onNoteUpdated={handleNoteUpdated}
+      onNoteDeleted={handleNoteDeleted}
+      noteActivityLog={noteActivityLog}
+      messageActivity={messageActivity}
+      sortedThread={sortedThread}
+      threadRefreshKey={threadRefreshKey}
+      highlightAttachmentId={highlightAttachmentId}
+      attachments={flatAttachments}
+      currentUserId={currentUserId}
+      leadState={leadState}
+      setLeadState={setLeadState}
+      leadFieldDefs={leadFieldDefs}
+      onGhostClick={handleGhostClick}
+      // Passed as the setters themselves: React guarantees a stable identity for a
+      // useState setter, while the inline arrows they replace were a NEW function on
+      // every render. AiTabPanel's fetch effect can only declare these as honest
+      // dependencies if they hold still.
+      onOptionsLoaded={setAlternativeCount}
+      onAiLoadingChange={setAiLoading}
+      setComposerMode={setComposerMode}
+      noteEditorRef={noteEditorRef}
+      onCheckContradiction={handleCheckContradiction}
+      onRefresh={handleContactChanged}
+    />
+  );
+
   return (
-    <div className="flex flex-col h-full min-h-0 overflow-hidden">
-      {/* Header */}
-      <MessageDetailHeader
-        message={message}
-        onClose={onClose ? handleRequestClose : undefined}
-        showFullPageButton={!!onClose && !fullPage}
-        isFullPage={fullPage}
-        threadCount={sortedThread.length}
-        onRefresh={handleRefresh}
-        labelsRefreshKey={labelsRefreshKey}
-        onContactChanged={handleContactChanged}
-        onDelete={handleDelete}
-        onApprove={onApprove}
-        onClassify={onClassify}
-        onOptimisticMove={onOptimisticMove}
-        showReadToggle={isTriage}
-        isRead={readState}
-        onToggleRead={handleToggleRead}
-        resolveMode={resolveMode}
-        resolving={resolving}
-        // The SAME dialogs the old footer opened: an unreviewed thread is dismissed through the
-        // reject dialog, an active one closes through the no-KB confirm. Nothing new reaches the BE.
-        onResolve={openResolveDialog}
-        onResolveToKb={() => setResolveConfirmOpen(true)}
-        onNotCustomerWork={() => setNotCustomerWorkOpen(true)}
-        currentUserId={currentUserId}
-      />
+    <div className={`flex h-full min-h-0 overflow-hidden ${twoColumn ? '' : 'flex-col'}`}>
+      <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
+        {/* Header */}
+        <MessageDetailHeader
+          message={message}
+          onClose={onClose ? handleRequestClose : undefined}
+          showFullPageButton={!!onClose && !fullPage}
+          isFullPage={fullPage}
+          threadCount={sortedThread.length}
+          onRefresh={handleRefresh}
+          labelsRefreshKey={labelsRefreshKey}
+          onContactChanged={handleContactChanged}
+          onDelete={handleDelete}
+          onApprove={onApprove}
+          onClassify={onClassify}
+          onOptimisticMove={onOptimisticMove}
+          showReadToggle={isTriage}
+          isRead={readState}
+          onToggleRead={handleToggleRead}
+          resolveMode={resolveMode}
+          resolving={resolving}
+          // The SAME dialogs the old footer opened: an unreviewed thread is dismissed through the
+          // reject dialog, an active one closes through the no-KB confirm. Nothing new reaches the BE.
+          onResolve={openResolveDialog}
+          onResolveToKb={() => setResolveConfirmOpen(true)}
+          onNotCustomerWork={() => setNotCustomerWorkOpen(true)}
+          currentUserId={currentUserId}
+          metaTarget={twoColumn ? sideMetaEl : undefined}
+        />
 
-      {/* History banner */}
-      {showHistoryBanner && (
-        <div className="flex-shrink-0 px-4 py-1.5 text-[11px] text-warning bg-warning-muted border-b border-warning-line">
-          This thread starts with an outbound message — older history may be missing.
-        </div>
-      )}
+        {/* History banner */}
+        {showHistoryBanner && (
+          <div className="flex-shrink-0 px-4 py-1.5 text-[11px] text-warning bg-warning-muted border-b border-warning-line">
+            This thread starts with an outbound message — older history may be missing.
+          </div>
+        )}
 
-      {/* Tabbed panel: Thread tab closes the panel; other tabs show their content above the thread */}
-      <MessagePanelTabs
-        message={message}
-        tab={tab}
-        setTab={setTab}
-        panelOpen={panelOpen}
-        setPanelOpen={setPanelOpen}
-        notes={notes}
-        onNoteUpdated={handleNoteUpdated}
-        onNoteDeleted={handleNoteDeleted}
-        noteActivityLog={noteActivityLog}
-        messageActivity={messageActivity}
-        sortedThread={sortedThread}
-        threadRefreshKey={threadRefreshKey}
-        highlightAttachmentId={highlightAttachmentId}
-        attachments={flatAttachments}
-        currentUserId={currentUserId}
-        leadState={leadState}
-        setLeadState={setLeadState}
-        leadFieldDefs={leadFieldDefs}
-        onGhostClick={handleGhostClick}
-        // Passed as the setters themselves: React guarantees a stable identity for a
-        // useState setter, while the inline arrows they replace were a NEW function on
-        // every render. AiTabPanel's fetch effect can only declare these as honest
-        // dependencies if they hold still.
-        onOptionsLoaded={setAlternativeCount}
-        onAiLoadingChange={setAiLoading}
-        setComposerMode={setComposerMode}
-        noteEditorRef={noteEditorRef}
-        onCheckContradiction={handleCheckContradiction}
-        onRefresh={handleContactChanged}
-      />
+        {/* State strip (v3): under the header, where the state it explains is shown. */}
+        <MessageActionStrip
+          message={message}
+          isFiltered={isFiltered}
+          isSuspicious={isSuspicious}
+          isSpamFlaggedOutsideTriage={isSpamFlaggedOutsideTriage}
+          isActive={isActive}
+          hasLinkedTicket={false}
+          onReopen={handleReopen}
+          onDelete={handleDelete}
+          onClassify={handleClassify}
+          // UX gate only — the BE re-validates (MANAGE_TICKETS on both endpoints). Offering an
+          // action that answers 403 is worse than not offering it.
+          onPromoteToKb={
+            hasPermission(Permission.MANAGE_TICKETS) ? () => setPromoteToKbOpen(true) : undefined
+          }
+          setReopenDialogOpen={setReopenDialogOpen}
+          onRefresh={handleRefresh}
+        />
 
-      {/* Thread view — visible when no panel tab is open.
+        {!twoColumn && panelTabs}
+
+        {/* Thread view — visible when no panel tab is open.
           ⛔ overflow-x-hidden is deliberate: `overflow-y-auto` alone makes the browser
           compute overflow-x as `auto` too (CSS couples the axes), so one over-wide
           message — an unwrapped <pre> body, a fixed-width email table — turned the
           WHOLE thread into a sideways-scrolling pane that clipped every message
           (ORB-SUP-1358). Wide content is contained per-bubble in ThreadBubble. */}
-      <div
-        className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden ${panelOpen ? 'hidden' : ''}`}
-      >
-        <div className="px-4 py-3 space-y-3">
-          {threadLoading && sortedThread.length === 0 && (
-            <div className="py-8 text-sm text-center text-muted-foreground">
-              <div className="mx-auto mb-2 w-5 h-5 rounded-full border-2 animate-spin border-primary border-t-transparent" />
-              Loading thread…
-            </div>
-          )}
-          {threadError && (
-            <div className="py-4 text-sm text-center text-destructive">
-              {threadError}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setThreadRefreshKey((key) => key + 1)}
-                className="block mx-auto mt-1 p-0 h-auto text-xs underline hover:no-underline"
-              >
-                Retry
-              </Button>
-            </div>
-          )}
-          {!threadLoading && !threadError && sortedThread.length === 0 && (
-            <div className="py-6 text-[12px] text-center text-muted-foreground">
-              No messages in thread yet.
-            </div>
-          )}
-          {sortedThread.map((msg, index) => (
-            <Fragment key={msg.id}>
-              {threadDayStarts.has(index) && (
-                <div
-                  role="separator"
-                  aria-label={dayLabel(threadTimeOf(msg))}
-                  className={`flex items-center gap-2 pt-1 text-muted-foreground ${LABEL}`}
+        <div
+          className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background ${panelOpen && !twoColumn ? 'hidden' : ''}`}
+        >
+          {/* v3: the thread is the canvas; bubbles are the cards on it. */}
+          <div className="flex flex-col gap-3.5 px-3.5 py-4">
+            {threadLoading && sortedThread.length === 0 && (
+              <div className="py-8 text-sm text-center text-muted-foreground">
+                <div className="mx-auto mb-2 w-5 h-5 rounded-full border-2 animate-spin border-primary border-t-transparent" />
+                Loading thread…
+              </div>
+            )}
+            {threadError && (
+              <div className="py-4 text-sm text-center text-destructive">
+                {threadError}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setThreadRefreshKey((key) => key + 1)}
+                  className="block mx-auto mt-1 p-0 h-auto text-xs underline hover:no-underline"
                 >
-                  <span className="flex-1 h-px bg-border" aria-hidden />
-                  <span aria-hidden>{dayLabel(threadTimeOf(msg))}</span>
-                  <span className="flex-1 h-px bg-border" aria-hidden />
-                </div>
-              )}
-              <ThreadMessageItem
-                msg={msg}
-                attachments={attachmentsByMessageId.get(msg.id) ?? []}
-                onOpenAttachment={(id) => {
-                  setTab('attachments');
-                  setPanelOpen(true);
-                  setHighlightAttachmentId(id);
-                }}
-              />
-            </Fragment>
-          ))}
+                  Retry
+                </Button>
+              </div>
+            )}
+            {!threadLoading && !threadError && sortedThread.length === 0 && (
+              <div className="py-6 text-[12px] text-center text-muted-foreground">
+                No messages in thread yet.
+              </div>
+            )}
+            {timeline.map((row, index) => (
+              <Fragment key={row.kind === 'message' ? `m${row.msg.id}` : `n${row.note.id}`}>
+                {threadDayStarts.has(index) && (
+                  <div
+                    role="separator"
+                    aria-label={dayLabel(row.time)}
+                    className={`flex items-center gap-2.5 text-muted-foreground ${LABEL}`}
+                  >
+                    <span className="flex-1 h-px bg-border" aria-hidden />
+                    <span aria-hidden>{dayLabel(row.time)}</span>
+                    <span className="flex-1 h-px bg-border" aria-hidden />
+                  </div>
+                )}
+                {row.kind === 'message' ? (
+                  <ThreadMessageItem
+                    msg={row.msg}
+                    attachments={attachmentsByMessageId.get(row.msg.id) ?? []}
+                    onOpenAttachment={(id) => {
+                      setTab('attachments');
+                      setPanelOpen(true);
+                      setHighlightAttachmentId(id);
+                    }}
+                  />
+                ) : (
+                  <ThreadNoteItem note={row.note} />
+                )}
+              </Fragment>
+            ))}
 
-          {/* Ghost bubble */}
-          <MessageGhostBubble
-            aiLoading={aiLoading}
-            ghostVisible={ghostVisible}
-            ghostOption={ghostOption}
-            autoReply={autoReply}
-            composer={composer}
-            composerMode={composerMode}
-            resolved={message.status === 'resolved'}
-            alternativeCount={alternativeCount}
-            onGhostClick={handleGhostClick}
-            onShowAlternatives={() => {
-              setTab('kb');
-              setPanelOpen(true);
-            }}
-          />
+            {/* Ghost bubble */}
+            <MessageGhostBubble
+              aiLoading={aiLoading}
+              ghostVisible={ghostVisible}
+              ghostOption={ghostOption}
+              autoReply={autoReply}
+              composer={composer}
+              composerMode={composerMode}
+              resolved={message.status === 'resolved'}
+              alternativeCount={alternativeCount}
+              onGhostClick={handleGhostClick}
+              onShowAlternatives={() => {
+                setTab('kb');
+                setPanelOpen(true);
+              }}
+            />
+          </div>
         </div>
+
+        {/* Send failure alert — shown when BE confirms delivery failed */}
+        {sendFailedError && (
+          <div className="mx-4 p-3 text-sm rounded-md text-destructive bg-destructive/10 flex justify-between items-start gap-2">
+            <span>{sendFailedError}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Dismiss"
+              onClick={() => setSendFailedError(null)}
+              className="p-0 w-auto h-auto shrink-0 text-destructive/70 hover:text-destructive"
+            >
+              ✕
+            </Button>
+          </div>
+        )}
+
+        {/* Composer — shown for active conversations */}
+        {isActive && (
+          <MessageComposer
+            shortcutHint={shortcutHint(shortcutContext)}
+            message={message}
+            composer={composer}
+            setComposer={setComposer}
+            composerMode={composerMode}
+            setComposerMode={setComposerMode}
+            submitting={submitting}
+            onSend={() => void handleSend()}
+            richEditorRef={richEditorRef}
+            noteEditorRef={noteEditorRef}
+            onOpenSimilarMessages={() => setSimilarOpen(true)}
+            selectedFiles={selectedFiles}
+            onFilesChange={setSelectedFiles}
+            onAiSourceChange={handleAiSourceChange}
+            sendBlockedReason={composerWindow.blocked ? composerWindow.notice : null}
+            windowRemaining={composerWindow.remaining}
+            windowTone={composerWindow.tone}
+            onUseTemplate={
+              // Offered only on a blocked WhatsApp conversation — that is the one state in
+              // which a billable template send is the right move rather than an expensive
+              // way to say something a free reply could have carried.
+              composerWindow.blocked && message.channel === 'whatsapp'
+                ? () => void handleOpenTemplates()
+                : null
+            }
+            recipientDraft={supportsRecipients ? recipientDraft : undefined}
+            onRecipientDraftChange={supportsRecipients ? setRecipientDraft : undefined}
+          />
+        )}
       </div>
 
-      {/* Send failure alert — shown when BE confirms delivery failed */}
-      {sendFailedError && (
-        <div className="mx-4 p-3 text-sm rounded-md text-destructive bg-destructive/10 flex justify-between items-start gap-2">
-          <span>{sendFailedError}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Dismiss"
-            onClick={() => setSendFailedError(null)}
-            className="p-0 w-auto h-auto shrink-0 text-destructive/70 hover:text-destructive"
-          >
-            ✕
-          </Button>
-        </div>
-      )}
-
-      {/* Composer — shown for active conversations */}
-      {isActive && (
-        <MessageComposer
-          shortcutHint={shortcutHint(shortcutContext)}
-          message={message}
-          composer={composer}
-          setComposer={setComposer}
-          composerMode={composerMode}
-          setComposerMode={setComposerMode}
-          submitting={submitting}
-          onSend={() => void handleSend()}
-          richEditorRef={richEditorRef}
-          noteEditorRef={noteEditorRef}
-          onOpenSimilarMessages={() => setSimilarOpen(true)}
-          selectedFiles={selectedFiles}
-          onFilesChange={setSelectedFiles}
-          onAiSourceChange={handleAiSourceChange}
-          sendBlockedReason={composerWindow.blocked ? composerWindow.notice : null}
-          windowRemaining={composerWindow.remaining}
-          windowTone={composerWindow.tone}
-          onUseTemplate={
-            // Offered only on a blocked WhatsApp conversation — that is the one state in
-            // which a billable template send is the right move rather than an expensive
-            // way to say something a free reply could have carried.
-            composerWindow.blocked && message.channel === 'whatsapp'
-              ? () => void handleOpenTemplates()
-              : null
-          }
-          recipientDraft={supportsRecipients ? recipientDraft : undefined}
-          onRecipientDraftChange={supportsRecipients ? setRecipientDraft : undefined}
-        />
+      {twoColumn && (
+        <aside className="flex flex-col flex-none w-[312px] min-h-0 border-l border-border bg-card">
+          <div ref={setSideMetaEl} className="flex-none" />
+          {panelTabs}
+        </aside>
       )}
 
       <WhatsAppTemplatePicker
@@ -1071,25 +1137,6 @@ export function MessageDetail({
         onSend={(templateId, parameters) => void handleSendTemplate(templateId, parameters)}
       />
 
-      {/* Action strip */}
-      <MessageActionStrip
-        message={message}
-        isFiltered={isFiltered}
-        isSuspicious={isSuspicious}
-        isSpamFlaggedOutsideTriage={isSpamFlaggedOutsideTriage}
-        isActive={isActive}
-        hasLinkedTicket={false}
-        onReopen={handleReopen}
-        onDelete={handleDelete}
-        onClassify={handleClassify}
-        // UX gate only — the BE re-validates (MANAGE_TICKETS on both endpoints). Offering an
-        // action that answers 403 is worse than not offering it.
-        onPromoteToKb={
-          hasPermission(Permission.MANAGE_TICKETS) ? () => setPromoteToKbOpen(true) : undefined
-        }
-        setReopenDialogOpen={setReopenDialogOpen}
-        onRefresh={handleRefresh}
-      />
       <PromoteToKbDialog
         messageId={message.id}
         isOpen={promoteToKbOpen}
