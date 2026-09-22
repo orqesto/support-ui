@@ -6,4 +6,6 @@ export type TooltipProps = VariantProps<typeof tooltipVariants> & {
   content: ReactNode;
   children: ReactNode;
   delayDuration?: number;
+  /** Classes for the trigger wrapper (default `inline-flex`). */
+  className?: string;
 };

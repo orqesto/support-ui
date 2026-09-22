@@ -28,6 +28,8 @@ import { useUiFlags } from '@/hooks/useUiFlags';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { joinOrganizationRoom, leaveOrganizationRoom } from '@/lib/socketManager';
 import { cn } from '@/lib/utils';
+import { useSidebarStore } from '@/stores/sidebarStore';
+import { NavTip, SidebarCollapseToggle } from './SidebarNav';
 import { useAuthStore } from '@/stores/authStore';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 import { useSubscriptionGateStore } from '@/stores/subscriptionGateStore';
@@ -249,6 +251,10 @@ export const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Icon-only rail on desktop. Every collapsed style is `lg:`-scoped, so the mobile
+  // drawer keeps its labels whatever this says.
+  const collapsed = useSidebarStore((state) => state.collapsed);
+  const hideWhenCollapsed = collapsed ? 'lg:hidden' : '';
 
   // Onboarding gate (shell-level so it covers every protected route, not just the
   // dashboard — closes the deep-link bypass). Redirect an org_admin whose org
@@ -533,14 +539,20 @@ export const Layout = ({ children }: LayoutProps) => {
         {/* Sidebar - Hidden on mobile, visible on desktop */}
         <aside
           className={cn(
-            'fixed inset-y-0 left-0 z-50 w-64 border-r transition-transform duration-300 transform bg-card',
+            'fixed inset-y-0 left-0 z-50 w-64 border-r transition-transform duration-300 transform bg-card flex-shrink-0',
+            collapsed && 'lg:w-16',
             'lg:sticky lg:top-0 lg:h-screen lg:transform-none',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           )}
         >
           <div className="flex overflow-hidden flex-col h-full">
-            <div className="flex justify-between items-center px-4 h-16 border-b">
-              <div className="flex gap-2 items-center h-full min-w-0">
+            <div
+              className={cn(
+                'flex justify-between items-center px-4 h-16 border-b',
+                collapsed && 'lg:justify-center lg:px-0'
+              )}
+            >
+              <div className={cn('flex gap-2 items-center h-full min-w-0', hideWhenCollapsed)}>
                 <h1 className="font-display text-xl font-bold">
                   <Link to="/">
                     <img
@@ -556,6 +568,7 @@ export const Layout = ({ children }: LayoutProps) => {
                   <VersionStatus />
                 </div>
               </div>
+              <SidebarCollapseToggle className="hidden lg:flex" />
               <Button
                 className="lg:hidden"
                 onClick={() => setSidebarOpen(false)}
@@ -565,13 +578,21 @@ export const Layout = ({ children }: LayoutProps) => {
               </Button>
             </div>
 
-            <nav className="overflow-y-auto flex-1 px-4 py-4">
+            <nav className={cn('overflow-y-auto flex-1 px-4 py-4', collapsed && 'lg:px-2')}>
               {NAV_GROUP_ORDER.map((group, groupIdx) => {
                 const items = navigation.filter((entry) => entry.group === group);
                 if (items.length === 0) return null;
                 return (
                   <div key={group} className={groupIdx > 0 ? 'mt-4' : ''}>
-                    <p className="font-display px-3 mb-1 text-[10px] font-semibold tracking-[0.09em] uppercase text-muted-foreground/70">
+                    {collapsed && groupIdx > 0 && (
+                      <div className="hidden mx-2 mb-3 border-t lg:block" aria-hidden="true" />
+                    )}
+                    <p
+                      className={cn(
+                        'font-display px-3 mb-1 text-[10px] font-semibold tracking-[0.09em] uppercase text-muted-foreground/70',
+                        hideWhenCollapsed
+                      )}
+                    >
                       {NAV_GROUP_LABELS[group]}
                     </p>
                     <div className="space-y-1">
@@ -580,35 +601,54 @@ export const Layout = ({ children }: LayoutProps) => {
                         const isActive = location.pathname === item.href;
                         const badge = item.showBadge ? needsRoutingCount : 0;
                         return (
-                          <Link
+                          <NavTip
                             key={item.name}
-                            to={item.href}
-                            className={cn(
-                              'flex gap-3 items-center px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                              isActive
-                                ? 'bg-primary text-primary-foreground'
-                                : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground'
-                            )}
-                            onClick={() => setSidebarOpen(false)}
+                            label={
+                              item.flagRequired && isPreviewing(item.flagRequired)
+                                ? `${item.name} (WIP — Odly staff only)`
+                                : item.name
+                            }
                           >
-                            <Icon className="w-5 h-5 flex-shrink-0" />
-                            <span className="flex-1">{item.name}</span>
-                            {item.flagRequired && isPreviewing(item.flagRequired) && (
-                              // Staff-only entry for an unfinished surface. Marked so nobody
-                              // demos it believing a customer sees the same sidebar.
-                              <span
-                                title="Unfinished — visible to Odly staff only"
-                                className="font-display flex-shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold uppercase tracking-[0.09em] bg-warning-muted text-warning"
-                              >
-                                WIP
-                              </span>
-                            )}
-                            {badge > 0 && (
-                              <span className="flex-shrink-0 flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-[10px] font-bold rounded-full bg-foreground text-background">
-                                {badge > 99 ? '99+' : badge}
-                              </span>
-                            )}
-                          </Link>
+                            <Link
+                              to={item.href}
+                              aria-label={collapsed ? item.name : undefined}
+                              className={cn(
+                                'flex relative gap-3 items-center px-3 py-2 w-full text-sm font-medium rounded-md transition-colors',
+                                collapsed && 'lg:justify-center lg:px-0',
+                                isActive
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground'
+                              )}
+                              onClick={() => setSidebarOpen(false)}
+                            >
+                              <Icon className="w-5 h-5 flex-shrink-0" />
+                              <span className={cn('flex-1', hideWhenCollapsed)}>{item.name}</span>
+                              {!collapsed &&
+                                item.flagRequired &&
+                                isPreviewing(item.flagRequired) && (
+                                  // Staff-only entry for an unfinished surface. Marked so nobody
+                                  // demos it believing a customer sees the same sidebar.
+                                  <span
+                                    title="Unfinished — visible to Odly staff only"
+                                    className="font-display flex-shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold uppercase tracking-[0.09em] bg-warning-muted text-warning"
+                                  >
+                                    WIP
+                                  </span>
+                                )}
+                              {badge > 0 && (
+                                <span
+                                  className={cn(
+                                    'flex-shrink-0 flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-[10px] font-bold rounded-full bg-foreground text-background',
+                                    // Rail: pinned to the icon's corner so the count stays visible.
+                                    collapsed &&
+                                      'lg:absolute lg:top-0 lg:right-0.5 lg:min-w-[1rem] lg:h-4 lg:text-[9px]'
+                                  )}
+                                >
+                                  {badge > 99 ? '99+' : badge}
+                                </span>
+                              )}
+                            </Link>
+                          </NavTip>
                         );
                       })}
                     </div>
@@ -617,18 +657,32 @@ export const Layout = ({ children }: LayoutProps) => {
               })}
             </nav>
 
-            <div className="p-4 border-t">
-              {/* Organization Switcher for Global Admins */}
-              <OrganizationSwitcher />
-              {/* Department filter switcher for multi-dept users */}
-              <DepartmentSwitcher />
+            <div className={cn('p-4 border-t', collapsed && 'lg:px-2')}>
+              {/* Org / department switchers need their full width — on the rail they are
+                  hidden and the user expands the sidebar to switch. */}
+              <div className={hideWhenCollapsed}>
+                {/* Organization Switcher for Global Admins */}
+                <OrganizationSwitcher />
+                {/* Department filter switcher for multi-dept users */}
+                <DepartmentSwitcher />
+              </div>
 
-              <div className="flex justify-between items-center mb-3">
+              <div
+                className={cn(
+                  'flex justify-between items-center mb-3',
+                  collapsed && 'lg:flex-col lg:gap-2'
+                )}
+              >
                 <div className="flex gap-2 items-center min-w-0">
-                  <div className="flex flex-shrink-0 justify-center items-center w-8 h-8 text-sm font-medium rounded-full bg-primary text-primary-foreground">
-                    {user?.firstName?.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
+                  <NavTip
+                    label={`${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim()}
+                    className="inline-flex"
+                  >
+                    <div className="flex flex-shrink-0 justify-center items-center w-8 h-8 text-sm font-medium rounded-full bg-primary text-primary-foreground">
+                      {user?.firstName?.charAt(0).toUpperCase()}
+                    </div>
+                  </NavTip>
+                  <div className={cn('min-w-0', hideWhenCollapsed)}>
                     <p className="text-sm font-medium truncate">
                       {user?.firstName} {user?.lastName}
                     </p>
@@ -637,19 +691,30 @@ export const Layout = ({ children }: LayoutProps) => {
                     </p>
                   </div>
                 </div>
-                <div className="flex flex-shrink-0 gap-1 items-center">
+                <div
+                  className={cn(
+                    'flex flex-shrink-0 gap-1 items-center',
+                    collapsed && 'lg:flex-col'
+                  )}
+                >
                   <NotificationCenter sla={slaNotifications} learning={learningNotifications} />
                   <ThemeToggle />
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                onClick={handleLogout}
-                className="gap-2 justify-start w-full text-sm text-foreground/70 hover:bg-accent hover:text-accent-foreground"
-              >
-                <LogOut className="w-4 h-4" />
-                Logout
-              </Button>
+              <NavTip label="Logout">
+                <Button
+                  variant="ghost"
+                  onClick={handleLogout}
+                  aria-label={collapsed ? 'Logout' : undefined}
+                  className={cn(
+                    'gap-2 justify-start w-full text-sm text-foreground/70 hover:bg-accent hover:text-accent-foreground',
+                    collapsed && 'lg:justify-center lg:px-0'
+                  )}
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className={hideWhenCollapsed}>Logout</span>
+                </Button>
+              </NavTip>
             </div>
           </div>
         </aside>

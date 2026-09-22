@@ -5,6 +5,9 @@ import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
+import { cn } from '@/lib/utils';
+import { useSidebarStore } from '@/stores/sidebarStore';
+import { NavTip, SidebarCollapseToggle } from '@/components/layout/SidebarNav';
 import { WorkspaceScopeProvider } from '@/contexts/WorkspaceScopeContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { organizationService } from '@/services/organization.service';
@@ -49,6 +52,7 @@ export const WorkspaceShell = () => {
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const clearScope = useScopeStore((state) => state.clearScope);
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
+  const collapsed = useSidebarStore((state) => state.collapsed);
   // The departments budget lever is global-admin only (its BE endpoints are
   // requireGlobalAdmin) — hide the tab for an alliance_admin, who reaches this shell
   // as org_admin and would only get 403s.
@@ -138,53 +142,101 @@ export const WorkspaceShell = () => {
 
   const basePath = `/console/workspace/${orgId}`;
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex gap-3 items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+    cn(
+      'flex gap-3 items-center px-3 py-2 w-full text-sm font-medium rounded-md transition-colors',
+      collapsed && 'justify-center px-0',
       isActive
         ? 'bg-primary/10 text-primary'
         : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-    }`;
+    );
+  const exitLinkClass = cn(
+    'flex gap-2 items-center px-3 py-2 w-full text-sm rounded-md text-muted-foreground hover:bg-accent hover:text-foreground',
+    collapsed && 'justify-center px-0'
+  );
 
   return (
     <div className="flex overflow-hidden h-screen bg-background">
-      <aside className="flex overflow-hidden flex-col w-64 border-r border-border bg-card">
-        <div className="flex flex-shrink-0 gap-2 items-center px-4 h-16 border-b border-border">
-          <Building2 className="w-5 h-5 text-muted-foreground" />
-          <span className="font-semibold text-foreground">Manage workspace</span>
+      <aside
+        className={cn(
+          'flex overflow-hidden flex-col flex-shrink-0 w-64 border-r border-border bg-card',
+          collapsed && 'w-16'
+        )}
+      >
+        <div
+          className={cn(
+            'flex flex-shrink-0 gap-2 items-center px-4 h-16 border-b border-border',
+            collapsed && 'justify-center px-0'
+          )}
+        >
+          {!collapsed && (
+            <>
+              <Building2 className="w-5 h-5 text-muted-foreground" />
+              <span className="flex-1 font-semibold truncate text-foreground">
+                Manage workspace
+              </span>
+            </>
+          )}
+          <SidebarCollapseToggle />
         </div>
-        <nav className="overflow-y-auto flex-1 p-3 space-y-1">
+        <nav className={cn('overflow-y-auto flex-1 p-3 space-y-1', collapsed && 'px-2')}>
           {/* Leave-this-shell links pinned at the TOP so getting out is always the
               first affordance — back UP to the platform console, or all the way out
               to the app. */}
           <div className="pb-2 mb-2 space-y-1 border-b border-border">
-            <NavLink
-              to="/dashboard"
-              className="flex gap-2 items-center px-3 py-2 text-sm rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back to app</span>
-            </NavLink>
-            <NavLink
-              to={backTo}
-              className="flex gap-2 items-center px-3 py-2 text-sm rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <ShieldAlert className="w-4 h-4" />
-              <span>{backLabel}</span>
-            </NavLink>
+            <NavTip label="Back to app">
+              <NavLink
+                to="/dashboard"
+                aria-label={collapsed ? 'Back to app' : undefined}
+                className={exitLinkClass}
+              >
+                <ArrowLeft className="w-4 h-4" />
+                {!collapsed && <span>Back to app</span>}
+              </NavLink>
+            </NavTip>
+            <NavTip label={backLabel}>
+              <NavLink
+                to={backTo}
+                aria-label={collapsed ? backLabel : undefined}
+                className={exitLinkClass}
+              >
+                {!collapsed && <ArrowLeft className="w-4 h-4" />}
+                <ShieldAlert className="w-4 h-4" />
+                {!collapsed && <span>{backLabel}</span>}
+              </NavLink>
+            </NavTip>
           </div>
-          <NavLink to={basePath} end className={navLinkClass}>
-            <Users className="flex-shrink-0 w-4 h-4" />
-            <span className="truncate">Users</span>
-          </NavLink>
-          <NavLink to={`${basePath}/settings`} className={navLinkClass}>
-            <Settings className="flex-shrink-0 w-4 h-4" />
-            <span className="truncate">Workspace</span>
-          </NavLink>
-          {isAdmin && (
-            <NavLink to={`${basePath}/departments`} className={navLinkClass}>
-              <Boxes className="flex-shrink-0 w-4 h-4" />
-              <span className="truncate">Departments</span>
+          <NavTip label="Users">
+            <NavLink
+              to={basePath}
+              end
+              aria-label={collapsed ? 'Users' : undefined}
+              className={navLinkClass}
+            >
+              <Users className="flex-shrink-0 w-4 h-4" />
+              {!collapsed && <span className="truncate">Users</span>}
             </NavLink>
+          </NavTip>
+          <NavTip label="Workspace">
+            <NavLink
+              to={`${basePath}/settings`}
+              aria-label={collapsed ? 'Workspace' : undefined}
+              className={navLinkClass}
+            >
+              <Settings className="flex-shrink-0 w-4 h-4" />
+              {!collapsed && <span className="truncate">Workspace</span>}
+            </NavLink>
+          </NavTip>
+          {isAdmin && (
+            <NavTip label="Departments">
+              <NavLink
+                to={`${basePath}/departments`}
+                aria-label={collapsed ? 'Departments' : undefined}
+                className={navLinkClass}
+              >
+                <Boxes className="flex-shrink-0 w-4 h-4" />
+                {!collapsed && <span className="truncate">Departments</span>}
+              </NavLink>
+            </NavTip>
           )}
         </nav>
       </aside>
