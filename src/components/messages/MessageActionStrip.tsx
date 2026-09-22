@@ -7,8 +7,10 @@ import {
   ShieldAlert,
   Trash2,
   BookOpen,
+  Ban,
 } from 'lucide-react';
 import { getSpamCheck, getFilteredCategoryMeta } from '@/lib/messageHelpers';
+import { notCustomerWorkMark } from './notCustomerWork';
 import { Toggle } from '@/components/ui/Toggle';
 import { Button } from '@/components/ui/Button';
 import type { Message } from '@/types';
@@ -38,6 +40,11 @@ export type MessageActionStripProps = {
     trainSpamFilter?: boolean
   ) => Promise<void>;
   onResolveWithoutReply: () => void;
+  /**
+   * Bin the thread as NOT customer work. Optional so a caller that has not wired the dialog
+   * simply does not offer it — an action that 400s is worse than an absent one.
+   */
+  onNotCustomerWork?: () => void;
   onClose?: () => void;
   setRejectDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setReopenDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -57,6 +64,7 @@ export function MessageActionStrip({
   onReopen,
   onClassify,
   onResolveWithoutReply,
+  onNotCustomerWork,
   onClose,
   setRejectDialogOpen,
   setReopenDialogOpen,
@@ -89,7 +97,8 @@ export function MessageActionStrip({
 
   const btnBase =
     'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded font-display text-[11px] font-medium transition-colors disabled:opacity-50';
-  const statusLabel = 'font-display text-[9px] tracking-[0.09em] uppercase text-muted-foreground mb-1.5 font-medium';
+  const statusLabel =
+    'font-display text-[9px] tracking-[0.09em] uppercase text-muted-foreground mb-1.5 font-medium';
   const strip = 'flex-shrink-0 px-4 pt-2 pb-2.5 border-t border-border';
 
   // A customer reply makes this an ACTIVE conversation even while the status is
@@ -210,7 +219,9 @@ export function MessageActionStrip({
       : 'Flagged as suspicious by spam filter';
     return (
       <div className={strip}>
-        <p className={`${statusLabel} ${isSecurityThreat ? 'text-destructive' : ''}`}>{statusText}</p>
+        <p className={`${statusLabel} ${isSecurityThreat ? 'text-destructive' : ''}`}>
+          {statusText}
+        </p>
         <div
           className="mb-2"
           title="Also creates a detection rule (green flag) so semantically similar future messages aren't flagged as suspicious."
@@ -243,7 +254,11 @@ export function MessageActionStrip({
             className={`${btnBase} h-auto`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            {classifying ? 'Updating…' : isSecurityThreat ? 'Not a Threat — Approve' : 'Not Spam — Approve'}
+            {classifying
+              ? 'Updating…'
+              : isSecurityThreat
+                ? 'Not a Threat — Approve'
+                : 'Not Spam — Approve'}
           </Button>
           {!isSecurityThreat && (
             <Button
@@ -278,6 +293,20 @@ export function MessageActionStrip({
             <CheckCircle className="w-3.5 h-3.5" />
             Resolve (no KB)
           </Button>
+          {/* ⛔ Offered HERE too, and this is the branch that matters most: an unreviewed thread
+              nobody has replied to is exactly the shape a newsletter or an automated notice
+              arrives in. Found auditing this change — the action was on the active-conversation
+              branch only, i.e. everywhere except where the junk actually sits. */}
+          {onNotCustomerWork && (
+            <Button
+              variant="ghost"
+              onClick={onNotCustomerWork}
+              className={`border ${btnBase} h-auto border-border text-muted-foreground hover:bg-accent`}
+            >
+              <Ban className="w-3.5 h-3.5" />
+              Not customer work
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -320,6 +349,21 @@ export function MessageActionStrip({
               Resolve (no KB)
             </Button>
           )}
+          {onNotCustomerWork && (
+            /* ⛔ Deliberately NOT worded as a resolution and deliberately not a primary button.
+               This clears a newsletter or a system notice off the queue WITHOUT claiming anyone
+               answered anything — the whole reason it exists is that Resolve was doing both jobs,
+               so a label sharing that word would rebuild the confusion in the UI. */
+            <Button
+              variant="ghost"
+              onClick={onNotCustomerWork}
+              disabled={resolving}
+              className={`border ${btnBase} h-auto border-border text-muted-foreground hover:bg-accent`}
+            >
+              <Ban className="w-3.5 h-3.5" />
+              Not customer work
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -356,11 +400,24 @@ export function MessageActionStrip({
 
   // Closed
   if (message.status === 'closed' && !hasLinkedTicket && onReopen) {
+    /* A binned thread is `closed` like any other, so without this an agent cannot tell what they
+       or a colleague decided — and cannot tell why the thread is missing from the resolved count.
+       The KB action is withheld too: the backend refuses it, and discovering that by pressing a
+       button is a worse experience than not being offered it. */
+    const binned = notCustomerWorkMark(message);
     return (
       <div className={strip}>
-        <p className={statusLabel}>Closed</p>
+        <p className={statusLabel}>
+          {binned ? 'Not customer work' : 'Closed'}
+          {binned?.at && (
+            <span className="ml-1 font-normal text-muted-foreground">
+              · binned {new Date(binned.at).toLocaleDateString()}
+            </span>
+          )}
+        </p>
+        {binned?.reason && <p className="text-xs text-muted-foreground">“{binned.reason}”</p>}
         <div className="flex gap-2">
-          {onPromoteToKb && (
+          {onPromoteToKb && !binned && (
             <Button
               variant="ghost"
               onClick={onPromoteToKb}
@@ -373,6 +430,14 @@ export function MessageActionStrip({
           <Button
             variant="ghost"
             onClick={() => setReopenDialogOpen(true)}
+            // The undo. Reopening is what puts a mis-binned thread back into the statistics —
+            // the backend strips the mark on unresolve — so the title says so rather than
+            // leaving an agent to guess whether the decision is permanent.
+            title={
+              binned
+                ? 'Reopen — this also undoes "not customer work" and returns the thread to the statistics'
+                : undefined
+            }
             className={`border ${btnBase} h-auto border-border text-muted-foreground hover:bg-accent`}
           >
             <RotateCcw className="w-3.5 h-3.5" />

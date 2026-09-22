@@ -17,7 +17,7 @@ const makeMessage = (overrides: Partial<Message> = {}): Message => ({
   ...overrides,
 });
 
-const renderStrip = (message: Message) =>
+const renderStrip = (message: Message, extra: Record<string, unknown> = {}) =>
   render(
     <MessageActionStrip
       message={message}
@@ -34,6 +34,7 @@ const renderStrip = (message: Message) =>
       setRejectDialogOpen={vi.fn()}
       setReopenDialogOpen={vi.fn()}
       onRefresh={vi.fn()}
+      {...extra}
     />
   );
 
@@ -149,5 +150,78 @@ describe('MessageActionStrip — orphaned outbound', () => {
     );
     screen.getByText('Approve — Move to Open').click();
     expect(onClassify).toHaveBeenCalledWith('approve', undefined, undefined);
+  });
+});
+
+/**
+ * The "not customer work" disposition (support-service #804, support-ui #450).
+ *
+ * ⛔ The two things an agent must be able to SEE: that the action exists on a live thread, and
+ * that a binned thread does not look like a resolved one. The second is the harder half — a
+ * binned row is `closed` like any other, so without the badge an agent cannot tell what a
+ * colleague decided, and the missing resolved-count entry has no explanation anywhere.
+ */
+describe('MessageActionStrip — not customer work', () => {
+  const binned = (reason: string | null = 'newsletter') =>
+    makeMessage({
+      status: 'closed' as ThreadStatus,
+      metadata: { notCustomerWork: { by: 3, at: '2026-09-22T10:00:00Z', reason } },
+    });
+
+  it('offers the action on an active thread', () => {
+    renderStrip(makeMessage({ status: 'pending' as ThreadStatus, lastReplyFromClient: true }), {
+      onNotCustomerWork: vi.fn(),
+    });
+
+    expect(screen.getByText('Not customer work')).toBeTruthy();
+  });
+
+  it('🔴 offers it on an UNREVIEWED thread — where a newsletter actually sits', () => {
+    // status 'open' with no customer reply is the shape junk arrives in. The action was missing
+    // from this branch in the first version of this change: present everywhere except the one
+    // place an agent needs it.
+    renderStrip(makeMessage({ status: 'open' as ThreadStatus }), { onNotCustomerWork: vi.fn() });
+
+    expect(screen.getByText('Not customer work')).toBeTruthy();
+    // CONTROL: the ordinary resolve is still there — this adds an action, it does not replace one.
+    expect(screen.getByText('Resolve (no KB)')).toBeTruthy();
+  });
+
+  it('does not offer it when the caller wires no handler', () => {
+    // CONTROL: proves the assertion above is about the prop, not about a button that always
+    // renders — an action that 400s is worse than an absent one.
+    renderStrip(makeMessage({ status: 'pending' as ThreadStatus, lastReplyFromClient: true }));
+
+    expect(screen.queryByText('Not customer work')).toBeNull();
+  });
+
+  it('🔴 labels a binned thread as binned, not as Closed', () => {
+    renderStrip(binned());
+
+    expect(screen.getByText(/Not customer work/)).toBeTruthy();
+    expect(screen.queryByText('Closed')).toBeNull();
+    expect(screen.getByText(/newsletter/)).toBeTruthy();
+  });
+
+  it('CONTROL: an ordinary closed thread still reads Closed and still offers Save to KB', () => {
+    renderStrip(makeMessage({ status: 'closed' as ThreadStatus }), { onPromoteToKb: vi.fn() });
+
+    expect(screen.getByText('Closed')).toBeTruthy();
+    expect(screen.getByText('Save to KB')).toBeTruthy();
+  });
+
+  it('withholds Save to KB on a binned thread — the backend refuses it', () => {
+    renderStrip(binned(), { onPromoteToKb: vi.fn() });
+
+    expect(screen.queryByText('Save to KB')).toBeNull();
+    // Reopen stays: it is the undo, and the backend strips the mark on unresolve.
+    expect(screen.getByText('Reopen')).toBeTruthy();
+  });
+
+  it('renders no empty quotation marks when no reason was given', () => {
+    renderStrip(binned(null));
+
+    expect(screen.getByText(/Not customer work/)).toBeTruthy();
+    expect(screen.queryByText('“”')).toBeNull();
   });
 });

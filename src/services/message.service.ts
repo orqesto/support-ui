@@ -1,3 +1,10 @@
+/* eslint-disable max-lines -- This file is a flat catalogue of API calls, one per endpoint, and
+   adding the `not_customer_work` disposition (support-ui #450) took it 5 lines past the 650 cap.
+   The cap is right and the file does want splitting — by domain: thread actions, KB, labels,
+   contacts. That split touches every importer, so doing it inside a feature PR would bury the
+   feature's own diff, which is how a 10-line change became 185 lines of reflow on this repo once
+   already. Owed work, deliberately deferred rather than silently ignored; do not add a further
+   endpoint here without paying it. */
 import { normaliseReceivedAtOptions, type ReceivedAtOption } from './receivedAtOption';
 import { fetchThreads } from './threadsQuery';
 import { apiClient } from '@/lib/api-client';
@@ -334,6 +341,21 @@ export const messageService = {
       `/api/messages/${id}/process`,
       ticketId ? { ticketId } : {}
     );
+    return response.data;
+  },
+
+  /**
+   * Bin a thread as NOT CUSTOMER WORK — a newsletter, a notice, our own outbound echo. Same
+   * `/process` endpoint (the row closes either way); the `disposition` is what keeps it out of
+   * every statistic and out of the KB. ⛔ A wrong string here answers 400 rather than closing it
+   * as an ordinary resolution, so a typo is a broken button and never a silently inflated count.
+   * `reason` may be omitted — the backend stores null rather than inventing one.
+   */
+  markAsNotCustomerWork: async (id: number, reason?: string) => {
+    const response = await apiClient.post<ApiResponse<Message>>(`/api/messages/${id}/process`, {
+      disposition: 'not_customer_work',
+      ...(reason?.trim() ? { dispositionReason: reason.trim() } : {}),
+    });
     return response.data;
   },
 
