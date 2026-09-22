@@ -24,7 +24,7 @@ export const WhyParked = ({ conversationId }: { conversationId: number | string 
 
   if (data.verdict === 'nothing_scored') {
     return (
-      <p data-testid="why-parked" className="mt-1 text-xs text-muted-foreground">
+      <p data-testid="why-parked" className="min-w-0 text-xs text-muted-foreground">
         No routing rule came close to this message — routing it by hand will not help the next one.
         Consider creating a rule from it.
       </p>
@@ -33,7 +33,7 @@ export const WhyParked = ({ conversationId }: { conversationId: number | string 
 
   const closest = data.closest;
   return (
-    <p data-testid="why-parked" className="mt-1 text-xs text-muted-foreground">
+    <p data-testid="why-parked" className="min-w-0 text-xs text-muted-foreground">
       Closest match was <span className="font-medium text-foreground">{closest?.name}</span> at{' '}
       {closest ? closest.similarity.toFixed(2) : '—'}, just under the {data.weakBar} bar — so
       nothing was chosen.

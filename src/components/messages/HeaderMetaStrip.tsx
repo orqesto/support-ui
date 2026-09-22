@@ -205,7 +205,7 @@ export function HeaderMetaStrip({
             }
             // A v3 value like Assigned/Category beside it; the department's own colour stays
             // on the icon. Needs routing keeps its state tone — it is a condition, not a value.
-            className={`inline-flex gap-1 items-center h-[23px] px-2 rounded-md border text-[11.5px] font-normal ${
+            className={`inline-flex flex-shrink-0 gap-1 items-center h-[23px] px-2 rounded-md border text-[11.5px] font-normal whitespace-nowrap ${
               canRoute ? 'cursor-pointer hover:border-border-strong' : 'cursor-default'
             } ${needsRouting ? 'bg-warning-muted text-warning border-warning-line' : 'bg-card text-foreground border-border'}`}
           >
@@ -312,7 +312,7 @@ export function HeaderMetaStrip({
                   ref={labelBtnRef}
                   variant="ghost"
                   onClick={onToggleLabelPicker}
-                  className="inline-grid place-items-center h-5 px-2 rounded-full text-[10.5px] text-muted-foreground hover:text-foreground hover:bg-accent border border-dashed border-border-strong transition-colors"
+                  className="inline-flex flex-shrink-0 justify-center items-center p-0 w-5 h-5 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent border border-dashed border-border-strong transition-colors"
                   aria-label="Add label"
                   title="Add label"
                 >
