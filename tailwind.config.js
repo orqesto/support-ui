@@ -105,6 +105,25 @@ export default {
           muted: 'hsl(var(--warning-muted))',
           line: 'hsl(var(--warning-line))',
         },
+        /* identity hues for dashboard counts — see index.css */
+        attention: {
+          DEFAULT: 'hsl(var(--attention))',
+          foreground: 'hsl(var(--attention-foreground))',
+          muted: 'hsl(var(--attention-muted))',
+          line: 'hsl(var(--attention-line))',
+        },
+        caution: {
+          DEFAULT: 'hsl(var(--caution))',
+          foreground: 'hsl(var(--caution-foreground))',
+          muted: 'hsl(var(--caution-muted))',
+          line: 'hsl(var(--caution-line))',
+        },
+        pending: {
+          DEFAULT: 'hsl(var(--pending))',
+          foreground: 'hsl(var(--pending-foreground))',
+          muted: 'hsl(var(--pending-muted))',
+          line: 'hsl(var(--pending-line))',
+        },
         info: {
           DEFAULT: 'hsl(var(--info))',
           foreground: 'hsl(var(--info-foreground))',

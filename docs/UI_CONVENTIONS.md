@@ -96,9 +96,20 @@ glance.
 ⛔ **Blue is only ever interactive.** If it is blue, clicking it does something. A
 status icon or a decorative glyph takes `muted-foreground`, a machine one takes `ai`.
 
+**Identity hues for counts — `attention`, `caution`, `pending` (2026-09-22).** NOT state
+roles, and not for anything but telling COUNT tiles apart (the dashboard), where the owner
+wants each tile recognisable by colour as well as text. `attention` = a customer is waiting on
+us (Client Replied), `caution` = in motion / waiting (Awaiting, In Progress), `pending` = parked
+(Pending, and the third KB card); the KB tiles are `ai` · `caution` · `pending`. Each has `DEFAULT / foreground / muted / line` in light and
+dark. `attention` is magenta (330°), not orange: in dark, red/orange/amber/yellow read alike
+(measured 2026-09-22 — Client Replied and Not Analysed were indistinguishable). Use
+them through `components/dashboard/dashboardTones.ts`; never as inline hex.
+
 **Elevation, not one flat white:** `background` (the canvas) → `card` → `raised`
 (inputs, chips) → `sunken` (table heads, code). A message is a card ON the canvas, so
-it has its own `bubble` ground; a reply we wrote uses the `agent-*` family.
+it has its own `bubble` ground; a reply we wrote uses the `agent-*` family. Dark stack (widened
+2026-09-22 so a card reads as lying ON the canvas): canvas 12% · card 16% · raised 18% ·
+sunken 10% · bubble 19% · well 23%.
 
 ### Two traps that have already cost real time
 
