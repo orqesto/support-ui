@@ -27,7 +27,8 @@ export type MessageActionStripProps = {
   onClassify?: (
     action: 'approve' | 'mark_suspicious' | 'move_to_spam' | 'confirm_spam',
     createDetectionRule?: boolean,
-    trainSpamFilter?: boolean
+    trainSpamFilter?: boolean,
+    confirm?: boolean
   ) => Promise<void>;
   setReopenDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   onRefresh?: () => void;
@@ -59,12 +60,15 @@ export function MessageActionStrip({
     async (
       action: 'approve' | 'mark_suspicious' | 'move_to_spam' | 'confirm_spam',
       createDetectionRule?: boolean,
-      trainFilter?: boolean
+      trainFilter?: boolean,
+      confirm?: boolean
     ) => {
       if (!onClassify) return;
       setClassifying(true);
       try {
-        await onClassify(action, createDetectionRule, trainFilter);
+        // The 4th argument only when set, so every other call keeps its shape.
+        if (confirm) await onClassify(action, createDetectionRule, trainFilter, true);
+        else await onClassify(action, createDetectionRule, trainFilter);
       } finally {
         setClassifying(false);
       }
@@ -240,12 +244,14 @@ export function MessageActionStrip({
           {!isSecurityThreat && (
             <Button
               variant="ghost"
-              onClick={() => void handleClassify('move_to_spam', undefined, trainSpamFilter)}
+              // An agent's decision on a suspicious thread = CONFIRMED spam (owner, 2026-09-22:
+              // what our filters bin is unconfirmed; a person resolving it as spam confirms it).
+              onClick={() => void handleClassify('move_to_spam', undefined, trainSpamFilter, true)}
               disabled={classifying}
               className={`text-destructive border border-destructive-line ${btnBase} h-auto hover:bg-destructive-muted`}
             >
               <Trash2 className="w-3.5 h-3.5" />
-              {classifying ? 'Moving…' : 'Move to Spam'}
+              {classifying ? 'Moving…' : 'Resolve & move to spam'}
             </Button>
           )}
         </div>
