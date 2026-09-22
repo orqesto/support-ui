@@ -23,6 +23,8 @@ type AssignmentSelectProps = {
    */
   onAssign?: (picked: AssignableUser | null) => void;
   className?: string;
+  /** Compact 'value' look for the message detail meta row; default elsewhere. */
+  variant?: 'default' | 'value';
 };
 
 export const AssignmentSelect = ({
@@ -33,6 +35,7 @@ export const AssignmentSelect = ({
   departmentId,
   onAssign,
   className,
+  variant = 'default',
 }: AssignmentSelectProps) => {
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(false);
@@ -54,7 +57,9 @@ export const AssignmentSelect = ({
   }, [skillFilter, departmentId]);
 
   useEffect(() => {
-    fetchUsers().catch((err) => { logger.error(err); });
+    fetchUsers().catch((err) => {
+      logger.error(err);
+    });
   }, [fetchUsers]);
 
   const handleAssign = async (value: string) => {
@@ -96,6 +101,7 @@ export const AssignmentSelect = ({
   return (
     <ReactSelect
       className={className}
+      variant={variant}
       value={currentAssigneeId ? String(currentAssigneeId) : ''}
       onChange={handleAssign}
       options={options}

@@ -105,7 +105,7 @@ export function ResolveSplitButton({
   }
 
   const base =
-    'inline-flex items-center h-7 font-display text-[11px] font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors';
+    'inline-flex items-center h-[27px] font-display text-[12px] font-semibold bg-primary text-primary-foreground hover:brightness-110 disabled:opacity-50 transition-[filter]';
 
   return (
     <div ref={wrapRef} className="relative inline-flex">
@@ -115,7 +115,7 @@ export function ResolveSplitButton({
         disabled={busy}
         // E opens the same dialog; it acts exactly when this button is shown (same resolveMode).
         title="Resolve (E)"
-        className={`${base} gap-1.5 px-2.5 ${items.length > 0 ? 'rounded-l' : 'rounded'}`}
+        className={`${base} gap-1.5 px-[11px] ${items.length > 0 ? 'rounded-l-[7px]' : 'rounded-[7px]'}`}
       >
         <Check className="w-3.5 h-3.5" />
         Resolve
@@ -129,7 +129,7 @@ export function ResolveSplitButton({
           aria-expanded={open}
           onClick={() => setOpen((value) => !value)}
           disabled={busy}
-          className={`${base} px-1.5 rounded-r border-l border-primary-foreground/25`}
+          className={`${base} px-[5px] ml-px rounded-r-[7px] shadow-[inset_1px_0_0_rgba(255,255,255,.22)]`}
         >
           <ChevronDown className="w-3.5 h-3.5" />
         </button>

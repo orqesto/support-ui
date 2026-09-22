@@ -13,15 +13,15 @@ import {
   Target,
   ShieldAlert,
   Ban,
-  Clock,
-  ChevronDown,
   Maximize2,
   Sparkles,
   MessageSquare,
   Mail,
   MailOpen,
+  MoreHorizontal,
+  History as HistoryIcon,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Button } from '@/components/ui/Button';
@@ -127,6 +127,10 @@ const BE_STATUS_TO_COLUMN: Partial<Record<ThreadStatus, string>> = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+// v3 header icon action: 30px target, 15px glyph; the tooltip carries the name (and key).
+const ICON_BTN =
+  'relative inline-grid place-items-center w-[30px] h-[30px] rounded-[7px] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors';
+
 export function MessageDetailHeader({
   message,
   onClose,
@@ -156,12 +160,18 @@ export function MessageDetailHeader({
   const orgCode = useCurrentOrgCode();
   const { data: allDepts = [] } = useDepartments();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [moreOpen, setMoreOpen] = useState(false);
   // Sender name → opens the contact profile drawer (same overlay as the
   // Contacts page). Resolved by the requester's email; sender may be "Name <email>".
   const [profileEmail, setProfileEmail] = useState<string | null>(null);
   const senderEmail = message.sender?.match(/<(.+?)>/)?.[1] ?? message.sender ?? '';
+  // "Marta Kowalczyk <marta@…>" → the name bold, the address beside it (v3). A bare address has
+  // no name part and is shown once, as the name.
+  const senderName = message.sender?.includes('<')
+    ? message.sender.slice(0, message.sender.indexOf('<')).trim().replace(/^"|"$/g, '')
+    : '';
   const [routingTo, setRoutingTo] = useState<number | null>(null);
   // Tracks whether the in-flight near-miss route is the "+ rule" (learn) variant,
   // so only the clicked button shows its busy label while both are disabled.
@@ -647,11 +657,13 @@ export function MessageDetailHeader({
           setMoreOpen(false);
         },
       },
+    // Was the "History" link beside the sender; v3 has no room for it there, and dropping it
+    // would remove the only path from a message to the customer's other conversations.
     {
-      label: linkCopied ? 'Link Copied!' : 'Copy Link',
-      icon: <LinkIcon className="w-3 h-3" />,
+      label: 'Conversation history',
+      icon: <HistoryIcon className="w-3 h-3" />,
       action: () => {
-        handleCopyLink();
+        navigate(`/messages?mode=contacts&sender=${encodeURIComponent(message.sender)}`);
         setMoreOpen(false);
       },
     },
@@ -737,115 +749,144 @@ export function MessageDetailHeader({
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex-shrink-0 border-b border-border bg-background">
-      {/* Top strip */}
-      <div className="flex items-center gap-1.5 px-4 pt-3 pb-1">
-        <span className="font-mono text-[10px] text-muted-foreground">
-          {formatConvId(message, orgCode)}
-        </span>
-        <span className="text-[10px] text-muted-foreground" title={message.channel}>
-          {CHANNEL_ICONS[message.channel] ?? '◌'}
-        </span>
-        <span className={`${LABEL} text-muted-foreground`}>{message.channel}</span>
-        {threadCount > 1 && (
-          <span className="text-[10px] text-muted-foreground">· {threadCount} msgs</span>
+    <div className="flex-shrink-0 border-b border-border bg-card">
+      {/* Top row (v3): identity line left, 30px icon actions right — each with a tooltip that
+          names its key where one exists. The More menu lives here now ("…", was ACTIONS). */}
+      <div className="flex items-center gap-[5px] px-3.5 pt-2.5">
+        <div className="flex items-center gap-2 mr-1 min-w-0 text-muted-foreground">
+          <span className="font-mono text-[10.5px]">{formatConvId(message, orgCode)}</span>
+          <span className={LABEL} title={message.channel}>
+            {CHANNEL_ICONS[message.channel] ?? '◌'} {message.channel}
+            {threadCount > 1 && ` · ${threadCount} msgs`}
+          </span>
+        </div>
+        <span className="flex-1" />
+        {showLabelPicker && (
+          <button
+            type="button"
+            aria-label="Close"
+            className="fixed inset-0 z-30 cursor-default"
+            onClick={() => setShowLabelPicker(false)}
+          />
         )}
-        <div className="flex gap-1 items-center ml-auto">
-          {showLabelPicker && (
+        <Tooltip content={linkCopied ? 'Link copied' : 'Copy link'} side="bottom" size="sm">
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            aria-label="Copy link"
+            className={ICON_BTN}
+          >
+            <LinkIcon className="w-[15px] h-[15px]" />
+          </button>
+        </Tooltip>
+        {onRefresh && (
+          <Tooltip content="Refresh thread" side="bottom" size="sm">
             <button
               type="button"
-              aria-label="Close"
-              className="fixed inset-0 z-30 cursor-default"
-              onClick={() => setShowLabelPicker(false)}
-            />
-          )}
-          {showReadToggle && onToggleRead && (
-            <Button
+              onClick={onRefresh}
+              aria-label="Refresh thread"
+              className={ICON_BTN}
+            >
+              <RefreshCw className="w-[15px] h-[15px]" />
+            </button>
+          </Tooltip>
+        )}
+        {showReadToggle && onToggleRead && (
+          <Tooltip content={isRead ? 'Mark as unread' : 'Mark as read'} side="bottom" size="sm">
+            <button
               type="button"
-              variant="ghost"
-              size="icon"
               onClick={onToggleRead}
-              className="p-1 w-auto h-auto rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
-              title={isRead ? 'Mark as unread' : 'Mark as read'}
               aria-label={isRead ? 'Mark as unread' : 'Mark as read'}
+              className={ICON_BTN}
             >
               {isRead ? (
-                <MailOpen className="w-3.5 h-3.5" />
+                <MailOpen className="w-[15px] h-[15px]" />
               ) : (
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                <Mail className="w-[15px] h-[15px]" />
               )}
-            </Button>
-          )}
-          {showFullPageButton && !isFullPage && (
-            <Link to={`/messages/${message.id}`} title="Open full page">
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Open full page"
-                className="p-1 w-auto h-auto rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
-              >
-                <Maximize2 className="w-3.5 h-3.5" />
-              </Button>
+            </button>
+          </Tooltip>
+        )}
+        {showFullPageButton && !isFullPage && (
+          <Tooltip content="Open full page" side="bottom" size="sm">
+            <Link to={`/messages/${message.id}`} aria-label="Open full page" className={ICON_BTN}>
+              <Maximize2 className="w-[15px] h-[15px]" />
             </Link>
-          )}
-          {onClose && !isFullPage && (
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Close"
-              onClick={onClose}
-              className="p-1 w-auto h-auto rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
-              title="Close (Esc)"
+          </Tooltip>
+        )}
+        <div className="relative">
+          <Tooltip content="More actions" side="bottom" size="sm">
+            <button
+              type="button"
+              onClick={() => setMoreOpen((val) => !val)}
+              aria-label="More actions"
+              aria-haspopup="menu"
+              aria-expanded={moreOpen}
+              className={`${ICON_BTN} ${moreOpen ? 'bg-muted text-foreground' : ''}`}
             >
-              <X className="w-3.5 h-3.5" />
-            </Button>
+              <MoreHorizontal className="w-[15px] h-[15px]" />
+            </button>
+          </Tooltip>
+          {moreOpen && (
+            <>
+              <button
+                type="button"
+                aria-label="Close"
+                className="fixed inset-0 z-40 cursor-default"
+                onClick={() => setMoreOpen(false)}
+              />
+              {/* role=menu: the detail's single-key shortcuts stand down while a menu is open,
+                  so Esc closes THIS, not the rail behind it (detailShortcuts.ts dialogIsOpen). */}
+              <div
+                role="menu"
+                className="absolute top-full right-0 mt-1 z-50 rounded-lg border border-border bg-card shadow-lg p-1 min-w-[190px]"
+              >
+                {moreMenuItems.map((item) => {
+                  const btn = (
+                    <Button
+                      key={item.label}
+                      variant="ghost"
+                      onClick={item.action}
+                      disabled={item.disabled}
+                      className={`w-full flex justify-start items-center gap-2 px-2 py-1.5 h-auto rounded text-xs text-left transition-colors ${item.danger ? 'text-destructive hover:bg-destructive-muted' : 'text-foreground hover:bg-accent'} ${item.disabled ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}`}
+                    >
+                      {item.icon}
+                      {item.label}
+                    </Button>
+                  );
+                  return item.tooltip ? (
+                    <Tooltip key={item.label} content={item.tooltip} side="left" size="sm">
+                      <span className="block w-full">{btn}</span>
+                    </Tooltip>
+                  ) : (
+                    btn
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
+        {onClose && !isFullPage && (
+          <>
+            <span className="w-px h-[18px] mx-0.5 bg-border flex-none" aria-hidden />
+            <Tooltip content="Close · Esc" side="bottom" size="sm">
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className={`${ICON_BTN} hover:!bg-destructive-muted hover:!text-destructive`}
+              >
+                <X className="w-[15px] h-[15px]" />
+              </button>
+            </Tooltip>
+          </>
+        )}
       </div>
 
-      {/* Subject + Sender */}
-      <div className="px-4 pb-2">
-        <h2 className="font-display text-[15px] font-medium leading-snug line-clamp-2 mb-1.5 text-foreground">
-          {message.subject ?? '(no subject)'}
-        </h2>
-        <div className="flex gap-2 items-center">
-          <div className="w-[18px] h-[18px] rounded-full bg-muted flex items-center justify-center text-[9px] font-semibold text-muted-foreground flex-shrink-0">
-            {getInitials(message.sender)}
-          </div>
-          {senderEmail.includes('@') ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setProfileEmail(senderEmail)}
-              className="inline-block p-0 h-auto text-xs truncate text-foreground hover:text-primary hover:underline"
-              title="View contact profile"
-            >
-              {message.sender}
-            </Button>
-          ) : (
-            <span className="text-xs truncate text-foreground">{message.sender}</span>
-          )}
-          <Link
-            to={`/messages?mode=contacts&sender=${encodeURIComponent(message.sender)}`}
-            className="ml-auto text-[10px] text-muted-foreground hover:text-foreground flex-shrink-0"
-            title="View all conversations with this sender"
-          >
-            History
-          </Link>
-        </div>
-        {/* Which of OUR addresses the customer wrote to — the integration answers to several
-            aliases, so only the message's own To/Cc distinguishes them. Compact here (v3): the
-            first address + "+N", the full To/Cc/Bcc on hover AND focus, because the
-            from-identity beside it is the thing that must stay biggest. */}
-        <ReceivedAtAddresses
-          recipients={message.recipients}
-          variant="card"
-          prefix="received at"
-          focusable
-          className="mt-1.5 pl-[26px]"
-        />
-      </div>
+      {/* Subject */}
+      <h2 className="font-display text-[16.5px] font-semibold leading-[1.3] tracking-[-0.015em] line-clamp-2 my-1.5 px-3.5 text-foreground">
+        {message.subject ?? '(no subject)'}
+      </h2>
 
       {/* Ticket bar */}
       {linkedTicketId && message.status !== 'resolved' && message.status !== 'closed' && (
@@ -873,54 +914,50 @@ export function MessageDetailHeader({
         </div>
       )}
 
-      {/* Re-route banner — runner-up depts from the routing engine.
-          Lets an agent move the conversation to a near-miss dept in one click. */}
-      {(message.nearMissDepts?.length ?? 0) > 0 &&
-        message.status !== 'resolved' &&
-        message.status !== 'closed' && (
-          <div className="px-4 pb-2">
-            <div className="flex flex-wrap items-center gap-1.5 px-2 py-1 rounded border border-primary-line bg-primary-muted">
-              <span className="text-[11px] text-foreground">🔀 Also matched:</span>
-              {message.nearMissDepts!.map((deptId) => {
-                const dept = allDepts.find((entry) => entry.id === deptId);
-                if (!dept) return null;
-                const busy = routingTo === deptId;
-                return (
-                  <span key={deptId} className="inline-flex items-center">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void handleManualRoute(deptId, false)}
-                      disabled={busy}
-                      title={`Move this conversation to ${dept.name} (one-off, no rule)`}
-                      className="text-[11px] px-1.5 py-0.5 h-auto rounded-l font-medium bg-primary-muted text-primary hover:bg-primary-muted/70 disabled:opacity-50"
-                    >
-                      {busy && !routingLearn ? `Moving to ${dept.name}…` : `Move to ${dept.name} →`}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void handleManualRoute(deptId, true)}
-                      disabled={busy}
-                      title={`Move to ${dept.name} AND create a routing rule so similar future emails auto-route here`}
-                      className="text-[11px] px-1.5 py-0.5 h-auto rounded-r font-medium border-l border-primary-line bg-primary-muted text-primary hover:bg-primary-muted/70 disabled:opacity-50"
-                    >
-                      {busy && routingLearn ? 'Adding rule…' : '+ rule'}
-                    </Button>
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
       {/* Action chip row */}
       {/* Wraps on purpose: in slide-over the chips and the decisions never fit one line, so the
           decisions group is pinned right and drops onto its own right-aligned line rather than
           breaking wherever the row runs out. */}
-      <div className="flex items-center gap-1.5 flex-wrap px-4 pb-3 overflow-visible">
+      <div className="flex items-center gap-[7px] flex-wrap px-3.5 pb-2.5 overflow-visible">
+        {/* Identity: who wrote + which of OUR addresses they wrote to. A full-width group, so the
+            state chips and the decisions always start their own line beneath it. The received-at
+            line is compact (first address + "+N"); the full To/Cc/Bcc is on hover AND focus. */}
+        <div className="flex basis-full flex-wrap items-center gap-x-[9px] gap-y-0.5 min-w-0">
+          <div className="flex items-center gap-[7px] min-w-0 overflow-hidden">
+            <div className="w-[21px] h-[21px] rounded-full bg-muted border border-border grid place-items-center font-display text-[9px] font-semibold text-muted-foreground flex-none">
+              {getInitials(message.sender)}
+            </div>
+            {senderEmail.includes('@') ? (
+              <button
+                type="button"
+                onClick={() => setProfileEmail(senderEmail)}
+                className="group flex items-baseline gap-[7px] min-w-0 text-left"
+                title="View contact profile"
+              >
+                {senderName && (
+                  <b className="font-medium text-[12.5px] whitespace-nowrap text-foreground group-hover:text-primary group-hover:underline">
+                    {senderName}
+                  </b>
+                )}
+                <span
+                  className={`truncate ${senderName ? 'text-[11.5px] text-muted-foreground' : 'text-[12.5px] font-medium text-foreground group-hover:text-primary group-hover:underline'}`}
+                >
+                  {senderEmail}
+                </span>
+              </button>
+            ) : (
+              <span className="text-[12.5px] font-medium truncate text-foreground">
+                {message.sender}
+              </span>
+            )}
+          </div>
+          <ReceivedAtAddresses
+            recipients={message.recipients}
+            variant="card"
+            prefix="received at"
+            focusable
+          />
+        </div>
         <ReactSelect
           variant="chip"
           value={currentWorkflowStatus}
@@ -933,7 +970,7 @@ export function MessageDetailHeader({
         />
         {slaInfo && (
           <div className={`${CHIP_BASE} ${slaInfo.colorClasses}`}>
-            <Clock className="w-2.5 h-2.5" />
+            <span>SLA</span>
             <span className="tabular-nums">
               {fmtMin(slaInfo.elapsed)}/{fmtMin(slaInfo.target)}
             </span>
@@ -973,7 +1010,7 @@ export function MessageDetailHeader({
               size="sm"
               onClick={() => void assignToMe()}
               disabled={assigningMe}
-              className="h-7 px-2.5 text-[11px]"
+              className="h-[27px] px-[11px] rounded-[7px] text-[12px] bg-card"
             >
               {assigningMe ? 'Assigning…' : 'Assign to me'}
             </Button>
@@ -990,59 +1027,55 @@ export function MessageDetailHeader({
               }
             />
           )}
-          <div className="relative">
-            <Button
-              variant="ghost"
-              onClick={() => setMoreOpen((val) => !val)}
-              className={`${CHIP_BASE} h-auto text-muted-foreground border-border bg-card hover:bg-accent hover:text-foreground ${moreOpen ? 'bg-accent text-foreground' : ''}`}
-              title="More actions"
-            >
-              ACTIONS
-              <ChevronDown
-                className={`w-3 h-3 transition-transform ${moreOpen ? 'rotate-180' : ''}`}
-              />
-            </Button>
-            {moreOpen && (
-              <>
-                <button
-                  type="button"
-                  aria-label="Close"
-                  className="fixed inset-0 z-40 cursor-default"
-                  onClick={() => setMoreOpen(false)}
-                />
-                {/* role=menu: the detail's single-key shortcuts stand down while a menu is open,
-                  so Esc closes THIS, not the rail behind it (detailShortcuts.ts dialogIsOpen). */}
-                <div
-                  role="menu"
-                  className="absolute top-full right-0 mt-1 z-50 rounded-lg border border-border bg-card shadow-lg p-1 min-w-[180px]"
-                >
-                  {moreMenuItems.map((item) => {
-                    const btn = (
-                      <Button
-                        key={item.label}
-                        variant="ghost"
-                        onClick={item.action}
-                        disabled={item.disabled}
-                        className={`w-full flex justify-start items-center gap-2 px-2 py-1.5 h-auto rounded text-xs text-left transition-colors ${item.danger ? 'text-destructive hover:bg-destructive-muted' : 'text-foreground hover:bg-accent'} ${item.disabled ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}`}
-                      >
-                        {item.icon}
-                        {item.label}
-                      </Button>
-                    );
-                    return item.tooltip ? (
-                      <Tooltip key={item.label} content={item.tooltip} side="left" size="sm">
-                        <span className="block w-full">{btn}</span>
-                      </Tooltip>
-                    ) : (
-                      btn
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
         </div>
       </div>
+
+      {/* Re-route banner — runner-up depts from the routing engine.
+          Lets an agent move the conversation to a near-miss dept in one click. */}
+      {(message.nearMissDepts?.length ?? 0) > 0 &&
+        message.status !== 'resolved' &&
+        message.status !== 'closed' && (
+          <div className="px-3.5 pb-[9px]">
+            <div className="flex flex-wrap items-center gap-2 px-[9px] py-1.5 rounded-lg border border-primary-line bg-primary-muted">
+              <span className={`${LABEL} text-primary`}>Also matched</span>
+              <span className="flex-1 min-w-[150px] text-[12px] text-muted-foreground">
+                Routing also scored this for{' '}
+                {message.nearMissDepts!.length === 1 ? 'another department' : 'other departments'}.
+              </span>
+              {message.nearMissDepts!.map((deptId) => {
+                const dept = allDepts.find((entry) => entry.id === deptId);
+                if (!dept) return null;
+                const busy = routingTo === deptId;
+                return (
+                  <span key={deptId} className="inline-flex items-center">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void handleManualRoute(deptId, false)}
+                      disabled={busy}
+                      title={`Move this conversation to ${dept.name} (one-off, no rule)`}
+                      className="h-[27px] px-[11px] rounded-l-[7px] border border-border bg-card text-[12px] font-normal text-foreground hover:border-border-strong hover:bg-card disabled:opacity-50"
+                    >
+                      {busy && !routingLearn ? `Moving to ${dept.name}…` : `Move to ${dept.name} →`}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void handleManualRoute(deptId, true)}
+                      disabled={busy}
+                      title={`Move to ${dept.name} AND create a routing rule so similar future emails auto-route here`}
+                      className="h-[27px] px-[11px] rounded-r-[7px] border border-l-0 border-border bg-card text-[12px] font-normal text-foreground hover:border-border-strong hover:bg-card disabled:opacity-50"
+                    >
+                      {busy && routingLearn ? 'Adding rule…' : '+ rule'}
+                    </Button>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
       {/* Meta strip */}
       <HeaderMetaStrip

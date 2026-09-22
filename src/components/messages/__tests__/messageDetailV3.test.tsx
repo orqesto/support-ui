@@ -172,11 +172,26 @@ describe('the header carries the decision', () => {
   });
 });
 
+describe('v3 header keeps every action it moved', () => {
+  it('History (was a link beside the sender) is in the More menu; Copy link is an icon', () => {
+    renderDetail({ status: 'in_progress' as Message['status'] });
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(within(screen.getByRole('menu')).getByText('Conversation history')).toBeTruthy();
+  });
+
+  it('shows the sender name bold and the address beside it', () => {
+    renderDetail({ sender: '"Marta K" <marta@northwind.example>' } as Partial<Message>);
+    expect(screen.getByText('Marta K').tagName).toBe('B');
+    expect(screen.getByText('marta@northwind.example')).toBeTruthy();
+  });
+});
+
 describe('Esc and in-flight guards', () => {
   it('Esc with the ACTIONS menu open closes the menu, not the rail', () => {
     const onClose = vi.fn();
     renderDetail({}, { onClose });
-    fireEvent.click(screen.getByRole('button', { name: /ACTIONS/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
     expect(screen.getByRole('menu')).toBeTruthy();
     press('Escape');
     expect(screen.queryByRole('menu')).toBeNull();
