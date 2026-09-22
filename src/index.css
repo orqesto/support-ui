@@ -540,3 +540,13 @@
 
 /* Plain-text bodies need none of this: there is no sender styling to respect, so
    they simply follow the app theme. */
+
+/* The message-detail tab strip scrolls sideways on the rail and on a phone (v3 `.railtabs`).
+   Its own scrollbar would eat a third of the 33px row, so it is hidden — the strip is short and
+   the tabs are dragged/swiped, not scrolled with a bar. */
+.panel-tabs-scroll {
+  scrollbar-width: none;
+}
+.panel-tabs-scroll::-webkit-scrollbar {
+  display: none;
+}

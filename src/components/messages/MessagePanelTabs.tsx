@@ -190,7 +190,15 @@ export function MessagePanelTabs({
       className={`flex flex-col ${sidebar ? '' : 'border-b border-border'} ${panelOpen ? 'flex-1 min-h-0' : 'flex-shrink-0'}`}
     >
       {/* Tab bar */}
-      <div className={`flex w-full border-b border-border bg-card ${sidebar ? 'flex-wrap' : ''}`}>
+      {/* Sidebar: wraps at five per row (v3 `.stabs`: flex-wrap + 20% basis).
+          Rail / phone: ONE row that scrolls sideways (v3 `.railtabs`: overflow-x auto). Without
+          the scroll the nine tabs squeezed to 27px on a 420px screen and the row overflowed its
+          own box, so the last labels were cut with no way to reach them. */}
+      <div
+        className={`flex w-full border-b border-border bg-card ${
+          sidebar ? 'flex-wrap' : 'overflow-x-auto panel-tabs-scroll'
+        }`}
+      >
         {/* Thread tab — active when panel is closed. Not in the sidebar: the thread is beside it. */}
         <Button
           variant="ghost"
@@ -198,7 +206,7 @@ export function MessagePanelTabs({
             setPanelOpen(false);
             setComposerMode('reply');
           }}
-          className={`${sidebar ? 'hidden' : 'flex'} flex-1 justify-center items-center px-2 h-[33px] rounded-none hover:bg-transparent ${LABEL} border-b-2 transition-colors ${
+          className={`${sidebar ? 'hidden' : 'flex'} flex-1 flex-shrink-0 justify-center items-center px-2 h-[33px] min-w-[4.5rem] rounded-none hover:bg-transparent ${LABEL} border-b-2 transition-colors ${
             !panelOpen
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -234,7 +242,7 @@ export function MessagePanelTabs({
                 if (!sidebar) setComposerMode(id === 'notes' ? 'note' : 'reply');
               }
             }}
-            className={`flex flex-1 ${sidebar ? 'basis-1/5' : ''} justify-center items-center gap-1 px-2 h-[33px] rounded-none hover:bg-transparent ${LABEL} border-b-2 transition-colors ${
+            className={`flex flex-1 ${sidebar ? 'basis-1/5' : 'flex-shrink-0 min-w-[4.5rem]'} justify-center items-center gap-1 px-2 h-[33px] rounded-none hover:bg-transparent ${LABEL} border-b-2 transition-colors ${
               tab === id && panelOpen
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
