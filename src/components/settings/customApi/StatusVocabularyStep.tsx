@@ -36,7 +36,12 @@ export const StatusVocabularyStep = ({
   /* Already-mapped values must not be offered again: the suggestion list is what the vendor
      returned, and the backend stops recording a value once it is mapped — but a row mapped in THIS
      session has not reached the backend yet. */
-  const unmapped = seen.filter((value) => !(value in labels));
+  /* ⛔ `hasOwnProperty`, not `in`: these are values a VENDOR chooses, and `'toString' in labels`
+     is true of every object — the one status an admin most needs to map would be the one silently
+     filtered out of the list. The backend guards the same edge on the read side. */
+  const unmapped = seen.filter(
+    (value) => !Object.prototype.hasOwnProperty.call(labels, value)
+  );
 
   const add = (value: string, word: string) => {
     const key = value.trim();
