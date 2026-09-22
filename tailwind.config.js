@@ -121,6 +121,13 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        /* --popover was defined in index.css but never mapped here, so `bg-popover` generated
+           NOTHING and every menu using it rendered transparent (the Resolve caret menu, the
+           assignee pickers). tailwindColorTokens.test.ts now fails on any such gap. */
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
