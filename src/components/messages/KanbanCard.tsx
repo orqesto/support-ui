@@ -12,13 +12,14 @@ import {
 import { ReceivedAtAddresses } from './ReceivedAtAddresses';
 import type { MessageThread } from '@/services/message.service';
 import type { AssignableUser } from '@/services/assignment.service';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { Button } from '@/components/ui/Button';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { useAuthStore } from '@/stores/authStore';
 import { getChannelIcon, formatConvId, getConvUrlId } from '@/lib/messageHelpers';
-import { formatAge, safeCssColor } from '@/lib/utils';
+import { cn, formatAge, safeCssColor } from '@/lib/utils';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
@@ -47,9 +48,21 @@ type KanbanCardProps = {
    * indicator to the triage columns (suspicious, not_analysed, archived, spam).
    */
   colId?: string;
+  /**
+   * Bulk selection. Absent = the board is not in selection mode and no checkbox is drawn, so a
+   * card outside the inbox (or before this feature reaches a surface) renders exactly as before.
+   */
+  selected?: boolean;
+  onToggleSelected?: (conversationId: number) => void;
 };
 
-export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
+export const KanbanCard = ({
+  thread,
+  onOpen,
+  colId,
+  selected,
+  onToggleSelected,
+}: KanbanCardProps) => {
   const msg = thread.latestMessage;
   const { data: allDepts = [] } = useDepartments();
   const currentUser = useAuthStore((state) => state.user);
@@ -189,6 +202,31 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
       aria-label={`Open message from ${customer}${msg.subject ? `: ${msg.subject}` : ''}`}
       className="relative w-full text-left rounded-md border bg-card pl-3.5 pr-3 py-2 shadow-sm hover:shadow-md hover:border-primary/40 transition-all space-y-1 overflow-hidden cursor-pointer"
     >
+      {/* Bulk selection, TOP-RIGHT (owner's call). It shares that corner with the drag grip,
+          which moves left to `right-7` while a box is drawn — the two are the card's only
+          controls and neither may cover the other.
+          `stopPropagation` because the whole card is a button: without it,
+          ticking a box would also OPEN the thread — and opening a thread is what an agent
+          triaging fifty of them is trying to avoid. Rule-blocked spam-log rows have no
+          conversation behind them and cannot be acted on, so they get no box. */}
+      {onToggleSelected && !thread.threadId.startsWith('spamlog_') && msg.id > 0 && (
+        <div
+          className="absolute top-1.5 right-1.5 z-20"
+          // ⛔ stopPropagation ONLY — the toggle itself belongs to the input's onChange. Calling
+          // it here too fired it twice for one click (input onChange, then this handler as the
+          // event bubbled), which toggled on and straight back off: every box looked dead.
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+          role="presentation"
+        >
+          <Checkbox
+            checked={selected === true}
+            aria-label={`Select message from ${customer}`}
+            onChange={() => onToggleSelected(msg.id)}
+          />
+        </div>
+      )}
+
       {/* Status spine — 3px left border ranking urgency. */}
       <span
         aria-hidden="true"
@@ -200,7 +238,9 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
           reference elements: it is looked up, not scanned, and giving it its
           own header row cost every card a full line of height. pr-6 reserves
           the top-right grip handle's space. */}
-      <div className="flex items-center gap-1.5 min-w-0 pr-7">
+      {/* pr-7 reserves the grip's corner; with a checkbox there too the row must clear BOTH,
+          or the age and the box sit on top of each other (owner, 2026-09-22). */}
+      <div className={cn('flex items-center gap-1.5 min-w-0', onToggleSelected ? 'pr-14' : 'pr-7')}>
         {(primaryDept ?? needsRouting) && (
           <div className="flex items-center gap-1 shrink-0">
             {needsRouting ? (
