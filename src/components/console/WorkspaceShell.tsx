@@ -7,12 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { cn } from '@/lib/utils';
 import { sidebarWidthPx, useSidebarStore } from '@/stores/sidebarStore';
-import {
-  NavTip,
-  SidebarCollapseToggle,
-  SidebarResizeHandle,
-  useSidebarShell,
-} from '@/components/layout/SidebarNav';
+import { NavTip, SidebarCollapseToggle, useSidebarShell } from '@/components/layout/SidebarNav';
 import { WorkspaceScopeProvider } from '@/contexts/WorkspaceScopeContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { organizationService } from '@/services/organization.service';
@@ -164,14 +159,9 @@ export const WorkspaceShell = () => {
   return (
     <div className="flex overflow-hidden h-screen bg-background">
       <aside
-        className={cn(
-          'flex relative flex-col flex-shrink-0 border-r border-border bg-card',
-          // The resize handle overhangs the edge, so only the nav scrolls/clips.
-          'overflow-visible'
-        )}
+        className={cn('flex overflow-hidden flex-col flex-shrink-0 border-r border-border bg-card')}
         style={{ width: sidebarWidth }}
       >
-        <SidebarResizeHandle />
         <div
           className={cn(
             'flex flex-shrink-0 gap-2 items-center px-4 h-16 border-b border-border',

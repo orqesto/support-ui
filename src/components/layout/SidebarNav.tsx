@@ -1,21 +1,8 @@
-import {
-  useEffect,
-  useRef,
-  type CSSProperties,
-  type KeyboardEvent,
-  type PointerEvent,
-  type ReactNode,
-} from 'react';
+import { useEffect, type CSSProperties, type ReactNode } from 'react';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { cn } from '@/lib/utils';
-import {
-  SIDEBAR_DEFAULT_WIDTH,
-  SIDEBAR_MAX_WIDTH,
-  SIDEBAR_MIN_WIDTH,
-  sidebarWidthPx,
-  useSidebarStore,
-} from '@/stores/sidebarStore';
+import { sidebarWidthPx, useSidebarStore } from '@/stores/sidebarStore';
 
 /**
  * Wraps a sidebar entry in a right-side tooltip carrying its label, but only while
@@ -89,15 +76,11 @@ const SHORTCUT_LABEL = IS_MAC ? '⌘\\' : 'Ctrl+\\';
  */
 export const useSidebarShell = () => {
   const collapsed = useSidebarStore((state) => state.collapsed);
-  const width = useSidebarStore((state) => state.width);
   const toggle = useSidebarStore((state) => state.toggle);
 
   useEffect(() => {
-    document.documentElement.style.setProperty(
-      '--sidebar-w',
-      `${sidebarWidthPx({ collapsed, width })}px`
-    );
-  }, [collapsed, width]);
+    document.documentElement.style.setProperty('--sidebar-w', `${sidebarWidthPx({ collapsed })}px`);
+  }, [collapsed]);
 
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
@@ -108,68 +91,4 @@ export const useSidebarShell = () => {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [toggle]);
-};
-
-const KEY_STEP_PX = 16;
-
-/**
- * Drag handle on the sidebar's right edge. Also a keyboard-operable separator
- * (arrows resize, Home resets) and double-click resets to the default width.
- * Renders nothing while collapsed — the rail has one width.
- */
-export const SidebarResizeHandle = ({ className }: { className?: string }) => {
-  const collapsed = useSidebarStore((state) => state.collapsed);
-  const width = useSidebarStore((state) => state.width);
-  const setWidth = useSidebarStore((state) => state.setWidth);
-  const drag = useRef<{ startX: number; startWidth: number } | null>(null);
-
-  if (collapsed) return null;
-
-  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = { startX: event.clientX, startWidth: width };
-    document.body.style.userSelect = 'none';
-  };
-  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (!drag.current) return;
-    setWidth(drag.current.startWidth + event.clientX - drag.current.startX);
-  };
-  const endDrag = () => {
-    drag.current = null;
-    document.body.style.userSelect = '';
-  };
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'ArrowLeft') setWidth(width - KEY_STEP_PX);
-    else if (event.key === 'ArrowRight') setWidth(width + KEY_STEP_PX);
-    else if (event.key === 'Home') setWidth(SIDEBAR_DEFAULT_WIDTH);
-    else return;
-    event.preventDefault();
-  };
-
-  return (
-    <div
-      role="separator"
-      aria-orientation="vertical"
-      aria-label="Resize sidebar"
-      aria-valuenow={width}
-      aria-valuemin={SIDEBAR_MIN_WIDTH}
-      aria-valuemax={SIDEBAR_MAX_WIDTH}
-      tabIndex={0}
-      title="Drag to resize · double-click to reset"
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
-      onDoubleClick={() => setWidth(SIDEBAR_DEFAULT_WIDTH)}
-      onKeyDown={onKeyDown}
-      className={cn(
-        'absolute inset-y-0 -right-1 z-10 w-2 cursor-col-resize touch-none',
-        'after:absolute after:inset-y-0 after:left-1/2 after:w-px after:bg-transparent',
-        'hover:after:bg-primary/50 focus-visible:outline-none focus-visible:after:bg-primary',
-        className
-      )}
-    />
-  );
 };

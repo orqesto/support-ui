@@ -40,7 +40,6 @@ import {
   NavTip,
   RAIL_QUERY,
   SidebarCollapseToggle,
-  SidebarResizeHandle,
   useSidebarShell,
 } from './SidebarNav';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -558,14 +557,13 @@ export const Layout = ({ children }: LayoutProps) => {
         {/* Sidebar - Hidden on mobile, visible on desktop */}
         <aside
           className={cn(
-            // Mobile drawer: fixed w-64. Desktop: the dragged width, or the rail.
+            // Mobile drawer: fixed w-64. Desktop: w-64, or the rail.
             'fixed inset-y-0 left-0 z-50 w-64 border-r transition-transform duration-300 transform bg-card flex-shrink-0 lg:w-[var(--sidebar-w)]',
             'lg:sticky lg:top-0 lg:h-screen lg:transform-none',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           )}
           style={{ '--sidebar-w': `${sidebarWidth}px` } as CSSProperties}
         >
-          <SidebarResizeHandle className="hidden lg:block" />
           <div className="flex overflow-hidden flex-col h-full">
             <div
               className={cn(
