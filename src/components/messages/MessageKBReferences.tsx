@@ -24,9 +24,11 @@ type KBReference = {
 
 type MessageKBReferencesProps = {
   messageId: number;
+  /** Reports how many references this message has once loaded (0 on error), for the tab badge. */
+  onCountChange?: (messageId: number, count: number) => void;
 };
 
-export const MessageKBReferences = ({ messageId }: MessageKBReferencesProps) => {
+export const MessageKBReferences = ({ messageId, onCountChange }: MessageKBReferencesProps) => {
   const [references, setReferences] = useState<KBReference[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,10 +39,11 @@ export const MessageKBReferences = ({ messageId }: MessageKBReferencesProps) => 
         setLoading(true);
         setError(null);
         const response = await messageService.getKBReferences(messageId);
-        if (response.success && response.data) {
-          setReferences(response.data);
-        }
+        const loaded = response.success && response.data ? response.data : [];
+        setReferences(loaded);
+        onCountChange?.(messageId, loaded.length);
       } catch (err) {
+        onCountChange?.(messageId, 0);
         logger.error('Failed to load KB references:', err);
         setError(getApiErrorMessage(err) ?? 'Failed to load KB references');
       } finally {
@@ -49,6 +52,8 @@ export const MessageKBReferences = ({ messageId }: MessageKBReferencesProps) => 
     };
 
     void fetchReferences();
+    // `onCountChange` is left out on purpose: a new callback identity must not refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messageId]);
 
   if (loading) {

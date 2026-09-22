@@ -10,6 +10,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import { WorkspaceBanner } from '../WorkspaceBanner';
 
 const getCurrent = vi.fn();
@@ -29,13 +30,15 @@ vi.mock('@/stores/authStore', () => ({
     selector({ user: { id: 1, role, organizationId: 4 }, selectedOrganizationId: 4 }),
 }));
 
-const renderBanner = () =>
+const renderBanner = (path = '/settings') =>
   render(
-    <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-    >
-      <WorkspaceBanner />
-    </QueryClientProvider>
+    <MemoryRouter initialEntries={[path]}>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <WorkspaceBanner />
+      </QueryClientProvider>
+    </MemoryRouter>
   );
 
 beforeEach(() => {
@@ -81,5 +84,17 @@ describe('the workspace banner', () => {
     renderBanner();
     expect(await screen.findByTestId('workspace-banner')).toBeInTheDocument();
     expect(await screen.findByText('framehouse')).toBeInTheDocument();
+  });
+
+  // Owner, 2026-09-22: settings screens only. The work surfaces show whose data they are.
+  it.each(['/messages/42', '/dashboard', '/needs-routing'])('is hidden on %s', async (path) => {
+    renderBanner(path);
+    await waitFor(() => expect(getCurrent).toHaveBeenCalled());
+    expect(screen.queryByTestId('workspace-banner')).not.toBeInTheDocument();
+  });
+
+  it('still names the workspace on a screen nobody listed', async () => {
+    renderBanner('/some-screen-written-next-year');
+    expect(await screen.findByTestId('workspace-banner')).toBeInTheDocument();
   });
 });

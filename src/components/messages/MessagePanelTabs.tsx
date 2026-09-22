@@ -30,6 +30,8 @@ import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import DOMPurify from 'dompurify';
 import { LABEL, relativeTime, getInitials } from './messageDetailConstants';
 import { hasLookupEmailIdentity } from './CustomApiLookupPanel';
+import { useTabBadges } from './useTabBadges';
+import { TabBadge } from './TabBadge';
 
 type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
 
@@ -108,17 +110,11 @@ export function MessagePanelTabs({
   const [editNoteContent, setEditNoteContent] = useState('');
   const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
   const [checkingContradiction, setCheckingContradiction] = useState(false);
-  const [kbResultCount, setKbResultCount] = useState<number | null>(null);
-
-  // Memoised so the identity handed to AiTabPanel is stable across renders. Inlined, this
-  // re-wrapped the parent's callback on every render and defeated the stable setter it was
-  // given, which is what forced AiTabPanel's fetch effect to key on message.id alone.
-  const handleOptionsLoaded = useCallback(
-    (total: number) => {
-      setKbResultCount(total);
-      onOptionsLoaded?.(total);
-    },
-    [onOptionsLoaded]
+  // The KB/Customer badges, and the options callback handed to AiTabPanel (memoised in the hook
+  // so its identity stays stable — see AiTabPanel's fetch effect).
+  const { kbBadge, kbSuggested, customerDot, handleOptionsLoaded, onReferenced } = useTabBadges(
+    message.id,
+    onOptionsLoaded
   );
 
   // Full contact profile for the CUSTOMER tab — the same editable component
@@ -214,15 +210,15 @@ export function MessagePanelTabs({
         {(
           [
             { id: 'ai', label: 'AI', badge: 0 },
-            { id: 'customer', label: 'Customer', badge: 0 },
+            { id: 'customer', label: 'Customer', badge: 0, dot: customerDot && hasEmailIdentity },
             { id: 'attachments', label: 'Files', badge: attachments?.length ?? 0 },
-            { id: 'kb', label: 'KB', badge: 0 },
+            { id: 'kb', label: 'KB', badge: kbBadge },
             { id: 'activity', label: 'Activity', badge: 0 },
             { id: 'notes', label: 'Notes', badge: notes.length },
             { id: 'contradiction', label: 'Conflict', badge: 0 },
             ...(message.isLead ? [{ id: 'lead', label: 'Lead', badge: 0 }] : []),
-          ] as { id: typeof tab; label: string; badge: number }[]
-        ).map(({ id, label, badge }) => (
+          ] as { id: typeof tab; label: string; badge: number; dot?: boolean }[]
+        ).map(({ id, label, badge, dot }) => (
           <Button
             key={id}
             variant="ghost"
@@ -245,17 +241,7 @@ export function MessagePanelTabs({
             }`}
           >
             {label}
-            {badge > 0 && (
-              <span
-                className={`inline-grid place-items-center min-w-[15px] h-[15px] px-1 rounded-[5px] font-sans text-[9.5px] tracking-normal ${
-                  tab === id && panelOpen
-                    ? 'bg-primary-muted text-primary'
-                    : 'bg-sunken text-muted-foreground'
-                }`}
-              >
-                {badge}
-              </span>
-            )}
+            <TabBadge count={badge} dot={dot} active={tab === id && panelOpen} />
           </Button>
         ))}
       </div>
@@ -511,8 +497,8 @@ export function MessagePanelTabs({
               onLoadingChange={onAiLoadingChange}
               section="suggested"
             />
-            <MessageKBReferences messageId={message.id} />
-            {kbResultCount === 0 && (
+            <MessageKBReferences messageId={message.id} onCountChange={onReferenced} />
+            {kbSuggested === 0 && (
               <p className="text-[11px] text-muted-foreground text-center py-3">
                 No suggestions found — use the KB button to search manually.
               </p>

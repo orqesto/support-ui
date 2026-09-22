@@ -1,9 +1,11 @@
 import { Building2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useCurrentWorkspace } from '@/hooks/useCurrentWorkspace';
 import { canSwitchWorkspace } from './canSwitchWorkspace';
+import { showsWorkspaceBanner } from './workspaceBannerRoutes';
 
 /**
  * Names the workspace you are about to write to, above every screen.
@@ -24,12 +26,16 @@ import { canSwitchWorkspace } from './canSwitchWorkspace';
  * org_admin could switch and then write with no banner. For a user with one workspace there
  * is no ambiguity to resolve, and a permanent banner would be noise.
  *
+ * Settings and admin screens only (owner, 2026-09-22) — see `workspaceBannerRoutes` for why that
+ * is a denylist of work surfaces rather than a list of settings screens.
+ *
  * Kept to one slim line: it sits above the kanban, where every pixel of height is
  * working area, so it has the padding of a caption, not of a card.
  */
 export const WorkspaceBanner = () => {
   const user = useAuthStore((state) => state.user);
   const { name, code } = useCurrentWorkspace();
+  const { pathname } = useLocation();
 
   // A global admin can always switch — no list needed. Anyone else can switch only if
   // they belong to two or more workspaces, which is the switcher's own data source.
@@ -41,6 +47,7 @@ export const WorkspaceBanner = () => {
     staleTime: 5 * 60 * 1000,
   });
 
+  if (!showsWorkspaceBanner(pathname)) return null;
   if (!canSwitchWorkspace(user, memberships ?? [])) return null;
 
   return (
