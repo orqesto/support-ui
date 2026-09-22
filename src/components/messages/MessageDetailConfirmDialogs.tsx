@@ -66,11 +66,11 @@ export const MessageDetailConfirmDialogs = ({
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Mark as Processed?</DialogTitle>
+            <DialogTitle>Resolve without replying?</DialogTitle>
             <DialogClose onClose={() => setRejectDialogOpen(false)} />
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Mark this message as processed without creating a ticket? This action cannot be undone.
+            Closes this conversation without sending a reply. You can reopen it later.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
@@ -82,7 +82,7 @@ export const MessageDetailConfirmDialogs = ({
                 onReject?.();
               }}
             >
-              Mark as Processed
+              Resolve
             </Button>
           </DialogFooter>
         </DialogContent>

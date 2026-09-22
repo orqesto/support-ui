@@ -41,6 +41,7 @@ import { MessageFilterBar } from '@/components/messages/filters/MessageFilterBar
 import { ListScopeNotice } from '@/components/messages/ListScopeNotice';
 import { MessageListItem } from '@/components/messages/MessageListItem';
 import { MessageDetail } from '@/components/messages/MessageDetail';
+import { neighbourThread } from '@/components/messages/detailShortcuts';
 import { ThreadBubble } from '@/components/messages/ThreadBubble';
 import { ContactsView } from '@/components/messages/ContactsView';
 import { QuickFilterChips } from '@/components/messages/QuickFilterChips';
@@ -399,6 +400,15 @@ export const MessagesPage = () => {
     [searchParams, setSearchParams, fetchedMessageIdRef]
   );
 
+  // J/K from the detail rail — neighbourThread (detailShortcuts.ts) has the rules.
+  const handleNavigate = useCallback(
+    (direction: 'next' | 'prev') => {
+      const target = neighbourThread(threads, selectedThreadIdRef.current, direction);
+      if (target) void handleOpenThread(target);
+    },
+    [threads, handleOpenThread]
+  );
+
   const handleApprove = (message: Message) => {
     navigate(`/tickets/create?messageId=${message.id}`);
   };
@@ -412,9 +422,13 @@ export const MessagesPage = () => {
     setSelectedMessage(null);
   };
 
-  const handleReject = async (message: Message) => {
+  // AFTER the detail has processed the conversation — it posts `markAsProcessed` itself (for
+  // "Resolve" on an unreviewed thread AND for "Not customer work"), exactly as MessageDetailPage's
+  // onReject assumes. ⛔ This used to post it AGAIN: every such press wrote a second
+  // `mark_processed` audit entry — on a binned thread, one claiming someone marked it processed
+  // after binning it — and reset closedAt.
+  const handleRejected = async () => {
     try {
-      await messageService.markAsProcessed(message.id);
       clearCache();
       // Mark-as-processed closes the conversation → Resolved column.
       moveSelectedCard('resolved');
@@ -422,7 +436,7 @@ export const MessagesPage = () => {
       setSelectedMessage(null);
       await fetchMessages(messagesPagination.page, true);
     } catch (error) {
-      logger.error('Failed to mark message as processed:', error);
+      logger.error('Failed to refresh after processing:', error);
     }
   };
 
@@ -991,10 +1005,13 @@ export const MessagesPage = () => {
                   setSelectedMessage(null);
                 }}
                 onReplied={() => moveSelectedCard('awaiting')}
+                // Only the threads view has one unambiguous order; in kanban "next" could mean
+                // the next card in the column or across the board, so J/K stay off there.
+                onNavigate={displayMode === 'threads' ? handleNavigate : undefined}
                 onOptimisticMove={(columnId) => moveSelectedCard(columnId)}
                 onApprove={() => handleApprove(selectedMessage)}
                 onReject={async () => {
-                  await handleReject(selectedMessage);
+                  await handleRejected();
                   setSelectedMessage(null);
                 }}
                 onReopen={async () => {

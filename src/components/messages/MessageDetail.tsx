@@ -2,7 +2,7 @@
 // read/unread toggle + close prompt pushed it over; splitting the confirm-dialog
 // wiring out is the natural follow-up refactor.
 /* eslint-disable max-lines */
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { Fragment, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { draftToRecipients, emptyRecipientDraft, type RecipientDraft } from './RecipientFields';
 import {
   messageService,
@@ -37,6 +37,9 @@ import { MessageDetailHeader } from './MessageDetailHeader';
 import { MessageComposer } from './MessageComposer';
 import { MessageActionStrip } from './MessageActionStrip';
 import { MessageGhostBubble } from './MessageGhostBubble';
+import { getResolveMode, noKbResolveDialog } from './resolveMode';
+import { shortcutHint, useDetailShortcuts, type ShortcutContext } from './detailShortcuts';
+import { dayLabel, dayStarts, threadTimeOf } from './threadDays';
 import { MessageDetailConfirmDialogs } from './MessageDetailConfirmDialogs';
 import { PromoteToKbDialog } from './PromoteToKbDialog';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -63,6 +66,7 @@ import {
   answerToEditorHtml,
   type GhostOption,
   type SuggestedAnswerMeta,
+  LABEL,
 } from './messageDetailConstants';
 
 type PanelTab =
@@ -97,6 +101,11 @@ export type MessageDetailProps = {
   /** Rendered as the standalone full-page view (has its own Back bar): suppress
    *  the header X + "open full page" button even though onClose is provided. */
   isFullPage?: boolean;
+  /**
+   * J/K: open the next / previous conversation in the list the user is looking at. Passed only
+   * where that list has an unambiguous order (the threads view) — omitted, J/K do nothing.
+   */
+  onNavigate?: (direction: 'next' | 'prev') => void;
   /** Fired after a customer reply is sent (not notes) — the conversation flips to
    *  "Pending" (awaiting the customer), letting the board move the card optimistically. */
   onReplied?: () => void;
@@ -127,6 +136,7 @@ export function MessageDetail({
   onReplied,
   onOptimisticMove,
   onClassify,
+  onNavigate,
 }: MessageDetailProps) {
   // Full-page view has its own Back bar; the slide-over derives it from onClose.
   const fullPage = isFullPageProp ?? !onClose;
@@ -165,13 +175,12 @@ export function MessageDetail({
 
   const sortedThread = useMemo<MessageEvent[]>(() => {
     const msgs = [...threadMessages];
-    const msgTime = (msg: MessageEvent) =>
-      new Date(
-        msg.sentAt ?? (msg.metadata as { receivedAt?: string } | null)?.receivedAt ?? msg.createdAt
-      ).getTime();
-    msgs.sort((ma, mb) => msgTime(ma) - msgTime(mb));
+    msgs.sort((ma, mb) => threadTimeOf(ma) - threadTimeOf(mb));
     return msgs;
   }, [threadMessages]);
+  // Day separators group by the SAME time the thread is sorted by (threadDays.ts), so one can
+  // only ever sit between days, in order.
+  const threadDayStarts = useMemo(() => dayStarts(sortedThread.map(threadTimeOf)), [sortedThread]);
 
   // ── Composer state ─────────────────────────────────────────────────────────
   const [composer, setComposer] = useState('');
@@ -414,6 +423,14 @@ export function MessageDetail({
     (message.metadata?.spamCheck as { isSpam?: boolean } | undefined)?.isSpam === true;
   const isActive =
     !isFiltered && !isSuspicious && !isSpamFlaggedOutsideTriage && message.status !== 'closed';
+  // One predicate for the header's split Resolve AND the strip, so the decision can never show
+  // in both places or in neither (resolveMode.ts). `hasLinkedTicket` matches the strip's call.
+  const resolveMode = getResolveMode(message, {
+    isFiltered,
+    isSuspicious,
+    isSpamFlaggedOutsideTriage,
+    hasLinkedTicket: false,
+  });
   const ghostVisible = message.status !== 'resolved';
 
   const autoReply = message.metadata?.autoReply as { sent?: boolean } | undefined;
@@ -648,6 +665,39 @@ export function MessageDetail({
     return () => onRegisterRequestClose?.(null);
   }, [handleRequestClose, onRegisterRequestClose]);
 
+  // One-press Resolve, shared by the header button and the E shortcut so the two can never
+  // disagree. It opens the SAME confirm the old footer did (resolveMode.ts) — E never resolves
+  // in one keystroke; the dialog is the confirmation (owner decision, 2026-09-22).
+  const openResolveDialog = useCallback(() => {
+    if (resolveMode === null) return;
+    if (noKbResolveDialog(resolveMode) === 'reject') setRejectDialogOpen(true);
+    else setCloseConfirmOpen(true);
+  }, [resolveMode]);
+
+  // One context for the shortcuts AND the hint line, so the hint can only name keys that act.
+  const shortcutContext: ShortcutContext = {
+    canResolve: resolveMode !== null,
+    canNavigate: onNavigate !== undefined,
+    // Esc closes the slide-over only; the full page has its own Back bar.
+    canClose: onClose !== undefined && !fullPage,
+  };
+  useDetailShortcuts(shortcutContext, {
+    reply: () => {
+      setComposerMode('reply');
+      // Deferred: in note mode the reply editor is not mounted until the swap settles.
+      setTimeout(() => richEditorRef.current?.focus(), 0);
+    },
+    note: () => {
+      setComposerMode('note');
+      setTimeout(() => noteEditorRef.current?.focus(), 0);
+    },
+    resolve: openResolveDialog,
+    next: () => onNavigate?.('next'),
+    prev: () => onNavigate?.('prev'),
+    // The prompt-aware close — the same one the header X and the backdrop use.
+    close: handleRequestClose,
+  });
+
   const handleGhostClick = useCallback(
     (answer: string, source: string, _attachments?: KBAttachment[]) => {
       // Suggested answers arrive as plain text with markdown-ish syntax; turn
@@ -823,6 +873,14 @@ export function MessageDetail({
         showReadToggle={isTriage}
         isRead={readState}
         onToggleRead={handleToggleRead}
+        resolveMode={resolveMode}
+        resolving={resolving}
+        // The SAME dialogs the old footer opened: an unreviewed thread is dismissed through the
+        // reject dialog, an active one closes through the no-KB confirm. Nothing new reaches the BE.
+        onResolve={openResolveDialog}
+        onResolveToKb={() => setResolveConfirmOpen(true)}
+        onNotCustomerWork={() => setNotCustomerWorkOpen(true)}
+        currentUserId={currentUserId}
       />
 
       {/* History banner */}
@@ -900,17 +958,29 @@ export function MessageDetail({
               No messages in thread yet.
             </div>
           )}
-          {sortedThread.map((msg) => (
-            <ThreadMessageItem
-              key={msg.id}
-              msg={msg}
-              attachments={attachmentsByMessageId.get(msg.id) ?? []}
-              onOpenAttachment={(id) => {
-                setTab('attachments');
-                setPanelOpen(true);
-                setHighlightAttachmentId(id);
-              }}
-            />
+          {sortedThread.map((msg, index) => (
+            <Fragment key={msg.id}>
+              {threadDayStarts.has(index) && (
+                <div
+                  role="separator"
+                  aria-label={dayLabel(threadTimeOf(msg))}
+                  className={`flex items-center gap-2 pt-1 text-muted-foreground ${LABEL}`}
+                >
+                  <span className="flex-1 h-px bg-border" aria-hidden />
+                  <span aria-hidden>{dayLabel(threadTimeOf(msg))}</span>
+                  <span className="flex-1 h-px bg-border" aria-hidden />
+                </div>
+              )}
+              <ThreadMessageItem
+                msg={msg}
+                attachments={attachmentsByMessageId.get(msg.id) ?? []}
+                onOpenAttachment={(id) => {
+                  setTab('attachments');
+                  setPanelOpen(true);
+                  setHighlightAttachmentId(id);
+                }}
+              />
+            </Fragment>
           ))}
 
           {/* Ghost bubble */}
@@ -952,6 +1022,7 @@ export function MessageDetail({
       {/* Composer — shown for active conversations */}
       {isActive && (
         <MessageComposer
+          shortcutHint={shortcutHint(shortcutContext)}
           message={message}
           composer={composer}
           setComposer={setComposer}
@@ -998,20 +1069,15 @@ export function MessageDetail({
         isSuspicious={isSuspicious}
         isSpamFlaggedOutsideTriage={isSpamFlaggedOutsideTriage}
         isActive={isActive}
-        resolving={resolving}
         hasLinkedTicket={false}
         onReopen={handleReopen}
         onDelete={handleDelete}
         onClassify={handleClassify}
-        onResolveWithoutReply={() => setResolveConfirmOpen(true)}
-        onNotCustomerWork={() => setNotCustomerWorkOpen(true)}
         // UX gate only — the BE re-validates (MANAGE_TICKETS on both endpoints). Offering an
         // action that answers 403 is worse than not offering it.
         onPromoteToKb={
           hasPermission(Permission.MANAGE_TICKETS) ? () => setPromoteToKbOpen(true) : undefined
         }
-        onClose={() => setCloseConfirmOpen(true)}
-        setRejectDialogOpen={setRejectDialogOpen}
         setReopenDialogOpen={setReopenDialogOpen}
         onRefresh={handleRefresh}
       />

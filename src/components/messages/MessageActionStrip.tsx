@@ -1,14 +1,5 @@
 import { useState, useCallback } from 'react';
-import {
-  CheckCircle,
-  RefreshCw,
-  RotateCcw,
-  ShieldCheck,
-  ShieldAlert,
-  Trash2,
-  BookOpen,
-  Ban,
-} from 'lucide-react';
+import { RotateCcw, ShieldCheck, ShieldAlert, Trash2, BookOpen } from 'lucide-react';
 import { getSpamCheck, getFilteredCategoryMeta } from '@/lib/messageHelpers';
 import { notCustomerWorkMark } from './notCustomerWork';
 import { Toggle } from '@/components/ui/Toggle';
@@ -30,7 +21,6 @@ export type MessageActionStripProps = {
   /** Spam verdict on a conversation that is not in a triage state — see MessageDetail. */
   isSpamFlaggedOutsideTriage?: boolean;
   isActive: boolean;
-  resolving: boolean;
   hasLinkedTicket?: boolean;
   onReopen?: () => void;
   onDelete?: () => void;
@@ -39,14 +29,6 @@ export type MessageActionStripProps = {
     createDetectionRule?: boolean,
     trainSpamFilter?: boolean
   ) => Promise<void>;
-  onResolveWithoutReply: () => void;
-  /**
-   * Bin the thread as NOT customer work. Optional so a caller that has not wired the dialog
-   * simply does not offer it — an action that 400s is worse than an absent one.
-   */
-  onNotCustomerWork?: () => void;
-  onClose?: () => void;
-  setRejectDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setReopenDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   onRefresh?: () => void;
 };
@@ -59,14 +41,9 @@ export function MessageActionStrip({
   isFiltered,
   isSuspicious,
   isSpamFlaggedOutsideTriage = false,
-  resolving,
   hasLinkedTicket,
   onReopen,
   onClassify,
-  onResolveWithoutReply,
-  onNotCustomerWork,
-  onClose,
-  setRejectDialogOpen,
   setReopenDialogOpen,
 }: MessageActionStripProps) {
   const [classifying, setClassifying] = useState(false);
@@ -100,13 +77,6 @@ export function MessageActionStrip({
   const statusLabel =
     'font-display text-[9px] tracking-[0.09em] uppercase text-muted-foreground mb-1.5 font-medium';
   const strip = 'flex-shrink-0 px-4 pt-2 pb-2.5 border-t border-border';
-
-  // A customer reply makes this an ACTIVE conversation even while the status is
-  // still 'open'/'new' (the status→client_replied transition doesn't fire on every
-  // ingest path). Such a conv shows the "CLIENT REPLIED" badge, so it must offer the
-  // same actions as awaiting_response (Create Ticket / Resolve & Save to KB / Close),
-  // not be treated as an unreviewed message that can only be closed.
-  const clientReplied = message.lastReplyFromClient === true;
 
   // Filtered: category-aware label and actions
   if (isFiltered && onClassify) {
@@ -276,99 +246,9 @@ export function MessageActionStrip({
     );
   }
 
-  // Unreviewed — status='open' (unprocessed) AND the customer hasn't replied yet.
-  // The DB-side 'new' status is mapped to ThreadStatus='open' on the API boundary,
-  // so this only checks 'open'. Once the client has replied, fall through to the
-  // active-conversation branch below (full action set).
-  if (message.status === 'open' && !clientReplied && !isSuspicious && onReopen) {
-    return (
-      <div className={strip}>
-        <p className={statusLabel}>Open — resolve without sending a reply</p>
-        <div className="flex gap-2">
-          <Button
-            variant="primary"
-            onClick={() => setRejectDialogOpen(true)}
-            className={`${btnBase} h-auto`}
-          >
-            <CheckCircle className="w-3.5 h-3.5" />
-            Resolve (no KB)
-          </Button>
-          {/* ⛔ Offered HERE too, and this is the branch that matters most: an unreviewed thread
-              nobody has replied to is exactly the shape a newsletter or an automated notice
-              arrives in. Found auditing this change — the action was on the active-conversation
-              branch only, i.e. everywhere except where the junk actually sits. */}
-          {onNotCustomerWork && (
-            <Button
-              variant="ghost"
-              onClick={onNotCustomerWork}
-              className={`border ${btnBase} h-auto border-border text-muted-foreground hover:bg-accent`}
-            >
-              <Ban className="w-3.5 h-3.5" />
-              Not customer work
-            </Button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Active — processed, no ticket, not resolved/closed. Includes an 'open' conv the
-  // customer has replied to (clientReplied), which the unreviewed branch above now
-  // skips so it lands here with the full action set.
-  if (
-    (message.status !== 'open' || clientReplied) &&
-    message.status !== 'resolved' &&
-    message.status !== 'closed' &&
-    !hasLinkedTicket &&
-    !isSuspicious
-  ) {
-    return (
-      <div className={strip}>
-        <div className="flex gap-2">
-          <Button
-            variant="primary"
-            onClick={onResolveWithoutReply}
-            disabled={resolving}
-            className={`${btnBase} h-auto`}
-          >
-            {resolving ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <CheckCircle className="w-3.5 h-3.5" />
-            )}
-            {resolving ? 'Processing…' : 'Resolve & Save to KB'}
-          </Button>
-          {onClose && (
-            <Button
-              variant="ghost"
-              onClick={onClose}
-              disabled={resolving}
-              className={`border ${btnBase} h-auto border-border text-muted-foreground hover:bg-accent`}
-            >
-              <CheckCircle className="w-3.5 h-3.5" />
-              Resolve (no KB)
-            </Button>
-          )}
-          {onNotCustomerWork && (
-            /* ⛔ Deliberately NOT worded as a resolution and deliberately not a primary button.
-               This clears a newsletter or a system notice off the queue WITHOUT claiming anyone
-               answered anything — the whole reason it exists is that Resolve was doing both jobs,
-               so a label sharing that word would rebuild the confusion in the UI. */
-            <Button
-              variant="ghost"
-              onClick={onNotCustomerWork}
-              disabled={resolving}
-              className={`border ${btnBase} h-auto border-border text-muted-foreground hover:bg-accent`}
-            >
-              <Ban className="w-3.5 h-3.5" />
-              Not customer work
-            </Button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
+  // The unreviewed and active states offer a DECISION, not a banner, and that decision now
+  // lives in the header's split Resolve button (see resolveMode.ts). This strip keeps only
+  // the state banners: filtered, spam-flagged, suspicious, resolved, closed.
   // Resolved, no ticket
   if (message.status === 'resolved' && !hasLinkedTicket && onReopen) {
     return (

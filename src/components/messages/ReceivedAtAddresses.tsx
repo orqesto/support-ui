@@ -31,6 +31,19 @@ export const parseRecipients = (value: unknown): MessageRecipients | null => {
   return parsed;
 };
 
+/** "To a, b. Cc c." — the breakdown as one sentence, for an accessible name. */
+const breakdownText = (recipients: MessageRecipients): string =>
+  (
+    [
+      ['To', recipients.to],
+      ['Cc', recipients.cc],
+      ['Bcc', recipients.bcc],
+    ] as const
+  )
+    .filter(([, list]) => list.length > 0)
+    .map(([label, list]) => `${label} ${list.join(', ')}.`)
+    .join(' ');
+
 /** Every address, in header order, for the tooltip and the detail view. */
 const allAddresses = (recipients: MessageRecipients): string[] => [
   ...recipients.to,
@@ -48,12 +61,23 @@ type ReceivedAtAddressesProps = {
    * `detail` lists To/Cc/Bcc in full, the way a mail client does.
    */
   variant?: 'card' | 'detail';
+  /** The word before the address in the compact form: "to" on cards, "received at" in the header. */
+  prefix?: string;
+  /**
+   * Makes the compact form a tab stop that carries the full list in its accessible name. The
+   * tooltip is the only place the whole To/Cc/Bcc exists, so keyboard and touch users must reach
+   * it too, and screen readers never see a tooltip at all. Off on cards: those sit inside a
+   * clickable row, and a tab stop nested in one is a second interactive element in the first.
+   */
+  focusable?: boolean;
   className?: string;
 };
 
 export const ReceivedAtAddresses = ({
   recipients,
   variant = 'card',
+  prefix = 'to',
+  focusable = false,
   className,
 }: ReceivedAtAddressesProps) => {
   const parsed = parseRecipients(recipients);
@@ -67,10 +91,12 @@ export const ReceivedAtAddresses = ({
     return (
       <Tooltip content={<AddressBreakdown recipients={parsed} />} size="sm">
         <span
-          className={`inline-flex min-w-0 items-center gap-1 text-xs text-muted-foreground ${className ?? ''}`}
+          tabIndex={focusable ? 0 : undefined}
+          aria-label={focusable ? `${prefix} ${breakdownText(parsed)}` : undefined}
+          className={`inline-flex min-w-0 items-center gap-1 text-xs text-muted-foreground rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${className ?? ''}`}
         >
-          <span className="shrink-0">to</span>
-          <span className="truncate">{label}</span>
+          <span className="shrink-0">{prefix}</span>
+          <span className="truncate font-mono">{label}</span>
         </span>
       </Tooltip>
     );

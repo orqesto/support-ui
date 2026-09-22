@@ -24,14 +24,10 @@ const renderStrip = (message: Message, extra: Record<string, unknown> = {}) =>
       isFiltered={false}
       isSuspicious={false}
       isActive
-      resolving={false}
       hasLinkedTicket={false}
       onReopen={vi.fn()}
       onDelete={vi.fn()}
       onClassify={vi.fn()}
-      onResolveWithoutReply={vi.fn()}
-      onClose={vi.fn()}
-      setRejectDialogOpen={vi.fn()}
       setReopenDialogOpen={vi.fn()}
       onRefresh={vi.fn()}
       {...extra}
@@ -44,30 +40,18 @@ const renderStrip = (message: Message, extra: Record<string, unknown> = {}) =>
 // full active action set, not the unreviewed "resolve only" branch. Note "Create
 // Ticket" now lives in the header ACTIONS dropdown, not this strip.
 describe('MessageActionStrip — action set per status', () => {
-  it('truly-new open (no client reply yet) offers only Resolve (no KB)', () => {
-    renderStrip(makeMessage({ status: 'open', lastReplyFromClient: null }));
-    expect(screen.getByText('Resolve (no KB)')).toBeInTheDocument();
-    expect(screen.queryByText('Resolve & Save to KB')).toBeNull();
-  });
-
-  it('open + client replied gets the full active action set (regression for the CLIENT REPLIED badge case)', () => {
-    renderStrip(makeMessage({ status: 'open', lastReplyFromClient: true }));
-    expect(screen.getByText('Resolve & Save to KB')).toBeInTheDocument();
-    expect(screen.getByText('Resolve (no KB)')).toBeInTheDocument();
-  });
-
-  it('client_replied status (BE value not in the FE union) gets the full active action set', () => {
-    renderStrip(
-      makeMessage({ status: 'client_replied' as ThreadStatus, lastReplyFromClient: true })
-    );
-    expect(screen.getByText('Resolve & Save to KB')).toBeInTheDocument();
-    expect(screen.getByText('Resolve (no KB)')).toBeInTheDocument();
-  });
-
-  it('in_progress (active) gets the full active action set', () => {
-    renderStrip(makeMessage({ status: 'in_progress' }));
-    expect(screen.getByText('Resolve & Save to KB')).toBeInTheDocument();
-    expect(screen.getByText('Resolve (no KB)')).toBeInTheDocument();
+  // The unreviewed and active DECISIONS moved to the header's split Resolve (resolveMode.ts,
+  // pinned in resolveDecision.test.tsx). The strip must now stay out of the way for them — if it
+  // rendered anything, the decision would show twice.
+  it.each([
+    ['truly-new open', { status: 'open' as ThreadStatus, lastReplyFromClient: null }],
+    ['open + client replied', { status: 'open' as ThreadStatus, lastReplyFromClient: true }],
+    ['client_replied', { status: 'client_replied' as ThreadStatus, lastReplyFromClient: true }],
+    ['in_progress', { status: 'in_progress' as ThreadStatus }],
+  ])('%s renders no resolve controls — the header owns that decision', (_label, fields) => {
+    const { container } = renderStrip(makeMessage(fields));
+    expect(screen.queryByText(/Resolve/)).toBeNull();
+    expect(container.textContent).toBe('');
   });
 
   it('resolved shows Unresolve, not the active actions', () => {
@@ -103,10 +87,7 @@ describe('MessageActionStrip — orphaned outbound', () => {
         isFiltered
         isSuspicious={false}
         isActive={false}
-        resolving={false}
         onClassify={vi.fn()}
-        onResolveWithoutReply={vi.fn()}
-        setRejectDialogOpen={vi.fn()}
         setReopenDialogOpen={vi.fn()}
       />
     );
@@ -123,9 +104,6 @@ describe('MessageActionStrip — orphaned outbound', () => {
         isFiltered
         isSuspicious={false}
         isActive={false}
-        resolving={false}
-        onResolveWithoutReply={vi.fn()}
-        setRejectDialogOpen={vi.fn()}
         setReopenDialogOpen={vi.fn()}
       />
     );
@@ -141,10 +119,7 @@ describe('MessageActionStrip — orphaned outbound', () => {
         isFiltered
         isSuspicious={false}
         isActive={false}
-        resolving={false}
         onClassify={onClassify}
-        onResolveWithoutReply={vi.fn()}
-        setRejectDialogOpen={vi.fn()}
         setReopenDialogOpen={vi.fn()}
       />
     );
@@ -168,32 +143,7 @@ describe('MessageActionStrip — not customer work', () => {
       metadata: { notCustomerWork: { by: 3, at: '2026-09-22T10:00:00Z', reason } },
     });
 
-  it('offers the action on an active thread', () => {
-    renderStrip(makeMessage({ status: 'pending' as ThreadStatus, lastReplyFromClient: true }), {
-      onNotCustomerWork: vi.fn(),
-    });
-
-    expect(screen.getByText('Not customer work')).toBeTruthy();
-  });
-
-  it('🔴 offers it on an UNREVIEWED thread — where a newsletter actually sits', () => {
-    // status 'open' with no customer reply is the shape junk arrives in. The action was missing
-    // from this branch in the first version of this change: present everywhere except the one
-    // place an agent needs it.
-    renderStrip(makeMessage({ status: 'open' as ThreadStatus }), { onNotCustomerWork: vi.fn() });
-
-    expect(screen.getByText('Not customer work')).toBeTruthy();
-    // CONTROL: the ordinary resolve is still there — this adds an action, it does not replace one.
-    expect(screen.getByText('Resolve (no KB)')).toBeTruthy();
-  });
-
-  it('does not offer it when the caller wires no handler', () => {
-    // CONTROL: proves the assertion above is about the prop, not about a button that always
-    // renders — an action that 400s is worse than an absent one.
-    renderStrip(makeMessage({ status: 'pending' as ThreadStatus, lastReplyFromClient: true }));
-
-    expect(screen.queryByText('Not customer work')).toBeNull();
-  });
+  // Offering it on live threads moved to the split Resolve — resolveDecision.test.tsx.
 
   it('🔴 labels a binned thread as binned, not as Closed', () => {
     renderStrip(binned());

@@ -27,6 +27,8 @@ export type MessageComposerProps = {
   onOpenSimilarMessages: () => void;
   selectedFiles: File[];
   onFilesChange: (files: File[]) => void;
+  /** Single-key shortcuts that act in this view (detailShortcuts.ts); omitted, no hint shows. */
+  shortcutHint?: string;
   /**
    * Set when the channel forbids sending right now (WhatsApp's 24-hour window). Disables
    * send and is shown above the composer. Never set for internal notes — those are not
@@ -80,6 +82,7 @@ export function MessageComposer({
   windowTone = 'none',
   onUseTemplate = null,
   onAiSourceChange,
+  shortcutHint,
 }: MessageComposerProps) {
   const user = useAuthStore((store) => store.user);
   const [isDragging, setIsDragging] = useState(false);
@@ -140,7 +143,10 @@ export function MessageComposer({
         >
           {sendBlockedReason}
           {windowRemaining && !sendBlockedReason && (
-            <span> Closes in <strong>{windowRemaining}</strong>.</span>
+            <span>
+              {' '}
+              Closes in <strong>{windowRemaining}</strong>.
+            </span>
           )}
           {sendBlockedReason && onUseTemplate && (
             <Button
@@ -248,6 +254,11 @@ export function MessageComposer({
           <span className="font-mono text-[9px] text-muted-foreground/70 ml-1 hidden sm:inline">
             ⌘↵ {composerMode === 'note' ? 'send internal note' : 'send reply'}
           </span>
+          {shortcutHint && (
+            <span className="font-mono text-[9px] text-faint-foreground ml-1 hidden md:inline">
+              {shortcutHint}
+            </span>
+          )}
           <Button
             variant="ghost"
             onClick={onSend}

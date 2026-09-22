@@ -71,7 +71,12 @@ export const Dialog = ({
            part-way through, such as a half-entered card. Escape still closes. */
         <div className={getDialogOverlayClasses(blur)} />
       )}
-      <div className={cn(getDialogContentClasses(size), className)}>{children}</div>
+      {/* role + aria-modal: screen readers announce it as a dialog, and keyboard handlers
+          elsewhere (message detail's single-key shortcuts) can tell a modal owns the keys —
+          without it, Escape closed the dialog AND the rail behind it. */}
+      <div role="dialog" aria-modal="true" className={cn(getDialogContentClasses(size), className)}>
+        {children}
+      </div>
     </div>,
     document.body
   );

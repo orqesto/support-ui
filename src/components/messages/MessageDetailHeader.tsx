@@ -47,6 +47,9 @@ import type { Message, Category, TicketPriority, ThreadStatus } from '@/types';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
+import { useAssignToMe } from './useAssignToMe';
+import { ResolveSplitButton } from './ResolveSplitButton';
+import type { ResolveMode } from './resolveMode';
 import { isAiNotConfiguredError, AI_NOT_CONFIGURED_MESSAGE } from '@/lib/errorMessages';
 import {
   LABEL,
@@ -98,6 +101,18 @@ export type MessageDetailHeaderProps = {
   isRead?: boolean;
   /** Toggle the per-user read/unread state. */
   onToggleRead?: () => void;
+  /**
+   * The resolve decision, now in the header beside status and SLA — "status and SLA are what
+   * you judge before pressing Resolve". Null/absent renders no button (see resolveMode.ts).
+   */
+  resolveMode?: ResolveMode;
+  resolving?: boolean;
+  /** Opens the same confirm dialog the old footer's "Resolve (no KB)" did. */
+  onResolve?: () => void;
+  onResolveToKb?: () => void;
+  onNotCustomerWork?: () => void;
+  /** Enables "Assign to me"; hidden when the conversation is already this user's. */
+  currentUserId?: number | null;
 };
 
 // Manual BE status → kanban column id, so the acting agent's card moves instantly
@@ -128,6 +143,12 @@ export function MessageDetailHeader({
   showReadToggle,
   isRead,
   onToggleRead,
+  resolveMode = null,
+  resolving = false,
+  onResolve,
+  onResolveToKb,
+  onNotCustomerWork,
+  currentUserId = null,
 }: MessageDetailHeaderProps) {
   const { hasPermission } = usePermissions();
   const hasManageLabels = hasPermission(Permission.MANAGE_LABELS);
@@ -276,6 +297,16 @@ export function MessageDetailHeader({
     (message.metadata?.spamCheck as Record<string, unknown> | undefined)?.category === 'suspicious';
   const isActive =
     message.status !== 'resolved' && !isFiltered && !isSuspicious && message.status !== 'closed';
+
+  // "Assign to me" beside the decisions it usually precedes (useAssignToMe.ts). Offered only
+  // while there IS a decision to make — assigning a resolved or binned thread is not the job.
+  const { canAssign, assigning: assigningMe, assignToMe } = useAssignToMe({
+    messageId: message.id,
+    assigneeId: message.assigneeId,
+    currentUserId,
+    onAssigned: onRefresh,
+  });
+  const canAssignToMe = canAssign && resolveMode !== null;
   // System-set statuses have no dropdown entry — map to nearest user-facing equivalent for display
   // The current work status is DERIVED (canonical), not the raw enum.
   const currentWorkflowStatus: WorkflowStatus = deriveWorkflowStatus(message) ?? 'open';
@@ -774,12 +805,15 @@ export function MessageDetailHeader({
             History
           </Link>
         </div>
-        {/* Which of our addresses the customer wrote to, listed To/Cc/Bcc the way
-            a mail client does. The integration answers to several aliases, so
-            this is the only thing that distinguishes them. */}
+        {/* Which of OUR addresses the customer wrote to — the integration answers to several
+            aliases, so only the message's own To/Cc distinguishes them. Compact here (v3): the
+            first address + "+N", the full To/Cc/Bcc on hover AND focus, because the
+            from-identity beside it is the thing that must stay biggest. */}
         <ReceivedAtAddresses
           recipients={message.recipients}
-          variant="detail"
+          variant="card"
+          prefix="received at"
+          focusable
           className="mt-1.5 pl-[26px]"
         />
       </div>
@@ -854,7 +888,10 @@ export function MessageDetailHeader({
         )}
 
       {/* Action chip row */}
-      <div className="flex items-center gap-1.5 flex-nowrap px-4 pb-3 overflow-visible">
+      {/* Wraps on purpose: in slide-over the chips and the decisions never fit one line, so the
+          decisions group is pinned right and drops onto its own right-aligned line rather than
+          breaking wherever the row runs out. */}
+      <div className="flex items-center gap-1.5 flex-wrap px-4 pb-3 overflow-visible">
         <ReactSelect
           variant="chip"
           value={currentWorkflowStatus}
@@ -902,7 +939,29 @@ export function MessageDetailHeader({
             LEAD
           </span>
         )}
-        <div className="relative ml-auto">
+        <div className="flex items-center gap-1.5 ml-auto">
+          {canAssignToMe && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void assignToMe()}
+              disabled={assigningMe}
+              className="h-7 px-2.5 text-[11px]"
+            >
+              {assigningMe ? 'Assigning…' : 'Assign to me'}
+            </Button>
+          )}
+          {onResolve && (
+            <ResolveSplitButton
+              mode={resolveMode}
+              busy={resolving}
+              onResolve={onResolve}
+              onResolveToKb={onResolveToKb}
+              onNotCustomerWork={onNotCustomerWork}
+              onMoveToSpam={isActive && onClassify ? () => void onClassify('move_to_spam') : undefined}
+            />
+          )}
+        <div className="relative">
           <Button
             variant="ghost"
             onClick={() => setMoreOpen((val) => !val)}
@@ -947,6 +1006,7 @@ export function MessageDetailHeader({
               </div>
             </>
           )}
+        </div>
         </div>
       </div>
 
