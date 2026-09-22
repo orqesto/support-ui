@@ -25,6 +25,7 @@ export const Tooltip = ({
   side = 'top',
   size = 'md',
   delayDuration = 200,
+  className = 'inline-flex',
 }: TooltipProps) => {
   const [isVisible, setIsVisible] = useState(false);
   const [coords, setCoords] = useState<Coords | null>(null);
@@ -88,7 +89,7 @@ export const Tooltip = ({
     <span
       ref={triggerRef}
       role="presentation"
-      className="inline-flex"
+      className={className}
       onMouseEnter={show}
       onMouseLeave={hide}
       onFocus={show}

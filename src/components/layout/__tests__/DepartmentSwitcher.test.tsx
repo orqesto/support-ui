@@ -88,7 +88,9 @@ describe('DepartmentSwitcher', () => {
     render(<DepartmentSwitcher />);
     openMenu();
 
-    expect(screen.getByText(/No department is served by a message channel yet/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/No department is served by a message channel yet/i)
+    ).toBeInTheDocument();
     expect(screen.queryByText('Sales')).not.toBeInTheDocument();
   });
 
@@ -127,5 +129,36 @@ describe('DepartmentSwitcher', () => {
     // is not selectable, so the accessible count (3) is unreachable and must not gate this.
     fireEvent.click(screen.getByText('Support'));
     expect(useDepartmentContextStore.getState().getSelectedDeptIds()).toEqual([]);
+  });
+
+  describe('compact (collapsed rail)', () => {
+    it('icon trigger names the current filter and opens the menu beside the rail, not clipped inside it', () => {
+      withDepartments([dept(3, 'Sales', true), dept(5, 'Support', true)]);
+      signIn([3, 5]);
+      useDepartmentContextStore.setState({ _selectedByKey: { '1:42': [3] } });
+
+      render(<DepartmentSwitcher compact />);
+      const trigger = screen.getByRole('button', {
+        name: 'Filter by department (current: Sales)',
+      });
+      expect(trigger.textContent).toBe('1'); // icon + selected-count badge, no label text
+      fireEvent.click(trigger);
+
+      const menu = screen.getByText('Filter by department').closest('div.overflow-y-auto');
+      expect(menu).not.toBeNull();
+      expect((menu as HTMLElement).style.position).toBe('fixed');
+      expect(menu!.className).not.toContain('absolute');
+      expect(screen.getByText('Support')).toBeInTheDocument();
+    });
+
+    it('full mode keeps the in-flow dropdown', () => {
+      withDepartments([dept(3, 'Sales', true), dept(5, 'Support', true)]);
+      signIn([3, 5]);
+      render(<DepartmentSwitcher />);
+      openMenu();
+      const menu = screen.getByText('Filter by department').closest('div.overflow-y-auto');
+      expect(menu!.className).toContain('absolute');
+      expect((menu as HTMLElement).style.position).toBe('');
+    });
   });
 });

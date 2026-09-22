@@ -7,9 +7,16 @@ import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/lib/toast';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { cn } from '@/lib/utils';
 import { canSwitchWorkspace } from './canSwitchWorkspace';
+import { NavTip, railMenuStyle } from './SidebarNav';
 
-export const OrganizationSwitcher = () => {
+type OrganizationSwitcherProps = {
+  /** Icon-only trigger for the collapsed desktop rail; the menu opens beside it. */
+  compact?: boolean;
+};
+
+export const OrganizationSwitcher = ({ compact = false }: OrganizationSwitcherProps = {}) => {
   const user = useAuthStore((state) => state.user);
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const setSelectedOrganization = useAuthStore((state) => state.setSelectedOrganization);
@@ -17,6 +24,7 @@ export const OrganizationSwitcher = () => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const triggerRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false); // Prevent duplicate simultaneous calls
 
   // Only show for global admins
@@ -102,7 +110,7 @@ export const OrganizationSwitcher = () => {
 
   return (
     <>
-      {organizations.length === 1 && selectedOrganizationId ? (
+      {!compact && organizations.length === 1 && selectedOrganizationId ? (
         <div className="mb-3 p-2.5 rounded-lg bg-muted/10 border border-primary/20">
           <p className="font-display mb-2 text-xs font-semibold tracking-[0.09em] uppercase text-muted-foreground">
             Workspace
@@ -116,20 +124,35 @@ export const OrganizationSwitcher = () => {
         </div>
       ) : null}
 
-      <div className="relative mb-3">
-        <Button
-          onClick={() => setIsOpen(!isOpen)}
-          className="flex justify-between items-center px-3 py-2 w-full text-sm font-medium rounded-md border text-foreground bg-card border-border hover:bg-accent focus:outline-none focus:ring-2 focus:ring-primary"
-          disabled={loading}
-        >
-          <div className="flex flex-1 gap-2 items-center min-w-0">
-            <Building2 className="flex-shrink-0 w-4 h-4" />
-            <span className="truncate">
-              {selectedOrg ? selectedOrg.name : 'Select Workspace'}
-            </span>
-          </div>
-          <ChevronDown className="flex-shrink-0 w-4 h-4" />
-        </Button>
+      <div ref={triggerRef} className="relative mb-3">
+        {compact ? (
+          <NavTip label={`Workspace: ${selectedOrg ? selectedOrg.name : 'none selected'}`}>
+            <Button
+              variant="ghost"
+              onClick={() => setIsOpen(!isOpen)}
+              disabled={loading}
+              aria-label={`Switch workspace (current: ${selectedOrg ? selectedOrg.name : 'none'})`}
+              aria-expanded={isOpen}
+              className="flex justify-center items-center p-0 w-full h-9 rounded-md border text-foreground bg-card border-border hover:bg-accent"
+            >
+              <Building2 className="w-4 h-4" />
+            </Button>
+          </NavTip>
+        ) : (
+          <Button
+            onClick={() => setIsOpen(!isOpen)}
+            className="flex justify-between items-center px-3 py-2 w-full text-sm font-medium rounded-md border text-foreground bg-card border-border hover:bg-accent focus:outline-none focus:ring-2 focus:ring-primary"
+            disabled={loading}
+          >
+            <div className="flex flex-1 gap-2 items-center min-w-0">
+              <Building2 className="flex-shrink-0 w-4 h-4" />
+              <span className="truncate">
+                {selectedOrg ? selectedOrg.name : 'Select Workspace'}
+              </span>
+            </div>
+            <ChevronDown className="flex-shrink-0 w-4 h-4" />
+          </Button>
+        )}
 
         {isOpen && (
           <>
@@ -148,7 +171,13 @@ export const OrganizationSwitcher = () => {
             />
 
             {/* Dropdown */}
-            <div className="overflow-y-auto absolute left-0 bottom-full z-20 mb-2 w-full max-h-80 rounded-md border shadow-lg bg-card border-border">
+            <div
+              style={compact ? railMenuStyle(triggerRef.current) : undefined}
+              className={cn(
+                'overflow-y-auto z-20 max-h-80 rounded-md border shadow-lg bg-card border-border',
+                compact ? 'w-64' : 'absolute left-0 bottom-full mb-2 w-full'
+              )}
+            >
               <div className="p-2">
                 {loading ? (
                   <div className="px-3 py-2 text-sm text-muted-foreground">Loading...</div>

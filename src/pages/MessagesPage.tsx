@@ -32,7 +32,7 @@ import { messageService, type MessageThread } from '@/services/message.service';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { useSharedLinkWorkspace } from '@/hooks/useSharedLinkWorkspace';
-import { formatDate } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
 import type { Message, MessagesDisplayMode } from '@/types';
 import { Permission } from '@/types/roles';
@@ -962,7 +962,11 @@ export const MessagesPage = () => {
             <button
               type="button"
               aria-label="Close"
-              className="fixed inset-0 z-20 cursor-default lg:left-64 bg-black/25 dark:bg-black/50"
+              className={cn(
+                'fixed inset-0 z-20 cursor-default bg-black/25 dark:bg-black/50',
+                // Leave the sidebar undimmed: offset by its current width (set by the shell).
+                'lg:left-[var(--sidebar-w,16rem)]'
+              )}
               onClick={() => {
                 if (detailRequestCloseRef.current) {
                   detailRequestCloseRef.current();
