@@ -149,6 +149,15 @@ export type ListScope = {
    * Absent means "this backend does not have it"; never coalesce it to true.
    */
   boardCoversAll?: boolean;
+  /**
+   * Depth per board column / list chip, keyed by column id, under the lens-free baseline —
+   * i.e. the list that chip opens. Built backend-side from the SAME predicates that list uses.
+   *
+   * ⛔ OPTIONAL, and a MISSING id means "not counted", never 0: this bundle routinely runs
+   * against an older backend (FE deploys on merge, BE ships on a tag), and a 0 there would
+   * claim an empty queue over rows that exist.
+   */
+  columnCounts?: Record<string, number>;
   hiddenBecause: {
     terminal: number;
     spam: number;
