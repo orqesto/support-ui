@@ -215,8 +215,7 @@ export const getFilteredCategoryMeta = (category?: string): FilteredCategoryMeta
         statusText: 'Quarantined · Phishing threat detected',
         statusClass: 'text-destructive',
         approveLabel: 'Not a Threat — Approve',
-        approveClass:
-          'border border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30',
+        approveClass: 'border border-warning-line text-warning hover:bg-warning-muted',
         showMoveToSpam: false,
       };
     case 'scam':
@@ -224,8 +223,7 @@ export const getFilteredCategoryMeta = (category?: string): FilteredCategoryMeta
         statusText: 'Quarantined · Scam detected',
         statusClass: 'text-destructive',
         approveLabel: 'Not a Threat — Approve',
-        approveClass:
-          'border border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30',
+        approveClass: 'border border-warning-line text-warning hover:bg-warning-muted',
         showMoveToSpam: false,
       };
     case 'transactional':

@@ -106,10 +106,7 @@ export const SearchInput = ({
             variant="ghost"
             onClick={onSearch}
             onMouseDown={(event) => event.preventDefault()}
-            className={cn(
-              getSearchButtonClasses(size),
-              'text-black/60 hover:text-primary dark:text-white/40'
-            )}
+            className={cn(getSearchButtonClasses(size), 'text-foreground hover:text-primary')}
             title="Search"
             aria-label="Search"
           >

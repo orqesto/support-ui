@@ -97,7 +97,7 @@ export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: P
                 (msg.authorEmail ?? 'Support')
               )}
             </span>
-            <span className="whitespace-nowrap shrink-0" title={formatDate(msgTime)}>
+            <span className="font-mono whitespace-nowrap shrink-0" title={formatDate(msgTime)}>
               {formatWhen(msgTime)}
             </span>
           </div>
@@ -168,7 +168,7 @@ export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: P
               (msg.authorEmail ?? 'Customer')
             )}
           </span>
-          <span className="whitespace-nowrap shrink-0" title={formatDate(msgTime)}>
+          <span className="font-mono whitespace-nowrap shrink-0" title={formatDate(msgTime)}>
             {formatWhen(msgTime)}
           </span>
         </div>

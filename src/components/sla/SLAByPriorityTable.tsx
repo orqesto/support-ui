@@ -25,7 +25,7 @@ export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS }: SLAByPriorityTab
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-[300px]">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <Loader2 className="h-8 w-8 animate-spin text-faint-foreground" />
           </div>
         </CardContent>
       </Card>
@@ -106,7 +106,7 @@ export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS }: SLAByPriorityTab
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Ticket className="h-5 w-5 text-primary" />
+          <Ticket className="h-5 w-5 text-muted-foreground" />
           Ticket SLA by Priority
         </CardTitle>
       </CardHeader>

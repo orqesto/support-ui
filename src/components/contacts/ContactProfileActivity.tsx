@@ -13,18 +13,18 @@ export type ActivityItem = {
 };
 
 const STATUS_STYLE: Record<string, { dot: string; text: string; label: string }> = {
-  open: { dot: 'bg-primary', text: 'text-primary', label: 'Open' },
-  in_progress: { dot: 'bg-warning', text: 'text-warning', label: 'In progress' },
+  open: { dot: 'bg-foreground', text: 'text-foreground', label: 'Open' },
+  in_progress: { dot: 'bg-muted-foreground', text: 'text-muted-foreground', label: 'In progress' },
   awaiting_response: { dot: 'bg-warning', text: 'text-warning', label: 'Awaiting' },
-  client_replied: { dot: 'bg-primary', text: 'text-primary', label: 'Replied' },
+  client_replied: { dot: 'bg-foreground', text: 'text-foreground', label: 'Replied' },
   resolved: { dot: 'bg-success', text: 'text-success', label: 'Resolved' },
   closed: { dot: 'bg-muted-foreground', text: 'text-muted-foreground', label: 'Closed' },
 };
 
 const RING = {
-  message: 'bg-blue-100 dark:bg-blue-500/15 text-primary',
-  ticket: 'bg-amber-100 dark:bg-amber-500/15 text-warning',
-  note: 'bg-muted text-muted-foreground',
+  message: 'bg-muted text-muted-foreground',
+  ticket: 'bg-warning-muted text-warning',
+  note: 'bg-note-muted text-note',
 };
 
 const KIND_ICON = { message: Mail, ticket: Ticket, note: StickyNote };
@@ -69,7 +69,7 @@ export function ContactProfileActivity({ activity }: { activity: ActivityItem[] 
                 >
                   {item.title}
                 </Button>
-                <span className="text-[11px] text-muted-foreground whitespace-nowrap tabular-nums flex-shrink-0 mt-0.5">
+                <span className="font-mono text-[11px] text-muted-foreground whitespace-nowrap flex-shrink-0 mt-0.5">
                   {formatAge(item.at)}
                 </span>
               </div>

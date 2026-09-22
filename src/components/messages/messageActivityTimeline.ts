@@ -29,10 +29,10 @@ const ACTION_LABEL: Record<string, string> = {
 };
 
 const ACTION_DOT: Record<string, string> = {
-  'ticket.resolve': 'bg-green-500/60',
-  'ticket.reopen': 'bg-yellow-500/60',
-  'message.auto_reopen': 'bg-yellow-500/60',
-  'message.auto_client_replied': 'bg-blue-500/60',
+  'ticket.resolve': 'bg-success/60',
+  'ticket.reopen': 'bg-warning/60',
+  'message.auto_reopen': 'bg-warning/60',
+  'message.auto_client_replied': 'bg-faint-foreground',
 };
 
 export function auditEntryLabel(action: string, details: Record<string, unknown> | null): string {
@@ -87,7 +87,7 @@ export function buildTimeline(
     label: 'Internal note',
     time: note.createdAt,
     who: note.user ? `${note.user.firstName} ${note.user.lastName ?? ''}`.trim() : note.authorName,
-    dot: 'bg-amber-400/70',
+    dot: 'bg-note/70',
   }));
 
   const ephemeral: TimelineItem[] = inSession.map((entry) => ({ ...entry, dot: undefined }));

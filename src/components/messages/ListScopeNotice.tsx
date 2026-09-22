@@ -321,7 +321,7 @@ export const ListScopeNotice = ({
             aria-expanded={open}
             aria-controls={menuId}
             onClick={() => setOpen((prev) => !prev)}
-            className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-border text-[12px] text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="font-display inline-flex items-center gap-1 h-6 px-2 rounded-md border border-border text-[12px] text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Not shown
             {/*

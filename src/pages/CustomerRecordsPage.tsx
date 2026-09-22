@@ -482,7 +482,7 @@ export const CustomerRecordsPage = () => {
             <div>
               <h1 className="font-display text-xl font-semibold">{heading}</h1>
               {contact?.primaryEmail && contact.displayName && (
-                <p className="text-[12px] text-muted-foreground">{contact.primaryEmail}</p>
+                <p className="font-mono text-[12px] text-muted-foreground">{contact.primaryEmail}</p>
               )}
             </div>
 

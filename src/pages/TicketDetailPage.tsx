@@ -134,7 +134,7 @@ export const TicketDetailPage = () => {
         <DialogContent>
           <p>Are you sure you want to delete this ticket? This action cannot be undone.</p>
           {ticket && (
-            <div className="p-3 mt-3 bg-gray-50 rounded-md border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+            <div className="p-3 mt-3 bg-muted rounded-md border border-border">
               <p className="text-sm font-semibold text-foreground">
                 {ticket.title}
               </p>

@@ -551,7 +551,7 @@ export const KnowledgeBasePage = () => {
               <DialogContent>
                 <p>Are you sure you want to delete this entry? This action cannot be undone.</p>
                 {entryToDelete && (
-                  <div className="p-3 mt-3 bg-gray-50 rounded-md border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+                  <div className="p-3 mt-3 bg-muted rounded-md border border-border">
                     <p className="text-sm font-semibold text-foreground">{entryToDelete.title}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       Type: <span className="font-medium">{entryToDelete.type}</span> | Category:{' '}

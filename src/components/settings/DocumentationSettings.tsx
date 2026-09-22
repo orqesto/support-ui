@@ -449,7 +449,7 @@ export const DocumentationSettings = ({
               </Card>
               <Card className="p-4">
                 <div className="flex flex-col gap-3 items-center text-center sm:items-center sm:flex-row sm:text-left">
-                  <CheckCircle className="hidden w-8 h-8 text-purple-500 sm:block" />
+                  <CheckCircle className="hidden w-8 h-8 text-muted-foreground sm:block" />
                   <div>
                     <p className="text-2xl font-bold">{stats.totalReferences}</p>
                     <p className="text-sm text-muted-foreground">Times Used</p>
@@ -534,7 +534,7 @@ export const DocumentationSettings = ({
                 </div>
               ) : (
                 <div
-                  className="p-4 bg-white rounded border font-mono text-sm leading-6 dark:bg-gray-800 dark:border-gray-700"
+                  className="p-4 bg-card rounded border font-mono text-sm leading-6"
                   style={{
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-all',

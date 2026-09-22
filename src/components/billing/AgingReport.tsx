@@ -22,7 +22,7 @@ export const AgingReport = () => {
         </CardHeader>
         <CardContent>
           <div className="flex justify-center items-center h-[300px]">
-            <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
+            <Loader2 className="w-8 h-8 text-faint-foreground animate-spin" />
           </div>
         </CardContent>
       </Card>

@@ -116,7 +116,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
                       <p className="text-sm font-medium text-muted-foreground">Est. revenue at risk</p>
                       {speedData.estimatedLostValue !== null ? (
                         <>
-                          <p className="mt-2 text-3xl font-bold text-destructive">
+                          <p className="font-mono mt-2 text-3xl font-bold text-destructive">
                             {formatMoney(speedData.estimatedLostValue)}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
@@ -139,7 +139,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
               </Card>
 
               {/* Slow leads */}
-              <Card className="border-l-4 border-l-amber-500">
+              <Card className="border-l-4 border-l-warning">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between">
                     <div>
@@ -157,12 +157,12 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
               </Card>
 
               {/* Median first response */}
-              <Card className="border-l-4 border-l-blue-500">
+              <Card className="border-l-4 border-l-border-strong">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Median first response</p>
-                      <p className="mt-2 text-3xl font-bold">
+                      <p className="font-mono mt-2 text-3xl font-bold">
                         {formatSeconds(speedData.medianResponseSeconds)}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
@@ -176,7 +176,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
               </Card>
 
               {/* Pending now */}
-              <Card className="border-l-4 border-l-slate-400">
+              <Card className="border-l-4 border-l-border-strong">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between">
                     <div>
@@ -186,7 +186,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
                         {speedData.respondedLeads} of {speedData.totalLeads} answered
                       </p>
                     </div>
-                    <Hourglass className="w-9 h-9 text-slate-400 shrink-0" />
+                    <Hourglass className="w-9 h-9 text-faint-foreground shrink-0" />
                   </div>
                 </CardContent>
               </Card>
@@ -256,7 +256,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
                             </span>
                           </div>
                           <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
-                            <div className="h-2 rounded-full bg-primary" style={{ width: `${aiPct}%` }} />
+                            <div className="h-2 rounded-full bg-ai" style={{ width: `${aiPct}%` }} />
                           </div>
                         </div>
                         <div>
@@ -269,7 +269,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
                             </span>
                           </div>
                           <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
-                            <div className="h-2 rounded-full bg-primary" style={{ width: `${humanPct}%` }} />
+                            <div className="h-2 rounded-full bg-muted-foreground" style={{ width: `${humanPct}%` }} />
                           </div>
                         </div>
                         <p className="text-xs text-muted-foreground flex items-start gap-1.5 pt-1">

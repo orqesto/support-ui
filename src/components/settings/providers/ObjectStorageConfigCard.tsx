@@ -255,7 +255,7 @@ export const ObjectStorageConfigCard = () => {
           <HardDrive className="w-5 h-5" />
           Object Storage
           {configured && (
-            <span className="px-2 py-0.5 text-xs rounded-full border border-green-500/40 bg-green-500/10 text-success">
+            <span className="px-2 py-0.5 text-xs rounded-full border border-success/40 bg-success/10 text-success">
               Configured
             </span>
           )}
@@ -279,14 +279,14 @@ export const ObjectStorageConfigCard = () => {
             <button
               type="button"
               onClick={() => setMode('managed')}
-              className={`rounded-md px-3 py-1.5 text-sm ${mode === 'managed' ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}`}
+              className={`font-display rounded-md px-3 py-1.5 text-sm ${mode === 'managed' ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}`}
             >
               Odly-managed
             </button>
             <button
               type="button"
               onClick={() => setMode('byo')}
-              className={`rounded-md px-3 py-1.5 text-sm ${mode === 'byo' ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}`}
+              className={`font-display rounded-md px-3 py-1.5 text-sm ${mode === 'byo' ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}`}
             >
               Bring your own S3
             </button>
@@ -513,8 +513,8 @@ export const ObjectStorageConfigCard = () => {
                 <div
                   className={`p-3 text-xs rounded border ${
                     testResult.ok
-                      ? 'border-green-500/40 bg-green-500/10 text-success'
-                      : 'border-red-500/40 bg-red-500/10 text-destructive'
+                      ? 'border-success/40 bg-success/10 text-success'
+                      : 'border-destructive/40 bg-destructive/10 text-destructive'
                   }`}
                 >
                   <p>

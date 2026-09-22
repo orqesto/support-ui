@@ -326,7 +326,7 @@ export const AuditLogsPage = () => {
                 </div>
               ) : logs.length === 0 ? (
                 <div className="p-8 text-center">
-                  <FileText className="mx-auto mb-4 w-16 h-16 text-gray-400" />
+                  <FileText className="mx-auto mb-4 w-16 h-16 text-faint-foreground" />
                   <h3 className="font-display mb-2 text-lg font-semibold">No Audit Logs Found</h3>
                   <p className="text-muted-foreground">
                     {activeFilterCount > 0
@@ -379,12 +379,12 @@ export const AuditLogsPage = () => {
                                   size="sm"
                                   onClick={() => handleClickUser(log.userId, log.userEmail)}
                                   title="Filter by this user"
-                                  className="p-0 h-auto text-left hover:underline text-primary cursor-pointer"
+                                  className="p-0 h-auto font-mono text-left hover:underline text-primary cursor-pointer"
                                 >
                                   {log.userEmail}
                                 </Button>
                               )}
-                              <div className="text-xs text-muted-foreground">
+                              <div className="font-mono text-xs text-muted-foreground">
                                 {formatDate(log.createdAt)}
                               </div>
                               {log.details && Object.keys(log.details).length > 0 && (
@@ -433,7 +433,7 @@ export const AuditLogsPage = () => {
                         <tbody className="divide-y bg-card divide-border">
                           {logs.map((log) => (
                             <tr key={log.id} className="transition-colors hover:bg-accent">
-                              <td className="px-4 py-3 text-sm whitespace-nowrap">
+                              <td className="font-mono px-4 py-3 text-sm whitespace-nowrap">
                                 {formatDate(log.createdAt)}
                               </td>
                               <td className="px-4 py-3 text-sm">
@@ -443,7 +443,7 @@ export const AuditLogsPage = () => {
                                     size="sm"
                                     onClick={() => handleClickUser(log.userId, log.userEmail)}
                                     title="Filter by this user"
-                                    className="p-0 h-auto hover:underline text-left cursor-pointer"
+                                    className="p-0 h-auto font-mono hover:underline text-left cursor-pointer"
                                   >
                                     {log.userEmail}
                                   </Button>

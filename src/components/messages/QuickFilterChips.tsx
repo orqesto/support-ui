@@ -41,7 +41,7 @@ export const QuickFilterChips = ({ value, onChange, counts, trailing }: QuickFil
         type="button"
         onClick={() => onChange('all')}
         aria-pressed={value === 'all'}
-        className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+        className={`font-display px-2.5 py-1 text-xs rounded-full border transition-colors ${
           value === 'all'
             ? 'bg-primary text-primary-foreground border-primary'
             : 'border-border text-muted-foreground hover:text-foreground'
@@ -68,7 +68,7 @@ export const QuickFilterChips = ({ value, onChange, counts, trailing }: QuickFil
                   type="button"
                   onClick={() => onChange(active ? 'all' : col.id)}
                   aria-pressed={active}
-                  className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                  className={`font-display px-2.5 py-1 text-xs rounded-full border transition-colors ${
                     active
                       ? 'bg-primary text-primary-foreground border-primary'
                       : 'border-border text-muted-foreground hover:text-foreground'

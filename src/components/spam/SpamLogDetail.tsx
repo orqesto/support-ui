@@ -11,10 +11,9 @@ type SpamLogDetailProps = {
 };
 
 const getSeverityColor = (severity: number): string => {
-  if (severity >= 100) return 'bg-destructive';
-  if (severity >= 75) return 'bg-warning';
-  if (severity >= 50) return 'bg-warning';
-  return 'bg-gray-500';
+  if (severity >= 100) return 'bg-destructive text-destructive-foreground';
+  if (severity >= 50) return 'bg-warning text-warning-foreground';
+  return 'bg-muted text-foreground';
 };
 
 export const SpamLogDetail = ({ log, onClose }: SpamLogDetailProps) => (
@@ -36,7 +35,7 @@ export const SpamLogDetail = ({ log, onClose }: SpamLogDetailProps) => (
         <Badge variant="secondary">{log.channel}</Badge>
         <Badge variant="default">{log.category}</Badge>
         {log.departmentId !== null && <DepartmentBadge departmentId={log.departmentId} />}
-        <Badge variant="default" className={`${getSeverityColor(log.severity)} text-white`}>
+        <Badge variant="default" className={getSeverityColor(log.severity)}>
           Severity: {log.severity}
         </Badge>
         <Badge variant="default">Confidence: {(log.confidence * 100).toFixed(0)}%</Badge>
@@ -54,7 +53,7 @@ export const SpamLogDetail = ({ log, onClose }: SpamLogDetailProps) => (
         <div className="p-4 space-y-2 rounded-lg bg-muted">
           <div className="grid grid-cols-[120px_1fr] gap-2">
             <span className="text-sm font-medium">Email:</span>
-            <span className="text-sm break-all">{log.senderEmail}</span>
+            <span className="font-mono text-sm break-all">{log.senderEmail}</span>
           </div>
           <div className="grid grid-cols-[120px_1fr] gap-2">
             <span className="text-sm font-medium">Domain:</span>
@@ -108,7 +107,7 @@ export const SpamLogDetail = ({ log, onClose }: SpamLogDetailProps) => (
           )}
           <div className="grid grid-cols-[120px_1fr] gap-2">
             <span className="text-sm font-medium">Detected:</span>
-            <span className="text-sm">{formatDate(log.detectedAt)}</span>
+            <span className="font-mono text-sm">{formatDate(log.detectedAt)}</span>
           </div>
         </div>
       </div>

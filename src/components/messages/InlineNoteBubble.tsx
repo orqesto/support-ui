@@ -53,10 +53,10 @@ export function InlineNoteBubble({ note, messageId, currentUserId, onUpdated, on
 
   return (
     <div className="flex gap-2">
-      <StickyNote className="w-3.5 h-3.5 text-muted-foreground dark:text-amber-500 flex-shrink-0 mt-1" />
+      <StickyNote className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0 mt-1" />
       <div className="flex flex-col flex-1 max-w-[90%]">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className="font-display text-[9px] uppercase tracking-widest text-foreground/55 dark:text-amber-400 font-medium">
+          <span className="font-display text-[9px] uppercase tracking-widest text-foreground/55 font-medium">
             INTERNAL NOTE · {who} · {relativeTime(note.createdAt)}
           </span>
           {isOwner && !isEditing && (
@@ -69,7 +69,7 @@ export function InlineNoteBubble({ note, messageId, currentUserId, onUpdated, on
                   setIsEditing(true);
                   setEditContent(note.content);
                 }}
-                className="p-0 w-auto h-auto text-note hover:text-amber-900 dark:hover:text-amber-300"
+                className="p-0 w-auto h-auto text-note hover:text-note"
               >
                 <Pencil className="w-2.5 h-2.5" />
               </Button>
@@ -79,7 +79,7 @@ export function InlineNoteBubble({ note, messageId, currentUserId, onUpdated, on
                 aria-label="Delete note"
                 onClick={() => void handleDelete()}
                 disabled={deleting}
-                className="p-0 w-auto h-auto text-note hover:text-red-600 dark:hover:text-red-400 disabled:opacity-40"
+                className="p-0 w-auto h-auto text-note hover:text-destructive disabled:opacity-40"
               >
                 <Trash2 className="w-2.5 h-2.5" />
               </Button>
@@ -88,7 +88,7 @@ export function InlineNoteBubble({ note, messageId, currentUserId, onUpdated, on
         </div>
         {isEditing ? (
           <div className="space-y-1">
-            <div className="rounded border border-l-2 border-l-amber-400 border-border dark:border-amber-700 dark:bg-amber-900/10">
+            <div className="rounded border border-l-2 border-l-note-line border-border dark:bg-note-muted">
               <RichTextEditor
                 content={editContent}
                 onChange={setEditContent}
@@ -102,7 +102,7 @@ export function InlineNoteBubble({ note, messageId, currentUserId, onUpdated, on
                 variant="ghost"
                 size="sm"
                 onClick={() => void handleSave()}
-                className="p-0 h-auto text-[10px] font-mono text-muted-foreground hover:text-foreground dark:text-amber-600 dark:hover:text-amber-700"
+                className="p-0 h-auto text-[10px] font-mono text-muted-foreground hover:text-foreground"
               >
                 Save
               </Button>
@@ -121,7 +121,7 @@ export function InlineNoteBubble({ note, messageId, currentUserId, onUpdated, on
           </div>
         ) : (
           <div
-            className="rounded-lg px-3 py-2 border-l-2 border-l-amber-400 border border-border bg-card dark:border-amber-700/40 dark:bg-amber-300/5 text-foreground dark:text-amber-50/90 text-[12px] leading-relaxed break-words prose prose-sm max-w-none dark:prose-invert"
+            className="rounded-lg px-3 py-2 border-l-2 border-l-note-line border border-border bg-card text-foreground text-[12px] leading-relaxed break-words prose prose-sm max-w-none dark:prose-invert"
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(note.content, { ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'u', 'strong', 'em', 'ul', 'ol', 'li', 'code', 'pre'], ALLOWED_ATTR: [] }) }}
           />
         )}

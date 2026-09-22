@@ -472,7 +472,7 @@ export const MessageProcessingProgress = ({
               <div>
                 <div className="flex gap-1 justify-center items-center">
                   <Loader2
-                    className={`w-3 h-3 ${isProcessing ? 'animate-spin text-primary' : 'text-muted-foreground'}`}
+                    className={`w-3 h-3 ${isProcessing ? 'animate-spin text-muted-foreground' : 'text-muted-foreground'}`}
                   />
                   <span className="text-lg font-bold">
                     {Math.min(processed > 0 ? processed : current, (emailTotal ?? total) || 999)}
@@ -510,7 +510,7 @@ export const MessageProcessingProgress = ({
             )}
             <div>
               <div className="flex gap-1 justify-center items-center">
-                <div className="w-3 h-3 bg-amber-500 rounded-full" />
+                <div className="w-3 h-3 bg-warning rounded-full" />
                 <span className="text-lg font-bold">{skipped ?? 0}</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Skipped</p>
@@ -701,7 +701,7 @@ export const MessageProcessingProgress = ({
                   ) : null}
                   {totalTime && totalTime > 0 ? (
                     <div>
-                      <p className="font-mono text-xs font-semibold text-primary">
+                      <p className="font-mono text-xs font-semibold text-foreground">
                         {totalTime < 1000 ? `${totalTime}ms` : `${(totalTime / 1000).toFixed(1)}s`}
                       </p>
                       <p className="text-[10px] text-muted-foreground">Total</p>

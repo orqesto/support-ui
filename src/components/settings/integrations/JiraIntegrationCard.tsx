@@ -123,7 +123,7 @@ export const JiraIntegrationCard = ({
                 >
                   <div className="flex flex-1 gap-3 items-center min-w-0">
                     <div
-                      className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-success' : 'bg-gray-400'}`}
+                      className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-success' : 'bg-faint-foreground'}`}
                     />
                     <div>
                       <div className="flex items-center gap-2">
@@ -134,7 +134,7 @@ export const JiraIntegrationCard = ({
                           <DepartmentBadge departmentId={integration.departmentId} size="sm" />
                         )}
                         {integration.isDefault && (
-                          <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-amber-700 bg-amber-100 rounded-full dark:bg-amber-900/30 dark:text-amber-500">
+                          <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-warning bg-warning-muted rounded-full">
                             <Star className="w-3 h-3 fill-current" />
                             Default
                           </span>

@@ -79,7 +79,7 @@ export const SourceKbStrip = ({
   return (
     <div className="flex flex-wrap gap-x-3 gap-y-2 justify-between items-center px-3 py-2 mt-2 text-xs rounded-md border bg-muted/40">
       <div className="flex gap-2 items-center min-w-0 text-muted-foreground">
-        <BookOpen className="w-4 h-4 flex-shrink-0 text-purple-500" />
+        <BookOpen className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
         <span className="font-medium text-foreground">Knowledge Base</span>
         {cutoffValid ? (
           <span className="truncate">

@@ -185,7 +185,7 @@ export const LearningNotificationsInbox = () => {
             <Bell className="w-5 h-5" />
             Engine Auto-Actions
             {rows.length > 0 && (
-              <span className="px-2 py-0.5 ml-1 text-xs font-medium rounded-full bg-primary/10 text-primary">
+              <span className="px-2 py-0.5 ml-1 text-xs font-medium rounded-full bg-muted text-foreground">
                 {rows.length}
               </span>
             )}
@@ -205,7 +205,7 @@ export const LearningNotificationsInbox = () => {
         </p>
 
         {error && (
-          <div className="mb-4 flex items-start gap-2 px-3 py-2 rounded-md text-sm bg-red-50 text-red-700 border border-red-200 dark:bg-red-950 dark:border-red-900 dark:text-red-300">
+          <div className="mb-4 flex items-start gap-2 px-3 py-2 rounded-md text-sm bg-destructive-muted text-destructive border border-destructive-line">
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -250,7 +250,7 @@ export const LearningNotificationsInbox = () => {
                         {highlights.map((label) => (
                           <span key={label}>{label}</span>
                         ))}
-                        <span>{formatDate(row.createdAt)}</span>
+                        <span className="font-mono">{formatDate(row.createdAt)}</span>
                         <span>
                           Undo window: {remainingDays} day{remainingDays === 1 ? '' : 's'} left
                         </span>

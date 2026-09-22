@@ -170,7 +170,8 @@ export const SignupPage = () => {
             </div>
             <CardTitle className="text-2xl">Account Created!</CardTitle>
             <CardDescription className="text-base">
-              Your account has been successfully created for <strong>{invitationEmail}</strong>
+              Your account has been successfully created for{' '}
+              <strong className="font-mono">{invitationEmail}</strong>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -232,7 +233,7 @@ export const SignupPage = () => {
 
             <div className="p-3 bg-primary-muted rounded-md border border-primary-line">
               <p className="mb-1 text-xs font-medium text-muted-foreground">Invitation Email</p>
-              <p className="text-sm font-semibold text-foreground">{invitationEmail}</p>
+              <p className="font-mono text-sm font-semibold text-foreground">{invitationEmail}</p>
             </div>
 
             <Input

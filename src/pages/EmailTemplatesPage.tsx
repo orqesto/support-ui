@@ -146,7 +146,7 @@ export const EmailTemplates = () => {
                       onClick={() => loadPreview(template.type)}
                       className={`h-auto rounded-none justify-start w-full text-left p-4 hover:bg-accent transition-colors ${
                         selectedTemplate === template.type
-                          ? 'bg-blue-500/10 dark:bg-blue-500/10 border-l-4 border-primary'
+                          ? 'bg-primary-muted border-l-4 border-primary'
                           : ''
                       }`}
                     >
@@ -183,34 +183,34 @@ export const EmailTemplates = () => {
                     </p>
                     <div className="p-3 space-y-1 font-mono text-xs rounded bg-muted">
                       <div>
-                        <span className="text-primary">{'{{appName}}'}</span> - Application name
+                        <span className="font-mono text-foreground">{'{{appName}}'}</span> - Application name
                       </div>
                       <div>
-                        <span className="text-primary">{'{{year}}'}</span> - Current year
+                        <span className="font-mono text-foreground">{'{{year}}'}</span> - Current year
                       </div>
                       {selectedTemplate === 'invitation' && (
                         <>
                           <div>
-                            <span className="text-primary">{'{{organizationName}}'}</span> -
+                            <span className="font-mono text-foreground">{'{{organizationName}}'}</span> -
                             Workspace
                           </div>
                           <div>
-                            <span className="text-primary">{'{{role}}'}</span> - User role
+                            <span className="font-mono text-foreground">{'{{role}}'}</span> - User role
                           </div>
                           <div>
-                            <span className="text-primary">{'{{signupUrl}}'}</span> - Signup link
+                            <span className="font-mono text-foreground">{'{{signupUrl}}'}</span> - Signup link
                           </div>
                         </>
                       )}
                       {selectedTemplate === 'verification' && (
                         <div>
-                          <span className="text-primary">{'{{verificationUrl}}'}</span> -
+                          <span className="font-mono text-foreground">{'{{verificationUrl}}'}</span> -
                           Verification link
                         </div>
                       )}
                       {selectedTemplate === 'password_reset' && (
                         <div>
-                          <span className="text-primary">{'{{resetUrl}}'}</span> - Reset link
+                          <span className="font-mono text-foreground">{'{{resetUrl}}'}</span> - Reset link
                         </div>
                       )}
                     </div>
@@ -294,7 +294,7 @@ export const EmailTemplates = () => {
               <CardContent>
                 {!selectedTemplate && (
                   <div className="py-12 text-center text-muted-foreground">
-                    <Mail className="mx-auto mb-4 w-16 h-16 text-gray-300" />
+                    <Mail className="mx-auto mb-4 w-16 h-16 text-faint-foreground" />
                     <p>Select a template from the list to preview it</p>
                   </div>
                 )}
@@ -345,7 +345,7 @@ export const EmailTemplates = () => {
                     <iframe
                       srcDoc={previewHtml}
                       title="Email Preview"
-                      className="w-full h-[600px] bg-white"
+                      className="w-full h-[600px] bg-card"
                       sandbox="allow-same-origin"
                     />
                   </div>

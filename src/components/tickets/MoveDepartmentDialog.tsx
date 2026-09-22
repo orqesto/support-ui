@@ -178,7 +178,7 @@ export const MoveDepartmentDialog = ({
           </div>
 
           {willClearAssignee && (
-            <div className="flex items-start gap-2 px-3 py-2 rounded-md text-xs bg-yellow-50 text-yellow-800 border border-yellow-200 dark:bg-yellow-950 dark:border-yellow-900 dark:text-yellow-200">
+            <div className="flex items-start gap-2 px-3 py-2 rounded-md text-xs bg-warning-muted text-warning border border-warning-line">
               <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <span>
                 The current assignee
@@ -189,7 +189,7 @@ export const MoveDepartmentDialog = ({
           )}
 
           {error && (
-            <div className="flex items-start gap-2 px-3 py-2 rounded-md text-sm text-red-600 bg-red-50 border border-red-200 dark:bg-red-950 dark:border-red-900 dark:text-red-400">
+            <div className="flex items-start gap-2 px-3 py-2 rounded-md text-sm text-destructive bg-destructive-muted border border-destructive-line">
               <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>

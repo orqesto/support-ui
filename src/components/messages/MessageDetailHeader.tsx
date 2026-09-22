@@ -350,7 +350,7 @@ export function MessageDetailHeader({
       return {
         label: 'RE-ANALYZING',
         icon: <Sparkles className="w-2.5 h-2.5 animate-pulse" />,
-        cls: 'text-violet-700 border-violet-200 bg-violet-50 dark:text-violet-400 dark:bg-violet-950/30 dark:border-violet-800',
+        cls: 'text-ai border-ai-line bg-ai-muted',
       };
     // The WORK status (Open/In Progress/Pending/On-hold/Resolved) is shown by the
     // status SELECT next to this badge — don't duplicate it here. This badge only
@@ -788,10 +788,10 @@ export function MessageDetailHeader({
       {linkedTicketId && message.status !== 'resolved' && message.status !== 'closed' && (
         <div className="px-4 pb-2">
           <div
-            className={`flex items-center justify-between px-2 py-1 rounded border-l-2 border border-border bg-card ${linkedTicketStatus === 'in_progress' ? 'border-l-emerald-500 dark:border-emerald-700 dark:bg-emerald-950/20' : 'border-l-blue-400 dark:border-blue-800 dark:bg-blue-950/20'}`}
+            className={`flex items-center justify-between px-2 py-1 rounded border-l-2 border border-border bg-card ${linkedTicketStatus === 'in_progress' ? 'border-l-success' : 'border-l-border-strong'}`}
           >
             <span
-              className={`text-[11px] font-medium ${linkedTicketStatus === 'in_progress' ? 'text-success' : 'text-primary'}`}
+              className={`text-[11px] font-medium ${linkedTicketStatus === 'in_progress' ? 'text-success' : 'text-foreground'}`}
             >
               ✓ Ticket #{linkedTicketId}
               {linkedTicketStatus && (
@@ -817,7 +817,7 @@ export function MessageDetailHeader({
         message.status !== 'closed' && (
           <div className="px-4 pb-2">
             <div className="flex flex-wrap items-center gap-1.5 px-2 py-1 rounded border border-primary-line bg-primary-muted">
-              <span className="text-[11px] text-primary">🔀 Also matched:</span>
+              <span className="text-[11px] text-foreground">🔀 Also matched:</span>
               {message.nearMissDepts!.map((deptId) => {
                 const dept = allDepts.find((entry) => entry.id === deptId);
                 if (!dept) return null;
@@ -831,7 +831,7 @@ export function MessageDetailHeader({
                       onClick={() => void handleManualRoute(deptId, false)}
                       disabled={busy}
                       title={`Move this conversation to ${dept.name} (one-off, no rule)`}
-                      className="text-[11px] px-1.5 py-0.5 h-auto rounded-l font-medium bg-primary-muted text-primary hover:bg-blue-200 dark:hover:bg-blue-900/60 disabled:opacity-50"
+                      className="text-[11px] px-1.5 py-0.5 h-auto rounded-l font-medium bg-primary-muted text-primary hover:bg-primary-muted/70 disabled:opacity-50"
                     >
                       {busy && !routingLearn ? `Moving to ${dept.name}…` : `Move to ${dept.name} →`}
                     </Button>
@@ -842,7 +842,7 @@ export function MessageDetailHeader({
                       onClick={() => void handleManualRoute(deptId, true)}
                       disabled={busy}
                       title={`Move to ${dept.name} AND create a routing rule so similar future emails auto-route here`}
-                      className="text-[11px] px-1.5 py-0.5 h-auto rounded-r font-medium border-l border-primary-line bg-primary-muted text-primary hover:bg-blue-300 dark:hover:bg-blue-900/80 disabled:opacity-50"
+                      className="text-[11px] px-1.5 py-0.5 h-auto rounded-r font-medium border-l border-primary-line bg-primary-muted text-primary hover:bg-primary-muted/70 disabled:opacity-50"
                     >
                       {busy && routingLearn ? 'Adding rule…' : '+ rule'}
                     </Button>
@@ -930,7 +930,7 @@ export function MessageDetailHeader({
                       variant="ghost"
                       onClick={item.action}
                       disabled={item.disabled}
-                      className={`w-full flex justify-start items-center gap-2 px-2 py-1.5 h-auto rounded text-xs text-left transition-colors ${item.danger ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30' : 'text-foreground hover:bg-accent'} ${item.disabled ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}`}
+                      className={`w-full flex justify-start items-center gap-2 px-2 py-1.5 h-auto rounded text-xs text-left transition-colors ${item.danger ? 'text-destructive hover:bg-destructive-muted' : 'text-foreground hover:bg-accent'} ${item.disabled ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}`}
                     >
                       {item.icon}
                       {item.label}

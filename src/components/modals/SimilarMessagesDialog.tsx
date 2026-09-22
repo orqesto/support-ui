@@ -262,7 +262,7 @@ export const SimilarMessagesDialog = ({
           {/* No AI provider — the endpoint still returned similar matches, so be
               explicit that this is the fallback rather than an AI-generated reply. */}
           {!loading && aiConfigured === false && (
-            <div className="flex gap-2 items-start p-3 mb-4 text-sm rounded-lg border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
+            <div className="flex gap-2 items-start p-3 mb-4 text-sm rounded-lg border border-warning-line bg-warning-muted text-warning">
               <Sparkles className="flex-shrink-0 mt-0.5 w-4 h-4" />
               <span>
                 AI suggestions need a provider — showing similar messages instead. Connect an AI
@@ -275,7 +275,7 @@ export const SimilarMessagesDialog = ({
               admin task (no provider), these are a content gap or our own failure — and
               conflating them is what made a starved token budget read as an empty KB. */}
           {!loading && aiConfigured !== false && noAnswerReason && (
-            <div className="flex gap-2 items-start p-3 mb-4 text-sm rounded-lg border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
+            <div className="flex gap-2 items-start p-3 mb-4 text-sm rounded-lg border border-warning-line bg-warning-muted text-warning">
               <Sparkles className="flex-shrink-0 mt-0.5 w-4 h-4" />
               <span>{NO_ANSWER_COPY[noAnswerReason] ?? NO_ANSWER_COPY.default}</span>
             </div>
@@ -375,7 +375,7 @@ export const SimilarMessagesDialog = ({
 
                 {/* Translated Response */}
                 {showTranslation && translatedAiResponse && (
-                  <div className="p-3 mt-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded border border-blue-200 dark:from-blue-950/20 dark:to-blue-900/30 dark:border-blue-800">
+                  <div className="p-3 mt-3 bg-muted rounded border border-border">
                     <div className="flex justify-between items-center mb-2">
                       <p className="text-sm font-medium text-primary">
                         Translated to {languages?.find((lang) => lang.code === selectedLanguage)?.name}:
@@ -383,7 +383,7 @@ export const SimilarMessagesDialog = ({
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-auto px-2 py-0.5 text-xs text-primary hover:bg-blue-200 dark:hover:bg-blue-800"
+                        className="h-auto px-2 py-0.5 text-xs text-primary hover:bg-primary-muted"
                         onClick={(event) => {
                           event.stopPropagation();
                           void handleUseAnswer(aiResponse);
@@ -595,8 +595,8 @@ export const SimilarMessagesDialog = ({
                   <div
                     className={`p-3 rounded border ${
                       msg.source === 'documentation'
-                        ? 'bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800'
-                        : 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800'
+                        ? 'bg-primary-muted border-primary-line'
+                        : 'bg-success-muted border-success-line'
                     }`}
                   >
                     <div className="flex justify-between items-center mb-2">

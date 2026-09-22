@@ -389,13 +389,13 @@ export const TicketDetail = ({
             </div>
 
             {ticket.externalId && ticket.externalUrl && (
-              <ExternalLink href={ticket.externalUrl}>{ticket.externalId}</ExternalLink>
+              <ExternalLink href={ticket.externalUrl} className="font-mono">{ticket.externalId}</ExternalLink>
             )}
           </div>
           {ticket.externalId && (
-            <div className="flex gap-2 items-center p-3 mt-3 text-sm rounded-lg border bg-blue-500/10 dark:bg-blue-500/10 border-blue-500/20">
+            <div className="flex gap-2 items-center p-3 mt-3 text-sm rounded-lg border bg-muted border-border">
               <ExternalLinkIcon className="w-4 h-4 text-muted-foreground" />
-              <p className="text-primary">
+              <p className="text-foreground">
                 <strong>Synced with Jira.</strong> This ticket is managed in Jira. Changes made in
                 Jira will automatically sync here.
               </p>
@@ -411,7 +411,7 @@ export const TicketDetail = ({
           <span className="text-sm font-medium truncate">{ticket.sender}</span>
 
           <span className="font-display text-[11px] tracking-[0.09em] uppercase text-muted-foreground font-medium">Created</span>
-          <span className="text-sm text-muted-foreground">{formatDate(ticket.createdAt)}</span>
+          <span className="font-mono text-sm text-muted-foreground">{formatDate(ticket.createdAt)}</span>
 
           <span className="font-display text-[11px] tracking-[0.09em] uppercase text-muted-foreground self-center font-medium">Assigned</span>
           <AssignmentSelect

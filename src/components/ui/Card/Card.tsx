@@ -23,7 +23,10 @@ export const CardHeader = ({ className, padding, ...props }: CardHeaderProps) =>
 );
 
 export const CardTitle = ({ className, children, ...props }: CardTitleProps) => (
-  <h3 className={cn('text-2xl font-semibold tracking-tight leading-none', className)} {...props}>
+  <h3
+    className={cn('font-display text-2xl font-semibold tracking-tight leading-none', className)}
+    {...props}
+  >
     {children}
   </h3>
 );

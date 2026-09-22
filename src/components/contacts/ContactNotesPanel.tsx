@@ -30,14 +30,14 @@ export function ContactNotesPanel({
       {notes.map((note) => (
         <div
           key={note.id}
-          className="p-2.5 rounded-lg border group bg-amber-50/60 dark:bg-amber-500/5 border-amber-100 dark:border-amber-500/15"
+          className="p-2.5 rounded-lg border group bg-note-muted/60 border-note-line"
         >
           <div className="flex justify-between items-center mb-1">
             <span className="text-[11px] font-semibold text-foreground">
               {note.authorFirstName ?? 'Unknown'} {note.authorLastName ?? ''}
             </span>
             <div className="flex gap-2 items-center">
-              <span className="text-[10.5px] text-muted-foreground">{formatDate(note.createdAt)}</span>
+              <span className="font-mono text-[10.5px] text-muted-foreground">{formatDate(note.createdAt)}</span>
               <Button
                 type="button"
                 variant="ghost"

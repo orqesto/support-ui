@@ -84,7 +84,7 @@ export const DialogHeader = ({ className, children }: DialogSubComponentProps) =
 );
 
 export const DialogTitle = ({ className, children }: DialogSubComponentProps) => (
-  <h2 className={cn('text-lg font-semibold', className)}>{children}</h2>
+  <h2 className={cn('font-display text-lg font-semibold', className)}>{children}</h2>
 );
 
 export const DialogClose = ({ onClose }: DialogCloseProps) => (

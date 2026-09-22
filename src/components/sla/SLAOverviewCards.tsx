@@ -23,7 +23,7 @@ export const SLAOverviewCards = ({ days = SLA_DEFAULT_DAYS }: SLAOverviewCardsPr
         {Array.from({ length: 4 }, (_, idx) => (
           <Card key={`skeleton-${idx}`} className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
-              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="h-10 bg-muted rounded animate-pulse mb-2" />
@@ -56,7 +56,7 @@ export const SLAOverviewCards = ({ days = SLA_DEFAULT_DAYS }: SLAOverviewCardsPr
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {/* Message Response Time */}
-      <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500">
+      <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-border-strong">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Avg Response Time
@@ -66,7 +66,7 @@ export const SLAOverviewCards = ({ days = SLA_DEFAULT_DAYS }: SLAOverviewCardsPr
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-primary">
+          <div className="text-3xl font-bold text-foreground">
             {data.messages.avgResponseTime !== null && data.messages.avgResponseTime !== undefined ? `${data.messages.avgResponseTime}m` : '\u2014'}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
@@ -78,7 +78,7 @@ export const SLAOverviewCards = ({ days = SLA_DEFAULT_DAYS }: SLAOverviewCardsPr
       </Card>
 
       {/* Message Compliance Rate */}
-      <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-green-500">
+      <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-success">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Message SLA Rate
@@ -98,7 +98,7 @@ export const SLAOverviewCards = ({ days = SLA_DEFAULT_DAYS }: SLAOverviewCardsPr
       </Card>
 
       {/* Breaches Today */}
-      <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-red-500">
+      <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-destructive">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Breaches (24h)
@@ -118,17 +118,17 @@ export const SLAOverviewCards = ({ days = SLA_DEFAULT_DAYS }: SLAOverviewCardsPr
       </Card>
 
       {/* Ticket Compliance */}
-      <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-purple-500">
+      <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-border-strong">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Ticket SLA Rate
           </CardTitle>
-          <div className="p-2 bg-purple-50 dark:bg-purple-950 rounded-lg">
-            <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+          <div className="p-2 bg-muted rounded-lg">
+            <TrendingUp className="h-5 w-5 text-muted-foreground" />
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+          <div className="text-3xl font-bold text-foreground">
             {data.tickets.complianceRate !== null && data.tickets.complianceRate !== undefined
               ? `${data.tickets.complianceRate.toFixed(1)}%`
               : '—'}

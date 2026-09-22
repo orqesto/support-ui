@@ -264,7 +264,7 @@ export const SSOConfigSettings = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex gap-2 items-center">
-            <ShieldCheck className="w-5 h-5 text-purple-600" />
+            <ShieldCheck className="w-5 h-5 text-muted-foreground" />
             Single Sign-On (SSO)
           </CardTitle>
         </CardHeader>
@@ -294,7 +294,7 @@ export const SSOConfigSettings = () => {
     <Card>
       <CardHeader>
         <CardTitle className="flex gap-2 items-center">
-          <KeyRound className="w-5 h-5 text-purple-600" />
+          <KeyRound className="w-5 h-5 text-muted-foreground" />
           Single Sign-On (SSO)
         </CardTitle>
         <CardDescription>

@@ -114,7 +114,7 @@ export const ActiveSessionsSettings = () => {
       )}
 
       {error && (
-        <div className="flex gap-2 items-start p-3 text-sm text-red-700 rounded-md border border-red-200 bg-red-50 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900">
+        <div className="flex gap-2 items-start p-3 text-sm text-destructive rounded-md border border-destructive-line bg-destructive-muted">
           <ShieldAlert className="mt-0.5 w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
@@ -133,7 +133,7 @@ export const ActiveSessionsSettings = () => {
           here.
         </p>
       ) : (
-        <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+        <ul className="divide-y divide-border">
           {sessions.map((session) => (
             <li key={session.id} className="flex gap-3 justify-between items-center py-3">
               <div className="flex gap-3 items-center min-w-0">
@@ -144,7 +144,7 @@ export const ActiveSessionsSettings = () => {
                       {describeUserAgent(session.userAgent)}
                     </span>
                     {session.isCurrent && (
-                      <span className="px-2 py-0.5 text-xs font-medium text-green-700 rounded-full bg-green-100 dark:bg-green-900/40 dark:text-green-300">
+                      <span className="px-2 py-0.5 text-xs font-medium text-success rounded-full bg-success-muted">
                         This device
                       </span>
                     )}

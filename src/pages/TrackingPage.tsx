@@ -677,7 +677,7 @@ export const TrackingPage = () => {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <span
-                  className={`text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                  className={`font-display text-xs font-semibold uppercase tracking-[0.09em] px-2 py-0.5 rounded-full ${
                     isResolved ? 'text-success bg-success-muted' : 'text-primary bg-primary-muted'
                   }`}
                 >
@@ -779,7 +779,7 @@ export const TrackingPage = () => {
                       ) : isCurrent ? (
                         <div
                           aria-hidden="true"
-                          className="relative z-10 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 ring-4 ring-blue-50"
+                          className="relative z-10 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 ring-4 ring-muted"
                         >
                           <span className="w-2 h-2 rounded-full bg-card" />
                         </div>
@@ -898,7 +898,7 @@ export const TrackingPage = () => {
                             className={`text-[15px] leading-relaxed px-3.5 py-2.5 rounded-lg max-w-[92%] prose prose-sm prose-a:underline ${
                               isCustomer
                                 ? 'bg-primary text-primary-foreground rounded-tr-sm prose-invert prose-a:text-primary-foreground'
-                                : 'bg-background border border-border rounded-tl-sm prose-a:text-blue-700'
+                                : 'bg-background border border-border rounded-tl-sm prose-a:text-primary'
                             }`}
                             dangerouslySetInnerHTML={{ __html: renderEventHtml(event.content) }}
                           />
@@ -917,8 +917,8 @@ export const TrackingPage = () => {
                   <div
                     className={`rounded-lg border transition ${
                       replyState.kind === 'error'
-                        ? 'border-red-500 focus-within:ring-2 focus-within:ring-red-500/20'
-                        : 'border-border focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/20'
+                        ? 'border-destructive focus-within:ring-2 focus-within:ring-destructive/20'
+                        : 'border-border focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20'
                     }`}
                   >
                     <Textarea

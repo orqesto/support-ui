@@ -50,7 +50,7 @@ export function TicketPanelTabs({
           <button
             key={id}
             onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            className={`font-display flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
               activeTab === id
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -115,20 +115,20 @@ export function TicketPanelTabs({
                     to={`/messages?id=${getConvUrlId(root, orgCode)}`}
                     className="flex gap-3 items-start p-3 rounded-lg border transition-colors bg-muted border-border hover:bg-accent group"
                   >
-                    <div className="p-2 rounded bg-blue-500/10 flex-shrink-0">
+                    <div className="p-2 rounded bg-muted flex-shrink-0">
                       <Mail className="w-4 h-4 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex gap-2 items-center mb-1">
                         <Badge variant="secondary" className="text-xs">{root.channel}</Badge>
-                        <span className="text-xs text-muted-foreground">{formatDate(root.createdAt)}</span>
+                        <span className="font-mono text-xs text-muted-foreground">{formatDate(root.createdAt)}</span>
                         {count > 1 && (
                           <span className="text-xs text-muted-foreground">{count} messages</span>
                         )}
                       </div>
                       <p className="text-sm font-medium truncate">{root.sender}</p>
                       {root.subject && (
-                        <p className="text-sm truncate text-muted-foreground group-hover:text-blue-500 transition-colors">
+                        <p className="text-sm truncate text-muted-foreground group-hover:text-primary transition-colors">
                           {root.subject}
                         </p>
                       )}

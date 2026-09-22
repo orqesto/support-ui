@@ -311,7 +311,7 @@ export const StatisticsPage = () => {
                 aria-controls={`panel-${tab.id}`}
                 onClick={() => handleTabChange(tab.id)}
                 className={cn(
-                  'px-4 py-2 font-medium text-sm border-b-2 transition-colors',
+                  'font-display px-4 py-2 font-medium text-sm border-b-2 transition-colors',
                   activeTab === tab.id
                     ? 'border-primary text-primary'
                     : 'border-transparent text-muted-foreground hover:text-foreground'

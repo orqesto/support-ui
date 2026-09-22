@@ -59,7 +59,7 @@ export const getSpine = (message: Message, thread: MessageThread): SpineColor =>
 export const SPINE_BG: Record<SpineColor, string> = {
   red: 'bg-destructive',
   amber: 'bg-warning',
-  blue: 'bg-primary',
+  blue: 'bg-foreground',
   none: 'bg-transparent',
 };
 
@@ -76,11 +76,11 @@ export const AUTOMATIC_WORK_STATUSES: readonly WorkflowStatus[] = ['open', 'in_p
 
 /** Single source of the label + chip colors per work status (badge, header, select all read this). */
 export const WORKFLOW_STATUS_META: Record<WorkflowStatus, { label: string; className: string }> = {
-  open: { label: 'Open', className: 'bg-slate-500/15 text-muted-foreground' },
-  in_progress: { label: 'In Progress', className: 'bg-blue-500/15 text-primary' },
-  pending: { label: 'Pending', className: 'bg-orange-500/15 text-warning' },
-  on_hold: { label: 'On-hold', className: 'bg-amber-500/15 text-warning' },
-  resolved: { label: 'Resolved', className: 'bg-emerald-500/15 text-success' },
+  open: { label: 'Open', className: 'bg-foreground/10 text-foreground' },
+  in_progress: { label: 'In Progress', className: 'bg-muted text-muted-foreground' },
+  pending: { label: 'Pending', className: 'text-warning border border-warning-line' },
+  on_hold: { label: 'On-hold', className: 'bg-warning/15 text-warning' },
+  resolved: { label: 'Resolved', className: 'bg-success/15 text-success' },
 };
 
 /**
@@ -134,7 +134,7 @@ export const getRoutingBadge = (message: {
   status: Message['status'] | 'new' | 'awaiting_response' | 'client_replied';
 }): { label: string; className: string } | null =>
   message.status === 'needs_routing'
-    ? { label: 'Needs Routing', className: 'bg-violet-500/15 text-violet-700 dark:text-violet-300' }
+    ? { label: 'Needs Routing', className: 'text-foreground border border-dashed border-border-strong' }
     : null;
 
 /**
@@ -157,7 +157,7 @@ export const getSuspicionBadge = (message: {
   isSuspicious?: boolean;
 }): { label: string; className: string } | null =>
   message.isSuspicious === true
-    ? { label: 'Suspicious', className: 'bg-amber-500/15 text-warning' }
+    ? { label: 'Suspicious', className: 'bg-warning/15 text-warning' }
     : null;
 
 /** Priority chip for the inbox cards — all four levels. */
@@ -166,13 +166,13 @@ export const getPriorityBadge = (
 ): { label: string; className: string } | null => {
   switch (priority) {
     case 'critical':
-      return { label: 'Critical', className: 'bg-red-500/15 text-destructive' };
+      return { label: 'Critical', className: 'bg-destructive/15 text-destructive' };
     case 'high':
-      return { label: 'High', className: 'bg-orange-500/15 text-warning' };
+      return { label: 'High', className: 'bg-warning/15 text-warning' };
     case 'medium':
-      return { label: 'Medium', className: 'bg-yellow-500/15 text-warning' };
+      return { label: 'Medium', className: 'bg-warning/15 text-warning' };
     case 'low':
-      return { label: 'Low', className: 'bg-slate-500/10 text-muted-foreground' };
+      return { label: 'Low', className: 'bg-muted text-muted-foreground' };
     default:
       return null;
   }

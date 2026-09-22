@@ -119,7 +119,7 @@ export const SLAByChannelChart = ({ days = SLA_DEFAULT_DAYS }: SLAByChannelChart
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Inbox className="h-5 w-5 text-primary" />
+          <Inbox className="h-5 w-5 text-muted-foreground" />
           Message SLA by Channel
         </CardTitle>
       </CardHeader>

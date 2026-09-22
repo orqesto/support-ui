@@ -376,7 +376,7 @@ export const RoutingRulesSettings = () => {
         {
           header: 'Last Match',
           render: (rule) => (
-            <span className="text-muted-foreground whitespace-nowrap">
+            <span className="font-mono text-muted-foreground whitespace-nowrap">
               {formatLastMatched(rule.lastMatchedAt)}
             </span>
           ),
@@ -458,7 +458,7 @@ export const RoutingRulesSettings = () => {
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <label className="text-sm font-medium">Score</label>
-              <span className="text-sm font-medium text-primary">{formData.weight}</span>
+              <span className="text-sm font-medium text-foreground">{formData.weight}</span>
             </div>
             <input
               type="range"

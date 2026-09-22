@@ -388,7 +388,7 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
                 <label htmlFor="email" className="block mb-2 text-sm font-medium">
                   Email
                 </label>
-                <div className="px-3 py-2 text-sm rounded-md bg-muted">{user.email}</div>
+                <div className="font-mono px-3 py-2 text-sm rounded-md bg-muted">{user.email}</div>
                 <p className="mt-1 text-xs text-muted-foreground">Email cannot be changed</p>
               </div>
 

@@ -102,7 +102,7 @@ export const OllamaProviderCard = ({
                 <div className="flex flex-col gap-3 p-3 sm:flex-row sm:justify-between sm:items-center">
                   <div className="flex flex-1 gap-3 items-center min-w-0">
                     <div
-                      className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-success' : 'bg-gray-400'}`}
+                      className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-success' : 'bg-faint-foreground'}`}
                     />
                     <div className="min-w-0">
                       <p className="font-medium break-words">{integration.name}</p>
@@ -134,7 +134,7 @@ export const OllamaProviderCard = ({
                           disabled={toggling === integration.id}
                           className="sr-only peer"
                         />
-                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary" />
+                        <div className="w-9 h-5 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-card after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary" />
                       </label>
                     </div>
                     <Button

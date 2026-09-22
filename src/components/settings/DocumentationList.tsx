@@ -67,11 +67,11 @@ const getDocumentTypeBadge = (type: DocumentType) => {
 
   const colorClasses = {
     blue: 'text-blue-700 bg-primary-muted dark:text-blue-200',
-    red: 'text-red-700 bg-destructive-muted dark:text-red-200',
+    red: 'text-destructive bg-destructive-muted',
     purple: 'text-purple-700 bg-purple-100 dark:bg-purple-900 dark:text-purple-200',
     indigo: 'text-indigo-700 bg-primary-muted dark:text-indigo-200',
-    green: 'text-green-700 bg-success-muted dark:text-green-200',
-    gray: 'text-gray-700 bg-muted dark:text-gray-300',
+    green: 'text-success bg-success-muted',
+    gray: 'text-muted-foreground bg-muted',
   };
 
   return (
@@ -88,21 +88,21 @@ const getStatusBadge = (status: string) => {
   switch (status) {
     case 'ready':
       return (
-        <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-full dark:bg-green-900 dark:text-green-200">
+        <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-success bg-success-muted rounded-full">
           <CheckCircle className="w-3 h-3" />
           Ready
         </span>
       );
     case 'processing':
       return (
-        <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200">
+        <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-foreground bg-muted rounded-full">
           <Clock className="w-3 h-3 animate-spin" />
           Processing
         </span>
       );
     case 'failed':
       return (
-        <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-red-800 bg-red-100 rounded-full dark:bg-red-900 dark:text-red-200">
+        <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-destructive bg-destructive-muted rounded-full">
           <AlertCircle className="w-3 h-3" />
           Failed
         </span>
@@ -277,13 +277,13 @@ export const DocumentationList = ({
             <div
               key={doc.id}
               id={`doc-${doc.id}`}
-              className={`flex justify-between items-start p-4 rounded-lg border transition-colors dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 ${
+              className={`flex justify-between items-start p-4 rounded-lg border transition-colors hover:bg-accent ${
                 doc.enabled ? '' : 'opacity-60 '
               }${
                 highlightDocId === doc.id
                   ? 'ring-2 ring-primary bg-primary/5 border-primary/40'
                   : selectedDocs.has(doc.id)
-                  ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
+                  ? 'bg-primary-muted border-primary-line'
                   : ''
               }`}
             >
@@ -293,7 +293,7 @@ export const DocumentationList = ({
                   variant="ghost"
                   size="icon"
                   onClick={() => onToggleDoc(doc.id)}
-                  className="flex-shrink-0 p-0 w-auto h-auto mt-1 text-gray-400 transition-colors hover:text-primary hover:bg-transparent focus:outline-none"
+                  className="flex-shrink-0 p-0 w-auto h-auto mt-1 text-faint-foreground transition-colors hover:text-primary hover:bg-transparent focus:outline-none"
                   aria-label={selectedDocs.has(doc.id) ? 'Deselect document' : 'Select document'}
                 >
                   {selectedDocs.has(doc.id) ? (
@@ -308,13 +308,13 @@ export const DocumentationList = ({
                     <h4 className="font-display font-semibold truncate">{doc.title}</h4>
                     {getDocumentTypeBadge(doc.documentType)}
                     {doc.externalSource?.split(':')[0] === 'confluence' && (
-                      <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-sky-800 bg-sky-100 rounded-full dark:bg-sky-900 dark:text-sky-200">
+                      <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-foreground bg-muted rounded-full">
                         <BookOpen className="w-3 h-3" />
                         Confluence
                       </span>
                     )}
                     {(doc.departmentIds ?? []).length === 0 ? (
-                      <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200">
+                      <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-foreground bg-muted rounded-full">
                         <Globe className="w-3 h-3" />
                         All departments
                       </span>
@@ -325,7 +325,7 @@ export const DocumentationList = ({
                     )}
                     {getStatusBadge(doc.status)}
                     {!doc.enabled && (
-                      <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-amber-800 bg-amber-100 rounded-full dark:bg-amber-900 dark:text-amber-200">
+                      <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-warning bg-warning-muted rounded-full">
                         <PowerOff className="w-3 h-3" />
                         Disabled
                       </span>
@@ -338,10 +338,10 @@ export const DocumentationList = ({
 
                   <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
                     <span>{doc.originalFilename}</span>
-                    <span>{formatFileSize(doc.size)}</span>
+                    <span className="font-mono">{formatFileSize(doc.size)}</span>
                     {doc.chunkCount > 0 && <span>{doc.chunkCount} chunks</span>}
                     {doc.timesReferenced > 0 && (
-                      <span className="inline-flex gap-1 items-center font-medium text-purple-600 dark:text-purple-400">
+                      <span className="inline-flex gap-1 items-center font-medium text-muted-foreground">
                         <BarChart3 className="w-3 h-3" />
                         Used {doc.timesReferenced}{' '}
                         {doc.timesReferenced === 1 ? 'time' : 'times'}
@@ -381,7 +381,7 @@ export const DocumentationList = ({
                         <span className="text-muted-foreground">
                           {docProgress[doc.id].message ?? 'Processing...'}
                         </span>
-                        <span className="font-medium text-primary">
+                        <span className="font-medium text-foreground">
                           {docProgress[doc.id].percentage}%
                         </span>
                       </div>
@@ -401,7 +401,7 @@ export const DocumentationList = ({
                   )}
 
                   {doc.processingError && (
-                    <div className="p-2 mt-2 text-sm text-red-800 bg-red-50 rounded border border-red-200 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200">
+                    <div className="p-2 mt-2 text-sm text-destructive bg-destructive-muted rounded border border-destructive-line">
                       Error: {doc.processingError}
                     </div>
                   )}
@@ -428,7 +428,7 @@ export const DocumentationList = ({
                   title={
                     doc.enabled ? 'Disable in suggested answers' : 'Enable in suggested answers'
                   }
-                  className={doc.enabled ? 'text-success' : 'text-gray-400'}
+                  className={doc.enabled ? 'text-success' : 'text-faint-foreground'}
                 >
                   <Power className="w-4 h-4" />
                 </Button>

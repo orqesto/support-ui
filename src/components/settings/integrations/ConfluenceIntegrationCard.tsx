@@ -346,7 +346,7 @@ export const ConfluenceIntegrationCard = ({
                             ? 'Pause — stop syncing and exclude its pages from AI answers'
                             : 'Enable — resume syncing its pages'
                         }
-                        className={integration.enabled ? 'text-success' : 'text-gray-400'}
+                        className={integration.enabled ? 'text-success' : 'text-faint-foreground'}
                       >
                         <Power className="w-4 h-4" />
                       </Button>

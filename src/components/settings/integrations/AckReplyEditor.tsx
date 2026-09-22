@@ -246,7 +246,7 @@ export const AckReplyEditor = ({
         </div>
       </div>
 
-      <div className="flex gap-2 items-start p-3 text-xs rounded-md border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+      <div className="flex gap-2 items-start p-3 text-xs rounded-md border border-warning-line bg-warning-muted text-warning">
         <AlertTriangle className="flex-shrink-0 mt-0.5 w-4 h-4" />
         <span>
           <strong>Public tracking link.</strong> The rendered <code>{'{{tracking_url}}'}</code> is
@@ -255,7 +255,7 @@ export const AckReplyEditor = ({
         </span>
       </div>
 
-      <div className="flex gap-2 items-start p-3 text-xs rounded-md border bg-blue-50 border-blue-300 text-blue-900 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-200">
+      <div className="flex gap-2 items-start p-3 text-xs rounded-md border bg-muted border-border text-foreground">
         <Info className="flex-shrink-0 mt-0.5 w-4 h-4" />
         <span>
           Customer-controlled values ({'{{customer_name}}'}, {'{{original_subject}}'}) are

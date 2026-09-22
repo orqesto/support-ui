@@ -451,7 +451,7 @@ export function RuleEditor<
                             onClick={() => handleDeleteClick(rule)}
                             disabled={deleteDisabled}
                             title={deleteTitle?.(rule)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 disabled:text-muted-foreground"
+                            className="text-destructive hover:text-destructive hover:bg-destructive-muted disabled:text-muted-foreground"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -519,7 +519,7 @@ export function RuleEditor<
                         onClick={() => handleDeleteClick(rule)}
                         disabled={deleteDisabled}
                         title={deleteTitle?.(rule)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 disabled:text-muted-foreground"
+                        className="text-destructive hover:text-destructive hover:bg-destructive-muted disabled:text-muted-foreground"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

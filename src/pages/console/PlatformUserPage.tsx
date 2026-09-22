@@ -79,7 +79,7 @@ const IdpMarker = ({ user }: { user: PlatformUserRow }) => {
             : 'Every workspace membership of this account is owned by an identity provider.'
         }
       >
-        <Badge className="flex gap-1 items-center text-xs text-amber-700 bg-warning-muted dark:text-amber-300">
+        <Badge className="flex gap-1 items-center text-xs text-warning bg-warning-muted">
           <Lock className="w-3 h-3" />
           {partly ? `IdP-managed (${owned}/${user.workspaces.length})` : 'IdP-managed'}
         </Badge>
@@ -393,7 +393,7 @@ export const PlatformUserPage = () => {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="pu-email">Email</Label>
-              <div id="pu-email" className="px-3 py-2 text-sm rounded-md bg-muted">
+              <div id="pu-email" className="font-mono px-3 py-2 text-sm rounded-md bg-muted">
                 {user.email}
               </div>
               <p className="text-xs text-muted-foreground">Email can&apos;t be changed.</p>

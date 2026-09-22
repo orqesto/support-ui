@@ -281,7 +281,7 @@ const CommonRow = ({
           onClick={() => onSetNegated(!negated)}
           className={`grid place-items-center p-0 w-6 h-[26px] rounded shrink-0 text-[13px] ${
             negated
-              ? 'bg-destructive/[0.12] text-red-600 dark:bg-destructive/[0.18] dark:text-red-400 font-semibold'
+              ? 'bg-destructive/[0.12] text-destructive dark:bg-destructive/[0.18] font-semibold'
               : 'text-muted-foreground hover:text-foreground hover:bg-accent'
           }`}
         >
@@ -310,9 +310,9 @@ const FlagsRow = ({
         // white goes muddy on a dark card, so the dark side lifts both alpha and hue.
         const onTone =
           def.tone === 'red'
-            ? 'bg-destructive/[0.12] text-red-600 dark:bg-destructive/[0.18] dark:text-red-400'
+            ? 'bg-destructive/[0.12] text-destructive dark:bg-destructive/[0.18]'
             : def.tone === 'amber'
-              ? 'bg-warning/15 text-amber-600 dark:bg-warning/[0.18] dark:text-amber-400'
+              ? 'bg-warning/15 text-warning dark:bg-warning/[0.18]'
               : 'bg-primary/[0.12] text-primary dark:bg-primary/[0.22] dark:text-foreground';
         return (
           <Button

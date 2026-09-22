@@ -75,7 +75,7 @@ const EngineRunReport = ({ summary }: { summary: EngineRunSummary }) => {
   );
 
   return (
-    <div className="mb-4 px-3 py-2 rounded-md text-sm bg-emerald-50 text-emerald-900 border border-emerald-200 dark:bg-emerald-950 dark:border-emerald-900 dark:text-emerald-200">
+    <div className="mb-4 px-3 py-2 rounded-md text-sm bg-success-muted text-success border border-success-line">
       <div className="flex items-start gap-2 mb-2">
         <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
         <div className="flex-1">
@@ -229,14 +229,14 @@ export const LearningTrustSettings = () => {
         {runSummary && <EngineRunReport summary={runSummary} />}
 
         {error && (
-          <div className="mb-4 flex items-start gap-2 px-3 py-2 rounded-md text-sm bg-red-50 text-red-700 border border-red-200 dark:bg-red-950 dark:border-red-900 dark:text-red-300">
+          <div className="mb-4 flex items-start gap-2 px-3 py-2 rounded-md text-sm bg-destructive-muted text-destructive border border-destructive-line">
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
         )}
 
         {state && state.inInitialGrace && (
-          <div className="mb-4 flex items-start gap-2 px-3 py-2 rounded-md text-sm bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950 dark:border-amber-900 dark:text-amber-200">
+          <div className="mb-4 flex items-start gap-2 px-3 py-2 rounded-md text-sm bg-warning-muted text-warning border border-warning-line">
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span>
               Initial 30-day grace window in effect (ends {formatDate(state.initialGraceUntil)},{' '}
@@ -255,7 +255,7 @@ export const LearningTrustSettings = () => {
                 <p className="font-display text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground">
                   Trust Score
                 </p>
-                <p className="mt-1 text-lg font-semibold">{formatScore(state.trustScore)}</p>
+                <p className="font-mono mt-1 text-lg font-semibold">{formatScore(state.trustScore)}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   Threshold ×{state.thresholdMultiplier.toFixed(2)} ·{' '}
                   {state.trustScore < -5

@@ -170,8 +170,8 @@ export const SettingsPage = () => {
       <div className="px-2 mx-auto space-y-4 w-full">
         <div className="flex justify-between items-center">
           <div className="flex gap-3 items-center">
-            <div className="p-2 rounded-lg bg-purple-500/10 dark:bg-purple-500/10">
-              <Settings className="w-6 h-6 text-purple-600" />
+            <div className="p-2 rounded-lg bg-muted">
+              <Settings className="w-6 h-6 text-muted-foreground" />
             </div>
             <div>
               <h1 className="font-display text-2xl font-bold">Settings</h1>

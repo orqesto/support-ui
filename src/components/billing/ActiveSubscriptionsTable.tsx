@@ -27,7 +27,7 @@ export const ActiveSubscriptionsTable = () => {
         </CardHeader>
         <CardContent>
           <div className="flex justify-center items-center py-8">
-            <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
+            <Loader2 className="w-8 h-8 text-faint-foreground animate-spin" />
           </div>
         </CardContent>
       </Card>
@@ -105,8 +105,8 @@ export const ActiveSubscriptionsTable = () => {
                     <Badge
                       className={
                         entry.isActive
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                          : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                          ? 'bg-success-muted text-success'
+                          : 'bg-muted text-muted-foreground'
                       }
                     >
                       {entry.isActive ? 'Active' : 'Inactive'}

@@ -247,13 +247,13 @@ export const PlatformAiSpend = () => {
             <Card>
               <CardContent className="flex flex-col gap-1 p-4">
                 <span className="text-xs text-muted-foreground">Tokens</span>
-                <span className="text-2xl font-semibold">{formatTokens(totalTokens)}</span>
+                <span className="font-mono text-2xl font-semibold">{formatTokens(totalTokens)}</span>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="flex flex-col gap-1 p-4">
                 <span className="text-xs text-muted-foreground">Calls</span>
-                <span className="text-2xl font-semibold">{formatTokens(totalRequests)}</span>
+                <span className="font-mono text-2xl font-semibold">{formatTokens(totalRequests)}</span>
               </CardContent>
             </Card>
             <Card>
@@ -361,7 +361,7 @@ export const PlatformAiSpend = () => {
                             #{org.organizationId}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-right tabular-nums">
+                        <td className="font-mono px-3 py-2 text-right">
                           {formatTokens(org.totalTokens)}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
@@ -372,7 +372,7 @@ export const PlatformAiSpend = () => {
                         {(['default', 'strong', 'vision', 'other'] as ManagedAiTier[]).map((tier) => (
                           <td
                             key={tier}
-                            className="px-3 py-2 text-right tabular-nums text-muted-foreground"
+                            className="font-mono px-3 py-2 text-right text-muted-foreground"
                           >
                             {formatTokens(tokensFor(org, tier))}
                           </td>
@@ -437,10 +437,10 @@ export const PlatformAiSpend = () => {
                             )
                           )}
                         </td>
-                        <td className="px-3 py-2 text-right tabular-nums">
+                        <td className="font-mono px-3 py-2 text-right">
                           {formatTokens(row.totalTokens)}
                         </td>
-                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                        <td className="font-mono px-3 py-2 text-right text-muted-foreground">
                           {formatTokens(row.requests)}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">

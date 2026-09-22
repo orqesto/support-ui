@@ -120,7 +120,7 @@ export const TwoFactorSettings = () => {
       </div>
 
       {success && (
-        <div className="p-3 text-sm text-green-700 bg-green-50 rounded-md dark:bg-green-950/30 dark:text-green-400">
+        <div className="p-3 text-sm text-success bg-success-muted rounded-md">
           {success}
         </div>
       )}

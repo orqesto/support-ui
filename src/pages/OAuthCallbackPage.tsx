@@ -102,10 +102,10 @@ export const OAuthCallbackPage = () => {
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-muted">
-      <div className="p-8 w-full max-w-md bg-white rounded-lg shadow-lg">
+      <div className="p-8 w-full max-w-md bg-card rounded-lg shadow-lg">
         {status === 'processing' && (
           <div className="text-center">
-            <div className="mx-auto w-16 h-16 rounded-full border-4 border-blue-600 animate-spin border-t-transparent" />
+            <div className="mx-auto w-16 h-16 rounded-full border-4 border-muted-foreground animate-spin border-t-transparent" />
             <p className="mt-4 text-lg font-medium text-muted-foreground">{message}</p>
           </div>
         )}

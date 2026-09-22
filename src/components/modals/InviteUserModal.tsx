@@ -194,7 +194,7 @@ export const InviteUserModal = ({
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-border">
           <div className="flex gap-2 items-center">
-            <div className="flex justify-center items-center w-10 h-10 rounded-lg bg-blue-500/10 dark:bg-blue-500/10">
+            <div className="flex justify-center items-center w-10 h-10 rounded-lg bg-muted">
               <UserPlus className="w-5 h-5 text-muted-foreground" />
             </div>
             <h2 className="font-display text-xl font-semibold">Invite User</h2>

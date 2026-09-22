@@ -401,7 +401,7 @@ export const EmailForm = ({
 
       {/* Message Count Display */}
       {messageCount !== null && (
-        <div className="p-3 bg-green-50 rounded-lg border border-green-200 dark:bg-green-950 dark:border-green-800">
+        <div className="p-3 bg-success-muted rounded-lg border border-success-line">
           <p className="text-sm text-success">
             ✅ Found {messageCount} message{messageCount !== 1 ? 's' : ''} matching your criteria
           </p>

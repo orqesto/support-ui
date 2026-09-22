@@ -87,7 +87,7 @@ export const DashboardQuickActions = ({
           </p>
         )}
         {blockedByActive && (
-          <p className="flex gap-1 justify-center items-center text-xs text-primary">
+          <p className="flex gap-1 justify-center items-center text-xs text-foreground">
             <Loader2 className="w-3 h-3 animate-spin" />
             {processingStatus === 'complete'
               ? 'Processing completed. Widget will close automatically...'

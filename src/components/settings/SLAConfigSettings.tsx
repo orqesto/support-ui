@@ -137,7 +137,7 @@ export const SLAConfigSettings = () => {
                     <td className="px-4 py-2.5 font-medium">
                       {PRIORITY_LABELS[ent.key] ?? ent.key}
                       {ent.isCustom && (
-                        <span className="ml-2 text-xs text-primary">(custom)</span>
+                        <span className="ml-2 text-xs text-foreground">(custom)</span>
                       )}
                     </td>
                     <td className="px-4 py-2.5">
@@ -186,7 +186,7 @@ export const SLAConfigSettings = () => {
                     <td className="px-4 py-2.5 font-medium">
                       {CHANNEL_LABELS[ent.key] ?? ent.key}
                       {ent.isCustom && (
-                        <span className="ml-2 text-xs text-primary">(custom)</span>
+                        <span className="ml-2 text-xs text-foreground">(custom)</span>
                       )}
                     </td>
                     <td className="px-4 py-2.5">

@@ -155,7 +155,7 @@ export const KBEntryCard = ({
             onClick={() => onDelete(entry)}
             title="Delete"
             aria-label="Delete"
-            className="text-destructive hover:text-red-700"
+            className="text-destructive hover:text-destructive"
           >
             <Trash2 className="w-4 h-4" />
           </Button>

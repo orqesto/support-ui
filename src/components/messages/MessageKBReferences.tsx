@@ -96,7 +96,7 @@ export const MessageKBReferences = ({ messageId }: MessageKBReferencesProps) => 
         {references.map((ref) => (
           <div
             key={ref.id}
-            className="p-3 bg-white rounded border border-ai-line"
+            className="p-3 bg-card rounded border border-ai-line"
           >
             <div className="flex gap-2 items-start justify-between mb-2">
               <div className="flex-1">

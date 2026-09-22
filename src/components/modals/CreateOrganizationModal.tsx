@@ -112,8 +112,8 @@ export const CreateOrganizationModal = ({
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-border">
           <div className="flex gap-2 items-center">
-            <div className="flex justify-center items-center w-10 h-10 rounded-lg bg-purple-500/10 dark:bg-purple-500/10">
-              <Building2 className="w-5 h-5 text-purple-600" />
+            <div className="flex justify-center items-center w-10 h-10 rounded-lg bg-muted">
+              <Building2 className="w-5 h-5 text-muted-foreground" />
             </div>
             <h2 className="font-display text-xl font-semibold">Create Workspace</h2>
           </div>

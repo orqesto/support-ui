@@ -54,7 +54,7 @@ export const AllianceAdminProposalsCard = ({ allianceId }: { allianceId: number 
           <Card key={proposal.userId} padding="sm" className="flex flex-wrap gap-3 justify-between items-center">
             <div className="min-w-0">
               <p className="font-medium text-foreground">{displayName(proposal)}</p>
-              <p className="text-xs truncate text-muted-foreground">{proposal.email}</p>
+              <p className="font-mono text-xs truncate text-muted-foreground">{proposal.email}</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Workspace admin of <strong className="text-foreground">{workspaceList(proposal)}</strong>
               </p>

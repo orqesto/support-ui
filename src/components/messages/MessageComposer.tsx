@@ -135,7 +135,7 @@ export function MessageComposer({
           className={`mb-2 px-3 py-2 text-xs rounded-md border ${
             windowTone === 'blocked'
               ? 'border-destructive/40 bg-destructive/10 text-destructive'
-              : 'border-amber-500/40 bg-amber-500/10 text-warning'
+              : 'border-warning/40 bg-warning/10 text-warning'
           }`}
         >
           {sendBlockedReason}
@@ -161,7 +161,7 @@ export function MessageComposer({
           isDragging
             ? 'border-primary border-dashed ring-2 ring-primary/30'
             : composerMode === 'note'
-              ? 'border-l-2 border-l-amber-400 border-border dark:border-amber-700 dark:bg-amber-900/10'
+              ? 'border-l-2 border-l-note-line border-border dark:bg-note-muted'
               : 'border-border bg-card'
         }`}
       >
@@ -203,7 +203,7 @@ export function MessageComposer({
 
         {/* Toolbar */}
         <div
-          className={`flex items-center gap-1.5 px-2 py-1.5 border-t ${composerMode === 'note' ? 'border-warning-line' : 'border-border'}`}
+          className={`flex items-center gap-1.5 px-2 py-1.5 border-t ${composerMode === 'note' ? 'border-note-line' : 'border-border'}`}
         >
           <label
             className="transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
@@ -263,7 +263,7 @@ export function MessageComposer({
             }
             className={`ml-auto flex items-center gap-1 px-2.5 py-1 h-auto rounded ${LABEL} transition-colors disabled:opacity-50 ${
               composerMode === 'note'
-                ? 'bg-amber-800 hover:bg-amber-700 text-primary-foreground'
+                ? 'bg-note hover:bg-note/90 text-note-foreground'
                 : 'bg-primary text-primary-foreground hover:bg-primary/90'
             }`}
           >
@@ -288,7 +288,7 @@ export function MessageComposer({
                 size="icon"
                 aria-label="Remove file"
                 onClick={() => handleRemoveFile(idx)}
-                className="p-0 w-auto h-auto text-stone-400 hover:text-red-500"
+                className="p-0 w-auto h-auto text-faint-foreground hover:text-destructive"
               >
                 <X className="w-2.5 h-2.5" />
               </Button>

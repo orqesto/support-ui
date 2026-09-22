@@ -92,7 +92,7 @@ export function StatisticsOverviewTab({ stats, aiStats, aiLoading, isOrgAdmin, o
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
-        <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">All Conversations</p><p className="mt-2 text-3xl font-bold">{stats.overview.totalMessages}</p><p className="mt-1 text-xs text-muted-foreground">Actionable: {stats.overview.actionableMessages}{stats.meta?.truncated && stats.meta.conversationsTotal ? ` · showing 50k of ${stats.meta.conversationsTotal.toLocaleString()}` : ''}</p></div><Inbox className="w-10 h-10 text-gray-400" /></div></CardContent></Card>
+        <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">All Conversations</p><p className="mt-2 text-3xl font-bold">{stats.overview.totalMessages}</p><p className="mt-1 text-xs text-muted-foreground">Actionable: {stats.overview.actionableMessages}{stats.meta?.truncated && stats.meta.conversationsTotal ? ` · showing 50k of ${stats.meta.conversationsTotal.toLocaleString()}` : ''}</p></div><Inbox className="w-10 h-10 text-faint-foreground" /></div></CardContent></Card>
         <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Total Tickets</p><p className="mt-2 text-3xl font-bold">{stats.overview.totalTickets}</p></div><Ticket className="w-10 h-10 text-success" /></div></CardContent></Card>
         <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Spam Detected</p><p className="mt-2 text-3xl font-bold">{stats.overview.totalSpam}</p></div><AlertTriangle className="w-10 h-10 text-destructive" /></div></CardContent></Card>
         <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Needs Info</p><p className="mt-2 text-3xl font-bold">{stats.overview.totalNeedsInfo}</p></div><HelpCircle className="w-10 h-10 text-warning" /></div></CardContent></Card>
@@ -108,7 +108,7 @@ export function StatisticsOverviewTab({ stats, aiStats, aiLoading, isOrgAdmin, o
                     : '0% of tickets'}
                 </p>
               </div>
-              <Link2 className="w-10 h-10 text-primary" />
+              <Link2 className="w-10 h-10 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -140,12 +140,12 @@ export function StatisticsOverviewTab({ stats, aiStats, aiLoading, isOrgAdmin, o
 
       {/* Spam/Scam Alert Section */}
       {stats.topCategories.some((cat) => isSpamOrScam(cat.categoryName)) && (
-        <Card className="bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800">
+        <Card className="bg-destructive-muted border-destructive-line">
           <CardHeader><CardTitle className="flex gap-2 items-center text-destructive"><ShieldAlert className="w-5 h-5" />Spam &amp; Scam Detection</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-3">
               {stats.topCategories.filter((cat) => isSpamOrScam(cat.categoryName)).map((category) => (
-                <div key={category.categoryId} className="p-3 rounded-lg border bg-red-500/10 dark:bg-red-500/10 border-red-500/20">
+                <div key={category.categoryId} className="p-3 rounded-lg border bg-destructive/10 border-destructive-line">
                   <div className="flex justify-between items-center">
                     <div className="flex gap-2 items-center"><ShieldAlert className="w-4 h-4 text-destructive" /><span className="font-medium text-destructive">{category.categoryName}</span></div>
                     <div className="text-sm font-medium text-destructive">{category.totalMessages} messages detected</div>
@@ -196,10 +196,10 @@ export function StatisticsOverviewTab({ stats, aiStats, aiLoading, isOrgAdmin, o
               <CardHeader><CardTitle className="flex gap-2 items-center capitalize">{getChannelIcon(channelStats.channel)}{channelStats.channel}</CardTitle></CardHeader>
               <CardContent className="space-y-5">
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 rounded-lg border bg-blue-500/10 border-blue-500/20"><div className="text-xs text-muted-foreground">Messages</div><div className="text-2xl font-bold">{channelStats.totalMessages}</div></div>
-                  <div className="p-3 rounded-lg border bg-green-500/10 border-green-500/20"><div className="text-xs text-muted-foreground">Tickets</div><div className="text-2xl font-bold">{channelStats.totalTickets}</div></div>
+                  <div className="p-3 rounded-lg border bg-muted border-border"><div className="text-xs text-muted-foreground">Messages</div><div className="text-2xl font-bold">{channelStats.totalMessages}</div></div>
+                  <div className="p-3 rounded-lg border bg-success/10 border-success-line"><div className="text-xs text-muted-foreground">Tickets</div><div className="text-2xl font-bold">{channelStats.totalTickets}</div></div>
                 </div>
-                <div className="p-3 rounded-lg border bg-purple-500/10 border-purple-500/20"><div className="mb-1 text-xs text-muted-foreground">Ticket Conversion Rate</div><div className="text-xl font-bold text-purple-600 dark:text-purple-400">{conversionRate.toFixed(1)}%</div></div>
+                <div className="p-3 rounded-lg border bg-muted border-border"><div className="mb-1 text-xs text-muted-foreground">Ticket Conversion Rate</div><div className="text-xl font-bold text-foreground">{conversionRate.toFixed(1)}%</div></div>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Unprocessed</span><span className="font-medium">{channelStats.unprocessedMessages}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Ticket Worthy</span><span className="font-medium text-success">{channelStats.ticketWorthyCount}</span></div>
@@ -207,7 +207,7 @@ export function StatisticsOverviewTab({ stats, aiStats, aiLoading, isOrgAdmin, o
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Needs Info</span><span className="font-medium text-warning">{channelStats.needsInfoCount}</span></div>
                   <div className="flex justify-between pt-2 text-sm border-t">
                     <span className="flex gap-1 items-center text-muted-foreground"><ExternalLink className="w-3 h-3" />Jira Synced</span>
-                    <span className="font-medium text-primary">{channelStats.jiraSyncedTickets}{channelStats.totalTickets > 0 && <span className="ml-1 text-xs text-muted-foreground">({((channelStats.jiraSyncedTickets / channelStats.totalTickets) * 100).toFixed(0)}%)</span>}</span>
+                    <span className="font-medium text-foreground">{channelStats.jiraSyncedTickets}{channelStats.totalTickets > 0 && <span className="ml-1 text-xs text-muted-foreground">({((channelStats.jiraSyncedTickets / channelStats.totalTickets) * 100).toFixed(0)}%)</span>}</span>
                   </div>
                 </div>
                 {channelStats.categories.length > 0 && (
@@ -251,9 +251,9 @@ export function StatisticsOverviewTab({ stats, aiStats, aiLoading, isOrgAdmin, o
             ) : aiStats ? (
               <>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">AI Responded</p><p className="mt-2 text-3xl font-bold text-primary">{aiStats.summary.aiResponded}</p><p className="mt-1 text-xs text-muted-foreground">{aiStats.summary.aiPercentage}% of responded</p></div><Bot className="w-10 h-10 text-ai" /></div></CardContent></Card>
+                  <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">AI Responded</p><p className="mt-2 text-3xl font-bold text-foreground">{aiStats.summary.aiResponded}</p><p className="mt-1 text-xs text-muted-foreground">{aiStats.summary.aiPercentage}% of responded</p></div><Bot className="w-10 h-10 text-ai" /></div></CardContent></Card>
                   <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Human Responded</p><p className="mt-2 text-3xl font-bold text-success">{aiStats.summary.humanResponded}</p><p className="mt-1 text-xs text-muted-foreground">{(aiStats.summary.aiResponded + aiStats.summary.humanResponded) > 0 ? Math.round((aiStats.summary.humanResponded / (aiStats.summary.aiResponded + aiStats.summary.humanResponded)) * 100) : 0}% of responded</p></div><Users className="w-10 h-10 text-success" /></div></CardContent></Card>
-                  <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">No Response</p><p className="mt-2 text-3xl font-bold text-muted-foreground">{aiStats.summary.noResponse}</p></div><Inbox className="w-10 h-10 text-gray-400" /></div></CardContent></Card>
+                  <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">No Response</p><p className="mt-2 text-3xl font-bold text-muted-foreground">{aiStats.summary.noResponse}</p></div><Inbox className="w-10 h-10 text-faint-foreground" /></div></CardContent></Card>
                 </div>
                 <div className="grid grid-cols-1 gap-4 mt-4">
                   <Card>

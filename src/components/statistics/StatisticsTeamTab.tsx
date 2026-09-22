@@ -70,7 +70,7 @@ export function StatisticsTeamTab({ teamData, teamLoading, teamError, teamDays }
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.messagesAssigned}</td>
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.messagesProcessed}</td>
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.messagesReplied}</td>
-                          <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{formatAvgReply(entry.stats.avgReplyTimeHours)}</td>
+                          <td className="font-mono px-4 py-3 text-right text-muted-foreground">{formatAvgReply(entry.stats.avgReplyTimeHours)}</td>
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.ticketsAssigned}</td>
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.ticketsResolved}</td>
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.notesAdded}</td>

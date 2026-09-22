@@ -67,7 +67,7 @@ const COLUMNS: KanbanColumnDef[] = [
     label: 'Pending',
     icon: Hourglass,
     accentColor: '#8b5cf6',
-    iconClass: 'text-violet-500',
+    iconClass: 'text-muted-foreground',
     emptyText: 'No pending tickets',
   },
   {
@@ -85,7 +85,7 @@ const COLUMNS: KanbanColumnDef[] = [
     label: 'Closed',
     icon: XCircle,
     accentColor: '#9ca3af',
-    iconClass: 'text-gray-400',
+    iconClass: 'text-faint-foreground',
     emptyText: 'No closed tickets',
   },
 ];
@@ -129,7 +129,7 @@ function TicketCardContent({ ticket }: { ticket: TicketType }) {
         <span className="font-mono">#{ticket.id}</span>
         <span>·</span>
         <Clock className="w-3 h-3" />
-        <span>{formatAge(ticket.createdAt)}</span>
+        <span className="font-mono">{formatAge(ticket.createdAt)}</span>
       </div>
       <div className="flex gap-1 items-center flex-wrap">
         <Badge variant={priorityVariant} className="h-4 px-1 text-[10px]">
@@ -142,7 +142,7 @@ function TicketCardContent({ ticket }: { ticket: TicketType }) {
           </span>
         )}
         {ticketWithExtras.jiraKey && (
-          <span className="text-[10px] font-mono text-primary">{ticketWithExtras.jiraKey}</span>
+          <span className="text-[10px] font-mono text-foreground">{ticketWithExtras.jiraKey}</span>
         )}
       </div>
     </div>

@@ -318,7 +318,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
               key={comment.id}
               className={`p-4 rounded-lg border ${
                 comment.isInternal
-                  ? 'bg-amber-500/10 dark:bg-amber-500/10 border-amber-500/20'
+                  ? 'bg-note/10 border-note-line'
                   : 'bg-card border-border'
               }`}
             >
@@ -365,11 +365,11 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                   </div>
                   {comment.user && (
                     <div className="flex gap-2 items-center text-xs text-muted-foreground">
-                      <span>{comment.user.email}</span>
+                      <span className="font-mono">{comment.user.email}</span>
                     </div>
                   )}
                 </div>
-                <span className="text-xs whitespace-nowrap text-muted-foreground">
+                <span className="font-mono text-xs whitespace-nowrap text-muted-foreground">
                   {formatDate(comment.createdAt)}
                 </span>
               </div>
@@ -417,7 +417,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                             <p className="text-sm font-medium truncate">
                               {attachment.originalFilename}
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="font-mono text-xs text-muted-foreground">
                               {formatFileSize(attachment.size)}
                             </p>
                           </div>
@@ -456,7 +456,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                               variant="ghost"
                               size="sm"
                               onClick={() => confirmDeleteAttachment(attachment.id)}
-                              className="p-1 text-red-600 rounded dark:text-red-400 hover:bg-red-500/10"
+                              className="p-1 text-destructive rounded hover:bg-destructive/10"
                             >
                               <X className="w-4 h-4" />
                             </Button>
@@ -477,7 +477,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                         size="sm"
                         variant="ghost"
                         onClick={() => handleDeleteClick(comment.id)}
-                        className="text-destructive hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
                         <Trash2 className="mr-1 w-3 h-3" />
                         Delete
@@ -511,12 +511,12 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
               >
                 <Paperclip className="w-4 h-4 text-muted-foreground" />
                 <span className="flex-1 text-sm truncate">{file.name}</span>
-                <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
+                <span className="font-mono text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
                 <Button
                   aria-label="Remove file"
                   title="Remove file"
                   onClick={() => handleRemoveFile(index)}
-                  className="p-1 text-red-600 rounded dark:text-red-400 hover:bg-red-500/10"
+                  className="p-1 text-destructive rounded hover:bg-destructive/10"
                   disabled={isSubmitting}
                 >
                   <X className="w-4 h-4" />

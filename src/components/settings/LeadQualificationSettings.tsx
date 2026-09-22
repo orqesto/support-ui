@@ -191,8 +191,8 @@ export const LeadQualificationSettings = () => {
     <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-violet-500/10">
-          <Target className="w-5 h-5 text-violet-600" />
+        <div className="p-2 rounded-lg bg-muted">
+          <Target className="w-5 h-5 text-muted-foreground" />
         </div>
         <div>
           <h2 className="font-display text-lg font-semibold">Lead Qualification</h2>
@@ -204,21 +204,21 @@ export const LeadQualificationSettings = () => {
       </div>
 
       {/* How it works */}
-      <div className="p-4 rounded-lg border bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
+      <div className="p-4 rounded-lg border bg-muted border-border">
         <div className="flex gap-2 items-start mb-3">
           <Info className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
-          <h3 className="font-display text-sm font-semibold text-primary">How it works</h3>
+          <h3 className="font-display text-sm font-semibold text-foreground">How it works</h3>
         </div>
-        <div className="flex flex-wrap gap-2 items-center text-xs text-primary mb-3">
-          <span className="px-2 py-1 rounded bg-primary-muted">Lead writes in</span>
+        <div className="flex flex-wrap gap-2 items-center text-xs text-foreground mb-3">
+          <span className="px-2 py-1 rounded bg-raised border border-border">Lead writes in</span>
           <ArrowRight className="w-3 h-3 shrink-0" />
-          <span className="px-2 py-1 rounded bg-primary-muted">AI extracts info</span>
+          <span className="px-2 py-1 rounded bg-raised border border-border">AI extracts info</span>
           <ArrowRight className="w-3 h-3 shrink-0" />
-          <span className="px-2 py-1 rounded bg-primary-muted">Asks follow-up (up to 8 turns)</span>
+          <span className="px-2 py-1 rounded bg-raised border border-border">Asks follow-up (up to 8 turns)</span>
           <ArrowRight className="w-3 h-3 shrink-0" />
-          <span className="px-2 py-1 rounded bg-primary-muted">Category assigned → escalate</span>
+          <span className="px-2 py-1 rounded bg-raised border border-border">Category assigned → escalate</span>
         </div>
-        <ul className="space-y-1.5 text-xs text-primary">
+        <ul className="space-y-1.5 text-xs text-foreground">
           <li>
             <span className="font-medium">Qualification Fields</span> — tell the AI what data to
             collect (e.g. budget, timeline). Answers accumulate across turns and are visible on the

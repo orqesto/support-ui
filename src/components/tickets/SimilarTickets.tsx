@@ -154,9 +154,9 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
 
   if (loading) {
     return (
-      <div className="p-4 rounded-lg border border-slate-200 bg-slate-50/60 dark:bg-slate-900/20 dark:border-slate-700/50">
+      <div className="p-4 rounded-lg border border-border bg-muted/60">
         <div className="flex gap-2 items-center">
-          <Spinner className="text-slate-400" />
+          <Spinner className="text-faint-foreground" />
           <span className="text-sm text-muted-foreground">
             Searching similar resolved issues…
           </span>
@@ -170,13 +170,13 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 dark:border-slate-700/60 overflow-hidden">
+    <div className="rounded-lg border border-border overflow-hidden">
       <Button
         variant="ghost"
-        className="flex gap-2 items-center p-4 w-full h-auto justify-start rounded-none text-left font-normal bg-slate-50 hover:bg-slate-100/70 dark:bg-slate-900/30 dark:hover:bg-slate-900/50 transition-colors"
+        className="flex gap-2 items-center p-4 w-full h-auto justify-start rounded-none text-left font-normal bg-muted hover:bg-accent/70 transition-colors"
         onClick={() => setExpanded((prev) => !prev)}
       >
-        <div className="p-1.5 rounded-md bg-slate-200/70 dark:bg-slate-700/50">
+        <div className="p-1.5 rounded-md bg-muted/70">
           <Search className="w-3.5 h-3.5 text-muted-foreground" />
         </div>
         <div className="flex-1 min-w-0">
@@ -188,58 +188,58 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
           </span>
         </div>
         {expanded ? (
-          <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+          <ChevronDown className="w-4 h-4 text-faint-foreground shrink-0" />
         ) : (
-          <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+          <ChevronRight className="w-4 h-4 text-faint-foreground shrink-0" />
         )}
       </Button>
 
       {expanded && (
-        <div className="p-3 space-y-2 bg-white dark:bg-transparent border-t border-slate-100 dark:border-slate-700/40">
+        <div className="p-3 space-y-2 bg-card dark:bg-transparent border-t border-border">
           {similarTickets.map((ticket) => (
             <div
               key={
                 ticket.documentationId ? `doc-${ticket.documentationId}` : `msg-${ticket.messageId}`
               }
-              className="p-3 rounded-lg border border-slate-100 bg-slate-50/50 dark:bg-slate-900/20 dark:border-slate-700/40"
+              className="p-3 rounded-lg border border-border bg-muted/50"
             >
               {/* Title row */}
               <div className="flex justify-between items-start gap-2 mb-2">
                 <div className="flex-1 min-w-0 flex items-start gap-1.5">
                   {ticket.documentationId ? (
-                    <BookOpen className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                    <BookOpen className="w-3.5 h-3.5 text-faint-foreground shrink-0 mt-0.5" />
                   ) : (
-                    <MessageSquare className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                    <MessageSquare className="w-3.5 h-3.5 text-faint-foreground shrink-0 mt-0.5" />
                   )}
                   {ticket.ticketId > 0 ? (
                     <Link
                       to={`/tickets/${ticket.ticketId}`}
                       className="flex gap-1 items-center group min-w-0"
                     >
-                      <span className="text-sm font-medium truncate text-foreground group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                      <span className="text-sm font-medium truncate text-foreground group-hover:text-muted-foreground transition-colors">
                         {ticket.ticketTitle}
                       </span>
-                      <ExternalLink className="flex-shrink-0 w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <ExternalLink className="flex-shrink-0 w-3 h-3 text-faint-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </Link>
                   ) : ticket.documentationId ? (
                     <Link
                       to={`/knowledge-base?id=${ticket.documentationId}`}
                       className="flex gap-1 items-center group min-w-0"
                     >
-                      <span className="text-sm font-medium truncate text-foreground group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                      <span className="text-sm font-medium truncate text-foreground group-hover:text-muted-foreground transition-colors">
                         {ticket.ticketTitle}
                       </span>
-                      <ExternalLink className="flex-shrink-0 w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <ExternalLink className="flex-shrink-0 w-3 h-3 text-faint-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </Link>
                   ) : ticket.messageId > 0 ? (
                     <Link
                       to={`/messages/${ticket.messageId}`}
                       className="flex gap-1 items-center group min-w-0"
                     >
-                      <span className="text-sm font-medium truncate text-foreground group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                      <span className="text-sm font-medium truncate text-foreground group-hover:text-muted-foreground transition-colors">
                         {ticket.ticketTitle}
                       </span>
-                      <ExternalLink className="flex-shrink-0 w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <ExternalLink className="flex-shrink-0 w-3 h-3 text-faint-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </Link>
                   ) : (
                     <span className="text-sm font-medium truncate text-foreground">
@@ -249,7 +249,7 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
                 </div>
                 <Badge
                   variant="secondary"
-                  className="shrink-0 text-xs font-medium text-slate-600 bg-slate-100 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600"
+                  className="shrink-0 text-xs font-medium text-muted-foreground bg-muted border-border"
                 >
                   {Math.round(ticket.similarity * 100)}% match
                 </Badge>
@@ -267,7 +267,7 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
                     <Link key={ref.documentationId} to={`/knowledge-base?id=${ref.documentationId}`}>
                       <Badge
                         variant="secondary"
-                        className="text-xs text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800 dark:hover:bg-blue-900"
+                        className="text-xs text-primary bg-primary-muted border border-primary-line hover:bg-primary-muted/70 transition-colors cursor-pointer"
                       >
                         {ref.documentTitle} · {Math.round(ref.similarity * 100)}%
                       </Badge>
@@ -278,7 +278,7 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
 
               {/* Responses */}
               {ticket.responses.length > 0 && (
-                <div className="pt-2 mt-2 border-t border-slate-100 dark:border-slate-700/40 space-y-2">
+                <div className="pt-2 mt-2 border-t border-border space-y-2">
                   {ticket.responses.map((response) => (
                     <div key={response.id}>
                       <div className="flex justify-between items-center mb-1">
@@ -300,7 +300,7 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
                             size="sm"
                             variant="outline"
                             onClick={() => handleUseResponse(response.content)}
-                            className="text-xs h-7 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-border dark:text-slate-300 dark:hover:bg-slate-800/50"
+                            className="text-xs h-7 border-border text-muted-foreground hover:bg-accent hover:border-border"
                           >
                             Use This Response
                           </Button>

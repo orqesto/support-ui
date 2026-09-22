@@ -84,11 +84,11 @@ export const AIProviderHealthCheck = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'healthy':
-        return 'bg-green-50 dark:bg-green-900/20 border-success-line';
+        return 'bg-success-muted border-success-line';
       case 'unhealthy':
-        return 'bg-red-50 dark:bg-red-900/20 border-destructive-line';
+        return 'bg-destructive-muted border-destructive-line';
       default:
-        return 'bg-amber-50 dark:bg-amber-900/20 border-warning-line';
+        return 'bg-warning-muted border-warning-line';
     }
   };
 
@@ -132,7 +132,7 @@ export const AIProviderHealthCheck = () => {
                     Not in use
                   </span>
                 ) : provider.enabled ? (
-                  <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-success rounded-full">
+                  <span className="text-xs px-2 py-0.5 bg-success-muted text-success rounded-full">
                     Enabled
                   </span>
                 ) : (
@@ -181,7 +181,7 @@ export const AIProviderHealthCheck = () => {
         </p>
 
         {error && (
-          <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-destructive-line rounded-md">
+          <div className="mb-4 p-4 bg-destructive-muted border border-destructive-line rounded-md">
             <p className="text-sm text-destructive">{error}</p>
           </div>
         )}
@@ -200,21 +200,21 @@ export const AIProviderHealthCheck = () => {
                   </p>
                 )}
               </div>
-              <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-md">
+              <div className="p-4 bg-success-muted rounded-md">
                 <p className="text-sm text-success">Healthy</p>
                 <p className="text-2xl font-bold mt-1 text-success">
                   {healthData.summary.healthy}
                 </p>
               </div>
-              <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-md">
+              <div className="p-4 bg-destructive-muted rounded-md">
                 <p className="text-sm text-destructive">Unhealthy</p>
                 <p className="text-2xl font-bold mt-1 text-destructive">
                   {healthData.summary.unhealthy}
                 </p>
               </div>
-              <div className="p-4 bg-primary/10 rounded-md">
-                <p className="text-sm text-primary">Enabled</p>
-                <p className="text-2xl font-bold mt-1 text-primary">{healthData.summary.enabled}</p>
+              <div className="p-4 bg-muted rounded-md">
+                <p className="text-sm text-muted-foreground">Enabled</p>
+                <p className="text-2xl font-bold mt-1 text-foreground">{healthData.summary.enabled}</p>
               </div>
             </div>
 
@@ -251,7 +251,7 @@ export const AIProviderHealthCheck = () => {
             )}
 
             {healthData.summary.unhealthy > 0 && (
-              <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-warning-line rounded-md">
+              <div className="mt-4 p-4 bg-warning-muted border border-warning-line rounded-md">
                 <div className="flex gap-2">
                   <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0" />
                   <div>

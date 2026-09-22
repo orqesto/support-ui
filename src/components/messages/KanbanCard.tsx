@@ -231,7 +231,7 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
           {getChannelIcon(msg.channel)}
         </span>
         <span className={`flex-1 min-w-0 text-sm truncate ${senderClass}`}>{customer}</span>
-        <span className="whitespace-nowrap shrink-0 text-[11px] text-muted-foreground">
+        <span className="font-mono whitespace-nowrap shrink-0 text-[11px] text-muted-foreground">
           {formatAge(activityAt)}
         </span>
       </div>
@@ -262,7 +262,7 @@ export const KanbanCard = ({ thread, onOpen, colId }: KanbanCardProps) => {
 
         {aiState && (
           <Tooltip content={aiState.tooltip} size="sm">
-            <span className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-violet-500/15 text-violet-700 dark:text-violet-300">
+            <span className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-ai-muted text-ai">
               {aiState.label}
             </span>
           </Tooltip>

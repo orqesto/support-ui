@@ -108,7 +108,7 @@ export const AdminPlansTab = () => {
   };
 
   const renderPlanCard = (plan: Plan) => {
-    const borderColor = plan.planType === 'base' ? 'border-blue-500' : 'border-purple-500';
+    const borderColor = plan.planType === 'base' ? 'border-border-strong' : 'border-foreground';
 
     return (
       <Card
@@ -118,14 +118,14 @@ export const AdminPlansTab = () => {
         <div className="flex absolute top-4 right-4 flex-col gap-2 items-end">
           {plan.isActive && (
             <Badge
-              className={`text-primary-foreground ${plan.planType === 'base' ? 'bg-primary' : 'bg-purple-500'}`}
+              className={`${plan.planType === 'base' ? 'bg-muted text-foreground' : 'bg-foreground text-background'}`}
             >
               <Check className="mr-1 w-3 h-3" />
               Active
             </Badge>
           )}
           {!plan.isActive && (
-            <Badge className="text-white bg-gray-500">
+            <Badge className="text-muted-foreground bg-muted">
               <X className="mr-1 w-3 h-3" />
               Inactive
             </Badge>
@@ -136,7 +136,7 @@ export const AdminPlansTab = () => {
         <CardHeader>
           <CardTitle className="pr-20">
             {plan.displayName}
-            <div className="mt-2 text-sm font-normal text-gray-400">{plan.name}</div>
+            <div className="mt-2 text-sm font-normal text-faint-foreground">{plan.name}</div>
             <div className="mt-2 text-2xl font-bold">
               {plan.price === 0 ? (
                 <span className="text-xl">Custom Pricing</span>
@@ -144,7 +144,9 @@ export const AdminPlansTab = () => {
                 <>
                   {plan.currency === 'EUR' ? '€' : '$'}
                   {(plan.price / 100).toFixed(0)}
-                  <span className="text-sm font-normal text-gray-400">/{plan.billingInterval}</span>
+                  <span className="text-sm font-normal text-faint-foreground">
+                    /{plan.billingInterval}
+                  </span>
                 </>
               )}
             </div>
@@ -153,7 +155,7 @@ export const AdminPlansTab = () => {
         </CardHeader>
 
         <CardContent>
-          <div className="pb-4 mb-4 space-y-2 text-sm text-gray-400 border-b">
+          <div className="pb-4 mb-4 space-y-2 text-sm text-faint-foreground border-b">
             <p>
               <strong>{plan.limits.maxUsers}</strong> users
             </p>
@@ -196,10 +198,10 @@ export const AdminPlansTab = () => {
       {/* Current Subscription */}
       {currentPlan && (
         <div>
-          <h2 className="font-display mb-4 text-xl font-semibold text-gray-300">
+          <h2 className="font-display mb-4 text-xl font-semibold text-faint-foreground">
             Current Subscription
           </h2>
-          <p className="mb-4 text-sm text-gray-400">Your workspace&apos;s active plan</p>
+          <p className="mb-4 text-sm text-faint-foreground">Your workspace&apos;s active plan</p>
           <div className="grid grid-cols-1 gap-6">
             {renderPlanCard({ ...currentPlan, isActive: true })}
           </div>
@@ -208,10 +210,12 @@ export const AdminPlansTab = () => {
 
       {/* Base Platform Plans */}
       <div>
-        <h2 className="font-display mb-4 text-xl font-semibold text-gray-300">
+        <h2 className="font-display mb-4 text-xl font-semibold text-faint-foreground">
           Base Platform Plans
         </h2>
-        <p className="mb-4 text-sm text-gray-400">Core platform plans without AI features</p>
+        <p className="mb-4 text-sm text-faint-foreground">
+          Core platform plans without AI features
+        </p>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {basePlans.length > 0 ? (
             basePlans.map((plan) =>
@@ -225,8 +229,10 @@ export const AdminPlansTab = () => {
 
       {/* Enterprise Plans */}
       <div>
-        <h2 className="font-display mb-2 text-xl font-semibold text-gray-300">Enterprise Plans</h2>
-        <p className="mb-4 text-sm text-gray-400">Custom enterprise solutions</p>
+        <h2 className="font-display mb-2 text-xl font-semibold text-faint-foreground">
+          Enterprise Plans
+        </h2>
+        <p className="mb-4 text-sm text-faint-foreground">Custom enterprise solutions</p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {enterprisePlans.length > 0 ? (
             enterprisePlans.map((plan) =>

@@ -58,7 +58,7 @@ export const FilterToken = ({
         variant="ghost"
         onClick={onRemove}
         aria-label={`Remove ${def.label} filter`}
-        className={`grid place-items-center px-1.5 h-auto rounded-none border-l text-muted-foreground border-border hover:text-red-600 dark:hover:text-red-400 hover:bg-destructive/10 dark:hover:bg-destructive/20 ${
+        className={`grid place-items-center px-1.5 h-auto rounded-none border-l text-muted-foreground border-border hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20 ${
           alwaysShowRemove ? '' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
         }`}
       >

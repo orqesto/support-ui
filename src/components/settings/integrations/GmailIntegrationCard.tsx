@@ -344,7 +344,7 @@ export const GmailIntegrationCard = ({
                   <div className="flex flex-col gap-3 p-3 rounded-lg border sm:flex-row sm:justify-between sm:items-center">
                     <div className="flex flex-1 gap-3 items-center min-w-0">
                       <div
-                        className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-success' : 'bg-gray-400'}`}
+                        className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-success' : 'bg-faint-foreground'}`}
                       />
                       <div>
                         <div className="flex gap-2 items-center">
@@ -415,7 +415,7 @@ export const GmailIntegrationCard = ({
                               tabIndex={0}
                               aria-label="Close menu"
                             />
-                            <div className="absolute right-0 z-20 mt-1 w-48 bg-white rounded-md border shadow-lg dark:bg-gray-800">
+                            <div className="absolute right-0 z-20 mt-1 w-48 bg-card rounded-md border shadow-lg">
                               <div className="py-1">
                                 <SourceMenuItem
                                   icon={Calendar}
@@ -521,7 +521,7 @@ export const GmailIntegrationCard = ({
           )}
 
           {popupBlocked && (
-            <div className="p-3 mb-3 text-sm border rounded-md border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+            <div className="p-3 mb-3 text-sm border rounded-md border-warning-line bg-warning-muted text-warning">
               <div className="font-medium">Your browser blocked the OAuth popup.</div>
               <div className="mt-1">{getPopupUnblockInstructions(detectBrowser())}</div>
               <div className="mt-2">
@@ -547,7 +547,7 @@ export const GmailIntegrationCard = ({
                 {' (this redirects the whole page and may clear unsaved settings).'}
               </div>
               {manualAuthUrl && (
-                <div className="pt-2 mt-2 border-t border-amber-300/60 dark:border-amber-700/60">
+                <div className="pt-2 mt-2 border-t border-warning-line">
                   Page didn't navigate?{' '}
                   <a
                     href={manualAuthUrl}

@@ -117,7 +117,7 @@ export const WorkspaceDetailsSettings = () => {
   if (!organization) {
     return (
       <div className="flex flex-col justify-center items-center min-h-[200px]">
-        <Building2 className="mb-4 w-16 h-16 text-gray-400" />
+        <Building2 className="mb-4 w-16 h-16 text-faint-foreground" />
         <h2 className="font-display mb-2 text-2xl font-bold text-foreground">No Workspace</h2>
         <p className="max-w-md text-center text-muted-foreground">
           You are not currently associated with a workspace.
@@ -131,8 +131,8 @@ export const WorkspaceDetailsSettings = () => {
       <CardHeader>
         <div className="flex justify-between items-center">
           <div className="flex gap-3 items-center">
-            <div className="flex justify-center items-center w-12 h-12 bg-purple-100 rounded-lg">
-              <Building2 className="w-6 h-6 text-purple-600" />
+            <div className="flex justify-center items-center w-12 h-12 bg-muted rounded-lg">
+              <Building2 className="w-6 h-6 text-muted-foreground" />
             </div>
             <div>
               <CardTitle className="text-xl font-bold sm:text-xl">Workspace Details</CardTitle>
@@ -214,13 +214,13 @@ export const WorkspaceDetailsSettings = () => {
                 <label htmlFor="createdAt" className="text-sm font-medium text-muted-foreground">
                   Created
                 </label>
-                <p className="mt-1 text-sm">{formatDate(organization.createdAt)}</p>
+                <p className="font-mono mt-1 text-sm">{formatDate(organization.createdAt)}</p>
               </div>
               <div>
                 <label htmlFor="updatedAt" className="text-sm font-medium text-muted-foreground">
                   Last Updated
                 </label>
-                <p className="mt-1 text-sm">{formatDate(organization.updatedAt)}</p>
+                <p className="font-mono mt-1 text-sm">{formatDate(organization.updatedAt)}</p>
               </div>
             </div>
           </div>

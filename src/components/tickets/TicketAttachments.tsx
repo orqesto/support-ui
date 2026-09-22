@@ -240,7 +240,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
         {/* Upload Actions */}
         <div className="flex gap-2 items-center">
           <label
-            className="p-2 text-muted-foreground rounded cursor-pointer hover:bg-gray-100"
+            className="p-2 text-muted-foreground rounded cursor-pointer hover:bg-accent"
             title="Add attachment"
           >
             <Plus className="w-4 h-4" />
@@ -253,7 +253,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       {selectedFiles.length > 0 && (
         <div className="p-3 mb-3 bg-primary-muted rounded-md border border-primary-line">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-primary">{selectedFiles.length} file(s) selected</span>
+            <span className="text-sm text-foreground">{selectedFiles.length} file(s) selected</span>
             <Button
               onClick={handleUpload}
               disabled={isUploading}
@@ -269,25 +269,25 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
       {attachments.length > 0 && (
         <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+            <thead className="bg-muted border-b border-border">
               <tr>
-                <th className="font-display px-4 py-2 text-xs font-medium tracking-[0.09em] text-left text-gray-500 uppercase dark:text-gray-400">
+                <th className="font-display px-4 py-2 text-xs font-medium tracking-[0.09em] text-left text-muted-foreground uppercase">
                   Name
                 </th>
-                <th className="font-display px-4 py-2 text-xs font-medium tracking-[0.09em] text-left text-gray-500 uppercase dark:text-gray-400">
+                <th className="font-display px-4 py-2 text-xs font-medium tracking-[0.09em] text-left text-muted-foreground uppercase">
                   Size
                 </th>
-                <th className="font-display px-4 py-2 text-xs font-medium tracking-[0.09em] text-left text-gray-500 uppercase dark:text-gray-400">
+                <th className="font-display px-4 py-2 text-xs font-medium tracking-[0.09em] text-left text-muted-foreground uppercase">
                   Date added
                 </th>
-                <th className="font-display px-4 py-2 text-xs font-medium tracking-[0.09em] text-right text-gray-500 uppercase dark:text-gray-400">
+                <th className="font-display px-4 py-2 text-xs font-medium tracking-[0.09em] text-right text-muted-foreground uppercase">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
+            <tbody className="bg-card divide-y divide-border">
               {attachments.map((attachment) => (
-                <tr key={attachment.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                <tr key={attachment.id} className="hover:bg-accent">
                   <td className="px-4 py-3">
                     <div className="flex gap-2 items-center">
                       {isImage(attachment.mimeType) && imageBlobUrls[attachment.id] ? (
@@ -309,7 +309,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                  <td className="font-mono px-4 py-3 text-sm text-muted-foreground">
                     {formatFileSize(attachment.size)}
                   </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">
@@ -327,7 +327,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                       {isPreviewable(attachment.mimeType) && (
                         <Button
                           onClick={() => setPreviewAttachment(attachment)}
-                          className="p-1.5 text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                          className="p-1.5 text-muted-foreground hover:bg-accent rounded"
                           title="Preview"
                           aria-label="Preview"
                         >
@@ -336,7 +336,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                       )}
                       <Button
                         onClick={() => void handleDownload(attachment)}
-                        className="p-1.5 text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                        className="p-1.5 text-muted-foreground hover:bg-accent rounded"
                         title="Download"
                         aria-label="Download"
                       >
@@ -350,7 +350,7 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
                           onClick={() =>
                             handleDeleteClick(attachment.id, attachment.originalFilename)
                           }
-                          className="p-1.5 text-destructive hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                          className="p-1.5 text-destructive hover:bg-destructive-muted rounded transition-colors"
                           title="Delete"
                           aria-label="Delete"
                         >

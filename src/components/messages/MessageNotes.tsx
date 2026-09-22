@@ -125,7 +125,7 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
             return (
               <div
                 key={note.id}
-                className="p-3 rounded-lg border bg-amber-500/10 border-amber-500/20"
+                className="p-3 rounded-lg border bg-note/10 border-note-line"
               >
                 <div className="flex justify-between items-start mb-1">
                   <div className="flex gap-2 items-center">
@@ -140,7 +140,7 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
                     </Badge>
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-muted-foreground">{formatDate(note.createdAt)}</span>
+                    <span className="font-mono text-xs text-muted-foreground">{formatDate(note.createdAt)}</span>
                     {isOwner && !isEditing && (
                       <>
                         <Button

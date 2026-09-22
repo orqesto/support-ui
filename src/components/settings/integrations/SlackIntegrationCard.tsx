@@ -74,7 +74,7 @@ export const SlackIntegrationCard = ({
         <CardHeader>
           <div className="flex justify-between">
             <CardTitle className="flex gap-2 items-center text-md md:text-lg lg:text-xl">
-              <Zap className="w-5 h-5 text-purple-600" />
+              <Zap className="w-5 h-5 text-muted-foreground" />
               Slack Workspaces
             </CardTitle>
             <Button
@@ -98,7 +98,7 @@ export const SlackIntegrationCard = ({
                   <div className="flex flex-col gap-3 p-3 rounded-lg border sm:flex-row sm:justify-between sm:items-center">
                     <div className="flex flex-1 gap-3 items-center min-w-0">
                       <div
-                        className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-success' : 'bg-gray-400'}`}
+                        className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-success' : 'bg-faint-foreground'}`}
                       />
                       <div>
                         <div className="flex gap-2 items-center">
