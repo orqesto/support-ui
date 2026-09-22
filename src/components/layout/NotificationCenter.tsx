@@ -35,6 +35,7 @@ import { IngestionDarkSection } from '@/components/layout/IngestionDarkSection';
 import { IngestionGapSection } from '@/components/layout/IngestionGapSection';
 import { KbReviewSection } from '@/components/layout/KbReviewSection';
 import { UnansweredOutboundSection } from '@/components/layout/UnansweredOutboundSection';
+import { notificationPanelPosition, type PanelPosition } from './notificationPanelPosition';
 
 // Notification Center (P3 + P4): one bell that unifies every notification surface —
 // SLA breaches (itemized), the Suspicious/Spam arrival queues + needs-routing depth
@@ -194,9 +195,7 @@ type Props = {
 
 export const NotificationCenter = ({ sla, learning }: Props) => {
   const [open, setOpen] = useState(false);
-  const [panelPos, setPanelPos] = useState<{ top?: number; bottom?: number; left: number }>({
-    left: 0,
-  });
+  const [panelPos, setPanelPos] = useState<PanelPosition>({ left: 0, maxHeight: 0 });
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
@@ -345,19 +344,18 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  /** Geometry lives in `notificationPanelPosition` (pure, tested) — see the rules there. */
   const handleOpen = () => {
     if (!open && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      const panelWidth = 360;
-      const panelHeight = 400;
-      const left = Math.max(8, Math.min(rect.left, window.innerWidth - panelWidth - 8));
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      if (spaceBelow >= panelHeight || spaceBelow >= spaceAbove) {
-        setPanelPos({ top: rect.bottom + 8, left });
-      } else {
-        setPanelPos({ bottom: window.innerHeight - rect.top + 8, left });
-      }
+      const sidebar = buttonRef.current.closest('aside');
+      setPanelPos(
+        notificationPanelPosition({
+          trigger: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
+          sidebarRight: sidebar?.getBoundingClientRect().right,
+          viewport: { width: window.innerWidth, height: window.innerHeight },
+        })
+      );
     }
     setOpen((prev) => !prev);
   };
@@ -395,8 +393,13 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
       {open && (
         <div
           ref={panelRef}
-          style={{ top: panelPos.top, bottom: panelPos.bottom, left: panelPos.left }}
-          className="fixed z-50 w-[360px] rounded-lg border shadow-lg bg-card border-border"
+          style={{
+            top: panelPos.top,
+            bottom: panelPos.bottom,
+            left: panelPos.left,
+            maxHeight: panelPos.maxHeight,
+          }}
+          className="flex overflow-hidden fixed z-50 flex-col w-[360px] rounded-lg border shadow-lg bg-card border-border"
         >
           <div className="flex justify-between items-center px-3 py-2 border-b border-border">
             <span className="text-sm font-semibold">Notifications</span>
@@ -440,7 +443,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
             </div>
           </div>
 
-          <div className="overflow-y-auto p-2 space-y-2 max-h-96">
+          <div className="overflow-y-auto flex-1 p-2 space-y-2 min-h-0 max-h-96">
             {isEmpty ? (
               <p className="py-6 text-sm text-center text-muted-foreground">No notifications</p>
             ) : (
