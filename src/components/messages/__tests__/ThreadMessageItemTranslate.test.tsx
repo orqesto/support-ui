@@ -24,11 +24,27 @@ vi.mock('@/hooks/useMessageHtml', () => ({
   useMessageHtml: () => ({ data: ORIGINAL_HTML, isLoading: false }),
 }));
 
-vi.mock('@/components/shared/TranslateButton', () => ({
-  TranslateButton: ({ onTranslated }: { onTranslated: (content: string) => void }) => (
-    <button onClick={() => onTranslated(TRANSLATED_TEXT)}>mock-translate</button>
-  ),
-}));
+const mounts = vi.hoisted(() => ({ count: 0 }));
+vi.mock('@/components/shared/TranslateButton', async () => {
+  const { useEffect } = await import('react');
+  return {
+    TranslateButton: ({
+      onTranslated,
+    }: {
+      onTranslated: (content: string, subject?: string, language?: string) => void;
+    }) => {
+      // Counts MOUNTS, so a test can see the notice's "Show original" reset the button.
+      useEffect(() => {
+        mounts.count += 1;
+      }, []);
+      return (
+        <button onClick={() => onTranslated(TRANSLATED_TEXT, undefined, 'es')}>
+          mock-translate
+        </button>
+      );
+    },
+  };
+});
 
 afterEach(cleanup);
 
@@ -62,5 +78,28 @@ describe('ThreadMessageItem — translating an inbound HTML message', () => {
     expect(screen.getByText(TRANSLATED_TEXT)).toBeTruthy();
     expect(screen.queryByRole('table')).toBeNull();
     expect(screen.queryByText(/Discount/)).toBeNull();
+  });
+});
+
+describe('ThreadMessageItem — the translated notice (v3)', () => {
+  it('says what the agent is reading, and Show original restores it AND resets the button', () => {
+    render(<ThreadMessageItem msg={inboundMsg} />);
+    const before = mounts.count;
+    fireEvent.click(screen.getByText('mock-translate'));
+    expect(screen.getByText('Translated · ES')).toBeTruthy();
+    expect(
+      screen.getByText('machine translation, plain text — formatting stays on the original')
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show original' }));
+    expect(screen.queryByText('Translated · ES')).toBeNull();
+    expect(screen.getByRole('table')).toBeTruthy();
+    // The button was remounted, so its own "translated" state cannot disagree with the bubble.
+    expect(mounts.count).toBe(before + 1);
+  });
+
+  it('CONTROL: an untranslated message carries no notice', () => {
+    render(<ThreadMessageItem msg={inboundMsg} />);
+    expect(screen.queryByText(/^Translated/)).toBeNull();
   });
 });

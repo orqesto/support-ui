@@ -609,6 +609,10 @@ export type GhostOption = {
   answer: string;
   label: string;
   type: 'lead' | 'documentation' | 'similar';
+  /** 0..1, only when the writer stored one (auto-reply and lead paths; agent saves do not). */
+  confidence?: number;
+  /** The KB document the answer came from, only when the writer stored its title. */
+  sourceTitle?: string;
 };
 
 export type SuggestedAnswerMeta = {
@@ -616,6 +620,8 @@ export type SuggestedAnswerMeta = {
   confidence?: number;
   source?: string;
   foundAt?: string;
+  /** Lead-qualification answers carry their KB documents' titles here. */
+  kbSources?: { type?: string; title?: string }[];
 };
 
 export function toGhostOption(sa: SuggestedAnswerMeta | undefined | null): GhostOption | null {
@@ -623,12 +629,36 @@ export function toGhostOption(sa: SuggestedAnswerMeta | undefined | null): Ghost
   const src = sa.source ?? '';
   const isLead = src === 'lead_qualification' || src === 'lead_qualification_kb';
   const isDocs = src === 'documentation';
+  // ⛔ Absent stays absent: a missing confidence must not read as "0%", and a title is shown only
+  // when the writer stored one — nothing is looked up or guessed here.
+  const confidence =
+    typeof sa.confidence === 'number' &&
+    Number.isFinite(sa.confidence) &&
+    sa.confidence >= 0 &&
+    sa.confidence <= 1
+      ? sa.confidence
+      : undefined;
+  const sourceTitle = sa.kbSources
+    ?.find((ref) => ref.type === 'documentation' && ref.title?.trim())
+    ?.title?.trim();
   return {
     answer: sa.answer,
     label: isLead ? 'LEAD' : isDocs ? 'DOCS' : 'AI',
     type: isLead ? 'lead' : isDocs ? 'documentation' : 'similar',
+    ...(confidence !== undefined ? { confidence } : {}),
+    ...(sourceTitle ? { sourceTitle } : {}),
   };
 }
+
+/** The ghost's caption: "AI suggestion · 87% · Returns policy" (v3), each part only when known. */
+export const ghostCaption = (option: Pick<GhostOption, 'confidence' | 'sourceTitle'>): string =>
+  [
+    'AI suggestion',
+    option.confidence !== undefined ? `${Math.round(option.confidence * 100)}%` : null,
+    option.sourceTitle ?? null,
+  ]
+    .filter((part): part is string => part !== null)
+    .join(' · ');
 
 export function splitAtQuote(
   content: string | null | undefined,

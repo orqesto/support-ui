@@ -12,6 +12,7 @@ import { ContactProfileDetails } from '@/components/contacts/ContactProfileDetai
 import { CustomApiLookupPanel } from '@/components/messages/CustomApiLookupPanel';
 import { useContactProfile } from '@/components/contacts/useContactProfile';
 import { avatarColor, formatAge, getInitials, safeCssColor } from '@/lib/utils';
+import { customerSince } from './contactFacts';
 
 type ContactProfilePanelProps = {
   email: string;
@@ -89,6 +90,8 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
     ? `${contact.assignedUserFirstName} ${contact.assignedUserLastName ?? ''}`.trim()
     : null;
 
+  // Their earliest conversation, not the contact row's birth (contactFacts.ts).
+  const since = contact ? customerSince(contact) : null;
   const openTickets = useMemo(
     () =>
       (contact?.recentTickets ?? []).filter(
@@ -268,7 +271,13 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
                 )}
               </Fact>
               <Fact label="Customer since">
-                <span className="font-mono">{formatAge(contact.createdAt)}</span> ago
+                {since ? (
+                  <>
+                    <span className="font-mono">{formatAge(since)}</span> ago
+                  </>
+                ) : (
+                  '—'
+                )}
               </Fact>
               <Fact label="Last active">
                 {contact.stats?.lastMessageAt

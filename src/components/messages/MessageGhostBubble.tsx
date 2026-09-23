@@ -2,7 +2,7 @@ import { Sparkles, BookOpen } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { stripHtml } from '@/lib/stripHtml';
-import type { GhostOption } from './messageDetailConstants';
+import { ghostCaption, type GhostOption } from './messageDetailConstants';
 
 type Props = {
   aiLoading: boolean;
@@ -101,7 +101,8 @@ export function MessageGhostBubble({
           <span className="inline-flex items-center h-[17px] px-1.5 rounded-[5px] border border-ai-line bg-ai-muted text-[9.5px] tracking-[0.09em] font-semibold uppercase">
             {ghostOption.type === 'documentation' ? 'Docs' : ghostOption.type}
           </span>
-          <span>AI suggestion · {ghostOption.label}</span>
+          {/* The pill already names the type; the caption carries what the pill cannot. */}
+          <span>{ghostCaption(ghostOption)}</span>
           {alternativeCount > 1 && (
             <Button
               variant="ghost"

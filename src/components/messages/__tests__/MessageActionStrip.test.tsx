@@ -48,16 +48,29 @@ describe('MessageActionStrip — action set per status', () => {
     ['open + client replied', { status: 'open' as ThreadStatus, lastReplyFromClient: true }],
     ['client_replied', { status: 'client_replied' as ThreadStatus, lastReplyFromClient: true }],
     ['in_progress', { status: 'in_progress' as ThreadStatus }],
-  ])('%s renders no resolve controls — the header owns that decision', (_label, fields) => {
+  ])('%s renders no resolve controls — the decisions row owns that decision', (_label, fields) => {
     const { container } = renderStrip(makeMessage(fields));
     expect(screen.queryByText(/Resolve/)).toBeNull();
     expect(container.textContent).toBe('');
   });
 
-  it('resolved shows Unresolve, not the active actions', () => {
+  it('resolved shows Reopen, not the active actions', () => {
     renderStrip(makeMessage({ status: 'resolved' }));
-    expect(screen.getByText('Unresolve')).toBeInTheDocument();
+    expect(screen.getByText('Reopen')).toBeInTheDocument();
     expect(screen.queryByText('Resolve & Save to KB')).toBeNull();
+  });
+
+  it('resolved says when and by whom (v3) — from the message, not invented', () => {
+    const ago = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
+    renderStrip(
+      makeMessage({ status: 'resolved', resolvedAt: ago, resolvedByName: 'Daniel Reiss' } as never)
+    );
+    expect(screen.getByText('Resolved 2h ago by Daniel Reiss.')).toBeInTheDocument();
+  });
+
+  it('CONTROL: resolved with no stamp shows no sentence at all', () => {
+    renderStrip(makeMessage({ status: 'resolved' }));
+    expect(screen.queryByText(/^Resolved .+\.$/)).toBeNull();
   });
 
   it('closed shows Reopen', () => {
@@ -153,17 +166,18 @@ describe('MessageActionStrip — not customer work', () => {
     expect(screen.getByText(/newsletter/)).toBeTruthy();
   });
 
-  it('CONTROL: an ordinary closed thread still reads Closed and still offers Save to KB', () => {
+  it('CONTROL: an ordinary closed thread still reads Closed and still offers Promote to KB', () => {
     renderStrip(makeMessage({ status: 'closed' as ThreadStatus }), { onPromoteToKb: vi.fn() });
 
     expect(screen.getByText('Closed')).toBeTruthy();
-    expect(screen.getByText('Save to KB')).toBeTruthy();
+    expect(screen.getByText('Promote to KB')).toBeTruthy();
   });
 
-  it('withholds Save to KB on a binned thread — the backend refuses it', () => {
+  it('withholds Promote to KB on a binned thread — the backend refuses it', () => {
     renderStrip(binned(), { onPromoteToKb: vi.fn() });
 
-    expect(screen.queryByText('Save to KB')).toBeNull();
+    // ⛔ The CURRENT label: asserting the old one's absence would pass on every thread.
+    expect(screen.queryByText('Promote to KB')).toBeNull();
     // Reopen stays: it is the undo, and the backend strips the mark on unresolve.
     expect(screen.getByText('Reopen')).toBeTruthy();
   });

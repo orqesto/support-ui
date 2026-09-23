@@ -91,9 +91,7 @@ export const MessageDetailConfirmDialogs = ({
       <Dialog open={reopenDialogOpen} onOpenChange={setReopenDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {message.status === 'resolved' ? 'Unresolve Message?' : 'Reopen Message?'}
-            </DialogTitle>
+            <DialogTitle>Reopen Message?</DialogTitle>
             <DialogClose onClose={() => setReopenDialogOpen(false)} />
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
@@ -111,7 +109,7 @@ export const MessageDetailConfirmDialogs = ({
                 onReopen?.();
               }}
             >
-              {message.status === 'resolved' ? 'Unresolve & Clean Up' : 'Reopen'}
+              {message.status === 'resolved' ? 'Reopen & Clean Up' : 'Reopen'}
             </Button>
           </DialogFooter>
         </DialogContent>

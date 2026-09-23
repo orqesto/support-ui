@@ -57,7 +57,11 @@ import { useLeadState } from './useLeadState';
 import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
 import { Button } from '@/components/ui/Button';
 import { logger } from '@/lib/logger';
-import { resolveSendFailureMessage } from '@/components/messages/sendErrorMessage';
+import {
+  isRetryableSendFailure,
+  resolveSendFailureMessage,
+} from '@/components/messages/sendErrorMessage';
+import { SendFailedBar } from './SendFailedBar';
 import { resolveComposerWindow } from '@/components/messages/whatsappWindowState';
 import { WhatsAppTemplatePicker } from '@/components/messages/WhatsAppTemplatePicker';
 import type { WhatsAppTemplate } from '@/components/messages/whatsappTemplates';
@@ -240,6 +244,15 @@ export function MessageDetail({
   }, [message.id, message.isRead]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [sendFailedError, setSendFailedError] = useState<string | null>(null);
+  // Retry is offered only for a failure a resend can fix, while the draft is still in the
+  // composer (SendFailedBar). The async `send_failed` event never sets it: by then the composer
+  // was cleared and there is nothing left to resend.
+  const [sendFailureRetryable, setSendFailureRetryable] = useState(false);
+  // The ownership answer the failed send carried, so Retry does not ask the agent again.
+  const lastAssignRef = useRef<ReplyAssignIntent | undefined>(undefined);
+  // …and the MODE it was sent in: after a switch to Internal note, "Retry" would otherwise post
+  // the failed reply's text as a note — a different action under the same button.
+  const lastSendModeRef = useRef<'reply' | 'note'>('reply');
   // Re-render each minute so a window that lapses while the thread is open disables the
   // composer on its own. Without this the agent keeps a stale "open" composer and writes
   // a reply that can no longer be delivered — the failure this feature exists to remove.
@@ -280,6 +293,7 @@ export function MessageDetail({
     const handleSendFailed = (data: unknown) => {
       const event = data as { messageId: number; channel: string };
       if (event.messageId === message.id) {
+        setSendFailureRetryable(false);
         setSendFailedError(
           `Reply could not be delivered via ${event.channel}. The message was saved but not sent — please try again.`
         );
@@ -464,6 +478,9 @@ export function MessageDetail({
     async (assign?: ReplyAssignIntent) => {
       setSubmitting(true);
       setSendFailedError(null);
+      setSendFailureRetryable(false);
+      lastAssignRef.current = assign;
+      lastSendModeRef.current = composerMode;
       // Notes aren't emails — no idempotency needed. For replies, reuse a prior failed attempt's
       // token (retry) so the BE dedups; otherwise mint a fresh one for this logical send.
       if (composerMode !== 'note' && !sendIdempotencyKeyRef.current) {
@@ -520,6 +537,7 @@ export function MessageDetail({
         // Surface the server's own explanation for client errors — see
         // resolveSendFailureMessage for why "please try again" is wrong for some of them.
         setSendFailedError(resolveSendFailureMessage(err));
+        setSendFailureRetryable(isRetryableSendFailure(err));
       } finally {
         setSubmitting(false);
         setAssignPrompt(null);
@@ -968,6 +986,23 @@ export function MessageDetail({
           </div>
         )}
 
+        {sendFailedError && (
+          <SendFailedBar
+            reason={sendFailedError}
+            // Only while the failed draft is still there to resend (a blank composer means the
+            // agent cleared it, or the async failure came after the send cleared it).
+            onRetry={
+              sendFailureRetryable &&
+              !isBlankRichText(composer) &&
+              composerMode === lastSendModeRef.current
+                ? () => void performSend(lastAssignRef.current)
+                : undefined
+            }
+            retrying={submitting}
+            onDismiss={() => setSendFailedError(null)}
+          />
+        )}
+
         {/* State strip (v3): under the header, where the state it explains is shown. */}
         <MessageActionStrip
           message={message}
@@ -1073,23 +1108,6 @@ export function MessageDetail({
             />
           </div>
         </div>
-
-        {/* Send failure alert — shown when BE confirms delivery failed */}
-        {sendFailedError && (
-          <div className="mx-4 p-3 text-sm rounded-md text-destructive bg-destructive/10 flex justify-between items-start gap-2">
-            <span>{sendFailedError}</span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Dismiss"
-              onClick={() => setSendFailedError(null)}
-              className="p-0 w-auto h-auto shrink-0 text-destructive/70 hover:text-destructive"
-            >
-              ✕
-            </Button>
-          </div>
-        )}
 
         {/* Composer — shown for active conversations */}
         {isActive && (

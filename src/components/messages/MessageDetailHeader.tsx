@@ -118,6 +118,35 @@ const BE_STATUS_TO_COLUMN: Partial<Record<ThreadStatus, string>> = {
   open: 'open', // reopen / un-hold
 };
 
+// "Also matched" dismissals: per thread, for the page's lifetime. Deliberately not persisted —
+// the suggestion is a routing hint, and a new session is a fair time to show it again.
+const dismissedNearMiss = new Set<number>();
+export const dismissNearMiss = (messageId: number) => dismissedNearMiss.add(messageId);
+export const isNearMissDismissed = (messageId: number) => dismissedNearMiss.has(messageId);
+
+/**
+ * The hint's sentence, naming the departments routing also scored (v3). A department this user's
+ * list does not carry is not named — it is counted in the generic wording instead.
+ */
+export const nearMissSentence = (names: (string | undefined)[]): string => {
+  const known = names.filter((name): name is string => Boolean(name));
+  if (known.length === 0) {
+    return `Routing also scored this for ${names.length === 1 ? 'another department' : 'other departments'}.`;
+  }
+  // A department missing from this user's list is still COUNTED, so the sentence never claims
+  // fewer departments than the buttons' source did.
+  const unknown = names.length - known.length;
+  const parts =
+    unknown > 0
+      ? [...known, unknown === 1 ? 'another department' : `${unknown} other departments`]
+      : known;
+  const list =
+    parts.length === 1
+      ? parts[0]
+      : `${parts.slice(0, -1).join(', ')} or ${parts[parts.length - 1]}`;
+  return `Routing also scored this for ${list}.`;
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 // v3 header icon action: 30px target, 15px glyph; the tooltip carries the name (and key).
@@ -161,6 +190,9 @@ export function MessageDetailHeader({
     ? message.sender.slice(0, message.sender.indexOf('<')).trim().replace(/^"|"$/g, '')
     : '';
   const [routingTo, setRoutingTo] = useState<number | null>(null);
+  // The "Also matched" hint, dismissed for this thread for the rest of the session (v3).
+  const [nearMissDismissed, setNearMissDismissed] = useState(() => isNearMissDismissed(message.id));
+  useEffect(() => setNearMissDismissed(isNearMissDismissed(message.id)), [message.id]);
   // Tracks whether the in-flight near-miss route is the "+ rule" (learn) variant,
   // so only the clicked button shows its busy label while both are disabled.
   const [routingLearn, setRoutingLearn] = useState(false);
@@ -976,14 +1008,18 @@ export function MessageDetailHeader({
       {/* Re-route banner — runner-up depts from the routing engine.
           Lets an agent move the conversation to a near-miss dept in one click. */}
       {(message.nearMissDepts?.length ?? 0) > 0 &&
+        !nearMissDismissed &&
         message.status !== 'resolved' &&
         message.status !== 'closed' && (
           <div className="px-3.5 pb-[9px]">
             <div className="flex flex-wrap items-center gap-2 px-[9px] py-1.5 rounded-lg border border-primary-line bg-primary-muted">
               <span className={`${LABEL} text-primary`}>Also matched</span>
               <span className="flex-1 min-w-[150px] text-[12px] text-muted-foreground">
-                Routing also scored this for{' '}
-                {message.nearMissDepts!.length === 1 ? 'another department' : 'other departments'}.
+                {nearMissSentence(
+                  message.nearMissDepts!.map(
+                    (deptId) => allDepts.find((entry) => entry.id === deptId)?.name
+                  )
+                )}
               </span>
               {message.nearMissDepts!.map((deptId) => {
                 const dept = allDepts.find((entry) => entry.id === deptId);
@@ -1016,6 +1052,19 @@ export function MessageDetailHeader({
                   </span>
                 );
               })}
+              <Tooltip content="Dismiss" side="bottom" size="sm">
+                <button
+                  type="button"
+                  aria-label="Dismiss routing suggestion"
+                  onClick={() => {
+                    dismissNearMiss(message.id);
+                    setNearMissDismissed(true);
+                  }}
+                  className={ICON_BTN}
+                >
+                  <X className="w-[15px] h-[15px]" />
+                </button>
+              </Tooltip>
             </div>
           </div>
         )}

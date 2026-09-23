@@ -73,12 +73,22 @@ vi.mock('../MessageComposer', () => ({
   MessageComposer: ({
     shortcutHint,
     decisions,
+    setComposer,
+    onSend,
   }: {
     shortcutHint?: string;
     decisions?: React.ReactNode;
+    setComposer: (value: string) => void;
+    onSend: () => void;
   }) => (
     <div data-testid="composer">
       {shortcutHint}
+      <button type="button" onClick={() => setComposer('<p>Label is on its way</p>')}>
+        type draft
+      </button>
+      <button type="button" onClick={onSend}>
+        send draft
+      </button>
       {decisions}
     </div>
   ),
@@ -346,5 +356,122 @@ describe('Esc and in-flight guards', () => {
     expect(onReject).toHaveBeenCalledTimes(1);
     press('j');
     expect(onNavigate).toHaveBeenCalledWith('next');
+  });
+});
+
+describe('Send failed bar (v3)', () => {
+  // The thread is already mine, so no "assign on reply?" prompt stands between Send and the call.
+  const mine = { ...activeThread, assigneeId: 7 };
+  const typeAndSend = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'type draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'send draft' }));
+  };
+
+  it('a server error: labelled, and Retry resends the SAME draft with the SAME idempotency key', async () => {
+    svc.message.reply = vi
+      .fn()
+      .mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 500 }))
+      .mockResolvedValueOnce({ success: true });
+    renderDetail(mine);
+    typeAndSend();
+    const bar = await screen.findByRole('alert');
+    expect(within(bar).getByText('Send failed')).toBeTruthy();
+    fireEvent.click(within(bar).getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+    const [first, second] = svc.message.reply.mock.calls;
+    expect(second[1]).toBe('<p>Label is on its way</p>');
+    // ⛔ A new key would let the BE send the reply twice if the first attempt did land.
+    expect(second[5]).toBe(first[5]);
+    expect(typeof first[5]).toBe('string');
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  });
+
+  it('a 4xx: the server’s own reason, and NO Retry — resending cannot change a refusal', async () => {
+    svc.message.reply = vi
+      .fn()
+      .mockRejectedValue(
+        Object.assign(new Error('The 24-hour WhatsApp window has closed.'), { status: 422 })
+      );
+    renderDetail(mine);
+    typeAndSend();
+    const bar = await screen.findByRole('alert');
+    expect(within(bar).getByText('The 24-hour WhatsApp window has closed.')).toBeTruthy();
+    expect(within(bar).queryByRole('button', { name: 'Retry' })).toBeNull();
+    // CONTROL: the bar still dismisses.
+    fireEvent.click(within(bar).getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('⛔ no Retry after switching to Internal note — it would post the reply as a note', async () => {
+    svc.message.reply = vi.fn().mockRejectedValue(Object.assign(new Error('x'), { status: 503 }));
+    renderDetail(mine);
+    typeAndSend();
+    const bar = await screen.findByRole('alert');
+    expect(within(bar).getByRole('button', { name: 'Retry' })).toBeTruthy();
+    press('n');
+    await waitFor(() => expect(within(bar).queryByRole('button', { name: 'Retry' })).toBeNull());
+    press('r');
+    await waitFor(() => expect(within(bar).getByRole('button', { name: 'Retry' })).toBeTruthy());
+  });
+
+  it('sits under the header, above the thread — not down by the composer', async () => {
+    svc.message.reply = vi.fn().mockRejectedValue(Object.assign(new Error('x'), { status: 503 }));
+    renderDetail(mine);
+    typeAndSend();
+    const bar = await screen.findByRole('alert');
+    const subject = screen.getByRole('heading', { level: 2 });
+    expect(subject.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      bar.compareDocumentPosition(screen.getByTestId('composer')) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    // Above the context tabs and the thread (the design's .errbar sits right under the header).
+    expect(
+      bar.compareDocumentPosition(screen.getByTestId('panel-tabs')) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+});
+
+describe('routing hint (v3): dismissable', () => {
+  it('shows the hint, and its X hides it for this thread', () => {
+    renderDetail({ ...activeThread, id: 9101, nearMissDepts: [3] } as Partial<Message>);
+    expect(screen.getByText('Also matched')).toBeTruthy();
+    // No department list loaded in this harness: the sentence counts it instead of naming it.
+    expect(screen.getByText('Routing also scored this for another department.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss routing suggestion' }));
+    expect(screen.queryByText('Also matched')).toBeNull();
+  });
+
+  it('stays dismissed when the same thread is opened again; another thread still shows it', () => {
+    renderDetail({ ...activeThread, id: 9102, nearMissDepts: [3] } as Partial<Message>);
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss routing suggestion' }));
+    cleanup();
+    renderDetail({ ...activeThread, id: 9102, nearMissDepts: [3] } as Partial<Message>);
+    expect(screen.queryByText('Also matched')).toBeNull();
+    cleanup();
+    // CONTROL: the dismissal is per thread, not global.
+    renderDetail({ ...activeThread, id: 9103, nearMissDepts: [3] } as Partial<Message>);
+    expect(screen.getByText('Also matched')).toBeTruthy();
+  });
+});
+
+describe('routing hint: switching threads in the SAME panel', () => {
+  it('a dismissal on thread A does not hide the hint on thread B shown in its place', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = (id: number) => (
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <MessageDetail
+            message={{ ...baseMessage, ...activeThread, id, nearMissDepts: [3] } as Message}
+            onClose={vi.fn()}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const { rerender } = render(tree(9201));
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss routing suggestion' }));
+    expect(screen.queryByText('Also matched')).toBeNull();
+    rerender(tree(9202));
+    expect(screen.getByText('Also matched')).toBeTruthy();
   });
 });

@@ -4,6 +4,7 @@ import { getSpamCheck, getFilteredCategoryMeta } from '@/lib/messageHelpers';
 import { notCustomerWorkMark } from './notCustomerWork';
 import { Toggle } from '@/components/ui/Toggle';
 import { Button } from '@/components/ui/Button';
+import { formatAge } from '@/lib/utils';
 import type { Message } from '@/types';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -39,6 +40,24 @@ export type MessageActionStripProps = {
 // full width the pair read as two unrelated buttons. `ml-auto` keeps the column right-aligned
 // even after the text column above wraps it onto its own line.
 const DECISION_STACK = 'flex flex-col items-stretch gap-1.5 ml-auto';
+
+/**
+ * "Resolved 2h ago by Daniel Reiss." (v3), each part only when known. `resolvedByName` comes from
+ * a backend that may predate it (FE ships on merge, BE on a tag) — absent, the sentence stops at
+ * the time rather than guessing a resolver; with neither, there is no sentence at all.
+ */
+export const describeResolved = (
+  resolvedAt: string | null | undefined,
+  resolvedByName: string | null | undefined
+): string | null => {
+  const when =
+    resolvedAt && !Number.isNaN(new Date(resolvedAt).getTime())
+      ? `${formatAge(resolvedAt)} ago`
+      : null;
+  const who = resolvedByName?.trim() ? `by ${resolvedByName.trim()}` : null;
+  if (!when && !who) return null;
+  return `Resolved ${[when, who].filter(Boolean).join(' ')}.`;
+};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -270,10 +289,14 @@ export function MessageActionStrip({
   // the state banners: filtered, spam-flagged, suspicious, resolved, closed.
   // Resolved, no ticket
   if (message.status === 'resolved' && !hasLinkedTicket && onReopen) {
+    const resolvedDetail = describeResolved(message.resolvedAt, message.resolvedByName);
     return (
       <div className={strip}>
         <div className="flex-1 min-w-[190px] space-y-1">
           <p className={statusLabel}>Resolved</p>
+          {resolvedDetail && (
+            <p className="text-[12.5px] text-muted-foreground">{resolvedDetail}</p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {onPromoteToKb && (
@@ -283,7 +306,7 @@ export function MessageActionStrip({
               className={`border ${btnBase} h-auto border-border text-muted-foreground hover:bg-accent`}
             >
               <BookOpen className="w-3.5 h-3.5" />
-              Save to KB
+              Promote to KB
             </Button>
           )}
           <Button
@@ -292,7 +315,7 @@ export function MessageActionStrip({
             className={`border ${btnBase} h-auto border-border text-muted-foreground hover:bg-accent`}
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            Unresolve
+            Reopen
           </Button>
         </div>
       </div>
@@ -327,7 +350,7 @@ export function MessageActionStrip({
               className={`border ${btnBase} h-auto border-border text-muted-foreground hover:bg-accent`}
             >
               <BookOpen className="w-3.5 h-3.5" />
-              Save to KB
+              Promote to KB
             </Button>
           )}
           <Button

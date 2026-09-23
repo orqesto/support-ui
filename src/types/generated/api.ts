@@ -91,6 +91,8 @@ export interface components {
         ContactStats: {
             messageCount: number;
             lastMessageAt: string | null;
+            firstMessageAt: string | null;
+            openCount: number;
             isLead: boolean | null;
         };
         RecentMessage: {
@@ -238,6 +240,8 @@ export interface components {
             actualResponseSeconds: number | null;
             nearMissDepts: number[];
             organizationId: number;
+            resolvedByName: string | null;
+            detectedLanguage: string | null;
         };
         CurrentUser: {
             id: number;
@@ -434,6 +438,7 @@ export interface components {
                 /** @enum {string} */
                 kind: "plain" | "money";
                 currency?: string;
+                role?: string;
             }[];
             total?: number | null;
             missing?: string[];
