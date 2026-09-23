@@ -18,10 +18,13 @@ import { Spinner } from '@/components/ui/Spinner';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { FailureAnalysisCard } from '@/components/console/FailureAnalysisCard';
 import {
+  estimateClearTime,
   formatCpuBreakdown,
   formatCpuFigures,
+  formatDuration,
   formatMemoryBreakdown,
   formatMemoryFigures,
+  queuedJobs,
 } from '@/components/console/failureAnalysis.format';
 import { licenseService } from '@/services/license.service';
 import { platformService } from '@/services/platform.service';
@@ -329,13 +332,16 @@ export const PlatformSystem = () => {
                       <th className="px-3 py-2 font-medium">Active</th>
                       <th className="px-3 py-2 font-medium">Completed</th>
                       <th className="px-3 py-2 font-medium">Failed</th>
+                      <th className="px-3 py-2 font-medium">Typical job</th>
+                      <th className="px-3 py-2 font-medium">Waited</th>
+                      <th className="px-3 py-2 font-medium">Clears in</th>
                     </tr>
                   </thead>
                   <tbody>
                     {queues.map((queue) => (
                       <tr key={queue.name} className="border-t border-border">
                         <td className="px-3 py-2 font-medium text-foreground">{queue.name}</td>
-                        <td className="px-3 py-2 text-muted-foreground">{queue.waiting}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{queuedJobs(queue)}</td>
                         <td className="px-3 py-2 text-muted-foreground">{queue.active}</td>
                         <td className="px-3 py-2 text-muted-foreground">{queue.completed}</td>
                         <td className="px-3 py-2">
@@ -353,11 +359,34 @@ export const PlatformSystem = () => {
                             <span className="text-muted-foreground">0</span>
                           )}
                         </td>
+                        <td
+                          className="px-3 py-2 text-muted-foreground"
+                          title={
+                            typeof queue.timing?.slowestRunMs === 'number'
+                              ? `Slowest of the last ${queue.timing.sampled}: ${formatDuration(queue.timing.slowestRunMs)}`
+                              : undefined
+                          }
+                        >
+                          {formatDuration(queue.timing?.medianRunMs)}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {formatDuration(queue.timing?.medianWaitMs)}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">{estimateClearTime(queue) ?? '—'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </Card>
+              {queues.some((queue) => queue.timing) ? (
+                <p className="text-xs text-muted-foreground">
+                  Typical job and Waited are the median of each queue&apos;s most recent finished jobs
+                  (up to 20; finished jobs are kept for about an hour); a CPU-heavy job&apos;s time
+                  includes waiting for a free core. Clears in is the waiting jobs at the pace the queue
+                  finished jobs over the last hour (up to its last 100), measured up to now — an
+                  estimate: quiet spells make it read long.
+                </p>
+              ) : null}
             </>
           )}
         </CardContent>

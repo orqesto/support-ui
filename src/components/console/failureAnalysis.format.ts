@@ -1,4 +1,4 @@
-import type { MemoryLimitSource, QueueFailureGroup, QueueStatus } from '@/services/platform.service';
+import type { MemoryLimitSource, QueueFailureGroup, QueueRow, QueueStatus } from '@/services/platform.service';
 
 /** Epoch millis → local date-time, or a dash when the queue kept no timestamp. */
 export const formatFailedAt = (millis: number | null): string => {
@@ -155,4 +155,56 @@ export const formatCpuBreakdown = (resources: CpuResources | null | undefined): 
   if (loadAvg !== null && loadAvg !== undefined) parts.push(`load average ${loadAvg.toFixed(2)} (1 min, whole host)`);
   parts.push(`status uses ${CPU_SOURCE_LABEL[cpuSource] ?? cpuSource}`);
   return parts.join(' · ');
+};
+
+/** "340 ms", "2.4 s", "12 min", "3 h 10 min" — a job's run or wait time. */
+export const formatDuration = (ms: number | null | undefined): string => {
+  if (ms === null || ms === undefined || !Number.isFinite(ms) || ms < 0) return '—';
+  if (ms < 1_000) return `${Math.round(ms)} ms`;
+  if (ms < 60_000) return `${(ms / 1_000).toFixed(1)} s`;
+  const minutes = Math.round(ms / 60_000);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
+};
+
+/**
+ * Jobs a queue still has to start. `prioritized` is a separate BullMQ set that `waiting` does not
+ * count — `process-message` once read "waiting: 0" while 211 jobs sat there (support-service
+ * queueController). Absent on an older backend, where `waiting` is all there is.
+ */
+export const queuedJobs = (queue: Pick<QueueRow, 'waiting' | 'prioritized'>): number =>
+  queue.waiting + (queue.prioritized ?? 0);
+
+/**
+ * "~12 min", "under a minute", "last finished 3 h ago" — how long the jobs waiting now will take at
+ * the pace the queue finished jobs over the last hour (support-service queueTiming.ts: up to 100
+ * retained finishes, measured up to now). The pace is observed, so throttling, the heavy-job cap and
+ * rate limiters are already in it; quiet spells make it read LONG. On prod 2026-09-23 it said
+ * ~11.7 min for process-kb-message while its oldest waiting job had waited 12.3 min.
+ * Null when nothing is waiting, or (unless paused) the backend sends no timing — nothing to say.
+ *
+ * ⚠️ No estimate never claims the queue is stuck. An empty record is not "nothing finished":
+ * `sync-confluence` jobs are added with `removeOnComplete: { count: 0 }`, so they leave no record at
+ * all however many finish. Each reason says only what the record shows.
+ */
+export const estimateClearTime = (
+  queue: Pick<QueueRow, 'waiting' | 'prioritized' | 'paused' | 'timing'>,
+  now: number = Date.now()
+): string | null => {
+  const queued = queuedJobs(queue);
+  if (queued === 0) return null;
+  if (queue.paused) return 'paused';
+  if (!queue.timing) return null;
+  const { finishesPerMinute, rateSample } = queue.timing;
+  if (finishesPerMinute && finishesPerMinute > 0) {
+    const minutes = queued / finishesPerMinute;
+    return minutes < 1 ? 'under a minute' : `~${formatDuration(minutes * 60_000)}`;
+  }
+  if (rateSample > 0) return 'too few recent jobs to estimate';
+  const lastFinished = queue.timing.lastFinishedAt ? Date.parse(queue.timing.lastFinishedAt) : Number.NaN;
+  return Number.isFinite(lastFinished)
+    ? `last finished ${formatDuration(Math.max(0, now - lastFinished))} ago`
+    : 'no finished jobs on record';
 };
