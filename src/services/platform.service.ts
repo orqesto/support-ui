@@ -164,6 +164,19 @@ export type QueueRow = {
   oldestWaitingExact?: boolean;
 };
 
+/** One minute of one queue, as the queue-health monitor stored it (support-service queueHealth.ts). */
+export type QueueHistorySample = {
+  at: number;
+  queued: number;
+  active: number;
+  failed: number;
+  paused: boolean;
+  finishesPerMinute: number | null;
+  medianRunMs: number | null;
+  oldestWaitingMs: number | null;
+  lastFinishedAt: number | null;
+};
+
 export type QueueStatus = {
   resources: {
     cpu: string;
@@ -551,6 +564,12 @@ export const platformService = {
   getQueueStatus: async (): Promise<QueueStatus> => {
     const res = await apiClient.get<{ data: QueueStatus }>(`${ADMIN}/queue-status`);
     return res.data.data;
+  },
+  getQueueHistory: async (queue: string, hours: number): Promise<QueueHistorySample[]> => {
+    const res = await apiClient.get<{ data: { samples: QueueHistorySample[] } }>(`${ADMIN}/queue-history`, {
+      params: { queue, hours },
+    });
+    return res.data.data.samples;
   },
 
   getQueueFailedJobs: async (name: string, limit = 20): Promise<QueueFailedJob[]> => {

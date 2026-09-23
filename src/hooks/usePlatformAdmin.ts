@@ -298,6 +298,17 @@ export const useUpdatePlatformPlan = () => {
 };
 
 // ─── System ───────────────────────────────────────────────────────────────────
+/** Per-minute history of one queue; refreshed every minute, which is how often it gains a point. */
+export const usePlatformQueueHistory = (queue: string | null, hours: number) =>
+  useQuery({
+    queryKey: ['platform', 'queue-history', queue, hours],
+    queryFn: () => platformService.getQueueHistory(queue as string, hours),
+    enabled: queue !== null,
+    refetchInterval: 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+
 export const usePlatformQueueStatus = () =>
   useQuery({
     queryKey: ['platform', 'queue-status'],

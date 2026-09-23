@@ -17,6 +17,7 @@ import {
 import { Spinner } from '@/components/ui/Spinner';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { FailureAnalysisCard } from '@/components/console/FailureAnalysisCard';
+import { QueueHistoryPanel } from '@/components/console/QueueHistoryPanel';
 import {
   estimateClearTime,
   formatCpuBreakdown,
@@ -391,6 +392,7 @@ export const PlatformSystem = () => {
                   make it read long, and one burst on little history can make it read short.
                 </p>
               ) : null}
+              {queues.length > 0 ? <QueueHistoryPanel queues={queues} /> : null}
             </>
           )}
         </CardContent>
