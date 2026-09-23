@@ -13,19 +13,28 @@ type Range = (typeof RANGES)[number];
 /** The metrics charted, one small chart each: different units never share an axis. */
 export const HISTORY_METRICS = [
   { key: 'queued', title: 'Jobs waiting', value: (sample: QueueHistorySample) => sample.queued },
-  { key: 'rate', title: 'Finished per minute', value: (sample: QueueHistorySample) => sample.finishesPerMinute },
+  {
+    key: 'rate',
+    title: 'Finished per minute',
+    value: (sample: QueueHistorySample) => sample.finishesPerMinute,
+  },
   {
     key: 'oldest',
     title: 'Oldest waiting (min)',
     value: (sample: QueueHistorySample) =>
-      sample.oldestWaitingMs === null ? null : Math.round((sample.oldestWaitingMs / 60_000) * 10) / 10,
+      sample.oldestWaitingMs === null
+        ? null
+        : Math.round((sample.oldestWaitingMs / 60_000) * 10) / 10,
   },
 ] as const;
 
 /** The queue to open on: the one with the most jobs waiting — that is why someone opens this. */
-export const defaultHistoryQueue = (queues: Array<Pick<QueueRow, 'name' | 'waiting' | 'prioritized'>>): string | null => {
+export const defaultHistoryQueue = (
+  queues: Array<Pick<QueueRow, 'name' | 'waiting' | 'prioritized'>>
+): string | null => {
   if (queues.length === 0) return null;
-  const queued = (queue: Pick<QueueRow, 'waiting' | 'prioritized'>) => queue.waiting + (queue.prioritized ?? 0);
+  const queued = (queue: Pick<QueueRow, 'waiting' | 'prioritized'>) =>
+    queue.waiting + (queue.prioritized ?? 0);
   return [...queues].sort((left, right) => queued(right) - queued(left))[0].name;
 };
 
@@ -33,7 +42,25 @@ export const defaultHistoryQueue = (queues: Array<Pick<QueueRow, 'name' | 'waiti
 export const tableRows = (samples: QueueHistorySample[], every = 15): QueueHistorySample[] =>
   samples.filter((_, index) => index % every === 0 || index === samples.length - 1);
 
-const time = (at: number): string => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const time = (at: number): string =>
+  new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+/**
+ * The x-axis spans the CHOSEN range, ending now — not the data. Spanning the data put four ticks
+ * inside one minute ("19:48 19:48 19:49 19:49", staging 2026-09-23, two samples old) and made
+ * 1 h / 6 h / 24 h look identical; a young history now sits at the right edge of an honest axis.
+ */
+export const historyDomain = (hours: number, now: number): [number, number] => [
+  now - hours * 3_600_000,
+  now,
+];
+
+/** Evenly spaced ticks across the range: whole minutes, so no two can print the same label. */
+export const historyTicks = ([from, to]: [number, number], count = 5): number[] =>
+  Array.from({ length: count }, (_, index) => {
+    const at = from + ((to - from) * index) / (count - 1);
+    return Math.round(at / 60_000) * 60_000;
+  });
 
 const tooltipStyle = {
   backgroundColor: 'hsl(var(--popover))',
@@ -55,6 +82,8 @@ export const QueueHistoryPanel = ({ queues }: { queues: QueueRow[] }) => {
   const history = usePlatformQueueHistory(queue, hours);
   const samples = useMemo(() => history.data ?? [], [history.data]);
   const status = (history.error as { status?: number } | null)?.status;
+  // Ends when the data was fetched (once a minute), i.e. now — before the first fetch, the clock.
+  const domain = historyDomain(hours, history.dataUpdatedAt || Date.now());
 
   return (
     <div className="space-y-3">
@@ -106,42 +135,58 @@ export const QueueHistoryPanel = ({ queues }: { queues: QueueRow[] }) => {
           <div className="grid gap-4 md:grid-cols-3">
             {HISTORY_METRICS.map((metric) => (
               <figure key={metric.key} className="min-w-0">
-                <figcaption className="mb-1 text-xs font-medium text-muted-foreground">{metric.title}</figcaption>
-                <ResponsiveContainer width="100%" height={120}>
-                  <LineChart data={samples.map((sample) => ({ at: sample.at, value: metric.value(sample) }))}>
-                    <XAxis
-                      dataKey="at"
-                      type="number"
-                      domain={['dataMin', 'dataMax']}
-                      tickFormatter={time}
-                      tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                      stroke="hsl(var(--border))"
-                      minTickGap={40}
-                    />
-                    <YAxis
-                      width={36}
-                      allowDecimals={metric.key !== 'queued'}
-                      tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                      stroke="hsl(var(--border))"
-                    />
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
-                      labelFormatter={(at) => time(Number(at))}
-                      formatter={(value) => [value ?? '—', metric.title]}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      stroke="hsl(var(--chart-1))"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4 }}
-                      connectNulls={false}
-                      isAnimationActive={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                <figcaption className="mb-1 text-xs font-medium text-muted-foreground">
+                  {metric.title}
+                </figcaption>
+                {samples.every((sample) => metric.value(sample) === null) ? (
+                  // An empty frame reads as broken. Say what the record holds instead.
+                  <p className="flex items-center h-[120px] text-xs text-muted-foreground">
+                    {metric.key === 'rate'
+                      ? 'No jobs finished in this range.'
+                      : 'Nothing was waiting in this range.'}
+                  </p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={120}>
+                    <LineChart
+                      data={samples.map((sample) => ({
+                        at: sample.at,
+                        value: metric.value(sample),
+                      }))}
+                    >
+                      <XAxis
+                        dataKey="at"
+                        type="number"
+                        domain={domain}
+                        ticks={historyTicks(domain)}
+                        tickFormatter={time}
+                        tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                        stroke="hsl(var(--border))"
+                      />
+                      <YAxis
+                        width={36}
+                        allowDecimals={metric.key !== 'queued'}
+                        tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                        stroke="hsl(var(--border))"
+                      />
+                      <Tooltip
+                        contentStyle={tooltipStyle}
+                        cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
+                        labelFormatter={(at) => time(Number(at))}
+                        formatter={(value) => [value ?? '—', metric.title]}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        stroke="hsl(var(--chart-1))"
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 4 }}
+                        connectNulls={false}
+                        isAnimationActive={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
               </figure>
             ))}
           </div>
