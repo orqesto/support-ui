@@ -34,6 +34,7 @@ vi.mock('@/hooks/usePlatformAdmin', () => ({
   }),
   usePlatformSyncCheckpoints: () => ({ isLoading: false, data: [] }),
   useClearSyncCheckpoints: () => ({ mutateAsync: vi.fn() }),
+  usePlatformQueueHistory: () => ({ isLoading: false, isError: false, error: null, data: [] }),
 }));
 vi.mock('@/components/console/FailureAnalysisCard', () => ({ FailureAnalysisCard: () => null }));
 vi.mock('@/services/license.service', () => ({ licenseService: { getLicenseStatus: vi.fn(() => Promise.resolve(null)) } }));
