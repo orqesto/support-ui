@@ -69,6 +69,9 @@ type CpuResources = Pick<
 const formatCores = (cores: number): string =>
   cores > 0 && cores < 0.005 ? '<0.01' : cores.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
+/** "1 core", "0.08 cores", "<0.01 cores" — only exactly one is singular. */
+const coresNoun = (cores: number): string => (formatCores(cores) === '1' ? 'core' : 'cores');
+
 /** Before the first 10-second tick the backend reports a placeholder 0%, not a measurement. */
 const cpuNotMeasuredYet = (resources: CpuResources): boolean =>
   resources.sampledAt === null || resources.ticks === 0;
@@ -99,7 +102,7 @@ export const formatCpuFigures = (resources: CpuResources | null | undefined): st
   // Load average is host-wide and counts tasks waiting on disk: it is a load against our cores,
   // never "cores this container used", so it is not written as one.
   if (cpuSource === 'loadavg' && loadAvg !== null && loadAvg !== undefined && effectiveCores) {
-    return `load average ${loadAvg.toFixed(2)} against ${formatCores(effectiveCores)} cores (whole host; no container counter here)`;
+    return `load average ${loadAvg.toFixed(2)} against ${formatCores(effectiveCores)} ${coresNoun(effectiveCores)} (whole host; no container counter here)`;
   }
   if (cpuSource === 'container') {
     if (!effectiveCores) return null;
@@ -110,11 +113,11 @@ export const formatCpuFigures = (resources: CpuResources | null | undefined): st
         : effectiveCores < cpuCores
           ? `container limit; the host has ${formatCores(cpuCores)}`
           : 'all host cores';
-    return `${used} of ${formatCores(effectiveCores)} cores (${limit})`;
+    return `${used} of ${formatCores(effectiveCores)} ${coresNoun(effectiveCores)} (${limit})`;
   }
   if (cpuSource === 'process' || cpuSource === 'host-cgroup') {
     if (!cpuCores) return null;
-    return `${formatCores((percent / 100) * cpuCores)} of ${formatCores(cpuCores)} host cores (this process only)`;
+    return `${formatCores((percent / 100) * cpuCores)} of ${formatCores(cpuCores)} host ${coresNoun(cpuCores)} (this process only)`;
   }
   return null;
 };
@@ -140,9 +143,15 @@ export const formatCpuBreakdown = (resources: CpuResources | null | undefined): 
   if (cpuSource === 'host-cgroup') parts.push('whole container: not measurable (counter is host-wide)');
   else if (containerCpu === null || containerCpu === undefined || !effectiveCores)
     parts.push('whole container: not measurable here');
-  else parts.push(`whole container ${formatCores((containerCpu / 100) * effectiveCores)} cores`);
+  else {
+    const cores = (containerCpu / 100) * effectiveCores;
+    parts.push(`whole container ${formatCores(cores)} ${coresNoun(cores)}`);
+  }
 
-  if (processCpu !== undefined && cpuCores) parts.push(`this process ${formatCores((processCpu / 100) * cpuCores)} cores`);
+  if (processCpu !== undefined && cpuCores) {
+    const cores = (processCpu / 100) * cpuCores;
+    parts.push(`this process ${formatCores(cores)} ${coresNoun(cores)}`);
+  }
   if (loadAvg !== null && loadAvg !== undefined) parts.push(`load average ${loadAvg.toFixed(2)} (1 min, whole host)`);
   parts.push(`status uses ${CPU_SOURCE_LABEL[cpuSource] ?? cpuSource}`);
   return parts.join(' · ');

@@ -90,6 +90,26 @@ describe('failure analysis formatting', () => {
     expect(formatCpuBreakdown(quota)).toContain('whole container 1.5 cores');
   });
 
+  it('reads taco\'s pinned 1-core container (real payload, 2026-09-23)', () => {
+    const taco = {
+      cpu: '100.0%',
+      cpuCores: 2,
+      effectiveCores: 1,
+      cpuSource: 'container',
+      processCpu: 4.26,
+      containerCpu: 99.99,
+      loadAvg: 2.07,
+      sampledAt: '2026-09-23T14:56:58.248Z',
+      ticks: 506,
+    };
+    expect(formatCpuFigures(taco)).toBe('1 of 1 core (container limit; the host has 2)');
+    // The app process is 4.26% of the HOST's 2 cores; the rest of the container's core is
+    // spent elsewhere in the container (the local embedding child).
+    expect(formatCpuBreakdown(taco)).toBe(
+      'whole container 1 core · this process 0.09 cores · load average 2.07 (1 min, whole host) · status uses whole container'
+    );
+  });
+
   it('converts a process-sourced figure with the host core count', () => {
     const processOnly = { ...prod, cpu: '25.0%', cpuSource: 'process', cpuCores: 8, effectiveCores: 2, containerCpu: 10, processCpu: 25 };
     expect(formatCpuFigures(processOnly)).toBe('2 of 8 host cores (this process only)');
