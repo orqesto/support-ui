@@ -75,7 +75,13 @@ describe('the record facts reach the request', () => {
       can see in a box and that never reaches the model is the same failure with a nicer screen.
     */
     const user = userEvent.setup();
-    composeReply.mockResolvedValue({ data: { text: 'Hello' } });
+    /*
+      ⛔ NEVER RESOLVES, on purpose. What is under test is the REQUEST; letting the draft come
+      back renders the preview, which mounts `TranslateButton` and needs a ThemeProvider this test
+      has no reason to build. CI caught that as `useTheme must be used within a ThemeProvider` —
+      2379 tests passing AND exit 1, the same Errors-line trap as the KB-references race.
+    */
+    composeReply.mockReturnValue(new Promise(() => {}));
 
     render(
       <ComposerAiActions
