@@ -17,7 +17,12 @@ import {
 import { Spinner } from '@/components/ui/Spinner';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { FailureAnalysisCard } from '@/components/console/FailureAnalysisCard';
-import { formatMemoryBreakdown, formatMemoryFigures } from '@/components/console/failureAnalysis.format';
+import {
+  formatCpuBreakdown,
+  formatCpuFigures,
+  formatMemoryBreakdown,
+  formatMemoryFigures,
+} from '@/components/console/failureAnalysis.format';
 import { licenseService } from '@/services/license.service';
 import { platformService } from '@/services/platform.service';
 import systemService, { type StrayAdminMembership } from '@/services/system.service';
@@ -283,6 +288,9 @@ export const PlatformSystem = () => {
                     <Cpu className="w-4 h-4 text-muted-foreground" />
                     <span className="text-muted-foreground">CPU</span>
                     <span className="font-medium text-foreground">{resources.cpu}</span>
+                    {formatCpuFigures(resources) ? (
+                      <span className="text-xs text-muted-foreground">{formatCpuFigures(resources)}</span>
+                    ) : null}
                   </div>
                   <div className="flex gap-2 items-center">
                     <span className="text-muted-foreground">Memory</span>
@@ -302,6 +310,9 @@ export const PlatformSystem = () => {
                   {resources.throttling && <Badge variant="warning">throttling</Badge>}
                 </div>
               )}
+              {resources && formatCpuBreakdown(resources) ? (
+                <p className="text-xs text-muted-foreground">CPU in cores: {formatCpuBreakdown(resources)}.</p>
+              ) : null}
               {resources && formatMemoryBreakdown(resources.process) ? (
                 <p className="text-xs text-muted-foreground">
                   Resident memory: {formatMemoryBreakdown(resources.process)}. Native memory is what
