@@ -129,6 +129,35 @@ export type ListUsersParams = {
 export type ListAuditParams = AuditQueryFilters;
 
 // ─── System (existing global-admin ops surfaced under the console) ────────────
+/**
+ * How long a queue's recent jobs took and how fast it is clearing (support-service queueTiming.ts):
+ * the newest ≤20 finished jobs, and the finish rate over those that finished in the last hour.
+ */
+export type QueueTiming = {
+  sampled: number;
+  medianRunMs: number | null;
+  slowestRunMs: number | null;
+  medianWaitMs: number | null;
+  lastFinishedAt: string | null;
+  finishesPerMinute: number | null;
+  rateSample: number;
+};
+
+export type QueueRow = {
+  name: string;
+  /** The `wait` list only — jobs added with a priority are in `prioritized`, not here. */
+  waiting: number;
+  prioritized?: number;
+  delayed?: number;
+  paused?: boolean;
+  active: number;
+  completed: number;
+  failed: number;
+  total: number;
+  /** Absent on a backend without per-queue timing; null when the read failed. */
+  timing?: QueueTiming | null;
+};
+
 export type QueueStatus = {
   resources: {
     cpu: string;
@@ -163,7 +192,7 @@ export type QueueStatus = {
   };
   scaling: unknown;
   workers: unknown;
-  queues: { name: string; waiting: number; active: number; completed: number; failed: number; total: number }[];
+  queues: QueueRow[];
 };
 
 export type QueueFailedJob = {

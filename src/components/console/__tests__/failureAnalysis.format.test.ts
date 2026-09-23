@@ -3,7 +3,10 @@ import {
   describeGroupAction,
   formatFailedAt,
   formatJobCount,
+  estimateClearTime,
   formatCpuBreakdown,
+  formatDuration,
+  queuedJobs,
   formatCpuFigures,
   formatMemoryBreakdown,
   formatMemoryFigures,
@@ -158,5 +161,60 @@ describe('failure analysis formatting', () => {
     expect(formatCpuFigures({ ...prod, cpu: 'n/a', containerCpu: null })).toBeNull();
     // The rounded string is only the fallback — the exact reading wins when present.
     expect(formatCpuFigures({ ...prod, cpu: 'n/a' })).toBe('0.08 of 4 cores (all host cores)');
+  });
+
+  const timing = {
+    sampled: 20,
+    medianRunMs: 2_400,
+    slowestRunMs: 9_000,
+    medianWaitMs: 800,
+    lastFinishedAt: '2026-09-23T15:00:00.000Z',
+    finishesPerMinute: 4,
+    rateSample: 20,
+  };
+
+  it('formats a run or wait time at a readable scale', () => {
+    expect(formatDuration(340)).toBe('340 ms');
+    expect(formatDuration(2_449)).toBe('2.4 s');
+    expect(formatDuration(12 * 60_000)).toBe('12 min');
+    expect(formatDuration(190 * 60_000)).toBe('3 h 10 min');
+    expect(formatDuration(120 * 60_000)).toBe('2 h');
+    expect(formatDuration(null)).toBe('—');
+    expect(formatDuration(undefined)).toBe('—');
+    expect(formatDuration(-1)).toBe('—');
+  });
+
+  it('counts prioritized jobs as waiting — "waiting: 0" once hid 211 queued jobs', () => {
+    expect(queuedJobs({ waiting: 0, prioritized: 211 })).toBe(211);
+    expect(queuedJobs({ waiting: 5 })).toBe(5);
+  });
+
+  it('estimates how long the waiting jobs take at the recent pace', () => {
+    expect(estimateClearTime({ waiting: 48, timing })).toBe('~12 min');
+    // Prioritized jobs are part of the pile the estimate is about.
+    expect(estimateClearTime({ waiting: 8, prioritized: 40, timing })).toBe('~12 min');
+    expect(estimateClearTime({ waiting: 3, timing })).toBe('under a minute');
+    expect(estimateClearTime({ waiting: 760, timing })).toBe('~3 h 10 min');
+  });
+
+  it('says why there is no estimate instead of inventing one', () => {
+    expect(estimateClearTime({ waiting: 0, timing })).toBeNull();
+    // The record's newest job is 3 h old: say that, never "stuck".
+    const now = Date.parse('2026-09-23T18:10:00.000Z');
+    expect(
+      estimateClearTime({ waiting: 10, timing: { ...timing, finishesPerMinute: null, rateSample: 0 } }, now)
+    ).toBe('last finished 3 h 10 min ago');
+    // No record at all (sync-confluence keeps none): not "nothing finished".
+    const empty = { ...timing, sampled: 0, lastFinishedAt: null, finishesPerMinute: null, rateSample: 0 };
+    expect(estimateClearTime({ waiting: 10, timing: empty }, now)).toBe('no finished jobs on record');
+    expect(estimateClearTime({ waiting: 10, timing: { ...timing, finishesPerMinute: null, rateSample: 1 } })).toBe(
+      'too few recent jobs to estimate'
+    );
+    // A paused queue is paused whether or not the backend sent timing.
+    expect(estimateClearTime({ waiting: 10, paused: true, timing })).toBe('paused');
+    expect(estimateClearTime({ waiting: 10, paused: true })).toBe('paused');
+    // An older backend (no timing) or a failed read: nothing to say.
+    expect(estimateClearTime({ waiting: 10 })).toBeNull();
+    expect(estimateClearTime({ waiting: 10, timing: null })).toBeNull();
   });
 });
