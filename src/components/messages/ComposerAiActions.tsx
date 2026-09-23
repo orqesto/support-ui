@@ -150,7 +150,15 @@ export function ComposerAiActions({
       agent added nothing. The ref starts at the incoming value, so a mount is never an event.
     */
     const next = revealNote ?? 0;
-    if (next === seenReveal.current) return;
+    /*
+      ⛔ ONLY UPWARDS. Audit pass 5, on the fix from pass 1: switching threads RESETS the counter,
+      so the host drives it 3 → 0 — a change, and under the previous rule that flung the panel
+      open on the new thread, which is the very bug pass 1 was fixing. Only an increase is an add.
+    */
+    if (next <= seenReveal.current) {
+      seenReveal.current = next;
+      return;
+    }
     seenReveal.current = next;
     setOpen(true);
     setStartFresh(true);

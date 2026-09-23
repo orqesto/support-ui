@@ -66,6 +66,48 @@ describe('bringing the note box on screen', () => {
   });
 });
 
+describe('switching threads', () => {
+  it('🔴 a counter RESET is not an add — the panel stays shut', () => {
+    // Found in audit pass 5, in the fix from pass 1: the host empties the note per thread, which
+    // drives this counter 3 → 0. A rule that reacted to any CHANGE opened the panel on the new
+    // thread — the exact bug pass 1 set out to fix, one edge along.
+    const { rerender } = setup(3);
+
+    rerender(
+      <ComposerAiActions
+        messageId={1}
+        composer=""
+        setComposer={vi.fn()}
+        instructions=""
+        onInstructionsChange={vi.fn()}
+        revealNote={0}
+      />
+    );
+
+    expect(screen.queryByText(/What should the reply say/i)).not.toBeInTheDocument();
+  });
+
+  it('CONTROL: and an add AFTER the reset still opens it', () => {
+    const { rerender } = setup(3);
+    const render1 = (revealNote: number) =>
+      rerender(
+        <ComposerAiActions
+          messageId={1}
+          composer=""
+          setComposer={vi.fn()}
+          instructions="Order 1."
+          onInstructionsChange={vi.fn()}
+          revealNote={revealNote}
+        />
+      );
+
+    render1(0);
+    render1(1);
+
+    expect(screen.getByText(/What should the reply say/i)).toBeInTheDocument();
+  });
+});
+
 describe('the record facts reach the request', () => {
   it('🔴 sends the note as guided instructions — the wiring, not the widget', async () => {
     /*

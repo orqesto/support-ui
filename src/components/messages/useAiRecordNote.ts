@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { MAX_INSTRUCTIONS } from './ComposerAiActions';
 import { appendNote } from './customApiRecordNote';
 
+/** What an add did, in words the control can put on screen without guessing. */
+export type AddOutcome = 'added' | 'duplicate' | 'too_long' | 'fact_too_long';
+
 /**
  * L2 P4 — the note an agent gives the AI draft, shared by the two components that touch it.
  *
@@ -38,9 +41,9 @@ export const useAiRecordNote = (messageId: number) => {
     setNote(next);
   }, []);
 
-  const add = useCallback((fact: string): 'added' | 'duplicate' | 'full' => {
+  const add = useCallback((fact: string): AddOutcome => {
     const result = appendNote(latest.current, fact, MAX_INSTRUCTIONS);
-    if (!result.added) return result.reason === 'duplicate' ? 'duplicate' : 'full';
+    if (!result.added) return result.reason ?? 'too_long';
     latest.current = result.text;
     setNote(result.text);
     setReveal((count) => count + 1);

@@ -8,6 +8,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { RowFields } from '../customApiRowFields';
 import type { LookupField } from '@/services/customApiLookup.service';
 
@@ -167,5 +168,44 @@ describe('the two surfaces agree', () => {
     );
     expect(second.innerHTML).toBe(firstHtml);
     expect(within(second).getByText('On its way')).toBeInTheDocument();
+  });
+});
+
+describe('a second Look up that returns different records', () => {
+  it('🔴 does not carry one record’s ticks onto another', async () => {
+    // The panel keys rows by INDEX, so this component is reused for whatever record now sits in
+    // that position. Ticking the total on order A and re-running must not leave order B's total
+    // ticked — an agent would add a number they never chose for this record.
+    const fields = [
+      field({ path: 'order_id', label: 'Order', role: 'identifier' }),
+      field({ path: 'total', label: 'Total', kind: 'money', currency: 'EUR', role: 'total' }),
+    ];
+    const useInReply = () => 'added' as const;
+
+    const { rerender } = render(
+      <RowFields
+        row={{ order_id: 'A', total: 1 }}
+        fields={fields}
+        category="order"
+        lookupLabel="Their records"
+        onUseInReply={useInReply}
+      />
+    );
+    await userEvent.setup().click(screen.getByRole('button', { name: /Use in reply/i }));
+    expect(screen.getByLabelText('Total: 1 EUR')).toBeInTheDocument();
+
+    rerender(
+      <RowFields
+        row={{ order_id: 'B', total: 2 }}
+        fields={fields}
+        category="order"
+        lookupLabel="Their records"
+        onUseInReply={useInReply}
+      />
+    );
+
+    // A fresh control for a fresh record: closed again, nothing carried over.
+    expect(screen.queryByLabelText('Total: 1 EUR')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Use in reply/i })).toBeInTheDocument();
   });
 });

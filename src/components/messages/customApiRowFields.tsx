@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { CustomApiRecordInsert } from './CustomApiRecordInsert';
 import { CATEGORY_RECORD_LABELS, type CustomApiCategory } from '@/components/settings/customApi/categories';
 import { LABEL } from './messageDetailConstants';
+import type { AddOutcome } from './useAiRecordNote';
 import type { CustomApiLookupResult, LookupField } from '@/services/customApiLookup.service';
 
 /**
@@ -229,7 +230,7 @@ export const RowFields = ({
    * composer — the customer records page is a page, not a reply — and the control then does not
    * render at all rather than rendering something that cannot work.
    */
-  onUseInReply?: (note: string) => 'added' | 'duplicate' | 'full';
+  onUseInReply?: (note: string) => AddOutcome;
 }) => {
   // No category, or no role the header can use ⇒ nothing to lay out. The grid is not a degraded
   // mode here, it is the correct rendering of a record nobody has described.
@@ -240,6 +241,13 @@ export const RowFields = ({
   );
   const insert = onUseInReply ? (
     <CustomApiRecordInsert
+      /*
+        ⛔ KEYED ON THE ROW ITSELF (audit pass 6). The panel keys its rows by INDEX, so pressing
+        Look up again reuses this component for whatever record now sits in that position — with
+        the previous record's ticks still set and its "Added to your note" badge still showing.
+        A changed row is a different record and gets a fresh control.
+      */
+      key={JSON.stringify(row)}
       row={row}
       fields={fields}
       category={category}

@@ -1,5 +1,6 @@
 import { CustomApiLookupPanel, NO_EMAIL_IDENTITY_NOTE } from './CustomApiLookupPanel';
 import { LinkedThreads } from './LinkedThreads';
+import type { AddOutcome } from './useAiRecordNote';
 import type { Message } from '@/types';
 
 /**
@@ -19,7 +20,7 @@ export const CustomerTabPanels = ({
   hasEmailIdentity: boolean;
   onChanged?: () => void;
   /** L2 P4: a record joins the agent's note for the AI draft. It answers added / duplicate / full. */
-  onUseInReply?: (note: string) => 'added' | 'duplicate' | 'full';
+  onUseInReply?: (note: string) => AddOutcome;
 }) => (
   <>
     {/* CA-3: nothing is fetched until the agent presses Look up (SC1). */}

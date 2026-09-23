@@ -112,7 +112,7 @@ describe('putting a record into the note', () => {
 
   it('says the note is FULL rather than letting the fact vanish', async () => {
     const user = userEvent.setup();
-    renderInsert(vi.fn().mockReturnValue('full'));
+    renderInsert(vi.fn().mockReturnValue('too_long'));
 
     await open(user);
     await user.click(screen.getByRole('button', { name: 'Add to my note' }));
@@ -174,6 +174,19 @@ describe('records that have nothing to give', () => {
     );
 
     expect(screen.getByRole('button', { name: /Use in reply/i })).toBeInTheDocument();
+  });
+});
+
+describe('a record that cannot fit at all', () => {
+  it('🔴 says to untick a field, not to shorten a note that may be empty', async () => {
+    const user = userEvent.setup();
+    renderInsert(vi.fn().mockReturnValue('fact_too_long'));
+
+    await open(user);
+    await user.click(screen.getByRole('button', { name: 'Add to my note' }));
+
+    expect(screen.getByText(/untick a field/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Note is full/i)).not.toBeInTheDocument();
   });
 });
 

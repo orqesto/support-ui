@@ -10,6 +10,7 @@ import {
 } from './customApiRecordNote';
 import { renderValue } from './customApiRowFields';
 import type { CustomApiCategory } from '@/components/settings/customApi/categories';
+import type { AddOutcome } from './useAiRecordNote';
 import type { LookupField } from '@/services/customApiLookup.service';
 
 /**
@@ -48,12 +49,12 @@ export const CustomApiRecordInsert = ({
    * Adds the note. Says what happened, because "already there" and "no room" ask the agent for
    * two different things — and a shared "no" would tell them to shorten a note that is fine.
    */
-  onUseInReply: (note: string) => 'added' | 'duplicate' | 'full';
+  onUseInReply: (note: string) => AddOutcome;
 }) => {
   const offered = offerableFields(row, fields);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>(() => defaultSelection(row, fields));
-  const [outcome, setOutcome] = useState<'added' | 'duplicate' | 'full' | null>(null);
+  const [outcome, setOutcome] = useState<AddOutcome | null>(null);
 
   // Nothing this record can contribute ⇒ no control. An agent pressing a button that can only
   // ever produce an empty note learns to distrust the button.
@@ -137,10 +138,15 @@ export const CustomApiRecordInsert = ({
                  the model repeat itself. */
               <Badge variant="secondary">Already in your note</Badge>
             )}
-            {outcome === 'full' && (
+            {outcome === 'too_long' && (
               /* ⛔ NEVER SILENTLY CUT. The backend slices the note at 2000 characters, which
                  would take a total or a date in half. */
               <Badge variant="warning">Note is full — shorten it and try again</Badge>
+            )}
+            {outcome === 'fact_too_long' && (
+              /* A DIFFERENT SENTENCE, because "shorten your note" is false here: the note may be
+                 empty and it is this record that does not fit. Untick a field instead. */
+              <Badge variant="warning">Too long for the note — untick a field</Badge>
             )}
           </div>
         </div>

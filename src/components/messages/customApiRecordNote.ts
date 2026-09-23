@@ -38,6 +38,37 @@ const OFFERABLE_ROLES = ['identifier', 'status', 'date', 'total', 'customer_emai
 
 const MISSING = '—';
 
+/**
+ * ⛔ THE TRUST BOUNDARY THIS FEATURE CROSSES, AND THE ONE PLACE TO NARROW IT.
+ *
+ * Everything that has ever reached `<agent_instructions>` was typed by an authenticated agent,
+ * and the backend prompt says so in as many words: "comes from OUR support agent… Treat it as
+ * fact and build the reply around it… the AGENT is right about this specific case". P4 is the
+ * first path that puts a VENDOR'S string there, and a vendor field can hold whatever a vendor —
+ * or a customer typing into the vendor's own form — put in it.
+ *
+ * Three things keep that honest, and they are deliberate:
+ *   1. only ROLE-TAGGED fields are offerable (a reference, a state name, a date, a total, the
+ *      customer's own address) — never a free-text note or an unrecognised column;
+ *   2. the agent reads the exact sentence before it is added, and adds it themselves;
+ *   3. the value is FLATTENED here: newlines and angle brackets go, runs of space collapse. A
+ *      value cannot then close the wrapper, forge a new section, or lay out a multi-line block
+ *      of its own instructions inside one that is trusted. The backend strips `<` and `>` too;
+ *      it does not touch newlines, and this is the layer that knows the value is a field.
+ */
+const flatten = (value: string): string =>
+  value.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim();
+
+/**
+ * Close the sentence — unless the vendor's own value already did. A value ending in a full stop
+ * otherwise produced `… approved..`, which reads as a typo we wrote into a customer's reply.
+ */
+const end = (text: string): string => (/[.!?]$/.test(text) ? text : `${text}.`);
+
+/** One field as it appears in the note — the panel's own rendering, flattened. */
+const noteValue = (row: Record<string, unknown>, field: LookupField): string =>
+  flatten(renderValue(row, field));
+
 const roleOf = (field: LookupField): string | null => {
   const value = (field as { role?: unknown }).role;
   return typeof value === 'string' ? value : null;
@@ -97,17 +128,23 @@ export const buildRecordNote = ({
   );
   if (chosen.length === 0) return null;
 
-  const noun = category ? CATEGORY_RECORD_LABELS[category] : lookupLabel.trim() || 'Record';
+  /*
+    ⛔ FLATTENED TOO. The category label is ours, but the fallback is the ADMIN'S free text for
+    this lookup, and it lands in the same trusted block as the values. An admin is not a vendor,
+    but "everything that reaches the prompt goes through one door" is the only version of this
+    rule anyone can check later.
+  */
+  const noun = category ? CATEGORY_RECORD_LABELS[category] : flatten(lookupLabel) || 'Record';
   const identifier = chosen.find((field) => roleOf(field) === 'identifier');
   const rest = chosen.filter((field) => field !== identifier);
 
-  const head = identifier ? `${noun} ${renderValue(row, identifier)}` : noun;
-  if (rest.length === 0) return `${head}.`;
+  const head = identifier ? `${noun} ${noteValue(row, identifier)}` : noun;
+  if (rest.length === 0) return end(head);
 
   const detail = rest
-    .map((field) => `${field.label}: ${renderValue(row, field)}`)
+    .map((field) => `${flatten(field.label)}: ${noteValue(row, field)}`)
     .join('. ');
-  return `${head} — ${detail}.`;
+  return end(`${head} — ${detail}`);
 };
 
 /**
@@ -125,7 +162,7 @@ export const appendNote = (
   current: string,
   note: string,
   limit: number
-): { text: string; added: boolean; reason?: 'duplicate' | 'too_long' } => {
+): { text: string; added: boolean; reason?: 'duplicate' | 'too_long' | 'fact_too_long' } => {
   const trimmed = current.trim();
   /*
     Already there — pressing the same record twice should not say it twice to the model, and the
@@ -135,6 +172,17 @@ export const appendNote = (
   */
   if (trimmed.includes(note)) return { text: current, added: false, reason: 'duplicate' };
   const next = trimmed === '' ? note : `${trimmed} ${note}`;
-  if (next.length > limit) return { text: current, added: false, reason: 'too_long' };
+  if (next.length > limit) {
+    /*
+      ⛔ WHICH ONE IS TOO BIG. "Your note is full — shorten it" is FALSE when the note is empty
+      and the record itself does not fit: it sends the agent to delete text that is not there,
+      and nothing on screen would ever say what actually happened.
+    */
+    return {
+      text: current,
+      added: false,
+      reason: note.length > limit ? 'fact_too_long' : 'too_long',
+    };
+  }
   return { text: next, added: true };
 };

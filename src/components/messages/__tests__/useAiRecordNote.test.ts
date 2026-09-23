@@ -90,8 +90,21 @@ describe('the note an agent gives the AI draft', () => {
       outcome = result.current.add('Order 137416.');
     });
 
-    expect(outcome).toBe('full');
+    // The NOTE is what is full here, and the control's wording differs from a fact that could
+    // never fit at all.
+    expect(outcome).toBe('too_long');
     expect(result.current.note).toBe('x'.repeat(1999));
+  });
+
+  it('🔴 says the FACT is too long when it could not fit into an empty note either', () => {
+    const { result } = renderHook(() => useAiRecordNote(1));
+
+    let outcome: string | undefined;
+    act(() => {
+      outcome = result.current.add(`Order ${'9'.repeat(2100)}.`);
+    });
+
+    expect(outcome).toBe('fact_too_long');
   });
 
   it('says "duplicate" rather than "full" for a record already in the note', () => {

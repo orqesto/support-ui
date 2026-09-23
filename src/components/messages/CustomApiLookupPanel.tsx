@@ -7,6 +7,7 @@ import { useCustomApiLookup, useCustomApiLookupAvailability } from '@/hooks/useC
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { conversationContactService } from '@/services/conversationContact.service';
+import type { AddOutcome } from './useAiRecordNote';
 import type { CustomApiLookupResult } from '@/services/customApiLookup.service';
 import { CATEGORY_RECORD_LABELS, readCategory } from '@/components/settings/customApi/categories';
 import { LABEL } from './messageDetailConstants';
@@ -84,7 +85,7 @@ interface Props {
    * contact drawer and the records page, where there is no composer — a button that could not
    * work anywhere it is shown is how an agent learns to stop trusting buttons.
    */
-  onUseInReply?: (note: string) => 'added' | 'duplicate' | 'full';
+  onUseInReply?: (note: string) => AddOutcome;
 }
 
 /**
@@ -173,7 +174,7 @@ const ResultCard = ({
   onRunManual: (endpointId: number, parameter: string) => void;
   busy: boolean;
   /** L2 P4. Absent where there is no composer to add a note to (the records page). */
-  onUseInReply?: (note: string) => 'added' | 'duplicate' | 'full';
+  onUseInReply?: (note: string) => AddOutcome;
 }) => {
   // D36: the number found in the CUSTOMER'S message is pre-filled — into a field the agent can
   // overwrite. A suggestion is a suggestion; nothing is sent to a vendor without a press.
