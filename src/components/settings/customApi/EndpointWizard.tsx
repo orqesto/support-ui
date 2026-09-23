@@ -401,6 +401,18 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
         fieldPaths: picked,
         dataPath: dataPath.trim() === '' ? null : dataPath.trim(),
         resultShape,
+        /**
+         * ⛔ L2: THE CATEGORY AND THE STATUS WORDS GO HERE TOO, not only in `ensureSaved`.
+         *
+         * `ensureSaved` runs only when there is no endpoint yet (`endpointId ?? …` above), so for
+         * every EDIT of an existing lookup this was the only write — and it carried neither. An
+         * admin could pick a record kind, write a word for a vendor status, press Save, get a
+         * success and a closed dialog, and nothing was stored. Measured on staging 2026-09-23:
+         * `category` still NULL and `status_labels` still `{}` after a Save that returned 200.
+         * The API, the schema and the step were all correct; this payload was the whole gap.
+         */
+        category: category === '' ? null : category,
+        statusLabels,
         // ⛔ Sent as `null` when the admin chose "we can't check" — that is a DECISION, and the
         // three-valued rule elsewhere in this API means absent would read as "leave it alone".
         /**
