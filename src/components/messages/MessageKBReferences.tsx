@@ -34,24 +34,40 @@ export const MessageKBReferences = ({ messageId, onCountChange }: MessageKBRefer
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    /*
+      ⛔ NOTHING IS SET AFTER THIS COMPONENT IS GONE. The fetch outlives a thread the agent closed,
+      or a `messageId` that changed while it was in flight, and every write below then lands on a
+      component that no longer exists — a stale count for the tab badge at best.
+
+      🪤 It also fails CI at random: a test file finishes, vitest tears the jsdom environment down,
+      the pending response resolves, and React's `dispatchSetState` reaches for `window` and throws
+      an unhandled rejection. Reproduced on untouched `staging` (2320 tests pass, 1 error), so this
+      is not new — it is a race that only sometimes lands inside the run.
+    */
+    let live = true;
     const fetchReferences = async () => {
       try {
         setLoading(true);
         setError(null);
         const response = await messageService.getKBReferences(messageId);
         const loaded = response.success && response.data ? response.data : [];
+        if (!live) return;
         setReferences(loaded);
         onCountChange?.(messageId, loaded.length);
       } catch (err) {
-        onCountChange?.(messageId, 0);
         logger.error('Failed to load KB references:', err);
+        if (!live) return;
+        onCountChange?.(messageId, 0);
         setError(getApiErrorMessage(err) ?? 'Failed to load KB references');
       } finally {
-        setLoading(false);
+        if (live) setLoading(false);
       }
     };
 
     void fetchReferences();
+    return () => {
+      live = false;
+    };
     // `onCountChange` is left out on purpose: a new callback identity must not refetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messageId]);
