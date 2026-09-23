@@ -258,6 +258,10 @@ export type BaseIntegration = {
   // Why this source is not currently syncing (email/gmail only). Absent on an older
   // backend — see normalizeSyncHold. Null means "polling normally".
   syncHold?: SyncHold | null;
+  // AI providers only: what this workspace pays the provider, USD per 1M tokens. Both set or
+  // both null; null means "use the published list price". Absent on an older backend.
+  inputCostPer1M?: number | null;
+  outputCostPer1M?: number | null;
 };
 
 // Type-specific integrations
@@ -767,6 +771,20 @@ export const integrationsService = {
       patch
     );
     return { success: response.data.success };
+  },
+
+  // What this workspace pays its AI provider (USD per 1M tokens). Both or neither — null clears.
+  updateAiCostRates: async (
+    id: number,
+    rates: { inputCostPer1M: number | null; outputCostPer1M: number | null }
+  ): Promise<
+    ApiResponse<{ id: number; inputCostPer1M: number | null; outputCostPer1M: number | null }>
+  > => {
+    const response = await apiClient.patch<{
+      success: boolean;
+      data: { id: number; inputCostPer1M: number | null; outputCostPer1M: number | null };
+    }>(`/api/integrations/${id}/ai-cost-rates`, rates);
+    return { success: response.data.success, data: response.data.data };
   },
 
   // Per-source acknowledgment auto-reply template (#19/#20 — gap #3 FE).

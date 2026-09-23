@@ -188,7 +188,7 @@ describe('a priced model whose cost rounds below a cent', () => {
 });
 
 describe('what the figure is attributed to', () => {
-  const withRateSource = (source: 'operator' | 'list') => {
+  const withRateSource = (source: 'operator' | 'provider' | 'list') => {
     const base = payload();
     return {
       ...base,
@@ -211,6 +211,60 @@ describe('what the figure is attributed to', () => {
     renderPage();
     expect(await screen.findByText(/your configured rates · excludes/)).toBeInTheDocument();
     expect(screen.queryByText(/list prices as of/)).not.toBeInTheDocument();
+  });
+
+  it("names a workspace's own rates, not the platform's or a dated list price", async () => {
+    // Own-key usage priced at the workspace's provider rates. Calling that "your configured
+    // rates" would attribute the workspace's price to the operator; "list prices as of …"
+    // would date a number nobody published.
+    get.mockResolvedValue(withRateSource('provider'));
+    renderPage();
+    expect(await screen.findByText(/^workspace rates · excludes/)).toBeInTheDocument();
+    expect(screen.queryByText(/list prices as of/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/your configured rates/)).not.toBeInTheDocument();
+  });
+
+  it('names every source when rates came from more than one place', async () => {
+    const base = withRateSource('provider');
+    const org = base.usage.orgs[0];
+    get.mockResolvedValue({
+      ...base,
+      usage: {
+        ...base.usage,
+        orgs: [
+          {
+            ...org,
+            byModel: [...org.byModel, { ...org.byModel[0], model: 'gpt-4o-mini', rateSource: 'operator' as const }],
+          },
+        ],
+      },
+    });
+    renderPage();
+    expect(await screen.findByText(/^your configured rates \+ workspace rates · excludes/)).toBeInTheDocument();
+  });
+
+  it('says so when a workspace\'s own rates could not be read', async () => {
+    const base = payload();
+    get.mockResolvedValue({
+      ...base,
+      usage: {
+        ...base.usage,
+        totals: {
+          ...base.usage.totals,
+          cost: { ...base.usage.totals.cost!, providerRatesUnreadableOrgIds: [18] },
+        },
+      },
+    });
+    renderPage();
+    expect(
+      await screen.findByText(/^1 workspace's own rates could not be read — list prices used for it$/)
+    ).toBeInTheDocument();
+  });
+
+  it('says nothing about unreadable rates when every rate was read', async () => {
+    renderPage();
+    await screen.findByText(/list prices as of 2026-09-09/);
+    expect(screen.queryByText(/could not be read/)).not.toBeInTheDocument();
   });
 
   it('says list prices when that is what priced it', async () => {

@@ -109,7 +109,7 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
         {active === 'message-sources' && <MessageSourcesSettings />}
         {active === 'ticket-automation' && <TicketAutomationSettings />}
         {canManageIntegrations && active === 'ai-providers' && (
-          <AIProvidersSettings showModeSwitch={isOrgAdmin} />
+          <AIProvidersSettings showModeSwitch={isOrgAdmin} showCostRates />
         )}
         {canManageIntegrations && active === 'object-storage' && <ObjectStorageConfigCard />}
         {canManageIntegrations && active === 'database' && <DatabaseConfigCard />}

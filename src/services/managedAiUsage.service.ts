@@ -54,8 +54,11 @@ export interface ManagedAiModelStat {
    * prompt+completion). Optional — an older backend omits it.
    */
   unpricedTokens?: number;
-  /** 'operator' = a configured tier rate; 'list' = the built-in vendor list price. */
-  rateSource: 'operator' | 'list' | null;
+  /**
+   * 'operator' = a configured platform tier rate (platform-key usage only); 'provider' = the
+   * workspace's own provider rates (own-key usage only); 'list' = the built-in vendor list price.
+   */
+  rateSource: 'operator' | 'provider' | 'list' | null;
 }
 
 export type SpendVia = 'managed_mode' | 'default_key' | 'own_key';
@@ -127,6 +130,11 @@ export interface ManagedAiUsage {
       pricesAsOf: string;
       pricedTokens: number;
       unpricedTokens: number;
+      /**
+       * Workspaces whose own provider rates could not be read this time (their database did
+       * not answer) — their own-key usage is at list prices. Absent on an older backend.
+       */
+      providerRatesUnreadableOrgIds?: number[];
     };
   };
 }
