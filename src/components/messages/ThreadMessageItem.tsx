@@ -16,9 +16,19 @@ type Props = {
   msg: MessageEvent;
   attachments?: Attachment[];
   onOpenAttachment?: (id: number) => void;
+  /** "from ODL-MKT-1" when this message arrived through a merge. */
+  mergedFrom?: string | null;
+  /** Address the reply to this message's writer ("Reply to this message"). */
+  onReplyTo?: (addresses: string[]) => void;
 };
 
-export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: Props) {
+export function ThreadMessageItem({
+  msg,
+  attachments = [],
+  onOpenAttachment,
+  mergedFrom,
+  onReplyTo,
+}: Props) {
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
   // The language the agent picked, for the "Translated · XX" notice (v3). `translateKey`
   // remounts the TranslateButton when the notice's own "Show original" is pressed, so the
@@ -177,6 +187,7 @@ export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: P
               <span>{msg.authorEmail ?? 'Support'}</span>
             )}
             {when}
+            {mergedFrom && <span className="text-muted-foreground">· {mergedFrom}</span>}
           </div>
           {/* Who this particular reply went to. Per-message, not per-thread: a reply can be
               addressed differently from the message that opened the conversation. This is
@@ -225,6 +236,18 @@ export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: P
             <span>{msg.authorEmail ?? 'Customer'}</span>
           )}
           {when}
+          {mergedFrom && <span className="text-muted-foreground">· {mergedFrom}</span>}
+          {onReplyTo && msg.replyTarget && msg.replyTarget.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-auto px-1 py-0 text-[10.5px]"
+              onClick={() => onReplyTo(msg.replyTarget ?? [])}
+              title={`Reply to ${msg.replyTarget.join(', ')}`}
+            >
+              Reply to this message
+            </Button>
+          )}
         </div>
         {/* 2026-06-17: customer bubbles are no longer clickable. The previous implementation
             called `onMessageNavigate(msg.id)` with a `messageEvents.id`, and the BE's

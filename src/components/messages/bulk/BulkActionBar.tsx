@@ -16,9 +16,24 @@ type Props = {
   loading: boolean;
   onPick: (action: BulkAction) => void;
   onClear: () => void;
+  /**
+   * "These are one conversation" — offered for 2+ selected. Not a server-previewed bulk action:
+   * the merge endpoint decides eligibility itself, all or nothing, and the dialog says why.
+   */
+  onMerge?: () => void;
+  /** The most tickets one merge accepts; above it Merge is not offered. */
+  mergeMax?: number;
 };
 
-export const BulkActionBar = ({ selectedCount, previews, loading, onPick, onClear }: Props) => {
+export const BulkActionBar = ({
+  selectedCount,
+  previews,
+  loading,
+  onPick,
+  onClear,
+  onMerge,
+  mergeMax = Number.POSITIVE_INFINITY,
+}: Props) => {
   if (selectedCount === 0) return null;
 
   // An action with no preview is one the server refused to describe — usually a permission this
@@ -73,6 +88,12 @@ export const BulkActionBar = ({ selectedCount, previews, loading, onPick, onClea
           })
         )}
       </div>
+
+      {onMerge && selectedCount >= 2 && selectedCount <= mergeMax && (
+        <Button size="sm" variant="secondary" onClick={onMerge}>
+          Merge
+        </Button>
+      )}
 
       <Button size="sm" variant="ghost" onClick={onClear} aria-label="Clear selection">
         <X className="w-4 h-4" />

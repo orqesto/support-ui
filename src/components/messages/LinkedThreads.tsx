@@ -21,7 +21,7 @@ import type { Message } from '@/types';
  * customer's reply was in one thread and the agent's work in another, and each looked unanswered.
  *
  * ⛔ NOT A MERGE, and the copy must never suggest one. Both threads survive; unlinking undoes it
- * completely. `mergeConversation` (which deletes a row) is deliberately not reachable from here.
+ * completely. "These are the SAME conversation" is a merge — `MergeThreads`, beside this panel.
  */
 type Props = {
   message: Message;
