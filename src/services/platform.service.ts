@@ -16,6 +16,13 @@ import { buildAuditQueryParams, type AuditQueryFilters } from '@/services/auditQ
  */
 export type MemoryLimitSource = 'cgroup' | 'budget' | 'host' | (string & {});
 
+/**
+ * Which reading the CPU status is computed from (support-service #737): `container` the whole
+ * container's cgroup counter, `process` this process alone, `host-cgroup` the process because the
+ * only cgroup counter is host-wide, `loadavg` load average when no cgroup reading exists.
+ */
+export type CpuSource = 'container' | 'host-cgroup' | 'process' | 'loadavg' | (string & {});
+
 export type PlatformOverview = {
   counts: {
     alliances: number;
@@ -128,6 +135,21 @@ export type QueueStatus = {
     memory: string;
     status: string;
     throttling: boolean;
+    /**
+     * CPU figures behind `cpu` (support-service #737; absent on an older backend).
+     * `processCpu` is a % of `cpuCores` (the host's cores); `containerCpu` and a load-average
+     * `cpu` are a % of `effectiveCores` (the container's quota, capped by the host).
+     */
+    cpuCores?: number;
+    effectiveCores?: number;
+    cpuSource?: CpuSource;
+    processCpu?: number;
+    containerCpu?: number | null;
+    /** 1-minute load average, host-wide; null off Linux. */
+    loadAvg?: number | null;
+    /** When the 10-second resource tick last measured; null before the first one. */
+    sampledAt?: string | null;
+    ticks?: number;
     /** Absent on a backend older than support-service #675. */
     memoryMB?: { used: number; total: number; limitSource: MemoryLimitSource } | null;
     process?: {
