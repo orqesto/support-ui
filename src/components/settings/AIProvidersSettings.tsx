@@ -4,6 +4,7 @@ import { AiProviderModeSwitch } from '@/components/settings/AiProviderModeSwitch
 import { AIProviderHealthCheck } from '@/components/settings/AIProviderHealthCheck';
 import { AckReplyPerSourceList } from '@/components/settings/AckReplyPerSourceList';
 import { AINoProviderBanner } from '@/components/settings/AINoProviderBanner';
+import { ProviderCostRatesCard } from '@/components/settings/ProviderCostRatesCard';
 import { VisionSettings } from '@/components/settings/VisionSettings';
 import { AnthropicProviderCard } from '@/components/settings/providers/AnthropicProviderCard';
 import { BedrockProviderCard } from '@/components/settings/providers/BedrockProviderCard';
@@ -23,7 +24,14 @@ import { isAIProviderType, type AIModel, type AIProvider } from '@/types/aiProvi
 import { logger } from '@/lib/logger';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 
-export const AIProvidersSettings = ({ showModeSwitch = false }: { showModeSwitch?: boolean }) => {
+export const AIProvidersSettings = ({
+  showModeSwitch = false,
+  showCostRates = false,
+}: {
+  showModeSwitch?: boolean;
+  /** Settings only — the onboarding wizard renders this page too, where rates are noise. */
+  showCostRates?: boolean;
+}) => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -447,6 +455,17 @@ export const AIProvidersSettings = ({ showModeSwitch = false }: { showModeSwitch
       <AckReplyPerSourceList onShowAlert={setAlertDialog} />
 
       {hasAnyProvider && <VisionSettings />}
+
+      {showCostRates && hasAnyProvider && (
+        <ProviderCostRatesCard
+          integrations={integrations.filter((integ) => isAIProviderType(integ.type))}
+          onSaved={(id, rates) =>
+            setIntegrations((prev) =>
+              prev.map((integ) => (integ.id === id ? { ...integ, ...rates } : integ))
+            )
+          }
+        />
+      )}
 
       <OpenAIProviderCard
         {...commonProviderProps}

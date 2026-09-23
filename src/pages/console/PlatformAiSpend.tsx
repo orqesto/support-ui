@@ -189,13 +189,17 @@ export const PlatformAiSpend = () => {
       (org.byModel ?? []).filter((row) => row.rateSource !== null).map((row) => row.rateSource)
     )
   );
+  // Every source that actually priced something, named — a workspace's own rates included, so
+  // a figure built from them is never captioned as the platform's rates or a dated list price.
+  const pricedFromParts = [
+    rateSources.has('operator') && 'your configured rates',
+    rateSources.has('provider') && 'workspace rates',
+    cost && (rateSources.has('list') || rateSources.size === 0) && `list prices as of ${cost.pricesAsOf}`,
+  ].filter((part): part is string => typeof part === 'string');
   const pricedFrom = !cost
     ? 'configured rates' // pre-#697 backend: env tier rates were the only source there was
-    : rateSources.has('operator') && rateSources.has('list')
-      ? `your configured rates + list prices as of ${cost.pricesAsOf}`
-      : rateSources.has('operator')
-        ? 'your configured rates'
-        : `list prices as of ${cost.pricesAsOf}`;
+    : pricedFromParts.join(' + ');
+  const unreadableRateOrgs = cost?.providerRatesUnreadableOrgIds ?? [];
   const totalCost = cost ? cost.usd : usage ? sumCost(usage.totals.byTier) : null;
   const unpricedTokens =
     cost?.unpricedTokens ??
@@ -302,6 +306,13 @@ export const PlatformAiSpend = () => {
                     {unpricedTokens > 0
                       ? `${pricedFrom} · excludes ${formatTokens(unpricedTokens)} unpriced tokens`
                       : `${pricedFrom} · all tokens priced`}
+                  </span>
+                )}
+                {unreadableRateOrgs.length > 0 && (
+                  <span className="text-xs text-warning">
+                    {unreadableRateOrgs.length === 1
+                      ? "1 workspace's own rates could not be read — list prices used for it"
+                      : `${unreadableRateOrgs.length} workspaces' own rates could not be read — list prices used for them`}
                   </span>
                 )}
               </CardContent>
@@ -442,9 +453,9 @@ export const PlatformAiSpend = () => {
                 <p className="px-3 py-2 text-xs border-b text-muted-foreground border-border">
                   By model · what the tier columns above are made of. A model with no
                   published rate is listed here with its tokens rather than priced at a
-                  guess — set{' '}
-                  <code className="text-[11px]">PLATFORM_AI_*_COST_PER_1K</code> to price it
-                  yourself.
+                  guess. Platform-key usage takes the tier rates under Platform defaults;
+                  a workspace&apos;s own-key usage takes the cost rates on its AI provider
+                  (Settings › Integrations › AI Providers).
                 </p>
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50">
