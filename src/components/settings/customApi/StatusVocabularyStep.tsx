@@ -71,7 +71,18 @@ export const StatusVocabularyStep = ({
         <div className="space-y-1">
           {entries.map(([value, word]) => (
             <div key={value} className="flex gap-2 items-center">
-              <code className="flex-1 px-2 py-1 text-xs rounded bg-muted text-foreground truncate">
+              {/*
+                ⛔ `basis-1/2 min-w-0`, not `flex-1`. A text input carries an intrinsic width of
+                about twenty characters, so against a bare `flex-1` it wins every pixel the row is
+                short of — and a real vendor value (seen on staging 2026-09-23: `qui est esse`)
+                collapsed to a single letter under `truncate`. An admin then cannot read WHICH
+                value a word belongs to, which is the one thing this row exists to say. `title`
+                keeps the full value reachable when it still does not fit.
+              */}
+              <code
+                className="basis-1/2 min-w-0 px-2 py-1 text-xs rounded bg-muted text-foreground truncate"
+                title={value}
+              >
                 {value}
               </code>
               <Input
@@ -80,7 +91,7 @@ export const StatusVocabularyStep = ({
                 onChange={(event) => onChange({ ...labels, [value]: event.target.value })}
                 aria-label={`What agents read for ${value}`}
                 maxLength={80}
-                className="flex-1"
+                className="basis-1/2 min-w-0"
               />
               <Button
                 variant="ghost"
