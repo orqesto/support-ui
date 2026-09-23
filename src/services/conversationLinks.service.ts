@@ -6,10 +6,9 @@ import type { ApiResponse } from '@/types';
  * Thread linking (support-service #767, TL-D1..D3) — "these two conversations are one piece of
  * customer work".
  *
- * ⛔ NOT A MERGE. `mergeConversation` folds one row into another and DELETES the loser; it is
- * deliberately not exposed, because this is a human judgement call on live customer threads and a
- * mis-click must not destroy one. Both conversations survive; unlinking is a delete with nothing
- * to rebuild.
+ * ⛔ NOT A MERGE. Related work stays two tickets here; both survive and unlinking is a delete
+ * with nothing to rebuild. "The SAME conversation" is a merge (`conversationMerge.service`,
+ * 2026-09-23), which makes one ticket and is undone with Unmerge.
  *
  * Measured 2026-09-18: 3 of CoreSarms' 4 one-sided alerts had a sibling thread from the same
  * customer on a DIFFERENT Gmail thread, days apart. Until now an agent could see that and say

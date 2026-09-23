@@ -37,6 +37,7 @@ import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
 import type { Message, MessagesDisplayMode } from '@/types';
 import { Permission } from '@/types/roles';
 import { BulkActionBar } from '@/components/messages/bulk/BulkActionBar';
+import { BULK_MERGE_MAX, BulkMergeDialog } from '@/components/messages/bulk/BulkMergeDialog';
 import { BulkConfirmDialog, type BulkConfirmValues } from '@/components/messages/bulk/BulkConfirmDialog';
 import { describeResult } from '@/components/messages/bulk/bulkResultMessage';
 import { type BulkAction } from '@/components/messages/bulk/bulkActions';
@@ -151,6 +152,7 @@ export const MessagesPage = () => {
    * because the action bar sits outside the board.
    */
   const [bulkAction, setBulkAction] = useState<BulkAction | null>(null);
+  const [bulkMergeOpen, setBulkMergeOpen] = useState(false);
   const [bulkRunning, setBulkRunning] = useState(false);
   /** What the board says it is holding — see the `pagination` prop on MessageFilterBar. */
   const [boardTotal, setBoardTotal] = useState(0);
@@ -1108,6 +1110,8 @@ export const MessagesPage = () => {
               loading={bulkSelection.loading}
               onPick={setBulkAction}
               onClear={bulkSelection.clear}
+              onMerge={() => setBulkMergeOpen(true)}
+              mergeMax={BULK_MERGE_MAX}
             />
           </div>
         </div>
@@ -1298,6 +1302,19 @@ export const MessagesPage = () => {
           if (!open) setBulkAction(null);
         }}
         onConfirm={(values) => void runBulkAction(values)}
+      />
+
+      <BulkMergeDialog
+        open={bulkMergeOpen}
+        selectedIds={bulkSelection.selectedIds}
+        onOpenChange={setBulkMergeOpen}
+        onMerged={(survivor) => {
+          setBulkMergeOpen(false);
+          bulkSelection.clear();
+          toast.success(`Merged into ${getConvUrlId(survivor, orgCode)}`);
+          bumpKanban();
+          void fetchMessages(messagesPagination.page, true);
+        }}
       />
 
       <ComposeNewModal open={composeOpen} onClose={() => setComposeOpen(false)} />

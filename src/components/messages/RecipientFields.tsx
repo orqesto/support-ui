@@ -55,6 +55,29 @@ export const draftToRecipients = (
   };
 };
 
+/**
+ * "Reply all": To stays who we are answering; Cc becomes everyone else on the thread who is
+ * not already addressed. Pure, so the addressing rule is tested without a DOM.
+ *
+ * Why it exists (ODL-SUP-19, 2026-09-23): the customer cc'd a second address of theirs, our
+ * reply went to the first only, and the conversation continued from the second as a new ticket.
+ */
+export const replyAllDraft = (
+  draft: RecipientDraft,
+  defaultTo: string,
+  participants: string[]
+): RecipientDraft => {
+  const toList = parseTypedAddresses(draft.to.trim() || defaultTo).map((addr) => addr.toLowerCase());
+  const already = new Set([
+    ...toList,
+    ...parseTypedAddresses(draft.cc).map((addr) => addr.toLowerCase()),
+    ...parseTypedAddresses(draft.bcc).map((addr) => addr.toLowerCase()),
+  ]);
+  const extra = participants.filter((addr) => !already.has(addr.toLowerCase()));
+  const cc = [...parseTypedAddresses(draft.cc), ...extra];
+  return { ...draft, cc: cc.join(', ') };
+};
+
 /** Every address that doesn't look like one, for a pre-send warning. */
 export const invalidAddresses = (draft: RecipientDraft): string[] =>
   [draft.to, draft.cc, draft.bcc]
@@ -77,13 +100,33 @@ type RecipientFieldsProps = {
   /** Shown as the To placeholder when the agent has typed nothing. */
   defaultTo: string;
   disabled?: boolean;
+  /** Everyone on the thread who is not us (GET /participants). Absent on an older backend. */
+  participants?: string[];
 };
 
-export const RecipientFields = ({ draft, onChange, defaultTo, disabled }: RecipientFieldsProps) => {
+export const RecipientFields = ({
+  draft,
+  onChange,
+  defaultTo,
+  disabled,
+  participants = [],
+}: RecipientFieldsProps) => {
   const [expanded, setExpanded] = useState(false);
   const [showCc, setShowCc] = useState(false);
   const [showBcc, setShowBcc] = useState(false);
   const invalid = invalidAddresses(draft);
+  // Offered only when it would add someone: a thread with one correspondent has no "all".
+  const replyAll = replyAllDraft(draft, defaultTo, participants);
+  const replyAllAdds = parseTypedAddresses(replyAll.cc).length - parseTypedAddresses(draft.cc).length;
+  // Chips only for people not yet addressed — a chip for someone already in To or Cc would do
+  // nothing when pressed.
+  const addable = parseTypedAddresses(replyAll.cc).filter(
+    (addr) => !parseTypedAddresses(draft.cc).some((have) => have.toLowerCase() === addr.toLowerCase())
+  );
+  const applyReplyAll = () => {
+    onChange(replyAll);
+    setShowCc(true);
+  };
   const ccCount = parseTypedAddresses(draft.cc).length;
   const bccCount = parseTypedAddresses(draft.bcc).length;
 
@@ -119,6 +162,19 @@ export const RecipientFields = ({ draft, onChange, defaultTo, disabled }: Recipi
             have, and Bcc especially: nobody on the thread can reveal it for us. */}
         {ccCount > 0 && <span className="text-foreground">· cc {ccCount}</span>}
         {bccCount > 0 && <span className="text-foreground">· bcc {bccCount}</span>}
+        {replyAllAdds > 0 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={applyReplyAll}
+            disabled={disabled}
+            className="h-auto px-1 py-0 text-xs"
+            title={`Cc ${parseTypedAddresses(replyAll.cc).join(', ')}`}
+          >
+            Reply all (+{replyAllAdds})
+          </Button>
+        )}
         <Button
           type="button"
           variant="ghost"
@@ -183,6 +239,41 @@ export const RecipientFields = ({ draft, onChange, defaultTo, disabled }: Recipi
           Done
         </Button>
       </div>
+      {addable.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+          <span>Also on this thread — add to Cc:</span>
+          {addable.map((address) => (
+            <Button
+              key={address}
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-auto px-1.5 py-0 text-xs"
+              disabled={disabled}
+              title={`Add ${address} to Cc`}
+              onClick={() => {
+                const next = replyAllDraft(draft, defaultTo, [address]);
+                onChange(next);
+                setShowCc(true);
+              }}
+            >
+              {address}
+            </Button>
+          ))}
+          {addable.length > 1 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-auto px-1 py-0 text-xs"
+              onClick={applyReplyAll}
+              disabled={disabled}
+            >
+              All
+            </Button>
+          )}
+        </div>
+      )}
       {showCc && (
         <div className="flex items-center gap-1">
           <Input

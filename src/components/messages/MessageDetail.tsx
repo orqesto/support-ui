@@ -36,6 +36,7 @@ import type { Message, MessageEvent } from '@/types';
 import { shouldShowHistoryBanner } from './historyBanner';
 import { MessageDetailHeader } from './MessageDetailHeader';
 import { MessageComposer } from './MessageComposer';
+import { useThreadMergeContext } from './useThreadMergeContext';
 import { MessageActionStrip } from './MessageActionStrip';
 import { ResolveDecisions } from './ResolveDecisions';
 import { MessageGhostBubble } from './MessageGhostBubble';
@@ -473,6 +474,8 @@ export function MessageDetail({
   // the send path cannot honour.
   const supportsRecipients = message.channel === 'email';
   const [recipientDraft, setRecipientDraft] = useState<RecipientDraft>(emptyRecipientDraft);
+  // Merge labels on the timeline + everyone on the thread, for Reply all (owner, 2026-09-23).
+  const mergeContext = useThreadMergeContext(message.id, supportsRecipients, threadRefreshKey);
 
   const performSend = useCallback(
     async (assign?: ReplyAssignIntent) => {
@@ -1077,6 +1080,15 @@ export function MessageDetail({
                 {row.kind === 'message' ? (
                   <ThreadMessageItem
                     msg={row.msg}
+                    mergedFrom={mergeContext.mergedFromLabel(row.msg)}
+                    onReplyTo={
+                      supportsRecipients && isActive
+                        ? (addresses) => {
+                            setComposerMode('reply');
+                            setRecipientDraft((draft) => ({ ...draft, to: addresses.join(', ') }));
+                          }
+                        : undefined
+                    }
                     attachments={attachmentsByMessageId.get(row.msg.id) ?? []}
                     onOpenAttachment={(id) => {
                       setTab('attachments');
@@ -1164,6 +1176,7 @@ export function MessageDetail({
             }
             recipientDraft={supportsRecipients ? recipientDraft : undefined}
             onRecipientDraftChange={supportsRecipients ? setRecipientDraft : undefined}
+            participants={supportsRecipients ? mergeContext.participants : undefined}
           />
         )}
       </div>

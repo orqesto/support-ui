@@ -54,6 +54,8 @@ export type MessageComposerProps = {
    */
   recipientDraft?: RecipientDraft;
   onRecipientDraftChange?: (draft: RecipientDraft) => void;
+  /** Everyone on the thread who is not us — offered as Reply all and one-click Cc. */
+  participants?: string[];
   /**
    * Reports which AI mode produced the text now in the composer (null when the
    * agent undoes back to their own text), so the send can be stamped with its
@@ -82,6 +84,7 @@ export function MessageComposer({
   setComposerMode,
   recipientDraft,
   onRecipientDraftChange,
+  participants,
   submitting,
   onSend,
   richEditorRef,
@@ -228,6 +231,7 @@ export function MessageComposer({
             draft={recipientDraft}
             onChange={onRecipientDraftChange}
             defaultTo={replyToLabel(message)}
+            participants={participants}
             disabled={submitting}
           />
         )}

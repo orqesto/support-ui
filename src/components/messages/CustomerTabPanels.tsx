@@ -1,5 +1,6 @@
 import { CustomApiLookupPanel, NO_EMAIL_IDENTITY_NOTE } from './CustomApiLookupPanel';
 import { LinkedThreads } from './LinkedThreads';
+import { MergeThreads } from './MergeThreads';
 import type { AddOutcome } from './useAiRecordNote';
 import type { Message } from '@/types';
 
@@ -32,5 +33,8 @@ export const CustomerTabPanels = ({
     />
     {/* TL-D1..D3. ⛔ Not a merge: both threads survive, and unlinking undoes it completely. */}
     <LinkedThreads message={message} onChanged={onChanged} />
+    {/* One ticket, not two: the other ticket's messages move in and it leaves the inbox.
+        Undoable from here (owner, 2026-09-23). */}
+    <MergeThreads message={message} onChanged={onChanged} />
   </>
 );

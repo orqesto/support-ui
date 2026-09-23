@@ -243,6 +243,11 @@ export type MessageEvent = {
   // Per-message: a reply can be addressed differently from the message that
   // opened the thread, so this is not the same value as Message.recipients.
   recipients?: MessageRecipients | null;
+  /**
+   * Inbound only: who "Reply to this message" addresses — the writer's Reply-To when usable,
+   * else the writer. Absent from an older backend; the per-message reply is then not offered.
+   */
+  replyTarget?: string[];
   assigneeName?: string | null;
 };
 
