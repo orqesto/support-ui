@@ -3,6 +3,7 @@
 // wiring out is the natural follow-up refactor.
 /* eslint-disable max-lines */
 import { Fragment, useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useAiRecordNote } from './useAiRecordNote';
 import { draftToRecipients, emptyRecipientDraft, type RecipientDraft } from './RecipientFields';
 import {
   messageService,
@@ -197,6 +198,13 @@ export function MessageDetail({
   // CHANGED — an AI-drafted stamp alone says who wrote it, not what was wrong
   // with it.
   const [aiDraft, setAiDraft] = useState<AiDraft | null>(null);
+  /**
+   * L2 P4 — the note the agent gives the AI draft. Two children share it: the lookup panel adds
+   * a record's facts to it, the composer's AI panel is where it is written and sent from.
+   * ⛔ Per thread — see the hook, where that rule is the whole reason it exists.
+   */
+  const aiRecordNote = useAiRecordNote(message.id);
+
   const handleAiSourceChange = useCallback((source: string | null, draft?: AiDraft) => {
     setAiSource(source);
     setAiDraft(draft ?? null);
@@ -896,6 +904,7 @@ export function MessageDetail({
   // back; on the wide full page (v3) it is the right sidebar, always showing, beside the thread.
   const panelTabs = (
     <MessagePanelTabs
+      onUseInReply={aiRecordNote.add}
       variant={twoColumn ? 'sidebar' : 'rail'}
       message={message}
       tab={tab}
@@ -1096,6 +1105,9 @@ export function MessageDetail({
             richEditorRef={richEditorRef}
             noteEditorRef={noteEditorRef}
             onOpenSimilarMessages={() => setSimilarOpen(true)}
+            aiNote={aiRecordNote.note}
+            onAiNoteChange={aiRecordNote.change}
+            aiNoteReveal={aiRecordNote.reveal}
             selectedFiles={selectedFiles}
             onFilesChange={setSelectedFiles}
             onAiSourceChange={handleAiSourceChange}

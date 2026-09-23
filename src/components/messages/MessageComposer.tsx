@@ -61,6 +61,11 @@ export type MessageComposerProps = {
    * send for reply_style capture (undefined on undo).
    */
   onAiSourceChange?: (source: string | null, draft?: AiDraft) => void;
+  /** L2 P4: the shared note for the AI draft — the lookup panel adds records to this same text. */
+  aiNote?: string;
+  onAiNoteChange?: (next: string) => void;
+  /** Bumped when a record was added, so the note box comes on screen to show it. */
+  aiNoteReveal?: number;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -89,6 +94,9 @@ export function MessageComposer({
   windowTone = 'none',
   onUseTemplate = null,
   onAiSourceChange,
+  aiNote,
+  onAiNoteChange,
+  aiNoteReveal,
   shortcutHint,
   decisions,
 }: MessageComposerProps) {
@@ -285,6 +293,12 @@ export function MessageComposer({
                 onAiSourceChange?.(source, draft);
                 setTimeout(() => richEditorRef.current?.focus(), 0);
               }}
+              /* L2 P4: the note is held by MessageDetail, because the lookup panel writes to it
+                 too. Undefined here keeps this component's own state, so every other caller and
+                 the panel's own tests are unaffected. */
+              instructions={aiNote}
+              onInstructionsChange={onAiNoteChange}
+              revealNote={aiNoteReveal}
             />
           )}
           {composerMode === 'reply' && (

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import type { AddOutcome } from './useAiRecordNote';
 import { StickyNote, Pencil, Trash2 } from 'lucide-react';
 import { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
 import { Button } from '@/components/ui/Button';
@@ -61,6 +62,11 @@ export type MessagePanelTabsProps = {
   setLeadState: React.Dispatch<React.SetStateAction<LeadState | null>>;
   leadFieldDefs: LeadQualificationFieldConfig[];
   onGhostClick: (answer: string, source: string, attachments?: KBAttachment[]) => void;
+  /**
+   * L2 P4: a custom-API record joins the agent's note for the AI draft. Returns false when the
+   * note is full, so the control says so rather than the fact quietly not arriving.
+   */
+  onUseInReply?: (note: string) => AddOutcome;
   onOptionSelect?: (
     answer: string,
     label: string,
@@ -98,6 +104,7 @@ export function MessagePanelTabs({
   setLeadState,
   leadFieldDefs,
   onGhostClick,
+  onUseInReply,
   onOptionSelect,
   onOptionsLoaded,
   onAiLoadingChange,
@@ -317,6 +324,7 @@ export function MessagePanelTabs({
                 message={message}
                 hasEmailIdentity={hasEmailIdentity}
                 onChanged={onRefresh}
+                onUseInReply={onUseInReply}
               />
 
               {/* Full contact profile — assigned manager, labels, channel
