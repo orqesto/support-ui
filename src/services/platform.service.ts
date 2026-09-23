@@ -141,6 +141,8 @@ export type QueueTiming = {
   lastFinishedAt: string | null;
   finishesPerMinute: number | null;
   rateSample: number;
+  /** How much history the rate rests on (oldest counted finish → now). Absent on an older backend. */
+  rateSpanMs?: number | null;
 };
 
 export type QueueRow = {
@@ -156,6 +158,10 @@ export type QueueRow = {
   total: number;
   /** Absent on a backend without per-queue timing; null when the read failed. */
   timing?: QueueTiming | null;
+  /** How long the longest-waiting job has waited — measured. Null when nothing waits or the read failed. */
+  oldestWaitingMs?: number | null;
+  /** False when more priority bands existed than were read: the age is then a floor. */
+  oldestWaitingExact?: boolean;
 };
 
 export type QueueStatus = {

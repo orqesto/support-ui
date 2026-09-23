@@ -6,6 +6,7 @@ import {
   estimateClearTime,
   formatCpuBreakdown,
   formatDuration,
+  formatOldestWaiting,
   queuedJobs,
   formatCpuFigures,
   formatMemoryBreakdown,
@@ -195,6 +196,26 @@ describe('failure analysis formatting', () => {
     expect(estimateClearTime({ waiting: 8, prioritized: 40, timing })).toBe('~12 min');
     expect(estimateClearTime({ waiting: 3, timing })).toBe('under a minute');
     expect(estimateClearTime({ waiting: 760, timing })).toBe('~3 h 10 min');
+  });
+
+  it('names the history an estimate rests on', () => {
+    expect(estimateClearTime({ waiting: 256, timing: { ...timing, finishesPerMinute: 21.97, rateSpanMs: 4.2 * 60_000 } })).toBe(
+      '~12 min (from 4 min of history)'
+    );
+    expect(estimateClearTime({ waiting: 3, timing: { ...timing, rateSpanMs: 58 * 60_000 } })).toBe(
+      'under a minute (from 58 min of history)'
+    );
+    // An older backend without the span: the bare estimate.
+    expect(estimateClearTime({ waiting: 48, timing })).toBe('~12 min');
+  });
+
+  it('shows the measured age of the longest-waiting job, as a floor when not every band was read', () => {
+    expect(formatOldestWaiting({ oldestWaitingMs: 12.3 * 60_000, oldestWaitingExact: true })).toBe('12 min');
+    expect(formatOldestWaiting({ oldestWaitingMs: 12.3 * 60_000, oldestWaitingExact: false })).toBe('≥ 12 min');
+    // An older backend (no flag) reports an exact age.
+    expect(formatOldestWaiting({ oldestWaitingMs: 900 })).toBe('900 ms');
+    expect(formatOldestWaiting({ oldestWaitingMs: null })).toBe('—');
+    expect(formatOldestWaiting({})).toBe('—');
   });
 
   it('says why there is no estimate instead of inventing one', () => {

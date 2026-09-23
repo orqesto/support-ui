@@ -24,6 +24,7 @@ import {
   formatDuration,
   formatMemoryBreakdown,
   formatMemoryFigures,
+  formatOldestWaiting,
   queuedJobs,
 } from '@/components/console/failureAnalysis.format';
 import { licenseService } from '@/services/license.service';
@@ -334,6 +335,7 @@ export const PlatformSystem = () => {
                       <th className="px-3 py-2 font-medium">Failed</th>
                       <th className="px-3 py-2 font-medium">Typical job</th>
                       <th className="px-3 py-2 font-medium">Waited</th>
+                      <th className="px-3 py-2 font-medium">Oldest waiting</th>
                       <th className="px-3 py-2 font-medium">Clears in</th>
                     </tr>
                   </thead>
@@ -372,6 +374,7 @@ export const PlatformSystem = () => {
                         <td className="px-3 py-2 text-muted-foreground">
                           {formatDuration(queue.timing?.medianWaitMs)}
                         </td>
+                        <td className="px-3 py-2 text-muted-foreground">{formatOldestWaiting(queue)}</td>
                         <td className="px-3 py-2 text-muted-foreground">{estimateClearTime(queue) ?? '—'}</td>
                       </tr>
                     ))}
@@ -382,9 +385,10 @@ export const PlatformSystem = () => {
                 <p className="text-xs text-muted-foreground">
                   Typical job and Waited are the median of each queue&apos;s most recent finished jobs
                   (up to 20; finished jobs are kept for about an hour); a CPU-heavy job&apos;s time
-                  includes waiting for a free core. Clears in is the waiting jobs at the pace the queue
-                  finished jobs over the last hour (up to its last 100), measured up to now — an
-                  estimate: quiet spells make it read long.
+                  includes waiting for a free core. Oldest waiting is measured. Clears in is the waiting
+                  jobs at the pace the queue finished jobs over the last hour (up to its last 100),
+                  measured up to now — an estimate that names the history it rests on; quiet spells
+                  make it read long, and one burst on little history can make it read short.
                 </p>
               ) : null}
             </>

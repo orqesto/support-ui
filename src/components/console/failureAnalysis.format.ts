@@ -200,11 +200,25 @@ export const estimateClearTime = (
   const { finishesPerMinute, rateSample } = queue.timing;
   if (finishesPerMinute && finishesPerMinute > 0) {
     const minutes = queued / finishesPerMinute;
-    return minutes < 1 ? 'under a minute' : `~${formatDuration(minutes * 60_000)}`;
+    const estimate = minutes < 1 ? 'under a minute' : `~${formatDuration(minutes * 60_000)}`;
+    // How much record the pace rests on: a few minutes of one burst is a thin basis, and says so.
+    const span = queue.timing.rateSpanMs;
+    return typeof span === 'number' && span > 0 ? `${estimate} (from ${formatDuration(span)} of history)` : estimate;
   }
   if (rateSample > 0) return 'too few recent jobs to estimate';
   const lastFinished = queue.timing.lastFinishedAt ? Date.parse(queue.timing.lastFinishedAt) : Number.NaN;
   return Number.isFinite(lastFinished)
     ? `last finished ${formatDuration(Math.max(0, now - lastFinished))} ago`
     : 'no finished jobs on record';
+};
+
+/**
+ * "12 min", "≥ 12 min" — how long the longest-waiting job has waited. Measured, not estimated, so it
+ * is the check on "clears in": a queue whose oldest job has waited 40 min does not clear in 2.
+ * "≥" when the backend could only read some priority bands; "—" when nothing waits or it could not read.
+ */
+export const formatOldestWaiting = (queue: Pick<QueueRow, 'oldestWaitingMs' | 'oldestWaitingExact'>): string => {
+  if (typeof queue.oldestWaitingMs !== 'number') return '—';
+  const age = formatDuration(queue.oldestWaitingMs);
+  return queue.oldestWaitingExact === false ? `≥ ${age}` : age;
 };
