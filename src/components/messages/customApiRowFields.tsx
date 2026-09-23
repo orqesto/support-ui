@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+import { CustomApiRecordInsert } from './CustomApiRecordInsert';
 import { CATEGORY_RECORD_LABELS, type CustomApiCategory } from '@/components/settings/customApi/categories';
 import { LABEL } from './messageDetailConstants';
 import type { CustomApiLookupResult, LookupField } from '@/services/customApiLookup.service';
@@ -136,10 +138,12 @@ const RecordCard = ({
   row,
   fields,
   category,
+  children,
 }: {
   row: Record<string, unknown>;
   fields: LookupField[];
   category: CustomApiCategory;
+  children?: ReactNode;
 }) => {
   const present = (role: string): LookupField | undefined =>
     fields.find((field) => roleOf(field) === role && renderValue(row, field) !== MISSING);
@@ -194,6 +198,7 @@ const RecordCard = ({
       )}
 
       {rest.length > 0 && <FieldGrid row={row} fields={rest} />}
+      {children}
     </div>
   );
 };
@@ -208,10 +213,23 @@ export const RowFields = ({
   row,
   fields,
   category = null,
+  lookupLabel = '',
+  ownership,
+  onUseInReply,
 }: {
   row: Record<string, unknown>;
   fields: LookupField[];
   category?: CustomApiCategory | null;
+  /** L2 P4: what the admin called this lookup, used when there is no category to name. */
+  lookupLabel?: string;
+  /** D38: carried to the insert control, which is where it matters most. */
+  ownership?: 'owned' | 'mismatch' | 'unverified';
+  /**
+   * L2 P4: add this record to the agent's note for the AI draft. Absent on surfaces with no
+   * composer — the customer records page is a page, not a reply — and the control then does not
+   * render at all rather than rendering something that cannot work.
+   */
+  onUseInReply?: (note: string) => 'added' | 'duplicate' | 'full';
 }) => {
   // No category, or no role the header can use ⇒ nothing to lay out. The grid is not a degraded
   // mode here, it is the correct rendering of a record nobody has described.
@@ -220,6 +238,27 @@ export const RowFields = ({
       (roleOf(field) === 'identifier' || roleOf(field) === 'status') &&
       renderValue(row, field) !== MISSING
   );
-  if (!category || !hasHeadableRole) return <FieldGrid row={row} fields={fields} />;
-  return <RecordCard row={row} fields={fields} category={category} />;
+  const insert = onUseInReply ? (
+    <CustomApiRecordInsert
+      row={row}
+      fields={fields}
+      category={category}
+      lookupLabel={lookupLabel}
+      ownership={ownership}
+      onUseInReply={onUseInReply}
+    />
+  ) : null;
+
+  if (!category || !hasHeadableRole)
+    return (
+      <div>
+        <FieldGrid row={row} fields={fields} />
+        {insert}
+      </div>
+    );
+  return (
+    <RecordCard row={row} fields={fields} category={category}>
+      {insert}
+    </RecordCard>
+  );
 };

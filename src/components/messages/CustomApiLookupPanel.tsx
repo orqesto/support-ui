@@ -76,6 +76,15 @@ interface Props {
   identityNote?: string;
   /** Spacing from the host. On the panel's own root, so a hidden panel leaves no gap behind. */
   className?: string;
+  /**
+   * L2 P4: add a record to the agent's note for the AI draft. Says what happened, so the control can
+   * tell the agent instead of the fact quietly vanishing.
+   *
+   * ⛔ Optional, and the control is not rendered without it. The same panel is used on the
+   * contact drawer and the records page, where there is no composer — a button that could not
+   * work anywhere it is shown is how an agent learns to stop trusting buttons.
+   */
+  onUseInReply?: (note: string) => 'added' | 'duplicate' | 'full';
 }
 
 /**
@@ -158,10 +167,13 @@ const ResultCard = ({
   result,
   onRunManual,
   busy,
+  onUseInReply,
 }: {
   result: CustomApiLookupResult;
   onRunManual: (endpointId: number, parameter: string) => void;
   busy: boolean;
+  /** L2 P4. Absent where there is no composer to add a note to (the records page). */
+  onUseInReply?: (note: string) => 'added' | 'duplicate' | 'full';
 }) => {
   // D36: the number found in the CUSTOMER'S message is pre-filled — into a field the agent can
   // overwrite. A suggestion is a suggestion; nothing is sent to a vendor without a press.
@@ -283,7 +295,15 @@ const ResultCard = ({
         (result.rows?.length ? (
           <div className="space-y-1.5">
             {result.rows.map((row, index) => (
-              <RowFields key={index} row={row} fields={fields} category={category} />
+              <RowFields
+                key={index}
+                row={row}
+                fields={fields}
+                category={category}
+                lookupLabel={result.label}
+                ownership={result.ownership}
+                onUseInReply={onUseInReply}
+              />
             ))}
             {usingFallback && fallbackKeys.length > UNCONFIGURED_FIELD_PREVIEW && (
               <p className="text-[10px] text-muted-foreground">
@@ -312,6 +332,7 @@ export const CustomApiLookupPanel = ({
   contactId,
   identityNote,
   className,
+  onUseInReply,
 }: Props) => {
   const { results, loading, hasRun, error, unavailable, run } = useCustomApiLookup({
     conversationId,
@@ -435,6 +456,7 @@ export const CustomApiLookupPanel = ({
             result={result}
             busy={loading}
             onRunManual={(endpointId, parameter) => run({ endpointId, parameter })}
+            onUseInReply={onUseInReply}
           />
         ))}
       </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Sparkles, Undo2, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
@@ -66,9 +66,28 @@ type Props = {
    * Undefined on undo, for the same reason `source` is null there.
    */
   onApplied?: (source: string | null, draft?: AiDraft) => void;
+  /**
+   * L2 P4 — the note box, controlled from outside when the host has something to put in it.
+   *
+   * ⛔ CONTROLLED OR UNCONTROLLED, never both: with `instructions` given the host owns the text,
+   * without it this component keeps its own, so every existing caller and test is unchanged.
+   */
+  instructions?: string;
+  onInstructionsChange?: (next: string) => void;
+  /**
+   * Increment to say "something was just added to the note". The panel opens and shows the note
+   * box — text arriving in a closed panel, or behind the agent's own draft, is text an agent
+   * never sees and cannot vouch for.
+   */
+  revealNote?: number;
 };
 
-const MAX_INSTRUCTIONS = 2000;
+/**
+ * ⛔ MIRRORS `MAX_AGENT_INSTRUCTIONS_CHARS` in the backend prompt builder, which applies a plain
+ * `.slice()`. Exported because L2 P4 adds record facts to this same box and must REFUSE rather
+ * than let the backend cut a fact in half.
+ */
+export const MAX_INSTRUCTIONS = 2000;
 /**
  * The only 409 compose-reply issues: the thread has no inbound turn to answer —
  * it opens with our own outbound mail, or the customer's side is missing. Generate
@@ -92,9 +111,14 @@ export function ComposerAiActions({
   setComposer,
   disabled,
   onApplied,
+  instructions: instructionsProp,
+  onInstructionsChange,
+  revealNote,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [instructions, setInstructions] = useState('');
+  const [ownInstructions, setOwnInstructions] = useState('');
+  const instructions = instructionsProp ?? ownInstructions;
+  const setInstructions = onInstructionsChange ?? setOwnInstructions;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -109,6 +133,28 @@ export function ComposerAiActions({
   // available — an AI rewrite that destroys what someone typed is the one
   // failure that makes people stop trusting the feature.
   const [previous, setPrevious] = useState<string | null>(null);
+
+  /*
+    L2 P4: a record was just added to the note. Open the panel and switch to the note view — on a
+    thread where the agent has already typed a reply, `showWriteView` is false, so the box holding
+    the fact they just added would not be on screen at all.
+    ⛔ Keyed on the COUNTER, not on the text: adding the same record twice is a no-op on the text
+    and must still bring the box back.
+  */
+  const seenReveal = useRef(revealNote ?? 0);
+  useEffect(() => {
+    /*
+      ⛔ ONLY ON A CHANGE, never on mount. This component is REMOUNTED per conversation (see the
+      `key` where it is used), so on a fresh thread it mounts holding whatever the counter last
+      reached — and a bare `if (!revealNote)` would fling the AI panel open on a thread where the
+      agent added nothing. The ref starts at the incoming value, so a mount is never an event.
+    */
+    const next = revealNote ?? 0;
+    if (next === seenReveal.current) return;
+    seenReveal.current = next;
+    setOpen(true);
+    setStartFresh(true);
+  }, [revealNote]);
 
   const { aiConfigured } = useAiConfigured();
   const ownText = stripHtml(composer).trim();

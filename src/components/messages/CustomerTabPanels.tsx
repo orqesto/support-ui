@@ -13,10 +13,13 @@ export const CustomerTabPanels = ({
   message,
   hasEmailIdentity,
   onChanged,
+  onUseInReply,
 }: {
   message: Message;
   hasEmailIdentity: boolean;
   onChanged?: () => void;
+  /** L2 P4: a record joins the agent's note for the AI draft. It answers added / duplicate / full. */
+  onUseInReply?: (note: string) => 'added' | 'duplicate' | 'full';
 }) => (
   <>
     {/* CA-3: nothing is fetched until the agent presses Look up (SC1). */}
@@ -24,6 +27,7 @@ export const CustomerTabPanels = ({
       className="pt-1"
       conversationId={message.id}
       identityNote={hasEmailIdentity ? undefined : NO_EMAIL_IDENTITY_NOTE}
+      onUseInReply={onUseInReply}
     />
     {/* TL-D1..D3. ⛔ Not a merge: both threads survive, and unlinking undoes it completely. */}
     <LinkedThreads message={message} onChanged={onChanged} />
