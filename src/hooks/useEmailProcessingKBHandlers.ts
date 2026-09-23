@@ -2,6 +2,17 @@ import type { ProcessingSession } from '@/hooks/useEmailProcessingSessions';
 
 type SetSessions = React.Dispatch<React.SetStateAction<Map<string, ProcessingSession>>>;
 
+/** Mark the session an event just changed with the time of that event (see `updatedAt`). */
+export const stampUpdated = (
+  sessions: Map<string, ProcessingSession>,
+  sessionKey: string,
+  before: ProcessingSession | undefined
+): Map<string, ProcessingSession> => {
+  const after = sessions.get(sessionKey);
+  if (after && after !== before) sessions.set(sessionKey, { ...after, updatedAt: Date.now() });
+  return sessions;
+};
+
 type KBProgressEvent = {
   messageSourceId: number;
   organizationId?: number;
@@ -84,8 +95,10 @@ export const makeKBHandlers = ({ filterByOrganization, setSessions }: KBHandlerP
         }
 
         // Merge KB progress into existing session
-        // For standalone KB sessions (no emailTotal), also update top-level counters
-        const isStandaloneKB = !existing.emailTotal && existing.stage === 'kb-processing';
+        // For standalone KB sessions (no email fetch behind them), also update top-level
+        // counters. A session an email fetch is driving keeps Found/Processed for the fetch.
+        const isStandaloneKB =
+          !existing.emailTotal && !existing.hasEmailFetch && existing.stage === 'kb-processing';
 
         // Once totalFinalized is true, never decrease the total (prevents visual jumps
         // from backend sending different totals for different mailboxes)
@@ -136,7 +149,7 @@ export const makeKBHandlers = ({ filterByOrganization, setSessions }: KBHandlerP
         };
 
         newSessions.set(existingKey, updatedSession);
-        return newSessions;
+        return stampUpdated(newSessions, existingKey, existing);
       }
 
       // No existing session found - KB event without email session
@@ -184,7 +197,7 @@ export const makeKBHandlers = ({ filterByOrganization, setSessions }: KBHandlerP
         newSessions.set(sessionKey, newSession);
       }
 
-      return newSessions;
+      return stampUpdated(newSessions, sessionKey, undefined);
     });
   };
 

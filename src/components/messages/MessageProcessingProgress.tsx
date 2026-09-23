@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   BookOpen,
+  PauseCircle,
   type LucideIcon,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -326,6 +327,11 @@ export const MessageProcessingProgress = ({
     }
   }, [status, allMessagesProcessed, total, linkedReplies, session.sessionKey, onClose, isMobile]);
 
+  // The run stopped early (server load OR the provider's rate limit — the flag does not say
+  // which, so the copy names no cause); the next check continues it. It must not read as done:
+  // "Complete — Processed 0" over 2,487 unimported messages was the taco report of 2026-09-23.
+  const isDeferred = status === 'complete' && session.deferred === true;
+
   // Show widget ONLY if there's activity
   const isActivelyProcessing =
     (isProcessing || status === 'started' || status === 'processing') && !allMessagesProcessed;
@@ -373,7 +379,9 @@ export const MessageProcessingProgress = ({
         title={isMobile ? undefined : 'Drag to move widget'}
       >
         <div className="flex flex-1 gap-2 items-center">
-          {allMessagesProcessed || status === 'complete' ? (
+          {isDeferred ? (
+            <PauseCircle className="w-4 h-4 text-warning" />
+          ) : allMessagesProcessed || status === 'complete' ? (
             <CheckCircle className="w-4 h-4 text-success" />
           ) : status === 'error' ? (
             <XCircle className="w-4 h-4 text-destructive" />
@@ -388,15 +396,17 @@ export const MessageProcessingProgress = ({
               : integrationName}
           </span>
           <span className="text-[10px] text-muted-foreground">
-            {allMessagesProcessed
-              ? 'Complete'
-              : isProcessing || status === 'processing' || status === 'started'
-                ? 'Processing'
-                : status === 'complete'
-                  ? 'Complete'
-                  : status === 'error'
-                    ? 'Failed'
-                    : 'Ready'}
+            {isDeferred
+              ? 'Paused'
+              : allMessagesProcessed
+                ? 'Complete'
+                : isProcessing || status === 'processing' || status === 'started'
+                  ? 'Processing'
+                  : status === 'complete'
+                    ? 'Complete'
+                    : status === 'error'
+                      ? 'Failed'
+                      : 'Ready'}
           </span>
         </div>
         <div className="flex gap-1 items-center">
@@ -654,11 +664,18 @@ export const MessageProcessingProgress = ({
           {/* Success Message */}
           {status === 'complete' && !error && (
             <div className="space-y-1.5">
-              <div className="bg-success-muted text-success px-3 py-1.5 rounded text-xs">
-                ✅ Processed {processed} {sourceType}
-                {processed !== 1 ? 's' : ''}
-                {failed > 0 && ` (${failed} failed)`}
-              </div>
+              {isDeferred ? (
+                <div className="bg-warning-muted text-warning px-3 py-1.5 rounded text-xs">
+                  ⏸ Paused — {processed} of {total} saved so far. The rest continue automatically
+                  on the next check.
+                </div>
+              ) : (
+                <div className="bg-success-muted text-success px-3 py-1.5 rounded text-xs">
+                  ✅ Processed {processed} {sourceType}
+                  {processed !== 1 ? 's' : ''}
+                  {failed > 0 && ` (${failed} failed)`}
+                </div>
+              )}
 
               {/* KB Entries Stats */}
               {kbEntriesTotal !== undefined && kbEntriesTotal > 0 && (

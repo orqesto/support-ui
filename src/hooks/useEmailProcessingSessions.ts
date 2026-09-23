@@ -26,7 +26,20 @@ export type ProcessingSession = {
   processTime?: number;
   totalTime?: number;
   progress: number;
-  timestamp?: number; // For localStorage cleanup
+  timestamp?: number; // When the session was created or last RESET — not updated per event
+  /** When the last event touched this session. Staleness and the stuck timeout read this. */
+  updatedAt?: number;
+  /**
+   * An email fetch drives this session (started/found seen). Knowledge-base progress then fills
+   * only the kb* fields — it used to overwrite Found/Processed too, so the two streams took turns
+   * writing the same tiles and the numbers "jumped" (taco, 2026-09-23).
+   */
+  hasEmailFetch?: boolean;
+  /**
+   * The run stopped early because the server was under load; the next check continues it. Sent
+   * by the BE on `complete` (support-service, deferred runs). Older BEs never send it.
+   */
+  deferred?: boolean;
   // KB entries stats (for KB ingestion)
   kbEntriesTotal?: number;
   kbQAPairs?: number;
@@ -105,18 +118,20 @@ export const useEmailProcessingSessions = ({
         let hasChanges = false;
 
         for (const [key, session] of updated.entries()) {
+          // From the LAST event, not from creation: a long import that is still reporting
+          // progress is not stuck, however long ago it started.
+          const lastSeen = session.updatedAt ?? session.timestamp;
           const isStuck =
             (session.status === 'processing' || session.status === 'started') &&
-            session.timestamp &&
-            now - session.timestamp > TIMEOUT_MS;
+            lastSeen &&
+            now - lastSeen > TIMEOUT_MS;
 
           if (isStuck) {
-            logger.warn(`[useEmailProcessing] Session ${key} timed out after 20 minutes`);
+            logger.warn(`[useEmailProcessing] Session ${key} silent for 20 minutes`);
             updated.set(key, {
               ...session,
               status: 'error',
-              error:
-                'Processing timeout (20 min) - integration may have connection issues or large dataset',
+              error: 'No progress for 20 minutes - the integration may have connection issues',
               isProcessing: false,
             });
             hasChanges = true;
