@@ -283,7 +283,7 @@ const ResultCard = ({
         (result.rows?.length ? (
           <div className="space-y-1.5">
             {result.rows.map((row, index) => (
-              <RowFields key={index} row={row} fields={fields} />
+              <RowFields key={index} row={row} fields={fields} category={category} />
             ))}
             {usingFallback && fallbackKeys.length > UNCONFIGURED_FIELD_PREVIEW && (
               <p className="text-[10px] text-muted-foreground">
