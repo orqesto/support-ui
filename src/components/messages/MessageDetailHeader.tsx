@@ -47,9 +47,6 @@ import type { Message, Category, TicketPriority, ThreadStatus } from '@/types';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
-import { useAssignToMe } from './useAssignToMe';
-import { ResolveSplitButton } from './ResolveSplitButton';
-import type { ResolveMode } from './resolveMode';
 import { isAiNotConfiguredError, AI_NOT_CONFIGURED_MESSAGE } from '@/lib/errorMessages';
 import {
   LABEL,
@@ -104,18 +101,6 @@ export type MessageDetailHeaderProps = {
   /** Toggle the per-user read/unread state. */
   onToggleRead?: () => void;
   /**
-   * The resolve decision, now in the header beside status and SLA — "status and SLA are what
-   * you judge before pressing Resolve". Null/absent renders no button (see resolveMode.ts).
-   */
-  resolveMode?: ResolveMode;
-  resolving?: boolean;
-  /** Opens the same confirm dialog the old footer's "Resolve (no KB)" did. */
-  onResolve?: () => void;
-  onResolveToKb?: () => void;
-  onNotCustomerWork?: () => void;
-  /** Enables "Assign to me"; hidden when the conversation is already this user's. */
-  currentUserId?: number | null;
-  /**
    * Full page (v3): the Dept / Assigned / Category / Labels block renders into this node — the
    * right sidebar — as stacked rows, instead of as the inline meta row under the chips. Portal,
    * so its state and handlers stay here with the rest of the header's.
@@ -155,12 +140,6 @@ export function MessageDetailHeader({
   showReadToggle,
   isRead,
   onToggleRead,
-  resolveMode = null,
-  resolving = false,
-  onResolve,
-  onResolveToKb,
-  onNotCustomerWork,
-  currentUserId = null,
   metaTarget,
 }: MessageDetailHeaderProps) {
   const { hasPermission } = usePermissions();
@@ -316,20 +295,6 @@ export function MessageDetailHeader({
     (message.metadata?.spamCheck as Record<string, unknown> | undefined)?.category === 'suspicious';
   const isActive =
     message.status !== 'resolved' && !isFiltered && !isSuspicious && message.status !== 'closed';
-
-  // "Assign to me" beside the decisions it usually precedes (useAssignToMe.ts). Offered only
-  // while there IS a decision to make — assigning a resolved or binned thread is not the job.
-  const {
-    canAssign,
-    assigning: assigningMe,
-    assignToMe,
-  } = useAssignToMe({
-    messageId: message.id,
-    assigneeId: message.assigneeId,
-    currentUserId,
-    onAssigned: onRefresh,
-  });
-  const canAssignToMe = canAssign && resolveMode !== null;
 
   // Esc closes the open popover (ACTIONS menu or label picker) and only it — their roles keep
   // the rail's own Esc out (detailShortcuts.ts dialogIsOpen). Listened on the document, so it
@@ -793,7 +758,12 @@ export function MessageDetailHeader({
           </Tooltip>
         )}
         {showReadToggle && onToggleRead && (
-          <Tooltip content={isRead ? 'Mark as unread' : 'Mark as read'} side="bottom" size="sm">
+          <Tooltip
+            // U does the same (detailShortcuts.ts) — it acts exactly where this toggle is shown.
+            content={isRead ? 'Mark as unread · U' : 'Mark as read · U'}
+            side="bottom"
+            size="sm"
+          >
             <button
               type="button"
               onClick={onToggleRead}
@@ -883,43 +853,6 @@ export function MessageDetailHeader({
           </>
         )}
       </div>
-
-      {/* The decisions (Assign to me, Resolve): their own right-aligned line UNDER the icon row and
-          ABOVE the subject (owner, 2026-09-22). On the chip row they jumped to a second line
-          whenever a thread had one chip more; here they sit at one fixed place on every thread,
-          next to the other controls, and the subject, sender and chips below keep their width.
-          Not rendered when there is no decision. */}
-      {(canAssignToMe || (onResolve && resolveMode !== null)) && (
-        <div className="flex justify-end items-center gap-[7px] px-3.5 pt-1.5">
-          {canAssignToMe && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void assignToMe()}
-              disabled={assigningMe}
-              className="h-[27px] px-[11px] rounded-[7px] text-[12px] bg-card"
-            >
-              {assigningMe ? 'Assigning…' : 'Assign to me'}
-            </Button>
-          )}
-          {onResolve && (
-            <ResolveSplitButton
-              mode={resolveMode}
-              busy={resolving}
-              onResolve={onResolve}
-              onResolveToKb={onResolveToKb}
-              onNotCustomerWork={onNotCustomerWork}
-              // Owner, 2026-09-22: the agent resolving AS spam is the CONFIRMED layer; spam our
-              // filters bin stays unconfirmed until a person acts. Hence confirm=true here.
-              onMoveToSpam={
-                isActive && onClassify
-                  ? () => void onClassify('move_to_spam', undefined, undefined, true)
-                  : undefined
-              }
-            />
-          )}
-        </div>
-      )}
 
       {/* Subject */}
       <h2 className="font-display text-[16.5px] font-semibold leading-[1.3] tracking-[-0.015em] line-clamp-2 my-1.5 px-3.5 text-foreground">

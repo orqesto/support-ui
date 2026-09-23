@@ -17,7 +17,12 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-const all: ShortcutContext = { canResolve: true, canNavigate: true, canClose: true };
+const all: ShortcutContext = {
+  canResolve: true,
+  canNavigate: true,
+  canClose: true,
+  canToggleRead: true,
+};
 const key = (keyName: string, over: Partial<KeyboardEvent> = {}) =>
   ({
     key: keyName,
@@ -38,6 +43,8 @@ describe('shortcutFor — which key does what', () => {
     ['e', 'resolve'],
     ['j', 'next'],
     ['k', 'prev'],
+    ['u', 'toggleRead'],
+    ['U', 'toggleRead'],
     ['Escape', 'close'],
   ])('%s → %s', (keyName, action) => {
     expect(shortcutFor(key(keyName), all)).toBe(action);
@@ -62,7 +69,7 @@ describe('shortcutFor — nothing fires where it would be wrong', () => {
   ])('typing in %s', (_label, html) => {
     document.body.innerHTML = html;
     const target = document.getElementById('t');
-    for (const keyName of ['r', 'n', 'e', 'j', 'k']) {
+    for (const keyName of ['r', 'n', 'e', 'j', 'k', 'u']) {
       expect(shortcutFor(key(keyName, { target }), all)).toBeNull();
     }
   });
@@ -100,6 +107,18 @@ describe('shortcutFor — nothing fires where it would be wrong', () => {
   it('J/K only where a list exists to move through', () => {
     expect(shortcutFor(key('j'), { ...all, canNavigate: false })).toBeNull();
     expect(shortcutFor(key('k'), { ...all, canNavigate: false })).toBeNull();
+  });
+
+  it('U only where the read/unread toggle is shown (triage queues)', () => {
+    expect(shortcutFor(key('u'), { ...all, canToggleRead: false })).toBeNull();
+    // Absent = off: a caller that never opted in gets no U.
+    const { canToggleRead: _omit, ...withoutRead } = all;
+    expect(shortcutFor(key('u'), withoutRead)).toBeNull();
+  });
+
+  it('U is off with a modifier held — Cmd/Ctrl+U is the browser’s view-source', () => {
+    expect(shortcutFor(key('u', { metaKey: true }), all)).toBeNull();
+    expect(shortcutFor(key('u', { ctrlKey: true }), all)).toBeNull();
   });
 
   it('Esc only on a surface that can close', () => {

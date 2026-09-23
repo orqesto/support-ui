@@ -1,5 +1,6 @@
 /**
- * The resolve decision moved from the footer strip to the header's split Resolve button.
+ * The resolve decision: footer strip → header split button (09-22) → a row under the reply
+ * (design v3, 2026-09-23).
  *
  * These are the footer's own regressions, carried over rather than deleted — the three that
  * matter most were each found the hard way:
@@ -13,7 +14,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import type { Message, ThreadStatus } from '@/types';
 import { getResolveMode, noKbResolveDialog } from '../resolveMode';
-import { ResolveSplitButton } from '../ResolveSplitButton';
+import { ResolveDecisions } from '../ResolveDecisions';
 
 afterEach(cleanup);
 
@@ -61,95 +62,104 @@ describe('noKbResolveDialog — the one-press Resolve opens the footer’s old d
   });
 });
 
-const openMenu = () =>
-  fireEvent.click(screen.getByRole('button', { name: 'Other resolve options' }));
-const items = () => screen.queryAllByRole('menuitem').map((el) => el.textContent);
+const buttons = () => screen.queryAllByRole('button').map((el) => el.textContent);
 
-describe('ResolveSplitButton', () => {
+describe('ResolveDecisions — the row under the reply (v3, 2026-09-23)', () => {
   it('renders nothing when there is no decision to make', () => {
-    const { container } = render(<ResolveSplitButton mode={null} onResolve={vi.fn()} />);
+    const { container } = render(<ResolveDecisions mode={null} onResolve={vi.fn()} />);
     expect(container.textContent).toBe('');
   });
 
-  it('one press resolves — the common case', () => {
-    const onResolve = vi.fn();
-    render(<ResolveSplitButton mode="active" onResolve={onResolve} onResolveToKb={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: /^Resolve$/ }));
-    expect(onResolve).toHaveBeenCalledTimes(1);
-  });
-
-  it('an active conversation offers KB capture, Not customer work and Resolve & move to spam', () => {
-    const onResolveToKb = vi.fn();
+  it('an active conversation: Resolve, save to KB, then the quiet exits — in that order', () => {
     render(
-      <ResolveSplitButton
+      <ResolveDecisions
         mode="active"
         onResolve={vi.fn()}
-        onResolveToKb={onResolveToKb}
+        onResolveToKb={vi.fn()}
         onNotCustomerWork={vi.fn()}
-        onMoveToSpam={vi.fn()}
+        onResolveAsSpam={vi.fn()}
       />
     );
-    openMenu();
-    expect(items()).toEqual([
+    expect(buttons()).toEqual([
+      'Resolve',
       'Resolve & save to KB',
       'Not customer work',
-      'Resolve & move to spam',
+      'Resolve as spam',
     ]);
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Resolve & save to KB' }));
-    expect(onResolveToKb).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it.each([
+    ['Resolve', 'onResolve'],
+    ['Resolve & save to KB', 'onResolveToKb'],
+    ['Not customer work', 'onNotCustomerWork'],
+    ['Resolve as spam', 'onResolveAsSpam'],
+  ] as const)('%s calls %s and nothing else', (label, prop) => {
+    const handlers = {
+      onResolve: vi.fn(),
+      onResolveToKb: vi.fn(),
+      onNotCustomerWork: vi.fn(),
+      onResolveAsSpam: vi.fn(),
+    };
+    render(<ResolveDecisions mode="active" {...handlers} />);
+    fireEvent.click(screen.getByRole('button', { name: label }));
+    for (const [name, fn] of Object.entries(handlers)) {
+      expect(fn).toHaveBeenCalledTimes(name === prop ? 1 : 0);
+    }
   });
 
   it('🔴 offers Not customer work on an UNREVIEWED thread — where a newsletter actually sits', () => {
     const onNotCustomerWork = vi.fn();
     render(
-      <ResolveSplitButton
+      <ResolveDecisions
         mode="unreviewed"
         onResolve={vi.fn()}
         onResolveToKb={vi.fn()}
         onNotCustomerWork={onNotCustomerWork}
       />
     );
-    openMenu();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Not customer work' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Not customer work' }));
     expect(onNotCustomerWork).toHaveBeenCalledTimes(1);
     // CONTROL: this adds an action, it does not replace one — the plain resolve is still there.
-    expect(screen.getByRole('button', { name: /^Resolve$/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Resolve' })).toBeTruthy();
   });
 
   it('never offers KB capture on an unreviewed thread — there is no answer to capture', () => {
+    render(<ResolveDecisions mode="unreviewed" onResolve={vi.fn()} onResolveToKb={vi.fn()} />);
+    expect(buttons()).not.toContain('Resolve & save to KB');
+  });
+
+  it('a quiet exit follows its prop — absent handler, absent button, and no dangling rule', () => {
+    render(<ResolveDecisions mode="active" onResolve={vi.fn()} onResolveToKb={vi.fn()} />);
+    expect(buttons()).toEqual(['Resolve', 'Resolve & save to KB']);
+    expect(document.querySelector('[aria-hidden="true"].w-px')).toBeNull();
+  });
+
+  it('⛔ nothing in the row is filled — Send stays the only filled button in the composer', () => {
     render(
-      <ResolveSplitButton
-        mode="unreviewed"
+      <ResolveDecisions
+        mode="active"
         onResolve={vi.fn()}
         onResolveToKb={vi.fn()}
         onNotCustomerWork={vi.fn()}
+        onResolveAsSpam={vi.fn()}
       />
     );
-    openMenu();
-    expect(items()).not.toContain('Resolve & save to KB');
+    for (const button of screen.getAllByRole('button')) {
+      expect(button.className).not.toMatch(/(^|\s)bg-primary(\s|$)/);
+    }
   });
 
-  it('does not offer Not customer work when the caller wires no handler', () => {
-    // CONTROL for the two above: the item follows the prop, it is not always rendered.
-    render(<ResolveSplitButton mode="active" onResolve={vi.fn()} onResolveToKb={vi.fn()} />);
-    openMenu();
-    expect(items()).not.toContain('Not customer work');
-  });
-
-  it('shows no caret at all when there are no variants', () => {
-    render(<ResolveSplitButton mode="unreviewed" onResolve={vi.fn()} />);
-    expect(screen.queryByRole('button', { name: 'Other resolve options' })).toBeNull();
-  });
-
-  it('Escape closes the menu without reaching the detail view’s own Escape (close the rail)', () => {
-    const outer = vi.fn();
-    document.addEventListener('keydown', outer);
-    render(<ResolveSplitButton mode="active" onResolve={vi.fn()} onResolveToKb={vi.fn()} />);
-    openMenu();
-    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
-    expect(screen.queryByRole('menu')).toBeNull();
-    expect(outer).not.toHaveBeenCalled();
-    document.removeEventListener('keydown', outer);
+  it('busy disables every decision (a resolve request is in flight)', () => {
+    render(
+      <ResolveDecisions
+        mode="active"
+        busy
+        onResolve={vi.fn()}
+        onResolveToKb={vi.fn()}
+        onNotCustomerWork={vi.fn()}
+        onResolveAsSpam={vi.fn()}
+      />
+    );
+    for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled();
   });
 });

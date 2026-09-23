@@ -34,6 +34,12 @@ export type MessageActionStripProps = {
   onRefresh?: () => void;
 };
 
+// A banner's two decisions (approve / spam), stacked at the right edge at one width (owner,
+// 2026-09-23): side by side they wrapped under the toggles whenever the rail was narrow, and at
+// full width the pair read as two unrelated buttons. `ml-auto` keeps the column right-aligned
+// even after the text column above wraps it onto its own line.
+const DECISION_STACK = 'flex flex-col items-stretch gap-1.5 ml-auto';
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function MessageActionStrip({
@@ -134,7 +140,7 @@ export function MessageActionStrip({
             </p>
           )}
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className={DECISION_STACK}>
           <Button
             variant="ghost"
             onClick={() => void handleClassify('approve')}
@@ -227,7 +233,7 @@ export function MessageActionStrip({
             </div>
           )}
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className={DECISION_STACK}>
           <Button
             variant="primary"
             onClick={() => void handleClassify('approve', createRule)}
@@ -260,7 +266,7 @@ export function MessageActionStrip({
   }
 
   // The unreviewed and active states offer a DECISION, not a banner, and that decision now
-  // lives in the header's split Resolve button (see resolveMode.ts). This strip keeps only
+  // lives in the row under the reply, ResolveDecisions (see resolveMode.ts). This strip keeps only
   // the state banners: filtered, spam-flagged, suspicious, resolved, closed.
   // Resolved, no ticket
   if (message.status === 'resolved' && !hasLinkedTicket && onReopen) {

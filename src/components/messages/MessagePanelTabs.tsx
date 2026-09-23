@@ -112,7 +112,7 @@ export function MessagePanelTabs({
   const [checkingContradiction, setCheckingContradiction] = useState(false);
   // The KB/Customer badges, and the options callback handed to AiTabPanel (memoised in the hook
   // so its identity stays stable — see AiTabPanel's fetch effect).
-  const { kbBadge, kbSuggested, customerDot, handleOptionsLoaded, onReferenced } = useTabBadges(
+  const { kbBadge, kbSuggested, customerCount, handleOptionsLoaded, onReferenced } = useTabBadges(
     message.id,
     onOptionsLoaded
   );
@@ -218,15 +218,15 @@ export function MessagePanelTabs({
         {(
           [
             { id: 'ai', label: 'AI', badge: 0 },
-            { id: 'customer', label: 'Customer', badge: 0, dot: customerDot && hasEmailIdentity },
+            { id: 'customer', label: 'Customer', badge: hasEmailIdentity ? customerCount : 0 },
             { id: 'attachments', label: 'Files', badge: attachments?.length ?? 0 },
             { id: 'kb', label: 'KB', badge: kbBadge },
             { id: 'activity', label: 'Activity', badge: 0 },
             { id: 'notes', label: 'Notes', badge: notes.length },
             { id: 'contradiction', label: 'Conflict', badge: 0 },
             ...(message.isLead ? [{ id: 'lead', label: 'Lead', badge: 0 }] : []),
-          ] as { id: typeof tab; label: string; badge: number; dot?: boolean }[]
-        ).map(({ id, label, badge, dot }) => (
+          ] as { id: typeof tab; label: string; badge: number }[]
+        ).map(({ id, label, badge }) => (
           <Button
             key={id}
             variant="ghost"
@@ -249,7 +249,7 @@ export function MessagePanelTabs({
             }`}
           >
             {label}
-            <TabBadge count={badge} dot={dot} active={tab === id && panelOpen} />
+            <TabBadge count={badge} active={tab === id && panelOpen} />
           </Button>
         ))}
       </div>

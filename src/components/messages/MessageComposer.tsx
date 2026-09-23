@@ -29,6 +29,8 @@ export type MessageComposerProps = {
   onFilesChange: (files: File[]) => void;
   /** Single-key shortcuts that act in this view (detailShortcuts.ts); omitted, no hint shows. */
   shortcutHint?: string;
+  /** The resolve decisions (ResolveDecisions), rendered last — under the reply. */
+  decisions?: React.ReactNode;
   /**
    * Set when the channel forbids sending right now (WhatsApp's 24-hour window). Disables
    * send and is shown above the composer. Never set for internal notes — those are not
@@ -88,6 +90,7 @@ export function MessageComposer({
   onUseTemplate = null,
   onAiSourceChange,
   shortcutHint,
+  decisions,
 }: MessageComposerProps) {
   const user = useAuthStore((store) => store.user);
   const [isDragging, setIsDragging] = useState(false);
@@ -347,6 +350,7 @@ export function MessageComposer({
           ))}
         </div>
       )}
+      {decisions}
     </div>
   );
 }

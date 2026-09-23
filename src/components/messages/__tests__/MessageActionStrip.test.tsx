@@ -40,7 +40,7 @@ const renderStrip = (message: Message, extra: Record<string, unknown> = {}) =>
 // full active action set, not the unreviewed "resolve only" branch. Note "Create
 // Ticket" now lives in the header ACTIONS dropdown, not this strip.
 describe('MessageActionStrip — action set per status', () => {
-  // The unreviewed and active DECISIONS moved to the header's split Resolve (resolveMode.ts,
+  // The unreviewed and active DECISIONS moved to the row under the reply (resolveMode.ts,
   // pinned in resolveDecision.test.tsx). The strip must now stay out of the way for them — if it
   // rendered anything, the decision would show twice.
   it.each([
@@ -143,7 +143,7 @@ describe('MessageActionStrip — not customer work', () => {
       metadata: { notCustomerWork: { by: 3, at: '2026-09-22T10:00:00Z', reason } },
     });
 
-  // Offering it on live threads moved to the split Resolve — resolveDecision.test.tsx.
+  // Offering it on live threads moved to the decisions row — resolveDecision.test.tsx.
 
   it('🔴 labels a binned thread as binned, not as Closed', () => {
     renderStrip(binned());

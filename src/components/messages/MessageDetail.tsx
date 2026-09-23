@@ -36,6 +36,7 @@ import { shouldShowHistoryBanner } from './historyBanner';
 import { MessageDetailHeader } from './MessageDetailHeader';
 import { MessageComposer } from './MessageComposer';
 import { MessageActionStrip } from './MessageActionStrip';
+import { ResolveDecisions } from './ResolveDecisions';
 import { MessageGhostBubble } from './MessageGhostBubble';
 import { getResolveMode, noKbResolveDialog } from './resolveMode';
 import { shortcutHint, useDetailShortcuts, type ShortcutContext } from './detailShortcuts';
@@ -431,7 +432,7 @@ export function MessageDetail({
     (message.metadata?.spamCheck as { isSpam?: boolean } | undefined)?.isSpam === true;
   const isActive =
     !isFiltered && !isSuspicious && !isSpamFlaggedOutsideTriage && message.status !== 'closed';
-  // One predicate for the header's split Resolve AND the strip, so the decision can never show
+  // One predicate for the decisions row AND the strip, so the decision can never show
   // in both places or in neither (resolveMode.ts). `hasLinkedTicket` matches the strip's call.
   const resolveMode = getResolveMode(message, {
     isFiltered,
@@ -686,6 +687,8 @@ export function MessageDetail({
   const shortcutContext: ShortcutContext = {
     canResolve: resolveMode !== null,
     canNavigate: onNavigate !== undefined,
+    // U acts exactly where the header shows the read/unread toggle (triage queues).
+    canToggleRead: isTriage,
     // Esc closes the slide-over only; the full page has its own Back bar.
     canClose: onClose !== undefined && !fullPage,
     busy: resolving,
@@ -701,6 +704,7 @@ export function MessageDetail({
       setTimeout(() => noteEditorRef.current?.focus(), 0);
     },
     resolve: openResolveDialog,
+    toggleRead: handleToggleRead,
     next: () => onNavigate?.('next'),
     prev: () => onNavigate?.('prev'),
     // The prompt-aware close — the same one the header X and the backdrop use.
@@ -945,14 +949,6 @@ export function MessageDetail({
           showReadToggle={isTriage}
           isRead={readState}
           onToggleRead={handleToggleRead}
-          resolveMode={resolveMode}
-          resolving={resolving}
-          // The SAME dialogs the old footer opened: an unreviewed thread is dismissed through the
-          // reject dialog, an active one closes through the no-KB confirm. Nothing new reaches the BE.
-          onResolve={openResolveDialog}
-          onResolveToKb={() => setResolveConfirmOpen(true)}
-          onNotCustomerWork={() => setNotCustomerWorkOpen(true)}
-          currentUserId={currentUserId}
           metaTarget={twoColumn ? sideMetaEl : undefined}
         />
 
@@ -1113,6 +1109,28 @@ export function MessageDetail({
               composerWindow.blocked && message.channel === 'whatsapp'
                 ? () => void handleOpenTemplates()
                 : null
+            }
+            decisions={
+              // Under the reply, where the answer is written (v3, 2026-09-23). Reply mode only: a
+              // note is not an answer, and a note's Post button must not sit beside Resolve.
+              composerMode === 'reply' ? (
+                <ResolveDecisions
+                  mode={resolveMode}
+                  busy={resolving}
+                  // The SAME dialogs the old header split button opened: an unreviewed thread is
+                  // dismissed through the reject dialog, an active one closes through the no-KB
+                  // confirm. Nothing new reaches the BE.
+                  onResolve={openResolveDialog}
+                  onResolveToKb={() => setResolveConfirmOpen(true)}
+                  onNotCustomerWork={() => setNotCustomerWorkOpen(true)}
+                  // Owner, 2026-09-22: the agent resolving AS spam is the CONFIRMED layer.
+                  onResolveAsSpam={
+                    onClassify
+                      ? () => void onClassify('move_to_spam', undefined, undefined, true)
+                      : undefined
+                  }
+                />
+              ) : null
             }
             recipientDraft={supportsRecipients ? recipientDraft : undefined}
             onRecipientDraftChange={supportsRecipients ? setRecipientDraft : undefined}
