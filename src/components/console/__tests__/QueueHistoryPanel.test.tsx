@@ -8,7 +8,13 @@ import { render, screen, cleanup, fireEvent, within } from '@testing-library/rea
 import type { QueueHistorySample, QueueRow } from '@/services/platform.service';
 
 const hookCalls: Array<[string | null, number]> = [];
-let hookResult: { isLoading: boolean; isError: boolean; error: unknown; data?: QueueHistorySample[] } = {
+let hookResult: {
+  isLoading: boolean;
+  isError: boolean;
+  error: unknown;
+  data?: QueueHistorySample[];
+  dataUpdatedAt?: number;
+} = {
   isLoading: false,
   isError: false,
   error: null,
@@ -21,7 +27,13 @@ vi.mock('@/hooks/usePlatformAdmin', () => ({
   },
 }));
 
-import { QueueHistoryPanel, defaultHistoryQueue, tableRows } from '../QueueHistoryPanel';
+import {
+  QueueHistoryPanel,
+  defaultHistoryQueue,
+  historyDomain,
+  historyTicks,
+  tableRows,
+} from '../QueueHistoryPanel';
 
 const row = (name: string, waiting: number, prioritized = 0): QueueRow => ({
   name,
@@ -58,26 +70,38 @@ describe('QueueHistoryPanel', () => {
     expect(defaultHistoryQueue([row('a', 0, 5), row('b', 3)])).toBe('a');
     expect(defaultHistoryQueue([])).toBeNull();
     render(<QueueHistoryPanel queues={queues} />);
-    expect(screen.getByLabelText<HTMLSelectElement>('Queue to show history for').value).toBe('process-kb-message');
+    expect(screen.getByLabelText<HTMLSelectElement>('Queue to show history for').value).toBe(
+      'process-kb-message'
+    );
     expect(hookCalls.at(-1)).toEqual(['process-kb-message', 6]);
   });
 
   it('asks for the chosen queue and range', () => {
     render(<QueueHistoryPanel queues={queues} />);
-    fireEvent.change(screen.getByLabelText('Queue to show history for'), { target: { value: 'notify' } });
+    fireEvent.change(screen.getByLabelText('Queue to show history for'), {
+      target: { value: 'notify' },
+    });
     fireEvent.click(screen.getByRole('button', { name: '24 h' }));
     expect(hookCalls.at(-1)).toEqual(['notify', 24]);
     expect(screen.getByRole('button', { name: '24 h' }).getAttribute('aria-pressed')).toBe('true');
   });
 
   it('says a backend without the route does not record history, instead of showing an error', () => {
-    hookResult = { isLoading: false, isError: true, error: Object.assign(new Error('Not found'), { status: 404 }) };
+    hookResult = {
+      isLoading: false,
+      isError: true,
+      error: Object.assign(new Error('Not found'), { status: 404 }),
+    };
     render(<QueueHistoryPanel queues={queues} />);
     expect(screen.getByText(/needs a newer backend/)).toBeTruthy();
   });
 
   it('shows a real failure as one, and an empty record as not-yet-recorded', () => {
-    hookResult = { isLoading: false, isError: true, error: Object.assign(new Error('boom'), { status: 500 }) };
+    hookResult = {
+      isLoading: false,
+      isError: true,
+      error: Object.assign(new Error('boom'), { status: 500 }),
+    };
     render(<QueueHistoryPanel queues={queues} />);
     expect(screen.getByText(/Couldn.t load the history for process-kb-message/)).toBeTruthy();
     cleanup();
@@ -98,13 +122,48 @@ describe('QueueHistoryPanel', () => {
     const cells = within(table)
       .getAllByRole('row')
       .slice(1)
-      .map((tr) => within(tr).getAllByRole('cell').slice(1).map((td) => td.textContent));
+      .map((tr) =>
+        within(tr)
+          .getAllByRole('cell')
+          .slice(1)
+          .map((td) => td.textContent)
+      );
     expect(cells).toEqual([
       ['200', '21.97', '12 min'],
       ['201', '21.97', '12 min'],
     ]);
     // One small chart per metric — different units never share an axis.
-    const captions = Array.from(document.querySelectorAll('figcaption')).map((caption) => caption.textContent);
+    const captions = Array.from(document.querySelectorAll('figcaption')).map(
+      (caption) => caption.textContent
+    );
     expect(captions).toEqual(['Jobs waiting', 'Finished per minute', 'Oldest waiting (min)']);
+  });
+
+  it('spans the chosen range ending now, with ticks that cannot repeat a label (staging, 2026-09-23)', () => {
+    const now = Date.UTC(2026, 8, 23, 16, 49, 25);
+    expect(historyDomain(6, now)).toEqual([now - 6 * 3_600_000, now]);
+    const ticks = historyTicks(historyDomain(1, now));
+    expect(ticks).toHaveLength(5);
+    // Whole minutes, 15 min apart over 1 h — never four ticks inside one minute.
+    expect(new Set(ticks.map((at) => Math.floor(at / 60_000))).size).toBe(5);
+    expect(ticks.every((at) => at % 60_000 === 0)).toBe(true);
+  });
+
+  it('says a metric has nothing to plot instead of drawing an empty frame', () => {
+    // Idle queue: nothing finished, nothing waiting — only "Jobs waiting" has values (zeros).
+    hookResult = {
+      isLoading: false,
+      isError: false,
+      error: null,
+      data: [
+        sample(0, { queued: 0, finishesPerMinute: null, oldestWaitingMs: null }),
+        sample(1, { queued: 0, finishesPerMinute: null, oldestWaitingMs: null }),
+      ],
+    };
+    render(<QueueHistoryPanel queues={queues} />);
+    expect(screen.getByText('No jobs finished in this range.')).toBeTruthy();
+    expect(screen.getByText('Nothing was waiting in this range.')).toBeTruthy();
+    // Zeros ARE values: the jobs-waiting chart is drawn, not replaced by a note.
+    expect(screen.queryByText(/No jobs waiting/)).toBeNull();
   });
 });
