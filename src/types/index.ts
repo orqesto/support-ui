@@ -141,6 +141,15 @@ export type Message = {
   priority?: TicketPriority | null;
   categoryId?: number | null;
   closedAt?: string | null;
+  /** When the conversation was resolved (GET /api/messages/:id). */
+  resolvedAt?: string | null;
+  /**
+   * The resolver's display name. Newer backends only — absent on one that predates it, so every
+   * reader must treat undefined as "unknown", never as "nobody".
+   */
+  resolvedByName?: string | null;
+  /** ISO 639-1 language stamped at ingestion from the latest inbound message. Newer backends only. */
+  detectedLanguage?: string | null;
   // "Parked" overlay (Pending). Nullable timestamp that coexists with the flow
   // state (awaiting/replied) — set when parked, cleared on client reply or any
   // other status change. When present, the FE shows the Pending badge regardless

@@ -19,6 +19,7 @@ import {
 import { buildTimeline } from './messageActivityTimeline';
 import { ContactProfileDetails } from '@/components/contacts/ContactProfileDetails';
 import { useContactProfile } from '@/components/contacts/useContactProfile';
+import { ContactFactRows } from '@/components/contacts/ContactFactRows';
 import type { LeadQualificationFieldConfig } from '@/services/organization.service';
 import { formatDate } from '@/lib/utils';
 
@@ -328,6 +329,7 @@ export function MessagePanelTabs({
                   <span className={`${LABEL} text-muted-foreground`}>CONTACT</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
+                {contactProfile.contact && <ContactFactRows contact={contactProfile.contact} />}
                 {contactProfile.loading ? (
                   <p className="text-[11px] text-muted-foreground">Loading…</p>
                 ) : contactProfile.contact ? (

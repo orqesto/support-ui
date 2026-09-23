@@ -24,3 +24,14 @@ export const resolveSendFailureMessage = (err: unknown): string => {
 
   return GENERIC_SEND_FAILURE;
 };
+
+/**
+ * Can pressing Retry on the SAME draft possibly succeed? The mirror of the rule above: a 4xx is
+ * the server refusing this send for a reason a resend does not change (a closed WhatsApp window,
+ * a rejected recipient), so no Retry is offered; a 5xx or a network failure (no status) is
+ * exactly what a retry is for.
+ */
+export const isRetryableSendFailure = (err: unknown): boolean => {
+  const status = (err as { status?: number } | undefined)?.status;
+  return !(typeof status === 'number' && status >= 400 && status < 500);
+};

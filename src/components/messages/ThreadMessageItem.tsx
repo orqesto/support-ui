@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { User } from 'lucide-react';
 import { TranslateButton } from '@/components/shared/TranslateButton';
+import { Button } from '@/components/ui/Button';
 import { relayedFromLabel } from '@/lib/relayedFrom';
 import { formatDate, formatWhen } from '@/lib/utils';
 import type { MessageEvent } from '@/types';
@@ -19,6 +20,24 @@ type Props = {
 
 export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: Props) {
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
+  // The language the agent picked, for the "Translated · XX" notice (v3). `translateKey`
+  // remounts the TranslateButton when the notice's own "Show original" is pressed, so the
+  // button's internal "translated" state cannot disagree with what the bubble shows.
+  const [translatedLanguage, setTranslatedLanguage] = useState<string | null>(null);
+  const [translateKey, setTranslateKey] = useState(0);
+  const showOriginal = () => {
+    setTranslatedContent(null);
+    setTranslatedLanguage(null);
+    setTranslateKey((key) => key + 1);
+  };
+  const translatedBar = (onAgent: boolean) =>
+    translatedContent === null ? null : (
+      <TranslatedNotice
+        language={translatedLanguage}
+        onAgent={onAgent}
+        onShowOriginal={showOriginal}
+      />
+    );
 
   /**
    * The sender's original markup, so an order confirmation renders as the table it was
@@ -92,9 +111,16 @@ export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: P
   const translate = (onAgent: boolean) => (
     <div className="flex-none mt-px">
       <TranslateButton
+        key={translateKey}
         messageId={msg.id}
-        onTranslated={(content) => setTranslatedContent(content)}
-        onCleared={() => setTranslatedContent(null)}
+        onTranslated={(content, _subject, language) => {
+          setTranslatedContent(content);
+          setTranslatedLanguage(language ?? null);
+        }}
+        onCleared={() => {
+          setTranslatedContent(null);
+          setTranslatedLanguage(null);
+        }}
         buttonClassName={`grid place-items-center w-7 h-7 rounded-[7px] border transition-colors ${
           onAgent
             ? 'bg-agent-fill border-agent-hair text-agent-dim hover:text-agent-foreground hover:border-agent-foreground'
@@ -161,6 +187,7 @@ export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: P
           <div className="rounded-xl px-[13px] py-[11px] bg-agent border border-agent-line text-agent-foreground text-[13.5px] leading-[1.62] max-w-full">
             <div className="flex items-start gap-2">
               <div className="flex-1 min-w-0 break-words">
+                {translatedBar(true)}
                 <ThreadBubble
                   content={translatedContent ?? msg.content}
                   isAgent={true}
@@ -209,6 +236,7 @@ export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: P
         <div className="rounded-xl px-[13px] py-[11px] bg-bubble border border-bubble-line text-foreground text-[13.5px] leading-[1.62] max-w-full">
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0 break-words">
+              {translatedBar(false)}
               <ThreadBubble
                 content={translatedContent ?? msg.content}
                 isAgent={false}
@@ -221,6 +249,50 @@ export function ThreadMessageItem({ msg, attachments = [], onOpenAttachment }: P
           {attachmentRow(false)}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * v3 ".trbar": says what the agent is reading. A machine translation comes back as plain text,
+ * so the sender's tables, links and images are only on the original — without this notice a
+ * translated order confirmation reads as a broken one.
+ */
+function TranslatedNotice({
+  language,
+  onAgent,
+  onShowOriginal,
+}: {
+  language: string | null;
+  onAgent: boolean;
+  onShowOriginal: () => void;
+}) {
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-2 mb-[9px] px-2 py-1 rounded-md border ${
+        onAgent
+          ? 'bg-agent-fill border-agent-hair text-agent-foreground'
+          : 'bg-ai-muted border-ai-line text-ai'
+      }`}
+    >
+      <span className="font-display text-[10px] font-semibold uppercase tracking-[0.1em]">
+        Translated{language ? ` · ${language.toUpperCase()}` : ''}
+      </span>
+      <span
+        className={`flex-1 min-w-[120px] text-[11px] ${onAgent ? 'text-agent-dim' : 'text-muted-foreground'}`}
+      >
+        machine translation, plain text — formatting stays on the original
+      </span>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onShowOriginal}
+        className={`h-auto p-0 font-display text-[10px] font-semibold uppercase tracking-[0.09em] hover:bg-transparent ${
+          onAgent ? 'text-agent-link' : 'text-ai'
+        }`}
+      >
+        Show original
+      </Button>
     </div>
   );
 }

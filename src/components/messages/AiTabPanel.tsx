@@ -12,6 +12,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { logger } from '@/lib/logger';
+import { languageName as languageNameOf } from '@/lib/languageName';
 import { stripGreetingName } from '@/lib/depersonalise';
 
 type Analysis = {
@@ -155,6 +156,7 @@ export function AiTabPanel({
 }: Props) {
   const spamCheck = getSpamCheck(message);
   const analysis = message.metadata?.analysis as Analysis | undefined;
+  const languageName = languageNameOf(message.detectedLanguage);
   const suggestedAnswer = message.metadata?.suggestedAnswer as SuggestedAnswer | undefined;
   const autoReply = message.metadata?.autoReply as AutoReply | undefined;
   const { aiConfigured } = useAiConfigured();
@@ -555,6 +557,14 @@ export function AiTabPanel({
               <p className="text-[11px] font-medium">
                 {analysis.needsMoreInfo ? 'Needs more' : 'Complete'}
               </p>
+            </div>
+          )}
+          {languageName && (
+            // v3 "Language": the language stamped at ingestion (conversations.detected_language),
+            // shown only when the backend sends it — never a guess from this client.
+            <div className="rounded border border-border p-1.5">
+              <p className={`${LABEL} text-muted-foreground mb-0.5`}>LANGUAGE</p>
+              <p className="text-[11px] font-medium truncate">{languageName}</p>
             </div>
           )}
           {analysis?.suggestedPriority && (
