@@ -8,7 +8,7 @@ import {
   releaseSocket,
 } from '@/lib/socketManager';
 import type { ProcessingSession } from '@/hooks/useEmailProcessingSessions';
-import { makeKBHandlers } from '@/hooks/useEmailProcessingKBHandlers';
+import { makeKBHandlers, stampUpdated } from '@/hooks/useEmailProcessingKBHandlers';
 
 type ProcessingStatus = 'idle' | 'started' | 'processing' | 'complete' | 'error';
 
@@ -43,6 +43,8 @@ type EmailProcessingEvent = {
     // clients omit; FE falls back to legacy `analyzed`.
     analyzedInDb?: number;
     missingAnalysis?: number;
+    /** On `complete`: the run stopped early under load and continues on the next check. */
+    deferred?: boolean;
   };
 };
 
@@ -135,6 +137,7 @@ export const useEmailProcessingSocket = ({
                 isProcessing: true,
                 progress: 0,
                 timestamp: Date.now(),
+                hasEmailFetch: true,
                 kbEntriesTotal: 0,
                 kbQAPairs: 0,
                 kbDocuments: 0,
@@ -154,6 +157,7 @@ export const useEmailProcessingSocket = ({
                   total,
                   processed: fetchedCount,
                   isProcessing: true, // Explicitly set when messages are found
+                  hasEmailFetch: true,
                 });
               } else {
                 // Create session from 'found' event if 'started' was missed
@@ -173,6 +177,7 @@ export const useEmailProcessingSocket = ({
                   isProcessing: true,
                   progress: 0,
                   timestamp: Date.now(),
+                  hasEmailFetch: true,
                   kbEntriesTotal: 0,
                   kbQAPairs: 0,
                   kbDocuments: 0,
@@ -188,9 +193,12 @@ export const useEmailProcessingSocket = ({
                 const eventTotal = event.data?.total ?? 0;
                 const eventStage = event.data?.status; // Get stage from event data
 
-                // Check if the existing session is VERY old (stale from previous page load)
+                // Stale = no event for 60 s (left over from an earlier cycle). Measured from the
+                // LAST event: measured from creation, every run older than a minute "reset" on
+                // the next total change, zeroing the counters mid-import (taco, 2026-09-23).
                 const sessionAge = Date.now() - (existing.timestamp ?? 0);
-                const isStaleSession = sessionAge > 60000; // Older than 60 seconds
+                const silentFor = Date.now() - (existing.updatedAt ?? existing.timestamp ?? 0);
+                const isStaleSession = silentFor > 60000;
                 const isRecentlyReset = sessionAge < 30000; // Within 30 seconds of reset
 
                 // If session is very old AND new total is different, this is a NEW cycle
@@ -392,6 +400,7 @@ export const useEmailProcessingSocket = ({
                 newSessions.set(sessionKey, {
                   ...existing,
                   status: 'complete',
+                  deferred: event.data?.deferred === true,
                   current,
                   total,
                   processed,
@@ -414,6 +423,7 @@ export const useEmailProcessingSocket = ({
                   departmentSlug,
                   departmentId,
                   status: 'complete',
+                  deferred: event.data?.deferred === true,
                   stage: undefined,
                   total: event.data?.total ?? 0,
                   current: event.data?.processed ?? 0,
@@ -445,7 +455,7 @@ export const useEmailProcessingSocket = ({
               break;
           }
 
-          return newSessions;
+          return stampUpdated(newSessions, sessionKey, existing);
         });
       }
 
