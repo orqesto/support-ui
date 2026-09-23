@@ -3,6 +3,7 @@ import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { ownershipNotice } from '@/components/messages/CustomApiLookupPanel';
+import { readCategory } from '@/components/settings/customApi/categories';
 import {
   projectFields,
   RowFields,
@@ -121,6 +122,12 @@ const recordColumns: ColumnDef<CustomApiStoredRecord>[] = [
 const LiveResult = ({ result }: { result: CustomApiLookupResult }) => {
   const notice = ownershipNotice(result.ownership, result.ownershipReason);
   const { fields, fallbackKeys, usingFallback } = projectFields(result);
+  /*
+    ⛔ NARROWED, and read the same way the thread panel reads it — this page is opened FROM that
+    panel, and a page that laid the same record out differently would make an agent doubt which
+    one is true. `category` arrives as a plain string so a newer backend cannot throw here.
+  */
+  const category = readCategory((result as { category?: unknown }).category);
   const [rawOpen, setRawOpen] = useState(false);
   return (
     <div className="rounded border border-border p-3 space-y-2">
@@ -145,7 +152,7 @@ const LiveResult = ({ result }: { result: CustomApiLookupResult }) => {
             comes back, which on the measured vendor is 77 fields including the customer's IP.
           */}
           {result.rows.map((row) => (
-            <RowFields key={`${result.endpointId}-${JSON.stringify(row)}`} row={row} fields={fields} />
+            <RowFields key={`${result.endpointId}-${JSON.stringify(row)}`} row={row} fields={fields} category={category} />
           ))}
           {usingFallback && fallbackKeys.length > UNCONFIGURED_FIELD_PREVIEW && (
             <p className="text-[10px] text-muted-foreground">

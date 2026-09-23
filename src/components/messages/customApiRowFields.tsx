@@ -1,3 +1,4 @@
+import { CATEGORY_RECORD_LABELS, type CustomApiCategory } from '@/components/settings/customApi/categories';
 import { LABEL } from './messageDetailConstants';
 import type { CustomApiLookupResult, LookupField } from '@/services/customApiLookup.service';
 
@@ -89,13 +90,8 @@ export const projectFields = (
   };
 };
 
-export const RowFields = ({
-  row,
-  fields,
-}: {
-  row: Record<string, unknown>;
-  fields: LookupField[];
-}) => (
+/** The labelled grid every lookup has always rendered. The floor P3 never falls below. */
+const FieldGrid = ({ row, fields }: { row: Record<string, unknown>; fields: LookupField[] }) => (
   <div className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-0.5">
     {fields.map((field) => (
       <div key={field.path} className="contents">
@@ -105,3 +101,125 @@ export const RowFields = ({
     ))}
   </div>
 );
+
+/** A value that is actually there. `renderValue` returns this dash for absent, null or empty. */
+const MISSING = '—';
+
+/**
+ * What the admin tagged this field as, or null.
+ *
+ * ⚠️ READ OFF AN `unknown`, not typed. `src/types/generated/api.ts` is regenerated from the
+ * backend's openapi.json on its own cadence, so it does not carry `role` until that lands — and
+ * this frontend ships from `main` while the backend ships on a tag, so it will meet responses
+ * without it either way. Same treatment `category` already gets, for the same reason: an absent
+ * role reads as "untagged" and the plain grid renders, never a crash.
+ */
+const roleOf = (field: LookupField): string | null => {
+  const value = (field as { role?: unknown }).role;
+  return typeof value === 'string' ? value : null;
+};
+
+/**
+ * L2 P3 — an order laid out AS an order.
+ *
+ * ⛔ THE ONLY SOURCE IS THE ADMIN'S OWN ROLES. The backend sends `role` on each field descriptor
+ * (`identifier` / `status` / `date` / `total`); nothing here guesses from a label, a path name or
+ * a value's shape. A layout that decided `total` was the order number because it looked like one
+ * is worse than the generic list it replaces, and it would be wrong silently.
+ *
+ * ⛔ NOTHING IS EVER DROPPED. The header takes a role field only when that field HAS a value on
+ * this row; everything else — unroled fields, and a role field whose value is missing — falls
+ * through to the same grid as before, where it still reads `STATUS —`. So the card can only ever
+ * re-arrange what the plain list already showed, never hide part of it.
+ */
+const RecordCard = ({
+  row,
+  fields,
+  category,
+}: {
+  row: Record<string, unknown>;
+  fields: LookupField[];
+  category: CustomApiCategory;
+}) => {
+  const present = (role: string): LookupField | undefined =>
+    fields.find((field) => roleOf(field) === role && renderValue(row, field) !== MISSING);
+
+  const identifier = present('identifier');
+  const status = present('status');
+  const date = present('date');
+  const total = present('total');
+  /** The date and total line, in that order, with whichever of the two this row actually has. */
+  const meta = [date, total].filter((field): field is LookupField => field !== undefined);
+  const headed = [identifier, status, ...meta].filter(Boolean);
+  const rest = fields.filter((field) => !headed.includes(field));
+
+  return (
+    /*
+      ⛔ A RULE BETWEEN RECORDS. A `many` lookup can return 25 of these, and once each row has a
+      heading and a meta line, consecutive records run together into one wall of text — the reader
+      cannot tell where one order ends. `first:` keeps a single record, the common case, exactly as
+      it looks today. The plain grid path is untouched: it never gained a heading to be confused by.
+    */
+    <div className="space-y-1 border-t border-border/60 pt-1.5 first:border-t-0 first:pt-0">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-[11px] font-medium text-foreground break-words">
+          {/* The category names the thing; the reference identifies it. With no reference the
+              heading still says WHAT this is, which is more than the generic list ever did. */}
+          {CATEGORY_RECORD_LABELS[category]}
+          {/* A real space, not only the margin: `Order137416` is what a screen reader would
+              otherwise announce, and what a copy-paste would carry. */}
+          {identifier && <span className="ml-1 font-mono">{` ${renderValue(row, identifier)}`}</span>}
+        </p>
+        {status && (
+          /* The admin's word when they wrote one, the vendor's own value when they did not —
+             `renderValue` already decides that, and P2's rule is that we never invent one. */
+          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-foreground">
+            {renderValue(row, status)}
+          </span>
+        )}
+      </div>
+
+      {meta.length > 0 && (
+        <p className="text-[11px] text-muted-foreground">
+          {meta.map((field, index) => (
+            /* Keyed on path AND role: the same path can be configured twice under two roles,
+               and a duplicate key silently drops a node in React. */
+            <span key={`${field.path}-${roleOf(field) ?? ''}`}>
+              {index > 0 && <span className="mx-1.5">·</span>}
+              <span className="text-muted-foreground">{field.label}: </span>
+              <span className="text-foreground">{renderValue(row, field)}</span>
+            </span>
+          ))}
+        </p>
+      )}
+
+      {rest.length > 0 && <FieldGrid row={row} fields={rest} />}
+    </div>
+  );
+};
+
+/**
+ * One vendor row.
+ *
+ * ⚠️ `category` is optional and defaults to the plain grid: every L1 lookup has none, an older
+ * backend sends none, and an admin who has not picked one gets exactly what they had before P3.
+ */
+export const RowFields = ({
+  row,
+  fields,
+  category = null,
+}: {
+  row: Record<string, unknown>;
+  fields: LookupField[];
+  category?: CustomApiCategory | null;
+}) => {
+  // No category, or no role the header can use ⇒ nothing to lay out. The grid is not a degraded
+  // mode here, it is the correct rendering of a record nobody has described.
+  const hasHeadableRole = fields.some(
+    (field) =>
+      (roleOf(field) === 'identifier' || roleOf(field) === 'status') &&
+      renderValue(row, field) !== MISSING
+  );
+  if (!category || !hasHeadableRole) return <FieldGrid row={row} fields={fields} />;
+  return <RecordCard row={row} fields={fields} category={category} />;
+};
