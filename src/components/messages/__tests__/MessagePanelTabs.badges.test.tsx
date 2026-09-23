@@ -9,8 +9,8 @@ import type { Message, User } from '@/types';
 
 /**
  * Tab badges (owner, 2026-09-22): KB = the suggestions + references the tab lists, for THIS
- * thread only; Customer = a dot when a lookup is available (the answer is per workspace, so a
- * number would read the same on every thread).
+ * thread only. Customer = the number of lookups a press could run (owner, 2026-09-23 — it
+ * replaced a dot, knowing the number is per workspace and reads the same on every thread).
  */
 
 // Suggested-option counts per message; a message missing here never reports (still loading).
@@ -35,9 +35,16 @@ vi.mock('@/components/contacts/useContactProfile', () => ({
   useContactProfile: () => ({ loading: false, contact: null }),
 }));
 const availability = vi.fn();
+const lookupOptions = vi.fn();
 vi.mock('@/services/customApiLookup.service', () => ({
-  customApiLookupService: { run: vi.fn(), availability: () => availability() as unknown },
+  customApiLookupService: {
+    run: vi.fn(),
+    availability: () => availability() as unknown,
+    lookupOptions: (surface: string) => lookupOptions(surface) as unknown,
+  },
 }));
+const options = (count: number) =>
+  Array.from({ length: count }, (_, idx) => ({ endpointId: idx + 1, label: `l${idx}` }));
 const getKBReferences = vi.fn();
 vi.mock('@/services/message.service', () => ({
   messageService: { getKBReferences: (id: number) => getKBReferences(id) as unknown },
@@ -97,6 +104,7 @@ beforeEach(() => {
   useAuthStore.setState({ selectedOrganizationId: 1, user: { id: 9 } as User });
   for (const key of Object.keys(suggestedById)) delete suggestedById[Number(key)];
   availability.mockReset().mockResolvedValue(false);
+  lookupOptions.mockReset().mockResolvedValue([]);
   getKBReferences.mockReset();
 });
 
@@ -120,38 +128,42 @@ describe('MessagePanelTabs — KB badge', () => {
   });
 });
 
-describe('MessagePanelTabs — Customer dot', () => {
-  it('shows a dot when a lookup is available here', async () => {
+describe('MessagePanelTabs — Customer count', () => {
+  const customerTab = () => screen.getByRole('button', { name: /^Customer/ });
+  const settle = async () => {
+    await waitFor(() => expect(lookupOptions).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  };
+
+  it('shows how many lookups a press could run (design v3, owner 2026-09-23)', async () => {
     getKBReferences.mockResolvedValue(refs(0));
-    availability.mockResolvedValue(true);
+    lookupOptions.mockResolvedValue(options(4));
     renderTabs(41);
-    const customer = screen.getByRole('button', { name: /^Customer/ });
-    expect(await within(customer).findByRole('img', { name: 'Lookups available' })).toBeTruthy();
+    await waitFor(() => expect(within(customerTab()).getByText('4')).toBeInTheDocument());
+    expect(lookupOptions).toHaveBeenCalledWith('thread');
   });
 
   it.each([
-    ['unavailable', () => Promise.resolve(false)],
+    ['none are configured', () => Promise.resolve([])],
     [
       'a backend without the route (404)',
       () => Promise.reject(Object.assign(new Error('nf'), { status: 404 })),
     ],
-  ])('shows no dot when the answer is %s', async (_label, answer) => {
+  ])('shows no number when %s', async (_label, answer) => {
     getKBReferences.mockResolvedValue(refs(0));
-    availability.mockImplementation(answer);
+    lookupOptions.mockImplementation(answer);
     renderTabs(41);
-    await waitFor(() => expect(availability).toHaveBeenCalled());
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(screen.queryByRole('img', { name: 'Lookups available' })).not.toBeInTheDocument();
+    await settle();
+    expect(within(customerTab()).queryByText(/\d/)).not.toBeInTheDocument();
   });
 
-  // The panel tells a customer with no email that identity lookups cannot run; a dot saying
-  // "available" beside that would contradict it.
-  it('shows no dot for a customer with no email identity', async () => {
+  // The panel tells a customer with no email that identity lookups cannot run; a number saying
+  // some are available beside that would contradict it.
+  it('shows no number for a customer with no email identity', async () => {
     getKBReferences.mockResolvedValue(refs(0));
-    availability.mockResolvedValue(true);
+    lookupOptions.mockResolvedValue(options(4));
     renderTabs(41, 'anonymous@chat-widget.local');
-    await waitFor(() => expect(availability).toHaveBeenCalled());
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(screen.queryByRole('img', { name: 'Lookups available' })).not.toBeInTheDocument();
+    await settle();
+    expect(within(customerTab()).queryByText(/\d/)).not.toBeInTheDocument();
   });
 });

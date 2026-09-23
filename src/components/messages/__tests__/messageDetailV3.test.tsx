@@ -5,8 +5,10 @@
  *   - ONE request per press. "Resolve" on an unreviewed thread and "Not customer work" each used
  *     to post `markAsProcessed` twice (the page posted it again in onReject), writing a second
  *     `mark_processed` audit entry. The detail posts it; onReject must be told, not repeat it.
- *   - The header carries the decision: split Resolve + "Assign to me" for a thread with a
- *     decision to make, neither for a resolved or binned one.
+ *   - The decisions sit UNDER THE REPLY (design v3, 2026-09-23): a row at the foot of the
+ *     composer, reply mode only, absent for a resolved or binned thread. The header carries none,
+ *     and "Assign to me" is gone (owner, 2026-09-23).
+ *   - U toggles read/unread exactly where the header's toggle is shown.
  *   - Esc while the ACTIONS menu is open closes the MENU, not the rail behind it.
  *   - No shortcut acts while a resolve request is in flight — its dialog has already closed, and
  *     J there made the request's callback move the conversation just opened.
@@ -68,8 +70,17 @@ vi.mock('@/stores/authStore', () => ({
 }));
 
 vi.mock('../MessageComposer', () => ({
-  MessageComposer: ({ shortcutHint }: { shortcutHint?: string }) => (
-    <div data-testid="composer">{shortcutHint}</div>
+  MessageComposer: ({
+    shortcutHint,
+    decisions,
+  }: {
+    shortcutHint?: string;
+    decisions?: React.ReactNode;
+  }) => (
+    <div data-testid="composer">
+      {shortcutHint}
+      {decisions}
+    </div>
   ),
 }));
 vi.mock('@/contexts/ThemeContext', () => ({
@@ -142,8 +153,7 @@ describe('one request per press', () => {
   it('Not customer work posts ONE request and no markAsProcessed', async () => {
     const onReject = vi.fn();
     renderDetail({}, { onReject });
-    fireEvent.click(screen.getByRole('button', { name: 'Other resolve options' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: /Not customer work/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Not customer work' }));
     fireEvent.click(
       within(screen.getByRole('dialog')).getByRole('button', {
         name: /Not customer work|Clear|Confirm/,
@@ -155,61 +165,91 @@ describe('one request per press', () => {
   });
 });
 
-describe('the header carries the decision', () => {
-  it('an active thread shows split Resolve + Assign to me, and the hint names E', () => {
-    renderDetail({ status: 'in_progress' as Message['status'], lastReplyFromClient: true });
-    expect(screen.getByRole('button', { name: /^Resolve$/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Other resolve options' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Assign to me' })).toBeTruthy();
+const activeThread = { status: 'in_progress' as Message['status'], lastReplyFromClient: true };
+const decisionsRow = () => screen.queryByRole('group', { name: 'Resolve decisions' });
+
+describe('the decisions sit under the reply (v3, 2026-09-23)', () => {
+  it('an active thread shows the row INSIDE the composer, and the hint names E', () => {
+    renderDetail(activeThread);
+    const row = decisionsRow();
+    expect(row).toBeTruthy();
+    expect(screen.getByTestId('composer').contains(row)).toBe(true);
+    expect(within(row!).getByRole('button', { name: 'Resolve' })).toBeTruthy();
+    expect(within(row!).getByRole('button', { name: 'Resolve & save to KB' })).toBeTruthy();
     expect(screen.getByTestId('composer').textContent).toContain('E resolve');
+  });
+
+  it('the header carries no decision: no Resolve, no caret, no Assign to me anywhere', () => {
+    renderDetail({ ...activeThread, assigneeId: null });
+    const subject = screen.getByRole('heading', { level: 2 });
+    // Exactly one Resolve on the page, and it is the composer's.
+    const resolves = screen.getAllByRole('button', { name: 'Resolve' });
+    expect(resolves).toHaveLength(1);
+    expect(screen.getByTestId('composer').contains(resolves[0])).toBe(true);
+    expect(
+      subject.compareDocumentPosition(resolves[0]) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Other resolve options' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Assign to me' })).toBeNull();
   });
 
   it.each([
     ['resolved', { status: 'resolved' }],
     ['filtered (binned)', { status: 'filtered', metadata: { filtered: true } }],
-  ])('a %s thread shows neither', (_label, overrides) => {
+  ])('a %s thread renders no decisions row', (_label, overrides) => {
     renderDetail(overrides as Partial<Message>);
-    expect(screen.queryByRole('button', { name: /^Resolve$/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Assign to me' })).toBeNull();
+    expect(decisionsRow()).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Resolve' })).toBeNull();
   });
 
-  it('the decisions sit under the icon row and above the subject (never among the chips)', () => {
-    // Owner, 2026-09-22. jsdom has no layout, so this pins DOM ORDER: icon row → decisions →
-    // subject. On the chip row they jumped lines with the chip count.
-    renderDetail({ status: 'in_progress' as Message['status'], lastReplyFromClient: true });
-    const row = screen.getByRole('button', { name: 'Assign to me' }).parentElement!;
-    const subject = screen.getByRole('heading', { level: 2 });
-    const more = screen.getByRole('button', { name: 'More actions' });
-    expect(within(row).getByRole('button', { name: /^Resolve$/ })).toBeTruthy();
-    expect(row.compareDocumentPosition(subject) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(more.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // …and not inside the chip row.
-    expect(row.closest('.flex-wrap')).toBeNull();
-  });
-
-  it('CONTROL: a thread with no decision renders no empty decisions line', () => {
-    renderDetail({ status: 'resolved' as Message['status'], assigneeId: 7 });
-    // The decisions line itself (its classes), not the button — a missing button proves nothing.
-    expect(document.querySelector('.justify-end.pt-1\\.5')).toBeNull();
-  });
-
-  it('Assign to me is hidden when the thread is already mine', () => {
-    renderDetail({ status: 'in_progress' as Message['status'], assigneeId: 7 });
-    expect(screen.queryByRole('button', { name: 'Assign to me' })).toBeNull();
+  it('⛔ note mode hides the row — a note is not an answer; R brings it back', async () => {
+    renderDetail(activeThread);
+    expect(decisionsRow()).toBeTruthy();
+    press('n');
+    await waitFor(() => expect(decisionsRow()).toBeNull());
+    press('r');
+    await waitFor(() => expect(decisionsRow()).toBeTruthy());
   });
 });
 
-describe('Resolve & move to spam = CONFIRMED spam (owner, 2026-09-22)', () => {
+describe('U toggles read/unread where the header toggle is shown', () => {
+  it('a triage thread: U marks it read, U again marks it unread', async () => {
+    svc.message.markRead = vi.fn().mockResolvedValue({ success: true });
+    svc.message.markUnread = vi.fn().mockResolvedValue({ success: true });
+    renderDetail({
+      status: 'filtered',
+      metadata: { filtered: true },
+      isRead: false,
+    } as Partial<Message>);
+    press('u');
+    await waitFor(() => expect(svc.message.markRead).toHaveBeenCalledWith(101));
+    press('u');
+    await waitFor(() => expect(svc.message.markUnread).toHaveBeenCalledWith(101));
+  });
+
+  it('CONTROL: a non-triage thread has no toggle, so U does nothing', async () => {
+    svc.message.markRead = vi.fn().mockResolvedValue({ success: true });
+    svc.message.markUnread = vi.fn().mockResolvedValue({ success: true });
+    renderDetail(activeThread);
+    press('u');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(svc.message.markRead).not.toHaveBeenCalled();
+    expect(svc.message.markUnread).not.toHaveBeenCalled();
+  });
+});
+
+describe('Resolve as spam = CONFIRMED spam (owner, 2026-09-22)', () => {
   it('sends move_to_spam WITH confirm, so it lands in the confirmed layer', async () => {
     const onClassify = vi.fn().mockResolvedValue(undefined);
-    renderDetail(
-      { status: 'in_progress' as Message['status'], lastReplyFromClient: true },
-      { onClassify }
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Other resolve options' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Resolve & move to spam' }));
+    renderDetail(activeThread, { onClassify });
+    fireEvent.click(screen.getByRole('button', { name: 'Resolve as spam' }));
     await waitFor(() => expect(onClassify).toHaveBeenCalledTimes(1));
     expect(onClassify).toHaveBeenCalledWith('move_to_spam', undefined, undefined, true);
+  });
+
+  it('CONTROL: without a classify handler there is no spam exit to press', () => {
+    renderDetail(activeThread);
+    expect(screen.queryByRole('button', { name: 'Resolve as spam' })).toBeNull();
   });
 });
 

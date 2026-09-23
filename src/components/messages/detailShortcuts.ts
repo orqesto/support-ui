@@ -2,19 +2,28 @@ import { useEffect, useRef } from 'react';
 
 /**
  * Single-key shortcuts for message detail (v3): R reply · N note · E resolve · J/K next/prev ·
- * Esc close.
+ * U read/unread · Esc close.
  *
  * The decision is a PURE function so every guard is testable on its own. The guards are the
  * whole point: a single-letter shortcut that fires while someone is typing "Regards" into the
  * composer is worse than no shortcut at all.
  */
-export type DetailShortcut = 'reply' | 'note' | 'resolve' | 'next' | 'prev' | 'close';
+export type DetailShortcut =
+  | 'reply'
+  | 'note'
+  | 'resolve'
+  | 'next'
+  | 'prev'
+  | 'toggleRead'
+  | 'close';
 
 export type ShortcutContext = {
   /** False when there is no resolve decision to make (resolveMode === null). */
   canResolve: boolean;
   /** J/K act only where a list exists to move through. */
   canNavigate: boolean;
+  /** U acts only where the read/unread toggle is shown (triage queues); absent = off. */
+  canToggleRead?: boolean;
   /** Esc closes only a surface that can close (the slide-over, not the full page). */
   canClose: boolean;
   /**
@@ -65,6 +74,9 @@ export const shortcutFor = (event: KeyLike, context: ShortcutContext): DetailSho
     case 'k':
     case 'K':
       return context.canNavigate ? 'prev' : null;
+    case 'u':
+    case 'U':
+      return context.canToggleRead ? 'toggleRead' : null;
     case 'Escape':
       return context.canClose ? 'close' : null;
     default:

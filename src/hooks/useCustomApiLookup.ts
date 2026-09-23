@@ -55,6 +55,34 @@ export function useCustomApiLookupAvailability(surface: LookupSurface): boolean 
 }
 
 /**
+ * HOW MANY lookups a press on this surface could run for this caller — the Customer tab's badge
+ * (design v3; owner, 2026-09-23). `GET /lookup/options` (CA-6) is the SAME selection as the press
+ * and as availability (`eligibleEndpoints` + `isPanelRunnable`), so the number cannot promise a
+ * lookup the panel would not run. Configuration only: no vendor call, no customer named (SC1).
+ *
+ * ⚠️ Per workspace and user, NOT per thread — the number reads the same on every thread. That is
+ * what it means: "this many connected systems can be asked about this customer".
+ *
+ * ⛔ FAILS CLOSED like availability: loading, error and a backend without the route are `null`,
+ * and the caller renders nothing. Nested under AVAILABILITY_KEY on purpose, so the settings
+ * screen's invalidation (below) refreshes the count along with the yes/no.
+ */
+export function useCustomApiLookupCount(surface: LookupSurface): number | null {
+  const orgId = useAuthStore(
+    (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
+  );
+  const userId = useAuthStore((state) => state.user?.id ?? null);
+  const { data } = useQuery({
+    queryKey: [AVAILABILITY_KEY, 'options', orgId, userId, surface],
+    queryFn: () => customApiLookupService.lookupOptions(surface),
+    enabled: orgId !== null,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+  return Array.isArray(data) ? data.length : null;
+}
+
+/**
  * Drop the cached "is there a lookup here?" answer, for CA-5's settings screen to call after a
  * write that can change it. (Audit, 2026-09-19.)
  *

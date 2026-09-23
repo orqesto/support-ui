@@ -3,9 +3,9 @@ import type { Message } from '@/types';
 /**
  * Which resolve decision this conversation offers, if any.
  *
- * ONE predicate, read by both the header's split Resolve button and MessageActionStrip.
- * They used to be the same thing (the strip's footer WAS the resolve control); now the
- * header owns the decision and the strip keeps only the state banners, so if the two read
+ * ONE predicate, read by both the decisions row under the reply (ResolveDecisions) and
+ * MessageActionStrip. They used to be the same thing (the strip's footer WAS the resolve
+ * control); now the row owns the decision and the strip keeps only the state banners, so if the two read
  * separate conditions a status change could show the button in both places or in neither.
  *
  * The order is the strip's own: a filtered, spam-flagged or suspicious conversation is
