@@ -64,8 +64,8 @@ export const databaseBannerContent = (
 };
 
 /**
- * The workspace's own database explaining itself (BYODB Phase 2 §3.4 / §3.6): a Free
- * workspace's retention deadline, a move in progress, or a database that stopped answering.
+ * The workspace's own database explaining itself (BYODB Phase 2 §3.4 / §3.6): the retention
+ * deadline of a workspace with no active plan, a move in progress, or a database that stopped answering.
  * Reads the member-readable onboarding status (same fetch as TrialBanner) plus the pause the
  * api-client recorded from a DB_* 503, so every member sees it — only those who can change
  * integrations get the link.

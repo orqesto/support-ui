@@ -17,7 +17,7 @@ export type OnboardingState = {
   aiChoiceApplied?: boolean;
   /**
    * Database step intent (BYODB Phase 2). `own` is realised by the Settings-style connect
-   * call; `managed` is refused (402 `MANAGED_DB_NOT_ENTITLED`) for a Free workspace.
+   * call; `managed` is refused (402 `MANAGED_DB_NOT_ENTITLED`) for a workspace with no active plan.
    */
   dbChoice?: 'managed' | 'own';
   startedAt: string;
@@ -40,7 +40,7 @@ export type OnboardingStatus = {
   managedAiAvailable?: boolean;
   /**
    * The Database step's facts (BYODB Phase 2): whether the managed database is on offer for
-   * this workspace at all (Free = own database) and what it runs on now. Absent on a backend
+   * this workspace at all (any active plan, Free included) and what it runs on now. Absent on a backend
    * that predates the step, in which case the step behaves as "managed allowed".
    */
   database?: { managedAllowed: boolean; current: DatabaseDisplay };

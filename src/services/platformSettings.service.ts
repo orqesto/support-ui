@@ -94,7 +94,7 @@ export type PlatformSettings = {
   /** Every platform secret's status, so a key can be staged before switching provider. */
   secrets: Record<PlatformSecretKey, SecretStatus>;
   /**
-   * BYODB §3.4: how long a Free workspace may stay on the managed database. Two layers only
+   * BYODB §3.4: how long a workspace with no active plan may stay on the managed database. Two layers only
    * (console / built-in default). Absent on a backend that predates Phase 2.
    */
   database?: {
@@ -291,7 +291,7 @@ export const platformSettingsService = {
     await apiClient.patch(`${BASE}/storage`, input);
   },
 
-  /** PATCH the Free-on-managed retention window (BYODB §3.4). Applies to future stamps only. */
+  /** PATCH the no-active-plan managed-database retention window (BYODB §3.4). Applies to future stamps only. */
   updateDatabase: async (input: PlatformDatabaseInput): Promise<void> => {
     await apiClient.patch(`${BASE}/database`, input);
   },

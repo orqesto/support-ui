@@ -17,7 +17,7 @@ import { formatDate } from '@/lib/utils';
 import { STATUS_BADGE, STATUS_LABEL } from '@/components/settings/providers/DatabaseConfigCard';
 
 /**
- * The Free-on-managed retention window (BYODB §3.4). Applies to workspaces stamped from now
+ * The managed-database retention window for workspaces with no active plan (BYODB §3.4). Applies to workspaces stamped from now
  * on; a deadline already written is never moved by changing this — that is stated on the
  * card because a shorter number that silently pulled deadlines closer would be a deletion.
  */
@@ -41,11 +41,11 @@ const RetentionSettingCard = () => {
       <CardHeader>
         <CardTitle className="flex gap-2 items-center">
           <CalendarClock className="h-5 w-5" />
-          Free workspaces on the managed database
+          Lapsed workspaces on the managed database
         </CardTitle>
         <CardDescription>
-          Free runs on its own Postgres. A Free workspace still on the managed database gets a
-          deadline this many days out; org admins are emailed at 60, 30, 7 and 1 days. Changing the
+          A workspace with no active plan (trial expired, cancelled, or none) still on the managed
+          database gets a deadline this many days out — Free workspaces do not; org admins are emailed at 60, 30, 7 and 1 days. Changing the
           number applies to workspaces stamped from now on — existing deadlines stay where they are.
         </CardDescription>
       </CardHeader>
@@ -96,7 +96,8 @@ const RetentionSettingCard = () => {
 
 /**
  * Platform console → Databases (BYODB Phase 2). Three things an operator needs in one place:
- * the retention window, every Free workspace still on the managed database by deadline, and
+ * the retention window, every workspace with no active plan still on the managed database by
+ * deadline, and
  * every own-database workspace whose database is not answering. Each row opens the
  * per-workspace dialog (re-verify / migrations / move cleanup).
  */
@@ -158,11 +159,11 @@ export const PlatformDatabases = () => {
         <CardHeader>
           <CardTitle className="flex gap-2 items-center">
             <CalendarClock className="h-5 w-5" />
-            Free workspaces still on the managed database
+            Workspaces with no active plan on the managed database
           </CardTitle>
           <CardDescription>
             Soonest deadline first. Connecting an own database moves the data and clears the
-            deadline; so does upgrading. Suspension and deletion after the deadline are not yet
+            deadline; so does choosing a plan (Free included). Suspension and deletion after the deadline are not yet
             automated (Phase 3).
           </CardDescription>
         </CardHeader>
@@ -172,7 +173,7 @@ export const PlatformDatabases = () => {
           ) : retention.isError ? (
             <Alert variant="danger">{getApiErrorMessage(retention.error) ?? 'Could not load the retention list.'}</Alert>
           ) : (retention.data ?? []).length === 0 ? (
-            <ConsoleEmpty message="No Free workspace is on the managed database." icon={Database} className="py-4" />
+            <ConsoleEmpty message="No workspace without an active plan is on the managed database." icon={Database} className="py-4" />
           ) : (
             <ul className="divide-y divide-border" data-testid="retention-list">
               {(retention.data ?? []).map((row) => {

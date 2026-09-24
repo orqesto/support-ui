@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 /**
- * Free = own database (BYODB §3.4). The managed card must say WHY it cannot be picked rather
+ * No active plan ⇒ no managed database (BYODB §3.4; Free included in "active"). The managed card must say WHY it cannot be picked rather
  * than merely refuse the click — a disabled card with no reason reads as a bug.
  */
 describe('DatabaseStep', () => {
@@ -44,7 +44,7 @@ describe('DatabaseStep', () => {
 
     const managedCard = screen.getByTestId('database-choice-managed');
     expect(managedCard).toBeDisabled();
-    expect(screen.getByText(/Free runs on your own Postgres/)).toBeInTheDocument();
+    expect(screen.getByText(/The managed database needs an active plan — Free included/)).toBeInTheDocument();
     fireEvent.click(managedCard);
     expect(onChoose).not.toHaveBeenCalled();
   });
@@ -55,7 +55,7 @@ describe('DatabaseStep', () => {
 
     fireEvent.click(screen.getByTestId('database-choice-managed'));
     expect(onChoose).toHaveBeenCalledWith('managed');
-    expect(screen.queryByText(/Free runs on your own Postgres/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/The managed database needs an active plan/)).not.toBeInTheDocument();
   });
 
   it('reveals the Database card once "bring your own" is chosen', async () => {
@@ -86,9 +86,9 @@ describe('DatabaseStep', () => {
         onChoose={vi.fn()}
         managedAllowed
         current={managed()}
-        choiceError="Free runs on your own Postgres — connect one, or upgrade."
+        choiceError="This workspace has no active plan — choose one, or connect your own Postgres."
       />
     );
-    expect(screen.getByTestId('database-choice-error')).toHaveTextContent(/connect one, or upgrade/);
+    expect(screen.getByTestId('database-choice-error')).toHaveTextContent(/choose one, or connect your own Postgres/);
   });
 });

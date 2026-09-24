@@ -11,6 +11,8 @@ import {
   Zap,
   HardDrive,
   Settings,
+  Database,
+  BookOpen,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
@@ -56,6 +58,9 @@ type DashboardData = {
     messages: UsageItem;
     aiCalls: UsageItem;
     storage: UsageItem;
+    /** Volume caps (BE 2026-09-24). Absent on a backend that predates them — render nothing. */
+    storedMessages?: UsageItem;
+    kbItems?: UsageItem;
   };
   limits: {
     maxUsers: number;
@@ -453,6 +458,10 @@ export const SubscriptionPage = () => {
               />
               <UsageTile title="AI Calls" icon={Zap} item={usage.aiCalls} />
               <UsageTile title="Storage (MB)" icon={HardDrive} item={usage.storage} />
+              {usage.storedMessages && (
+                <UsageTile title="Stored messages" icon={Database} item={usage.storedMessages} />
+              )}
+              {usage.kbItems && <UsageTile title="Knowledge base items" icon={BookOpen} item={usage.kbItems} />}
             </div>
 
             {/* The message cap is the one limit with a second door besides upgrading. */}
@@ -469,7 +478,9 @@ export const SubscriptionPage = () => {
               usage.integrations.warning ||
               usage.messages.warning ||
               usage.aiCalls.warning ||
-              usage.storage.warning) && (
+              usage.storage.warning ||
+              (usage.storedMessages?.warning ?? false) ||
+              (usage.kbItems?.warning ?? false)) && (
               <div className="flex gap-3 items-start p-4 mt-4 bg-warning-muted rounded-lg border border-warning-line">
                 <AlertTriangle className="w-5 h-5 text-warning shrink-0" />
                 <div>
@@ -481,6 +492,17 @@ export const SubscriptionPage = () => {
                       ? 'New messages still arrive in your inbox and you can keep replying. AI analysis, routing and drafts are paused until the period resets, you upgrade, or you add a message pack.'
                       : 'Some of your usage metrics are approaching their limits. Consider upgrading your plan for more capacity.'}
                   </p>
+                  {usage.storedMessages?.critical && (
+                    <p className="text-sm text-warning mt-1">
+                      Stored-message limit reached: new mail still arrives. Importing older mail has stopped, and
+                      the oldest emails keep their text but lose their original formatting.
+                    </p>
+                  )}
+                  {usage.kbItems?.critical && (
+                    <p className="text-sm text-warning mt-1">
+                      Knowledge base is full: no new items are added until you upgrade or remove some.
+                    </p>
+                  )}
                   {canManage && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {usage.messages.critical && buyPackButton('primary')}

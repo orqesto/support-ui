@@ -19,12 +19,12 @@ beforeEach(() => {
  * Two response codes the interceptor must read by `code`, not by status alone (BYODB Phase 2).
  */
 describe('api-client — database-related codes', () => {
-  // Free = own database: the wizard's managed choice is refused with a 402. That is a
+  // No active plan: the wizard's managed choice is refused with a 402. That is a
   // step-level refusal, not "your subscription is not active" — gating the whole app on it
   // would lock a brand-new signup out mid-setup.
   it('does not raise the subscription gate on 402 MANAGED_DB_NOT_ENTITLED', async () => {
     await expect(
-      handleResponseError(failure(402, { code: 'MANAGED_DB_NOT_ENTITLED', message: 'Free runs on your own Postgres' }))
+      handleResponseError(failure(402, { code: 'MANAGED_DB_NOT_ENTITLED', message: 'The managed database needs an active plan' }))
     ).rejects.toMatchObject({ status: 402 });
     expect(useSubscriptionGateStore.getState().gated).toBe(false);
   });

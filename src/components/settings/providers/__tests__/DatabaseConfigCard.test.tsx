@@ -48,7 +48,7 @@ describe('DatabaseConfigCard', () => {
   it('on the managed database, shows the retention deadline when there is one and nothing when there is not', async () => {
     serve(display({ sharedRetentionUntil: new Date(Date.now() + 30 * 86_400_000).toISOString() }));
     render(<DatabaseConfigCard />);
-    expect(await screen.findByTestId('database-retention-note')).toHaveTextContent(/Connect yours before/);
+    expect(await screen.findByTestId('database-retention-note')).toHaveTextContent(/connect your own Postgres before/);
     cleanup();
 
     serve(display());
