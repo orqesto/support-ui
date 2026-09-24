@@ -332,6 +332,15 @@ export const describeReplyFailure = (err: unknown): string => {
   return 'Something went wrong sending your reply. Please try again.';
 };
 
+/**
+ * The request behind this link was merged into another one (BE answers 404 `reason: 'merged'`).
+ * Owner decision 2026-09-24: say so, and show nothing of the other request — after a wrong merge
+ * it is someone else's conversation. `.data` is the untouched response body (api-client).
+ */
+export const isMergedAwayError = (err: unknown): boolean =>
+  getErrorStatus(err) === 404 &&
+  (err as { data?: { reason?: unknown } } | null)?.data?.reason === 'merged';
+
 export const TrackingPage = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
   const [searchParams] = useSearchParams();
@@ -343,7 +352,10 @@ export const TrackingPage = () => {
   const isPreview = !conversationId && !token;
 
   const [state, setState] = useState<
-    { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ok'; data: TrackingPayload }
+    | { kind: 'loading' }
+    | { kind: 'error'; message: string }
+    | { kind: 'merged' }
+    | { kind: 'ok'; data: TrackingPayload }
   >({ kind: 'loading' });
 
   const [replyText, setReplyText] = useState('');
@@ -368,6 +380,12 @@ export const TrackingPage = () => {
         return false;
       })
       .catch((err: unknown) => {
+        // Merged while the page was open: switch to the notice rather than keep showing a
+        // request that no longer exists on its own.
+        if (isMergedAwayError(err)) {
+          setState({ kind: 'merged' });
+          return false;
+        }
         logger.warn('[TrackingPage] refetch failed', err);
         return false;
       });
@@ -415,6 +433,10 @@ export const TrackingPage = () => {
             }
       );
     } catch (err: unknown) {
+      if (isMergedAwayError(err)) {
+        setState({ kind: 'merged' });
+        return;
+      }
       logger.warn('[TrackingPage] reply submit failed', err);
       setReplyState({ kind: 'error', message: describeReplyFailure(err) });
     }
@@ -446,6 +468,10 @@ export const TrackingPage = () => {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
+        if (isMergedAwayError(err)) {
+          setState({ kind: 'merged' });
+          return;
+        }
         logger.warn('[TrackingPage] fetch failed', err);
         // Avoid leaking server internals; treat anything non-2xx as not-found.
         setState({
@@ -486,6 +512,24 @@ export const TrackingPage = () => {
     return (
       <div className="surface-light flex justify-center items-center min-h-screen bg-background">
         <p className="text-sm text-muted-foreground">Loading…</p>
+      </div>
+    );
+  }
+
+  if (state.kind === 'merged') {
+    // Same always-light card as the error below (see its note on why). Deliberately names
+    // nothing of the request it was merged into.
+    return (
+      <div className="surface-light flex justify-center items-center px-4 min-h-screen bg-background">
+        <div className="w-full max-w-md p-6 text-center bg-card rounded-lg shadow-sm">
+          <h1 className="font-display text-lg font-medium text-foreground">
+            This request was combined with another one
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            We merged it with a related request so everything is handled in one place. Reply to any
+            of our emails if you need us — your message will still reach us.
+          </p>
+        </div>
       </div>
     );
   }

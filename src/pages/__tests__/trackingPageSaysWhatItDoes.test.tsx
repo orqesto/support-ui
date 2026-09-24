@@ -260,3 +260,54 @@ describe('the header and the steps agree with the badge', () => {
     expect(stateOf(container, 'reviewed')).toBe('pending');
   });
 });
+
+describe('a merged-away request shows a notice and nothing else', () => {
+  const merged404 = () =>
+    Object.assign(new Error('Not found'), {
+      status: 404,
+      data: { success: false, error: 'Not found', reason: 'merged' },
+    });
+  const plain404 = () =>
+    Object.assign(new Error('Not found'), {
+      status: 404,
+      data: { success: false, error: 'Not found' },
+    });
+
+  it('on load: the notice, no request content', async () => {
+    get.mockRejectedValue(merged404());
+    const { container } = renderAt(TOKEN_URL);
+    expect(await screen.findByText('This request was combined with another one')).toBeTruthy();
+    expect(screen.queryByText('Tracking link unavailable')).toBeNull();
+    expect(container.querySelector('textarea')).toBeNull();
+  });
+
+  it('CONTROL: a plain 404 keeps the old message', async () => {
+    get.mockRejectedValue(plain404());
+    renderAt(TOKEN_URL);
+    expect(await screen.findByText('Tracking link unavailable')).toBeTruthy();
+    expect(screen.queryByText('This request was combined with another one')).toBeNull();
+  });
+
+  it('merged while open: the next refresh switches to the notice', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    get.mockResolvedValueOnce({ data: payload('in_progress') });
+    renderAt(TOKEN_URL);
+    await screen.findByText("We're working on your request");
+    get.mockRejectedValueOnce(merged404());
+    await act(async () => {
+      vi.advanceTimersByTime(TRACKING_REFRESH_MS);
+      await Promise.resolve();
+    });
+    expect(await screen.findByText('This request was combined with another one')).toBeTruthy();
+  });
+
+  it('merged before the reply went out: the notice, not a send error', async () => {
+    get.mockResolvedValueOnce({ data: payload('in_progress') });
+    renderAt(TOKEN_URL);
+    await screen.findByText("We're working on your request");
+    post.mockRejectedValueOnce(merged404());
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'hello' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByText('This request was combined with another one')).toBeTruthy();
+  });
+});
