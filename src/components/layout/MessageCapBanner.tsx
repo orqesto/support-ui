@@ -14,8 +14,8 @@ import { Permission } from '@/types/roles';
  * Without this line the inbox simply goes quiet on the AI side and nobody knows why.
  *
  * Two doors out, both on the Subscription page: upgrade the plan, or buy a message
- * pack (when the backend says one can be bought — free and trialing workspaces get
- * upgrade only). Hidden on /subscription, which already shows the full picture, and
+ * pack (when the backend says one can be bought — trialing and lapsed workspaces get
+ * upgrade only; Free can buy one since 2026-09-24). Hidden on /subscription, which already shows the full picture, and
  * on deployments without billing, where there is no cap to explain.
  *
  * Polled lazily (5-minute staleness): the cap flips at most a few times a month and
