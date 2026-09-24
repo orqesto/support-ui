@@ -5,13 +5,30 @@ import {
   type ChatWidget,
   type CreateChatWidgetRequest,
 } from '@/services/chatWidget.service';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { ReactSelect } from '@/components/ui/ReactSelect';
+import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import { departmentService, type Department } from '@/services/department.service';
+import { messageService, type MessageSourceOption } from '@/services/message.service';
 import { logger } from '@/lib/logger';
+
+/**
+ * Source types an agent's reply can go out from as an email. The backend escalates a chat into a
+ * conversation on this source, and answers it through the source's own transport.
+ */
+const EMAIL_SOURCE_TYPES = new Set(['email', 'gmail']);
+
+/** Mirrors the backend's defaults (chatWidgetNoAiHandoff.ts) — shown as placeholders. */
+const DEFAULT_EMAIL_REQUEST_MESSAGE =
+  'Thanks for your message. Please leave your email address so our team can reply to you.';
+const DEFAULT_HANDOFF_MESSAGE =
+  "Thanks — we've passed your message to our team. We'll reply by email to {email}.";
+const DEFAULT_HANDOFF_MESSAGE_NO_ACCOUNT = "Thanks — we've passed your message to our team.";
+const MAX_WIDGET_TEXT = 1000;
 
 interface ChatWidgetModalProps {
   open: boolean;
@@ -46,6 +63,10 @@ export const ChatWidgetModal = ({
   const [domainsText, setDomainsText] = useState('');
   const [saving, setSaving] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [emailSources, setEmailSources] = useState<MessageSourceOption[]>([]);
+  const { off: aiDraftsOff } = useAiDraftsOff();
+  const accountId = formData.escalationSourceId ?? null;
+  const hasEmailAccount = accountId !== null;
   const [theme, setTheme] = useState({
     botBubbleColor: '#ffffff',
     botTextColor: '#1f2937',
@@ -56,6 +77,10 @@ export const ChatWidgetModal = ({
   useEffect(() => {
     if (open) {
       departmentService.getAll().then(setDepartments).catch(() => setDepartments([]));
+      messageService
+        .getMessageSourcesForFilter()
+        .then((sources) => setEmailSources(sources.filter((src) => EMAIL_SOURCE_TYPES.has(src.type))))
+        .catch(() => setEmailSources([]));
     }
   }, [open]);
 
@@ -70,6 +95,11 @@ export const ChatWidgetModal = ({
         position: widget.position,
         collectUserInfo: widget.collectUserInfo,
         allowedDomains: widget.allowedDomains,
+        // Carried only when the backend sent them: an older one omits the fields, and sending
+        // undefined leaves the stored values alone.
+        escalationSourceId: widget.escalationSourceId,
+        handoffMessage: widget.handoffMessage,
+        emailRequestMessage: widget.emailRequestMessage,
       });
       setDomainsText(widget.allowedDomains.join('\n'));
       const themeData = (widget.metadata?.theme as typeof theme) ?? {};
@@ -121,8 +151,16 @@ export const ChatWidgetModal = ({
         .map((domain) => domain.trim())
         .filter((domain) => domain.length > 0);
 
+      // An emptied text box means "use the default" — stored as null, never as ''.
+      const orDefault = (text: string | null | undefined) => {
+        if (text === undefined) return undefined;
+        const trimmed = text?.trim() ?? '';
+        return trimmed.length > 0 ? trimmed : null;
+      };
       const data = {
         ...formData,
+        handoffMessage: orDefault(formData.handoffMessage),
+        emailRequestMessage: orDefault(formData.emailRequestMessage),
         allowedDomains: domains,
         metadata: { theme },
       };
@@ -234,6 +272,83 @@ export const ChatWidgetModal = ({
               placeholder="Type your message..."
             />
           </div>
+
+          <div>
+            <ReactSelect
+              label="Email account for replies"
+              id="escalationSourceId"
+              value={hasEmailAccount ? String(accountId) : ''}
+              onChange={(value) =>
+                setFormData({ ...formData, escalationSourceId: value ? Number(value) : null })
+              }
+              options={[
+                { value: '', label: 'None' },
+                ...emailSources.map((src) => ({
+                  value: String(src.id),
+                  label: src.enabled ? src.name : `${src.name} (disabled)`,
+                })),
+                // Keep a stored account visible even if it is disabled or no longer listed.
+                ...(hasEmailAccount && !emailSources.some((src) => src.id === accountId)
+                  ? [{ value: String(accountId), label: 'Current account' }]
+                  : []),
+              ]}
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              When a chat is handed to your team, replies to the visitor go out by email from this
+              account.
+            </p>
+          </div>
+
+          {aiDraftsOff && (
+            <div className="space-y-3 p-3 rounded-md border">
+              <p className="text-xs text-muted-foreground">
+                AI drafts are switched off for this workspace, so the widget does not answer with
+                AI: it asks the visitor for an email address and hands the chat to your team. These
+                are the two things it says — leave a box empty to use the default.
+              </p>
+              {!hasEmailAccount && (
+                <Alert variant="warning">
+                  No email account is selected, so your team cannot reply to visitors by email.
+                  Choose one above.
+                </Alert>
+              )}
+              <div>
+                <Label htmlFor="emailRequestMessage">Asking for an email</Label>
+                <Textarea
+                  id="emailRequestMessage"
+                  value={formData.emailRequestMessage ?? ''}
+                  maxLength={MAX_WIDGET_TEXT}
+                  onChange={(event) =>
+                    setFormData({ ...formData, emailRequestMessage: event.target.value })
+                  }
+                  placeholder={DEFAULT_EMAIL_REQUEST_MESSAGE}
+                  rows={2}
+                />
+              </div>
+              <div>
+                <Label htmlFor="handoffMessage">After handing the chat to your team</Label>
+                <Textarea
+                  id="handoffMessage"
+                  value={formData.handoffMessage ?? ''}
+                  maxLength={MAX_WIDGET_TEXT}
+                  onChange={(event) =>
+                    setFormData({ ...formData, handoffMessage: event.target.value })
+                  }
+                  placeholder={
+                    hasEmailAccount
+                      ? DEFAULT_HANDOFF_MESSAGE
+                      : DEFAULT_HANDOFF_MESSAGE_NO_ACCOUNT
+                  }
+                  rows={2}
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {'{email}'} is replaced with the visitor&apos;s address.
+                  {!hasEmailAccount &&
+                    ' Without an email account, do not promise a reply by email.'}
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>

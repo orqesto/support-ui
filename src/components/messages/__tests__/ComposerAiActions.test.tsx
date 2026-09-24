@@ -46,6 +46,13 @@ vi.mock('@/hooks/useAiConfigured', () => ({
   useAiConfigured: () => ({ aiConfigured: aiConfigured.value, isLoading: false }),
 }));
 
+const aiDrafts = { off: false };
+const refreshAiDrafts = vi.fn();
+vi.mock('@/hooks/useAiDraftsOff', () => ({
+  useAiDraftsOff: () => ({ off: aiDrafts.off, resolved: true }),
+  useRefreshAiDrafts: () => refreshAiDrafts,
+}));
+
 import { ComposerAiActions } from '@/components/messages/ComposerAiActions';
 import { apiError } from '@/test/apiError';
 
@@ -72,6 +79,7 @@ describe('ComposerAiActions', () => {
     vi.clearAllMocks();
     translateButtonTexts.length = 0;
     aiConfigured.value = true;
+    aiDrafts.off = false;
     composeReply.mockResolvedValue({
       data: { text: 'Your parcel is at the border.', language: 'en' },
     });
@@ -524,6 +532,56 @@ describe('ComposerAiActions', () => {
       expect(await screen.findByText('Your parcel is at the border.')).toBeInTheDocument();
       expect(screen.queryByText(/knowledge base/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/from what you said/i)).not.toBeInTheDocument();
+    });
+  });
+  describe('AI drafts off', () => {
+    it('says drafts are off where the AI button was, and offers no AI action', () => {
+      aiDrafts.off = true;
+      render(
+        <ComposerAiActions messageId={42} composer="" setComposer={setComposer} onApplied={onApplied} />
+      );
+      expect(screen.getByText('AI drafts are switched off for this workspace.')).toBeInTheDocument();
+      expect(screen.queryByTitle('Draft this reply with AI')).not.toBeInTheDocument();
+      expect(composeReply).not.toHaveBeenCalled();
+    });
+
+    it('says drafts are off even when no provider is connected either', () => {
+      aiDrafts.off = true;
+      aiConfigured.value = false;
+      render(
+        <ComposerAiActions messageId={42} composer="" setComposer={setComposer} onApplied={onApplied} />
+      );
+      expect(screen.getByText('AI drafts are switched off for this workspace.')).toBeInTheDocument();
+    });
+
+    // ⛔ compose-reply answers 409 for TWO reasons. Keyed on status alone, a drafts-off refusal
+    // got the "no customer message — write it yourself, then polish" advice, which is false.
+    it('a 409 AI_DRAFTS_OFF says drafts are off — not the no-customer-message advice', async () => {
+      composeReply.mockRejectedValue(
+        // A different sentence on purpose: the contract is the CODE, so the copy must not
+        // depend on the backend's wording.
+        await apiError(409, { code: 'AI_DRAFTS_OFF', error: 'Drafting refused.' })
+      );
+      openPanel('');
+      fireEvent.click(screen.getByText('Write reply'));
+
+      expect(
+        await screen.findByText('AI drafts are switched off for this workspace.')
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Make it customer-ready/i)).not.toBeInTheDocument();
+      // The setting changed after this screen loaded: re-read it so the panel gives way.
+      expect(refreshAiDrafts).toHaveBeenCalled();
+    });
+
+    it('a 409 without the code still gets the no-customer-message advice (control)', async () => {
+      composeReply.mockRejectedValue(
+        await apiError(409, { error: 'This conversation has no customer message to answer' })
+      );
+      openPanel('');
+      fireEvent.click(screen.getByText('Write reply'));
+
+      expect(await screen.findByText(/Make it customer-ready/i)).toBeInTheDocument();
+      expect(refreshAiDrafts).not.toHaveBeenCalled();
     });
   });
 });

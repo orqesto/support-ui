@@ -10,6 +10,17 @@ export interface ChatWidget {
   enabled: boolean;
   welcomeMessage: string | null;
   placeholder: string | null;
+  /**
+   * The email account agents' replies to escalated chats go out from. Without one, a visitor
+   * who left an address can still not be answered by email. Optional: older backends omit it.
+   */
+  escalationSourceId?: number | null;
+  /**
+   * "AI drafts off" contact-form texts. null = the built-in default. `{email}` in the handoff
+   * message becomes the visitor's address. Optional: older backends omit them.
+   */
+  handoffMessage?: string | null;
+  emailRequestMessage?: string | null;
   collectUserInfo: boolean;
   primaryColor: string;
   position: 'bottom-right' | 'bottom-left';
@@ -28,6 +39,9 @@ export interface CreateChatWidgetRequest {
   departmentIds?: number[];
   welcomeMessage?: string;
   placeholder?: string;
+  escalationSourceId?: number | null;
+  handoffMessage?: string | null;
+  emailRequestMessage?: string | null;
   primaryColor?: string;
   position?: 'bottom-right' | 'bottom-left';
   collectUserInfo?: boolean;
@@ -41,6 +55,9 @@ export interface UpdateChatWidgetRequest {
   departmentIds?: number[];
   welcomeMessage?: string;
   placeholder?: string;
+  escalationSourceId?: number | null;
+  handoffMessage?: string | null;
+  emailRequestMessage?: string | null;
   primaryColor?: string;
   position?: 'bottom-right' | 'bottom-left';
   collectUserInfo?: boolean;

@@ -32,8 +32,13 @@ vi.mock('@/hooks/useAiConfigured', () => ({
 }));
 vi.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ theme: 'light' }) }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), info: vi.fn() } }));
+const toastError = vi.fn<(message: string) => void>();
+vi.mock('@/lib/toast', () => ({
+  toast: { error: (message: string) => toastError(message), success: vi.fn(), info: vi.fn() },
+}));
 
 import { TranslateButton } from '@/components/shared/TranslateButton';
+import { apiError } from '@/test/apiError';
 
 const onTranslated = vi.fn<(content: string, subject?: string, language?: string) => void>();
 const onCleared = vi.fn<() => void>();
@@ -65,6 +70,21 @@ describe('TranslateButton', () => {
     expect(onTranslated).toHaveBeenCalledWith('Ditt paket är i tullen.', undefined, 'sv');
     expect(translateMessage).not.toHaveBeenCalled();
     expect(translateTicket).not.toHaveBeenCalled();
+  });
+
+  it('a draft translation refused because AI drafts are off says so', async () => {
+    translateText.mockRejectedValue(
+      // Keyed on the CODE: a backend that words it differently must still read as drafts off.
+      await apiError(409, { code: 'AI_DRAFTS_OFF', error: 'Drafting refused.' })
+    );
+    render(<TranslateButton text="Ihr Paket." onTranslated={onTranslated} onCleared={onCleared} />);
+
+    await pick('Swedish');
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith('AI drafts are switched off for this workspace.')
+    );
+    expect(onTranslated).not.toHaveBeenCalled();
   });
 
   it('CONTROL: a stored message still goes through the message endpoint, never the text one', async () => {

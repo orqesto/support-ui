@@ -13,6 +13,10 @@ import userEvent from '@testing-library/user-event';
 import { ComposerAiActions } from '../ComposerAiActions';
 
 vi.mock('@/hooks/useAiConfigured', () => ({ useAiConfigured: () => ({ aiConfigured: true }) }));
+vi.mock('@/hooks/useAiDraftsOff', () => ({
+  useAiDraftsOff: () => ({ off: false, resolved: true }),
+  useRefreshAiDrafts: () => () => undefined,
+}));
 const composeReply =
   vi.fn<(messageId: number, body: Record<string, unknown>) => Promise<{ data?: unknown }>>();
 vi.mock('@/services/message.service', () => ({

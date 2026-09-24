@@ -15,11 +15,19 @@ import { render, screen, cleanup } from '@testing-library/react';
 import type { MessageThread } from '@/services/message.service';
 import { KanbanCard } from '../KanbanCard';
 
+const aiDrafts = vi.hoisted(() => ({ off: false }));
+vi.mock('@/hooks/useAiDraftsOff', () => ({
+  useAiDraftsOff: () => ({ off: aiDrafts.off, resolved: true }),
+  useRefreshAiDrafts: () => () => undefined,
+}));
 vi.mock('@/hooks/useDepartments', () => ({ useDepartments: () => ({ data: [] }) }));
 vi.mock('@/stores/authStore', () => ({ useAuthStore: () => null }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'COR' }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  aiDrafts.off = false;
+});
 
 const HOUR = 60 * 60 * 1000;
 const iso = (msAgo: number) => new Date(Date.now() - msAgo).toISOString();
@@ -62,5 +70,35 @@ describe('KanbanCard — age', () => {
     const noStamp = thread({ lastMessageAt: undefined });
     render(<KanbanCard thread={noStamp} onOpen={() => {}} />);
     expect(screen.getByText('6d')).toBeTruthy();
+  });
+});
+
+// The chip reads "AI suggested — review and send" off a stored draft. With AI drafts off that
+// draft is not offered anywhere, so the card must not send the agent looking for it.
+describe('KanbanCard — AI state chip with AI drafts off', () => {
+  const withStoredDraft = () =>
+    thread({
+      latestMessage: {
+        id: 1,
+        conversationId: 361,
+        type: 'inbound',
+        content: 'any update on my parcel',
+        channel: 'email',
+        createdAt: iso(HOUR),
+        needsHumanReview: true,
+        metadata: { suggestedAnswer: { answer: 'A stored draft.' } },
+      },
+    });
+
+  it('reads "Needs review" with drafts off', () => {
+    aiDrafts.off = true;
+    render(<KanbanCard thread={withStoredDraft()} onOpen={() => {}} />);
+    expect(screen.queryByText('AI suggested')).toBeNull();
+    expect(screen.getByText('Needs review')).toBeTruthy();
+  });
+
+  it('reads "AI suggested" with drafts on (control)', () => {
+    render(<KanbanCard thread={withStoredDraft()} onOpen={() => {}} />);
+    expect(screen.getByText('AI suggested')).toBeTruthy();
   });
 });

@@ -139,6 +139,20 @@ export const isAiNotConfiguredError = (err: unknown): boolean =>
   getErrorBody(err)?.code === 'AI_NOT_CONFIGURED';
 
 /**
+ * The workspace switched AI drafts off. An admin's choice, not a fault — so it never reads as
+ * an error to retry, and never as "connect a provider".
+ */
+export const AI_DRAFTS_OFF_MESSAGE = 'AI drafts are switched off for this workspace.';
+
+/**
+ * True for the backend's refusal of a drafting request with drafts off: HTTP 409 with body
+ * `{ code: 'AI_DRAFTS_OFF' }`. ⛔ Test the CODE, never the status — compose-reply also answers
+ * 409 for a thread with no customer message to answer, which means something else entirely.
+ */
+export const isAiDraftsOffError = (err: unknown): boolean =>
+  getErrorBody(err)?.code === 'AI_DRAFTS_OFF';
+
+/**
  * Best-effort extraction of a useful message from an unknown error.
  * Order: BE-supplied error string → status mapping → error.message → fallback.
  *

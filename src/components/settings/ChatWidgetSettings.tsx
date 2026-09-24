@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Code, Trash2, Edit, Power, Globe, Palette, MessageSquare, Copy, Check } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { chatWidgetService, type ChatWidget } from '@/services/chatWidget.service';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { AlertDialog } from '@/components/ui/AlertDialog';
@@ -10,9 +11,11 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ChatWidgetModal } from './modals/ChatWidgetModal';
 import { EmbedCodeModal } from './modals/EmbedCodeModal';
 import { logger } from '@/lib/logger';
+import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 
 export const ChatWidgetSettings = () => {
   const [widgets, setWidgets] = useState<ChatWidget[]>([]);
+  const { off: aiDraftsOff } = useAiDraftsOff();
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingWidget, setEditingWidget] = useState<ChatWidget | null>(null);
@@ -124,7 +127,9 @@ export const ChatWidgetSettings = () => {
         <div>
           <h2 className="font-display text-2xl font-bold">Chat Widgets</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Embeddable AI-powered chat widgets for your website
+            {aiDraftsOff
+              ? 'Embeddable chat widgets for your website. AI drafts are off, so they collect the visitor’s email and hand the chat to your team.'
+              : 'Embeddable AI-powered chat widgets for your website'}
           </p>
         </div>
         <Button onClick={() => setShowCreateModal(true)}>
@@ -162,6 +167,17 @@ export const ChatWidgetSettings = () => {
                     >
                       {widget.enabled ? 'Active' : 'Disabled'}
                     </span>
+                    {/* Strictly null: an older backend omits the field, and "unknown" is not
+                        "missing". With drafts off the widget only hands chats over, and without
+                        an account nobody can answer the visitor by email. */}
+                    {aiDraftsOff && widget.escalationSourceId === null && (
+                      <Badge
+                        variant="warning"
+                        title="AI drafts are off, so this widget hands chats to your team — but with no email account selected, your team cannot reply to visitors by email."
+                      >
+                        No email account for replies
+                      </Badge>
+                    )}
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
                     <DepartmentBadge departmentId={widget.departmentId} />

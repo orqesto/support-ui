@@ -34,6 +34,7 @@ import {
   hasAttachments,
 } from './inboxCardHelpers';
 import { TRIAGE_READ_COLUMN_IDS } from './kanbanColumns';
+import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 
 type KanbanCardProps = {
   thread: MessageThread;
@@ -63,6 +64,8 @@ export const KanbanCard = ({
   selected,
   onToggleSelected,
 }: KanbanCardProps) => {
+  // Before any early return — hooks must run in the same order on every render.
+  const { off: aiDraftsOff } = useAiDraftsOff();
   const msg = thread.latestMessage;
   const { data: allDepts = [] } = useDepartments();
   const currentUser = useAuthStore((state) => state.user);
@@ -128,7 +131,7 @@ export const KanbanCard = ({
   const customer = thread.sender || msg.sender;
   const signalMessage = thread.latestIncomingMessage ?? msg;
   const spine = getSpine(signalMessage, thread);
-  const aiState = getAiState(signalMessage, thread);
+  const aiState = getAiState(signalMessage, thread, aiDraftsOff);
   const priorityBadge = getPriorityBadge(msg.priority);
   // Per-user read/unread — only on the triage queues (suspicious, not_analysed,
   // archived, spam), where "have I reviewed this?" is the signal. Unread shows a

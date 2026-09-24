@@ -379,7 +379,17 @@ export type AiState = {
   tooltip: string;
 };
 
-export const getAiState = (message: Message, thread: MessageThread): AiState | null => {
+export const getAiState = (
+  message: Message,
+  thread: MessageThread,
+  /**
+   * The workspace switched AI drafts off: a draft stored before the switch is no longer offered
+   * (AiTabPanel / MessageDetail), so "AI prepared a draft — review and send" would point at
+   * nothing. ⚠️ The backend's `aiSuggested` FILTER still matches these rows — the chip and the
+   * filter part ways only while drafts are off.
+   */
+  aiDraftsOff = false
+): AiState | null => {
   const meta = message.metadata as
     | {
         suggestedAnswer?: unknown;
@@ -389,7 +399,7 @@ export const getAiState = (message: Message, thread: MessageThread): AiState | n
     | undefined;
 
   if (message.needsHumanReview) {
-    if (meta?.suggestedAnswer !== null && meta?.suggestedAnswer !== undefined) {
+    if (!aiDraftsOff && meta?.suggestedAnswer !== null && meta?.suggestedAnswer !== undefined) {
       return {
         label: 'AI suggested',
         tooltip: 'AI prepared a draft reply — review and send',

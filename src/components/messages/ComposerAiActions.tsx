@@ -5,12 +5,15 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Textarea';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
+import { useAiDraftsOff, useRefreshAiDrafts } from '@/hooks/useAiDraftsOff';
 import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
 import { logger } from '@/lib/logger';
 import {
+  AI_DRAFTS_OFF_MESSAGE,
   AI_NOT_CONFIGURED_MESSAGE,
   getApiErrorMessage,
   getErrorStatus,
+  isAiDraftsOffError,
   isAiNotConfiguredError,
 } from '@/lib/errorMessages';
 import { messageService, type AiDraft } from '@/services/message.service';
@@ -165,6 +168,8 @@ export function ComposerAiActions({
   }, [revealNote]);
 
   const { aiConfigured } = useAiConfigured();
+  const { off: aiDraftsOff } = useAiDraftsOff();
+  const refreshAiDrafts = useRefreshAiDrafts();
   const ownText = stripHtml(composer).trim();
   const hasOwnText = !isBlankRichText(composer);
 
@@ -194,6 +199,8 @@ export function ComposerAiActions({
    */
   const describeError = (err: unknown): string => {
     const status = getErrorStatus(err);
+    // Before the status checks: this 409 is an admin's setting, not "no customer message".
+    if (isAiDraftsOffError(err)) return AI_DRAFTS_OFF_MESSAGE;
     if (isAiNotConfiguredError(err)) return AI_NOT_CONFIGURED_MESSAGE;
     if (status === 429) return 'AI limit reached for now — try again shortly.';
     if (status === 403)
@@ -232,7 +239,11 @@ export function ComposerAiActions({
     } catch (err) {
       logger.error('Compose-reply failed:', err);
       const message = describeError(err);
-      const noInbound = getErrorStatus(err) === 409 && mode !== 'polish';
+      // Drafts were switched off after this screen loaded — re-read, so the panel gives way to
+      // the note below instead of offering a button that cannot work.
+      if (isAiDraftsOffError(err)) refreshAiDrafts();
+      const noInbound =
+        getErrorStatus(err) === 409 && !isAiDraftsOffError(err) && mode !== 'polish';
       setError(noInbound ? `${message} ${NO_INBOUND_GUIDANCE}` : message);
     } finally {
       setBusy(false);
@@ -304,6 +315,18 @@ export function ComposerAiActions({
     setError(null);
     setStartFresh(false);
   };
+
+  // AI drafts off: say so where the button was — a control that silently disappears reads as a
+  // bug. Undo stays reachable: text a draft replaced before the switch is still the agent's.
+  // Ahead of the no-provider check: with drafts off, the admin's choice is WHY there is no
+  // button, whether or not a provider is connected.
+  if (aiDraftsOff && previous === null && !draft) {
+    return (
+      <span className="text-[11px] text-muted-foreground" data-testid="ai-drafts-off-note">
+        {AI_DRAFTS_OFF_MESSAGE}
+      </span>
+    );
+  }
 
   // No provider connected → the endpoint 403s, so offering the button is a dead
   // end. Stay mounted only while an undo is still pending.

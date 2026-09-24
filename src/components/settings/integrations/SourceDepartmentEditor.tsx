@@ -8,6 +8,7 @@ import {
 } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
 import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
+import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 
 type Props = {
   sourceId: number;
@@ -16,6 +17,7 @@ type Props = {
 };
 
 export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) => {
+  const { off: aiDraftsOff } = useAiDraftsOff();
   const [allDepts, setAllDepts] = useState<Department[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
   const [defaultId, setDefaultId] = useState<number | undefined>();
@@ -110,6 +112,12 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
       {!loading && links.some((link) => selected.includes(link.departmentId)) && (
         <div className="mt-4 pt-3 border-t border-border/60">
           <p className="text-xs text-muted-foreground mb-2">Auto-reply per department:</p>
+          {aiDraftsOff && (
+            <p className="text-xs text-warning mb-2">
+              AI drafts are switched off for this workspace, so the AI sends no auto-reply — whatever
+              is set here. These apply again when AI drafts are switched back on.
+            </p>
+          )}
           <div className="flex flex-col gap-1.5">
             {links
               .filter((link) => selected.includes(link.departmentId))

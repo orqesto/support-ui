@@ -17,6 +17,10 @@ import { MessageGhostBubble } from '../MessageGhostBubble';
 import { AiTabPanel } from '../AiTabPanel';
 
 vi.mock('@/hooks/useAiConfigured', () => ({ useAiConfigured: () => ({ aiConfigured: true }) }));
+vi.mock('@/hooks/useAiDraftsOff', () => ({
+  useAiDraftsOff: () => ({ off: false, resolved: true }),
+  useRefreshAiDrafts: () => () => undefined,
+}));
 vi.mock('@/services/message.service', () => ({
   messageService: {
     getSimilarResolvedMessages: () => Promise.resolve({ success: true, data: [] }),
