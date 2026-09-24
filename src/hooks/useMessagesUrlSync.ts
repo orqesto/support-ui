@@ -135,6 +135,12 @@ export const useMessagesUrlSync = ({
 }: UseMessagesUrlSyncProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const orgCode = useCurrentOrgCode();
+  // Read when the fetch ANSWERS, not when it started: on a cold load the fetch starts before the
+  // workspace code has loaded, and the closure's `undefined` wrote the bare `INF-25` into the URL.
+  const orgCodeRef = useRef(orgCode);
+  orgCodeRef.current = orgCode;
+  // A redirect seen before the workspace code loaded — applied once it does (effect below).
+  const pendingRedirectRef = useRef<{ requested: string; shown: Message } | null>(null);
   const searchParamsRef = useRef(searchParams);
   searchParamsRef.current = searchParams;
 
@@ -366,6 +372,8 @@ export const useMessagesUrlSync = ({
     if (paramId !== null && paramId !== '') {
       if (cacheKey === fetchedMessageIdRef.current) return;
       fetchedMessageIdRef.current = cacheKey;
+      // A different link now: an older redirect waiting on the workspace code no longer applies.
+      pendingRedirectRef.current = null;
 
       messageService
         .getById(paramId, paramKind === 'event' ? 'event' : undefined)
@@ -375,8 +383,15 @@ export const useMessagesUrlSync = ({
             // A link to a MERGED-AWAY ticket opens the ticket it was merged into (support-service
             // #830). Put THAT ticket's id in the URL, so a copied link, a refresh or the next
             // share names what is on screen — not a ticket that no longer exists.
-            const shownId = displayIdIfRedirected(paramId, response.data, orgCode);
+            const code = orgCodeRef.current;
+            const shownId = displayIdIfRedirected(paramId, response.data, code);
             if (shownId && !paramKind) {
+              if (!code) {
+                // Every other link carries the workspace code; the bare id would be the odd one
+                // out. Wait for the code rather than write it (staging check, 2026-09-24).
+                pendingRedirectRef.current = { requested: paramId, shown: response.data };
+                return;
+              }
               fetchedMessageIdRef.current = shownId;
               setSearchParams(
                 (prev) => {
@@ -412,5 +427,25 @@ export const useMessagesUrlSync = ({
       fetchedMessageIdRef.current = null;
       setSelectedMessage(null);
     }
-  }, [searchParams, setSearchParams, fetchedMessageIdRef, setSelectedMessage, orgCode]); // onFetchError intentionally excluded — callback ref is stable
+  }, [searchParams, setSearchParams, fetchedMessageIdRef, setSelectedMessage]); // onFetchError intentionally excluded — callback ref is stable
+
+  // The workspace code arrived after a redirect: name the survivor the way every other link does.
+  // ⚠️ A workspace with no code at all never gets here, and its URL keeps the merged-away id —
+  // which still opens the survivor. `useCurrentOrgCode` cannot tell "not loaded" from "none".
+  useEffect(() => {
+    const pending = pendingRedirectRef.current;
+    if (!orgCode || !pending) return;
+    pendingRedirectRef.current = null;
+    // Only if the URL still names that link — the agent may have opened something else since.
+    if (searchParamsRef.current.get('id') !== pending.requested) return;
+    const shownId = getConvUrlId(pending.shown, orgCode);
+    fetchedMessageIdRef.current = shownId;
+    setSearchParams(
+      (prev) => {
+        prev.set('id', shownId);
+        return prev;
+      },
+      { replace: true }
+    );
+  }, [orgCode, fetchedMessageIdRef, setSearchParams]);
 };
