@@ -7,7 +7,7 @@
 // validates the token query param. We still surface them in the URL so the
 // link self-describes and looks trustworthy in email previews.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Textarea } from '@/components/ui/Textarea';
@@ -56,8 +56,12 @@ const STATUS_LABELS: Record<string, { label: string; tone: 'open' | 'progress' |
   in_progress: { label: 'In progress', tone: 'progress' },
   resolved: { label: 'Resolved', tone: 'closed' },
   closed: { label: 'Closed', tone: 'closed' },
-  filtered: { label: 'Filtered', tone: 'closed' },
+  // The customer never sees the internal word: to them a withheld message was simply received.
+  filtered: { label: 'Received', tone: 'open' },
 };
+
+/** How often an open tracking page re-reads its request. */
+export const TRACKING_REFRESH_MS = 60_000;
 
 const fmtTime = (iso: string): string => {
   try {
@@ -328,6 +332,15 @@ export const describeReplyFailure = (err: unknown): string => {
   return 'Something went wrong sending your reply. Please try again.';
 };
 
+/**
+ * The request behind this link was merged into another one (BE answers 404 `reason: 'merged'`).
+ * Owner decision 2026-09-24: say so, and show nothing of the other request — after a wrong merge
+ * it is someone else's conversation. `.data` is the untouched response body (api-client).
+ */
+export const isMergedAwayError = (err: unknown): boolean =>
+  getErrorStatus(err) === 404 &&
+  (err as { data?: { reason?: unknown } } | null)?.data?.reason === 'merged';
+
 export const TrackingPage = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
   const [searchParams] = useSearchParams();
@@ -339,7 +352,10 @@ export const TrackingPage = () => {
   const isPreview = !conversationId && !token;
 
   const [state, setState] = useState<
-    { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ok'; data: TrackingPayload }
+    | { kind: 'loading' }
+    | { kind: 'error'; message: string }
+    | { kind: 'merged' }
+    | { kind: 'ok'; data: TrackingPayload }
   >({ kind: 'loading' });
 
   const [replyText, setReplyText] = useState('');
@@ -350,7 +366,7 @@ export const TrackingPage = () => {
   // Returns true when the state was refreshed, false when the refetch failed.
   // The boolean is consumed by submitReply so we don't blow the customer's
   // typed text away on a transient refetch error — see G2 below.
-  const refetch = (): Promise<boolean> => {
+  const refetch = useCallback((): Promise<boolean> => {
     if (!token) return Promise.resolve(false);
     return apiClient
       .get<{ success: boolean; data: TrackingPayload; error?: string }>(
@@ -364,10 +380,16 @@ export const TrackingPage = () => {
         return false;
       })
       .catch((err: unknown) => {
+        // Merged while the page was open: switch to the notice rather than keep showing a
+        // request that no longer exists on its own.
+        if (isMergedAwayError(err)) {
+          setState({ kind: 'merged' });
+          return false;
+        }
         logger.warn('[TrackingPage] refetch failed', err);
         return false;
       });
-  };
+  }, [token]);
 
   const submitReply = async (): Promise<void> => {
     if (!token) return;
@@ -411,6 +433,10 @@ export const TrackingPage = () => {
             }
       );
     } catch (err: unknown) {
+      if (isMergedAwayError(err)) {
+        setState({ kind: 'merged' });
+        return;
+      }
       logger.warn('[TrackingPage] reply submit failed', err);
       setReplyState({ kind: 'error', message: describeReplyFailure(err) });
     }
@@ -442,6 +468,10 @@ export const TrackingPage = () => {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
+        if (isMergedAwayError(err)) {
+          setState({ kind: 'merged' });
+          return;
+        }
         logger.warn('[TrackingPage] fetch failed', err);
         // Avoid leaking server internals; treat anything non-2xx as not-found.
         setState({
@@ -455,10 +485,51 @@ export const TrackingPage = () => {
     };
   }, [token, conversationId, isPreview]);
 
+  /**
+   * Keep the page current while it is open.
+   *
+   * ⛔ It used to fetch ONCE and still told the customer "no need to refresh" and "this page
+   * updates as your request progresses" — an agent's reply never appeared until a manual reload.
+   * Now: every TRACKING_REFRESH_MS while the tab is visible, and at once when it becomes visible
+   * again. A failed refresh keeps the last good state (refetch only sets state on success), and
+   * the reply box's text lives in its own state, so a refresh never eats what is being typed.
+   */
+  const loaded = state.kind === 'ok';
+  useEffect(() => {
+    if (isPreview || !token || !loaded) return;
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') void refetch();
+    };
+    const interval = window.setInterval(refreshIfVisible, TRACKING_REFRESH_MS);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, [isPreview, token, loaded, refetch]);
+
   if (state.kind === 'loading') {
     return (
       <div className="surface-light flex justify-center items-center min-h-screen bg-background">
         <p className="text-sm text-muted-foreground">Loading…</p>
+      </div>
+    );
+  }
+
+  if (state.kind === 'merged') {
+    // Same always-light card as the error below (see its note on why). Deliberately names
+    // nothing of the request it was merged into.
+    return (
+      <div className="surface-light flex justify-center items-center px-4 min-h-screen bg-background">
+        <div className="w-full max-w-md p-6 text-center bg-card rounded-lg shadow-sm">
+          <h1 className="font-display text-lg font-medium text-foreground">
+            This request was combined with another one
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            We merged it with a related request so everything is handled in one place. Reply to any
+            of our emails if you need us — your message will still reach us.
+          </p>
+        </div>
       </div>
     );
   }
@@ -538,7 +609,13 @@ export const TrackingPage = () => {
       key: 'reviewed',
       label: 'Reviewed & categorized',
       desc: department.name ? `Routed to ${department.name}.` : `We've sorted your request.`,
-      reachedAt: firstBotReplyAt ?? conversation.firstResponseAt ?? null,
+      // Routing happens when the message is saved, so a known team means it was sorted on arrival —
+      // it used to wait for an acknowledgment auto-reply, which a workspace may never send.
+      reachedAt:
+        firstBotReplyAt ??
+        (department.name ? conversation.createdAt : null) ??
+        conversation.firstResponseAt ??
+        null,
     },
     {
       key: 'in_progress',
@@ -549,7 +626,9 @@ export const TrackingPage = () => {
     {
       key: 'awaiting',
       label: 'Awaiting your reply',
-      desc: `If we need more details, we'll ask here and email you.`,
+      desc: awaitingReplyAt
+        ? `We've answered and are waiting to hear from you.`
+        : `If we need more details, we'll ask here and email you.`,
       reachedAt: awaitingReplyAt,
     },
     {
@@ -559,21 +638,28 @@ export const TrackingPage = () => {
       reachedAt: closedAt,
     },
   ];
-  const activeIdx = timeline.reduce((acc, stage, idx) => (stage.reachedAt ? idx : acc), 0);
   const isResolved = !!closedAt;
 
   // Status-hero headline + sub-copy. Match the customer-facing tone of the
   // design — plain language, no internal jargon.
+  // The ball is in the customer's court. The badge already says "Awaiting your reply"; the
+  // headline used to say "We're working on your request" beside it.
+  const isAwaitingCustomer = !isResolved && awaitingReplyAt !== null;
   const heroHeadline = isResolved
     ? 'Your request is resolved'
-    : firstHumanReplyAt
-      ? "We're working on your request"
-      : 'We got your message';
+    : isAwaitingCustomer
+      ? "We've replied — over to you"
+      : firstHumanReplyAt
+        ? "We're working on your request"
+        : 'We got your message';
+  // Only what the product does: agent replies are emailed; nothing is sent on a status change.
   const heroSub = isResolved
-    ? "If you have follow-up questions, reply to your confirmation email and we'll reopen this request."
-    : firstHumanReplyAt
-      ? "Our support team is on it. You'll get an email the moment there's an update — no need to refresh."
-      : `Thanks — we've received this and a team member will pick it up shortly. We'll email you when there's an update.`;
+    ? "Need anything else? Reply below and we'll reopen this request."
+    : isAwaitingCustomer
+      ? "Our team has answered below. Reply here if you need anything else — we'll pick it back up."
+      : firstHumanReplyAt
+        ? "Our support team is on it. We'll email you when we reply, and this page refreshes on its own."
+        : `Thanks — we've received this and a team member will pick it up shortly. We'll email you when we reply.`;
 
   // Reference number: stable, customer-facing identifier. Prefer the org-scoped
   // publicId ('SUP-42') once stamped; fall back to the int-padded REQ-style id
@@ -751,15 +837,21 @@ export const TrackingPage = () => {
                   // just because a later stage is, because the conversation
                   // can skip stages (e.g., closed without an agent reply).
                   const reached = !!stage.reachedAt;
-                  // Current = the next not-yet-reached stage right after the
-                  // highest reached index. Hidden once resolved.
-                  const isCurrent = idx === activeIdx + 1 && !isResolved;
+                  // Current = where the request is waiting ON THE CUSTOMER right now. It used to
+                  // point at the next UNREACHED stage, which renders the empty circle first — the
+                  // ring never showed, and "Awaiting your reply" was drawn as a finished step.
+                  const isCurrent = stage.key === 'awaiting' && reached && isAwaitingCustomer;
                   const isLast = idx === timeline.length - 1;
                   const stageTime = stage.reachedAt
                     ? (fmtRelative(stage.reachedAt) ?? fmtTime(stage.reachedAt))
                     : null;
                   return (
-                    <li key={stage.key} className={`flex gap-3.5 relative ${isLast ? '' : 'pb-6'}`}>
+                    <li
+                      key={stage.key}
+                      data-stage={stage.key}
+                      data-state={!reached ? 'pending' : isCurrent ? 'current' : 'done'}
+                      className={`flex gap-3.5 relative ${isLast ? '' : 'pb-6'}`}
+                    >
                       {!isLast && (
                         <div
                           aria-hidden="true"
@@ -909,59 +1001,62 @@ export const TrackingPage = () => {
                 )}
               </div>
 
-              {!isResolved && (
-                <div className="mt-5 pt-5 border-t border-border">
-                  <label htmlFor="tracking-reply" className="text-sm font-medium mb-2 block">
-                    Add to this request
-                  </label>
-                  <div
-                    className={`rounded-lg border transition ${
-                      replyState.kind === 'error'
-                        ? 'border-destructive focus-within:ring-2 focus-within:ring-destructive/20'
-                        : 'border-border focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20'
-                    }`}
-                  >
-                    <Textarea
-                      id="tracking-reply"
-                      rows={3}
-                      maxLength={4000}
-                      value={replyText}
-                      disabled={replyState.kind === 'submitting'}
-                      onChange={(ev) => {
-                        setReplyText(ev.target.value);
-                        if (replyState.kind === 'error') setReplyState({ kind: 'idle' });
-                      }}
-                      onKeyDown={(ev) => {
-                        if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') {
-                          ev.preventDefault();
-                          void submitReply();
-                        }
-                      }}
-                      placeholder="Reply, add details, or context that helps us answer…"
-                      className="px-3.5 py-2.5 text-[15px] bg-transparent border-0 resize-none rounded-lg disabled:opacity-60"
-                    />
-                    <div className="flex items-center gap-2 px-3 py-2 border-t border-border">
-                      <span className="text-xs text-muted-foreground">
-                        {replyText.length > 0
-                          ? `${replyText.length.toLocaleString()} / 4,000`
-                          : "We'll email you a copy of your reply."}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="primary"
-                        onClick={() => void submitReply()}
-                        disabled={replyState.kind === 'submitting' || replyText.trim().length === 0}
-                        className="ml-auto bg-primary text-primary-foreground text-sm font-medium px-4 py-1.5 h-auto rounded-md hover:bg-primary/90 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        {replyState.kind === 'submitting' ? 'Sending…' : 'Send'}
-                      </Button>
-                    </div>
+              {/*
+                Shown on a resolved request too: a reply from here reopens it, exactly as an
+                emailed reply does (BE `REOPENABLE_STATUSES`). It used to be hidden, with the
+                customer told to go and find their confirmation email instead.
+              */}
+              <div className="mt-5 pt-5 border-t border-border">
+                <label htmlFor="tracking-reply" className="text-sm font-medium mb-2 block">
+                  {isResolved ? 'Reply to reopen this request' : 'Add to this request'}
+                </label>
+                <div
+                  className={`rounded-lg border transition ${
+                    replyState.kind === 'error'
+                      ? 'border-destructive focus-within:ring-2 focus-within:ring-destructive/20'
+                      : 'border-border focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20'
+                  }`}
+                >
+                  <Textarea
+                    id="tracking-reply"
+                    rows={3}
+                    maxLength={4000}
+                    value={replyText}
+                    disabled={replyState.kind === 'submitting'}
+                    onChange={(ev) => {
+                      setReplyText(ev.target.value);
+                      if (replyState.kind === 'error') setReplyState({ kind: 'idle' });
+                    }}
+                    onKeyDown={(ev) => {
+                      if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') {
+                        ev.preventDefault();
+                        void submitReply();
+                      }
+                    }}
+                    placeholder="Reply, add details, or context that helps us answer…"
+                    className="px-3.5 py-2.5 text-[15px] bg-transparent border-0 resize-none rounded-lg disabled:opacity-60"
+                  />
+                  <div className="flex items-center gap-2 px-3 py-2 border-t border-border">
+                    <span className="text-xs text-muted-foreground">
+                      {replyText.length > 0
+                        ? `${replyText.length.toLocaleString()} / 4,000`
+                        : 'Your reply goes straight to our team.'}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      onClick={() => void submitReply()}
+                      disabled={replyState.kind === 'submitting' || replyText.trim().length === 0}
+                      className="ml-auto bg-primary text-primary-foreground text-sm font-medium px-4 py-1.5 h-auto rounded-md hover:bg-primary/90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {replyState.kind === 'submitting' ? 'Sending…' : 'Send'}
+                    </Button>
                   </div>
-                  {replyState.kind === 'error' && (
-                    <p className="mt-2 text-xs text-destructive">{replyState.message}</p>
-                  )}
                 </div>
-              )}
+                {replyState.kind === 'error' && (
+                  <p className="mt-2 text-xs text-destructive">{replyState.message}</p>
+                )}
+              </div>
             </section>
           </div>
 
@@ -1022,18 +1117,15 @@ export const TrackingPage = () => {
             </section>
 
             <section className="bg-card border border-border rounded-xl p-5">
-              <h2 className="font-display text-sm font-semibold mb-2">
-                Need to reach us another way?
-              </h2>
+              <h2 className="font-display text-sm font-semibold mb-2">Prefer email?</h2>
               <p className="text-sm text-muted-foreground mb-3">
-                Reply to your confirmation email — that's the channel we currently watch and you'll
-                land back on this page.
+                Reply to any email from us about this request — it lands here too.
               </p>
             </section>
 
             <p className="text-xs text-muted-foreground px-1 leading-relaxed">
-              This page updates as your request progresses. Bookmark it to check back anytime —
-              we'll also email you at each step.
+              This page refreshes on its own while it's open. Bookmark it to check back anytime —
+              we'll email you when we reply.
             </p>
           </aside>
         </div>
