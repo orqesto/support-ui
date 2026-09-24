@@ -11,6 +11,9 @@ import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { BasePlanCard, EnterprisePlanCard, type Plan } from '@/components/pricing/PricingPlanCard';
 
+/** Subscription statuses with no active plan — their plan card is offered again, not marked current. */
+const LAPSED_STATUSES = new Set(['expired', 'cancelled']);
+
 export const PricingPage = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [currentPlanName, setCurrentPlanName] = useState<string | null>(null);
@@ -31,10 +34,17 @@ export const PricingPage = () => {
       try {
         const [plansRes, currentRes] = await Promise.all([
           apiClient.get<{ success: boolean; data: { plans: Plan[] } }>('/api/subscriptions/plans'),
-          apiClient.get<{ success: boolean; data: { plan: { name: string } } }>('/api/subscriptions/current').catch(() => null),
+          apiClient
+            .get<{ success: boolean; data: { plan: { name: string }; subscription?: { status?: string } } }>('/api/subscriptions/current')
+            .catch(() => null),
         ]);
         setPlans(plansRes.data.data.plans);
-        if (currentRes?.data?.data?.plan?.name) setCurrentPlanName(currentRes.data.data.plan.name);
+        // A lapsed plan (expired / cancelled) is not "current": its card must stay selectable — an
+        // expired Free trial moves itself back to Free from here (BE allows lapsed → Free).
+        const current = currentRes?.data?.data;
+        if (current?.plan?.name && !LAPSED_STATUSES.has(current.subscription?.status ?? '')) {
+          setCurrentPlanName(current.plan.name);
+        }
       } catch (error) {
         logger.error('Failed to load pricing:', error);
       } finally {
@@ -53,6 +63,10 @@ export const PricingPage = () => {
       return;
     }
     setSelectedPlan(planName);
+    if (planName === 'free') {
+      setAlertDialog({ open: true, title: 'Switch to Free', description: "Switch this workspace to the Free plan? Free's limits apply and AI runs on your own key. This change takes effect immediately.", variant: 'info', confirmAction: true });
+      return;
+    }
     setAlertDialog({ open: true, title: 'Confirm Upgrade', description: `Are you sure you want to upgrade to the ${planName} plan? This change will take effect immediately.`, variant: 'info', confirmAction: true });
   };
 
@@ -158,7 +172,7 @@ export const PricingPage = () => {
         description={alertDialog.description}
         variant={alertDialog.variant}
         onConfirm={alertDialog.confirmAction ? confirmUpgrade : undefined}
-        confirmText={alertDialog.confirmAction ? 'Upgrade' : 'OK'}
+        confirmText={alertDialog.confirmAction ? (selectedPlan === 'free' ? 'Switch to Free' : 'Upgrade') : 'OK'}
       />
     </Layout>
   );

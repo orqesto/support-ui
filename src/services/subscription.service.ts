@@ -103,7 +103,7 @@ const getUsage = () => apiClient.get<OrgUsage>('/api/usage/current').then((res) 
  * Start a one-time Stripe Checkout for a message pack (1,000 messages for €50,
  * credited to the CURRENT period). Returns the hosted Checkout URL; the caller
  * redirects the browser. The backend answers 409 with a one-sentence reason when
- * the workspace may not buy one (free plan, trial, lapsed, no cap) — surface it.
+ * the workspace may not buy one (trial, lapsed, no cap) — surface it.
  */
 const createMessagePackCheckout = () =>
   apiClient

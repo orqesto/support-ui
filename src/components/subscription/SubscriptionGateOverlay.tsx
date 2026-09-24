@@ -9,8 +9,9 @@ import { useSubscriptionGateStore } from '@/stores/subscriptionGateStore';
  * (inactive/expired subscription). Replaces the silently-broken blank screens a
  * gated user would otherwise see with a clear explanation + a path to renew.
  *
- * Hidden on the billing route (`/subscription`) — that route's API is exempt from
- * the subscription gate, so the user can still view their plan / status there.
+ * Hidden on the billing routes (`/subscription`, `/pricing`) — their API is exempt from
+ * the subscription gate, so the user can see their status there and choose a plan. A
+ * workspace with no active plan can move itself to Free from `/pricing` (2026-09-24).
  * The gate clears on reload (store is not persisted), so once an admin reactivates
  * the org, "Reload" brings the app back.
  */
@@ -21,8 +22,8 @@ export function SubscriptionGateOverlay() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
-  // Let users reach the billing page (exempt from the gate) to see their status.
-  if (!gated || pathname.startsWith('/subscription')) {
+  // Let users reach the billing pages (exempt from the gate): status, and choosing a plan.
+  if (!gated || pathname.startsWith('/subscription') || pathname.startsWith('/pricing')) {
     return null;
   }
 
@@ -48,12 +49,15 @@ export function SubscriptionGateOverlay() {
 
         <p className="mb-2 text-sm text-muted-foreground">{message}</p>
         <p className="mb-5 text-sm text-muted-foreground">
-          Access is paused until the subscription is renewed. Please contact us to reactivate your
-          workspace — once it&apos;s active again, reload to continue.
+          Access is paused until the workspace has an active plan. Choose one — Free included, with
+          Free&apos;s limits — or contact us. Once it&apos;s active again, reload to continue.
         </p>
 
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => navigate('/subscription')}>View billing</Button>
+          <Button onClick={() => navigate('/pricing')}>Choose a plan</Button>
+          <Button variant="outline" onClick={() => navigate('/subscription')}>
+            View billing
+          </Button>
           <Button variant="outline" onClick={() => window.location.reload()}>
             Reload
           </Button>

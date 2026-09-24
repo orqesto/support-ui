@@ -6,8 +6,8 @@ import type { MessagePackOffer } from '@/services/subscription.service';
  * The second door out of the message cap (the first is a plan upgrade): a one-time pack
  * credited to the CURRENT period, expiring with it (owner decision 2026-09-04). Rendered
  * whenever the backend says a pack can be bought — not only at the cap, because buying
- * ahead of a busy week is the point. Renders nothing when the backend refuses (free
- * plan, trial, lapsed, no cap): for those the upgrade door is the only one.
+ * ahead of a busy week is the point. Renders nothing when the backend refuses (trial,
+ * lapsed, no cap): for those the upgrade door is the only one. Free can buy one (2026-09-24).
  */
 export const MessagePackOfferCard = ({
   offer,
