@@ -1,4 +1,6 @@
 import { apiClient } from '@/lib/api-client';
+import { apiErrorStatus } from '@/lib/apiError';
+import { normalizeSyncHold, type SyncHold } from '@/services/integrations.service';
 import { buildAuditQueryParams, type AuditQueryFilters } from '@/services/auditQueryParams';
 
 /**
@@ -400,6 +402,139 @@ export type DeactivateDepartmentResult = {
 const PLATFORM = '/api/admin/platform';
 const ADMIN = '/api/admin';
 
+/** Console › System › By workspace (support-service `GET /api/admin/workspace-health`). */
+export type WorkspaceJobCounts = {
+  queued: number;
+  active: number;
+  delayed: number;
+  failed: number;
+};
+export type WorkspaceJobs = WorkspaceJobCounts & {
+  /** Enqueue time (epoch ms) of the oldest job still waiting to start. */
+  oldestQueuedAt: number | null;
+  byQueue: Record<string, WorkspaceJobCounts>;
+};
+export type WorkspaceMailboxHold = SyncHold & {
+  errors?: Array<{ message: string; count: number }>;
+};
+export type WorkspaceMailbox = {
+  sourceId: number;
+  name: string;
+  type: string;
+  enabled: boolean;
+  /** The last COMPLETED check; a failed or skipped poll leaves it ageing. */
+  lastCheckAt: string | null;
+  hold: WorkspaceMailboxHold | null;
+  openAlerts: { gap: number; dark: number };
+};
+export type WorkspaceHealthRow = {
+  organizationId: number;
+  name: string;
+  /** False for a deactivated workspace; an older backend omits it, which reads as active. */
+  active: boolean;
+  jobs: WorkspaceJobs;
+  mailboxes: WorkspaceMailbox[];
+  mailboxError: string | null;
+};
+export type WorkspaceHealthTruncation = {
+  queue: string;
+  state: string;
+  total: number;
+  read: number;
+};
+export type WorkspaceHealthReport = {
+  generatedAt: string;
+  perStateCap: number;
+  truncated: WorkspaceHealthTruncation[];
+  workspaces: WorkspaceHealthRow[];
+  unattributed: WorkspaceJobs | null;
+};
+
+const num = (value: unknown): number =>
+  typeof value === 'number' && Number.isFinite(value) ? value : 0;
+const obj = (value: unknown): Record<string, unknown> =>
+  value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+
+const normalizeJobCounts = (raw: unknown): WorkspaceJobCounts => {
+  const counts = obj(raw);
+  return {
+    queued: num(counts.queued),
+    active: num(counts.active),
+    delayed: num(counts.delayed),
+    failed: num(counts.failed),
+  };
+};
+
+const normalizeJobs = (raw: unknown): WorkspaceJobs => {
+  const jobs = obj(raw);
+  const byQueue = Object.fromEntries(
+    Object.entries(obj(jobs.byQueue)).map(([name, counts]) => [name, normalizeJobCounts(counts)])
+  );
+  return {
+    ...normalizeJobCounts(jobs),
+    oldestQueuedAt: typeof jobs.oldestQueuedAt === 'number' ? jobs.oldestQueuedAt : null,
+    byQueue,
+  };
+};
+
+const normalizeMailbox = (raw: unknown): WorkspaceMailbox => {
+  const mailbox = obj(raw);
+  const hold = normalizeSyncHold(mailbox.hold);
+  const errors = Array.isArray(obj(mailbox.hold).errors)
+    ? (obj(mailbox.hold).errors as unknown[])
+    : [];
+  const alerts = obj(mailbox.openAlerts);
+  return {
+    sourceId: num(mailbox.sourceId),
+    name: typeof mailbox.name === 'string' ? mailbox.name : `mailbox ${num(mailbox.sourceId)}`,
+    type: typeof mailbox.type === 'string' ? mailbox.type : 'email',
+    enabled: mailbox.enabled !== false,
+    lastCheckAt: typeof mailbox.lastCheckAt === 'string' ? mailbox.lastCheckAt : null,
+    hold: hold && {
+      ...hold,
+      errors: errors
+        .map(obj)
+        .filter((sample) => typeof sample.message === 'string')
+        .map((sample) => ({ message: sample.message as string, count: num(sample.count) })),
+    },
+    openAlerts: { gap: num(alerts.gap), dark: num(alerts.dark) },
+  };
+};
+
+/**
+ * Tolerate a skewed backend (CLAUDE.md version-skew rule): a missing array is empty, a missing
+ * count is 0 — never a white screen. Undefined `hold` stays null ("nothing to report").
+ */
+export const normalizeWorkspaceHealth = (raw: unknown): WorkspaceHealthReport => {
+  const report = obj(raw);
+  return {
+    generatedAt: typeof report.generatedAt === 'string' ? report.generatedAt : '',
+    perStateCap: num(report.perStateCap),
+    truncated: (Array.isArray(report.truncated) ? report.truncated : []).map((entry) => {
+      const cut = obj(entry);
+      return {
+        queue: typeof cut.queue === 'string' ? cut.queue : '',
+        state: typeof cut.state === 'string' ? cut.state : '',
+        total: num(cut.total),
+        read: num(cut.read),
+      };
+    }),
+    workspaces: (Array.isArray(report.workspaces) ? report.workspaces : []).map((entry) => {
+      const row = obj(entry);
+      const id = num(row.organizationId);
+      return {
+        organizationId: id,
+        name: typeof row.name === 'string' ? row.name : `org ${id}`,
+        active: row.active !== false,
+        jobs: normalizeJobs(row.jobs),
+        mailboxes: (Array.isArray(row.mailboxes) ? row.mailboxes : []).map(normalizeMailbox),
+        mailboxError: typeof row.mailboxError === 'string' ? row.mailboxError : null,
+      };
+    }),
+    unattributed: report.unattributed ? normalizeJobs(report.unattributed) : null,
+  };
+};
+
 export const platformService = {
   getOverview: async (): Promise<PlatformOverview> => {
     const res = await apiClient.get<{ data: PlatformOverview }>(`${PLATFORM}/overview`);
@@ -561,6 +696,19 @@ export const platformService = {
   },
 
   // ─── System ops ─────────────────────────────────────────────────────────────
+  /**
+   * Null on a backend without the endpoint (404): this frontend ships to prod on merge to `main`,
+   * the backend only on a tag, so it WILL meet one. Null renders nothing — not "all healthy".
+   */
+  getWorkspaceHealth: async (): Promise<WorkspaceHealthReport | null> => {
+    try {
+      const res = await apiClient.get<{ data: unknown }>(`${ADMIN}/workspace-health`);
+      return normalizeWorkspaceHealth(res.data.data);
+    } catch (error) {
+      if (apiErrorStatus(error) === 404) return null;
+      throw error;
+    }
+  },
   getQueueStatus: async (): Promise<QueueStatus> => {
     const res = await apiClient.get<{ data: QueueStatus }>(`${ADMIN}/queue-status`);
     return res.data.data;

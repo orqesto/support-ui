@@ -17,6 +17,7 @@ import {
 import { Spinner } from '@/components/ui/Spinner';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { FailureAnalysisCard } from '@/components/console/FailureAnalysisCard';
+import { WorkspaceHealthCard } from '@/components/console/WorkspaceHealthCard';
 import { QueueHistoryPanel } from '@/components/console/QueueHistoryPanel';
 import {
   estimateClearTime,
@@ -399,6 +400,7 @@ export const PlatformSystem = () => {
       </Card>
 
 
+      <WorkspaceHealthCard />
       <FailureAnalysisCard />
       {/* Maintenance */}
       <Card>

@@ -57,6 +57,7 @@ vi.mock('@/hooks/usePlatformAdmin', () => ({
   usePlatformQueueHistory: () => ({ isLoading: false, isError: false, error: null, data: [] }),
 }));
 vi.mock('@/components/console/FailureAnalysisCard', () => ({ FailureAnalysisCard: () => null }));
+vi.mock('@/components/console/WorkspaceHealthCard', () => ({ WorkspaceHealthCard: () => null }));
 vi.mock('@/services/license.service', () => ({ licenseService: { getLicenseStatus: vi.fn(() => Promise.resolve(null)) } }));
 
 import { PlatformSystem } from '../PlatformSystem';

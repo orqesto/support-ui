@@ -309,6 +309,15 @@ export const usePlatformQueueHistory = (queue: string | null, hours: number) =>
     retry: false,
   });
 
+/** Per-workspace jobs and mailboxes. 30 s, not 15: the backend reads job payloads for it. */
+export const usePlatformWorkspaceHealth = () =>
+  useQuery({
+    queryKey: ['platform', 'workspace-health'],
+    queryFn: () => platformService.getWorkspaceHealth(),
+    refetchInterval: 30 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
 export const usePlatformQueueStatus = () =>
   useQuery({
     queryKey: ['platform', 'queue-status'],
