@@ -18,6 +18,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { FailureAnalysisCard } from '@/components/console/FailureAnalysisCard';
 import { WorkspaceHealthCard } from '@/components/console/WorkspaceHealthCard';
+import { ProcessCpuTable } from '@/components/console/ProcessCpuTable';
 import { QueueHistoryPanel } from '@/components/console/QueueHistoryPanel';
 import {
   estimateClearTime,
@@ -325,6 +326,7 @@ export const PlatformSystem = () => {
                   a locally loaded embedding model occupies; it does not shrink when the queues are idle.
                 </p>
               ) : null}
+              <ProcessCpuTable report={resources?.processes} />
 
               <Card padding="none" className="overflow-x-auto">
                 <table className="w-full text-sm">
