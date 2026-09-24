@@ -27,12 +27,41 @@ import { MergeConfirmDialog, type MergeRow } from './MergeConfirmDialog';
  * labels are a heuristic, not a registrable-domain parser — `shop.co.uk` gives `co.uk`, which is
  * too wide, so the agent can always type a ticket number or an address instead.
  */
+/**
+ * Public providers: a domain shared by strangers. Searching `gmail.com` listed every Gmail sender
+ * in the workspace (staging, 2026-09-24) — for these the customer's own address is the query.
+ * Mirrors the backend's GENERIC_MAIL_DOMAINS (support-service `genericMailDomains.ts`).
+ */
+const PUBLIC_MAIL_DOMAINS = new Set([
+  'gmail.com',
+  'googlemail.com',
+  'yahoo.com',
+  'hotmail.com',
+  'outlook.com',
+  'live.com',
+  'msn.com',
+  'icloud.com',
+  'me.com',
+  'aol.com',
+  'protonmail.com',
+  'proton.me',
+  'gmx.com',
+  'gmx.net',
+  'yandex.com',
+  'yandex.ru',
+  'mail.ru',
+  'inbox.lv',
+]);
+
 export const customerDomainQuery = (sender: string | null | undefined): string => {
-  const at = (sender ?? '').lastIndexOf('@');
+  // `Name <addr@host>` → `addr@host`: the stored requester often carries a display name.
+  const raw = (sender ?? '').match(/<([^>]+)>/)?.[1] ?? sender ?? '';
+  const address = raw.trim().toLowerCase();
+  const at = address.lastIndexOf('@');
   if (at < 0) return sender ?? '';
-  const labels = (sender ?? '')
+  if (PUBLIC_MAIL_DOMAINS.has(address.slice(at + 1))) return address;
+  const labels = address
     .slice(at + 1)
-    .toLowerCase()
     .split('.')
     .filter(Boolean);
   return labels.length >= 2 ? labels.slice(-2).join('.') : labels.join('.');
@@ -77,10 +106,19 @@ export const MergeThreads = ({ message, onChanged }: Props) => {
       setError(null);
       try {
         const res = await messageService.getThreads({ search: term, lifecycle: 'all' }, 1, 25);
-        const rows = (res.data ?? []) as unknown as Array<{ latestMessage?: Message }>;
+        const rows = (res.data ?? []) as unknown as Array<{
+          latestMessage?: Message;
+          sender?: string | null;
+        }>;
         setCandidates(
           rows
-            .map((row) => row.latestMessage)
+            // The customer's address lives on the THREAD row (what the list shows), not on its
+            // latestMessage — reading only the message left every picker row as "·" (staging).
+            .map((row) =>
+              row.latestMessage
+                ? { ...row.latestMessage, sender: row.sender ?? row.latestMessage.sender }
+                : undefined
+            )
             .filter((row): row is Message => !!row && row.id !== message.id)
             // Same channel only: the backend refuses the rest, so do not offer them.
             .filter((row) => row.channel === message.channel)
@@ -210,7 +248,9 @@ export const MergeThreads = ({ message, onChanged }: Props) => {
                     <span className="truncate text-sm">
                       <span className="font-mono text-xs mr-1.5">{label(candidate)}</span>
                       {candidate.subject?.trim() ? candidate.subject : '(no subject)'}
-                      <span className="text-muted-foreground"> · {candidate.sender}</span>
+                      {candidate.sender && (
+                        <span className="text-muted-foreground"> · {candidate.sender}</span>
+                      )}
                     </span>
                     <Button
                       variant="outline"
