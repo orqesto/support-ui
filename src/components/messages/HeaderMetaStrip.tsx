@@ -17,6 +17,7 @@ import type { Message, Category } from '@/types';
 import type { Label } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
 import { LABEL } from './messageDetailConstants';
+import { solidChip } from '@/lib/userColor';
 
 type Props = {
   /** 'rows' — stacked label/value rows for the full page's sidebar (v3); default inline row. */
@@ -290,8 +291,8 @@ export function HeaderMetaStrip({
             {messageLabels.map((label) => (
               <span
                 key={label.id}
-                className="inline-flex items-center gap-1 h-5 pl-2 pr-1 rounded-full text-[10.5px] font-semibold text-white whitespace-nowrap"
-                style={{ backgroundColor: safeCssColor(label.color) }}
+                className="inline-flex items-center gap-1 h-5 pl-2 pr-1 rounded-full text-[10.5px] font-semibold whitespace-nowrap"
+                style={solidChip(label.color)}
               >
                 {label.name}
                 {hasManageLabels && (

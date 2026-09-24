@@ -1,5 +1,6 @@
 import React from 'react';
 import { useDepartmentById } from '@/hooks/useDepartments';
+import { tintedChip } from '@/lib/userColor';
 
 type DepartmentBadgeProps = {
   /** Department FK. Pass null/undefined to render the no-dept variant. */
@@ -29,15 +30,6 @@ const BASELINE_COLORS =
  * Convert a hex color (e.g. "#3b82f6") into a tailwind-compatible inline style pair —
  * subtle background + readable foreground. Falls back to neutral gray when unparseable.
  */
-const colorStyle = (hex: string | null | undefined): React.CSSProperties => {
-  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex)) return {};
-  // Subtle tinted background (~12% alpha) with the hex as the text color and full border.
-  return {
-    backgroundColor: `${hex}1f`,
-    color: hex,
-    borderColor: `${hex}66`,
-  };
-};
 
 const DepartmentBadge: React.FC<DepartmentBadgeProps> = ({
   departmentId,
@@ -64,10 +56,12 @@ const DepartmentBadge: React.FC<DepartmentBadgeProps> = ({
     );
   }
 
+  // Tinted ground, readable text (userColor.ts); no colour set ⇒ the neutral default look.
+  const chip = tintedChip(dept.color, 0.12);
   return (
     <span
-      className={`inline-flex gap-1 items-center font-medium rounded-full border ${sizeClasses[size]}`}
-      style={colorStyle(dept.color)}
+      className={`inline-flex gap-1 items-center font-medium rounded-full border ${sizeClasses[size]} ${chip.className}`}
+      style={chip.style}
       title={`Department: ${dept.name}`}
     >
       {dept.name}

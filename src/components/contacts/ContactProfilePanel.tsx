@@ -13,6 +13,7 @@ import { CustomApiLookupPanel } from '@/components/messages/CustomApiLookupPanel
 import { useContactProfile } from '@/components/contacts/useContactProfile';
 import { avatarColor, formatAge, getInitials, safeCssColor } from '@/lib/utils';
 import { customerSince } from './contactFacts';
+import { tintedChip } from '@/lib/userColor';
 
 type ContactProfilePanelProps = {
   email: string;
@@ -214,11 +215,8 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
                       {contact.labels.map((label) => (
                         <span
                           key={label.id}
-                          className="inline-flex gap-1 items-center pl-1.5 pr-2 h-[18px] rounded-full text-[10.5px] font-medium"
-                          style={{
-                            background: `${safeCssColor(label.color)}1f`,
-                            color: safeCssColor(label.color),
-                          }}
+                          className={`inline-flex gap-1 items-center pl-1.5 pr-2 h-[18px] rounded-full text-[10.5px] font-medium ${tintedChip(label.color, 0.12).className}`}
+                          style={tintedChip(label.color, 0.12).style}
                         >
                           <span
                             className="w-1.5 h-1.5 rounded-full"
