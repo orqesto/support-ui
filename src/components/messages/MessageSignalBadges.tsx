@@ -15,6 +15,7 @@ import {
   isSpamThread,
   getSlaCardText,
   renderOverflowTooltip,
+  slaClockRuns,
 } from './inboxCardHelpers';
 
 type Props = {
@@ -42,7 +43,7 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
   const analysis = message.metadata?.analysis as { needsMoreInfo?: boolean } | undefined;
 
   const renderSla = () => {
-    if (message.status === 'resolved' || !message.slaResponseMinutes) return null;
+    if (!slaClockRuns(message) || !message.slaResponseMinutes) return null;
     const target = message.slaResponseMinutes;
 
     if (message.lastReplyFromClient && message.lastReplyAt) {

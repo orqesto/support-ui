@@ -184,8 +184,26 @@ export const getPriorityBadge = (
  */
 type SlaCard = { variant: 'breach' | 'risk'; label: string; detail: string };
 
+/** A ticket that is done: no clock runs on it, whatever it recorded while it was open. */
+export const isFinishedStatus = (status: Message['status']): boolean =>
+  status === 'resolved' || status === 'closed';
+
+/**
+ * Whether an SLA clock RUNS on this thread — the one rule every SLA renderer asks.
+ *
+ * Mirrors the backend's `slaClockRuns` (filterPredicates.ts): no clock on a finished ticket
+ * (resolved OR closed — the renderers used to check `resolved` only, so a closed ticket nobody
+ * answered kept counting up in red), none on anything filtered out of the inbox, and none on
+ * spam (owner decision 2026-09-24) — by `isSpamThread`, the one spam test every badge uses.
+ */
+export const slaClockRuns = (message: Message): boolean =>
+  !!message.slaResponseMinutes &&
+  !isFinishedStatus(message.status) &&
+  message.status !== 'filtered' &&
+  !isSpamThread(message);
+
 export const getSlaCardText = (message: Message): SlaCard | null => {
-  if (message.status === 'resolved' || !message.slaResponseMinutes) return null;
+  if (!slaClockRuns(message) || !message.slaResponseMinutes) return null;
   // We replied last → the ball is in the customer's court, so there's no SLA
   // clock on us (awaiting-response cards). Covers seed rows that never stamped
   // firstResponseAt/lastReplyAt but carry lastReplyFromClient=false.
@@ -239,6 +257,87 @@ export const getSlaCardText = (message: Message): SlaCard | null => {
     }
   }
   return null;
+};
+
+export type SlaInfo = {
+  elapsed: number;
+  target: number;
+  breached: boolean;
+  atRisk: boolean;
+  /** The first reply is in — the number is final. */
+  done: boolean;
+  /** A finished ticket's history: drawn muted, with no progress bar (a bar reads as a clock). */
+  record: boolean;
+  barColor: string;
+  colorClasses: string;
+};
+
+/**
+ * The detail header's SLA chip, decided without React so it can be tested on its own.
+ *
+ * - Spam and filtered mail: nothing — no SLA at all (owner decision 2026-09-24).
+ * - Finished (resolved / closed) and never answered: nothing. It used to fall through to the live
+ *   branch and keep counting up in red after close (34 such tickets on prod, 2026-09-24).
+ * - Finished and answered: the RECORD ("5h/1h missed"), muted, no bar — ODL-HR-1.
+ * - Otherwise: unchanged — the recorded first reply, or the live clock.
+ */
+export const computeSlaInfo = (message: Message, nowMs: number = Date.now()): SlaInfo | null => {
+  if (!message.slaResponseMinutes) return null;
+  if (isSpamThread(message) || message.status === 'filtered') return null;
+  const finished = isFinishedStatus(message.status);
+  if (finished && !message.firstResponseAt) return null;
+  const target = message.slaResponseMinutes;
+  const startTime =
+    typeof (message.metadata as Record<string, unknown>)?.receivedAt === 'string'
+      ? new Date((message.metadata as Record<string, unknown>).receivedAt as string)
+      : new Date(message.createdAt);
+  if (message.firstResponseAt) {
+    const elapsed = Math.round(
+      (new Date(message.firstResponseAt).getTime() - startTime.getTime()) / 60000
+    );
+    const breached = message.slaResponseBreached === true || elapsed > target;
+    if (finished) {
+      return {
+        elapsed,
+        target,
+        breached,
+        atRisk: false,
+        done: true,
+        record: true,
+        barColor: '',
+        colorClasses: 'text-muted-foreground border-border bg-muted',
+      };
+    }
+    return {
+      elapsed,
+      target,
+      breached,
+      atRisk: false,
+      done: true,
+      record: false,
+      barColor: breached ? 'bg-destructive' : 'bg-success',
+      colorClasses: breached
+        ? 'text-destructive border-destructive-line bg-destructive-muted'
+        : 'text-success border-success-line bg-success-muted',
+    };
+  }
+  const elapsed = Math.floor((nowMs - startTime.getTime()) / 60000);
+  const breached = message.slaResponseBreached === true || elapsed > target;
+  const atRisk = !breached && elapsed > target * 0.8;
+  return {
+    elapsed,
+    target,
+    breached,
+    atRisk,
+    done: false,
+    record: false,
+    barColor: breached ? 'bg-destructive' : atRisk ? 'bg-warning' : 'bg-success',
+    colorClasses: breached
+      ? 'text-destructive border-destructive-line bg-destructive-muted'
+      : atRisk
+        ? 'text-warning border-warning-line bg-warning-muted'
+        : 'text-muted-foreground border-border bg-muted',
+  };
 };
 
 type SlaTone = 'breach' | 'risk' | null;
