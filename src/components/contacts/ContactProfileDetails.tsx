@@ -8,6 +8,7 @@ import { ContactAvatar } from '@/components/contacts/ContactAvatar';
 import { ContactNotesPanel } from '@/components/contacts/ContactNotesPanel';
 import { safeCssColor } from '@/lib/utils';
 import type { ContactProfile, ContactProfileType } from '@/services/contact.service';
+import { tintedChip } from '@/lib/userColor';
 
 export type OrgUser = { id: number; firstName: string; lastName: string | null; email: string };
 export type OrgLabel = { id: number; name: string; color: string };
@@ -135,8 +136,8 @@ export function ContactProfileDetails(props: ContactProfileDetailsProps) {
           {contact.labels.map((label) => (
             <span
               key={label.id}
-              className="inline-flex gap-1.5 items-center pl-2 pr-1.5 h-6 rounded-full text-[11.5px] font-medium"
-              style={{ background: `${safeCssColor(label.color)}1f`, color: safeCssColor(label.color) }}
+              className={`inline-flex gap-1.5 items-center pl-2 pr-1.5 h-6 rounded-full text-[11.5px] font-medium ${tintedChip(label.color, 0.12).className}`}
+              style={tintedChip(label.color, 0.12).style}
             >
               <span className="w-2 h-2 rounded-full shrink-0" style={{ background: safeCssColor(label.color) }} />
               {label.name}

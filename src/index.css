@@ -557,3 +557,20 @@
 .panel-tabs-scroll::-webkit-scrollbar {
   display: none;
 }
+
+/* Chips drawn in an admin-chosen colour (departments, labels). The colours are computed per
+   theme by src/lib/userColor.ts and handed in as variables; these rules only pick the pair for
+   the active theme. .surface-light pins the light pair, like every other token. */
+.user-color-chip {
+  background-color: var(--uc-bg-l);
+  color: var(--uc-fg-l);
+  border-color: var(--uc-line);
+}
+.dark .user-color-chip {
+  background-color: var(--uc-bg-d);
+  color: var(--uc-fg-d);
+}
+.dark .surface-light .user-color-chip {
+  background-color: var(--uc-bg-l);
+  color: var(--uc-fg-l);
+}

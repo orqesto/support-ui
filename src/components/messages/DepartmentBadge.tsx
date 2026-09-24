@@ -1,7 +1,7 @@
 import { AlertTriangle, Building2, GitBranch } from 'lucide-react';
 import type { Department } from '@/types';
 import { Tooltip } from '@/components/ui/Tooltip';
-import { safeCssColor } from '@/lib/utils';
+import { tintedChip } from '@/lib/userColor';
 
 /**
  * Compact dept chip used in inbox list + kanban cards. Renders one of three
@@ -85,25 +85,18 @@ export const DepartmentBadge = ({ variant, dept, label }: Props) => {
   }
 
   // Primary: dept-colored chip with a saturated dot, Building2 glyph, and the
-  // dept's slug as the compact label. Using the dept's color as a low-alpha
-  // background (~22 = 13% alpha) and full-saturation foreground keeps the
-  // chip readable against every kanban column theme while remaining clearly
-  // distinguishable from the assignee/category chips that surround it.
-  const dotColor = dept.color ? safeCssColor(dept.color) : 'rgb(99,102,241)';
+  // dept's slug as the compact label. The ground is a ~13% tint of the dept's colour; the TEXT
+  // is that colour made readable on it (userColor.ts) — the raw colour read at 1.94:1 for the
+  // default Billing amber. The dot keeps the admin's exact colour.
+  // A blank colour falls back to indigo like a missing one, as before.
+  const chip = tintedChip(dept.color, 0.13, 'rgb(99,102,241)');
   return (
     <Tooltip content={tooltipContent} size="sm">
-      <span
-        className={baseChipClasses}
-        style={{
-          backgroundColor: dept.color ? `${safeCssColor(dept.color)}22` : 'rgba(99,102,241,0.13)',
-          color: dotColor,
-          border: `1px solid ${dotColor}33`,
-        }}
-      >
+      <span className={`${baseChipClasses} border ${chip.className}`} style={chip.style}>
         <span
           aria-hidden="true"
           className="w-2 h-2 rounded-full shrink-0"
-          style={{ backgroundColor: dotColor }}
+          style={{ backgroundColor: 'var(--uc-dot)' }}
         />
         <Building2 className="w-2.5 h-2.5" />
         <span className="font-medium">{label ?? dept.slug}</span>

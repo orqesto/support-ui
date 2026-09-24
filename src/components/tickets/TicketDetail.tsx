@@ -36,6 +36,7 @@ import { Permission } from '@/types/roles';
 import type { Ticket, TicketStatus, TicketPriority, Message, Category } from '@/types';
 import { logger } from '@/lib/logger';
 import { allowedStatusOptions } from '@/lib/ticketStatus';
+import { solidChip } from '@/lib/userColor';
 
 type TicketDetailProps = {
   ticket: Ticket;
@@ -299,8 +300,8 @@ export const TicketDetail = ({
               {ticketLabels.map((label) => (
                 <span
                   key={label.id}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
-                  style={{ backgroundColor: safeCssColor(label.color) }}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                  style={solidChip(label.color)}
                 >
                   {label.name}
                   {hasManageLabels && (

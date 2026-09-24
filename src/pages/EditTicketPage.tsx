@@ -1,4 +1,3 @@
-import { safeCssColor } from '@/lib/utils';
 import { useState, useEffect, type FormEvent } from 'react';
 import DOMPurify from 'dompurify';
 import { AlertCircle, ExternalLink, AlertTriangle } from 'lucide-react';
@@ -17,6 +16,7 @@ import { ticketService } from '@/services/ticket.service';
 import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Category, TicketPriority, TicketStatus, Ticket } from '@/types';
 import { logger } from '@/lib/logger';
+import { solidChip } from '@/lib/userColor';
 
 export const EditTicketPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -381,8 +381,8 @@ export const EditTicketPage = () => {
                               return next;
                             });
                           }}
-                          className={`inline-flex items-center px-2.5 py-1 h-auto rounded-full text-xs font-medium text-white transition-opacity ${selected ? 'opacity-100 ring-2 ring-offset-1 ring-current' : 'opacity-40'} disabled:cursor-not-allowed`}
-                          style={{ backgroundColor: safeCssColor(label.color) }}
+                          className={`inline-flex items-center px-2.5 py-1 h-auto rounded-full text-xs font-medium transition-opacity ${selected ? 'opacity-100 ring-2 ring-offset-1 ring-current' : 'opacity-40'} disabled:cursor-not-allowed`}
+                          style={solidChip(label.color)}
                         >
                           {label.name}
                         </Button>
