@@ -16,6 +16,18 @@ import { buildAuditQueryParams, type AuditQueryFilters } from '@/services/auditQ
  * Where the backend's memory total comes from. `budget` = sized automatically by the app
  * (backend 2026-09-16). Open-ended so a newer backend's value is carried, not rejected.
  */
+export type ProcessCpu = {
+  pid: number;
+  name: string;
+  role: 'backend' | 'embedding' | 'other';
+  cores: number | null;
+  percent: number | null;
+  rssMB: number | null;
+};
+export type ProcessCpuReport =
+  | { available: true; processes: ProcessCpu[]; intervalMs: number | null }
+  | { available: false; reason: string };
+
 export type MemoryLimitSource = 'cgroup' | 'budget' | 'host' | (string & {});
 
 /**
@@ -210,6 +222,11 @@ export type QueueStatus = {
       arrayBuffersMB: number;
     } | null;
     throttleFactor: number;
+    /**
+     * Which processes in the container use the CPU (support-service processCpu.ts). Absent on
+     * an older backend; `cores`/`percent` are null on the first sample after a restart.
+     */
+    processes?: ProcessCpuReport;
   };
   scaling: unknown;
   workers: unknown;
