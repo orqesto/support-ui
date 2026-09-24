@@ -5,6 +5,17 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 
 const countGmailMessages = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const countImapMessages = vi.fn<(...args: unknown[]) => Promise<unknown>>();
+// The source card loads departments on mount (useCreateSourceDepartments). Unmocked, that is a
+// REAL request: it failed with "Network Error" after the test had finished and logged during
+// teardown — an unhandled "Closing rpc while onUserConsoleLog was pending" that failed an
+// otherwise green CI run (support-ui #493, 2026-09-24).
+vi.mock('@/services/department.service', async (importOriginal) => {
+  const actual = await importOriginal<{ departmentService: Record<string, unknown> }>();
+  return {
+    ...actual,
+    departmentService: { ...actual.departmentService, getAll: () => Promise.resolve([]) },
+  };
+});
 vi.mock('@/services/integrations.service', () => ({
   integrationsService: {
     countGmailMessages: (...args: unknown[]) => countGmailMessages(...args),

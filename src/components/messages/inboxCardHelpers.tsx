@@ -72,7 +72,11 @@ export const SPINE_BG: Record<SpineColor, string> = {
 export type WorkflowStatus = 'open' | 'in_progress' | 'pending' | 'on_hold' | 'resolved';
 
 /** Whether a work status is set automatically (derived) vs a manual agent action. */
-export const AUTOMATIC_WORK_STATUSES: readonly WorkflowStatus[] = ['open', 'in_progress', 'pending'];
+export const AUTOMATIC_WORK_STATUSES: readonly WorkflowStatus[] = [
+  'open',
+  'in_progress',
+  'pending',
+];
 
 /** Single source of the label + chip colors per work status (badge, header, select all read this). */
 export const WORKFLOW_STATUS_META: Record<WorkflowStatus, { label: string; className: string }> = {
@@ -134,7 +138,10 @@ export const getRoutingBadge = (message: {
   status: Message['status'] | 'new' | 'awaiting_response' | 'client_replied';
 }): { label: string; className: string } | null =>
   message.status === 'needs_routing'
-    ? { label: 'Needs Routing', className: 'text-foreground border border-dashed border-border-strong' }
+    ? {
+        label: 'Needs Routing',
+        className: 'text-foreground border border-dashed border-border-strong',
+      }
     : null;
 
 /**
@@ -297,10 +304,18 @@ export const computeSlaInfo = (message: Message, nowMs: number = Date.now()): Sl
     );
     const breached = message.slaResponseBreached === true || elapsed > target;
     if (finished) {
+      // The RECORD comes from the backend's own numbers when it has them: the minutes AND
+      // "missed" from one source. Computing the minutes here (arrival → first reply) while
+      // "missed" came from the stored flag drew "SLA 18m/1h missed" on staging 2026-09-24.
+      // Same rule as messageSLAService: Math.floor(seconds / 60) > target.
+      const recorded =
+        typeof message.actualResponseSeconds === 'number'
+          ? Math.floor(message.actualResponseSeconds / 60)
+          : null;
       return {
-        elapsed,
+        elapsed: recorded ?? elapsed,
         target,
-        breached,
+        breached: recorded !== null ? recorded > target : breached,
         atRisk: false,
         done: true,
         record: true,
@@ -447,8 +462,9 @@ export const getRiskSignals = (message: Message): RiskSignal[] => {
     });
   }
 
-  const contradiction = (message.metadata?.contradictionCheck as ContradictionCheckMetadata | undefined)
-    ?.result?.hasContradiction;
+  const contradiction = (
+    message.metadata?.contradictionCheck as ContradictionCheckMetadata | undefined
+  )?.result?.hasContradiction;
   if (contradiction) {
     signals.push({
       key: 'contradiction',
@@ -487,7 +503,9 @@ export const getRiskSignals = (message: Message): RiskSignal[] => {
  * signal (`thread.lastReplyFromClient`). Tri-state: null when there's no
  * signal yet (single-message thread, no reply history).
  */
-export const getDirectionText = (thread: MessageThread): { text: string; tone: 'pending' | 'waiting' | 'new' } | null => {
+export const getDirectionText = (
+  thread: MessageThread
+): { text: string; tone: 'pending' | 'waiting' | 'new' } | null => {
   if (thread.lastReplyFromClient === true) {
     return { text: 'they replied', tone: 'pending' };
   }
