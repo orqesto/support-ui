@@ -232,7 +232,7 @@ export const handleResponseError = async (error: unknown): Promise<unknown> => {
   if (isAxiosError(error) && error.response?.status === 402) {
     const data = error.response.data as { error?: string; message?: string; code?: string } | undefined;
     // One 402 is NOT the subscription gate: the wizard's Database step answers 402
-    // `MANAGED_DB_NOT_ENTITLED` when a Free workspace picks the managed database (BYODB §3.4).
+    // `MANAGED_DB_NOT_ENTITLED` when a workspace with no active plan picks the managed database (BYODB §3.4).
     // That is a step-level refusal the step renders inline; gating the whole app on it would
     // lock a brand-new signup behind "your subscription is not active" mid-setup.
     if (data?.code !== 'MANAGED_DB_NOT_ENTITLED') {

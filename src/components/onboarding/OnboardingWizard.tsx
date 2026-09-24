@@ -184,14 +184,14 @@ export const OnboardingWizard = () => {
     setDbChoice(choice);
     setDbChoiceError(null);
     onboardingService.updateProgress({ dbChoice: choice }).catch((error: unknown) => {
-      // Free = own database: the managed choice is refused, not persisted. Say so where the
+      // No active plan: the managed choice is refused, not persisted. Say so where the
       // click happened and un-select it, rather than leaving a card lit that the server
       // rejected. Any other failure is the usual fire-and-forget progress write.
       if (getErrorBody(error)?.code === 'MANAGED_DB_NOT_ENTITLED') {
         setDbChoice(undefined);
         setDbChoiceError(
           getApiErrorMessage(error) ??
-            'Free runs on your own Postgres — connect one, or upgrade to use the managed database.'
+            'This workspace has no active plan — choose one (Free included) to use the managed database, or connect your own Postgres.'
         );
         return;
       }
@@ -253,12 +253,12 @@ export const OnboardingWizard = () => {
       await onboardingService.complete();
     } catch (error) {
       logger.error('Failed to complete onboarding:', error);
-      // The one refusal with a reason the user can act on: a Free workspace still on the
-      // managed database. Everything else reads as the connection problem it usually is.
+      // The one refusal with a reason the user can act on: a workspace with no active plan
+      // still on the managed database. Everything else reads as the connection problem it usually is.
       setExitError(
         getErrorBody(error)?.code === 'MANAGED_DB_NOT_ENTITLED'
           ? (getApiErrorMessage(error) ??
-              'Free runs on your own Postgres — connect one in the Database step before finishing.')
+              'This workspace has no active plan — choose one (Free included), or connect your own Postgres in the Database step before finishing.')
           : "Couldn't finish setup right now. Please check your connection and try again."
       );
       setFinishing(false);
@@ -268,7 +268,7 @@ export const OnboardingWizard = () => {
     leaveWizard();
   };
 
-  // Free = own database (BYODB §3.4): a workspace that may not use the managed database and
+  // BYODB §3.4: a workspace that may not use the managed database (no active plan) and
   // has not connected its own cannot go past the Database step — mail must not start landing
   // in a database it will have to leave. Every other step is optional: set up now or later.
   // "Finish later" (header) stays the escape hatch.
@@ -437,7 +437,7 @@ export const OnboardingWizard = () => {
           <div className="flex flex-col items-end gap-1.5">
             {nextDisabled && (
               <p className="text-right text-xs text-muted-foreground" data-testid="database-step-required">
-                Free runs on your own Postgres — connect one to continue, or use “Finish later”.
+                This workspace has no active plan — choose one (Free included) or connect your own Postgres to continue, or use “Finish later”.
               </p>
             )}
             <Button disabled={nextDisabled} onClick={() => goTo((activeStep + 1) as StepNumber)}>

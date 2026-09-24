@@ -122,7 +122,7 @@ export const WorkspaceDatabaseDialog = ({ org, onClose }: Props) => {
                   <dt className="text-muted-foreground">Retention deadline</dt>
                   <dd className="text-foreground">
                     {display.sharedRetentionUntil
-                      ? `${formatDate(display.sharedRetentionUntil)} (Free on managed — §3.4)`
+                      ? `${formatDate(display.sharedRetentionUntil)} (no active plan — §3.4)`
                       : 'None (entitled to the managed database)'}
                   </dd>
                 </>

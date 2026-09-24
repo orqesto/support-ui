@@ -38,7 +38,7 @@ export type DatabaseDisplay = {
   schemaVersion: string | null;
   verifiedAt: string | null;
   provisionedAt: string | null;
-  /** Free = own database: the date a Free workspace on the managed database must have moved by. */
+  /** The date a workspace with no active plan on the managed database must have moved by (§3.4). */
   sharedRetentionUntil: string | null;
   updatedAt: string;
   move: DatabaseMoveSummary | null;
@@ -181,7 +181,7 @@ export const databaseService = {
         'Data move'
       ),
 
-    /** Free workspaces still on the managed database, soonest deadline first. */
+    /** Workspaces with no active plan still on the managed database, soonest deadline first. */
     retention: async (): Promise<RetentionRow[]> =>
       (await apiClient.get<ApiResponse<RetentionRow[]>>(`${ADMIN}/platform/database/retention`)).data.data ?? [],
 

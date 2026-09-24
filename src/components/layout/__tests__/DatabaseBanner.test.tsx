@@ -43,7 +43,7 @@ describe('databaseBannerContent', () => {
     expect(databaseBannerContent(null, display({ mode: 'own', status: 'active' }), now)).toBeNull();
   });
 
-  // Free = own database: the deadline is a deletion notice and must be visible from day one.
+  // No active plan: the deadline is a deletion notice and must be visible from day one.
   it('counts down the Free-on-managed retention deadline and turns red in the last week', () => {
     const far = databaseBannerContent(null, display({ sharedRetentionUntil: new Date(now + 40 * DAY).toISOString() }), now);
     expect(far?.tone).toBe('warning');
@@ -95,7 +95,7 @@ describe('DatabaseBanner', () => {
         <DatabaseBanner />
       </MemoryRouter>
     );
-    expect(screen.getByTestId('database-banner')).toHaveTextContent(/Free runs on your own Postgres/);
+    expect(screen.getByTestId('database-banner')).toHaveTextContent(/This workspace has no active plan/);
     expect(screen.getByRole('link', { name: /database settings/i })).toHaveAttribute('href', '/settings#integrations/database');
   });
 });

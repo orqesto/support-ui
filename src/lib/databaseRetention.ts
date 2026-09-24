@@ -1,6 +1,7 @@
 /**
- * The Free-on-managed retention deadline, phrased ONE way (BYODB §3.4). The banner and the
- * Database card both show it; a single helper keeps the day count, the colour threshold and
+ * The managed-database retention deadline of a workspace with no active plan (expired, cancelled
+ * or none), phrased ONE way (BYODB §3.4 — Free itself may stay on the managed database). The
+ * banner and the Database card both show it; a single helper keeps the day count, the colour threshold and
  * the sentence from drifting apart (they did: one clamped to 0 days, the other said "passed").
  */
 export type RetentionNotice = {
@@ -22,6 +23,6 @@ export const retentionNotice = (sharedRetentionUntil: string | null | undefined,
     deadline,
     daysLeft,
     tone: daysLeft <= 7 ? 'danger' : 'warning',
-    sentence: `Free runs on your own Postgres. Connect yours before ${deadline.toLocaleDateString()} or this workspace's data will be deleted from the managed database. ${when}. Upgrading to a paid plan also clears the deadline.`,
+    sentence: `This workspace has no active plan. Choose one (Free included) or connect your own Postgres before ${deadline.toLocaleDateString()}, or its data will be deleted from the managed database. ${when}.`,
   };
 };

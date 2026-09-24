@@ -10,7 +10,7 @@ type Choice = 'managed' | 'own';
 interface DatabaseStepProps {
   value: Choice | undefined;
   onChoose: (choice: Choice) => void;
-  /** Whether the managed database is on offer for this workspace (Free = own database). */
+  /** Whether the managed database is on offer for this workspace (any active plan, Free included). */
   managedAllowed: boolean;
   /** What the workspace runs on now; null while unknown. */
   current: DatabaseDisplay | null;
@@ -22,9 +22,10 @@ interface DatabaseStepProps {
 
 /**
  * Step — where the workspace's data lives (BYODB Phase 2 §4). Mirrors the storage step:
- * managed by default, "bring your own" reveals the Database card. Unlike storage it is NOT
- * optional for a Free workspace — Free runs on its own Postgres, so the managed card is
- * disabled with the reason and the wizard cannot move past this step until one is connected.
+ * managed by default, "bring your own" reveals the Database card. Every active plan, Free
+ * included, may use the managed database; only a workspace with no active plan (expired,
+ * cancelled, none) is refused it — the managed card is then disabled with the reason and the
+ * wizard cannot move past this step until a plan is chosen or an own database is connected.
  */
 export const DatabaseStep = ({
   value,
@@ -75,7 +76,7 @@ export const DatabaseStep = ({
               <p className="text-sm text-muted-foreground">
                 {managedAllowed
                   ? 'Nothing to set up. Your data is stored on the platform, isolated per workspace.'
-                  : 'Free runs on your own Postgres — the same way it brings its own AI key. Upgrade to a paid plan to use the managed database.'}
+                  : 'The managed database needs an active plan — Free included. Choose a plan, or connect your own Postgres.'}
               </p>
             </CardContent>
           </Card>
