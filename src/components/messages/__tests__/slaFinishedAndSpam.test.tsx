@@ -15,8 +15,12 @@ import { computeSlaInfo, getSlaCardText, slaClockRuns } from '../inboxCardHelper
 import { MessageSignalBadges } from '../MessageSignalBadges';
 import type { Message } from '@/types';
 
-vi.mock('@/services/category.service', () => ({ categoryService: { getCategories: () => Promise.resolve([]) } }));
-vi.mock('@/services/settings.service', () => ({ labelService: { getLabels: () => Promise.resolve([]) } }));
+vi.mock('@/services/category.service', () => ({
+  categoryService: { getCategories: () => Promise.resolve([]) },
+}));
+vi.mock('@/services/settings.service', () => ({
+  labelService: { getLabels: () => Promise.resolve([]) },
+}));
 
 afterEach(() => {
   cleanup();
@@ -70,8 +74,55 @@ describe('computeSlaInfo — the detail header chip', () => {
       }),
       NOW
     );
-    expect(info).toMatchObject({ record: true, breached: true, elapsed: 300, target: 60, barColor: '' });
+    expect(info).toMatchObject({
+      record: true,
+      breached: true,
+      elapsed: 300,
+      target: 60,
+      barColor: '',
+    });
     expect(info?.colorClasses).not.toMatch(/destructive/);
+  });
+
+  it("the record's minutes and verdict come from ONE source — the backend's recorded seconds", () => {
+    // Flag says breached, but the recorded response was 18 min on a 60 min target: the record
+    // must not read "18m/1h missed". The backend's own rule decides: floor(s / 60) > target.
+    const info = computeSlaInfo(
+      thread({
+        status: 'closed',
+        slaResponseBreached: true,
+        actualResponseSeconds: 18 * 60,
+        firstResponseAt: new Date(NOW - 2 * HOUR).toISOString(),
+      }),
+      NOW
+    );
+    expect(info).toMatchObject({ record: true, elapsed: 18, breached: false });
+  });
+
+  it('the boundary follows the backend: 60 min 59 s on a 60 min target is met', () => {
+    const at = (secs: number) =>
+      computeSlaInfo(
+        thread({
+          status: 'closed',
+          actualResponseSeconds: secs,
+          firstResponseAt: new Date(NOW - HOUR).toISOString(),
+        }),
+        NOW
+      );
+    expect(at(60 * 60 + 59)).toMatchObject({ elapsed: 60, breached: false });
+    expect(at(61 * 60)).toMatchObject({ elapsed: 61, breached: true });
+  });
+
+  it("CONTROL: without recorded seconds the record falls back to the page's own arithmetic", () => {
+    const info = computeSlaInfo(
+      thread({
+        status: 'closed',
+        slaResponseBreached: true,
+        firstResponseAt: new Date(NOW - 3 * HOUR + 5 * HOUR).toISOString(),
+      }),
+      NOW
+    );
+    expect(info).toMatchObject({ record: true, elapsed: 300, breached: true });
   });
 
   it('spam or filtered: nothing, even when it was answered and later closed', () => {
@@ -83,12 +134,26 @@ describe('computeSlaInfo — the detail header chip', () => {
 
   it('CONTROL: an open unanswered thread keeps its live clock, red when breached', () => {
     const info = computeSlaInfo(thread(), NOW);
-    expect(info).toMatchObject({ record: false, done: false, elapsed: 180, breached: true, barColor: 'bg-destructive' });
+    expect(info).toMatchObject({
+      record: false,
+      done: false,
+      elapsed: 180,
+      breached: true,
+      barColor: 'bg-destructive',
+    });
   });
 
   it('CONTROL: an open answered thread keeps its coloured result', () => {
-    const info = computeSlaInfo(thread({ firstResponseAt: new Date(NOW - 2.5 * HOUR).toISOString() }), NOW);
-    expect(info).toMatchObject({ record: false, done: true, breached: false, barColor: 'bg-success' });
+    const info = computeSlaInfo(
+      thread({ firstResponseAt: new Date(NOW - 2.5 * HOUR).toISOString() }),
+      NOW
+    );
+    expect(info).toMatchObject({
+      record: false,
+      done: true,
+      breached: false,
+      barColor: 'bg-success',
+    });
   });
 });
 
