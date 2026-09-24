@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { COLUMNS } from '@/components/messages/kanbanColumns';
+import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { logger } from '@/lib/logger';
+import { getConvUrlId } from '@/lib/messageHelpers';
 import type { MutableRefObject } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { messageService } from '@/services/message.service';
@@ -99,6 +101,31 @@ interface UseMessagesUrlSyncProps {
   onFetchError?: (error: unknown) => void;
 }
 
+/**
+ * The display id to put in the URL when `?id=` resolved to a DIFFERENT ticket than it named —
+ * which the backend does for a merged-away ticket (#830). Null when the link named this ticket
+ * (by display id, stored public id or numeric id), so an ordinary open never rewrites the URL.
+ */
+export const displayIdIfRedirected = (
+  requested: string,
+  shown: { id: number; publicId?: string | null },
+  orgCode: string | null | undefined
+): string | null => {
+  const wanted = requested.trim().toUpperCase();
+  const names = [
+    String(shown.id),
+    shown.publicId ?? '',
+    orgCode && shown.publicId ? `${orgCode}-${shown.publicId}` : '',
+  ]
+    .filter(Boolean)
+    .map((name) => name.toUpperCase());
+  // `ADM-INF-25` names `INF-25` whether or not the workspace code has loaded yet — without this
+  // an ordinary open could be rewritten to the bare id in that first moment.
+  const sameByPublicId =
+    !!shown.publicId && wanted.endsWith(`-${shown.publicId.toUpperCase()}`);
+  return names.includes(wanted) || sameByPublicId ? null : getConvUrlId(shown, orgCode);
+};
+
 export const useMessagesUrlSync = ({
   urlSyncedRef,
   fetchedMessageIdRef,
@@ -107,6 +134,7 @@ export const useMessagesUrlSync = ({
   onFetchError,
 }: UseMessagesUrlSyncProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const orgCode = useCurrentOrgCode();
   const searchParamsRef = useRef(searchParams);
   searchParamsRef.current = searchParams;
 
@@ -344,6 +372,20 @@ export const useMessagesUrlSync = ({
         .then((response) => {
           if (response.success && response.data) {
             setSelectedMessage(response.data);
+            // A link to a MERGED-AWAY ticket opens the ticket it was merged into (support-service
+            // #830). Put THAT ticket's id in the URL, so a copied link, a refresh or the next
+            // share names what is on screen — not a ticket that no longer exists.
+            const shownId = displayIdIfRedirected(paramId, response.data, orgCode);
+            if (shownId && !paramKind) {
+              fetchedMessageIdRef.current = shownId;
+              setSearchParams(
+                (prev) => {
+                  prev.set('id', shownId);
+                  return prev;
+                },
+                { replace: true }
+              );
+            }
           } else {
             fetchedMessageIdRef.current = null;
             setSearchParams(
@@ -370,5 +412,5 @@ export const useMessagesUrlSync = ({
       fetchedMessageIdRef.current = null;
       setSelectedMessage(null);
     }
-  }, [searchParams, setSearchParams, fetchedMessageIdRef, setSelectedMessage]); // onFetchError intentionally excluded — callback ref is stable
+  }, [searchParams, setSearchParams, fetchedMessageIdRef, setSelectedMessage, orgCode]); // onFetchError intentionally excluded — callback ref is stable
 };
