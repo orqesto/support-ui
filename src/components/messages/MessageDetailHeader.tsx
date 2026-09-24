@@ -38,6 +38,7 @@ import {
   deriveWorkflowStatus,
   WORKFLOW_STATUS_META,
   hashNameToLabelColor,
+  computeSlaInfo,
   type WorkflowStatus,
 } from './inboxCardHelpers';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
@@ -345,53 +346,19 @@ export function MessageDetailHeader({
   // The current work status is DERIVED (canonical), not the raw enum.
   const currentWorkflowStatus: WorkflowStatus = deriveWorkflowStatus(message) ?? 'open';
 
-  const slaInfo = useMemo(() => {
-    if (!message.slaResponseMinutes) return null;
-    const target = message.slaResponseMinutes;
-    const startTime =
-      typeof (message.metadata as Record<string, unknown>)?.receivedAt === 'string'
-        ? new Date((message.metadata as Record<string, unknown>).receivedAt as string)
-        : new Date(message.createdAt);
-    if (message.firstResponseAt) {
-      const elapsed = Math.round(
-        (new Date(message.firstResponseAt).getTime() - startTime.getTime()) / 60000
-      );
-      const breached = message.slaResponseBreached === true || elapsed > target;
-      return {
-        elapsed,
-        target,
-        breached,
-        atRisk: false,
-        done: true,
-        barColor: breached ? 'bg-destructive' : 'bg-success',
-        colorClasses: breached
-          ? 'text-destructive border-destructive-line bg-destructive-muted'
-          : 'text-success border-success-line bg-success-muted',
-      };
-    }
-    const elapsed = Math.floor((Date.now() - startTime.getTime()) / 60000);
-    const breached = message.slaResponseBreached === true || elapsed > target;
-    const atRisk = !breached && elapsed > target * 0.8;
-    return {
-      elapsed,
-      target,
-      breached,
-      atRisk,
-      done: false,
-      barColor: breached ? 'bg-destructive' : atRisk ? 'bg-warning' : 'bg-success',
-      colorClasses: breached
-        ? 'text-destructive border-destructive-line bg-destructive-muted'
-        : atRisk
-          ? 'text-warning border-warning-line bg-warning-muted'
-          : 'text-muted-foreground border-border bg-muted',
-    };
-  }, [
-    message.slaResponseMinutes,
-    message.firstResponseAt,
-    message.slaResponseBreached,
-    message.createdAt,
-    message.metadata,
-  ]);
+  const slaInfo = useMemo(
+    () => computeSlaInfo(message),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- recomputed on the fields it reads, not on every new `message` object
+    [
+      message.slaResponseMinutes,
+      message.firstResponseAt,
+      message.slaResponseBreached,
+      message.createdAt,
+      message.metadata,
+      message.status,
+      message.isSpam,
+    ]
+  );
 
   const inboxBadge: InboxBadge | null = (() => {
     if (spamCheck?.isSpam === true || isFiltered)
@@ -968,8 +935,22 @@ export function MessageDetailHeader({
           }}
           isDisabled={updatingStatus}
         />
-        {slaInfo && (
-          <div className={`${CHIP_BASE} ${slaInfo.colorClasses}`}>
+        {slaInfo?.record && (
+          <Tooltip
+            content={`First reply took ${fmtMin(slaInfo.elapsed)} against a ${fmtMin(slaInfo.target)} target`}
+            size="sm"
+          >
+            <div className={`${CHIP_BASE} ${slaInfo.colorClasses}`} data-testid="sla-record">
+              <span>SLA</span>
+              <span className="tabular-nums">
+                {fmtMin(slaInfo.elapsed)}/{fmtMin(slaInfo.target)}
+              </span>
+              <span>{slaInfo.breached ? 'missed' : 'met'}</span>
+            </div>
+          </Tooltip>
+        )}
+        {slaInfo && !slaInfo.record && (
+          <div className={`${CHIP_BASE} ${slaInfo.colorClasses}`} data-testid="sla-clock">
             <span>SLA</span>
             <span className="tabular-nums">
               {fmtMin(slaInfo.elapsed)}/{fmtMin(slaInfo.target)}
