@@ -45,6 +45,7 @@ import { shortcutHint, useDetailShortcuts, type ShortcutContext } from './detail
 import { dayLabel, dayStarts, threadTimeOf } from './threadDays';
 import { MessageDetailConfirmDialogs } from './MessageDetailConfirmDialogs';
 import { PromoteToKbDialog } from './PromoteToKbDialog';
+import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { Permission } from '@/types/roles';
@@ -324,17 +325,26 @@ export function MessageDetail({
 
   // ── AI ghost state ─────────────────────────────────────────────────────────
   const [aiLoading, setAiLoading] = useState(false);
+  // A reply a model wrote before AI drafts were switched off is still stored on the message and
+  // nothing server-side can take it back — so it pre-fills the ghost only once the setting is
+  // KNOWN to be on (same rule as the AI tab's options).
+  const { off: aiDraftsOff, resolved: aiDraftsKnown } = useAiDraftsOff();
+  const offerStoredDraft = aiDraftsKnown && !aiDraftsOff;
   const [ghostOption, setGhostOption] = useState<GhostOption | null>(() =>
-    toGhostOption(message.metadata?.suggestedAnswer as SuggestedAnswerMeta | undefined)
+    offerStoredDraft
+      ? toGhostOption(message.metadata?.suggestedAnswer as SuggestedAnswerMeta | undefined)
+      : null
   );
   const [alternativeCount, setAlternativeCount] = useState(0);
 
   // Reset ghost when message changes
   useEffect(() => {
     setGhostOption(
-      toGhostOption(message.metadata?.suggestedAnswer as SuggestedAnswerMeta | undefined)
+      offerStoredDraft
+        ? toGhostOption(message.metadata?.suggestedAnswer as SuggestedAnswerMeta | undefined)
+        : null
     );
-  }, [message.id, message.metadata]);
+  }, [message.id, message.metadata, offerStoredDraft]);
 
   // ── Similar messages dialog ────────────────────────────────────────────────
   const [similarOpen, setSimilarOpen] = useState(false);

@@ -34,6 +34,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
+import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import {
   SPINE_BG,
   getAiState,
@@ -64,6 +65,8 @@ export const MessageListItem = ({
   selected,
   onToggleSelected,
 }: MessageListItemProps) => {
+  // Before any early return — hooks must run in the same order on every render.
+  const { off: aiDraftsOff } = useAiDraftsOff();
   const msg = thread.latestMessage;
   const { data: allDepts = [] } = useDepartments();
   const currentUser = useAuthStore((state) => state.user);
@@ -125,7 +128,7 @@ export const MessageListItem = ({
 
   const signalMessage = thread.latestIncomingMessage ?? msg;
   const spine = getSpine(signalMessage, thread);
-  const aiState = getAiState(signalMessage, thread);
+  const aiState = getAiState(signalMessage, thread, aiDraftsOff);
   const statusBadge = getStatusBadge(msg);
   /** Synthetic spam_log row (`spamlog_NN`, negative id) — see the chip below. */
   const isBlockedSpamLog = thread.threadId.startsWith('spamlog_');

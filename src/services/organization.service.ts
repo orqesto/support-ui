@@ -358,6 +358,26 @@ export const organizationService = {
     return response.data;
   },
 
+  /**
+   * "AI drafts off" — the workspace wants no model-written text a customer could read.
+   * Readable by any member (the composer hides its AI actions on it), changeable by an admin.
+   * A backend without the route (404) answers `false`: that backend has no such mode.
+   */
+  getAiDrafts: async (): Promise<{ off: boolean }> => {
+    const response = await apiClient.get<ApiResponse<{ off: boolean }>>(
+      '/api/organizations/ai-drafts'
+    );
+    return { off: response.data.data?.off === true };
+  },
+
+  updateAiDrafts: async (off: boolean): Promise<{ off: boolean }> => {
+    const response = await apiClient.patch<ApiResponse<{ off: boolean }>>(
+      '/api/organizations/ai-drafts',
+      { off }
+    );
+    return { off: response.data.data?.off === true };
+  },
+
   getRoutingKeys: async (): Promise<Array<{ id: number; key: string; description: string | null }>> => {
     const response = await apiClient.get<ApiResponse<Array<{ id: number; key: string; description: string | null }>>>('/api/organizations/routing-keys');
     return response.data.data ?? [];

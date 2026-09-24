@@ -7,7 +7,12 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { toast } from '@/lib/toast';
-import { isAiNotConfiguredError, AI_NOT_CONFIGURED_MESSAGE } from '@/lib/errorMessages';
+import {
+  isAiDraftsOffError,
+  isAiNotConfiguredError,
+  AI_DRAFTS_OFF_MESSAGE,
+  AI_NOT_CONFIGURED_MESSAGE,
+} from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 
 type TranslateButtonProps = {
@@ -87,7 +92,9 @@ export const TranslateButton = ({
       logger.error('Translation error:', err);
       // useTranslation tracks `error`, but its state is stale in this synchronous
       // catch and the api-client masks 5xx text — so surface from the raw error.
-      if (isAiNotConfiguredError(err)) {
+      if (isAiDraftsOffError(err)) {
+        toast.error(AI_DRAFTS_OFF_MESSAGE);
+      } else if (isAiNotConfiguredError(err)) {
         toast.error(AI_NOT_CONFIGURED_MESSAGE);
       } else {
         toast.error(err instanceof Error ? err.message : 'Translation failed');

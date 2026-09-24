@@ -11,6 +11,7 @@ import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
+import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import { logger } from '@/lib/logger';
 import { languageName as languageNameOf } from '@/lib/languageName';
 import { stripGreetingName } from '@/lib/depersonalise';
@@ -157,7 +158,14 @@ export function AiTabPanel({
   const spamCheck = getSpamCheck(message);
   const analysis = message.metadata?.analysis as Analysis | undefined;
   const languageName = languageNameOf(message.detectedLanguage);
-  const suggestedAnswer = message.metadata?.suggestedAnswer as SuggestedAnswer | undefined;
+  const { off: aiDraftsOff, resolved: aiDraftsKnown } = useAiDraftsOff();
+  /*
+    A reply a model wrote BEFORE drafts were switched off is still stored on the message, and the
+    backend cannot refuse it — it is already here. So it is offered only once the setting is KNOWN
+    to be on; with drafts off the agent gets the past replies and KB matches, which people wrote.
+  */
+  const storedSuggestion = message.metadata?.suggestedAnswer as SuggestedAnswer | undefined;
+  const suggestedAnswer = aiDraftsKnown && !aiDraftsOff ? storedSuggestion : undefined;
   const autoReply = message.metadata?.autoReply as AutoReply | undefined;
   const { aiConfigured } = useAiConfigured();
 
@@ -350,6 +358,15 @@ export function AiTabPanel({
         <p className="text-[11px] text-muted-foreground text-center py-4">No AI analysis yet</p>
       )}
 
+      {/* Outside the options box on purpose: with nothing matched that box does not render, and
+          the agent would be left wondering where the suggested reply went. */}
+      {section !== 'analysis' && aiDraftsOff && (
+        <p className="text-[10px] leading-snug text-muted-foreground">
+          AI drafts are switched off for this workspace — suggested replies show past replies and
+          knowledge-base matches only.
+        </p>
+      )}
+
       {/* Suggested reply with source switcher */}
       {section !== 'analysis' && (loadingSimilar || options.length > 0) && (
         <div className="p-1.5 rounded border border-border">
@@ -377,7 +394,7 @@ export function AiTabPanel({
             )}
           </div>
 
-          {!aiConfigured && (
+          {!aiConfigured && !aiDraftsOff && (
             <p className="text-[10px] leading-snug text-warning mb-1.5">
               Connect an AI provider in Settings to get suggested replies — showing similar messages
               instead.

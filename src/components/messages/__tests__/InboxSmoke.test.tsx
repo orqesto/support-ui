@@ -6,6 +6,10 @@ import type { Message } from '@/types';
 import type { MessageThread } from '@/services/message.service';
 
 // Mock dependencies used by MessageListItem
+vi.mock('@/hooks/useAiDraftsOff', () => ({
+  useAiDraftsOff: () => ({ off: false, resolved: true }),
+  useRefreshAiDrafts: () => () => undefined,
+}));
 vi.mock('@/lib/messageHelpers', () => ({
   getChannelIcon: vi.fn().mockReturnValue(null),
   getCategoryDisplay: vi.fn().mockReturnValue(null),

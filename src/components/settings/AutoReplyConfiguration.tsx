@@ -6,9 +6,11 @@ import {
   X,
 } from 'lucide-react';
 import type { AlertState } from '@/components/settings/integrations/types';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Toggle } from '@/components/ui/Toggle';
+import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import { useDepartments } from '@/hooks/useDepartments';
 import { usePermissions } from '@/hooks/usePermissions';
 import { logger } from '@/lib/logger';
@@ -42,6 +44,7 @@ const formatThreshold = (value: number): string => `${Math.round(value * 100)}%`
 
 export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   const { isOrgAdmin } = usePermissions();
+  const { off: aiDraftsOff } = useAiDraftsOff();
   const { data: departments = [] } = useDepartments();
   const activeDepts = useMemo(
     () => departments.filter((dept) => dept.active),
@@ -296,6 +299,16 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         </p>
       </CardHeader>
       <CardContent>
+        {/* The settings below are kept, not cleared: they apply again the moment drafts are
+            switched back on. So say plainly that nothing here sends while they are off. */}
+        {aiDraftsOff && (
+          <Alert variant="warning" className="mb-4">
+            AI drafts are switched off for this workspace, so the AI sends no reply of its own —
+            whatever is set below. These settings apply again when AI drafts are switched back on.
+            The prepared acknowledgment (&quot;we got your message&quot;) is not AI-written and still
+            goes out.
+          </Alert>
+        )}
         {error && (
           <div className="flex gap-2 items-start px-3 py-2 mb-4 text-sm text-destructive rounded-md border border-destructive-line bg-destructive-muted">
             <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />

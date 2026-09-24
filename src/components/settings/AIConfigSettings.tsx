@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { BrainCog, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AutoReplyConfiguration } from './AutoReplyConfiguration';
-import { LeadQualificationSettings } from './LeadQualificationSettings';
+import { AiDraftsSettings } from './AiDraftsSettings';
+import { LeadQualificationSection } from './LeadQualificationSection';
 import { LearningNotificationsInbox } from './LearningNotificationsInbox';
 import { LearningEvidenceCard } from './LearningEvidenceCard';
 import { LearningSuggestionsSettings } from './LearningSuggestionsSettings';
@@ -131,6 +132,8 @@ export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
         </p>
       </div>
 
+      <AiDraftsSettings />
+
       <Tabs<AISection>
         tabs={sections.map((sect) => ({ id: sect.id, label: sect.label, description: sect.description }))}
         activeTab={active}
@@ -168,7 +171,7 @@ export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
               )}
             </div>
           ) : hasLeadQualification === true ? (
-            <LeadQualificationSettings />
+            <LeadQualificationSection />
           ) : null
         )}
       </Tabs>

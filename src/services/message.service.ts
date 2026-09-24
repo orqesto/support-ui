@@ -734,7 +734,9 @@ export const messageService = {
           | 'sources-unusable'
           | 'generation-empty'
           | 'generation-failed'
-          | 'search-failed';
+          | 'search-failed'
+          /** The workspace switched AI drafts off: search results only, by the admin's choice. */
+          | 'ai-drafts-off';
       }>
     >(`/api/messages/${id}/suggested-answer`);
     return response.data;

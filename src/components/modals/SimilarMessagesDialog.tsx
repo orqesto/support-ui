@@ -22,7 +22,12 @@ import { useSupportedLanguages } from '@/hooks/useTranslation';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { apiClient } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
-import { isAiNotConfiguredError, AI_NOT_CONFIGURED_MESSAGE } from '@/lib/errorMessages';
+import {
+  isAiDraftsOffError,
+  isAiNotConfiguredError,
+  AI_DRAFTS_OFF_MESSAGE,
+  AI_NOT_CONFIGURED_MESSAGE,
+} from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { AnswerPreview } from '@/components/messages/AnswerPreview';
 import {
@@ -57,6 +62,9 @@ const NO_ANSWER_COPY: Record<string, string> = {
   'generation-failed':
     'The assistant could not be reached, so no reply was drafted. The sources below are still valid — try again shortly.',
   'search-failed': 'The search itself failed, so nothing below is a complete picture. Try again.',
+  // An admin's choice, not a gap or a fault: the matches below are the whole answer by design.
+  'ai-drafts-off':
+    'AI drafts are switched off for this workspace, so no reply was written. These are the knowledge-base matches.',
   default: 'No reply was drafted for this message.',
 };
 
@@ -227,7 +235,9 @@ export const SimilarMessagesDialog = ({
     } catch (error) {
       logger.error('Translation failed:', error);
       toast.error(
-        isAiNotConfiguredError(error)
+        isAiDraftsOffError(error)
+          ? AI_DRAFTS_OFF_MESSAGE
+          : isAiNotConfiguredError(error)
           ? AI_NOT_CONFIGURED_MESSAGE
           : error instanceof Error
             ? error.message

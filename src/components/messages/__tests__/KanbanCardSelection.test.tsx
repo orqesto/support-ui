@@ -14,6 +14,10 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import type { MessageThread } from '@/services/message.service';
 import { KanbanCard } from '../KanbanCard';
 
+vi.mock('@/hooks/useAiDraftsOff', () => ({
+  useAiDraftsOff: () => ({ off: false, resolved: true }),
+  useRefreshAiDrafts: () => () => undefined,
+}));
 vi.mock('@/hooks/useDepartments', () => ({ useDepartments: () => ({ data: [] }) }));
 vi.mock('@/stores/authStore', () => ({ useAuthStore: () => null }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'COR' }));
