@@ -18,7 +18,7 @@ const STAGE_LABEL: Record<ImportStage, string> = {
 const STAGE_HINT: Record<ImportStage, string> = {
   imported: 'Messages from the mailbox stored in Odly',
   decided:
-    'Each incoming message sorted: spam check and routing, or set aside for the knowledge base',
+    'Each incoming message checked: spam check and routing, or set aside for the knowledge base',
   analysis: 'AI analysis of each incoming message',
   embedding: 'Each conversation indexed for similar-message search',
   kb: 'Each conversation mined for knowledge-base answers',
@@ -53,7 +53,7 @@ const STAGE_UNIT: Record<ImportStage, [one: string, many: string]> = {
 /** How a stage's unfinished work is named in the "did not complete" note. */
 const STAGE_UNDONE: Record<ImportStage, string> = {
   imported: 'imported',
-  decided: 'sorted',
+  decided: 'checked',
   analysis: 'analysed',
   embedding: 'indexed',
   kb: 'mined for the knowledge base',
@@ -174,12 +174,12 @@ export const ImportProgressPanel = ({
         {progress.unrecorded > 0 && (
           <li>
             {progress.unrecorded.toLocaleString()} message
-            {progress.unrecorded === 1 ? ' was' : 's were'} sorted before Odly recorded this work:
+            {progress.unrecorded === 1 ? ' was' : 's were'} checked before Odly recorded this work:
             counted as imported and checked, not in the stages after that.
           </li>
         )}
         {progress.stages.some((stage) => stage.projected) && (
-          <li>~ totals are estimates until every message has been imported and sorted.</li>
+          <li>~ totals are estimates until every message has been imported and checked.</li>
         )}
       </ul>
     </div>

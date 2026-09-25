@@ -67,7 +67,9 @@ describe('ImportProgressPanel', () => {
     expect(screen.getByText(/900 \/ 2,255/)).toBeInTheDocument();
     expect(screen.getByText(/120 \/ ~1,800/)).toBeInTheDocument();
     expect(screen.getByTestId('import-eta')).toHaveTextContent('3 h 20 min – 5 h 20 min left');
-    expect(screen.getByText(/totals are estimates until/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/totals are estimates until every message has been imported and checked/)
+    ).toBeInTheDocument();
   });
 
   it('a capped listing is a floor: "N+", and no percentage is claimed for it', () => {
@@ -138,7 +140,7 @@ describe('ImportProgressPanel — what finished and what did not', () => {
       />
     );
     expect(
-      screen.getByText(/5 messages were not sorted: nothing is left in the queue/)
+      screen.getByText(/5 messages were not checked: nothing is left in the queue/)
     ).toBeInTheDocument();
   });
 
@@ -161,7 +163,9 @@ describe('ImportProgressPanel — what finished and what did not', () => {
   it('work done before tracking started is said to be uncounted', () => {
     render(<ImportProgressPanel data={tracked({ unrecorded: 40 })} />);
     expect(
-      screen.getByText(/40 messages were sorted before Odly recorded this work: counted as imported and checked/)
+      screen.getByText(
+        /40 messages were checked before Odly recorded this work: counted as imported and checked/
+      )
     ).toBeInTheDocument();
   });
 });
