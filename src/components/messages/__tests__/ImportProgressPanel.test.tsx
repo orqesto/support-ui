@@ -142,10 +142,26 @@ describe('ImportProgressPanel — what finished and what did not', () => {
     ).toBeInTheDocument();
   });
 
+  it('an index / knowledge-base leftover is counted in CONVERSATIONS and says so', () => {
+    render(
+      <ImportProgressPanel
+        data={tracked({
+          stages: [
+            stage({ stage: 'kb', done: 40, total: 43, leftover: 3, eta: { state: 'done' } }),
+          ],
+          eta: { state: 'done' },
+        })}
+      />
+    );
+    expect(
+      screen.getByText(/3 conversations were not mined for the knowledge base/)
+    ).toBeInTheDocument();
+  });
+
   it('work done before tracking started is said to be uncounted', () => {
     render(<ImportProgressPanel data={tracked({ unrecorded: 40 })} />);
     expect(
-      screen.getByText(/40 messages were processed before tracking started/)
+      screen.getByText(/40 messages were sorted before Odly recorded this work: counted as imported and checked/)
     ).toBeInTheDocument();
   });
 });

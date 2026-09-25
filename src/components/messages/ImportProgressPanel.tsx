@@ -19,9 +19,9 @@ const STAGE_HINT: Record<ImportStage, string> = {
   imported: 'Messages from the mailbox stored in Odly',
   decided:
     'Each incoming message sorted: spam check and routing, or set aside for the knowledge base',
-  analysis: 'AI analysis of each conversation',
-  embedding: 'Indexed for similar-message search',
-  kb: 'Mined for knowledge-base answers',
+  analysis: 'AI analysis of each incoming message',
+  embedding: 'Each conversation indexed for similar-message search',
+  kb: 'Each conversation mined for knowledge-base answers',
 };
 
 /** "45 min", "3 h 20 min", "2 d 4 h". */
@@ -35,6 +35,19 @@ export const formatMinutes = (minutes: number): string => {
   const days = Math.floor(hours / 24);
   const restHours = hours - days * 24;
   return restHours > 0 ? `${days} d ${restHours} h` : `${days} d`;
+};
+
+/**
+ * What each stage counts: analysis and sorting are per message, the index and knowledge-base
+ * mining per conversation (one vector per thread; a mine reads the whole thread). The note must
+ * name the unit the number is in (audit pass 3).
+ */
+const STAGE_UNIT: Record<ImportStage, [one: string, many: string]> = {
+  imported: ['message', 'messages'],
+  decided: ['message', 'messages'],
+  analysis: ['message', 'messages'],
+  embedding: ['conversation', 'conversations'],
+  kb: ['conversation', 'conversations'],
 };
 
 /** How a stage's unfinished work is named in the "did not complete" note. */
@@ -151,16 +164,18 @@ export const ImportProgressPanel = ({
         )}
         {leftovers.map((stage) => (
           <li key={stage.stage}>
-            {(stage.leftover ?? 0).toLocaleString()} message
-            {stage.leftover === 1 ? ' was' : 's were'} not {STAGE_UNDONE[stage.stage]}: nothing is
-            left in the queue to do it.
+            {(stage.leftover ?? 0).toLocaleString()}{' '}
+            {stage.leftover === 1
+              ? `${STAGE_UNIT[stage.stage][0]} was`
+              : `${STAGE_UNIT[stage.stage][1]} were`}{' '}
+            not {STAGE_UNDONE[stage.stage]}: nothing is left in the queue to do it.
           </li>
         ))}
         {progress.unrecorded > 0 && (
           <li>
             {progress.unrecorded.toLocaleString()} message
-            {progress.unrecorded === 1 ? ' was' : 's were'} processed before tracking started; their
-            work is not counted above.
+            {progress.unrecorded === 1 ? ' was' : 's were'} sorted before Odly recorded this work:
+            counted as imported and checked, not in the stages after that.
           </li>
         )}
         {progress.stages.some((stage) => stage.projected) && (
