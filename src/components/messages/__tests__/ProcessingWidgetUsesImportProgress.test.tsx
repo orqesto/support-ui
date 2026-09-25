@@ -15,9 +15,12 @@ vi.mock('@/hooks/useMediaQuery', () => ({ useMediaQuery: () => false }));
 vi.mock('@/hooks/useAiConfigured', () => ({ useAiConfigured: () => ({ aiConfigured: true }) }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
 
-const get = vi.fn<(sourceId: number) => Promise<ImportProgress>>();
+const get = vi.fn<(sourceId: number, start?: boolean) => Promise<ImportProgress>>();
 vi.mock('@/services/importProgress.service', () => ({
-  importProgressService: { get: (sourceId: number) => get(sourceId), recount: vi.fn() },
+  importProgressService: {
+    get: (sourceId: number, start?: boolean) => get(sourceId, start),
+    recount: vi.fn(),
+  },
 }));
 
 /** What the socket session said on taco at 08:41: complete, 47 of 47. */
@@ -93,7 +96,8 @@ describe('the processing widget and a Gmail import', () => {
     // None of the socket-driven numbers is shown next to the database's.
     expect(screen.queryByText('Found')).not.toBeInTheDocument();
     expect(screen.queryByText(/Processed 47/)).not.toBeInTheDocument();
-    expect(get).toHaveBeenCalledWith(68);
+    // A knowledge-base run (the taco DeusPower import): the listing is asked for.
+    expect(get).toHaveBeenCalledWith(68, true);
   });
 
   it('a finished import says Complete', async () => {
@@ -203,5 +207,99 @@ describe('the processing widget and a Gmail import', () => {
     expect(fill).not.toBeNull();
     expect(fill.parentElement?.className).toContain('bg-ai-muted');
     expect(fill.parentElement?.className).not.toMatch(/(^|\s)bg-ai(\s|$)/);
+  });
+
+  it('CONTROL: a routine poll (5 found, no knowledge-base work) asks for no listing', async () => {
+    get.mockResolvedValue({ tracked: false });
+    render(
+      <MessageProcessingProgress
+        session={{ ...(COMPLETE_SESSION as object), total: 5, kbMessagesTotal: undefined } as never}
+        index={0}
+        onClose={vi.fn()}
+        sourceType="email"
+      />
+    );
+    await waitFor(() => expect(get).toHaveBeenCalledWith(68, false));
+  });
+
+  it('a run that looks like an import (2,255 found) asks the backend to list the mailbox', async () => {
+    get.mockResolvedValue({ tracked: false });
+    render(
+      <MessageProcessingProgress
+        session={{ ...(COMPLETE_SESSION as object), total: 2255, emailTotal: 2255 } as never}
+        index={0}
+        onClose={vi.fn()}
+        sourceType="email"
+      />
+    );
+    await waitFor(() => expect(get).toHaveBeenCalledWith(68, true));
+  });
+});
+
+/**
+ * The socket session says "complete" after every poll run, and the widget auto-closed 15 s later:
+ * the import's progress vanished between runs (audit pass 2, H1).
+ */
+describe('the widget stays while the import runs', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('a running import is NOT auto-closed when the session completes', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    get.mockResolvedValue(tracked(RUNNING_PROGRESS));
+    const onClose = vi.fn();
+    render(
+      <MessageProcessingProgress
+        session={COMPLETE_SESSION}
+        index={0}
+        onClose={onClose}
+        sourceType="email"
+      />
+    );
+    await waitFor(() => expect(screen.getByText(/130 \/ 2,255/)).toBeInTheDocument());
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('a user refused (403) gets the session view, and the refusal is not polled every 15 s', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    get.mockRejectedValue(
+      new AxiosError('Forbidden', '403', undefined, undefined, {
+        status: 403,
+        statusText: 'Forbidden',
+        data: {},
+        headers: {},
+        config: { headers: new AxiosHeaders() },
+      })
+    );
+    render(
+      <MessageProcessingProgress
+        session={COMPLETE_SESSION}
+        index={0}
+        onClose={vi.fn()}
+        sourceType="email"
+      />
+    );
+    expect(await screen.findByText('Found')).toBeInTheDocument();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  it('CONTROL: a finished import closes as before', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    get.mockResolvedValue(tracked({ ...RUNNING_PROGRESS, eta: { state: 'done' } }));
+    const onClose = vi.fn();
+    render(
+      <MessageProcessingProgress
+        session={COMPLETE_SESSION}
+        index={0}
+        onClose={onClose}
+        sourceType="email"
+      />
+    );
+    await waitFor(() => expect(screen.getByText('Finished')).toBeInTheDocument());
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(onClose).toHaveBeenCalled();
   });
 });

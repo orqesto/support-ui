@@ -15,7 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import type { ProcessingSession } from '@/hooks/useEmailProcessing';
-import { useImportProgress } from '@/hooks/useImportProgress';
+import { useWidgetImportProgress } from '@/hooks/useImportProgress';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { ImportProgressPanel } from './ImportProgressPanel';
 
@@ -300,8 +300,16 @@ export const MessageProcessingProgress = ({
   const allMessagesProcessed =
     current > 0 && current === total && messagesInProgress === 0 && !isGap;
 
+  // A Gmail source's progress comes from the DATABASE, not this session's socket counters —
+  // see useWidgetImportProgress.
+  const { trackedImport, importStillRunning } = useWidgetImportProgress(session, sourceType);
+
   // Auto-close after delay when completed (either by status or when all messages processed)
   useEffect(() => {
+    // ⛔ Not while the import runs: the socket session says "complete" after every poll run, and
+    // closing then unmounted the widget — the import's progress vanished 15 s after each run
+    // (audit pass 2).
+    if (importStillRunning) return;
     if (status === 'complete' || allMessagesProcessed) {
       const backendComplete = status === 'complete';
       let closeDelay: number;
@@ -324,29 +332,21 @@ export const MessageProcessingProgress = ({
 
       return () => clearTimeout(timer);
     }
-  }, [status, allMessagesProcessed, total, linkedReplies, session.sessionKey, onClose, isMobile]);
+  }, [
+    importStillRunning,
+    status,
+    allMessagesProcessed,
+    total,
+    linkedReplies,
+    session.sessionKey,
+    onClose,
+    isMobile,
+  ]);
 
   // The run stopped early (server load OR the provider's rate limit — the flag does not say
   // which, so the copy names no cause); the next check continues it. It must not read as done:
   // "Complete — Processed 0" over 2,487 unimported messages was the taco report of 2026-09-23.
   const isDeferred = status === 'complete' && session.deferred === true;
-
-  // A Gmail source's progress comes from the DATABASE (import-progress), not from this session's
-  // socket counters: those reset on a backend restart and were written by two trackers in turn,
-  // so the card read "Complete" with ~2,100 messages still to import (taco, 2026-09-25). Any other
-  // source answers 404 and keeps the numbers below.
-  const importProgress = useImportProgress(session.integrationId, sourceType === 'email');
-  const importData =
-    importProgress.supported && importProgress.data?.tracked ? importProgress.data : null;
-  // ⛔ A failed count says nothing about the import: fall back to the session's own view (it was
-  // labelled "Complete" through the tracked branch). The backend retries the count later.
-  const countedImport = importData && importData.run.state !== 'failed' ? importData : null;
-  const importStillRunning =
-    countedImport !== null && countedImport.progress?.eta.state !== 'done';
-  // A FINISHED import only stays on the card until the next run: a live poll afterwards shows its
-  // own numbers, not a panel that says "Finished" for the next 14 days.
-  const sessionRunning = isProcessing || status === 'started' || status === 'processing';
-  const trackedImport = importStillRunning || !sessionRunning ? countedImport : null;
 
   // Show widget ONLY if there's activity
   const isActivelyProcessing =

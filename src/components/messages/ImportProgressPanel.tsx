@@ -17,7 +17,8 @@ const STAGE_LABEL: Record<ImportStage, string> = {
 
 const STAGE_HINT: Record<ImportStage, string> = {
   imported: 'Messages from the mailbox stored in Odly',
-  decided: 'Spam check and routing, done for every incoming message',
+  decided:
+    'Each incoming message sorted: spam check and routing, or set aside for the knowledge base',
   analysis: 'AI analysis of each conversation',
   embedding: 'Indexed for similar-message search',
   kb: 'Mined for knowledge-base answers',
@@ -36,7 +37,16 @@ export const formatMinutes = (minutes: number): string => {
   return restHours > 0 ? `${days} d ${restHours} h` : `${days} d`;
 };
 
-/** The one line that says when it ends — never a number the rate has not earned. */
+/** How a stage's unfinished work is named in the "did not complete" note. */
+const STAGE_UNDONE: Record<ImportStage, string> = {
+  imported: 'imported',
+  decided: 'sorted',
+  analysis: 'analysed',
+  embedding: 'indexed',
+  kb: 'mined for the knowledge base',
+};
+
+/** The one line that says when it ends: never a number the rate has not earned. */
 export const describeEta = (eta: StageEta): string => {
   switch (eta.state) {
     case 'done':
@@ -44,7 +54,12 @@ export const describeEta = (eta: StageEta): string => {
     case 'estimating':
       return 'Measuring the rate. An estimate needs 5 minutes of progress.';
     case 'stalled':
-      return 'No progress in the last 5 minutes';
+      // Both windows (5 and 15 minutes) finished nothing: the claim is 15 minutes.
+      return eta.stage
+        ? `No progress in ${STAGE_LABEL[eta.stage]} for 15 minutes, so the finish time is unknown`
+        : 'No progress for 15 minutes, so the finish time is unknown';
+    case 'unknown':
+      return 'Finish time unknown: the mailbox holds more messages than were counted';
     case 'running':
       if (eta.maxMinutes === null) return `At least ${formatMinutes(eta.minMinutes)} left`;
       if (eta.maxMinutes <= eta.minMinutes) return `About ${formatMinutes(eta.minMinutes)} left`;
@@ -102,6 +117,10 @@ export const ImportProgressPanel = ({
       </p>
     );
   }
+  if (progress.total === 0) {
+    return <p className="text-xs text-muted-foreground">Nothing to import.</p>;
+  }
+  const leftovers = progress.stages.filter((stage) => (stage.leftover ?? 0) > 0);
   return (
     <div className="space-y-2.5">
       <p className="text-sm font-medium" data-testid="import-eta">
@@ -130,8 +149,22 @@ export const ImportProgressPanel = ({
             department.
           </li>
         )}
+        {leftovers.map((stage) => (
+          <li key={stage.stage}>
+            {(stage.leftover ?? 0).toLocaleString()} message
+            {stage.leftover === 1 ? ' was' : 's were'} not {STAGE_UNDONE[stage.stage]}: nothing is
+            left in the queue to do it.
+          </li>
+        ))}
+        {progress.unrecorded > 0 && (
+          <li>
+            {progress.unrecorded.toLocaleString()} message
+            {progress.unrecorded === 1 ? ' was' : 's were'} processed before tracking started; their
+            work is not counted above.
+          </li>
+        )}
         {progress.stages.some((stage) => stage.projected) && (
-          <li>~ totals are estimated from what has been imported so far.</li>
+          <li>~ totals are estimates until every message has been imported and sorted.</li>
         )}
       </ul>
     </div>

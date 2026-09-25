@@ -67,7 +67,7 @@ describe('ImportProgressPanel', () => {
     expect(screen.getByText(/900 \/ 2,255/)).toBeInTheDocument();
     expect(screen.getByText(/120 \/ ~1,800/)).toBeInTheDocument();
     expect(screen.getByTestId('import-eta')).toHaveTextContent('3 h 20 min – 5 h 20 min left');
-    expect(screen.getByText(/totals are estimated/)).toBeInTheDocument();
+    expect(screen.getByText(/totals are estimates until/)).toBeInTheDocument();
   });
 
   it('a capped listing is a floor: "N+", and no percentage is claimed for it', () => {
@@ -119,10 +119,45 @@ describe('ImportProgressPanel', () => {
   });
 });
 
+describe('ImportProgressPanel — what finished and what did not', () => {
+  it('an empty listing says there is nothing to import, not "Finished · 0 / 0"', () => {
+    render(<ImportProgressPanel data={tracked({ total: 0, eta: { state: 'done' } })} />);
+    expect(screen.getByText('Nothing to import.')).toBeInTheDocument();
+    expect(screen.queryByText('Finished')).not.toBeInTheDocument();
+  });
+
+  it('a stage finished with work undone says how much, and why', () => {
+    render(
+      <ImportProgressPanel
+        data={tracked({
+          stages: [
+            stage({ stage: 'decided', done: 95, total: 100, leftover: 5, eta: { state: 'done' } }),
+          ],
+          eta: { state: 'done' },
+        })}
+      />
+    );
+    expect(
+      screen.getByText(/5 messages were not sorted: nothing is left in the queue/)
+    ).toBeInTheDocument();
+  });
+
+  it('work done before tracking started is said to be uncounted', () => {
+    render(<ImportProgressPanel data={tracked({ unrecorded: 40 })} />);
+    expect(
+      screen.getByText(/40 messages were processed before tracking started/)
+    ).toBeInTheDocument();
+  });
+});
+
 describe('describeEta', () => {
   it('never quotes a number the rate has not earned', () => {
     expect(describeEta({ state: 'estimating' })).toMatch(/Measuring the rate/);
-    expect(describeEta({ state: 'stalled' })).toBe('No progress in the last 5 minutes');
+    // Both windows finished nothing: the claim is 15 minutes, and it names the stage.
+    expect(describeEta({ state: 'stalled', stage: 'analysis' })).toBe(
+      'No progress in AI analysis for 15 minutes, so the finish time is unknown'
+    );
+    expect(describeEta({ state: 'unknown' })).toMatch(/more messages than were counted/);
     expect(describeEta({ state: 'done' })).toBe('Finished');
     expect(describeEta({ state: 'running', minMinutes: 30, maxMinutes: null })).toBe(
       'At least 30 min left'

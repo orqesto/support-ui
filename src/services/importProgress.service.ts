@@ -10,7 +10,10 @@ export type ImportStage = 'imported' | 'decided' | 'analysis' | 'embedding' | 'k
 export type StageEta =
   | { state: 'done' }
   | { state: 'estimating' }
-  | { state: 'stalled' }
+  /** Neither the 5- nor the 15-minute window finished anything; overall, it names the stage. */
+  | { state: 'stalled'; stage?: ImportStage }
+  /** How much is left is not known (a capped listing counted past its floor). */
+  | { state: 'unknown' }
   | {
       state: 'running';
       perMinute?: { short: number; long: number };
@@ -25,6 +28,11 @@ export type StageProgress = {
   total: number;
   /** The total is estimated from the share imported so far; exact once everything is in. */
   projected: boolean;
+  /**
+   * Finished with this much NOT done: nothing is left in the queue to do it. Absent from a
+   * backend older than this field.
+   */
+  leftover?: number;
   eta: StageEta;
 };
 
@@ -60,9 +68,11 @@ export type ImportProgress =
     };
 
 export const importProgressService = {
-  get: async (sourceId: number): Promise<ImportProgress> => {
+  /** `start`: list the mailbox if the source has no run yet (only when this looks like an import). */
+  get: async (sourceId: number, start = false): Promise<ImportProgress> => {
     const response = await apiClient.get<{ success: boolean; data: ImportProgress }>(
-      `/api/integrations/${sourceId}/import-progress`
+      `/api/integrations/${sourceId}/import-progress`,
+      start ? { params: { start: '1' } } : undefined
     );
     return response.data.data;
   },
