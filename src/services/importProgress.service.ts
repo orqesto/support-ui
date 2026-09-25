@@ -44,6 +44,11 @@ export type ImportRun = {
   /** The listing stopped at a cap: `total` is a floor. */
   capped: boolean;
   cappedBy: 'size' | 'time' | 'quota' | 'error' | null;
+  /**
+   * The capped listing is still being continued in the background. Optional: a backend from
+   * before it sends nothing, which reads as "counting stopped" — what that backend did.
+   */
+  countingOn?: boolean;
   query: string | null;
   error: string | null;
 };

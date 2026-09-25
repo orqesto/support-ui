@@ -94,11 +94,15 @@ const StageRow = ({ stage, capped }: { stage: StageProgress; capped: boolean }) 
           <span className="ml-2 text-muted-foreground">{floor ? '—' : `${pct}%`}</span>
         </span>
       </div>
-      <Progress
-        value={floor ? 100 : pct}
-        size="sm"
-        variant={stage.eta.state === 'done' ? 'success' : 'default'}
-      />
+      {/* No bar against a floor: a full one read as finished at "36 / 500+" (staging,
+          2026-09-25), and a share of the floor overstates how far the import has got. */}
+      {!floor && (
+        <Progress
+          value={pct}
+          size="sm"
+          variant={stage.eta.state === 'done' ? 'success' : 'default'}
+        />
+      )}
     </div>
   );
 };
@@ -130,7 +134,9 @@ export const ImportProgressPanel = ({
       </p>
     );
   }
-  if (progress.total === 0) {
+  // A capped 0 is a floor (the first page came back empty and the next was refused), not an empty
+  // mailbox (independent audit, pass 7).
+  if (progress.total === 0 && !progress.capped) {
     return <p className="text-xs text-muted-foreground">Nothing to import.</p>;
   }
   const leftovers = progress.stages.filter((stage) => (stage.leftover ?? 0) > 0);
@@ -143,12 +149,18 @@ export const ImportProgressPanel = ({
         <StageRow key={stage.stage} stage={stage} capped={progress.capped} />
       ))}
       <ul className="space-y-0.5 text-[11px] text-muted-foreground">
-        {progress.capped && (
-          <li>
-            Counting stopped at {progress.total.toLocaleString()} messages; the mailbox holds at
-            least that many.
-          </li>
-        )}
+        {progress.capped &&
+          (run.countingOn ? (
+            <li>
+              {progress.total.toLocaleString()} messages counted so far; counting carries on in the
+              background.
+            </li>
+          ) : (
+            <li>
+              Counting stopped at {progress.total.toLocaleString()} messages; the mailbox holds at
+              least that many.
+            </li>
+          ))}
         {progress.drained && progress.notStored > 0 && (
           <li>
             {progress.notStored.toLocaleString()} listed message
