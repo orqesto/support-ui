@@ -87,6 +87,97 @@ describe('ImportProgressPanel', () => {
     expect(screen.getByText(/at least that many/)).toBeInTheDocument();
   });
 
+  it('a capped 0 is not "Nothing to import" — counting carries on', () => {
+    render(
+      <ImportProgressPanel
+        data={{
+          ...tracked({
+            total: 0,
+            capped: true,
+            stages: [stage({ stage: 'imported', done: 0, total: 0 })],
+          }),
+          run: { ...run, capped: true, cappedBy: 'quota', countingOn: true },
+        }}
+      />
+    );
+    expect(screen.queryByText('Nothing to import.')).not.toBeInTheDocument();
+    expect(screen.getByText(/0 messages counted so far/)).toBeInTheDocument();
+  });
+
+  it('CONTROL: an exact 0 is "Nothing to import"', () => {
+    render(<ImportProgressPanel data={tracked({ total: 0, stages: [] })} />);
+    expect(screen.getByText('Nothing to import.')).toBeInTheDocument();
+  });
+
+  it('a floor still being counted says so — not "counting stopped"', () => {
+    render(
+      <ImportProgressPanel
+        data={{
+          ...tracked({
+            total: 500,
+            capped: true,
+            stages: [stage({ stage: 'imported', done: 36, total: 500 })],
+          }),
+          run: { ...run, capped: true, cappedBy: 'quota', countingOn: true },
+        }}
+      />
+    );
+    expect(
+      screen.getByText(/500 messages counted so far; counting carries on/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Counting stopped/)).not.toBeInTheDocument();
+  });
+
+  it('CONTROL: a floor no longer being counted says counting stopped', () => {
+    render(
+      <ImportProgressPanel
+        data={{
+          ...tracked({
+            total: 500,
+            capped: true,
+            stages: [stage({ stage: 'imported', done: 36, total: 500 })],
+          }),
+          run: { ...run, capped: true, cappedBy: 'error', countingOn: false },
+        }}
+      />
+    );
+    expect(screen.getByText(/Counting stopped at 500 messages/)).toBeInTheDocument();
+    expect(screen.queryByText(/counted so far/)).not.toBeInTheDocument();
+  });
+
+  it('a capped floor draws NO bar — not a full one (staging: "36 / 500+" looked finished)', () => {
+    render(
+      <ImportProgressPanel
+        data={tracked({
+          total: 500,
+          capped: true,
+          stages: [
+            stage({ stage: 'imported', done: 36, total: 500 }),
+            stage({ stage: 'decided', done: 36, total: 500, projected: true }),
+          ],
+        })}
+      />
+    );
+    // Only the decided row has a bar; the imported row's floor has none.
+    const bars = screen.getAllByRole('progressbar');
+    expect(bars).toHaveLength(1);
+    expect(bars[0]).toHaveAttribute('aria-valuenow', '7');
+  });
+
+  it('CONTROL: an exact listing draws a bar for every row', () => {
+    render(
+      <ImportProgressPanel
+        data={tracked({
+          stages: [
+            stage({ stage: 'imported', done: 36, total: 500 }),
+            stage({ stage: 'decided', done: 36, total: 500, projected: true }),
+          ],
+        })}
+      />
+    );
+    expect(screen.getAllByRole('progressbar')).toHaveLength(2);
+  });
+
   it('CONTROL: an exact listing does show its percentage', () => {
     render(
       <ImportProgressPanel
