@@ -336,12 +336,17 @@ export const MessageProcessingProgress = ({
   // so the card read "Complete" with ~2,100 messages still to import (taco, 2026-09-25). Any other
   // source answers 404 and keeps the numbers below.
   const importProgress = useImportProgress(session.integrationId, sourceType === 'email');
-  const trackedImport =
+  const importData =
     importProgress.supported && importProgress.data?.tracked ? importProgress.data : null;
+  // ⛔ A failed count says nothing about the import: fall back to the session's own view (it was
+  // labelled "Complete" through the tracked branch). The backend retries the count later.
+  const countedImport = importData && importData.run.state !== 'failed' ? importData : null;
   const importStillRunning =
-    trackedImport !== null &&
-    trackedImport.run.state !== 'failed' &&
-    trackedImport.progress?.eta.state !== 'done';
+    countedImport !== null && countedImport.progress?.eta.state !== 'done';
+  // A FINISHED import only stays on the card until the next run: a live poll afterwards shows its
+  // own numbers, not a panel that says "Finished" for the next 14 days.
+  const sessionRunning = isProcessing || status === 'started' || status === 'processing';
+  const trackedImport = importStillRunning || !sessionRunning ? countedImport : null;
 
   // Show widget ONLY if there's activity
   const isActivelyProcessing =

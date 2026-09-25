@@ -110,6 +110,53 @@ describe('the processing widget and a Gmail import', () => {
     expect(screen.getByText('Complete')).toBeInTheDocument();
   });
 
+  it('a FAILED count falls back to the session view — it does not label the import Complete', async () => {
+    get.mockResolvedValue({
+      tracked: true,
+      run: {
+        state: 'failed',
+        startedAt: '2026-09-25T08:30:00.000Z',
+        countedAt: null,
+        total: null,
+        capped: false,
+        cappedBy: null,
+        query: null,
+        error: 'Could not list the mailbox.',
+      },
+    });
+    render(
+      <MessageProcessingProgress
+        session={
+          { ...(COMPLETE_SESSION as object), status: 'processing', isProcessing: true } as never
+        }
+        index={0}
+        onClose={vi.fn()}
+        sourceType="email"
+      />
+    );
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    expect(await screen.findByText('Found')).toBeInTheDocument();
+    expect(screen.getByText('Processing')).toBeInTheDocument();
+    expect(screen.queryByText('Complete')).not.toBeInTheDocument();
+  });
+
+  it('a FINISHED import gives the card back to the next live run', async () => {
+    get.mockResolvedValue(tracked({ ...RUNNING_PROGRESS, eta: { state: 'done' } }));
+    render(
+      <MessageProcessingProgress
+        session={
+          { ...(COMPLETE_SESSION as object), status: 'processing', isProcessing: true } as never
+        }
+        index={0}
+        onClose={vi.fn()}
+        sourceType="email"
+      />
+    );
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    expect(await screen.findByText('Found')).toBeInTheDocument();
+    expect(screen.queryByText('Finished')).not.toBeInTheDocument();
+  });
+
   it("CONTROL: not a Gmail source (404) keeps the widget's own numbers", async () => {
     get.mockRejectedValue(
       new AxiosError('Not Found', '404', undefined, undefined, {
