@@ -15,7 +15,9 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import type { ProcessingSession } from '@/hooks/useEmailProcessing';
+import { useWidgetImportProgress } from '@/hooks/useImportProgress';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { ImportProgressPanel } from './ImportProgressPanel';
 
 type Position = { xPos: number; yPos: number };
 
@@ -200,10 +202,7 @@ export const MessageProcessingProgress = ({
    */
   const rememberPosition = useCallback(
     (next: Position) => {
-      localStorage.setItem(
-        `emailProcessingWidget_${safeKey}_position_v2`,
-        JSON.stringify(next)
-      );
+      localStorage.setItem(`emailProcessingWidget_${safeKey}_position_v2`, JSON.stringify(next));
     },
     [safeKey]
   );
@@ -301,8 +300,16 @@ export const MessageProcessingProgress = ({
   const allMessagesProcessed =
     current > 0 && current === total && messagesInProgress === 0 && !isGap;
 
+  // A Gmail source's progress comes from the DATABASE, not this session's socket counters —
+  // see useWidgetImportProgress.
+  const { trackedImport, importStillRunning } = useWidgetImportProgress(session, sourceType);
+
   // Auto-close after delay when completed (either by status or when all messages processed)
   useEffect(() => {
+    // ⛔ Not while the import runs: the socket session says "complete" after every poll run, and
+    // closing then unmounted the widget — the import's progress vanished 15 s after each run
+    // (audit pass 2).
+    if (importStillRunning) return;
     if (status === 'complete' || allMessagesProcessed) {
       const backendComplete = status === 'complete';
       let closeDelay: number;
@@ -325,7 +332,16 @@ export const MessageProcessingProgress = ({
 
       return () => clearTimeout(timer);
     }
-  }, [status, allMessagesProcessed, total, linkedReplies, session.sessionKey, onClose, isMobile]);
+  }, [
+    importStillRunning,
+    status,
+    allMessagesProcessed,
+    total,
+    linkedReplies,
+    session.sessionKey,
+    onClose,
+    isMobile,
+  ]);
 
   // The run stopped early (server load OR the provider's rate limit — the flag does not say
   // which, so the copy names no cause); the next check continues it. It must not read as done:
@@ -334,7 +350,8 @@ export const MessageProcessingProgress = ({
 
   // Show widget ONLY if there's activity
   const isActivelyProcessing =
-    (isProcessing || status === 'started' || status === 'processing') && !allMessagesProcessed;
+    importStillRunning ||
+    ((isProcessing || status === 'started' || status === 'processing') && !allMessagesProcessed);
   const hasRecentActivity = status === 'complete' || status === 'error' || allMessagesProcessed; // Show on complete/error regardless of total
 
   // Force show if actively processing (ignore isClosed), allow closing only when complete
@@ -379,7 +396,13 @@ export const MessageProcessingProgress = ({
         title={isMobile ? undefined : 'Drag to move widget'}
       >
         <div className="flex flex-1 gap-2 items-center">
-          {isDeferred ? (
+          {trackedImport ? (
+            importStillRunning ? (
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            ) : (
+              <CheckCircle className="w-4 h-4 text-success" />
+            )
+          ) : isDeferred ? (
             <PauseCircle className="w-4 h-4 text-warning" />
           ) : allMessagesProcessed || status === 'complete' ? (
             <CheckCircle className="w-4 h-4 text-success" />
@@ -396,17 +419,21 @@ export const MessageProcessingProgress = ({
               : integrationName}
           </span>
           <span className="text-[10px] text-muted-foreground">
-            {isDeferred
-              ? 'Paused'
-              : allMessagesProcessed
-                ? 'Complete'
-                : isProcessing || status === 'processing' || status === 'started'
-                  ? 'Processing'
-                  : status === 'complete'
-                    ? 'Complete'
-                    : status === 'error'
-                      ? 'Failed'
-                      : 'Ready'}
+            {trackedImport
+              ? importStillRunning
+                ? 'Processing'
+                : 'Complete'
+              : isDeferred
+                ? 'Paused'
+                : allMessagesProcessed
+                  ? 'Complete'
+                  : isProcessing || status === 'processing' || status === 'started'
+                    ? 'Processing'
+                    : status === 'complete'
+                      ? 'Complete'
+                      : status === 'error'
+                        ? 'Failed'
+                        : 'Ready'}
           </span>
         </div>
         <div className="flex gap-1 items-center">
@@ -452,8 +479,10 @@ export const MessageProcessingProgress = ({
               : 'overflow-y-auto p-3 space-y-3 max-h-96'
           }
         >
+          {trackedImport && <ImportProgressPanel data={trackedImport} />}
+
           {/* Progress Bar */}
-          {effectiveTotal > 0 && (
+          {!trackedImport && effectiveTotal > 0 && (
             <div className="space-y-2">
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>{`${progressLabel}: ${displayCurrent} / ${effectiveTotal}`}</span>
@@ -469,190 +498,189 @@ export const MessageProcessingProgress = ({
           )}
 
           {/* Status Messages - Compact */}
-          <div className="flex justify-around text-center">
-            <div>
-              <div className="flex gap-1 justify-center items-center">
-                <SourceIcon className="w-3 h-3 text-muted-foreground" />
-                <span className="font-mono text-lg font-bold">{(emailTotal ?? total) || 0}</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground">Found</p>
-            </div>
-            {/* Show total processed (emails saved to DB) - cap at Found to prevent overflow */}
-            {(processed > 0 || current > 0 || (isKBMode && effectiveCurrent > 0)) && (
+          {!trackedImport && (
+            <div className="flex justify-around text-center">
               <div>
                 <div className="flex gap-1 justify-center items-center">
-                  <Loader2
-                    className={`w-3 h-3 ${isProcessing ? 'animate-spin text-muted-foreground' : 'text-muted-foreground'}`}
-                  />
-                  <span className="font-mono text-lg font-bold">
-                    {Math.min(processed > 0 ? processed : current, (emailTotal ?? total) || 999)}
-                  </span>
+                  <SourceIcon className="w-3 h-3 text-muted-foreground" />
+                  <span className="font-mono text-lg font-bold">{(emailTotal ?? total) || 0}</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground">Processed</p>
+                <p className="text-[10px] text-muted-foreground">Found</p>
               </div>
-            )}
-            <div title={hasGapInfo ? `${truthCount} convs have AI analysis written to DB` : undefined}>
-              <div className="flex gap-1 justify-center items-center">
-                <CheckCircle className="w-3 h-3 text-success" />
-                <span className="text-lg font-bold">{truthCount}</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground">Analyzed</p>
-            </div>
-            {isGap && (
+              {/* Show total processed (emails saved to DB) - cap at Found to prevent overflow */}
+              {(processed > 0 || current > 0 || (isKBMode && effectiveCurrent > 0)) && (
+                <div>
+                  <div className="flex gap-1 justify-center items-center">
+                    <Loader2
+                      className={`w-3 h-3 ${isProcessing ? 'animate-spin text-muted-foreground' : 'text-muted-foreground'}`}
+                    />
+                    <span className="font-mono text-lg font-bold">
+                      {Math.min(processed > 0 ? processed : current, (emailTotal ?? total) || 999)}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Processed</p>
+                </div>
+              )}
               <div
-                title={`${missingAnalysis} message${missingAnalysis === 1 ? '' : 's'} saved without AI analysis (likely cap-throttled by BACKFILL_AI_JOBS_LIMIT). Re-trigger the backfill with a higher cap to fill the gap.`}
+                title={
+                  hasGapInfo ? `${truthCount} convs have AI analysis written to DB` : undefined
+                }
               >
                 <div className="flex gap-1 justify-center items-center">
-                  <XCircle className="w-3 h-3 text-warning" />
-                  <span className="text-lg font-bold text-warning">{missingAnalysis}</span>
+                  <CheckCircle className="w-3 h-3 text-success" />
+                  <span className="text-lg font-bold">{truthCount}</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground">Missing AI</p>
+                <p className="text-[10px] text-muted-foreground">Analyzed</p>
               </div>
-            )}
-            {sourceType === 'email' && (linkedReplies ?? 0) > 0 && (
+              {isGap && (
+                <div
+                  title={`${missingAnalysis} message${missingAnalysis === 1 ? '' : 's'} saved without AI analysis (likely cap-throttled by BACKFILL_AI_JOBS_LIMIT). Re-trigger the backfill with a higher cap to fill the gap.`}
+                >
+                  <div className="flex gap-1 justify-center items-center">
+                    <XCircle className="w-3 h-3 text-warning" />
+                    <span className="text-lg font-bold text-warning">{missingAnalysis}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Missing AI</p>
+                </div>
+              )}
+              {sourceType === 'email' && (linkedReplies ?? 0) > 0 && (
+                <div>
+                  <div className="flex gap-1 justify-center items-center">
+                    <Mail className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-lg font-bold">{linkedReplies}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Linked</p>
+                </div>
+              )}
               <div>
                 <div className="flex gap-1 justify-center items-center">
-                  <Mail className="w-3 h-3 text-muted-foreground" />
-                  <span className="text-lg font-bold">{linkedReplies}</span>
+                  <div className="w-3 h-3 bg-warning rounded-full" />
+                  <span className="text-lg font-bold">{skipped ?? 0}</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground">Linked</p>
+                <p className="text-[10px] text-muted-foreground">Skipped</p>
               </div>
-            )}
-            <div>
-              <div className="flex gap-1 justify-center items-center">
-                <div className="w-3 h-3 bg-warning rounded-full" />
-                <span className="text-lg font-bold">{skipped ?? 0}</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground">Skipped</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                if (failed > 0) {
-                  navigate('/messages');
-                }
-              }}
-              disabled={failed === 0}
-              className="transition-opacity cursor-pointer hover:opacity-75 disabled:cursor-default disabled:opacity-100"
-              title={failed > 0 ? 'Click to view failed messages' : 'No failed messages'}
-            >
-              <div className="flex gap-1 justify-center items-center">
-                <XCircle className="w-3 h-3 text-destructive" />
-                <span className="text-lg font-bold">{failed}</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground">Failed</p>
-            </button>
-          </div>
-
-          {/* KB Processing Progress - Show when KB messages are being processed or entries exist */}
-          {((kbMessagesTotal ?? 0) > 0 ||
-            (kbEntriesTotal ?? 0) > 0 ||
-            (kbQAPairs ?? 0) > 0 ||
-            (kbDocuments ?? 0) > 0 ||
-            (kbStandaloneKnowledge ?? 0) > 0 ||
-            session.stage === 'kb-processing') && (
-            <div className="pt-2 border-t">
-              <p className="text-xs font-semibold text-ai mb-1.5 flex items-center gap-1">
-                <BookOpen className="w-3 h-3" />
-                Knowledge Base
-                {isProcessing && <Loader2 className="w-3 h-3 text-ai animate-spin" />}
-              </p>
-
-              {/* KB Message Processing Progress Bar */}
-              {session.kbMessagesTotal !== undefined &&
-                session.kbMessagesTotal > 0 &&
-                (() => {
-                  const kbProcessed = session.kbMessagesProcessed ?? 0;
-                  const kbTotal = session.kbMessagesTotal;
-                  const kbPct = Math.min(100, Math.round((kbProcessed / kbTotal) * 100));
-                  return (
-                    <div className="mb-2 space-y-1">
-                      <div className="flex justify-between text-[10px] text-muted-foreground">
-                        <span>
-                          {session.status === 'complete'
-                            ? `Analyzed: ${kbProcessed} / ${kbTotal}`
-                            : `Analyzing: ${kbProcessed} messages...`}
-                        </span>
-                        <span>{kbPct}%</span>
-                      </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-ai">
-                        <div
-                          className="h-full bg-ai transition-all duration-300"
-                          style={{ width: `${kbPct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })()}
-
-              <div className="flex justify-around text-center">
-                {kbEntriesTotal !== undefined && (
-                  <div>
-                    <div className="flex gap-1 justify-center items-center">
-                      <span
-                        className={`text-lg font-bold ${
-                          kbEntriesTotal > 0
-                            ? 'text-ai'
-                            : 'text-muted-foreground'
-                        }`}
-                      >
-                        {kbEntriesTotal}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">Total</p>
-                  </div>
-                )}
-                {kbQAPairs !== undefined && (
-                  <div>
-                    <div className="flex gap-1 justify-center items-center">
-                      <span
-                        className={`text-lg font-bold ${
-                          kbQAPairs > 0
-                            ? 'text-ai'
-                            : 'text-muted-foreground'
-                        }`}
-                      >
-                        {kbQAPairs}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">Q&A</p>
-                  </div>
-                )}
-                {kbDocuments !== undefined && (
-                  <div>
-                    <div className="flex gap-1 justify-center items-center">
-                      <span
-                        className={`text-lg font-bold ${
-                          kbDocuments > 0
-                            ? 'text-ai'
-                            : 'text-muted-foreground'
-                        }`}
-                      >
-                        {kbDocuments}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">Docs</p>
-                  </div>
-                )}
-                {kbStandaloneKnowledge !== undefined && (
-                  <div>
-                    <div className="flex gap-1 justify-center items-center">
-                      <span
-                        className={`text-lg font-bold ${
-                          kbStandaloneKnowledge > 0
-                            ? 'text-ai'
-                            : 'text-muted-foreground'
-                        }`}
-                      >
-                        {kbStandaloneKnowledge}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">Info</p>
-                  </div>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (failed > 0) {
+                    navigate('/messages');
+                  }
+                }}
+                disabled={failed === 0}
+                className="transition-opacity cursor-pointer hover:opacity-75 disabled:cursor-default disabled:opacity-100"
+                title={failed > 0 ? 'Click to view failed messages' : 'No failed messages'}
+              >
+                <div className="flex gap-1 justify-center items-center">
+                  <XCircle className="w-3 h-3 text-destructive" />
+                  <span className="text-lg font-bold">{failed}</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Failed</p>
+              </button>
             </div>
           )}
+
+          {/* KB Processing Progress - Show when KB messages are being processed or entries exist */}
+          {!trackedImport &&
+            ((kbMessagesTotal ?? 0) > 0 ||
+              (kbEntriesTotal ?? 0) > 0 ||
+              (kbQAPairs ?? 0) > 0 ||
+              (kbDocuments ?? 0) > 0 ||
+              (kbStandaloneKnowledge ?? 0) > 0 ||
+              session.stage === 'kb-processing') && (
+              <div className="pt-2 border-t">
+                <p className="text-xs font-semibold text-ai mb-1.5 flex items-center gap-1">
+                  <BookOpen className="w-3 h-3" />
+                  Knowledge Base
+                  {isProcessing && <Loader2 className="w-3 h-3 text-ai animate-spin" />}
+                </p>
+
+                {/* KB Message Processing Progress Bar */}
+                {session.kbMessagesTotal !== undefined &&
+                  session.kbMessagesTotal > 0 &&
+                  (() => {
+                    const kbProcessed = session.kbMessagesProcessed ?? 0;
+                    const kbTotal = session.kbMessagesTotal;
+                    const kbPct = Math.min(100, Math.round((kbProcessed / kbTotal) * 100));
+                    return (
+                      <div className="mb-2 space-y-1">
+                        <div className="flex justify-between text-[10px] text-muted-foreground">
+                          <span>
+                            {session.status === 'complete'
+                              ? `Analyzed: ${kbProcessed} / ${kbTotal}`
+                              : `Analyzing: ${kbProcessed} messages...`}
+                          </span>
+                          <span>{kbPct}%</span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-ai-muted">
+                          <div
+                            className="h-full bg-ai transition-all duration-300"
+                            style={{ width: `${kbPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                <div className="flex justify-around text-center">
+                  {kbEntriesTotal !== undefined && (
+                    <div>
+                      <div className="flex gap-1 justify-center items-center">
+                        <span
+                          className={`text-lg font-bold ${
+                            kbEntriesTotal > 0 ? 'text-ai' : 'text-muted-foreground'
+                          }`}
+                        >
+                          {kbEntriesTotal}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Total</p>
+                    </div>
+                  )}
+                  {kbQAPairs !== undefined && (
+                    <div>
+                      <div className="flex gap-1 justify-center items-center">
+                        <span
+                          className={`text-lg font-bold ${
+                            kbQAPairs > 0 ? 'text-ai' : 'text-muted-foreground'
+                          }`}
+                        >
+                          {kbQAPairs}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Q&A</p>
+                    </div>
+                  )}
+                  {kbDocuments !== undefined && (
+                    <div>
+                      <div className="flex gap-1 justify-center items-center">
+                        <span
+                          className={`text-lg font-bold ${
+                            kbDocuments > 0 ? 'text-ai' : 'text-muted-foreground'
+                          }`}
+                        >
+                          {kbDocuments}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Docs</p>
+                    </div>
+                  )}
+                  {kbStandaloneKnowledge !== undefined && (
+                    <div>
+                      <div className="flex gap-1 justify-center items-center">
+                        <span
+                          className={`text-lg font-bold ${
+                            kbStandaloneKnowledge > 0 ? 'text-ai' : 'text-muted-foreground'
+                          }`}
+                        >
+                          {kbStandaloneKnowledge}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Info</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
           {/* Error Message */}
           {error && (
@@ -662,7 +690,7 @@ export const MessageProcessingProgress = ({
           )}
 
           {/* Success Message */}
-          {status === 'complete' && !error && (
+          {!trackedImport && status === 'complete' && !error && (
             <div className="space-y-1.5">
               {isDeferred ? (
                 <div className="bg-warning-muted text-warning px-3 py-1.5 rounded text-xs">
@@ -693,7 +721,8 @@ export const MessageProcessingProgress = ({
           )}
 
           {/* Performance Timing */}
-          {status === 'complete' &&
+          {!trackedImport &&
+            status === 'complete' &&
             (fetchTime !== undefined || processTime !== undefined || totalTime) && (
               <div className="pt-2 border-t">
                 <p className="text-xs font-semibold text-muted-foreground mb-1.5">⚡ Performance</p>
