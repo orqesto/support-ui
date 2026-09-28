@@ -42,6 +42,8 @@ import { BulkConfirmDialog, type BulkConfirmValues } from '@/components/messages
 import { describeResult } from '@/components/messages/bulk/bulkResultMessage';
 import { type BulkAction } from '@/components/messages/bulk/bulkActions';
 import { useBulkSelection } from '@/components/messages/bulk/useBulkSelection';
+import { useSelectionShortcuts } from '@/components/messages/bulk/selectionShortcuts';
+import type { ToggleSelected } from '@/components/messages/bulk/selectMode';
 import { bulkService } from '@/services/bulk.service';
 import { toast } from '@/lib/toast';
 import { Checkbox } from '@/components/ui/Checkbox';
@@ -378,6 +380,35 @@ export const MessagesPage = () => {
   );
   const listSelectedCount = listSelectableIds.filter((id) => bulkSelection.isSelected(id)).length;
 
+  /**
+   * Select mode (owner, 2026-09-28): anything selected ⇒ every row and card shows its box
+   * until the selection is empty. The WHOLE selection, not this page's share of it — the bar
+   * says "N selected" for all of it, and a box hidden beside that count would contradict it.
+   */
+  const selectMode = bulkSelection.selectedIds.length > 0;
+
+  /** List rows: a shift-click ranges over the rows on THIS page, in the order they are drawn. */
+  const { toggle: toggleSelection, toggleRange: toggleSelectionRange } = bulkSelection;
+  const toggleListRow = useCallback<ToggleSelected>(
+    (conversationId, options) =>
+      options?.range
+        ? toggleSelectionRange(conversationId, listSelectableIds)
+        : toggleSelection(conversationId),
+    [toggleSelection, toggleSelectionRange, listSelectableIds]
+  );
+
+  // `x` toggles the focused row, Esc clears. Both are off while the detail pane is open: Esc
+  // closes the pane there (detailShortcuts.ts), and the row that opened it still holds focus.
+  // Off in the contacts view too — it has no selectable rows, and its profile panel closes on
+  // an Esc (a window listener, no dialog role) that must not also drop a selection made
+  // in the list.
+  useSelectionShortcuts(
+    {
+      hasSelection: selectMode,
+      listActive: selectedMessage === null && displayMode !== 'contacts',
+    },
+    { toggle: toggleSelection, clear: bulkSelection.clear }
+  );
 
   const pagination = messagesPagination;
 
@@ -1001,6 +1032,8 @@ export const MessagesPage = () => {
                     onTotalChange={setBoardTotal}
                     isSelected={bulkSelection.isSelected}
                     onToggleSelected={bulkSelection.toggle}
+                    onToggleRange={bulkSelection.toggleRange}
+                    selectMode={selectMode}
                     onSelectMany={bulkSelection.selectMany}
                     onDeselectMany={bulkSelection.deselectMany}
                   />
@@ -1079,7 +1112,8 @@ export const MessagesPage = () => {
                           ? bulkSelection.isSelected(thread.latestMessage.id)
                           : false
                       }
-                      onToggleSelected={bulkSelection.toggle}
+                      onToggleSelected={toggleListRow}
+                      selectMode={selectMode}
                       onReadChanged={() => {
                         bumpKanban();
                         void fetchMessages(messagesPagination.page, true);

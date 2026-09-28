@@ -36,6 +36,15 @@ import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
 import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import {
+  SELECT_GROUP_CLASS,
+  TOUCH_PRESS_GUARD_CLASS,
+  SELECT_ID_ATTRIBUTE,
+  isRangeClick,
+  selectBoxRevealClass,
+  type ToggleSelected,
+} from './bulk/selectMode';
+import { useLongPress } from './bulk/useLongPress';
+import {
   SPINE_BG,
   getAiState,
   getAvatarColor,
@@ -55,7 +64,12 @@ type MessageListItemProps = {
   onReadChanged?: () => void;
   /** Bulk selection — same contract as the kanban card. Absent = no checkbox. */
   selected?: boolean;
-  onToggleSelected?: (conversationId: number) => void;
+  onToggleSelected?: ToggleSelected;
+  /**
+   * Something is selected somewhere in the list: every row shows its box, not just the hovered
+   * or focused one (owner, 2026-09-28). False = boxes appear on hover / keyboard focus only.
+   */
+  selectMode?: boolean;
 };
 
 export const MessageListItem = ({
@@ -64,10 +78,25 @@ export const MessageListItem = ({
   onReadChanged,
   selected,
   onToggleSelected,
+  selectMode = false,
 }: MessageListItemProps) => {
   // Before any early return — hooks must run in the same order on every render.
   const { off: aiDraftsOff } = useAiDraftsOff();
   const msg = thread.latestMessage;
+  // A rule-blocked spam-log row (`spamlog_NN`, negative id) has no conversation behind it and
+  // every bulk action refuses it: no box, no long-press, no `x`.
+  const selectableId =
+    onToggleSelected && msg && msg.id > 0 && !thread.threadId.startsWith('spamlog_')
+      ? msg.id
+      : null;
+  // Touch long-press selects (never deselects — the box is on screen by then to untick it).
+  const longPress = useLongPress(
+    selectableId !== null && onToggleSelected
+      ? () => {
+          if (!selected) onToggleSelected(selectableId);
+        }
+      : undefined
+  );
   const { data: allDepts = [] } = useDepartments();
   const currentUser = useAuthStore((state) => state.user);
   const orgCode = useCurrentOrgCode();
@@ -240,7 +269,13 @@ export const MessageListItem = ({
           onOpen(thread);
         }
       }}
-      className="relative p-0 overflow-hidden transition-shadow hover:shadow-sm cursor-pointer group"
+      {...longPress}
+      {...(selectableId !== null ? { [SELECT_ID_ATTRIBUTE]: selectableId } : {})}
+      className={cn(
+        'relative p-0 overflow-hidden transition-shadow hover:shadow-sm cursor-pointer group',
+        SELECT_GROUP_CLASS,
+        selectableId !== null && TOUCH_PRESS_GUARD_CLASS
+      )}
     >
       <span
         aria-hidden="true"
@@ -250,17 +285,34 @@ export const MessageListItem = ({
       {/* Top-right, matching the kanban card so the gesture is the same in both views.
           stopPropagation: the whole row opens the thread on click, and an agent selecting
           rows is doing so precisely to avoid opening them. */}
-      {onToggleSelected && !thread.threadId.startsWith('spamlog_') && msg.id > 0 && (
+      {selectableId !== null && onToggleSelected && (
         <div
-          className="absolute top-2 right-2 z-20"
+          // Hidden (opacity only — still tabbable and announced) until the row is hovered or
+          // focused, or anything is selected; see bulk/selectMode.ts.
+          className={cn(
+            'absolute top-2 right-2 z-20',
+            selectBoxRevealClass(selectMode || selected === true)
+          )}
           onClick={(event) => event.stopPropagation()}
-          onKeyDown={(event) => event.stopPropagation()}
+          // Shift-click would otherwise also drag a text selection across every row between.
+          onMouseDown={(event) => {
+            if (event.shiftKey) event.preventDefault();
+          }}
+          // Only the keys the ROW acts on (Enter/Space open it). Everything else bubbles, so the
+          // page's `x` / Esc shortcuts still hear a key pressed on a focused box.
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') event.stopPropagation();
+          }}
           role="presentation"
         >
           <Checkbox
             checked={selected === true}
             aria-label={`Select message from ${msg.sender}`}
-            onChange={() => onToggleSelected(msg.id)}
+            onChange={(event) =>
+              isRangeClick(event.nativeEvent)
+                ? onToggleSelected(selectableId, { range: true })
+                : onToggleSelected(selectableId)
+            }
           />
         </div>
       )}

@@ -35,6 +35,15 @@ import {
 } from './inboxCardHelpers';
 import { TRIAGE_READ_COLUMN_IDS } from './kanbanColumns';
 import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
+import {
+  SELECT_GROUP_CLASS,
+  TOUCH_PRESS_GUARD_CLASS,
+  SELECT_ID_ATTRIBUTE,
+  isRangeClick,
+  selectBoxRevealClass,
+  type ToggleSelected,
+} from './bulk/selectMode';
+import { useLongPress } from './bulk/useLongPress';
 
 type KanbanCardProps = {
   thread: MessageThread;
@@ -54,7 +63,12 @@ type KanbanCardProps = {
    * card outside the inbox (or before this feature reaches a surface) renders exactly as before.
    */
   selected?: boolean;
-  onToggleSelected?: (conversationId: number) => void;
+  onToggleSelected?: ToggleSelected;
+  /**
+   * Something is selected somewhere on the board: every card shows its box, not just the
+   * hovered or focused one (owner, 2026-09-28).
+   */
+  selectMode?: boolean;
 };
 
 export const KanbanCard = ({
@@ -63,10 +77,25 @@ export const KanbanCard = ({
   colId,
   selected,
   onToggleSelected,
+  selectMode = false,
 }: KanbanCardProps) => {
   // Before any early return — hooks must run in the same order on every render.
   const { off: aiDraftsOff } = useAiDraftsOff();
   const msg = thread.latestMessage;
+  // Rule-blocked spam-log rows have no conversation behind them: no box, no long-press, no `x`.
+  // (The drag grip is a separate element with its own TouchSensor; it never shares this press.)
+  const selectableId =
+    onToggleSelected && msg && msg.id > 0 && !thread.threadId.startsWith('spamlog_')
+      ? msg.id
+      : null;
+  // Touch long-press selects (never deselects — the box is on screen by then to untick it).
+  const longPress = useLongPress(
+    selectableId !== null && onToggleSelected
+      ? () => {
+          if (!selected) onToggleSelected(selectableId);
+        }
+      : undefined
+  );
   const { data: allDepts = [] } = useDepartments();
   const currentUser = useAuthStore((state) => state.user);
   const orgCode = useCurrentOrgCode();
@@ -202,8 +231,14 @@ export const KanbanCard = ({
           onOpen(thread);
         }
       }}
+      {...longPress}
+      {...(selectableId !== null ? { [SELECT_ID_ATTRIBUTE]: selectableId } : {})}
       aria-label={`Open message from ${customer}${msg.subject ? `: ${msg.subject}` : ''}`}
-      className="relative w-full text-left rounded-md border bg-card pl-3.5 pr-3 py-2 shadow-sm hover:shadow-md hover:border-primary/40 transition-all space-y-1 overflow-hidden cursor-pointer"
+      className={cn(
+        'relative w-full text-left rounded-md border bg-card pl-3.5 pr-3 py-2 shadow-sm hover:shadow-md hover:border-primary/40 transition-all space-y-1 overflow-hidden cursor-pointer',
+        SELECT_GROUP_CLASS,
+        selectableId !== null && TOUCH_PRESS_GUARD_CLASS
+      )}
     >
       {/* Bulk selection, TOP-RIGHT (owner's call). It shares that corner with the drag grip,
           which moves left to `right-7` while a box is drawn — the two are the card's only
@@ -212,20 +247,37 @@ export const KanbanCard = ({
           ticking a box would also OPEN the thread — and opening a thread is what an agent
           triaging fifty of them is trying to avoid. Rule-blocked spam-log rows have no
           conversation behind them and cannot be acted on, so they get no box. */}
-      {onToggleSelected && !thread.threadId.startsWith('spamlog_') && msg.id > 0 && (
+      {selectableId !== null && onToggleSelected && (
         <div
-          className="absolute top-1.5 right-1.5 z-20"
+          // Hidden (opacity only — still tabbable and announced) until the card is hovered or
+          // focused, or anything is selected; see bulk/selectMode.ts.
+          className={cn(
+            'absolute top-1.5 right-1.5 z-20',
+            selectBoxRevealClass(selectMode || selected === true)
+          )}
           // ⛔ stopPropagation ONLY — the toggle itself belongs to the input's onChange. Calling
           // it here too fired it twice for one click (input onChange, then this handler as the
           // event bubbled), which toggled on and straight back off: every box looked dead.
           onClick={(event) => event.stopPropagation()}
-          onKeyDown={(event) => event.stopPropagation()}
+          // Shift-click would otherwise also drag a text selection across every card between.
+          onMouseDown={(event) => {
+            if (event.shiftKey) event.preventDefault();
+          }}
+          // Only the keys the CARD acts on (Enter/Space open it). Everything else bubbles, so the
+          // page's `x` / Esc shortcuts still hear a key pressed on a focused box.
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') event.stopPropagation();
+          }}
           role="presentation"
         >
           <Checkbox
             checked={selected === true}
             aria-label={`Select message from ${customer}`}
-            onChange={() => onToggleSelected(msg.id)}
+            onChange={(event) =>
+              isRangeClick(event.nativeEvent)
+                ? onToggleSelected(selectableId, { range: true })
+                : onToggleSelected(selectableId)
+            }
           />
         </div>
       )}

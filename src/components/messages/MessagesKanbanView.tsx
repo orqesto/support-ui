@@ -38,6 +38,7 @@ import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Button } from '@/components/ui/Button';
 import { SORT_PRESET_OPTIONS, sortingToPreset, presetToSorting } from './sortPresets';
 import { KanbanCard } from './KanbanCard';
+import type { ToggleSelected } from './bulk/selectMode';
 import { buildSharedFilters } from './kanbanSharedFilters';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
@@ -72,13 +73,15 @@ function DraggableMessageCard({
   weRepliedLast,
   selected,
   onToggleSelected,
+  selectMode,
 }: {
   thread: MessageThread;
   colId: string;
   onOpen: (t: MessageThread) => void;
   weRepliedLast?: boolean;
   selected?: boolean;
-  onToggleSelected?: (conversationId: number) => void;
+  onToggleSelected?: ToggleSelected;
+  selectMode?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: thread.threadId,
@@ -116,6 +119,7 @@ function DraggableMessageCard({
         colId={colId}
         selected={selected}
         onToggleSelected={onToggleSelected}
+        selectMode={selectMode}
       />
     </div>
   );
@@ -138,6 +142,10 @@ type KanbanColumnProps = {
   /** Bulk selection, threaded down to the cards. Absent = no checkboxes anywhere. */
   isSelected?: (conversationId: number) => boolean;
   onToggleSelected?: (conversationId: number) => void;
+  /** Shift-click range, bounded by THIS column's cards in drawn order (see useBulkSelection). */
+  onToggleRange?: (conversationId: number, orderedIds: readonly number[]) => void;
+  /** Anything selected anywhere: every card shows its box (bulk/selectMode.ts). */
+  selectMode?: boolean;
   /** Select / clear every LOADED card in this column (what "Load more" has fetched, no more). */
   onSelectMany?: (conversationIds: number[]) => void;
   onDeselectMany?: (conversationIds: number[]) => void;
@@ -158,6 +166,8 @@ const KanbanColumn = ({
   onClearNew,
   isSelected,
   onToggleSelected,
+  onToggleRange,
+  selectMode,
   onSelectMany,
   onDeselectMany,
 }: KanbanColumnProps) => {
@@ -172,6 +182,15 @@ const KanbanColumn = ({
     .filter((thread) => !thread.threadId.startsWith('spamlog_') && (thread.latestMessage?.id ?? 0) > 0)
     .map((thread) => thread.latestMessage!.id);
   const selectedHere = isSelected ? selectableIds.filter((id) => isSelected(id)).length : 0;
+
+  // A shift-click ranges over THIS lane only: "between" has no single meaning across two
+  // columns (their orders are independent sorts), so an anchor in another lane is no anchor.
+  const toggleCard: ToggleSelected | undefined = onToggleSelected
+    ? (conversationId, options) =>
+        options?.range && onToggleRange
+          ? onToggleRange(conversationId, selectableIds)
+          : onToggleSelected(conversationId)
+    : undefined;
 
   // Only highlight when this column is a valid target for the currently dragged card.
   const isValidTarget =
@@ -280,7 +299,8 @@ const KanbanColumn = ({
                     selected={
                       thread.latestMessage ? isSelected?.(thread.latestMessage.id) : false
                     }
-                    onToggleSelected={onToggleSelected}
+                    onToggleSelected={toggleCard}
+                    selectMode={selectMode}
                   />
                 </div>
               ) : (
@@ -301,7 +321,8 @@ const KanbanColumn = ({
                     selected={
                       thread.latestMessage ? isSelected?.(thread.latestMessage.id) : false
                     }
-                    onToggleSelected={onToggleSelected}
+                    onToggleSelected={toggleCard}
+                    selectMode={selectMode}
                   />
                 </div>
               )
@@ -348,6 +369,9 @@ type MessagesKanbanViewProps = {
    */
   isSelected?: (conversationId: number) => boolean;
   onToggleSelected?: (conversationId: number) => void;
+  onToggleRange?: (conversationId: number, orderedIds: readonly number[]) => void;
+  /** Anything is selected: every card shows its box, not only the hovered one. */
+  selectMode?: boolean;
   onSelectMany?: (conversationIds: number[]) => void;
   onDeselectMany?: (conversationIds: number[]) => void;
 };
@@ -471,6 +495,8 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
       onTotalChange,
       isSelected,
       onToggleSelected,
+      onToggleRange,
+      selectMode,
       onSelectMany,
       onDeselectMany,
     },
@@ -1152,6 +1178,8 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
               onOpen={onOpen}
               isSelected={isSelected}
               onToggleSelected={onToggleSelected}
+              onToggleRange={onToggleRange}
+              selectMode={selectMode}
               onSelectMany={onSelectMany}
               onDeselectMany={onDeselectMany}
               newCount={
