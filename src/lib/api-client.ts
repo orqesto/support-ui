@@ -2,7 +2,12 @@ import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axio
 import { API_BASE_URL } from './config';
 import { withFailedFields } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
-import { noteSessionIssued, noteSessionRenewed } from '@/lib/sessionClock';
+import {
+  isAccessTokenExpired,
+  noteSessionIssued,
+  noteSessionRenewed,
+  onSessionRenewed,
+} from '@/lib/sessionClock';
 import { useAuthStore } from '@/stores/authStore';
 import { useScopeStore } from '@/stores/scopeStore';
 import { useDepartmentContextStore } from '@/stores/departmentContextStore';
@@ -176,6 +181,48 @@ export const ensureFreshSession = (): Promise<void> => {
   });
   return refreshInFlight;
 };
+
+/**
+ * Request interceptor: renew FIRST when the clock says the access token has already expired.
+ *
+ * The scheduled renewal (sessionRenewal.ts) normally runs a minute ahead of expiry, but a
+ * backgrounded or sleeping tab does not run its timers on time. On wake, every background poller
+ * fires at once, the cookie is already gone, and each one comes back 401 `AUTH_REQUIRED` before
+ * the 401 path renews and replays them — a red burst in DevTools on every return to the tab.
+ * Holding the request until the (single-flight) renewal settles sends it once, with a cookie.
+ *
+ * A failed renewal is NOT decided here: the request goes out as before and its 401 path gets its
+ * own refresh attempt. Deliberately not marked as already-retried — a tab waking from sleep often
+ * fails this renewal only because the network is not back yet, and marking it would turn the
+ * request's later 401 into a sign-out with a valid refresh token still in the cookie jar.
+ *
+ * One refusal per token cycle, then the gate stands aside until a renewal succeeds. Without that,
+ * the clock stays "expired" after a refusal and EVERY later request would try again — on the
+ * public tracking page, which polls through this client and can carry a stale signed-in state,
+ * that is a failed refresh on every poll for as long as the page is open.
+ */
+let renewalRefusedThisCycle = false;
+// Any successful renewal, by whichever path, re-arms the gate.
+onSessionRenewed(() => {
+  renewalRefusedThisCycle = false;
+});
+
+export const renewIfExpired = async (
+  config: InternalAxiosRequestConfig
+): Promise<InternalAxiosRequestConfig> => {
+  if (!useAuthStore.getState().isAuthenticated) return config;
+  if (!isRefreshable(config.url)) return config;
+  if (renewalRefusedThisCycle || !isAccessTokenExpired()) return config;
+  try {
+    await ensureFreshSession();
+  } catch {
+    // See the header: the request's own 401 decides whether the session is over.
+    renewalRefusedThisCycle = true;
+  }
+  return config;
+};
+
+apiClient.interceptors.request.use(renewIfExpired);
 
 /**
  * Response error handler. Exported so tests can drive the REAL transformation
