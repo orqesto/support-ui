@@ -74,6 +74,34 @@ export const getAccessIssuedAt = (): number | null => {
   }
 };
 
+/**
+ * Is the access token in the cookie jar already dead, by the clock?
+ *
+ * The browser deletes the `jwt` cookie the moment its maxAge runs out, so a request sent after
+ * that carries NO credential and is answered 401 `AUTH_REQUIRED`. Knowing the time, the
+ * api-client can renew first instead of spending a failed request to learn it — which is what
+ * produced the burst of red 401s from the background pollers after a tab slept.
+ *
+ * Reads the NEWER of this tab's issue time and the stored one: another tab renewing rotates the
+ * cookies for every tab, and only localStorage hears about it. Trusting this tab's memory alone
+ * would make a tab that did not renew think a fresh token is dead and rotate it again.
+ *
+ * Unknown issue time ⇒ false. With no clock the old behaviour (renew on the 401) still holds.
+ */
+export const isAccessTokenExpired = (now: number = Date.now(), marginMs = 5_000): boolean => {
+  let stored: number | null = null;
+  try {
+    const raw = window.localStorage.getItem(ISSUED_KEY);
+    const at = raw === null ? NaN : Number(raw);
+    stored = Number.isFinite(at) && at <= now ? at : null;
+  } catch {
+    stored = null;
+  }
+  const known = [issuedAt, stored].filter((at): at is number => at !== null);
+  if (known.length === 0) return false;
+  return now >= Math.max(...known) + getAccessTtlMs() - marginMs;
+};
+
 const stampIssuedAt = (): void => {
   issuedAt = Date.now();
   try {
