@@ -112,6 +112,55 @@ describe('OpenConversationWindowSettings', () => {
     expect(screen.queryByText(/Couldn't/)).not.toBeInTheDocument();
   });
 
+  // What a released backend WITHOUT the route really answers: the path falls through to
+  // `/api/organizations/:id` (requireGlobalAdmin → 403 for an org admin; getById → 400 for a
+  // global admin). A test that only feeds a 404 proves a branch no real old backend reaches.
+  it.each([
+    [403, 'Global admin access required'],
+    [400, 'Invalid organization ID'],
+  ])(
+    'a released backend without the route (%i %s) also reads as not released yet',
+    async (status, message) => {
+      getOpenConversationWindow.mockRejectedValue(await apiError(status, { error: message }));
+      render(<OpenConversationWindowSettings />);
+
+      expect(await screen.findByText(/not available on this deployment yet/)).toBeInTheDocument();
+      expect(screen.queryByText(/Couldn't/)).not.toBeInTheDocument();
+    }
+  );
+
+  it('any OTHER 403 is a real refusal and is shown as one', async () => {
+    getOpenConversationWindow.mockRejectedValue(
+      await apiError(403, { error: 'Insufficient permissions' })
+    );
+    render(<OpenConversationWindowSettings />);
+
+    expect(await screen.findByText(/Insufficient permissions/)).toBeInTheDocument();
+    expect(screen.queryByText(/not available on this deployment yet/)).not.toBeInTheDocument();
+  });
+
+  it('a second click while saving sends nothing more', async () => {
+    getOpenConversationWindow.mockResolvedValue({ days: 14 });
+    let finish: (value: { days: number }) => void = () => undefined;
+    updateOpenConversationWindow.mockImplementation(
+      () => new Promise((resolve) => (finish = resolve))
+    );
+    render(<OpenConversationWindowSettings />);
+    await screen.findByText(/Currently 14 days/);
+
+    fireEvent.change(daysInput(), { target: { value: '30' } });
+    // Held from before the click: while saving, the button shows its loading state.
+    const button = saveButton();
+    fireEvent.click(button);
+    await waitFor(() => expect(updateOpenConversationWindow).toHaveBeenCalledTimes(1));
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    finish({ days: 30 });
+
+    expect(await screen.findByText(/Currently 30 days/)).toBeInTheDocument();
+    expect(updateOpenConversationWindow).toHaveBeenCalledTimes(1);
+  });
+
   it('a failed read is an error, not a default window', async () => {
     getOpenConversationWindow.mockRejectedValue(await apiError(500, { error: 'boom' }));
     render(<OpenConversationWindowSettings />);

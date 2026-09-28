@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { usePermissions } from '@/hooks/usePermissions';
-import { formatError, getErrorStatus } from '@/lib/errorMessages';
+import { formatError, getErrorBody, getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { organizationService } from '@/services/organization.service';
 
@@ -15,14 +15,32 @@ const MIN_DAYS = 1;
 const MAX_DAYS = 365;
 
 /**
+ * Is this the answer of a backend that does not have the route yet? Not only a 404: a release
+ * without it matches the path against `/api/organizations/:id` instead, which answers an org admin
+ * 403 "Global admin access required" (its `requireGlobalAdmin`) and a global admin 400 "Invalid
+ * organization ID" (`getById`). Matched on the exact messages, so a real refusal still shows.
+ */
+const isRouteMissing = (err: unknown): boolean => {
+  const status = getErrorStatus(err);
+  if (status === 404) return true;
+  const message = getErrorBody(err)?.error;
+  return (
+    (status === 403 && message === 'Global admin access required') ||
+    (status === 400 && message === 'Invalid organization ID')
+  );
+};
+
+/**
  * Open-conversation window — how old a customer's email may be and still count as waiting on the
  * team. Backed by `GET/PATCH /api/organizations/open-conversation-window` (`{ days }`, default 14).
  *
- * The copy is the backend's three uses of the number and nothing else (support-service #858):
- * a NEW email conversation older than the window lands resolved; an older message never reopens a
- * finished conversation; the acknowledgment email is sent only for mail inside it. It is read when
- * a message is saved, so it never re-files what is already in the inbox — the copy says so,
- * because "I lowered it and nothing moved" is the first question an admin would have.
+ * The copy is the backend's four uses of the number and nothing else (support-service #858):
+ * a NEW email conversation older than the window lands resolved; an older customer message never
+ * reopens a finished conversation; an older reply of ours from the Sent folder neither reopens one
+ * nor marks it waiting on the customer; the acknowledgment email is sent only for mail inside it.
+ * It is read when a message is saved, so it never re-files what is already in the inbox — the
+ * copy says so, because "I lowered it and nothing moved" is the first question an admin would
+ * have.
  */
 export const OpenConversationWindowSettings = () => {
   const { isAdmin, isOrgAdmin } = usePermissions();
@@ -50,7 +68,7 @@ export const OpenConversationWindowSettings = () => {
       .getOpenConversationWindow()
       .then(({ days }) => show(days))
       .catch((err: unknown) => {
-        if (getErrorStatus(err) === 404) setUnavailable(true);
+        if (isRouteMissing(err)) setUnavailable(true);
         else {
           logger.error('Failed to load the open-conversation window', err);
           setLoadError(formatError('load the open-conversation window', err));
@@ -113,16 +131,21 @@ export const OpenConversationWindowSettings = () => {
       <CardContent className="space-y-6">
         <div className="space-y-2 text-sm text-muted-foreground">
           <p>
-            How old a customer&apos;s email can be and still count as waiting on your team. Email
-            older than this — typically from importing a mailbox — is filed as history:
+            How old an email can be and still count as current work. Email older than this —
+            typically from importing a mailbox — is filed as history:
           </p>
           <ul className="list-disc space-y-1 pl-5">
             <li>a new conversation started by it arrives resolved, not open;</li>
-            <li>it does not reopen a conversation that is already resolved;</li>
+            <li>a customer message does not reopen a resolved conversation;</li>
+            <li>
+              a reply of yours imported from the Sent folder does not reopen a conversation or mark
+              it as waiting on the customer;
+            </li>
             <li>no acknowledgment email is sent for it.</li>
           </ul>
           <p>
-            A newer message from the customer reopens the conversation as usual. Changing the number
+            A customer message dated inside the window reopens a resolved conversation as usual,
+            unless the conversation&apos;s latest message was judged spam. Changing the number
             applies to email that arrives from now on; conversations already in your inbox keep
             their status.
           </p>
@@ -139,6 +162,7 @@ export const OpenConversationWindowSettings = () => {
             step={1}
             className="w-32"
             value={value}
+            disabled={saving}
             onChange={(event) => {
               // A notice about the LAST save must not sit beside a different, unsaved number.
               setValue(event.target.value);
@@ -155,7 +179,7 @@ export const OpenConversationWindowSettings = () => {
         {success ? <Alert variant="success">{success}</Alert> : null}
 
         <div>
-          <Button onClick={handleSave} isLoading={saving} disabled={parsed === saved}>
+          <Button onClick={handleSave} isLoading={saving} disabled={saving || parsed === saved}>
             Save
           </Button>
         </div>
