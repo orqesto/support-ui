@@ -91,6 +91,36 @@ export type BusinessHoursResponse = {
   businessHours: BusinessHoursConfig | null;
 };
 
+/** What `GET/PATCH /api/organizations/open-conversation-window` answers (support-service). */
+type OpenConversationWindowWire = { days?: unknown; off?: unknown; liveMailWindowHours?: unknown };
+
+export type OpenConversationWindow = {
+  /** 0 = OFF (only live mail opens), else the window in days (1–365). */
+  days: number;
+  /**
+   * Whether this backend accepts `days: 0`. A backend released before off support answers
+   * `{ days }` alone and refuses 0 with a 400, so the UI must not offer Off against it.
+   */
+  offSupported: boolean;
+  /** How late "live" mail may arrive and still open work when OFF (hours); null if unknown. */
+  liveMailWindowHours: number | null;
+};
+
+const readOpenConversationWindow = (
+  data: OpenConversationWindowWire | undefined
+): OpenConversationWindow | null => {
+  if (!data || typeof data.days !== 'number') return null;
+  const offSupported =
+    typeof data.off === 'boolean' &&
+    typeof data.liveMailWindowHours === 'number' &&
+    data.liveMailWindowHours > 0;
+  return {
+    days: data.days,
+    offSupported,
+    liveMailWindowHours: offSupported ? (data.liveMailWindowHours as number) : null,
+  };
+};
+
 export const organizationService = {
   /**
    * Every workspace, walked page by page.
@@ -434,29 +464,32 @@ export const organizationService = {
 
   /**
    * Open-conversation window: how many days old a customer's email may be and still count as
-   * waiting on the team (backend default 14, range 1–365). Readable by any member; the PATCH is
-   * org-admin only. A backend without the route answers 404 — the caller treats that as "not
+   * waiting on the team (backend default 14, range 1–365, or 0 = OFF where the backend reports
+   * `offSupported`). Readable by any member; the PATCH is org-admin only. A backend without the route answers 404 — the caller treats that as "not
    * released here", not as an error.
    */
-  getOpenConversationWindow: async (): Promise<{ days: number }> => {
-    const response = await apiClient.get<ApiResponse<{ days: number }>>(
+  getOpenConversationWindow: async (): Promise<OpenConversationWindow> => {
+    const response = await apiClient.get<ApiResponse<OpenConversationWindowWire>>(
       '/api/organizations/open-conversation-window'
     );
-    const days = response.data.data?.days;
     // No local default: a reply without a number is a fault to show, not a 14 to assume.
-    if (typeof days !== 'number') throw new Error('The server did not return the window');
-    return { days };
+    const windowSetting = readOpenConversationWindow(response.data.data);
+    if (!windowSetting) throw new Error('The server did not return the window');
+    return windowSetting;
   },
 
-  /** Resolves with what the server STORED (its 200 echoes it), not with what was sent. */
-  updateOpenConversationWindow: async (days: number): Promise<{ days: number }> => {
-    const response = await apiClient.patch<ApiResponse<{ days: number }>>(
+  /**
+   * Resolves with what the server STORED (its 200 echoes it), not with what was sent. `days: 0`
+   * turns the window OFF — only on a backend that reported `offSupported`; an older one 400s it.
+   */
+  updateOpenConversationWindow: async (days: number): Promise<OpenConversationWindow> => {
+    const response = await apiClient.patch<ApiResponse<OpenConversationWindowWire>>(
       '/api/organizations/open-conversation-window',
       { days }
     );
-    const stored = response.data.data?.days;
-    if (typeof stored !== 'number') throw new Error('The server did not confirm the window');
-    return { days: stored };
+    const windowSetting = readOpenConversationWindow(response.data.data);
+    if (!windowSetting) throw new Error('The server did not confirm the window');
+    return windowSetting;
   },
 
   getSecuritySettings: async (): Promise<{ require2FA: boolean }> => {
