@@ -6,6 +6,7 @@ import {
   readCategory,
   type CustomApiCategory,
 } from './categories';
+import { ChainStep } from './ChainStep';
 import { OwnershipStep } from './OwnershipStep';
 import { StatusVocabularyStep } from './StatusVocabularyStep';
 import { RecordFormatStep } from './RecordFormatStep';
@@ -134,9 +135,28 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
    * Identity is the default because it is the common case; "the agent types it" stays available
    * for a parcel number, which is not a person.
    */
-  const [fromIdentity, setFromIdentity] = useState(
-    (endpoint?.parameterSource ?? 'identity') === 'identity'
+  /**
+   * ⛔ THREE-VALUED, not a boolean (D21). This was `fromIdentity`, so a CHAINED lookup opened here
+   * rendered as "the agent types it" and the next Save rewrote it to `manual` — silently cutting
+   * the chain for a field the screen never showed.
+   */
+  const [paramSource, setParamSource] = useState<'identity' | 'manual' | 'endpoint'>(
+    endpoint?.parameterSource === 'manual' || endpoint?.parameterSource === 'endpoint'
+      ? endpoint.parameterSource
+      : 'identity'
   );
+  /** D21: which lookup a chained one reads its value from, and which field of its answer. */
+  const [chain, setChain] = useState<{ sourceEndpointId: number | null; sourceFieldPath: string }>({
+    sourceEndpointId: endpoint?.sourceEndpointId ?? null,
+    sourceFieldPath: endpoint?.sourceFieldPath ?? '',
+  });
+  /**
+   * ⛔ A chain without both halves is a 400 (the create schema refines them together), and the
+   * FIRST Test press creates the lookup — so both are required before Test as well as Save.
+   */
+  const chainIncomplete =
+    paramSource === 'endpoint' &&
+    (chain.sourceEndpointId === null || chain.sourceFieldPath.trim() === '');
   /**
    * D35 (Task 5). Only meaningful for a lookup an agent types a NUMBER into — an identity lookup
    * already resolves from the contact, so the record is the customer's by construction.
@@ -239,12 +259,20 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
    * field the screen never showed them. Email is the default for a NEW lookup, not an overwrite
    * of an old one.
    */
-  const parameterFields = fromIdentity
-    ? {
-        parameterSource: 'identity' as const,
-        identityField: endpoint?.identityField ?? ('email' as const),
-      }
-    : { parameterSource: 'manual' as const, identityField: null };
+  const parameterFields =
+    paramSource === 'identity'
+      ? {
+          parameterSource: 'identity' as const,
+          identityField: endpoint?.identityField ?? ('email' as const),
+        }
+      : paramSource === 'endpoint'
+        ? {
+            parameterSource: 'endpoint' as const,
+            identityField: null,
+            sourceEndpointId: chain.sourceEndpointId,
+            sourceFieldPath: chain.sourceFieldPath.trim(),
+          }
+        : { parameterSource: 'manual' as const, identityField: null };
 
   /**
    * ⛔ THE PLACEHOLDER THE ADMIN HAS NEVER HEARD OF. The executor substitutes the value at
@@ -426,7 +454,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
          * ⛔ The three format values travel TOGETHER (D36): a length without a charset is a
          * format that matches nothing, and all-null is how an admin says "do not pre-fill".
          */
-        ...(fromIdentity
+        ...(paramSource !== 'manual'
           ? {}
           : {
               ownershipSourceEndpointId,
@@ -487,7 +515,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
             label="Address in your system"
             value={path}
             onChange={(event) => setPath(event.target.value)}
-            placeholder={`/index.php?route=rest/order_admin/userorders&email=${VALUE_PLACEHOLDER}`}
+            placeholder={`/api/orders?email=${VALUE_PLACEHOLDER}`}
           />
           <p className="text-xs text-muted-foreground -mt-2">
             Put <code>{VALUE_PLACEHOLDER}</code> where the email or the number belongs — that is
@@ -510,15 +538,29 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
             <Label htmlFor="ca-param-source">What do we look up by?</Label>
             <Select
               id="ca-param-source"
-              value={fromIdentity ? 'identity' : 'manual'}
-              onChange={(event) => setFromIdentity(event.target.value === 'identity')}
+              value={paramSource}
+              onChange={(event) =>
+                setParamSource(event.target.value as 'identity' | 'manual' | 'endpoint')
+              }
             >
               <option value="identity">
                 The customer’s email address — filled in for the agent
               </option>
               <option value="manual">Something the agent types, like an order number</option>
+              <option value="endpoint">
+                A value from another lookup’s answer, like the customer’s id
+              </option>
             </Select>
           </div>
+
+          {paramSource === 'endpoint' && (
+            <ChainStep
+              siblings={connection.endpoints.filter((one) => one.id !== endpointId)}
+              sourceEndpointId={chain.sourceEndpointId}
+              sourceFieldPath={chain.sourceFieldPath}
+              onChange={setChain}
+            />
+          )}
 
           <div className="space-y-2 rounded-md border border-border p-3">
             <p className="text-xs font-medium text-foreground">
@@ -527,7 +569,14 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
             {!pasting ? (
               <>
                 <Input
-                  label="A value to try (an email or an order number you know exists)"
+                  label={
+                    // A chain is TESTED with the value its source would hand it — typed here,
+                    // because the test calls this lookup alone. "An email or an order number"
+                    // named the two things it is not.
+                    paramSource === 'endpoint'
+                      ? 'A value to try — one its source would give it, like a customer id'
+                      : 'A value to try (an email or an order number you know exists)'
+                  }
                   value={parameter}
                   onChange={(event) => setParameter(event.target.value)}
                 />
@@ -535,7 +584,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
                   <Button
                     size="sm"
                     onClick={() => void run('test')}
-                    disabled={busy || !path.trim()}
+                    disabled={busy || !path.trim() || chainIncomplete}
                   >
                     Test
                   </Button>
@@ -568,7 +617,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
                   <Button
                     size="sm"
                     onClick={() => void run('paste')}
-                    disabled={busy || !sample.trim() || !path.trim()}
+                    disabled={busy || !sample.trim() || !path.trim() || chainIncomplete}
                   >
                     Use this
                   </Button>
@@ -604,9 +653,11 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
            * the contact, so the record it returns is that customer's by construction — asking
            * would be a question with one possible answer.
            */}
-          {!fromIdentity && <RecordFormatStep value={recordFormat} onChange={setRecordFormat} />}
+          {paramSource === 'manual' && (
+            <RecordFormatStep value={recordFormat} onChange={setRecordFormat} />
+          )}
 
-          {!fromIdentity && (
+          {paramSource === 'manual' && (
             <OwnershipStep
               siblings={connection.endpoints.filter((one) => one.id !== endpointId)}
               value={ownershipSourceEndpointId}
@@ -818,7 +869,8 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
               !label.trim() ||
               !path.trim() ||
               unpricedMoney.length > 0 ||
-              unlabelled.length > 0
+              unlabelled.length > 0 ||
+              chainIncomplete
             }
           >
             Save
