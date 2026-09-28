@@ -102,8 +102,11 @@ export const PricingPage = () => {
     }
   };
 
-  const basePlans = plans.filter((plan) => plan.planType === 'base');
-  const enterprisePlans = plans.filter((plan) => plan.planType === 'enterprise' && (isGlobalAdmin || plan.name !== 'admin'));
+  // The plans endpoint returns EVERY plan to a global admin, switched-off legacy tiers included, and
+  // choosing one only answers "Plan is not available". Offer what can actually be chosen.
+  const selectable = plans.filter((plan) => plan.isActive !== false);
+  const basePlans = selectable.filter((plan) => plan.planType === 'base');
+  const enterprisePlans = selectable.filter((plan) => plan.planType === 'enterprise' && (isGlobalAdmin || plan.name !== 'admin'));
 
   if (loading) {
     return <Layout><div className="flex justify-center items-center h-64"><div className="text-muted-foreground">Loading pricing...</div></div></Layout>;

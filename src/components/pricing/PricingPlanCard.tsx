@@ -12,6 +12,8 @@ export interface Plan {
   price: number;
   currency: string;
   billingInterval: string;
+  /** Switched-off plans are only returned to global admins; the pricing page never offers them. */
+  isActive?: boolean;
   features: Record<string, boolean>;
   limits: {
     maxUsers: number;

@@ -68,6 +68,22 @@ describe('PricingPage — a lapsed workspace can move itself to Free', () => {
     expect(await screen.findAllByRole('button', { name: 'Get Started' })).toHaveLength(2);
   });
 
+  it('a switched-off plan (returned to global admins) is not offered at all', async () => {
+    get.mockImplementation((...args: unknown[]) =>
+      String(args[0]).includes('/plans')
+        ? Promise.resolve({
+            data: {
+              success: true,
+              data: { plans: [plan('free', 'Free', 0), { ...plan('small', 'Small', 4900), isActive: false }, plan('pro', 'Pro', 50000)] },
+            },
+          })
+        : Promise.resolve({ data: { success: true, data: { plan: { name: 'free' }, subscription: { status: 'active' } } } })
+    );
+    render(<PricingPage />);
+    expect(await screen.findByText('Pro')).toBeInTheDocument();
+    expect(screen.queryByText('Small')).not.toBeInTheDocument();
+  });
+
   it('control: an ACTIVE Free workspace still sees Free as its current plan', async () => {
     load('active');
     render(<PricingPage />);
