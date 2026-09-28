@@ -25,6 +25,8 @@ export type SsoConfig = {
   allowedEmailDomains: string[];
   jitProvisioning: boolean;
   allowSsoAccountLinking: boolean;
+  /** Members this IdP governs cannot use a password at all. Optional: an older backend omits it. */
+  enforceSsoOnly?: boolean;
   hasClientSecret: boolean;
 };
 
@@ -39,6 +41,11 @@ export type SsoConfigInput = {
   allowedEmailDomains: string[];
   jitProvisioning: boolean;
   allowSsoAccountLinking: boolean;
+  /**
+   * ⛔ Always send it. The backend DEFAULTS an omitted value to false, so a save without this
+   * field silently switched SSO-only enforcement off for every workspace that had it on.
+   */
+  enforceSsoOnly: boolean;
 };
 
 /**

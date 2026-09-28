@@ -34,6 +34,7 @@ import { messageService } from '@/services/message.service';
 import { categoryService } from '@/services/category.service';
 import { labelService, type Label } from '@/services/settings.service';
 import {
+  closedStatusMeta,
   getStatusBadge,
   deriveWorkflowStatus,
   WORKFLOW_STATUS_META,
@@ -384,7 +385,8 @@ export function MessageDetailHeader({
         icon: <Sparkles className="w-2.5 h-2.5 animate-pulse" />,
         cls: 'text-ai border-ai-line bg-ai-muted',
       };
-    // The WORK status (Open/In Progress/Pending/On-hold/Resolved) is shown by the
+    // The WORK status (Open/In Progress/Pending/On-hold/Resolved, or Closed / Not customer work for
+    // a closed thread) is shown by the
     // status SELECT next to this badge — don't duplicate it here. This badge only
     // surfaces Queue-axis overlays the select doesn't: spam/suspicious/re-analyzing
     // (above) and "Not Analysed" (a brand-new inbound with no AI analysis yet).
@@ -420,12 +422,14 @@ export function MessageDetailHeader({
         ? 'Reopen'
         : 'Take off hold'
       : WORKFLOW_STATUS_META[ws].label;
+  // A closed thread is not a resolution — the same chip the list shows (`closedStatusMeta`).
+  const currentStatusMeta = closedStatusMeta(message) ?? WORKFLOW_STATUS_META[currentWorkflowStatus];
   const statusDisplayOptions = [
     {
       value: currentWorkflowStatus,
-      label: WORKFLOW_STATUS_META[currentWorkflowStatus].label,
-      menuLabel: WORKFLOW_STATUS_META[currentWorkflowStatus].label,
-      chipClassName: WORKFLOW_STATUS_META[currentWorkflowStatus].className,
+      label: currentStatusMeta.label,
+      menuLabel: currentStatusMeta.label,
+      chipClassName: currentStatusMeta.className,
       isDisabled: true,
     },
     ...actionableStatuses

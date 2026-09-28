@@ -56,6 +56,9 @@ export const BulkConfirmDialog = ({
   const [trainFilter, setTrainFilter] = useState(false);
   const [assigneeId, setAssigneeId] = useState<number | null>(null);
   const [assignable, setAssignable] = useState<AssignableUser[]>([]);
+  // An empty list meant three different things — still loading, nobody to assign, the request
+  // failed — and all three rendered as a picker holding only its placeholder, with no word why.
+  const [assignableState, setAssignableState] = useState<'loading' | 'loaded' | 'failed'>('loading');
 
   // Fresh every time it opens: a title typed for one ticket must not survive into the next one,
   // and "teach the filter" is a decision per run, never a sticky preference.
@@ -72,15 +75,20 @@ export const BulkConfirmDialog = ({
   useEffect(() => {
     if (!open || action === null || NEEDS_INPUT[action] !== 'assignee') return;
     let cancelled = false;
+    setAssignableState('loading');
     void assignmentService
       .getAssignableUsers()
       .then((users) => {
-        if (!cancelled) setAssignable(users);
+        if (cancelled) return;
+        setAssignable(users);
+        setAssignableState('loaded');
       })
       .catch(() => {
         // Leave the list empty: the confirm button stays disabled, which is the honest state —
         // better than an enabled button that would silently clear every assignee.
-        if (!cancelled) setAssignable([]);
+        if (cancelled) return;
+        setAssignable([]);
+        setAssignableState('failed');
       });
     return () => {
       cancelled = true;
@@ -168,6 +176,16 @@ export const BulkConfirmDialog = ({
                   </option>
                 ))}
               </select>
+              {assignableState === 'loaded' && assignable.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No one in this workspace can be assigned conversations.
+                </p>
+              )}
+              {assignableState === 'failed' && (
+                <p className="text-xs text-destructive">
+                  Could not load the people you can assign. Nothing was changed.
+                </p>
+              )}
             </div>
           )}
 
