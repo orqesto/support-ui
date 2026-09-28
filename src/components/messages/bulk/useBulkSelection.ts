@@ -22,6 +22,13 @@ export type BulkSelection = {
   selectedIds: number[];
   isSelected: (id: number) => boolean;
   toggle: (id: number) => void;
+  /**
+   * Shift-click: set every id between the ANCHOR (the last one toggled) and `id` to the state
+   * `id` is moving to, in the order `orderedIds` gives — the order the rows are drawn in. No
+   * anchor, or an anchor that is not in `orderedIds` (another Kanban column, a row that has
+   * left the list, the previous page), and it is an ordinary single toggle.
+   */
+  toggleRange: (id: number, orderedIds: readonly number[]) => void;
   clear: () => void;
   selectMany: (ids: number[]) => void;
   deselectMany: (ids: number[]) => void;
@@ -45,12 +52,19 @@ export const useBulkSelection = (scopeKey: string): BulkSelection => {
   const [previewKey, setPreviewKey] = useState('');
   const [loading, setLoading] = useState(false);
 
+  /**
+   * The last id toggled on its own — the start of the next shift-click range. A ref, not state:
+   * it never draws anything, and a render per click to move it would be waste.
+   */
+  const anchorRef = useRef<number | null>(null);
+
   // A scope change makes the current ids meaningless — they name rows that are no longer on
   // screen. Skipped on the first render so mounting does not clear a selection restored elsewhere.
   const previousScope = useRef(scopeKey);
   useEffect(() => {
     if (previousScope.current === scopeKey) return;
     previousScope.current = scopeKey;
+    anchorRef.current = null;
     setSelectedIds([]);
     setPreviews({});
     setPreviewKey('');
@@ -109,10 +123,33 @@ export const useBulkSelection = (scopeKey: string): BulkSelection => {
   }, [selectedKey]);
 
   const toggle = useCallback((id: number) => {
+    anchorRef.current = id;
     setSelectedIds((previous) =>
       previous.includes(id) ? previous.filter((entry) => entry !== id) : [...previous, id]
     );
   }, []);
+
+  const toggleRange = useCallback(
+    (id: number, orderedIds: readonly number[]) => {
+      const anchor = anchorRef.current;
+      const from = anchor === null ? -1 : orderedIds.indexOf(anchor);
+      const to = orderedIds.indexOf(id);
+      if (from === -1 || to === -1) {
+        toggle(id);
+        return;
+      }
+      const span = orderedIds.slice(Math.min(from, to), Math.max(from, to) + 1);
+      anchorRef.current = id;
+      setSelectedIds((previous) => {
+        // The clicked row decides the direction, as in every mail client: ticking it ticks
+        // the range, unticking it unticks the range.
+        if (!previous.includes(id)) return [...new Set([...previous, ...span])];
+        const drop = new Set(span);
+        return previous.filter((entry) => !drop.has(entry));
+      });
+    },
+    [toggle]
+  );
 
   const selectMany = useCallback((ids: number[]) => {
     setSelectedIds((previous) => [...new Set([...previous, ...ids])]);
@@ -124,6 +161,7 @@ export const useBulkSelection = (scopeKey: string): BulkSelection => {
   }, []);
 
   const clear = useCallback(() => {
+    anchorRef.current = null;
     setSelectedIds([]);
     setPreviews({});
     setPreviewKey('');
@@ -138,6 +176,7 @@ export const useBulkSelection = (scopeKey: string): BulkSelection => {
     selectedIds,
     isSelected,
     toggle,
+    toggleRange,
     clear,
     selectMany,
     deselectMany,
