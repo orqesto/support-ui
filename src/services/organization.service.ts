@@ -432,6 +432,33 @@ export const organizationService = {
     return response.data.data ?? { configured: businessHours !== null, businessHours };
   },
 
+  /**
+   * Open-conversation window: how many days old a customer's email may be and still count as
+   * waiting on the team (backend default 14, range 1–365). Readable by any member; the PATCH is
+   * org-admin only. A backend without the route answers 404 — the caller treats that as "not
+   * released here", not as an error.
+   */
+  getOpenConversationWindow: async (): Promise<{ days: number }> => {
+    const response = await apiClient.get<ApiResponse<{ days: number }>>(
+      '/api/organizations/open-conversation-window'
+    );
+    const days = response.data.data?.days;
+    // No local default: a reply without a number is a fault to show, not a 14 to assume.
+    if (typeof days !== 'number') throw new Error('The server did not return the window');
+    return { days };
+  },
+
+  /** Resolves with what the server STORED (its 200 echoes it), not with what was sent. */
+  updateOpenConversationWindow: async (days: number): Promise<{ days: number }> => {
+    const response = await apiClient.patch<ApiResponse<{ days: number }>>(
+      '/api/organizations/open-conversation-window',
+      { days }
+    );
+    const stored = response.data.data?.days;
+    if (typeof stored !== 'number') throw new Error('The server did not confirm the window');
+    return { days: stored };
+  },
+
   getSecuritySettings: async (): Promise<{ require2FA: boolean }> => {
     const response = await apiClient.get<ApiResponse<{ require2FA: boolean }>>(
       '/api/organizations/security-settings'

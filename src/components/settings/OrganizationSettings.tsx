@@ -7,6 +7,7 @@ import { CategoriesSettings } from './CategoriesSettings';
 import { LabelsSettings } from './LabelsSettings';
 import { RoutingKeysSettings } from './RoutingKeysSettings';
 import { BusinessHoursSettings } from './BusinessHoursSettings';
+import { OpenConversationWindowSettings } from './OpenConversationWindowSettings';
 import { SLAConfigSettings } from './SLAConfigSettings';
 import { SecuritySettings } from './SecuritySettings';
 import { WorkspaceDetailsSettings } from './WorkspaceDetailsSettings';
@@ -18,6 +19,7 @@ type OrgSection =
   | 'routing-skills'
   | 'sla-config'
   | 'business-hours'
+  | 'open-conversations'
   | 'security';
 
 const sections = [
@@ -27,12 +29,18 @@ const sections = [
   { id: 'routing-skills' as OrgSection, label: 'Routing Skills', description: 'Skill keys for auto-assignment' },
   { id: 'sla-config' as OrgSection, label: 'SLA Thresholds', description: 'Response and resolution time targets' },
   { id: 'business-hours' as OrgSection, label: 'Business Hours', description: 'Working calendar used for open-hours response times' },
+  { id: 'open-conversations' as OrgSection, label: 'Open Conversations', description: 'How old an email may be and still count as open work' },
   { id: 'security' as OrgSection, label: 'Authentication', description: 'Workspace two-factor authentication policy' },
 ];
 
 // Workspace-wide policy sub-sections — admin-only (org_admin+/global), hidden from
 // moderators who can otherwise reach the Workspace tab via VIEW_ORGANIZATION_SETTINGS.
-const ADMIN_ONLY_SECTIONS: OrgSection[] = ['sla-config', 'business-hours', 'security'];
+const ADMIN_ONLY_SECTIONS: OrgSection[] = [
+  'sla-config',
+  'business-hours',
+  'open-conversations',
+  'security',
+];
 
 const KNOWN_ORG_SECTIONS = sections.map((sect) => sect.id);
 const isOrgSection = (value: string): value is OrgSection =>
@@ -101,6 +109,7 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
         {active === 'routing-skills' && <RoutingKeysSettings />}
         {active === 'sla-config' && canManageOrgPolicy && <SLAConfigSettings />}
         {active === 'business-hours' && canManageOrgPolicy && <BusinessHoursSettings />}
+        {active === 'open-conversations' && canManageOrgPolicy && <OpenConversationWindowSettings />}
         {active === 'security' && canManageOrgPolicy && <SecuritySettings />}
       </Tabs>
     </div>
