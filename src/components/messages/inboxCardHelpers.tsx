@@ -4,6 +4,7 @@ import type { MessageThread } from '@/services/message.service';
 import { getSpamCheck, hasMessageAttachments } from '@/lib/messageHelpers';
 import { formatDuration } from '@/lib/utils';
 import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/types/ai';
+import { notCustomerWorkMark } from './notCustomerWork';
 
 /**
  * Shared derivations for the redesigned inbox cards (MessageListItem + KanbanCard).
@@ -119,12 +120,32 @@ export const deriveWorkflowStatus = (
  * derivation everywhere, so the badge always matches the column and filter.
  */
 export const getStatusBadge = (
-  message: Pick<Message, 'parkedAt' | 'lastReplyFromClient'> & {
-    status: Message['status'] | 'new' | 'awaiting_response' | 'client_replied';
-  }
+  message: Pick<Message, 'parkedAt' | 'lastReplyFromClient'> &
+    Partial<Pick<Message, 'metadata'>> & {
+      status: Message['status'] | 'new' | 'awaiting_response' | 'client_replied';
+    }
 ): { label: string; className: string } | null => {
   const wf = deriveWorkflowStatus(message);
-  return wf ? WORKFLOW_STATUS_META[wf] : null;
+  if (!wf) return null;
+  return closedStatusMeta(message) ?? WORKFLOW_STATUS_META[wf];
+};
+
+/**
+ * `closed` derives to the Resolved work status (it is terminal, and sits in the Resolved column),
+ * but it is NOT a resolution: an agent binned it as not customer work, or it was closed another
+ * way, and it is missing from the resolved count on purpose. Its chip says which, in the words the
+ * action strip uses, and in the muted colour closed carries elsewhere — never Resolved's green.
+ * Null for every other status.
+ */
+export const closedStatusMeta = (
+  message: { status: string } & Partial<Pick<Message, 'metadata'>>
+): { label: string; className: string } | null => {
+  if (message.status !== 'closed') return null;
+  const binned = notCustomerWorkMark({ metadata: message.metadata ?? undefined });
+  return {
+    label: binned ? 'Not customer work' : 'Closed',
+    className: 'bg-muted text-muted-foreground',
+  };
 };
 
 /**

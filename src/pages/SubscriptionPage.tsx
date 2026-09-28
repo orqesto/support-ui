@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { AddPaymentMethodDialog } from '@/components/billing/AddPaymentMethodDialog';
+import { billingDateLine } from '@/components/subscription/billingDateLine';
 import { MessagePackOfferCard } from '@/components/subscription/MessagePackOfferCard';
 import { describeUsagePeriod } from '@/components/subscription/usagePeriodCopy';
 import { useMessagePackReturn } from '@/components/subscription/useMessagePackReturn';
@@ -300,6 +301,7 @@ export const SubscriptionPage = () => {
   }
 
   const { plan, subscription } = subscriptionDetails;
+  const billingLine = billingDateLine(plan, subscription);
   const { usage } = dashboard;
 
   return (
@@ -382,20 +384,18 @@ export const SubscriptionPage = () => {
                 )}
               </div>
               <div>
-                <p className="mb-1 text-sm text-muted-foreground">
-                  {subscription.status === 'cancelled' || subscription.status === 'expired'
-                    ? 'Period Ends'
-                    : 'Next Billing Date'}
-                </p>
-                <p className="text-lg font-semibold">
-                  {subscription.currentPeriodEnd
-                    ? new Date(subscription.currentPeriodEnd).toLocaleDateString('en-US', {
+                {billingLine && (
+                  <>
+                    <p className="mb-1 text-sm text-muted-foreground">{billingLine.label}</p>
+                    <p className="text-lg font-semibold">
+                      {billingLine.date.toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
                         year: 'numeric',
-                      })
-                    : 'N/A'}
-                </p>
+                      })}
+                    </p>
+                  </>
+                )}
                 {subscription.trialEndsAt && (
                   <p className="text-sm text-foreground">
                     Trial ends: <span className="font-mono">{new Date(subscription.trialEndsAt).toLocaleDateString()}</span>

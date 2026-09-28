@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { KeyRound, Copy, Check, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
@@ -119,6 +120,8 @@ export const SSOConfigSettings = () => {
   const [jitProvisioning, setJitProvisioning] = useState(true);
   // Secure default OFF — linking to an existing member's account is opt-in.
   const [allowSsoAccountLinking, setAllowSsoAccountLinking] = useState(false);
+  // Default OFF — enforcing SSO-only makes the IdP a hard dependency for the members it governs.
+  const [enforceSsoOnly, setEnforceSsoOnly] = useState(false);
   // Drives the "•••• (unchanged)" placeholder — the secret itself is never held.
   const [hasClientSecret, setHasClientSecret] = useState(false);
 
@@ -165,6 +168,7 @@ export const SSOConfigSettings = () => {
           setDomainsText(config.allowedEmailDomains.join('\n'));
           setJitProvisioning(config.jitProvisioning);
           setAllowSsoAccountLinking(config.allowSsoAccountLinking);
+          setEnforceSsoOnly(config.enforceSsoOnly ?? false);
           setHasClientSecret(config.hasClientSecret);
           setProvider(inferProvider(config.issuerUrl));
           // NOTE: config.clientSecret does not exist — the GET response is redacted.
@@ -241,6 +245,8 @@ export const SSOConfigSettings = () => {
         allowedEmailDomains: parseDomains(domainsText),
         jitProvisioning,
         allowSsoAccountLinking,
+        // Sent every time (an omitted value resets it on the backend), and never ON without SSO.
+        enforceSsoOnly: enabled && enforceSsoOnly,
       });
       // Refresh derived state from the redacted response; NEVER re-populate the secret.
       setHasClientSecret(result.hasClientSecret);
@@ -458,6 +464,33 @@ export const SSOConfigSettings = () => {
                 (matched by verified email) and their account is linked on first SSO login. Leave
                 off unless you trust your IdP to authenticate existing accounts.
               </p>
+            </div>
+
+            <div className="space-y-1">
+              <Checkbox
+                // It means nothing without SSO, and on a backend that predates the enabled-guard it
+                // would lock the governed members out (no password door, no SSO door). So SSO off
+                // shows it off and saves it off — `enforceSsoOnly: enabled && enforceSsoOnly`.
+                checked={enabled && enforceSsoOnly}
+                disabled={!enabled}
+                onChange={(event) => setEnforceSsoOnly(event.target.checked)}
+                label={
+                  <span className="font-medium">Require SSO — no password sign-in</span>
+                }
+              />
+              <p className="pl-7 text-xs text-muted-foreground">
+                Members your identity provider manages — provisioned through SCIM or one of its groups, or
+                managed by an alliance — can only sign in through it, so its MFA and access policies cannot be bypassed with a
+                password. Everyone else keeps their password. Turning SSO off turns this off too.
+              </p>
+              {enabled && enforceSsoOnly && (
+                <div className="pl-7">
+                  <Alert variant="warning">
+                    If your identity provider is down, the members it manages cannot sign in until it
+                    is back. Keep at least one admin your provider does not manage.
+                  </Alert>
+                </div>
+              )}
             </div>
 
             {/* Pre-save "Test connection" — real SSRF-guarded discovery probe. */}
