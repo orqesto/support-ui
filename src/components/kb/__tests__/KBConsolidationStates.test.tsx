@@ -328,6 +328,30 @@ describe('KB list — consolidation states (F4)', () => {
       expect(screen.getByRole('button', { name: /Unmerge/ })).toBeInTheDocument();
     });
 
+    it('on the current backend the detail is the authority: a stale list row cannot bring a merge back', async () => {
+      // Loaded before another moderator unmerged case 9; the detail says it is live now. The
+      // current backend leaves `consolidation` out on purpose there — absent means "none".
+      const detail = kbEntryDetailResponse({ id: 5, publicId: 'KB-5' });
+      (detail.data as Record<string, unknown>).capturedVia = null;
+      getById.mockResolvedValue(detail);
+      render(
+        <MemoryRouter>
+          <KBEntryDetail
+            entry={entry({
+              id: 5,
+              consolidatedInto: 9,
+              consolidation: { state: 'merged', caseId: 9, casePublicId: 'KB-9', caseExists: true },
+            })}
+            onClose={vi.fn()}
+            canReview
+            {...handlers()}
+          />
+        </MemoryRouter>
+      );
+      expect(await screen.findByRole('button', { name: /Approve/ })).toBeInTheDocument();
+      expect(screen.queryByText(/merged into/)).not.toBeInTheDocument();
+    });
+
     it("on the deployed backend (detail without sourceDeleted) the drawer keeps the list's answer (MED-1)", async () => {
       // Prod's detail route (getKBEntry) sends no sourceDeleted / capturedVia / publicId; its
       // list does. The drawer must not read a retired entry as live.

@@ -105,8 +105,12 @@ type KBEntryDetailProps = {
 
 /**
  * The deployed detail route (getKBEntry) omits fields the list sends — sourceDeleted, capturedVia,
- * publicId and the consolidation pair — which the badge and the action gates read. Keep the
- * list's value when the detail does not say, so the drawer never contradicts the card.
+ * publicId and the consolidation pair — which the badge and the action gates read. On THAT shape
+ * only, the list row's values stand in. The current backend always sends `sourceDeleted`, and
+ * there the detail is the authority for all five: it leaves `consolidation` out on purpose when
+ * an entry is not merged, so a list row loaded before an Unmerge must not bring the merge back.
+ * (A `?id=` deep link on the deployed backend has no list row, so there the drawer can only show
+ * what the detail says.)
  */
 const LIST_ONLY_FIELDS = [
   'sourceDeleted',
@@ -116,6 +120,7 @@ const LIST_ONLY_FIELDS = [
   'consolidation',
 ] as const;
 const withListFields = (detail: KBEntry, listed: KBEntry): KBEntry => {
+  if (detail.sourceDeleted !== undefined) return detail;
   const merged = { ...detail };
   for (const key of LIST_ONLY_FIELDS) {
     if (merged[key] === undefined && listed[key] !== undefined) {
