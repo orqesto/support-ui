@@ -19,6 +19,11 @@ import { logger } from '@/lib/logger';
 import { LABEL } from './messageDetailConstants';
 import { solidChip } from '@/lib/userColor';
 
+/** The label picker's drawn width — the ONE number its on-screen clamp also uses. */
+const LABEL_PICKER_WIDTH_PX = 200;
+/** Gap kept between the picker and either edge of the visible page. */
+const PICKER_MARGIN_PX = 8;
+
 type Props = {
   /** 'rows' — stacked label/value rows for the full page's sidebar (v3); default inline row. */
   layout?: 'inline' | 'rows';
@@ -137,8 +142,20 @@ export function HeaderMetaStrip({
   useEffect(() => {
     if (showLabelPicker && labelBtnRef.current) {
       const rect = labelBtnRef.current.getBoundingClientRect();
-      const pickerWidth = 176;
-      const left = Math.min(rect.left, window.innerWidth - pickerWidth - 8);
+      /**
+       * ⛔ Kept on screen with the width it is DRAWN at, against the width you can SEE.
+       * This assumed 176 px for a 200 px picker and measured `innerWidth`, which includes the
+       * scrollbar — so near the right edge it hung 16–27 px past the page. The picker is
+       * `absolute` in <body>, so that widened the document, and the search box's autofocus then
+       * scrolled the whole page sideways (staging, 2026-09-29: scrollWidth 595 → 622, scrollX 22).
+       */
+      const visibleWidth = document.documentElement.clientWidth;
+      const inView = Math.max(
+        PICKER_MARGIN_PX,
+        Math.min(rect.left, visibleWidth - LABEL_PICKER_WIDTH_PX - PICKER_MARGIN_PX)
+      );
+      // Page coordinates, both axes: the picker is absolutely positioned in <body>.
+      const left = inView + window.scrollX;
       const top = rect.bottom + window.scrollY + 6;
       setPickerPos({ top, left });
     }
@@ -340,7 +357,11 @@ export function HeaderMetaStrip({
                           // A non-modal dialog: the detail's shortcuts stand down while it is open.
                           role="dialog"
                           aria-label="Labels"
-                          style={{ top: pickerPos.top, left: pickerPos.left, width: 200 }}
+                          style={{
+                            top: pickerPos.top,
+                            left: pickerPos.left,
+                            width: LABEL_PICKER_WIDTH_PX,
+                          }}
                           className="absolute z-[9999] rounded-lg border border-border shadow-xl p-1 bg-card text-card-foreground"
                         >
                           <input

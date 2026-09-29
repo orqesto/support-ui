@@ -92,3 +92,77 @@ describe('HeaderMetaStrip — the Labels row with an empty workspace', () => {
     expect(screen.getByText('Urgent')).toBeTruthy();
   });
 });
+
+/**
+ * The picker must stay inside the page it opens on (staging, 2026-09-29).
+ *
+ * Near the right edge it was placed as if 176 px wide while drawn at 200, against `innerWidth`
+ * (which counts the scrollbar). Being `absolute` in <body>, it widened the document by up to
+ * 27 px, and its autofocused search box scrolled the whole page sideways. jsdom has no layout, so
+ * the button's position and the visible width are given here; the picker's width is READ from
+ * what it renders, so the test cannot agree with a wrong constant.
+ */
+describe('HeaderMetaStrip — the label picker stays on the page', () => {
+  const open = (buttonLeft: number, visibleWidth: number, scrollX = 0) => {
+    Object.defineProperty(document.documentElement, 'clientWidth', {
+      configurable: true,
+      value: visibleWidth,
+    });
+    Object.defineProperty(window, 'scrollX', { configurable: true, value: scrollX });
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: buttonLeft,
+      right: buttonLeft + 28,
+      top: 261,
+      bottom: 281,
+      width: 28,
+      height: 20,
+      x: buttonLeft,
+      y: 261,
+      toJSON: () => ({}),
+    });
+    render(
+      <HeaderMetaStrip
+        message={message}
+        categories={[]}
+        messageLabels={[]}
+        allLabels={[]}
+        hasManageLabels
+        showLabelPicker
+        updatingCategory={false}
+        onSetCategory={vi.fn()}
+        onToggleLabel={vi.fn()}
+        onToggleLabelPicker={vi.fn()}
+        onCloseLabelPicker={vi.fn()}
+        onCreateLabel={vi.fn()}
+      />
+    );
+    const picker = screen.getByRole('dialog', { name: 'Labels' });
+    return { left: parseFloat(picker.style.left), width: parseFloat(picker.style.width) };
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('opened near the RIGHT edge, it ends inside the visible page — the measured staging case', () => {
+    // Staging: button at x=488 in a 595 px page (606 px window minus its scrollbar).
+    const { left, width } = open(488, 595);
+    expect(left + width).toBeLessThanOrEqual(595 - 8);
+  });
+
+  it('opened near the LEFT edge, it does not start off the page', () => {
+    const { left } = open(2, 595);
+    expect(left).toBeGreaterThanOrEqual(8);
+  });
+
+  it('on a page already scrolled sideways, it is placed in PAGE coordinates', () => {
+    // `absolute` in <body>: without the scroll offset it would land 30 px left of the button.
+    const { left } = open(100, 1200, 30);
+    expect(left).toBe(130);
+  });
+
+  it('CONTROL: with room to spare it sits right under its button, not pushed anywhere', () => {
+    const { left } = open(100, 1200);
+    expect(left).toBe(100);
+  });
+});
