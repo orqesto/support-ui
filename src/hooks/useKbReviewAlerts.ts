@@ -147,14 +147,14 @@ export const useKbReviewAlerts = () => {
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
-    // Every one of these events names its kind. Re-read only the list it concerns: one request
-    // per event, and none for the SLA / arrival traffic that makes up most of the stream.
+    // Every backend emit of these events names its kind (notifyProcessor, notificationBus). Re-read
+    // only the list it concerns: one request per event, none for the SLA / arrival traffic that
+    // makes up most of the stream — and none for an event that names no kind.
     // `notification:updated` = a standing row changed in place (the merge row re-counted).
     const onChange = (data: unknown) => {
       const kind = (data as { kind?: unknown } | null)?.kind;
       if (kind === KB_REVIEW_KIND) fetchReviews();
       else if (kind === KB_CONSOLIDATION_KIND) fetchConsolidations();
-      else if (typeof kind !== 'string') fetchAlerts(); // cannot tell — read both
     };
     const events = ['notification:new', 'notification:resolved', 'notification:updated'];
     for (const event of events) subscribeToEvent(event, onChange);

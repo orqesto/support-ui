@@ -225,7 +225,9 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
         <span className="font-medium">
           {isConsolidate
             ? 'Proposed: merge these answers into one case'
-            : `Proposed: add these entries to case ${detail.case ? memberName(detail.case) : ''}`}
+            : detail.case
+              ? `Proposed: add these entries to case ${memberName(detail.case)}`
+              : 'Proposed: add these entries to a case that no longer exists'}
         </span>
         {detail.label && <Badge variant="secondary">{detail.label}</Badge>}
         {detail.language && <Badge variant="secondary">{detail.language}</Badge>}
@@ -295,6 +297,16 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
                   disabled={excluded !== null || !pending}
                   onChange={(event) => toggleMember(member.id, event.target.checked)}
                 />
+                {!member.gone && member.covered && (
+                  // A moderator already said no to this entry (or its conversation) for this case
+                  // — declined, or unmerged. Shown, not enforced: the choice stays theirs.
+                  <Badge
+                    variant="warning"
+                    title="Declined (or unmerged) before for this case — ticking it overrides that."
+                  >
+                    declined before
+                  </Badge>
+                )}
                 {!member.gone && member.alreadyCounted && (
                   <Badge
                     variant="secondary"

@@ -178,26 +178,32 @@ describe('KB Cases report (F2)', () => {
     possibleDuplicates: [],
   };
 
-  it('mining off with nothing learned says so instead of an empty table', () => {
+  const allSettled = { settled: 0, total: 0 };
+  const MINING_OFF = /No mailbox in this department feeds the knowledge base automatically/;
+
+  it('mining off with nothing in the knowledge base here says so instead of an empty table', () => {
     view(
       report({
         miningOff: true,
         headers: [],
         footer: { belowQualityBar: 0 },
         findings: zeroFindings,
+        classifying: allSettled,
       })
     );
-    expect(
-      screen.getByText(/Learning from conversations is off for this department/)
-    ).toHaveTextContent(/so there are no learned answers to group into cases/);
+    expect(screen.getByText(MINING_OFF)).toHaveTextContent(
+      /so there are no learned answers to group into cases/
+    );
     expect(screen.queryByText(/No learned answers match/)).not.toBeInTheDocument();
   });
 
-  it('mining off never hides what WAS learned: footer and findings stay, and it claims no "no answers"', () => {
-    view(report({ miningOff: true, headers: [] }));
-    expect(
-      screen.getByText(/Learning from conversations is off for this department/)
-    ).not.toHaveTextContent(/no learned answers/);
+  it('mining off never hides what the knowledge base holds, and claims nothing about when it came', () => {
+    // Resolve & Save and training captures fill a department with no KB mailbox, and "awaiting
+    // KB review" items are CURRENT captures — neither is "learned before mining was switched off".
+    view(report({ miningOff: true, headers: [], classifying: allSettled }));
+    const notice = screen.getByText(MINING_OFF);
+    expect(notice).not.toHaveTextContent(/no learned answers/i);
+    expect(notice).not.toHaveTextContent(/before|learning from conversations is off/i);
     expect(screen.getByText('12 more learned answers below the quality bar')).toBeInTheDocument();
     expect(screen.getByRole('list', { name: 'Findings' })).toHaveTextContent(
       /3 awaiting KB review/
@@ -205,17 +211,70 @@ describe('KB Cases report (F2)', () => {
     expect(screen.queryByText(/no learned answers/i)).not.toBeInTheDocument();
   });
 
+  it('mining off while entries are still being classified says so and shows the progress (MED-1)', () => {
+    view(
+      report({
+        miningOff: true,
+        headers: [],
+        footer: { belowQualityBar: 0 },
+        findings: zeroFindings,
+        classifying: { settled: 0, total: 5 },
+      })
+    );
+    expect(screen.queryByText(/no learned answers/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Classifying: 0 of 5')).toBeInTheDocument();
+    expect(screen.getByText(MINING_OFF)).toHaveTextContent(
+      /5 learned answers are still being classified/
+    );
+  });
+
+  it('an empty report while entries are still being classified does not say none match (MED-1)', () => {
+    view(
+      report({
+        headers: [],
+        footer: { belowQualityBar: 0 },
+        findings: zeroFindings,
+        classifying: { settled: 0, total: 40 },
+      })
+    );
+    expect(screen.getByText('Classifying: 0 of 40')).toBeInTheDocument();
+    expect(screen.queryByText(/No learned answers match/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '40 learned answers are still being classified — cases appear once they are.'
+      )
+    ).toBeInTheDocument();
+  });
+
   it('an empty report with answers below the bar does not say nothing was learned', () => {
-    view(report({ headers: [], findings: zeroFindings }));
+    view(report({ headers: [], findings: zeroFindings, classifying: { settled: 50, total: 50 } }));
     expect(screen.queryByText(/No learned answers match/)).not.toBeInTheDocument();
     expect(
       screen.getByText(/None of the learned answers here clears the quality bar yet/)
     ).toBeInTheDocument();
   });
 
-  it('flags a bounded scope', () => {
-    view(report({ bounded: true }));
-    expect(screen.getByText(/Only the newest\s+are grouped/)).toBeInTheDocument();
+  it('a search with no match says so — never a department-wide claim (LOW-1)', async () => {
+    getCases.mockImplementation((query) =>
+      Promise.resolve(
+        (query as { search?: string }).search
+          ? report({ headers: [], classifying: { settled: 50, total: 50 } })
+          : report()
+      )
+    );
+    render(
+      <MemoryRouter>
+        <KbCasesPage />
+      </MemoryRouter>
+    );
+    await screen.findByText('Refunds take 5 days.');
+    fireEvent.change(screen.getByPlaceholderText('Search questions'), {
+      target: { value: 'zzz' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(await screen.findByText('No case matches “zzz”.')).toBeInTheDocument();
+    expect(screen.queryByText(/None of the learned answers here/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No learned answers match here/)).not.toBeInTheDocument();
   });
 
   it('a moderator is offered only their own departments, and the first of THOSE is loaded', async () => {
@@ -325,7 +384,14 @@ describe('KB Cases report (F2)', () => {
     fireEvent.change(screen.getByLabelText('Department'), { target: { value: '7' } });
     expect(screen.queryByText('Refunds take 5 days.')).not.toBeInTheDocument();
     expect(screen.getByRole('status', { busy: true })).toBeInTheDocument();
-    resolveBilling(report({ headers: [], findings: zeroFindings, footer: { belowQualityBar: 0 } }));
+    resolveBilling(
+      report({
+        headers: [],
+        findings: zeroFindings,
+        footer: { belowQualityBar: 0 },
+        classifying: { settled: 50, total: 50 },
+      })
+    );
     expect(await screen.findByText('No learned answers match here yet.')).toBeInTheDocument();
     // The stale answer for department 4 lands last — it must not replace department 7's.
     resolveStale(report());

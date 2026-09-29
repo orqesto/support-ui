@@ -133,6 +133,31 @@ describe('KbConsolidationReview (F1)', () => {
     expect(edited.disabled).toBe(true);
   });
 
+  it('marks a member already declined for this case — and still lets it be ticked (LOW-3)', async () => {
+    // `covered` (members route): a declined or unmerged verdict already covers this entry or its
+    // conversation for this case/key. The moderator should know; the choice stays theirs.
+    getMembers.mockResolvedValue(
+      detail({ members: [member(1), member(2, { covered: true }), member(3)] })
+    );
+    renderReview();
+    const marked = within(await screen.findByTestId('member-2'));
+    expect(marked.getByText('declined before')).toBeInTheDocument();
+    expect(within(screen.getByTestId('member-1')).queryByText('declined before')).toBeNull();
+    const tick = box('Include #KB-2');
+    expect(tick.checked).toBe(true);
+    expect(tick.disabled).toBe(false);
+  });
+
+  it('attach to a case that no longer exists has a complete title (LOW-4)', async () => {
+    getMembers.mockResolvedValue(
+      detail({ type: 'attach', proposed: null, case: null, members: [member(5)] })
+    );
+    renderReview();
+    expect(
+      await screen.findByText('Proposed: add these entries to a case that no longer exists')
+    ).toBeInTheDocument();
+  });
+
   it('marks an already-counted member', async () => {
     getMembers.mockResolvedValue(
       detail({ members: [member(1), member(2, { alreadyCounted: true })] })

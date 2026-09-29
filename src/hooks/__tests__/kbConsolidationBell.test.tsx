@@ -180,6 +180,14 @@ describe('KB merge bell stays current (M1)', () => {
     expect(get).not.toHaveBeenCalled();
   });
 
+  it('an event without a kind asks for nothing — every backend emit names its kind (LOW-6)', async () => {
+    await mounted();
+    act(() => emit('notification:resolved', { ids: [5] }));
+    act(() => emit('notification:new', null));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(get).not.toHaveBeenCalled();
+  });
+
   it('a decision taken in this tab re-counts the merge row at once', async () => {
     const { result } = await mounted();
     respondByKind({ [KB_CONSOLIDATION_KIND]: [] });

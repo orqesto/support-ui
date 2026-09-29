@@ -192,27 +192,67 @@ const BelowQualityBar = ({ count }: { count: number }) =>
     </p>
   ) : null;
 
-export const KbCasesReportView = ({ report }: { report: KbCasesReport }) => {
+/** Entries not yet labelled live ONLY in `classifying` — not in rows, footer or findings. */
+const ClassifyingStatus = ({ settled, total }: { settled: number; total: number }) =>
+  settled < total ? (
+    <p className="text-sm text-muted-foreground" role="status">
+      Classifying: {settled} of {total}
+    </p>
+  ) : null;
+
+const stillClassifyingText = (count: number) =>
+  `${plural(count, 'learned answer is', 'learned answers are')} still being classified — cases appear once they are.`;
+
+/**
+ * Why there are no case rows — true in every state. A search only narrows the rows, so with one
+ * active nothing department-wide is claimed; unlabelled entries are not "no answers".
+ */
+const emptyText = (report: KbCasesReport, search: string): string => {
+  const stillClassifying = report.classifying.total - report.classifying.settled;
+  if (search.trim()) return `No case matches “${search.trim()}”.`;
+  if (stillClassifying > 0) return stillClassifyingText(stillClassifying);
+  if (report.footer.belowQualityBar > 0)
+    return 'None of the learned answers here clears the quality bar yet.';
+  return 'No learned answers match here yet.';
+};
+
+/**
+ * Mining off only means no MAILBOX feeds the knowledge base on its own. Resolve & Save and
+ * training still add answers, and "awaiting KB review" items are current captures — so this
+ * never says when anything was learned, and claims "no learned answers" only when the report
+ * holds none at all, classified or not.
+ */
+const miningOffText = (report: KbCasesReport, learnedSomething: boolean): string => {
+  const lead = 'No mailbox in this department feeds the knowledge base automatically';
+  const stillClassifying = report.classifying.total - report.classifying.settled;
+  if (stillClassifying > 0)
+    return `${lead}. ${stillClassifyingText(stillClassifying)}${learnedSomething ? ' What it already holds is listed below.' : ''}`;
+  if (learnedSomething) return `${lead}. What it holds for this department is listed below.`;
+  if (report.classifying.total > 0)
+    return `${lead}, and none of the answers it holds here forms a case yet.`;
+  return `${lead}, so there are no learned answers to group into cases.`;
+};
+
+export const KbCasesReportView = ({
+  report,
+  search = '',
+}: {
+  report: KbCasesReport;
+  /** The search the report was asked for; an empty result then means "nothing matches it". */
+  search?: string;
+}) => {
   const learnedSomething = report.footer.belowQualityBar > 0 || hasFindings(report.findings);
+  const { settled, total } = report.classifying;
   if (report.miningOff) {
-    // Mining off says nothing about what was learned BEFORE it was switched off: answers below
-    // the bar and findings still exist and still need someone. Only claim "nothing learned"
-    // when the report really holds nothing.
     return (
       <div className="space-y-4">
-        <Alert>
-          Learning from conversations is off for this department — no mailbox here feeds the
-          knowledge base
-          {learnedSomething
-            ? '. What was learned before is listed below.'
-            : ', so there are no learned answers to group into cases.'}
-        </Alert>
+        <Alert>{miningOffText(report, learnedSomething)}</Alert>
+        <ClassifyingStatus settled={settled} total={total} />
         <BelowQualityBar count={report.footer.belowQualityBar} />
         <KbCasesFindingsPanel findings={report.findings} />
       </div>
     );
   }
-  const { settled, total } = report.classifying;
   return (
     <div className="space-y-4">
       {report.bounded && (
@@ -221,16 +261,10 @@ export const KbCasesReportView = ({ report }: { report: KbCasesReport }) => {
           are grouped, so older answers are missing and the counts can be low.
         </Alert>
       )}
-      {settled < total && (
-        <p className="text-sm text-muted-foreground" role="status">
-          Classifying: {settled} of {total}
-        </p>
-      )}
+      <ClassifyingStatus settled={settled} total={total} />
       {report.headers.length === 0 ? (
         <p className="py-6 text-sm text-center text-muted-foreground">
-          {report.footer.belowQualityBar > 0
-            ? 'None of the learned answers here clears the quality bar yet.'
-            : 'No learned answers match here yet.'}
+          {emptyText(report, search)}
         </p>
       ) : (
         <ul className="space-y-4" aria-label="Cases">
@@ -420,7 +454,7 @@ export const KbCasesPage = () => {
             <Spinner />
           </div>
         ) : (
-          report && <KbCasesReportView report={report} />
+          report && <KbCasesReportView report={report} search={search} />
         )}
         {report && !report.miningOff && report.pagination.totalPages > 1 && (
           <Pagination
