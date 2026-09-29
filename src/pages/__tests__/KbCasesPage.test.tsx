@@ -74,14 +74,21 @@ const report = (over: Partial<KbCasesReport> = {}): KbCasesReport => ({
           caseId: 900,
           casePublicId: 'KB-900',
           question: 'How do refunds work?',
-          questions: null,
+          // casesReport.ts makeRow: a case row's `questions` is [], never null.
+          questions: [],
           standardAnswer: 'Refunds take 5 days.',
           conversations: 5,
         }),
         row({ kind: 'proposed', title: 'proposed case — awaiting review', suggestionId: 70 }),
         // A non-case row that (wrongly) carries answer text must still not show it.
         row({ kind: 'group', title: 'unreviewed group', standardAnswer: 'AI DRAFT TEXT' }),
-        row({ kind: 'group', title: 'declined for case #KB-900', casePublicId: 'KB-900' }),
+        // A "declined for case" group carries the case's id AND public id (casesReport.ts).
+        row({
+          kind: 'group',
+          title: 'declined for case #KB-900',
+          caseId: 900,
+          casePublicId: 'KB-900',
+        }),
         row({ kind: 'single' }),
       ],
     },
@@ -100,6 +107,7 @@ const report = (over: Partial<KbCasesReport> = {}): KbCasesReport => ({
   classifying: { settled: 40, total: 50 },
   bounded: false,
   miningOff: false,
+  labellingActive: true,
   ...over,
 });
 
@@ -256,12 +264,110 @@ describe('KB Cases report (F2)', () => {
 
   it('flags a bounded scope', () => {
     view(report({ bounded: true }));
-    expect(screen.getByText(/Only the newest\s+are grouped/)).toBeInTheDocument();
+    // Only classification and proposal are capped; every row whose label is current is grouped.
+    const notice = screen.getByText(/more learned answers than the nightly job reads/);
+    expect(notice).toHaveTextContent(/only the newest are classified and proposed as cases/);
+    expect(notice).not.toHaveTextContent(/missing|counts can be low/);
   });
 
   it('flags a bounded scope when mining is off too', () => {
     view(report({ miningOff: true, headers: [], bounded: true }));
-    expect(screen.getByText(/Only the newest\s+are grouped/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/only the newest are classified and proposed as cases/)
+    ).toBeInTheDocument();
+  });
+
+  it('labelling not running: nothing reads as "being classified" or as progress (MED-1)', () => {
+    view(
+      report({
+        headers: [],
+        footer: { belowQualityBar: 0 },
+        findings: zeroFindings,
+        classifying: { settled: 0, total: 5 },
+        bounded: true,
+        labellingActive: false,
+      })
+    );
+    const page = document.body.textContent ?? '';
+    expect(page).not.toMatch(/being classified|Classifying:/);
+    // The bound must not claim anything IS classified or proposed while nothing runs.
+    expect(page).not.toMatch(/only the newest are classified/);
+    expect(
+      screen.getByText(
+        '5 learned answers are not classified — consolidation is not running for this workspace.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Classified: 0 of 5 — consolidation is not running for this workspace.'
+    );
+  });
+
+  it('labelling not running, mining off: the same plain statement', () => {
+    view(
+      report({
+        miningOff: true,
+        headers: [],
+        footer: { belowQualityBar: 0 },
+        findings: zeroFindings,
+        classifying: { settled: 0, total: 5 },
+        labellingActive: false,
+      })
+    );
+    expect(document.body.textContent).not.toMatch(/being classified|Classifying:/);
+    expect(screen.getByText(MINING_OFF)).toHaveTextContent(
+      /5 learned answers are not classified — consolidation is not running for this workspace/
+    );
+  });
+
+  it("a backend that does not send labellingActive keeps today's wording", () => {
+    const older = report({
+      headers: [],
+      footer: { belowQualityBar: 0 },
+      findings: zeroFindings,
+      classifying: { settled: 0, total: 5 },
+    });
+    delete (older as { labellingActive?: boolean }).labellingActive;
+    view(older);
+    expect(screen.getByText('Classifying: 0 of 5')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '5 learned answers are still being classified — what is shown here can still change.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('no search and only findings: the empty text does not say nothing matches (LOW-2)', () => {
+    view(
+      report({
+        headers: [],
+        footer: { belowQualityBar: 0 },
+        classifying: { settled: 50, total: 50 },
+      })
+    );
+    expect(screen.getByRole('list', { name: 'Findings' })).toBeInTheDocument();
+    expect(screen.queryByText(/No learned answers match/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText('No learned answer here forms a case yet — what there is is listed below.')
+    ).toBeInTheDocument();
+  });
+
+  it("renders a group row titled 'waiting for the proposed case' as the backend names it", () => {
+    view(
+      report({
+        headers: [
+          {
+            label: 'refund',
+            language: 'en',
+            conversations: 2,
+            rows: [row({ kind: 'group', title: 'waiting for the proposed case' })],
+          },
+        ],
+      })
+    );
+    const waiting = screen.getByTestId('case-row-group');
+    expect(waiting).toHaveTextContent('waiting for the proposed case');
+    expect(waiting).toHaveTextContent('no standard answer yet');
+    expect(waiting).toHaveTextContent('Member question?');
   });
 
   it('entries still being classified are not promised a case', () => {

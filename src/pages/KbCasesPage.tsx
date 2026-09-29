@@ -192,28 +192,50 @@ const BelowQualityBar = ({ count }: { count: number }) =>
     </p>
   ) : null;
 
+/**
+ * Is anything labelling entries? `labellingActive` is true only when the nightly job runs in
+ * production for this workspace; off or dry run, `classifying` never moves. Absent (an older
+ * backend) is unknown — the page keeps its "being classified" wording then.
+ */
+const labellingRuns = (report: KbCasesReport) => report.labellingActive !== false;
+
 /** Entries not yet labelled live ONLY in `classifying` — not in rows, footer or findings. */
-const ClassifyingStatus = ({ settled, total }: { settled: number; total: number }) =>
-  settled < total ? (
+const ClassifyingStatus = ({ report }: { report: KbCasesReport }) => {
+  const { settled, total } = report.classifying;
+  if (settled >= total) return null;
+  return (
     <p className="text-sm text-muted-foreground" role="status">
-      Classifying: {settled} of {total}
+      {labellingRuns(report)
+        ? `Classifying: ${settled} of ${total}`
+        : `Classified: ${settled} of ${total} — consolidation is not running for this workspace.`}
     </p>
-  ) : null;
+  );
+};
 
 /**
  * Unlabelled entries are not promised a case: once labelled they can land below the quality bar
- * or in a finding. In a bounded scope the oldest are never labelled at all.
+ * or in a finding. In a bounded scope the oldest are never labelled at all — and while nothing
+ * runs, none are.
  */
-const stillClassifyingText = (count: number, bounded: boolean) =>
-  bounded
-    ? `${plural(count, 'learned answer is', 'learned answers are')} not classified yet — in a mailbox over the nightly limit, the oldest never are.`
-    : `${plural(count, 'learned answer is', 'learned answers are')} still being classified — what is shown here can still change.`;
+const unclassifiedText = (count: number, report: KbCasesReport) => {
+  const answers = plural(count, 'learned answer is', 'learned answers are');
+  if (!labellingRuns(report))
+    return `${answers} not classified — consolidation is not running for this workspace.`;
+  return report.bounded
+    ? `${answers} not classified yet — in a mailbox over the nightly limit, the oldest never are.`
+    : `${answers} still being classified — what is shown here can still change.`;
+};
 
-const BoundedNotice = ({ bounded }: { bounded: boolean }) =>
-  bounded ? (
+/**
+ * Only classification and proposal are capped at the newest answers; every row whose label is
+ * current is still grouped. While the job does not run, not even the newest are classified.
+ */
+const BoundedNotice = ({ report }: { report: KbCasesReport }) =>
+  report.bounded ? (
     <Alert variant="warning">
-      A mailbox here has more learned answers than the nightly grouping reads. Only the newest are
-      grouped, so older answers are missing and the counts can be low.
+      {labellingRuns(report)
+        ? 'A mailbox here has more learned answers than the nightly job reads, so only the newest are classified and proposed as cases.'
+        : 'A mailbox here has more learned answers than the nightly job would read — once it runs, only the newest will be classified and proposed as cases.'}
     </Alert>
   ) : null;
 
@@ -224,7 +246,10 @@ const BoundedNotice = ({ bounded }: { bounded: boolean }) =>
 const emptyText = (report: KbCasesReport, search: string): string => {
   const stillClassifying = report.classifying.total - report.classifying.settled;
   if (search.trim()) return `No case matches “${search.trim()}”.`;
-  if (stillClassifying > 0) return stillClassifyingText(stillClassifying, report.bounded);
+  if (stillClassifying > 0) return unclassifiedText(stillClassifying, report);
+  // Findings are entries set aside for a reason (raw email, customer-specific…): not "no match".
+  if (hasFindings(report.findings))
+    return 'No learned answer here forms a case yet — what there is is listed below.';
   if (report.footer.belowQualityBar > 0)
     return 'None of the learned answers here clears the quality bar yet.';
   return 'No learned answers match here yet.';
@@ -240,7 +265,7 @@ const miningOffText = (report: KbCasesReport, learnedSomething: boolean): string
   const lead = 'No mailbox in this department feeds the knowledge base automatically';
   const stillClassifying = report.classifying.total - report.classifying.settled;
   if (stillClassifying > 0)
-    return `${lead}. ${stillClassifyingText(stillClassifying, report.bounded)}${learnedSomething ? ' What it already holds is listed below.' : ''}`;
+    return `${lead}. ${unclassifiedText(stillClassifying, report)}${learnedSomething ? ' What it already holds is listed below.' : ''}`;
   if (learnedSomething) return `${lead}. What it holds for this department is listed below.`;
   if (report.classifying.total > 0)
     return `${lead}, and none of the answers it holds here forms a case yet.`;
@@ -256,13 +281,12 @@ export const KbCasesReportView = ({
   search?: string;
 }) => {
   const learnedSomething = report.footer.belowQualityBar > 0 || hasFindings(report.findings);
-  const { settled, total } = report.classifying;
   if (report.miningOff) {
     return (
       <div className="space-y-4">
         <Alert>{miningOffText(report, learnedSomething)}</Alert>
-        <BoundedNotice bounded={report.bounded} />
-        <ClassifyingStatus settled={settled} total={total} />
+        <BoundedNotice report={report} />
+        <ClassifyingStatus report={report} />
         <BelowQualityBar count={report.footer.belowQualityBar} />
         <KbCasesFindingsPanel findings={report.findings} />
       </div>
@@ -270,8 +294,8 @@ export const KbCasesReportView = ({
   }
   return (
     <div className="space-y-4">
-      <BoundedNotice bounded={report.bounded} />
-      <ClassifyingStatus settled={settled} total={total} />
+      <BoundedNotice report={report} />
+      <ClassifyingStatus report={report} />
       {report.headers.length === 0 ? (
         <p className="py-6 text-sm text-center text-muted-foreground">
           {emptyText(report, search)}

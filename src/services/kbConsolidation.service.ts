@@ -127,6 +127,12 @@ export type KbCasesReport = {
   classifying: { settled: number; total: number };
   bounded: boolean;
   miningOff: boolean;
+  /**
+   * True only when the nightly job runs in PRODUCTION for this workspace. Off or dry run: nothing
+   * labels entries and `classifying` never moves. Absent on an older backend — then unknown, and
+   * the page keeps its "being classified" wording.
+   */
+  labellingActive?: boolean;
 };
 
 export type KbCasesQuery = {
