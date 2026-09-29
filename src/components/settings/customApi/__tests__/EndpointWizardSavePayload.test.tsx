@@ -116,7 +116,9 @@ beforeEach(() => {
 describe('the Save payload of an EDIT', () => {
   const existing = () => ({
     ...withNewEndpoint().endpoints[0],
-    fieldPaths: [{ path: 'status', label: 'Status', kind: 'plain' as const, role: 'status' as const }],
+    fieldPaths: [
+      { path: 'status', label: 'Status', kind: 'plain' as const, role: 'status' as const },
+    ],
     category: 'order' as const,
     statusLabels: { in_transit: 'On its way' },
   });
@@ -135,7 +137,11 @@ describe('the Save payload of an EDIT', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
-    const [, , payload] = updateEndpoint.mock.calls.at(-1) as [number, number, Record<string, unknown>];
+    const [, , payload] = updateEndpoint.mock.calls.at(-1) as [
+      number,
+      number,
+      Record<string, unknown>,
+    ];
     expect(payload.category).toBe('order');
   });
 
@@ -153,7 +159,11 @@ describe('the Save payload of an EDIT', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
-    const [, , payload] = updateEndpoint.mock.calls.at(-1) as [number, number, Record<string, unknown>];
+    const [, , payload] = updateEndpoint.mock.calls.at(-1) as [
+      number,
+      number,
+      Record<string, unknown>,
+    ];
     expect(payload.statusLabels).toEqual({ in_transit: 'On its way' });
   });
 
@@ -171,7 +181,11 @@ describe('the Save payload of an EDIT', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
-    const [, , payload] = updateEndpoint.mock.calls.at(-1) as [number, number, Record<string, unknown>];
+    const [, , payload] = updateEndpoint.mock.calls.at(-1) as [
+      number,
+      number,
+      Record<string, unknown>,
+    ];
     expect(payload.category).toBeNull();
     expect(payload.statusLabels).toEqual({});
   });

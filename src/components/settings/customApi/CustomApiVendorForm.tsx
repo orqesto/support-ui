@@ -15,6 +15,13 @@ import { Select } from '@/components/ui/Select';
 import { customApiService, type CustomApiConnection } from '@/services/customApi.service';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { useInvalidateCustomApiAvailability } from '@/hooks/useCustomApiLookup';
+import { FailureAdvancedSettings } from './AdvancedSettings';
+import {
+  describeFailureSettings,
+  failureSettingsPayload,
+  readFailureSettings,
+  supportsFlexibleRequests,
+} from './requestSettings';
 
 /**
  * Add or edit a VENDOR — Settings → Integrations → Custom APIs (CA-5 Task 2).
@@ -52,6 +59,13 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
   /** ⛔ Always starts empty, editing or not. Empty on save = keep what is stored. */
   const [credential, setCredential] = useState('');
   const [acknowledged, setAcknowledged] = useState(false);
+  const [failure, setFailure] = useState(() => readFailureSettings(connection));
+  /**
+   * ⛔ Editing a vendor that an OLDER backend returned (no failure fields): the section is hidden,
+   * because a save there would drop the settings without a word. A new vendor is created against
+   * the backend this build ships with.
+   */
+  const showFailure = !connection || supportsFlexibleRequests(connection);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,16 +102,18 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
          * about a field they did not edit. (Audit pass 2.)
          */
         authHeaderName: authType === 'header' ? authHeaderName.trim() || null : null,
+        ...(showFailure ? failureSettingsPayload(failure) : {}),
       };
+      let saved: CustomApiConnection;
       if (editing && connection) {
-        await customApiService.update(connection.id, {
+        saved = await customApiService.update(connection.id, {
           ...shared,
           // ⛔ THE THREE-VALUED RULE. Omitted entirely when the admin typed nothing, so renaming
           // an integration cannot silently delete its key and break every lookup under it.
           ...(credential ? { credential } : {}),
         });
       } else {
-        await customApiService.create({
+        saved = await customApiService.create({
           ...shared,
           /**
            * ⛔ DO NOT SEND A SECRET THAT WILL BE DISCARDED (audit pass 15). An admin who typed a
@@ -114,6 +130,23 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
       // should render: its cached answer must not outlive this save. This form has no enabled,
       // department or surface control; any added later must call the invalidator on save too.
       invalidateAvailability();
+      /**
+       * ⛔ VERSION SKEW on a NEW vendor (audit pass 1). This form cannot know, before the first save,
+       * whether the backend has these settings — and an older one drops them without a word. Its
+       * answer can say: when the admin changed the failure words and the saved vendor comes back
+       * without them, keep the dialog open and SAY so, rather than close on a silent loss.
+       */
+      if (
+        showFailure &&
+        describeFailureSettings(failure).length > 0 &&
+        !supportsFlexibleRequests(saved)
+      ) {
+        onSaved();
+        setError(
+          'Saved — but this server does not support the “failed call” settings yet, so they were not kept.'
+        );
+        return;
+      }
       onSaved();
       onClose();
     } catch (err) {
@@ -209,6 +242,8 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
               data-lpignore="true"
             />
           )}
+
+          {showFailure && <FailureAdvancedSettings settings={failure} onChange={setFailure} />}
 
           {editing && connection?.hasCredential && (
             <p className="text-xs text-muted-foreground">

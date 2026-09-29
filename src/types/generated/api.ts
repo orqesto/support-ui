@@ -340,6 +340,17 @@ export interface components {
                 [key: string]: string;
             };
             requestBodyTemplate: string | null;
+            /** @enum {string} */
+            bodyFormat: "json" | "form";
+            /** @enum {string} */
+            notFoundMeans: "no_match" | "failed";
+            limitParam: string;
+            /** @enum {string} */
+            paginationMode: "none" | "page" | "offset" | "cursor" | "link";
+            paginationParam: string | null;
+            paginationStart: number;
+            paginationNextPath: string | null;
+            paginationMaxPages: number;
             fieldPaths: {
                 path: string;
                 label: string;
@@ -391,6 +402,9 @@ export interface components {
                 [key: string]: string;
             };
             timeoutMs: number;
+            failureStatusPath: string;
+            failureStatusValues: string[];
+            failureMessagePath: string;
             /** @enum {string} */
             scopeMode: "all" | "departments";
             piiAcknowledgedBy: number | null;
@@ -441,6 +455,7 @@ export interface components {
                 role?: string;
             }[];
             total?: number | null;
+            more?: boolean;
             missing?: string[];
             /** @enum {string} */
             missingKind?: "records" | "fields";

@@ -234,7 +234,11 @@ describe('an answer we could not finish reading', () => {
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
 
-    expect(await screen.findByText(/too large to check all of it/i)).toBeTruthy();
+    // 2026-09-29: the same reason now also covers an owning LIST longer than we read, so the
+    // sentence names what is true in both — we did not finish — and neither cause alone.
+    expect(
+      await screen.findByText(/more than we could read, so the check did not finish/i)
+    ).toBeTruthy();
     // ⛔ INVERTED, twice: it must borrow NEITHER the accusation nor the other amber's wording.
     expect(screen.queryByText(/does NOT belong to this customer/i)).toBeNull();
     expect(screen.queryByText(/contains no address to check it against/i)).toBeNull();
