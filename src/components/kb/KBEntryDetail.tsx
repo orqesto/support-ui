@@ -36,7 +36,7 @@ import { KBStatusBadge } from './KBStatusBadge';
 import { FormattedKBContent } from '../shared/FormattedKBContent';
 import { logger } from '@/lib/logger';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
-import { isCaseRow, isMergedOriginal, isSourceRemoved, offersReviewActions } from '@/lib/kbConsolidation';
+import { isCaseRow, isMergedOriginal, offersReviewActions } from '@/lib/kbConsolidation';
 
 /** A Q&A entry's own question/answer — what AI drafts read. Null when the entry has none. */
 const qaTextOf = (entry: KBEntry): { question: string; answer: string } | null => {
@@ -103,6 +103,28 @@ type KBEntryDetailProps = {
   onUnmerge?: (entry: KBEntry) => void;
 };
 
+/**
+ * The deployed detail route (getKBEntry) omits fields the list sends — sourceDeleted, capturedVia,
+ * publicId and the consolidation pair — which the badge and the action gates read. Keep the
+ * list's value when the detail does not say, so the drawer never contradicts the card.
+ */
+const LIST_ONLY_FIELDS = [
+  'sourceDeleted',
+  'capturedVia',
+  'publicId',
+  'consolidatedInto',
+  'consolidation',
+] as const;
+const withListFields = (detail: KBEntry, listed: KBEntry): KBEntry => {
+  const merged = { ...detail };
+  for (const key of LIST_ONLY_FIELDS) {
+    if (merged[key] === undefined && listed[key] !== undefined) {
+      (merged as Record<string, unknown>)[key] = listed[key];
+    }
+  }
+  return merged;
+};
+
 export const KBEntryDetail = ({
   entry,
   onClose,
@@ -136,7 +158,7 @@ export const KBEntryDetail = ({
       void kbService
         .getById(entry.id)
         .then((response: { data: KBEntry }) => {
-          setFullEntry(response.data);
+          setFullEntry(withListFields(response.data, entry));
         })
         .catch((error: Error) => {
           logger.error('Failed to fetch full entry:', error);
@@ -496,7 +518,7 @@ export const KBEntryDetail = ({
               link has no row at all), and acting on it would offer what the server refuses. */}
           <div className="flex-none p-6 border-t bg-muted/20">
             <div className="flex gap-3 justify-end">
-              {canReview && isCaseRow(displayEntry) && !isSourceRemoved(displayEntry) && onUnmerge && (
+              {canReview && isCaseRow(displayEntry) && onUnmerge && (
                 <Button
                   variant="outline"
                   onClick={() => onUnmerge(displayEntry)}

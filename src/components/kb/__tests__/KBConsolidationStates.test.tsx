@@ -263,7 +263,8 @@ describe('KB list — consolidation states (F4)', () => {
       consolidatedInto: 9,
       consolidation: { state: 'merged', caseId: 9, casePublicId: 'KB-9', caseExists: true },
     });
-    const SERVING = ['Approve', 'Reject', 'Hide', 'Unhide', 'Restore', 'Unmerge'];
+    // Unmerge stays: bringing a retired case's originals back is legitimate (the server allows it).
+    const SERVING = ['Approve', 'Reject', 'Hide', 'Unhide', 'Restore'];
 
     it('reads "Source removed — not used", never "Approved · Case" or "merged into"', () => {
       render(
@@ -272,7 +273,13 @@ describe('KB list — consolidation states (F4)', () => {
           <KBStatusBadge entry={retiredOriginal} />
         </MemoryRouter>
       );
-      expect(screen.getAllByText('Source removed — not used')).toHaveLength(2);
+      const marks = screen.getAllByText('Source removed — not used');
+      expect(marks).toHaveLength(2);
+      // The stale sweep retires entries too (no mailbox or KB deleted) — no cause is named.
+      expect(marks[0]).toHaveAttribute(
+        'title',
+        'Its source is no longer in the knowledge base, so it is not used.'
+      );
       expect(screen.queryByText('Approved')).not.toBeInTheDocument();
       expect(screen.queryByText('Case')).not.toBeInTheDocument();
       expect(screen.queryByText(/merged into/)).not.toBeInTheDocument();
@@ -293,6 +300,7 @@ describe('KB list — consolidation states (F4)', () => {
           expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
         }
         expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Unmerge' })).toBeInTheDocument();
         cleanup();
       }
     });
@@ -313,10 +321,35 @@ describe('KB list — consolidation states (F4)', () => {
         </MemoryRouter>
       );
       expect(await screen.findByText('Source removed — not used')).toBeInTheDocument();
-      for (const name of [/Approve/, /Reject/, /^Hide$/, /Unhide/, /Restore/, /Unmerge/, /Edit/]) {
+      for (const name of [/Approve/, /Reject/, /^Hide$/, /Unhide/, /Restore/, /Edit/]) {
         expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
       }
       expect(screen.getByRole('button', { name: /Delete/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Unmerge/ })).toBeInTheDocument();
+    });
+
+    it("on the deployed backend (detail without sourceDeleted) the drawer keeps the list's answer (MED-1)", async () => {
+      // Prod's detail route (getKBEntry) sends no sourceDeleted / capturedVia / publicId; its
+      // list does. The drawer must not read a retired entry as live.
+      const prodDetail = kbEntryDetailResponse({ id: 7, approved: true });
+      for (const key of ['sourceDeleted', 'capturedVia', 'publicId', 'consolidatedInto'] as const) {
+        delete (prodDetail.data as Record<string, unknown>)[key];
+      }
+      getById.mockResolvedValue(prodDetail);
+      render(
+        <MemoryRouter>
+          <KBEntryDetail
+            entry={entry({ id: 7, approved: true, sourceDeleted: true })}
+            onClose={vi.fn()}
+            canReview
+            {...handlers()}
+          />
+        </MemoryRouter>
+      );
+      expect(await screen.findByText('Source removed — not used')).toBeInTheDocument();
+      for (const name of [/Approve/, /^Hide$/]) {
+        expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+      }
     });
   });
 });

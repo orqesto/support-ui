@@ -159,6 +159,23 @@ describe('KB page — unmerging a case (F4)', () => {
     await waitFor(() => expect(unmerge).toHaveBeenCalledWith(9));
   });
 
+  it('a case whose source was removed can still be unmerged (LOW-3)', async () => {
+    getAll.mockResolvedValue({
+      success: true,
+      data: {
+        entries: [{ ...caseRow, sourceDeleted: true }, plain],
+        pagination: { page: 1, limit: 20, total: 2, totalPages: 1 },
+      },
+    });
+    page();
+    const row = await tableRow('Refunds');
+    fireEvent.click(within(row).getByRole('button', { name: 'Unmerge' }));
+    fireEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unmerge' })
+    );
+    await waitFor(() => expect(unmerge).toHaveBeenCalledWith(9));
+  });
+
   it('control: Hide on a plain entry hides at once, with no confirm', async () => {
     hide.mockResolvedValue({ success: true, data: null });
     page();

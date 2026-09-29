@@ -16,12 +16,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import type { KBEntry } from '@/services/kb.service';
-import {
-  isCaseRow,
-  isMergedOriginal,
-  isSourceRemoved,
-  offersReviewActions,
-} from '@/lib/kbConsolidation';
+import { isCaseRow, isMergedOriginal, offersReviewActions } from '@/lib/kbConsolidation';
 
 const getTypeIcon = (type: string) => {
   switch (type) {
@@ -216,7 +211,7 @@ export const KBTableView = ({
                         <Eye className="w-4 h-4" />
                       </Button>
                     ))}
-                  {canReview && isCaseRow(entry) && !isSourceRemoved(entry) && onUnmerge && (
+                  {canReview && isCaseRow(entry) && onUnmerge && (
                     <Button
                       size="sm"
                       variant="outline"

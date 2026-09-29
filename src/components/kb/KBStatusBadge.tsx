@@ -36,7 +36,7 @@ export const KBStatusBadge = ({
     return (
       <Badge
         className={`text-muted-foreground ${className}`}
-        title="Its source (a mailbox or a deleted knowledge base) was removed. Kept for the record; the AI never uses it."
+        title="Its source is no longer in the knowledge base, so it is not used."
       >
         Source removed — not used
       </Badge>
