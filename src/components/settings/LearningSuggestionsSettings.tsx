@@ -19,7 +19,8 @@ import { ReplyStyleSuggestionDetail } from './ReplyStyleSuggestionDetail';
 import { useAuthStore } from '@/stores/authStore';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
-import { whyCannotAct } from '@/lib/learningSuggestionPermissions';
+import { isKbConsolidationSuggestion, whyCannotAct } from '@/lib/learningSuggestionPermissions';
+import { KbConsolidationReview, summarizeKbMerge } from '@/components/kb/KbConsolidationReview';
 import { useSuggestionDomainAccess } from '@/hooks/useSuggestionDomainAccess';
 
 const DOMAIN_LABELS: Record<string, string> = {
@@ -84,6 +85,7 @@ const summarizeSuggestion = (
   deptNameById: (id: number) => string | undefined
 ): string => {
   const payload = suggestion.payload ?? {};
+  if (isKbConsolidationSuggestion(suggestion)) return summarizeKbMerge(payload, suggestion.suggestionType);
   if (suggestion.suggestionType === 'add_rule') {
     const value = typeof payload.value === 'string' ? payload.value : '';
     const ruleType = typeof payload.ruleType === 'string' ? payload.ruleType : 'pattern';
@@ -447,7 +449,7 @@ const ConflictDetail = ({
 };
 
 export const LearningSuggestionsSettings = () => {
-  const { canActOn, canActOnAnyDomain } = useSuggestionDomainAccess();
+  const { canActOnSuggestion, canActOnAnyDomain } = useSuggestionDomainAccess();
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const [suggestions, setSuggestions] = useState<LearningSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -597,6 +599,10 @@ export const LearningSuggestionsSettings = () => {
                       ? Math.round(Number(suggestion.confidence) * 100)
                       : null;
                     const isActing = actingId === suggestion.id;
+                    const canAct = canActOnSuggestion(suggestion);
+                    // A KB merge is decided only after reading the entries side by side, with a
+                    // body saying which ones and what text — a bare Accept is refused (400).
+                    const isMerge = isKbConsolidationSuggestion(suggestion);
                     return (
                       <div
                         key={suggestion.id}
@@ -624,7 +630,7 @@ export const LearningSuggestionsSettings = () => {
                             </div>
                           </div>
                           <div className="flex gap-1 items-center shrink-0">
-                            {!canActOn(suggestion.domain) && (
+                            {!canAct && (
                               // VISIBLE, not a tooltip: a disabled button fires no hover events, so
                               // a `title` on it is unreachable in most browsers — and an action that
                               // is greyed out for no stated reason is what the old hide-everything
@@ -633,13 +639,14 @@ export const LearningSuggestionsSettings = () => {
                                 {whyCannotAct(suggestion.domain)}
                               </span>
                             )}
+                            {isMerge ? <Button size="sm" variant="outline" onClick={() => setExpandedId(suggestion.id)} disabled={!canAct}>Review</Button> : (<>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => void handleDecline(suggestion.id)}
-                              disabled={isActing || !canActOn(suggestion.domain)}
+                              disabled={isActing || !canAct}
                               title={
-                                !canActOn(suggestion.domain)
+                                !canAct
                                   ? whyCannotAct(suggestion.domain)
                                   : suggestion.domain === 'kb_review'
                                     ? `Reject — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days`
@@ -653,9 +660,9 @@ export const LearningSuggestionsSettings = () => {
                               aria-label="Accept this suggestion"
                               size="sm"
                               onClick={() => void handleAccept(suggestion.id)}
-                              disabled={isActing || !canActOn(suggestion.domain)}
+                              disabled={isActing || !canAct}
                               title={
-                                !canActOn(suggestion.domain)
+                                !canAct
                                   ? whyCannotAct(suggestion.domain)
                                   : suggestion.domain === 'reply_style'
                                     ? 'Accept — makes this the house style for AI-drafted replies'
@@ -666,11 +673,14 @@ export const LearningSuggestionsSettings = () => {
                             >
                               <Check className="w-4 h-4" />
                             </Button>
+                            </>)}
                           </div>
                         </div>
                         {expandedId === suggestion.id && (
                           <>
-                            {suggestion.domain === 'reply_style' ? (
+                            {isMerge ? (
+                              <div className="px-3 pb-3 ml-5">{canAct && <KbConsolidationReview suggestionId={suggestion.id} />}</div>
+                            ) : suggestion.domain === 'reply_style' ? (
                               <ReplyStyleSuggestionDetail suggestion={suggestion} />
                             ) : suggestion.domain === 'kb_review' ? (
                               <KbReviewSuggestionDetail suggestion={suggestion} />

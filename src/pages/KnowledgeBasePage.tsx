@@ -27,8 +27,23 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { usePermissions } from '@/hooks/usePermissions';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 import { kbService, type KBEntry, type PaginationMeta } from '@/services/kb.service';
 import { Permission } from '@/types/roles';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { useUiFlags } from '@/hooks/useUiFlags';
+import { isCaseRow, unmergeConsequence } from '@/lib/kbConsolidation';
+import { kbConsolidationService } from '@/services/kbConsolidation.service';
+
+/** An action on a merged CASE row — each one unmerges it, so each is confirmed first. */
+type CaseAction = { entry: KBEntry; action: 'hide' | 'reject' | 'delete' | 'unmerge' };
+
+const CASE_ACTION_TITLES: Record<CaseAction['action'], string> = {
+  hide: 'Hide this case?',
+  reject: 'Reject this case?',
+  delete: 'Delete this case?',
+  unmerge: 'Unmerge this case?',
+};
 
 type FilterType = 'all' | 'qa_pair' | 'document' | 'documentation';
 type FilterStatus = 'all' | 'approved' | 'pending' | 'hidden' | 'rejected';
@@ -83,6 +98,9 @@ export const KnowledgeBasePage = () => {
   // other re-fetch (Process adds a doc → list refreshes; Remove/Delete → both refresh).
   const [kbVersion, setKbVersion] = useState(0);
   const bumpKb = useCallback(() => setKbVersion((version) => version + 1), []);
+  const [caseAction, setCaseAction] = useState<CaseAction | null>(null);
+  const { isSurfaceVisibleToMe } = useUiFlags();
+  const showCasesLink = canReview && isSurfaceVisibleToMe('ui.kb_cases');
 
   // Alert dialog state
   const [alertDialog, setAlertDialog] = useState<{
@@ -217,7 +235,7 @@ export const KnowledgeBasePage = () => {
     }
   };
 
-  const handleReject = async (id: number) => {
+  const rejectEntry = async (id: number) => {
     try {
       const response = await kbService.reject(id);
       const rejectedAt = response.data?.rejectedAt ?? new Date().toISOString();
@@ -237,7 +255,7 @@ export const KnowledgeBasePage = () => {
     }
   };
 
-  const handleHide = async (id: number) => {
+  const hideEntry = async (id: number) => {
     try {
       await kbService.hide(id);
       // Update entry in place - set hidden
@@ -250,6 +268,65 @@ export const KnowledgeBasePage = () => {
         open: true,
         title: 'Failed to Hide',
         description: error instanceof Error ? error.message : 'Failed to hide KB entry',
+        variant: 'error',
+      });
+    }
+  };
+
+  // KB consolidation (#873): hide / reject / delete on a merged CASE row unmerge it — the case
+  // goes and its originals come back. That is not what "hide" usually means, so it is said and
+  // confirmed first, never done on one click.
+  const findEntry = (id: number) =>
+    entries.find((entry) => entry.id === id) ?? (selectedEntry?.id === id ? selectedEntry : null);
+
+  const handleHide = (id: number) => {
+    const entry = findEntry(id);
+    if (entry && isCaseRow(entry)) setCaseAction({ entry, action: 'hide' });
+    else void hideEntry(id);
+  };
+
+  const handleReject = (id: number) => {
+    const entry = findEntry(id);
+    if (entry && isCaseRow(entry)) setCaseAction({ entry, action: 'reject' });
+    else void rejectEntry(id);
+  };
+
+  const handleDeleteClick = (entry: KBEntry) => {
+    if (isCaseRow(entry)) setCaseAction({ entry, action: 'delete' });
+    else openDeleteDialog(entry);
+  };
+
+  const handleUnmerge = (entry: KBEntry) => setCaseAction({ entry, action: 'unmerge' });
+
+  const confirmCaseAction = async () => {
+    if (!caseAction) return;
+    const { entry, action } = caseAction;
+    setCaseAction(null);
+    try {
+      let restored: number | undefined;
+      if (action === 'unmerge')
+        restored = (await kbConsolidationService.unmerge(entry.id)).restored;
+      else if (action === 'hide') restored = (await kbService.hide(entry.id)).data?.restored;
+      else if (action === 'reject') restored = (await kbService.reject(entry.id)).data?.restored;
+      else restored = (await kbService.delete(entry.id)).data?.restored;
+      if (selectedEntry?.id === entry.id) handleCloseEntry();
+      // The case row is gone and its originals are back — the page must be re-read, not patched.
+      await fetchEntries(pagination.page);
+      setAlertDialog({
+        open: true,
+        title: 'Case unmerged',
+        description:
+          typeof restored === 'number'
+            ? `${restored} original ${restored === 1 ? 'entry is' : 'entries are'} back in the knowledge base.`
+            : 'Its original entries are back in the knowledge base.',
+        variant: 'success',
+      });
+    } catch (error) {
+      logger.error('Failed to unmerge case:', error);
+      setAlertDialog({
+        open: true,
+        title: 'Could not unmerge',
+        description: getApiErrorMessage(error) ?? 'The case was not changed. Try again.',
         variant: 'error',
       });
     }
@@ -286,7 +363,7 @@ export const KnowledgeBasePage = () => {
     navigate({ search: params.toString(), hash: location.hash });
   };
 
-  const handleDeleteClick = (entry: KBEntry) => {
+  const openDeleteDialog = (entry: KBEntry) => {
     setEntryToDelete(entry);
     setDeleteDialogOpen(true);
   };
@@ -330,6 +407,16 @@ export const KnowledgeBasePage = () => {
             title="Knowledge Base"
             description="Review and manage automatically extracted knowledge from your messages"
           />
+          {showCasesLink && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => navigate('/knowledge-base/cases')}
+            >
+              Cases report
+            </Button>
+          )}
         </div>
 
         {/* Tabs for Type Selection */}
@@ -513,6 +600,7 @@ export const KnowledgeBasePage = () => {
                     onReject={handleReject}
                     onDelete={handleDeleteClick}
                     canReview={canReview}
+                    onUnmerge={handleUnmerge}
                   />
                 ))
               )}
@@ -528,6 +616,7 @@ export const KnowledgeBasePage = () => {
               onReject={handleReject}
               onDelete={handleDeleteClick}
               canReview={canReview}
+              onUnmerge={handleUnmerge}
             />
 
             {/* Pagination */}
@@ -586,6 +675,23 @@ export const KnowledgeBasePage = () => {
           onDelete={handleDeleteClick}
           onUpdate={handleUpdate}
           canReview={canReview}
+          onUnmerge={handleUnmerge}
+        />
+
+        <ConfirmDialog
+          open={caseAction !== null}
+          onOpenChange={(open) => {
+            if (!open) setCaseAction(null);
+          }}
+          onConfirm={() => void confirmCaseAction()}
+          title={caseAction ? CASE_ACTION_TITLES[caseAction.action] : ''}
+          description={`${
+            caseAction?.action === 'unmerge'
+              ? 'This undoes the merge.'
+              : 'This is a merged case, so this undoes the merge.'
+          } ${unmergeConsequence(null)} and removes the merged entry.`}
+          confirmText={caseAction?.action === 'unmerge' ? 'Unmerge' : 'Undo the merge'}
+          variant="warning"
         />
 
         {/* Alert Dialog */}

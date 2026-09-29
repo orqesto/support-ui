@@ -27,6 +27,35 @@ import type { Notification } from '@/types/api';
  */
 export const KB_REVIEW_KIND = 'kb_review_pending';
 
+/**
+ * KB consolidation (#873): ONE standing row per department summarising the merge proposals
+ * still pending there (`details.pending`). The backend hides it from anyone without
+ * manage_knowledge_base and retires it when the last proposal is decided. Unlike a capture,
+ * it is not decided from the bell — a merge needs the side-by-side review.
+ */
+export const KB_CONSOLIDATION_KIND = 'kb_consolidation_pending';
+
+export type KbConsolidationAlert = {
+  /** notifications.id */
+  id: number;
+  departmentId: number | null;
+  suggestionIds: number[];
+  pending: number;
+};
+
+const toConsolidationAlert = (row: Notification): KbConsolidationAlert => {
+  const details = (row.details ?? {}) as { suggestionIds?: unknown; pending?: unknown };
+  const suggestionIds = Array.isArray(details.suggestionIds)
+    ? details.suggestionIds.filter((value): value is number => typeof value === 'number')
+    : [];
+  return {
+    id: row.id,
+    departmentId: row.departmentId ?? null,
+    suggestionIds,
+    pending: typeof details.pending === 'number' ? details.pending : suggestionIds.length,
+  };
+};
+
 export type KbReviewAlert = {
   /** notifications.id */
   id: number;
@@ -65,6 +94,7 @@ export type UseKbReviewAlertsResult = ReturnType<typeof useKbReviewAlerts>;
 
 export const useKbReviewAlerts = () => {
   const [alerts, setAlerts] = useState<KbReviewAlert[]>([]);
+  const [consolidations, setConsolidations] = useState<KbConsolidationAlert[]>([]);
   const [actingId, setActingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const orgKey = useAuthStore(
@@ -85,6 +115,19 @@ export const useKbReviewAlerts = () => {
         );
       })
       // A failed poll must not clear standing reviews — empty would read as "nothing to review".
+      .catch(() => {});
+    apiClient
+      .get('/api/notifications', { params: { kind: KB_CONSOLIDATION_KIND } })
+      .then((res) => {
+        const payload = (res.data as { data: { notifications: Notification[] } }).data;
+        setConsolidations(
+          payload.notifications
+            .filter((row) => (row as { kind?: string }).kind === KB_CONSOLIDATION_KIND)
+            .map(toConsolidationAlert)
+            // A row that says nothing is pending is not a request to anyone.
+            .filter((alert) => alert.pending > 0)
+        );
+      })
       .catch(() => {});
   }, []);
 
@@ -129,5 +172,8 @@ export const useKbReviewAlerts = () => {
     }
   }, []);
 
-  return { alerts, decide, actingId, error, refresh: fetchAlerts };
+  // What the bell counts: one per capture review, one per department's merge summary row.
+  const rowCount = alerts.length + consolidations.length;
+
+  return { alerts, consolidations, rowCount, decide, actingId, error, refresh: fetchAlerts };
 };

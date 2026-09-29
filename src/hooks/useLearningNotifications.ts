@@ -7,6 +7,7 @@ import {
   type LearningSuggestion,
 } from '@/services/learning.service';
 import { logger } from '@/lib/logger';
+import { isKbConsolidationSuggestion } from '@/lib/learningSuggestionPermissions';
 
 // Polls the learning notifications + pending suggestions endpoints. No BE
 // WebSocket emit exists today; 60s poll is fine — the engine cron runs every
@@ -66,7 +67,17 @@ export const useLearningNotifications = () => {
       // KB capture reviews have their own bell section (useKbReviewAlerts), which also reaches
       // moderators — this section is org-admin only. Listing them here too would show an org
       // admin every review twice.
-      setSuggestions(sugs.filter((sug) => sug.status === 'pending' && sug.domain !== 'kb_review'));
+      // KB consolidation proposals (kb_quality consolidate/attach) likewise have their own bell row
+      // (kb_consolidation_pending) and can only be accepted WITH a reviewed body — a bare Accept
+      // here would be refused. Excluded by TYPE: the rest of kb_quality (routing promotes) stays.
+      setSuggestions(
+        sugs.filter(
+          (sug) =>
+            sug.status === 'pending' &&
+            sug.domain !== 'kb_review' &&
+            !isKbConsolidationSuggestion(sug)
+        )
+      );
       setFetchError(false);
     } catch (err) {
       logger.debug('useLearningNotifications fetch failed', { err });

@@ -106,6 +106,14 @@ describe('SLA bell kind filter', () => {
     expect(result.current.notifications.map((row) => row.id)).toEqual([1]);
   });
 
+  it('does not surface kb_consolidation_pending (KB merges awaiting review) as an SLA breach', async () => {
+    respond([row(1, 'sla_message_breach'), row(6, 'kb_consolidation_pending')]);
+    const { result } = renderHook(() => useSLANotifications());
+    await waitFor(() => expect(result.current.notifications.length).toBeGreaterThan(0));
+
+    expect(result.current.notifications.map((row) => row.id)).toEqual([1]);
+  });
+
   it('still surfaces a real breach, so the filter is not simply eating everything', async () => {
     // Control. A denylist that hid real breaches would be far worse than the blank amber row.
     respond([row(1, 'sla_message_breach'), row(2, 'sla_ticket_first_response')]);

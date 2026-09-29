@@ -4,6 +4,7 @@ import {
   Eye,
   EyeOff,
   Maximize2,
+  Split,
   Trash2,
   MessageSquare,
   FileText,
@@ -15,6 +16,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import type { KBEntry } from '@/services/kb.service';
+import { isCaseRow, isMergedOriginal } from '@/lib/kbConsolidation';
 
 const getTypeIcon = (type: string) => {
   switch (type) {
@@ -42,6 +44,8 @@ type KBEntryCardProps = {
   onDelete: (entry: KBEntry) => void;
   /** May approve / reject / hide (manage_knowledge_base). Without it the server answers 403. */
   canReview: boolean;
+  /** Undo a merged case (manage_knowledge_base). Shown only on case rows. */
+  onUnmerge?: (entry: KBEntry) => void;
 };
 
 export const KBEntryCard = ({
@@ -52,6 +56,7 @@ export const KBEntryCard = ({
   onReject,
   onDelete,
   canReview,
+  onUnmerge,
 }: KBEntryCardProps) => (
   <Card className="p-4">
     <div className="flex gap-3">
@@ -115,10 +120,15 @@ export const KBEntryCard = ({
             <Maximize2 className="w-4 h-4 mr-1" />
             View
           </Button>
-          {canReview && !entry.approved && !entry.hidden && (
+          {canReview && !isMergedOriginal(entry) && !entry.approved && !entry.hidden && (
             <>
-              <Button size="sm" variant="outline" onClick={() => onApprove(entry.id)} title="Approve"
-  aria-label="Approve">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onApprove(entry.id)}
+                title="Approve"
+                aria-label="Approve"
+              >
                 <CheckCircle className="w-4 h-4" />
               </Button>
               <Button
@@ -133,9 +143,15 @@ export const KBEntryCard = ({
             </>
           )}
           {canReview &&
+            !isMergedOriginal(entry) &&
             (!entry.hidden ? (
-              <Button size="sm" variant="outline" onClick={() => onHide(entry.id)} title="Hide"
-  aria-label="Hide">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onHide(entry.id)}
+                title="Hide"
+                aria-label="Hide"
+              >
                 <EyeOff className="w-4 h-4" />
               </Button>
             ) : (
@@ -149,16 +165,29 @@ export const KBEntryCard = ({
                 <Eye className="w-4 h-4" />
               </Button>
             ))}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onDelete(entry)}
-            title="Delete"
-            aria-label="Delete"
-            className="text-destructive hover:text-destructive"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          {canReview && isCaseRow(entry) && onUnmerge && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onUnmerge(entry)}
+              title="Unmerge — undo this case and restore its original entries"
+              aria-label="Unmerge"
+            >
+              <Split className="w-4 h-4" />
+            </Button>
+          )}
+          {!isMergedOriginal(entry) && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onDelete(entry)}
+              title="Delete"
+              aria-label="Delete"
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
     </div>

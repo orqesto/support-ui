@@ -92,6 +92,9 @@ const NON_SLA_BELL_KINDS = new Set([
   'ingestion_dark',
   // A KB capture waiting for review: no breach fields, own surface in useKbReviewAlerts.
   'kb_review_pending',
+  // KB merge proposals waiting for review (#873): no breach fields, own surface in
+  // useKbReviewAlerts (the same hook as the capture reviews).
+  'kb_consolidation_pending',
 ]);
 const isNonSlaBellKind = (kind: unknown): boolean =>
   typeof kind === 'string' && NON_SLA_BELL_KINDS.has(kind);

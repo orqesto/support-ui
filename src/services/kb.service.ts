@@ -30,6 +30,21 @@ export type KBEntry = {
   rejectedBy?: number | null;
   usageCount: number;
   createdAt: string;
+  publicId?: string | null;
+  /**
+   * KB consolidation (#873). A CASE row (the merged entry) has `capturedVia: 'consolidation'`.
+   * A merged ORIGINAL has `consolidatedInto` = the case id and `consolidation.state 'merged'`;
+   * a detached one (its thread moved to another mailbox) has `state 'detached'`. All optional:
+   * absent on a backend that predates the feature.
+   */
+  capturedVia?: string | null;
+  consolidatedInto?: number | null;
+  consolidation?: {
+    state: 'merged' | 'detached';
+    caseId: number;
+    casePublicId: string | null;
+    caseExists: boolean;
+  } | null;
   metadata?: Record<string, unknown>;
   typeData?: {
     documentContent?: string;
@@ -120,20 +135,34 @@ export const kbService = {
 
   /** A reviewer's "no": hidden now, deleted by the backend 90 days later unless re-approved. */
   reject: async (id: number) => {
-    const response = await apiClient.patch<ApiResponse<{ id: number; rejectedAt: string }>>(
-      `/api/knowledge-base/entries/${id}/reject`
-    );
+    const response = await apiClient.patch<
+      ApiResponse<{ id: number; rejectedAt?: string; unmerged?: boolean; restored?: number }>
+    >(`/api/knowledge-base/entries/${id}/reject`);
     return response.data;
   },
 
   hide: async (id: number) => {
-    const response = await apiClient.patch<ApiResponse<null>>(
-      `/api/knowledge-base/entries/${id}/hide`
-    );
+    // On a CASE row this is an Unmerge and answers `{ unmerged: true, restored }`.
+    const response = await apiClient.patch<
+      ApiResponse<{ unmerged?: boolean; restored?: number } | null>
+    >(`/api/knowledge-base/entries/${id}/hide`);
     return response.data;
   },
 
-  update: async (id: number, data: { title?: string; content?: string; category?: string }) => {
+  /**
+   * For a Q&A entry send `question` + `answer`: they are what AI drafts read (`content` is only
+   * the searchable copy, and a content edit that loses its "Question:"/"Answer:" parts is 400).
+   */
+  update: async (
+    id: number,
+    data: {
+      title?: string;
+      content?: string;
+      category?: string;
+      question?: string;
+      answer?: string;
+    }
+  ) => {
     const response = await apiClient.patch<ApiResponse<KBEntry>>(
       `/api/knowledge-base/entries/${id}`,
       data
@@ -142,7 +171,9 @@ export const kbService = {
   },
 
   delete: async (id: number) => {
-    const response = await apiClient.delete<ApiResponse<null>>(`/api/knowledge-base/entries/${id}`);
+    const response = await apiClient.delete<
+      ApiResponse<{ unmerged?: boolean; restored?: number } | null>
+    >(`/api/knowledge-base/entries/${id}`);
     return response.data;
   },
 

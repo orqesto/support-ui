@@ -5,6 +5,7 @@ import {
   EyeOff,
   FileText,
   Maximize2,
+  Split,
   MessageSquare,
   Trash2,
   XCircle,
@@ -15,6 +16,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import type { KBEntry } from '@/services/kb.service';
+import { isCaseRow, isMergedOriginal } from '@/lib/kbConsolidation';
 
 const getTypeIcon = (type: string) => {
   switch (type) {
@@ -43,6 +45,8 @@ type KBTableViewProps = {
   onDelete: (entry: KBEntry) => void;
   /** May approve / reject / hide (manage_knowledge_base). Without it the server answers 403. */
   canReview: boolean;
+  /** Undo a merged case (manage_knowledge_base). Shown only on case rows. */
+  onUnmerge?: (entry: KBEntry) => void;
 };
 
 export const KBTableView = ({
@@ -54,6 +58,7 @@ export const KBTableView = ({
   onReject,
   onDelete,
   canReview,
+  onUnmerge,
 }: KBTableViewProps) => (
   <div className="hidden rounded-lg border md:block">
     <table className="w-full table-fixed">
@@ -159,7 +164,7 @@ export const KBTableView = ({
                   >
                     <Maximize2 className="w-4 h-4" />
                   </Button>
-                  {canReview && !entry.approved && !entry.hidden && (
+                  {canReview && !isMergedOriginal(entry) && !entry.approved && !entry.hidden && (
                     <>
                       <Button
                         size="sm"
@@ -182,6 +187,7 @@ export const KBTableView = ({
                     </>
                   )}
                   {canReview &&
+                    !isMergedOriginal(entry) &&
                     (!entry.hidden ? (
                       <Button
                         size="sm"
@@ -197,22 +203,39 @@ export const KBTableView = ({
                         size="sm"
                         variant="outline"
                         onClick={() => onApprove(entry.id)}
-                        title={entry.rejectedAt ? 'Approve — restores the rejected entry' : 'Unhide'}
+                        title={
+                          entry.rejectedAt ? 'Approve — restores the rejected entry' : 'Unhide'
+                        }
                         aria-label={entry.rejectedAt ? 'Restore' : 'Unhide'}
                       >
                         <Eye className="w-4 h-4" />
                       </Button>
                     ))}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onDelete(entry)}
-                    title="Delete"
-                    aria-label="Delete"
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  {canReview && isCaseRow(entry) && onUnmerge && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onUnmerge(entry)}
+                      title="Unmerge — undo this case and restore its original entries"
+                      aria-label="Unmerge"
+                    >
+                      <Split className="w-4 h-4" />
+                    </Button>
+                  )}
+                  {/* A merged original is deleted only by unmerging its case (the server
+                      answers 409), so the list does not offer it. */}
+                  {!isMergedOriginal(entry) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onDelete(entry)}
+                      title="Delete"
+                      aria-label="Delete"
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
               </td>
             </tr>

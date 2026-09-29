@@ -30,6 +30,40 @@ export const SUGGESTION_DOMAIN_PERMISSIONS: Readonly<Record<string, Permission>>
 export const permissionForSuggestionDomain = (domain: string): Permission | null =>
   SUGGESTION_DOMAIN_PERMISSIONS[domain] ?? null;
 
+/**
+ * KB consolidation (#873): permission by suggestion TYPE, not domain. `kb_quality` STAYS
+ * admin-only — the engine also emits routing-rule `promote` suggestions under it, and opening
+ * the whole domain to KB moderators would let them promote routing rules. Only the two KB
+ * content types map to manage_knowledge_base (mirrors BE `suggestionPermissions.ts`).
+ */
+export const KB_CONSOLIDATION_SUGGESTION_TYPES: ReadonlySet<string> = new Set([
+  'consolidate',
+  'attach',
+]);
+
+export const SUGGESTION_TYPE_PERMISSIONS: Readonly<Record<string, Readonly<Record<string, Permission>>>> =
+  {
+    kb_quality: {
+      consolidate: Permission.MANAGE_KNOWLEDGE_BASE,
+      attach: Permission.MANAGE_KNOWLEDGE_BASE,
+    },
+  };
+
+export const isKbConsolidationSuggestion = (suggestion: {
+  domain: string;
+  suggestionType: string;
+}): boolean =>
+  suggestion.domain === 'kb_quality' &&
+  KB_CONSOLIDATION_SUGGESTION_TYPES.has(suggestion.suggestionType);
+
+/** The permission needed to act on this suggestion: its TYPE mapping first, then its domain. */
+export const permissionForSuggestion = (suggestion: {
+  domain: string;
+  suggestionType: string;
+}): Permission | null =>
+  SUGGESTION_TYPE_PERMISSIONS[suggestion.domain]?.[suggestion.suggestionType] ??
+  permissionForSuggestionDomain(suggestion.domain);
+
 /** Human-readable reason for a disabled action, for a tooltip or inline note. */
 export const whyCannotAct = (domain: string): string =>
   permissionForSuggestionDomain(domain) === null
