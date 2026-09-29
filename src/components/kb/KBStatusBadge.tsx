@@ -67,7 +67,9 @@ export const KBStatusBadge = ({
       </Badge>
     );
   }
-  if (consolidation?.state === 'detached') {
+  // Detached is a HIDDEN state (the backend sends it only while hidden). An entry shown again
+  // reads by its own state — Approved / Pending — never "detached … it stays hidden".
+  if (consolidation?.state === 'detached' && entry.hidden) {
     return (
       <Badge
         className={`text-muted-foreground ${className}`}

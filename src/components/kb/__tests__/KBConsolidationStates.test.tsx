@@ -131,6 +131,25 @@ describe('KB list — consolidation states (F4)', () => {
     expect(screen.getByText('detached (case removed)')).toBeInTheDocument();
   });
 
+  it('a detached entry that is no longer hidden reads by its own state, not "detached" (MED-1)', () => {
+    // The backend sends `detached` only while hidden (consolidationFields.ts); the badge must not
+    // override Approved/Pending if one arrives anyway.
+    render(
+      <MemoryRouter>
+        <KBStatusBadge
+          entry={entry({
+            hidden: false,
+            approved: true,
+            consolidatedInto: null,
+            consolidation: { state: 'detached', caseId: 9, casePublicId: 'KB-9', caseExists: true },
+          })}
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Approved')).toBeInTheDocument();
+    expect(screen.queryByText(/detached from case/)).not.toBeInTheDocument();
+  });
+
   it('a case row offers Unmerge (to a reviewer only)', () => {
     const props = handlers();
     render(

@@ -124,7 +124,12 @@ export type KbCasesReport = {
   pagination: { page: number; pageSize: number; total: number; totalPages: number };
   footer: { belowQualityBar: number };
   findings: KbCasesFindings;
-  classifying: { settled: number; total: number };
+  /**
+   * `total`: only inputs the job can reach (the newest per bounded scope). `beyondBound`: older
+   * inputs of a bounded scope it never classifies. Absent on a backend before BE bb1121ee, whose
+   * `total` still counted those.
+   */
+  classifying: { settled: number; total: number; beyondBound?: number };
   bounded: boolean;
   miningOff: boolean;
   /**
@@ -133,6 +138,12 @@ export type KbCasesReport = {
    * the page keeps its "being classified" wording.
    */
   labellingActive?: boolean;
+  /**
+   * 'dry_run' = the owner's calibration: the job labels into a trial table only, so nothing moves
+   * on this page. 'off' = it does not run (or has no AI provider). Absent on an older backend —
+   * then `labellingActive` decides, as before.
+   */
+  labellingMode?: 'production' | 'dry_run' | 'off';
 };
 
 export type KbCasesQuery = {

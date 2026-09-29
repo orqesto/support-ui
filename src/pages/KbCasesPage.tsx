@@ -193,51 +193,72 @@ const BelowQualityBar = ({ count }: { count: number }) =>
   ) : null;
 
 /**
- * Is anything labelling entries? `labellingActive` is true only when the nightly job runs in
- * production for this workspace; off or dry run, `classifying` never moves. Absent (an older
- * backend) is unknown — the page keeps its "being classified" wording then.
+ * What labels entries here. 'production': the nightly job labels this workspace. 'dry_run': the
+ * owner's calibration — it labels into a trial table only, so nothing moves on this page. 'off':
+ * it does not run. An older backend sends no `labellingMode`; then `labellingActive` decides, and
+ * with neither the page keeps its "being classified" wording.
  */
-const labellingRuns = (report: KbCasesReport) => report.labellingActive !== false;
+const labellingModeOf = (report: KbCasesReport): 'production' | 'dry_run' | 'off' =>
+  report.labellingMode ?? (report.labellingActive === false ? 'off' : 'production');
+
+const NOT_RUNNING = 'consolidation is not running for this workspace';
+const TRIAL_ONLY =
+  'consolidation runs only as a trial here; its results are not shown on this page';
 
 /** Entries not yet labelled live ONLY in `classifying` — not in rows, footer or findings. */
 const ClassifyingStatus = ({ report }: { report: KbCasesReport }) => {
   const { settled, total } = report.classifying;
   if (settled >= total) return null;
+  const mode = labellingModeOf(report);
   return (
     <p className="text-sm text-muted-foreground" role="status">
-      {labellingRuns(report)
+      {mode === 'production'
         ? `Classifying: ${settled} of ${total}`
-        : `Classified: ${settled} of ${total} — consolidation is not running for this workspace.`}
+        : `Classified: ${settled} of ${total} — ${mode === 'dry_run' ? TRIAL_ONLY : NOT_RUNNING}.`}
     </p>
   );
 };
 
 /**
  * Unlabelled entries are not promised a case: once labelled they can land below the quality bar
- * or in a finding. In a bounded scope the oldest are never labelled at all — and while nothing
- * runs, none are.
+ * or in a finding. `total` now counts only entries the job can reach (`beyondBound` present);
+ * an older backend's `total` also counted a bounded scope's oldest, which it never labels.
  */
 const unclassifiedText = (count: number, report: KbCasesReport) => {
   const answers = plural(count, 'learned answer is', 'learned answers are');
-  if (!labellingRuns(report))
-    return `${answers} not classified — consolidation is not running for this workspace.`;
-  return report.bounded
+  const mode = labellingModeOf(report);
+  if (mode === 'off') return `${answers} not classified — ${NOT_RUNNING}.`;
+  if (mode === 'dry_run')
+    return `${answers} not classified here — consolidation runs for this workspace only as a trial, and its results are not shown on this page.`;
+  return report.bounded && report.classifying.beyondBound === undefined
     ? `${answers} not classified yet — in a mailbox over the nightly limit, the oldest never are.`
     : `${answers} still being classified — what is shown here can still change.`;
 };
 
 /**
  * Only classification and proposal are capped at the newest answers; every row whose label is
- * current is still grouped. While the job does not run, not even the newest are classified.
+ * current is still grouped. With `beyondBound` the notice states exactly how many older answers
+ * go unclassified — and nothing when none do (a scope can be bounded while this department has
+ * nothing past the bound). An older backend keeps the general wording.
  */
-const BoundedNotice = ({ report }: { report: KbCasesReport }) =>
-  report.bounded ? (
+const BoundedNotice = ({ report }: { report: KbCasesReport }) => {
+  const beyond = report.classifying.beyondBound;
+  if (beyond !== undefined) {
+    return beyond > 0 ? (
+      <Alert variant="warning">
+        {plural(beyond, 'older answer', 'older answers')} in a mailbox over the nightly limit{' '}
+        {beyond === 1 ? 'is' : 'are'} not classified.
+      </Alert>
+    ) : null;
+  }
+  return report.bounded ? (
     <Alert variant="warning">
-      {labellingRuns(report)
+      {labellingModeOf(report) === 'production'
         ? 'A mailbox here has more learned answers than the nightly job reads, so only the newest are classified and proposed as cases.'
         : 'A mailbox here has more learned answers than the nightly job would read — once it runs, only the newest will be classified and proposed as cases.'}
     </Alert>
   ) : null;
+};
 
 /**
  * Why there are no case rows — true in every state. A search only narrows the rows, so with one
