@@ -267,6 +267,20 @@ describe('the field picker — the thing that makes this self-serve', () => {
     ]);
   });
 
+  it('the long paste button grows with its label instead of clipping it (a fixed h-9 spilled wherever the column narrowed)', async () => {
+    // jsdom computes no layout, so this pins the classes that make the box follow the text; the
+    // overflow itself was measured in a browser (staging, 2026-09-29: viewports 360–520 and
+    // 1040–1280 px spilled; with these classes none did, 360–1500 px).
+    const user = userEvent.setup();
+    render(<EndpointWizard connection={connection()} onClose={noop} onSaved={noop} />);
+    await fill(user);
+    const button = screen.getByRole('button', { name: /paste a response instead/i });
+    expect(button.className).toMatch(/\bh-auto\b/);
+    expect(button.className).toMatch(/\bwhitespace-normal\b/);
+    expect(button.className).not.toMatch(/(^|\s)h-9(\s|$)/);
+    expect(button.parentElement?.className).toMatch(/\bflex-wrap\b/);
+  });
+
   it('⛔ paste-a-sample reaches the SAME tree — the route for a system we cannot reach', async () => {
     const user = userEvent.setup();
     render(<EndpointWizard connection={connection()} onClose={noop} onSaved={noop} />);

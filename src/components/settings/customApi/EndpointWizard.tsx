@@ -593,7 +593,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
                     value={parameter}
                     onChange={(event) => setParameter(event.target.value)}
                   />
-                  <div className="flex gap-2 items-center">
+                  <div className="flex flex-wrap gap-2 items-center">
                     <Button
                       size="sm"
                       onClick={() => void run('test')}
@@ -607,7 +607,19 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
                      * DeusPower is reached through tunnels that die. Making the live call the only
                      * way blocks them with nothing to do but call us.
                      */}
-                    <Button size="sm" variant="ghost" onClick={() => setPasting(true)}>
+                    {/*
+                     * `sm` is a FIXED h-9, and this label is long: wherever the column narrows it
+                     * (measured on staging, 2026-09-29: viewport 360–520 px, and 1040–1280 px where
+                     * the page goes two-column) it wrapped onto two lines that spilled out of the
+                     * button's background. The row wraps first; if the label still does not fit,
+                     * the button grows with it instead of clipping it.
+                     */}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-auto min-h-9 py-1.5 whitespace-normal text-left"
+                      onClick={() => setPasting(true)}
+                    >
                       We can’t reach it — paste a response instead
                     </Button>
                   </div>
