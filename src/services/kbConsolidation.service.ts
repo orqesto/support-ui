@@ -16,7 +16,8 @@ export type KbConsolidationMetrics = {
   customers: number;
   sameThread: boolean;
 };
-export type KbJudgeDropped = { id: number; reason: string };
+/** `publicId`: absent on a backend before BE ffb025c3 — then the entry is named "#<id>". */
+export type KbJudgeDropped = { id: number; reason: string; publicId?: string | null };
 
 export type KbConsolidationMember =
   | { id: number; gone: true }

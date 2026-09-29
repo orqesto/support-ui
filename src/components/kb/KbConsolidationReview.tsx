@@ -124,8 +124,8 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
   }
 
   const isConsolidate = detail.type === 'consolidate';
-  // Conflicts, drops and the accept result carry row ids; show each as the list shows it. A
-  // judge-dropped entry is not a member, so /members has no public id for it — "#<id>" then.
+  // Conflicts and the accept result carry row ids; show each member as the list shows it.
+  // (Judge-dropped entries are not members; the backend sends their public id with them.)
   const nameOf = (id: number) => memberName(liveMembers.find((row) => row.id === id) ?? { id });
   const minTicked = isConsolidate ? 2 : 1;
   const conflicts = detail.conflicts ?? [];
@@ -360,7 +360,7 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
           <ul className="mt-1 space-y-1 text-muted-foreground" aria-label="Left out by the AI">
             {judgeDropped.map((row) => (
               <li key={row.id}>
-                {nameOf(row.id)} — {row.reason}
+                {kbRef(row.publicId, row.id)} — {row.reason}
               </li>
             ))}
           </ul>

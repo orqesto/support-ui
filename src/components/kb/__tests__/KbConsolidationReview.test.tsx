@@ -64,7 +64,11 @@ const detail = (over: Partial<KbConsolidationDetail> = {}): KbConsolidationDetai
   conflicts: [{ summary: 'One says 5 days, one says 10', memberIds: [1, 2] }],
   rationale: 'All ask about refunds.',
   metrics: { conversations: 3, customers: 3, sameThread: true },
-  judgeDropped: [{ id: 9, reason: 'about one order only' }],
+  // The members route's real shape (BE ffb025c3): each judge-dropped entry carries its public id.
+  judgeDropped: [
+    { id: 9, reason: 'about one order only', publicId: 'KB-9' },
+    { id: 10, reason: 'a raw email', publicId: null },
+  ],
   case: null,
   members: [
     member(1, { attachments: [{ id: 41, filename: 'invoice.pdf' }] }),
@@ -112,8 +116,11 @@ describe('KbConsolidationReview (F1)', () => {
     expect(
       within(screen.getByRole('list', { name: 'Conflicts' })).getByRole('listitem')
     ).toHaveTextContent('One says 5 days, one says 10 (#KB-1, #KB-2)');
-    // A judge-dropped entry is not a member, so /members carries no public id for it.
-    expect(screen.getByText(/about one order only/)).toHaveTextContent('#9 — about one order only');
+    // Judge-dropped entries are named by their own public id; "#<id>" only when it is null.
+    expect(screen.getByText(/about one order only/)).toHaveTextContent(
+      '#KB-9 — about one order only'
+    );
+    expect(screen.getByText(/a raw email/)).toHaveTextContent('#10 — a raw email');
   });
 
   it('a member edited since proposed says so and can NOT be ticked', async () => {
