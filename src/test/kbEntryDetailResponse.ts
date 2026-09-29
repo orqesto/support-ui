@@ -20,6 +20,8 @@ type DetailOptions = {
   capturedVia?: string | null;
   /** The case this entry is merged into — the backend then adds `consolidation.state 'merged'`. */
   consolidatedInto?: number | null;
+  /** Its source (mailbox, document) was removed — kept for the record, never used. */
+  sourceDeleted?: boolean;
   /** What `withConsolidationFields` finds for that case id. */
   casePublicId?: string | null;
   caseExists?: boolean;
@@ -58,6 +60,7 @@ export const kbEntryDetailResponse = (options: DetailOptions): { success: true; 
     capturedVia: options.capturedVia ?? 'resolve',
     consolidatedInto,
     publicId: options.publicId ?? null,
+    sourceDeleted: options.sourceDeleted ?? false,
     ...(consolidatedInto !== null && {
       consolidation: {
         state: 'merged' as const,

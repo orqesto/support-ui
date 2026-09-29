@@ -248,4 +248,75 @@ describe('KB list — consolidation states (F4)', () => {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
     }
   });
+
+  describe('an entry whose source was removed (LOW-6)', () => {
+    const retiredCase = entry({
+      id: 9,
+      approved: true,
+      capturedVia: 'consolidation',
+      publicId: 'KB-9',
+      sourceDeleted: true,
+    });
+    const retiredOriginal = entry({
+      hidden: true,
+      sourceDeleted: true,
+      consolidatedInto: 9,
+      consolidation: { state: 'merged', caseId: 9, casePublicId: 'KB-9', caseExists: true },
+    });
+    const SERVING = ['Approve', 'Reject', 'Hide', 'Unhide', 'Restore', 'Unmerge'];
+
+    it('reads "Source removed — not used", never "Approved · Case" or "merged into"', () => {
+      render(
+        <MemoryRouter>
+          <KBStatusBadge entry={retiredCase} />
+          <KBStatusBadge entry={retiredOriginal} />
+        </MemoryRouter>
+      );
+      expect(screen.getAllByText('Source removed — not used')).toHaveLength(2);
+      expect(screen.queryByText('Approved')).not.toBeInTheDocument();
+      expect(screen.queryByText('Case')).not.toBeInTheDocument();
+      expect(screen.queryByText(/merged into/)).not.toBeInTheDocument();
+    });
+
+    it('card and table offer nothing that implies it serves answers; Delete stays', () => {
+      for (const View of [KBEntryCard, KBTableView]) {
+        render(
+          <MemoryRouter>
+            {View === KBEntryCard ? (
+              <KBEntryCard entry={retiredCase} canReview {...handlers()} />
+            ) : (
+              <KBTableView entries={[retiredCase]} loading={false} canReview {...handlers()} />
+            )}
+          </MemoryRouter>
+        );
+        for (const name of SERVING) {
+          expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+        }
+        expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+        cleanup();
+      }
+    });
+
+    it('the drawer, fed by the detail route, says the same and offers the same', async () => {
+      getById.mockResolvedValue(
+        kbEntryDetailResponse({
+          id: 9,
+          approved: true,
+          capturedVia: 'consolidation',
+          publicId: 'KB-9',
+          sourceDeleted: true,
+        })
+      );
+      render(
+        <MemoryRouter>
+          <KBEntryDetail entry={entry({ id: 9 })} onClose={vi.fn()} canReview {...handlers()} />
+        </MemoryRouter>
+      );
+      expect(await screen.findByText('Source removed — not used')).toBeInTheDocument();
+      for (const name of [/Approve/, /Reject/, /^Hide$/, /Unhide/, /Restore/, /Unmerge/, /Edit/]) {
+        expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+      }
+      expect(screen.getByRole('button', { name: /Delete/ })).toBeInTheDocument();
+    });
+  });
 });

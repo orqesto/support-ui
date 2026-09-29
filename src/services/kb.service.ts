@@ -38,6 +38,11 @@ export type KBEntry = {
    * absent on a backend that predates the feature.
    */
   capturedVia?: string | null;
+  /**
+   * Its source (the mailbox, or a deleted KB) was removed: kept for the record, never used by the
+   * AI — whatever `approved` / `hidden` say. Sent by the list and the detail route (BE b3636e13).
+   */
+  sourceDeleted?: boolean;
   consolidatedInto?: number | null;
   consolidation?: {
     state: 'merged' | 'detached';

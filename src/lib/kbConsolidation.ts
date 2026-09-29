@@ -8,7 +8,17 @@
  */
 import type { KBEntry } from '@/services/kb.service';
 
-type ConsolidationFields = Pick<KBEntry, 'capturedVia' | 'consolidatedInto' | 'consolidation'>;
+type ConsolidationFields = Pick<
+  KBEntry,
+  'capturedVia' | 'consolidatedInto' | 'consolidation' | 'sourceDeleted'
+>;
+
+/**
+ * Its source was removed: kept for the record, never used — whatever `approved` / `hidden` say.
+ * A case (or an original) of a removed source is not live, so it must not read or act as one.
+ */
+export const isSourceRemoved = (entry: Pick<KBEntry, 'sourceDeleted'>): boolean =>
+  entry.sourceDeleted === true;
 
 export const isCaseRow = (entry: ConsolidationFields): boolean =>
   entry.capturedVia === 'consolidation';
@@ -50,3 +60,11 @@ export const unmergeConsequence = (restoreCount?: number | null): string =>
   typeof restoreCount === 'number'
     ? `This restores ${restoreCount} original ${restoreCount === 1 ? 'entry' : 'entries'}`
     : 'This restores its original entries';
+
+/**
+ * Approve / Reject / Hide / Unhide / Edit / Unmerge act on an entry the AI serves or may serve.
+ * Not offered on a merged original (the server refuses, 409) nor on a source-removed entry
+ * (nothing it would change is ever used). Delete is decided separately.
+ */
+export const offersReviewActions = (entry: ConsolidationFields): boolean =>
+  !isMergedOriginal(entry) && !isSourceRemoved(entry);

@@ -16,7 +16,12 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import type { KBEntry } from '@/services/kb.service';
-import { isCaseRow, isMergedOriginal } from '@/lib/kbConsolidation';
+import {
+  isCaseRow,
+  isMergedOriginal,
+  isSourceRemoved,
+  offersReviewActions,
+} from '@/lib/kbConsolidation';
 
 const getTypeIcon = (type: string) => {
   switch (type) {
@@ -120,7 +125,7 @@ export const KBEntryCard = ({
             <Maximize2 className="w-4 h-4 mr-1" />
             View
           </Button>
-          {canReview && !isMergedOriginal(entry) && !entry.approved && !entry.hidden && (
+          {canReview && offersReviewActions(entry) && !entry.approved && !entry.hidden && (
             <>
               <Button
                 size="sm"
@@ -143,7 +148,7 @@ export const KBEntryCard = ({
             </>
           )}
           {canReview &&
-            !isMergedOriginal(entry) &&
+            offersReviewActions(entry) &&
             (!entry.hidden ? (
               <Button
                 size="sm"
@@ -165,7 +170,7 @@ export const KBEntryCard = ({
                 <Eye className="w-4 h-4" />
               </Button>
             ))}
-          {canReview && isCaseRow(entry) && onUnmerge && (
+          {canReview && isCaseRow(entry) && !isSourceRemoved(entry) && onUnmerge && (
             <Button
               size="sm"
               variant="outline"

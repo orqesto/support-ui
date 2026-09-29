@@ -1,6 +1,12 @@
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
-import { caseHref, caseRef, isCaseRow, isMergedOriginal } from '@/lib/kbConsolidation';
+import {
+  caseHref,
+  caseRef,
+  isCaseRow,
+  isMergedOriginal,
+  isSourceRemoved,
+} from '@/lib/kbConsolidation';
 import { KBApprovalBadge } from './KBApprovalProvenance';
 import { formatPurgeDate } from '@/lib/kbRejection';
 import type { KBEntry } from '@/services/kb.service';
@@ -24,6 +30,18 @@ export const KBStatusBadge = ({
   /** The detail drawer renders the full provenance block itself; the compact badge would repeat it. */
   withProvenance?: boolean;
 }) => {
+  // Source removed: never used, whatever else it says — not "Approved · Case", and not "merged
+  // into #X" as if that case were live.
+  if (isSourceRemoved(entry)) {
+    return (
+      <Badge
+        className={`text-muted-foreground ${className}`}
+        title="Its source (a mailbox or a deleted knowledge base) was removed. Kept for the record; the AI never uses it."
+      >
+        Source removed — not used
+      </Badge>
+    );
+  }
   if (entry.rejectedAt) {
     const purge = formatPurgeDate(entry.rejectedAt);
     return (
