@@ -113,3 +113,35 @@ describe('the status vocabulary on a row', () => {
     expect(screen.queryByText(/status__label/)).toBeNull();
   });
 });
+
+describe('a list that was cut (2026-09-29)', () => {
+  it('says the list is PARTIAL when it was cut and the vendor sent no count (2026-09-29)', async () => {
+    // RED: without it the first N read as all of them.
+    run.mockResolvedValue([
+      card({
+        rows: [{ order_id: '1' }, { order_id: '2' }],
+        fields: [{ path: 'order_id', label: 'Order', kind: 'plain' }],
+        total: null,
+        more: true,
+      }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+    expect(await screen.findByText(/showing the first 2 — there may be more/i)).toBeTruthy();
+  });
+
+  it('CONTROL: a whole list, or an older backend without the flag, says nothing extra', async () => {
+    run.mockResolvedValue([
+      card({
+        rows: [{ order_id: '1' }],
+        fields: [{ path: 'order_id', label: 'Order', kind: 'plain' }],
+        total: null,
+      }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+    await screen.findByText('1');
+    expect(screen.queryByText(/there may be more/i)).toBeNull();
+    expect(screen.queryByText(/showing/i)).toBeNull();
+  });
+});

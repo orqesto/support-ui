@@ -13,8 +13,27 @@ import type { components } from '@/types/generated/api';
  * Shapes are GENERATED from the backend contract. A hand-written copy can disagree with the API
  * silently, which is the class of bug that cost three audit passes on the backend.
  */
-export type CustomApiConnection = components['schemas']['CustomApiConnection'];
-export type CustomApiEndpoint = components['schemas']['CustomApiEndpoint'];
+/**
+ * ⛔ The 2026-09-29 request settings are OPTIONAL here although the API always sends them: this
+ * build can meet an older backend that does not (FE CLAUDE.md, version skew). Everything reads
+ * them through `requestSettings.ts`, which falls back to the defaults.
+ */
+type FlexibleEndpointKey =
+  | 'bodyFormat'
+  | 'notFoundMeans'
+  | 'limitParam'
+  | 'paginationMode'
+  | 'paginationParam'
+  | 'paginationStart'
+  | 'paginationNextPath'
+  | 'paginationMaxPages';
+type FlexibleConnectionKey = 'failureStatusPath' | 'failureStatusValues' | 'failureMessagePath';
+type GeneratedEndpoint = components['schemas']['CustomApiEndpoint'];
+type GeneratedConnection = components['schemas']['CustomApiConnection'];
+export type CustomApiEndpoint = Omit<GeneratedEndpoint, FlexibleEndpointKey> &
+  Partial<Pick<GeneratedEndpoint, FlexibleEndpointKey>>;
+export type CustomApiConnection = Omit<GeneratedConnection, FlexibleConnectionKey | 'endpoints'> &
+  Partial<Pick<GeneratedConnection, FlexibleConnectionKey>> & { endpoints: CustomApiEndpoint[] };
 
 export interface CreateConnectionInput {
   name: string;

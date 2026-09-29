@@ -125,7 +125,7 @@ const UNVERIFIED_TEXT: Record<
   tagged_field_has_no_address:
     'Not confirmed as this customer’s record — the field set up as the customer’s address does not hold one. An admin can fix this in the lookup’s settings.',
   check_truncated:
-    'Not confirmed as this customer’s record — the answer was too large to check all of it.',
+    'Not confirmed as this customer’s record — there was more than we could read, so the check did not finish.',
   unknown: 'Not confirmed as this customer’s record — ownership could not be checked.',
 };
 
@@ -313,10 +313,20 @@ const ResultCard = ({
               </p>
             )}
             {/* D19/SC7: the cap is not decorative — say how many actually exist. */}
-            {typeof result.total === 'number' && result.total > result.rows.length && (
+            {typeof result.total === 'number' && result.total > result.rows.length ? (
               <p className="text-[10px] text-muted-foreground">
                 Showing {result.rows.length} of {result.total}.
               </p>
+            ) : (
+              /*
+               * ⛔ The list was cut and the vendor sent no count: without this the agent reads the
+               * first N as ALL of them. (Absent from an older backend ⇒ nothing is said, as before.)
+               */
+              result.more === true && (
+                <p className="text-[10px] text-muted-foreground">
+                  Showing the first {result.rows.length} — there may be more.
+                </p>
+              )
             )}
           </div>
         ) : (

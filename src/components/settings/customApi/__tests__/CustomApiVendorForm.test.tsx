@@ -315,3 +315,99 @@ describe('the browser must not treat the credential fields as a login form', () 
     expect(screen.getByLabelText('Header name')).toHaveAttribute('autocomplete', 'off');
   });
 });
+
+describe("the vendor's failure words (2026-09-29)", () => {
+  const modern = (): Connection => ({
+    ...connection(),
+    failureStatusPath: 'ok',
+    failureStatusValues: ['false'],
+    failureMessagePath: 'message',
+  });
+
+  it('an edit shows what differs while closed, and saves the words', async () => {
+    const user = userEvent.setup();
+    render(<CustomApiVendorForm open connection={modern()} onClose={noop} onSaved={noop} />);
+    const toggle = screen.getByRole('button', { name: /reports a failed call/i });
+    expect(toggle).toHaveTextContent(/fails when “ok” is false.*error text in “message”/);
+    await user.click(toggle);
+    const values = screen.getByLabelText(/mean it failed/i);
+    await user.clear(values);
+    await user.type(values, 'false, no');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    expect(update.mock.calls.at(-1)?.[1]).toMatchObject({
+      failureStatusPath: 'ok',
+      failureStatusValues: ['false', 'no'],
+      failureMessagePath: 'message',
+    });
+  });
+
+  it("'' is sent as OFF, not dropped", async () => {
+    const user = userEvent.setup();
+    render(<CustomApiVendorForm open connection={modern()} onClose={noop} onSaved={noop} />);
+    await user.click(screen.getByRole('button', { name: /reports a failed call/i }));
+    await user.clear(screen.getByLabelText(/Error message field/i));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    expect(update.mock.calls.at(-1)?.[1]).toMatchObject({ failureMessagePath: '' });
+  });
+
+  it('⛔ hidden when editing a vendor an OLDER backend returned, and nothing new is sent', async () => {
+    const user = userEvent.setup();
+    render(<CustomApiVendorForm open connection={connection()} onClose={noop} onSaved={noop} />);
+    expect(screen.queryByRole('button', { name: /reports a failed call/i })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    expect('failureStatusPath' in (update.mock.calls.at(-1)?.[1] as object)).toBe(false);
+  });
+
+  it('a NEW vendor gets the defaults — today’s behaviour — unless changed', async () => {
+    const user = userEvent.setup();
+    render(<CustomApiVendorForm open onClose={noop} onSaved={noop} />);
+    expect(screen.getByRole('button', { name: /reports a failed call/i })).toHaveTextContent(
+      /nothing changed/i
+    );
+    await user.type(screen.getByLabelText('Name'), 'Shop');
+    await user.type(screen.getByLabelText('Address'), 'https://shop.example/api');
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: 'Connect' }));
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    expect(create.mock.calls.at(-1)?.[0]).toMatchObject({
+      failureStatusPath: 'success',
+      failureStatusValues: ['0', 'false'],
+      failureMessagePath: 'error',
+    });
+  });
+});
+
+describe('version skew on a NEW vendor (audit pass 1)', () => {
+  const fillNew = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.type(screen.getByLabelText('Name'), 'Shop');
+    await user.type(screen.getByLabelText('Address'), 'https://shop.example/api');
+    await user.click(screen.getByRole('checkbox'));
+  };
+
+  it('changed failure words + an older backend that drops them ⇒ the dialog stays open and says so', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    create.mockResolvedValue(connection()); // the OLD shape: no failure fields came back
+    render(<CustomApiVendorForm open onClose={onClose} onSaved={noop} />);
+    await fillNew(user);
+    await user.click(screen.getByRole('button', { name: /reports a failed call/i }));
+    await user.clear(screen.getByLabelText(/Status field/i));
+    await user.type(screen.getByLabelText(/Status field/i), 'ok');
+    await user.click(screen.getByRole('button', { name: 'Connect' }));
+    expect(await screen.findByText(/does not support the “failed call” settings/i)).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('CONTROL: defaults untouched ⇒ nothing was lost, so it closes as before', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    create.mockResolvedValue(connection());
+    render(<CustomApiVendorForm open onClose={onClose} onSaved={noop} />);
+    await fillNew(user);
+    await user.click(screen.getByRole('button', { name: 'Connect' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+});

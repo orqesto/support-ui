@@ -83,13 +83,17 @@ describe('StatusVocabularyStep', () => {
 
 describe('a vendor status that collides with Object.prototype', () => {
   it('🔴 still offers `toString` as unmapped — `in` would hide it', () => {
-    render(<StatusVocabularyStep labels={{ shipped: 'Sent' }} seen={['toString']} onChange={vi.fn()} />);
+    render(
+      <StatusVocabularyStep labels={{ shipped: 'Sent' }} seen={['toString']} onChange={vi.fn()} />
+    );
 
     expect(screen.getByRole('button', { name: 'toString' })).toBeInTheDocument();
   });
 
   it('CONTROL: a value the admin HAS mapped is not offered again', () => {
-    render(<StatusVocabularyStep labels={{ shipped: 'Sent' }} seen={['shipped']} onChange={vi.fn()} />);
+    render(
+      <StatusVocabularyStep labels={{ shipped: 'Sent' }} seen={['shipped']} onChange={vi.fn()} />
+    );
 
     expect(screen.queryByRole('button', { name: 'shipped' })).not.toBeInTheDocument();
   });

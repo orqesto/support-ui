@@ -6,12 +6,14 @@ import {
   readCategory,
   type CustomApiCategory,
 } from './categories';
+import { RequestSettingsBlock } from './AdvancedSettings';
 import { ChainStep } from './ChainStep';
 import { OwnershipStep } from './OwnershipStep';
 import { StatusVocabularyStep } from './StatusVocabularyStep';
 import { RecordFormatStep } from './RecordFormatStep';
 import type { RecordFormat } from './recordFormat';
 import { ResponseTree } from './ResponseTree';
+import { useRequestSettings } from './useRequestSettings';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -162,6 +164,11 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
     paramSource === 'endpoint' &&
     (chain.sourceEndpointId === null || chain.sourceFieldPath.trim() === '');
   /**
+   * Method, body, 404 meaning, row-cap parameter and pages (2026-09-29). ⛔ Shown only when the
+   * backend returned these fields: an older one would drop them on save without a word.
+   */
+  const request = useRequestSettings(connection, endpoint, resultShape);
+  /**
    * D35 (Task 5). Only meaningful for a lookup an agent types a NUMBER into — an identity lookup
    * already resolves from the contact, so the record is the customer's by construction.
    */
@@ -283,7 +290,8 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
    * `{value}` in the path, and refuses the call when a value has nowhere to go — with a message
    * naming a token nothing in this UI had ever shown them. Audit pass 8.
    */
-  const missingPlaceholder = path.trim().length > 0 && !path.includes(VALUE_PLACEHOLDER);
+  const missingPlaceholder =
+    path.trim().length > 0 && !path.includes(VALUE_PLACEHOLDER) && !request.bodyCarriesValue;
 
   const invalidateAvailability = useInvalidateCustomApiAvailability();
 
@@ -306,6 +314,8 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
         // directly above, and for the same reason its comment gives.
         category: category === '' ? null : category,
         statusLabels,
+        // ⛔ Test runs the SAVED lookup, so the request settings must be saved before it.
+        ...request.payload,
         ...parameterFields,
       });
       invalidateAvailability();
@@ -319,6 +329,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
       resultShape,
       category: category === '' ? null : category,
       statusLabels,
+      ...request.payload,
       ...parameterFields,
     });
     invalidateAvailability();
@@ -446,6 +457,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
          */
         category: category === '' ? null : category,
         statusLabels,
+        ...request.payload,
         // ⛔ Sent as `null` when the admin chose "we can't check" — that is a DECISION, and the
         // three-valued rule elsewhere in this API means absent would read as "leave it alone".
         /**
@@ -575,6 +587,8 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
               />
             )}
 
+            <RequestSettingsBlock request={request} resultShape={resultShape} />
+
             <div className="space-y-2 rounded-md border border-border p-3">
               <p className="text-xs font-medium text-foreground">
                 Let’s see what your system returns
@@ -597,7 +611,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
                     <Button
                       size="sm"
                       onClick={() => void run('test')}
-                      disabled={busy || !path.trim() || chainIncomplete}
+                      disabled={busy || !path.trim() || chainIncomplete || Boolean(request.problem)}
                     >
                       Test
                     </Button>
@@ -642,7 +656,13 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
                     <Button
                       size="sm"
                       onClick={() => void run('paste')}
-                      disabled={busy || !sample.trim() || !path.trim() || chainIncomplete}
+                      disabled={
+                        busy ||
+                        !sample.trim() ||
+                        !path.trim() ||
+                        chainIncomplete ||
+                        Boolean(request.problem)
+                      }
                     >
                       Use this
                     </Button>
@@ -914,7 +934,8 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
               !path.trim() ||
               unpricedMoney.length > 0 ||
               unlabelled.length > 0 ||
-              chainIncomplete
+              chainIncomplete ||
+              Boolean(request.problem)
             }
           >
             Save
