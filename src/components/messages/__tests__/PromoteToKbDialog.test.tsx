@@ -30,7 +30,15 @@ const promoteToKb = vi.fn<(id: number, pairs: KbQaPairInput[]) => Promise<KbProm
 /** What the service returns: the ids and the backend's truthful per-state `outcome`. */
 const promoted = (ids: number[], outcome: Partial<KbPromoteOutcome> = {}): KbPromoteResult => ({
   ids,
-  outcome: { approved: 0, hidden: 0, pendingReview: 0, rejected: 0, partOfCase: [], ...outcome },
+  outcome: {
+    approved: 0,
+    hidden: 0,
+    retired: 0,
+    pendingReview: 0,
+    rejected: 0,
+    partOfCase: [],
+    ...outcome,
+  },
 });
 const success = vi.fn<(message: string) => void>();
 const error = vi.fn<(message: string) => void>();
@@ -184,6 +192,20 @@ describe('PromoteToKbDialog', () => {
     const text = await toastFor(promoted([101], { partOfCase: [900] }));
     expect(text).toBe('Already part of a merged entry — it answers this');
     expect(text).not.toMatch(/added/i);
+  });
+
+  it('an entry whose source was removed is not "added": it is kept but never used', async () => {
+    const text = await toastFor(promoted([101], { retired: 1 }));
+    expect(text).toBe('Already in the knowledge base, but its source was removed — it is not used');
+    expect(text).not.toMatch(/added/i);
+  });
+
+  it('a retired entry is said alongside an added one', async () => {
+    const text = await toastFor(promoted([101, 102], { approved: 1, retired: 1 }));
+    expect(text).toMatch(/^Added to the knowledge base\./);
+    expect(text).toMatch(
+      /1 already in the knowledge base, but its source was removed — it is not used/
+    );
   });
 
   it('counts what was actually added', async () => {

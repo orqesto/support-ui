@@ -31,6 +31,7 @@ export type KbQaPairInput = {
 export type KbPromoteOutcome = {
   approved: number;
   hidden: number;
+  retired: number;
   pendingReview: number;
   rejected: number;
   partOfCase: number[];
@@ -58,9 +59,10 @@ export const kbPromoteService = {
   /**
    * What the saved entries ARE now, per the backend's `outcome` (kbPromoteController):
    * `approved` = actually served (approved, not hidden, not an original of a case); `hidden` = in
-   * the KB but hidden — only a KB reviewer can restore it; `pendingReview` = waiting on a reviewer;
+   * the KB but hidden — only a KB reviewer can restore it; `retired` = its source was removed (kept
+   * for the record, never used); `pendingReview` = waiting on a reviewer;
    * `rejected` = a reviewer rejected it; `partOfCase` = ids of merged cases this pair is an
-   * original of. The deployed backend sends no `hidden` / `partOfCase` (read as none), and an
+   * original of. The deployed backend sends no `hidden` / `retired` / `partOfCase` (read as none), and an
    * older one no `outcome` at all (derived from `pendingReview`, as before).
    */
   promote: async (messageId: number, pairs: KbQaPairInput[]): Promise<KbPromoteResult> => {
@@ -81,6 +83,7 @@ export const kbPromoteService = {
         outcome: {
           approved: waiting ? 0 : ids.length,
           hidden: 0,
+          retired: 0,
           pendingReview: waiting ? ids.length : 0,
           rejected: 0,
           partOfCase: [],
@@ -92,6 +95,7 @@ export const kbPromoteService = {
       outcome: {
         approved: outcome.approved ?? 0,
         hidden: outcome.hidden ?? 0,
+        retired: outcome.retired ?? 0,
         pendingReview: outcome.pendingReview ?? 0,
         rejected: outcome.rejected ?? 0,
         partOfCase: Array.isArray(outcome.partOfCase) ? outcome.partOfCase : [],

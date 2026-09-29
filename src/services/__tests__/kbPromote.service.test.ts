@@ -1,7 +1,7 @@
 /**
  * The promote route's `outcome` says what the saved entries ARE now (BE feat/kb-consolidation
- * @ 28154eb0, kbPromoteController): `approved` = actually served, `hidden` = in the KB but
- * hidden, `partOfCase` = case ids whose ORIGINAL the pair is. The backend deployed today sends
+ * @ d0c18e49, kbPromoteController): `approved` = actually served, `hidden` = in the KB but
+ * hidden, `retired` = its source was removed (kept, never used), `partOfCase` = case ids whose ORIGINAL the pair is. The backend deployed today sends
  * only {approved, pendingReview, rejected}; an older one no outcome at all.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,15 +23,29 @@ describe('kbPromoteService.promote — outcome', () => {
       knowledgeBaseIds: [5, 6],
       unknown: [],
       pendingReview: false,
-      outcome: { approved: 0, hidden: 1, pendingReview: 0, rejected: 0, partOfCase: [900] },
+      outcome: {
+        approved: 0,
+        hidden: 1,
+        retired: 2,
+        pendingReview: 0,
+        rejected: 0,
+        partOfCase: [900],
+      },
     });
     expect(await kbPromoteService.promote(7, [])).toEqual({
       ids: [5, 6],
-      outcome: { approved: 0, hidden: 1, pendingReview: 0, rejected: 0, partOfCase: [900] },
+      outcome: {
+        approved: 0,
+        hidden: 1,
+        retired: 2,
+        pendingReview: 0,
+        rejected: 0,
+        partOfCase: [900],
+      },
     });
   });
 
-  it('reads the deployed shape (no hidden, no partOfCase) as none of either', async () => {
+  it('reads the deployed shape (no hidden, retired or partOfCase) as none of them', async () => {
     respond({
       knowledgeBaseIds: [5],
       pendingReview: false,
@@ -40,6 +54,7 @@ describe('kbPromoteService.promote — outcome', () => {
     expect((await kbPromoteService.promote(7, [])).outcome).toEqual({
       approved: 1,
       hidden: 0,
+      retired: 0,
       pendingReview: 0,
       rejected: 0,
       partOfCase: [],

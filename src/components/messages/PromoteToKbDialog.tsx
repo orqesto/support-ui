@@ -53,7 +53,7 @@ type EditablePair = KbQaCandidate & { keep: boolean };
  */
 export const promoteToastText = (ids: number[], outcome: KbPromoteOutcome): string => {
   if (ids.length === 0) return 'Already in the knowledge base — nothing new was added';
-  const { approved, hidden, pendingReview, rejected, partOfCase } = outcome;
+  const { approved, hidden, retired, pendingReview, rejected, partOfCase } = outcome;
   const parts: string[] = [];
   if (approved > 0)
     parts.push(
@@ -68,6 +68,12 @@ export const promoteToastText = (ids: number[], outcome: KbPromoteOutcome): stri
       parts.length === 0 && hidden === 1
         ? 'Already in the knowledge base but hidden — ask a KB reviewer to restore it'
         : `${hidden} already in the knowledge base but hidden — ask a KB reviewer to restore ${hidden === 1 ? 'it' : 'them'}`
+    );
+  if (retired > 0)
+    parts.push(
+      parts.length === 0 && retired === 1
+        ? 'Already in the knowledge base, but its source was removed — it is not used'
+        : `${retired} already in the knowledge base, but ${retired === 1 ? 'its source was' : 'their sources were'} removed — ${retired === 1 ? 'it is' : 'they are'} not used`
     );
   if (partOfCase.length > 0) parts.push('Already part of a merged entry — it answers this');
   if (rejected > 0)
