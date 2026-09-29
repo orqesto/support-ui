@@ -351,7 +351,9 @@ describe('D36 — the number from the customer’s message', () => {
     const field = await screen.findByLabelText(/record number for this order/i);
     await userEvent.clear(field);
     await userEvent.type(field, '999999');
-    await userEvent.click(screen.getAllByRole('button', { name: /look up/i })[1]);
+    // Exact name: the panel's own "Look up" is [0], this card's is [1] — "Look up another email"
+    // (2026-09-29) sits between them and a prefix match would press it instead.
+    await userEvent.click(screen.getAllByRole('button', { name: /^look up$/i })[1]);
 
     await waitFor(() =>
       expect(run).toHaveBeenLastCalledWith({
@@ -750,7 +752,7 @@ describe('the panel renders ONLY when this caller has a lookup to run', () => {
     // The hosts used to wrap the panel in a spaced <div>, which stayed behind as a blank gap on
     // every thread and contact once the panel started rendering nothing by default.
     const { container } = render(<CustomApiLookupPanel conversationId={1} className="mb-4" />);
-    await screen.findByRole('button', { name: /look up/i });
+    await screen.findByRole('button', { name: /^look up$/i });
     expect(container.firstElementChild?.className).toContain('mb-4');
   });
 
