@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { KbCasesReport } from '@/services/kbConsolidation.service';
-import { report, zeroFindings } from '@/test/kbCasesReportFixture';
+import { report, row, zeroFindings } from '@/test/kbCasesReportFixture';
 
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -26,8 +26,8 @@ afterEach(cleanup);
 
 describe('KB Cases report — labelling and the bound', () => {
   it('a big mailbox in its steady state (all old entries labelled) still says the bound bit', () => {
-    // Every input past the bound is labelled (beyondBound 0), so it is shown — but the job never
-    // proposes or attaches it. A bound must report that it bit.
+    // Every input past the bound is labelled (beyondBound 0): it keeps its label, but the job does
+    // not propose or attach it any more. A bound must report that it bit.
     view(
       report({
         bounded: true,
@@ -35,10 +35,53 @@ describe('KB Cases report — labelling and the bound', () => {
       })
     );
     const notice = screen.getByText(
-      "1000 older answers are past the nightly job's limit: they are shown here, but never proposed as cases."
+      "1000 older answers are past the nightly job's limit: they keep their labels, but the nightly job does not propose them as new cases."
     );
     expect(notice).not.toHaveTextContent(/mailbox|not classified/i);
     expect(screen.queryByText(/Classifying:/)).not.toBeInTheDocument();
+  });
+
+  it('entries already in a pending proposal are not said to be "never proposed" (MED-1)', () => {
+    // A proposal made while they were still within reach stays pending and shows as a
+    // "proposed" row with Review — so the notice speaks only of what the job does next.
+    view(
+      report({
+        bounded: true,
+        classifying: { settled: 5000, total: 5000, beyondBound: 0, outOfReach: 1000 },
+        headers: [
+          {
+            label: 'refund',
+            language: 'en',
+            conversations: 3,
+            rows: [
+              row({ kind: 'proposed', title: 'proposed case — awaiting review', suggestionId: 70 }),
+            ],
+          },
+        ],
+      })
+    );
+    expect(screen.getByRole('link', { name: 'Review' })).toBeInTheDocument();
+    const notice = screen.getByText(/older answers are past the nightly job's limit/);
+    expect(notice).not.toHaveTextContent(/never proposed/);
+    expect(notice).toHaveTextContent(/does not propose them as new cases/);
+  });
+
+  it('under a search with no rows, the notice claims nothing about what is shown (LOW-1)', () => {
+    render(
+      <MemoryRouter>
+        <KbCasesReportView
+          report={report({
+            bounded: true,
+            headers: [],
+            classifying: { settled: 5000, total: 5000, beyondBound: 0, outOfReach: 1000 },
+          })}
+          search="zzz"
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('No case matches “zzz”.')).toBeInTheDocument();
+    const notice = screen.getByText(/older answers are past the nightly job's limit/);
+    expect(notice).not.toHaveTextContent(/shown here/);
   });
 
   it('nothing out of reach: no bound notice', () => {

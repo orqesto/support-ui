@@ -28,6 +28,16 @@ export type KbQaPairInput = {
   answer: string;
 };
 
+export type KbPromoteOutcome = {
+  approved: number;
+  hidden: number;
+  pendingReview: number;
+  rejected: number;
+  partOfCase: number[];
+};
+
+export type KbPromoteResult = { ids: number[]; outcome: KbPromoteOutcome };
+
 export const kbPromoteService = {
   /**
    * What this thread could contribute. Writes nothing and spends no AI call — the agent
@@ -46,27 +56,46 @@ export const kbPromoteService = {
    * actually CREATED, which is fewer than requested when a pair is already in the KB.
    */
   /**
-   * `pendingReview`: the caller may not approve KB entries, so what was saved waits for a
-   * reviewer (who is notified) and the AI does not use it yet. `rejected`: the pair was already
-   * in the KB and a reviewer had rejected it — nothing new is waiting on anyone. Both are
-   * absent on an older backend, which reads as a plain "added".
+   * What the saved entries ARE now, per the backend's `outcome` (kbPromoteController):
+   * `approved` = actually served (approved, not hidden, not an original of a case); `hidden` = in
+   * the KB but hidden — only a KB reviewer can restore it; `pendingReview` = waiting on a reviewer;
+   * `rejected` = a reviewer rejected it; `partOfCase` = ids of merged cases this pair is an
+   * original of. The deployed backend sends no `hidden` / `partOfCase` (read as none), and an
+   * older one no `outcome` at all (derived from `pendingReview`, as before).
    */
-  promote: async (
-    messageId: number,
-    pairs: KbQaPairInput[]
-  ): Promise<{ ids: number[]; pendingReview: boolean; rejected: number }> => {
+  promote: async (messageId: number, pairs: KbQaPairInput[]): Promise<KbPromoteResult> => {
     const response = await apiClient.post<
       ApiResponse<{
         knowledgeBaseIds: number[];
         pendingReview?: boolean;
-        outcome?: { approved: number; pendingReview: number; rejected: number };
+        outcome?: Partial<KbPromoteOutcome>;
       }>
     >(`/api/messages/${messageId}/kb-entries`, { pairs });
     const data = response.data.data;
+    const ids = data?.knowledgeBaseIds ?? [];
+    const outcome = data?.outcome;
+    if (!outcome) {
+      const waiting = data?.pendingReview === true;
+      return {
+        ids,
+        outcome: {
+          approved: waiting ? 0 : ids.length,
+          hidden: 0,
+          pendingReview: waiting ? ids.length : 0,
+          rejected: 0,
+          partOfCase: [],
+        },
+      };
+    }
     return {
-      ids: data?.knowledgeBaseIds ?? [],
-      pendingReview: data?.pendingReview === true,
-      rejected: data?.outcome?.rejected ?? 0,
+      ids,
+      outcome: {
+        approved: outcome.approved ?? 0,
+        hidden: outcome.hidden ?? 0,
+        pendingReview: outcome.pendingReview ?? 0,
+        rejected: outcome.rejected ?? 0,
+        partOfCase: Array.isArray(outcome.partOfCase) ? outcome.partOfCase : [],
+      },
     };
   },
 };

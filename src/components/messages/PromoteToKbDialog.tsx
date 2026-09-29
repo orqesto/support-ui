@@ -16,7 +16,11 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Textarea';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
-import { kbPromoteService, type KbQaCandidate } from '@/services/kbPromote.service';
+import {
+  kbPromoteService,
+  type KbPromoteOutcome,
+  type KbQaCandidate,
+} from '@/services/kbPromote.service';
 
 /**
  * Promote an already-resolved thread into the knowledge base.
@@ -40,6 +44,36 @@ type Props = {
 };
 
 type EditablePair = KbQaCandidate & { keep: boolean };
+
+/**
+ * The toast says what the saved entries ARE, from the backend's per-state `outcome` — never from
+ * the ids alone. "Added" only for what the AI now serves: an entry saved but hidden, waiting on
+ * a reviewer, rejected, or an original of a merged case is not "added", and saying so would be a
+ * lie the agent cannot see. Several states at once are each said.
+ */
+export const promoteToastText = (ids: number[], outcome: KbPromoteOutcome): string => {
+  if (ids.length === 0) return 'Already in the knowledge base — nothing new was added';
+  const { approved, hidden, pendingReview, rejected, partOfCase } = outcome;
+  const parts: string[] = [];
+  if (approved > 0)
+    parts.push(
+      approved === 1 ? 'Added to the knowledge base' : `${approved} entries added to the knowledge base`
+    );
+  if (pendingReview > 0)
+    parts.push(
+      `${pendingReview === 1 ? 'Saved' : `${pendingReview} entries saved`} and sent for review — the AI uses ${pendingReview === 1 ? 'it' : 'them'} once a reviewer approves`
+    );
+  if (hidden > 0)
+    parts.push(
+      parts.length === 0 && hidden === 1
+        ? 'Already in the knowledge base but hidden — ask a KB reviewer to restore it'
+        : `${hidden} already in the knowledge base but hidden — ask a KB reviewer to restore ${hidden === 1 ? 'it' : 'them'}`
+    );
+  if (partOfCase.length > 0) parts.push('Already part of a merged entry — it answers this');
+  if (rejected > 0)
+    parts.push('A reviewer already rejected this answer — ask them to restore it');
+  return parts.length > 0 ? parts.join('. ') : 'Saved to the knowledge base';
+};
 
 export const PromoteToKbDialog = ({ messageId, isOpen, onClose, onPromoted }: Props) => {
   const [loading, setLoading] = useState(false);
@@ -86,7 +120,7 @@ export const PromoteToKbDialog = ({ messageId, isOpen, onClose, onPromoted }: Pr
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { ids, pendingReview, rejected } = await kbPromoteService.promote(
+      const { ids, outcome } = await kbPromoteService.promote(
         messageId,
         kept.map((pair) => ({
           questionMessageId: pair.questionMessageId,
@@ -95,21 +129,7 @@ export const PromoteToKbDialog = ({ messageId, isOpen, onClose, onPromoted }: Pr
           answer: pair.answer.trim(),
         }))
       );
-      // The server returns what it actually created: a pair already in the KB is not added
-      // twice, and saying "2 added" when one was a duplicate would be a lie the agent can't see.
-      // "Added" would be untrue for someone who may not approve: their entries are saved but
-      // the AI does not use them until a reviewer (who has been notified) approves them.
-      toast.success(
-        ids.length === 0
-          ? 'Already in the knowledge base — nothing new was added'
-          : !pendingReview && rejected === ids.length
-            ? 'A reviewer already rejected this answer — ask them to restore it'
-            : pendingReview
-            ? `${ids.length === 1 ? 'Saved' : `${ids.length} entries saved`} and sent for review — the AI uses ${ids.length === 1 ? 'it' : 'them'} once a reviewer approves`
-            : ids.length === 1
-              ? 'Added to the knowledge base'
-              : `${ids.length} entries added to the knowledge base`
-      );
+      toast.success(promoteToastText(ids, outcome));
       onPromoted?.(ids);
       onClose();
     } catch (error) {

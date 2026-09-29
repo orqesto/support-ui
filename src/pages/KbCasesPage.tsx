@@ -230,11 +230,14 @@ const unclassifiedText = (count: number, report: KbCasesReport) => {
 
 /**
  * The job classifies and proposes only the newest answers of each scope. `outOfReach` counts
- * EVERY answer past that bound: if it was labelled earlier it is still shown (in rows or the
- * footer), but it is never proposed as a case or attached. `beyondBound` is the subset never
- * classified — those are not shown. In a big mailbox's steady state every old answer is labelled
- * (`beyondBound` 0), and the bound still bit, so the notice keys on `outOfReach`. A scope is a
- * source, or a department with no source, so the notice names neither.
+ * EVERY answer past that bound; `beyondBound` the subset never classified. The notice speaks of
+ * what the job DOES NEXT — it does not propose them as new cases — never "never proposed": one
+ * already in a pending proposal (made while still within reach) shows as a "proposed" row, and a
+ * pending attach member in its case row. Nor does it say they are "shown here": the view may be
+ * narrowed by a search or a page, and some appear only as counts (footer, findings). In a big
+ * mailbox's steady state every old answer is labelled (`beyondBound` 0) and the bound still bit,
+ * so the notice keys on `outOfReach`. A scope is a source, or a department with no source, so
+ * the notice names neither.
  */
 const BoundedNotice = ({ report }: { report: KbCasesReport }) => {
   const { outOfReach, beyondBound } = report.classifying;
@@ -243,8 +246,8 @@ const BoundedNotice = ({ report }: { report: KbCasesReport }) => {
   return (
     <Alert variant="warning">
       {beyondBound > 0
-        ? `${older} and ${outOfReach === 1 ? 'is' : 'are'} never proposed as cases. ${beyondBound} of them ${beyondBound === 1 ? 'is' : 'are'} not classified.`
-        : `${older}: ${outOfReach === 1 ? 'it is' : 'they are'} shown here, but never proposed as cases.`}
+        ? `${older}, and the nightly job does not propose ${outOfReach === 1 ? 'it' : 'them'} as new cases. ${beyondBound} of them ${beyondBound === 1 ? 'is' : 'are'} not classified.`
+        : `${older}: ${outOfReach === 1 ? 'it keeps its label' : 'they keep their labels'}, but the nightly job does not propose ${outOfReach === 1 ? 'it' : 'them'} as new cases.`}
     </Alert>
   );
 };

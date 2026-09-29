@@ -195,10 +195,11 @@ describe('KB Cases report (F2)', () => {
         classifying: { settled: 5000, total: 5000, beyondBound: 300, outOfReach: 1000 },
       })
     );
-    // Both numbers: every answer past the bound (never proposed) and those never classified —
+    // Both numbers: every answer past the bound (the job does not propose them) and those never
+    // classified —
     // without naming the kind of scope (a source, or a department with no source).
     const notice = screen.getByText(
-      "1000 older answers are past the nightly job's limit and are never proposed as cases. 300 of them are not classified."
+      "1000 older answers are past the nightly job's limit, and the nightly job does not propose them as new cases. 300 of them are not classified."
     );
     expect(notice).not.toHaveTextContent(/mailbox/i);
     expect(document.body.textContent).not.toMatch(/only the newest are|missing|counts can be low/);
@@ -215,7 +216,7 @@ describe('KB Cases report (F2)', () => {
     );
     expect(
       screen.getByText(
-        "1000 older answers are past the nightly job's limit and are never proposed as cases. 300 of them are not classified."
+        "1000 older answers are past the nightly job's limit, and the nightly job does not propose them as new cases. 300 of them are not classified."
       )
     ).not.toHaveTextContent(/mailbox/i);
   });
@@ -224,7 +225,8 @@ describe('KB Cases report (F2)', () => {
     view(
       report({
         headers: [],
-        footer: { belowQualityBar: 0 },
+        // Labelled answers past the bound land somewhere real: here, below the quality bar.
+        footer: { belowQualityBar: 1000 },
         findings: zeroFindings,
         classifying: { settled: 0, total: 5000, beyondBound: 0, outOfReach: 1000 },
         bounded: true,
@@ -241,6 +243,12 @@ describe('KB Cases report (F2)', () => {
         '5000 learned answers are not classified — consolidation is not running for this workspace.'
       )
     ).toBeInTheDocument();
+    expect(screen.getByText('1000 more learned answers below the quality bar')).toBeInTheDocument();
+    expect(
+      screen.getByText(/1000 older answers are past the nightly job's limit/)
+    ).toHaveTextContent(
+      'they keep their labels, but the nightly job does not propose them as new cases.'
+    );
     expect(screen.getByRole('status')).toHaveTextContent(
       'Classified: 0 of 5000 — consolidation is not running for this workspace.'
     );
