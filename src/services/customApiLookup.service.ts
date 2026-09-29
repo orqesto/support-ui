@@ -28,6 +28,21 @@ export interface LookupRequest {
   /** A manual lookup's value, or the record the customer NAMED — both are verified (D35). */
   endpointId?: number;
   parameter?: string;
+  /**
+   * Run every lookup AS this email instead of the ticket's own customer (2026-09-29): a shop's
+   * order notification names the buyer only in its body, so the agent types them in.
+   */
+  lookupEmail?: string;
+}
+
+/** A run's results, plus the email the BACKEND confirms it ran as (null: the ticket's customer). */
+export interface LookupRun {
+  results: CustomApiLookupResult[];
+  /**
+   * ⛔ Only what the backend ECHOED. An older backend drops an unknown `lookupEmail` and answers for
+   * the ticket's own customer; trusting the request would label those records as the typed person's.
+   */
+  lookedUpAs: string | null;
 }
 
 /**
@@ -75,11 +90,19 @@ export const customApiLookupService = {
    * time an agent opens a thread (SC1) — the panel has no effect that fires on mount.
    */
   async run(body: LookupRequest): Promise<CustomApiLookupResult[]> {
-    const res = await apiClient.post<{ success: boolean; data: CustomApiLookupResult[] }>(
-      '/api/custom-apis/lookup',
-      body
-    );
-    return (res.data.data ?? []).map(normalise);
+    return (await this.runDetailed(body)).results;
+  },
+
+  async runDetailed(body: LookupRequest): Promise<LookupRun> {
+    const res = await apiClient.post<{
+      success: boolean;
+      data: CustomApiLookupResult[];
+      lookedUpAs?: unknown;
+    }>('/api/custom-apis/lookup', body);
+    return {
+      results: (res.data.data ?? []).map(normalise),
+      lookedUpAs: typeof res.data.lookedUpAs === 'string' ? res.data.lookedUpAs : null,
+    };
   },
 
   /**

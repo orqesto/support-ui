@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AlertTriangle, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -335,10 +335,30 @@ export const CustomApiLookupPanel = ({
   className,
   onUseInReply,
 }: Props) => {
-  const { results, loading, hasRun, error, unavailable, run } = useCustomApiLookup({
+  const { results, loading, hasRun, error, unavailable, run, lookedUpAs } = useCustomApiLookup({
     conversationId,
     contactId,
   });
+  /**
+   * LOOK UP ANOTHER EMAIL (2026-09-29). A shop's order notification names the buyer only in its
+   * body, so the ticket's customer is the shop and every identity lookup keys on the wrong address.
+   * The agent types the buyer's email and the whole panel runs as them — account, orders, and the
+   * "is this order theirs" check on a typed number. Open by default when there is no customer email.
+   */
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailValue, setEmailValue] = useState('');
+  const typedEmail = emailValue.trim().toLowerCase();
+  const typedEmailValid = hasLookupEmailIdentity(typedEmail);
+  const showEmailField = emailOpen || Boolean(identityNote);
+  // The panel is REUSED when the agent opens another thread; an address typed for the last one
+  // must not sit in the field, one press away from being looked up from this one.
+  useEffect(() => {
+    setEmailValue('');
+    setEmailOpen(false);
+  }, [conversationId, contactId]);
+  const runAsTyped = () => {
+    if (typedEmailValid) void run(undefined, typedEmail);
+  };
 
   // ⛔ ASK FIRST, RENDER ONLY ON A YES. Mirrors the backend: a conversation runs the THREAD
   // surface, anything else the CONTACT surface. Nothing is looked up by asking (SC1).
@@ -388,7 +408,7 @@ export const CustomApiLookupPanel = ({
           variant="outline"
           className="h-7 text-[11px]"
           disabled={loading}
-          onClick={() => run()}
+          onClick={() => run(undefined, lookedUpAs ?? undefined)}
         >
           <Search className="h-3 w-3 mr-1" aria-hidden />
           {loading ? 'Looking up…' : 'Look up'}
@@ -396,6 +416,61 @@ export const CustomApiLookupPanel = ({
       </div>
 
       {identityNote && <p className="text-[11px] text-muted-foreground">{identityNote}</p>}
+
+      {showEmailField ? (
+        <div className="flex gap-1.5">
+          <Input
+            size="sm"
+            type="email"
+            value={emailValue}
+            onChange={(event) => setEmailValue(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') runAsTyped();
+            }}
+            placeholder="Customer email"
+            aria-label="Look up another email"
+            className="text-[11px]"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px] whitespace-nowrap"
+            disabled={loading || !typedEmailValid}
+            onClick={runAsTyped}
+          >
+            Look up as
+          </Button>
+        </div>
+      ) : (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-0 text-[11px] text-primary hover:underline"
+          onClick={() => setEmailOpen(true)}
+        >
+          Look up another email
+        </Button>
+      )}
+
+      {lookedUpAs && (
+        /* ⛔ Only on the backend's own confirmation (see the hook), and never dismissable while its
+           results are on screen: every card below is about this person, not the ticket's customer. */
+        <div className="flex items-center justify-between gap-2 rounded border border-primary/40 bg-primary/10 px-2 py-1">
+          <p className="text-[11px] text-foreground">
+            Showing results for <span className="font-medium">{lookedUpAs}</span>, not this
+            ticket’s customer.
+          </p>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 text-[11px]"
+            disabled={loading}
+            onClick={() => void run()}
+          >
+            Back to the customer
+          </Button>
+        </div>
+      )}
 
       {/*
         CA-6: the way OUT of the panel. The owner's objection on 2026-09-20 was that records lived
@@ -456,7 +531,9 @@ export const CustomApiLookupPanel = ({
             key={result.endpointId}
             result={result}
             busy={loading}
-            onRunManual={(endpointId, parameter) => run({ endpointId, parameter })}
+            onRunManual={(endpointId, parameter) =>
+              run({ endpointId, parameter }, lookedUpAs ?? undefined)
+            }
             onUseInReply={onUseInReply}
           />
         ))}

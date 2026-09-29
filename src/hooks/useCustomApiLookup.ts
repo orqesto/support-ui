@@ -123,6 +123,8 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
    * lookup endpoint, so the panel stands down entirely.
    */
   const [unavailable, setUnavailable] = useState(false);
+  /** The email the backend CONFIRMED the current results were looked up as; null = the customer. */
+  const [lookedUpAs, setLookedUpAs] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { conversationId, contactId } = target;
   /**
@@ -153,17 +155,46 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
     setHasRun(false);
     setError(null);
     setUnavailable(false);
+    setLookedUpAs(null);
   }, [conversationId, contactId]);
 
   const run = useCallback(
-    async (manual?: { endpointId: number; parameter: string }) => {
+    async (
+      manual?: { endpointId: number; parameter: string },
+      /** Run as this typed email instead of the ticket's customer; omitted = the customer. */
+      lookupEmail?: string
+    ) => {
       const pressedFor = generation.current;
       const isStale = () => generation.current !== pressedFor;
       setLoading(true);
       setError(null);
       try {
-        const data = await customApiLookupService.run({ conversationId, contactId, ...manual });
+        // The ordinary press keeps its old path untouched; only a typed email needs the backend's
+        // confirmation, so only that press asks for it.
+        const response = lookupEmail
+          ? await customApiLookupService.runDetailed({
+              conversationId,
+              contactId,
+              ...manual,
+              lookupEmail,
+            })
+          : {
+              results: await customApiLookupService.run({ conversationId, contactId, ...manual }),
+              lookedUpAs: null,
+            };
         if (isStale()) return;
+        // ⛔ ASKED AS SOMEONE, ANSWERED FOR THE CUSTOMER: an older backend ignored the email. Showing
+        // those rows under a "results for <typed email>" banner would put one person's orders under
+        // another's name — so they are not shown, and the agent is told why.
+        if (lookupEmail && response.lookedUpAs !== lookupEmail) {
+          setResults([]);
+          setLookedUpAs(null);
+          setHasRun(false);
+          setError('This server cannot look up another email yet.');
+          return;
+        }
+        setLookedUpAs(response.lookedUpAs);
+        const data = response.results;
         // A manual re-run answers for ONE endpoint; merge it over the existing cards rather than
         // replacing them, or looking up an order number would blank every other integration.
         setResults((previous) =>
@@ -201,5 +232,5 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
     [conversationId, contactId, queryClient]
   );
 
-  return { results, loading, hasRun, error, unavailable, run };
+  return { results, loading, hasRun, error, unavailable, run, lookedUpAs };
 }
