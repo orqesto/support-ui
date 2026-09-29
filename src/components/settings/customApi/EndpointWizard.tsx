@@ -14,6 +14,8 @@ import { RecordFormatStep } from './RecordFormatStep';
 import type { RecordFormat } from './recordFormat';
 import { ResponseTree } from './ResponseTree';
 import { useRequestSettings } from './useRequestSettings';
+import { buildParameterFields } from './parameterFields';
+import { useTestRevert } from './useTestRevert';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -168,6 +170,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
    * backend returned these fields: an older one would drop them on save without a word.
    */
   const request = useRequestSettings(connection, endpoint, resultShape);
+  const testRevert = useTestRevert(connection, endpoint);
   /**
    * D35 (Task 5). Only meaningful for a lookup an agent types a NUMBER into — an identity lookup
    * already resolves from the contact, so the record is the customer's by construction.
@@ -259,31 +262,8 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
     }
   };
 
-  /**
-   * ⛔ `identityField` travels WITH `identity`: the create schema refines that an identity
-   * parameter needs one, so sending the source without it is a 400.
-   *
-   * ⛔ AND IT KEEPS AN EXISTING ONE (audit pass 2 — the class pass 1 found one of). The
-   * contract allows `email`, `phone` and `displayName`; this wizard only offers "the customer's
-   * email address", so hardcoding `email` here would SILENTLY RETARGET a lookup someone had
-   * configured to match on phone — the next time an admin opened it and pressed Save, for a
-   * field the screen never showed them. Email is the default for a NEW lookup, not an overwrite
-   * of an old one.
-   */
-  const parameterFields =
-    paramSource === 'identity'
-      ? {
-          parameterSource: 'identity' as const,
-          identityField: endpoint?.identityField ?? ('email' as const),
-        }
-      : paramSource === 'endpoint'
-        ? {
-            parameterSource: 'endpoint' as const,
-            identityField: null,
-            sourceEndpointId: chain.sourceEndpointId,
-            sourceFieldPath: chain.sourceFieldPath.trim(),
-          }
-        : { parameterSource: 'manual' as const, identityField: null };
+  // Where the value comes from — see parameterFields.ts for why an existing identityField is kept.
+  const parameterFields = buildParameterFields(paramSource, endpoint, chain);
 
   /**
    * ⛔ THE PLACEHOLDER THE ADMIN HAS NEVER HEARD OF. The executor substitutes the value at
@@ -318,6 +298,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
         ...request.payload,
         ...parameterFields,
       });
+      testRevert.markUpdated(endpointId);
       invalidateAvailability();
       return endpointId;
     }
@@ -348,6 +329,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
       );
     if (!created) throw new Error('The lookup was created but the server did not return it.');
     setEndpointId(created.id);
+    testRevert.markCreated(created.id);
     onCreated?.(created.id);
     return created.id;
   };
@@ -482,6 +464,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
         ...parameterFields,
       });
       invalidateAvailability();
+      testRevert.clear();
       onSaved();
       onClose();
     } catch (err) {
@@ -923,7 +906,11 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
           </div>
         </div>
         <div className="flex gap-2 justify-end">
-          <Button variant="outline" onClick={onClose} disabled={busy}>
+          <Button
+            variant="outline"
+            disabled={busy}
+            onClick={() => void testRevert.cancel(onClose, invalidateAvailability, setError)}
+          >
             Cancel
           </Button>
           <Button
