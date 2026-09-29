@@ -1,5 +1,5 @@
 /**
- * A Cases report in the shape the backend sends (BE feat/kb-consolidation @ bb1121ee:
+ * A Cases report in the shape the backend sends (BE feat/kb-consolidation @ b9773d47:
  * casesReport.ts `buildCasesReport` + consolidationController `getCasesReportRoute`).
  */
 import type { KbCaseRow, KbCasesReport } from '@/services/kbConsolidation.service';
@@ -68,22 +68,15 @@ export const report = (over: Partial<KbCasesReport> = {}): KbCasesReport => ({
     detached: 1,
     possibleDuplicates: [{ caseIds: [900, 905], casePublicIds: ['KB-900', null] }],
   },
-  // The real shape (BE bb1121ee): `total` counts only what the job can reach; `beyondBound`
-  // the older inputs of a bounded scope it never classifies.
-  classifying: { settled: 40, total: 50, beyondBound: 0 },
+  // BE b9773d47: `total`/`settled` = what the job can reach; `outOfReach` = every input past the
+  // bound (shown if labelled earlier, never proposed); `beyondBound` = those never classified.
+  classifying: { settled: 40, total: 50, beyondBound: 0, outOfReach: 0 },
   bounded: false,
   miningOff: false,
   labellingActive: true,
   labellingMode: 'production',
   ...over,
 });
-
-/** A report from a backend before `beyondBound` / `labellingMode` (BE bb1121ee). */
-export const olderBackend = (data: KbCasesReport): KbCasesReport => {
-  const { labellingMode: _mode, ...rest } = data;
-  const { beyondBound: _beyond, ...classifying } = data.classifying;
-  return { ...rest, classifying };
-};
 
 export const zeroFindings = {
   rawEmails: 0,

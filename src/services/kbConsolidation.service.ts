@@ -125,26 +125,21 @@ export type KbCasesReport = {
   footer: { belowQualityBar: number };
   findings: KbCasesFindings;
   /**
-   * `total`: only inputs the job can reach (the newest per bounded scope). `beyondBound`: older
-   * inputs of a bounded scope that are still unclassified (one labelled while it was among the
-   * newest keeps its label and is not counted here — BE 7192f6f8). Absent on a backend before BE bb1121ee, whose
-   * `total` still counted those.
+   * `total` / `settled`: the inputs the job can reach (the newest per scope). `outOfReach`: every
+   * input past that bound — shown if labelled earlier, but never proposed or attached.
+   * `beyondBound`: the subset of those never classified (BE b9773d47).
    */
-  classifying: { settled: number; total: number; beyondBound?: number };
+  classifying: { settled: number; total: number; beyondBound: number; outOfReach: number };
   bounded: boolean;
   miningOff: boolean;
+  /** True only in production: `labellingMode === 'production'`. */
+  labellingActive: boolean;
   /**
-   * True only when the nightly job runs in PRODUCTION for this workspace. Off or dry run: nothing
-   * labels entries and `classifying` never moves. Absent on an older backend — then unknown, and
-   * the page keeps its "being classified" wording.
+   * 'production': the nightly job labels this workspace. 'dry_run': the owner's calibration — it
+   * labels into a trial table only, so nothing moves on this page. 'off': it does not run, or has
+   * no usable AI provider.
    */
-  labellingActive?: boolean;
-  /**
-   * 'dry_run' = the owner's calibration: the job labels into a trial table only, so nothing moves
-   * on this page. 'off' = it does not run (or has no AI provider). Absent on an older backend —
-   * then `labellingActive` decides, as before.
-   */
-  labellingMode?: 'production' | 'dry_run' | 'off';
+  labellingMode: 'production' | 'dry_run' | 'off';
 };
 
 export type KbCasesQuery = {

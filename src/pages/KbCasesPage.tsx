@@ -195,12 +195,8 @@ const BelowQualityBar = ({ count }: { count: number }) =>
 /**
  * What labels entries here. 'production': the nightly job labels this workspace. 'dry_run': the
  * owner's calibration — it labels into a trial table only, so nothing moves on this page. 'off':
- * it does not run. An older backend sends no `labellingMode`; then `labellingActive` decides, and
- * with neither the page keeps its "being classified" wording.
+ * it does not run (or has no AI provider).
  */
-const labellingModeOf = (report: KbCasesReport): 'production' | 'dry_run' | 'off' =>
-  report.labellingMode ?? (report.labellingActive === false ? 'off' : 'production');
-
 const NOT_RUNNING = 'consolidation is not running for this workspace';
 const TRIAL_ONLY =
   'consolidation runs only as a trial here; its results are not shown on this page';
@@ -209,7 +205,7 @@ const TRIAL_ONLY =
 const ClassifyingStatus = ({ report }: { report: KbCasesReport }) => {
   const { settled, total } = report.classifying;
   if (settled >= total) return null;
-  const mode = labellingModeOf(report);
+  const mode = report.labellingMode;
   return (
     <p className="text-sm text-muted-foreground" role="status">
       {mode === 'production'
@@ -221,44 +217,36 @@ const ClassifyingStatus = ({ report }: { report: KbCasesReport }) => {
 
 /**
  * Unlabelled entries are not promised a case: once labelled they can land below the quality bar
- * or in a finding. `total` now counts only entries the job can reach (`beyondBound` present);
- * an older backend's `total` also counted a bounded scope's oldest, which it never labels.
+ * or in a finding. `total` counts only entries the job can reach, so in production they are
+ * all still being classified.
  */
 const unclassifiedText = (count: number, report: KbCasesReport) => {
   const answers = plural(count, 'learned answer is', 'learned answers are');
-  const mode = labellingModeOf(report);
-  if (mode === 'off') return `${answers} not classified — ${NOT_RUNNING}.`;
-  if (mode === 'dry_run')
+  if (report.labellingMode === 'off') return `${answers} not classified — ${NOT_RUNNING}.`;
+  if (report.labellingMode === 'dry_run')
     return `${answers} not classified here — consolidation runs for this workspace only as a trial, and its results are not shown on this page.`;
-  return report.bounded && report.classifying.beyondBound === undefined
-    ? `${answers} not classified yet — in a mailbox over the nightly limit, some of the oldest may never be.`
-    : `${answers} still being classified — what is shown here can still change.`;
+  return `${answers} still being classified — what is shown here can still change.`;
 };
 
 /**
- * Only classification and proposal are capped at the newest answers; every row whose label is
- * current is still grouped — an older answer labelled while it was among the newest keeps its
- * label. `beyondBound` counts only older answers still UNCLASSIFIED, so the notice states exactly
- * how many go unclassified — and nothing when none do (a scope can be bounded while this department has
- * nothing past the bound). An older backend keeps the general wording.
+ * The job classifies and proposes only the newest answers of each scope. `outOfReach` counts
+ * EVERY answer past that bound: if it was labelled earlier it is still shown (in rows or the
+ * footer), but it is never proposed as a case or attached. `beyondBound` is the subset never
+ * classified — those are not shown. In a big mailbox's steady state every old answer is labelled
+ * (`beyondBound` 0), and the bound still bit, so the notice keys on `outOfReach`. A scope is a
+ * source, or a department with no source, so the notice names neither.
  */
 const BoundedNotice = ({ report }: { report: KbCasesReport }) => {
-  const beyond = report.classifying.beyondBound;
-  if (beyond !== undefined) {
-    return beyond > 0 ? (
-      <Alert variant="warning">
-        {plural(beyond, 'older answer', 'older answers')} in a mailbox over the nightly limit{' '}
-        {beyond === 1 ? 'is' : 'are'} not classified.
-      </Alert>
-    ) : null;
-  }
-  return report.bounded ? (
+  const { outOfReach, beyondBound } = report.classifying;
+  if (outOfReach <= 0) return null;
+  const older = `${plural(outOfReach, 'older answer is', 'older answers are')} past the nightly job's limit`;
+  return (
     <Alert variant="warning">
-      {labellingModeOf(report) === 'production'
-        ? 'A mailbox here has more learned answers than the nightly job reads, so it classifies and proposes as cases only the newest. Older answers it labelled before are still grouped here.'
-        : 'A mailbox here has more learned answers than the nightly job would read — once it runs, it will classify and propose only the newest. Older answers labelled before stay grouped.'}
+      {beyondBound > 0
+        ? `${older} and ${outOfReach === 1 ? 'is' : 'are'} never proposed as cases. ${beyondBound} of them ${beyondBound === 1 ? 'is' : 'are'} not classified.`
+        : `${older}: ${outOfReach === 1 ? 'it is' : 'they are'} shown here, but never proposed as cases.`}
     </Alert>
-  ) : null;
+  );
 };
 
 /**

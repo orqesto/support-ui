@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { KbCasesReport } from '@/services/kbConsolidation.service';
-import { olderBackend, report, row, zeroFindings } from '@/test/kbCasesReportFixture';
+import { report, row, zeroFindings } from '@/test/kbCasesReportFixture';
 
 const getCases = vi.fn<(query: unknown) => Promise<KbCasesReport>>();
 const downloadCasesCsv = vi.fn<(query: unknown) => Promise<void>>();
@@ -102,11 +102,11 @@ describe('KB Cases report (F2)', () => {
   });
 
   it('hides "classifying" once everything is settled', () => {
-    view(report({ classifying: { settled: 50, total: 50 } }));
+    view(report({ classifying: { settled: 50, total: 50, beyondBound: 0, outOfReach: 0 } }));
     expect(screen.queryByText(/Classifying:/)).not.toBeInTheDocument();
   });
 
-  const allSettled = { settled: 0, total: 0 };
+  const allSettled = { settled: 0, total: 0, beyondBound: 0, outOfReach: 0 };
   const MINING_OFF = /No mailbox in this department feeds the knowledge base automatically/;
 
   it('mining off with nothing in the knowledge base here says so instead of an empty table', () => {
@@ -146,7 +146,7 @@ describe('KB Cases report (F2)', () => {
         headers: [],
         footer: { belowQualityBar: 0 },
         findings: zeroFindings,
-        classifying: { settled: 0, total: 5 },
+        classifying: { settled: 0, total: 5, beyondBound: 0, outOfReach: 0 },
       })
     );
     expect(screen.queryByText(/no learned answers/i)).not.toBeInTheDocument();
@@ -162,7 +162,7 @@ describe('KB Cases report (F2)', () => {
         headers: [],
         footer: { belowQualityBar: 0 },
         findings: zeroFindings,
-        classifying: { settled: 0, total: 40 },
+        classifying: { settled: 0, total: 40, beyondBound: 0, outOfReach: 0 },
       })
     );
     expect(screen.getByText('Classifying: 0 of 40')).toBeInTheDocument();
@@ -175,7 +175,13 @@ describe('KB Cases report (F2)', () => {
   });
 
   it('an empty report with answers below the bar does not say nothing was learned', () => {
-    view(report({ headers: [], findings: zeroFindings, classifying: { settled: 50, total: 50 } }));
+    view(
+      report({
+        headers: [],
+        findings: zeroFindings,
+        classifying: { settled: 50, total: 50, beyondBound: 0, outOfReach: 0 },
+      })
+    );
     expect(screen.queryByText(/No learned answers match/)).not.toBeInTheDocument();
     expect(
       screen.getByText(/None of the learned answers here clears the quality bar yet/)
@@ -183,12 +189,19 @@ describe('KB Cases report (F2)', () => {
   });
 
   it('flags a bounded scope', () => {
-    view(report({ bounded: true, classifying: { settled: 40, total: 50, beyondBound: 1000 } }));
-    // Only the older answers beyond the bound go unclassified — said with their number.
-    expect(
-      screen.getByText('1000 older answers in a mailbox over the nightly limit are not classified.')
-    ).toBeInTheDocument();
-    expect(document.body.textContent).not.toMatch(/only the newest|missing|counts can be low/);
+    view(
+      report({
+        bounded: true,
+        classifying: { settled: 5000, total: 5000, beyondBound: 300, outOfReach: 1000 },
+      })
+    );
+    // Both numbers: every answer past the bound (never proposed) and those never classified —
+    // without naming the kind of scope (a source, or a department with no source).
+    const notice = screen.getByText(
+      "1000 older answers are past the nightly job's limit and are never proposed as cases. 300 of them are not classified."
+    );
+    expect(notice).not.toHaveTextContent(/mailbox/i);
+    expect(document.body.textContent).not.toMatch(/only the newest are|missing|counts can be low/);
   });
 
   it('flags a bounded scope when mining is off too', () => {
@@ -197,12 +210,14 @@ describe('KB Cases report (F2)', () => {
         miningOff: true,
         headers: [],
         bounded: true,
-        classifying: { settled: 40, total: 50, beyondBound: 1000 },
+        classifying: { settled: 5000, total: 5000, beyondBound: 300, outOfReach: 1000 },
       })
     );
     expect(
-      screen.getByText('1000 older answers in a mailbox over the nightly limit are not classified.')
-    ).toBeInTheDocument();
+      screen.getByText(
+        "1000 older answers are past the nightly job's limit and are never proposed as cases. 300 of them are not classified."
+      )
+    ).not.toHaveTextContent(/mailbox/i);
   });
 
   it('labelling not running: nothing reads as "being classified" or as progress (MED-1)', () => {
@@ -211,7 +226,7 @@ describe('KB Cases report (F2)', () => {
         headers: [],
         footer: { belowQualityBar: 0 },
         findings: zeroFindings,
-        classifying: { settled: 0, total: 5 },
+        classifying: { settled: 0, total: 5000, beyondBound: 0, outOfReach: 1000 },
         bounded: true,
         labellingActive: false,
         labellingMode: 'off',
@@ -223,11 +238,11 @@ describe('KB Cases report (F2)', () => {
     expect(page).not.toMatch(/only the newest are classified/);
     expect(
       screen.getByText(
-        '5 learned answers are not classified — consolidation is not running for this workspace.'
+        '5000 learned answers are not classified — consolidation is not running for this workspace.'
       )
     ).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(
-      'Classified: 0 of 5 — consolidation is not running for this workspace.'
+      'Classified: 0 of 5000 — consolidation is not running for this workspace.'
     );
   });
 
@@ -238,7 +253,7 @@ describe('KB Cases report (F2)', () => {
         headers: [],
         footer: { belowQualityBar: 0 },
         findings: zeroFindings,
-        classifying: { settled: 0, total: 5 },
+        classifying: { settled: 0, total: 5, beyondBound: 0, outOfReach: 0 },
         labellingActive: false,
         labellingMode: 'off',
       })
@@ -249,30 +264,12 @@ describe('KB Cases report (F2)', () => {
     );
   });
 
-  it("a backend that does not send labellingActive keeps today's wording", () => {
-    const older = report({
-      headers: [],
-      footer: { belowQualityBar: 0 },
-      findings: zeroFindings,
-      classifying: { settled: 0, total: 5 },
-    });
-    delete (older as { labellingActive?: boolean }).labellingActive;
-    delete (older as { labellingMode?: string }).labellingMode;
-    view(older);
-    expect(screen.getByText('Classifying: 0 of 5')).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        '5 learned answers are still being classified — what is shown here can still change.'
-      )
-    ).toBeInTheDocument();
-  });
-
   it('no search and only findings: the empty text does not say nothing matches (LOW-2)', () => {
     view(
       report({
         headers: [],
         footer: { belowQualityBar: 0 },
-        classifying: { settled: 50, total: 50 },
+        classifying: { settled: 50, total: 50, beyondBound: 0, outOfReach: 0 },
       })
     );
     expect(screen.getByRole('list', { name: 'Findings' })).toBeInTheDocument();
@@ -308,7 +305,7 @@ describe('KB Cases report (F2)', () => {
         headers: [],
         footer: { belowQualityBar: 0 },
         findings: zeroFindings,
-        classifying: { settled: 0, total: 40 },
+        classifying: { settled: 0, total: 40, beyondBound: 0, outOfReach: 0 },
       })
     );
     expect(screen.queryByText(/cases appear/)).not.toBeInTheDocument();
@@ -319,32 +316,16 @@ describe('KB Cases report (F2)', () => {
     ).toBeInTheDocument();
   });
 
-  it('in a bounded scope, unclassified entries are not promised to be classified at all', () => {
-    // Older backend: `total` still counted the unreachable, so the oldest never were.
-    view(
-      olderBackend(
-        report({
-          headers: [],
-          footer: { belowQualityBar: 0 },
-          findings: zeroFindings,
-          classifying: { settled: 0, total: 40 },
-          bounded: true,
-        })
-      )
-    );
-    expect(
-      screen.getByText(
-        '40 learned answers are not classified yet — in a mailbox over the nightly limit, some of the oldest may never be.'
-      )
-    ).toBeInTheDocument();
-  });
-
   it('while a search is loading, the report on screen keeps the words of its own search', async () => {
     getCases.mockImplementation((query) =>
       (query as { search?: string }).search
         ? new Promise(() => {})
         : Promise.resolve(
-            report({ headers: [], findings: zeroFindings, classifying: { settled: 50, total: 50 } })
+            report({
+              headers: [],
+              findings: zeroFindings,
+              classifying: { settled: 50, total: 50, beyondBound: 0, outOfReach: 0 },
+            })
           )
     );
     render(
@@ -370,7 +351,10 @@ describe('KB Cases report (F2)', () => {
     getCases.mockImplementation((query) =>
       Promise.resolve(
         (query as { search?: string }).search
-          ? report({ headers: [], classifying: { settled: 50, total: 50 } })
+          ? report({
+              headers: [],
+              classifying: { settled: 50, total: 50, beyondBound: 0, outOfReach: 0 },
+            })
           : report()
       )
     );
@@ -501,7 +485,7 @@ describe('KB Cases report (F2)', () => {
         headers: [],
         findings: zeroFindings,
         footer: { belowQualityBar: 0 },
-        classifying: { settled: 50, total: 50 },
+        classifying: { settled: 50, total: 50, beyondBound: 0, outOfReach: 0 },
       })
     );
     expect(await screen.findByText('No learned answers match here yet.')).toBeInTheDocument();
