@@ -281,6 +281,13 @@ describe('the widget stays while the import runs', () => {
         sourceType="email"
       />
     );
+    // ⛔ THE GAP, on purpose (flaky on CI 2026-09-29 until forced here): let the 403 settle, then
+    // fire the first 15 s tick BEFORE React commits `supported = false`. Only a slow runner used
+    // to land a tick there; this lands one every run, so the refusal guard is always exercised.
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    vi.advanceTimersByTime(15_000);
     expect(await screen.findByText('Found')).toBeInTheDocument();
     await vi.advanceTimersByTimeAsync(60_000);
     expect(get).toHaveBeenCalledTimes(1);

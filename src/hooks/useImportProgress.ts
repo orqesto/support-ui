@@ -20,9 +20,16 @@ export const useImportProgress = (sourceId: number, enabled: boolean, start: boo
   const [data, setData] = useState<ImportProgress | null>(null);
   const [supported, setSupported] = useState(true);
   const inFlight = useRef(false);
+  /**
+   * A refusal (404/401/403) ends polling NOW, not at the next render. `supported` is state, so the
+   * effect that clears the interval only runs once React commits — and a 15 s tick landing in that
+   * gap asked a refused endpoint again (seen as a flaky CI failure, 2026-09-29; reproduced by
+   * firing the tick after the 403 settles and before the commit). The ref closes the gap.
+   */
+  const refused = useRef(false);
 
   const fetchOnce = useCallback(async () => {
-    if (inFlight.current) return;
+    if (inFlight.current || refused.current) return;
     inFlight.current = true;
     try {
       setData(await importProgressService.get(sourceId, start));
@@ -31,6 +38,7 @@ export const useImportProgress = (sourceId: number, enabled: boolean, start: boo
       // polling a refusal every 15 s for ever helps nobody.
       const status = isAxiosError(error) ? error.response?.status : undefined;
       if (status === 404 || status === 401 || status === 403) {
+        refused.current = true;
         setSupported(false);
       } else {
         logger.debug('import progress poll failed', { sourceId, error });
