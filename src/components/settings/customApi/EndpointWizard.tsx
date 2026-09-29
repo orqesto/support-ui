@@ -14,13 +14,7 @@ import type { RecordFormat } from './recordFormat';
 import { ResponseTree } from './ResponseTree';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/Dialog';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
@@ -43,6 +37,11 @@ import { useInvalidateCustomApiAvailability } from '@/hooks/useCustomApiLookup';
  * them are paths. Reaching a WORKING lookup here means a name, a path, and ticking fields out of
  * the tree; roles, chaining, formats and ownership are later steps that unlock more, and an admin
  * who never opens them still has something that works.
+ *
+ * A PAGE, not a dialog (2026-09-29). Every picked field grows its own row of settings, so on a
+ * real vendor (DeusPower's customer record) the dialog became a long inner scroll with Save far
+ * from the field being edited. The page puts "where to look" beside "what agents see", keeps
+ * Save pinned, and gives the editor a URL. The logic and both write payloads are unchanged.
  */
 
 interface Props {
@@ -50,6 +49,11 @@ interface Props {
   endpoint?: CustomApiEndpoint;
   onClose: () => void;
   onSaved: () => void;
+  /**
+   * The first Test (or Save) of a NEW lookup creates it. The page moves its URL to the created
+   * id, so a reload keeps editing that lookup instead of starting a duplicate from `new`.
+   */
+  onCreated?: (endpointId: number) => void;
 }
 
 /** The token the executor substitutes the looked-up value into. */
@@ -65,7 +69,7 @@ export const labelFromPath = (path: string): string => {
   return words.charAt(0).toUpperCase() + words.slice(1);
 };
 
-export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props) => {
+export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreated }: Props) => {
   const [label, setLabel] = useState(endpoint?.label ?? '');
   const [path, setPath] = useState(endpoint?.path ?? '');
   const [endpointId, setEndpointId] = useState<number | null>(endpoint?.id ?? null);
@@ -333,6 +337,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
       );
     if (!created) throw new Error('The lookup was created but the server did not return it.');
     setEndpointId(created.id);
+    onCreated?.(created.id);
     return created.id;
   };
 
@@ -475,364 +480,392 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
   };
 
   return (
-    <Dialog open onOpenChange={(next) => !next && onClose()} dismissOnOverlayClick={false}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{endpoint ? `Edit ${endpoint.label}` : 'Add a lookup'}</DialogTitle>
-        </DialogHeader>
+    <div className="space-y-6 pb-2">
+      <div>
+        <h1 className="font-display text-xl font-semibold">
+          {endpoint ? `Edit ${endpoint.label}` : 'Add a lookup'}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">{connection.name}</p>
+      </div>
 
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-          <Input
-            label="What should agents call this?"
-            value={label}
-            onChange={(event) => setLabel(event.target.value)}
-            placeholder="This customer's orders"
-          />
-          <div className="space-y-1">
-            <Label htmlFor="ca-category">What kind of record does this return?</Label>
-            <Select
-              id="ca-category"
-              value={category}
-              onChange={(event) => setCategory(event.target.value as CustomApiCategory | '')}
-            >
-              {/* ⛔ First, and the default. Every lookup that exists today has no category and
-                  keeps working; making one mandatory would turn an L1 lookup into an invalid
-                  thing to be. */}
-              <option value="">Not set — just show the fields</option>
-              {CUSTOM_API_CATEGORIES.map((one) => (
-                <option key={one} value={one}>
-                  {CATEGORY_LABELS[one]}
+      {/* One column on a phone; "where to look" beside "what agents see" on a wide screen. */}
+      <div className="grid gap-6 items-start lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Where to look</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Input
+              label="What should agents call this?"
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              placeholder="This customer's orders"
+            />
+            <div className="space-y-1">
+              <Label htmlFor="ca-category">What kind of record does this return?</Label>
+              <Select
+                id="ca-category"
+                value={category}
+                onChange={(event) => setCategory(event.target.value as CustomApiCategory | '')}
+              >
+                {/* ⛔ First, and the default. Every lookup that exists today has no category and
+                      keeps working; making one mandatory would turn an L1 lookup into an invalid
+                      thing to be. */}
+                <option value="">Not set — just show the fields</option>
+                {CUSTOM_API_CATEGORIES.map((one) => (
+                  <option key={one} value={one}>
+                    {CATEGORY_LABELS[one]}
+                  </option>
+                ))}
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Tell us what these records ARE and we can lay them out as such for the agent. Leave
+                it unset and nothing changes — the fields you pick are shown as they are.
+              </p>
+            </div>
+
+            <Input
+              label="Address in your system"
+              value={path}
+              onChange={(event) => setPath(event.target.value)}
+              placeholder={`/api/orders?email=${VALUE_PLACEHOLDER}`}
+            />
+            <p className="text-xs text-muted-foreground -mt-2">
+              Put <code>{VALUE_PLACEHOLDER}</code> where the email or the number belongs — that is
+              where we put it when an agent looks someone up.
+            </p>
+
+            <Input
+              label="Where are the records in the answer? (optional)"
+              value={dataPath}
+              onChange={(event) => setDataPath(event.target.value)}
+              placeholder="data"
+            />
+            <p className="text-xs text-muted-foreground -mt-2">
+              Leave this blank and we work it out. Fill it in only if your system wraps the records
+              under a name we did not guess — <code>results</code>, or <code>payload.items</code>.
+              Use <code>.</code> if the answer IS the record, with nothing wrapped around it.
+            </p>
+
+            <div className="space-y-1">
+              <Label htmlFor="ca-param-source">What do we look up by?</Label>
+              <Select
+                id="ca-param-source"
+                value={paramSource}
+                onChange={(event) =>
+                  setParamSource(event.target.value as 'identity' | 'manual' | 'endpoint')
+                }
+              >
+                <option value="identity">
+                  The customer’s email address — filled in for the agent
                 </option>
-              ))}
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Tell us what these records ARE and we can lay them out as such for the agent. Leave it
-              unset and nothing changes — the fields you pick are shown as they are.
-            </p>
-          </div>
+                <option value="manual">Something the agent types, like an order number</option>
+                <option value="endpoint">
+                  A value from another lookup’s answer, like the customer’s id
+                </option>
+              </Select>
+            </div>
 
-          <Input
-            label="Address in your system"
-            value={path}
-            onChange={(event) => setPath(event.target.value)}
-            placeholder={`/api/orders?email=${VALUE_PLACEHOLDER}`}
-          />
-          <p className="text-xs text-muted-foreground -mt-2">
-            Put <code>{VALUE_PLACEHOLDER}</code> where the email or the number belongs — that is
-            where we put it when an agent looks someone up.
-          </p>
-
-          <Input
-            label="Where are the records in the answer? (optional)"
-            value={dataPath}
-            onChange={(event) => setDataPath(event.target.value)}
-            placeholder="data"
-          />
-          <p className="text-xs text-muted-foreground -mt-2">
-            Leave this blank and we work it out. Fill it in only if your system wraps the records
-            under a name we did not guess — <code>results</code>, or <code>payload.items</code>. Use{' '}
-            <code>.</code> if the answer IS the record, with nothing wrapped around it.
-          </p>
-
-          <div className="space-y-1">
-            <Label htmlFor="ca-param-source">What do we look up by?</Label>
-            <Select
-              id="ca-param-source"
-              value={paramSource}
-              onChange={(event) =>
-                setParamSource(event.target.value as 'identity' | 'manual' | 'endpoint')
-              }
-            >
-              <option value="identity">
-                The customer’s email address — filled in for the agent
-              </option>
-              <option value="manual">Something the agent types, like an order number</option>
-              <option value="endpoint">
-                A value from another lookup’s answer, like the customer’s id
-              </option>
-            </Select>
-          </div>
-
-          {paramSource === 'endpoint' && (
-            <ChainStep
-              siblings={connection.endpoints.filter((one) => one.id !== endpointId)}
-              sourceEndpointId={chain.sourceEndpointId}
-              sourceFieldPath={chain.sourceFieldPath}
-              onChange={setChain}
-            />
-          )}
-
-          <div className="space-y-2 rounded-md border border-border p-3">
-            <p className="text-xs font-medium text-foreground">
-              Let’s see what your system returns
-            </p>
-            {!pasting ? (
-              <>
-                <Input
-                  label={
-                    // A chain is TESTED with the value its source would hand it — typed here,
-                    // because the test calls this lookup alone. "An email or an order number"
-                    // named the two things it is not.
-                    paramSource === 'endpoint'
-                      ? 'A value to try — one its source would give it, like a customer id'
-                      : 'A value to try (an email or an order number you know exists)'
-                  }
-                  value={parameter}
-                  onChange={(event) => setParameter(event.target.value)}
-                />
-                <div className="flex gap-2 items-center">
-                  <Button
-                    size="sm"
-                    onClick={() => void run('test')}
-                    disabled={busy || !path.trim() || chainIncomplete}
-                  >
-                    Test
-                  </Button>
-                  {/*
-                   * ⛔ D39: the second route to the same tree. An admin whose system is behind a
-                   * VPN, IP-allowlisted, or on a tunnel that has died can still get there — and
-                   * DeusPower is reached through tunnels that die. Making the live call the only
-                   * way blocks them with nothing to do but call us.
-                   */}
-                  <Button size="sm" variant="ghost" onClick={() => setPasting(true)}>
-                    We can’t reach it — paste a response instead
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <Label htmlFor="ca-sample">Paste what your system returns</Label>
-                <Textarea
-                  id="ca-sample"
-                  rows={5}
-                  value={sample}
-                  onChange={(event) => setSample(event.target.value)}
-                  placeholder='{"success":1,"data":[{"order_id":"137416"}]}'
-                />
-                <p className="text-xs text-muted-foreground">
-                  {/* True, and load-bearing: the backend parses, shapes and drops it. */}
-                  We only keep the shape — the field names, never the values.
-                </p>
-                <div className="flex gap-2 items-center">
-                  <Button
-                    size="sm"
-                    onClick={() => void run('paste')}
-                    disabled={busy || !sample.trim() || !path.trim() || chainIncomplete}
-                  >
-                    Use this
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setPasting(false)}>
-                    Back to testing
-                  </Button>
-                </div>
-              </>
+            {paramSource === 'endpoint' && (
+              <ChainStep
+                siblings={connection.endpoints.filter((one) => one.id !== endpointId)}
+                sourceEndpointId={chain.sourceEndpointId}
+                sourceFieldPath={chain.sourceFieldPath}
+                onChange={setChain}
+              />
             )}
-            {missingPlaceholder && (
-              /*
-               * ⛔ SAID BEFORE THE CALL, not after it. Without the placeholder the executor
-               * refuses with "a configured value with nowhere to go" — a sentence about a token
-               * the admin has never seen, arriving only once they have pressed Test.
-               */
-              <Alert variant="warning">
-                <AlertDescription>
-                  This address has no <code>{VALUE_PLACEHOLDER}</code> in it, so we have nowhere to
-                  put the value we look up by. Add it where the email or number belongs.
-                </AlertDescription>
-              </Alert>
-            )}
-            {busy && <Spinner />}
-            {outcome && (
-              <Alert variant="warning">
-                <AlertDescription>{outcome}</AlertDescription>
-              </Alert>
-            )}
-          </div>
 
-          {/*
-           * ⛔ D35, and ONLY for a manual lookup. An identity lookup resolves its parameter from
-           * the contact, so the record it returns is that customer's by construction — asking
-           * would be a question with one possible answer.
-           */}
-          {paramSource === 'manual' && (
-            <RecordFormatStep value={recordFormat} onChange={setRecordFormat} />
-          )}
-
-          {paramSource === 'manual' && (
-            <OwnershipStep
-              siblings={connection.endpoints.filter((one) => one.id !== endpointId)}
-              value={ownershipSourceEndpointId}
-              onChange={setOwnershipSourceEndpointId}
-            />
-          )}
-
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-foreground">What should agents see?</p>
-            <ResponseTree paths={paths} picked={picked} onToggle={toggle} missing={missing} />
-          </div>
-
-          {/*
-            ⛔ Only when a field is actually tagged `status`. The vocabulary has nothing to map
-            without one, and offering it anyway would ask an admin to configure something the
-            lookup can never use — the shape D35 documents for asking an identity lookup about
-            ownership: a question with one possible answer.
-          */}
-          {picked.some((field) => field.role === 'status') && (
-            <StatusVocabularyStep
-              labels={statusLabels}
-              seen={seenStatuses}
-              onChange={setStatusLabels}
-            />
-          )}
-
-          {picked.length > 0 && (
-            <div className="space-y-3">
-              <p className="text-xs font-medium text-foreground">How should each one look?</p>
-              {picked.map((field) => (
-                <div key={field.path} className="space-y-1 rounded-md border border-border p-2">
-                  <div className="flex gap-2 items-end">
-                    <div className="flex-1">
-                      {/*
-                       * ⛔ The label is "what agents see", not the raw path (audit pass 10). The
-                       * path was the accessible NAME of this input while also being the label of
-                       * its tick box in the tree — two different controls answering to the same
-                       * name, for a screen reader and for a test alike. The path is still shown,
-                       * as context rather than as the control's identity.
-                       */}
-                      <Input
-                        label={`What agents see for ${field.path}`}
-                        value={field.label}
-                        onChange={(event) => editPick(field.path, { label: event.target.value })}
-                      />
-                    </div>
-                    {/*
-                     * ⛔ A FIELD THAT VANISHED FROM THE RESPONSE HAS NO TICK BOX — it is not in
-                     * the tree any more — so without this the admin could not remove it at all.
-                     * Keeping a pick they cannot delete is a dead end, and it is exactly the
-                     * field they are most likely to want gone. (Audit pass 2.)
-                     */}
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <p className="text-xs font-medium text-foreground">
+                Let’s see what your system returns
+              </p>
+              {!pasting ? (
+                <>
+                  <Input
+                    label={
+                      // A chain is TESTED with the value its source would hand it — typed here,
+                      // because the test calls this lookup alone. "An email or an order number"
+                      // named the two things it is not.
+                      paramSource === 'endpoint'
+                        ? 'A value to try — one its source would give it, like a customer id'
+                        : 'A value to try (an email or an order number you know exists)'
+                    }
+                    value={parameter}
+                    onChange={(event) => setParameter(event.target.value)}
+                  />
+                  <div className="flex gap-2 items-center">
                     <Button
                       size="sm"
-                      variant="ghost"
-                      onClick={() => toggle(field.path, false)}
-                      aria-label={`Remove ${field.label}`}
+                      onClick={() => void run('test')}
+                      disabled={busy || !path.trim() || chainIncomplete}
                     >
-                      Remove
+                      Test
+                    </Button>
+                    {/*
+                     * ⛔ D39: the second route to the same tree. An admin whose system is behind a
+                     * VPN, IP-allowlisted, or on a tunnel that has died can still get there — and
+                     * DeusPower is reached through tunnels that die. Making the live call the only
+                     * way blocks them with nothing to do but call us.
+                     */}
+                    <Button size="sm" variant="ghost" onClick={() => setPasting(true)}>
+                      We can’t reach it — paste a response instead
                     </Button>
                   </div>
-                  <div className="flex gap-2 items-end">
-                    <div className="flex-1">
-                      {/*
-                       * D35/D37 (Task 4). ⛔ OPTIONAL: every field starts at "Just show it" and a
-                       * lookup saves and works with nothing tagged. Roles unlock the stored
-                       * summary and the ownership check; an admin must be able to reach a
-                       * working lookup without meeting a concept they do not need yet.
-                       */}
-                      {/*
-                       * ⛔ NAMED PER FIELD (audit pass 4). Every role select said "What is
-                       * this?", so a lookup with five picked fields had five different controls
-                       * answering to one accessible name — the identical defect fixed for the
-                       * label input in the previous audit, recurring in new code. The class, not
-                       * the file.
-                       */}
-                      <Label htmlFor={`role-${field.path}`}>What is {field.path}?</Label>
-                      <Select
-                        id={`role-${field.path}`}
-                        value={field.role}
-                        onChange={(event) =>
-                          setPicked((current) =>
-                            applyRole(current, field.path, event.target.value as FieldPick['role'])
-                          )
-                        }
-                      >
-                        {ROLE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                    <div className="flex-1">
-                      <Label htmlFor={`kind-${field.path}`}>How to show {field.path}</Label>
-                      <Select
-                        id={`kind-${field.path}`}
-                        value={field.kind}
-                        onChange={(event) => {
-                          const kind = event.target.value as FieldPick['kind'];
-                          /**
-                           * ⛔ A VALUE ALREADY SET (audit pass 5). Switching money → plain used
-                           * to leave `currencyPath`/`currencyLiteral` behind: the backend's
-                           * refine only looks at them for money, so the row saved cleanly and
-                           * carried a currency for a field that is not an amount. Switching back
-                           * then silently reinstated a currency the admin never re-chose.
-                           */
-                          editPick(field.path, {
-                            kind,
-                            ...(kind === 'money'
-                              ? {}
-                              : { currencyPath: undefined, currencyLiteral: undefined }),
-                          });
-                        }}
-                      >
-                        <option value="plain">Just show it</option>
-                        <option value="money">It’s an amount of money</option>
-                      </Select>
-                    </div>
-                    {field.kind === 'money' && (
+                </>
+              ) : (
+                <>
+                  <Label htmlFor="ca-sample">Paste what your system returns</Label>
+                  <Textarea
+                    id="ca-sample"
+                    rows={5}
+                    value={sample}
+                    onChange={(event) => setSample(event.target.value)}
+                    placeholder='{"success":1,"data":[{"order_id":"137416"}]}'
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {/* True, and load-bearing: the backend parses, shapes and drops it. */}
+                    We only keep the shape — the field names, never the values.
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    <Button
+                      size="sm"
+                      onClick={() => void run('paste')}
+                      disabled={busy || !sample.trim() || !path.trim() || chainIncomplete}
+                    >
+                      Use this
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setPasting(false)}>
+                      Back to testing
+                    </Button>
+                  </div>
+                </>
+              )}
+              {missingPlaceholder && (
+                /*
+                 * ⛔ SAID BEFORE THE CALL, not after it. Without the placeholder the executor
+                 * refuses with "a configured value with nowhere to go" — a sentence about a token
+                 * the admin has never seen, arriving only once they have pressed Test.
+                 */
+                <Alert variant="warning">
+                  <AlertDescription>
+                    This address has no <code>{VALUE_PLACEHOLDER}</code> in it, so we have nowhere
+                    to put the value we look up by. Add it where the email or number belongs.
+                  </AlertDescription>
+                </Alert>
+              )}
+              {busy && <Spinner />}
+              {outcome && (
+                <Alert variant="warning">
+                  <AlertDescription>{outcome}</AlertDescription>
+                </Alert>
+              )}
+            </div>
+
+            {/*
+             * ⛔ D35, and ONLY for a manual lookup. An identity lookup resolves its parameter from
+             * the contact, so the record it returns is that customer's by construction — asking
+             * would be a question with one possible answer.
+             */}
+            {paramSource === 'manual' && (
+              <RecordFormatStep value={recordFormat} onChange={setRecordFormat} />
+            )}
+
+            {paramSource === 'manual' && (
+              <OwnershipStep
+                siblings={connection.endpoints.filter((one) => one.id !== endpointId)}
+                value={ownershipSourceEndpointId}
+                onChange={setOwnershipSourceEndpointId}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>What agents see</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-foreground">What should agents see?</p>
+              <ResponseTree paths={paths} picked={picked} onToggle={toggle} missing={missing} />
+            </div>
+
+            {/*
+                ⛔ Only when a field is actually tagged `status`. The vocabulary has nothing to map
+                without one, and offering it anyway would ask an admin to configure something the
+                lookup can never use — the shape D35 documents for asking an identity lookup about
+                ownership: a question with one possible answer.
+              */}
+            {picked.some((field) => field.role === 'status') && (
+              <StatusVocabularyStep
+                labels={statusLabels}
+                seen={seenStatuses}
+                onChange={setStatusLabels}
+              />
+            )}
+
+            {picked.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-xs font-medium text-foreground">How should each one look?</p>
+                {picked.map((field) => (
+                  <div key={field.path} className="space-y-1 rounded-md border border-border p-2">
+                    <div className="flex gap-2 items-end">
                       <div className="flex-1">
-                        <Label htmlFor={`cur-${field.path}`}>Currency for {field.path}</Label>
+                        {/*
+                         * ⛔ The label is "what agents see", not the raw path (audit pass 10). The
+                         * path was the accessible NAME of this input while also being the label of
+                         * its tick box in the tree — two different controls answering to the same
+                         * name, for a screen reader and for a test alike. The path is still shown,
+                         * as context rather than as the control's identity.
+                         */}
+                        <Input
+                          label={`What agents see for ${field.path}`}
+                          value={field.label}
+                          onChange={(event) => editPick(field.path, { label: event.target.value })}
+                        />
+                      </div>
+                      {/*
+                       * ⛔ A FIELD THAT VANISHED FROM THE RESPONSE HAS NO TICK BOX — it is not in
+                       * the tree any more — so without this the admin could not remove it at all.
+                       * Keeping a pick they cannot delete is a dead end, and it is exactly the
+                       * field they are most likely to want gone. (Audit pass 2.)
+                       */}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => toggle(field.path, false)}
+                        aria-label={`Remove ${field.label}`}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                    <div className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        {/*
+                         * D35/D37 (Task 4). ⛔ OPTIONAL: every field starts at "Just show it" and a
+                         * lookup saves and works with nothing tagged. Roles unlock the stored
+                         * summary and the ownership check; an admin must be able to reach a
+                         * working lookup without meeting a concept they do not need yet.
+                         */}
+                        {/*
+                         * ⛔ NAMED PER FIELD (audit pass 4). Every role select said "What is
+                         * this?", so a lookup with five picked fields had five different controls
+                         * answering to one accessible name — the identical defect fixed for the
+                         * label input in the previous audit, recurring in new code. The class, not
+                         * the file.
+                         */}
+                        <Label htmlFor={`role-${field.path}`}>What is {field.path}?</Label>
                         <Select
-                          id={`cur-${field.path}`}
-                          value={field.currencyPath ?? (field.currencyLiteral ? '__fixed' : '')}
+                          id={`role-${field.path}`}
+                          value={field.role}
+                          onChange={(event) =>
+                            setPicked((current) =>
+                              applyRole(
+                                current,
+                                field.path,
+                                event.target.value as FieldPick['role']
+                              )
+                            )
+                          }
+                        >
+                          {ROLE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div className="flex-1">
+                        <Label htmlFor={`kind-${field.path}`}>How to show {field.path}</Label>
+                        <Select
+                          id={`kind-${field.path}`}
+                          value={field.kind}
                           onChange={(event) => {
-                            const value = event.target.value;
+                            const kind = event.target.value as FieldPick['kind'];
+                            /**
+                             * ⛔ A VALUE ALREADY SET (audit pass 5). Switching money → plain used
+                             * to leave `currencyPath`/`currencyLiteral` behind: the backend's
+                             * refine only looks at them for money, so the row saved cleanly and
+                             * carried a currency for a field that is not an amount. Switching back
+                             * then silently reinstated a currency the admin never re-chose.
+                             */
                             editPick(field.path, {
-                              currencyPath: value && value !== '__fixed' ? value : undefined,
-                              currencyLiteral: value === '__fixed' ? 'EUR' : undefined,
+                              kind,
+                              ...(kind === 'money'
+                                ? {}
+                                : { currencyPath: undefined, currencyLiteral: undefined }),
                             });
                           }}
                         >
-                          <option value="">Choose…</option>
-                          {/*
-                           * ⛔ Not the field ITSELF (audit pass 5): an amount priced in its own
-                           * value renders "348.50 348.50" to an agent, and it is one keystroke
-                           * away in an alphabetical list.
-                           */}
-                          {paths
-                            .filter((candidate) => candidate !== field.path)
-                            .map((candidate) => (
-                              <option key={candidate} value={candidate}>
-                                From {candidate}
-                              </option>
-                            ))}
-                          <option value="__fixed">Always the same currency</option>
+                          <option value="plain">Just show it</option>
+                          <option value="money">It’s an amount of money</option>
                         </Select>
                       </div>
+                      {field.kind === 'money' && (
+                        <div className="flex-1">
+                          <Label htmlFor={`cur-${field.path}`}>Currency for {field.path}</Label>
+                          <Select
+                            id={`cur-${field.path}`}
+                            value={field.currencyPath ?? (field.currencyLiteral ? '__fixed' : '')}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              editPick(field.path, {
+                                currencyPath: value && value !== '__fixed' ? value : undefined,
+                                currencyLiteral: value === '__fixed' ? 'EUR' : undefined,
+                              });
+                            }}
+                          >
+                            <option value="">Choose…</option>
+                            {/*
+                             * ⛔ Not the field ITSELF (audit pass 5): an amount priced in its own
+                             * value renders "348.50 348.50" to an agent, and it is one keystroke
+                             * away in an alphabetical list.
+                             */}
+                            {paths
+                              .filter((candidate) => candidate !== field.path)
+                              .map((candidate) => (
+                                <option key={candidate} value={candidate}>
+                                  From {candidate}
+                                </option>
+                              ))}
+                            <option value="__fixed">Always the same currency</option>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                    {/*
+                     * ⛔ WHAT THE TAG BUYS, not just what it is. Without this the admin sees what to
+                     * do and never why — and the ownership check is the single most important
+                     * privacy control in the product to configure by accident.
+                     */}
+                    {roleOption(field.role).buys && (
+                      <p className="text-xs text-muted-foreground">{roleOption(field.role).buys}</p>
+                    )}
+                    {field.kind === 'money' && field.currencyLiteral !== undefined && (
+                      <Input
+                        label="Which currency?"
+                        value={field.currencyLiteral}
+                        onChange={(event) =>
+                          editPick(field.path, { currencyLiteral: event.target.value })
+                        }
+                        placeholder="EUR"
+                      />
                     )}
                   </div>
-                  {/*
-                   * ⛔ WHAT THE TAG BUYS, not just what it is. Without this the admin sees what to
-                   * do and never why — and the ownership check is the single most important
-                   * privacy control in the product to configure by accident.
-                   */}
-                  {roleOption(field.role).buys && (
-                    <p className="text-xs text-muted-foreground">{roleOption(field.role).buys}</p>
-                  )}
-                  {field.kind === 'money' && field.currencyLiteral !== undefined && (
-                    <Input
-                      label="Which currency?"
-                      value={field.currencyLiteral}
-                      onChange={(event) =>
-                        editPick(field.path, { currencyLiteral: event.target.value })
-                      }
-                      placeholder="EUR"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-          <div role="status" aria-live="polite">
+      {/*
+        Pinned, so Save is never a scroll away from the field being edited — and the warnings that
+        disable it ride along, because on a long page a reason at the bottom is a reason nobody sees.
+      */}
+      <div className="flex sticky bottom-0 z-10 flex-col gap-3 py-3 border-t border-border bg-background sm:flex-row sm:items-start">
+        <div className="flex-1 space-y-2">
+          <div role="status" aria-live="polite" className="space-y-2">
             {unlabelled.length > 0 && (
               <Alert variant="warning">
                 <AlertDescription>
@@ -857,8 +890,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
             )}
           </div>
         </div>
-
-        <DialogFooter>
+        <div className="flex gap-2 justify-end">
           <Button variant="outline" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
@@ -875,8 +907,8 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved }: Props
           >
             Save
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </div>
   );
 };

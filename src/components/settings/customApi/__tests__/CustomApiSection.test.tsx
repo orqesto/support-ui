@@ -10,6 +10,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { CustomApiSection } from '../CustomApiSection';
 import type * as Svc from '@/services/customApi.service';
 
@@ -51,14 +52,28 @@ const connection = (): Connection => ({
   updatedAt: '2026-09-19T10:00:00.000Z',
 });
 
+const Where = () => {
+  const location = useLocation();
+  return <output data-testid="where">{location.pathname}</output>;
+};
+
+/** The section now NAVIGATES for lookups (the editor is a page), so it needs a router. */
+const renderSection = (canManageVendors: boolean) =>
+  render(
+    <MemoryRouter initialEntries={['/settings']}>
+      <CustomApiSection canManageVendors={canManageVendors} />
+      <Where />
+    </MemoryRouter>
+  );
+
 beforeEach(() => {
   list.mockReset().mockResolvedValue([connection()]);
 });
 
-describe('Settings › Integrations › Custom APIs — the dialogs are wired to the right buttons', () => {
+describe('Settings › Integrations › Custom APIs — every button goes to the right screen', () => {
   it('“Manage” opens the VENDOR form', async () => {
     const user = userEvent.setup();
-    render(<CustomApiSection canManageVendors />);
+    renderSection(true);
     await waitFor(() => expect(screen.getByText('DeusPower')).toBeTruthy());
 
     await user.click(screen.getByRole('button', { name: 'Manage' }));
@@ -68,21 +83,69 @@ describe('Settings › Integrations › Custom APIs — the dialogs are wired to
     expect(screen.getByLabelText('Address')).toBeTruthy();
   });
 
-  it('“Add a lookup” opens the WIZARD, not the vendor form', async () => {
+  it('“Add a lookup” opens the lookup editor PAGE, not the vendor form', async () => {
     const user = userEvent.setup();
-    render(<CustomApiSection canManageVendors />);
+    renderSection(true);
     await waitFor(() => expect(screen.getByText('DeusPower')).toBeTruthy());
 
     await user.click(screen.getByRole('button', { name: 'Add a lookup' }));
     // ⛔ RED: swap the two handlers and this is the vendor form — it type-checks, and every other
-    // suite still passes, because each dialog works perfectly on its own.
-    expect(screen.getByText('Add a lookup', { selector: 'h2' })).toBeTruthy();
-    expect(screen.getByLabelText(/What should agents call this/i)).toBeTruthy();
+    // suite still passes, because each screen works perfectly on its own.
+    expect(screen.getByTestId('where').textContent).toBe('/settings/custom-apis/1/lookups/new');
+    expect(screen.queryByLabelText('Address')).toBeNull();
   });
 
-  it('⛔ a moderator gets the lookup wizard and NO vendor controls (D40)', async () => {
+  it('“Edit” on a lookup opens THAT lookup’s page', async () => {
+    list.mockResolvedValue([
+      {
+        ...connection(),
+        endpoints: [
+          {
+            id: 5,
+            connectionId: 1,
+            label: 'Customer account',
+            path: '/customer?email={value}',
+            method: 'GET',
+            parameterSource: 'identity',
+            identityField: 'email',
+            sourceEndpointId: null,
+            sourceFieldPath: null,
+            ownershipSourceEndpointId: null,
+            recordFormatPrefix: null,
+            recordFormatLength: null,
+            recordFormatCharset: null,
+            headers: {},
+            requestBodyTemplate: null,
+            fieldPaths: [],
+            resultShape: 'one',
+            rowCap: 25,
+            surface: 'both',
+            category: null,
+            statusLabels: {},
+            seenStatuses: [],
+            enabled: true,
+            effectivelyEnabled: true,
+            chainBroken: false,
+            hasResponseSkeleton: false,
+            skeletonSource: null,
+            dataPath: null,
+            createdAt: '2026-09-19T10:00:00.000Z',
+            updatedAt: '2026-09-19T10:00:00.000Z',
+          },
+        ],
+      },
+    ]);
     const user = userEvent.setup();
-    render(<CustomApiSection canManageVendors={false} />);
+    renderSection(true);
+    await waitFor(() => expect(screen.getByText('Customer account')).toBeTruthy());
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByTestId('where').textContent).toBe('/settings/custom-apis/1/lookups/5');
+  });
+
+  it('⛔ a moderator gets the lookup editor and NO vendor controls (D40)', async () => {
+    const user = userEvent.setup();
+    renderSection(false);
     await waitFor(() => expect(screen.getByText('DeusPower')).toBeTruthy());
 
     // The vendor half is not offered at all — not disabled, not present.
@@ -92,17 +155,17 @@ describe('Settings › Integrations › Custom APIs — the dialogs are wired to
 
     // POSITIVE CONTROL: the half they DO own still works, so this is D40 and not a blanket lockout.
     await user.click(screen.getByRole('button', { name: 'Add a lookup' }));
-    expect(screen.getByLabelText(/What should agents call this/i)).toBeTruthy();
+    expect(screen.getByTestId('where').textContent).toBe('/settings/custom-apis/1/lookups/new');
   });
 
-  it('closing a dialog leaves the list, not a blank panel', async () => {
+  it('closing the vendor dialog leaves the list, not a blank panel', async () => {
     const user = userEvent.setup();
-    render(<CustomApiSection canManageVendors />);
+    renderSection(true);
     await waitFor(() => expect(screen.getByText('DeusPower')).toBeTruthy());
-    await user.click(screen.getByRole('button', { name: 'Add a lookup' }));
+    await user.click(screen.getByRole('button', { name: 'Manage' }));
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
-    expect(screen.queryByLabelText(/What should agents call this/i)).toBeNull();
+    expect(screen.queryByText('Edit DeusPower')).toBeNull();
     expect(screen.getByText('DeusPower')).toBeTruthy();
   });
 });

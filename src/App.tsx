@@ -25,6 +25,7 @@ import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { userService } from './services/user.service';
 import { useAuthStore } from './stores/authStore';
 import { Permission } from './types/roles';
+import { CUSTOM_API_LOOKUP_ROUTE } from './components/settings/customApi/lookupPaths';
 
 // Lazy load non-critical routes
 const MessagesPage = lazy(() =>
@@ -53,6 +54,9 @@ const StatisticsPage = lazy(() =>
 );
 const SettingsPage = lazy(() =>
   import('./pages/SettingsPage').then((mod) => ({ default: mod.SettingsPage }))
+);
+const CustomApiLookupPage = lazy(() =>
+  import('./pages/CustomApiLookupPage').then((mod) => ({ default: mod.CustomApiLookupPage }))
 );
 const UsersPage = lazy(() =>
   import('./pages/UsersPage').then((mod) => ({ default: mod.UsersPage }))
@@ -384,6 +388,17 @@ const AppRoutes = () => {
           <PrivateRoute>
             <Suspense fallback={<LoadingFallback />}>
               <SettingsPage />
+            </Suspense>
+          </PrivateRoute>
+        }
+      />
+      {/* The custom-API lookup editor; the page repeats the tab's MANAGE_INTEGRATIONS gate. */}
+      <Route
+        path={CUSTOM_API_LOOKUP_ROUTE}
+        element={
+          <PrivateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <CustomApiLookupPage />
             </Suspense>
           </PrivateRoute>
         }
