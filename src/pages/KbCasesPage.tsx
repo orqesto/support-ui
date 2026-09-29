@@ -231,14 +231,15 @@ const unclassifiedText = (count: number, report: KbCasesReport) => {
   if (mode === 'dry_run')
     return `${answers} not classified here — consolidation runs for this workspace only as a trial, and its results are not shown on this page.`;
   return report.bounded && report.classifying.beyondBound === undefined
-    ? `${answers} not classified yet — in a mailbox over the nightly limit, the oldest never are.`
+    ? `${answers} not classified yet — in a mailbox over the nightly limit, some of the oldest may never be.`
     : `${answers} still being classified — what is shown here can still change.`;
 };
 
 /**
  * Only classification and proposal are capped at the newest answers; every row whose label is
- * current is still grouped. With `beyondBound` the notice states exactly how many older answers
- * go unclassified — and nothing when none do (a scope can be bounded while this department has
+ * current is still grouped — an older answer labelled while it was among the newest keeps its
+ * label. `beyondBound` counts only older answers still UNCLASSIFIED, so the notice states exactly
+ * how many go unclassified — and nothing when none do (a scope can be bounded while this department has
  * nothing past the bound). An older backend keeps the general wording.
  */
 const BoundedNotice = ({ report }: { report: KbCasesReport }) => {
@@ -254,8 +255,8 @@ const BoundedNotice = ({ report }: { report: KbCasesReport }) => {
   return report.bounded ? (
     <Alert variant="warning">
       {labellingModeOf(report) === 'production'
-        ? 'A mailbox here has more learned answers than the nightly job reads, so only the newest are classified and proposed as cases.'
-        : 'A mailbox here has more learned answers than the nightly job would read — once it runs, only the newest will be classified and proposed as cases.'}
+        ? 'A mailbox here has more learned answers than the nightly job reads, so it classifies and proposes as cases only the newest. Older answers it labelled before are still grouped here.'
+        : 'A mailbox here has more learned answers than the nightly job would read — once it runs, it will classify and propose only the newest. Older answers labelled before stay grouped.'}
     </Alert>
   ) : null;
 };

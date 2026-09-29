@@ -48,13 +48,17 @@ describe('KB Cases report — labelling and the bound', () => {
         '10 learned answers are still being classified — what is shown here can still change.'
       )
     ).toBeInTheDocument();
-    expect(document.body.textContent).not.toMatch(/the oldest never are/);
+    expect(document.body.textContent).not.toMatch(/the oldest/);
   });
 
   it('older backend: the bounded notice keeps its previous wording', () => {
     view(olderBackend(report({ bounded: true })));
     expect(
-      screen.getByText(/only the newest are classified and proposed as cases/)
+      // An older answer labelled while it was among the newest keeps its label and is grouped:
+      // nothing may read as if every older answer were unclassified.
+      screen.getByText(
+        'A mailbox here has more learned answers than the nightly job reads, so it classifies and proposes as cases only the newest. Older answers it labelled before are still grouped here.'
+      )
     ).toBeInTheDocument();
   });
 
@@ -62,7 +66,7 @@ describe('KB Cases report — labelling and the bound', () => {
     view(olderBackend(report({ bounded: true, labellingActive: false })));
     expect(
       screen.getByText(
-        'A mailbox here has more learned answers than the nightly job would read — once it runs, only the newest will be classified and proposed as cases.'
+        'A mailbox here has more learned answers than the nightly job would read — once it runs, it will classify and propose only the newest. Older answers labelled before stay grouped.'
       )
     ).toBeInTheDocument();
   });

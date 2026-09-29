@@ -126,7 +126,8 @@ export type KbCasesReport = {
   findings: KbCasesFindings;
   /**
    * `total`: only inputs the job can reach (the newest per bounded scope). `beyondBound`: older
-   * inputs of a bounded scope it never classifies. Absent on a backend before BE bb1121ee, whose
+   * inputs of a bounded scope that are still unclassified (one labelled while it was among the
+   * newest keeps its label and is not counted here — BE 7192f6f8). Absent on a backend before BE bb1121ee, whose
    * `total` still counted those.
    */
   classifying: { settled: number; total: number; beyondBound?: number };

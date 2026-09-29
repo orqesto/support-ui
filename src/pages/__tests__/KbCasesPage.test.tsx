@@ -334,7 +334,7 @@ describe('KB Cases report (F2)', () => {
     );
     expect(
       screen.getByText(
-        '40 learned answers are not classified yet — in a mailbox over the nightly limit, the oldest never are.'
+        '40 learned answers are not classified yet — in a mailbox over the nightly limit, some of the oldest may never be.'
       )
     ).toBeInTheDocument();
   });
