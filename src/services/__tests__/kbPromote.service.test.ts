@@ -1,6 +1,6 @@
 /**
  * The promote route's `outcome` says what the saved entries ARE now (BE feat/kb-consolidation
- * @ d0c18e49, kbPromoteController): `approved` = actually served, `hidden` = in the KB but
+ * @ e62f8a57, kbPromoteController): `approved` = actually served, `hidden` = in the KB but
  * hidden, `retired` = its source was removed (kept, never used), `partOfCase` = case ids whose ORIGINAL the pair is. The backend deployed today sends
  * only {approved, pendingReview, rejected}; an older one no outcome at all.
  */
@@ -29,6 +29,7 @@ describe('kbPromoteService.promote — outcome', () => {
         retired: 2,
         pendingReview: 0,
         rejected: 0,
+        partOfCaseEntries: 1,
         partOfCase: [900],
       },
     });
@@ -40,6 +41,7 @@ describe('kbPromoteService.promote — outcome', () => {
         retired: 2,
         pendingReview: 0,
         rejected: 0,
+        partOfCaseEntries: 1,
         partOfCase: [900],
       },
     });
@@ -57,6 +59,7 @@ describe('kbPromoteService.promote — outcome', () => {
       retired: 0,
       pendingReview: 0,
       rejected: 0,
+      partOfCaseEntries: null,
       partOfCase: [],
     });
   });

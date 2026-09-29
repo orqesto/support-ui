@@ -47,37 +47,59 @@ type EditablePair = KbQaCandidate & { keep: boolean };
 
 /**
  * The toast says what the saved entries ARE, from the backend's per-state `outcome` — never from
- * the ids alone. "Added" only for what the AI now serves: an entry saved but hidden, waiting on
- * a reviewer, rejected, or an original of a merged case is not "added", and saying so would be a
- * lie the agent cannot see. Several states at once are each said.
+ * the ids alone. The backend puts each row in exactly ONE bucket (promoteOutcome.ts), so no row
+ * is said twice. "Added" only for what the AI now serves. One entry in one state reads as a
+ * plain sentence; otherwise every part carries its count, in the right number.
  */
 export const promoteToastText = (ids: number[], outcome: KbPromoteOutcome): string => {
   if (ids.length === 0) return 'Already in the knowledge base — nothing new was added';
-  const { approved, hidden, retired, pendingReview, rejected, partOfCase } = outcome;
+  const { approved, hidden, retired, pendingReview, rejected, partOfCaseEntries, partOfCase } =
+    outcome;
+  const merged = partOfCaseEntries ?? (partOfCase.length > 0 ? 1 : 0);
+  const buckets = [approved, pendingReview, hidden, retired, rejected, merged];
+  const single =
+    buckets.filter((count) => count > 0).length === 1 &&
+    buckets.reduce((sum, count) => sum + count, 0) === 1 &&
+    ids.length === 1;
+  const entries = (count: number) => `${count} ${count === 1 ? 'entry' : 'entries'}`;
+  const isAre = (count: number) => (count === 1 ? 'is' : 'are');
+  const itThem = (count: number) => (count === 1 ? 'it' : 'them');
   const parts: string[] = [];
   if (approved > 0)
-    parts.push(
-      approved === 1 ? 'Added to the knowledge base' : `${approved} entries added to the knowledge base`
-    );
+    parts.push(single ? 'Added to the knowledge base' : `${entries(approved)} added to the knowledge base`);
   if (pendingReview > 0)
     parts.push(
-      `${pendingReview === 1 ? 'Saved' : `${pendingReview} entries saved`} and sent for review — the AI uses ${pendingReview === 1 ? 'it' : 'them'} once a reviewer approves`
+      `${single ? 'Saved' : `${entries(pendingReview)} saved`} and sent for review — the AI uses ${itThem(pendingReview)} once a reviewer approves`
     );
   if (hidden > 0)
     parts.push(
-      parts.length === 0 && hidden === 1
+      single
         ? 'Already in the knowledge base but hidden — ask a KB reviewer to restore it'
-        : `${hidden} already in the knowledge base but hidden — ask a KB reviewer to restore ${hidden === 1 ? 'it' : 'them'}`
+        : `${entries(hidden)} ${isAre(hidden)} already in the knowledge base but hidden — ask a KB reviewer to restore ${itThem(hidden)}`
     );
   if (retired > 0)
     parts.push(
-      parts.length === 0 && retired === 1
+      single
         ? 'Already in the knowledge base, but its source was removed — it is not used'
-        : `${retired} already in the knowledge base, but ${retired === 1 ? 'its source was' : 'their sources were'} removed — ${retired === 1 ? 'it is' : 'they are'} not used`
+        : `${entries(retired)} ${isAre(retired)} already in the knowledge base, but ${retired === 1 ? 'its source was' : 'their sources were'} removed — ${retired === 1 ? 'it is' : 'they are'} not used`
     );
-  if (partOfCase.length > 0) parts.push('Already part of a merged entry — it answers this');
   if (rejected > 0)
-    parts.push('A reviewer already rejected this answer — ask them to restore it');
+    parts.push(
+      single
+        ? 'A reviewer already rejected this answer — ask them to restore it'
+        : `A reviewer already rejected ${entries(rejected)} — ask them to restore ${itThem(rejected)}`
+    );
+  if (merged > 0) {
+    const mergedEntry = partOfCase.length > 1 ? 'merged entries' : 'a merged entry';
+    const answers = partOfCase.length > 1 ? 'they answer' : 'it answers';
+    parts.push(
+      single
+        ? 'Already part of a merged entry — it answers this'
+        : partOfCaseEntries === null
+          ? `Some are already part of ${mergedEntry} — ${answers} them`
+          : `${entries(partOfCaseEntries)} ${isAre(partOfCaseEntries)} already part of ${mergedEntry} — ${answers} ${itThem(partOfCaseEntries)}`
+    );
+  }
   return parts.length > 0 ? parts.join('. ') : 'Saved to the knowledge base';
 };
 

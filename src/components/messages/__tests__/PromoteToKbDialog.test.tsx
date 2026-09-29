@@ -36,6 +36,7 @@ const promoted = (ids: number[], outcome: Partial<KbPromoteOutcome> = {}): KbPro
     retired: 0,
     pendingReview: 0,
     rejected: 0,
+    partOfCaseEntries: 0,
     partOfCase: [],
     ...outcome,
   },
@@ -189,7 +190,7 @@ describe('PromoteToKbDialog', () => {
   });
 
   it('an original of a merged case is not "added": the merged entry answers it', async () => {
-    const text = await toastFor(promoted([101], { partOfCase: [900] }));
+    const text = await toastFor(promoted([101], { partOfCaseEntries: 1, partOfCase: [900] }));
     expect(text).toBe('Already part of a merged entry — it answers this');
     expect(text).not.toMatch(/added/i);
   });
@@ -202,9 +203,8 @@ describe('PromoteToKbDialog', () => {
 
   it('a retired entry is said alongside an added one', async () => {
     const text = await toastFor(promoted([101, 102], { approved: 1, retired: 1 }));
-    expect(text).toMatch(/^Added to the knowledge base\./);
-    expect(text).toMatch(
-      /1 already in the knowledge base, but its source was removed — it is not used/
+    expect(text).toBe(
+      '1 entry added to the knowledge base. 1 entry is already in the knowledge base, but its source was removed — it is not used'
     );
   });
 
@@ -216,10 +216,46 @@ describe('PromoteToKbDialog', () => {
 
   it('a mixed result says each part — "added" only for what is served', async () => {
     const text = await toastFor(promoted([101, 102], { approved: 1, hidden: 1 }));
-    expect(text).toMatch(/^Added to the knowledge base\./);
-    expect(text).toMatch(
-      /1 already in the knowledge base but hidden — ask a KB reviewer to restore it/
+    expect(text).toBe(
+      '1 entry added to the knowledge base. 1 entry is already in the knowledge base but hidden — ask a KB reviewer to restore it'
     );
+  });
+
+  it('a mixed result counts every part (MED-1)', async () => {
+    expect(await toastFor(promoted([101, 102], { approved: 1, pendingReview: 1 }))).toBe(
+      '1 entry added to the knowledge base. 1 entry saved and sent for review — the AI uses it once a reviewer approves'
+    );
+  });
+
+  it('several rejected entries are said in the plural (MED-1)', async () => {
+    const text = await toastFor(promoted([101, 102], { rejected: 2 }));
+    expect(text).toBe('A reviewer already rejected 2 entries — ask them to restore them');
+  });
+
+  it('one row is said once: a rejected entry whose source was removed is only "retired" (LOW-1)', async () => {
+    // The backend's buckets are exclusive (promoteOutcome.ts): this row counts as retired alone.
+    const text = await toastFor(promoted([101], { retired: 1, rejected: 0 }));
+    expect(text).toBe('Already in the knowledge base, but its source was removed — it is not used');
+    expect(text).not.toMatch(/rejected|\. /);
+  });
+
+  it('counts entries that are part of merged entries (LOW-2)', async () => {
+    expect(await toastFor(promoted([101, 102], { partOfCaseEntries: 2, partOfCase: [900] }))).toBe(
+      '2 entries are already part of a merged entry — it answers them'
+    );
+  });
+
+  it('the deployed backend gives no entry count for merged cases: the wording names none', async () => {
+    const text = await toastFor(
+      promoted([101, 102], { approved: 1, partOfCaseEntries: null, partOfCase: [900] })
+    );
+    expect(text).toBe(
+      '1 entry added to the knowledge base. Some are already part of a merged entry — it answers them'
+    );
+  });
+
+  it('entries saved in no known state read as "saved", never "added"', async () => {
+    expect(await toastFor(promoted([101]))).toBe('Saved to the knowledge base');
   });
 
   it('says so when the thread yields nothing, instead of offering an empty save', async () => {

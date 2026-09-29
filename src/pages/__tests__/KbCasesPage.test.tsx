@@ -246,9 +246,7 @@ describe('KB Cases report (F2)', () => {
     expect(screen.getByText('1000 more learned answers below the quality bar')).toBeInTheDocument();
     expect(
       screen.getByText(/1000 older answers are past the nightly job's limit/)
-    ).toHaveTextContent(
-      'they keep their labels, but the nightly job does not propose them as new cases.'
-    );
+    ).toHaveTextContent(': the nightly job does not propose them as new cases.');
     expect(screen.getByRole('status')).toHaveTextContent(
       'Classified: 0 of 5000 — consolidation is not running for this workspace.'
     );

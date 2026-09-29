@@ -235,7 +235,8 @@ const unclassifiedText = (count: number, report: KbCasesReport) => {
  * already in a pending proposal (made while still within reach) shows as a "proposed" row, and a
  * pending attach member in its case row. Nor does it say they are "shown here": the view may be
  * narrowed by a search or a page, and some appear only as counts (footer, findings). In a big
- * mailbox's steady state every old answer is labelled (`beyondBound` 0) and the bound still bit,
+ * mailbox's steady state nothing past the bound is unclassified (`beyondBound` 0 — some may have
+ * FAILED classification and carry no label, so no label is claimed) and the bound still bit,
  * so the notice keys on `outOfReach`. A scope is a source, or a department with no source, so
  * the notice names neither.
  */
@@ -247,7 +248,7 @@ const BoundedNotice = ({ report }: { report: KbCasesReport }) => {
     <Alert variant="warning">
       {beyondBound > 0
         ? `${older}, and the nightly job does not propose ${outOfReach === 1 ? 'it' : 'them'} as new cases. ${beyondBound} of them ${beyondBound === 1 ? 'is' : 'are'} not classified.`
-        : `${older}: ${outOfReach === 1 ? 'it keeps its label' : 'they keep their labels'}, but the nightly job does not propose ${outOfReach === 1 ? 'it' : 'them'} as new cases.`}
+        : `${older}: the nightly job does not propose ${outOfReach === 1 ? 'it' : 'them'} as new cases.`}
     </Alert>
   );
 };

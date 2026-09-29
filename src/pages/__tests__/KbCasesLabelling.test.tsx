@@ -26,8 +26,8 @@ afterEach(cleanup);
 
 describe('KB Cases report — labelling and the bound', () => {
   it('a big mailbox in its steady state (all old entries labelled) still says the bound bit', () => {
-    // Every input past the bound is labelled (beyondBound 0): it keeps its label, but the job does
-    // not propose or attach it any more. A bound must report that it bit.
+    // Nothing past the bound is unclassified (beyondBound 0) — some may have FAILED classification
+    // and carry no label — and the job does not propose or attach them. The bound still bit.
     view(
       report({
         bounded: true,
@@ -35,9 +35,9 @@ describe('KB Cases report — labelling and the bound', () => {
       })
     );
     const notice = screen.getByText(
-      "1000 older answers are past the nightly job's limit: they keep their labels, but the nightly job does not propose them as new cases."
+      "1000 older answers are past the nightly job's limit: the nightly job does not propose them as new cases."
     );
-    expect(notice).not.toHaveTextContent(/mailbox|not classified/i);
+    expect(notice).not.toHaveTextContent(/mailbox|not classified|label/i);
     expect(screen.queryByText(/Classifying:/)).not.toBeInTheDocument();
   });
 

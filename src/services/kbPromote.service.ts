@@ -34,6 +34,8 @@ export type KbPromoteOutcome = {
   retired: number;
   pendingReview: number;
   rejected: number;
+  /** Rows that are originals of a merged case; null when the backend does not count them. */
+  partOfCaseEntries: number | null;
   partOfCase: number[];
 };
 
@@ -86,6 +88,7 @@ export const kbPromoteService = {
           retired: 0,
           pendingReview: waiting ? ids.length : 0,
           rejected: 0,
+          partOfCaseEntries: null,
           partOfCase: [],
         },
       };
@@ -98,6 +101,8 @@ export const kbPromoteService = {
         retired: outcome.retired ?? 0,
         pendingReview: outcome.pendingReview ?? 0,
         rejected: outcome.rejected ?? 0,
+        partOfCaseEntries:
+          typeof outcome.partOfCaseEntries === 'number' ? outcome.partOfCaseEntries : null,
         partOfCase: Array.isArray(outcome.partOfCase) ? outcome.partOfCase : [],
       },
     };
