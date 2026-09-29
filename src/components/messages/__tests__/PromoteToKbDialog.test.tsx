@@ -162,7 +162,10 @@ describe('PromoteToKbDialog', () => {
     fireEvent.click(await screen.findByRole('button', { name: /add to knowledge base/i }));
 
     await waitFor(() => expect(success).toHaveBeenCalled());
-    expect(success.mock.calls[0][0]).toMatch(/rejected/i);
+    // Who rejected it is not known here, so the text does not name "a reviewer" as the one to ask.
+    expect(success.mock.calls[0][0]).toBe(
+      'This answer was already rejected — ask a KB reviewer to restore it'
+    );
   });
 
   it('says "added" when the agent may approve', async () => {
@@ -229,11 +232,10 @@ describe('PromoteToKbDialog', () => {
 
   it('several rejected entries are said in the plural (MED-1)', async () => {
     const text = await toastFor(promoted([101, 102], { rejected: 2 }));
-    expect(text).toBe('A reviewer already rejected 2 entries — ask them to restore them');
+    expect(text).toBe('2 entries were already rejected — ask a KB reviewer to restore them');
   });
 
-  it('one row is said once: a rejected entry whose source was removed is only "retired" (LOW-1)', async () => {
-    // The backend's buckets are exclusive (promoteOutcome.ts): this row counts as retired alone.
+  it('a retired entry reads as retired only', async () => {
     const text = await toastFor(promoted([101], { retired: 1, rejected: 0 }));
     expect(text).toBe('Already in the knowledge base, but its source was removed — it is not used');
     expect(text).not.toMatch(/rejected|\. /);
@@ -242,15 +244,6 @@ describe('PromoteToKbDialog', () => {
   it('counts entries that are part of merged entries (LOW-2)', async () => {
     expect(await toastFor(promoted([101, 102], { partOfCaseEntries: 2, partOfCase: [900] }))).toBe(
       '2 entries are already part of a merged entry — it answers them'
-    );
-  });
-
-  it('the deployed backend gives no entry count for merged cases: the wording names none', async () => {
-    const text = await toastFor(
-      promoted([101, 102], { approved: 1, partOfCaseEntries: null, partOfCase: [900] })
-    );
-    expect(text).toBe(
-      '1 entry added to the knowledge base. Some are already part of a merged entry — it answers them'
     );
   });
 

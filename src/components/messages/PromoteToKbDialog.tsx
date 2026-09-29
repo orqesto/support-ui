@@ -55,7 +55,7 @@ export const promoteToastText = (ids: number[], outcome: KbPromoteOutcome): stri
   if (ids.length === 0) return 'Already in the knowledge base — nothing new was added';
   const { approved, hidden, retired, pendingReview, rejected, partOfCaseEntries, partOfCase } =
     outcome;
-  const merged = partOfCaseEntries ?? (partOfCase.length > 0 ? 1 : 0);
+  const merged = partOfCaseEntries;
   const buckets = [approved, pendingReview, hidden, retired, rejected, merged];
   const single =
     buckets.filter((count) => count > 0).length === 1 &&
@@ -86,8 +86,8 @@ export const promoteToastText = (ids: number[], outcome: KbPromoteOutcome): stri
   if (rejected > 0)
     parts.push(
       single
-        ? 'A reviewer already rejected this answer — ask them to restore it'
-        : `A reviewer already rejected ${entries(rejected)} — ask them to restore ${itThem(rejected)}`
+        ? 'This answer was already rejected — ask a KB reviewer to restore it'
+        : `${entries(rejected)} ${rejected === 1 ? 'was' : 'were'} already rejected — ask a KB reviewer to restore ${itThem(rejected)}`
     );
   if (merged > 0) {
     const mergedEntry = partOfCase.length > 1 ? 'merged entries' : 'a merged entry';
@@ -95,9 +95,7 @@ export const promoteToastText = (ids: number[], outcome: KbPromoteOutcome): stri
     parts.push(
       single
         ? 'Already part of a merged entry — it answers this'
-        : partOfCaseEntries === null
-          ? `Some are already part of ${mergedEntry} — ${answers} them`
-          : `${entries(partOfCaseEntries)} ${isAre(partOfCaseEntries)} already part of ${mergedEntry} — ${answers} ${itThem(partOfCaseEntries)}`
+        : `${entries(merged)} ${isAre(merged)} already part of ${mergedEntry} — ${answers} ${itThem(merged)}`
     );
   }
   return parts.length > 0 ? parts.join('. ') : 'Saved to the knowledge base';

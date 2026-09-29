@@ -59,7 +59,7 @@ describe('kbPromoteService.promote — outcome', () => {
       retired: 0,
       pendingReview: 0,
       rejected: 0,
-      partOfCaseEntries: null,
+      partOfCaseEntries: 0,
       partOfCase: [],
     });
   });
