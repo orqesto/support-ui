@@ -17,9 +17,27 @@ export const isMergedOriginal = (entry: ConsolidationFields): boolean =>
   entry.consolidation?.state === 'merged' ||
   (entry.consolidatedInto !== undefined && entry.consolidatedInto !== null);
 
+/**
+ * How every KB entry or case is named on screen: "#KB-9" — the same as the KB list and its
+ * badges. The row id ("#9") only when the entry has no public id yet.
+ */
+export const kbRef = (publicId: string | null | undefined, id: number): string =>
+  `#${publicId ?? id}`;
+
 /** "#<public id or id>" of the case a merged/detached original points at. */
 export const caseRef = (consolidation: { caseId: number; casePublicId: string | null }): string =>
-  `#${consolidation.casePublicId ?? consolidation.caseId}`;
+  kbRef(consolidation.casePublicId, consolidation.caseId);
+
+/**
+ * A merge proposal was decided in THIS tab. The bell's merge row counts pending proposals; the
+ * server re-counts and says so on the socket, but a tab whose socket is down would keep the old
+ * number — so the decision is also announced locally and the bell re-reads its row.
+ */
+export const KB_CONSOLIDATION_DECIDED_EVENT = 'kb-consolidation:decided';
+
+export const announceKbConsolidationDecided = (): void => {
+  window.dispatchEvent(new Event(KB_CONSOLIDATION_DECIDED_EVENT));
+};
 
 /** Where a case opens: the KB list's own detail drawer, by id. */
 export const caseHref = (caseId: number): string => `/knowledge-base?id=${caseId}`;

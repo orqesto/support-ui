@@ -7,7 +7,7 @@
  * an `expired` accept or a discarded answer as success.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { KbConsolidationDetail } from '@/services/kbConsolidation.service';
 
@@ -31,6 +31,7 @@ vi.mock('@/hooks/usePermissions', () => ({
 }));
 
 const { KbConsolidationReview } = await import('../KbConsolidationReview');
+const { KB_CONSOLIDATION_DECIDED_EVENT } = await import('@/lib/kbConsolidation');
 
 const member = (id: number, over: Record<string, unknown> = {}) => ({
   id,
@@ -107,8 +108,12 @@ describe('KbConsolidationReview (F1)', () => {
     expect(screen.getByText('AI-drafted')).toBeInTheDocument();
     expect(screen.getByText('same thread')).toBeInTheDocument();
     expect(screen.getByText('3 customers')).toBeInTheDocument();
-    expect(screen.getByText(/One says 5 days, one says 10/)).toBeInTheDocument();
-    expect(screen.getByText(/about one order only/)).toBeInTheDocument();
+    // Entries are named the way the KB list names them: "#KB-1", never a bare row id.
+    expect(
+      within(screen.getByRole('list', { name: 'Conflicts' })).getByRole('listitem')
+    ).toHaveTextContent('One says 5 days, one says 10 (#KB-1, #KB-2)');
+    // A judge-dropped entry is not a member, so /members carries no public id for it.
+    expect(screen.getByText(/about one order only/)).toHaveTextContent('#9 — about one order only');
   });
 
   it('a member edited since proposed says so and can NOT be ticked', async () => {
@@ -116,7 +121,7 @@ describe('KbConsolidationReview (F1)', () => {
     renderReview();
     await screen.findByText('Edited question?');
     expect(screen.getByText('edited since proposed — will be left out')).toBeInTheDocument();
-    const edited = box('Include KB-4');
+    const edited = box('Include #KB-4');
     expect(edited.checked).toBe(false);
     expect(edited.disabled).toBe(true);
   });
@@ -138,7 +143,7 @@ describe('KbConsolidationReview (F1)', () => {
     expect(keep.checked).toBe(false); // default: nothing rides along
 
     // Untick member 3 and edit the draft.
-    fireEvent.click(box('Include KB-3'));
+    fireEvent.click(box('Include #KB-3'));
     fireEvent.change(screen.getByDisplayValue('Refunds take 5 days.'), {
       target: { value: 'Refunds take 5 working days.' },
     });
@@ -159,11 +164,11 @@ describe('KbConsolidationReview (F1)', () => {
     fireEvent.click(box('Keep invoice.pdf'));
     expect(box('Keep invoice.pdf').checked).toBe(true);
 
-    fireEvent.click(box('Include KB-1'));
+    fireEvent.click(box('Include #KB-1'));
     expect(box('Keep invoice.pdf').checked).toBe(false);
     expect(box('Keep invoice.pdf').disabled).toBe(true);
 
-    fireEvent.click(box('Include KB-1'));
+    fireEvent.click(box('Include #KB-1'));
     fireEvent.click(box('Keep invoice.pdf'));
     fireEvent.click(screen.getByRole('button', { name: /Accept merge/ }));
     await waitFor(() => expect(accept).toHaveBeenCalledTimes(1));
@@ -174,8 +179,8 @@ describe('KbConsolidationReview (F1)', () => {
     getMembers.mockResolvedValue(detail());
     renderReview();
     await screen.findByText('Question 1?');
-    fireEvent.click(box('Include KB-2'));
-    fireEvent.click(box('Include KB-3'));
+    fireEvent.click(box('Include #KB-2'));
+    fireEvent.click(box('Include #KB-3'));
     expect(screen.getByRole('button', { name: /Accept merge/ })).toBeDisabled();
     expect(screen.getByText('Tick at least two entries to merge.')).toBeInTheDocument();
   });
@@ -246,20 +251,83 @@ describe('KbConsolidationReview (F1)', () => {
 
   it('a successful accept names the case, counts in words that agree, and lists dropped entries', async () => {
     getMembers.mockResolvedValue(detail());
+    // The real accept result (consolidationApply.ts) carries the case's public id.
     accept.mockResolvedValue({
       id: 77,
       status: 'accepted',
       caseId: 900,
+      casePublicId: 'KB-900',
       linked: 1,
       dropped: [2, 3],
     });
     renderReview();
     await screen.findByText('Question 1?');
     fireEvent.click(screen.getByRole('button', { name: /Accept merge/ }));
-    expect(await screen.findByText(/Merged into case #900 — 1 entry linked\./)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Merged into case #KB-900 — 1 entry linked\./)
+    ).toBeInTheDocument();
     expect(
       screen.getByText(/2 entries were left out because they changed or left the knowledge base/)
-    ).toHaveTextContent('#2, #3');
+    ).toHaveTextContent('(#KB-2, #KB-3)');
+  });
+
+  it('a case with no public id yet is named by its row id', async () => {
+    getMembers.mockResolvedValue(detail());
+    accept.mockResolvedValue({
+      id: 77,
+      status: 'accepted',
+      caseId: 900,
+      casePublicId: null,
+      linked: 3,
+      dropped: [],
+    });
+    renderReview();
+    await screen.findByText('Question 1?');
+    fireEvent.click(screen.getByRole('button', { name: /Accept merge/ }));
+    expect(
+      await screen.findByText(/Merged into case #900 — 3 entries linked\./)
+    ).toBeInTheDocument();
+  });
+
+  it('attach names the case "#KB-900" in its heading', async () => {
+    getMembers.mockResolvedValue(
+      detail({
+        type: 'attach',
+        proposed: null,
+        proposedAnswer: null,
+        case: {
+          id: 900,
+          publicId: 'KB-900',
+          question: 'Q',
+          answer: 'A',
+          editedSinceProposed: false,
+        },
+        members: [member(5)],
+      })
+    );
+    renderReview();
+    expect(
+      await screen.findByText('Proposed: add these entries to case #KB-900')
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Case #KB-900 — its standard answer/)).toBeInTheDocument();
+  });
+
+  it('a decision is announced so the bell re-counts; a failed one is not', async () => {
+    const heard = vi.fn();
+    window.addEventListener(KB_CONSOLIDATION_DECIDED_EVENT, heard);
+    try {
+      getMembers.mockResolvedValue(detail());
+      accept.mockRejectedValueOnce(new Error('boom'));
+      renderReview();
+      await screen.findByText('Question 1?');
+      fireEvent.click(screen.getByRole('button', { name: /Accept merge/ }));
+      expect(await screen.findByText(/boom|Could not accept/)).toBeInTheDocument();
+      expect(heard).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('button', { name: /Decline/ }));
+      await waitFor(() => expect(heard).toHaveBeenCalledTimes(1));
+    } finally {
+      window.removeEventListener(KB_CONSOLIDATION_DECIDED_EVENT, heard);
+    }
   });
 
   it('attach: opting in sends the refreshed answer', async () => {

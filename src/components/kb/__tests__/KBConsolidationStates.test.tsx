@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type * as KbServiceModule from '@/services/kb.service';
+import { kbEntryDetailResponse } from '@/test/kbEntryDetailResponse';
 
 type KBEntry = KbServiceModule.KBEntry;
 
@@ -149,7 +150,15 @@ describe('KB list — consolidation states (F4)', () => {
   });
 
   it('editing a Q&A entry sends question + answer; a case row notes to Unmerge instead', async () => {
-    getById.mockResolvedValue({ success: true, data: caseRow });
+    // The drawer re-reads the entry: the mock is the detail route's real body, not a list row.
+    getById.mockResolvedValue(
+      kbEntryDetailResponse({
+        id: 9,
+        approved: true,
+        capturedVia: 'consolidation',
+        publicId: 'KB-9',
+      })
+    );
     update.mockResolvedValue({ success: true, data: caseRow });
     render(
       <MemoryRouter>
@@ -167,5 +176,57 @@ describe('KB list — consolidation states (F4)', () => {
       question: 'Where is my refund?',
       answer: '7 days.',
     });
+  });
+
+  it('the drawer acts on the entry it fetched, not the row it was opened with (H1)', async () => {
+    // Opened with a row that says nothing about consolidation; the detail route says it is a case.
+    getById.mockResolvedValue(
+      kbEntryDetailResponse({
+        id: 9,
+        approved: true,
+        capturedVia: 'consolidation',
+        publicId: 'KB-9',
+      })
+    );
+    const props = handlers();
+    render(
+      <MemoryRouter>
+        <KBEntryDetail
+          entry={entry({ id: 9, approved: true })}
+          onClose={vi.fn()}
+          canReview
+          {...props}
+        />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('Case')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Unmerge/ }));
+    expect(props.onUnmerge).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 9, capturedVia: 'consolidation' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Delete/ }));
+    expect(props.onDelete).toHaveBeenCalledWith(
+      expect.objectContaining({ capturedVia: 'consolidation' })
+    );
+  });
+
+  it('a merged original opened from a bare row offers nothing the server refuses (H1)', async () => {
+    getById.mockResolvedValue(
+      kbEntryDetailResponse({ id: 7, hidden: true, consolidatedInto: 9, casePublicId: 'KB-9' })
+    );
+    render(
+      <MemoryRouter>
+        <KBEntryDetail
+          entry={entry({ id: 7, hidden: true })}
+          onClose={vi.fn()}
+          canReview
+          {...handlers()}
+        />
+      </MemoryRouter>
+    );
+    expect(await screen.findByRole('link', { name: 'merged into #KB-9' })).toBeInTheDocument();
+    for (const name of [/Approve/, /Unhide/, /Restore/, /Edit/, /Delete/, /Reject/, /^Hide$/]) {
+      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+    }
   });
 });

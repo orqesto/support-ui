@@ -491,61 +491,63 @@ export const KBEntryDetail = ({
             />
           </div>
 
-          {/* Actions Footer */}
+          {/* Actions Footer — reads the entry the drawer FETCHED, like the header badge above.
+              The row it was opened with may not say it is a case or a merged original (a deep
+              link has no row at all), and acting on it would offer what the server refuses. */}
           <div className="flex-none p-6 border-t bg-muted/20">
             <div className="flex gap-3 justify-end">
-              {canReview && isCaseRow(entry) && onUnmerge && (
+              {canReview && isCaseRow(displayEntry) && onUnmerge && (
                 <Button
                   variant="outline"
-                  onClick={() => onUnmerge(entry)}
+                  onClick={() => onUnmerge(displayEntry)}
                   title="Undo this case and restore its original entries"
                 >
                   <Split className="mr-2 w-4 h-4" />
                   Unmerge
                 </Button>
               )}
-              {canReview && !isMergedOriginal(entry) && (
+              {canReview && !isMergedOriginal(displayEntry) && (
                 <Button variant="outline" onClick={handleEditClick}>
                   <Edit className="mr-2 w-4 h-4" />
                   Edit
                 </Button>
               )}
-              {canReview && !isMergedOriginal(entry) && !entry.approved && !entry.hidden && (
+              {canReview && !isMergedOriginal(displayEntry) && !displayEntry.approved && !displayEntry.hidden && (
                 <>
                   <Button
                     variant="outline"
-                    onClick={() => onReject(entry.id)}
+                    onClick={() => onReject(displayEntry.id)}
                     title={`Hidden now, deleted after ${REJECTED_RETENTION_DAYS} days unless approved again`}
                   >
                     <XCircle className="mr-2 w-4 h-4" />
                     Reject
                   </Button>
-                  <Button variant="primary" onClick={() => onApprove(entry.id)}>
+                  <Button variant="primary" onClick={() => onApprove(displayEntry.id)}>
                     <CheckCircle className="mr-2 w-4 h-4" />
                     Approve
                   </Button>
                 </>
               )}
               {canReview &&
-                !isMergedOriginal(entry) &&
-                (!entry.hidden ? (
-                  <Button variant="outline" onClick={() => onHide(entry.id)}>
+                !isMergedOriginal(displayEntry) &&
+                (!displayEntry.hidden ? (
+                  <Button variant="outline" onClick={() => onHide(displayEntry.id)}>
                     <EyeOff className="mr-2 w-4 h-4" />
                     Hide
                   </Button>
                 ) : (
-                  <Button variant="outline" onClick={() => onApprove(entry.id)}>
+                  <Button variant="outline" onClick={() => onApprove(displayEntry.id)}>
                     <Eye className="mr-2 w-4 h-4" />
-                    {entry.rejectedAt ? 'Restore' : 'Unhide'}
+                    {displayEntry.rejectedAt ? 'Restore' : 'Unhide'}
                   </Button>
                 ))}
-              {!isMergedOriginal(entry) && (
+              {!isMergedOriginal(displayEntry) && (
                 <Button
                   variant="outline"
                   className="text-destructive hover:text-destructive"
                   onClick={() => {
                     onClose();
-                    onDelete(entry);
+                    onDelete(displayEntry);
                   }}
                 >
                   <Trash2 className="mr-2 w-4 h-4" />

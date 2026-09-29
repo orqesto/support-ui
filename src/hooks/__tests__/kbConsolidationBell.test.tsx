@@ -7,7 +7,15 @@
  * nowhere a moderator can decide it.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 type GetConfig = { params?: { kind?: string } };
 const get = vi.fn<(url: string, config?: GetConfig) => Promise<unknown>>();
@@ -18,11 +26,18 @@ vi.mock('@/lib/api-client', () => ({
 vi.mock('@/services/learning.service', () => ({
   learningService: { acceptSuggestion: vi.fn(), declineSuggestion: vi.fn() },
 }));
+const socketHandlers = new Map<string, Set<(data: unknown) => void>>();
+const emit = (event: string, data: unknown) =>
+  socketHandlers.get(event)?.forEach((handler) => handler(data));
 vi.mock('@/lib/socketManager', () => ({
-  getSocket: () => null,
+  getSocket: () => ({}),
   releaseSocket: () => {},
-  subscribeToEvent: () => {},
-  unsubscribeFromEvent: () => {},
+  subscribeToEvent: (event: string, handler: (data: unknown) => void) => {
+    if (!socketHandlers.has(event)) socketHandlers.set(event, new Set());
+    socketHandlers.get(event)?.add(handler);
+  },
+  unsubscribeFromEvent: (event: string, handler: (data: unknown) => void) =>
+    socketHandlers.get(event)?.delete(handler),
 }));
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: (selector: (state: unknown) => unknown) =>
@@ -32,7 +47,10 @@ vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({ data: [{ id: 4, name: 'Support EU' }] }),
 }));
 
-const { useKbReviewAlerts, KB_CONSOLIDATION_KIND } = await import('../useKbReviewAlerts');
+const { useKbReviewAlerts, KB_CONSOLIDATION_KIND, KB_REVIEW_KIND } = await import(
+  '../useKbReviewAlerts'
+);
+const { announceKbConsolidationDecided } = await import('@/lib/kbConsolidation');
 const { KbReviewSection, KB_MERGES_REVIEW_PATH } = await import(
   '@/components/layout/KbReviewSection'
 );
@@ -56,7 +74,10 @@ const respondByKind = (byKind: Record<string, unknown[]>) =>
     return Promise.resolve({ data: { data: { notifications: rows, total: rows.length } } });
   });
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  socketHandlers.clear();
+});
 afterEach(cleanup);
 
 describe('KB merge bell row (F3)', () => {
@@ -120,5 +141,50 @@ describe('KB merge bell row (F3)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Review proposed merges' }));
     expect(onNavigate).toHaveBeenCalledWith(KB_MERGES_REVIEW_PATH);
     expect(KB_MERGES_REVIEW_PATH).toBe('/knowledge-base/merges');
+  });
+});
+
+const kindsAsked = () => get.mock.calls.map(([, config]) => config?.params?.kind ?? '(none)');
+
+describe('KB merge bell stays current (M1)', () => {
+  const mounted = async () => {
+    respondByKind({ [KB_CONSOLIDATION_KIND]: [mergeRow()] });
+    const hook = renderHook(() => useKbReviewAlerts());
+    await waitFor(() => expect(hook.result.current.consolidations).toHaveLength(1));
+    get.mockClear();
+    return hook;
+  };
+
+  it('re-counts on notification:updated — one request, for that kind only', async () => {
+    const { result } = await mounted();
+    respondByKind({
+      [KB_CONSOLIDATION_KIND]: [mergeRow({ details: { suggestionIds: [71], pending: 1 } })],
+    });
+    act(() => emit('notification:updated', { ids: [31], kind: KB_CONSOLIDATION_KIND }));
+    await waitFor(() => expect(result.current.consolidations[0]?.pending).toBe(1));
+    expect(kindsAsked()).toEqual([KB_CONSOLIDATION_KIND]);
+  });
+
+  it('a capture-review event asks only for capture reviews', async () => {
+    await mounted();
+    act(() => emit('notification:resolved', { ids: [5], kind: KB_REVIEW_KIND }));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(1));
+    expect(kindsAsked()).toEqual([KB_REVIEW_KIND]);
+  });
+
+  it('an event of an unrelated kind asks for nothing', async () => {
+    await mounted();
+    act(() => emit('notification:new', { kind: 'sla_breach', organizationId: 21 }));
+    act(() => emit('notification:updated', { ids: [1], kind: 'sla_breach' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('a decision taken in this tab re-counts the merge row at once', async () => {
+    const { result } = await mounted();
+    respondByKind({ [KB_CONSOLIDATION_KIND]: [] });
+    act(() => announceKbConsolidationDecided());
+    await waitFor(() => expect(result.current.consolidations).toHaveLength(0));
+    expect(kindsAsked()).toEqual([KB_CONSOLIDATION_KIND]);
   });
 });

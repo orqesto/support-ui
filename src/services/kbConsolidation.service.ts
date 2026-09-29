@@ -70,6 +70,8 @@ export type KbConsolidationAcceptResult = {
   id: number;
   status: 'accepted' | 'expired';
   caseId?: number;
+  /** The case's public id ("KB-900"); absent on a backend before FE audit M3. */
+  casePublicId?: string | null;
   linked?: number;
   dropped?: number[];
   answerDiscarded?: boolean;
@@ -112,7 +114,8 @@ export type KbCasesFindings = {
   awaitingKbReview: number;
   noClearLanguage: number;
   detached: number;
-  possibleDuplicates: { caseIds: number[] }[];
+  /** `casePublicIds` pairs with `caseIds`; absent on a backend before FE audit M3. */
+  possibleDuplicates: { caseIds: number[]; casePublicIds?: (string | null)[] }[];
 };
 
 export type KbCasesReport = {

@@ -41,13 +41,14 @@ export const KB_CONSOLIDATION_SUGGESTION_TYPES: ReadonlySet<string> = new Set([
   'attach',
 ]);
 
-export const SUGGESTION_TYPE_PERMISSIONS: Readonly<Record<string, Readonly<Record<string, Permission>>>> =
-  {
-    kb_quality: {
-      consolidate: Permission.MANAGE_KNOWLEDGE_BASE,
-      attach: Permission.MANAGE_KNOWLEDGE_BASE,
-    },
-  };
+export const SUGGESTION_TYPE_PERMISSIONS: Readonly<
+  Record<string, Readonly<Record<string, Permission>>>
+> = {
+  kb_quality: {
+    consolidate: Permission.MANAGE_KNOWLEDGE_BASE,
+    attach: Permission.MANAGE_KNOWLEDGE_BASE,
+  },
+};
 
 export const isKbConsolidationSuggestion = (suggestion: {
   domain: string;

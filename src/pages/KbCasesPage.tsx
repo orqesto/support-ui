@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Download } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
@@ -14,8 +14,10 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { useDepartments } from '@/hooks/useDepartments';
+import { usePermissions } from '@/hooks/usePermissions';
 import { getApiErrorMessage } from '@/lib/errorMessages';
-import { caseHref } from '@/lib/kbConsolidation';
+import { caseHref, kbRef } from '@/lib/kbConsolidation';
+import { useAuthStore } from '@/stores/authStore';
 import {
   kbConsolidationService,
   type KbCaseRow,
@@ -45,7 +47,8 @@ const formatDate = (iso: string | null) => {
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
 const rowTitle = (row: KbCaseRow): string => {
-  if (row.kind === 'case') return `Case #${row.casePublicId ?? row.caseId ?? '?'}`;
+  if (row.kind === 'case')
+    return `Case ${row.caseId !== null ? kbRef(row.casePublicId, row.caseId) : '#?'}`;
   if (row.title) return row.title;
   return row.kind === 'single' ? 'single learned answer' : row.kind;
 };
@@ -151,7 +154,8 @@ export const KbCasesFindingsPanel = ({ findings }: { findings: KbCasesFindings }
       node: `${plural(findings.detached, 'entry', 'entries')} detached from a case (the thread moved to another mailbox)`,
     });
   for (const pair of findings.possibleDuplicates ?? []) {
-    const ids = pair.caseIds.map((id) => `#${id}`).join(', ');
+    // Named as the rows name them ("Case #KB-900"), so the reader can find both.
+    const ids = pair.caseIds.map((id, index) => kbRef(pair.casePublicIds?.[index], id)).join(', ');
     lines.push({
       key: `dup-${pair.caseIds.join('-')}`,
       node: `${ids} — review whether they are one case (Unmerge one and its entries can be proposed into the other).`,
@@ -172,13 +176,40 @@ export const KbCasesFindingsPanel = ({ findings }: { findings: KbCasesFindings }
   );
 };
 
+const hasFindings = (findings: KbCasesFindings) =>
+  findings.rawEmails > 0 ||
+  findings.judgedCustomerSpecific > 0 ||
+  findings.couldNotClassify > 0 ||
+  findings.awaitingKbReview > 0 ||
+  findings.noClearLanguage > 0 ||
+  findings.detached > 0 ||
+  (findings.possibleDuplicates ?? []).length > 0;
+
+const BelowQualityBar = ({ count }: { count: number }) =>
+  count > 0 ? (
+    <p className="text-sm text-muted-foreground">
+      {count} more learned {count === 1 ? 'answer' : 'answers'} below the quality bar
+    </p>
+  ) : null;
+
 export const KbCasesReportView = ({ report }: { report: KbCasesReport }) => {
+  const learnedSomething = report.footer.belowQualityBar > 0 || hasFindings(report.findings);
   if (report.miningOff) {
+    // Mining off says nothing about what was learned BEFORE it was switched off: answers below
+    // the bar and findings still exist and still need someone. Only claim "nothing learned"
+    // when the report really holds nothing.
     return (
-      <Alert>
-        Learning from conversations is off for this department — no mailbox here feeds the knowledge
-        base, so there are no learned answers to group into cases.
-      </Alert>
+      <div className="space-y-4">
+        <Alert>
+          Learning from conversations is off for this department — no mailbox here feeds the
+          knowledge base
+          {learnedSomething
+            ? '. What was learned before is listed below.'
+            : ', so there are no learned answers to group into cases.'}
+        </Alert>
+        <BelowQualityBar count={report.footer.belowQualityBar} />
+        <KbCasesFindingsPanel findings={report.findings} />
+      </div>
     );
   }
   const { settled, total } = report.classifying;
@@ -197,7 +228,9 @@ export const KbCasesReportView = ({ report }: { report: KbCasesReport }) => {
       )}
       {report.headers.length === 0 ? (
         <p className="py-6 text-sm text-center text-muted-foreground">
-          No learned answers match here yet.
+          {report.footer.belowQualityBar > 0
+            ? 'None of the learned answers here clears the quality bar yet.'
+            : 'No learned answers match here yet.'}
         </p>
       ) : (
         <ul className="space-y-4" aria-label="Cases">
@@ -206,10 +239,12 @@ export const KbCasesReportView = ({ report }: { report: KbCasesReport }) => {
               <div className="flex flex-wrap gap-2 items-baseline mb-2">
                 <span className="font-display font-semibold">{header.label ?? '(no label)'}</span>
                 {header.language && <Badge variant="secondary">{header.language}</Badge>}
-                {/* The UNION of its rows' threads — each thread once. Deliberately not worded
-                    as a "conversations" total: row counts below overlap and must not be added. */}
+                {/* The UNION of its rows' conversations — each once (plan §2.8). Never worded as
+                    a total: the row counts below overlap and must not be added up. Same noun
+                    as the rows and the caption, so nobody reads two different things. */}
                 <span className="text-xs text-muted-foreground">
-                  {plural(header.conversations, 'thread', 'threads')} in total, each counted once
+                  {plural(header.conversations, 'conversation', 'conversations')} across these
+                  cases, each counted once
                 </span>
               </div>
               <ul className="space-y-2">
@@ -224,19 +259,26 @@ export const KbCasesReportView = ({ report }: { report: KbCasesReport }) => {
           ))}
         </ul>
       )}
-      {report.footer.belowQualityBar > 0 && (
-        <p className="text-sm text-muted-foreground">
-          {report.footer.belowQualityBar} more learned{' '}
-          {report.footer.belowQualityBar === 1 ? 'answer' : 'answers'} below the quality bar
-        </p>
-      )}
+      <BelowQualityBar count={report.footer.belowQualityBar} />
       <KbCasesFindingsPanel findings={report.findings} />
     </div>
   );
 };
 
 export const KbCasesPage = () => {
-  const { data: departments = [], isLoading: deptsLoading } = useDepartments();
+  const { data: allDepartments = [], isLoading: deptsLoading } = useDepartments();
+  const { isOrgAdmin } = usePermissions();
+  const myDepartmentIds = useAuthStore((state) => state.user?.departmentIds);
+  // The report route answers 404 for a department a moderator is not in (org admins: any), so
+  // offer — and preselect — only departments that will answer. No department list on the user
+  // (an older backend) means none, not all.
+  const departments = useMemo(
+    () =>
+      isOrgAdmin
+        ? allDepartments
+        : allDepartments.filter((dept) => (myDepartmentIds ?? []).includes(dept.id)),
+    [allDepartments, isOrgAdmin, myDepartmentIds]
+  );
   const [departmentId, setDepartmentId] = useState<number | null>(null);
   const [pendingSearch, setPendingSearch] = useState('');
   const [search, setSearch] = useState('');
@@ -246,29 +288,41 @@ export const KbCasesPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Keep the choice inside the list: after a workspace switch (or a membership change) the old
+  // department would 404 — fall back to the first one the viewer can see, or to none.
   useEffect(() => {
-    if (departmentId === null && departments.length > 0) setDepartmentId(departments[0].id);
+    if (departmentId !== null && departments.some((dept) => dept.id === departmentId)) return;
+    const next = departments[0]?.id ?? null;
+    if (next !== departmentId) {
+      setDepartmentId(next);
+      setPage(1);
+      setReport(null);
+    }
   }, [departments, departmentId]);
 
+  // Only the newest request may write: a slow answer for the department the viewer just left
+  // must not land on top of the one they switched to.
+  const latestRequest = useRef(0);
   const load = useCallback(async () => {
     if (departmentId === null) return;
+    const requestId = ++latestRequest.current;
     setLoading(true);
     setError(null);
     try {
-      setReport(
-        await kbConsolidationService.getCases({
-          departmentId,
-          search,
-          sort,
-          page,
-          pageSize: PAGE_SIZE,
-        })
-      );
+      const next = await kbConsolidationService.getCases({
+        departmentId,
+        search,
+        sort,
+        page,
+        pageSize: PAGE_SIZE,
+      });
+      if (requestId === latestRequest.current) setReport(next);
     } catch (err) {
+      if (requestId !== latestRequest.current) return;
       setReport(null);
       setError(getApiErrorMessage(err) ?? 'Could not load the cases report.');
     } finally {
-      setLoading(false);
+      if (requestId === latestRequest.current) setLoading(false);
     }
   }, [departmentId, search, sort, page]);
 
@@ -316,6 +370,9 @@ export const KbCasesPage = () => {
               onChange={(event) => {
                 setDepartmentId(Number(event.target.value));
                 setPage(1);
+                // The report on screen belongs to the department just left — never show it
+                // under the new one's name while the new one loads.
+                setReport(null);
               }}
               disabled={deptsLoading || departments.length === 0}
             >

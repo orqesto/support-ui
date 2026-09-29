@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { KbConsolidationReview } from '@/components/kb/KbConsolidationReview';
+import { KbConsolidationReview, summarizeKbMerge } from '@/components/kb/KbConsolidationReview';
 import { Alert } from '@/components/ui/Alert';
+import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { getApiErrorMessage } from '@/lib/errorMessages';
@@ -12,10 +13,15 @@ import { learningService, type LearningSuggestion } from '@/services/learning.se
 /**
  * Every KB merge proposal still waiting for this moderator — where the bell's "Review" lands.
  * The server already filters the list to the departments this viewer may see.
+ *
+ * Each proposal is listed by its one-line summary; its members (every entry's full text, files,
+ * threads) are read only when it is opened. Mounting a review per row would fire one `/members`
+ * request per proposal on every visit (FE audit M5).
  */
 export const KbMergesReviewPage = () => {
   const [rows, setRows] = useState<LearningSuggestion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [opened, setOpened] = useState<Set<number>>(new Set());
 
   const load = useCallback(async () => {
     setError(null);
@@ -48,13 +54,31 @@ export const KbMergesReviewPage = () => {
             No merges waiting for review.
           </p>
         ) : (
-          (rows ?? []).map((row) => (
-            <Card key={row.id}>
-              <CardContent className="pt-4">
-                <KbConsolidationReview suggestionId={row.id} />
-              </CardContent>
-            </Card>
-          ))
+          <ul className="space-y-3" aria-label="Proposed merges">
+            {(rows ?? []).map((row) => (
+              <li key={row.id}>
+                <Card>
+                  <CardContent className="pt-4 space-y-3">
+                    <div className="flex flex-wrap gap-2 justify-between items-center">
+                      <span className="text-sm font-medium">
+                        {summarizeKbMerge(row.payload ?? {}, row.suggestionType)}
+                      </span>
+                      {!opened.has(row.id) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setOpened((prev) => new Set(prev).add(row.id))}
+                        >
+                          Review
+                        </Button>
+                      )}
+                    </div>
+                    {opened.has(row.id) && <KbConsolidationReview suggestionId={row.id} />}
+                  </CardContent>
+                </Card>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </Layout>

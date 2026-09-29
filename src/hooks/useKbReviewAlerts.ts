@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api-client';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { KB_CONSOLIDATION_DECIDED_EVENT } from '@/lib/kbConsolidation';
 import {
   getSocket,
   releaseSocket,
@@ -101,7 +102,7 @@ export const useKbReviewAlerts = () => {
     (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
   );
 
-  const fetchAlerts = useCallback(() => {
+  const fetchReviews = useCallback(() => {
     apiClient
       // Name the kind: the unfiltered list is the newest 20 rows across ALL kinds, and an SLA
       // feed would push a review off the bell within a day (see useStaleKbAlerts).
@@ -116,6 +117,9 @@ export const useKbReviewAlerts = () => {
       })
       // A failed poll must not clear standing reviews — empty would read as "nothing to review".
       .catch(() => {});
+  }, []);
+
+  const fetchConsolidations = useCallback(() => {
     apiClient
       .get('/api/notifications', { params: { kind: KB_CONSOLIDATION_KIND } })
       .then((res) => {
@@ -131,6 +135,11 @@ export const useKbReviewAlerts = () => {
       .catch(() => {});
   }, []);
 
+  const fetchAlerts = useCallback(() => {
+    fetchReviews();
+    fetchConsolidations();
+  }, [fetchReviews, fetchConsolidations]);
+
   useEffect(() => {
     fetchAlerts();
   }, [fetchAlerts, orgKey]);
@@ -138,15 +147,29 @@ export const useKbReviewAlerts = () => {
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
-    const onChange = () => fetchAlerts();
-    subscribeToEvent('notification:new', onChange);
-    subscribeToEvent('notification:resolved', onChange);
+    // Every one of these events names its kind. Re-read only the list it concerns: one request
+    // per event, and none for the SLA / arrival traffic that makes up most of the stream.
+    // `notification:updated` = a standing row changed in place (the merge row re-counted).
+    const onChange = (data: unknown) => {
+      const kind = (data as { kind?: unknown } | null)?.kind;
+      if (kind === KB_REVIEW_KIND) fetchReviews();
+      else if (kind === KB_CONSOLIDATION_KIND) fetchConsolidations();
+      else if (typeof kind !== 'string') fetchAlerts(); // cannot tell — read both
+    };
+    const events = ['notification:new', 'notification:resolved', 'notification:updated'];
+    for (const event of events) subscribeToEvent(event, onChange);
     return () => {
-      unsubscribeFromEvent('notification:new', onChange);
-      unsubscribeFromEvent('notification:resolved', onChange);
+      for (const event of events) unsubscribeFromEvent(event, onChange);
       releaseSocket();
     };
-  }, [fetchAlerts]);
+  }, [fetchAlerts, fetchReviews, fetchConsolidations]);
+
+  // A merge decided in this tab (the merges page, the settings inbox) re-counts at once, even
+  // when the socket that would carry the server's own announcement is down.
+  useEffect(() => {
+    window.addEventListener(KB_CONSOLIDATION_DECIDED_EVENT, fetchConsolidations);
+    return () => window.removeEventListener(KB_CONSOLIDATION_DECIDED_EVENT, fetchConsolidations);
+  }, [fetchConsolidations]);
 
   /**
    * Approve = the AI may quote these entries. Reject = hidden now, deleted after 90 days. The

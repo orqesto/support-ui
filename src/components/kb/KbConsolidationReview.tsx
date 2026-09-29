@@ -11,6 +11,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Textarea';
 import { usePermissions } from '@/hooks/usePermissions';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { announceKbConsolidationDecided, kbRef } from '@/lib/kbConsolidation';
 import {
   kbConsolidationService,
   type KbConsolidationAcceptResult,
@@ -29,8 +30,9 @@ export const whyMemberExcluded = (member: KbConsolidationMember): string | null 
   return null;
 };
 
+/** "#KB-4" — named as the KB list names it. */
 const memberName = (member: { id: number; publicId?: string | null }) =>
-  member.publicId ?? `#${member.id}`;
+  kbRef(member.publicId, member.id);
 
 const formatDate = (iso: string) => {
   const date = new Date(iso);
@@ -38,8 +40,14 @@ const formatDate = (iso: string) => {
 };
 
 export type KbConsolidationOutcome =
-  | { kind: 'accepted' | 'expired'; result: KbConsolidationAcceptResult }
-  | { kind: 'declined' };
+  | {
+      kind: 'accepted' | 'expired';
+      type: KbConsolidationDetail['type'];
+      result: KbConsolidationAcceptResult;
+      /** The dropped members, named as the list names them ("#KB-4"). */
+      droppedRefs: string[];
+    }
+  | { kind: 'declined'; type: KbConsolidationDetail['type'] };
 
 type Props = {
   suggestionId: number;
@@ -116,6 +124,9 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
   }
 
   const isConsolidate = detail.type === 'consolidate';
+  // Conflicts, drops and the accept result carry row ids; show each as the list shows it. A
+  // judge-dropped entry is not a member, so /members has no public id for it — "#<id>" then.
+  const nameOf = (id: number) => memberName(liveMembers.find((row) => row.id === id) ?? { id });
   const minTicked = isConsolidate ? 2 : 1;
   const conflicts = detail.conflicts ?? [];
   const judgeDropped = detail.judgeDropped ?? [];
@@ -176,9 +187,12 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
       const result = await kbConsolidationService.accept(detail.suggestionId, body);
       const next: KbConsolidationOutcome = {
         kind: result.status === 'expired' ? 'expired' : 'accepted',
+        type: detail.type,
         result,
+        droppedRefs: (result.dropped ?? []).map(nameOf),
       };
       setOutcome(next);
+      announceKbConsolidationDecided();
       onDecided?.(next);
     } catch (err) {
       setActionError(getApiErrorMessage(err) ?? 'Could not accept — try again.');
@@ -192,8 +206,9 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
     setActionError(null);
     try {
       await kbConsolidationService.decline(detail.suggestionId);
-      const next: KbConsolidationOutcome = { kind: 'declined' };
+      const next: KbConsolidationOutcome = { kind: 'declined', type: detail.type };
       setOutcome(next);
+      announceKbConsolidationDecided();
       onDecided?.(next);
     } catch (err) {
       setActionError(getApiErrorMessage(err) ?? 'Could not decline — try again.');
@@ -202,7 +217,7 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
     }
   };
 
-  if (outcome) return <OutcomeNotice outcome={outcome} isConsolidate={isConsolidate} />;
+  if (outcome) return <KbConsolidationOutcomeNotice outcome={outcome} />;
 
   return (
     <div className="space-y-4 text-sm" data-testid="kb-consolidation-review">
@@ -253,7 +268,7 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
                 {conflict.memberIds.length > 0 && (
                   <span className="text-muted-foreground">
                     {' '}
-                    ({conflict.memberIds.map((id) => `#${id}`).join(', ')})
+                    ({conflict.memberIds.map(nameOf).join(', ')})
                   </span>
                 )}
               </li>
@@ -345,7 +360,7 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
           <ul className="mt-1 space-y-1 text-muted-foreground" aria-label="Left out by the AI">
             {judgeDropped.map((row) => (
               <li key={row.id}>
-                #{row.id} — {row.reason}
+                {nameOf(row.id)} — {row.reason}
               </li>
             ))}
           </ul>
@@ -478,13 +493,9 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
   );
 };
 
-const OutcomeNotice = ({
-  outcome,
-  isConsolidate,
-}: {
-  outcome: KbConsolidationOutcome;
-  isConsolidate: boolean;
-}) => {
+/** What came of a decision — shown in place of the review, and by the inbox after it reloads. */
+export const KbConsolidationOutcomeNotice = ({ outcome }: { outcome: KbConsolidationOutcome }) => {
+  const isConsolidate = outcome.type === 'consolidate';
   if (outcome.kind === 'declined') {
     return (
       <Alert>
@@ -500,13 +511,13 @@ const OutcomeNotice = ({
       </Alert>
     );
   }
-  const dropped = result.dropped ?? [];
+  const dropped = outcome.droppedRefs;
+  const caseName =
+    typeof result.caseId === 'number' ? kbRef(result.casePublicId, result.caseId) : '#?';
   return (
     <Alert variant="success">
       <p>
-        {isConsolidate
-          ? `Merged into case #${result.caseId ?? '?'}`
-          : `Added to case #${result.caseId ?? '?'}`}
+        {isConsolidate ? `Merged into case ${caseName}` : `Added to case ${caseName}`}
         {typeof result.linked === 'number'
           ? ` — ${result.linked} ${result.linked === 1 ? 'entry' : 'entries'} linked.`
           : '.'}
@@ -516,7 +527,7 @@ const OutcomeNotice = ({
           {dropped.length === 1
             ? '1 entry was left out because it changed or left the knowledge base'
             : `${dropped.length} entries were left out because they changed or left the knowledge base`}{' '}
-          before the merge ({dropped.map((id) => `#${id}`).join(', ')}).
+          before the merge ({dropped.join(', ')}).
         </p>
       )}
       {result.answerDiscarded && (
@@ -529,13 +540,16 @@ const OutcomeNotice = ({
   );
 };
 
-/** "Merge N similar answers" / "Add N entries to case #X" — the inbox's one-line summary. */
+/**
+ * "Merge N similar answers" / "Add N entries to a case" — the inbox's one-line summary. The
+ * suggestion payload names the case only by row id, and "#900" next to a list that says
+ * "#KB-900" reads as a different case — so the case is named in the review, not here.
+ */
 export const summarizeKbMerge = (payload: Record<string, unknown>, type: string): string => {
   const label = typeof payload.label === 'string' && payload.label ? ` “${payload.label}”` : '';
   const size = Array.isArray(payload.memberIds) ? payload.memberIds.length : null;
   const count = size !== null ? `${size} ` : '';
   if (type === 'consolidate')
     return `Merge ${count}similar knowledge base answers${label} into one case`;
-  const caseId = typeof payload.caseId === 'number' ? ` #${payload.caseId}` : '';
-  return `Add ${count}${size === 1 ? 'entry' : 'entries'} to case${caseId}${label}`;
+  return `Add ${count}${size === 1 ? 'entry' : 'entries'} to a case${label}`;
 };
