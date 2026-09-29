@@ -140,12 +140,38 @@ describe('KbConsolidationReview (F1)', () => {
       detail({ members: [member(1), member(2, { covered: true }), member(3)] })
     );
     renderReview();
+    // `covered` matches by conversation too, and a consolidate's target is its group (key).
     const marked = within(await screen.findByTestId('member-2'));
-    expect(marked.getByText('declined before')).toBeInTheDocument();
-    expect(within(screen.getByTestId('member-1')).queryByText('declined before')).toBeNull();
+    const mark = marked.getByText('declined before (this entry or its conversation)');
+    expect(mark).toHaveAttribute('title', expect.stringContaining('for this group'));
+    expect(mark.getAttribute('title')).not.toMatch(/for this case/);
+    expect(
+      within(screen.getByTestId('member-1')).queryByText(/declined before/)
+    ).not.toBeInTheDocument();
     const tick = box('Include #KB-2');
     expect(tick.checked).toBe(true);
     expect(tick.disabled).toBe(false);
+  });
+
+  it('on an attach, the declined-before mark speaks of this case', async () => {
+    getMembers.mockResolvedValue(
+      detail({
+        type: 'attach',
+        proposed: null,
+        case: {
+          id: 900,
+          publicId: 'KB-900',
+          question: 'Q',
+          answer: 'A',
+          editedSinceProposed: false,
+        },
+        members: [member(5, { covered: true })],
+      })
+    );
+    renderReview();
+    expect(
+      await screen.findByText('declined before (this entry or its conversation)')
+    ).toHaveAttribute('title', expect.stringContaining('for this case'));
   });
 
   it('attach to a case that no longer exists has a complete title (LOW-4)', async () => {

@@ -241,7 +241,7 @@ describe('KB Cases report (F2)', () => {
     expect(screen.queryByText(/No learned answers match/)).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        '40 learned answers are still being classified — cases appear once they are.'
+        '40 learned answers are still being classified — what is shown here can still change.'
       )
     ).toBeInTheDocument();
   });
@@ -252,6 +252,78 @@ describe('KB Cases report (F2)', () => {
     expect(
       screen.getByText(/None of the learned answers here clears the quality bar yet/)
     ).toBeInTheDocument();
+  });
+
+  it('flags a bounded scope', () => {
+    view(report({ bounded: true }));
+    expect(screen.getByText(/Only the newest\s+are grouped/)).toBeInTheDocument();
+  });
+
+  it('flags a bounded scope when mining is off too', () => {
+    view(report({ miningOff: true, headers: [], bounded: true }));
+    expect(screen.getByText(/Only the newest\s+are grouped/)).toBeInTheDocument();
+  });
+
+  it('entries still being classified are not promised a case', () => {
+    // Once labelled, an entry can land below the quality bar or in a finding, not in a case.
+    view(
+      report({
+        headers: [],
+        footer: { belowQualityBar: 0 },
+        findings: zeroFindings,
+        classifying: { settled: 0, total: 40 },
+      })
+    );
+    expect(screen.queryByText(/cases appear/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '40 learned answers are still being classified — what is shown here can still change.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('in a bounded scope, unclassified entries are not promised to be classified at all', () => {
+    view(
+      report({
+        headers: [],
+        footer: { belowQualityBar: 0 },
+        findings: zeroFindings,
+        classifying: { settled: 0, total: 40 },
+        bounded: true,
+      })
+    );
+    expect(
+      screen.getByText(
+        '40 learned answers are not classified yet — in a mailbox over the nightly limit, the oldest never are.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('while a search is loading, the report on screen keeps the words of its own search', async () => {
+    getCases.mockImplementation((query) =>
+      (query as { search?: string }).search
+        ? new Promise(() => {})
+        : Promise.resolve(
+            report({ headers: [], findings: zeroFindings, classifying: { settled: 50, total: 50 } })
+          )
+    );
+    render(
+      <MemoryRouter>
+        <KbCasesPage />
+      </MemoryRouter>
+    );
+    expect(
+      await screen.findByText('None of the learned answers here clears the quality bar yet.')
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('Search questions'), {
+      target: { value: 'refund' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await waitFor(() =>
+      expect(getCases).toHaveBeenLastCalledWith(expect.objectContaining({ search: 'refund' }))
+    );
+    // The reply for "refund" has not come: nothing may say "refund" matched nothing.
+    expect(screen.queryByText(/No case matches “refund”/)).not.toBeInTheDocument();
   });
 
   it('a search with no match says so — never a department-wide claim (LOW-1)', async () => {

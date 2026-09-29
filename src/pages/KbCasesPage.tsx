@@ -200,8 +200,22 @@ const ClassifyingStatus = ({ settled, total }: { settled: number; total: number 
     </p>
   ) : null;
 
-const stillClassifyingText = (count: number) =>
-  `${plural(count, 'learned answer is', 'learned answers are')} still being classified — cases appear once they are.`;
+/**
+ * Unlabelled entries are not promised a case: once labelled they can land below the quality bar
+ * or in a finding. In a bounded scope the oldest are never labelled at all.
+ */
+const stillClassifyingText = (count: number, bounded: boolean) =>
+  bounded
+    ? `${plural(count, 'learned answer is', 'learned answers are')} not classified yet — in a mailbox over the nightly limit, the oldest never are.`
+    : `${plural(count, 'learned answer is', 'learned answers are')} still being classified — what is shown here can still change.`;
+
+const BoundedNotice = ({ bounded }: { bounded: boolean }) =>
+  bounded ? (
+    <Alert variant="warning">
+      A mailbox here has more learned answers than the nightly grouping reads. Only the newest are
+      grouped, so older answers are missing and the counts can be low.
+    </Alert>
+  ) : null;
 
 /**
  * Why there are no case rows — true in every state. A search only narrows the rows, so with one
@@ -210,7 +224,7 @@ const stillClassifyingText = (count: number) =>
 const emptyText = (report: KbCasesReport, search: string): string => {
   const stillClassifying = report.classifying.total - report.classifying.settled;
   if (search.trim()) return `No case matches “${search.trim()}”.`;
-  if (stillClassifying > 0) return stillClassifyingText(stillClassifying);
+  if (stillClassifying > 0) return stillClassifyingText(stillClassifying, report.bounded);
   if (report.footer.belowQualityBar > 0)
     return 'None of the learned answers here clears the quality bar yet.';
   return 'No learned answers match here yet.';
@@ -226,7 +240,7 @@ const miningOffText = (report: KbCasesReport, learnedSomething: boolean): string
   const lead = 'No mailbox in this department feeds the knowledge base automatically';
   const stillClassifying = report.classifying.total - report.classifying.settled;
   if (stillClassifying > 0)
-    return `${lead}. ${stillClassifyingText(stillClassifying)}${learnedSomething ? ' What it already holds is listed below.' : ''}`;
+    return `${lead}. ${stillClassifyingText(stillClassifying, report.bounded)}${learnedSomething ? ' What it already holds is listed below.' : ''}`;
   if (learnedSomething) return `${lead}. What it holds for this department is listed below.`;
   if (report.classifying.total > 0)
     return `${lead}, and none of the answers it holds here forms a case yet.`;
@@ -247,6 +261,7 @@ export const KbCasesReportView = ({
     return (
       <div className="space-y-4">
         <Alert>{miningOffText(report, learnedSomething)}</Alert>
+        <BoundedNotice bounded={report.bounded} />
         <ClassifyingStatus settled={settled} total={total} />
         <BelowQualityBar count={report.footer.belowQualityBar} />
         <KbCasesFindingsPanel findings={report.findings} />
@@ -255,12 +270,7 @@ export const KbCasesReportView = ({
   }
   return (
     <div className="space-y-4">
-      {report.bounded && (
-        <Alert variant="warning">
-          A mailbox here has more learned answers than the nightly grouping reads. Only the newest
-          are grouped, so older answers are missing and the counts can be low.
-        </Alert>
-      )}
+      <BoundedNotice bounded={report.bounded} />
       <ClassifyingStatus settled={settled} total={total} />
       {report.headers.length === 0 ? (
         <p className="py-6 text-sm text-center text-muted-foreground">
@@ -319,6 +329,9 @@ export const KbCasesPage = () => {
   const [sort, setSort] = useState<'conversations' | 'lastSeen'>('conversations');
   const [page, setPage] = useState(1);
   const [report, setReport] = useState<KbCasesReport | null>(null);
+  // The search each report was ASKED with: while a new search loads, the report on screen still
+  // belongs to the old one, and its empty text must speak of that one.
+  const [reportSearch, setReportSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -350,7 +363,10 @@ export const KbCasesPage = () => {
         page,
         pageSize: PAGE_SIZE,
       });
-      if (requestId === latestRequest.current) setReport(next);
+      if (requestId === latestRequest.current) {
+        setReport(next);
+        setReportSearch(search);
+      }
     } catch (err) {
       if (requestId !== latestRequest.current) return;
       setReport(null);
@@ -454,7 +470,7 @@ export const KbCasesPage = () => {
             <Spinner />
           </div>
         ) : (
-          report && <KbCasesReportView report={report} search={search} />
+          report && <KbCasesReportView report={report} search={reportSearch} />
         )}
         {report && !report.miningOff && report.pagination.totalPages > 1 && (
           <Pagination

@@ -298,13 +298,14 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
                   onChange={(event) => toggleMember(member.id, event.target.checked)}
                 />
                 {!member.gone && member.covered && (
-                  // A moderator already said no to this entry (or its conversation) for this case
-                  // — declined, or unmerged. Shown, not enforced: the choice stays theirs.
+                  // `covered` (members route): a declined or unmerged verdict for this target
+                  // covers this entry OR its conversation. A consolidate's target is its group
+                  // (label + language), an attach's the case. Shown, not enforced.
                   <Badge
                     variant="warning"
-                    title="Declined (or unmerged) before for this case — ticking it overrides that."
+                    title={`A moderator declined or unmerged this entry, or another entry from its conversation, ${isConsolidate ? 'for this group' : 'for this case'} before — ticking it overrides that.`}
                   >
-                    declined before
+                    declined before (this entry or its conversation)
                   </Badge>
                 )}
                 {!member.gone && member.alreadyCounted && (
