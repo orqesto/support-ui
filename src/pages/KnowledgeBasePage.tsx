@@ -316,9 +316,11 @@ export const KnowledgeBasePage = () => {
         open: true,
         title: 'Case unmerged',
         description:
-          typeof restored === 'number'
-            ? `${restored} original ${restored === 1 ? 'entry is' : 'entries are'} back in the knowledge base.`
-            : 'Its original entries are back in the knowledge base.',
+          restored === 0
+            ? 'The merge was undone. No original entries were left to bring back.'
+            : typeof restored === 'number'
+              ? `${restored} original ${restored === 1 ? 'entry is' : 'entries are'} back in the knowledge base.`
+              : 'Its original entries are back in the knowledge base.',
         variant: 'success',
       });
     } catch (error) {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '@/lib/api-client';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { KB_CONSOLIDATION_DECIDED_EVENT } from '@/lib/kbConsolidation';
@@ -44,10 +44,29 @@ export type KbConsolidationAlert = {
   pending: number;
 };
 
+/**
+ * The backend writes ONE bell row per active department for an org-wide proposal, so the same
+ * set of proposals can arrive several times. Show it once — not tied to any one department —
+ * so an org admin does not see N identical rows and a +N badge.
+ */
+const dedupeBySuggestions = (rows: KbConsolidationAlert[]): KbConsolidationAlert[] => {
+  const bySet = new Map<string, KbConsolidationAlert>();
+  for (const row of rows) {
+    const key = row.suggestionIds.length ? row.suggestionIds.join(',') : `row:${row.id}`;
+    const seen = bySet.get(key);
+    if (!seen) bySet.set(key, row);
+    else if (seen.departmentId !== row.departmentId)
+      bySet.set(key, { ...seen, departmentId: null });
+  }
+  return [...bySet.values()];
+};
+
 const toConsolidationAlert = (row: Notification): KbConsolidationAlert => {
   const details = (row.details ?? {}) as { suggestionIds?: unknown; pending?: unknown };
   const suggestionIds = Array.isArray(details.suggestionIds)
-    ? details.suggestionIds.filter((value): value is number => typeof value === 'number')
+    ? details.suggestionIds
+        .filter((value): value is number => typeof value === 'number')
+        .sort((left, right) => left - right)
     : [];
   return {
     id: row.id,
@@ -102,12 +121,19 @@ export const useKbReviewAlerts = () => {
     (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
   );
 
+  // Only the newest request of each list may write: a slow reply for the workspace just left
+  // must not land on the one switched to.
+  const reviewsRequest = useRef(0);
+  const consolidationsRequest = useRef(0);
+
   const fetchReviews = useCallback(() => {
+    const requestId = ++reviewsRequest.current;
     apiClient
       // Name the kind: the unfiltered list is the newest 20 rows across ALL kinds, and an SLA
       // feed would push a review off the bell within a day (see useStaleKbAlerts).
       .get('/api/notifications', { params: { kind: KB_REVIEW_KIND } })
       .then((res) => {
+        if (requestId !== reviewsRequest.current) return;
         const payload = (res.data as { data: { notifications: Notification[] } }).data;
         setAlerts(
           payload.notifications
@@ -120,16 +146,20 @@ export const useKbReviewAlerts = () => {
   }, []);
 
   const fetchConsolidations = useCallback(() => {
+    const requestId = ++consolidationsRequest.current;
     apiClient
       .get('/api/notifications', { params: { kind: KB_CONSOLIDATION_KIND } })
       .then((res) => {
+        if (requestId !== consolidationsRequest.current) return;
         const payload = (res.data as { data: { notifications: Notification[] } }).data;
         setConsolidations(
-          payload.notifications
-            .filter((row) => (row as { kind?: string }).kind === KB_CONSOLIDATION_KIND)
-            .map(toConsolidationAlert)
-            // A row that says nothing is pending is not a request to anyone.
-            .filter((alert) => alert.pending > 0)
+          dedupeBySuggestions(
+            payload.notifications
+              .filter((row) => (row as { kind?: string }).kind === KB_CONSOLIDATION_KIND)
+              .map(toConsolidationAlert)
+              // A row that says nothing is pending is not a request to anyone.
+              .filter((alert) => alert.pending > 0)
+          )
         );
       })
       .catch(() => {});
@@ -140,7 +170,10 @@ export const useKbReviewAlerts = () => {
     fetchConsolidations();
   }, [fetchReviews, fetchConsolidations]);
 
+  // A workspace switch: the other workspace's rows go at once, not when the new reply lands.
   useEffect(() => {
+    setAlerts([]);
+    setConsolidations([]);
     fetchAlerts();
   }, [fetchAlerts, orgKey]);
 

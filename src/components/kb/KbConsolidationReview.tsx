@@ -537,16 +537,18 @@ export const KbConsolidationOutcomeNotice = ({ outcome }: { outcome: KbConsolida
       </p>
       {dropped.length > 0 && (
         <p>
+          {/* The backend drops an entry for several reasons (edited, gone, under an open capture
+              review, scope changed) — so no single cause is claimed. */}
           {dropped.length === 1
-            ? '1 entry was left out because it changed or left the knowledge base'
-            : `${dropped.length} entries were left out because they changed or left the knowledge base`}{' '}
-          before the merge ({dropped.join(', ')}).
+            ? '1 entry was left out — it changed or can no longer be merged'
+            : `${dropped.length} entries were left out — they changed or can no longer be merged`}{' '}
+          ({dropped.join(', ')}).
         </p>
       )}
       {result.answerDiscarded && (
         <p>
-          Your refreshed answer was NOT saved: the case changed before it could be applied. The case
-          keeps its current answer.
+          {/* Discarded when the case changed OR when the answer could not be indexed — no cause. */}
+          Your answer text was not saved — the case keeps its current answer.
         </p>
       )}
     </Alert>

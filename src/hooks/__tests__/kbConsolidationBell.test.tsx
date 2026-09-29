@@ -18,6 +18,7 @@ import {
 } from '@testing-library/react';
 
 type GetConfig = { params?: { kind?: string } };
+let orgId = 21;
 const get = vi.fn<(url: string, config?: GetConfig) => Promise<unknown>>();
 
 vi.mock('@/lib/api-client', () => ({
@@ -41,7 +42,7 @@ vi.mock('@/lib/socketManager', () => ({
 }));
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: (selector: (state: unknown) => unknown) =>
-    selector({ selectedOrganizationId: 21, user: { organizationId: 21 } }),
+    selector({ selectedOrganizationId: orgId, user: { organizationId: orgId } }),
 }));
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({ data: [{ id: 4, name: 'Support EU' }] }),
@@ -76,6 +77,7 @@ const respondByKind = (byKind: Record<string, unknown[]>) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  orgId = 21;
   socketHandlers.clear();
 });
 afterEach(cleanup);
@@ -194,5 +196,57 @@ describe('KB merge bell stays current (M1)', () => {
     act(() => announceKbConsolidationDecided());
     await waitFor(() => expect(result.current.consolidations).toHaveLength(0));
     expect(kindsAsked()).toEqual([KB_CONSOLIDATION_KIND]);
+  });
+});
+
+describe('KB merge bell — one proposal, one row; one workspace at a time', () => {
+  it('an org-wide proposal written once per department counts once (LOW-2)', async () => {
+    respondByKind({
+      [KB_CONSOLIDATION_KIND]: [
+        mergeRow({ id: 31, departmentId: 4, details: { suggestionIds: [71, 70], pending: 2 } }),
+        mergeRow({ id: 32, departmentId: 5, details: { suggestionIds: [70, 71], pending: 2 } }),
+        mergeRow({ id: 33, departmentId: 6, details: { suggestionIds: [80], pending: 1 } }),
+      ],
+    });
+    const { result } = renderHook(() => useKbReviewAlerts());
+    await waitFor(() => expect(result.current.consolidations).toHaveLength(2));
+    // The shared set is one row, not tied to either department; the other stays its own.
+    expect(result.current.consolidations).toEqual([
+      { id: 31, departmentId: null, suggestionIds: [70, 71], pending: 2 },
+      { id: 33, departmentId: 6, suggestionIds: [80], pending: 1 },
+    ]);
+    expect(result.current.rowCount).toBe(2);
+  });
+
+  it("a workspace switch drops the other workspace's rows and ignores its late reply", async () => {
+    let lateReply: (value: unknown) => void = () => {};
+    get.mockImplementation((_url, config) => {
+      // Workspace 22's own reply never comes: its rows can only be empty if the switch cleared them.
+      if (orgId === 22) return new Promise(() => {});
+      if (config?.params?.kind !== KB_CONSOLIDATION_KIND)
+        return Promise.resolve({ data: { data: { notifications: [], total: 0 } } });
+      if (
+        orgId === 21 &&
+        get.mock.calls.filter(
+          ([, callConfig]) => callConfig?.params?.kind === KB_CONSOLIDATION_KIND
+        ).length > 1
+      )
+        return new Promise((resolve) => {
+          lateReply = resolve;
+        });
+      return Promise.resolve({
+        data: { data: { notifications: orgId === 21 ? [mergeRow()] : [], total: 0 } },
+      });
+    });
+    const { result, rerender } = renderHook(() => useKbReviewAlerts());
+    await waitFor(() => expect(result.current.consolidations).toHaveLength(1));
+    // A re-read for workspace 21 is still out when the viewer switches to 22.
+    act(() => emit('notification:updated', { ids: [31], kind: KB_CONSOLIDATION_KIND }));
+    orgId = 22;
+    rerender();
+    await waitFor(() => expect(result.current.consolidations).toHaveLength(0));
+    act(() => lateReply({ data: { data: { notifications: [mergeRow()], total: 1 } } }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(result.current.consolidations).toHaveLength(0);
   });
 });

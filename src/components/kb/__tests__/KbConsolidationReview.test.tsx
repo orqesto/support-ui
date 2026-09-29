@@ -63,7 +63,8 @@ const detail = (over: Partial<KbConsolidationDetail> = {}): KbConsolidationDetai
   proposedAnswer: null,
   conflicts: [{ summary: 'One says 5 days, one says 10', memberIds: [1, 2] }],
   rationale: 'All ask about refunds.',
-  metrics: { conversations: 3, customers: 3, sameThread: true },
+  // BE: sameThread = conversations < 2 — three conversations are never the same thread.
+  metrics: { conversations: 3, customers: 3, sameThread: false },
   // The members route's real shape (BE ffb025c3): each judge-dropped entry carries its public id.
   judgeDropped: [
     { id: 9, reason: 'about one order only', publicId: 'KB-9' },
@@ -110,7 +111,7 @@ describe('KbConsolidationReview (F1)', () => {
     expect(screen.getByDisplayValue('How do refunds work?')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Refunds take 5 days.')).toBeInTheDocument();
     expect(screen.getByText('AI-drafted')).toBeInTheDocument();
-    expect(screen.getByText('same thread')).toBeInTheDocument();
+    expect(screen.queryByText('same thread')).not.toBeInTheDocument();
     expect(screen.getByText('3 customers')).toBeInTheDocument();
     // Entries are named the way the KB list names them: "#KB-1", never a bare row id.
     expect(
@@ -121,6 +122,36 @@ describe('KbConsolidationReview (F1)', () => {
       '#KB-9 — about one order only'
     );
     expect(screen.getByText(/a raw email/)).toHaveTextContent('#10 — a raw email');
+  });
+
+  it('the real same-thread state: one conversation saved more than once (LOW-5)', async () => {
+    getMembers.mockResolvedValue(
+      detail({ metrics: { conversations: 1, customers: 1, sameThread: true } })
+    );
+    renderReview();
+    expect(await screen.findByText('same thread')).toBeInTheDocument();
+    expect(screen.getByText('1 conversation')).toBeInTheDocument();
+    expect(screen.getByText(/All of these come from the same thread/)).toBeInTheDocument();
+  });
+
+  it('one dropped entry is said in the singular, without claiming why', async () => {
+    getMembers.mockResolvedValue(detail());
+    accept.mockResolvedValue({
+      id: 77,
+      status: 'accepted',
+      caseId: 900,
+      casePublicId: 'KB-900',
+      linked: 2,
+      dropped: [3],
+    });
+    renderReview();
+    await screen.findByText('Question 1?');
+    fireEvent.click(screen.getByRole('button', { name: /Accept merge/ }));
+    expect(
+      await screen.findByText(
+        '1 entry was left out — it changed or can no longer be merged (#KB-3).'
+      )
+    ).toBeInTheDocument();
   });
 
   it('a member edited since proposed says so and can NOT be ticked', async () => {
@@ -304,7 +335,11 @@ describe('KbConsolidationReview (F1)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Add to case/ }));
     await waitFor(() => expect(accept).toHaveBeenCalledTimes(1));
     expect(accept.mock.calls[0][1]).toEqual({ memberIds: [5], attachmentIds: [] });
-    expect(await screen.findByText(/Your refreshed answer was NOT saved/)).toBeInTheDocument();
+    // The backend discards it when the case changed OR when it could not be indexed — no cause.
+    const notSaved = await screen.findByText(
+      'Your answer text was not saved — the case keeps its current answer.'
+    );
+    expect(notSaved).not.toHaveTextContent(/changed/);
   });
 
   it('a successful accept names the case, counts in words that agree, and lists dropped entries', async () => {
@@ -325,7 +360,7 @@ describe('KbConsolidationReview (F1)', () => {
       await screen.findByText(/Merged into case #KB-900 — 1 entry linked\./)
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/2 entries were left out because they changed or left the knowledge base/)
+      screen.getByText(/2 entries were left out — they changed or can no longer be merged/)
     ).toHaveTextContent('(#KB-2, #KB-3)');
   });
 

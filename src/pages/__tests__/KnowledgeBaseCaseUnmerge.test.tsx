@@ -129,6 +129,18 @@ describe('KB page — unmerging a case (F4)', () => {
     expect(await screen.findByText(/3 original entries are back/)).toBeInTheDocument();
   });
 
+  it('an unmerge that brings nothing back does not say "0 original entries are back"', async () => {
+    hide.mockResolvedValue({ success: true, data: { unmerged: true, restored: 0 } });
+    page();
+    const row = await tableRow('Refunds');
+    fireEvent.click(within(row).getByRole('button', { name: 'Hide' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Undo the merge' }));
+    expect(
+      await screen.findByText('The merge was undone. No original entries were left to bring back.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/0 original/)).not.toBeInTheDocument();
+  });
+
   it('Delete on a case row goes through the same confirm, not the plain delete dialog', async () => {
     page();
     const row = await tableRow('Refunds');

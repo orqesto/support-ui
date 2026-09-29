@@ -325,8 +325,10 @@ export const KbCasesReportView = ({
                     a total: the row counts below overlap and must not be added up. Same noun
                     as the rows and the caption, so nobody reads two different things. */}
                 <span className="text-xs text-muted-foreground">
-                  {plural(header.conversations, 'conversation', 'conversations')} across these
-                  cases, each counted once
+                  {plural(header.conversations, 'conversation', 'conversations')}{' '}
+                  {header.rows.length === 1
+                    ? 'in this case'
+                    : 'across these cases, each counted once'}
                 </span>
               </div>
               <ul className="space-y-2">

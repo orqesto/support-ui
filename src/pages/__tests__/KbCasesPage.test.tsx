@@ -86,6 +86,18 @@ describe('KB Cases report (F2)', () => {
     expect(container.textContent).not.toMatch(/total conversations/i);
   });
 
+  it('a header over a single row does not say "across these cases"', () => {
+    view(
+      report({
+        headers: [
+          { label: 'refund', language: 'en', conversations: 2, rows: [row({ kind: 'single' })] },
+        ],
+      })
+    );
+    expect(screen.getByText('2 conversations in this case')).toBeInTheDocument();
+    expect(screen.queryByText(/across these cases/)).not.toBeInTheDocument();
+  });
+
   it('shows classifying progress, the footer and every finding incl. possible duplicates', () => {
     view(report());
     expect(screen.getByText('Classifying: 40 of 50')).toBeInTheDocument();
