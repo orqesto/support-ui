@@ -28,6 +28,8 @@ import {
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
+import { useProcessingSummary } from '@/hooks/useProcessingSummary';
+import { useProcessingPanelStore } from '@/stores/processingPanelStore';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useMyAlliances } from '@/hooks/useAllianceAdmin';
 import { useFeatures } from '@/hooks/useFeatures';
@@ -67,7 +69,8 @@ import { SubscriptionGateOverlay } from '@/components/subscription/SubscriptionG
 import { useLearningNotifications } from '@/hooks/useLearningNotifications';
 import { WebSocketStatus } from '../shared/WebSocketStatus';
 import { WebSocketDebug } from '../shared/WebSocketDebug';
-import { MessageProcessingProgress } from '../messages/MessageProcessingProgress';
+import { ProcessingIndicator } from '../processing/ProcessingIndicator';
+import { ProcessingPanels } from '../processing/ProcessingPanels';
 import { logger } from '@/lib/logger';
 
 const isDevelopment = import.meta.env.DEV;
@@ -326,7 +329,25 @@ export const Layout = ({ children }: LayoutProps) => {
       ? (selectedOrganizationId ?? user?.organizationId ?? null)
       : user?.organizationId;
 
-  const { sessions, removeSession } = useEmailProcessing(true, organizationFilter ?? undefined);
+  const { sessions } = useEmailProcessing(true, organizationFilter ?? undefined);
+  // A run starting or ending on the socket asks the indicator's summary at once.
+  const sessionStates = Array.from(sessions.values())
+    .map((session) => `${session.integrationId}:${session.status}`)
+    .sort()
+    .join('|');
+  const [summaryRefreshKey, setSummaryRefreshKey] = useState(0);
+  useEffect(() => {
+    if (sessionStates) setSummaryRefreshKey((key) => key + 1);
+  }, [sessionStates]);
+  const { entries: processingSummary } = useProcessingSummary(
+    organizationFilter ?? undefined,
+    summaryRefreshKey
+  );
+  const openProcessingPanel = useProcessingPanelStore((state) => state.open);
+  const openProcessingPanels = useCallback(
+    (sourceIds: number[]) => sourceIds.forEach((sourceId) => openProcessingPanel(sourceId, 'manual')),
+    [openProcessingPanel]
+  );
   // needs_routing badge now sources from the unified notification counts (P4) so
   // the sidebar and the Notification Center bell share one number.
   const { counts: notificationCounts } = useNotificationCounts();
@@ -365,24 +386,6 @@ export const Layout = ({ children }: LayoutProps) => {
     }
   }, [organizationFilter, user?.organizationId, user?.role]);
 
-  // Persist closed sessions in localStorage to survive page navigation
-  // Only track manually dismissed sessions — auto-close should not block future sessions
-  const [closedSessions, setClosedSessions] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem('closedEmailSessions');
-      if (!stored) return new Set();
-      const parsed = JSON.parse(stored) as unknown;
-      if (!Array.isArray(parsed)) return new Set();
-      // Filter out stale entries written by old code that didn't check _dismissed
-      const verified = (parsed as string[]).filter(
-        (key) => localStorage.getItem(`emailProcessingWidget_${key}_dismissed`) === 'true'
-      );
-      return new Set(verified);
-    } catch {
-      return new Set();
-    }
-  });
-
   // Sync header offset as a CSS variable so panels can offset themselves.
   // Always 3.5rem on mobile (main content has permanent pt-16 regardless of header visibility).
   useEffect(() => {
@@ -398,71 +401,6 @@ export const Layout = ({ children }: LayoutProps) => {
   }, []);
 
   // Header is always visible (auto-hide on scroll / detail-panel-open removed per request).
-
-  // Handle session close
-  const handleSessionClose = useCallback(
-    (sessionKey: string) => {
-      // Check if user manually dismissed BEFORE removeSession clears these keys
-      const wasManuallyClosed =
-        localStorage.getItem(`emailProcessingWidget_${sessionKey}_dismissed`) === 'true';
-
-      // Remove from hook's session map and cleanup localStorage
-      removeSession(sessionKey);
-
-      // Only track in closedSessions for manual dismissals (X button).
-      // Auto-close should not block future sessions from appearing.
-      if (wasManuallyClosed) {
-        setClosedSessions((prev) => {
-          const newSet = new Set(prev).add(sessionKey);
-          localStorage.setItem('closedEmailSessions', JSON.stringify(Array.from(newSet)));
-          return newSet;
-        });
-      }
-    },
-    [removeSession]
-  );
-
-  // Auto-reopen widgets when a previously closed session starts processing again
-  useEffect(() => {
-    const activeSessionKeys = Array.from(sessions.entries())
-      .filter(([_, session]) => session.isProcessing || session.status === 'started')
-      .map(([sessionKey]) => sessionKey);
-
-    if (activeSessionKeys.length > 0) {
-      setClosedSessions((prev) => {
-        const shouldUpdate = activeSessionKeys.some((key) => prev.has(key));
-        if (!shouldUpdate) {
-          return prev;
-        }
-
-        const newSet = new Set(prev);
-        activeSessionKeys.forEach((key) => newSet.delete(key));
-        // Persist to localStorage
-        localStorage.setItem('closedEmailSessions', JSON.stringify(Array.from(newSet)));
-        return newSet;
-      });
-    }
-  }, [sessions]);
-
-  // Get visible sessions (not closed and either processing or recently completed)
-  // IMPORTANT: Filter by current department to avoid showing other departments' progress
-  const visibleSessions = useMemo(() => {
-    const filtered = Array.from(sessions.entries())
-      .filter(([sessionKey, session]) => {
-        // Always show actively processing sessions even if previously closed
-        const isActive =
-          session.isProcessing || session.status === 'started' || session.status === 'processing';
-        if (isActive) return true;
-
-        // Don't show if manually closed
-        if (closedSessions.has(sessionKey)) {
-          return false;
-        }
-        return session.status === 'complete' || session.status === 'error';
-      })
-      .map(([_, session]) => session);
-    return filtered;
-  }, [sessions, closedSessions]);
 
   const { data: backendVersion } = useBackendVersion();
   // Authoritative billing signal: true only when the BE has a billing provider
@@ -718,6 +656,10 @@ export const Layout = ({ children }: LayoutProps) => {
                     collapsed && 'lg:flex-col'
                   )}
                 >
+                  <ProcessingIndicator
+                    entries={processingSummary}
+                    onOpen={openProcessingPanels}
+                  />
                   <NotificationCenter sla={slaNotifications} learning={learningNotifications} />
                   <ThemeToggle />
                 </div>
@@ -761,6 +703,7 @@ export const Layout = ({ children }: LayoutProps) => {
               </h2>
             </div>
             <div className="flex gap-1 items-center">
+              <ProcessingIndicator entries={processingSummary} onOpen={openProcessingPanels} />
               <NotificationCenter sla={slaNotifications} learning={learningNotifications} />
               <ThemeToggle />
             </div>
@@ -798,16 +741,14 @@ export const Layout = ({ children }: LayoutProps) => {
       {/* WebSocket Debug Panel (Development Only) */}
       {isDevelopment && <WebSocketDebug />}
 
-      {/* Message Processing Progress Widgets (Multiple instances for parallel processing) */}
-      {visibleSessions.map((session, index) => (
-        <MessageProcessingProgress
-          key={session.sessionKey}
-          session={session}
-          index={index}
-          onClose={handleSessionClose}
-          sourceType="email"
+      {/* Mail processing: one panel per mailbox that needs one (runs, imports, problems) */}
+      {organizationFilter ? (
+        <ProcessingPanels
+          organizationId={organizationFilter}
+          sessions={sessions}
+          summary={processingSummary}
         />
-      ))}
+      ) : null}
     </div>
   );
 };

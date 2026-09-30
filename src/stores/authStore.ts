@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { forceDisconnect } from '@/lib/socketManager';
 import { similarResultsCache } from '@/components/messages/AiTabPanel';
 import type { User } from '@/types';
+import { logoutClearsProcessingPanels } from '@/stores/processingPanelStore';
 
 type AuthState = {
   user: User | null;
@@ -28,6 +29,9 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        // Every sign-out path comes through here (the menu, a 401, another tab's sign-out):
+        // the next user must not inherit panels, closed runs or closed problems.
+        logoutClearsProcessingPanels();
         forceDisconnect();
         similarResultsCache.clear();
         set({

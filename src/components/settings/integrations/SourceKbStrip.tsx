@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { kbService } from '@/services/kb.service';
+import { useProcessingPanelStore } from '@/stores/processingPanelStore';
 import { logger } from '@/lib/logger';
 import type { AlertState } from '@/components/settings/integrations/types';
 
@@ -54,6 +55,9 @@ export const SourceKbStrip = ({
     setRemining(true);
     try {
       await kbService.reprocessSource(source.id);
+      // Opened here, where the person asked for the work (it closes only when they close it): a
+      // backend recording KB runs would open it by itself too, one that does not would not.
+      useProcessingPanelStore.getState().open(source.id, 'manual');
       onShowAlert({
         open: true,
         title: 'Re-mining started',
