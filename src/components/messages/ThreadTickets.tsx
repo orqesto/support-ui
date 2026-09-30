@@ -80,7 +80,10 @@ export const ThreadTickets = ({ message, onChanged }: Props) => {
         if (seq !== loadSeq.current) return;
         // ⛔ A failed READ is not "on no ticket" — saying so would state something false.
         logger.error('Failed to read the thread’s tickets', err);
-        if (!quiet) setState('failed');
+        // A quiet refresh keeps what is on screen — unless nothing is: it may have replaced a
+        // normal load still showing "Loading…", which would otherwise stay up for good.
+        if (quiet) setState((prev) => (prev === 'loading' ? 'failed' : prev));
+        else setState('failed');
       }
     },
     [message.id]

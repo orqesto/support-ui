@@ -226,4 +226,14 @@ describe('ThreadTickets', () => {
     act(() => socketHandlers.get('send-failed')?.({ messageId: 11 }));
     expect(await screen.findByText(/reply to tell this customer/)).toBeInTheDocument();
   });
+  it('a quiet refresh that replaced the first load and FAILED says so — not "Loading…" for good', async () => {
+    let first: (value: unknown) => void = () => {};
+    ticketsOfThread.mockReturnValueOnce(new Promise((resolve) => (first = resolve)));
+    renderPanel();
+    await waitFor(() => expect(socketHandlers.get('message:replied')).toBeDefined());
+    ticketsOfThread.mockRejectedValueOnce(new Error('boom'));
+    act(() => socketHandlers.get('message:replied')?.({ messageId: 11 }));
+    act(() => first({ unavailable: false, rows: [ticket({})], hiddenCount: 0 }));
+    expect(await screen.findByText(/could not read this thread’s tickets/)).toBeInTheDocument();
+  });
 });
