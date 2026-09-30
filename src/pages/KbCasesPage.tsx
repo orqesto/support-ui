@@ -490,7 +490,15 @@ export const KbCasesPage = () => {
           <div className="flex-1 min-w-[200px]">
             <SearchInput
               value={pendingSearch}
-              onChange={setPendingSearch}
+              onChange={(value) => {
+                setPendingSearch(value);
+                // The X (or deleting every letter) clears the APPLIED search too, as on the KB
+                // page — else the list and the CSV keep the old filter (FE pass 19 LOW-2).
+                if (!value.trim() && search) {
+                  setSearch('');
+                  setPage(1);
+                }
+              }}
               onSearch={() => {
                 setSearch(pendingSearch);
                 setPage(1);

@@ -365,6 +365,30 @@ describe('KB Cases report (F2)', () => {
     expect(screen.queryByText(/No case matches “refund”/)).not.toBeInTheDocument();
   });
 
+  it('FE pass 19 LOW-2: clearing the search box with its X clears the applied search (list and CSV)', async () => {
+    getCases.mockImplementation(() => Promise.resolve(report()));
+    render(
+      <MemoryRouter>
+        <KbCasesPage />
+      </MemoryRouter>
+    );
+    const box = await screen.findByPlaceholderText('Search questions');
+    fireEvent.change(box, { target: { value: 'zzz' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await waitFor(() =>
+      expect(getCases).toHaveBeenLastCalledWith(expect.objectContaining({ search: 'zzz' }))
+    );
+    fireEvent.click(screen.getByTitle('Clear search'));
+    await waitFor(() =>
+      expect(getCases).toHaveBeenLastCalledWith(expect.not.objectContaining({ search: 'zzz' }))
+    );
+    fireEvent.click(await screen.findByRole('button', { name: /Download CSV/ }));
+    await waitFor(() => expect(downloadCasesCsv).toHaveBeenCalled());
+    expect(downloadCasesCsv).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ search: 'zzz' })
+    );
+  });
+
   it('a search with no match says so — never a department-wide claim (LOW-1)', async () => {
     getCases.mockImplementation((query) =>
       Promise.resolve(

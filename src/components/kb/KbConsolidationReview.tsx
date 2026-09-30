@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/Label';
 import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Textarea';
 import { usePermissions } from '@/hooks/usePermissions';
+import { apiErrorStatus } from '@/lib/apiError';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { announceKbConsolidationDecided, kbRef } from '@/lib/kbConsolidation';
 import {
@@ -172,6 +173,15 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
         ? 'The merged entry needs both a question and an answer.'
         : null;
 
+  // 409 = someone else decided it, 404 = it is gone: re-read, so the review shows its real status
+  // (and no Accept / Decline to retry forever), and let the bell re-count (FE pass 19 LOW-1).
+  const rereadIfDecidedElsewhere = async (err: unknown) => {
+    const status = apiErrorStatus(err);
+    if (status !== 409 && status !== 404) return;
+    announceKbConsolidationDecided();
+    await load();
+  };
+
   const handleAccept = async () => {
     setActing(true);
     setActionError(null);
@@ -196,6 +206,7 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
       onDecided?.(next);
     } catch (err) {
       setActionError(getApiErrorMessage(err) ?? 'Could not accept — try again.');
+      await rereadIfDecidedElsewhere(err);
     } finally {
       setActing(false);
     }
@@ -212,6 +223,7 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
       onDecided?.(next);
     } catch (err) {
       setActionError(getApiErrorMessage(err) ?? 'Could not decline — try again.');
+      await rereadIfDecidedElsewhere(err);
     } finally {
       setActing(false);
     }

@@ -292,6 +292,37 @@ describe('KbConsolidationReview (F1)', () => {
     expect(getMembers).not.toHaveBeenCalled();
   });
 
+  it('FE pass 19 LOW-1: an accept refused because someone else decided it (409) re-reads and shows the real status', async () => {
+    getMembers.mockResolvedValueOnce(detail()).mockResolvedValue(detail({ status: 'accepted' }));
+    accept.mockRejectedValue(
+      Object.assign(new Error('This proposal was already decided.'), { status: 409 })
+    );
+    renderReview();
+    await screen.findByText('Question 1?');
+    fireEvent.click(screen.getByRole('button', { name: /Accept merge/ }));
+    expect(await screen.findByText(/no longer pending \(accepted\)/)).toBeInTheDocument();
+    expect(getMembers).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('button', { name: /Accept merge/ })).not.toBeInTheDocument();
+  });
+
+  it('FE pass 19 LOW-1: a decline refused with 409 re-reads too; a 500 does not', async () => {
+    getMembers.mockResolvedValueOnce(detail()).mockResolvedValue(detail({ status: 'declined' }));
+    decline.mockRejectedValueOnce(Object.assign(new Error('Server error'), { status: 500 }));
+    renderReview();
+    await screen.findByText('Question 1?');
+    fireEvent.click(screen.getByRole('button', { name: /Decline/ }));
+    await waitFor(() => expect(decline).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Decline/ })).not.toBeDisabled()
+    );
+    expect(getMembers).toHaveBeenCalledTimes(1);
+    decline.mockRejectedValueOnce(
+      Object.assign(new Error('This proposal was already decided.'), { status: 409 })
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Decline/ }));
+    expect(await screen.findByText(/no longer pending \(declined\)/)).toBeInTheDocument();
+  });
+
   it('an EXPIRED accept says nothing was changed — not success', async () => {
     getMembers.mockResolvedValue(detail());
     accept.mockResolvedValue({ id: 77, status: 'expired', reason: 'Fewer than two left.' });
