@@ -17,6 +17,15 @@ const hide = vi.fn<(...args: unknown[]) => unknown>();
 const del = vi.fn<(...args: unknown[]) => unknown>();
 const unmerge = vi.fn<(...args: unknown[]) => unknown>();
 const approve = vi.fn<(...args: unknown[]) => unknown>();
+const toastCalls: Array<{ kind: string; message: string }> = [];
+vi.mock('@/lib/toast', () => ({
+  toast: Object.fromEntries(
+    ['success', 'info', 'warning', 'error'].map((kind) => [
+      kind,
+      (message: string) => toastCalls.push({ kind, message }),
+    ])
+  ),
+}));
 
 vi.mock('@/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
@@ -100,6 +109,7 @@ const tableRow = async (title: string) => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  toastCalls.length = 0;
   casesFlagVisible = false;
   canManageKb = true;
   getById.mockReturnValue(new Promise(() => {}));
@@ -567,6 +577,8 @@ describe('KB page — case action in flight (pass 17)', () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(screen.getByTestId('where')).toHaveTextContent('/tickets');
     expect(getAll.mock.calls.length).toBe(readsBefore);
+    // The page is gone, so its dialog is too — the outcome is still told (pass 18 LOW-1).
+    expect(toastCalls).toEqual([{ kind: 'success', message: 'Case unmerged' }]);
   });
 
   it('LOW-2: a second confirm on a case whose action is still running sends nothing; the first result is shown', async () => {
@@ -589,5 +601,65 @@ describe('KB page — case action in flight (pass 17)', () => {
     done({ caseId: 9, restored: 2 });
     expect(await screen.findByText(/2 original entries are back/)).toBeInTheDocument();
     expect(screen.queryByText('Already unmerged')).not.toBeInTheDocument();
+  });
+
+  it("pass 18 LOW-2: a drawer open on one of the case's ORIGINALS closes when the case goes", async () => {
+    let done: (value: unknown) => void = () => {};
+    unmerge.mockReturnValue(
+      new Promise((resolve) => {
+        done = resolve;
+      })
+    );
+    const original: KBEntry = {
+      ...plain,
+      id: 11,
+      title: 'Original of nine',
+      hidden: true,
+      consolidatedInto: 9,
+      consolidation: { state: 'merged', caseId: 9, casePublicId: 'KB-9', caseExists: true },
+    };
+    getAll.mockResolvedValue({
+      success: true,
+      data: {
+        entries: [caseRow, original],
+        pagination: { page: 1, limit: 20, total: 2, totalPages: 1 },
+      },
+    });
+    page();
+    const row = await tableRow('Refunds');
+    fireEvent.click(within(row).getByRole('button', { name: 'Unmerge' }));
+    fireEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unmerge' })
+    );
+    await waitFor(() => expect(unmerge).toHaveBeenCalledWith(9));
+    fireEvent.click(
+      within(await tableRow('Original of nine')).getByRole('button', { name: 'View details' })
+    );
+    expect(await screen.findByRole('heading', { name: 'Entry Details' })).toBeInTheDocument();
+    done({ caseId: 9, restored: 2 });
+    expect(await screen.findByText(/2 original entries are back/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'Entry Details' })).not.toBeInTheDocument()
+    );
+  });
+
+  it('pass 18 LOW-2 control: a drawer on an UNRELATED entry stays open', async () => {
+    let done: (value: unknown) => void = () => {};
+    unmerge.mockReturnValue(
+      new Promise((resolve) => {
+        done = resolve;
+      })
+    );
+    page();
+    const row = await tableRow('Refunds');
+    fireEvent.click(within(row).getByRole('button', { name: 'Unmerge' }));
+    fireEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unmerge' })
+    );
+    await waitFor(() => expect(unmerge).toHaveBeenCalledWith(9));
+    fireEvent.click(within(await tableRow('Plain')).getByRole('button', { name: 'View details' }));
+    done({ caseId: 9, restored: 2 });
+    expect(await screen.findByText(/2 original entries are back/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Entry Details' })).toBeInTheDocument();
   });
 });

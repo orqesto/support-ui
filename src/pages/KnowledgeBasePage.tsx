@@ -33,11 +33,17 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useUiFlags } from '@/hooks/useUiFlags';
 import { isCaseRow, unmergeConsequence } from '@/lib/kbConsolidation';
 import { runCaseAction, type CaseActionNow } from '@/components/kb/runCaseAction';
+import { toast } from '@/lib/toast';
 
 /** An action on a merged CASE row — each one unmerges it, so each is confirmed first. */
-/** What a case action sees once the page is gone: no drawer to close, nothing to re-read. */
+/**
+ * What a case action sees once the page is gone: no drawer to close, nothing to re-read — and
+ * the outcome goes to a toast, since the page's dialog went with it (FE pass 18 LOW-1).
+ */
 const LEFT_PAGE: CaseActionNow = {
   selectedId: null,
+  selectedCaseId: null,
+  say: ({ title, description, variant }) => toast[variant](title, { description }),
   close: () => {},
   refetch: () => Promise.resolve(),
 };
@@ -323,7 +329,9 @@ export const KnowledgeBasePage = () => {
     if (inFlight.current.has(entry.id)) return;
     inFlight.current.add(entry.id);
     try {
-      setAlertDialog(await runCaseAction(entry, action, () => latest.current));
+      const outcome = await runCaseAction(entry, action, () => latest.current);
+      // Read `say` AFTER the await: the page may be gone by now (FE pass 18 LOW-1).
+      latest.current.say(outcome);
     } finally {
       inFlight.current.delete(entry.id);
     }
@@ -365,6 +373,9 @@ export const KnowledgeBasePage = () => {
   useEffect(() => {
     latest.current = {
       selectedId: selectedEntry?.id ?? null,
+      selectedCaseId:
+        selectedEntry?.consolidation?.caseId ?? selectedEntry?.consolidatedInto ?? null,
+      say: (outcome) => setAlertDialog(outcome),
       close: handleCloseEntry,
       refetch: () => fetchEntries(pagination.page),
     };

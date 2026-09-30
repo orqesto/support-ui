@@ -15,6 +15,10 @@ export type CaseActionKind = 'hide' | 'reject' | 'delete' | 'unmerge';
 export type CaseActionNow = {
   /** The entry the drawer shows at this moment, if any. */
   selectedId: number | null;
+  /** The case that entry is merged into (a drawer on one of this case's ORIGINALS). */
+  selectedCaseId: number | null;
+  /** Tell the user the outcome: the page's dialog, or a toast once the page is gone. */
+  say: (outcome: CaseActionOutcome) => void;
   /** Close the drawer (and drop `?id=` from the URL as it is now). */
   close: () => void;
   /** Re-read the list with the filters as they are now. Never throws. */
@@ -27,6 +31,10 @@ export type CaseActionOutcome = {
   description: string;
   variant: 'success' | 'error' | 'info';
 };
+
+/** The drawer shows the case itself or one of its originals — both are stale once it goes. */
+const showsCase = (now: CaseActionNow, caseId: number): boolean =>
+  now.selectedId === caseId || now.selectedCaseId === caseId;
 
 export const runCaseAction = async (
   entry: KBEntry,
@@ -42,7 +50,7 @@ export const runCaseAction = async (
     else restored = (await kbService.delete(entry.id)).data?.restored;
     // Read the drawer, URL and filters as they are NOW — the user may have opened another
     // entry or changed a filter while this request ran (FE pass 16 LOW-1).
-    if (now().selectedId === entry.id) now().close();
+    if (showsCase(now(), entry.id)) now().close();
     // The case row is gone and its originals are back — the page must be re-read, not patched.
     await now().refetch();
     return {
@@ -62,7 +70,7 @@ export const runCaseAction = async (
     // second click of this user) removed it meanwhile. Say so — never "Could not unmerge" —
     // and drop the drawer open on it (FE pass 15 LOW-1, pass 16 LOW-2).
     const gone = apiErrorStatus(error) === 404;
-    if (gone && now().selectedId === entry.id) now().close();
+    if (gone && showsCase(now(), entry.id)) now().close();
     // Re-read FIRST (the row is stale either way), then say what happened: a re-read that
     // fails too must not replace that with its own "Failed to Load" (FE pass 15 LOW-2).
     await now().refetch();
