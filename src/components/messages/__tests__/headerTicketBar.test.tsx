@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Message } from '@/types';
@@ -62,6 +62,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 import { MessageDetailHeader } from '../MessageDetailHeader';
+import { THREAD_TICKETS_CHANGED } from '@/services/ticketThreadsEvents';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 
 afterEach(cleanup);
@@ -81,12 +82,12 @@ const message = {
   metadata: { analysis: { category: 'other' } },
 } as unknown as Message;
 
-const renderHeader = () =>
+const renderHeader = (msg: Message = message) =>
   render(
     <ThemeProvider>
       <QueryClientProvider client={new QueryClient()}>
         <MemoryRouter>
-          <MessageDetailHeader message={message} showFullPageButton={false} isFullPage threadCount={1} />
+          <MessageDetailHeader message={msg} showFullPageButton={false} isFullPage threadCount={1} />
         </MemoryRouter>
       </QueryClientProvider>
     </ThemeProvider>
@@ -137,5 +138,32 @@ describe('ticket bar', () => {
     renderHeader();
     expect(await screen.findByText(/✓ Ticket #5/)).toBeInTheDocument();
     expect(screen.queryByText(/more/)).not.toBeInTheDocument();
+  });
+
+  it('reloads when the Customer-tab panel changes THIS thread’s tickets — and only this thread’s', async () => {
+    ticketsOfThread.mockResolvedValue({ unavailable: false, hiddenCount: 0, rows: [] });
+    renderHeader();
+    await vi.waitFor(() => expect(ticketsOfThread).toHaveBeenCalledTimes(1));
+    ticketsOfThread.mockResolvedValue({ unavailable: false, hiddenCount: 0, rows: [row({ ticketId: 9 })] });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(THREAD_TICKETS_CHANGED, { detail: { conversationIds: [2] } }));
+    });
+    expect(ticketsOfThread).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(THREAD_TICKETS_CHANGED, { detail: { conversationIds: [1] } }));
+    });
+    expect(await screen.findByText(/✓ Ticket #9/)).toBeInTheDocument();
+  });
+
+  it('D2: the prompt shows on a RESOLVED thread too — resolved is not "told"', async () => {
+    ticketsOfThread.mockResolvedValue({
+      unavailable: false,
+      hiddenCount: 0,
+      rows: [row({ ticketId: 9, status: 'resolved', owesReply: true })],
+    });
+    renderHeader({ ...message, status: 'resolved' } as Message);
+    expect(await screen.findByText('Ticket #9 is fixed — reply to tell this customer.')).toBeInTheDocument();
   });
 });

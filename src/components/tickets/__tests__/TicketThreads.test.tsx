@@ -116,4 +116,55 @@ describe('TicketThreads', () => {
     expect(await screen.findByText(/could not read this ticket’s threads/)).toBeInTheDocument();
     expect(screen.queryByText('No linked messages.')).not.toBeInTheDocument();
   });
+
+  it('⛔ a response for the PREVIOUS ticket, arriving after the switch, is ignored', async () => {
+    let releaseOld: (value: unknown) => void = () => undefined;
+    threadsOfTicket.mockImplementation((ticketId: number) =>
+      ticketId === 4
+        ? new Promise((resolve) => {
+            releaseOld = resolve;
+          })
+        : Promise.resolve({ unavailable: false, rows: [thread({ conversationId: 50, requesterEmail: 'new@x.example' })], hiddenCount: 0 })
+    );
+    const { rerender } = render(
+      <MemoryRouter>
+        <TicketThreads ticketId={4} fallback={<p>legacy</p>} />
+      </MemoryRouter>
+    );
+    rerender(
+      <MemoryRouter>
+        <TicketThreads ticketId={5} fallback={<p>legacy</p>} />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('new@x.example')).toBeInTheDocument();
+    releaseOld({ unavailable: false, rows: [thread({ requesterEmail: 'old@x.example' })], hiddenCount: 0 });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByText('old@x.example')).not.toBeInTheDocument();
+  });
+
+  it('the tab count is withheld while loading or after a failure, and "unavailable" says so', async () => {
+    const onCountChange = vi.fn();
+    threadsOfTicket.mockRejectedValue(new Error('boom'));
+    renderList(onCountChange);
+    await screen.findByText(/could not read this ticket’s threads/);
+    expect(onCountChange.mock.calls.map(([count]: unknown[]) => count)).toEqual([null]);
+
+    const onUnavailable = vi.fn();
+    threadsOfTicket.mockResolvedValue({ unavailable: true });
+    renderList(onUnavailable);
+    await screen.findAllByText('legacy list');
+    expect(onUnavailable).toHaveBeenLastCalledWith('unavailable');
+  });
+
+  it('says the owing count covers only the threads the agent can open', async () => {
+    threadsOfTicket.mockResolvedValue({
+      unavailable: false,
+      rows: [thread({ owesReply: true })],
+      hiddenCount: 2,
+    });
+    renderList();
+    expect(
+      await screen.findByText(/1 customer still needs a reply about this fix \(among the threads you can open\)/)
+    ).toBeInTheDocument();
+  });
 });

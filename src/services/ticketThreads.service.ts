@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import { getErrorStatus } from '@/lib/errorMessages';
+import { announceThreadTicketsChanged as announce } from '@/services/ticketThreadsEvents';
 import type { ApiResponse } from '@/types';
 
 /**
@@ -52,6 +53,7 @@ export type Scoped<T> =
 
 const asNumber = (value: unknown): number => (typeof value === 'number' ? value : 0);
 
+
 const scoped = async <T>(load: () => Promise<{ rows: T[] | undefined; hiddenCount: unknown }>) => {
   try {
     const { rows, hiddenCount } = await load();
@@ -92,10 +94,9 @@ export const ticketThreadsService = {
       `/api/tickets/${ticketId}/conversations`,
       { conversationIds }
     );
-    return {
-      added: res.data.data?.added ?? [],
-      alreadyAttached: res.data.data?.alreadyAttached ?? [],
-    };
+    const added = res.data.data?.added ?? [];
+    announce(conversationIds);
+    return { added, alreadyAttached: res.data.data?.alreadyAttached ?? [] };
   },
 
   /** Take a thread off a ticket. The thread itself is untouched. */
@@ -103,6 +104,7 @@ export const ticketThreadsService = {
     const res = await apiClient.delete<ApiResponse<{ removed?: boolean }>>(
       `/api/tickets/${ticketId}/conversations/${conversationId}`
     );
+    announce([conversationId]);
     return res.data.data?.removed ?? false;
   },
 };

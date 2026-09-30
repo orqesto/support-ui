@@ -48,6 +48,13 @@ export const ThreadTickets = ({ message, onChanged }: Props) => {
   const [capped, setCapped] = useState(false);
   // Typing fires a search per keystroke; only the LATEST one may write the list.
   const searchSeq = useRef(0);
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (debounce.current) clearTimeout(debounce.current);
+    },
+    []
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -114,7 +121,11 @@ export const ThreadTickets = ({ message, onChanged }: Props) => {
     setBusy(true);
     setError(null);
     try {
-      await ticketThreadsService.addThreads(ticketId, [message.id]);
+      const result = await ticketThreadsService.addThreads(ticketId, [message.id]);
+      if (result.added.length === 0) {
+        // Someone added it a moment ago — say so rather than closing as if this click did it.
+        setError('This thread is already on that ticket.');
+      }
       setPickerOpen(false);
       await load();
       onChanged?.();
@@ -177,7 +188,7 @@ export const ThreadTickets = ({ message, onChanged }: Props) => {
         </p>
       ) : state === 'unavailable' ? (
         <p className="text-[12px] text-muted-foreground">
-          This server does not list a thread’s tickets yet. The ticket bar above shows one of them.
+          This server does not list a thread’s tickets yet.
         </p>
       ) : tickets.length === 0 && hiddenCount === 0 ? (
         <p className="text-[12px] text-muted-foreground">
@@ -215,7 +226,7 @@ export const ThreadTickets = ({ message, onChanged }: Props) => {
                 </div>
               </div>
               {/* D2 — nothing is sent for the agent: the incident is fixed, THIS customer has not
-                  been told yet. Only a TRUE owes; null means the ticket has no resolution time. */}
+                  been told yet. Only a TRUE owes; null = closed without a resolve (not a fix). */}
               {row.owesReply === true && (
                 <Badge variant="warning" size="sm">
                   Ticket {words(row.status)} — reply to tell this customer
@@ -245,7 +256,9 @@ export const ThreadTickets = ({ message, onChanged }: Props) => {
               value={query}
               onChange={(value: string) => {
                 setQuery(value);
-                void search(value);
+                // One search per pause, not per keystroke.
+                if (debounce.current) clearTimeout(debounce.current);
+                debounce.current = setTimeout(() => void search(value), 250);
               }}
               placeholder="Search tickets by title or number"
             />

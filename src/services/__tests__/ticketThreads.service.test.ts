@@ -5,9 +5,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const get = vi.fn();
-vi.mock('@/lib/api-client', () => ({ apiClient: { get, post: vi.fn(), delete: vi.fn() } }));
+const post = vi.fn();
+const del = vi.fn();
+vi.mock('@/lib/api-client', () => ({ apiClient: { get, post, delete: del } }));
 
 const { ticketThreadsService } = await import('@/services/ticketThreads.service');
+const { THREAD_TICKETS_CHANGED } = await import('@/services/ticketThreadsEvents');
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -40,5 +43,27 @@ describe('ticketThreadsService', () => {
       rows: [],
       hiddenCount: 0,
     });
+  });
+
+  it('announces a change after add and remove, so the thread header can reload', async () => {
+    const seen: number[][] = [];
+    const listener = (event: Event) =>
+      seen.push((event as CustomEvent<{ conversationIds: number[] }>).detail.conversationIds);
+    window.addEventListener(THREAD_TICKETS_CHANGED, listener);
+    post.mockResolvedValue({ data: { data: { added: [11], alreadyAttached: [] } } });
+    del.mockResolvedValue({ data: { data: { removed: true } } });
+    await ticketThreadsService.addThreads(4, [11, 12]);
+    await ticketThreadsService.removeThread(4, 12);
+    window.removeEventListener(THREAD_TICKETS_CHANGED, listener);
+    expect(seen).toEqual([[11, 12], [12]]);
+  });
+
+  it('a FAILED add announces nothing', async () => {
+    const listener = vi.fn();
+    window.addEventListener(THREAD_TICKETS_CHANGED, listener);
+    post.mockRejectedValue({ response: { status: 500 } });
+    await expect(ticketThreadsService.addThreads(4, [11])).rejects.toBeTruthy();
+    window.removeEventListener(THREAD_TICKETS_CHANGED, listener);
+    expect(listener).not.toHaveBeenCalled();
   });
 });

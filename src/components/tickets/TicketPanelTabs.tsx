@@ -27,8 +27,9 @@ export function TicketPanelTabs({
 }: TicketPanelTabsProps) {
   const [activeTab, setActiveTab] = useState<Tab>('comments');
   const [commentCount, setCommentCount] = useState(0);
-  // Threads the ticket covers, as the ticket's own list reports them (null until it has).
-  const [threadCount, setThreadCount] = useState<number | null>(null);
+  // What the ticket's own list reports: a count, 'unavailable' (older backend — count the
+  // fallback list instead), or null (loading / failed — no number).
+  const [threadCount, setThreadCount] = useState<number | 'unavailable' | null>(null);
   // Same reason as the copy-link buttons: a conversation link that carries the org code
   // 404s in the wrong workspace instead of resolving to a different conversation.
   const orgCode = useCurrentOrgCode();
@@ -42,11 +43,11 @@ export function TicketPanelTabs({
       // A thread count either way: the ticket's own list when the backend has it, else the
       // older inbox-based list grouped by thread.
       badge:
-        threadCount !== null
+        typeof threadCount === 'number'
           ? threadCount > 0
             ? threadCount
             : undefined
-          : linkedMessages.length > 0
+          : threadCount === 'unavailable' && linkedMessages.length > 0
             ? new Set(linkedMessages.map((msg) => msg.externalThreadId ?? `solo-${msg.id}`)).size
             : undefined,
     },

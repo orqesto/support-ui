@@ -30,8 +30,12 @@ import type { Message } from '@/types';
  */
 type Props = {
   ticketId: number;
-  /** How many threads the caller can see — the tab's badge. */
-  onCountChange?: (count: number) => void;
+  /**
+   * What the tab badge may say: a count once the list is read; `unavailable` on a backend without
+   * the route (the tab then counts the fallback list); `null` while loading or after a failed
+   * read — a number then would describe a list the tab is not showing.
+   */
+  onCountChange?: (count: number | 'unavailable' | null) => void;
   /** Shown instead when the backend predates these routes (version skew). */
   fallback: ReactNode;
 };
@@ -55,13 +59,29 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const searchSeq = useRef(0);
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (debounce.current) clearTimeout(debounce.current);
+    },
+    []
+  );
 
+  /*
+    The ticket page re-uses this component for the next ticket (no key), so a response for the
+    PREVIOUS ticket can arrive after the switch — only the latest load may write.
+  */
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     setState('loading');
+    onCountChange?.(null);
     try {
       const result = await ticketThreadsService.threadsOfTicket(ticketId);
+      if (seq !== loadSeq.current) return;
       if (result.unavailable) {
         setState('unavailable');
+        onCountChange?.('unavailable');
         return;
       }
       setThreads(result.rows);
@@ -69,11 +89,18 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
       onCountChange?.(result.rows.length);
       setState('ready');
     } catch (err) {
+      if (seq !== loadSeq.current) return;
       // ⛔ A failed READ is not "no threads" — that would say nobody reported this.
       logger.error('Failed to read the ticket’s threads', err);
       setState('failed');
     }
   }, [ticketId, onCountChange]);
+
+  // A different ticket: nothing of the previous one may show while this one loads.
+  useEffect(() => {
+    setThreads([]);
+    setHiddenCount(0);
+  }, [ticketId]);
 
   useEffect(() => {
     void load();
@@ -158,7 +185,8 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
 
   if (state === 'unavailable') return <>{fallback}</>;
 
-  const owing = threads.filter((row) => row.owesReply === true).length;
+  // Only from a list that was actually read — never a count left over from before a failed reload.
+  const owing = state === 'ready' ? threads.filter((row) => row.owesReply === true).length : 0;
 
   return (
     <div className="space-y-2">
@@ -168,6 +196,8 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
             {owing === 1
               ? '1 customer still needs a reply about this fix'
               : `${owing} customers still need a reply about this fix`}
+            {/* Threads the caller cannot open are not counted — say so rather than imply a total. */}
+            {hiddenCount > 0 && ' (among the threads you can open)'}
           </Badge>
         ) : (
           <span />
@@ -191,7 +221,7 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
           {threads.map((row) => (
             <li
               key={row.conversationId}
-              className="flex gap-3 items-start p-3 rounded-lg border bg-muted border-border"
+              className="flex gap-3 items-start p-3 rounded-lg border transition-colors bg-muted border-border hover:bg-accent"
             >
               <div className="p-2 rounded bg-muted flex-shrink-0">
                 <Mail className="w-4 h-4 text-primary" />
@@ -223,7 +253,7 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
                   )}
                 </Link>
                 {/* D2 — nothing is sent for the agent. Only a TRUE owes: null means the ticket was
-                    closed without a recorded resolution time, and saying "owes" would be a guess. */}
+                    closed without a resolve — not a fix, nothing to tell the customer. */}
                 {row.owesReply === true && (
                   <Badge variant="warning" size="sm">
                     Fixed — reply to tell this customer
@@ -241,10 +271,16 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
                     Remove
                   </Button>
                 )}
-                <ExternalLinkIcon
-                  className="w-3.5 h-3.5 text-muted-foreground mt-0.5"
-                  aria-hidden
-                />
+                {/* The icon opens the thread too, as the whole card did in the old list. */}
+                <Link
+                  to={`/messages?id=${getConvUrlId({ id: row.conversationId, publicId: row.publicId }, orgCode)}`}
+                  aria-label="Open thread"
+                >
+                  <ExternalLinkIcon
+                    className="w-3.5 h-3.5 text-muted-foreground mt-0.5"
+                    aria-hidden
+                  />
+                </Link>
               </div>
             </li>
           ))}
@@ -270,7 +306,9 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
               value={query}
               onChange={(value: string) => {
                 setQuery(value);
-                void search(value);
+                // One search per pause, not per keystroke.
+                if (debounce.current) clearTimeout(debounce.current);
+                debounce.current = setTimeout(() => void search(value), 250);
               }}
               placeholder="Search any customer’s threads — name, address, subject"
             />

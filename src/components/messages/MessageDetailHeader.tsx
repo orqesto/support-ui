@@ -32,6 +32,7 @@ import { useDepartments } from '@/hooks/useDepartments';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { messageService } from '@/services/message.service';
 import { ticketThreadsService } from '@/services/ticketThreads.service';
+import { THREAD_TICKETS_CHANGED } from '@/services/ticketThreadsEvents';
 import { categoryService } from '@/services/category.service';
 import { labelService, type Label } from '@/services/settings.service';
 import {
@@ -256,13 +257,18 @@ export function MessageDetailHeader({
   const [owedTicketId, setOwedTicketId] = useState<number | null>(null);
   const [ticketIds, setTicketIds] = useState<number[]>([]);
 
+  // Loads can overlap (a socket event, the panel's announcement): only the latest may write.
+  const ticketsSeq = useRef(0);
   const loadTickets = useCallback(() => {
+    const seq = ++ticketsSeq.current;
     ticketThreadsService
       .ticketsOfThread(message.id)
       .then(async (result) => {
+        if (seq !== ticketsSeq.current) return;
         if (result.unavailable) {
           // An older backend: the one ticket it can name.
           const res = await messageService.getLinkedTicket(message.id);
+          if (seq !== ticketsSeq.current) return;
           setLinkedTicketId(res?.data?.id ?? null);
           setLinkedTicketStatus(res?.data?.status ?? null);
           setOtherTicketCount(0);
@@ -302,6 +308,16 @@ export function MessageDetailHeader({
     subscribeToEvent('ticket:updated', handler);
     return () => unsubscribeFromEvent('ticket:updated', handler);
   }, [ticketIds, loadTickets]);
+
+  useEffect(() => {
+    // The Customer-tab panel added this thread to a ticket, or took it off one.
+    const onChanged = (event: Event) => {
+      const ids = (event as CustomEvent<{ conversationIds: number[] }>).detail?.conversationIds ?? [];
+      if (ids.includes(message.id)) loadTickets();
+    };
+    window.addEventListener(THREAD_TICKETS_CHANGED, onChanged);
+    return () => window.removeEventListener(THREAD_TICKETS_CHANGED, onChanged);
+  }, [message.id, loadTickets]);
 
   // Sync the in-flight badge from the message prop ONLY on conv change. We used
   // to also depend on `message.metadata` so navigating away+back would re-read
@@ -919,14 +935,15 @@ export function MessageDetailHeader({
               View <Maximize2 className="w-2.5 h-2.5" />
             </Link>
           </div>
-          {/* D2 — the incident is fixed and THIS customer has not been told. Nothing is sent for
-              the agent; this is the prompt. */}
-          {owedTicketId !== null && (
-            <p className="mt-1 text-[11px] text-warning">
-              Ticket #{owedTicketId} is fixed — reply to tell this customer.
-            </p>
-          )}
         </div>
+      )}
+      {/* D2 — the incident is fixed and THIS customer has not been told. Nothing is sent for the
+          agent; this is the prompt. Shown on a resolved thread too: the thread being resolved
+          does not mean the customer heard the incident is fixed. */}
+      {owedTicketId !== null && (
+        <p className="px-4 pb-2 text-[11px] text-warning">
+          Ticket #{owedTicketId} is fixed — reply to tell this customer.
+        </p>
       )}
 
       {/* Action chip row */}

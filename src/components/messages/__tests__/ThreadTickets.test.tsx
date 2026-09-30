@@ -124,4 +124,23 @@ describe('ThreadTickets', () => {
     await userEvent.click(await screen.findByRole('button', { name: /Add to ticket/ }));
     expect(await screen.findByText(/Showing the newest 20/)).toBeInTheDocument();
   });
+
+  it('says so when the thread was already on the picked ticket', async () => {
+    addThreads.mockResolvedValue({ added: [], alreadyAttached: [11] });
+    renderPanel();
+    await userEvent.click(await screen.findByRole('button', { name: /Add to ticket/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /^Add$/ }));
+    expect(await screen.findByText('This thread is already on that ticket.')).toBeInTheDocument();
+  });
+
+  it('searches once per pause, not per keystroke', async () => {
+    renderPanel();
+    await userEvent.click(await screen.findByRole('button', { name: /Add to ticket/ }));
+    await waitFor(() => expect(getAll).toHaveBeenCalledTimes(1)); // the initial list
+    await userEvent.type(screen.getByPlaceholderText(/Search tickets/), 'login');
+    await waitFor(() => expect(getAll).toHaveBeenCalledTimes(2), { timeout: 1500 });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(getAll).toHaveBeenCalledTimes(2);
+    expect(getAll.mock.calls[1][0]).toEqual({ search: 'login' });
+  });
 });
