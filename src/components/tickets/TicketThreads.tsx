@@ -96,57 +96,75 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
     }
   }, [ticketId, onCountChange]);
 
+  /*
+    The LATEST ticket id, list and loader, for work that finishes after a render: an add/remove
+    started on ticket A must not reload A's list into ticket B's page (the seq guard alone cannot
+    tell — the stale reload would be the newest load), and a debounced search must filter against
+    the list as it is now, not as it was when the keystroke happened.
+  */
+  const currentTicket = useRef(ticketId);
+  const threadsNow = useRef(threads);
+  const loadNow = useRef(load);
+  currentTicket.current = ticketId;
+  threadsNow.current = threads;
+  loadNow.current = load;
+
+  const cancelPendingSearch = () => {
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = null;
+    searchSeq.current += 1; // any search already in flight may no longer write
+  };
+
   // A different ticket: nothing of the previous one may show while this one loads.
   useEffect(() => {
     setThreads([]);
     setHiddenCount(0);
+    setError(null);
   }, [ticketId]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const search = useCallback(
-    async (term: string) => {
-      setError(null);
-      const seq = ++searchSeq.current;
-      try {
-        /*
+  const search = useCallback(async (term: string) => {
+    setError(null);
+    const seq = ++searchSeq.current;
+    try {
+      /*
           ANY customer's threads — an incident is reported by many. Every lifecycle: a thread the
           agent already answered and resolved still belongs on the incident it reported.
         */
-        const res = await messageService.getThreads(
-          { ...(term.trim() ? { search: term.trim() } : {}), lifecycle: 'all' },
-          1,
-          PICKER_LIMIT
-        );
-        if (seq !== searchSeq.current) return;
-        const rows = (res.data ?? []) as unknown as Array<{ latestMessage?: Message }>;
-        const already = new Set(threads.map((row) => row.conversationId));
-        setCapped(rows.length >= PICKER_LIMIT);
-        setCandidates(
-          rows
-            .map((row) => row.latestMessage)
-            .filter((row): row is Message => !!row && !already.has(row.id))
-            .map((row) => ({
-              id: row.id,
-              publicId: row.publicId ?? null,
-              subject: row.subject ?? null,
-              sender: row.sender ?? '',
-            }))
-        );
-      } catch (err) {
-        if (seq !== searchSeq.current) return;
-        logger.error('Failed to search threads', err);
-        setCapped(false);
-        setCandidates([]);
-        setError(getApiErrorMessage(err) ?? 'Could not search threads.');
-      }
-    },
-    [threads]
-  );
+      const res = await messageService.getThreads(
+        { ...(term.trim() ? { search: term.trim() } : {}), lifecycle: 'all' },
+        1,
+        PICKER_LIMIT
+      );
+      if (seq !== searchSeq.current) return;
+      const rows = (res.data ?? []) as unknown as Array<{ latestMessage?: Message }>;
+      const already = new Set(threadsNow.current.map((row) => row.conversationId));
+      setCapped(rows.length >= PICKER_LIMIT);
+      setCandidates(
+        rows
+          .map((row) => row.latestMessage)
+          .filter((row): row is Message => !!row && !already.has(row.id))
+          .map((row) => ({
+            id: row.id,
+            publicId: row.publicId ?? null,
+            subject: row.subject ?? null,
+            sender: row.sender ?? '',
+          }))
+      );
+    } catch (err) {
+      if (seq !== searchSeq.current) return;
+      logger.error('Failed to search threads', err);
+      setCapped(false);
+      setCandidates([]);
+      setError(getApiErrorMessage(err) ?? 'Could not search threads.');
+    }
+  }, []);
 
   const openPicker = () => {
+    cancelPendingSearch();
     setPickerOpen(true);
     setQuery('');
     setCandidates(null);
@@ -157,8 +175,10 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
     setBusy(true);
     setError(null);
     try {
-      await ticketThreadsService.addThreads(ticketId, [conversationId]);
-      await load();
+      const startedOn = ticketId;
+      await ticketThreadsService.addThreads(startedOn, [conversationId]);
+      if (currentTicket.current !== startedOn) return; // the page moved on to another ticket
+      await loadNow.current();
       // Stay open: an incident is usually several reports, added one after another.
       setCandidates((prev) => prev?.filter((row) => row.id !== conversationId) ?? null);
     } catch (err) {
@@ -173,8 +193,10 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
     setBusy(true);
     setError(null);
     try {
-      await ticketThreadsService.removeThread(ticketId, conversationId);
-      await load();
+      const startedOn = ticketId;
+      await ticketThreadsService.removeThread(startedOn, conversationId);
+      if (currentTicket.current !== startedOn) return; // the page moved on to another ticket
+      await loadNow.current();
     } catch (err) {
       logger.error('Failed to take a thread off the ticket', err);
       setError(getApiErrorMessage(err) ?? 'That thread could not be taken off this ticket.');
@@ -274,7 +296,10 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
                 {/* The icon opens the thread too, as the whole card did in the old list. */}
                 <Link
                   to={`/messages?id=${getConvUrlId({ id: row.conversationId, publicId: row.publicId }, orgCode)}`}
-                  aria-label="Open thread"
+                  // A second way to the same thread for the mouse; keyboard and screen readers
+                  // already have the email/subject link beside it.
+                  tabIndex={-1}
+                  aria-hidden
                 >
                   <ExternalLinkIcon
                     className="w-3.5 h-3.5 text-muted-foreground mt-0.5"
@@ -295,11 +320,22 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+      <Dialog
+        open={pickerOpen}
+        onOpenChange={(open) => {
+          if (!open) cancelPendingSearch();
+          setPickerOpen(open);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add threads to this ticket</DialogTitle>
-            <DialogClose onClose={() => setPickerOpen(false)} />
+            <DialogClose
+              onClose={() => {
+                cancelPendingSearch();
+                setPickerOpen(false);
+              }}
+            />
           </DialogHeader>
           <div className="space-y-3">
             <SearchInput

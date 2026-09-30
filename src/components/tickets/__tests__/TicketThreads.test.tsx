@@ -167,4 +167,41 @@ describe('TicketThreads', () => {
       await screen.findByText(/1 customer still needs a reply about this fix \(among the threads you can open\)/)
     ).toBeInTheDocument();
   });
+
+  it('⛔ a REMOVE still in flight when the page switches ticket does not reload the old ticket into the new one', async () => {
+    let finishRemove: (value: unknown) => void = () => undefined;
+    removeThread.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishRemove = resolve;
+        })
+    );
+    threadsOfTicket.mockImplementation((ticketId: number) =>
+      Promise.resolve({
+        unavailable: false,
+        hiddenCount: 0,
+        rows:
+          ticketId === 4
+            ? [thread({ isPrimary: true, requesterEmail: 'a-origin@x.example' }), thread({ conversationId: 12, requesterEmail: 'a-other@x.example' })]
+            : [thread({ conversationId: 60, isPrimary: true, requesterEmail: 'b-origin@x.example' })],
+      })
+    );
+    const { rerender } = render(
+      <MemoryRouter>
+        <TicketThreads ticketId={4} fallback={<p>legacy</p>} />
+      </MemoryRouter>
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove' }));
+    rerender(
+      <MemoryRouter>
+        <TicketThreads ticketId={5} fallback={<p>legacy</p>} />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('b-origin@x.example')).toBeInTheDocument();
+    finishRemove(true);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(screen.getByText('b-origin@x.example')).toBeInTheDocument();
+    expect(screen.queryByText('a-origin@x.example')).not.toBeInTheDocument();
+    expect(threadsOfTicket.mock.calls.filter(([id]: unknown[]) => id === 4)).toHaveLength(1);
+  });
 });

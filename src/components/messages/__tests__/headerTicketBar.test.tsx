@@ -166,4 +166,30 @@ describe('ticket bar', () => {
     renderHeader({ ...message, status: 'resolved' } as Message);
     expect(await screen.findByText('Ticket #9 is fixed — reply to tell this customer.')).toBeInTheDocument();
   });
+
+  it('names EVERY ticket still owing this customer a reply', async () => {
+    ticketsOfThread.mockResolvedValue({
+      unavailable: false,
+      hiddenCount: 0,
+      rows: [row({ ticketId: 9, status: 'resolved', owesReply: true }), row({ ticketId: 4, status: 'closed', owesReply: true })],
+    });
+    renderHeader();
+    expect(await screen.findByText('Tickets #9, #4 are fixed — reply to tell this customer.')).toBeInTheDocument();
+  });
+
+  it('reloads when one of its tickets changes (socket), not for another ticket', async () => {
+    ticketsOfThread.mockResolvedValue({ unavailable: false, hiddenCount: 0, rows: [row({ ticketId: 7, status: 'open' })] });
+    renderHeader();
+    await screen.findByText(/✓ Ticket #7/);
+    const { subscribeToEvent } = await import('@/lib/socketManager');
+    const handler = vi.mocked(subscribeToEvent).mock.calls.filter(([name]) => name === 'ticket:updated').at(-1)?.[1] as
+      | ((data: unknown) => void)
+      | undefined;
+    expect(handler).toBeDefined();
+    ticketsOfThread.mockResolvedValue({ unavailable: false, hiddenCount: 0, rows: [row({ ticketId: 7, status: 'in_progress' })] });
+    act(() => handler?.({ ticketId: 99 }));
+    expect(ticketsOfThread).toHaveBeenCalledTimes(1);
+    act(() => handler?.({ ticketId: 7 }));
+    expect(await screen.findByText(/in progress/)).toBeInTheDocument();
+  });
 });

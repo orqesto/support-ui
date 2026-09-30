@@ -253,8 +253,8 @@ export function MessageDetailHeader({
   const [linkedTicketId, setLinkedTicketId] = useState<number | null>(null);
   /** Every ticket on this thread beyond the one the bar names (a thread can be on several). */
   const [otherTicketCount, setOtherTicketCount] = useState(0);
-  /** D2: a finished ticket whose fix this customer has not been told about yet. */
-  const [owedTicketId, setOwedTicketId] = useState<number | null>(null);
+  /** D2: finished tickets whose fix this customer has not been told about yet. */
+  const [owedTicketIds, setOwedTicketIds] = useState<number[]>([]);
   const [ticketIds, setTicketIds] = useState<number[]>([]);
 
   // Loads can overlap (a socket event, the panel's announcement): only the latest may write.
@@ -272,7 +272,7 @@ export function MessageDetailHeader({
           setLinkedTicketId(res?.data?.id ?? null);
           setLinkedTicketStatus(res?.data?.status ?? null);
           setOtherTicketCount(0);
-          setOwedTicketId(null);
+          setOwedTicketIds([]);
           setTicketIds(res?.data ? [res.data.id] : []);
           return;
         }
@@ -283,7 +283,7 @@ export function MessageDetailHeader({
         setLinkedTicketId(headline?.ticketId ?? null);
         setLinkedTicketStatus(headline?.status ?? null);
         setOtherTicketCount(Math.max(0, result.rows.length - 1));
-        setOwedTicketId(result.rows.find((row) => row.owesReply === true)?.ticketId ?? null);
+        setOwedTicketIds(result.rows.filter((row) => row.owesReply === true).map((row) => row.ticketId));
         setTicketIds(result.rows.map((row) => row.ticketId));
       })
       .catch(() => {});
@@ -293,7 +293,7 @@ export function MessageDetailHeader({
     setLinkedTicketId(null);
     setLinkedTicketStatus(null);
     setOtherTicketCount(0);
-    setOwedTicketId(null);
+    setOwedTicketIds([]);
     setTicketIds([]);
     loadTickets();
   }, [loadTickets]);
@@ -940,9 +940,11 @@ export function MessageDetailHeader({
       {/* D2 — the incident is fixed and THIS customer has not been told. Nothing is sent for the
           agent; this is the prompt. Shown on a resolved thread too: the thread being resolved
           does not mean the customer heard the incident is fixed. */}
-      {owedTicketId !== null && (
+      {owedTicketIds.length > 0 && (
         <p className="px-4 pb-2 text-[11px] text-warning">
-          Ticket #{owedTicketId} is fixed — reply to tell this customer.
+          {owedTicketIds.length === 1
+            ? `Ticket #${owedTicketIds[0]} is fixed — reply to tell this customer.`
+            : `Tickets ${owedTicketIds.map((id) => `#${id}`).join(', ')} are fixed — reply to tell this customer.`}
         </p>
       )}
 

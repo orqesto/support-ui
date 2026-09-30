@@ -143,4 +143,21 @@ describe('ThreadTickets', () => {
     expect(getAll).toHaveBeenCalledTimes(2);
     expect(getAll.mock.calls[1][0]).toEqual({ search: 'login' });
   });
+
+  it('closing the picker inside the debounce drops that search — a reopened, empty picker never shows its results', async () => {
+    getAll.mockImplementation((filters?: { search?: string }) =>
+      Promise.resolve({
+        data: [{ id: filters?.search ? 77 : 9, title: filters?.search ? 'ACME result' : 'Default list', status: 'open' }],
+      })
+    );
+    renderPanel();
+    await userEvent.click(await screen.findByRole('button', { name: /Add to ticket/ }));
+    await screen.findByText('Default list');
+    await userEvent.type(screen.getByPlaceholderText(/Search tickets/), 'acme');
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(await screen.findByRole('button', { name: /Add to ticket/ }));
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(screen.queryByText('ACME result')).not.toBeInTheDocument();
+    expect(screen.getByText('Default list')).toBeInTheDocument();
+  });
 });

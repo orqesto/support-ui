@@ -110,7 +110,14 @@ export const ThreadTickets = ({ message, onChanged }: Props) => {
     [tickets]
   );
 
+  const cancelPendingSearch = () => {
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = null;
+    searchSeq.current += 1; // a search already in flight may no longer write
+  };
+
   const openPicker = () => {
+    cancelPendingSearch();
     setPickerOpen(true);
     setQuery('');
     setCandidates(null);
@@ -229,7 +236,7 @@ export const ThreadTickets = ({ message, onChanged }: Props) => {
                   been told yet. Only a TRUE owes; null = closed without a resolve (not a fix). */}
               {row.owesReply === true && (
                 <Badge variant="warning" size="sm">
-                  Ticket {words(row.status)} — reply to tell this customer
+                  Fixed — reply to tell this customer
                 </Badge>
               )}
             </li>
@@ -245,11 +252,22 @@ export const ThreadTickets = ({ message, onChanged }: Props) => {
 
       {error && <p className="text-[12px] text-destructive">{error}</p>}
 
-      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+      <Dialog
+        open={pickerOpen}
+        onOpenChange={(open) => {
+          if (!open) cancelPendingSearch();
+          setPickerOpen(open);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add this thread to a ticket</DialogTitle>
-            <DialogClose onClose={() => setPickerOpen(false)} />
+            <DialogClose
+              onClose={() => {
+                cancelPendingSearch();
+                setPickerOpen(false);
+              }}
+            />
           </DialogHeader>
           <div className="space-y-3">
             <SearchInput
