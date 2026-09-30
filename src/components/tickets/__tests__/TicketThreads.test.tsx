@@ -49,7 +49,13 @@ beforeEach(() => {
   vi.clearAllMocks();
   threadsOfTicket.mockResolvedValue({ unavailable: false, rows: [], hiddenCount: 0 });
   getThreads.mockResolvedValue({
-    data: [{ latestMessage: { id: 21, subject: 'Checkout fails', sender: 'bob@other.example' } }],
+    // The real shape: the sender is on the THREAD row; latestMessage carries requesterEmail only.
+    data: [
+      {
+        sender: 'bob@other.example',
+        latestMessage: { id: 21, subject: 'Checkout fails', requesterEmail: 'bob@other.example' },
+      },
+    ],
   });
   addThreads.mockResolvedValue({ added: [21], alreadyAttached: [] });
 });
@@ -111,6 +117,8 @@ describe('TicketThreads', () => {
     await waitFor(() => expect(getThreads).toHaveBeenCalled());
     const filters: unknown = getThreads.mock.calls[0]?.[0];
     expect(filters).toEqual({ lifecycle: 'all' });
+    // Who reported it — from the thread row (staging showed every row as "· subject").
+    await waitFor(() => expect(screen.getByRole('dialog')).toHaveTextContent('bob@other.example'));
     await userEvent.click(await screen.findByRole('button', { name: /^Add$/ }));
     await waitFor(() => expect(addThreads).toHaveBeenCalledWith(4, [21]));
   });

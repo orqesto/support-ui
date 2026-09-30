@@ -177,12 +177,22 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
         PICKER_LIMIT
       );
       if (seq !== searchSeq.current) return;
-      const rows = (res.data ?? []) as unknown as Array<{ latestMessage?: Message }>;
+      const rows = (res.data ?? []) as unknown as Array<{
+        latestMessage?: Message;
+        sender?: string | null;
+      }>;
       const already = new Set(threadsNow.current.map((row) => row.conversationId));
       setCapped(rows.length >= PICKER_LIMIT);
       setCandidates(
         rows
-          .map((row) => row.latestMessage)
+          // The customer's address lives on the THREAD row (what the list shows), not on its
+          // latestMessage — reading only the message left every row as "· subject" on staging
+          // (the same trap MergeThreads fixed).
+          .map((row) =>
+            row.latestMessage
+              ? { ...row.latestMessage, sender: row.sender ?? row.latestMessage.sender }
+              : undefined
+          )
           .filter((row): row is Message => !!row && !already.has(row.id))
           .map((row) => ({
             id: row.id,
