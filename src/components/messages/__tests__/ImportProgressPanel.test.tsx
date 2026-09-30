@@ -6,11 +6,11 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { describeEta, formatMinutes, ImportProgressPanel } from '../ImportProgressPanel';
-import type { ImportProgress, StageProgress } from '@/services/importProgress.service';
+import type { StageProgress, TrackedImport } from '@/services/importProgress.service';
 
 afterEach(cleanup);
 
-type Tracked = Extract<ImportProgress, { tracked: true }>;
+type Tracked = TrackedImport;
 
 const run: Tracked['run'] = {
   state: 'ready',

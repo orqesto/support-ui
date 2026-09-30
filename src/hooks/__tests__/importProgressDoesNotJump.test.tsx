@@ -9,7 +9,7 @@
  *  3. A run that DEFERRED under load was shown as complete.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, cleanup, render, renderHook, screen } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import type { ProcessingSession } from '@/hooks/useEmailProcessingSessions';
 import { useEmailProcessingSessions } from '@/hooks/useEmailProcessingSessions';
 import { makeKBHandlers } from '@/hooks/useEmailProcessingKBHandlers';
@@ -26,14 +26,8 @@ vi.mock('@/lib/socketManager', () => ({
   unsubscribeFromEvent: () => undefined,
   releaseSocket: () => undefined,
 }));
-vi.mock('@/hooks/useMediaQuery', () => ({ useMediaQuery: () => false }));
-vi.mock('@/hooks/useAiConfigured', () => ({ useAiConfigured: () => ({ aiConfigured: true }) }));
-vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
 
 const { useEmailProcessingSocket } = await import('@/hooks/useEmailProcessingSocket');
-const { MessageProcessingProgress } = await import(
-  '@/components/messages/MessageProcessingProgress'
-);
 
 type Sessions = Map<string, ProcessingSession>;
 
@@ -176,34 +170,6 @@ describe('3. a deferred run is shown as paused, not complete', () => {
       data: { total: 5, processed: 5 },
     });
     expect(session().deferred).toBe(false);
-  });
-
-  describe('the widget', () => {
-    beforeEach(() => localStorage.clear());
-    afterEach(cleanup);
-
-    const done = (deferred: boolean) =>
-      fetchSession({
-        status: 'complete',
-        isProcessing: false,
-        total: 2487,
-        processed: 0,
-        deferred,
-      });
-
-    it('says Paused and how much is saved', () => {
-      render(<MessageProcessingProgress session={done(true)} index={0} onClose={vi.fn()} />);
-      expect(screen.getByText('Paused')).toBeTruthy();
-      expect(screen.queryByText('Complete')).toBeNull();
-      expect(screen.getByText(/0 of 2487 saved so far/)).toBeTruthy();
-      expect(screen.queryByText(/Processed 0/)).toBeNull();
-    });
-
-    it('CONTROL — a finished run still says Complete', () => {
-      render(<MessageProcessingProgress session={done(false)} index={0} onClose={vi.fn()} />);
-      expect(screen.getByText('Complete')).toBeTruthy();
-      expect(screen.queryByText('Paused')).toBeNull();
-    });
   });
 });
 

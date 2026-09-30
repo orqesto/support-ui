@@ -5,4 +5,3 @@ export { MessageKBReferences } from './MessageKBReferences';
 export { KanbanCard } from './KanbanCard';
 export { MessagesKanbanView } from './MessagesKanbanView';
 export { MessageListItem } from './MessageListItem';
-export { MessageProcessingProgress } from './MessageProcessingProgress';

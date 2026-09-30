@@ -1,10 +1,10 @@
 import { Progress } from '@/components/ui/Progress';
 import { Spinner } from '@/components/ui/Spinner';
 import type {
-  ImportProgress,
   ImportStage,
   StageEta,
   StageProgress,
+  TrackedImport,
 } from '@/services/importProgress.service';
 
 const STAGE_LABEL: Record<ImportStage, string> = {
@@ -113,11 +113,7 @@ const StageRow = ({ stage, capped }: { stage: StageProgress; capped: boolean }) 
  * overwrote in turn (taco, 2026-09-25: "0 / 2173 · 0%" and "50 / 51 · 98%" a minute apart, then
  * "Complete" with ~2,100 still to import).
  */
-export const ImportProgressPanel = ({
-  data,
-}: {
-  data: Extract<ImportProgress, { tracked: true }>;
-}) => {
+export const ImportProgressPanel = ({ data }: { data: TrackedImport }) => {
   const { run, progress } = data;
   if (run.state === 'counting') {
     return (
