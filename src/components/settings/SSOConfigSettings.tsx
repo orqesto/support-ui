@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useResultFor } from '@/hooks/useResultFor';
 import { Link } from 'react-router-dom';
 import { KeyRound, Copy, Check, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -130,7 +131,16 @@ export const SSOConfigSettings = () => {
   const [provider, setProvider] = useState('custom');
   const [copied, setCopied] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<SsoTestResult | null>(null);
+  const ssoTestInput = () => ({
+    issuerUrl: issuerUrl.trim(),
+    clientId: clientId.trim(),
+    clientSecret: clientSecret.trim() || undefined,
+  });
+  const {
+    result: testResult,
+    keep: keepTestResult,
+    clear: clearTestResult,
+  } = useResultFor<SsoTestResult>(JSON.stringify(ssoTestInput()));
 
   // Resolve alliance membership first. On error, fail open to the editable tab
   // (the BE per-org endpoints stay guarded regardless).
@@ -191,7 +201,7 @@ export const SSOConfigSettings = () => {
   // test result since the target changed.
   const applyProvider = (id: string) => {
     setProvider(id);
-    setTestResult(null);
+    clearTestResult();
     const preset = PROVIDERS.find((prov) => prov.id === id);
     if (!preset || id === 'custom') return;
     setIssuerUrl(preset.issuer);
@@ -210,19 +220,19 @@ export const SSOConfigSettings = () => {
 
   const handleTest = async () => {
     setTesting(true);
-    setTestResult(null);
+    clearTestResult();
+    const input = ssoTestInput();
+    const testedKey = JSON.stringify(input);
     try {
-      const result = await testSsoConfig({
-        issuerUrl: issuerUrl.trim(),
-        clientId: clientId.trim(),
-        clientSecret: clientSecret.trim() || undefined,
-      });
-      setTestResult(result);
+      keepTestResult(await testSsoConfig(input), testedKey);
     } catch (err: unknown) {
-      setTestResult({
-        ok: false,
-        message: err instanceof Error ? err.message : 'Test failed. Please try again.',
-      });
+      keepTestResult(
+        {
+          ok: false,
+          message: err instanceof Error ? err.message : 'Test failed. Please try again.',
+        },
+        testedKey
+      );
     } finally {
       setTesting(false);
     }

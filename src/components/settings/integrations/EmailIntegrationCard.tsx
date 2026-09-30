@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useResultFor } from '@/hooks/useResultFor';
 import {
   Mail,
   Plus,
@@ -75,12 +76,31 @@ export const EmailIntegrationCard = ({
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState<number | null>(null);
   const [checkingCount, setCheckingCount] = useState(false);
-  const [messageCount, setMessageCount] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [config, setConfig] = useState<EmailConfig>(defaultConfig);
+  const imapCheckInput = () => ({
+    host: config.host,
+    port: config.port,
+    user: config.user,
+    password: config.password,
+    secure: config.secure,
+    searchCriteria: config.searchCriteria,
+    lookbackDays: config.lookbackDays,
+    // Editing an existing source: the form holds the MASKED password it was seeded with,
+    // so the backend needs the id to substitute the stored secret before dialling.
+    ...(editingId !== null ? { integrationId: editingId } : {}),
+  });
+  // "Found N messages matching your criteria" is about the criteria the check ran with, and a
+  // check that lands after the form changed must not claim it for the new ones.
+  const {
+    result: messageCount,
+    keep: keepMessageCount,
+    clear: clearMessageCount,
+    isCurrent: imapCheckIsCurrent,
+  } = useResultFor<number | null>(JSON.stringify(imapCheckInput()));
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [editBulkImport, setEditBulkImport] = useState<{
     id: number;
@@ -104,23 +124,16 @@ export const EmailIntegrationCard = ({
 
   const handleCheckMessagesCount = async () => {
     setCheckingCount(true);
-    setMessageCount(null);
+    clearMessageCount();
+    const input = imapCheckInput();
+    const checkedKey = JSON.stringify(input);
     try {
-      const result = await integrationsService.testImapConfig({
-        host: config.host,
-        port: config.port,
-        user: config.user,
-        password: config.password,
-        secure: config.secure,
-        searchCriteria: config.searchCriteria,
-        lookbackDays: config.lookbackDays,
-        // Editing an existing source: the form holds the MASKED password it was seeded with,
-        // so the backend needs the id to substitute the stored secret before dialling.
-        ...(editingId !== null ? { integrationId: editingId } : {}),
-      });
+      const result = await integrationsService.testImapConfig(input);
+      // The form changed while the check ran: its answer is about settings no longer on screen.
+      if (!imapCheckIsCurrent(checkedKey)) return;
 
       if (result.success && result.data) {
-        setMessageCount(result.data.details?.messageCount ?? null);
+        keepMessageCount(result.data.details?.messageCount ?? null, checkedKey);
         onShowAlert({
           open: true,
           title: 'Connection Successful',
@@ -136,6 +149,7 @@ export const EmailIntegrationCard = ({
         });
       }
     } catch (error) {
+      if (!imapCheckIsCurrent(checkedKey)) return;
       onShowAlert({
         open: true,
         title: 'Connection Failed',
@@ -188,7 +202,7 @@ export const EmailIntegrationCard = ({
     setShowForm(false);
     setEditingId(null);
     setEditingName(null);
-    setMessageCount(null);
+    clearMessageCount();
     setShowAdvanced(false);
   };
 

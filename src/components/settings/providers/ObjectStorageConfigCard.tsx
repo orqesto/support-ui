@@ -1,5 +1,6 @@
 import { HardDrive, Save, TestTube2, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useResultFor } from '@/hooks/useResultFor';
 import { Button } from '@/components/ui/Button';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -119,7 +120,11 @@ export const ObjectStorageConfigCard = () => {
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<StorageTestResult | null>(null);
+  const {
+    result: testResult,
+    keep: keepTestResult,
+    clear: clearTestResult,
+  } = useResultFor<StorageTestResult>(JSON.stringify(toPayload(form)));
   /** Set only when the API tells us the platform region; null on an older API. */
   const [platformRegion, setPlatformRegion] = useState<string | null>(null);
 
@@ -203,19 +208,24 @@ export const ObjectStorageConfigCard = () => {
 
   const handleTest = async () => {
     setTesting(true);
-    setTestResult(null);
+    clearTestResult();
+    const payload = toPayload(form);
+    const testedKey = JSON.stringify(payload);
     try {
       const res = await apiClient.post<{ success: boolean; data: StorageTestResult }>(
         '/api/integrations/test-storage',
-        toPayload(form)
+        payload
       );
-      setTestResult(res.data.data);
+      keepTestResult(res.data.data, testedKey);
     } catch (err) {
-      setTestResult({
-        ok: false,
-        latencyMs: 0,
-        error: err instanceof Error ? err.message : 'Request failed',
-      });
+      keepTestResult(
+        {
+          ok: false,
+          latencyMs: 0,
+          error: err instanceof Error ? err.message : 'Request failed',
+        },
+        testedKey
+      );
     } finally {
       setTesting(false);
     }
@@ -239,7 +249,7 @@ export const ObjectStorageConfigCard = () => {
     try {
       await apiClient.delete('/api/integrations/storage-config');
       toast.success('Object storage configuration removed');
-      setTestResult(null);
+      clearTestResult();
       await load();
     } catch (err) {
       toast.failure('Remove storage config', err);
