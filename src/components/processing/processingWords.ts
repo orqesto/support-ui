@@ -1,4 +1,4 @@
-import type { RunView } from '@/services/importProgress.service';
+import type { RunProblem, RunView } from '@/services/importProgress.service';
 
 /**
  * Why a run stopped before it had looked at everything it found (support-service holdReason
@@ -27,6 +27,45 @@ export const describePause = (run: RunView): string | null => {
   // `deferred` without a code: the run yielded to live mail under load (runLedger `deferred`).
   if (run.deferred) return 'Paused because the server was busy. The rest follow on the next check.';
   return 'Stopped before it had looked at everything. The rest follow on the next check.';
+};
+
+/** One sentence per problem the backend names on a run (runsView `problemsOf`). */
+const PROBLEM_SENTENCE: Record<RunProblem, (run: RunView) => string | null> = {
+  // `failed` also stands for an `error` outcome; the run details say both when both are true.
+  failed: (run) => {
+    const kb = run.channel === 'kb';
+    const them = run.failed === 1 ? 'it' : 'them';
+    const counted =
+      run.failed === 0
+        ? null
+        : kb
+          ? `${plural(run.failed, 'conversation', 'conversations')} could not be mined. Re-mine the mailbox to read ${them} again.`
+          : `${plural(run.failed, 'message', 'messages')} could not be saved; the next check fetches ${them} again.`;
+    const errored =
+      run.outcome !== 'error'
+        ? null
+        : kb
+          ? 'The mine stopped on an error. Re-mine the mailbox to try again.'
+          : 'The check stopped on an error. The next check tries again.';
+    return [counted, errored].filter(Boolean).join(' ') || null;
+  },
+  paused: describePause,
+  interrupted: (run) =>
+    `This ${run.channel === 'kb' ? 'mine' : 'check'} stopped before it finished (for example on a restart).`,
+  stalled: (run) =>
+    `Work is left, and this ${run.channel === 'kb' ? 'mine' : 'check'} ended over 30 minutes ago.`,
+};
+
+/**
+ * What an older run still wants attention for, from its CURRENT problems — never from its outcome
+ * alone: a failure a later clean run superseded is history, and describing it hid the real
+ * problem (staging 2026-09-30: "1 could not be saved" on a run whose only problem was `stalled`).
+ */
+export const describeRunProblems = (run: RunView): string | null => {
+  const sentences = run.problems
+    .map((problem) => PROBLEM_SENTENCE[problem]?.(run) ?? null)
+    .filter((sentence): sentence is string => sentence !== null);
+  return sentences.length > 0 ? sentences.join(' ') : null;
 };
 
 export type RunStatus =

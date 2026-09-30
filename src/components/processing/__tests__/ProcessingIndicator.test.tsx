@@ -53,6 +53,18 @@ describe('ProcessingIndicator', () => {
     expect(screen.getByTestId('processing-indicator').textContent).toBe('5+');
   });
 
+  it('the floor sits on the number, not on the noun (staging 2026-09-30: "1 mail check or mine+")', () => {
+    render(
+      <ProcessingIndicator
+        entries={[entry({ inProgress: 1, problems: 1, countCapped: true })]}
+        onOpen={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId('processing-indicator').getAttribute('aria-label')).toBe(
+      '1+ mail checks or mines still processing; 1+ problems to look at'
+    );
+  });
+
   it('an unreadable mailbox is named, not counted as a problem', () => {
     render(
       <ProcessingIndicator

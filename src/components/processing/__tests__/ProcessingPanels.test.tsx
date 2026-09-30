@@ -299,6 +299,8 @@ describe('a problem', () => {
         runs: [
           makeRun({ id: 'r2', outcome: 'paused', stoppedBy: 'daily_limit', problems: ['paused'] }),
           makeRun({ id: 'r1', failed: 2, outcome: 'failed', problems: ['failed'] }),
+          // Staging 2026-09-30: a failure a later clean run superseded, left with work only.
+          makeRun({ id: 'r0', failed: 1, outcome: 'failed', problems: ['stalled'] }),
         ],
       })
     );
@@ -306,7 +308,13 @@ describe('a problem', () => {
     await settle();
     expect(screen.getByTestId('processing-panel')).toBeTruthy();
     expect(screen.getByText(/Paused because Gmail's daily limit/)).toBeTruthy();
-    expect(screen.getByText(/Not all saved\. 2 could not be saved/)).toBeTruthy();
+    expect(
+      screen.getByText(
+        /Not all saved\. 2 messages could not be saved; the next check fetches them again/
+      )
+    ).toBeTruthy();
+    expect(screen.getByText(/Not all saved\. Work is left, and this check ended/)).toBeTruthy();
+    expect(screen.queryByText(/\b1 (message )?could not be saved/)).toBeNull();
   });
 
   it('a failed knowledge-base thread opens it too, with a link to the conversation', async () => {

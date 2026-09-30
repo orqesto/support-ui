@@ -19,7 +19,7 @@ import {
   SMALL_RUN_BELOW,
   writeClosedProblems,
 } from './panelRules';
-import { describePause, formatRunTime, plural, runStatusLabel } from './processingWords';
+import { describeRunProblems, formatRunTime, runStatusLabel } from './processingWords';
 import { RecentRuns } from './RecentRuns';
 import { RunDetails } from './RunDetails';
 import { useDraggablePosition } from './useDraggablePosition';
@@ -88,15 +88,7 @@ const importMoving = (
 
 /** An earlier run that still wants attention, in one line. */
 const OlderProblem = ({ run }: { run: RunView }) => {
-  const detail =
-    run.failed > 0
-      ? run.channel === 'kb'
-        ? `${plural(run.failed, 'conversation', 'conversations')} could not be mined.`
-        : `${run.failed.toLocaleString()} could not be saved; the next check fetches them again.`
-      : (describePause(run) ??
-        (run.problems.includes('stalled')
-          ? 'Work is left, and this check ended over 30 minutes ago.'
-          : null));
+  const detail = describeRunProblems(run);
   return (
     <li>
       {run.channel === 'kb' ? 'Knowledge-base mining' : 'Check'} at {formatRunTime(run.startedAt)}:{' '}
