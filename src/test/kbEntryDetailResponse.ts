@@ -39,7 +39,8 @@ export const kbEntryDetailResponse = (options: DetailOptions): { success: true; 
     id: options.id,
     type: 'qa_pair' as const,
     title: options.title ?? question,
-    content: `Question: ${question}\nAnswer: ${answer}`,
+    // The shape every backend writer builds (blank line between the halves).
+    content: `Question: ${question}\n\nAnswer: ${answer}`,
     similarity: 1,
     qualityScore: 0.8,
     topics: [],

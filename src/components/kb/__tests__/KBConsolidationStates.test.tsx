@@ -37,7 +37,7 @@ const entry = (over: Partial<KBEntry> = {}): KBEntry => ({
   id: 7,
   type: 'qa_pair',
   title: 'Where is my refund?',
-  content: 'Question: Where is my refund?\nAnswer: 5 days.',
+  content: 'Question: Where is my refund?\n\nAnswer: 5 days.',
   category: 'support',
   departmentId: null,
   qualityScore: 0.8,
@@ -189,9 +189,8 @@ describe('KB list — consolidation states (F4)', () => {
     fireEvent.change(screen.getByLabelText('Answer'), { target: { value: '7 days.' } });
     fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
     await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    // Only what changed (FE pass 22): the halves — title and category were not touched.
     expect(update).toHaveBeenCalledWith(9, {
-      title: 'Where is my refund?',
-      category: 'support',
       question: 'Where is my refund?',
       answer: '7 days.',
       // Also as content: a backend without question/answer support still applies it (pass 20 LOW-3).
@@ -228,7 +227,11 @@ describe('KB list — consolidation states (F4)', () => {
     await waitFor(() => expect(getById).toHaveBeenCalled());
     fireEvent.click(await screen.findByRole('button', { name: /Edit/ }));
     expect(screen.getByLabelText('Answer')).toHaveValue('10 working days (corrected).');
-    expect(screen.getByText(/they still used the earlier text/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /differs from the question and answer AI drafts use\. The fields below start from the shown text/
+      )
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
     await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
     expect(update).toHaveBeenCalledWith(
@@ -253,7 +256,93 @@ describe('KB list — consolidation states (F4)', () => {
     await waitFor(() => expect(getById).toHaveBeenCalled());
     fireEvent.click(await screen.findByRole('button', { name: /Edit/ }));
     expect(screen.getByLabelText('Answer')).toHaveValue('5 days.');
-    expect(screen.queryByText(/they still used the earlier text/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        /differs from the question and answer AI drafts use\. The fields below start from the shown text/
+      )
+    ).not.toBeInTheDocument();
+  });
+
+  it('FE pass 22 LOW-1: a free-form correction (content not in Question/Answer shape) is never overwritten by a title-only save', async () => {
+    const base = kbEntryDetailResponse({
+      id: 14,
+      approved: true,
+      question: 'Refund time?',
+      answer: '5 days.',
+    });
+    getById.mockResolvedValue({
+      ...base,
+      data: { ...base.data, content: 'Refunds take 10 working days (corrected by support).' },
+    });
+    update.mockResolvedValue({ success: true, data: base.data });
+    const row = entry({
+      id: 14,
+      approved: true,
+      typeData: { question: 'Refund time?', answer: '5 days.' },
+    });
+    render(
+      <MemoryRouter>
+        <KBEntryDetail entry={row} onClose={vi.fn()} canReview {...handlers()} />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(getById).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole('button', { name: /Edit/ }));
+    expect(
+      screen.getByText(/Saving without changing them leaves both as they are/)
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Answer')).toHaveValue('5 days.');
+    fireEvent.change(screen.getByLabelText('Title'), {
+      target: { value: 'Refund time (renamed)' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    expect(update).toHaveBeenCalledWith(14, { title: 'Refund time (renamed)' });
+  });
+
+  it('FE pass 22 LOW-2: a question quoting "Answer:" after a blank line is NOT read as drifted; a title-only save sends only the title', async () => {
+    const question = 'Your FAQ says:\n\nAnswer: 3 days. Is that still right?';
+    const detail = kbEntryDetailResponse({
+      id: 15,
+      approved: true,
+      question,
+      answer: 'Yes, 3 days.',
+    });
+    getById.mockResolvedValue(detail);
+    update.mockResolvedValue({ success: true, data: detail.data });
+    const row = entry({ id: 15, approved: true, typeData: { question, answer: 'Yes, 3 days.' } });
+    render(
+      <MemoryRouter>
+        <KBEntryDetail entry={row} onClose={vi.fn()} canReview {...handlers()} />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(getById).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole('button', { name: /Edit/ }));
+    expect(
+      screen.queryByText(/differs from the question and answer AI drafts use/)
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Question')).toHaveValue(question);
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'FAQ check' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    expect(update).toHaveBeenCalledWith(15, { title: 'FAQ check' });
+  });
+
+  it('FE pass 22 LOW-4: an unedited entry in the real content shape shows no note, and with nothing changed there is nothing to save', async () => {
+    getById.mockResolvedValue(
+      kbEntryDetailResponse({ id: 16, approved: true, question: 'Q1?', answer: 'A1.' })
+    );
+    const row = entry({ id: 16, approved: true, typeData: { question: 'Q1?', answer: 'A1.' } });
+    render(
+      <MemoryRouter>
+        <KBEntryDetail entry={row} onClose={vi.fn()} canReview {...handlers()} />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(getById).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole('button', { name: /Edit/ }));
+    expect(
+      screen.queryByText(/differs from the question and answer AI drafts use/)
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Save Changes/ })).toBeDisabled();
   });
 
   it('FE pass 20 LOW-4: a Q&A edit with a blank answer cannot be saved (the backend would keep the old one)', async () => {

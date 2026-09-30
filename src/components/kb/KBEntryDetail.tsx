@@ -42,7 +42,7 @@ import {
   mayRemoveCase,
   offersReviewActions,
 } from '@/lib/kbConsolidation';
-import { editableQaOf } from '@/lib/kbQaText';
+import { editableQaOf, QA_DRIFT_NOTE, qaCanSave, qaSaveBody } from '@/lib/kbQaText';
 
 const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico']);
 const isImageFile = (filename: string) =>
@@ -153,7 +153,10 @@ export const KBEntryDetail = ({
   const [editsQa, setEditsQa] = useState(false);
   // The drawer holds the entry's FULL text only once the detail route answered.
   const [detailLoaded, setDetailLoaded] = useState(false);
-  const [qaDrifted, setQaDrifted] = useState(false);
+  // The Q&A edit's baseline: the halves AI drafts read, how the shown text relates, the start values.
+  const [qaEdit, setQaEdit] = useState<
+    (NonNullable<ReturnType<typeof editableQaOf>> & { title: string; category: string }) | null
+  >(null);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -186,7 +189,11 @@ export const KBEntryDetail = ({
     if (displayEntry) {
       const qaText = editableQaOf(displayEntry, detailLoaded);
       setEditsQa(qaText !== null);
-      setQaDrifted(qaText?.drifted ?? false);
+      setQaEdit(
+        qaText
+          ? { ...qaText, title: displayEntry.title, category: displayEntry.category }
+          : null
+      );
       setEditForm({
         title: displayEntry.title,
         content: displayEntry.content,
@@ -206,16 +213,8 @@ export const KBEntryDetail = ({
     try {
       const response = await kbService.update(
         displayEntry.id,
-        editsQa
-          ? {
-              title: editForm.title,
-              category: editForm.category,
-              question: editForm.question,
-              answer: editForm.answer,
-              // Also as content, which a backend without question/answer support reads — it
-              // would otherwise drop the edit and still answer 200 (FE pass 20 LOW-3).
-              content: `Question: ${editForm.question}\n\nAnswer: ${editForm.answer}`,
-            }
+        editsQa && qaEdit
+          ? qaSaveBody(editForm, qaEdit, qaEdit.own)
           : { title: editForm.title, content: editForm.content, category: editForm.category }
       );
       if (response.success && response.data) {
@@ -610,11 +609,8 @@ export const KBEntryDetail = ({
               {editError}
             </div>
           )}
-          {editsQa && qaDrifted && (
-            <p className="mb-4 text-sm text-muted-foreground">
-              This entry was edited before in a way AI drafts did not pick up: they still used the
-              earlier text. Below is the edited text; saving makes AI drafts use it too.
-            </p>
+          {editsQa && qaEdit && qaEdit.drift !== 'none' && (
+            <p className="mb-4 text-sm text-muted-foreground">{QA_DRIFT_NOTE[qaEdit.drift]}</p>
           )}
           {displayEntry && isCaseRow(displayEntry) && (
             <p className="mb-4 text-sm text-muted-foreground">
@@ -697,8 +693,7 @@ export const KBEntryDetail = ({
             variant="primary"
             onClick={handleSaveEdit}
             isLoading={saving}
-            // A blank half would silently keep the old text on the backend (FE pass 20 LOW-4).
-            disabled={editsQa && (!editForm.question.trim() || !editForm.answer.trim())}
+            disabled={editsQa && qaEdit !== null && !qaCanSave(editForm, qaEdit)}
           >
             Save Changes
           </Button>
