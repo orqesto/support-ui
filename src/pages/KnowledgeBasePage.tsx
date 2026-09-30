@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { FileText, MessageSquare, Settings, X, Filter, Library } from 'lucide-react';
 import { Tabs, type Tab } from '@/components/ui/Tabs';
@@ -27,14 +27,12 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { usePermissions } from '@/hooks/usePermissions';
 import { logger } from '@/lib/logger';
-import { apiErrorStatus } from '@/lib/apiError';
-import { getApiErrorMessage } from '@/lib/errorMessages';
 import { kbService, type KBEntry, type PaginationMeta } from '@/services/kb.service';
 import { Permission } from '@/types/roles';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useUiFlags } from '@/hooks/useUiFlags';
 import { isCaseRow, unmergeConsequence } from '@/lib/kbConsolidation';
-import { kbConsolidationService } from '@/services/kbConsolidation.service';
+import { runCaseAction } from '@/components/kb/runCaseAction';
 
 /** An action on a merged CASE row — each one unmerges it, so each is confirmed first. */
 type CaseAction = { entry: KBEntry; action: 'hide' | 'reject' | 'delete' | 'unmerge' };
@@ -313,43 +311,7 @@ export const KnowledgeBasePage = () => {
     if (!caseAction) return;
     const { entry, action } = caseAction;
     setCaseAction(null);
-    try {
-      let restored: number | undefined;
-      if (action === 'unmerge')
-        restored = (await kbConsolidationService.unmerge(entry.id)).restored;
-      else if (action === 'hide') restored = (await kbService.hide(entry.id)).data?.restored;
-      else if (action === 'reject') restored = (await kbService.reject(entry.id)).data?.restored;
-      else restored = (await kbService.delete(entry.id)).data?.restored;
-      if (selectedEntry?.id === entry.id) handleCloseEntry();
-      // The case row is gone and its originals are back — the page must be re-read, not patched.
-      await fetchEntries(pagination.page);
-      setAlertDialog({
-        open: true,
-        title: 'Case unmerged',
-        description:
-          restored === 0
-            ? 'The merge was undone. No original entries were left to bring back.'
-            : typeof restored === 'number'
-              ? `${restored} original ${restored === 1 ? 'entry is' : 'entries are'} back in the knowledge base.`
-              : 'Its original entries are back in the knowledge base.',
-        variant: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to unmerge case:', error);
-      // Most often someone else unmerged it meanwhile (404): the row shown is stale, and every
-      // retry would fail the same way until a manual refresh (FE pass 14 LOW-2) — and so is a
-      // drawer open on it (FE pass 15 LOW-1).
-      if (apiErrorStatus(error) === 404 && selectedEntry?.id === entry.id) handleCloseEntry();
-      // Re-read FIRST, then say why the action failed: a re-read that fails too must not
-      // replace that reason with its own "Failed to Load" (FE pass 15 LOW-2).
-      await fetchEntries(pagination.page);
-      setAlertDialog({
-        open: true,
-        title: 'Could not unmerge',
-        description: getApiErrorMessage(error) ?? 'The case was not changed. Try again.',
-        variant: 'error',
-      });
-    }
+    setAlertDialog(await runCaseAction(entry, action, () => latest.current));
   };
 
   const handleUpdate = (updatedEntry: KBEntry) => {
@@ -382,6 +344,20 @@ export const KnowledgeBasePage = () => {
     // setSearchParams strips location.hash — go through navigate to keep the tab hash.
     navigate({ search: params.toString(), hash: location.hash });
   };
+
+  // What a case action reads when its request ANSWERS, not when its confirm was clicked.
+  const latest = useRef({
+    selectedId: null as number | null,
+    close: () => {},
+    refetch: (): Promise<void> => Promise.resolve(),
+  });
+  useEffect(() => {
+    latest.current = {
+      selectedId: selectedEntry?.id ?? null,
+      close: handleCloseEntry,
+      refetch: () => fetchEntries(pagination.page),
+    };
+  });
 
   const openDeleteDialog = (entry: KBEntry) => {
     setEntryToDelete(entry);

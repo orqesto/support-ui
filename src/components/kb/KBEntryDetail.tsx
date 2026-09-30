@@ -611,7 +611,7 @@ export const KBEntryDetail = ({
               This is a merged case. Edit its wording here; to change what this case is about,
               {mayRemoveCase(displayEntry)
                 ? ' Unmerge it.'
-                : ' a moderator covering all of its departments can Unmerge it.'}
+                : ' only a moderator covering every department it serves, or an org admin, can Unmerge it.'}
             </p>
           )}
           <div className="space-y-4">
