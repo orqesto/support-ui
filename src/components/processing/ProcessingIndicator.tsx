@@ -22,11 +22,14 @@ export const ProcessingIndicator = ({
   if (inProgress === 0 && problems === 0 && unreadable === 0) return null;
   // Older runs were left uncounted: every number here is a floor.
   const floor = entries.some((entry) => entry.countCapped) ? '+' : '';
+  // "1+ mail checks", never "1 mail check+": the floor belongs to the number, and a floor is plural.
+  const count = (amount: number, one: string, many: string) =>
+    floor ? `${amount.toLocaleString()}${floor} ${many}` : plural(amount, one, many);
   const lines = [
     inProgress > 0
-      ? `${plural(inProgress, 'mail check or mine', 'mail checks or mines')}${floor} still processing`
+      ? `${count(inProgress, 'mail check or mine', 'mail checks or mines')} still processing`
       : null,
-    problems > 0 ? `${plural(problems, 'problem', 'problems')}${floor} to look at` : null,
+    problems > 0 ? `${count(problems, 'problem', 'problems')} to look at` : null,
     // What failed is Odly's record of the checks, not the mailbox connection.
     unreadable > 0
       ? `${plural(unreadable, "mailbox's", "mailboxes'")} recent checks could not be read`
