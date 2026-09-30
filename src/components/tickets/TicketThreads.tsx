@@ -125,7 +125,6 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
     setPickerOpen(false);
     setCandidates(null);
     setQuery('');
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset on a ticket switch only
   }, [ticketId]);
 
   useEffect(() => {

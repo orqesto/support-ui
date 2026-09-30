@@ -90,7 +90,7 @@ describe('TicketThreads', () => {
     });
     renderList();
     expect(await screen.findByText('ticket created from this')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: /^(Remove|Take this thread off)/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Remove ada@example.com’s thread from this ticket' }));
     await waitFor(() => expect(removeThread).toHaveBeenCalledWith(4, 12));
   });
 
@@ -217,7 +217,7 @@ describe('TicketThreads', () => {
         <TicketThreads ticketId={4} fallback={<p>legacy</p>} />
       </MemoryRouter>
     );
-    await userEvent.click(await screen.findByRole('button', { name: /^(Remove|Take this thread off)/ }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove a-other@x.example’s thread from this ticket' }));
     rerender(
       <MemoryRouter>
         <TicketThreads ticketId={5} fallback={<p>legacy</p>} />

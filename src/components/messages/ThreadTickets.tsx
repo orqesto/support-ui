@@ -226,7 +226,7 @@ export const ThreadTickets = ({ message, onChanged }: Props) => {
                       size="sm"
                       onClick={() => void remove(row.ticketId)}
                       disabled={busy}
-                      aria-label={`Take this thread off ticket #${row.ticketId}`}
+                      aria-label={`Remove from ticket #${row.ticketId}: ${row.title}`}
                     >
                       Remove
                     </Button>
