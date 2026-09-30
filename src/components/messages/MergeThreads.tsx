@@ -74,8 +74,9 @@ type Props = {
 };
 
 /**
- * "These are the SAME conversation." Unlike Link (same piece of work, two tickets), a merge
- * leaves ONE ticket: the others' messages move in and they leave the inbox. Undoable here.
+ * "These are the SAME conversation." Unlike adding threads to a ticket (related reports, each
+ * thread stays), a merge leaves ONE thread: the others' messages move in and they leave the
+ * inbox. Undoable here.
  *
  * ⛔ Hidden entirely when the backend cannot answer `GET /merges` — an older backend has no merge
  * route, and offering a button that 404s would be worse than not offering it.

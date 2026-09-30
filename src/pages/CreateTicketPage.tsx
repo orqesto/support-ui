@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Paperclip, X, File, Sparkles } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
@@ -32,6 +32,9 @@ export const CreateTicketPage = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(false);
+  /** Set once a ticket was created: the form stays disabled until the redirect. */
+  const [created, setCreated] = useState(false);
+  const submittedRef = useRef(false);
   const [aiSuggestions, setAiSuggestions] = useState<{
     category?: string;
     priority?: string;
@@ -278,6 +281,14 @@ export const CreateTicketPage = () => {
     if (!messageId) {
       return;
     }
+    /*
+      One ticket per press. Every create makes a NEW ticket now — a thread may be on several
+      (2026-09-30) — so a second click is a second ticket, not the same one handed back. The ref
+      stops a double click before React re-renders the disabled button, and stays set after a
+      success until the page navigates away.
+    */
+    if (submittedRef.current) return;
+    submittedRef.current = true;
 
     setLoading(true);
     try {
@@ -304,8 +315,12 @@ export const CreateTicketPage = () => {
         clearMessagesCache(); // Clear messages cache since message is now processed
         // Navigate to the newly created ticket after a short delay
         setTimeout(() => navigate(`/tickets/${ticketId}`), 1500);
+        setCreated(true);
+      } else {
+        submittedRef.current = false;
       }
     } catch (error) {
+      submittedRef.current = false;
       logger.error('Failed to create ticket:', error);
       setAlertDialog({
         open: true,
@@ -560,7 +575,7 @@ export const CreateTicketPage = () => {
                   />
                 </label>
                 <div className="flex gap-2">
-                  <Button type="submit" isLoading={loading}>
+                  <Button type="submit" isLoading={loading} disabled={loading || created}>
                     Create Ticket
                   </Button>
                   <Button type="button" variant="outline" onClick={() => navigate('/messages')}>

@@ -19,6 +19,16 @@ import { ROUTER_FUTURE } from '@/test/routerFuture';
 const classify = vi.fn<(...args: unknown[]) => Promise<{ success: boolean }>>();
 classify.mockResolvedValue({ success: true });
 
+// The thread's tickets (header bar + Customer tab, 2026-09-30) — hermetic: an unmocked request
+// fails after the test and logs during teardown.
+vi.mock('@/services/ticketThreads.service', () => ({
+  ticketThreadsService: {
+    ticketsOfThread: () => Promise.resolve({ unavailable: false, rows: [], hiddenCount: 0 }),
+    threadsOfTicket: () => Promise.resolve({ unavailable: false, rows: [], hiddenCount: 0 }),
+    addThreads: () => Promise.resolve({ added: [], alreadyAttached: [] }),
+    removeThread: () => Promise.resolve(false),
+  },
+}));
 vi.mock('@/services/message.service', () => ({
   messageService: {
     getById: vi.fn().mockResolvedValue({

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { TicketComments } from './TicketComments';
 import { TicketAttachments } from './TicketAttachments';
+import { TicketThreads } from './TicketThreads';
 import { formatDate } from '@/lib/utils';
 import type { Message } from '@/types';
 import { getConvUrlId } from '@/lib/messageHelpers';
@@ -26,6 +27,9 @@ export function TicketPanelTabs({
 }: TicketPanelTabsProps) {
   const [activeTab, setActiveTab] = useState<Tab>('comments');
   const [commentCount, setCommentCount] = useState(0);
+  // What the ticket's own list reports: a count, 'unavailable' (older backend — count the
+  // fallback list instead), or null (loading / failed — no number).
+  const [threadCount, setThreadCount] = useState<number | 'unavailable' | null>(null);
   // Same reason as the copy-link buttons: a conversation link that carries the org code
   // 404s in the wrong workspace instead of resolving to a different conversation.
   const orgCode = useCurrentOrgCode();
@@ -36,9 +40,16 @@ export function TicketPanelTabs({
     {
       id: 'messages',
       label: 'Messages',
-      badge: linkedMessages.length > 0
-        ? new Set(linkedMessages.map((msg) => msg.externalThreadId ?? `solo-${msg.id}`)).size
-        : undefined,
+      // A thread count either way: the ticket's own list when the backend has it, else the
+      // older inbox-based list grouped by thread.
+      badge:
+        typeof threadCount === 'number'
+          ? threadCount > 0
+            ? threadCount
+            : undefined
+          : threadCount === 'unavailable' && linkedMessages.length > 0
+            ? new Set(linkedMessages.map((msg) => msg.externalThreadId ?? `solo-${msg.id}`)).size
+            : undefined,
     },
   ];
 
@@ -86,60 +97,69 @@ export function TicketPanelTabs({
         <TicketAttachments ticketId={ticketId} />
       </div>
 
-      {/* Messages */}
+      {/* Messages — every thread the ticket covers (2026-09-30); the older inbox-based list is
+          the fallback for a backend that predates it. */}
       <div className={activeTab !== 'messages' ? 'hidden' : ''}>
-        {loadingMessages ? (
-          <p className="py-4 text-sm text-center text-muted-foreground">Loading messages…</p>
-        ) : linkedMessages.length === 0 ? (
-          <p className="py-4 text-sm text-center text-muted-foreground">No linked messages.</p>
-        ) : (
-          <div className="space-y-2">
-            {(() => {
-              // Group by threadId; messages without one are shown individually
-              const groups = new Map<string, typeof linkedMessages>();
-              for (const msg of linkedMessages) {
-                const key = msg.externalThreadId ?? `solo-${msg.id}`;
-                const arr = groups.get(key) ?? [];
-                arr.push(msg);
-                groups.set(key, arr);
-              }
-              return Array.from(groups.values()).map((msgs) => {
-                const sorted = [...msgs].sort(
-                  (msgA, msgB) => new Date(msgA.createdAt).getTime() - new Date(msgB.createdAt).getTime()
-                );
-                const root = sorted[0];
-                const count = sorted.length;
-                return (
-                  <Link
-                    key={root.id}
-                    to={`/messages?id=${getConvUrlId(root, orgCode)}`}
-                    className="flex gap-3 items-start p-3 rounded-lg border transition-colors bg-muted border-border hover:bg-accent group"
-                  >
-                    <div className="p-2 rounded bg-muted flex-shrink-0">
-                      <Mail className="w-4 h-4 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex gap-2 items-center mb-1">
-                        <Badge variant="secondary" className="text-xs">{root.channel}</Badge>
-                        <span className="font-mono text-xs text-muted-foreground">{formatDate(root.createdAt)}</span>
-                        {count > 1 && (
-                          <span className="text-xs text-muted-foreground">{count} messages</span>
-                        )}
-                      </div>
-                      <p className="text-sm font-medium truncate">{root.sender}</p>
-                      {root.subject && (
-                        <p className="text-sm truncate text-muted-foreground group-hover:text-primary transition-colors">
-                          {root.subject}
-                        </p>
-                      )}
-                    </div>
-                    <ExternalLinkIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </Link>
-                );
-              });
-            })()}
-          </div>
-        )}
+        <TicketThreads
+          ticketId={ticketId}
+          onCountChange={setThreadCount}
+          fallback={
+            <>
+              {loadingMessages ? (
+                <p className="py-4 text-sm text-center text-muted-foreground">Loading messages…</p>
+              ) : linkedMessages.length === 0 ? (
+                <p className="py-4 text-sm text-center text-muted-foreground">No linked messages.</p>
+              ) : (
+                <div className="space-y-2">
+                  {(() => {
+                    // Group by threadId; messages without one are shown individually
+                    const groups = new Map<string, typeof linkedMessages>();
+                    for (const msg of linkedMessages) {
+                      const key = msg.externalThreadId ?? `solo-${msg.id}`;
+                      const arr = groups.get(key) ?? [];
+                      arr.push(msg);
+                      groups.set(key, arr);
+                    }
+                    return Array.from(groups.values()).map((msgs) => {
+                      const sorted = [...msgs].sort(
+                        (msgA, msgB) => new Date(msgA.createdAt).getTime() - new Date(msgB.createdAt).getTime()
+                      );
+                      const root = sorted[0];
+                      const count = sorted.length;
+                      return (
+                        <Link
+                          key={root.id}
+                          to={`/messages?id=${getConvUrlId(root, orgCode)}`}
+                          className="flex gap-3 items-start p-3 rounded-lg border transition-colors bg-muted border-border hover:bg-accent group"
+                        >
+                          <div className="p-2 rounded bg-muted flex-shrink-0">
+                            <Mail className="w-4 h-4 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex gap-2 items-center mb-1">
+                              <Badge variant="secondary" className="text-xs">{root.channel}</Badge>
+                              <span className="font-mono text-xs text-muted-foreground">{formatDate(root.createdAt)}</span>
+                              {count > 1 && (
+                                <span className="text-xs text-muted-foreground">{count} messages</span>
+                              )}
+                            </div>
+                            <p className="text-sm font-medium truncate">{root.sender}</p>
+                            {root.subject && (
+                              <p className="text-sm truncate text-muted-foreground group-hover:text-primary transition-colors">
+                                {root.subject}
+                              </p>
+                            )}
+                          </div>
+                          <ExternalLinkIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </Link>
+                      );
+                    });
+                  })()}
+                </div>
+              )}
+            </>
+          }
+        />
       </div>
 
     </div>

@@ -31,6 +31,8 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { messageService } from '@/services/message.service';
+import { ticketThreadsService } from '@/services/ticketThreads.service';
+import { THREAD_TICKETS_CHANGED } from '@/services/ticketThreadsEvents';
 import { categoryService } from '@/services/category.service';
 import { labelService, type Label } from '@/services/settings.service';
 import {
@@ -249,30 +251,88 @@ export function MessageDetailHeader({
   }, [showLabelPicker]);
 
   const [linkedTicketId, setLinkedTicketId] = useState<number | null>(null);
+  /** Every ticket on this thread beyond the one the bar names (a thread can be on several). */
+  const [otherTicketCount, setOtherTicketCount] = useState(0);
+  /** D2: finished tickets whose fix this customer has not been told about yet. */
+  const [owedTicketIds, setOwedTicketIds] = useState<number[]>([]);
+  const [ticketIds, setTicketIds] = useState<number[]>([]);
 
-  useEffect(() => {
-    setLinkedTicketId(null);
-    setLinkedTicketStatus(null);
-    messageService
-      .getLinkedTicket(message.id)
-      .then((res) => {
-        if (res?.data) {
-          setLinkedTicketId(res.data.id);
-          setLinkedTicketStatus(res.data.status);
+  // Loads can overlap (a socket event, the panel's announcement): only the latest may write.
+  const ticketsSeq = useRef(0);
+  const loadTickets = useCallback(() => {
+    const seq = ++ticketsSeq.current;
+    ticketThreadsService
+      .ticketsOfThread(message.id)
+      .then(async (result) => {
+        if (seq !== ticketsSeq.current) return;
+        if (result.unavailable) {
+          // An older backend: the one ticket it can name.
+          const res = await messageService.getLinkedTicket(message.id);
+          if (seq !== ticketsSeq.current) return;
+          setLinkedTicketId(res?.data?.id ?? null);
+          setLinkedTicketStatus(res?.data?.status ?? null);
+          setOtherTicketCount(0);
+          setOwedTicketIds([]);
+          setTicketIds(res?.data ? [res.data.id] : []);
+          return;
         }
+        // The same headline the list chip uses: the newest ticket still open, else the newest.
+        const headline =
+          result.rows.find((row) => row.status !== 'resolved' && row.status !== 'closed') ??
+          result.rows[0];
+        setLinkedTicketId(headline?.ticketId ?? null);
+        setLinkedTicketStatus(headline?.status ?? null);
+        setOtherTicketCount(Math.max(0, result.rows.length - 1));
+        setOwedTicketIds(result.rows.filter((row) => row.owesReply === true).map((row) => row.ticketId));
+        setTicketIds(result.rows.map((row) => row.ticketId));
       })
       .catch(() => {});
   }, [message.id]);
 
   useEffect(() => {
-    if (!linkedTicketId) return;
+    setLinkedTicketId(null);
+    setLinkedTicketStatus(null);
+    setOtherTicketCount(0);
+    setOwedTicketIds([]);
+    setTicketIds([]);
+    loadTickets();
+  }, [loadTickets]);
+
+  useEffect(() => {
+    if (ticketIds.length === 0) return;
+    // Any of this thread's tickets changing can change the headline or the reply prompt.
     const handler = (data: unknown) => {
       const ev = data as { ticketId: number; status?: string };
-      if (ev.ticketId === linkedTicketId && ev.status) setLinkedTicketStatus(ev.status);
+      if (ticketIds.includes(ev.ticketId)) loadTickets();
     };
     subscribeToEvent('ticket:updated', handler);
     return () => unsubscribeFromEvent('ticket:updated', handler);
-  }, [linkedTicketId]);
+  }, [ticketIds, loadTickets]);
+
+  useEffect(() => {
+    // The Customer-tab panel added this thread to a ticket, or took it off one.
+    const onChanged = (event: Event) => {
+      const ids = (event as CustomEvent<{ conversationIds: number[] }>).detail?.conversationIds ?? [];
+      if (ids.includes(message.id)) loadTickets();
+    };
+    window.addEventListener(THREAD_TICKETS_CHANGED, onChanged);
+    return () => window.removeEventListener(THREAD_TICKETS_CHANGED, onChanged);
+  }, [message.id, loadTickets]);
+
+  useEffect(() => {
+    // D2: a reply on this thread is what tells the customer — the "fixed, reply to tell this
+    // customer" prompt must go once it is sent, or it invites a second reply.
+    const onReplied = (data: unknown) => {
+      if ((data as { messageId: number }).messageId === message.id) loadTickets();
+    };
+    subscribeToEvent('message:replied', onReplied);
+    // A reply that failed to send told nobody: the prompt comes back.
+    subscribeToEvent('send-failed', onReplied);
+    return () => {
+      unsubscribeFromEvent('message:replied', onReplied);
+      unsubscribeFromEvent('send-failed', onReplied);
+    };
+  }, [message.id, loadTickets]);
 
   // Sync the in-flight badge from the message prop ONLY on conv change. We used
   // to also depend on `message.metadata` so navigating away+back would re-read
@@ -877,6 +937,11 @@ export function MessageDetailHeader({
                   · {linkedTicketStatus.replace('_', ' ')}
                 </span>
               )}
+              {otherTicketCount > 0 && (
+                <span className="ml-1 font-normal opacity-85">
+                  +{otherTicketCount} more
+                </span>
+              )}
             </span>
             <Link
               to={`/tickets?id=${linkedTicketId}`}
@@ -886,6 +951,16 @@ export function MessageDetailHeader({
             </Link>
           </div>
         </div>
+      )}
+      {/* D2 — the incident is fixed and THIS customer has not been told. Nothing is sent for the
+          agent; this is the prompt. Shown on a resolved thread too: the thread being resolved
+          does not mean the customer heard the incident is fixed. */}
+      {owedTicketIds.length > 0 && (
+        <p className="px-4 pb-2 text-[11px] text-warning">
+          {owedTicketIds.length === 1
+            ? `Ticket #${owedTicketIds[0]} is fixed — reply to tell this customer.`
+            : `Tickets ${owedTicketIds.map((id) => `#${id}`).join(', ')} are fixed — reply to tell this customer.`}
+        </p>
       )}
 
       {/* Action chip row */}
