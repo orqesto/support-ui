@@ -9,15 +9,18 @@ type Connection = Svc.CustomApiConnection;
 const create = vi.fn<(input: unknown) => Promise<Connection>>();
 const update = vi.fn<(id: number, input: unknown) => Promise<Connection>>();
 const setScope = vi.fn<(id: number, scope: unknown) => Promise<void>>();
+const getDepartments = vi.fn<(includeInactive?: boolean) => Promise<unknown[]>>();
 vi.mock('@/services/department.service', () => ({
   departmentService: {
-    getAll: () =>
-      Promise.resolve([
-        { id: 3, name: 'Sales' },
-        { id: 4, name: 'Support' },
-      ]),
+    getAll: (includeInactive?: boolean) => getDepartments(includeInactive),
   },
 }));
+const DEPARTMENTS = [
+  { id: 3, name: 'Sales', active: true },
+  { id: 4, name: 'Support', active: true },
+  { id: 7, name: 'Old team', active: false },
+  { id: 8, name: 'Gone', active: false },
+];
 
 vi.mock('@/services/customApi.service', async () => {
   const actual = await vi.importActual<typeof Svc>('@/services/customApi.service');
@@ -42,7 +45,7 @@ vi.mock('@/hooks/useCustomApiLookup', () => ({
   useInvalidateCustomApiAvailability: () => invalidate,
 }));
 
-const connection = (): Connection => ({
+const connection = (overrides: Partial<Connection> = {}): Connection => ({
   id: 1,
   name: 'DeusPower',
   purpose: null,
@@ -60,6 +63,7 @@ const connection = (): Connection => ({
   endpoints: [],
   createdAt: '2026-09-19T10:00:00.000Z',
   updatedAt: '2026-09-19T10:00:00.000Z',
+  ...overrides,
 });
 
 const noop = () => {};
@@ -68,6 +72,7 @@ beforeEach(() => {
   create.mockReset().mockResolvedValue(connection());
   update.mockReset().mockResolvedValue(connection());
   setScope.mockReset().mockResolvedValue(undefined);
+  getDepartments.mockReset().mockResolvedValue(DEPARTMENTS);
   invalidate.mockReset();
 });
 
@@ -446,16 +451,50 @@ describe('switch a vendor off, and choose its departments (FE audit M17)', () =>
     expect(setScope).not.toHaveBeenCalled();
   });
 
-  it('only chosen departments: the scope is saved; none chosen says nobody can use it', async () => {
+  it('only chosen departments: the scope is saved; none chosen says only admins can', async () => {
     const user = userEvent.setup();
     render(<CustomApiVendorForm open connection={connection()} onClose={noop} onSaved={noop} />);
     await user.selectOptions(screen.getByLabelText(/Which departments/i), 'departments');
-    expect(await screen.findByText(/no agent will be able to use/i)).toBeTruthy();
+    expect(await screen.findByText(/only workspace admins will be able to use/i)).toBeTruthy();
     await user.click(await screen.findByRole('checkbox', { name: 'Support' }));
-    expect(screen.queryByText(/no agent will be able to use/i)).toBeNull();
+    expect(screen.queryByText(/only workspace admins will be able to use/i)).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(setScope).toHaveBeenCalled());
     expect(setScope).toHaveBeenCalledWith(1, { scopeMode: 'departments', departmentIds: [4] });
+  });
+
+  it('a vendor linked to an ARCHIVED department shows that link, ticked and marked; other archived ones stay hidden', async () => {
+    const user = userEvent.setup();
+    render(
+      <CustomApiVendorForm
+        open
+        connection={connection({ scopeMode: 'departments', departmentIds: [7] })}
+        onClose={noop}
+        onSaved={noop}
+      />
+    );
+    const archived = await screen.findByRole('checkbox', { name: 'Old team (archived)' });
+    expect((archived as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByRole('checkbox', { name: /Gone/ })).toBeNull();
+    expect(screen.queryByText(/only workspace admins/i)).toBeNull();
+    // Unticking it is a real change and saves an empty list.
+    await user.click(archived);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(setScope).toHaveBeenCalled());
+    expect(setScope).toHaveBeenCalledWith(1, { scopeMode: 'departments', departmentIds: [] });
+  });
+
+  it('the departments list fails to load ⇒ the form says so', async () => {
+    getDepartments.mockRejectedValueOnce(new Error('boom'));
+    render(
+      <CustomApiVendorForm
+        open
+        connection={connection({ scopeMode: 'departments', departmentIds: [] })}
+        onClose={noop}
+        onSaved={noop}
+      />
+    );
+    expect(await screen.findByText(/Couldn’t load the departments/)).toBeTruthy();
   });
 
   it('a NEW vendor shows neither control — it starts on, for every department', () => {

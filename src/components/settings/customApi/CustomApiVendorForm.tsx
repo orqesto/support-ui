@@ -79,19 +79,30 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
   );
   const [departmentIds, setDepartmentIds] = useState<number[]>(connection?.departmentIds ?? []);
   const [departments, setDepartments] = useState<Array<{ id: number; name: string }>>([]);
+  const [departmentsFailed, setDepartmentsFailed] = useState(false);
+  // A string, so a parent that re-renders with a fresh array does not refetch.
+  const linkedKey = (connection?.departmentIds ?? []).join(',');
   useEffect(() => {
     if (!editing) return;
     let cancelled = false;
+    // Archived ones too, in UsersPage's word: a vendor linked to an archived department must show
+    // that link, not an unexplained blank. Only the linked archived ones are listed.
+    const linked = linkedKey === '' ? [] : linkedKey.split(',').map(Number);
     departmentService
-      .getAll()
-      .then(
-        (list) => !cancelled && setDepartments(list.map((one) => ({ id: one.id, name: one.name })))
-      )
-      .catch(() => undefined);
+      .getAll(true)
+      .then((list) => {
+        if (cancelled) return;
+        setDepartments(
+          list
+            .filter((one) => one.active || linked.includes(one.id))
+            .map((one) => ({ id: one.id, name: one.active ? one.name : `${one.name} (archived)` }))
+        );
+      })
+      .catch(() => !cancelled && setDepartmentsFailed(true));
     return () => {
       cancelled = true;
     };
-  }, [editing]);
+  }, [editing, linkedKey]);
   const scopeChanged =
     editing &&
     (scopeMode !== (connection?.scopeMode === 'departments' ? 'departments' : 'all') ||
@@ -295,8 +306,8 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
               {connection?.enabled && !enabled && (
                 <Alert variant="warning">
                   <AlertDescription>
-                    Turning it off stops every lookup and deletes the records stored from it. They
-                    are fetched again when you turn it back on.
+                    Turning it off stops every lookup and deletes the records stored from it. After
+                    you turn it back on, they are stored again as lookups run.
                   </AlertDescription>
                 </Alert>
               )}
@@ -327,9 +338,15 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
                       label={dept.name}
                     />
                   ))}
+                  {departmentsFailed && (
+                    <p className="text-xs text-destructive">
+                      Couldn’t load the departments. Close this and try again.
+                    </p>
+                  )}
+                  {/* D26: an empty list is "admins only" on the backend, not "nobody". */}
                   {departmentIds.length === 0 && (
                     <p className="text-xs text-warning">
-                      No department chosen — no agent will be able to use this system.
+                      No department chosen — only workspace admins will be able to use this system.
                     </p>
                   )}
                 </div>
