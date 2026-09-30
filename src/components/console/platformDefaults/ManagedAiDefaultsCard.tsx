@@ -68,6 +68,9 @@ const TIERS: { modelKey: ModelKey; costKey: CostKey; label: string; hint: string
   },
 ];
 
+/** The providers whose endpoint the console sets (hosted providers are pinned server-side). */
+const PROVIDERS_WITH_BASE_URL: AIProvider[] = ['custom', 'ollama'];
+
 /** Sentinel option that swaps the picker for a free-text field. */
 const OTHER = '__other__';
 
@@ -235,7 +238,7 @@ export const ManagedAiDefaultsCard = ({
     ? backendVersion.data.bedrockInstanceProfile
     : true;
   const isOllama = provider === 'ollama';
-  const baseUrlEditable = provider === 'custom' || isOllama;
+  const baseUrlEditable = PROVIDERS_WITH_BASE_URL.includes(provider);
   // The key slot follows the SELECTED provider, not the saved one, so switching
   // the dropdown immediately shows the credential that provider will use.
   const keySlot = AI_KEY_SLOT_BY_PROVIDER[provider];
@@ -273,9 +276,18 @@ export const ManagedAiDefaultsCard = ({
     }
   };
 
-  const save = () => {
+  /**
+   * `thenTest`: "Save and test". The probe can only check what is STORED (the key never reaches
+   * the browser), so a draft is tested by saving it first — and only once the save has landed,
+   * or the probe answers for the previous provider (owner, 2026-09-30: Test connection was
+   * greyed out for the whole edit and read as broken).
+   */
+  const save = (thenTest = false) => {
     // Refuse rather than half-save: the config would persist and the credential would not.
     if (pendingSecretCount > 0) return;
+    // Any save may change what a previous result described (region, profile, credentials),
+    // and a green line about the old config reads as a pass for the new one.
+    setAiTest(null);
     const input: ManagedAiInput = { provider };
     (Object.keys(models) as ModelKey[]).forEach((key) => {
       const trimmed = models[key].trim();
@@ -298,7 +310,12 @@ export const ManagedAiDefaultsCard = ({
       }
       input.bedrockUseInstanceProfile = useInstanceProfile && allowInstanceProfile;
     }
-    update.mutate(input, { onSuccess: () => card.confirmSaved() });
+    update.mutate(input, {
+      onSuccess: () => {
+        card.confirmSaved();
+        if (thenTest) void runAiTest();
+      },
+    });
   };
 
   const renderModelPicker = (modelKey: ModelKey, visionOnly: boolean) => {
@@ -314,7 +331,11 @@ export const ManagedAiDefaultsCard = ({
         <Input
           value={current}
           onChange={(event) => setModels((prev) => ({ ...prev, [modelKey]: event.target.value }))}
-          placeholder={ai[modelKey].value ?? 'model id'}
+          // The resolved value belongs to the STORED provider — "gpt-4o-mini" under a Bedrock
+          // draft read as the model Bedrock would use.
+          placeholder={
+            provider === storedProvider ? (ai[modelKey].value ?? 'model id') : 'model id'
+          }
         />
       );
     }
@@ -368,20 +389,67 @@ export const ManagedAiDefaultsCard = ({
     placeholder: 'not set',
   });
 
+  /**
+   * Which AWS credential Bedrock managed traffic authenticates with — the backend's
+   * `resolveBedrockCredentials` ladder, in its order. The read-only view used to show only
+   * "API key: none stored", which is true of every Bedrock setup and says nothing about it.
+   */
+  const bedrockCredential = (): string => {
+    if (ai.bedrockUseInstanceProfile.value) {
+      return allowInstanceProfile
+        ? "Server's AWS identity (instance profile)"
+        : 'AWS default credential chain — the instance-profile switch is ignored on this deployment';
+    }
+    if (ai.bedrockAccessKeyId.configured && ai.bedrockSecretAccessKey.configured) {
+      return `IAM access key ····${ai.bedrockAccessKeyId.last4 ?? ''}`;
+    }
+    if (ai.bedrockRoleArn.value && ai.bedrockExternalId.value) {
+      return `AssumeRole ${ai.bedrockRoleArn.value}`;
+    }
+    if (ai.bedrockRoleArn.value) {
+      return 'AWS default credential chain — the role is not used without an external ID';
+    }
+    return 'AWS default credential chain (environment / ambient identity)';
+  };
+
+  // The read-only view describes what is STORED, so it keys on the stored provider, not the
+  // draft's dropdown.
+  const storedKeySlot = AI_KEY_SLOT_BY_PROVIDER[storedProvider];
+  const storedKeyStatus = storedKeySlot ? secrets[storedKeySlot] : null;
+  const storedIsBedrock = storedProvider === 'bedrock';
+  const storedProfile = ai.bedrockInferenceProfileArn;
+
   const summary: ConfigSummaryRow[] = [
     row('Provider', {
-      value: PROVIDER_LABELS[ai.provider.value ?? 'openai'],
+      value: PROVIDER_LABELS[storedProvider],
       source: ai.provider.source,
     }),
     ...TIERS.map((tier) => row(tier.label, ai[tier.modelKey])),
     ...TIERS.map((tier) => row(`${tier.label} cost / 1k`, ai[tier.costKey])),
-    ...(baseUrlEditable ? [row('Base URL', ai.baseUrl)] : []),
-    {
-      label: 'API key',
-      value: keyStatus?.configured ? `stored ····${keyStatus.last4 ?? ''}` : undefined,
-      source: keyStatus?.configured ? sourcePhrase(keyStatus.source) : undefined,
-      placeholder: 'none stored',
-    },
+    ...(PROVIDERS_WITH_BASE_URL.includes(storedProvider) ? [row('Base URL', ai.baseUrl)] : []),
+    ...(storedIsBedrock
+      ? [
+          row('Region', ai.bedrockRegion),
+          {
+            ...row('Inference profile', storedProfile),
+            // getPlatformAIConfig serves the profile in place of the model for every tier.
+            source: `${sourcePhrase(storedProfile.source)} · used for every tier instead of the models above`,
+          },
+          { label: 'AWS credentials', value: bedrockCredential() },
+        ]
+      : []),
+    ...(storedKeySlot
+      ? [
+          {
+            label: 'API key',
+            value: storedKeyStatus?.configured
+              ? `stored ····${storedKeyStatus.last4 ?? ''}`
+              : undefined,
+            source: storedKeyStatus?.configured ? sourcePhrase(storedKeyStatus.source) : undefined,
+            placeholder: 'none stored',
+          },
+        ]
+      : []),
   ];
 
   /** Credentials stay reachable in every state — you may need a key BEFORE configuring anything. */
@@ -440,8 +508,9 @@ export const ManagedAiDefaultsCard = ({
           )}
           {card.isEditing && (
             <p className="text-xs text-muted-foreground">
-              Save first — Test connection checks the stored defaults (
-              {PROVIDER_LABELS[storedProvider]}), not this draft.
+              Save and test stores this draft, then calls the provider through the same path managed
+              traffic uses. Until you save, managed traffic stays on{' '}
+              {PROVIDER_LABELS[storedProvider]}.
             </p>
           )}
           {aiTest && (
@@ -454,20 +523,32 @@ export const ManagedAiDefaultsCard = ({
         </>
       }
       extraActions={
-        <Button
-          variant="outline"
-          onClick={() => void runAiTest()}
-          isLoading={testing}
-          disabled={testing || card.isEditing}
-        >
-          <TestTube2 className="mr-2 w-4 h-4" />
-          Test connection
-        </Button>
+        card.isEditing ? (
+          <Button
+            variant="outline"
+            onClick={() => save(true)}
+            isLoading={testing || update.isPending}
+            disabled={testing || update.isPending || pendingSecretCount > 0}
+          >
+            <TestTube2 className="mr-2 w-4 h-4" />
+            Save and test
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            onClick={() => void runAiTest()}
+            isLoading={testing}
+            disabled={testing}
+          >
+            <TestTube2 className="mr-2 w-4 h-4" />
+            Test connection
+          </Button>
+        )
       }
       onConfigure={card.startEditing}
       onEdit={card.startEditing}
       onCancel={card.cancelEditing}
-      onSave={save}
+      onSave={() => save()}
       saveDisabled={pendingSecretCount > 0}
       saving={update.isPending}
       configureLabel="Configure AI defaults"
@@ -602,7 +683,7 @@ export const ManagedAiDefaultsCard = ({
                 />
               </div>
               <div>
-                <Label>External ID (optional)</Label>
+                <Label>External ID (required with a role)</Label>
                 <Input
                   value={bedrock.externalId}
                   onChange={(event) =>
@@ -665,8 +746,9 @@ export const ManagedAiDefaultsCard = ({
               clearing={clearSecret.isPending}
             />
             <p className="text-xs text-muted-foreground">
-              Bedrock resolves credentials in order: static keys, then the assumed role, then the
-              server&apos;s own AWS identity. Leave the keys blank to use one of the latter two.
+              Bedrock picks credentials in this order: the server&apos;s AWS identity when the
+              switch above is on, then the stored access keys, then the role (only with an external
+              ID), then the AWS default credential chain.
             </p>
           </div>
         )}
