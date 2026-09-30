@@ -12,14 +12,39 @@ export const qaTextOf = (entry: KBEntry): { question: string; answer: string } |
  * A Q&A entry's combined `content` split back into its halves — the backend's `splitQaContent`
  * (knowledgeBaseController.ts): "Question: …\n\nAnswer: …" or "Q: …\n\nA: …". Null otherwise.
  */
+const QA_LABELS = [
+  ['Question:', 'Answer:'],
+  ['Q:', 'A:'],
+] as const;
+
 export const splitQaContent = (content: string): { question: string; answer: string } | null => {
-  const match =
-    /^\s*Question:\s*([\s\S]*?)\n\s*\n\s*Answer:\s*([\s\S]*)$/.exec(content) ??
-    /^\s*Q:\s*([\s\S]*?)\n\s*\n\s*A:\s*([\s\S]*)$/.exec(content);
-  if (!match) return null;
-  const question = match[1].trim();
-  const answer = match[2].trim();
-  return question && answer ? { question, answer } : null;
+  // A linear scan, not a regex: the backend's former `/…([\s\S]*?)\n\s*\n\s*Answer:…/`
+  // backtracked cubically on runs of blank lines (2,000 newlines ≈ 3.4 s) — here that would freeze
+  // the moderator's tab on a hostile entry (BE pass 26 HIGH). Same rule: the FIRST "Answer:" (or
+  // "A:") after the question label whose preceding whitespace run holds two or more line breaks.
+  let start = 0;
+  while (start < content.length && /\s/.test(content[start])) start += 1;
+  for (const [qLabel, aLabel] of QA_LABELS) {
+    if (!content.startsWith(qLabel, start)) continue;
+    const bodyStart = start + qLabel.length;
+    for (
+      let at = content.indexOf(aLabel, bodyStart);
+      at !== -1;
+      at = content.indexOf(aLabel, at + 1)
+    ) {
+      let breaks = 0;
+      let back = at - 1;
+      while (back >= bodyStart && /\s/.test(content[back])) {
+        if (content[back] === '\n') breaks += 1;
+        back -= 1;
+      }
+      if (breaks < 2) continue;
+      const question = content.slice(bodyStart, at).trim();
+      const answer = content.slice(at + aLabel.length).trim();
+      return question && answer ? { question, answer } : null;
+    }
+  }
+  return null;
 };
 
 /** How the text a Q&A entry SHOWS (`content`) relates to the halves AI drafts read (`typeData`). */
