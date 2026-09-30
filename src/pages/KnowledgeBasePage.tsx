@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { FileText, MessageSquare, Settings, X, Filter, Library } from 'lucide-react';
 import { Tabs, type Tab } from '@/components/ui/Tabs';
@@ -29,6 +29,33 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { logger } from '@/lib/logger';
 import { kbService, type KBEntry, type PaginationMeta } from '@/services/kb.service';
 import { Permission } from '@/types/roles';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { useUiFlags } from '@/hooks/useUiFlags';
+import { isCaseRow, unmergeConsequence } from '@/lib/kbConsolidation';
+import { runCaseAction, type CaseActionNow } from '@/components/kb/runCaseAction';
+import { toast } from '@/lib/toast';
+
+/** An action on a merged CASE row — each one unmerges it, so each is confirmed first. */
+/**
+ * What a case action sees once the page is gone: no drawer to close, nothing to re-read — and
+ * the outcome goes to a toast, since the page's dialog went with it (FE pass 18 LOW-1).
+ */
+const LEFT_PAGE: CaseActionNow = {
+  selectedId: null,
+  selectedCaseId: null,
+  say: ({ title, description, variant }) => toast[variant](title, { description }),
+  close: () => {},
+  refetch: () => Promise.resolve(),
+};
+
+type CaseAction = { entry: KBEntry; action: 'hide' | 'reject' | 'delete' | 'unmerge' };
+
+const CASE_ACTION_TITLES: Record<CaseAction['action'], string> = {
+  hide: 'Hide this case?',
+  reject: 'Reject this case?',
+  delete: 'Delete this case?',
+  unmerge: 'Unmerge this case?',
+};
 
 type FilterType = 'all' | 'qa_pair' | 'document' | 'documentation';
 type FilterStatus = 'all' | 'approved' | 'pending' | 'hidden' | 'rejected';
@@ -83,6 +110,9 @@ export const KnowledgeBasePage = () => {
   // other re-fetch (Process adds a doc → list refreshes; Remove/Delete → both refresh).
   const [kbVersion, setKbVersion] = useState(0);
   const bumpKb = useCallback(() => setKbVersion((version) => version + 1), []);
+  const [caseAction, setCaseAction] = useState<CaseAction | null>(null);
+  const { isSurfaceVisibleToMe } = useUiFlags();
+  const showCasesLink = canReview && isSurfaceVisibleToMe('ui.kb_cases');
 
   // Alert dialog state
   const [alertDialog, setAlertDialog] = useState<{
@@ -199,10 +229,20 @@ export const KnowledgeBasePage = () => {
       await kbService.approve(id);
       // Update entry in place - set approved and unhidden
       // Approving also restores a rejected entry — the backend clears the rejection.
+      // Approving also ends "detached": the backend drops the entry's case pointer (AUD11 LOW-1),
+      // so a later Hide must read "Hidden", not "detached from case" (FE pass 14 LOW-1).
       setEntries((prev) =>
         prev.map((entry) =>
           entry.id === id
-            ? { ...entry, approved: true, hidden: false, rejectedAt: null, rejectedBy: null }
+            ? {
+                ...entry,
+                approved: true,
+                hidden: false,
+                rejectedAt: null,
+                rejectedBy: null,
+                consolidation:
+                  entry.consolidation?.state === 'detached' ? undefined : entry.consolidation,
+              }
             : entry
         )
       );
@@ -217,7 +257,7 @@ export const KnowledgeBasePage = () => {
     }
   };
 
-  const handleReject = async (id: number) => {
+  const rejectEntry = async (id: number) => {
     try {
       const response = await kbService.reject(id);
       const rejectedAt = response.data?.rejectedAt ?? new Date().toISOString();
@@ -237,7 +277,7 @@ export const KnowledgeBasePage = () => {
     }
   };
 
-  const handleHide = async (id: number) => {
+  const hideEntry = async (id: number) => {
     try {
       await kbService.hide(id);
       // Update entry in place - set hidden
@@ -252,6 +292,48 @@ export const KnowledgeBasePage = () => {
         description: error instanceof Error ? error.message : 'Failed to hide KB entry',
         variant: 'error',
       });
+    }
+  };
+
+  // KB consolidation (#873): hide / reject / delete on a merged CASE row unmerge it — the case
+  // goes and its originals come back. That is not what "hide" usually means, so it is said and
+  // confirmed first, never done on one click.
+  const findEntry = (id: number) =>
+    entries.find((entry) => entry.id === id) ?? (selectedEntry?.id === id ? selectedEntry : null);
+
+  const handleHide = (id: number) => {
+    const entry = findEntry(id);
+    if (entry && isCaseRow(entry)) setCaseAction({ entry, action: 'hide' });
+    else void hideEntry(id);
+  };
+
+  const handleReject = (id: number) => {
+    const entry = findEntry(id);
+    if (entry && isCaseRow(entry)) setCaseAction({ entry, action: 'reject' });
+    else void rejectEntry(id);
+  };
+
+  const handleDeleteClick = (entry: KBEntry) => {
+    if (isCaseRow(entry)) setCaseAction({ entry, action: 'delete' });
+    else openDeleteDialog(entry);
+  };
+
+  const handleUnmerge = (entry: KBEntry) => setCaseAction({ entry, action: 'unmerge' });
+
+  const confirmCaseAction = async () => {
+    if (!caseAction) return;
+    const { entry, action } = caseAction;
+    setCaseAction(null);
+    // One action per case at a time: a second confirm while the first runs would only come back
+    // 404 and replace the real result with "Already unmerged" (FE pass 17 LOW-2).
+    if (inFlight.current.has(entry.id)) return;
+    inFlight.current.add(entry.id);
+    try {
+      const outcome = await runCaseAction(entry, action, () => latest.current);
+      // Read `say` AFTER the await: the page may be gone by now (FE pass 18 LOW-1).
+      latest.current.say(outcome);
+    } finally {
+      inFlight.current.delete(entry.id);
     }
   };
 
@@ -286,7 +368,23 @@ export const KnowledgeBasePage = () => {
     navigate({ search: params.toString(), hash: location.hash });
   };
 
-  const handleDeleteClick = (entry: KBEntry) => {
+  // What a case action reads when its request ANSWERS, not when its confirm was clicked.
+  const latest = useRef<CaseActionNow>(LEFT_PAGE);
+  useEffect(() => {
+    latest.current = {
+      selectedId: selectedEntry?.id ?? null,
+      selectedCaseId:
+        selectedEntry?.consolidation?.caseId ?? selectedEntry?.consolidatedInto ?? null,
+      say: (outcome) => setAlertDialog(outcome),
+      close: handleCloseEntry,
+      refetch: () => fetchEntries(pagination.page),
+    };
+  });
+  // Left the page mid-request: the answer must not navigate back here or re-read (pass 17 LOW-1).
+  useEffect(() => () => void (latest.current = LEFT_PAGE), []);
+  const inFlight = useRef(new Set<number>());
+
+  const openDeleteDialog = (entry: KBEntry) => {
     setEntryToDelete(entry);
     setDeleteDialogOpen(true);
   };
@@ -330,6 +428,16 @@ export const KnowledgeBasePage = () => {
             title="Knowledge Base"
             description="Review and manage automatically extracted knowledge from your messages"
           />
+          {showCasesLink && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => navigate('/knowledge-base/cases')}
+            >
+              Cases report
+            </Button>
+          )}
         </div>
 
         {/* Tabs for Type Selection */}
@@ -513,6 +621,7 @@ export const KnowledgeBasePage = () => {
                     onReject={handleReject}
                     onDelete={handleDeleteClick}
                     canReview={canReview}
+                    onUnmerge={handleUnmerge}
                   />
                 ))
               )}
@@ -528,6 +637,7 @@ export const KnowledgeBasePage = () => {
               onReject={handleReject}
               onDelete={handleDeleteClick}
               canReview={canReview}
+              onUnmerge={handleUnmerge}
             />
 
             {/* Pagination */}
@@ -586,6 +696,23 @@ export const KnowledgeBasePage = () => {
           onDelete={handleDeleteClick}
           onUpdate={handleUpdate}
           canReview={canReview}
+          onUnmerge={handleUnmerge}
+        />
+
+        <ConfirmDialog
+          open={caseAction !== null}
+          onOpenChange={(open) => {
+            if (!open) setCaseAction(null);
+          }}
+          onConfirm={() => void confirmCaseAction()}
+          title={caseAction ? CASE_ACTION_TITLES[caseAction.action] : ''}
+          description={`${
+            caseAction?.action === 'unmerge'
+              ? 'This undoes the merge.'
+              : 'This is a merged case, so this undoes the merge.'
+          } ${unmergeConsequence(null)} and removes the merged entry.`}
+          confirmText={caseAction?.action === 'unmerge' ? 'Unmerge' : 'Undo the merge'}
+          variant="warning"
         />
 
         {/* Alert Dialog */}

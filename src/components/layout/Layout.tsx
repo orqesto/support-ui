@@ -24,6 +24,7 @@ import {
   ShieldAlert,
   ScrollText,
   Network,
+  Layers,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -141,6 +142,14 @@ const allNavigation: Array<{
     href: '/knowledge-base',
     icon: BookOpen,
     permission: Permission.VIEW_MESSAGES,
+  },
+  {
+    group: 'work',
+    name: 'KB Cases',
+    href: '/knowledge-base/cases',
+    icon: Layers,
+    permission: Permission.MANAGE_KNOWLEDGE_BASE,
+    flagRequired: 'ui.kb_cases',
   },
 
   // ─── Insights — reporting & finance ─────────────────────────────────────────

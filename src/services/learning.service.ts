@@ -66,7 +66,8 @@ export type LearningSuggestion = {
   evidenceEventIds: number[] | null;
   evidenceCount: number;
   confidence: string | null; // numeric → string from PG
-  status: 'pending' | 'accepted' | 'declined' | 'expired';
+  // 'reverted' = a KB consolidation case that was Unmerged (#873).
+  status: 'pending' | 'accepted' | 'declined' | 'expired' | 'reverted';
   expiresAt: string;
   createdAt: string;
 };

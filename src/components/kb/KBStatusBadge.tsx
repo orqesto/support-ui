@@ -1,4 +1,12 @@
+import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
+import {
+  caseHref,
+  caseRef,
+  isCaseRow,
+  isMergedOriginal,
+  isSourceRemoved,
+} from '@/lib/kbConsolidation';
 import { KBApprovalBadge } from './KBApprovalProvenance';
 import { formatPurgeDate } from '@/lib/kbRejection';
 import type { KBEntry } from '@/services/kb.service';
@@ -22,6 +30,18 @@ export const KBStatusBadge = ({
   /** The detail drawer renders the full provenance block itself; the compact badge would repeat it. */
   withProvenance?: boolean;
 }) => {
+  // Source removed: never used, whatever else it says — not "Approved · Case", and not "merged
+  // into #X" as if that case were live.
+  if (isSourceRemoved(entry)) {
+    return (
+      <Badge
+        className={`text-muted-foreground ${className}`}
+        title="Its source is no longer in the knowledge base, so it is not used."
+      >
+        Source removed — not used
+      </Badge>
+    );
+  }
   if (entry.rejectedAt) {
     const purge = formatPurgeDate(entry.rejectedAt);
     return (
@@ -40,7 +60,57 @@ export const KBStatusBadge = ({
       </Badge>
     );
   }
+  // KB consolidation (#873): a merged original is hidden because it lives on in its case —
+  // "Hidden" would invite an Unhide the server refuses. Say where it went, and link there.
+  const consolidation = entry.consolidation ?? null;
+  if (isMergedOriginal(entry)) {
+    const caseId = consolidation?.caseId ?? entry.consolidatedInto ?? null;
+    const ref = consolidation ? caseRef(consolidation) : `#${caseId}`;
+    return (
+      <Badge
+        className={`text-muted-foreground ${className}`}
+        title="Part of a merged case. To change it on its own, Unmerge the case."
+      >
+        {caseId !== null ? (
+          <Link
+            to={caseHref(caseId)}
+            className="hover:underline"
+            onClick={(event) => event.stopPropagation()}
+          >
+            merged into {ref}
+          </Link>
+        ) : (
+          'merged into a case'
+        )}
+      </Badge>
+    );
+  }
+  // Detached is a HIDDEN state (the backend sends it only while hidden). An entry shown again
+  // reads by its own state — Approved / Pending — never "detached … it stays hidden".
+  if (consolidation?.state === 'detached' && entry.hidden) {
+    return (
+      <Badge
+        className={`text-muted-foreground ${className}`}
+        title="Its thread moved to another mailbox, so it left the case. It stays hidden."
+      >
+        {consolidation.caseExists
+          ? `detached from case ${caseRef(consolidation)}`
+          : 'detached (case removed)'}
+      </Badge>
+    );
+  }
   if (entry.hidden) return <Badge className={`text-muted-foreground ${className}`}>Hidden</Badge>;
+  if (entry.approved && isCaseRow(entry)) {
+    return (
+      <>
+        <Badge className={`bg-success text-success-foreground ${className}`}>Approved</Badge>
+        <Badge variant="secondary" className={className} title="A merged case">
+          Case
+        </Badge>
+        {withProvenance && <KBApprovalBadge entry={entry} />}
+      </>
+    );
+  }
   if (entry.approved) {
     return (
       <>

@@ -13,6 +13,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   SUGGESTION_DOMAIN_PERMISSIONS,
+  isKbConsolidationSuggestion,
+  permissionForSuggestion,
   permissionForSuggestionDomain,
   whyCannotAct,
 } from '../learningSuggestionPermissions';
@@ -50,5 +52,33 @@ describe('learning suggestion permissions (UI copy)', () => {
     expect(whyCannotAct('kb_quality')).toMatch(/admin/i);
     expect(whyCannotAct('routing')).toMatch(/permission/i);
     expect(whyCannotAct('kb_quality')).not.toBe(whyCannotAct('routing'));
+  });
+});
+
+describe('KB consolidation — permission by suggestion TYPE (#873)', () => {
+  it('consolidate and attach need manage_knowledge_base', () => {
+    expect(permissionForSuggestion({ domain: 'kb_quality', suggestionType: 'consolidate' })).toBe(
+      Permission.MANAGE_KNOWLEDGE_BASE
+    );
+    expect(permissionForSuggestion({ domain: 'kb_quality', suggestionType: 'attach' })).toBe(
+      Permission.MANAGE_KNOWLEDGE_BASE
+    );
+  });
+
+  it('kb_quality itself stays admin-only: a routing promote under it is not opened to moderators', () => {
+    expect(permissionForSuggestion({ domain: 'kb_quality', suggestionType: 'promote' })).toBeNull();
+    expect(permissionForSuggestionDomain('kb_quality')).toBeNull();
+  });
+
+  it('the type mapping is scoped to kb_quality — "consolidate" elsewhere keeps its domain rule', () => {
+    expect(permissionForSuggestion({ domain: 'routing', suggestionType: 'consolidate' })).toBe(
+      Permission.MANAGE_ROUTING_RULES
+    );
+    expect(isKbConsolidationSuggestion({ domain: 'routing', suggestionType: 'consolidate' })).toBe(
+      false
+    );
+    expect(isKbConsolidationSuggestion({ domain: 'kb_quality', suggestionType: 'attach' })).toBe(
+      true
+    );
   });
 });

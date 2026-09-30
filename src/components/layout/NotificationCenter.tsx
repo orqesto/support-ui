@@ -240,7 +240,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const hasOutbound = outboundAlerts.length > 0;
   const hasIngestionGap = ingestionGapAlerts.length > 0;
   const hasIngestionDark = ingestionDarkAlerts.length > 0;
-  const hasKbReview = kbReview.alerts.length > 0;
+  const hasKbReview = kbReview.rowCount > 0;
   // Fault-first ordering means ≥5 spam alerts would take every visible slot and push ALL
   // one-sided rows behind the overflow line — the mirror image of the starvation the sort was
   // added to fix, and reachable on a workspace with several mailboxes. So one-sided keeps a
@@ -294,7 +294,8 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     ingestionDarkAlerts.length +
     // Badged: unlike a stale document, this is a request addressed to THIS reader, and until
     // they act the capture is unused. It clears the moment they (or anyone) decide it.
-    kbReview.alerts.length;
+    // KB merges count once per department row, however many proposals it summarises.
+    kbReview.rowCount;
   // With multiple content types present, label each section; otherwise stay minimal.
   const sectionCount =
     (hasQueues ? 1 : 0) +

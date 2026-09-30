@@ -13,6 +13,7 @@ import { useCallback } from 'react';
 import { usePermissions } from '@/hooks/usePermissions';
 import {
   SUGGESTION_DOMAIN_PERMISSIONS,
+  permissionForSuggestion,
   permissionForSuggestionDomain,
 } from '@/lib/learningSuggestionPermissions';
 
@@ -28,8 +29,19 @@ export const useSuggestionDomainAccess = () => {
     [isOrgAdmin, hasPermission]
   );
 
+  /** Per suggestion: a type-level mapping (KB consolidation) wins over its domain's. */
+  const canActOnSuggestion = useCallback(
+    (suggestion: { domain: string; suggestionType: string }): boolean => {
+      if (isOrgAdmin) return true;
+      const required = permissionForSuggestion(suggestion);
+      return required !== null && hasPermission(required);
+    },
+    [isOrgAdmin, hasPermission]
+  );
+
   return {
     canActOn,
+    canActOnSuggestion,
     /** Enough to show the panel at all: any domain this viewer could act on. */
     canActOnAnyDomain: isOrgAdmin || hasAnyPermission(Object.values(SUGGESTION_DOMAIN_PERMISSIONS)),
   };

@@ -16,7 +16,11 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Textarea';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
-import { kbPromoteService, type KbQaCandidate } from '@/services/kbPromote.service';
+import {
+  kbPromoteService,
+  type KbPromoteOutcome,
+  type KbQaCandidate,
+} from '@/services/kbPromote.service';
 
 /**
  * Promote an already-resolved thread into the knowledge base.
@@ -40,6 +44,62 @@ type Props = {
 };
 
 type EditablePair = KbQaCandidate & { keep: boolean };
+
+/**
+ * The toast says what the saved entries ARE, from the backend's per-state `outcome` — never from
+ * the ids alone. The backend puts each row in exactly ONE bucket (promoteOutcome.ts), so no row
+ * is said twice. "Added" only for what the AI now serves. One entry in one state reads as a
+ * plain sentence; otherwise every part carries its count, in the right number.
+ */
+export const promoteToastText = (ids: number[], outcome: KbPromoteOutcome): string => {
+  if (ids.length === 0) return 'Already in the knowledge base — nothing new was added';
+  const { approved, hidden, retired, pendingReview, rejected, partOfCaseEntries, partOfCase } =
+    outcome;
+  const merged = partOfCaseEntries;
+  const buckets = [approved, pendingReview, hidden, retired, rejected, merged];
+  const single =
+    buckets.filter((count) => count > 0).length === 1 &&
+    buckets.reduce((sum, count) => sum + count, 0) === 1 &&
+    ids.length === 1;
+  const entries = (count: number) => `${count} ${count === 1 ? 'entry' : 'entries'}`;
+  const isAre = (count: number) => (count === 1 ? 'is' : 'are');
+  const itThem = (count: number) => (count === 1 ? 'it' : 'them');
+  const parts: string[] = [];
+  if (approved > 0)
+    parts.push(single ? 'Added to the knowledge base' : `${entries(approved)} added to the knowledge base`);
+  if (pendingReview > 0)
+    parts.push(
+      `${single ? 'Saved' : `${entries(pendingReview)} saved`} and sent for review — the AI uses ${itThem(pendingReview)} once a reviewer approves`
+    );
+  if (hidden > 0)
+    parts.push(
+      single
+        ? 'Already in the knowledge base but hidden — ask a KB reviewer to restore it'
+        : `${entries(hidden)} ${isAre(hidden)} already in the knowledge base but hidden — ask a KB reviewer to restore ${itThem(hidden)}`
+    );
+  if (retired > 0)
+    parts.push(
+      single
+        ? 'Already in the knowledge base, but its source was removed — it is not used'
+        : `${entries(retired)} ${isAre(retired)} already in the knowledge base, but ${retired === 1 ? 'its source was' : 'their sources were'} removed — ${retired === 1 ? 'it is' : 'they are'} not used`
+    );
+  if (rejected > 0)
+    parts.push(
+      single
+        ? 'This answer was already rejected — ask a KB reviewer to restore it'
+        : `${entries(rejected)} ${rejected === 1 ? 'was' : 'were'} already rejected — ask a KB reviewer to restore ${itThem(rejected)}`
+    );
+  if (merged > 0) {
+    const mergedEntry = partOfCase.length > 1 ? 'merged entries' : 'a merged entry';
+    const answers = partOfCase.length > 1 ? 'they answer' : 'it answers';
+    parts.push(
+      single
+        ? 'Already part of a merged entry — it answers this'
+        : `${entries(merged)} ${isAre(merged)} already part of ${mergedEntry} — ${answers} ${itThem(merged)}`
+    );
+  }
+  return parts.length > 0 ? parts.join('. ') : 'Saved to the knowledge base';
+};
 
 export const PromoteToKbDialog = ({ messageId, isOpen, onClose, onPromoted }: Props) => {
   const [loading, setLoading] = useState(false);
@@ -86,7 +146,7 @@ export const PromoteToKbDialog = ({ messageId, isOpen, onClose, onPromoted }: Pr
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { ids, pendingReview, rejected } = await kbPromoteService.promote(
+      const { ids, outcome } = await kbPromoteService.promote(
         messageId,
         kept.map((pair) => ({
           questionMessageId: pair.questionMessageId,
@@ -95,21 +155,7 @@ export const PromoteToKbDialog = ({ messageId, isOpen, onClose, onPromoted }: Pr
           answer: pair.answer.trim(),
         }))
       );
-      // The server returns what it actually created: a pair already in the KB is not added
-      // twice, and saying "2 added" when one was a duplicate would be a lie the agent can't see.
-      // "Added" would be untrue for someone who may not approve: their entries are saved but
-      // the AI does not use them until a reviewer (who has been notified) approves them.
-      toast.success(
-        ids.length === 0
-          ? 'Already in the knowledge base — nothing new was added'
-          : !pendingReview && rejected === ids.length
-            ? 'A reviewer already rejected this answer — ask them to restore it'
-            : pendingReview
-            ? `${ids.length === 1 ? 'Saved' : `${ids.length} entries saved`} and sent for review — the AI uses ${ids.length === 1 ? 'it' : 'them'} once a reviewer approves`
-            : ids.length === 1
-              ? 'Added to the knowledge base'
-              : `${ids.length} entries added to the knowledge base`
-      );
+      toast.success(promoteToastText(ids, outcome));
       onPromoted?.(ids);
       onClose();
     } catch (error) {

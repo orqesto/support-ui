@@ -1,7 +1,12 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
-import type { KbQaCandidate, KbQaPairInput } from '@/services/kbPromote.service';
+import type {
+  KbPromoteOutcome,
+  KbPromoteResult,
+  KbQaCandidate,
+  KbQaPairInput,
+} from '@/services/kbPromote.service';
 
 /**
  * Promoting a resolved thread is the only path where a person reads KB content BEFORE it is
@@ -21,10 +26,21 @@ const candidate = (over: Partial<KbQaCandidate> = {}): KbQaCandidate => ({
 });
 
 const kbCandidates = vi.fn<(id: number) => Promise<KbQaCandidate[]>>();
-const promoteToKb =
-  vi.fn<
-    (id: number, pairs: KbQaPairInput[]) => Promise<{ ids: number[]; pendingReview: boolean; rejected: number }>
-  >();
+const promoteToKb = vi.fn<(id: number, pairs: KbQaPairInput[]) => Promise<KbPromoteResult>>();
+/** What the service returns: the ids and the backend's truthful per-state `outcome`. */
+const promoted = (ids: number[], outcome: Partial<KbPromoteOutcome> = {}): KbPromoteResult => ({
+  ids,
+  outcome: {
+    approved: 0,
+    hidden: 0,
+    retired: 0,
+    pendingReview: 0,
+    rejected: 0,
+    partOfCaseEntries: 0,
+    partOfCase: [],
+    ...outcome,
+  },
+});
 const success = vi.fn<(message: string) => void>();
 const error = vi.fn<(message: string) => void>();
 
@@ -59,7 +75,7 @@ afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
   kbCandidates.mockResolvedValue([candidate()]);
-  promoteToKb.mockResolvedValue({ ids: [101], pendingReview: false, rejected: 0 });
+  promoteToKb.mockResolvedValue(promoted([101], { approved: 1 }));
 });
 
 describe('PromoteToKbDialog', () => {
@@ -85,7 +101,9 @@ describe('PromoteToKbDialog', () => {
     renderDialog();
 
     const answer = await screen.findByDisplayValue(/returned to our warehouse/);
-    fireEvent.change(answer, { target: { value: 'Reshipped on 9 September, arriving in 3 days.' } });
+    fireEvent.change(answer, {
+      target: { value: 'Reshipped on 9 September, arriving in 3 days.' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /add to knowledge base/i }));
 
     await waitFor(() => expect(promoteToKb).toHaveBeenCalled());
@@ -114,7 +132,7 @@ describe('PromoteToKbDialog', () => {
   it('says nothing was added when the pair is already in the KB', async () => {
     // The server returns what it CREATED; a pair already stored is not added twice. Reporting
     // "1 added" there would be a lie the agent cannot see.
-    promoteToKb.mockResolvedValue({ ids: [], pendingReview: false, rejected: 0 });
+    promoteToKb.mockResolvedValue(promoted([]));
     renderDialog();
 
     await screen.findByDisplayValue('Where is my order ORB-1268?');
@@ -127,7 +145,7 @@ describe('PromoteToKbDialog', () => {
   it('says the entry went for REVIEW, not "added", when the agent may not approve', async () => {
     // "Added to the knowledge base" would be untrue: the AI does not use it until a moderator
     // approves, and the agent would otherwise believe the answer is live.
-    promoteToKb.mockResolvedValue({ ids: [101], pendingReview: true, rejected: 0 });
+    promoteToKb.mockResolvedValue(promoted([101], { pendingReview: 1 }));
     renderDialog();
 
     fireEvent.click(await screen.findByRole('button', { name: /add to knowledge base/i }));
@@ -138,13 +156,16 @@ describe('PromoteToKbDialog', () => {
   });
 
   it('says a reviewer REJECTED it rather than "added" or "sent for review"', async () => {
-    promoteToKb.mockResolvedValue({ ids: [101], pendingReview: false, rejected: 1 });
+    promoteToKb.mockResolvedValue(promoted([101], { rejected: 1 }));
     renderDialog();
 
     fireEvent.click(await screen.findByRole('button', { name: /add to knowledge base/i }));
 
     await waitFor(() => expect(success).toHaveBeenCalled());
-    expect(success.mock.calls[0][0]).toMatch(/rejected/i);
+    // Who rejected it is not known here, so the text does not name "a reviewer" as the one to ask.
+    expect(success.mock.calls[0][0]).toBe(
+      'This answer was already rejected — ask a KB reviewer to restore it'
+    );
   });
 
   it('says "added" when the agent may approve', async () => {
@@ -154,6 +175,80 @@ describe('PromoteToKbDialog', () => {
 
     await waitFor(() => expect(success).toHaveBeenCalled());
     expect(success.mock.calls[0][0]).toMatch(/added to the knowledge base/i);
+  });
+
+  const toastFor = async (result: KbPromoteResult) => {
+    promoteToKb.mockResolvedValue(result);
+    renderDialog();
+    fireEvent.click(await screen.findByRole('button', { name: /add to knowledge base/i }));
+    await waitFor(() => expect(success).toHaveBeenCalled());
+    return success.mock.calls[0][0];
+  };
+
+  it('a HIDDEN entry is not "added": only a KB reviewer can restore it', async () => {
+    // Approved but hidden (e.g. a detached case member) is not served — "added" would be false.
+    const text = await toastFor(promoted([101], { hidden: 1 }));
+    expect(text).toBe('Already in the knowledge base but hidden — ask a KB reviewer to restore it');
+    expect(text).not.toMatch(/added/i);
+  });
+
+  it('an original of a merged case is not "added": the merged entry answers it', async () => {
+    const text = await toastFor(promoted([101], { partOfCaseEntries: 1, partOfCase: [900] }));
+    expect(text).toBe('Already part of a merged entry — it answers this');
+    expect(text).not.toMatch(/added/i);
+  });
+
+  it('an entry whose source was removed is not "added": it is kept but never used', async () => {
+    const text = await toastFor(promoted([101], { retired: 1 }));
+    expect(text).toBe('Already in the knowledge base, but its source was removed — it is not used');
+    expect(text).not.toMatch(/added/i);
+  });
+
+  it('a retired entry is said alongside an added one', async () => {
+    const text = await toastFor(promoted([101, 102], { approved: 1, retired: 1 }));
+    expect(text).toBe(
+      '1 entry added to the knowledge base. 1 entry is already in the knowledge base, but its source was removed — it is not used'
+    );
+  });
+
+  it('counts what was actually added', async () => {
+    expect(await toastFor(promoted([101, 102], { approved: 2 }))).toBe(
+      '2 entries added to the knowledge base'
+    );
+  });
+
+  it('a mixed result says each part — "added" only for what is served', async () => {
+    const text = await toastFor(promoted([101, 102], { approved: 1, hidden: 1 }));
+    expect(text).toBe(
+      '1 entry added to the knowledge base. 1 entry is already in the knowledge base but hidden — ask a KB reviewer to restore it'
+    );
+  });
+
+  it('a mixed result counts every part (MED-1)', async () => {
+    expect(await toastFor(promoted([101, 102], { approved: 1, pendingReview: 1 }))).toBe(
+      '1 entry added to the knowledge base. 1 entry saved and sent for review — the AI uses it once a reviewer approves'
+    );
+  });
+
+  it('several rejected entries are said in the plural (MED-1)', async () => {
+    const text = await toastFor(promoted([101, 102], { rejected: 2 }));
+    expect(text).toBe('2 entries were already rejected — ask a KB reviewer to restore them');
+  });
+
+  it('a retired entry reads as retired only', async () => {
+    const text = await toastFor(promoted([101], { retired: 1, rejected: 0 }));
+    expect(text).toBe('Already in the knowledge base, but its source was removed — it is not used');
+    expect(text).not.toMatch(/rejected|\. /);
+  });
+
+  it('counts entries that are part of merged entries (LOW-2)', async () => {
+    expect(await toastFor(promoted([101, 102], { partOfCaseEntries: 2, partOfCase: [900] }))).toBe(
+      '2 entries are already part of a merged entry — it answers them'
+    );
+  });
+
+  it('entries saved in no known state read as "saved", never "added"', async () => {
+    expect(await toastFor(promoted([101]))).toBe('Saved to the knowledge base');
   });
 
   it('says so when the thread yields nothing, instead of offering an empty save', async () => {
@@ -171,7 +266,9 @@ describe('PromoteToKbDialog', () => {
     kbCandidates.mockRejectedValue({
       response: {
         status: 409,
-        data: { error: 'Only a resolved or closed conversation can be promoted to the knowledge base' },
+        data: {
+          error: 'Only a resolved or closed conversation can be promoted to the knowledge base',
+        },
       },
     });
     renderDialog();
