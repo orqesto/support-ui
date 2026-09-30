@@ -410,6 +410,42 @@ describe('KB list — consolidation states (F4)', () => {
     });
   });
 
+  it('FE pass 24 LOW-1: a resolve capture (Q:/A: content, no halves) renamed sends only its title; an edited content sends only the content', async () => {
+    const base = kbEntryDetailResponse({ id: 19, approved: true, capturedVia: 'resolve' });
+    const capture = {
+      ...base,
+      data: { ...base.data, content: 'Refunds: see the updated policy page.', typeData: {} },
+    };
+    getById.mockResolvedValue(capture);
+    update.mockResolvedValue({ success: true, data: capture.data });
+    const row = entry({
+      id: 19,
+      approved: true,
+      capturedVia: 'resolve',
+      content: capture.data.content,
+      typeData: {},
+    });
+    render(
+      <MemoryRouter>
+        <KBEntryDetail entry={row} onClose={vi.fn()} canReview {...handlers()} />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(getById).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole('button', { name: /Edit/ }));
+    expect(screen.getByRole('button', { name: /Save Changes/ })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Refund policy' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    expect(update).toHaveBeenLastCalledWith(19, { title: 'Refund policy' });
+    fireEvent.click(await screen.findByRole('button', { name: /Edit/ }));
+    fireEvent.change(screen.getByLabelText('Content'), {
+      target: { value: 'Q: Refund?\n\nA: 5 days.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+    expect(update).toHaveBeenLastCalledWith(19, { content: 'Q: Refund?\n\nA: 5 days.' });
+  });
+
   it('FE pass 20 LOW-4: a Q&A edit with a blank answer cannot be saved (the backend would keep the old one)', async () => {
     getById.mockResolvedValue(
       kbEntryDetailResponse({

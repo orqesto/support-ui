@@ -112,3 +112,44 @@ export const qaCanSave = (
   form.question.trim() !== '' &&
   form.answer.trim() !== '' &&
   Object.keys(qaSaveBody(form, start)).length > 0;
+
+/** Where ANY edit started: what the dialog showed, plus the Q&A baseline when it edits halves. */
+export type EditStart = {
+  title: string | null;
+  category: string | null;
+  content: string;
+  qa: EditableQa | null;
+};
+
+type EditForm = {
+  title: string;
+  category: string;
+  content: string;
+  question: string;
+  answer: string;
+};
+
+/**
+ * The body of any KB entry save — ONLY what changed, on both paths. The content path (non-Q&A
+ * entries, and resolve/promote captures, which keep "Q: …\n\nA: …" content and no halves) sends
+ * `content` only when it was edited: the branch backend re-parses a Q&A `content` it receives and
+ * answers 400 when a free-form one no longer parses, so a title-only rename of such a capture
+ * must not send it (FE pass 24 LOW-1). Empty ⇒ nothing to save.
+ */
+export const editSaveBody = (form: EditForm, start: EditStart): Record<string, string> => {
+  if (start.qa)
+    return qaSaveBody(form, { ...start.qa, title: start.title, category: start.category });
+  const body: Record<string, string> = {};
+  const changed = (value: string, initial: string | null) =>
+    value.trim() !== '' && value.trim() !== (initial ?? '').trim();
+  if (changed(form.title, start.title)) body.title = form.title;
+  if (changed(form.category, start.category)) body.category = form.category;
+  if (changed(form.content, start.content)) body.content = form.content;
+  return body;
+};
+
+/** Anything to save — and, for Q&A, both halves filled (FE pass 20 LOW-4). */
+export const editCanSave = (form: EditForm, start: EditStart): boolean =>
+  start.qa
+    ? qaCanSave(form, { ...start.qa, title: start.title, category: start.category })
+    : Object.keys(editSaveBody(form, start)).length > 0;

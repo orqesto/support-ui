@@ -42,7 +42,7 @@ import {
   mayRemoveCase,
   offersReviewActions,
 } from '@/lib/kbConsolidation';
-import { editableQaOf, QA_DRIFT_NOTE, qaCanSave, qaSaveBody, type QaEditStart } from '@/lib/kbQaText';
+import { editableQaOf, editCanSave, editSaveBody, QA_DRIFT_NOTE, type EditStart } from '@/lib/kbQaText';
 
 const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico']);
 const isImageFile = (filename: string) =>
@@ -154,7 +154,7 @@ export const KBEntryDetail = ({
   // The drawer holds the entry's FULL text only once the detail route answered.
   const [detailLoaded, setDetailLoaded] = useState(false);
   // The Q&A edit's baseline: the halves AI drafts read, how the shown text relates, the start values.
-  const [qaEdit, setQaEdit] = useState<QaEditStart | null>(null);
+  const [editStart, setEditStart] = useState<EditStart | null>(null);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -187,11 +187,12 @@ export const KBEntryDetail = ({
     if (displayEntry) {
       const qaText = editableQaOf(displayEntry, detailLoaded);
       setEditsQa(qaText !== null);
-      setQaEdit(
-        qaText
-          ? { ...qaText, title: displayEntry.title, category: displayEntry.category }
-          : null
-      );
+      setEditStart({
+        title: displayEntry.title,
+        category: displayEntry.category,
+        content: displayEntry.content,
+        qa: qaText,
+      });
       setEditForm({
         title: displayEntry.title,
         content: displayEntry.content,
@@ -211,8 +212,8 @@ export const KBEntryDetail = ({
     try {
       const response = await kbService.update(
         displayEntry.id,
-        editsQa && qaEdit
-          ? qaSaveBody(editForm, qaEdit)
+        editStart
+          ? editSaveBody(editForm, editStart)
           : { title: editForm.title, content: editForm.content, category: editForm.category }
       );
       if (response.success && response.data) {
@@ -607,8 +608,8 @@ export const KBEntryDetail = ({
               {editError}
             </div>
           )}
-          {editsQa && qaEdit && qaEdit.drift !== 'none' && (
-            <p className="mb-4 text-sm text-muted-foreground">{QA_DRIFT_NOTE[qaEdit.drift]}</p>
+          {editStart?.qa && editStart.qa.drift !== 'none' && (
+            <p className="mb-4 text-sm text-muted-foreground">{QA_DRIFT_NOTE[editStart.qa.drift]}</p>
           )}
           {displayEntry && isCaseRow(displayEntry) && (
             <p className="mb-4 text-sm text-muted-foreground">
@@ -691,7 +692,7 @@ export const KBEntryDetail = ({
             variant="primary"
             onClick={handleSaveEdit}
             isLoading={saving}
-            disabled={editsQa && qaEdit !== null && !qaCanSave(editForm, qaEdit)}
+            disabled={editStart !== null && !editCanSave(editForm, editStart)}
           >
             Save Changes
           </Button>
