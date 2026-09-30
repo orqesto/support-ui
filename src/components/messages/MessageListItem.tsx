@@ -310,7 +310,8 @@ export const MessageListItem = ({
         >
           <Checkbox
             checked={selected === true}
-            aria-label={`Select message from ${msg.sender}`}
+            // The address is on the THREAD row (what the row shows); latestMessage has no sender.
+            aria-label={`Select message from ${thread.sender || msg.sender}`}
             onChange={(event) =>
               isRangeClick(event.nativeEvent)
                 ? onToggleSelected(selectableId, { range: true })
