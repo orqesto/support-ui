@@ -31,7 +31,8 @@ export type RefusalReason =
   | 'already_confirmed_spam'
   | 'security_threat'
   | 'already_read'
-  | 'already_unread';
+  | 'already_unread'
+  | 'not_triage';
 
 export type BulkPreview = {
   action: BulkAction;
@@ -77,7 +78,11 @@ export const REFUSAL_TEXT: Record<RefusalReason, string> = {
   security_threat: 'flagged as a security threat — look at it yourself',
   already_read: 'already read',
   already_unread: 'already unread',
+  not_triage: 'not in triage — read and unread apply to triage threads only',
 };
+
+/** For a reason the server sends before this build knows its words (BE and FE ship apart). */
+const UNKNOWN_REFUSAL_TEXT = 'not eligible for this action';
 
 /**
  * Group refusals so the confirm step reads "3 have no answer yet" rather than listing three
@@ -89,7 +94,11 @@ export const groupRefusals = (
   const counts = new Map<RefusalReason, number>();
   for (const entry of refused) counts.set(entry.reason, (counts.get(entry.reason) ?? 0) + 1);
   return [...counts.entries()]
-    .map(([reason, count]) => ({ reason, count, text: REFUSAL_TEXT[reason] }))
+    .map(([reason, count]) => ({
+      reason,
+      count,
+      text: (REFUSAL_TEXT as Partial<Record<string, string>>)[reason] ?? UNKNOWN_REFUSAL_TEXT,
+    }))
     .sort((left, right) => right.count - left.count);
 };
 
