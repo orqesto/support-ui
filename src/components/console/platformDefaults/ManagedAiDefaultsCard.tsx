@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Bot, TestTube2 } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -264,13 +264,27 @@ export const ManagedAiDefaultsCard = ({
    */
   const [aiTest, setAiTest] = useState<ManagedAiTestResult | null>(null);
   const [testing, setTesting] = useState(false);
-  const runAiTest = async () => {
-    setTesting(true);
+  /**
+   * Which probe the screen is waiting for. A probe can take up to 15 s, and the config can be
+   * saved or switched while it runs — clearing the line was not enough, because the old probe
+   * landed afterwards and printed "answered" under settings it never tested.
+   */
+  const testRun = useRef(0);
+  const discardTestResult = () => {
+    testRun.current += 1;
     setAiTest(null);
+  };
+  const runAiTest = async () => {
+    discardTestResult();
+    const run = testRun.current;
+    setTesting(true);
     try {
-      setAiTest(await platformSettingsService.testManagedAi());
+      const result = await platformSettingsService.testManagedAi();
+      if (run === testRun.current) setAiTest(result);
     } catch (err) {
-      setAiTest({ ok: false, reason: err instanceof Error ? err.message : 'Test failed' });
+      if (run === testRun.current) {
+        setAiTest({ ok: false, reason: err instanceof Error ? err.message : 'Test failed' });
+      }
     } finally {
       setTesting(false);
     }
@@ -287,7 +301,7 @@ export const ManagedAiDefaultsCard = ({
     if (pendingSecretCount > 0) return;
     // Any save may change what a previous result described (region, profile, credentials),
     // and a green line about the old config reads as a pass for the new one.
-    setAiTest(null);
+    discardTestResult();
     const input: ManagedAiInput = { provider };
     (Object.keys(models) as ModelKey[]).forEach((key) => {
       const trimmed = models[key].trim();
@@ -567,7 +581,7 @@ export const ManagedAiDefaultsCard = ({
               setFreeText({ defaultModel: false, strongModel: false, visionModel: false });
               // A result that outlives what it describes is worse than none: "openai answered"
               // still sitting there under a freshly-selected Bedrock reads as a pass.
-              setAiTest(null);
+              discardTestResult();
             }}
           >
             {AI_PROVIDER_TYPES.map((type) => (

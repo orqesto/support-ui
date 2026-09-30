@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
+import { act, render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
 import type * as platformSettingsModule from '@/services/platformSettings.service';
 
 type PlatformSettings = platformSettingsModule.PlatformSettings;
@@ -168,6 +168,56 @@ describe('Managed AI defaults — Save and test', () => {
     fireEvent.click(screen.getByRole('button', { name: /save ai defaults/i }));
 
     expect(screen.queryByText(/bedrock answered with/i)).not.toBeInTheDocument();
+  });
+
+  it('⛔ a probe still running when the config is saved does not report on the new config', async () => {
+    let finishOldProbe: (value: unknown) => void = () => {};
+    testManagedAi.mockImplementationOnce(
+      () => new Promise((resolve) => (finishOldProbe = resolve))
+    );
+    renderCard(bedrockAi());
+    fireEvent.click(screen.getByRole('button', { name: /^test connection/i }));
+    openEditor();
+    fireEvent.change(screen.getByDisplayValue('eu-west-1 (Ireland)'), {
+      target: { value: 'us-east-1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /save ai defaults/i }));
+    expect(saveMutation.mutate).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      finishOldProbe({ ok: true, provider: 'bedrock', model: 'OLD-CONFIG', latencyMs: 1 });
+      await Promise.resolve();
+    });
+    expect(screen.queryByText(/answered with OLD-CONFIG/)).not.toBeInTheDocument();
+  });
+
+  it('⛔ … nor when the provider is switched while it runs, and a failure is dropped too', async () => {
+    let failOldProbe: (reason: unknown) => void = () => {};
+    testManagedAi.mockImplementationOnce(
+      () => new Promise((_resolve, reject) => (failOldProbe = reject))
+    );
+    renderCard(bedrockAi());
+    fireEvent.click(screen.getByRole('button', { name: /^test connection/i }));
+    openEditor();
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'openai' } });
+
+    await act(async () => {
+      failOldProbe(new Error('OLD-CONFIG timed out'));
+      await Promise.resolve();
+    });
+    expect(screen.queryByText(/OLD-CONFIG timed out/)).not.toBeInTheDocument();
+  });
+
+  it('CONTROL: a probe nobody overtook still reports', async () => {
+    let finishProbe: (value: unknown) => void = () => {};
+    testManagedAi.mockImplementationOnce(() => new Promise((resolve) => (finishProbe = resolve)));
+    renderCard(bedrockAi());
+    fireEvent.click(screen.getByRole('button', { name: /^test connection/i }));
+    await act(async () => {
+      finishProbe({ ok: true, provider: 'bedrock', model: 'CURRENT', latencyMs: 1 });
+      await Promise.resolve();
+    });
+    expect(screen.getByText(/answered with CURRENT/)).toBeInTheDocument();
   });
 
   it('the plain Save does not test', () => {
