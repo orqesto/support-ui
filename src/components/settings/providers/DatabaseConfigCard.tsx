@@ -1,5 +1,6 @@
 import { Database, RefreshCw, TestTube2, Trash2, Unplug } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useResultFor } from '@/hooks/useResultFor';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -119,7 +120,11 @@ export const DatabaseConfigCard = ({
   const [url, setUrl] = useState('');
   const [region, setRegion] = useState('');
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<DatabaseTestResult | null>(null);
+  const {
+    result: testResult,
+    keep: keepTestResult,
+    clear: clearTestResult,
+  } = useResultFor<DatabaseTestResult>(url.trim());
   const [connecting, setConnecting] = useState(false);
   const [reverifying, setReverifying] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -151,11 +156,15 @@ export const DatabaseConfigCard = ({
 
   const handleTest = async () => {
     setTesting(true);
-    setTestResult(null);
+    clearTestResult();
+    const testedUrl = url.trim();
     try {
-      setTestResult(await databaseService.test(url.trim()));
+      keepTestResult(await databaseService.test(testedUrl), testedUrl);
     } catch (err) {
-      setTestResult({ ok: false, latencyMs: 0, error: apiErrorMessage(err, 'Request failed') });
+      keepTestResult(
+        { ok: false, latencyMs: 0, error: apiErrorMessage(err, 'Request failed') },
+        testedUrl
+      );
     } finally {
       setTesting(false);
     }
@@ -174,7 +183,7 @@ export const DatabaseConfigCard = ({
           : `Connected — ${result.migrationsApplied ?? 0} migration${result.migrationsApplied === 1 ? '' : 's'} applied.`
       );
       setUrl('');
-      setTestResult(null);
+      clearTestResult();
       const next = await load();
       onChanged?.(next ?? result.display);
     } catch (err) {
@@ -396,7 +405,7 @@ export const DatabaseConfigCard = ({
                     value={url}
                     onChange={(event) => {
                       setUrl(event.target.value);
-                      setTestResult(null);
+                      clearTestResult();
                     }}
                     disabled={!canManage}
                     className="font-mono text-xs"
