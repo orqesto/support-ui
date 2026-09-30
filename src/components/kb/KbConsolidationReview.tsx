@@ -80,7 +80,7 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<KbConsolidationOutcome | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<KbConsolidationDetail | null> => {
     setLoadError(null);
     try {
       const data = await kbConsolidationService.getMembers(suggestionId);
@@ -100,8 +100,10 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
           : (data.proposedAnswer ?? data.case?.answer ?? '')
       );
       setReplaceCaseAnswer(false);
+      return data;
     } catch (err) {
       setLoadError(getApiErrorMessage(err) ?? 'Could not load this proposal.');
+      return null;
     }
   }, [suggestionId]);
 
@@ -173,13 +175,18 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
         ? 'The merged entry needs both a question and an answer.'
         : null;
 
-  // 409 = someone else decided it, 404 = it is gone: re-read, so the review shows its real status
-  // (and no Accept / Decline to retry forever), and let the bell re-count (FE pass 19 LOW-1).
+  // 409 = no longer pending (decided by someone else, or EXPIRED — e.g. its case was unmerged);
+  // 404 = gone. Re-read, so the review shows its real status (and no Accept / Decline to retry
+  // forever), and let the bell re-count (FE pass 19 LOW-1). Once the status line says what
+  // happened, a failure message beside it would contradict it — drop it (FE pass 20 LOW-1).
+  const rereadIfNoLongerPending = async () => {
+    announceKbConsolidationDecided();
+    const fresh = await load();
+    if (fresh && fresh.status !== 'pending') setActionError(null);
+  };
   const rereadIfDecidedElsewhere = async (err: unknown) => {
     const status = apiErrorStatus(err);
-    if (status !== 409 && status !== 404) return;
-    announceKbConsolidationDecided();
-    await load();
+    if (status === 409 || status === 404) await rereadIfNoLongerPending();
   };
 
   const handleAccept = async () => {
@@ -195,6 +202,12 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
             ...(replaceCaseAnswer && answer.trim() ? { answer: answer.trim() } : {}),
           };
       const result = await kbConsolidationService.accept(detail.suggestionId, body);
+      // The generic accept answers 200 for a proposal that no longer exists (e.g. after a
+      // workspace KB reset): an "accepted" naming no case changed nothing (FE pass 20 LOW-2).
+      if (result.status !== 'expired' && typeof result.caseId !== 'number') {
+        await rereadIfNoLongerPending();
+        return;
+      }
       const next: KbConsolidationOutcome = {
         kind: result.status === 'expired' ? 'expired' : 'accepted',
         type: detail.type,

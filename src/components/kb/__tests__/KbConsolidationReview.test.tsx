@@ -302,7 +302,23 @@ describe('KbConsolidationReview (F1)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Accept merge/ }));
     expect(await screen.findByText(/no longer pending \(accepted\)/)).toBeInTheDocument();
     expect(getMembers).toHaveBeenCalledTimes(2);
+    // The status line says what happened; a failure message beside it would contradict it
+    // (an EXPIRED proposal answers the same 409) — FE pass 20 LOW-1.
+    expect(screen.queryByText(/already decided|Could not accept/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Accept merge/ })).not.toBeInTheDocument();
+  });
+
+  it('FE pass 20 LOW-2: an "accepted" answer naming no case (the proposal no longer exists) never says "#?"', async () => {
+    getMembers
+      .mockResolvedValueOnce(detail())
+      .mockRejectedValue(Object.assign(new Error('Not found'), { status: 404 }));
+    accept.mockResolvedValue({ id: 77, status: 'accepted' });
+    renderReview();
+    await screen.findByText('Question 1?');
+    fireEvent.click(screen.getByRole('button', { name: /Accept merge/ }));
+    await waitFor(() => expect(getMembers).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText(/#\?/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Merged into case/)).not.toBeInTheDocument();
   });
 
   it('FE pass 19 LOW-1: a decline refused with 409 re-reads too; a 500 does not', async () => {
@@ -312,9 +328,7 @@ describe('KbConsolidationReview (F1)', () => {
     await screen.findByText('Question 1?');
     fireEvent.click(screen.getByRole('button', { name: /Decline/ }));
     await waitFor(() => expect(decline).toHaveBeenCalledTimes(1));
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Decline/ })).not.toBeDisabled()
-    );
+    await waitFor(() => expect(screen.getByRole('button', { name: /Decline/ })).not.toBeDisabled());
     expect(getMembers).toHaveBeenCalledTimes(1);
     decline.mockRejectedValueOnce(
       Object.assign(new Error('This proposal was already decided.'), { status: 409 })

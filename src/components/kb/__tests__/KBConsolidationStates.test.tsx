@@ -194,7 +194,32 @@ describe('KB list — consolidation states (F4)', () => {
       category: 'support',
       question: 'Where is my refund?',
       answer: '7 days.',
+      // Also as content: a backend without question/answer support still applies it (pass 20 LOW-3).
+      content: 'Question: Where is my refund?\n\nAnswer: 7 days.',
     });
+  });
+
+  it('FE pass 20 LOW-4: a Q&A edit with a blank answer cannot be saved (the backend would keep the old one)', async () => {
+    getById.mockResolvedValue(
+      kbEntryDetailResponse({
+        id: 9,
+        approved: true,
+        capturedVia: 'consolidation',
+        publicId: 'KB-9',
+      })
+    );
+    render(
+      <MemoryRouter>
+        <KBEntryDetail entry={caseRow} onClose={vi.fn()} canReview {...handlers()} />
+      </MemoryRouter>
+    );
+    fireEvent.click(await screen.findByRole('button', { name: /Edit/ }));
+    fireEvent.change(screen.getByLabelText('Answer'), { target: { value: '   ' } });
+    expect(screen.getByRole('button', { name: /Save Changes/ })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
+    expect(update).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Answer'), { target: { value: '7 days.' } });
+    expect(screen.getByRole('button', { name: /Save Changes/ })).not.toBeDisabled();
   });
 
   it('the drawer acts on the entry it fetched, not the row it was opened with (H1)', async () => {

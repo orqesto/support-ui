@@ -211,6 +211,9 @@ export const KBEntryDetail = ({
               category: editForm.category,
               question: editForm.question,
               answer: editForm.answer,
+              // Also as content, which a backend without question/answer support reads — it
+              // would otherwise drop the edit and still answer 200 (FE pass 20 LOW-3).
+              content: `Question: ${editForm.question}\n\nAnswer: ${editForm.answer}`,
             }
           : { title: editForm.title, content: editForm.content, category: editForm.category }
       );
@@ -683,7 +686,13 @@ export const KBEntryDetail = ({
           <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleSaveEdit} isLoading={saving}>
+          <Button
+            variant="primary"
+            onClick={handleSaveEdit}
+            isLoading={saving}
+            // A blank half would silently keep the old text on the backend (FE pass 20 LOW-4).
+            disabled={editsQa && (!editForm.question.trim() || !editForm.answer.trim())}
+          >
             Save Changes
           </Button>
         </DialogFooter>
