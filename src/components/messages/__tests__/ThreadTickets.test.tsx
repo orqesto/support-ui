@@ -2,7 +2,7 @@
  * The thread's "Tickets" panel (2026-09-30): which incidents this thread reports.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -16,6 +16,11 @@ vi.mock('@/services/ticketThreads.service', () => ({
 }));
 vi.mock('@/services/ticket.service', () => ({ ticketService: { getAll } }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
+const socketHandlers = new Map<string, (data: unknown) => void>();
+vi.mock('@/lib/socketManager', () => ({
+  subscribeToEvent: (name: string, handler: (data: unknown) => void) => socketHandlers.set(name, handler),
+  unsubscribeFromEvent: (name: string) => socketHandlers.delete(name),
+}));
 
 const { ThreadTickets } = await import('@/components/messages/ThreadTickets');
 
@@ -159,5 +164,42 @@ describe('ThreadTickets', () => {
     await new Promise((resolve) => setTimeout(resolve, 400));
     expect(screen.queryByText('ACME result')).not.toBeInTheDocument();
     expect(screen.getByText('Default list')).toBeInTheDocument();
+  });
+
+  it('a reply on THIS thread clears "Fixed — reply…" without a click', async () => {
+    ticketsOfThread.mockResolvedValue({ unavailable: false, rows: [ticket({ status: 'resolved', owesReply: true })], hiddenCount: 0 });
+    renderPanel();
+    expect(await screen.findByText(/reply to tell this customer/)).toBeInTheDocument();
+    let answer: (value: unknown) => void = () => {};
+    ticketsOfThread.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    act(() => socketHandlers.get('message:replied')?.({ messageId: 99 }));
+    expect(ticketsOfThread).toHaveBeenCalledTimes(1);
+    act(() => socketHandlers.get('message:replied')?.({ messageId: 11 }));
+    // A quiet refresh: while it runs, the list stays on screen instead of "Loading…".
+    expect(ticketsOfThread).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Checkout outage')).toBeInTheDocument();
+    act(() => answer({ unavailable: false, rows: [ticket({ status: 'resolved', owesReply: false })], hiddenCount: 0 }));
+    await waitFor(() => expect(screen.queryByText(/reply to tell this customer/)).not.toBeInTheDocument());
+  });
+
+  it('a ticket resolved elsewhere shows here — only for this thread’s tickets', async () => {
+    ticketsOfThread.mockResolvedValue({ unavailable: false, rows: [ticket({ status: 'in_progress' })], hiddenCount: 0 });
+    renderPanel();
+    await screen.findByText('Checkout outage');
+    await waitFor(() => expect(socketHandlers.get('ticket:updated')).toBeDefined());
+    ticketsOfThread.mockResolvedValue({ unavailable: false, rows: [ticket({ status: 'resolved', owesReply: true })], hiddenCount: 0 });
+    act(() => socketHandlers.get('ticket:updated')?.({ ticketId: 5 }));
+    expect(ticketsOfThread).toHaveBeenCalledTimes(1);
+    act(() => socketHandlers.get('ticket:updated')?.({ ticketId: 4 }));
+    expect(await screen.findByText(/reply to tell this customer/)).toBeInTheDocument();
+  });
+
+  it('a failed picker search says so inside the picker — not "no other tickets"', async () => {
+    getAll.mockRejectedValue(new Error('boom'));
+    renderPanel();
+    await userEvent.click(await screen.findByRole('button', { name: /Add to ticket/ }));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(dialog).toHaveTextContent(/boom|Could not search tickets/));
+    expect(screen.queryByText('No other tickets to add it to.')).not.toBeInTheDocument();
   });
 });

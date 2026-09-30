@@ -320,7 +320,7 @@ export function MessagePanelTabs({
                 ))}
               </div>
 
-              {/* What the connected systems know, and which other threads are the same work. */}
+              {/* What the connected systems know, and which tickets this thread is on. */}
               <CustomerTabPanels
                 message={message}
                 hasEmailIdentity={hasEmailIdentity}

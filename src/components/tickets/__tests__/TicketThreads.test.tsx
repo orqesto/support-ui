@@ -230,4 +230,13 @@ describe('TicketThreads', () => {
     expect(screen.queryByText('a-origin@x.example')).not.toBeInTheDocument();
     expect(threadsOfTicket.mock.calls.filter(([id]: unknown[]) => id === 4)).toHaveLength(1);
   });
+
+  it('a failed picker search says so inside the picker — not "no other threads"', async () => {
+    getThreads.mockRejectedValue(new Error('boom'));
+    renderList();
+    await userEvent.click(await screen.findByRole('button', { name: /Add threads/ }));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(dialog).toHaveTextContent(/boom|Could not search threads/));
+    expect(screen.queryByText('No other threads to add.')).not.toBeInTheDocument();
+  });
 });

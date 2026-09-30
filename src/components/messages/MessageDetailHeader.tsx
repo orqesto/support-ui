@@ -319,6 +319,16 @@ export function MessageDetailHeader({
     return () => window.removeEventListener(THREAD_TICKETS_CHANGED, onChanged);
   }, [message.id, loadTickets]);
 
+  useEffect(() => {
+    // D2: a reply on this thread is what tells the customer — the "fixed, reply to tell this
+    // customer" prompt must go once it is sent, or it invites a second reply.
+    const onReplied = (data: unknown) => {
+      if ((data as { messageId: number }).messageId === message.id) loadTickets();
+    };
+    subscribeToEvent('message:replied', onReplied);
+    return () => unsubscribeFromEvent('message:replied', onReplied);
+  }, [message.id, loadTickets]);
+
   // Sync the in-flight badge from the message prop ONLY on conv change. We used
   // to also depend on `message.metadata` so navigating away+back would re-read
   // the latest value, but that introduced a race: WS 'pending' sets local

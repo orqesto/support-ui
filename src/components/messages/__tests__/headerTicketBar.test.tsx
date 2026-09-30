@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, cleanup, act } from '@testing-library/react';
+import { render, screen, cleanup, act, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Message } from '@/types';
@@ -191,5 +191,29 @@ describe('ticket bar', () => {
     expect(ticketsOfThread).toHaveBeenCalledTimes(1);
     act(() => handler?.({ ticketId: 7 }));
     expect(await screen.findByText(/in progress/)).toBeInTheDocument();
+  });
+
+  it('D2: the "fixed" prompt goes once an agent replies on THIS thread — another thread’s reply leaves it', async () => {
+    ticketsOfThread.mockResolvedValue({
+      unavailable: false,
+      hiddenCount: 0,
+      rows: [row({ ticketId: 9, status: 'resolved', owesReply: true })],
+    });
+    renderHeader();
+    expect(await screen.findByText('Ticket #9 is fixed — reply to tell this customer.')).toBeInTheDocument();
+    const { subscribeToEvent } = await import('@/lib/socketManager');
+    const replied = vi.mocked(subscribeToEvent).mock.calls.filter(([name]) => name === 'message:replied').at(-1)?.[1] as
+      | ((data: unknown) => void)
+      | undefined;
+    expect(replied).toBeDefined();
+    ticketsOfThread.mockResolvedValue({
+      unavailable: false,
+      hiddenCount: 0,
+      rows: [row({ ticketId: 9, status: 'resolved', owesReply: false })],
+    });
+    act(() => replied?.({ messageId: 2 }));
+    expect(ticketsOfThread).toHaveBeenCalledTimes(1);
+    act(() => replied?.({ messageId: message.id }));
+    await waitFor(() => expect(screen.queryByText(/reply to tell this customer/)).not.toBeInTheDocument());
   });
 });

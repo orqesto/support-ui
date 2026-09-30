@@ -357,9 +357,11 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
               }}
               placeholder="Search any customer’s threads — name, address, subject"
             />
+            {/* Inside the dialog: the page's own line is behind its overlay. */}
+            {error && <p className="text-sm text-destructive">{error}</p>}
             {candidates === null ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
-            ) : candidates.length === 0 && !capped ? (
+            ) : candidates.length === 0 && !capped && !error ? (
               <p className="text-sm text-muted-foreground">
                 {query.trim() ? 'No thread matches that.' : 'No other threads to add.'}
               </p>

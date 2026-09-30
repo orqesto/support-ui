@@ -13,6 +13,7 @@ import {
 import { SearchInput } from '@/components/ui/SearchInput';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
+import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { ticketService } from '@/services/ticket.service';
 import { ticketThreadsService, type ThreadTicket } from '@/services/ticketThreads.service';
 import type { Message } from '@/types';
@@ -58,27 +59,51 @@ export const ThreadTickets = ({ message, onChanged }: Props) => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setState('loading');
-    try {
-      const result = await ticketThreadsService.ticketsOfThread(message.id);
-      if (result.unavailable) {
-        setState('unavailable');
-        return;
+  // `quiet`: a refresh the agent did not ask for (a socket event) keeps the list on screen.
+  const load = useCallback(
+    async (quiet = false) => {
+      if (!quiet) setState('loading');
+      try {
+        const result = await ticketThreadsService.ticketsOfThread(message.id);
+        if (result.unavailable) {
+          setState('unavailable');
+          return;
+        }
+        setTickets(result.rows);
+        setHiddenCount(result.hiddenCount);
+        setState('ready');
+      } catch (err) {
+        // ⛔ A failed READ is not "on no ticket" — saying so would state something false.
+        logger.error('Failed to read the thread’s tickets', err);
+        if (!quiet) setState('failed');
       }
-      setTickets(result.rows);
-      setHiddenCount(result.hiddenCount);
-      setState('ready');
-    } catch (err) {
-      // ⛔ A failed READ is not "on no ticket" — saying so would state something false.
-      logger.error('Failed to read the thread’s tickets', err);
-      setState('failed');
-    }
-  }, [message.id]);
+    },
+    [message.id]
+  );
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // What the list says can change without this panel doing anything: a ticket is resolved or
+  // reopened elsewhere (its status, "Fixed — reply…"), or an agent replies on this thread (the
+  // reply clears "Fixed — reply…"). Same triggers as the header's ticket bar.
+  const ticketIdsKey = tickets.map((row) => row.ticketId).join(',');
+  useEffect(() => {
+    const ids = ticketIdsKey ? ticketIdsKey.split(',').map(Number) : [];
+    const onTicket = (data: unknown) => {
+      if (ids.includes((data as { ticketId: number }).ticketId)) void load(true);
+    };
+    const onReplied = (data: unknown) => {
+      if ((data as { messageId: number }).messageId === message.id) void load(true);
+    };
+    subscribeToEvent('ticket:updated', onTicket);
+    subscribeToEvent('message:replied', onReplied);
+    return () => {
+      unsubscribeFromEvent('ticket:updated', onTicket);
+      unsubscribeFromEvent('message:replied', onReplied);
+    };
+  }, [ticketIdsKey, message.id, load]);
 
   const search = useCallback(
     async (term: string) => {
@@ -281,9 +306,11 @@ export const ThreadTickets = ({ message, onChanged }: Props) => {
               }}
               placeholder="Search tickets by title or number"
             />
+            {/* Inside the dialog: the panel's own line is behind its overlay. */}
+            {error && <p className="text-[12px] text-destructive">{error}</p>}
             {candidates === null ? (
               <p className="text-[12px] text-muted-foreground">Loading…</p>
-            ) : candidates.length === 0 && !capped ? (
+            ) : candidates.length === 0 && !capped && !error ? (
               <p className="text-[12px] text-muted-foreground">
                 {query.trim() ? 'No ticket matches that.' : 'No other tickets to add it to.'}
               </p>
