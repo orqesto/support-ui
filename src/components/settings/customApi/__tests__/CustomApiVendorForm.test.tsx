@@ -8,6 +8,16 @@ type Connection = Svc.CustomApiConnection;
 
 const create = vi.fn<(input: unknown) => Promise<Connection>>();
 const update = vi.fn<(id: number, input: unknown) => Promise<Connection>>();
+const setScope = vi.fn<(id: number, scope: unknown) => Promise<void>>();
+vi.mock('@/services/department.service', () => ({
+  departmentService: {
+    getAll: () =>
+      Promise.resolve([
+        { id: 3, name: 'Sales' },
+        { id: 4, name: 'Support' },
+      ]),
+  },
+}));
 
 vi.mock('@/services/customApi.service', async () => {
   const actual = await vi.importActual<typeof Svc>('@/services/customApi.service');
@@ -17,6 +27,7 @@ vi.mock('@/services/customApi.service', async () => {
       ...actual.customApiService,
       create: (input: unknown) => create(input),
       update: (id: number, input: unknown) => update(id, input),
+      setScope: (id: number, scope: unknown) => setScope(id, scope),
     },
   };
 });
@@ -56,6 +67,7 @@ const noop = () => {};
 beforeEach(() => {
   create.mockReset().mockResolvedValue(connection());
   update.mockReset().mockResolvedValue(connection());
+  setScope.mockReset().mockResolvedValue(undefined);
   invalidate.mockReset();
 });
 
@@ -409,5 +421,46 @@ describe('version skew on a NEW vendor (audit pass 1)', () => {
     await fillNew(user);
     await user.click(screen.getByRole('button', { name: 'Connect' }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+});
+
+describe('switch a vendor off, and choose its departments (FE audit M17)', () => {
+  it('turning it OFF warns that stored records are deleted, and sends enabled:false', async () => {
+    const user = userEvent.setup();
+    render(<CustomApiVendorForm open connection={connection()} onClose={noop} onSaved={noop} />);
+    await user.click(screen.getByRole('switch'));
+    expect(screen.getByText(/deletes the records stored from it/i)).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    expect(update.mock.calls.at(-1)?.[1]).toMatchObject({ enabled: false });
+    expect(setScope).not.toHaveBeenCalled();
+  });
+
+  it('CONTROL: an unrelated edit sends neither enabled nor a scope', async () => {
+    const user = userEvent.setup();
+    render(<CustomApiVendorForm open connection={connection()} onClose={noop} onSaved={noop} />);
+    await user.type(screen.getByLabelText('Name'), ' 2');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    expect('enabled' in (update.mock.calls.at(-1)?.[1] as object)).toBe(false);
+    expect(setScope).not.toHaveBeenCalled();
+  });
+
+  it('only chosen departments: the scope is saved; none chosen says nobody can use it', async () => {
+    const user = userEvent.setup();
+    render(<CustomApiVendorForm open connection={connection()} onClose={noop} onSaved={noop} />);
+    await user.selectOptions(screen.getByLabelText(/Which departments/i), 'departments');
+    expect(await screen.findByText(/no agent will be able to use/i)).toBeTruthy();
+    await user.click(await screen.findByRole('checkbox', { name: 'Support' }));
+    expect(screen.queryByText(/no agent will be able to use/i)).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(setScope).toHaveBeenCalled());
+    expect(setScope).toHaveBeenCalledWith(1, { scopeMode: 'departments', departmentIds: [4] });
+  });
+
+  it('a NEW vendor shows neither control — it starts on, for every department', () => {
+    render(<CustomApiVendorForm open onClose={noop} onSaved={noop} />);
+    expect(screen.queryByRole('switch')).toBeNull();
+    expect(screen.queryByLabelText(/Which departments/i)).toBeNull();
   });
 });

@@ -191,6 +191,17 @@ export const customApiService = {
    * sentence rather than a generic failure — it is the only thing that tells an admin what to
    * change first.
    */
+  /**
+   * Which departments may use a vendor (D24/D26). `all`, or `departments` with a list — an EMPTY
+   * list is its own state (no department may), not "all". org_admin only on the backend.
+   */
+  async setScope(
+    connectionId: number,
+    scope: { scopeMode: 'all' | 'departments'; departmentIds: number[] }
+  ): Promise<void> {
+    await apiClient.put(`/api/custom-apis/${connectionId}/departments`, scope);
+  },
+
   async removeEndpoint(connectionId: number, endpointId: number): Promise<void> {
     await apiClient.delete(`/api/custom-apis/${connectionId}/endpoints/${endpointId}`);
   },

@@ -35,6 +35,8 @@ vi.mock('@/services/customApi.service', async () => {
     ...actual,
     customApiService: {
       ...actual.customApiService,
+      // The Cancel/unmount revert (H7) may remove a lookup a Test created; never over the network.
+      removeEndpoint: () => Promise.resolve(),
       createEndpoint: (connectionId: number, input: unknown) => createEndpoint(connectionId, input),
       updateEndpoint: (connectionId: number, endpointId: number, input: unknown) =>
         updateEndpoint(connectionId, endpointId, input),

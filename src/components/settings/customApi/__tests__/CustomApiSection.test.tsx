@@ -24,6 +24,9 @@ vi.mock('@/hooks/useCustomApiLookup', () => ({
   useInvalidateCustomApiAvailability: () => () => {},
 }));
 
+vi.mock('@/services/department.service', () => ({
+  departmentService: { getAll: () => Promise.resolve([]) },
+}));
 vi.mock('@/services/customApi.service', async () => {
   const actual = await vi.importActual<typeof Svc>('@/services/customApi.service');
   return {
