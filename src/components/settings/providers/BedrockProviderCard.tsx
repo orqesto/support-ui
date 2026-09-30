@@ -140,7 +140,13 @@ export const BedrockProviderCard = ({
   const { data: backendVersion } = useBackendVersion();
   const allowInstanceProfile = backendVersion?.bedrockInstanceProfile ?? false;
   const [showSetup, setShowSetup] = useState(false);
-  const [testResult, setTestResult] = useState<BedrockTestResult | null>(null);
+  // Kept WITH the request it answered, and shown only while the form still holds that
+  // request: a probe in flight when the region or credentials changed used to land afterwards
+  // and print "Authenticated as AWS account …" under values it never tested.
+  const [testRecord, setTestRecord] = useState<{
+    result: BedrockTestResult;
+    testedKey: string;
+  } | null>(null);
   const [testing, setTesting] = useState(false);
   const [generatingId, setGeneratingId] = useState(false);
 
@@ -207,7 +213,7 @@ export const BedrockProviderCard = ({
           : 'keys'
     );
     setShowForm(true);
-    setTestResult(null);
+    setTestRecord(null);
     onEdit(integration);
   };
 
@@ -216,7 +222,7 @@ export const BedrockProviderCard = ({
     setCredMode('keys');
     setShowForm(false);
     setShowSetup(false);
-    setTestResult(null);
+    setTestRecord(null);
     onCancel();
   };
 
@@ -243,36 +249,45 @@ export const BedrockProviderCard = ({
     handleReset();
   };
 
+  const testBody = () => ({
+    region: config.region,
+    modelId: config.defaultModel,
+    ...(credMode === 'assume_role'
+      ? { roleArn: config.roleArn, externalId: config.externalId }
+      : credMode === 'instance_profile'
+        ? { useInstanceProfile: true }
+        : config.accessKeyId && config.secretAccessKey
+          ? { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey }
+          : {}),
+  });
+  const testResult =
+    testRecord?.testedKey === JSON.stringify(testBody()) ? testRecord.result : null;
+
   const handleTest = async () => {
     if (!canSubmit) {
       return;
     }
     setTesting(true);
-    setTestResult(null);
+    setTestRecord(null);
+    const body = testBody();
+    const testedKey = JSON.stringify(body);
     try {
       const response = await apiClient.post<{ success: boolean; data: BedrockTestResult }>(
         '/api/integrations/test-bedrock',
-        {
-          region: config.region,
-          modelId: config.defaultModel,
-          ...(credMode === 'assume_role'
-            ? { roleArn: config.roleArn, externalId: config.externalId }
-            : credMode === 'instance_profile'
-              ? { useInstanceProfile: true }
-              : config.accessKeyId && config.secretAccessKey
-                ? { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey }
-                : {}),
-        }
+        body
       );
-      setTestResult(response.data.data);
+      setTestRecord({ result: response.data.data, testedKey });
     } catch (err) {
       logger.warn('Bedrock test failed', err);
-      setTestResult({
-        assumeRole: 'error',
-        invoke: 'skipped',
-        latencyMs: 0,
-        errorMessage: getApiErrorMessage(err) ?? 'Test request failed',
-        errorStep: 'assumeRole',
+      setTestRecord({
+        result: {
+          assumeRole: 'error',
+          invoke: 'skipped',
+          latencyMs: 0,
+          errorMessage: getApiErrorMessage(err) ?? 'Test request failed',
+          errorStep: 'assumeRole',
+        },
+        testedKey,
       });
     } finally {
       setTesting(false);

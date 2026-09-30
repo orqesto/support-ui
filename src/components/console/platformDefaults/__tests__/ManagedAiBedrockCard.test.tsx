@@ -249,6 +249,73 @@ describe('Managed AI defaults — Save and test', () => {
   });
 });
 
+describe('Managed AI defaults — a result belongs to the credential it probed', () => {
+  const answered = { ok: true, provider: 'bedrock', model: PROFILE, latencyMs: 9 };
+
+  it('⛔ replacing a stored Bedrock key hides the older answer', async () => {
+    testManagedAi.mockResolvedValue(answered);
+    const { rerender } = renderCard(bedrockAi());
+    fireEvent.click(screen.getByRole('button', { name: /^test connection/i }));
+    await waitFor(() => expect(screen.getByText(/bedrock answered with/i)).toBeInTheDocument());
+
+    rerender(
+      <ManagedAiDefaultsCard
+        ai={bedrockAi({ bedrockAccessKeyId: STORED('NEW1') })}
+        secrets={SECRETS}
+      />
+    );
+    expect(screen.queryByText(/bedrock answered with/i)).not.toBeInTheDocument();
+  });
+
+  it('⛔ replacing the stored OpenAI key hides the older answer', async () => {
+    testManagedAi.mockResolvedValue({
+      ok: true,
+      provider: 'openai',
+      model: 'gpt-5-mini',
+      latencyMs: 9,
+    });
+    const { rerender } = renderCard(openAiStored());
+    fireEvent.click(screen.getByRole('button', { name: /^test connection/i }));
+    await waitFor(() => expect(screen.getByText(/openai answered with/i)).toBeInTheDocument());
+
+    rerender(
+      <ManagedAiDefaultsCard
+        ai={openAiStored()}
+        secrets={{ ...SECRETS, 'ai.openai_api_key': STORED('NEW1') }}
+      />
+    );
+    expect(screen.queryByText(/openai answered with/i)).not.toBeInTheDocument();
+  });
+
+  it('⛔ Save and test that SWITCHES provider keeps its answer once the settings refetch', async () => {
+    testManagedAi.mockResolvedValue(answered);
+    const { rerender } = renderCard(openAiStored());
+    openEditor();
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'bedrock' } });
+    fireEvent.click(screen.getByRole('button', { name: /save and test/i }));
+    await waitFor(() => expect(screen.getByText(/bedrock answered with/i)).toBeInTheDocument());
+
+    // The save invalidated the settings query; the refetch now says Bedrock is stored.
+    rerender(<ManagedAiDefaultsCard ai={bedrockAi()} secrets={SECRETS} />);
+    expect(screen.getByText(/bedrock answered with/i)).toBeInTheDocument();
+  });
+
+  it("CONTROL: another provider's key changing does not hide a Bedrock answer", async () => {
+    testManagedAi.mockResolvedValue(answered);
+    const { rerender } = renderCard(bedrockAi());
+    fireEvent.click(screen.getByRole('button', { name: /^test connection/i }));
+    await waitFor(() => expect(screen.getByText(/bedrock answered with/i)).toBeInTheDocument());
+
+    rerender(
+      <ManagedAiDefaultsCard
+        ai={bedrockAi()}
+        secrets={{ ...SECRETS, 'ai.openai_api_key': STORED('NEW1') }}
+      />
+    );
+    expect(screen.getByText(/bedrock answered with/i)).toBeInTheDocument();
+  });
+});
+
 describe('Managed AI defaults — what the stored Bedrock view says', () => {
   it('shows region and inference profile, and that the profile serves every tier', () => {
     renderCard(bedrockAi());

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Bot, TestTube2 } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -17,8 +17,6 @@ import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { useConfigCardState } from '@/hooks/useConfigCardState';
 import {
   AI_KEY_SLOT_BY_PROVIDER,
-  platformSettingsService,
-  type ManagedAiTestResult,
   type ManagedAiInput,
   type PlatformSettings,
 } from '@/services/platformSettings.service';
@@ -30,6 +28,7 @@ import {
   type AIProvider,
 } from '@/types/aiProviders';
 import { SecretField } from './SecretField';
+import { useManagedAiTest } from './useManagedAiTest';
 import { SourceBadge } from './SourceBadge';
 
 type Ai = PlatformSettings['ai'];
@@ -262,33 +261,11 @@ export const ManagedAiDefaultsCard = ({
    * describes is worse than no result — "Connection OK" under a provider it never tested is
    * the kind of green nobody re-checks.
    */
-  const [aiTest, setAiTest] = useState<ManagedAiTestResult | null>(null);
-  const [testing, setTesting] = useState(false);
-  /**
-   * Which probe the screen is waiting for. A probe can take up to 15 s, and the config can be
-   * saved or switched while it runs — clearing the line was not enough, because the old probe
-   * landed afterwards and printed "answered" under settings it never tested.
-   */
-  const testRun = useRef(0);
-  const discardTestResult = () => {
-    testRun.current += 1;
-    setAiTest(null);
-  };
-  const runAiTest = async () => {
-    discardTestResult();
-    const run = testRun.current;
-    setTesting(true);
-    try {
-      const result = await platformSettingsService.testManagedAi();
-      if (run === testRun.current) setAiTest(result);
-    } catch (err) {
-      if (run === testRun.current) {
-        setAiTest({ ok: false, reason: err instanceof Error ? err.message : 'Test failed' });
-      }
-    } finally {
-      setTesting(false);
-    }
-  };
+  const { aiTest, testing, runAiTest, discardTestResult } = useManagedAiTest({
+    ai,
+    secrets,
+    storedProvider,
+  });
 
   /**
    * `thenTest`: "Save and test". The probe can only check what is STORED (the key never reaches

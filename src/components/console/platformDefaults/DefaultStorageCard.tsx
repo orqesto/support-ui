@@ -106,7 +106,15 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
   );
   // A successful test is required before Save can persist an S3 target; any edit
   // to the config invalidates it (the green must reflect the config being saved).
-  const [testResult, setTestResult] = useState<StorageTestResult | null>(null);
+  /**
+   * A result is kept WITH the payload it tested, and only counts while the form still holds
+   * that payload. Save is gated on a green test, and a probe still in flight when a field
+   * changed used to land afterwards and unlock Save for settings it never tested.
+   */
+  const [testRecord, setTestRecord] = useState<{
+    result: StorageTestResult;
+    testedKey: string;
+  } | null>(null);
 
   /**
    * Re-seed whenever the STORED config changes — after our own save, or after
@@ -131,7 +139,7 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
     setText(seedText(storage));
     setForcePathStyle(storage.forcePathStyle.value ?? false);
     // The green belonged to the config as it was BEFORE this change.
-    setTestResult(null);
+    setTestRecord(null);
   }
 
   const update = useUpdatePlatformStorage();
@@ -139,14 +147,14 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
   const setSecret = useSetPlatformSecret();
   const clearSecret = useClearPlatformSecret();
 
-  const invalidateTest = () => setTestResult(null);
+  const invalidateTest = () => setTestRecord(null);
 
   /** Discard the draft: put every field back to what the server holds. */
   const resetDraft = () => {
     setMode(initialMode(storage));
     setText(seedText(storage));
     setForcePathStyle(storage.forcePathStyle.value ?? false);
-    setTestResult(null);
+    setTestRecord(null);
   };
 
   /**
@@ -180,14 +188,25 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
     };
   };
 
+  // The stored S3 keys are part of what a test proved: they are saved on their own buttons
+  // and never travel in the payload, so a replaced key kept an older green standing.
+  const testKeyOf = (body: DefaultStorageInput) =>
+    JSON.stringify([body, storage.accessKeyId, storage.secretAccessKey]);
+  const testResult = testRecord?.testedKey === testKeyOf(payload()) ? testRecord.result : null;
+
   const runTest = () => {
-    test.mutate(payload(), {
-      onSuccess: (result) => setTestResult(result),
+    const body = payload();
+    const testedKey = testKeyOf(body);
+    test.mutate(body, {
+      onSuccess: (result) => setTestRecord({ result, testedKey }),
       onError: (err) =>
-        setTestResult({
-          ok: false,
-          latencyMs: 0,
-          error: err instanceof Error ? err.message : 'Test failed',
+        setTestRecord({
+          result: {
+            ok: false,
+            latencyMs: 0,
+            error: err instanceof Error ? err.message : 'Test failed',
+          },
+          testedKey,
         }),
     });
   };
@@ -197,7 +216,7 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
       onSuccess: () => {
         card.confirmSaved();
         // The probe described the config as a candidate; it is now the stored one.
-        setTestResult(null);
+        setTestRecord(null);
       },
     });
 
