@@ -42,14 +42,7 @@ import {
   mayRemoveCase,
   offersReviewActions,
 } from '@/lib/kbConsolidation';
-
-/** A Q&A entry's own question/answer — what AI drafts read. Null when the entry has none. */
-const qaTextOf = (entry: KBEntry): { question: string; answer: string } | null => {
-  if (entry.type !== 'qa_pair') return null;
-  const question = entry.typeData?.question;
-  const answer = entry.typeData?.answer;
-  return typeof question === 'string' && typeof answer === 'string' ? { question, answer } : null;
-};
+import { editableQaOf } from '@/lib/kbQaText';
 
 const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico']);
 const isImageFile = (filename: string) =>
@@ -158,6 +151,9 @@ export const KBEntryDetail = ({
   });
   // A Q&A entry is edited as question + answer (sent as such); anything else as content.
   const [editsQa, setEditsQa] = useState(false);
+  // The drawer holds the entry's FULL text only once the detail route answered.
+  const [detailLoaded, setDetailLoaded] = useState(false);
+  const [qaDrifted, setQaDrifted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -165,27 +161,32 @@ export const KBEntryDetail = ({
   useEffect(() => {
     if (entry?.id) {
       setLoading(true);
+      setDetailLoaded(false);
       void kbService
         .getById(entry.id)
         .then((response: { data: KBEntry }) => {
           setFullEntry(withListFields(response.data, entry));
+          setDetailLoaded(true);
         })
         .catch((error: Error) => {
           logger.error('Failed to fetch full entry:', error);
           setFullEntry(entry); // Fallback to truncated entry
+          setDetailLoaded(false);
         })
         .finally(() => {
           setLoading(false);
         });
     } else {
       setFullEntry(null);
+      setDetailLoaded(false);
     }
   }, [entry?.id, entry]);
 
   const handleEditClick = () => {
     if (displayEntry) {
-      const qaText = qaTextOf(displayEntry);
+      const qaText = editableQaOf(displayEntry, detailLoaded);
       setEditsQa(qaText !== null);
+      setQaDrifted(qaText?.drifted ?? false);
       setEditForm({
         title: displayEntry.title,
         content: displayEntry.content,
@@ -608,6 +609,12 @@ export const KBEntryDetail = ({
             <div className="p-3 mb-4 text-sm text-destructive bg-destructive-muted rounded border border-destructive-line">
               {editError}
             </div>
+          )}
+          {editsQa && qaDrifted && (
+            <p className="mb-4 text-sm text-muted-foreground">
+              This entry was edited before in a way AI drafts did not pick up: they still used the
+              earlier text. Below is the edited text; saving makes AI drafts use it too.
+            </p>
           )}
           {displayEntry && isCaseRow(displayEntry) && (
             <p className="mb-4 text-sm text-muted-foreground">

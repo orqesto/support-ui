@@ -199,6 +199,63 @@ describe('KB list — consolidation states (F4)', () => {
     });
   });
 
+  it('FE pass 21 LOW-1: an entry whose shown text was edited apart from what AI drafts read opens the dialog on the SHOWN text, and says so', async () => {
+    const detail = kbEntryDetailResponse({
+      id: 12,
+      approved: true,
+      question: 'Refund time?',
+      answer: '5 days.',
+    });
+    const drifted = {
+      ...detail,
+      data: {
+        ...detail.data,
+        content: 'Question: Refund time?\n\nAnswer: 10 working days (corrected).',
+      },
+    };
+    getById.mockResolvedValue(drifted);
+    update.mockResolvedValue({ success: true, data: drifted.data });
+    const row = entry({
+      id: 12,
+      approved: true,
+      typeData: { question: 'Refund time?', answer: '5 days.' },
+    });
+    render(
+      <MemoryRouter>
+        <KBEntryDetail entry={row} onClose={vi.fn()} canReview {...handlers()} />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(getById).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole('button', { name: /Edit/ }));
+    expect(screen.getByLabelText('Answer')).toHaveValue('10 working days (corrected).');
+    expect(screen.getByText(/they still used the earlier text/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    expect(update).toHaveBeenCalledWith(
+      12,
+      expect.objectContaining({ answer: '10 working days (corrected).' })
+    );
+  });
+
+  it('FE pass 21 LOW-1 control: when only the (truncated) list row is known, the dialog keeps what AI drafts read', async () => {
+    getById.mockRejectedValue(new Error('offline'));
+    const row = entry({
+      id: 13,
+      approved: true,
+      content: 'Question: Refund time?\n\nAnswer: 10 working days (corr...',
+      typeData: { question: 'Refund time?', answer: '5 days.' },
+    });
+    render(
+      <MemoryRouter>
+        <KBEntryDetail entry={row} onClose={vi.fn()} canReview {...handlers()} />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(getById).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole('button', { name: /Edit/ }));
+    expect(screen.getByLabelText('Answer')).toHaveValue('5 days.');
+    expect(screen.queryByText(/they still used the earlier text/)).not.toBeInTheDocument();
+  });
+
   it('FE pass 20 LOW-4: a Q&A edit with a blank answer cannot be saved (the backend would keep the old one)', async () => {
     getById.mockResolvedValue(
       kbEntryDetailResponse({
