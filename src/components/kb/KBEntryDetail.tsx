@@ -42,7 +42,7 @@ import {
   mayRemoveCase,
   offersReviewActions,
 } from '@/lib/kbConsolidation';
-import { editableQaOf, QA_DRIFT_NOTE, qaCanSave, qaSaveBody } from '@/lib/kbQaText';
+import { editableQaOf, QA_DRIFT_NOTE, qaCanSave, qaSaveBody, type QaEditStart } from '@/lib/kbQaText';
 
 const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico']);
 const isImageFile = (filename: string) =>
@@ -154,9 +154,7 @@ export const KBEntryDetail = ({
   // The drawer holds the entry's FULL text only once the detail route answered.
   const [detailLoaded, setDetailLoaded] = useState(false);
   // The Q&A edit's baseline: the halves AI drafts read, how the shown text relates, the start values.
-  const [qaEdit, setQaEdit] = useState<
-    (NonNullable<ReturnType<typeof editableQaOf>> & { title: string; category: string }) | null
-  >(null);
+  const [qaEdit, setQaEdit] = useState<QaEditStart | null>(null);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -197,7 +195,7 @@ export const KBEntryDetail = ({
       setEditForm({
         title: displayEntry.title,
         content: displayEntry.content,
-        category: displayEntry.category,
+        category: displayEntry.category ?? '',
         question: qaText?.question ?? '',
         answer: qaText?.answer ?? '',
       });
@@ -214,7 +212,7 @@ export const KBEntryDetail = ({
       const response = await kbService.update(
         displayEntry.id,
         editsQa && qaEdit
-          ? qaSaveBody(editForm, qaEdit, qaEdit.own)
+          ? qaSaveBody(editForm, qaEdit)
           : { title: editForm.title, content: editForm.content, category: editForm.category }
       );
       if (response.success && response.data) {

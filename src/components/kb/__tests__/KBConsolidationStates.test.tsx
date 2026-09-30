@@ -345,6 +345,71 @@ describe('KB list — consolidation states (F4)', () => {
     expect(screen.getByRole('button', { name: /Save Changes/ })).toBeDisabled();
   });
 
+  it('FE pass 23 LOW-1: a Q&A entry with no category — typing one and deleting it again leaves nothing to save (never a 400)', async () => {
+    const detail = kbEntryDetailResponse({
+      id: 17,
+      approved: true,
+      question: 'Q1?',
+      answer: 'A1.',
+    });
+    getById.mockResolvedValue({ ...detail, data: { ...detail.data, category: null } });
+    const row = entry({
+      id: 17,
+      approved: true,
+      category: null as unknown as string,
+      typeData: { question: 'Q1?', answer: 'A1.' },
+    });
+    render(
+      <MemoryRouter>
+        <KBEntryDetail entry={row} onClose={vi.fn()} canReview {...handlers()} />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(getById).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole('button', { name: /Edit/ }));
+    fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'billing' } });
+    expect(screen.getByRole('button', { name: /Save Changes/ })).not.toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Category'), { target: { value: '' } });
+    expect(screen.getByRole('button', { name: /Save Changes/ })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '   ' } });
+    expect(screen.getByRole('button', { name: /Save Changes/ })).toBeDisabled();
+  });
+
+  it('FE pass 23 LOW-2: a drifted entry can be put back to the answer AI drafts already use', async () => {
+    const detail = kbEntryDetailResponse({
+      id: 18,
+      approved: true,
+      question: 'Refund?',
+      answer: '5 days.',
+    });
+    const drifted = {
+      ...detail,
+      data: { ...detail.data, content: 'Question: Refund?\n\nAnswer: 10 days (wrong correction)' },
+    };
+    getById.mockResolvedValue(drifted);
+    update.mockResolvedValue({ success: true, data: detail.data });
+    const row = entry({
+      id: 18,
+      approved: true,
+      typeData: { question: 'Refund?', answer: '5 days.' },
+    });
+    render(
+      <MemoryRouter>
+        <KBEntryDetail entry={row} onClose={vi.fn()} canReview {...handlers()} />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(getById).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole('button', { name: /Edit/ }));
+    expect(screen.getByLabelText('Answer')).toHaveValue('10 days (wrong correction)');
+    fireEvent.change(screen.getByLabelText('Answer'), { target: { value: '5 days.' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    expect(update).toHaveBeenCalledWith(18, {
+      question: 'Refund?',
+      answer: '5 days.',
+      content: 'Question: Refund?\n\nAnswer: 5 days.',
+    });
+  });
+
   it('FE pass 20 LOW-4: a Q&A edit with a blank answer cannot be saved (the backend would keep the old one)', async () => {
     getById.mockResolvedValue(
       kbEntryDetailResponse({

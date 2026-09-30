@@ -59,23 +59,32 @@ export const editableQaOf = (entry: KBEntry, contentIsFull: boolean): EditableQa
   return shown ? { ...shown, own, drift: 'parsed' } : { ...own, own, drift: 'unparsed' };
 };
 
+/** Where a Q&A edit started: the title / category / halves shown, the AI's halves, the drift. */
+export type QaEditStart = EditableQa & { title: string | null; category: string | null };
+
 /**
- * The body of a Q&A save: ONLY what changed. The title / category when edited; the question and
- * answer (plus the same text as `content`, which a backend without question/answer support reads)
- * only when they differ from what AI drafts read. A title-only save therefore never rewrites an
- * entry's text — whatever shape it has (FE pass 22 LOW-1). Empty ⇒ nothing to save.
+ * The body of a Q&A save: ONLY what changed. Title / category when set to a NEW non-blank value
+ * (both backends ignore a blank one and would answer 400 on an otherwise empty body — FE pass 23
+ * LOW-1). The question and answer (plus the same text as `content`, which a backend without
+ * question/answer support reads) when they differ from what AI drafts read — or, for a drifted
+ * entry, from the shown text the fields started from, so it can be put back to the AI's own text
+ * (FE pass 23 LOW-2). A title-only save never rewrites an entry's text (FE pass 22 LOW-1).
+ * Empty ⇒ nothing to save.
  */
 export const qaSaveBody = (
   form: { title: string; category: string; question: string; answer: string },
-  initial: { title: string; category: string },
-  own: { question: string; answer: string }
+  start: QaEditStart
 ): Record<string, string> => {
   const body: Record<string, string> = {};
-  if (form.title !== initial.title) body.title = form.title;
-  if (form.category !== initial.category) body.category = form.category;
+  const changed = (value: string, initial: string | null) =>
+    value.trim() !== '' && value.trim() !== (initial ?? '').trim();
+  if (changed(form.title, start.title)) body.title = form.title;
+  if (changed(form.category, start.category)) body.category = form.category;
   const question = form.question.trim();
   const answer = form.answer.trim();
-  if (question !== own.question.trim() || answer !== own.answer.trim()) {
+  const differs = (halves: { question: string; answer: string }) =>
+    question !== halves.question.trim() || answer !== halves.answer.trim();
+  if (differs(start.own) || (start.drift !== 'none' && differs(start))) {
     Object.assign(body, {
       question,
       answer,
@@ -98,8 +107,8 @@ export const QA_DRIFT_NOTE: Record<Exclude<QaDrift, 'none'>, string> = {
  * and something to send (FE pass 22). */
 export const qaCanSave = (
   form: { title: string; category: string; question: string; answer: string },
-  edit: { title: string; category: string; own: { question: string; answer: string } }
+  start: QaEditStart
 ): boolean =>
   form.question.trim() !== '' &&
   form.answer.trim() !== '' &&
-  Object.keys(qaSaveBody(form, edit, edit.own)).length > 0;
+  Object.keys(qaSaveBody(form, start)).length > 0;
