@@ -84,12 +84,12 @@ export const BEDROCK_MODELS: AIModel[] = [
   // Haiku 4.5 on-demand is generally served via a cross-region inference
   // profile (the `eu.`-prefixed id) rather than the bare foundation model —
   // both are listed so you can pick whichever your IAM role is scoped to.
-  { id: 'eu.anthropic.claude-haiku-4-5-20251001-v1:0', name: 'Claude Haiku 4.5 (EU cross-region)', type: 'chat', contextWindow: 200000, description: 'Anthropic — latest Haiku, EU inference profile' },
-  { id: 'anthropic.claude-haiku-4-5-20251001-v1:0',    name: 'Claude Haiku 4.5',                   type: 'chat', contextWindow: 200000, description: 'Anthropic — latest Haiku, foundation model' },
-  { id: 'anthropic.claude-3-5-sonnet-20241022-v2:0', name: 'Claude 3.5 Sonnet', type: 'chat', contextWindow: 200000, description: 'Anthropic — balanced cost + quality' },
+  { id: 'eu.anthropic.claude-haiku-4-5-20251001-v1:0', name: 'Claude Haiku 4.5 (EU cross-region)', type: 'chat', contextWindow: 200000, description: 'Anthropic — latest Haiku, EU inference profile', supportsVision: true },
+  { id: 'anthropic.claude-haiku-4-5-20251001-v1:0',    name: 'Claude Haiku 4.5',                   type: 'chat', contextWindow: 200000, description: 'Anthropic — latest Haiku, foundation model', supportsVision: true },
+  { id: 'anthropic.claude-3-5-sonnet-20241022-v2:0', name: 'Claude 3.5 Sonnet', type: 'chat', contextWindow: 200000, description: 'Anthropic — balanced cost + quality', supportsVision: true },
   { id: 'anthropic.claude-3-5-haiku-20241022-v1:0',  name: 'Claude 3.5 Haiku',  type: 'chat', contextWindow: 200000, description: 'Anthropic — fast + cheap' },
-  { id: 'anthropic.claude-3-opus-20240229-v1:0',     name: 'Claude 3 Opus',     type: 'chat', contextWindow: 200000, description: 'Anthropic — heaviest reasoning' },
-  { id: 'anthropic.claude-3-haiku-20240307-v1:0',    name: 'Claude 3 Haiku',    type: 'chat', contextWindow: 200000, description: 'Anthropic — fastest generation' },
+  { id: 'anthropic.claude-3-opus-20240229-v1:0',     name: 'Claude 3 Opus',     type: 'chat', contextWindow: 200000, description: 'Anthropic — heaviest reasoning', supportsVision: true },
+  { id: 'anthropic.claude-3-haiku-20240307-v1:0',    name: 'Claude 3 Haiku',    type: 'chat', contextWindow: 200000, description: 'Anthropic — fastest generation', supportsVision: true },
 
   // Meta Llama
   { id: 'meta.llama3-3-70b-instruct-v1:0', name: 'Llama 3.3 70B Instruct', type: 'chat', contextWindow: 128000, description: 'Meta — latest 70B, GPT-4o-class' },
@@ -97,8 +97,8 @@ export const BEDROCK_MODELS: AIModel[] = [
   { id: 'meta.llama3-1-8b-instruct-v1:0',  name: 'Llama 3.1 8B Instruct',  type: 'chat', contextWindow: 128000, description: 'Meta — small + fast' },
 
   // Amazon Nova
-  { id: 'amazon.nova-pro-v1:0',   name: 'Amazon Nova Pro',   type: 'chat', contextWindow: 300000, description: 'Amazon — flagship, multimodal' },
-  { id: 'amazon.nova-lite-v1:0',  name: 'Amazon Nova Lite',  type: 'chat', contextWindow: 300000, description: 'Amazon — cost-effective multimodal' },
+  { id: 'amazon.nova-pro-v1:0',   name: 'Amazon Nova Pro',   type: 'chat', contextWindow: 300000, description: 'Amazon — flagship, multimodal', supportsVision: true },
+  { id: 'amazon.nova-lite-v1:0',  name: 'Amazon Nova Lite',  type: 'chat', contextWindow: 300000, description: 'Amazon — cost-effective multimodal', supportsVision: true },
   { id: 'amazon.nova-micro-v1:0', name: 'Amazon Nova Micro', type: 'chat', contextWindow: 128000, description: 'Amazon — ultra-fast text-only' },
 
   // Mistral

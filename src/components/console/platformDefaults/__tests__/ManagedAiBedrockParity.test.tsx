@@ -85,18 +85,24 @@ const switchToBedrock = () => {
 
 afterEach(cleanup);
 
-describe('Managed AI Defaults — Test connection while editing', () => {
-  it('is disabled and says it would test the STORED provider, not the draft', () => {
+describe('Managed AI Defaults — testing while editing', () => {
+  // A probe of the STORED provider under a Bedrock draft read as "Bedrock is broken" when it
+  // was OpenAI being probed (2026-09-07). The editor therefore offers no test of what is stored
+  // at all — only "Save and test", which probes the draft once it IS stored (2026-09-30).
+  it('offers only Save and test, and says the stored provider serves traffic until saved', () => {
     renderEditing();
     switchToBedrock();
-    expect(screen.getByRole('button', { name: /test connection/i })).toBeDisabled();
-    expect(screen.getByText(/Save first/)).toHaveTextContent(/stored defaults \(OpenAI\)/);
+    expect(screen.queryByRole('button', { name: /^test connection/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save and test/i })).toBeEnabled();
+    expect(screen.getByText(/Save and test stores this draft/)).toHaveTextContent(
+      /managed traffic stays on OpenAI/
+    );
   });
 
-  it('CONTROL: enabled on the read-only view', () => {
+  it('CONTROL: Test connection on the read-only view', () => {
     render(<ManagedAiDefaultsCard ai={settings.ai} secrets={settings.secrets} />);
-    expect(screen.getByRole('button', { name: /test connection/i })).toBeEnabled();
-    expect(screen.queryByText(/Save first/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^test connection/i })).toBeEnabled();
+    expect(screen.queryByText(/Save and test stores this draft/)).not.toBeInTheDocument();
   });
 });
 
