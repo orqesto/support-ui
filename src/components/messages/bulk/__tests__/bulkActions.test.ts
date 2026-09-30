@@ -24,10 +24,21 @@ describe('refusal wording', () => {
       'security_threat',
       'already_read',
       'already_unread',
+      'not_triage',
     ];
     for (const reason of reasons) {
       expect(REFUSAL_TEXT[reason]?.length ?? 0).toBeGreaterThan(0);
     }
+  });
+
+  it('a working thread refused read/unread says why (support-service not_triage)', () => {
+    expect(REFUSAL_TEXT.not_triage).toBe('not in triage — read and unread apply to triage threads only');
+  });
+
+  it('a reason this build does not know yet is still a sentence, never "undefined"', () => {
+    // The server can ship a new reason before this UI learns its words (BE and FE release apart).
+    const [entry] = groupRefusals([{ id: 1, reason: 'brand_new_reason' as RefusalReason }]);
+    expect(entry.text).toBe('not eligible for this action');
   });
 
   it('groups refusals by reason, largest first', () => {
