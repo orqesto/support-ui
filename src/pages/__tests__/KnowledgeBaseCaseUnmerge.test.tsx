@@ -252,6 +252,35 @@ describe('KB page — unmerging a case (F4)', () => {
     }
   });
 
+  it('pass 15 LOW-2: a re-read that fails too does not replace why the action failed', async () => {
+    unmerge.mockRejectedValue(Object.assign(new Error('Case not found'), { status: 404 }));
+    page();
+    const row = await tableRow('Refunds');
+    getAll.mockRejectedValue(new Error('network down'));
+    fireEvent.click(within(row).getByRole('button', { name: 'Unmerge' }));
+    fireEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unmerge' })
+    );
+    expect(await screen.findByText('Could not unmerge')).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.getByText('Could not unmerge')).toBeInTheDocument();
+    expect(screen.queryByText('Failed to Load')).not.toBeInTheDocument();
+  });
+
+  it('pass 15 test gap: an UNAPPROVED case row the viewer may not unmerge offers Approve but not Reject', async () => {
+    getAll.mockResolvedValue({
+      success: true,
+      data: {
+        entries: [{ ...caseRow, approved: false, canUnmerge: false }, plain],
+        pagination: { page: 1, limit: 20, total: 2, totalPages: 1 },
+      },
+    });
+    page();
+    const row = await tableRow('Refunds');
+    expect(within(row).getByRole('button', { name: 'Approve' })).toBeInTheDocument();
+    expect(within(row).queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument();
+  });
+
   it('control: Hide on a plain entry hides at once, with no confirm', async () => {
     hide.mockResolvedValue({ success: true, data: null });
     page();
@@ -342,6 +371,41 @@ describe('KB page — a case opened by deep link only (H1)', () => {
       expect(within(panel).queryByRole('button', { name })).not.toBeInTheDocument();
     }
     expect(within(panel).getByRole('button', { name: /Edit/ })).toBeInTheDocument();
+  });
+
+  it('pass 15 LOW-1: Unmerge of a deep-linked case someone else already removed (404) closes its drawer', async () => {
+    unmerge.mockRejectedValue(Object.assign(new Error('Case not found'), { status: 404 }));
+    deepLink(9);
+    const panel = await drawer();
+    await within(panel).findByText('Case');
+    fireEvent.click(within(panel).getByRole('button', { name: /Unmerge/ }));
+    fireEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unmerge' })
+    );
+    expect(await screen.findByText('Could not unmerge')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'Entry Details' })).not.toBeInTheDocument()
+    );
+  });
+
+  it('pass 15 LOW-3: the Edit dialog of a case the viewer may not unmerge does not tell them to Unmerge it', async () => {
+    getById.mockResolvedValue(
+      kbEntryDetailResponse({
+        id: 9,
+        title: 'Refunds',
+        approved: true,
+        capturedVia: 'consolidation',
+        publicId: 'KB-9',
+        canUnmerge: false,
+      })
+    );
+    deepLink(9);
+    const panel = await drawer();
+    await within(panel).findByText('Case');
+    fireEvent.click(within(panel).getByRole('button', { name: /Edit/ }));
+    expect(await screen.findByText(/This is a merged case/)).toBeInTheDocument();
+    expect(screen.queryByText(/about,\s+Unmerge it/)).not.toBeInTheDocument();
+    expect(screen.getByText(/covering all of its departments/)).toBeInTheDocument();
   });
 
   it('a deep-linked merged original reads "merged into #KB-9" and offers no action', async () => {

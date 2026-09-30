@@ -609,7 +609,9 @@ export const KBEntryDetail = ({
           {displayEntry && isCaseRow(displayEntry) && (
             <p className="mb-4 text-sm text-muted-foreground">
               This is a merged case. Edit its wording here; to change what this case is about,
-              Unmerge it.
+              {mayRemoveCase(displayEntry)
+                ? ' Unmerge it.'
+                : ' a moderator covering all of its departments can Unmerge it.'}
             </p>
           )}
           <div className="space-y-4">

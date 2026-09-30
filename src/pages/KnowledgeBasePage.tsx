@@ -27,6 +27,7 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { usePermissions } from '@/hooks/usePermissions';
 import { logger } from '@/lib/logger';
+import { apiErrorStatus } from '@/lib/apiError';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { kbService, type KBEntry, type PaginationMeta } from '@/services/kb.service';
 import { Permission } from '@/types/roles';
@@ -336,8 +337,12 @@ export const KnowledgeBasePage = () => {
     } catch (error) {
       logger.error('Failed to unmerge case:', error);
       // Most often someone else unmerged it meanwhile (404): the row shown is stale, and every
-      // retry would fail the same way until a manual refresh (FE pass 14 LOW-2).
-      void fetchEntries(pagination.page);
+      // retry would fail the same way until a manual refresh (FE pass 14 LOW-2) — and so is a
+      // drawer open on it (FE pass 15 LOW-1).
+      if (apiErrorStatus(error) === 404 && selectedEntry?.id === entry.id) handleCloseEntry();
+      // Re-read FIRST, then say why the action failed: a re-read that fails too must not
+      // replace that reason with its own "Failed to Load" (FE pass 15 LOW-2).
+      await fetchEntries(pagination.page);
       setAlertDialog({
         open: true,
         title: 'Could not unmerge',
