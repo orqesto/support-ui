@@ -43,6 +43,8 @@ export type KBEntry = {
    * AI — whatever `approved` / `hidden` say. Sent by the list and the detail route (BE b3636e13).
    */
   sourceDeleted?: boolean;
+  /** Case rows only: may THIS viewer unmerge it (and so hide / reject / delete it)? */
+  canUnmerge?: boolean;
   consolidatedInto?: number | null;
   consolidation?: {
     state: 'merged' | 'detached';

@@ -10,7 +10,7 @@ import type { KBEntry } from '@/services/kb.service';
 
 type ConsolidationFields = Pick<
   KBEntry,
-  'capturedVia' | 'consolidatedInto' | 'consolidation' | 'sourceDeleted'
+  'capturedVia' | 'consolidatedInto' | 'consolidation' | 'sourceDeleted' | 'canUnmerge'
 >;
 
 /**
@@ -69,3 +69,12 @@ export const unmergeConsequence = (restoreCount?: number | null): string =>
  */
 export const offersReviewActions = (entry: ConsolidationFields): boolean =>
   !isMergedOriginal(entry) && !isSourceRemoved(entry);
+
+/**
+ * Hide / Reject / Delete / Unmerge on a CASE row all unmerge it, and the server lets only a
+ * moderator covering the case's whole scope do that — it sends `canUnmerge` on each case row
+ * (FE AUD14 MED-1: a department moderator was offered them on a shared mailbox's case and got a
+ * 403). Absent on an older backend ⇒ offered; the server still decides. Not a case ⇒ true.
+ */
+export const mayRemoveCase = (entry: ConsolidationFields): boolean =>
+  !isCaseRow(entry) || entry.canUnmerge !== false;

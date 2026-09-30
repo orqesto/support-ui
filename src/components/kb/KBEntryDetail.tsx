@@ -36,7 +36,12 @@ import { KBStatusBadge } from './KBStatusBadge';
 import { FormattedKBContent } from '../shared/FormattedKBContent';
 import { logger } from '@/lib/logger';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
-import { isCaseRow, isMergedOriginal, offersReviewActions } from '@/lib/kbConsolidation';
+import {
+  isCaseRow,
+  isMergedOriginal,
+  mayRemoveCase,
+  offersReviewActions,
+} from '@/lib/kbConsolidation';
 
 /** A Q&A entry's own question/answer — what AI drafts read. Null when the entry has none. */
 const qaTextOf = (entry: KBEntry): { question: string; answer: string } | null => {
@@ -523,7 +528,7 @@ export const KBEntryDetail = ({
               link has no row at all), and acting on it would offer what the server refuses. */}
           <div className="flex-none p-6 border-t bg-muted/20">
             <div className="flex gap-3 justify-end">
-              {canReview && isCaseRow(displayEntry) && onUnmerge && (
+              {canReview && isCaseRow(displayEntry) && mayRemoveCase(displayEntry) && onUnmerge && (
                 <Button
                   variant="outline"
                   onClick={() => onUnmerge(displayEntry)}
@@ -541,14 +546,16 @@ export const KBEntryDetail = ({
               )}
               {canReview && offersReviewActions(displayEntry) && !displayEntry.approved && !displayEntry.hidden && (
                 <>
-                  <Button
-                    variant="outline"
-                    onClick={() => onReject(displayEntry.id)}
-                    title={`Hidden now, deleted after ${REJECTED_RETENTION_DAYS} days unless approved again`}
-                  >
-                    <XCircle className="mr-2 w-4 h-4" />
-                    Reject
-                  </Button>
+                  {mayRemoveCase(displayEntry) && (
+                    <Button
+                      variant="outline"
+                      onClick={() => onReject(displayEntry.id)}
+                      title={`Hidden now, deleted after ${REJECTED_RETENTION_DAYS} days unless approved again`}
+                    >
+                      <XCircle className="mr-2 w-4 h-4" />
+                      Reject
+                    </Button>
+                  )}
                   <Button variant="primary" onClick={() => onApprove(displayEntry.id)}>
                     <CheckCircle className="mr-2 w-4 h-4" />
                     Approve
@@ -557,6 +564,7 @@ export const KBEntryDetail = ({
               )}
               {canReview &&
                 offersReviewActions(displayEntry) &&
+                (displayEntry.hidden || mayRemoveCase(displayEntry)) &&
                 (!displayEntry.hidden ? (
                   <Button variant="outline" onClick={() => onHide(displayEntry.id)}>
                     <EyeOff className="mr-2 w-4 h-4" />
@@ -568,7 +576,7 @@ export const KBEntryDetail = ({
                     {displayEntry.rejectedAt ? 'Restore' : 'Unhide'}
                   </Button>
                 ))}
-              {!isMergedOriginal(displayEntry) && (
+              {!isMergedOriginal(displayEntry) && mayRemoveCase(displayEntry) && (
                 <Button
                   variant="outline"
                   className="text-destructive hover:text-destructive"

@@ -16,6 +16,7 @@ const getAll = vi.fn<(...args: unknown[]) => unknown>();
 const hide = vi.fn<(...args: unknown[]) => unknown>();
 const del = vi.fn<(...args: unknown[]) => unknown>();
 const unmerge = vi.fn<(...args: unknown[]) => unknown>();
+const approve = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
@@ -25,6 +26,7 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
       ...actual.kbService,
       getAll: (...args: unknown[]) => getAll(...args),
       hide: (...args: unknown[]) => hide(...args),
+      approve: (...args: unknown[]) => approve(...args),
       delete: (...args: unknown[]) => del(...args),
       getById: (...args: unknown[]) => getById(...args),
     },
@@ -176,6 +178,80 @@ describe('KB page — unmerging a case (F4)', () => {
     await waitFor(() => expect(unmerge).toHaveBeenCalledWith(9));
   });
 
+  it('pass 14 LOW-2: a case action that fails (case already unmerged elsewhere) re-reads the list', async () => {
+    unmerge.mockRejectedValue(Object.assign(new Error('Case not found'), { response: { status: 404 } }));
+    page();
+    const row = await tableRow('Refunds');
+    const callsBefore = getAll.mock.calls.length;
+    fireEvent.click(within(row).getByRole('button', { name: 'Unmerge' }));
+    fireEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unmerge' })
+    );
+    expect(await screen.findByText('Could not unmerge')).toBeInTheDocument();
+    await waitFor(() => expect(getAll.mock.calls.length).toBeGreaterThan(callsBefore));
+  });
+
+  it('pass 14 LOW-1: an Unhidden detached entry hidden again reads "Hidden", not "detached from case"', async () => {
+    const detached: KBEntry = {
+      ...plain,
+      id: 11,
+      title: 'Detached one',
+      approved: false,
+      hidden: true,
+      consolidation: { state: 'detached', caseId: 9, casePublicId: 'KB-9', caseExists: true },
+    };
+    getAll.mockResolvedValue({
+      success: true,
+      data: { entries: [detached], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } },
+    });
+    approve.mockResolvedValue({ success: true, data: null });
+    hide.mockResolvedValue({ success: true, data: null });
+    page();
+    let row = await tableRow('Detached one');
+    expect(within(row).getByText('detached from case #KB-9')).toBeInTheDocument();
+    fireEvent.click(within(row).getByRole('button', { name: 'Unhide' }));
+    await waitFor(() => expect(approve).toHaveBeenCalledWith(11));
+    row = await tableRow('Detached one');
+    fireEvent.click(await within(row).findByRole('button', { name: 'Hide' }));
+    await waitFor(() => expect(hide).toHaveBeenCalledWith(11));
+    row = await tableRow('Detached one');
+    await waitFor(() => expect(within(row).getByText('Hidden')).toBeInTheDocument());
+    expect(within(row).queryByText(/detached from case/)).not.toBeInTheDocument();
+  });
+
+  it('pass 14 MED-1: a case row the viewer may not unmerge offers no Hide / Unmerge / Delete; the plain row keeps them', async () => {
+    getAll.mockResolvedValue({
+      success: true,
+      data: {
+        entries: [{ ...caseRow, canUnmerge: false }, plain],
+        pagination: { page: 1, limit: 20, total: 2, totalPages: 1 },
+      },
+    });
+    page();
+    const row = await tableRow('Refunds');
+    for (const name of ['Hide', 'Unmerge', 'Delete', 'Reject']) {
+      expect(within(row).queryByRole('button', { name })).not.toBeInTheDocument();
+    }
+    const plainRow = await tableRow('Plain');
+    expect(within(plainRow).getByRole('button', { name: 'Hide' })).toBeInTheDocument();
+    expect(within(plainRow).getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+  });
+
+  it('pass 14 MED-1 control: canUnmerge true keeps every case action', async () => {
+    getAll.mockResolvedValue({
+      success: true,
+      data: {
+        entries: [{ ...caseRow, canUnmerge: true }, plain],
+        pagination: { page: 1, limit: 20, total: 2, totalPages: 1 },
+      },
+    });
+    page();
+    const row = await tableRow('Refunds');
+    for (const name of ['Hide', 'Unmerge', 'Delete']) {
+      expect(within(row).getByRole('button', { name })).toBeInTheDocument();
+    }
+  });
+
   it('control: Hide on a plain entry hides at once, with no confirm', async () => {
     hide.mockResolvedValue({ success: true, data: null });
     page();
@@ -246,6 +322,26 @@ describe('KB page — a case opened by deep link only (H1)', () => {
     fireEvent.click(within(panel).getByRole('button', { name: /Delete/ }));
     expect(await screen.findByText('Delete this case?')).toBeInTheDocument();
     expect(screen.queryByText('Delete KB Entry')).not.toBeInTheDocument();
+  });
+
+  it('pass 14 MED-1: a deep-linked case the viewer may not unmerge offers no Unmerge / Hide / Delete', async () => {
+    getById.mockResolvedValue(
+      kbEntryDetailResponse({
+        id: 9,
+        title: 'Refunds',
+        approved: true,
+        capturedVia: 'consolidation',
+        publicId: 'KB-9',
+        canUnmerge: false,
+      })
+    );
+    deepLink(9);
+    const panel = await drawer();
+    await within(panel).findByText('Case');
+    for (const name of [/Unmerge/, /^Hide$/, /Delete/, /Reject/]) {
+      expect(within(panel).queryByRole('button', { name })).not.toBeInTheDocument();
+    }
+    expect(within(panel).getByRole('button', { name: /Edit/ })).toBeInTheDocument();
   });
 
   it('a deep-linked merged original reads "merged into #KB-9" and offers no action', async () => {

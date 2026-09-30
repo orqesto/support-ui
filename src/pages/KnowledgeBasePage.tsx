@@ -217,10 +217,20 @@ export const KnowledgeBasePage = () => {
       await kbService.approve(id);
       // Update entry in place - set approved and unhidden
       // Approving also restores a rejected entry — the backend clears the rejection.
+      // Approving also ends "detached": the backend drops the entry's case pointer (AUD11 LOW-1),
+      // so a later Hide must read "Hidden", not "detached from case" (FE pass 14 LOW-1).
       setEntries((prev) =>
         prev.map((entry) =>
           entry.id === id
-            ? { ...entry, approved: true, hidden: false, rejectedAt: null, rejectedBy: null }
+            ? {
+                ...entry,
+                approved: true,
+                hidden: false,
+                rejectedAt: null,
+                rejectedBy: null,
+                consolidation:
+                  entry.consolidation?.state === 'detached' ? undefined : entry.consolidation,
+              }
             : entry
         )
       );
@@ -325,6 +335,9 @@ export const KnowledgeBasePage = () => {
       });
     } catch (error) {
       logger.error('Failed to unmerge case:', error);
+      // Most often someone else unmerged it meanwhile (404): the row shown is stale, and every
+      // retry would fail the same way until a manual refresh (FE pass 14 LOW-2).
+      void fetchEntries(pagination.page);
       setAlertDialog({
         open: true,
         title: 'Could not unmerge',

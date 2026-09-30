@@ -27,6 +27,8 @@ type DetailOptions = {
   caseExists?: boolean;
   question?: string;
   answer?: string;
+  /** Case rows: the backend's `canUnmerge` for the viewer (BE sends it on case rows only). */
+  canUnmerge?: boolean;
 };
 
 export const kbEntryDetailResponse = (options: DetailOptions): { success: true; data: KBEntry } => {
@@ -61,6 +63,7 @@ export const kbEntryDetailResponse = (options: DetailOptions): { success: true; 
     consolidatedInto,
     publicId: options.publicId ?? null,
     sourceDeleted: options.sourceDeleted ?? false,
+    ...(options.canUnmerge !== undefined && { canUnmerge: options.canUnmerge }),
     ...(consolidatedInto !== null && {
       consolidation: {
         state: 'merged' as const,

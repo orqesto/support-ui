@@ -16,7 +16,12 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import type { KBEntry } from '@/services/kb.service';
-import { isCaseRow, isMergedOriginal, offersReviewActions } from '@/lib/kbConsolidation';
+import {
+  isCaseRow,
+  isMergedOriginal,
+  mayRemoveCase,
+  offersReviewActions,
+} from '@/lib/kbConsolidation';
 
 const getTypeIcon = (type: string) => {
   switch (type) {
@@ -175,19 +180,22 @@ export const KBTableView = ({
                       >
                         <CheckCircle className="w-4 h-4" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onReject(entry.id)}
-                        title={`Reject — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days`}
-                        aria-label="Reject"
-                      >
-                        <XCircle className="w-4 h-4" />
-                      </Button>
+                      {mayRemoveCase(entry) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onReject(entry.id)}
+                          title={`Reject — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days`}
+                          aria-label="Reject"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </Button>
+                      )}
                     </>
                   )}
                   {canReview &&
                     offersReviewActions(entry) &&
+                    (entry.hidden || mayRemoveCase(entry)) &&
                     (!entry.hidden ? (
                       <Button
                         size="sm"
@@ -211,7 +219,7 @@ export const KBTableView = ({
                         <Eye className="w-4 h-4" />
                       </Button>
                     ))}
-                  {canReview && isCaseRow(entry) && onUnmerge && (
+                  {canReview && isCaseRow(entry) && mayRemoveCase(entry) && onUnmerge && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -224,7 +232,7 @@ export const KBTableView = ({
                   )}
                   {/* A merged original is deleted only by unmerging its case (the server
                       answers 409), so the list does not offer it. */}
-                  {!isMergedOriginal(entry) && (
+                  {!isMergedOriginal(entry) && mayRemoveCase(entry) && (
                     <Button
                       size="sm"
                       variant="outline"

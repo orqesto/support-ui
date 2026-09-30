@@ -16,7 +16,12 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import type { KBEntry } from '@/services/kb.service';
-import { isCaseRow, isMergedOriginal, offersReviewActions } from '@/lib/kbConsolidation';
+import {
+  isCaseRow,
+  isMergedOriginal,
+  mayRemoveCase,
+  offersReviewActions,
+} from '@/lib/kbConsolidation';
 
 const getTypeIcon = (type: string) => {
   switch (type) {
@@ -131,19 +136,22 @@ export const KBEntryCard = ({
               >
                 <CheckCircle className="w-4 h-4" />
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onReject(entry.id)}
-                title={`Reject — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days`}
-                aria-label="Reject"
-              >
-                <XCircle className="w-4 h-4" />
-              </Button>
+              {mayRemoveCase(entry) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onReject(entry.id)}
+                  title={`Reject — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days`}
+                  aria-label="Reject"
+                >
+                  <XCircle className="w-4 h-4" />
+                </Button>
+              )}
             </>
           )}
           {canReview &&
             offersReviewActions(entry) &&
+            (entry.hidden || mayRemoveCase(entry)) &&
             (!entry.hidden ? (
               <Button
                 size="sm"
@@ -165,7 +173,7 @@ export const KBEntryCard = ({
                 <Eye className="w-4 h-4" />
               </Button>
             ))}
-          {canReview && isCaseRow(entry) && onUnmerge && (
+          {canReview && isCaseRow(entry) && mayRemoveCase(entry) && onUnmerge && (
             <Button
               size="sm"
               variant="outline"
@@ -176,7 +184,7 @@ export const KBEntryCard = ({
               <Split className="w-4 h-4" />
             </Button>
           )}
-          {!isMergedOriginal(entry) && (
+          {!isMergedOriginal(entry) && mayRemoveCase(entry) && (
             <Button
               size="sm"
               variant="outline"
