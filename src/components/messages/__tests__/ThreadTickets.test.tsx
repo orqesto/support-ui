@@ -82,7 +82,7 @@ describe('ThreadTickets', () => {
     });
     renderPanel();
     expect(await screen.findByText('created from this thread')).toBeInTheDocument();
-    const removes = screen.getAllByRole('button', { name: 'Remove' });
+    const removes = screen.getAllByRole('button', { name: /^(Remove|Take this thread off)/ });
     expect(removes).toHaveLength(1);
     await userEvent.click(removes[0]);
     await waitFor(() => expect(removeThread).toHaveBeenCalledWith(7, 11));

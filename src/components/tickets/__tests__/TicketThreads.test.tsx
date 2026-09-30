@@ -78,7 +78,7 @@ describe('TicketThreads', () => {
       hiddenCount: 0,
     });
     renderList();
-    expect(await screen.findByText('2 customers still need a reply about this fix')).toBeInTheDocument();
+    expect(await screen.findByText('2 threads still need a reply about this fix')).toBeInTheDocument();
     expect(screen.getAllByText(/Fixed — reply to tell this customer/)).toHaveLength(2);
   });
 
@@ -90,7 +90,7 @@ describe('TicketThreads', () => {
     });
     renderList();
     expect(await screen.findByText('ticket created from this')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    await userEvent.click(screen.getByRole('button', { name: /^(Remove|Take this thread off)/ }));
     await waitFor(() => expect(removeThread).toHaveBeenCalledWith(4, 12));
   });
 
@@ -164,8 +164,34 @@ describe('TicketThreads', () => {
     });
     renderList();
     expect(
-      await screen.findByText(/1 customer still needs a reply about this fix \(among the threads you can open\)/)
+      await screen.findByText(/1 thread still needs a reply about this fix \(among the threads you can open\)/)
     ).toBeInTheDocument();
+  });
+
+  it('an add FAILING after a switch does not show its error on the new ticket, and the picker closes', async () => {
+    let failAdd: (reason: unknown) => void = () => undefined;
+    addThreads.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          failAdd = reject;
+        })
+    );
+    const { rerender } = render(
+      <MemoryRouter>
+        <TicketThreads ticketId={4} fallback={<p>legacy</p>} />
+      </MemoryRouter>
+    );
+    await userEvent.click(await screen.findByRole('button', { name: /Add threads/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /^Add$/ }));
+    rerender(
+      <MemoryRouter>
+        <TicketThreads ticketId={5} fallback={<p>legacy</p>} />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(screen.queryByText('Add threads to this ticket')).not.toBeInTheDocument());
+    failAdd(new Error('boom'));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(screen.queryByText('That thread could not be added.')).not.toBeInTheDocument();
   });
 
   it('⛔ a REMOVE still in flight when the page switches ticket does not reload the old ticket into the new one', async () => {
@@ -191,7 +217,7 @@ describe('TicketThreads', () => {
         <TicketThreads ticketId={4} fallback={<p>legacy</p>} />
       </MemoryRouter>
     );
-    await userEvent.click(await screen.findByRole('button', { name: 'Remove' }));
+    await userEvent.click(await screen.findByRole('button', { name: /^(Remove|Take this thread off)/ }));
     rerender(
       <MemoryRouter>
         <TicketThreads ticketId={5} fallback={<p>legacy</p>} />

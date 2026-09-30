@@ -120,6 +120,12 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
     setThreads([]);
     setHiddenCount(0);
     setError(null);
+    // The picker was filtered against the previous ticket's list: close it, drop its results.
+    cancelPendingSearch();
+    setPickerOpen(false);
+    setCandidates(null);
+    setQuery('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset on a ticket switch only
   }, [ticketId]);
 
   useEffect(() => {
@@ -174,8 +180,8 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
   const add = async (conversationId: number) => {
     setBusy(true);
     setError(null);
+    const startedOn = ticketId;
     try {
-      const startedOn = ticketId;
       await ticketThreadsService.addThreads(startedOn, [conversationId]);
       if (currentTicket.current !== startedOn) return; // the page moved on to another ticket
       await loadNow.current();
@@ -183,6 +189,8 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
       setCandidates((prev) => prev?.filter((row) => row.id !== conversationId) ?? null);
     } catch (err) {
       logger.error('Failed to add a thread to the ticket', err);
+      // Said about ticket A, it is false on ticket B's page.
+      if (currentTicket.current !== startedOn) return;
       setError(getApiErrorMessage(err) ?? 'That thread could not be added.');
     } finally {
       setBusy(false);
@@ -192,13 +200,14 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
   const remove = async (conversationId: number) => {
     setBusy(true);
     setError(null);
+    const startedOn = ticketId;
     try {
-      const startedOn = ticketId;
       await ticketThreadsService.removeThread(startedOn, conversationId);
       if (currentTicket.current !== startedOn) return; // the page moved on to another ticket
       await loadNow.current();
     } catch (err) {
       logger.error('Failed to take a thread off the ticket', err);
+      if (currentTicket.current !== startedOn) return;
       setError(getApiErrorMessage(err) ?? 'That thread could not be taken off this ticket.');
     } finally {
       setBusy(false);
@@ -216,8 +225,8 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
         {owing > 0 ? (
           <Badge variant="warning" size="sm">
             {owing === 1
-              ? '1 customer still needs a reply about this fix'
-              : `${owing} customers still need a reply about this fix`}
+              ? '1 thread still needs a reply about this fix'
+              : `${owing} threads still need a reply about this fix`}
             {/* Threads the caller cannot open are not counted — say so rather than imply a total. */}
             {hiddenCount > 0 && ' (among the threads you can open)'}
           </Badge>
@@ -289,6 +298,7 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
                     size="sm"
                     onClick={() => void remove(row.conversationId)}
                     disabled={busy}
+                    aria-label={`Remove ${row.requesterEmail}’s thread from this ticket`}
                   >
                     Remove
                   </Button>
