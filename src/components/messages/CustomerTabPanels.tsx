@@ -1,6 +1,6 @@
 import { CustomApiLookupPanel, NO_EMAIL_IDENTITY_NOTE } from './CustomApiLookupPanel';
-import { LinkedThreads } from './LinkedThreads';
 import { MergeThreads } from './MergeThreads';
+import { ThreadTickets } from './ThreadTickets';
 import type { AddOutcome } from './useAiRecordNote';
 import type { Message } from '@/types';
 
@@ -9,7 +9,8 @@ import type { Message } from '@/types';
  * inside its 650-line cap rather than the cap deciding what the tab may contain.
  *
  * Both belong to the customer rather than the thread body: what the connected systems know about
- * them (CA-3), and which OTHER threads are the same piece of their work (TL-D1..D3).
+ * them (CA-3), which tickets (incidents) this thread is part of, and whether another thread is
+ * the same conversation (merge).
  */
 export const CustomerTabPanels = ({
   message,
@@ -31,8 +32,9 @@ export const CustomerTabPanels = ({
       identityNote={hasEmailIdentity ? undefined : NO_EMAIL_IDENTITY_NOTE}
       onUseInReply={onUseInReply}
     />
-    {/* TL-D1..D3. ⛔ Not a merge: both threads survive, and unlinking undoes it completely. */}
-    <LinkedThreads message={message} onChanged={onChanged} />
+    {/* The incidents this thread reports — a ticket covers many customers' threads, and a thread
+        can be on several (2026-09-30). Replaces "Same piece of work" (thread links, retired). */}
+    <ThreadTickets message={message} onChanged={onChanged} />
     {/* One ticket, not two: the other ticket's messages move in and it leaves the inbox.
         Undoable from here (owner, 2026-09-23). */}
     <MergeThreads message={message} onChanged={onChanged} />

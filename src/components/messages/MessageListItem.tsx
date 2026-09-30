@@ -15,6 +15,7 @@ import {
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { messageService, type MessageThread } from '@/services/message.service';
 import type { AssignableUser } from '@/services/assignment.service';
+import { ticketChip } from './ticketChip';
 import { ReceivedAtAddresses } from './ReceivedAtAddresses';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { useDepartments } from '@/hooks/useDepartments';
@@ -234,6 +235,8 @@ export const MessageListItem = ({
   const isFromKBSource = (msg.metadata as { isFromKBSource?: boolean })?.isFromKBSource;
   const linkedTicketKey =
     (msg.metadata as { linkedTicketExternalId?: string })?.linkedTicketExternalId ?? null;
+  // One ticket or several (2026-09-30) — the words for each state live in `ticketChip`.
+  const chip = ticketChip(thread, linkedTicketKey);
   // Orphan outbound: a sent message that couldn't be paired with an inbound
   // parent during Gmail backfill. Marked status='filtered' + this flag so
   // it stays out of the active inbox; surfacing the badge here so the row
@@ -546,18 +549,11 @@ export const MessageListItem = ({
               </span>
             </Tooltip>
           )}
-          {thread.hasTicket && (
-            <Tooltip
-              content={
-                thread.linkedTicketStatus
-                  ? `Ticket · ${thread.linkedTicketStatus.replace('_', ' ')}`
-                  : 'Linked ticket'
-              }
-              size="sm"
-            >
+          {chip && (
+            <Tooltip content={chip.tooltip} size="sm">
               <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/70">
                 <Ticket className="w-3 h-3" />
-                {linkedTicketKey ?? 'Ticket'}
+                {chip.label}
               </span>
             </Tooltip>
           )}

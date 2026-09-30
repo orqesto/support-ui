@@ -98,6 +98,7 @@ export const BulkConfirmDialog = ({
   if (!action) return null;
 
   const eligible = preview?.eligible.length ?? 0;
+  const alsoInTicket = preview?.alsoInTicket?.length ?? 0;
   const refusals = groupRefusals(preview?.refused ?? []);
   const needsTitle = NEEDS_INPUT[action] === 'title';
   const needsAssignee = NEEDS_INPUT[action] === 'assignee';
@@ -153,6 +154,13 @@ export const BulkConfirmDialog = ({
               <p className="text-xs text-muted-foreground">
                 One ticket will cover {eligible === 1 ? 'this thread' : `these ${eligible} threads`}.
               </p>
+              {alsoInTicket > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {alsoInTicket === 1
+                    ? '1 of them is already on another ticket — it will be on both.'
+                    : `${alsoInTicket} of them are already on another ticket — they will be on both.`}
+                </p>
+              )}
             </div>
           )}
 

@@ -9,6 +9,7 @@ import {
   Plus,
   Ticket,
 } from 'lucide-react';
+import { ticketChip } from './ticketChip';
 import { ReceivedAtAddresses } from './ReceivedAtAddresses';
 import type { MessageThread } from '@/services/message.service';
 import type { AssignableUser } from '@/services/assignment.service';
@@ -211,6 +212,8 @@ export const KanbanCard = ({
   const isFromKBSource = (msg.metadata as { isFromKBSource?: boolean })?.isFromKBSource;
   const linkedTicketKey =
     (msg.metadata as { linkedTicketExternalId?: string })?.linkedTicketExternalId ?? null;
+  // One ticket or several (2026-09-30) — the words for each state live in `ticketChip`.
+  const chip = ticketChip(thread, linkedTicketKey);
 
   // Don't open the conversation if the click was the end of a text selection
   // — agents need to be able to copy IDs, sender emails, subject text.
@@ -433,18 +436,11 @@ export const KanbanCard = ({
             </span>
           </Tooltip>
         )}
-        {thread.hasTicket && (
-          <Tooltip
-            content={
-              thread.linkedTicketStatus
-                ? `Ticket · ${thread.linkedTicketStatus.replace('_', ' ')}`
-                : 'Linked ticket'
-            }
-            size="sm"
-          >
+        {chip && (
+          <Tooltip content={chip.tooltip} size="sm">
             <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/70">
               <Ticket className="w-3 h-3" />
-              {linkedTicketKey ?? 'Ticket'}
+              {chip.label}
             </span>
           </Tooltip>
         )}

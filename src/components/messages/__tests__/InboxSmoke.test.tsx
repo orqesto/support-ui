@@ -6,6 +6,16 @@ import type { Message } from '@/types';
 import type { MessageThread } from '@/services/message.service';
 
 // Mock dependencies used by MessageListItem
+// The thread's tickets (header bar + Customer tab, 2026-09-30) — hermetic: an unmocked request
+// fails after the test and logs during teardown.
+vi.mock('@/services/ticketThreads.service', () => ({
+  ticketThreadsService: {
+    ticketsOfThread: () => Promise.resolve({ unavailable: false, rows: [], hiddenCount: 0 }),
+    threadsOfTicket: () => Promise.resolve({ unavailable: false, rows: [], hiddenCount: 0 }),
+    addThreads: () => Promise.resolve({ added: [], alreadyAttached: [] }),
+    removeThread: () => Promise.resolve(false),
+  },
+}));
 vi.mock('@/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,

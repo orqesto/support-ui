@@ -238,7 +238,16 @@ export type MessageThread = {
   channel: string;
   hasUnread: boolean;
   hasTicket: boolean;
+  /**
+   * The chip's status: the newest ticket on the thread that is not resolved/closed, else the
+   * newest one. A thread may be on several tickets (2026-09-30) — see `ticketCount`.
+   */
   linkedTicketStatus: string | null;
+  /**
+   * How many tickets cover the thread. Absent from a backend that predates several tickets per
+   * thread — read it through `ticketChip`, which falls back to `hasTicket`.
+   */
+  ticketCount?: number;
   isResolved: boolean;
   isLead: boolean;
   /** Per-user read state for the triage read/unread indicator (true = read).

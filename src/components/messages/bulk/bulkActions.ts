@@ -38,6 +38,12 @@ export type BulkPreview = {
   action: BulkAction;
   eligible: number[];
   refused: Array<{ id: number; reason: RefusalReason }>;
+  /**
+   * `create_ticket`: eligible threads already on another ticket — they will be on both (a thread
+   * can report several incidents, 2026-09-30). Absent from an older backend, which refused them
+   * instead (`already_has_ticket`); read it as `?? []`.
+   */
+  alsoInTicket?: number[];
 };
 
 export type BulkResult = Omit<BulkPreview, 'eligible'> & {

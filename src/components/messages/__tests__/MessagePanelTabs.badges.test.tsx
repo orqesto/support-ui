@@ -15,6 +15,16 @@ import type { Message, User } from '@/types';
 
 // Suggested-option counts per message; a message missing here never reports (still loading).
 const suggestedById: Record<number, number> = {};
+// The thread's tickets (header bar + Customer tab, 2026-09-30) — hermetic: an unmocked request
+// fails after the test and logs during teardown.
+vi.mock('@/services/ticketThreads.service', () => ({
+  ticketThreadsService: {
+    ticketsOfThread: () => Promise.resolve({ unavailable: false, rows: [], hiddenCount: 0 }),
+    threadsOfTicket: () => Promise.resolve({ unavailable: false, rows: [], hiddenCount: 0 }),
+    addThreads: () => Promise.resolve({ added: [], alreadyAttached: [] }),
+    removeThread: () => Promise.resolve(false),
+  },
+}));
 vi.mock('../AiTabPanel', () => ({
   AiTabPanel: ({
     message,

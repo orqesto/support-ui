@@ -31,6 +31,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { messageService } from '@/services/message.service';
+import { ticketThreadsService } from '@/services/ticketThreads.service';
 import { categoryService } from '@/services/category.service';
 import { labelService, type Label } from '@/services/settings.service';
 import {
@@ -249,30 +250,58 @@ export function MessageDetailHeader({
   }, [showLabelPicker]);
 
   const [linkedTicketId, setLinkedTicketId] = useState<number | null>(null);
+  /** Every ticket on this thread beyond the one the bar names (a thread can be on several). */
+  const [otherTicketCount, setOtherTicketCount] = useState(0);
+  /** D2: a finished ticket whose fix this customer has not been told about yet. */
+  const [owedTicketId, setOwedTicketId] = useState<number | null>(null);
+  const [ticketIds, setTicketIds] = useState<number[]>([]);
 
-  useEffect(() => {
-    setLinkedTicketId(null);
-    setLinkedTicketStatus(null);
-    messageService
-      .getLinkedTicket(message.id)
-      .then((res) => {
-        if (res?.data) {
-          setLinkedTicketId(res.data.id);
-          setLinkedTicketStatus(res.data.status);
+  const loadTickets = useCallback(() => {
+    ticketThreadsService
+      .ticketsOfThread(message.id)
+      .then(async (result) => {
+        if (result.unavailable) {
+          // An older backend: the one ticket it can name.
+          const res = await messageService.getLinkedTicket(message.id);
+          setLinkedTicketId(res?.data?.id ?? null);
+          setLinkedTicketStatus(res?.data?.status ?? null);
+          setOtherTicketCount(0);
+          setOwedTicketId(null);
+          setTicketIds(res?.data ? [res.data.id] : []);
+          return;
         }
+        // The same headline the list chip uses: the newest ticket still open, else the newest.
+        const headline =
+          result.rows.find((row) => row.status !== 'resolved' && row.status !== 'closed') ??
+          result.rows[0];
+        setLinkedTicketId(headline?.ticketId ?? null);
+        setLinkedTicketStatus(headline?.status ?? null);
+        setOtherTicketCount(Math.max(0, result.rows.length - 1));
+        setOwedTicketId(result.rows.find((row) => row.owesReply === true)?.ticketId ?? null);
+        setTicketIds(result.rows.map((row) => row.ticketId));
       })
       .catch(() => {});
   }, [message.id]);
 
   useEffect(() => {
-    if (!linkedTicketId) return;
+    setLinkedTicketId(null);
+    setLinkedTicketStatus(null);
+    setOtherTicketCount(0);
+    setOwedTicketId(null);
+    setTicketIds([]);
+    loadTickets();
+  }, [loadTickets]);
+
+  useEffect(() => {
+    if (ticketIds.length === 0) return;
+    // Any of this thread's tickets changing can change the headline or the reply prompt.
     const handler = (data: unknown) => {
       const ev = data as { ticketId: number; status?: string };
-      if (ev.ticketId === linkedTicketId && ev.status) setLinkedTicketStatus(ev.status);
+      if (ticketIds.includes(ev.ticketId)) loadTickets();
     };
     subscribeToEvent('ticket:updated', handler);
     return () => unsubscribeFromEvent('ticket:updated', handler);
-  }, [linkedTicketId]);
+  }, [ticketIds, loadTickets]);
 
   // Sync the in-flight badge from the message prop ONLY on conv change. We used
   // to also depend on `message.metadata` so navigating away+back would re-read
@@ -877,6 +906,11 @@ export function MessageDetailHeader({
                   · {linkedTicketStatus.replace('_', ' ')}
                 </span>
               )}
+              {otherTicketCount > 0 && (
+                <span className="ml-1 font-normal opacity-85">
+                  +{otherTicketCount} more
+                </span>
+              )}
             </span>
             <Link
               to={`/tickets?id=${linkedTicketId}`}
@@ -885,6 +919,13 @@ export function MessageDetailHeader({
               View <Maximize2 className="w-2.5 h-2.5" />
             </Link>
           </div>
+          {/* D2 — the incident is fixed and THIS customer has not been told. Nothing is sent for
+              the agent; this is the prompt. */}
+          {owedTicketId !== null && (
+            <p className="mt-1 text-[11px] text-warning">
+              Ticket #{owedTicketId} is fixed — reply to tell this customer.
+            </p>
+          )}
         </div>
       )}
 
