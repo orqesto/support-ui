@@ -202,4 +202,28 @@ describe('ThreadTickets', () => {
     await waitFor(() => expect(dialog).toHaveTextContent(/boom|Could not search tickets/));
     expect(screen.queryByText('No other tickets to add it to.')).not.toBeInTheDocument();
   });
+  it('overlapping quiet refreshes: an OLDER answer landing last does not overwrite the newer one', async () => {
+    ticketsOfThread.mockResolvedValue({ unavailable: false, rows: [ticket({ status: 'in_progress' })], hiddenCount: 0 });
+    renderPanel();
+    await screen.findByText('Checkout outage');
+    await waitFor(() => expect(socketHandlers.get('ticket:updated')).toBeDefined());
+    const answers: Array<(value: unknown) => void> = [];
+    ticketsOfThread.mockImplementation(() => new Promise((resolve) => answers.push(resolve)));
+    act(() => socketHandlers.get('ticket:updated')?.({ ticketId: 4 })); // resolved
+    act(() => socketHandlers.get('ticket:updated')?.({ ticketId: 4 })); // reopened
+    act(() => answers[1]({ unavailable: false, rows: [ticket({ status: 'open', owesReply: false })], hiddenCount: 0 }));
+    await waitFor(() => expect(screen.queryByText(/in progress/)).not.toBeInTheDocument());
+    act(() => answers[0]({ unavailable: false, rows: [ticket({ status: 'resolved', owesReply: true })], hiddenCount: 0 }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByText(/reply to tell this customer/)).not.toBeInTheDocument();
+  });
+
+  it('a reply that failed to send brings "Fixed — reply…" back', async () => {
+    ticketsOfThread.mockResolvedValue({ unavailable: false, rows: [ticket({ status: 'resolved', owesReply: false })], hiddenCount: 0 });
+    renderPanel();
+    await screen.findByText('Checkout outage');
+    ticketsOfThread.mockResolvedValue({ unavailable: false, rows: [ticket({ status: 'resolved', owesReply: true })], hiddenCount: 0 });
+    act(() => socketHandlers.get('send-failed')?.({ messageId: 11 }));
+    expect(await screen.findByText(/reply to tell this customer/)).toBeInTheDocument();
+  });
 });

@@ -326,7 +326,12 @@ export function MessageDetailHeader({
       if ((data as { messageId: number }).messageId === message.id) loadTickets();
     };
     subscribeToEvent('message:replied', onReplied);
-    return () => unsubscribeFromEvent('message:replied', onReplied);
+    // A reply that failed to send told nobody: the prompt comes back.
+    subscribeToEvent('send-failed', onReplied);
+    return () => {
+      unsubscribeFromEvent('message:replied', onReplied);
+      unsubscribeFromEvent('send-failed', onReplied);
+    };
   }, [message.id, loadTickets]);
 
   // Sync the in-flight badge from the message prop ONLY on conv change. We used

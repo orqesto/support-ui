@@ -60,11 +60,15 @@ export const ThreadTickets = ({ message, onChanged }: Props) => {
   const [error, setError] = useState<string | null>(null);
 
   // `quiet`: a refresh the agent did not ask for (a socket event) keeps the list on screen.
+  // Quiet refreshes can overlap (a resolve, then a reopen): only the latest load may write.
+  const loadSeq = useRef(0);
   const load = useCallback(
     async (quiet = false) => {
+      const seq = ++loadSeq.current;
       if (!quiet) setState('loading');
       try {
         const result = await ticketThreadsService.ticketsOfThread(message.id);
+        if (seq !== loadSeq.current) return;
         if (result.unavailable) {
           setState('unavailable');
           return;
@@ -73,6 +77,7 @@ export const ThreadTickets = ({ message, onChanged }: Props) => {
         setHiddenCount(result.hiddenCount);
         setState('ready');
       } catch (err) {
+        if (seq !== loadSeq.current) return;
         // ⛔ A failed READ is not "on no ticket" — saying so would state something false.
         logger.error('Failed to read the thread’s tickets', err);
         if (!quiet) setState('failed');
@@ -99,9 +104,12 @@ export const ThreadTickets = ({ message, onChanged }: Props) => {
     };
     subscribeToEvent('ticket:updated', onTicket);
     subscribeToEvent('message:replied', onReplied);
+    // A reply that failed to send told nobody: "Fixed — reply…" comes back.
+    subscribeToEvent('send-failed', onReplied);
     return () => {
       unsubscribeFromEvent('ticket:updated', onTicket);
       unsubscribeFromEvent('message:replied', onReplied);
+      unsubscribeFromEvent('send-failed', onReplied);
     };
   }, [ticketIdsKey, message.id, load]);
 

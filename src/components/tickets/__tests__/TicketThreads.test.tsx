@@ -2,7 +2,7 @@
  * A ticket's threads — every customer who reported the incident (2026-09-30).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -17,6 +17,11 @@ vi.mock('@/services/ticketThreads.service', () => ({
 vi.mock('@/services/message.service', () => ({ messageService: { getThreads } }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACME' }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
+const socketHandlers = new Map<string, (data: unknown) => void>();
+vi.mock('@/lib/socketManager', () => ({
+  subscribeToEvent: (name: string, handler: (data: unknown) => void) => socketHandlers.set(name, handler),
+  unsubscribeFromEvent: (name: string) => socketHandlers.delete(name),
+}));
 
 const { TicketThreads } = await import('@/components/tickets/TicketThreads');
 
@@ -238,5 +243,35 @@ describe('TicketThreads', () => {
     const dialog = await screen.findByRole('dialog');
     await waitFor(() => expect(dialog).toHaveTextContent(/boom|Could not search threads/));
     expect(screen.queryByText('No other threads to add.')).not.toBeInTheDocument();
+  });
+  it('resolving THIS ticket (socket) shows who is owed a reply, without a reload — another ticket does nothing', async () => {
+    threadsOfTicket.mockResolvedValue({ unavailable: false, rows: [thread({})], hiddenCount: 0 });
+    renderList();
+    await screen.findByText('Cannot pay');
+    await waitFor(() => expect(socketHandlers.get('ticket:updated')).toBeDefined());
+    let answer: (value: unknown) => void = () => {};
+    threadsOfTicket.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    act(() => socketHandlers.get('ticket:updated')?.({ ticketId: 5 }));
+    expect(threadsOfTicket).toHaveBeenCalledTimes(1);
+    act(() => socketHandlers.get('ticket:updated')?.({ ticketId: 4 }));
+    expect(threadsOfTicket).toHaveBeenCalledTimes(2);
+    // Quiet: the list stays while it reloads.
+    expect(screen.getByText('Cannot pay')).toBeInTheDocument();
+    act(() => answer({ unavailable: false, rows: [thread({ owesReply: true })], hiddenCount: 0 }));
+    expect(await screen.findByText(/still needs? a reply about this fix/)).toBeInTheDocument();
+  });
+
+  it('a reply sent — or failing to send — on one of its threads refreshes the list', async () => {
+    threadsOfTicket.mockResolvedValue({ unavailable: false, rows: [thread({ owesReply: true })], hiddenCount: 0 });
+    renderList();
+    expect(await screen.findByText(/Fixed — reply to tell this customer/)).toBeInTheDocument();
+    threadsOfTicket.mockResolvedValue({ unavailable: false, rows: [thread({ owesReply: false })], hiddenCount: 0 });
+    act(() => socketHandlers.get('message:replied')?.({ messageId: 99 }));
+    expect(threadsOfTicket).toHaveBeenCalledTimes(1);
+    act(() => socketHandlers.get('message:replied')?.({ messageId: 11 }));
+    await waitFor(() => expect(screen.queryByText(/Fixed — reply to tell this customer/)).not.toBeInTheDocument());
+    threadsOfTicket.mockResolvedValue({ unavailable: false, rows: [thread({ owesReply: true })], hiddenCount: 0 });
+    act(() => socketHandlers.get('send-failed')?.({ messageId: 11 }));
+    expect(await screen.findByText(/Fixed — reply to tell this customer/)).toBeInTheDocument();
   });
 });

@@ -216,4 +216,25 @@ describe('ticket bar', () => {
     act(() => replied?.({ messageId: message.id }));
     await waitFor(() => expect(screen.queryByText(/reply to tell this customer/)).not.toBeInTheDocument());
   });
+  it('D2: a reply that failed to send brings the prompt back', async () => {
+    ticketsOfThread.mockResolvedValue({
+      unavailable: false,
+      hiddenCount: 0,
+      rows: [row({ ticketId: 9, status: 'resolved', owesReply: false })],
+    });
+    renderHeader();
+    await screen.findByText(/✓ Ticket #9/);
+    const { subscribeToEvent } = await import('@/lib/socketManager');
+    const failed = vi.mocked(subscribeToEvent).mock.calls.filter(([name]) => name === 'send-failed').at(-1)?.[1] as
+      | ((data: unknown) => void)
+      | undefined;
+    expect(failed).toBeDefined();
+    ticketsOfThread.mockResolvedValue({
+      unavailable: false,
+      hiddenCount: 0,
+      rows: [row({ ticketId: 9, status: 'resolved', owesReply: true })],
+    });
+    act(() => failed?.({ messageId: message.id }));
+    expect(await screen.findByText('Ticket #9 is fixed — reply to tell this customer.')).toBeInTheDocument();
+  });
 });

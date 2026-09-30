@@ -14,6 +14,7 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
+import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
@@ -72,29 +73,35 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
     PREVIOUS ticket can arrive after the switch — only the latest load may write.
   */
   const loadSeq = useRef(0);
-  const load = useCallback(async () => {
-    const seq = ++loadSeq.current;
-    setState('loading');
-    onCountChange?.(null);
-    try {
-      const result = await ticketThreadsService.threadsOfTicket(ticketId);
-      if (seq !== loadSeq.current) return;
-      if (result.unavailable) {
-        setState('unavailable');
-        onCountChange?.('unavailable');
-        return;
+  // `quiet`: a refresh nobody asked for (a socket event) keeps the list and its count on screen.
+  const load = useCallback(
+    async (quiet = false) => {
+      const seq = ++loadSeq.current;
+      if (!quiet) {
+        setState('loading');
+        onCountChange?.(null);
       }
-      setThreads(result.rows);
-      setHiddenCount(result.hiddenCount);
-      onCountChange?.(result.rows.length);
-      setState('ready');
-    } catch (err) {
-      if (seq !== loadSeq.current) return;
-      // ⛔ A failed READ is not "no threads" — that would say nobody reported this.
-      logger.error('Failed to read the ticket’s threads', err);
-      setState('failed');
-    }
-  }, [ticketId, onCountChange]);
+      try {
+        const result = await ticketThreadsService.threadsOfTicket(ticketId);
+        if (seq !== loadSeq.current) return;
+        if (result.unavailable) {
+          setState('unavailable');
+          onCountChange?.('unavailable');
+          return;
+        }
+        setThreads(result.rows);
+        setHiddenCount(result.hiddenCount);
+        onCountChange?.(result.rows.length);
+        setState('ready');
+      } catch (err) {
+        if (seq !== loadSeq.current) return;
+        // ⛔ A failed READ is not "no threads" — that would say nobody reported this.
+        logger.error('Failed to read the ticket’s threads', err);
+        if (!quiet) setState('failed');
+      }
+    },
+    [ticketId, onCountChange]
+  );
 
   /*
     The LATEST ticket id, list and loader, for work that finishes after a render: an add/remove
@@ -130,6 +137,28 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Who is still owed a reply changes without this list doing anything: the ticket is resolved or
+  // reopened (the ticket page updates its status in place), or an agent's reply on one of these
+  // threads is sent — or fails to send.
+  const threadIdsKey = threads.map((row) => row.conversationId).join(',');
+  useEffect(() => {
+    const ids = threadIdsKey ? threadIdsKey.split(',').map(Number) : [];
+    const onTicket = (data: unknown) => {
+      if ((data as { ticketId: number }).ticketId === ticketId) void load(true);
+    };
+    const onReply = (data: unknown) => {
+      if (ids.includes((data as { messageId: number }).messageId)) void load(true);
+    };
+    subscribeToEvent('ticket:updated', onTicket);
+    subscribeToEvent('message:replied', onReply);
+    subscribeToEvent('send-failed', onReply);
+    return () => {
+      unsubscribeFromEvent('ticket:updated', onTicket);
+      unsubscribeFromEvent('message:replied', onReply);
+      unsubscribeFromEvent('send-failed', onReply);
+    };
+  }, [threadIdsKey, ticketId, load]);
 
   const search = useCallback(async (term: string) => {
     setError(null);
