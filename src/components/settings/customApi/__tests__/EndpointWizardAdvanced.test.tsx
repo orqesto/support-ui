@@ -34,6 +34,8 @@ vi.mock('@/services/customApi.service', async () => {
     ...actual,
     customApiService: {
       ...actual.customApiService,
+      // The Cancel/unmount revert (H7) may remove a lookup a Test created; never over the network.
+      removeEndpoint: () => Promise.resolve(),
       createEndpoint: (connectionId: number, input: unknown) => createEndpoint(connectionId, input),
       updateEndpoint: (connectionId: number, endpointId: number, input: unknown) =>
         updateEndpoint(connectionId, endpointId, input),
@@ -296,5 +298,44 @@ describe('advanced request settings (2026-09-29)', () => {
     await user.click(screen.getByRole('button', { name: /^Save/ }));
     await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
     expect(updateEndpoint.mock.calls.at(-1)?.[2]).toMatchObject({ paginationMode: 'none' });
+  });
+});
+
+describe('a category this build does not know is KEPT (FE audit M16)', () => {
+  const withUnknown = () => ({
+    ...withNewEndpoint().endpoints[0],
+    category: 'subscription' as never,
+    fieldPaths: [
+      { path: 'order_id', label: 'Order', kind: 'plain' as const, role: 'identifier' as const },
+    ],
+  });
+
+  it('is offered as "keep", selected, and left out of the save', async () => {
+    const user = userEvent.setup();
+    const ep = withUnknown();
+    render(
+      <EndpointWizard connection={connection()} endpoint={ep} onClose={noop} onSaved={noop} />
+    );
+    const kept = screen.getByRole('option', { name: /Keep “subscription”/ });
+    expect((kept as HTMLOptionElement).selected).toBe(true);
+    await user.click(screen.getByRole('button', { name: /^Save/ }));
+    await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
+    expect('category' in (updateEndpoint.mock.calls.at(-1)?.[2] as object)).toBe(false);
+  });
+
+  it('CONTROL: choosing "Not set" still clears it', async () => {
+    const user = userEvent.setup();
+    render(
+      <EndpointWizard
+        connection={connection()}
+        endpoint={withUnknown()}
+        onClose={noop}
+        onSaved={noop}
+      />
+    );
+    await user.selectOptions(screen.getByLabelText(/What kind of record/i), '');
+    await user.click(screen.getByRole('button', { name: /^Save/ }));
+    await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
+    expect(updateEndpoint.mock.calls.at(-1)?.[2]).toMatchObject({ category: null });
   });
 });

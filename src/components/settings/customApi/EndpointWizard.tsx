@@ -16,6 +16,7 @@ import { ResponseTree } from './ResponseTree';
 import { useRequestSettings } from './useRequestSettings';
 import { buildParameterFields } from './parameterFields';
 import { useTestRevert } from './useTestRevert';
+import * as categoryField from './categoryField';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -123,12 +124,15 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
    *
    * Empty string = no category, which every lookup that exists today has and keeps.
    */
-  const [category, setCategory] = useState<CustomApiCategory | ''>(
+  const storedUnknownCategory = categoryField.unknownCategoryOf(endpoint?.category);
+  const [category, setCategory] = useState<
+    CustomApiCategory | '' | typeof categoryField.KEEP_CATEGORY
+  >(
     // ⛔ Through `readCategory`, not a cast. A deployed frontend can meet an OLDER API that does
     // not send the field at all, and a newer one that sends a category this build has no option
     // for; both must land on "not set" rather than selecting nothing and silently clearing the
     // admin's choice on the next save.
-    readCategory(endpoint?.category) ?? ''
+    readCategory(endpoint?.category) ?? (storedUnknownCategory ? categoryField.KEEP_CATEGORY : '')
   );
   const [resultShape, setResultShape] = useState<'one' | 'many'>(
     (endpoint?.resultShape as 'one' | 'many') ?? 'one'
@@ -292,7 +296,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
         // ⛔ `null`, never omitted, when the admin picks "no category" — omitting it means "leave
         // what is stored", so an admin could never take a category off. Same shape as `dataPath`
         // directly above, and for the same reason its comment gives.
-        category: category === '' ? null : category,
+        ...categoryField.categoryPayload(category),
         statusLabels,
         // ⛔ Test runs the SAVED lookup, so the request settings must be saved before it.
         ...request.payload,
@@ -308,7 +312,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
       path: path.trim(),
       dataPath: dataPath.trim() === '' ? null : dataPath.trim(),
       resultShape,
-      category: category === '' ? null : category,
+      ...categoryField.categoryPayload(category),
       statusLabels,
       ...request.payload,
       ...parameterFields,
@@ -437,7 +441,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
          * `category` still NULL and `status_labels` still `{}` after a Save that returned 200.
          * The API, the schema and the step were all correct; this payload was the whole gap.
          */
-        category: category === '' ? null : category,
+        ...categoryField.categoryPayload(category),
         statusLabels,
         ...request.payload,
         // ⛔ Sent as `null` when the admin chose "we can't check" — that is a DECISION, and the
@@ -501,11 +505,12 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
               <Select
                 id="ca-category"
                 value={category}
-                onChange={(event) => setCategory(event.target.value as CustomApiCategory | '')}
+                onChange={(event) => setCategory(event.target.value as typeof category)}
               >
                 {/* ⛔ First, and the default. Every lookup that exists today has no category and
                       keeps working; making one mandatory would turn an L1 lookup into an invalid
                       thing to be. */}
+                {categoryField.keepCategoryOption(storedUnknownCategory)}
                 <option value="">Not set — just show the fields</option>
                 {CUSTOM_API_CATEGORIES.map((one) => (
                   <option key={one} value={one}>

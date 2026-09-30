@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import {
@@ -12,6 +12,8 @@ import { Checkbox } from '@/components/ui/Checkbox';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
+import { Toggle } from '@/components/ui/Toggle';
+import { departmentService } from '@/services/department.service';
 import { customApiService, type CustomApiConnection } from '@/services/customApi.service';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { useInvalidateCustomApiAvailability } from '@/hooks/useCustomApiLookup';
@@ -66,6 +68,35 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
    * the backend this build ships with.
    */
   const showFailure = !connection || supportsFlexibleRequests(connection);
+  /**
+   * FE audit M17 (2026-09-29): the API could switch a vendor off and scope it to departments, and
+   * nothing here ever sent either — the only way to stop a vendor was to delete it. Edit only: a
+   * new vendor starts on and available to every department, as the API creates it.
+   */
+  const [enabled, setEnabled] = useState(connection?.enabled ?? true);
+  const [scopeMode, setScopeMode] = useState<'all' | 'departments'>(
+    connection?.scopeMode === 'departments' ? 'departments' : 'all'
+  );
+  const [departmentIds, setDepartmentIds] = useState<number[]>(connection?.departmentIds ?? []);
+  const [departments, setDepartments] = useState<Array<{ id: number; name: string }>>([]);
+  useEffect(() => {
+    if (!editing) return;
+    let cancelled = false;
+    departmentService
+      .getAll()
+      .then(
+        (list) => !cancelled && setDepartments(list.map((one) => ({ id: one.id, name: one.name })))
+      )
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [editing]);
+  const scopeChanged =
+    editing &&
+    (scopeMode !== (connection?.scopeMode === 'departments' ? 'departments' : 'all') ||
+      [...departmentIds].sort().join(',') !==
+        [...(connection?.departmentIds ?? [])].sort().join(','));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -108,10 +139,19 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
       if (editing && connection) {
         saved = await customApiService.update(connection.id, {
           ...shared,
+          // Only when it CHANGED: switching off purges the stored records (D9), so an unrelated
+          // edit must never send it.
+          ...(enabled !== connection.enabled ? { enabled } : {}),
           // ⛔ THE THREE-VALUED RULE. Omitted entirely when the admin typed nothing, so renaming
           // an integration cannot silently delete its key and break every lookup under it.
           ...(credential ? { credential } : {}),
         });
+        if (scopeChanged) {
+          await customApiService.setScope(connection.id, {
+            scopeMode,
+            departmentIds: scopeMode === 'departments' ? departmentIds : [],
+          });
+        }
       } else {
         saved = await customApiService.create({
           ...shared,
@@ -244,6 +284,58 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
           )}
 
           {showFailure && <FailureAdvancedSettings settings={failure} onChange={setFailure} />}
+
+          {editing && (
+            <div className="space-y-2 rounded-md border p-3">
+              <Toggle
+                checked={enabled}
+                onChange={setEnabled}
+                label="Turned on — agents can use its lookups"
+              />
+              {connection?.enabled && !enabled && (
+                <Alert variant="warning">
+                  <AlertDescription>
+                    Turning it off stops every lookup and deletes the records stored from it. They
+                    are fetched again when you turn it back on.
+                  </AlertDescription>
+                </Alert>
+              )}
+              <div className="space-y-1">
+                <Label htmlFor="ca-scope">Which departments can use it?</Label>
+                <Select
+                  id="ca-scope"
+                  value={scopeMode}
+                  onChange={(event) => setScopeMode(event.target.value as 'all' | 'departments')}
+                >
+                  <option value="all">Every department</option>
+                  <option value="departments">Only the ones I choose</option>
+                </Select>
+              </div>
+              {scopeMode === 'departments' && (
+                <div className="space-y-1">
+                  {departments.map((dept) => (
+                    <Checkbox
+                      key={dept.id}
+                      checked={departmentIds.includes(dept.id)}
+                      onChange={(event) =>
+                        setDepartmentIds((ids) =>
+                          event.target.checked
+                            ? [...ids, dept.id]
+                            : ids.filter((id) => id !== dept.id)
+                        )
+                      }
+                      label={dept.name}
+                    />
+                  ))}
+                  {departmentIds.length === 0 && (
+                    <p className="text-xs text-warning">
+                      No department chosen — no agent will be able to use this system.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {editing && connection?.hasCredential && (
             <p className="text-xs text-muted-foreground">
