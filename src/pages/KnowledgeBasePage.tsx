@@ -32,9 +32,16 @@ import { Permission } from '@/types/roles';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useUiFlags } from '@/hooks/useUiFlags';
 import { isCaseRow, unmergeConsequence } from '@/lib/kbConsolidation';
-import { runCaseAction } from '@/components/kb/runCaseAction';
+import { runCaseAction, type CaseActionNow } from '@/components/kb/runCaseAction';
 
 /** An action on a merged CASE row — each one unmerges it, so each is confirmed first. */
+/** What a case action sees once the page is gone: no drawer to close, nothing to re-read. */
+const LEFT_PAGE: CaseActionNow = {
+  selectedId: null,
+  close: () => {},
+  refetch: () => Promise.resolve(),
+};
+
 type CaseAction = { entry: KBEntry; action: 'hide' | 'reject' | 'delete' | 'unmerge' };
 
 const CASE_ACTION_TITLES: Record<CaseAction['action'], string> = {
@@ -311,7 +318,15 @@ export const KnowledgeBasePage = () => {
     if (!caseAction) return;
     const { entry, action } = caseAction;
     setCaseAction(null);
-    setAlertDialog(await runCaseAction(entry, action, () => latest.current));
+    // One action per case at a time: a second confirm while the first runs would only come back
+    // 404 and replace the real result with "Already unmerged" (FE pass 17 LOW-2).
+    if (inFlight.current.has(entry.id)) return;
+    inFlight.current.add(entry.id);
+    try {
+      setAlertDialog(await runCaseAction(entry, action, () => latest.current));
+    } finally {
+      inFlight.current.delete(entry.id);
+    }
   };
 
   const handleUpdate = (updatedEntry: KBEntry) => {
@@ -346,11 +361,7 @@ export const KnowledgeBasePage = () => {
   };
 
   // What a case action reads when its request ANSWERS, not when its confirm was clicked.
-  const latest = useRef({
-    selectedId: null as number | null,
-    close: () => {},
-    refetch: (): Promise<void> => Promise.resolve(),
-  });
+  const latest = useRef<CaseActionNow>(LEFT_PAGE);
   useEffect(() => {
     latest.current = {
       selectedId: selectedEntry?.id ?? null,
@@ -358,6 +369,9 @@ export const KnowledgeBasePage = () => {
       refetch: () => fetchEntries(pagination.page),
     };
   });
+  // Left the page mid-request: the answer must not navigate back here or re-read (pass 17 LOW-1).
+  useEffect(() => () => void (latest.current = LEFT_PAGE), []);
+  const inFlight = useRef(new Set<number>());
 
   const openDeleteDialog = (entry: KBEntry) => {
     setEntryToDelete(entry);

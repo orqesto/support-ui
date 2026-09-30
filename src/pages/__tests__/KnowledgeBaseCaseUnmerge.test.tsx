@@ -5,7 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type * as KbServiceModule from '@/services/kb.service';
 import { kbEntryDetailResponse } from '@/test/kbEntryDetailResponse';
 
@@ -516,5 +516,78 @@ describe('KB page — "Cases report" button (L2)', () => {
     page();
     await tableRow('Refunds');
     expect(button()).not.toBeInTheDocument();
+  });
+});
+
+/** FE pass 17: a case action outlives the page or is sent twice. */
+describe('KB page — case action in flight (pass 17)', () => {
+  const Where = () => {
+    const location = useLocation();
+    return <div data-testid="where">{location.pathname}</div>;
+  };
+
+  it('LOW-1: an answer that arrives after the user LEFT the page does not pull them back', async () => {
+    let done: (value: unknown) => void = () => {};
+    unmerge.mockReturnValue(
+      new Promise((resolve) => {
+        done = resolve;
+      })
+    );
+    getById.mockResolvedValue(
+      kbEntryDetailResponse({
+        id: 9,
+        title: 'Refunds',
+        approved: true,
+        capturedVia: 'consolidation',
+        publicId: 'KB-9',
+      })
+    );
+    render(
+      <MemoryRouter initialEntries={['/knowledge-base?id=9']}>
+        <Link to="/tickets">Go tickets</Link>
+        <Where />
+        <Routes>
+          <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
+          <Route path="/tickets" element={<div>Tickets page</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+    const panel = (await screen.findByRole('heading', { name: 'Entry Details' })).parentElement
+      ?.parentElement as HTMLElement;
+    await within(panel).findByText('Case');
+    fireEvent.click(within(panel).getByRole('button', { name: /Unmerge/ }));
+    fireEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unmerge' })
+    );
+    await waitFor(() => expect(unmerge).toHaveBeenCalledWith(9));
+    fireEvent.click(screen.getByText('Go tickets'));
+    expect(await screen.findByText('Tickets page')).toBeInTheDocument();
+    const readsBefore = getAll.mock.calls.length;
+    done({ caseId: 9, restored: 2 });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.getByTestId('where')).toHaveTextContent('/tickets');
+    expect(getAll.mock.calls.length).toBe(readsBefore);
+  });
+
+  it('LOW-2: a second confirm on a case whose action is still running sends nothing; the first result is shown', async () => {
+    let done: (value: unknown) => void = () => {};
+    unmerge.mockReturnValue(
+      new Promise((resolve) => {
+        done = resolve;
+      })
+    );
+    page();
+    const row = await tableRow('Refunds');
+    for (let click = 0; click < 2; click += 1) {
+      fireEvent.click(within(row).getByRole('button', { name: 'Unmerge' }));
+      fireEvent.click(
+        within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unmerge' })
+      );
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    }
+    expect(unmerge).toHaveBeenCalledTimes(1);
+    done({ caseId: 9, restored: 2 });
+    expect(await screen.findByText(/2 original entries are back/)).toBeInTheDocument();
+    expect(screen.queryByText('Already unmerged')).not.toBeInTheDocument();
   });
 });
