@@ -5,7 +5,7 @@
  * agent triaging fifty threads is picking them precisely to avoid opening each one; a
  * checkbox that also opens the thread makes the feature slower than doing it by hand.
  *
- * Also here: a rule-blocked spam-log row gets NO box. It has no conversation behind it
+ * Also here: a spam-rule record (spam-log row) gets NO box. It has no conversation behind it
  * (`spamlog_<n>`, negative id), so every bulk action refuses it — offering it would be an
  * invitation to a guaranteed refusal.
  */
@@ -85,7 +85,7 @@ describe('KanbanCard — bulk selection', () => {
     expect(screen.queryByRole('checkbox')).toBeNull();
   });
 
-  it('draws no checkbox on a rule-blocked spam-log row', () => {
+  it('draws no checkbox on a spam-rule record (spam-log row)', () => {
     // Negative id, `spamlog_` thread id: there is no conversation to act on.
     const spamLog = thread({
       threadId: 'spamlog_44',

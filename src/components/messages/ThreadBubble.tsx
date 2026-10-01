@@ -23,9 +23,17 @@ export function ThreadBubble({
   isAgent,
   html,
   eventId,
+  quoteExpanded = false,
 }: {
   content: string | null | undefined;
   isAgent: boolean;
+  /**
+   * Start with the quoted part SHOWN. Default folded, as in a thread, where the quote repeats
+   * messages already on screen above it. The blocked-spam dialog (MessagesPage) passes `true`:
+   * it shows one message and nothing else, so a folded quote there is text the reader has to
+   * click to find out exists (owner, 2026-10-01: "why i dont see full spam message?").
+   */
+  quoteExpanded?: boolean;
   /**
    * The sender's ORIGINAL markup, when the console has fetched it. Preferred over `content`,
    * which for a templated order mail is the sender's own `text/plain` alternative — the one
@@ -40,7 +48,7 @@ export function ThreadBubble({
   // to every other request never reaches the backend — which answered 400 to every remote
   // image in every HTML mail because of it. Same source the interceptor reads.
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
-  const [showQuote, setShowQuote] = useState(false);
+  const [showQuote, setShowQuote] = useState(quoteExpanded);
   // Content can be null (e.g. an attachment-only message or a body that failed to
   // extract) — coerce to '' so the regex/split helpers below don't throw.
   // Prefer the original markup when we have it AND an id to proxy its images through.
