@@ -100,7 +100,53 @@ export type PlatformSettings = {
   database?: {
     freeSharedRetentionDays: ResolvedField<number>;
   };
+  /**
+   * GPT-5 / o-series reasoning effort per AI feature + the reasoning headroom. Absent on a
+   * backend that predates the setting (the frontend can reach `main` first), and absent when
+   * the block arrives in a shape this build does not understand — the card then says the
+   * setting is not available rather than guessing.
+   */
+  reasoning?: PlatformReasoning;
 };
+
+/**
+ * What PATCH /settings/reasoning accepts, and what `stored` echoes back. Efforts and feature
+ * names are plain strings on purpose: the vocabulary comes from the server's `options`, so a
+ * feature added on the backend shows up here without a frontend release.
+ */
+export type ReasoningInput = {
+  defaultEffort?: string;
+  effortByFeature?: Record<string, string>;
+  headroomTokens?: number;
+};
+
+export type PlatformReasoning = {
+  stored: ReasoningInput;
+  effective: {
+    /** null ⇒ no reasoning_effort is sent; the model uses its own default. */
+    defaultEffort: string | null;
+    effortByFeature: Record<string, string>;
+    headroomTokens: { value: number; source: 'db' | 'default' };
+  };
+  options: {
+    efforts: string[];
+    features: string[];
+    headroomTokens: { min: number; max: number; default: number };
+  };
+  /**
+   * The parts of the stored row this server could not use. `stored` above is only the USABLE
+   * part, so a save (which starts from it) drops the ignored entries and writes the adjusted
+   * values as they are used. Each is [] when the backend does not report it.
+   */
+  /** Feature keys this server does not know. */
+  ignoredFeatures: string[];
+  /** Dotted paths whose saved value is not valid here, e.g. `effortByFeature.translation`. */
+  ignoredFields: string[];
+  /** Values the server moved into range before using them (headroom 0 ⇒ 1000). */
+  adjustedFields: ReasoningAdjustment[];
+};
+
+export type ReasoningAdjustment = { field: string; stored: number | null; used: number | null };
 
 export type PlatformDatabaseInput = { retentionDays: number };
 
@@ -148,6 +194,92 @@ type RawPlatformSettings = {
   storage: Partial<PlatformSettings['storage']> & Pick<PlatformSettings['storage'], 'driver'>;
   secrets?: Partial<Record<PlatformSecretKey, SecretStatus>>;
   database?: { freeSharedRetentionDays?: ResolvedField<number> };
+  reasoning?: unknown;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string');
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+/** Keep only string → string entries; anything else in a map is dropped, not rendered. */
+const stringMap = (value: unknown): Record<string, string> =>
+  isRecord(value)
+    ? Object.fromEntries(
+        Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+      )
+    : {};
+
+/**
+ * The `reasoning` block, or undefined when it is absent or not in the shape this build reads.
+ *
+ * ⛔ Undefined, never a made-up default. An older backend has no such setting at all, and a card
+ * offering levels to a server that would 404 the save is worse than one saying "not available".
+ * `options` is the part the card cannot work without (it lists the efforts, the features and the
+ * headroom bounds), so its absence or a malformed copy means "not available" too.
+ */
+export const normalizeReasoning = (raw: unknown): PlatformReasoning | undefined => {
+  if (!isRecord(raw) || !isRecord(raw.options)) return undefined;
+  const { efforts, features, headroomTokens: bounds } = raw.options;
+  if (!isStringArray(efforts) || efforts.length === 0 || !isStringArray(features)) {
+    return undefined;
+  }
+  if (
+    !isRecord(bounds) ||
+    !isFiniteNumber(bounds.min) ||
+    !isFiniteNumber(bounds.max) ||
+    !isFiniteNumber(bounds.default)
+  ) {
+    return undefined;
+  }
+  const storedRaw = isRecord(raw.stored) ? raw.stored : {};
+  const stored: ReasoningInput = {};
+  if (typeof storedRaw.defaultEffort === 'string') stored.defaultEffort = storedRaw.defaultEffort;
+  const storedByFeature = stringMap(storedRaw.effortByFeature);
+  if (Object.keys(storedByFeature).length > 0) stored.effortByFeature = storedByFeature;
+  if (isFiniteNumber(storedRaw.headroomTokens)) stored.headroomTokens = storedRaw.headroomTokens;
+
+  const effectiveRaw = isRecord(raw.effective) ? raw.effective : {};
+  const headroomRaw = isRecord(effectiveRaw.headroomTokens) ? effectiveRaw.headroomTokens : {};
+  return {
+    stored,
+    effective: {
+      defaultEffort:
+        typeof effectiveRaw.defaultEffort === 'string' ? effectiveRaw.defaultEffort : null,
+      effortByFeature: stringMap(effectiveRaw.effortByFeature),
+      // Derived from `stored` when the effective copy is missing, the same rule the server uses:
+      // a stored number is the value, otherwise the built-in default.
+      headroomTokens: isFiniteNumber(headroomRaw.value)
+        ? {
+            value: headroomRaw.value,
+            source: headroomRaw.source === 'db' ? 'db' : 'default',
+          }
+        : stored.headroomTokens !== undefined
+          ? { value: stored.headroomTokens, source: 'db' }
+          : { value: bounds.default, source: 'default' },
+    },
+    options: {
+      efforts,
+      features,
+      headroomTokens: { min: bounds.min, max: bounds.max, default: bounds.default },
+    },
+    ignoredFeatures: isStringArray(raw.ignoredFeatures) ? raw.ignoredFeatures : [],
+    ignoredFields: isStringArray(raw.ignoredFields) ? raw.ignoredFields : [],
+    adjustedFields: Array.isArray(raw.adjustedFields)
+      ? raw.adjustedFields.filter(isRecord).flatMap((entry) =>
+          typeof entry.field === 'string'
+            ? [
+                {
+                  field: entry.field,
+                  stored: isFiniteNumber(entry.stored) ? entry.stored : null,
+                  used: isFiniteNumber(entry.used) ? entry.used : null,
+                },
+              ]
+            : []
+        )
+      : [],
+  };
 };
 
 const UNSET_SECRET: SecretStatus = { configured: false, source: 'none', last4: null };
@@ -211,6 +343,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
     secrets['storage.s3_secret_access_key'] = raw.storage.secretAccessKey;
   }
 
+  const reasoning = normalizeReasoning(raw.reasoning);
   const provider = field(raw.ai.provider);
   const effectiveProvider = provider.value ?? 'openai';
   return {
@@ -257,6 +390,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
     ...(raw.database?.freeSharedRetentionDays
       ? { database: { freeSharedRetentionDays: raw.database.freeSharedRetentionDays } }
       : {}),
+    ...(reasoning ? { reasoning } : {}),
   };
 };
 
@@ -294,6 +428,16 @@ export const platformSettingsService = {
   /** PATCH the no-active-plan managed-database retention window (BYODB §3.4). Applies to future stamps only. */
   updateDatabase: async (input: PlatformDatabaseInput): Promise<void> => {
     await apiClient.patch(`${BASE}/database`, input);
+  },
+
+  /**
+   * PUT-like PATCH of the reasoning settings: the body REPLACES the whole stored value, so send
+   * the complete object; `{}` clears it. Answers with the saved block, read through the same
+   * normalizer as GET (undefined only if the server answered in a shape this build cannot read).
+   */
+  updateReasoning: async (input: ReasoningInput): Promise<PlatformReasoning | undefined> => {
+    const res = await apiClient.patch<{ data: unknown }>(`${BASE}/reasoning`, input);
+    return normalizeReasoning(res.data.data);
   },
 
   /**

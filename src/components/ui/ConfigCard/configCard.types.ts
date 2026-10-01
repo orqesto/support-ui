@@ -50,6 +50,8 @@ export interface ConfigCardProps {
 
   saveDisabled?: boolean;
   saving?: boolean;
+  /** Disables Configure / Edit, e.g. while a request that changes the stored config is in flight. */
+  editDisabled?: boolean;
 
   /** Overrides for the primary action wording, e.g. "Save storage default". */
   configureLabel?: string;

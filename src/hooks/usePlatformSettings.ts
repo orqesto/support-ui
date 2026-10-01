@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/lib/toast';
 import {
   platformSettingsService,
@@ -6,6 +7,7 @@ import {
   type ManagedAiInput,
   type PlatformDatabaseInput,
   type PlatformSecretKey,
+  type ReasoningInput,
 } from '@/services/platformSettings.service';
 
 const KEY = ['platform', 'settings'] as const;
@@ -67,6 +69,47 @@ export const useUpdatePlatformDatabase = () => {
   return useMutation({
     mutationFn: (input: PlatformDatabaseInput) => platformSettingsService.updateDatabase(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+};
+
+/**
+ * The refetch runs INSIDE the mutation, so the save stays pending (and the card stays locked)
+ * until the stored value it changed has been read back. `exact: true`: only the settings
+ * query, not the ai-models catalog that shares its key prefix.
+ *
+ * Errors: while the card is mounted it renders the refusal itself, naming the rejected field,
+ * so no toast (it would report one refusal twice). A save that fails AFTER the card unmounted
+ * has nobody left to show it — that one toasts, like the sibling saves.
+ */
+const REASONING_SAVE_KEY = ['platform', 'settings', 'reasoning'] as const;
+
+/**
+ * True while ANY reasoning save or reset is in flight — not just one started by the calling
+ * component. TanStack v5 keeps `isPending` per useMutation instance, so a card remounted mid-save
+ * (navigate away and back) read it as false and rendered unlocked over the old cached value.
+ */
+export const useIsSavingPlatformReasoning = (): boolean =>
+  useIsMutating({ mutationKey: REASONING_SAVE_KEY }) > 0;
+
+export const useUpdatePlatformReasoning = () => {
+  const qc = useQueryClient();
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  return useMutation({
+    mutationKey: REASONING_SAVE_KEY,
+    // Nothing reads the PATCH answer: the refetch below is what the card renders from.
+    mutationFn: async (input: ReasoningInput): Promise<void> => {
+      await platformSettingsService.updateReasoning(input);
+      await qc.invalidateQueries({ queryKey: KEY, exact: true });
+    },
+    onError: (error: unknown) => {
+      if (!mounted.current) toast.failure('save the reasoning settings', error);
+    },
   });
 };
 

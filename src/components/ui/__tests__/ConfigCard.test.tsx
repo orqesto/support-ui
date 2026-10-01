@@ -94,6 +94,26 @@ describe('ConfigCard', () => {
  * what makes it impossible to get stuck showing a draft.
  */
 describe('useConfigCardState', () => {
+  it('does not let Save fire again while a save is in flight', () => {
+    const onSave = vi.fn();
+    render(<ConfigCard title="Object Storage" state="editing" onSave={onSave} saving saveLabel="Save" />);
+    // While saving the button shows a spinner instead of its label; it is the only button here.
+    const save = screen.getByRole('button');
+    expect((save as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(save);
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('editDisabled disables Edit and Configure', () => {
+    const onEdit = vi.fn();
+    const { rerender } = render(<ConfigCard title="T" state="stored" onEdit={onEdit} editDisabled />);
+    fireEvent.click(screen.getByRole('button', { name: /^edit$/i }));
+    expect(onEdit).not.toHaveBeenCalled();
+    rerender(<ConfigCard title="T" state="empty" onConfigure={onEdit} editDisabled />);
+    fireEvent.click(screen.getByRole('button', { name: /^configure$/i }));
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
   it('derives empty and stored from whether config exists', () => {
     const { result, rerender } = renderHook(({ configured }) => useConfigCardState({ configured }), {
       initialProps: { configured: false },
