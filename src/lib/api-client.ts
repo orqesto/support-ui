@@ -382,7 +382,7 @@ export const rejectHtmlResponse = (response: AxiosResponse): void => {
 };
 
 /**
- * Every sign-in path — password, org picker, workspace switch, signup auto-login, 2FA — answers
+ * Every sign-in path — password, org picker, workspace switch, email-verification sign-in, 2FA — answers
  * through the BE's `establishSession`, which reports the access-token lifetime as
  * `data.auth.expiresIn` (and, for native clients, the tokens beside it). Reading it HERE rather
  * than in each auth service keeps "a session just started" in ONE place on this side too; six

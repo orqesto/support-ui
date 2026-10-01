@@ -1,5 +1,7 @@
 import { useState, useRef, type FormEvent } from 'react';
+import { MailCheck } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Button } from '@/components/ui/Button';
@@ -42,10 +44,11 @@ const readPreselectedPlan = (): string | undefined => {
 
 /**
  * Public self-serve "create a workspace" signup. Distinct from the invite-only
- * accept-invitation flow (SignupPage). On success the BE sets the httpOnly `jwt`
- * cookie (auto-login), so we store the returned user/org exactly like a password
- * login and hand off to /dashboard, which routes a fresh pending org into the
- * onboarding wizard.
+ * accept-invitation flow (SignupPage). Signup does NOT sign in (2026-10-01): the
+ * page turns into "check your inbox", and the emailed link signs this browser in
+ * and opens the onboarding wizard (VerifyEmailPage). A BE from before that change
+ * still answers with `user` and a session cookie — then we hand off to /dashboard
+ * as before, so this page works whichever side deploys first.
  */
 export const CreateWorkspacePage = () => {
   const [formData, setFormData] = useState({
@@ -61,6 +64,9 @@ export const CreateWorkspacePage = () => {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance>(null);
   const [selectedPlan] = useState<string | undefined>(readPreselectedPlan);
+  // Set once signup succeeds and the BE wants the address verified first.
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
 
   const login = useAuthStore((state) => state.login);
   const setSelectedOrganization = useAuthStore((state) => state.setSelectedOrganization);
@@ -113,11 +119,16 @@ export const CreateWorkspacePage = () => {
         plan: selectedPlan,
       });
 
-      if (response.success && response.data) {
-        // Auto-login: the BE already set the httpOnly jwt cookie. Mirror the
-        // password-login store writes (token stays null — cookie-based auth),
-        // then hand off to /dashboard which routes a fresh pending org into the
-        // onboarding wizard.
+      if (response.success && response.data?.verificationRequired) {
+        setSentTo(response.data.email);
+        return;
+      }
+
+      if (response.success && response.data?.user) {
+        // A BE from before verify-first: it already set the httpOnly jwt cookie.
+        // Mirror the password-login store writes (token stays null — cookie-based
+        // auth), then hand off to /dashboard which routes a fresh pending org into
+        // the onboarding wizard.
         login(null, response.data.user);
         setSelectedOrganization(response.data.organization.id);
         navigate('/dashboard');
@@ -140,6 +151,64 @@ export const CreateWorkspacePage = () => {
       setIsLoading(false);
     }
   };
+
+  const handleResend = async () => {
+    if (!sentTo) return;
+    setResendState('sending');
+    try {
+      await authService.resendVerification(sentTo);
+      setResendState('sent');
+    } catch {
+      setResendState('failed');
+    }
+  };
+
+  if (sentTo) {
+    return (
+      <div className="flex justify-center items-center px-4 min-h-screen bg-background">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <MailCheck className="w-8 h-8 text-primary" aria-hidden="true" />
+            <CardTitle className="text-2xl">Check your inbox</CardTitle>
+            <CardDescription>
+              We sent a verification link to{' '}
+              <span className="font-medium text-foreground break-all">{sentTo}</span>. Open it in
+              this browser to set up {formData.workspaceName.trim() || 'your workspace'}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              The link works for 24 hours. Opened on another device, it verifies your email and
+              asks you to sign in.
+            </p>
+            {resendState === 'sent' && (
+              <Alert variant="success">
+                Sent again. Check your spam folder if it does not arrive in a few minutes.
+              </Alert>
+            )}
+            {resendState === 'failed' && (
+              <Alert variant="danger">Could not resend the email. Please try again in a minute.</Alert>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              isLoading={resendState === 'sending'}
+              onClick={() => void handleResend()}
+            >
+              Resend email
+            </Button>
+            <div className="text-sm text-center text-muted-foreground">
+              Already verified?{' '}
+              <Link to="/login" className="font-medium text-primary hover:underline">
+                Sign in
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex justify-center items-center px-4 min-h-screen bg-background">
