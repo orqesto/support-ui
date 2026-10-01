@@ -1,4 +1,4 @@
-import { useState, useRef, type FormEvent } from 'react';
+import { useEffect, useState, useRef, type FormEvent } from 'react';
 import { MailCheck } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/Alert';
@@ -66,7 +66,17 @@ export const CreateWorkspacePage = () => {
   const [selectedPlan] = useState<string | undefined>(readPreselectedPlan);
   // Set once signup succeeds and the BE wants the address verified first.
   const [sentTo, setSentTo] = useState<string | null>(null);
-  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
+  // False when the BE could not send the mail (it still created the workspace).
+  const [mailLeft, setMailLeft] = useState(true);
+  const [resendState, setResendState] = useState<
+    'idle' | 'sending' | 'sent' | 'failed' | 'verified'
+  >('idle');
+  const [pendingNotice, setPendingNotice] = useState('');
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [changeError, setChangeError] = useState('');
+  const [isChanging, setIsChanging] = useState(false);
+  const inboxHeadingRef = useRef<HTMLDivElement>(null);
 
   const login = useAuthStore((state) => state.login);
   const setSelectedOrganization = useAuthStore((state) => state.setSelectedOrganization);
@@ -121,6 +131,7 @@ export const CreateWorkspacePage = () => {
 
       if (response.success && response.data?.verificationRequired) {
         setSentTo(response.data.email);
+        setMailLeft(response.data.emailSent !== false);
         return;
       }
 
@@ -139,7 +150,12 @@ export const CreateWorkspacePage = () => {
       resetCaptcha();
     } catch (err) {
       const status = (err as { status?: number } | null)?.status;
-      if (status === 409) {
+      const serverMessage = (err as { data?: { error?: string } } | null)?.data?.error ?? '';
+      // Two different 409s: the address has an account, or the workspace NAME is taken. Only the
+      // first means "sign in instead" — the second needs a different name.
+      if (status === 409 && /workspace/i.test(serverMessage)) {
+        setError(serverMessage);
+      } else if (status === 409) {
         setEmailExists(true);
       } else if (err instanceof Error) {
         setError(err.message);
@@ -152,14 +168,57 @@ export const CreateWorkspacePage = () => {
     }
   };
 
+  // The screen swaps under the user; move focus to its heading so keyboard and screen-reader
+  // users land on "Check your inbox" rather than on a button that no longer exists.
+  useEffect(() => {
+    if (sentTo) inboxHeadingRef.current?.focus();
+  }, [sentTo]);
+
+  /** "already verified" (409) is not a failure: the address is done, the user signs in. */
+  const pendingFailureMessage = (err: unknown, fallback: string) => {
+    const failure = err as { status?: number; data?: { error?: string } } | null;
+    // 429 carries the real wait (the limiter is per hour) — never invent a shorter one.
+    if ([400, 409, 429].includes(failure?.status ?? 0)) return failure?.data?.error ?? fallback;
+    if (failure?.status === 401) {
+      return 'This browser no longer holds your sign-up. Sign in — the login page can resend the email.';
+    }
+    return fallback;
+  };
+
   const handleResend = async () => {
-    if (!sentTo) return;
     setResendState('sending');
+    setPendingNotice('');
     try {
-      await authService.resendVerification(sentTo);
-      setResendState('sent');
-    } catch {
-      setResendState('failed');
+      const response = await authService.resendPendingSignup();
+      if (response.data) {
+        setSentTo(response.data.email);
+        setMailLeft(response.data.emailSent);
+      }
+      setResendState(response.data?.emailSent === false ? 'failed' : 'sent');
+    } catch (err) {
+      const verified = (err as { status?: number } | null)?.status === 409;
+      setResendState(verified ? 'verified' : 'failed');
+      setPendingNotice(pendingFailureMessage(err, ''));
+    }
+  };
+
+  const handleChangeEmail = async (event: FormEvent) => {
+    event.preventDefault();
+    setChangeError('');
+    setIsChanging(true);
+    try {
+      const response = await authService.changePendingSignupEmail(newEmail.trim());
+      if (response.data) {
+        setSentTo(response.data.email);
+        setMailLeft(response.data.emailSent);
+      }
+      setEditingEmail(false);
+      setResendState('idle');
+      setPendingNotice('');
+    } catch (err) {
+      setChangeError(pendingFailureMessage(err, 'Could not change the address. Please try again.'));
+    } finally {
+      setIsChanging(false);
     }
   };
 
@@ -169,25 +228,42 @@ export const CreateWorkspacePage = () => {
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
             <MailCheck className="w-8 h-8 text-primary" aria-hidden="true" />
-            <CardTitle className="text-2xl">Check your inbox</CardTitle>
+            <div ref={inboxHeadingRef} tabIndex={-1} className="outline-none">
+              <CardTitle className="text-2xl">
+                {mailLeft ? 'Check your inbox' : 'We could not send the email'}
+              </CardTitle>
+            </div>
             <CardDescription>
-              We sent a verification link to{' '}
-              <span className="font-medium text-foreground break-all">{sentTo}</span>. Open it in
-              this browser to set up {formData.workspaceName.trim() || 'your workspace'}.
+              {mailLeft ? 'We sent a verification link to ' : 'Your workspace is ready, but the link to '}
+              <span className="font-medium text-foreground break-all">{sentTo}</span>
+              {mailLeft
+                ? `. Open it in this browser to set up ${formData.workspaceName.trim() || 'your workspace'}.`
+                : ' did not go out. Press "Resend email" to try again.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              The link works for 24 hours. Opened on another device, it verifies your email and
-              asks you to sign in.
+              The link works for 24 hours, and each new email replaces the previous link — use the
+              newest one. Opened on another device, it verifies your email and asks you to sign in.
             </p>
             {resendState === 'sent' && (
               <Alert variant="success">
                 Sent again. Check your spam folder if it does not arrive in a few minutes.
               </Alert>
             )}
+            {resendState === 'verified' && (
+              <Alert variant="info">
+                This email is already verified.{' '}
+                <Link to="/login" className="font-medium underline">
+                  Sign in
+                </Link>
+                .
+              </Alert>
+            )}
             {resendState === 'failed' && (
-              <Alert variant="danger">Could not resend the email. Please try again in a minute.</Alert>
+              <Alert variant="danger">
+                {pendingNotice || 'Could not resend the email. Please try again later.'}
+              </Alert>
             )}
             <Button
               type="button"
@@ -198,6 +274,46 @@ export const CreateWorkspacePage = () => {
             >
               Resend email
             </Button>
+            {editingEmail ? (
+              <form onSubmit={handleChangeEmail} className="space-y-3">
+                <Input
+                  label="Correct email address"
+                  type="email"
+                  autoComplete="email"
+                  value={newEmail}
+                  onChange={(event) => setNewEmail(event.target.value)}
+                  required
+                />
+                {changeError && <Alert variant="danger">{changeError}</Alert>}
+                <div className="flex gap-2">
+                  <Button type="submit" className="flex-1" isLoading={isChanging}>
+                    Send to this address
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setEditingEmail(false);
+                      setChangeError('');
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => {
+                  setNewEmail(sentTo);
+                  setEditingEmail(true);
+                }}
+              >
+                Wrong address? Change it
+              </Button>
+            )}
             <div className="text-sm text-center text-muted-foreground">
               Already verified?{' '}
               <Link to="/login" className="font-medium text-primary hover:underline">

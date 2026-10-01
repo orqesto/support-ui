@@ -127,7 +127,10 @@ export const VerifyEmailPage = () => {
                 <p className="font-medium mb-2">What went wrong?</p>
                 <ul className="list-disc list-inside space-y-1">
                   <li>The verification link may have expired</li>
-                  <li>The link may have already been used</li>
+                  <li>
+                    The link may have already been used — by you in another tab, or by your
+                    mail provider&apos;s link scanner. Then your email is already verified: sign in.
+                  </li>
                   <li>The token might be invalid</li>
                 </ul>
               </div>

@@ -28,7 +28,13 @@ type SignupCommon = {
  * answers — kept so this page works whichever side deploys first.
  */
 export type SignupResponseData = SignupCommon &
-  ({ verificationRequired: true; email: string; user?: undefined } | { user: User; verificationRequired?: undefined });
+  (
+    | { verificationRequired: true; email: string; emailSent?: boolean; user?: undefined }
+    | { user: User; verificationRequired?: undefined }
+  );
+
+/** Resend / change-email for this browser's pending signup (proved by its httpOnly cookie). */
+export type PendingSignupData = { email: string; emailSent: boolean };
 
 /** `signedIn` is true only when the link was opened in the browser that signed up. */
 export type VerifyEmailResponseData = { signedIn: boolean; user?: User };
@@ -125,6 +131,23 @@ export const authService = {
     const response = await apiClient.post<ApiResponse<VerifyEmailResponseData>>(
       '/api/auth/verify-email',
       { token }
+    );
+    return response.data;
+  },
+
+  // Both use the same-browser `verify_pending` cookie the signup response set; there is no
+  // address in the request, so neither can be pointed at somebody else's account.
+  resendPendingSignup: async () => {
+    const response = await apiClient.post<ApiResponse<PendingSignupData>>(
+      '/api/auth/verify-email/resend'
+    );
+    return response.data;
+  },
+
+  changePendingSignupEmail: async (email: string) => {
+    const response = await apiClient.post<ApiResponse<PendingSignupData>>(
+      '/api/auth/verify-email/change-email',
+      { email }
     );
     return response.data;
   },
