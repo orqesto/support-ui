@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/Button';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { ManagedAiDefaultsCard } from '@/components/console/platformDefaults/ManagedAiDefaultsCard';
 import { DefaultStorageCard } from '@/components/console/platformDefaults/DefaultStorageCard';
+import { ReasoningCard } from '@/components/console/platformDefaults/ReasoningCard';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { Alert } from '@/components/ui/Alert';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
@@ -37,6 +38,7 @@ export const PlatformDefaults = () => {
         <div className="space-y-6">
           <ManagedAiDefaultsCard ai={query.data.ai} secrets={query.data.secrets} />
           <DefaultStorageCard storage={query.data.storage} />
+          <ReasoningCard reasoning={query.data.reasoning} />
         </div>
       )}
     </div>

@@ -72,6 +72,8 @@ vi.mock('@/hooks/usePlatformSettings', () => ({
   useSetPlatformSecret: () => noopMutation,
   useClearPlatformSecret: () => noopMutation,
   useTestPlatformStorage: () => noopMutation,
+  useUpdatePlatformReasoning: () => noopMutation,
+  useIsSavingPlatformReasoning: () => false,
 }));
 
 const { PlatformDefaults } = await import('../PlatformDefaults');
@@ -222,5 +224,14 @@ describe('PlatformDefaults', () => {
     expect(
       within(cardFor('Managed AI Defaults')).getByRole<HTMLSelectElement>('combobox').value
     ).toBe('openai');
+  });
+});
+
+describe('PlatformDefaults on a backend without reasoning settings', () => {
+  it('renders the page with the reasoning card saying it is not available', () => {
+    // SAMPLE carries no `reasoning` block — what an older backend answers.
+    render(<PlatformDefaults />);
+    expect(screen.getByText('Managed AI Defaults')).toBeInTheDocument();
+    expect(screen.getByText(/not available on this server/i)).toBeInTheDocument();
   });
 });

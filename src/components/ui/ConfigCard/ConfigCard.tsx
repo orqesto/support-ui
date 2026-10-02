@@ -60,6 +60,7 @@ export const ConfigCard = ({
   onCancel,
   onSave,
   saveDisabled = false,
+  editDisabled = false,
   saving = false,
   configureLabel = 'Configure',
   editLabel = 'Edit',
@@ -90,13 +91,21 @@ export const ConfigCard = ({
 
       <div className={getConfigActionsClasses()}>
         {state === 'empty' && onConfigure && (
-          <Button onClick={onConfigure}>{configureLabel}</Button>
+          <Button onClick={onConfigure} disabled={editDisabled}>
+            {configureLabel}
+          </Button>
         )}
 
-        {state === 'stored' && onEdit && <Button onClick={onEdit}>{editLabel}</Button>}
+        {state === 'stored' && onEdit && (
+          <Button onClick={onEdit} disabled={editDisabled}>
+            {editLabel}
+          </Button>
+        )}
 
         {state === 'editing' && onSave && (
-          <Button onClick={onSave} isLoading={saving} disabled={saveDisabled}>
+          // `saving` disables too: Button only falls back to isLoading when `disabled` is
+          // undefined, and saveDisabled defaults to false, so a second click sent a second save.
+          <Button onClick={onSave} isLoading={saving} disabled={saveDisabled || saving}>
             {saveLabel}
           </Button>
         )}
