@@ -72,6 +72,7 @@ import { AddToTicketDialog } from './AddToTicketDialog';
 import { MergedSection, MergePickerDialog } from './MergeThreads';
 import { RelatedPopover, TicketsSection, owesReplySentence } from './RelatedPopover';
 import { useIsPhone } from './useIsPhone';
+import { useModalLayer } from '@/hooks/useModalLayer';
 import { MobileSenderCard } from './MobileSenderCard';
 import { MOBILE_SHEET, MOBILE_SHEET_ITEM } from './relatedStyles';
 import { useHeaderFocusReturn } from './useHeaderFocusReturn';
@@ -238,6 +239,10 @@ export function MessageDetailHeader({
   }, [onApprove, navigate, message.id]);
 
   const [moreOpen, setMoreOpen] = useState(false);
+  // Phones: the More sheet is modal (scrim over the page) — Tab stays on its items and the first
+  // takes focus, as in a menu. Desktop keeps the plain popover (click-outside closes it).
+  const moreSheetRef = useRef<HTMLDivElement>(null);
+  useModalLayer(moreSheetRef, moreOpen && isPhone, { initialFocus: 'first' });
   // Sender name → opens the contact profile drawer (same overlay as the
   // Contacts page). Resolved by the requester's email; sender may be "Name <email>".
   const [profileEmail, setProfileEmail] = useState<string | null>(null);
@@ -989,6 +994,7 @@ export function MessageDetailHeader({
       {/* role=menu: the detail's single-key shortcuts stand down while a menu is open,
           so Esc closes THIS, not the rail behind it (detailShortcuts.ts dialogIsOpen). */}
       <div
+        ref={moreSheetRef}
         role="menu"
         data-testid="more-menu"
         className={`absolute top-full right-0 mt-1 z-50 rounded-lg border border-border bg-card shadow-lg p-1 min-w-[190px] ${MOBILE_SHEET}`}
@@ -1000,6 +1006,7 @@ export function MessageDetailHeader({
           const btn = (
             <Button
               key={item.label}
+              role="menuitem"
               variant="ghost"
               onClick={item.action}
               disabled={item.disabled}

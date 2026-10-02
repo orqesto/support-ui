@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import { COLUMNS, type KanbanColumnDef } from './kanbanColumns';
 
 type QuickFilterChipsProps = {
@@ -7,13 +6,20 @@ type QuickFilterChipsProps = {
   onChange: (columnId: string) => void;
   /** Live depth per column id, where known. Absent means "not counted", not zero. */
   counts?: Record<string, number>;
-  /**
-   * Controls that share this row's right end — "Hide awaiting response" and Sort. They had a
-   * row of their own with the view toggle; the toggle moved into the filter card and this row
-   * is threads-only already, so they live here and the kanban loses the row entirely.
-   */
-  trailing?: ReactNode;
 };
+
+/**
+ * Messages list v2: 28px chips on the 8px radius family the rest of the controls use, the lit
+ * one INVERTED (ink ground) so it cannot be mistaken for the primary-blue saved-view pill
+ * above it — those are two different kinds of choice. "Hide awaiting" and Sort, which used
+ * to ride this row's right end, moved to the list caption with the other list settings.
+ */
+const chipClass = (active: boolean) =>
+  `inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg border text-[12.5px] whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+    active
+      ? 'bg-foreground border-foreground text-background font-semibold'
+      : 'bg-card border-border text-muted-foreground font-medium hover:text-foreground hover:border-border-strong'
+  }`;
 
 const AXIS_LABEL: Record<KanbanColumnDef['axis'], string> = {
   lifecycle: 'Status',
@@ -32,20 +38,19 @@ const AXIS_LABEL: Record<KanbanColumnDef['axis'], string> = {
  * gives the list its chip for free, and neither view can end up offering a slice the other does
  * not — which is the failure a hand-written second list guarantees eventually.
  */
-export const QuickFilterChips = ({ value, onChange, counts, trailing }: QuickFilterChipsProps) => {
+export const QuickFilterChips = ({ value, onChange, counts }: QuickFilterChipsProps) => {
   const axes: KanbanColumnDef['axis'][] = ['lifecycle', 'triage'];
 
   return (
-    <div className="flex flex-wrap gap-3 items-center" data-testid="quick-filter-chips">
+    <div
+      className="flex flex-nowrap md:flex-wrap gap-1 gap-y-1.5 items-center overflow-x-auto md:overflow-visible -mx-3 px-3 md:mx-0 md:px-0 [scrollbar-width:none]"
+      data-testid="quick-filter-chips"
+    >
       <button
         type="button"
         onClick={() => onChange('all')}
         aria-pressed={value === 'all'}
-        className={`font-display px-2.5 py-1 text-xs rounded-full border transition-colors ${
-          value === 'all'
-            ? 'bg-primary text-primary-foreground border-primary'
-            : 'border-border text-muted-foreground hover:text-foreground'
-        }`}
+        className={chipClass(value === 'all')}
       >
         All
       </button>
@@ -55,8 +60,8 @@ export const QuickFilterChips = ({ value, onChange, counts, trailing }: QuickFil
         if (columns.length === 0) return null;
 
         return (
-          <div key={axis} className="flex flex-wrap gap-1.5 items-center">
-            <span className="font-display text-[11px] uppercase tracking-[0.09em] text-muted-foreground font-medium">
+          <div key={axis} className="contents">
+            <span className="font-display shrink-0 ml-2 mr-1 text-[10.5px] uppercase tracking-[0.09em] text-faint-foreground font-semibold">
               {AXIS_LABEL[axis]}
             </span>
             {columns.map((col) => {
@@ -68,23 +73,24 @@ export const QuickFilterChips = ({ value, onChange, counts, trailing }: QuickFil
                   type="button"
                   onClick={() => onChange(active ? 'all' : col.id)}
                   aria-pressed={active}
-                  className={`font-display px-2.5 py-1 text-xs rounded-full border transition-colors ${
-                    active
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'border-border text-muted-foreground hover:text-foreground'
-                  }`}
+                  className={chipClass(active)}
                 >
                   {col.label}
                   {/* `undefined` means the count is unknown — render nothing rather than a 0,
                       which would claim the queue is empty. */}
-                  {typeof count === 'number' && <span className="ml-1.5 opacity-70">{count}</span>}
+                  {typeof count === 'number' && (
+                    <span
+                      className={`font-mono text-[11px] ${active ? 'opacity-70' : 'text-faint-foreground'}`}
+                    >
+                      {count}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
         );
       })}
-      {trailing && <div className="flex flex-wrap gap-3 items-center ml-auto">{trailing}</div>}
     </div>
   );
 };

@@ -163,7 +163,14 @@ export const JiraIntegrationCard = ({
                       title="Edit this Jira source"
                       variant="outline"
                       size="sm"
-                      onClick={() => loadForEdit(integration.id, integration.config as JiraConfig)}
+                      onClick={() =>
+                        loadForEdit(
+                          integration.id,
+                          integration.config as JiraConfig,
+                          undefined,
+                          integration.enabled
+                        )
+                      }
                       disabled={editingId === integration.id}
                     >
                       <Edit className="w-4 h-4" />

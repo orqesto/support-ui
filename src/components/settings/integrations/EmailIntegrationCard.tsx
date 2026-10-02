@@ -79,6 +79,7 @@ export const EmailIntegrationCard = ({
   const [deleting, setDeleting] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingEnabled, setEditingEnabled] = useState(true);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [config, setConfig] = useState<EmailConfig>(defaultConfig);
   const imapCheckInput = () => ({
@@ -201,6 +202,7 @@ export const EmailIntegrationCard = ({
     setConfig({ ...defaultConfig, isKnowledgeBase: defaultKB ?? false });
     setShowForm(false);
     setEditingId(null);
+    setEditingEnabled(true);
     setEditingName(null);
     clearMessageCount();
     setShowAdvanced(false);
@@ -210,10 +212,12 @@ export const EmailIntegrationCard = ({
     id: number,
     currentConfig: Record<string, unknown>,
     currentName: string,
-    isKB: boolean
+    isKB: boolean,
+    isEnabled: boolean = true
   ) => {
     setEditingId(id);
     setEditingName(currentName);
+    setEditingEnabled(isEnabled);
     const emailConfig = (currentConfig as { email?: EmailConfig }).email ?? currentConfig;
     setConfig({ ...(emailConfig as EmailConfig), isKnowledgeBase: isKB });
     setShowForm(true);
@@ -236,7 +240,8 @@ export const EmailIntegrationCard = ({
       const response = await integrationsService.upsert({
         name: integrationName,
         type: 'email',
-        enabled: true,
+        // An EDIT keeps the row's flag: a paused mailbox stays paused (B-H4). A CREATE is on.
+        enabled: isCreate ? true : editingEnabled,
         isKnowledgeBase: isKnowledgeBase ?? false,
         config: { email: emailConfigOnly },
         ...(isCreate
@@ -424,7 +429,8 @@ export const EmailIntegrationCard = ({
                             integration.id,
                             integration.config as Record<string, unknown>,
                             integration.name,
-                            integration.isKnowledgeBase ?? false
+                            integration.isKnowledgeBase ?? false,
+                            integration.enabled
                           )
                         }
                         disabled={editingId === integration.id}

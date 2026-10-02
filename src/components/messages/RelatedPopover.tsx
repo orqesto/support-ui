@@ -42,6 +42,7 @@ import {
 import { createTicketLabel, priorityLabel, statusLabel } from './messageDetailConstants';
 import { bareStatusLabel } from './inboxCardHelpers';
 import { useIsPhone } from './useIsPhone';
+import { useModalLayer } from '@/hooks/useModalLayer';
 
 /** The prompt a fixed incident owes THIS customer (D2) — one sentence, every owed ticket named. */
 export const owesReplySentence = (ticketIds: number[]): string | null => {
@@ -169,10 +170,18 @@ export const RelatedPopover = ({ label, onClose, children }: RelatedPopoverProps
   useEffect(() => {
     ref.current?.focus({ preventScroll: true });
   }, []);
+  // Phones: the sheet is modal (a scrim covers the page), so it says so and holds Tab inside —
+  // Tab used to walk out under the scrim. It places focus itself (above), so `initialFocus: 'none'`.
+  useModalLayer(ref, isPhone, { initialFocus: 'none' });
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      // A picker dialog opened from here owns Esc while it is up.
-      if (event.key !== 'Escape' || document.querySelector('[aria-modal="true"]')) return;
+      // A picker dialog opened from here owns Esc while it is up (the sheet's own `aria-modal`
+      // on a phone is not a picker).
+      if (event.key !== 'Escape') return;
+      const modal = Array.from(document.querySelectorAll('[aria-modal="true"]')).some(
+        (el) => el !== ref.current
+      );
+      if (modal) return;
       onClose();
     };
     const onDown = (event: MouseEvent) => {
@@ -198,6 +207,7 @@ export const RelatedPopover = ({ label, onClose, children }: RelatedPopoverProps
       <div
         ref={ref}
         role="dialog"
+        aria-modal={isPhone ? 'true' : undefined}
         aria-label={label}
         tabIndex={-1}
         className={`${REL_POPOVER} ${MOBILE_SHEET} focus:outline-none`}

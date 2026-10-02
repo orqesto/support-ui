@@ -1,10 +1,11 @@
-import { SlidersHorizontal, Search, X } from 'lucide-react';
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { Plus, SlidersHorizontal, Search, X } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
 import { FilterSheet } from './FilterSheet';
 import { FilterToken } from './FilterToken';
 import { FilterTokenBar } from './FilterTokenBar';
+import { SurfaceCount } from './SurfaceCount';
 import { RECEIVED_KEYS, buildFilterDefs } from './filterSchema';
 import { clearPatch, tokensOf } from './filterTokens';
 import { useFilterOptions } from './useFilterOptions';
@@ -29,7 +30,7 @@ export const MessageFilterBar = ({
   onFilterPatch,
   onCommitSearch,
   onClearFilters,
-  viewSwitch,
+  showCount = true,
 }: {
   filters: FilterState;
   pagination: { page: number; limit: number; total: number };
@@ -43,10 +44,10 @@ export const MessageFilterBar = ({
   onCommitSearch: (text: string) => void;
   onClearFilters: () => void;
   /**
-   * The Threads / Contacts / Kanban switch, rendered at the right end of the saved-views row.
-   * It had a 40px row of its own under this card; that row was lane height on the kanban.
+   * Render the surface count at the end of the views row. The Messages page passes false: in
+   * list v2 the count sits in the page header beside the view switch (`SurfaceCount`).
    */
-  viewSwitch?: ReactNode;
+  showCount?: boolean;
 }) => {
   const dynamic = useFilterOptions();
   const defs = useMemo(() => buildFilterDefs(dynamic), [dynamic]);
@@ -133,136 +134,51 @@ export const MessageFilterBar = ({
   };
 
   const { total } = pagination;
-  // The range, not a match count: it answers "where am I in this list", which a count
-  // cannot, and deep paging is exactly when that matters.
-  const rangeStart = (pagination.page - 1) * pagination.limit + 1;
-  const rangeEnd = Math.min(pagination.page * pagination.limit, total);
-  /**
-   * ⛔ The board has no range to report. Its columns page INDEPENDENTLY (20 at a time
-   * each), so "1–50" describes no state the agent can be in — and the count beside it was
-   * the LIST's, from a query the board never ran. On a real workspace that rendered
-   * "1–50 of 53" above a board whose own badge said 64: `view=work_queue` pins
-   * `status IN ACTIVE_STATUSES`, which omits `needs_routing`, while the board's Open lane
-   * includes those 11 threads and shows them badged "Needs routing". Two counts, one
-   * screen, nothing saying they answered different questions.
-   */
-  const hasRange = !isKanban;
+
+  /** Saved-view pills, Save as view and Clear all — shared by the desktop row and the phone. */
+  const viewPills = views.map((view) => {
+    const on = viewIsActive(view, filters);
+    return (
+      <span key={view.name} className="inline-flex relative items-center shrink-0 group/view">
+        <Button
+          variant="ghost"
+          aria-pressed={on}
+          // A lit pill toggles OFF. `viewIsActive` is an exact match, so when it
+          // is lit the active filters ARE the view — clearing everything and
+          // clearing "just the view" are the same set.
+          onClick={() => (on ? unapplyView(view) : applyView(view))}
+          className={`h-[30px] px-[11px] rounded-lg border text-[12.5px] ${
+            on
+              ? 'bg-primary border-primary text-primary-foreground font-semibold hover:bg-primary hover:text-primary-foreground'
+              : 'bg-card border-border text-muted-foreground font-medium hover:text-foreground hover:border-border-strong'
+          }`}
+        >
+          {view.name}
+        </Button>
+        {!view.builtIn && (
+          <Button
+            variant="ghost"
+            onClick={() => void removeView(view)}
+            aria-label={`Delete view ${view.name}`}
+            className="grid absolute -top-1 -right-1 place-items-center p-0 w-4 h-4 rounded-full opacity-0 transition-opacity bg-muted text-muted-foreground group-hover/view:opacity-100 hover:text-destructive"
+          >
+            <X className="w-2.5 h-2.5" />
+          </Button>
+        )}
+      </span>
+    );
+  });
 
   return (
-    <Card padding="none">
-      {/* ONE layer of padding. The Card's default p-4 plus this content's own p-3 stacked
-          to 28px on every side — measured, not guessed — on the one page where vertical
-          space is the working area (kanban under this bar). */}
-      <CardContent padding="none" className="p-2.5 space-y-2">
-        {/* ── saved views · count · actions — one row ──
-            The count and the Save/Clear actions used to have a row of their own under
-            the token bar (20px + gap). They fit at the right end of the pills row. */}
-        <div className="flex flex-wrap gap-1.5 items-center">
-          {views.map((view) => {
-            const on = viewIsActive(view, filters);
-            return (
-              <span key={view.name} className="inline-flex relative items-center group/view">
-                <Button
-                  variant="ghost"
-                  aria-pressed={on}
-                  // A lit pill toggles OFF. `viewIsActive` is an exact match, so when it
-                  // is lit the active filters ARE the view — clearing everything and
-                  // clearing "just the view" are the same set.
-                  onClick={() => (on ? unapplyView(view) : applyView(view))}
-                  className={`h-7 px-2.5 rounded-full border text-[12.5px] ${
-                    on
-                      ? 'bg-primary border-primary text-primary-foreground font-semibold'
-                      : 'border-border text-muted-foreground font-medium hover:text-foreground hover:bg-accent'
-                  }`}
-                >
-                  {view.name}
-                </Button>
-                {!view.builtIn && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => void removeView(view)}
-                    aria-label={`Delete view ${view.name}`}
-                    className="grid absolute -top-1 -right-1 place-items-center p-0 w-4 h-4 rounded-full opacity-0 transition-opacity bg-muted text-muted-foreground group-hover/view:opacity-100 hover:text-destructive"
-                  >
-                    <X className="w-2.5 h-2.5" />
-                  </Button>
-                )}
-              </span>
-            );
-          })}
-          <span className="text-[11.5px] text-muted-foreground/70">
-            saved views
-            {/* Worth saying out loud: in this mode the views are on THIS machine, and the
-                next browser will not have them. It is a transient state — the window
-                where this frontend is live and the endpoint is not — not a setting. */}
-            {viewSource === 'local' && userViews.length > 0 && ' · on this device only'}
-          </span>
-          <div className="flex gap-3 items-center ml-auto">
-            <span className="text-[12.5px] text-muted-foreground tabular-nums">
-              {total > 0 ? (
-                hasRange ? (
-                  <>
-                    <b className="font-semibold text-foreground/70">
-                      {rangeStart}–{rangeEnd}
-                    </b>{' '}
-                    of {total}
-                  </>
-                ) : (
-                  <>
-                    <b className="font-semibold text-foreground/70">{total}</b> on this board
-                  </>
-                )
-              ) : (
-                'No messages'
-              )}
-            </span>
-            <div className="flex gap-2 items-center">
-              {namingView ? (
-                <span className="flex gap-1 items-center">
-                  <input
-                    autoFocus
-                    value={viewName}
-                    onChange={(event) => setViewName(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') saveCurrentView();
-                      if (event.key === 'Escape') setNamingView(false);
-                    }}
-                    placeholder="View name"
-                    aria-label="Name this view"
-                    className="px-2 h-8 rounded-md border outline-none w-[130px] text-[13px] bg-input border-border"
-                  />
-                  <Button onClick={saveCurrentView} className="h-8 px-2.5 text-[13px]">
-                    Save
-                  </Button>
-                </span>
-              ) : (
-                activeFilterCount > 0 && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => setNamingView(true)}
-                    className="h-8 px-2.5 rounded-md border text-[13px] border-input hover:bg-accent"
-                  >
-                    Save as view
-                  </Button>
-                )
-              )}
-              {clearableFilterCount > 0 && (
-                <Button
-                  variant="ghost"
-                  onClick={onClearFilters}
-                  className="h-8 px-2.5 rounded-md text-[13px] text-muted-foreground hover:bg-accent hover:text-destructive"
-                >
-                  Clear all
-                </Button>
-              )}
-            </div>
-          </div>
-          {viewSwitch && <div className="ml-3 shrink-0">{viewSwitch}</div>}
-        </div>
-        {viewError && <p className="text-[12px] text-warning">{viewError}</p>}
-
-        {/* ── desktop: the token bar ──────────────────────────────────── */}
-        <div className="hidden md:block">
+    <div data-testid="message-filter-bar">
+      {/* Messages list v2: the token field and the views on ONE row. The bar was a card of its
+          own with the views on a row above the field; the field is the bordered element now,
+          the views ride its right end and wrap under it when the column is narrow (the split
+          layout). On a phone the order is search · views · tokens, each its own strip. The
+          views render ONCE for both — two copies would be two sets of pills to keep in step. */}
+      <div className="flex flex-wrap gap-2 items-start">
+        {/* ── desktop: the token bar ── */}
+        <div className="hidden md:block flex-[1_1_420px] min-w-0">
           <FilterTokenBar
             defs={defs}
             filters={filters}
@@ -273,46 +189,104 @@ export const MessageFilterBar = ({
           />
         </div>
 
-        {/* ── mobile: a search pill, a filter button, a token strip ───── */}
-        <div className="md:hidden space-y-2">
-          <div className="flex gap-2 items-center">
-            <Button
-              variant="ghost"
-              onClick={() => setSheetOpen(true)}
-              className="flex flex-1 gap-2 justify-start items-center px-2.5 h-9 rounded-lg bg-muted"
-            >
-              <Search className="w-4 h-4 text-muted-foreground" />
-              <span className="text-[13.5px] text-muted-foreground/70">Search messages</span>
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => setSheetOpen(true)}
-              aria-label="Filters"
-              className="grid relative place-items-center p-0 w-9 h-9 rounded-md border shrink-0 border-input"
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              {activeFilterCount > 0 && (
-                <span className="grid absolute -top-1 -right-1 place-items-center w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
-                  {activeFilterCount}
-                </span>
-              )}
-            </Button>
-          </div>
-          {tokens.length > 0 && (
-            <div className="flex overflow-x-auto gap-1.5 pb-0.5">
-              {tokens.map((token) => (
-                <FilterToken
-                  key={token.def.key}
-                  token={token}
-                  alwaysShowRemove
-                  onEdit={() => setSheetOpen(true)}
-                  onRemove={() => onFilterPatch(clearPatch(token.def, filters))}
-                />
-              ))}
-            </div>
-          )}
+        {/* ── mobile: a search pill and a filter button ── */}
+        <div className="flex md:hidden gap-2 items-center w-full">
+          <Button
+            variant="ghost"
+            onClick={() => setSheetOpen(true)}
+            className="flex flex-1 gap-2 justify-start items-center px-3 h-[42px] rounded-[10px] border border-border bg-card"
+          >
+            <Search className="w-4 h-4 text-muted-foreground" />
+            <span className="text-[14.5px] text-muted-foreground/70 truncate">
+              {filters.search?.trim() ? filters.search.trim() : 'Search messages'}
+            </span>
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setSheetOpen(true)}
+            aria-label="Filters"
+            className="grid relative place-items-center p-0 w-[42px] h-[42px] rounded-[10px] border shrink-0 border-border bg-card"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            {activeFilterCount > 0 && (
+              <span className="grid absolute -top-1 -right-1 place-items-center w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+                {activeFilterCount}
+              </span>
+            )}
+          </Button>
         </div>
-      </CardContent>
+
+        {/* ── the views, Save as view, Clear all ── */}
+        <div className="flex gap-1.5 items-center max-md:overflow-x-auto max-md:w-full max-md:-mx-3 max-md:px-3 md:flex-wrap md:min-h-[40px] [scrollbar-width:none]">
+          {viewPills}
+          {namingView ? (
+            <span className="flex gap-1 items-center shrink-0">
+              <span className="w-[140px]">
+                <Input
+                  autoFocus
+                  value={viewName}
+                  onChange={(event) => setViewName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') saveCurrentView();
+                    if (event.key === 'Escape') setNamingView(false);
+                  }}
+                  placeholder="View name"
+                  aria-label="Name this view"
+                  className="h-[30px] text-[13px]"
+                />
+              </span>
+              <Button onClick={saveCurrentView} className="h-[30px] px-2.5 text-[12.5px]">
+                Save
+              </Button>
+            </span>
+          ) : (
+            activeFilterCount > 0 && (
+              <Button
+                variant="ghost"
+                onClick={() => setNamingView(true)}
+                className="gap-1 h-7 px-2.5 shrink-0 text-[12.5px] text-muted-foreground hover:text-foreground"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Save as view
+              </Button>
+            )
+          )}
+          {clearableFilterCount > 0 && (
+            <Button
+              variant="ghost"
+              onClick={onClearFilters}
+              className="h-7 px-2.5 shrink-0 text-[12.5px] text-muted-foreground hover:text-destructive"
+            >
+              Clear all
+            </Button>
+          )}
+          {/* Worth saying out loud: in this mode the views are on THIS machine, and the next
+              browser will not have them. It is a transient state — the window where this
+              frontend is live and the endpoint is not — not a setting. */}
+          {viewSource === 'local' && userViews.length > 0 && (
+            <span className="shrink-0 text-[11.5px] text-muted-foreground/70">
+              saved views on this device only
+            </span>
+          )}
+          {showCount && <SurfaceCount pagination={pagination} isKanban={isKanban} />}
+        </div>
+
+        {/* ── mobile: the active filters as a strip of tokens ── */}
+        {tokens.length > 0 && (
+          <div className="flex md:hidden overflow-x-auto gap-1.5 pb-0.5 w-full -mx-3 px-3 [scrollbar-width:none]">
+            {tokens.map((token) => (
+              <FilterToken
+                key={token.def.key}
+                token={token}
+                alwaysShowRemove
+                onEdit={() => setSheetOpen(true)}
+                onRemove={() => onFilterPatch(clearPatch(token.def, filters))}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+      {viewError && <p className="mt-2 text-[12px] text-warning">{viewError}</p>}
 
       <FilterSheet
         open={sheetOpen}
@@ -326,6 +300,6 @@ export const MessageFilterBar = ({
         onCommitSearch={onCommitSearch}
         onClearAll={onClearFilters}
       />
-    </Card>
+    </div>
   );
 };

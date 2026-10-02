@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
+import { useModalLayer } from '@/hooks/useModalLayer';
 import { Button } from '../Button';
 import {
   getDialogOverlayClasses,
@@ -39,15 +40,13 @@ export const Dialog = ({
    * emphatically for one wrapping a Stripe iframe, Escape did nothing. A dialog
    * that cannot be dismissed from the keyboard is a trap, and that is doubly
    * true for one that deliberately ignores backdrop clicks.
+   *
+   * Only the TOPMOST open dialog answers it (`useModalLayer`): with a confirm stacked over a
+   * picker, one Escape used to close both. The same layer keeps Tab inside the dialog and brings
+   * focus in when it opens with focus outside (`aria-modal` promised that; nothing enforced it).
    */
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onOpenChange(false);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [open, onOpenChange]);
+  const contentRef = useRef<HTMLDivElement>(null);
+  useModalLayer(contentRef, open, { onEscape: () => onOpenChange(false) });
 
   /**
    * Hold the page still while a dialog is open.
@@ -98,8 +97,10 @@ export const Dialog = ({
           elsewhere (message detail's single-key shortcuts) can tell a modal owns the keys —
           without it, Escape closed the dialog AND the rail behind it. */}
       <div
+        ref={contentRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         data-sheet-on-phone={sheetOnPhone ? 'true' : undefined}
         className={cn(
           getDialogContentClasses(size),

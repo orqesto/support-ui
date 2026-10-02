@@ -147,7 +147,9 @@ describe('SimilarMessagesDialog — read-only offers nothing to choose', () => {
     await screen.findByRole('heading', { name: 'Internal runbook' });
     for (const el of [card('AI-Generated Response'), card('Internal runbook')]) {
       expect(el.closest('[role="button"]')).toBeNull();
-      expect(el.closest('[tabindex]')).toBeNull();
+      // No TAB STOP: the Dialog container itself carries tabindex="-1" (the modal layer focuses
+      // it on open), which is not reachable by Tab and not the card's.
+      expect(el.closest('[tabindex]:not([tabindex="-1"])')).toBeNull();
       expect(el.className).not.toMatch(/cursor-pointer/);
     }
     expect(screen.getByText('Sources:')).toBeInTheDocument();

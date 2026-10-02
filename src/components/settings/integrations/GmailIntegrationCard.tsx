@@ -10,6 +10,7 @@ import {
   MessageSquareReply,
   AtSign,
   Hash,
+  RefreshCw,
 } from 'lucide-react';
 import { AckReplyEditor } from '@/components/settings/integrations/AckReplyEditor';
 import { GmailRowCount } from '@/components/settings/integrations/GmailCountReview';
@@ -109,7 +110,12 @@ export const GmailIntegrationCard = ({
 
   const handleOAuthSuccess = async (data: { email: string; id: number }) => {
     const newIntegrationId = data.id;
-    if (newIntegrationId) {
+    // Google signed in to a mailbox that is ALREADY a source here: the backend took its update
+    // branch. Its department links are left as they are — relinking "to every department" was
+    // one half of FE audit B-H3 (the other half, the settings the Add form sent over the
+    // stored ones, is why "Reconnect" below sends none).
+    const reconnected = integrations.some((integration) => integration.id === newIntegrationId);
+    if (newIntegrationId && !reconnected) {
       const assigned = await deptPicker.assignToNewSource(newIntegrationId);
       if (!assigned) {
         onShowAlert({
@@ -140,9 +146,47 @@ export const GmailIntegrationCard = ({
     onShowAlert({
       open: true,
       title: 'Success',
-      description: `Gmail account connected!\n\n${data.email ?? 'Account'} has been added. Check the message count, then start the sync.`,
+      description: reconnected
+        ? `${data.email ?? 'This mailbox'} was already a source here and has been reconnected. Its departments were kept; the settings on this form were applied to it.`
+        : `Gmail account connected!\n\n${data.email ?? 'Account'} has been added. Check the message count, then start the sync.`,
       variant: 'success',
     });
+  };
+
+  /**
+   * Re-authorise an existing mailbox (an expired or revoked token) WITHOUT the Add form: no
+   * search query, history range, KB flag or page size is sent, so the backend keeps the stored
+   * ones (a sent value wins over a stored one there), and no department is relinked. "Add Gmail"
+   * on an already-connected mailbox used to reset all of those (FE audit 2026-09-29, B-H3).
+   */
+  const handleReconnect = async (integration: { id: number; name: string }) => {
+    setSaving(true);
+    setPopupBlocked(false);
+    try {
+      const response = await gmailOAuthService.connectWithPopup({});
+      if (!response.success) {
+        if (response.error === 'POPUP_BLOCKED') setPopupBlocked(true);
+        onShowAlert({
+          open: true,
+          title: 'Reconnect failed',
+          description: response.message ?? response.error ?? 'Google sign-in did not complete.',
+          variant: 'error',
+        });
+        return;
+      }
+      await onRefresh();
+      onShowAlert({
+        open: true,
+        title: 'Reconnected',
+        description:
+          response.data?.id === integration.id
+            ? `${integration.name} is connected again. Its settings and departments were kept.`
+            : `Google signed in to ${response.data?.email ?? 'another mailbox'}, not ${integration.name}. That mailbox is now a source of its own; ${integration.name} is unchanged.`,
+        variant: response.data?.id === integration.id ? 'success' : 'warning',
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleGmailOAuth = async () => {
@@ -431,6 +475,11 @@ export const GmailIntegrationCard = ({
                                   icon={TestTube2}
                                   label="Test Connection"
                                   onClick={() => { void testConnection(integration.id, integration.name); setShowMenu(null); }}
+                                />
+                                <SourceMenuItem
+                                  icon={RefreshCw}
+                                  label="Reconnect Google Account"
+                                  onClick={() => { void handleReconnect(integration); setShowMenu(null); }}
                                 />
                                 <SourceMenuItem
                                   icon={AtSign}

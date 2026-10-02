@@ -350,6 +350,7 @@ export type UpdateTicketRequest = {
   description?: string;
   status?: TicketStatus;
   priority?: TicketPriority;
-  categoryId?: number;
+  // `null` clears the category ("None"); `undefined` leaves it (A-H3).
+  categoryId?: number | null;
   assigneeId?: number;
 };
