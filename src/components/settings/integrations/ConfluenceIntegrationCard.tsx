@@ -279,7 +279,7 @@ export const ConfluenceIntegrationCard = ({
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          loadForEdit(integration.id, cfg);
+                          loadForEdit(integration.id, cfg, undefined, integration.enabled);
                           setSpaceKeysRaw((cfg.spaceKeys ?? []).join(', '));
                           // An env-backed row has no stored baseUrl → keep it on the server account.
                           setUseServerAccount(envConfigured && !cfg.baseUrl);

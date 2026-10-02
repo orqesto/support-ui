@@ -75,18 +75,15 @@ export const OpenAIProviderCard = ({
   };
 
   const handleSave = () => {
-    // Don't send masked values (containing bullet points •)
-    const configToSave = {
-      ...config,
-      apiKey: config.apiKey.includes('•') ? '' : config.apiKey,
-    };
-
-    // Only save if we have a real API key
-    if (!configToSave.apiKey) {
-      return; // User didn't change the API key, skip save
+    // A masked key (the bullets the backend returns in place of the stored secret) is sent
+    // AS IS: the backend puts the stored secret back for it (`restoreMaskedSecrets`). It used
+    // to be blanked and the save skipped, so an edit that only changed the model did nothing
+    // and said nothing (FE audit 2026-09-29, B-H8). Only a key that is empty refuses.
+    if (!config.apiKey.trim()) {
+      return;
     }
 
-    onSave(configToSave);
+    onSave({ ...config });
     handleReset();
   };
 

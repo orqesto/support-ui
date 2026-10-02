@@ -229,6 +229,8 @@ export const RoutingRulesSettings = () => {
         weight: data.weight,
         enabled: data.enabled,
         exampleText: trimmedExample.length > 0 ? trimmedExample : null,
+        // The department the dialog shows is the one saved (B-H1): a move is a move.
+        ...(data.departmentId !== null ? { departmentId: data.departmentId } : {}),
       });
       if (!response.data) throw new Error('Update failed');
       return adaptRule(response.data);

@@ -31,6 +31,7 @@ import { messageService } from '@/services/message.service';
 import { labelService, type Label } from '@/services/settings.service';
 import { hashNameToLabelColor } from '@/components/messages/inboxCardHelpers';
 import { ticketService } from '@/services/ticket.service';
+import { ticketFieldPatch } from './ticketFieldPatch';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/types/roles';
 import type { Ticket, TicketStatus, TicketPriority, Message, Category } from '@/types';
@@ -168,7 +169,7 @@ export const TicketDetail = ({
 
   const handleFieldUpdate = async (field: string, value: string) => {
     try {
-      await ticketService.update(ticket.id, { [field]: field === 'categoryId' ? (value ? parseInt(value) : undefined) : value });
+      await ticketService.update(ticket.id, ticketFieldPatch(field, value));
       onRefresh?.();
     } catch (err) {
       logger.error('Failed to update ticket field:', err);
