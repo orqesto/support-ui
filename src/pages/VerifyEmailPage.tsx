@@ -1,18 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, X, Loader2 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { authService } from '@/services/auth.service';
 import { logger } from '@/lib/logger';
+import { useAuthStore } from '@/stores/authStore';
 
 export const VerifyEmailPage = () => {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
+  const login = useAuthStore((state) => state.login);
+  const setSelectedOrganization = useAuthStore((state) => state.setSelectedOrganization);
   const token = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('token');
+  // The token is single-use. StrictMode runs this effect twice in development, and the second
+  // POST would be refused and overwrite the result of the first — so post it once per token.
+  const postedFor = useRef<string | null>(null);
 
   useEffect(() => {
+    if (token && postedFor.current === token) return;
+    postedFor.current = token;
     const verifyEmail = async () => {
       if (!token) {
         setStatus('error');
@@ -22,6 +30,16 @@ export const VerifyEmailPage = () => {
 
       try {
         const response = await authService.verifyEmail(token);
+        // Opened in the browser that signed up: the BE signed it in. Store the session like a
+        // password login and continue to /dashboard, which opens the onboarding wizard.
+        if (response.success && response.data?.signedIn && response.data.user) {
+          login(null, response.data.user);
+          if (response.data.user.organizationId) {
+            setSelectedOrganization(response.data.user.organizationId);
+          }
+          navigate('/dashboard', { replace: true });
+          return;
+        }
         if (response.success) {
           setStatus('success');
           setMessage(response.message ?? 'Email verified successfully');
@@ -38,7 +56,7 @@ export const VerifyEmailPage = () => {
     verifyEmail().catch((error) => {
       logger.error('Failed to verify email:', error);
     });
-  }, [token]);
+  }, [token, login, setSelectedOrganization, navigate]);
 
   const renderIcon = () => {
     switch (status) {
@@ -109,7 +127,10 @@ export const VerifyEmailPage = () => {
                 <p className="font-medium mb-2">What went wrong?</p>
                 <ul className="list-disc list-inside space-y-1">
                   <li>The verification link may have expired</li>
-                  <li>The link may have already been used</li>
+                  <li>
+                    The link may have already been used — by you in another tab, or by your
+                    mail provider&apos;s link scanner. Then your email is already verified: sign in.
+                  </li>
                   <li>The token might be invalid</li>
                 </ul>
               </div>

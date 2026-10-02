@@ -17,11 +17,27 @@ export type SignupRequest = {
   plan?: string;
 };
 
-export type SignupResponseData = {
-  user: User;
+type SignupCommon = {
   organization: { id: number; slug: string; name: string };
   onboarding: { status: string; currentStep: number; selectedPlan?: string };
 };
+
+/**
+ * Signup no longer signs anyone in: the BE answers `verificationRequired` and the emailed link
+ * signs this browser in (2026-10-01). The `user` shape is what a BE from before that change still
+ * answers — kept so this page works whichever side deploys first.
+ */
+export type SignupResponseData = SignupCommon &
+  (
+    | { verificationRequired: true; email: string; emailSent?: boolean; user?: undefined }
+    | { user: User; verificationRequired?: undefined }
+  );
+
+/** Resend / change-email for this browser's pending signup (proved by its httpOnly cookie). */
+export type PendingSignupData = { email: string; emailSent: boolean };
+
+/** `signedIn` is true only when the link was opened in the browser that signed up. */
+export type VerifyEmailResponseData = { signedIn: boolean; user?: User };
 
 export const authService = {
   // Step 1 of the multi-step login: captcha-gated, no disclosure of user/org.
@@ -85,9 +101,10 @@ export const authService = {
     return response.data;
   },
 
-  // Public, unauthenticated self-serve signup. On 201 the BE sets the httpOnly
-  // `jwt` cookie (auto-login, exactly like a password login) and returns the new
-  // user + organization + onboarding state (status 'pending', step 1).
+  // Public, unauthenticated self-serve signup. On 201 the BE answers
+  // `verificationRequired` + the address, and sets NO session: the emailed link
+  // signs this browser in. (A BE from before 2026-10-01 still auto-logs-in and
+  // answers `user` — see SignupResponseData.)
   signup: async (data: SignupRequest) => {
     const response = await apiClient.post<ApiResponse<SignupResponseData>>(
       '/api/auth/signup',
@@ -111,7 +128,27 @@ export const authService = {
   },
 
   verifyEmail: async (token: string) => {
-    const response = await apiClient.post<ApiResponse<null>>('/api/auth/verify-email', { token });
+    const response = await apiClient.post<ApiResponse<VerifyEmailResponseData>>(
+      '/api/auth/verify-email',
+      { token }
+    );
+    return response.data;
+  },
+
+  // Both use the same-browser `verify_pending` cookie the signup response set; there is no
+  // address in the request, so neither can be pointed at somebody else's account.
+  resendPendingSignup: async () => {
+    const response = await apiClient.post<ApiResponse<PendingSignupData>>(
+      '/api/auth/verify-email/resend'
+    );
+    return response.data;
+  },
+
+  changePendingSignupEmail: async (email: string) => {
+    const response = await apiClient.post<ApiResponse<PendingSignupData>>(
+      '/api/auth/verify-email/change-email',
+      { email }
+    );
     return response.data;
   },
 
