@@ -19,7 +19,9 @@ import { slaService } from '@/services/sla.service';
 import { ticketService } from '@/services/ticket.service';
 import { useMessagesStore } from '@/stores/messagesStore';
 import { logger } from '@/lib/logger';
+import { usePermissions } from '@/hooks/usePermissions';
 import { MESSAGE_SOURCE_TYPES } from '@/types';
+import { Permission } from '@/types/roles';
 import { DashboardKBSection } from '@/components/dashboard/DashboardKBSection';
 import { DashboardQuickActions } from '@/components/dashboard/DashboardQuickActions';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
@@ -30,32 +32,97 @@ import {
 } from '@/components/dashboard/DashboardStatCards';
 import { cn } from '@/lib/utils';
 
+type Count = number | null;
+
+interface DashboardStats {
+  slaBreachCount: Count;
+  slaAtRiskCount: Count;
+  avgFirstResponseMins: number | null;
+  avgFirstResponsePeriodDays: number | null;
+  resolvedExclKB: Count;
+  closedExclKB: Count;
+  activeMessages: Count;
+  clientReplied: Count;
+  awaitingResponse: Count;
+  suspiciousMessages: Count;
+  notAnalysed: Count;
+  resolvedMessages: Count;
+  openTickets: Count;
+  inProgressTickets: Count;
+  pendingTickets: Count;
+  kbQAPairs: Count;
+  kbDocuments: Count;
+  kbDocumentation: Count;
+}
+
+const UNKNOWN_STATS: DashboardStats = {
+  slaBreachCount: null,
+  slaAtRiskCount: null,
+  avgFirstResponseMins: null,
+  avgFirstResponsePeriodDays: null,
+  resolvedExclKB: null,
+  closedExclKB: null,
+  activeMessages: null,
+  clientReplied: null,
+  awaitingResponse: null,
+  suspiciousMessages: null,
+  notAnalysed: null,
+  resolvedMessages: null,
+  openTickets: null,
+  inProgressTickets: null,
+  pendingTickets: null,
+  kbQAPairs: null,
+  kbDocuments: null,
+  kbDocumentation: null,
+};
+
+/** What a tile shows for a count it does not know. */
+export const UNKNOWN_COUNT = '—';
+
+/**
+ * One request, settled on its own: its value, or null when it failed. The failure is logged
+ * with the tile's name, so a role that is refused a count leaves a trace instead of a zero.
+ */
+const settled = async <T,>(request: Promise<T>, what: string): Promise<T | null> => {
+  try {
+    return await request;
+  } catch (error) {
+    logger.warn(`Dashboard: ${what} could not be loaded`, error);
+    return null;
+  }
+};
+
+const pageTotal = async (
+  request: Promise<{ success: boolean; pagination?: { total: number } }>,
+  what: string
+): Promise<Count> => {
+  const res = await settled(request, what);
+  return res?.success && typeof res.pagination?.total === 'number' ? res.pagination.total : null;
+};
+
+const kbTotal = async (
+  request: Promise<{ success: boolean; data?: { pagination?: { total: number | string } } }>,
+  what: string
+): Promise<Count> => {
+  const res = await settled(request, what);
+  const total = Number(res?.data?.pagination?.total);
+  return res?.success && Number.isFinite(total) ? total : null;
+};
+
 export const DashboardPage = () => {
   const navigate = useNavigate();
 
   // Onboarding entry redirect now lives in the shared app shell (Layout) so it
   // fires on every protected route, not just the dashboard (deep-link bypass fix).
 
-  const [stats, setStats] = useState({
-    slaBreachCount: 0,
-    slaAtRiskCount: 0,
-    avgFirstResponseMins: null as number | null,
-    avgFirstResponsePeriodDays: null as number | null,
-    resolvedExclKB: 0,
-    closedExclKB: 0,
-    activeMessages: 0,
-    clientReplied: 0,
-    awaitingResponse: 0,
-    suspiciousMessages: 0,
-    notAnalysed: 0,
-    resolvedMessages: 0,
-    openTickets: 0,
-    inProgressTickets: 0,
-    pendingTickets: 0,
-    kbQAPairs: 0,
-    kbDocuments: 0,
-    kbDocumentation: 0,
-  });
+  // Every count is `number | null`: null is "not known" — the request failed, or the role may
+  // not make it — and renders as a dash. It was 0, which is a CLAIM about the inbox (D-H1, FE
+  // audit 2026-09-29: one 403 on the documentation stats blanked all 17 tiles to zero for every
+  // support and associate user, stamped "updated just now").
+  const [stats, setStats] = useState<DashboardStats>(UNKNOWN_STATS);
+  const { hasPermission } = usePermissions();
+  // `/api/documentation/stats` needs VIEW_AI_SETTINGS; a role without it is not asked for it.
+  const canReadDocumentationStats = hasPermission(Permission.VIEW_AI_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [ingesting, setIngesting] = useState<string | null>(null);
@@ -108,6 +175,8 @@ export const DashboardPage = () => {
   const fetchStats = useCallback(async () => {
     const gen = ++fetchGenRef.current;
     try {
+      // Each request settles on its own: one failure (a 403 for this role, a timeout) leaves
+      // ITS tile unknown and every other tile true. A shared `Promise.all` rejected them all.
       const [
         slaBreachRes,
         slaAtRiskRes,
@@ -127,53 +196,55 @@ export const DashboardPage = () => {
         kbDocRes,
         docStatsRes,
       ] = await Promise.all([
-        messageService.getThreads({ view: 'work_queue', slaBreached: 'true' }, 1, 1),
-        messageService.getThreads({ view: 'work_queue', slaAtRisk: 'true' }, 1, 1),
+        pageTotal(messageService.getThreads({ view: 'work_queue', slaBreached: 'true' }, 1, 1), 'SLA breaches'),
+        pageTotal(messageService.getThreads({ view: 'work_queue', slaAtRisk: 'true' }, 1, 1), 'SLA at risk'),
         slaService.getSummary().catch(() => null),
-        messageService.getThreads({ view: 'resolved', excludeKB: 'true' }, 1, 1),
-        messageService.getThreads({ view: 'active', processed: 'closed' }, 1, 1),
-        messageService.getThreads({ view: 'inbox', excludeNotAnalysed: 'true' }, 1, 1),
-        messageService.getThreads(
-          { view: 'client_replied', excludeNotAnalysed: 'true' },
-          1,
-          1
+        pageTotal(messageService.getThreads({ view: 'resolved', excludeKB: 'true' }, 1, 1), 'resolved'),
+        pageTotal(messageService.getThreads({ view: 'active', processed: 'closed' }, 1, 1), 'closed'),
+        pageTotal(messageService.getThreads({ view: 'inbox', excludeNotAnalysed: 'true' }, 1, 1), 'active'),
+        pageTotal(
+          messageService.getThreads({ view: 'client_replied', excludeNotAnalysed: 'true' }, 1, 1),
+          'client replied'
         ),
-        messageService.getThreads(
-          { view: 'awaiting_response', excludeNotAnalysed: 'true' },
-          1,
-          1
+        pageTotal(
+          messageService.getThreads({ view: 'awaiting_response', excludeNotAnalysed: 'true' }, 1, 1),
+          'awaiting response'
         ),
-        messageService.getThreads({ view: 'suspicious' }, 1, 1),
-        messageService.getThreads({ view: 'not_analysed' }, 1, 1),
-        messageService.getThreads({ view: 'resolved' }, 1, 1),
-        ticketService.getAll({ status: 'open' }, 1, 1),
-        ticketService.getAll({ status: 'in_progress' }, 1, 1),
-        ticketService.getAll({ status: 'pending' }, 1, 1),
-        kbService.getAll({ type: 'qa_pair', limit: 1 }),
-        kbService.getAll({ type: 'document', limit: 1 }),
-        documentationService.getStats(),
+        pageTotal(messageService.getThreads({ view: 'suspicious' }, 1, 1), 'suspicious'),
+        pageTotal(messageService.getThreads({ view: 'not_analysed' }, 1, 1), 'not analysed'),
+        pageTotal(messageService.getThreads({ view: 'resolved' }, 1, 1), 'resolved messages'),
+        pageTotal(ticketService.getAll({ status: 'open' }, 1, 1), 'open tickets'),
+        pageTotal(ticketService.getAll({ status: 'in_progress' }, 1, 1), 'in-progress tickets'),
+        pageTotal(ticketService.getAll({ status: 'pending' }, 1, 1), 'pending tickets'),
+        kbTotal(kbService.getAll({ type: 'qa_pair', limit: 1 }), 'KB Q&A'),
+        kbTotal(kbService.getAll({ type: 'document', limit: 1 }), 'KB documents'),
+        canReadDocumentationStats
+          ? settled(documentationService.getStats(), 'documentation stats').then((res) =>
+              res && typeof res.totalDocs === 'number' ? res.totalDocs : null
+            )
+          : Promise.resolve(null),
       ]);
 
       if (gen !== fetchGenRef.current) return; // newer fetch already in flight — discard stale response
       setStats({
-        slaBreachCount: slaBreachRes.success ? slaBreachRes.pagination.total : 0,
-        slaAtRiskCount: slaAtRiskRes.success ? slaAtRiskRes.pagination.total : 0,
+        slaBreachCount: slaBreachRes,
+        slaAtRiskCount: slaAtRiskRes,
         avgFirstResponseMins: slaSummary?.messages.avgResponseTime ?? null,
         avgFirstResponsePeriodDays: slaSummary?.messages.avgResponsePeriodDays ?? null,
-        resolvedExclKB: resolvedExclKBRes.success ? resolvedExclKBRes.pagination.total : 0,
-        closedExclKB: closedExclKBRes.success ? closedExclKBRes.pagination.total : 0,
-        activeMessages: activeRes.success ? activeRes.pagination.total : 0,
-        clientReplied: clientRepliedRes.success ? clientRepliedRes.pagination.total : 0,
-        awaitingResponse: awaitingRes.success ? awaitingRes.pagination.total : 0,
-        suspiciousMessages: suspiciousRes.success ? suspiciousRes.pagination.total : 0,
-        notAnalysed: notAnalysedRes.success ? notAnalysedRes.pagination.total : 0,
-        resolvedMessages: resolvedRes.success ? resolvedRes.pagination.total : 0,
-        openTickets: openTicketsRes.success ? openTicketsRes.pagination.total : 0,
-        inProgressTickets: inProgressTicketsRes.success ? inProgressTicketsRes.pagination.total : 0,
-        pendingTickets: pendingTicketsRes.success ? pendingTicketsRes.pagination.total : 0,
-        kbQAPairs: kbQARes?.success ? Number(kbQARes.data.pagination.total) : 0,
-        kbDocuments: kbDocRes?.success ? Number(kbDocRes.data.pagination.total) : 0,
-        kbDocumentation: Number(docStatsRes?.totalDocs ?? 0),
+        resolvedExclKB: resolvedExclKBRes,
+        closedExclKB: closedExclKBRes,
+        activeMessages: activeRes,
+        clientReplied: clientRepliedRes,
+        awaitingResponse: awaitingRes,
+        suspiciousMessages: suspiciousRes,
+        notAnalysed: notAnalysedRes,
+        resolvedMessages: resolvedRes,
+        openTickets: openTicketsRes,
+        inProgressTickets: inProgressTicketsRes,
+        pendingTickets: pendingTicketsRes,
+        kbQAPairs: kbQARes,
+        kbDocuments: kbDocRes,
+        kbDocumentation: docStatsRes,
       });
     } catch (error) {
       logger.error('Failed to fetch stats:', error);
@@ -186,7 +257,7 @@ export const DashboardPage = () => {
     // can't see the link. Force callback identity to change on toggle so the
     // consumer useEffect re-runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDeptKey]);
+  }, [selectedDeptKey, canReadDocumentationStats]);
 
   useEffect(() => {
     const wasNotComplete = prevProcessingStatus.current !== 'complete';
@@ -360,7 +431,7 @@ export const DashboardPage = () => {
   const slaCards = [
     {
       title: 'SLA Breach',
-      value: stats.slaBreachCount,
+      value: stats.slaBreachCount ?? UNKNOWN_COUNT,
       icon: AlertTriangle,
       color: 'text-destructive',
       bg: 'bg-destructive-muted',
@@ -371,7 +442,7 @@ export const DashboardPage = () => {
     },
     {
       title: 'SLA At Risk',
-      value: stats.slaAtRiskCount,
+      value: stats.slaAtRiskCount ?? UNKNOWN_COUNT,
       icon: AlertCircle,
       color: 'text-warning',
       bg: 'bg-warning-muted',
@@ -409,7 +480,7 @@ export const DashboardPage = () => {
     },
     {
       title: 'Resolved',
-      value: stats.resolvedExclKB,
+      value: stats.resolvedExclKB ?? UNKNOWN_COUNT,
       icon: CheckCircle,
       color: 'text-success',
       bg: 'bg-success-muted',
@@ -420,7 +491,7 @@ export const DashboardPage = () => {
     },
     {
       title: 'Closed',
-      value: stats.closedExclKB,
+      value: stats.closedExclKB ?? UNKNOWN_COUNT,
       icon: Archive,
       color: 'text-muted-foreground',
       bg: 'bg-muted',
@@ -491,7 +562,7 @@ export const DashboardPage = () => {
     },
   ];
 
-  const hasTickets = ticketCards.some((card) => card.value > 0);
+  const hasTickets = ticketCards.some((card) => (card.value ?? 0) > 0);
 
   return (
     <Layout>
