@@ -91,14 +91,14 @@ describe('M1 — the phone header row', () => {
     fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
     const menu = screen.getByRole('menu');
     for (const name of ['Copy link', 'Refresh thread', 'Mark as unread']) {
-      expect(within(menu).getByRole('button', { name })).toBeTruthy();
+      expect(within(menu).getByRole('menuitem', { name })).toBeTruthy();
     }
     const cls = classOf(menu);
     expect(cls).toContain('max-sm:fixed');
     expect(cls).toContain('max-sm:bottom-2');
     expect(cls).toContain('max-sm:max-h-[72vh]');
     expect(cls).toContain('max-sm:rounded-2xl');
-    expect(classOf(within(menu).getByRole('button', { name: 'Copy link' }))).toContain(
+    expect(classOf(within(menu).getByRole('menuitem', { name: 'Copy link' }))).toContain(
       'max-sm:min-h-[46px]'
     );
     // The dim scrim behind it.

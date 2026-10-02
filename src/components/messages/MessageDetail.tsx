@@ -56,7 +56,6 @@ import { useIsPhone } from './useIsPhone';
 import { Permission } from '@/types/roles';
 import { ThreadMessageItem } from './ThreadMessageItem';
 import { ThreadNoteItem } from './ThreadNoteItem';
-import { similarResultsCache } from './AiTabPanel';
 import type { KBAttachment } from './AiTabPanel';
 import { MessagePanelTabs } from './MessagePanelTabs';
 import type { Attachment } from './MessageAttachments';
@@ -1060,10 +1059,11 @@ export function MessageDetail({
     [onClassify]
   );
 
+  // The host asks before deleting; its success path forgets the thread's similar-results cache
+  // (clearing it here, on the press, left Cancel with a cold cache for nothing).
   const handleDelete = useCallback(() => {
-    similarResultsCache.delete(message.id);
     onDelete?.();
-  }, [message.id, onDelete]);
+  }, [onDelete]);
 
   const handleRefresh = useCallback(() => {
     setThreadRefreshKey((key) => key + 1);

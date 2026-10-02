@@ -87,7 +87,7 @@ describe('M8 — popovers and dialogs as bottom sheets', () => {
     fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
     // Offered once the backend is known to have ticket links (the first read has answered).
     fireEvent.click(
-      await within(screen.getByRole('menu')).findByRole('button', { name: 'Add to ticket…' })
+      await within(screen.getByRole('menu')).findByRole('menuitem', { name: 'Add to ticket…' })
     );
     const dialog = await screen.findByRole('dialog');
     expect(dialog.getAttribute('data-sheet-on-phone')).toBe('true');

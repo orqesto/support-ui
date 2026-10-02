@@ -14,6 +14,7 @@ import { useMessagesStore } from '@/stores/messagesStore';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { toast } from '@/lib/toast';
 import { usePermissions } from '@/hooks/usePermissions';
+import { similarResultsCache } from '@/components/messages/AiTabPanel';
 import { Permission } from '@/types/roles';
 import { formatConvId } from '@/lib/messageHelpers';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
@@ -163,6 +164,7 @@ export const MessageDetailPage = () => {
     */
     clearListCache();
     void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
+    similarResultsCache.delete(target.id);
     // Gone from this page, or moved on to another message while it ran: nothing to leave.
     if (!mountedRef.current || routeIdRef.current !== askedFromRoute) return;
     setDeleteOpen(false);

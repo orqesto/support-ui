@@ -43,7 +43,7 @@ describe('H5 — More menu', () => {
     await waitFor(() => expect(svc.listMerges).toHaveBeenCalled());
     const menu = await openMenu();
     const labels = within(menu)
-      .getAllByRole('button')
+      .getAllByRole('menuitem')
       .map((item) => item.textContent?.trim() ?? '');
     for (const label of [
       'Create lead ticket',
@@ -71,7 +71,7 @@ describe('H5 — More menu', () => {
     // The rule sits right before "Mark as suspicious": everything after it is destructive.
     const after = separators[0].nextElementSibling;
     expect(after?.textContent?.trim()).toBe('Mark as suspicious');
-    const item = (name: string) => within(menu).getByRole('button', { name });
+    const item = (name: string) => within(menu).getByRole('menuitem', { name });
     for (const danger of ['Mark as suspicious', 'Delete message'])
       expect(item(danger).className).toContain('text-destructive');
     for (const plain of ['Conversation history', 'Reanalyse', 'Unmark as lead'])
