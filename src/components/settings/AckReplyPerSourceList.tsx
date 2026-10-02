@@ -135,7 +135,10 @@ export const AckReplyPerSourceList = ({ onShowAlert }: Props) => {
       </div>
 
       {editing && (
+        // Keyed by source: the editor seeds its state once, from `initial`. Without the key,
+        // Configure A then Configure B then Save wrote A's template onto B (FE audit B-H5).
         <AckReplyEditor
+          key={editing.id}
           sourceId={editing.id}
           initial={{
             autoReplyEnabled: editing.autoReplyEnabled ?? false,

@@ -41,7 +41,8 @@ type DocumentationListProps = {
   highlightDocId?: number;
   onToggleDoc: (id: number) => void;
   onToggleAll: (visibleIds: number[]) => void;
-  onBulkDelete: () => void;
+  /** Asked with the ids the current filter SHOWS, so the confirm can say what it does not. */
+  onBulkDelete: (visibleIds: number[]) => void;
   onViewContent: (doc: Documentation) => void;
   onToggleEnabled: (doc: Documentation) => void;
   onDeleteClick: (id: number) => void;
@@ -164,7 +165,7 @@ export const DocumentationList = ({
                 <span className="text-sm text-muted-foreground">
                   {selectedDocs.size} selected
                 </span>
-                <Button variant="destructive" size="sm" onClick={onBulkDelete}>
+                <Button variant="destructive" size="sm" onClick={() => onBulkDelete(visibleIds)}>
                   <Trash2 className="mr-2 w-4 h-4" />
                   Delete Selected
                 </Button>

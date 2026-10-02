@@ -132,7 +132,8 @@ export const TelegramIntegrationCard = ({
                           loadForEdit(
                             integration.id,
                             integration.config as TelegramConfig,
-                            integration.name
+                            integration.name,
+                            integration.enabled
                           )
                         }
                         disabled={editingId === integration.id}

@@ -225,7 +225,8 @@ export const WhatsAppIntegrationCard = ({
                               ...EMPTY_CONFIG,
                               ...(integration.config as Partial<WhatsAppFormConfig>),
                             },
-                            integration.name
+                            integration.name,
+                            integration.enabled
                           )
                         }
                         disabled={editingId === integration.id}

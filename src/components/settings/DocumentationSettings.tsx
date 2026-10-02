@@ -5,6 +5,7 @@ import { DocumentationUploadForm } from '@/components/settings/DocumentationUplo
 import { DocumentationList } from '@/components/settings/DocumentationList';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { bulkDeleteSummary } from '@/components/settings/bulkDeleteSummary';
 import {
   Dialog,
   DialogHeader,
@@ -340,7 +341,18 @@ export const DocumentationSettings = ({
     });
   };
 
+  // Delete Selected asks first (B-H2), naming what the current filter hides.
+  const [bulkDelete, setBulkDelete] = useState<{ open: boolean; description: string }>({
+    open: false,
+    description: '',
+  });
+  const handleBulkDeleteRequest = (visibleIds: number[]) => {
+    if (selectedDocs.size === 0) return;
+    setBulkDelete({ open: true, description: bulkDeleteSummary(selectedDocs, visibleIds).description });
+  };
+
   const handleBulkDelete = async () => {
+    setBulkDelete({ open: false, description: '' });
     if (selectedDocs.size === 0) return;
 
     try {
@@ -489,10 +501,21 @@ export const DocumentationSettings = ({
             highlightDocId={highlightDocId}
             onToggleDoc={handleToggleDoc}
             onToggleAll={handleToggleAll}
-            onBulkDelete={handleBulkDelete}
+            onBulkDelete={handleBulkDeleteRequest}
             onViewContent={handleViewContent}
             onToggleEnabled={handleToggleEnabled}
             onDeleteClick={handleDeleteClick}
+          />
+
+          <ConfirmDialog
+            open={bulkDelete.open}
+            onOpenChange={(open) => setBulkDelete((prev) => ({ ...prev, open }))}
+            onConfirm={() => void handleBulkDelete()}
+            title="Delete selected documentation"
+            description={bulkDelete.description}
+            confirmText="Delete"
+            cancelText="Cancel"
+            variant="danger"
           />
 
           <ConfirmDialog

@@ -67,6 +67,11 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
   // created a second row, and a second workspace created under the constant overwrote
   // the first.
   const [editingName, setEditingName] = useState<string | null>(null);
+  // The row's `enabled` as it stands, so an EDIT sends it back unchanged. It used to send
+  // `true` always: editing a PAUSED Confluence/Telegram/Slack/WhatsApp/Jira source switched it
+  // back on — and a Confluence re-sync put hidden pages back into AI answers (FE audit
+  // 2026-09-29, B-H4). A CREATE is enabled.
+  const [editingEnabled, setEditingEnabled] = useState(true);
   const [nameOverride, setNameOverride] = useState<string | null>(null);
   const [config, setConfig] = useState<T>(initialConfig);
 
@@ -81,16 +86,21 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
     setShowForm(false);
     setEditingId(null);
     setEditingName(null);
+    setEditingEnabled(true);
     setNameOverride(null);
   }, [initialConfig]);
 
-  const loadForEdit = useCallback((id: number, currentConfig: T, currentName?: string) => {
-    setEditingId(id);
-    setEditingName(currentName ?? null);
-    setNameOverride(null);
-    setConfig(currentConfig);
-    setShowForm(true);
-  }, []);
+  const loadForEdit = useCallback(
+    (id: number, currentConfig: T, currentName?: string, currentEnabled: boolean = true) => {
+      setEditingId(id);
+      setEditingName(currentName ?? null);
+      setEditingEnabled(currentEnabled);
+      setNameOverride(null);
+      setConfig(currentConfig);
+      setShowForm(true);
+    },
+    []
+  );
 
   const saveIntegration = useCallback(
     async (customName?: string) => {
@@ -112,7 +122,7 @@ export const useIntegrationCard = <T extends Record<string, unknown>>({
         const response = await integrationsService.upsert({
           name: upsertName,
           type: integrationType,
-          enabled: true,
+          enabled: isEdit ? editingEnabled : true,
           config: config as Record<string, unknown>,
           ...(createDepartments?.departmentIds.length
             ? {

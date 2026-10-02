@@ -124,7 +124,8 @@ export const SlackIntegrationCard = ({
                           loadForEdit(
                             integration.id,
                             integration.config as SlackConfig,
-                            integration.name
+                            integration.name,
+                            integration.enabled
                           )
                         }
                         disabled={editingId === integration.id}

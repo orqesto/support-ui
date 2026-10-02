@@ -33,9 +33,10 @@ export type CreateRoutingRuleInput = {
   enabled?: boolean;
 };
 
-export type UpdateRoutingRuleInput = Partial<
-  Omit<CreateRoutingRuleInput, 'departmentId' | 'exampleText'>
-> & {
+// `departmentId` is allowed: the backend's PATCH accepts it and MOVES the rule (FE audit
+// 2026-09-29 B-H1: the edit dialog offered the department, said "moves this rule to another
+// team", and the type forbade sending it — the dialog closed as if it saved and nothing moved).
+export type UpdateRoutingRuleInput = Partial<Omit<CreateRoutingRuleInput, 'exampleText'>> & {
   // `null` is "clear the example text" — turns the rule deterministic-only.
   exampleText?: string | null;
 };
