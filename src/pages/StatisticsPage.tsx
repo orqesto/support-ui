@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStatisticsFetch } from '@/hooks/useStatisticsFetch';
+import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { BarChart3, Users, Activity, RefreshCw, Cpu, Coins } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -151,9 +152,13 @@ export const StatisticsPage = () => {
     activeTab === 'performance'
   );
 
+  // The Overview follows the shared bar and the department selector like every other tab
+  // (D-H2): it fetched once, with no window, no channel and no department key, so it showed the
+  // 90-day all-channel figures of the department selected at page load.
+  const selectedDeptKey = useDepartmentContextKey();
   const fetchStatistics = useCallback(async () => {
     try {
-      const statsResponse = await statisticsService.getAll();
+      const statsResponse = await statisticsService.getAll(days, channel);
       if (statsResponse.success && statsResponse.data) {
         setStats(statsResponse.data);
       }
@@ -163,7 +168,10 @@ export const StatisticsPage = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+    // selectedDeptKey is a refresh trigger read indirectly through the axios interceptor
+    // (X-Department-Context), as in useStatisticsFetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days, channel, selectedDeptKey]);
 
   useEffect(() => {
     fetchStatistics().catch((error) => {

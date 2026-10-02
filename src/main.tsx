@@ -1,7 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import DOMPurify from 'dompurify';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { evictQueriesOnIdentityChange, queryClient } from '@/lib/queryClient';
 import './index.css';
 import './styles/tiptap.css';
 import App from './App.tsx';
@@ -25,14 +26,8 @@ if (!DOMPurify.isSupported || !(DOMPurify as { _anchorHookRegistered?: boolean }
 // schedules immediately.
 startSessionRenewal();
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+// The cache is emptied when the signed-in user or the selected workspace changes (E-H3).
+evictQueriesOnIdentityChange(queryClient);
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
