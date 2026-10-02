@@ -249,9 +249,14 @@ const statsQuery = (days: number, channel?: string): string =>
   channel && channel !== 'all' ? `days=${days}&channel=${channel}` : `days=${days}`;
 
 export const statisticsService = {
-  getAll: async (): Promise<ApiResponse<StatisticsData>> => {
+  /**
+   * The Overview figures. `days` and `channel` travel like every other statistics call: without
+   * them the backend answered its 90-day, all-channel default under a filter bar that said
+   * otherwise (FE audit 2026-09-29, D-H2).
+   */
+  getAll: async (days = 90, channel?: string): Promise<ApiResponse<StatisticsData>> => {
     const response = await apiClient.get<{ success: boolean; data: StatisticsData }>(
-      '/api/statistics'
+      `/api/statistics?${statsQuery(days, channel)}`
     );
     return { success: response.data.success, data: response.data.data };
   },
