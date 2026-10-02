@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { makeRun } from './fixtures';
+import { makeKbRun, makeRun } from './fixtures';
 
 /**
  * A plain function per test, not a module-level vi.fn: under vitest 4 a rejection returned by a
@@ -69,8 +69,7 @@ describe('RecentRuns', () => {
     render(
       <RecentRuns
         runs={[
-          makeRun({
-            channel: 'kb',
+          makeKbRun({
             found: 120,
             kbThreads: 30,
             kbThreadsDone: 30,

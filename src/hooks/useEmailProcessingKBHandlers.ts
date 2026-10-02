@@ -1,4 +1,5 @@
 import type { ProcessingSession } from '@/hooks/useEmailProcessingSessions';
+import { nextUtcMidnight } from '@/lib/utcClock';
 
 type SetSessions = React.Dispatch<React.SetStateAction<Map<string, ProcessingSession>>>;
 
@@ -40,6 +41,12 @@ type KBProgressEvent = {
 
 type KBCompletedEvent = {
   messageSourceId: number;
+  /**
+   * The daily KB token limit stopped the mine (backend B9): it waits for the reset and resumes by
+   * itself — not a completion. `resumesAt` is the reset instant. Absent from an older backend.
+   */
+  paused?: boolean;
+  resumesAt?: string;
   organizationId?: number;
   status: string;
   messageSourceName: string;
@@ -146,6 +153,11 @@ export const makeKBHandlers = ({ filterByOrganization, setSessions }: KBHandlerP
           kbMessagesFailed: kbEvent.messages.failed,
           kbMessagesSkipped: kbEvent.messages.skipped,
           kbTotalFinalized: kbEvent.totalFinalized ?? existing.kbTotalFinalized ?? false,
+          // While this session moves again its pause is not shown — not "the pause is over": a
+          // session reopened before its reset keeps parked work, and a paused kb:completed sets it
+          // again (be R11 B(a)).
+          kbPausedUntil: undefined,
+          kbPauseStoppedEarly: undefined,
         };
 
         newSessions.set(existingKey, updatedSession);
@@ -213,6 +225,58 @@ export const makeKBHandlers = ({ filterByOrganization, setSessions }: KBHandlerP
     const kbSessionKey = `${kbIntegrationId}`;
     const completionStatus = kbEvent.forced ? 'error' : 'complete';
 
+    // Paused at the daily KB limit: NOT a completion. The session stops moving but keeps its
+    // progress, and says when it resumes — never 100% / "complete" over unmined conversations.
+    if (kbEvent.paused === true) {
+      const kbPausedUntil = kbEvent.resumesAt ?? nextUtcMidnight();
+      setSessions((prev) => {
+        const existing = prev.get(kbSessionKey);
+        if (!existing && !(kbEvent.messages?.total > 0)) return prev;
+        const next = new Map(prev);
+        const processed = kbEvent.messages?.processed ?? existing?.kbMessagesProcessed ?? 0;
+        const total = kbEvent.messages?.total ?? existing?.kbMessagesTotal ?? 0;
+        next.set(kbSessionKey, {
+          ...(existing ?? {
+            sessionKey: kbSessionKey,
+            integrationId: kbIntegrationId,
+            integrationName: kbEvent.messageSourceName,
+            departmentSlug: kbEvent.departmentSlug ?? 'info',
+            departmentId: kbEvent.departmentId,
+            stage: 'kb-processing',
+            total,
+            current: processed,
+            processed,
+            successful: kbEvent.messages.successful,
+            failed: kbEvent.messages.failed,
+            skipped: kbEvent.messages.skipped,
+            // `messages.total` leaves the parked jobs out, so processed === total is no finish:
+            // a paused session never reads 100% (FE audit pass 19, NIT).
+            progress: total > 0 && processed < total ? Math.round((processed / total) * 100) : 0,
+            timestamp: Date.now(),
+          }),
+          // A session that existed keeps its own progress below 100; at 100 or more it is set to
+          // 0 (not known), never left at 100: a standalone KB session's progress is processed /
+          // total, and with the parked jobs left out of the total its last kb:progress can read
+          // 100 (FE audit pass 20, NIT).
+          ...(existing && existing.progress >= 100 ? { progress: 0 } : {}),
+          status: 'idle',
+          isProcessing: false,
+          kbMessagesTotal: total,
+          kbMessagesProcessed: processed,
+          kbPausedUntil,
+          // A timeout / manual force-end also carries `paused` (be R12 B(b)): its unreported jobs
+          // are not parked work, so the panel must not promise they resume (FE pass 13, LOW).
+          kbPauseStoppedEarly:
+            kbEvent.forced === true && kbEvent.reason !== 'kb_token_limit'
+              ? (kbEvent.reason ?? 'unknown')
+              : undefined,
+        });
+        // The pause is an event of this session: stamp it, as every other branch does.
+        return stampUpdated(next, kbSessionKey, existing);
+      });
+      return;
+    }
+
     setSessions((prev) => {
       const newSessions = new Map(prev);
 
@@ -241,6 +305,10 @@ export const makeKBHandlers = ({ filterByOrganization, setSessions }: KBHandlerP
           kbMessagesFailed: kbEvent.messages?.failed,
           kbMessagesSkipped: kbEvent.messages?.skipped,
           kbTotalFinalized: true, // Completed = total is known
+          // A plain end closes any earlier pause: a paused end then a plain one with no
+          // kb:progress between kept the stale pause line over "complete" (FE pass 13, NIT).
+          kbPausedUntil: undefined,
+          kbPauseStoppedEarly: undefined,
         });
         return newSessions;
       }

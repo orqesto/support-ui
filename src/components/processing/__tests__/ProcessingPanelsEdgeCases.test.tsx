@@ -1,6 +1,7 @@
 /**
- * Edge cases found by FE audit passes 5–6, and KB mining runs — split from ProcessingPanels.test
- * (max-lines). Same harness.
+ * Edge cases found by FE audit passes 5–8, KB mining runs and a mine's socket pause at the KB
+ * limit — split from ProcessingPanels.test (max-lines). Same harness. KB records are built with
+ * `makeKbRun`: the backend's KB record shape, never mail stages (FE audit pass 18, NIT).
  *
  * When the processing panel shows itself (owner decisions 2026-09-27), decided from the backend's
  * RUN RECORDS by run id — never from the socket session (FE audit passes 2–4):
@@ -21,7 +22,7 @@ import type {
   RunView,
 } from '@/services/importProgress.service';
 import { useProcessingPanelStore } from '@/stores/processingPanelStore';
-import { makeRun, untracked } from './fixtures';
+import { makeKbRun, makeRun, untracked } from './fixtures';
 
 vi.mock('@/hooks/useMediaQuery', () => ({ useMediaQuery: () => false }));
 
@@ -340,11 +341,9 @@ describe('pass 6', () => {
   });
 
   const kbRun = (id: string, over: Partial<RunView> = {}) =>
-    makeRun({
+    makeKbRun({
       id,
-      channel: 'kb',
       found: 900,
-      duplicates: null,
       kbThreads: 300,
       kbThreadsDone: 300,
       kbPairsSaved: 0,
@@ -357,10 +356,16 @@ describe('pass 6', () => {
       untracked({
         runs: [
           kbRun('k2', { outcome: 'running', active: true, finishedAt: null, workRemaining: true }),
-          // The sweep retries only after a mine that did not finish clean.
-          kbRun('k1', { outcome: 'failed', failed: 1 }),
+          // The sweep retries only after a mine that did not finish clean. A failed record
+          // under a LIVE later mine keeps its problem (BE kbRunViews: only a later FINISHED
+          // record clears it) — closed already, so only the opener rule is tested (pass 18).
+          kbRun('k1', { outcome: 'failed', failed: 1, problems: ['failed'] }),
         ],
       })
+    );
+    localStorage.setItem(
+      'processingPanel_closedProblems_1_5',
+      JSON.stringify(['kb-run:failed:none'])
     );
     render(ui([], sessionsOf(session({ status: 'processing', isProcessing: true }))));
     await settle();
@@ -459,22 +464,16 @@ describe('pass 6', () => {
 
 describe('a knowledge-base mine run', () => {
   const kbMining = (over: Partial<RunView> = {}) =>
-    running({
+    makeKbRun({
       id: 'kb1',
-      channel: 'kb',
+      outcome: 'running',
+      active: true,
+      finishedAt: null,
       found: 900,
-      duplicates: null,
       kbThreads: 300,
       kbThreadsDone: 40,
       kbPairsSaved: 3,
       workRemaining: true,
-      stages: {
-        decided: { queued: 0, done: 0 },
-        analysis: { queued: 0, done: 0 },
-        embedding: { queued: 0, done: 0 },
-        kb: { queued: 300, done: 40 },
-        awaitingRouting: 0,
-      },
       ...over,
     });
 
@@ -504,17 +503,84 @@ describe('a knowledge-base mine run', () => {
       )
     );
     await settle();
+    // The KB run's own line is there (an empty render passed this too — pass 18).
+    expect(screen.getByText(/Reading 300 conversations/)).toBeTruthy();
     expect(screen.queryByText(/Knowledge-base mining on this mailbox/)).toBeNull();
   });
+
+  const pausedSession = () =>
+    sessionsOf(
+      session({
+        status: 'idle',
+        isProcessing: false,
+        stage: 'kb-processing',
+        kbMessagesTotal: 900,
+        kbMessagesProcessed: 100,
+        kbPausedUntil: '2026-10-01T00:00:00.000Z',
+      })
+    );
+
+  it('a socket session paused at the KB limit keeps its progress and says when it resumes', async () => {
+    vi.setSystemTime(new Date('2026-09-30T18:00:00.000Z'));
+    views.set(5, untracked({ runs: [] }));
+    render(ui(WATCHED, pausedSession()));
+    act(() => useProcessingPanelStore.getState().open(5, 'manual'));
+    await settle();
+    expect(
+      screen.getByText(
+        /100 of 900 messages\. Paused — resumes from 00:00 UTC on 2026-10-01 \(\d\d:\d\d your time\)\./
+      )
+    ).toBeTruthy();
+  });
+
+  // Past the instant it is RESUMING (the header no longer fell to "Done" until the first
+  // `kb:progress` — FE audit pass 18, NIT); it goes once the wake window is over: the reset + the
+  // backend's 30-min spread with a summary entry for the mailbox, else (a panel opened by hand) the
+  // FE grace of 45 min (pass 19, NIT: the grace itself was untested).
+  it.each([
+    ['with a summary entry: the 30-min window', WATCHED, 29],
+    ['with none: the 45-min grace', [], 44],
+  ])(
+    'the paused line says "resuming now" past its instant and goes after the wake window, %s',
+    async (_name, summary, lastMinute) => {
+      vi.setSystemTime(new Date('2026-09-30T23:59:00.000Z'));
+      views.set(5, untracked({ runs: [] }));
+      render(ui(summary, pausedSession()));
+      act(() => useProcessingPanelStore.getState().open(5, 'manual'));
+      await settle();
+      const resuming = /Paused — resumes from .*; resuming now\.$/;
+      expect(
+        screen.getByText(/Paused — resumes from 00:00 UTC on 2026-10-01 \(\d\d:\d\d your time\)\.$/)
+      ).toBeTruthy();
+      await act(async () => vi.advanceTimersByTimeAsync(2 * 60 * 1000));
+      expect(screen.getByText(resuming)).toBeTruthy();
+      expect(screen.getByTestId('panel-status').textContent).toBe('KB paused');
+      await act(async () => vi.advanceTimersByTimeAsync((lastMinute - 1) * 60 * 1000));
+      expect(screen.getByText(resuming)).toBeTruthy();
+      await act(async () => vi.advanceTimersByTimeAsync(2 * 60 * 1000));
+      expect(screen.getByTestId('processing-panel')).toBeTruthy();
+      expect(screen.queryByText(/Paused — resumes from/)).toBeNull();
+    }
+  );
+
+  it('a pause whose wake window is already over is not shown at all', async () => {
+    vi.setSystemTime(new Date('2026-10-01T00:50:00.000Z'));
+    views.set(5, untracked({ runs: [] }));
+    render(ui(WATCHED, pausedSession()));
+    act(() => useProcessingPanelStore.getState().open(5, 'manual'));
+    await settle();
+    expect(screen.getByTestId('processing-panel')).toBeTruthy();
+    expect(screen.queryByText(/Paused — resumes from/)).toBeNull();
+  });
+  // Its CONTROL (the run record already says the pause) lives in kbPausedLine.test.tsx, pinned
+  // before the resume instant (audit pass 8, F8-4: here it passed on any later date).
 });
 
 describe('pass 7', () => {
   const kb = (id: string, over: Partial<RunView> = {}) =>
-    makeRun({
+    makeKbRun({
       id,
-      channel: 'kb',
       found: 900,
-      duplicates: null,
       kbThreads: 300,
       kbThreadsDone: 300,
       kbPairsSaved: 0,
@@ -527,6 +593,7 @@ describe('pass 7', () => {
       active: true,
       finishedAt: null,
       workRemaining: true,
+      kbThreadsDone: 40,
       startedAt: new Date().toISOString(),
     });
   const live = () => sessionsOf(session({ status: 'processing', isProcessing: true }));
@@ -542,8 +609,16 @@ describe('pass 7', () => {
     views.set(
       5,
       untracked({
-        runs: [activeKb('retry'), kb('failed', { outcome: 'failed', failed: 1, problems: [] })],
+        runs: [
+          activeKb('retry'),
+          kb('failed', { outcome: 'failed', failed: 1, problems: ['failed'] }),
+        ],
       })
+    );
+    // Its problem closed already (BE shape: it keeps `failed` under a live mine): the opener only.
+    localStorage.setItem(
+      'processingPanel_closedProblems_1_5',
+      JSON.stringify(['kb-run:failed:none'])
     );
     render(ui([], live()));
     await settle();
@@ -617,11 +692,9 @@ describe('pass 7', () => {
 describe('pass 8', () => {
   it('a mine right after a DEAD (interrupted) record is not a retry — it opens', async () => {
     const kbRec = (id: string, over: Partial<RunView>) =>
-      makeRun({
+      makeKbRun({
         id,
-        channel: 'kb',
         found: 900,
-        duplicates: null,
         kbThreads: 300,
         kbThreadsDone: 10,
         ...over,

@@ -197,10 +197,67 @@ export const kbService = {
    * existing data, not for importing more of it.
    */
   reprocessSource: async (messageSourceId: number) => {
-    const response = await apiClient.post<ApiResponse<{ messageSourceId: number }>>(
-      '/api/knowledge-base/process-source',
-      { messageSourceId }
-    );
+    const response = await apiClient.post<
+      // `paused`/`resumesAt`: today's KB token limit is spent — the mine starts after the reset.
+      // Absent from an older backend.
+      ApiResponse<{ messageSourceId: number; paused?: boolean; resumesAt?: string }>
+    >('/api/knowledge-base/process-source', { messageSourceId });
     return response.data;
   },
+
+  /**
+   * What mining this source costs before it starts: conversations to mine, measured tokens per
+   * conversation (null until measured), and days at the daily KB limit. 404 on an older
+   * backend — callers treat any failure as "no forecast", never as zero.
+   */
+  getMiningForecast: async (messageSourceId: number) => {
+    const response = await apiClient.get<ApiResponse<KbMiningForecast>>(
+      `/api/knowledge-base/sources/${encodeURIComponent(String(messageSourceId))}/mining-forecast`
+    );
+    return response.data.data;
+  },
 };
+
+export interface KbMiningForecast {
+  /**
+   * The source's own backlog: `noCutoff` (a mailbox without a KB cutoff mines nothing until one
+   * is set) and `threadsInScope` (what a mine walks). Optional: absent from an older backend.
+   */
+  sources?: Array<{
+    sourceId: number;
+    name?: string;
+    threadsInScope: number;
+    threadsToMine: number;
+    noCutoff: boolean;
+  }>;
+  /**
+   * True: this workspace is STOPPED at its KB limit (mining pauses, resumes after the reset).
+   * False: own key, limits only measured — nothing pauses. Always sent: the backend from before the
+   * limits has no forecast route (404).
+   */
+  enforced: boolean;
+  /**
+   * True: this workspace's AI settings or (BE R15) the platform limit settings could not be read
+   * — or (BE R17) a fresh read of them succeeded but disagreed with the cached answer the gate
+   * acts on — so `enforced` is the gate's fallback answer and whether mining pauses at the limit
+   * is unknown. Absent (older backend) ⇒ false.
+   */
+  enforcementLookupFailed?: boolean;
+  /**
+   * BE R17: the saved limit settings could not be read — `limit` and `daysAtLimit` are the
+   * fallback default, not this workspace's saved limit. Absent from an older backend.
+   */
+  settingsLookupFailed?: boolean;
+  threadsToMine: number;
+  tokensPerThread: { value: number; threadsMeasured: number; windowDays: number } | null;
+  estimatedTokens: number | null;
+  daysAtLimit: number | null;
+  limit: { limit: number; source: string };
+  spentToday: number;
+  /**
+   * KB image checks are told apart only since the token-limit split. `coversWindow: false` ⇒ the
+   * cost per conversation leaves out image checks before `firstRecordedAt`. Absent from an older
+   * backend.
+   */
+  imageChecks?: { firstRecordedAt: string | null; coversWindow: boolean };
+}

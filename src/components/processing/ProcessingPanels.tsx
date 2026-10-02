@@ -11,7 +11,9 @@ const SESSION_SILENT_MS = 20 * 60_000;
 
 /** What the summary says of one source: a change is when a panel off screen asks again. */
 const summaryKeyOf = (entry: ProcessingSummaryEntry | undefined): string =>
-  entry ? `${entry.inProgress}:${entry.problems}:${entry.countCapped}:${entry.unavailable}` : '';
+  entry
+    ? `${entry.inProgress}:${entry.problems}:${entry.countCapped}:${entry.unavailable}:${entry.pausedByLimit ?? ''}:${entry.pausedUntil ?? ''}:${entry.waitingForSlot ?? ''}:${entry.releaseQueuedAt ?? ''}:${entry.resumeAdmittedAt ?? ''}:${entry.kbStateUnknown ?? ''}`
+    : '';
 
 /**
  * Mounts one processing panel per mail source that may need one. Each panel decides from the
@@ -66,7 +68,10 @@ export const ProcessingPanels = ({
     ...new Set([
       ...Object.keys(opened).map(Number),
       ...summary
-        .filter((entry) => entry.problems > 0 || entry.inProgress > 0)
+        // A KB-limit pause (counted apart from problems) mounts its panel too.
+        .filter(
+          (entry) => entry.problems > 0 || entry.inProgress > 0 || (entry.pausedByLimit ?? 0) > 0
+        )
         .map((entry) => entry.sourceId),
       ...watched,
     ]),
@@ -93,6 +98,7 @@ export const ProcessingPanels = ({
             session={session}
             watched={watched.has(sourceId)}
             summaryKey={summaryKeyOf(summaryBySource.get(sourceId))}
+            resumeWay={summaryBySource.get(sourceId)}
           />
         );
       })}

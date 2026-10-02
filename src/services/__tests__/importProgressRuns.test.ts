@@ -82,6 +82,18 @@ describe('summary', () => {
         unavailable: false,
         inProgress: 0,
         problems: 2,
+        // A backend from before the token limits sends no pause field: nothing paused, not known.
+        pausedByLimit: 0,
+        pausedUntil: null,
+        resumeWindowEnd: null,
+        resumeQueued: null,
+        waitingForSlot: null,
+        releaseQueuedAt: null,
+        minePausedUntil: null,
+        mineResumeWindowEnd: null,
+        resumeAdmittedAt: null,
+        // BE round 21: absent from an older backend ⇒ 0 (it never says "not known").
+        kbStateUnknown: 0,
         countCapped: false,
       },
     ]);

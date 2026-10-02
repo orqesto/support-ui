@@ -9,7 +9,11 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 
 const reprocessSource = vi.fn();
 vi.mock('@/services/kb.service', () => ({
-  kbService: { reprocessSource: (id: number) => reprocessSource(id) as unknown },
+  kbService: {
+    // The confirmation asks for a forecast; an older backend has none (rejects) — the strip copes.
+    getMiningForecast: () => Promise.reject(new Error('no forecast')),
+    reprocessSource: (id: number) => reprocessSource(id) as unknown,
+  },
 }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 
@@ -74,7 +78,8 @@ describe('SourceKbStrip — Re-mine asks first', () => {
     render(<SourceKbStrip source={source} onShowAlert={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /re-mine/i }));
     expect(reprocessSource).not.toHaveBeenCalled();
-    expect(screen.getByText(/will be sent to your AI provider again/i)).toBeInTheDocument();
+    // Only conversations not mined yet go (the watermark skips the rest) — "again" was untrue.
+    expect(screen.getByText(/not mined yet will be sent to your AI provider/i)).toBeInTheDocument();
     expect(screen.getByText(/billed AI usage/i)).toBeInTheDocument();
   });
 
