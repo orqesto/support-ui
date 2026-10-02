@@ -3,7 +3,7 @@
  * says "..." only when there are more — pinned, since every mutant of that line survived.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, cleanup, screen } from '@testing-library/react';
+import { render, cleanup, screen, fireEvent, within } from '@testing-library/react';
 import { MessageKBReferences } from '../MessageKBReferences';
 
 const getKBReferences = vi.fn<(id: number) => Promise<unknown>>();
@@ -45,5 +45,17 @@ describe('the topics line', () => {
     expect(line('Sizing')).toContain('fit, measurements...');
     expect(line('Sizing')).not.toContain('exchanges');
     expect(line('Hours')).not.toContain(', ');
+  });
+});
+
+describe('View in Knowledge Base', () => {
+  it('opens that entry in a new tab (chunk 5: the click could be a no-op)', async () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    getKBReferences.mockResolvedValue({ success: true, data: [entry(42, 'Refunds', [])] });
+    render(<MessageKBReferences messageId={7} />);
+    const row = (await screen.findByText('Refunds')).closest('li') as HTMLElement;
+    fireEvent.click(within(row).getByRole('button', { name: 'View in Knowledge Base' }));
+    expect(open).toHaveBeenCalledWith('/knowledge-base?id=42', '_blank', 'noopener,noreferrer');
+    open.mockRestore();
   });
 });
