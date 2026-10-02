@@ -19,15 +19,18 @@ const matches = (query: string): boolean =>
  * there it answers false — the desktop layout — instead of throwing. `useMediaQuery` calls
  * `window.matchMedia` unguarded, and the header renders in dozens of tests that never stub it.
  */
-export const useIsPhone = (): boolean => {
-  const [isPhone, setIsPhone] = useState(() => matches(PHONE_QUERY));
+export const useIsPhone = (): boolean => useSafeMediaQuery(PHONE_QUERY);
+
+/** The same guarded subscription for any query (the inbox's split layout needs `lg` and up). */
+export const useSafeMediaQuery = (queryText: string): boolean => {
+  const [matched, setMatched] = useState(() => matches(queryText));
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
-    const query = window.matchMedia(PHONE_QUERY);
-    const onChange = (event: MediaQueryListEvent) => setIsPhone(event.matches);
-    setIsPhone(query.matches);
+    const query = window.matchMedia(queryText);
+    const onChange = (event: MediaQueryListEvent) => setMatched(event.matches);
+    setMatched(query.matches);
     query.addEventListener('change', onChange);
     return () => query.removeEventListener('change', onChange);
-  }, []);
-  return isPhone;
+  }, [queryText]);
+  return matched;
 };

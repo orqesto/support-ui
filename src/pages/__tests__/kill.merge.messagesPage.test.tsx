@@ -125,7 +125,13 @@ vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 vi.mock('@/components/shared/PageHeader', () => ({
-  PageHeader: ({ actions }: { actions?: ReactNode }) => <div>{actions}</div>,
+  // `meta` carries the view switch since Messages list v2 (it moved out of the filter bar).
+  PageHeader: ({ actions, meta }: { actions?: ReactNode; meta?: ReactNode }) => (
+    <div>
+      {meta}
+      {actions}
+    </div>
+  ),
 }));
 vi.mock('@/components/messages/filters/MessageFilterBar', () => ({
   MessageFilterBar: ({ viewSwitch }: { viewSwitch?: ReactNode }) => <div>{viewSwitch}</div>,
@@ -146,6 +152,8 @@ vi.mock('@/components/messages/MessagesViewToggle', () => ({
 }));
 vi.mock('@/components/messages/ListScopeNotice', () => ({ ListScopeNotice: () => null }));
 vi.mock('@/components/messages/QuickFilterChips', () => ({ QuickFilterChips: () => null }));
+// The list caption's Sort is a ReactSelect, which needs a ThemeProvider this page test does not mount.
+vi.mock('@/components/ui/ReactSelect', () => ({ ReactSelect: () => null }));
 vi.mock('@/components/messages/ComposeNewModal', () => ({ ComposeNewModal: () => null }));
 vi.mock('@/components/messages/ThreadBubble', () => ({ ThreadBubble: () => null }));
 vi.mock('@/components/messages/ContactsView', () => ({

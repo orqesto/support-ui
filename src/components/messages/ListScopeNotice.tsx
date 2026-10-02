@@ -44,8 +44,12 @@ type Props = {
    * appear to do nothing. Only `outbound_echo` is in that position today.
    */
   onJump: (filters: Partial<FilterState>, needsListView?: boolean) => void;
-  /** Wording for where the rows are hidden from. The board hides more than the list does. */
-  surface?: 'list' | 'board';
+  /**
+   * Wording for where the rows are hidden from. The board hides more than the list does.
+   * `caption` is the list's wording drawn as part of the list caption bar (Messages list v2):
+   * no card of its own, it fills the space between Select page and the list settings.
+   */
+  surface?: 'list' | 'board' | 'caption';
   /**
    * Whether any lens is actually set — i.e. whether "clear the view" would CHANGE anything.
    *
@@ -215,6 +219,7 @@ export const ListScopeNotice = ({
   if (!scope || scope.hidden <= 0) return null;
 
   const isBoard = surface === 'board';
+  const isCaption = surface === 'caption';
 
   // ⛔ `?? 0` would be wrong here: a bucket the backend does not send yet is UNKNOWN, and
   // the filter below drops it either way. Coalescing first and asserting later is how a
@@ -278,12 +283,15 @@ export const ListScopeNotice = ({
             // on the one screen where lane height IS the working area. One line, always:
             // the sentence truncates before anything else on that row yields.
             'flex items-center gap-x-1.5 min-w-0 text-xs text-muted-foreground'
-          : 'flex items-center gap-x-2 min-w-0 px-3 py-2 mb-3 text-sm rounded-md border bg-muted/40 text-muted-foreground'
+          : isCaption
+            ? // In the list caption bar: the caption is the chrome, this is its middle.
+              'flex flex-1 items-center gap-x-2 min-w-0 text-[12.5px] text-muted-foreground'
+            : 'flex items-center gap-x-2 min-w-0 px-3 py-2 mb-3 text-sm rounded-md border bg-muted/40 text-muted-foreground'
       }
       data-testid="list-scope-notice"
     >
       <EyeOff
-        className={isBoard ? 'w-3.5 h-3.5 shrink-0' : 'w-4 h-4 shrink-0'}
+        className={isBoard || isCaption ? 'w-3.5 h-3.5 shrink-0' : 'w-4 h-4 shrink-0'}
         aria-hidden="true"
       />
       {/**
