@@ -29,7 +29,14 @@ type SignupCommon = {
  */
 export type SignupResponseData = SignupCommon &
   (
-    | { verificationRequired: true; email: string; emailSent?: boolean; user?: undefined }
+    | {
+        verificationRequired: true;
+        email: string;
+        emailSent?: boolean;
+        /** Days after which an unverified signup is removed; null/absent where it never is. */
+        abandonedAfterDays?: number | null;
+        user?: undefined;
+      }
     | { user: User; verificationRequired?: undefined }
   );
 
@@ -137,17 +144,20 @@ export const authService = {
 
   // Both use the same-browser `verify_pending` cookie the signup response set; there is no
   // address in the request, so neither can be pointed at somebody else's account.
-  resendPendingSignup: async () => {
+  // `currentEmail` = the address this tab shows: one browser holds one pending signup, so a tab
+  // left over from an earlier signup is refused instead of acting on the newer one.
+  resendPendingSignup: async (currentEmail: string) => {
     const response = await apiClient.post<ApiResponse<PendingSignupData>>(
-      '/api/auth/verify-email/resend'
+      '/api/auth/verify-email/resend',
+      { currentEmail }
     );
     return response.data;
   },
 
-  changePendingSignupEmail: async (email: string) => {
+  changePendingSignupEmail: async (email: string, currentEmail: string) => {
     const response = await apiClient.post<ApiResponse<PendingSignupData>>(
       '/api/auth/verify-email/change-email',
-      { email }
+      { email, currentEmail }
     );
     return response.data;
   },

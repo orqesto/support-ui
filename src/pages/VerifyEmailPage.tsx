@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { authService } from '@/services/auth.service';
 import { logger } from '@/lib/logger';
+import { readPendingSignup, writePendingSignup } from '@/lib/pendingSignup';
 import { useAuthStore } from '@/stores/authStore';
 
 export const VerifyEmailPage = () => {
@@ -30,6 +31,16 @@ export const VerifyEmailPage = () => {
 
       try {
         const response = await authService.verifyEmail(token);
+        // A "check your inbox" screen saved in this tab is forgotten only when it is THIS signup
+        // (the BE names the user only when it signed this browser in). A link for another signup
+        // pasted into the tab must not erase a different signup's waiting screen — the backend
+        // leaves another signup's cookie alone for the same reason; a stale entry corrects itself
+        // on the next resend ("already verified").
+        const saved = readPendingSignup();
+        const verifiedEmail = response.data?.signedIn ? response.data.user?.email : undefined;
+        if (saved && verifiedEmail && saved.email.toLowerCase() === verifiedEmail.toLowerCase()) {
+          writePendingSignup(null);
+        }
         // Opened in the browser that signed up: the BE signed it in. Store the session like a
         // password login and continue to /dashboard, which opens the onboarding wizard.
         if (response.success && response.data?.signedIn && response.data.user) {
@@ -128,8 +139,8 @@ export const VerifyEmailPage = () => {
                 <ul className="list-disc list-inside space-y-1">
                   <li>The verification link may have expired</li>
                   <li>
-                    The link may have already been used — by you in another tab, or by your
-                    mail provider&apos;s link scanner. Then your email is already verified: sign in.
+                    The link may have already been used — by you in another tab, or by your mail
+                    provider&apos;s link scanner. Then your email is already verified: sign in.
                   </li>
                   <li>The token might be invalid</li>
                 </ul>
