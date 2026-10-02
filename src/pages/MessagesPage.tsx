@@ -5,7 +5,7 @@
 /* eslint-disable max-lines */
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Mail, PenSquare, RefreshCw } from 'lucide-react';
+import { Inbox, Mail, PenSquare, RefreshCw } from 'lucide-react';
 import { MessagesViewToggle } from '@/components/messages/MessagesViewToggle';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { usePhoneOpensMessageAsPage } from '@/hooks/usePhoneOpensMessageAsPage';
@@ -25,7 +25,6 @@ import {
   DialogFooter,
 } from '@/components/ui/Dialog';
 import { Pagination } from '@/components/ui/Pagination';
-import { ReactSelect } from '@/components/ui/ReactSelect';
 import { apiClient } from '@/lib/api-client';
 import { messageService, type MessageThread } from '@/services/message.service';
 import { getConvUrlId } from '@/lib/messageHelpers';
@@ -38,7 +37,10 @@ import type { Message, MessagesDisplayMode } from '@/types';
 import { Permission } from '@/types/roles';
 import { BulkActionBar } from '@/components/messages/bulk/BulkActionBar';
 import { BULK_MERGE_MAX, BulkMergeDialog } from '@/components/messages/bulk/BulkMergeDialog';
-import { BulkConfirmDialog, type BulkConfirmValues } from '@/components/messages/bulk/BulkConfirmDialog';
+import {
+  BulkConfirmDialog,
+  type BulkConfirmValues,
+} from '@/components/messages/bulk/BulkConfirmDialog';
 import { describeResult } from '@/components/messages/bulk/bulkResultMessage';
 import { type BulkAction } from '@/components/messages/bulk/bulkActions';
 import { useBulkSelection } from '@/components/messages/bulk/useBulkSelection';
@@ -46,10 +48,12 @@ import { useSelectionShortcuts } from '@/components/messages/bulk/selectionShort
 import type { ToggleSelected } from '@/components/messages/bulk/selectMode';
 import { bulkService } from '@/services/bulk.service';
 import { toast } from '@/lib/toast';
-import { Checkbox } from '@/components/ui/Checkbox';
 import { ComposeNewModal } from '@/components/messages/ComposeNewModal';
 import { MessageFilterBar } from '@/components/messages/filters/MessageFilterBar';
-import { ListScopeNotice } from '@/components/messages/ListScopeNotice';
+import { MessagesListCaption } from '@/components/messages/MessagesListCaption';
+import { SurfaceCount } from '@/components/messages/filters/SurfaceCount';
+import { useListPresentation } from '@/components/messages/useListPresentation';
+import { useSafeMediaQuery } from '@/components/messages/useIsPhone';
 import { MessageListItem } from '@/components/messages/MessageListItem';
 import { MessageDetail } from '@/components/messages/MessageDetail';
 import { DeleteMessageDialog } from '@/components/messages/DeleteMessageDialog';
@@ -64,11 +68,7 @@ import {
   MessagesKanbanView,
   type MessagesKanbanHandle,
 } from '@/components/messages/MessagesKanbanView';
-import {
-  SORT_PRESET_OPTIONS,
-  sortingToPreset,
-  presetToSorting,
-} from '@/components/messages/sortPresets';
+import { sortingToPreset, presetToSorting } from '@/components/messages/sortPresets';
 import { scopeJumpUrl } from '@/hooks/scopeJumpUrl';
 import { useMessagesData } from '@/hooks/useMessagesData';
 import { useMessagesUrlSync } from '@/hooks/useMessagesUrlSync';
@@ -205,9 +205,19 @@ export const MessagesPage = () => {
     setSelectedMessage(null);
   });
 
-  // Lock body scroll while the detail panel is open + notify Layout to hide header
+  /**
+   * Messages list v2: row density and the reading layout. Split puts the open thread beside
+   * the list instead of over it — desktop widths only (lg+), list view only: the board needs
+   * the width for its lanes, and a phone opens every thread as a page.
+   */
+  const { density, setDensity, layout, setLayout } = useListPresentation();
+  const wideEnoughToSplit = useSafeMediaQuery('(min-width: 1024px)');
+  const split = layout === 'split' && wideEnoughToSplit && !isPhone && displayMode === 'threads';
+
+  // Lock body scroll while the detail panel is open + notify Layout to hide header. Not in
+  // split: there the detail is a pane beside the list and both scroll on their own.
   useEffect(() => {
-    if (selectedMessage && !isPhone) {
+    if (selectedMessage && !isPhone && !split) {
       document.body.style.overflow = 'hidden';
       window.dispatchEvent(new CustomEvent('detail-panel-change', { detail: { open: true } }));
     } else {
@@ -217,7 +227,7 @@ export const MessagesPage = () => {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [selectedMessage, isPhone]);
+  }, [selectedMessage, isPhone, split]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -326,7 +336,6 @@ export const MessagesPage = () => {
     clearCache,
   } = useMessagesData({ urlSyncedRef, isKanban });
 
-
   /**
    * Run the chosen bulk action over the current selection.
    *
@@ -381,8 +390,7 @@ export const MessagesPage = () => {
     () =>
       threads
         .filter(
-          (thread) =>
-            !thread.threadId.startsWith('spamlog_') && (thread.latestMessage?.id ?? 0) > 0
+          (thread) => !thread.threadId.startsWith('spamlog_') && (thread.latestMessage?.id ?? 0) > 0
         )
         .map((thread) => thread.latestMessage!.id),
     [threads]
@@ -851,6 +859,75 @@ export const MessagesPage = () => {
     (filters.slaAtRisk ? 1 : 0) +
     (filters.hasAttachments ? 1 : 0);
 
+  /**
+   * The open thread's detail. One element, two homes: the slide-over over the list (list
+   * layout, the board, contacts) or the pane beside it (split). The props are the same either
+   * way — only where it is mounted differs.
+   */
+  const detail = selectedMessage ? (
+    <MessageDetail
+      key={selectedMessage.id}
+      message={selectedMessage}
+      onClose={() => {
+        const params = new URLSearchParams(searchParams);
+        params.delete('id');
+        setSearchParams(params);
+        selectedThreadIdRef.current = null;
+        setSelectedMessage(null);
+      }}
+      onReplied={() => moveSelectedCard('awaiting')}
+      // Only the threads view has one unambiguous order; in kanban "next" could mean
+      // the next card in the column or across the board, so J/K stay off there.
+      onNavigate={displayMode === 'threads' ? handleNavigate : undefined}
+      onOptimisticMove={(columnId) => moveSelectedCard(columnId)}
+      onApprove={() => handleApprove(selectedMessage)}
+      onReject={async () => {
+        await handleRejected();
+        setSelectedMessage(null);
+      }}
+      onReopen={async () => {
+        await handleReopen(selectedMessage);
+      }}
+      // The detail stays open until the delete succeeds: Cancel leaves it as it was,
+      // with focus back on More (the header's focus return waits for the dialog).
+      onDelete={canDelete ? () => handleDeleteClick(selectedMessage) : undefined}
+      onResolve={handleResolve}
+      onReadChanged={() => {
+        // Refresh the board so the triage unread dot updates, without
+        // tearing down the open detail panel.
+        bumpKanban();
+        void fetchMessages(messagesPagination.page, true);
+      }}
+      onRegisterRequestClose={(fn) => {
+        detailRequestCloseRef.current = fn;
+      }}
+      onRefresh={handleRefreshMessage}
+      onClassify={async (action, createDetectionRule, trainSpamFilter, confirm) => {
+        await messageService.classify(
+          selectedMessage.id,
+          action,
+          createDetectionRule,
+          trainSpamFilter,
+          confirm
+        );
+        clearCache();
+        bumpKanban();
+        void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
+        await fetchMessages(messagesPagination.page, true);
+        setSelectedMessage(null);
+      }}
+    />
+  ) : null;
+
+  /** The thread the split pane is reading, so its row can say so. */
+  const openThreadId = selectedMessage
+    ? (selectedThreadIdRef.current ?? threadIdForMessage(threads, selectedMessage.id))
+    : null;
+  const compactRows = density === 'compact';
+  // The header's action buttons drop their words where the column is narrow (split) or on a
+  // phone; the tooltip and the accessible name keep them.
+  const actionLabel = split ? 'sr-only' : 'max-sm:sr-only';
+
   return (
     <Layout>
       <div className="flex overflow-hidden flex-1 min-h-0">
@@ -868,168 +945,191 @@ export const MessagesPage = () => {
           }`}
         >
           <div
-            className={`px-4 mx-auto space-y-2 w-full ${
+            className={`px-3 sm:px-[18px] pt-3.5 mx-auto space-y-2.5 w-full ${
               // Full page width (app-wide convention — every page is full width now;
               // the kanban also needs the flex-column chain for its bounded height).
               isKanban ? 'xl:flex xl:flex-col xl:flex-1 xl:min-h-0' : ''
             }`}
           >
-            {/* Header — no own margin: the container's space-y already separates the
-                blocks, and mb-6 STACKED on top of it was costing 24px of kanban height.
-                One 32px band: title on the actions row at text-xl, buttons at h-8. The
-                description ("Manage and process incoming messages") is gone — the sidebar
-                item names the screen and is lit; the sentence told a returning agent
-                nothing and cost 19px of lane height (Kanban space audit, 2026-09-07). */}
-            <div>
-              <PageHeader
-                title={<span className="text-xl">Messages</span>}
-                className="sm:items-center"
-                actions={
-                  <>
-                    <PermissionGuard permission={Permission.MANAGE_TICKETS}>
-                      <Button
-                        onClick={() => setComposeOpen(true)}
-                        variant="outline"
-                        className="h-8 px-3 text-[13px]"
-                      >
-                        <PenSquare className="mr-2 h-3.5 w-3.5" />
-                        Compose
-                      </Button>
-                    </PermissionGuard>
-                    <PermissionGuard permission={Permission.MANAGE_MESSAGES}>
-                      <Button
-                        onClick={handleSyncEmails}
-                        disabled={refreshing}
-                        variant="outline"
-                        className="h-8 px-3 text-[13px]"
-                      >
-                        <RefreshCw
-                          className={`mr-2 h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`}
-                        />
-                        Sync New
-                      </Button>
-                    </PermissionGuard>
+            {/* Header (Messages list v2): the title, then WHICH view and how much of it —
+                the view switch and the surface count — on the title's line; the actions at
+                the right. The view switch used to ride the saved-views row of the filter
+                card, and the count its right end; both describe the surface, not a filter. */}
+            <PageHeader
+              title={<span className="text-xl max-sm:sr-only">Messages</span>}
+              className="sm:items-center"
+              meta={
+                <>
+                  <MessagesViewToggle
+                    displayMode={displayMode}
+                    onModeChange={setDisplayMode}
+                    size="md"
+                  />
+                  <SurfaceCount
+                    className={cn(
+                      'text-[12.5px] text-muted-foreground tabular-nums max-sm:hidden',
+                      split && 'hidden'
+                    )}
+                    pagination={
+                      /**
+                       * ⛔ Each surface reports ITS OWN count. Contacts already did; the board
+                       * did not, so the header showed the LIST's total above a board running a
+                       * different query — "1–50 of 53" over a board whose own badge said 64,
+                       * the 11 needs-routing threads being the difference.
+                       */
+                      displayMode === 'contacts'
+                        ? contactsPagination
+                        : displayMode === 'kanban'
+                          ? { page: 1, limit: boardTotal, total: boardTotal }
+                          : pagination
+                    }
+                    isKanban={isKanban}
+                    noun={displayMode === 'contacts' ? 'contacts' : undefined}
+                  />
+                </>
+              }
+              actions={
+                <>
+                  <PermissionGuard permission={Permission.MANAGE_TICKETS}>
                     <Button
-                      onClick={handleRefresh}
-                      disabled={refreshing}
-                      className="h-8 px-3 text-[13px]"
+                      onClick={() => setComposeOpen(true)}
+                      variant="outline"
+                      title="Compose"
+                      className="h-8 px-3 gap-[7px] text-[13px]"
                     >
-                      <RefreshCw
-                        className={`mr-2 h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`}
-                      />
-                      Refresh
+                      <PenSquare className="h-3.5 w-3.5" />
+                      <span className={actionLabel}>Compose</span>
                     </Button>
-                  </>
-                }
+                  </PermissionGuard>
+                  <PermissionGuard permission={Permission.MANAGE_MESSAGES}>
+                    <Button
+                      onClick={handleSyncEmails}
+                      disabled={refreshing}
+                      variant="outline"
+                      title="Sync new"
+                      className="h-8 px-3 gap-[7px] text-[13px]"
+                    >
+                      {refreshing ? (
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Inbox className="h-3.5 w-3.5" />
+                      )}
+                      <span className={actionLabel}>Sync new</span>
+                    </Button>
+                  </PermissionGuard>
+                  <Button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    title="Refresh"
+                    className="h-8 px-3 gap-[7px] text-[13px]"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                    <span className={actionLabel}>Refresh</span>
+                  </Button>
+                </>
+              }
+            />
+
+            <MessageFilterBar
+              filters={filters}
+              activeFilterCount={activeFilterCount}
+              clearableFilterCount={clearableFilterCount}
+              pagination={
+                displayMode === 'contacts'
+                  ? contactsPagination
+                  : displayMode === 'kanban'
+                    ? { page: 1, limit: boardTotal, total: boardTotal }
+                    : pagination
+              }
+              // The count is in the header now, beside the view switch.
+              showCount={false}
+              onFilterChange={handleFilterChange}
+              onFilterPatch={handleFilterPatch}
+              onCommitSearch={handleCommitSearch}
+              onClearFilters={() => void clearFilters()}
+              isKanban={isKanban}
+            />
+
+            {/* One-click equivalents of the board's columns. List mode only: on the kanban the
+                columns themselves already are the filter. */}
+            {displayMode === 'threads' && (
+              <QuickFilterChips
+                // Counts come from the same scope read as the "hidden by the current view"
+                // line, so a chip and that sentence can never disagree. Undefined on an older
+                // backend — the chip then renders bare rather than claiming zero.
+                counts={listScope?.columnCounts}
+                value={filters.columnId ?? 'all'}
+                onChange={(columnId) => {
+                  // A second click on All must change nothing. It used to re-patch
+                  // `lifecycle`/`queue` to 'all' on every click, and those are not neutral on
+                  // the backend: `messageFilters` skips the default terminal/passive exclusion
+                  // while a SPECIFIC lifecycle or queue is set, and re-applies it for 'all'.
+                  // So clicking the already-lit chip re-imposed an exclusion a lens had lifted
+                  // and rows disappeared — on one workspace, 16 of 72.
+                  //
+                  // The guard is on the RESULTING state, not on which chip is lit. `All` also
+                  // renders lit whenever no column is selected, including while a dropdown is
+                  // still narrowing; skipping on "lit" alone would remove the only control that
+                  // clears those. Nothing is written only when nothing would change.
+                  if (!quickFilterWouldChange(filters, columnId)) return;
+
+                  // Selecting a column supersedes the dropdown filters it overlaps with —
+                  // leaving those set would show a chip while the request carried a different,
+                  // narrower predicate.
+                  patchFilters({
+                    ...filters,
+                    columnId,
+                    lifecycle: 'all',
+                    queue: 'all',
+                  });
+                }}
               />
-            </div>
+            )}
 
-            <>
-              <div>
-                <MessageFilterBar
-                  filters={filters}
-                  activeFilterCount={activeFilterCount}
-                  clearableFilterCount={clearableFilterCount}
-                  /**
-                   * ⛔ Each surface reports ITS OWN count. Contacts already did; the board
-                   * did not, so the header showed the LIST's total above a board running a
-                   * different query — "1–50 of 53" over a board whose own badge said 64,
-                   * the 11 needs-routing threads being the difference.
-                   */
-                  pagination={
-                    displayMode === 'contacts'
-                      ? contactsPagination
-                      : displayMode === 'kanban'
-                        ? { page: 1, limit: boardTotal, total: boardTotal }
-                        : pagination
+            {displayMode === 'kanban' ? (
+              <MessagesKanbanView
+                ref={kanbanRef}
+                filters={filters}
+                onOpen={handleOpenThread}
+                refreshKey={kanbanRefreshKey}
+                onScopeJump={handleScopeJump}
+                onTotalChange={setBoardTotal}
+                isSelected={bulkSelection.isSelected}
+                onToggleSelected={bulkSelection.toggle}
+                onToggleRange={bulkSelection.toggleRange}
+                selectMode={selectMode}
+                onSelectMany={bulkSelection.selectMany}
+                onDeselectMany={bulkSelection.deselectMany}
+              />
+            ) : displayMode === 'contacts' ? (
+              <ContactsView
+                apiFilters={buildContactsApiFilters(filters)}
+                focusSender={searchParams.get('sender') ?? undefined}
+                onPaginationChange={setContactsPagination}
+                onOpenMessage={(msg) => {
+                  setSelectedMessage(msg);
+                  const params = new URLSearchParams(searchParams);
+                  params.set('id', getConvUrlId(msg, orgCode));
+                  setSearchParams(params);
+                }}
+              />
+            ) : (
+              <div className="space-y-2">
+                {/* The caption: select this page · what the view hides · how the list is
+                    drawn. Above the list and outside the empty-state branch, so the "hidden by
+                    the current view" sentence survives an empty result. */}
+                <MessagesListCaption
+                  selectableCount={listSelectableIds.length}
+                  selectedCount={listSelectedCount}
+                  onSelectPage={() =>
+                    listSelectedCount === listSelectableIds.length
+                      ? bulkSelection.deselectMany(listSelectableIds)
+                      : bulkSelection.selectMany(listSelectableIds)
                   }
-                  onFilterChange={handleFilterChange}
-                  onFilterPatch={handleFilterPatch}
-                  onCommitSearch={handleCommitSearch}
-                  onClearFilters={() => void clearFilters()}
-                  isKanban={isKanban}
-                  /* The view switch rides the filter card's saved-views row. It had a 40px
-                     row of its own here; on the kanban that row is now gone entirely. */
-                  viewSwitch={
-                    <MessagesViewToggle displayMode={displayMode} onModeChange={setDisplayMode} />
-                  }
-                />
-              </div>
-
-              {/* One-click equivalents of the board's columns. List mode only: on the kanban the
-                  columns themselves already are the filter. The right end carries the two
-                  threads-only controls that shared the old toggle row. */}
-              {displayMode === 'threads' && (
-                <QuickFilterChips
-                  // Counts come from the same scope read as the "hidden by the current view"
-                  // line, so a chip and that sentence can never disagree. Undefined on an older
-                  // backend — the chip then renders bare rather than claiming zero.
-                  counts={listScope?.columnCounts}
-                  trailing={
-                    <>
-                      <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={filters.excludeAwaitingResponse ?? false}
-                          onChange={(ev) =>
-                            updateFilter('excludeAwaitingResponse', ev.target.checked)
-                          }
-                          className="rounded border-border accent-primary"
-                        />
-                        Hide awaiting response
-                      </label>
-                      {/* Standalone Sort — list view only (kanban sorts per-column,
-                          contacts has no sort). Drives store `sorting` directly. */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-muted-foreground shrink-0">
-                          Sort:
-                        </span>
-                        <ReactSelect
-                          value={sortingToPreset(sorting)}
-                          onChange={(value) => setSorting(presetToSorting(value))}
-                          options={SORT_PRESET_OPTIONS}
-                          className="w-44"
-                        />
-                      </div>
-                    </>
-                  }
-                  value={filters.columnId ?? 'all'}
-                  onChange={(columnId) => {
-                    // A second click on All must change nothing. It used to re-patch
-                    // `lifecycle`/`queue` to 'all' on every click, and those are not neutral on
-                    // the backend: `messageFilters` skips the default terminal/passive exclusion
-                    // while a SPECIFIC lifecycle or queue is set, and re-applies it for 'all'.
-                    // So clicking the already-lit chip re-imposed an exclusion a lens had lifted
-                    // and rows disappeared — on one workspace, 16 of 72.
-                    //
-                    // The guard is on the RESULTING state, not on which chip is lit. `All` also
-                    // renders lit whenever no column is selected, including while a dropdown is
-                    // still narrowing; skipping on "lit" alone would remove the only control that
-                    // clears those. Nothing is written only when nothing would change.
-                    if (!quickFilterWouldChange(filters, columnId)) return;
-
-                    // Selecting a column supersedes the dropdown filters it overlaps with —
-                    // leaving those set would show a chip while the request carried a different,
-                    // narrower predicate.
-                    patchFilters({
-                      ...filters,
-                      columnId,
-                      lifecycle: 'all',
-                      queue: 'all',
-                    });
-                  }}
-                />
-              )}
-
-              {/* What this view is hiding. Rendered ABOVE the list and outside the
-                  empty-state branch on purpose: "No messages found" while three
-                  thousand sit one filter away is the worst version of the silence
-                  this fixes, so the notice has to survive an empty result. */}
-              {displayMode === 'threads' && !loading && (
-                <ListScopeNotice
                   scope={listScope}
                   shown={pagination.total}
-                  onJump={handleScopeJump}
+                  loading={loading}
+                  onScopeJump={handleScopeJump}
                   arrivals={{
                     suspicious: arrivalCounts.suspicious_arrival ?? 0,
                     spam: arrivalCounts.spam_arrival ?? 0,
@@ -1050,122 +1150,110 @@ export const MessagesPage = () => {
                     (filters.status ?? 'all') !== 'all' ||
                     filters.showKBOnly === true
                   }
+                  hideAwaiting={filters.excludeAwaitingResponse ?? false}
+                  onHideAwaitingChange={(next) => updateFilter('excludeAwaitingResponse', next)}
+                  sortPreset={sortingToPreset(sorting)}
+                  onSortChange={(value) => setSorting(presetToSorting(value))}
+                  density={density}
+                  onDensityChange={setDensity}
+                  layout={layout}
+                  onLayoutChange={setLayout}
+                  canSplit={wideEnoughToSplit}
+                  narrow={split}
                 />
-              )}
 
-              {displayMode === 'kanban' ? (
-                <>
-                  <MessagesKanbanView
-                    ref={kanbanRef}
-                    filters={filters}
-                    onOpen={handleOpenThread}
-                    refreshKey={kanbanRefreshKey}
-                    onScopeJump={handleScopeJump}
-                    onTotalChange={setBoardTotal}
-                    isSelected={bulkSelection.isSelected}
-                    onToggleSelected={bulkSelection.toggle}
-                    onToggleRange={bulkSelection.toggleRange}
-                    selectMode={selectMode}
-                    onSelectMany={bulkSelection.selectMany}
-                    onDeselectMany={bulkSelection.deselectMany}
-                  />
-                </>
-              ) : displayMode === 'contacts' ? (
-                <ContactsView
-                  apiFilters={buildContactsApiFilters(filters)}
-                  focusSender={searchParams.get('sender') ?? undefined}
-                  onPaginationChange={setContactsPagination}
-                  onOpenMessage={(msg) => {
-                    setSelectedMessage(msg);
-                    const params = new URLSearchParams(searchParams);
-                    params.set('id', getConvUrlId(msg, orgCode));
-                    setSearchParams(params);
-                  }}
-                />
-              ) : loading ? (
-                <div className="space-y-4">
-                  {[0, 1, 2, 3, 4].map((idx) => (
-                    <Card key={idx} className="animate-pulse">
-                      <CardContent className="p-6">
-                        <div className="mb-4 w-3/4 h-4 bg-muted rounded" />
-                        <div className="w-1/2 h-4 bg-muted rounded" />
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : threads.length === 0 ? (
-                <Card>
-                  <CardContent className="p-12 text-center">
-                    <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
-                    <h3 className="font-display mb-2 text-lg font-semibold">No messages found</h3>
-                    <p className="text-muted-foreground">
-                      {activeFilterCount > 0
-                        ? 'No messages match your filters'
-                        : 'No messages available'}
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid gap-4">
-                  {/* Select every row on this page — the companion to filtering first and then
-                      acting. Only what is LOADED: claiming "all" would select rows the agent
-                      has not seen. */}
-                  <label className="flex gap-2 items-center px-1 text-xs text-muted-foreground">
-                    <Checkbox
-                      checked={
-                        listSelectableIds.length > 0 &&
-                        listSelectedCount === listSelectableIds.length
-                      }
-                      ref={(node) => {
-                        if (node)
-                          node.indeterminate =
-                            listSelectedCount > 0 && listSelectedCount < listSelectableIds.length;
-                      }}
-                      disabled={listSelectableIds.length === 0}
-                      aria-label="Select every message on this page"
-                      onChange={() =>
-                        listSelectedCount === listSelectableIds.length
-                          ? bulkSelection.deselectMany(listSelectableIds)
-                          : bulkSelection.selectMany(listSelectableIds)
-                      }
-                    />
-                    {listSelectedCount > 0
-                      ? `${listSelectedCount} of ${listSelectableIds.length} on this page selected`
-                      : 'Select every message on this page'}
-                  </label>
+                {loading ? (
+                  <div className={compactRows ? 'space-y-0' : 'space-y-2'}>
+                    {[0, 1, 2, 3, 4].map((idx) => (
+                      <Card key={idx} className="animate-pulse">
+                        <CardContent className="py-3 px-4 space-y-2">
+                          <div className="w-2/5 h-2.5 bg-muted rounded" />
+                          <div className="w-3/4 h-2.5 bg-muted rounded" />
+                          <div className="w-1/2 h-2.5 bg-muted rounded" />
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : threads.length === 0 ? (
+                  <Card>
+                    <CardContent className="p-12 text-center">
+                      <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
+                      <h3 className="font-display mb-2 text-lg font-semibold">No messages found</h3>
+                      <p className="text-muted-foreground">
+                        {activeFilterCount > 0
+                          ? 'No messages match your filters'
+                          : 'No messages available'}
+                      </p>
+                      {(listScope?.hidden ?? 0) > 0 && (
+                        <p className="mt-2 text-[12.5px] text-muted-foreground">
+                          {listScope?.hidden.toLocaleString()} are outside this view — use{' '}
+                          <b>Not shown</b> above to jump to them.
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ) : compactRows ? (
+                  // Compact: one ruled panel, a hairline between rows.
+                  <Card padding="none" className="overflow-hidden">
+                    {threads.map((thread) => (
+                      <MessageListItem
+                        key={thread.threadId}
+                        thread={thread}
+                        density="compact"
+                        narrow={split}
+                        current={split && openThreadId === thread.threadId}
+                        onOpen={handleOpenThread}
+                        selected={
+                          thread.latestMessage
+                            ? bulkSelection.isSelected(thread.latestMessage.id)
+                            : false
+                        }
+                        onToggleSelected={toggleListRow}
+                        selectMode={selectMode}
+                        onReadChanged={() => {
+                          bumpKanban();
+                          void fetchMessages(messagesPagination.page, true);
+                        }}
+                      />
+                    ))}
+                  </Card>
+                ) : (
+                  // Comfortable: a card per thread, 8px apart (staging's look, kept).
+                  <div className="grid gap-2">
+                    {threads.map((thread) => (
+                      <MessageListItem
+                        key={thread.threadId}
+                        thread={thread}
+                        current={split && openThreadId === thread.threadId}
+                        onOpen={handleOpenThread}
+                        selected={
+                          thread.latestMessage
+                            ? bulkSelection.isSelected(thread.latestMessage.id)
+                            : false
+                        }
+                        onToggleSelected={toggleListRow}
+                        selectMode={selectMode}
+                        onReadChanged={() => {
+                          bumpKanban();
+                          void fetchMessages(messagesPagination.page, true);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-                  {threads.map((thread) => (
-                    <MessageListItem
-                      key={thread.threadId}
-                      thread={thread}
-                      onOpen={handleOpenThread}
-                      selected={
-                        thread.latestMessage
-                          ? bulkSelection.isSelected(thread.latestMessage.id)
-                          : false
-                      }
-                      onToggleSelected={toggleListRow}
-                      selectMode={selectMode}
-                      onReadChanged={() => {
-                        bumpKanban();
-                        void fetchMessages(messagesPagination.page, true);
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {displayMode === 'threads' && !loading && threads.length > 0 && (
-                <Pagination
-                  currentPage={pagination.page}
-                  totalPages={pagination.totalPages}
-                  total={pagination.total}
-                  limit={pagination.limit}
-                  onPageChange={handlePageChange}
-                  loading={loading}
-                />
-              )}
-            </>
+            {displayMode === 'threads' && !loading && threads.length > 0 && (
+              <Pagination
+                currentPage={pagination.page}
+                totalPages={pagination.totalPages}
+                total={pagination.total}
+                limit={pagination.limit}
+                onPageChange={handlePageChange}
+                loading={loading}
+              />
+            )}
 
             {/* ⛔ OUTSIDE the view switch, so it serves the board AND the thread list. It lived
                 inside the kanban branch first, which left the list view able to select rows
@@ -1183,8 +1271,28 @@ export const MessagesPage = () => {
         </div>
         {/* end list panel inner container */}
 
+        {/* ── Split pane (Messages list v2) ─────────────────────────────
+            The thread beside the list: no backdrop, no body lock, the list stays live, and
+            J/K walk it from the pane. An empty pane says what it is for. */}
+        {split && (
+          <aside
+            aria-label="Message detail"
+            className="flex flex-col flex-[0_0_58%] min-w-0 overflow-hidden border-l border-border bg-card"
+          >
+            {detail ?? (
+              <div className="grid flex-1 place-items-center p-5 text-center text-[13px] text-muted-foreground">
+                <p>
+                  Select a conversation to read it here.
+                  <br />
+                  <span className="text-xs">J / K move between threads.</span>
+                </p>
+              </div>
+            )}
+          </aside>
+        )}
+
         {/* ── Modal overlay ─────────────────────────────────────────── */}
-        {selectedMessage && !isPhone && (
+        {selectedMessage && !isPhone && !split && (
           <>
             {/* Backdrop — dims the list, click to close. Route through the panel's
                 prompt-aware close so an unread triage thread still asks "Mark as
@@ -1216,58 +1324,7 @@ export const MessagesPage = () => {
               className="fixed right-0 bottom-0 w-full sm:w-[40rem] z-[60] border-l border-border bg-background flex flex-col overflow-hidden shadow-2xl transition-[top] duration-300"
               style={{ top: 'var(--mobile-header-h, 0px)' }}
             >
-              <MessageDetail
-                key={selectedMessage.id}
-                message={selectedMessage}
-                onClose={() => {
-                  const params = new URLSearchParams(searchParams);
-                  params.delete('id');
-                  setSearchParams(params);
-                  selectedThreadIdRef.current = null;
-                  setSelectedMessage(null);
-                }}
-                onReplied={() => moveSelectedCard('awaiting')}
-                // Only the threads view has one unambiguous order; in kanban "next" could mean
-                // the next card in the column or across the board, so J/K stay off there.
-                onNavigate={displayMode === 'threads' ? handleNavigate : undefined}
-                onOptimisticMove={(columnId) => moveSelectedCard(columnId)}
-                onApprove={() => handleApprove(selectedMessage)}
-                onReject={async () => {
-                  await handleRejected();
-                  setSelectedMessage(null);
-                }}
-                onReopen={async () => {
-                  await handleReopen(selectedMessage);
-                }}
-                // The detail stays open until the delete succeeds: Cancel leaves it as it was,
-                // with focus back on More (the header's focus return waits for the dialog).
-                onDelete={canDelete ? () => handleDeleteClick(selectedMessage) : undefined}
-                onResolve={handleResolve}
-                onReadChanged={() => {
-                  // Refresh the board so the triage unread dot updates, without
-                  // tearing down the open detail panel.
-                  bumpKanban();
-                  void fetchMessages(messagesPagination.page, true);
-                }}
-                onRegisterRequestClose={(fn) => {
-                  detailRequestCloseRef.current = fn;
-                }}
-                onRefresh={handleRefreshMessage}
-                onClassify={async (action, createDetectionRule, trainSpamFilter, confirm) => {
-                  await messageService.classify(
-                    selectedMessage.id,
-                    action,
-                    createDetectionRule,
-                    trainSpamFilter,
-                    confirm
-                  );
-                  clearCache();
-                  bumpKanban();
-                  void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
-                  await fetchMessages(messagesPagination.page, true);
-                  setSelectedMessage(null);
-                }}
-              />
+              {detail}
             </div>
           </>
         )}
@@ -1298,9 +1355,7 @@ export const MessagesPage = () => {
         <DialogHeader>
           <div className="flex items-center gap-2">
             <DialogTitle>{spamPreview?.latestMessage?.subject || '(no subject)'}</DialogTitle>
-            <Badge variant="warning">
-              {SPAM_LOG_CARD_COPY.badge}
-            </Badge>
+            <Badge variant="warning">{SPAM_LOG_CARD_COPY.badge}</Badge>
           </div>
         </DialogHeader>
         <DialogContent>
@@ -1349,9 +1404,7 @@ export const MessagesPage = () => {
                 quoteExpanded
               />
             ) : (
-              <p className="text-sm text-muted-foreground">
-                {SPAM_LOG_CARD_COPY.emptyBody}
-              </p>
+              <p className="text-sm text-muted-foreground">{SPAM_LOG_CARD_COPY.emptyBody}</p>
             )}
           </div>
         </DialogContent>

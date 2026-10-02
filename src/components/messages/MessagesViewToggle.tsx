@@ -6,6 +6,9 @@ import type { MessagesDisplayMode } from '@/types';
 interface Props {
   displayMode: MessagesDisplayMode;
   onModeChange: (mode: MessagesDisplayMode) => void;
+  /** `md` in the page header (Messages list v2); `sm` where it shares a 28px row. */
+  size?: 'sm' | 'md';
+  className?: string;
 }
 
 const SEGMENTS: Segment<MessagesDisplayMode>[] = [
@@ -32,6 +35,9 @@ const SEGMENTS: Segment<MessagesDisplayMode>[] = [
 /**
  * Threads / Contacts / Kanban.
  *
+ * Messages list v2 (2026-10-02): it now sits in the page header beside the title and the
+ * surface count — the view is the first thing the header says, the filters are below it.
+ *
  * It used to be a row of its own — three ghost buttons plus `mb-2`, 40px — under the filter
  * card. Now it sits at the right end of the filter card's saved-views row, which was half
  * empty, and "which slice of the inbox am I looking at" is the same class of control as a
@@ -39,7 +45,7 @@ const SEGMENTS: Segment<MessagesDisplayMode>[] = [
  * working area (Kanban space audit, 2026-09-07). The look is `SegmentedControl`, shared with
  * the Tickets switch.
  */
-export function MessagesViewToggle({ displayMode, onModeChange }: Props) {
+export function MessagesViewToggle({ displayMode, onModeChange, size, className }: Props) {
   const [, setSearchParams] = useSearchParams();
 
   const select = (mode: MessagesDisplayMode) => {
@@ -61,6 +67,13 @@ export function MessagesViewToggle({ displayMode, onModeChange }: Props) {
   };
 
   return (
-    <SegmentedControl ariaLabel="View" value={displayMode} onChange={select} segments={SEGMENTS} />
+    <SegmentedControl
+      ariaLabel="View"
+      value={displayMode}
+      onChange={select}
+      segments={SEGMENTS}
+      size={size}
+      className={className}
+    />
   );
 }
