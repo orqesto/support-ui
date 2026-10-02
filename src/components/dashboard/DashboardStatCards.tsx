@@ -64,7 +64,8 @@ export function DashboardSLASection({ cards }: SLASectionProps) {
 
 interface StatusRowCard {
   title: string;
-  value: number;
+  /** null: not known (its request failed) — shown as a dash, counted as nothing in the total. */
+  value: number | null;
   /** Palette role for the accent — see dashboardTones.ts. */
   tone: Tone;
   onClick: () => void;
@@ -76,7 +77,8 @@ interface StatusBarSectionProps {
 }
 
 export function DashboardStatusBarSection({ label, cards }: StatusBarSectionProps) {
-  const total = cards.reduce((sum, card) => sum + card.value, 0);
+  const total = cards.reduce((sum, card) => sum + (card.value ?? 0), 0);
+  const anyUnknown = cards.some((card) => card.value === null);
   return (
     <Card>
       <CardHeader className="pb-2 pt-4">
@@ -84,7 +86,9 @@ export function DashboardStatusBarSection({ label, cards }: StatusBarSectionProp
           <CardTitle className="font-display text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             {label}
           </CardTitle>
-          <span className="text-xs text-muted-foreground">{total} total</span>
+          <span className="text-xs text-muted-foreground">
+            {anyUnknown ? `${total} known` : `${total} total`}
+          </span>
         </div>
       </CardHeader>
       <CardContent className="pb-4 space-y-1.5">
@@ -99,9 +103,9 @@ export function DashboardStatusBarSection({ label, cards }: StatusBarSectionProp
             <div className={`flex-shrink-0 w-2 h-2 rounded-full ${TONE_FILL[row.tone]}`} />
             <span className="w-36 text-sm font-medium text-left text-foreground/80 group-hover:text-foreground">{row.title}</span>
             <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-muted">
-              <div className={`h-full rounded-full transition-all ${TONE_FILL[row.tone]}`} style={{ width: `${total ? (row.value / total) * 100 : 0}%` }} />
+              <div className={`h-full rounded-full transition-all ${TONE_FILL[row.tone]}`} style={{ width: `${total && row.value !== null ? (row.value / total) * 100 : 0}%` }} />
             </div>
-            <span className="w-6 text-sm font-semibold text-right">{row.value}</span>
+            <span className="w-6 text-sm font-semibold text-right">{row.value ?? '—'}</span>
             <span className="opacity-0 text-muted-foreground transition-opacity group-hover:opacity-100">→</span>
           </Button>
         ))}
