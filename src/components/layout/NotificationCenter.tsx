@@ -33,6 +33,8 @@ import { useKbReviewAlerts } from '@/hooks/useKbReviewAlerts';
 import { formatStaleAge } from '@/lib/kbStaleness';
 import { IngestionDarkSection } from '@/components/layout/IngestionDarkSection';
 import { IngestionGapSection } from '@/components/layout/IngestionGapSection';
+import { TokenLimitSection, useTokenLimitAlerts } from '@/components/layout/TokenLimitSection';
+import { formatBreachAmount } from '@/components/layout/notificationFormat';
 import { KbReviewSection } from '@/components/layout/KbReviewSection';
 import { UnansweredOutboundSection } from '@/components/layout/UnansweredOutboundSection';
 import { notificationPanelPosition, type PanelPosition } from './notificationPanelPosition';
@@ -66,13 +68,6 @@ const typeLabel = (type: SLABreachNotification['type']): string => {
     default:
       return 'Notification';
   }
-};
-
-const formatBreachAmount = (minutes: number): string => {
-  if (minutes < 60) return `${minutes}m over`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins > 0 ? `${hours}h ${mins}m over` : `${hours}h over`;
 };
 
 const formatRelativeTime = (iso: string): string => {
@@ -211,6 +206,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const { alerts: ingestionDarkAlerts, dismiss: dismissIngestionDarkAlert } =
     useIngestionDarkAlerts();
   const kbReview = useKbReviewAlerts();
+  const tokenLimits = useTokenLimitAlerts();
 
   const arrivalRows = ARRIVAL_QUEUES.map((entry) => ({
     ...entry,
@@ -295,7 +291,9 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     // Badged: unlike a stale document, this is a request addressed to THIS reader, and until
     // they act the capture is unused. It clears the moment they (or anyone) decide it.
     // KB merges count once per department row, however many proposals it summarises.
-    kbReview.rowCount;
+    kbReview.rowCount +
+    // A limit reached today and still in force: one since reset, or released in full, is unbadged.
+    tokenLimits.badged;
   // With multiple content types present, label each section; otherwise stay minimal.
   const sectionCount =
     (hasQueues ? 1 : 0) +
@@ -306,8 +304,10 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     (hasOutbound ? 1 : 0) +
     (hasIngestionGap ? 1 : 0) +
     (hasIngestionDark ? 1 : 0) +
-    (hasKbReview ? 1 : 0);
+    (hasKbReview ? 1 : 0) +
+    Number(tokenLimits.alerts.length > 0);
   const showSectionLabels = sectionCount > 1;
+  const labelProps = { showLabel: showSectionLabels, SectionLabel };
   const isEmpty =
     !hasQueues &&
     !hasSla &&
@@ -317,7 +317,8 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     !hasOutbound &&
     !hasIngestionGap &&
     !hasIngestionDark &&
-    !hasKbReview;
+    !hasKbReview &&
+    tokenLimits.alerts.length === 0;
 
   // Close when clicking outside
   useEffect(() => {
@@ -415,8 +416,13 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                 )}
+                // Not "only assigned to me": with it on, the backend also lists workspace alerts
+                // that have no assignee — AI limits, AI provider down, mail intake (be R10 A(a)).
+                // "may show too" stays true against an older backend that does not (pass 11).
                 title={
-                  sla.onlyAssignedToMe ? 'Showing only assigned to me' : 'Showing all org alerts'
+                  sla.onlyAssignedToMe
+                    ? 'Showing alerts assigned to me; unassigned workspace alerts (AI limits, AI provider down, mail intake) may show too'
+                    : 'Showing all org alerts'
                 }
               >
                 Only mine
@@ -425,7 +431,9 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={sla.clearAll}
+                  // Never hides the limit notices here: a current backend keeps them (R8), an older
+                  // one dismissed them too — so they are re-read once dismiss-all answers.
+                  onClick={() => void sla.clearAll().then(tokenLimits.refresh)}
                   className="px-2 py-0.5 h-auto text-xs text-muted-foreground hover:text-foreground hover:bg-accent"
                   title="Dismiss all SLA breaches"
                 >
@@ -518,8 +526,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                 <IngestionGapSection
                   alerts={ingestionGapAlerts}
                   dismiss={dismissIngestionGapAlert}
-                  showLabel={showSectionLabels}
-                  SectionLabel={SectionLabel}
+                  {...labelProps}
                 />
 
                 {/* Directly below "mail may be missing" and above everything else: both are
@@ -527,24 +534,23 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                 <IngestionDarkSection
                   alerts={ingestionDarkAlerts}
                   dismiss={dismissIngestionDarkAlert}
-                  showLabel={showSectionLabels}
-                  SectionLabel={SectionLabel}
+                  {...labelProps}
                 />
+
+                <TokenLimitSection {...tokenLimits} {...labelProps} />
 
                 <UnansweredOutboundSection
                   alerts={outboundAlerts}
                   visible={visibleOutbound}
                   truncated={outboundTruncated}
                   dismiss={dismissOutboundAlert}
-                  showLabel={showSectionLabels}
-                  SectionLabel={SectionLabel}
+                  {...labelProps}
                   setOpen={setOpen}
                 />
 
                 <KbReviewSection
                   review={kbReview}
-                  showLabel={showSectionLabels}
-                  SectionLabel={SectionLabel}
+                  {...labelProps}
                   onNavigate={(path) => {
                     setOpen(false);
                     navigate(path);
@@ -676,7 +682,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                     ))}
                     {sla.total > sla.notifications.length && (
                       <p className="py-2 text-xs text-center text-muted-foreground">
-                        +{sla.total - sla.notifications.length} more — use Clear all to dismiss all
+                        +{sla.total - sla.notifications.length} more not listed here
                       </p>
                     )}
                   </>

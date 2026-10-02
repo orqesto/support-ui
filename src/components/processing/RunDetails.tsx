@@ -1,12 +1,21 @@
 import { Badge } from '@/components/ui/Badge';
 import { Progress } from '@/components/ui/Progress';
+import type { ResumeWay } from '@/lib/utcClock';
 import type { RunStageCount, RunView } from '@/services/importProgress.service';
 import {
   describePause,
+  isKbLimitPause,
+  isOverdueKbPause,
+  kbStateUnknownSentence,
+  parkedWorkSentence,
+  describeNotContinued,
   formatDuration,
   formatRunTime,
+  isKbErrorBeforeReading,
+  kbWorkSentence,
   plural,
   runStatusLabel,
+  runStatusVariant,
   RUN_STATUS_VARIANT,
   runStatus,
 } from './processingWords';
@@ -81,13 +90,25 @@ const StageRow = ({
  * already in Odly and saves Q&A pairs — it finds and saves no mail, so none of a mail check's
  * sentences are true of it. Its numbers are its own record's (support-service kbRunLedger).
  */
-const KbRunDetails = ({ run }: { run: RunView }) => {
+const KbRunDetails = ({
+  run,
+  laterKbRun,
+  resumeWay,
+}: {
+  run: RunView;
+  laterKbRun: boolean;
+  resumeWay?: ResumeWay;
+}) => {
   const status = runStatus(run);
   const threads = run.kbThreads ?? 0;
   const threadsDone = run.kbThreadsDone ?? 0;
   const pairs = run.kbPairsSaved ?? 0;
   const documents = run.kbDocumentsSaved ?? 0;
   const count = run.stages?.kb;
+  // Why and until when it is paused (the daily KB limit: resumes after the reset) — the badge
+  // alone said "Paused" and nothing else (FE audit pass 7, MED).
+  const pause = describePause(run, laterKbRun, resumeWay);
+  const beforeReading = isKbErrorBeforeReading(run);
   return (
     <div className="space-y-2.5" data-testid="run-details">
       <div className="flex gap-2 justify-between items-center">
@@ -95,7 +116,7 @@ const KbRunDetails = ({ run }: { run: RunView }) => {
           Knowledge-base mining {status === 'running' ? 'since' : 'at'}{' '}
           {formatRunTime(run.startedAt)}
         </span>
-        <Badge size="sm" variant={RUN_STATUS_VARIANT[status]}>
+        <Badge size="sm" variant={runStatusVariant(run, status, laterKbRun, resumeWay)}>
           {runStatusLabel(run)}
         </Badge>
       </div>
@@ -103,20 +124,36 @@ const KbRunDetails = ({ run }: { run: RunView }) => {
         <StageRow label="Conversations read" hint={STAGES[3].hint} count={count} />
       )}
       <ul className="space-y-0.5 text-[11px] text-muted-foreground">
-        {status === 'running' ? (
+        {status === 'not_continued' ? (
+          <li className="text-warning">{describeNotContinued(run)}</li>
+        ) : status === 'running' ? (
           <li>
             Reading {plural(threads, 'conversation', 'conversations')} (
             {plural(run.found, 'message', 'messages')}) for Q&A pairs.
             {pairs > 0 ? ` ${plural(pairs, 'new Q&A pair', 'new Q&A pairs')} saved so far.` : ''}
             {documents > 0 ? ` ${plural(documents, 'document', 'documents')} saved so far.` : ''}
           </li>
-        ) : (
+        ) : beforeReading ? null : (
           <li>
             {run.failed > 0 ? 'Went through' : 'Read'} {threadsDone.toLocaleString()} of{' '}
             {plural(threads, 'conversation', 'conversations')} (
             {plural(run.found, 'message', 'messages')});{' '}
             {plural(pairs, 'new Q&A pair', 'new Q&A pairs')}
             {documents > 0 ? ` and ${plural(documents, 'document', 'documents')}` : ''} saved.
+          </li>
+        )}
+        {pause && (
+          // A KB-limit pause on its way back (ahead, resuming, admitted, queued, waiting for a
+          // slot), or one a later run took up, is calm; only an overdue one warns — as the panel's
+          // header and the indicator (pass 21, NIT). Any other pause keeps the warning.
+          <li
+            className={
+              isKbLimitPause(run) && !isOverdueKbPause(run, laterKbRun, resumeWay)
+                ? undefined
+                : 'text-warning'
+            }
+          >
+            {pause}
           </li>
         )}
         {run.failed > 0 && (
@@ -129,7 +166,8 @@ const KbRunDetails = ({ run }: { run: RunView }) => {
         )}
         {status === 'error' && (
           <li className="text-destructive">
-            The mine stopped on an error. Re-mine the mailbox to try again.
+            The mine stopped on an error{beforeReading ? ' before it read any conversation' : ''}.
+            Re-mine the mailbox to try again.
           </li>
         )}
         {status === 'interrupted' && (
@@ -137,26 +175,48 @@ const KbRunDetails = ({ run }: { run: RunView }) => {
             This mine stopped before it finished (for example on a restart).
           </li>
         )}
-        {run.processMs !== null && status !== 'running' && (
-          <li>Took {formatDuration(run.processMs)}.</li>
-        )}
+        {/* A record that did no work is not timed: a close (closeKbRunPause, kbThreads 0) or a
+            pause marker (recordKbRunPaused: processMs 0, nothing read) — FE audit passes 8/9. */}
+        {run.processMs !== null &&
+          !(run.processMs === 0 && (threads === 0 || threadsDone === 0)) &&
+          status !== 'running' &&
+          status !== 'not_continued' &&
+          !beforeReading && <li>Took {formatDuration(run.processMs)}.</li>}
       </ul>
     </div>
   );
 };
 
-export const RunDetails = ({ run }: { run: RunView }) => {
-  if (run.channel === 'kb') return <KbRunDetails run={run} />;
-  return <MailRunDetails run={run} />;
+/**
+ * `laterKbRun`: a KB mine of the same mailbox started after this run (`hasLaterKbRun`).
+ * `kbParked`: the daily KB limit has parked this mailbox's KB work (`isParkedByKbLimit`).
+ */
+export const RunDetails = ({
+  run,
+  laterKbRun = false,
+  kbParked = false,
+  resumeWay,
+}: {
+  run: RunView;
+  laterKbRun?: boolean;
+  kbParked?: boolean;
+  /** The paused mine's way back, from the header summary. */
+  resumeWay?: ResumeWay;
+}) => {
+  if (run.channel === 'kb') {
+    return <KbRunDetails run={run} laterKbRun={laterKbRun} resumeWay={resumeWay} />;
+  }
+  return <MailRunDetails run={run} kbParked={kbParked} />;
 };
 
-const MailRunDetails = ({ run }: { run: RunView }) => {
-  const status = runStatus(run);
+const MailRunDetails = ({ run, kbParked }: { run: RunView; kbParked: boolean }) => {
+  const status = runStatus(run, kbParked);
   // A stage nothing was queued for (AI off, no KB mining) is not shown as a finished 0 / 0.
   const stages = run.stages
     ? STAGES.filter((stage) => (run.stages?.[stage.key].queued ?? 0) > 0)
     : [];
   const pause = describePause(run);
+  const kbWork = kbWorkSentence(run, kbParked);
   const timingParts = [
     run.fetchMs !== null ? `fetched in ${formatDuration(run.fetchMs)}` : null,
     run.processMs !== null ? `processed in ${formatDuration(run.processMs)}` : null,
@@ -172,7 +232,7 @@ const MailRunDetails = ({ run }: { run: RunView }) => {
           {status === 'running' ? 'Checking since' : 'Last check'} {formatRunTime(run.startedAt)}
         </span>
         <Badge size="sm" variant={RUN_STATUS_VARIANT[status]}>
-          {runStatusLabel(run)}
+          {runStatusLabel(run, kbParked)}
         </Badge>
       </div>
       {stages.map((stage) => (
@@ -226,8 +286,20 @@ const MailRunDetails = ({ run }: { run: RunView }) => {
             This check stopped before it finished (for example on a restart).
           </li>
         )}
-        {run.problems.includes('stalled') && (
-          <li className="text-warning">Work is left, and this check ended over 30 minutes ago.</li>
+        {status === 'kb_paused' ? (
+          <li>{parkedWorkSentence(run)}</li>
+        ) : status === 'kb_unknown' ? (
+          <li data-testid="run-kb-unknown">{kbStateUnknownSentence(run)}</li>
+        ) : kbWork ? (
+          // Not `done` (failed, paused by the provider, error): its KB work is still said, by the
+          // backend's field (pass 22, LOW).
+          <li data-testid="run-kb-work">{kbWork}</li>
+        ) : (
+          run.problems.includes('stalled') && (
+            <li className="text-warning">
+              Work is left, and this check ended over 30 minutes ago.
+            </li>
+          )
         )}
         {run.stages && run.stages.awaitingRouting > 0 && (
           <li>

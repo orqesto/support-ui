@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { describeRunProblems } from '../processingWords';
-import { makeRun } from './fixtures';
+import { makeKbRun, makeRun } from './fixtures';
 
 /**
  * The one line for an OLDER run that still wants attention. It must name the run's current
@@ -26,7 +26,7 @@ describe('describeRunProblems', () => {
   });
 
   it('a knowledge-base failure is about mining', () => {
-    const run = makeRun({ channel: 'kb', outcome: 'failed', failed: 1, problems: ['failed'] });
+    const run = makeKbRun({ outcome: 'failed', failed: 1, problems: ['failed'] });
     expect(describeRunProblems(run)).toBe(
       '1 conversation could not be mined. Re-mine the mailbox to read it again.'
     );
@@ -57,12 +57,65 @@ describe('describeRunProblems', () => {
     ).toBe(
       'This check stopped before it finished (for example on a restart). Work is left, and this check ended over 30 minutes ago.'
     );
-    expect(
-      describeRunProblems(makeRun({ channel: 'kb', outcome: 'running', problems: ['interrupted'] }))
-    ).toBe('This mine stopped before it finished (for example on a restart).');
+    expect(describeRunProblems(makeKbRun({ outcome: 'running', problems: ['interrupted'] }))).toBe(
+      'This mine stopped before it finished (for example on a restart).'
+    );
   });
 
   it('no problems, no line', () => {
     expect(describeRunProblems(makeRun({ outcome: 'failed', failed: 2, problems: [] }))).toBeNull();
+  });
+});
+
+/**
+ * A mine the daily KB token limit paused (backend `kb_token_limit`) waits for the reset and
+ * resumes by itself — so it must not say "the rest follow on the next check".
+ */
+describe('a KB mine paused by the daily KB token limit', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-30T18:00:00.000Z'));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('says the limit was reached and that mining resumes by itself, with the time', () => {
+    const line = describeRunProblems(
+      makeKbRun({
+        outcome: 'paused',
+        stoppedBy: 'kb_token_limit',
+        resumesAt: '2026-10-01T00:12:00.000Z',
+        problems: ['paused'],
+      })
+    );
+    expect(line).toContain('today’s AI limit for KB processing was reached');
+    expect(line).toContain('resumes by itself after 00:12 UTC on 2026-10-01 (');
+    expect(line).toMatch(/\(\d\d:\d\d your time\)/);
+    expect(line).not.toContain('next check');
+  });
+
+  it('without a resume time it still names the reset, never a guessed time', () => {
+    const line = describeRunProblems(
+      makeKbRun({
+        outcome: 'paused',
+        stoppedBy: 'kb_token_limit',
+        problems: ['paused'],
+      })
+    );
+    expect(line).toMatch(/after the daily reset at 00:00 UTC \(\d\d:\d\d your time\)/);
+  });
+
+  it('a resume time already passed is said as due then, never as a resume still to come', () => {
+    const line = describeRunProblems(
+      makeKbRun({
+        outcome: 'paused',
+        stoppedBy: 'kb_token_limit',
+        resumesAt: '2026-09-29T00:12:00.000Z',
+        problems: ['paused'],
+      })
+    );
+    expect(line).toContain(
+      'Paused by the daily AI limit for KB processing; it was due to resume by itself at 00:12 UTC on 2026-09-29 ('
+    );
+    expect(line).not.toMatch(/resumes by itself after|today’s/);
   });
 });

@@ -60,6 +60,14 @@ export type ProcessingSession = {
   // these — FE falls back to the legacy `analyzed` counter.
   analyzedInDb?: number;
   missingAnalysis?: number;
+  /** KB mining paused at the daily KB token limit until this instant (ISO); resumes by itself. */
+  kbPausedUntil?: string;
+  /**
+   * The paused session was FORCE-ended (`forced`, reason 'timeout'/'manual' — not the limit's own
+   * 'kb_token_limit'): some jobs never reported, so total − processed is NOT parked work (parked
+   * jobs leave the total since BE round 9). Holds the backend's reason (FE audit pass 13, LOW).
+   */
+  kbPauseStoppedEarly?: string;
 };
 
 type EmailProcessingState = {

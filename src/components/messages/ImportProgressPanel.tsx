@@ -1,5 +1,6 @@
 import { Progress } from '@/components/ui/Progress';
 import { Spinner } from '@/components/ui/Spinner';
+import { formatUtcAndLocal, formatUtcDateAndLocal, resumePhase } from '@/lib/utcClock';
 import type {
   ImportStage,
   StageEta,
@@ -59,8 +60,20 @@ const STAGE_UNDONE: Record<ImportStage, string> = {
   kb: 'mined for the knowledge base',
 };
 
-/** The one line that says when it ends: never a number the rate has not earned. */
-export const describeEta = (eta: StageEta): string => {
+/** "for KB processing" — what a daily-limit pause holds back. */
+const PAUSED_FOR: Record<ImportStage, string> = {
+  imported: ' for importing',
+  decided: ' for checking',
+  analysis: ' for AI analysis',
+  embedding: ' for search indexing',
+  kb: ' for KB processing',
+};
+
+/**
+ * The one line that says when it ends: never a number the rate has not earned. `now` decides
+ * whether a pause's resume time is still to come (it is said as past once it has passed).
+ */
+export const describeEta = (eta: StageEta, now: number = Date.now()): string => {
   switch (eta.state) {
     case 'done':
       return 'Finished';
@@ -72,7 +85,37 @@ export const describeEta = (eta: StageEta): string => {
         ? `No progress in ${STAGE_LABEL[eta.stage]} for 15 minutes, so the finish time is unknown`
         : 'No progress for 15 minutes, so the finish time is unknown';
     case 'unknown':
+      // BE round 20: an unreadable limit is not a capped listing. No reason (an older backend,
+      // whose only unknown was the capped listing) keeps the capped words.
+      if (eta.reason === 'limit_unreadable') {
+        // The whole daily KB limit check failed (the setting, today's spend or whether it is
+        // enforced) — not just the setting (pass 21, NIT).
+        return `Finish time unknown: the daily KB limit could not be checked, so whether it holds the work${eta.stage ? PAUSED_FOR[eta.stage] : ''} is not known`;
+      }
+      // BE round 21: the KB work is not moving and whether the daily KB limit holds it could not be
+      // told (the queue's parked jobs were not read in full) — never finished, stalled or paused.
+      if (eta.reason === 'pause_unknown') {
+        return `Finish time unknown: the work${eta.stage ? PAUSED_FOR[eta.stage] : ''} is not moving, and whether the daily KB limit is holding it is not known`;
+      }
       return 'Finish time unknown: the mailbox holds more messages than were counted';
+    case 'paused': {
+      // BE R16: parked by a daily AI token limit until the reset — not stalled, not finished.
+      // Passed but within RESUME_GRACE_MS: parked jobs wake over a 30-min spread after the reset —
+      // continuing, not late (FE audit pass 17, P17-F1). Late is said with its date (pass 17, NIT).
+      const what = eta.stage ? PAUSED_FOR[eta.stage] : '';
+      const at = formatUtcAndLocal(eta.until);
+      // BE R17: `resumeWindowEnd` ends the wake spread exactly (an older backend: the grace).
+      const phase = resumePhase(eta.until, now, eta.resumeWindowEnd);
+      if (!at || phase === null) {
+        return `Paused at today’s AI limit${what} — continues after the daily reset`;
+      }
+      if (phase === 'late') {
+        return `Paused at the daily AI limit${what}; it was due to continue at ${formatUtcDateAndLocal(eta.until)}`;
+      }
+      if (phase === 'resuming')
+        return `Paused at the daily AI limit${what}; continuing after ${at}`;
+      return `Paused at today’s AI limit${what} — continues from ${at}`;
+    }
     case 'running':
       if (eta.maxMinutes === null) return `At least ${formatMinutes(eta.minMinutes)} left`;
       if (eta.maxMinutes <= eta.minMinutes) return `About ${formatMinutes(eta.minMinutes)} left`;
@@ -136,6 +179,32 @@ export const ImportProgressPanel = ({ data }: { data: TrackedImport }) => {
     return <p className="text-xs text-muted-foreground">Nothing to import.</p>;
   }
   const leftovers = progress.stages.filter((stage) => (stage.leftover ?? 0) > 0);
+  // The one eta line names ONE stage. A stage paused at a limit while the overall line says
+  // something else (BE R17: stalled > unknown > estimating > running > paused) was said nowhere;
+  // and an overall pause
+  // hid how the stages still moving are doing (FE audit pass 17, queued + BE LOW 3).
+  const overall = progress.eta;
+  // A stage whose hold by the limit is not known (BE round 20 `limit_unreadable`, round 21
+  // `pause_unknown`) under an overall line that says something else (a capped listing outranks it)
+  // was said nowhere — it is said on its own, naming the stage.
+  const kbReasonOf = (eta: StageEta) =>
+    eta.state === 'unknown' && (eta.reason === 'limit_unreadable' || eta.reason === 'pause_unknown')
+      ? eta.reason
+      : null;
+  const unreadable = (eta: StageEta) => kbReasonOf(eta) !== null;
+  const ownLine = (eta: StageEta) => eta.state === 'paused' || unreadable(eta);
+  const stageLines = progress.stages
+    .filter((stage) =>
+      overall.state === 'paused'
+        ? stage.stage !== overall.stage && stage.eta.state !== 'done'
+        : stage.eta.state === 'paused' ||
+          (unreadable(stage.eta) && kbReasonOf(stage.eta) !== kbReasonOf(overall))
+    )
+    .map((stage) =>
+      ownLine(stage.eta)
+        ? `${describeEta({ ...stage.eta, stage: stage.stage } as StageEta)}.`
+        : `${STAGE_LABEL[stage.stage]}: ${describeEta(stage.eta)}.`
+    );
   return (
     <div className="space-y-2.5">
       <p className="text-sm font-medium" data-testid="import-eta">
@@ -145,6 +214,11 @@ export const ImportProgressPanel = ({ data }: { data: TrackedImport }) => {
         <StageRow key={stage.stage} stage={stage} capped={progress.capped} />
       ))}
       <ul className="space-y-0.5 text-[11px] text-muted-foreground">
+        {stageLines.map((line) => (
+          <li key={line} data-testid="import-stage-eta">
+            {line}
+          </li>
+        ))}
         {progress.capped &&
           (run.countingOn ? (
             <li>

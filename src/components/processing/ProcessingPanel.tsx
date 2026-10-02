@@ -1,4 +1,13 @@
-import { AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Loader2, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
+  HelpCircle,
+  Loader2,
+  PauseCircle,
+  X,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { ImportProgressPanel } from '@/components/messages/ImportProgressPanel';
@@ -9,8 +18,16 @@ import {
   useImportProgress,
 } from '@/hooks/useImportProgress';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
-import type { ImportProgress, RunView } from '@/services/importProgress.service';
+import type { ImportProgress, RunView, StageEta } from '@/services/importProgress.service';
 import { useProcessingPanelStore } from '@/stores/processingPanelStore';
+import {
+  formatUtcDateAndLocal,
+  ownWay,
+  pausePhase,
+  resumePhase,
+  RESUME_GRACE_MS,
+  type ResumeWay,
+} from '@/lib/utcClock';
 import { KbMiningFailures } from './KbMiningFailures';
 import {
   hasUnseenProblem,
@@ -19,7 +36,18 @@ import {
   SMALL_RUN_BELOW,
   writeClosedProblems,
 } from './panelRules';
-import { describeRunProblems, formatRunTime, runStatusLabel } from './processingWords';
+import {
+  describeRunProblems,
+  hasLaterKbRun,
+  formatRunTime,
+  isKbLimitPause,
+  isOverdue,
+  isOverdueKbPause,
+  isParkedByKbLimit,
+  kbStateUnknownClause,
+  plural,
+  runStatusLabel,
+} from './processingWords';
 import { RecentRuns } from './RecentRuns';
 import { RunDetails } from './RunDetails';
 import { useDraggablePosition } from './useDraggablePosition';
@@ -38,8 +66,13 @@ export const HIDDEN_POLL_MS = 5 * 60_000;
 /**
  * An import whose finish is `stalled` or `unknown` still holds the panel open until its numbers
  * have stood still this long — the backend's own rule for an import that stopped (importProgressService
- * IDLE_UNMARK_MS). `unknown` is a capped import STILL importing, `stalled` means one stage made no
- * progress in 15 min while others may: neither is an end (FE audit pass 3, H-A).
+ * IDLE_UNMARK_MS). A capped listing's `unknown` is an import STILL importing, `stalled` means one
+ * stage made no progress in 15 min while others may: neither is an end (FE audit pass 3, H-A). An
+ * `unknown` whose only cause is that whether the daily KB limit holds the work is not known — the
+ * limit could not be checked (`limit_unreadable`) or the queue's parked KB jobs could not be read
+ * in full (`pause_unknown`) — with nothing else open is not moving and not stopped either: it is
+ * said as "Unknown" at once (importKbHoldNotKnown), never "Processing" and then "No progress"
+ * (pass 21, NIT).
  */
 export const IMPORT_IDLE_MS = 45 * 60_000;
 
@@ -72,6 +105,28 @@ const importFingerprint = (data: Extract<ImportProgress, { tracked: true }>): st
   ].join(':');
 
 /**
+ * An eta whose finish is unknown because whether the daily KB limit holds the work is not known:
+ * the limit could not be checked (BE round 20 `limit_unreadable`), or the queue's parked KB jobs
+ * could not be read in full (BE round 21 `pause_unknown`).
+ */
+const kbHoldNotKnown = (eta: StageEta | undefined): boolean =>
+  eta?.state === 'unknown' && (eta.reason === 'limit_unreadable' || eta.reason === 'pause_unknown');
+
+/**
+ * An import whose ONLY open question is whether the daily KB limit holds its work: its overall
+ * finish is unknown for that reason (kbHoldNotKnown) and every stage is finished, paused or unknown
+ * for that same reason. Whether it is held or moving is not known — neither "Processing" nor "No
+ * progress".
+ */
+const importKbHoldNotKnown = (data: Extract<ImportProgress, { tracked: true }>): boolean =>
+  data.run.state !== 'counting' &&
+  kbHoldNotKnown(data.progress?.eta) &&
+  (data.progress?.stages ?? []).every(
+    (stage) =>
+      stage.eta.state === 'done' || stage.eta.state === 'paused' || kbHoldNotKnown(stage.eta)
+  );
+
+/**
  * …and still MOVING: counting, or an estimate being measured or run down — or a `stalled` /
  * `unknown` finish whose numbers moved in the last IMPORT_IDLE_MS. A finish that stays stalled for
  * the import record's 14 days is shown (the import panel words it) but stops holding the panel
@@ -83,16 +138,142 @@ const importMoving = (
 ): boolean => {
   const eta = data.progress?.eta.state;
   if (data.run.state === 'counting' || eta === 'running' || eta === 'estimating') return true;
+  if (importKbHoldNotKnown(data)) return false;
+  // Parked by a daily limit with nothing else open (BE R16 eta `paused`): not moving NOW — it said
+  // "Processing" with a spinner and opened itself for up to IMPORT_IDLE_MS (FE audit pass 17, LOW).
+  if (
+    eta === 'paused' &&
+    (data.progress?.stages ?? []).every(
+      (stage) => stage.eta.state === 'done' || stage.eta.state === 'paused'
+    )
+  ) {
+    return false;
+  }
   return !standingStill;
 };
 
+/**
+ * Every resume time the panel has for this mailbox's KB work parked by the daily KB limit: the
+ * import's KB stage (BE R16 eta `paused`), the socket session's pause, and a KB-limit pause record
+ * nothing later has overtaken (the limit is the workspace's: a mine paused at it means the KB jobs
+ * of the mail runs are held too).
+ */
+const kbParkTimes = (
+  data: ImportProgress | null,
+  runs: readonly RunView[],
+  sessionPause: string | null | undefined,
+  way: ResumeWay | undefined
+  // Each with its wake-window end (no summary entry for the mailbox: the FE grace applies).
+): { until: string; windowEnd?: string | null }[] => {
+  const times: { until: string; windowEnd?: string | null }[] = [];
+  if (data?.tracked && data.progress) {
+    for (const stage of data.progress.stages) {
+      if (stage.stage === 'kb' && stage.eta.state === 'paused') {
+        times.push({ until: stage.eta.until, windowEnd: stage.eta.resumeWindowEnd });
+      }
+    }
+    const eta = data.progress.eta;
+    if (eta.state === 'paused' && eta.stage === 'kb') {
+      times.push({ until: eta.until, windowEnd: eta.resumeWindowEnd });
+    }
+  }
+  // An R17 backend stops calling such work held at its own reset + the spread, not the FE grace:
+  // the panel said "KB paused" for 15 min over a run the backend had made stalled (pass 18, LOW).
+  const own = (until: string) => ({ until, windowEnd: ownWay(way, until)?.resumeWindowEnd });
+  // BE R17 `releaseQueuedAt`: a limit save released the pause before the reset. The mine's record
+  // and the socket session keep their old reset until the mine runs again, but the limit no longer
+  // holds this mailbox's KB work — the backend's own holds (import eta, `kbLimitPause`) ended at
+  // once (BE R18). Kept, they read a run the backend calls stalled as "continues by itself after
+  // the reset" while the indicator warned (FE audit pass 19, LOW).
+  const released = !!way?.releaseQueuedAt;
+  if (sessionPause && !released) times.push(own(sessionPause));
+  for (const run of runs) {
+    if (
+      !released &&
+      isKbLimitPause(run) &&
+      run.resumed !== true &&
+      run.resumesAt &&
+      !hasLaterKbRun(run, runs)
+    ) {
+      times.push(own(run.resumesAt));
+    }
+    // BE R17: the backend itself says this mail run's KB work is held.
+    if (run.kbLimitPause) {
+      times.push({ until: run.kbLimitPause.until, windowEnd: run.kbLimitPause.resumeWindowEnd });
+    }
+  }
+  return times;
+};
+
+/**
+ * The phase the calm "KB paused" header stands for: the mine's own pause record when one is on
+ * screen (its way back from the summary), else the summary's way back, else the parked work's
+ * times — `ahead` when any of them is still to come.
+ */
+const pausedTitlePhase = (
+  runs: readonly RunView[],
+  way: ResumeWay | undefined,
+  now: number,
+  parkPhases: readonly ReturnType<typeof resumePhase>[]
+): ReturnType<typeof pausePhase> => {
+  const mine = runs.find(
+    (run) =>
+      isKbLimitPause(run) &&
+      run.problems.includes('paused') &&
+      run.resumed !== true &&
+      !hasLaterKbRun(run, runs)
+  );
+  if (mine) return pausePhase(mine.resumesAt, now, ownWay(way, mine.resumesAt));
+  if (way?.resumeAdmittedAt) return 'admitted';
+  if (way?.releaseQueuedAt) return 'queued';
+  return parkPhases.includes('ahead') ? 'ahead' : 'resuming';
+};
+
+/** The Close button's title over a calm "KB paused" header, true of the phase it stands for. */
+const pausedCloseTitle = (
+  phase: ReturnType<typeof pausePhase>,
+  minePauseKeyed: boolean
+): string => {
+  const what =
+    phase === 'admitted'
+      ? 'The paused knowledge-base mining is resuming now'
+      : phase === 'queued'
+        ? 'A limit setting changed and the paused work is queued to continue'
+        : phase === 'waiting'
+          ? 'The paused work is due to continue and waits for a free slot'
+          : phase === 'resuming'
+            ? 'The paused work is resuming after the reset'
+            : 'The paused work continues by itself after the reset';
+  // Only a mine's pause record is keyed apart when it turns overdue (problemKeys).
+  const again = minePauseKeyed
+    ? 'it opens again for a new problem, or if the paused mine does not resume on time.'
+    : 'it opens again only for a new problem.';
+  return `Close. ${what}; ${again}`;
+};
+
 /** An earlier run that still wants attention, in one line. */
-const OlderProblem = ({ run }: { run: RunView }) => {
-  const detail = describeRunProblems(run);
+const OlderProblem = ({
+  run,
+  laterKbRun,
+  kbParked,
+  resumeWay,
+}: {
+  run: RunView;
+  laterKbRun: boolean;
+  kbParked: boolean;
+  resumeWay?: ResumeWay;
+}) => {
+  const detail = describeRunProblems(run, laterKbRun, kbParked, resumeWay);
+  // A KB-limit pause and nothing else, on its way back or taken up by a later run: calm, not in
+  // the list's warning colour — only an overdue one warns (pass 21, NIT).
+  const calm =
+    isKbLimitPause(run) &&
+    run.problems.every((problem) => problem === 'paused') &&
+    !isOverdueKbPause(run, laterKbRun, resumeWay);
   return (
-    <li>
+    <li className={calm ? 'text-muted-foreground' : undefined}>
       {run.channel === 'kb' ? 'Knowledge-base mining' : 'Check'} at {formatRunTime(run.startedAt)}:{' '}
-      {runStatusLabel(run)}
+      {runStatusLabel(run, kbParked)}
       {detail ? `. ${detail}` : '.'}
     </li>
   );
@@ -108,6 +289,8 @@ type Props = {
   watched?: boolean;
   /** The header summary's numbers for this source: a change makes a panel off screen ask again. */
   summaryKey?: string;
+  /** The paused mine's way back, from the header summary (undefined: no entry for this mailbox). */
+  resumeWay?: ResumeWay;
 };
 
 /** A KB session silent this long is not shown as running (a missed `kb:completed`). */
@@ -131,6 +314,7 @@ export const ProcessingPanel = ({
   session,
   watched = false,
   summaryKey = '',
+  resumeWay,
 }: Props) => {
   const openPanel = useProcessingPanelStore((state) => state.opened[sourceId]);
   const closedRuns = useProcessingPanelStore((state) => state.closedRuns[sourceId]);
@@ -154,11 +338,35 @@ export const ProcessingPanel = ({
     askListing,
     fastPace ? IMPORT_PROGRESS_POLL_MS : HIDDEN_POLL_MS
   );
-  const keys = useMemo(() => (data ? problemKeys(data) : []), [data]);
+  // A KB-limit pause of a mine that is overdue — late, or stuck with no resume queued — is keyed
+  // apart, per pause, so a calm pause the person closed reopens once when it turns overdue (owner
+  // decisions 2026-10-01 and D-R21-4). Not a pause a later KB run overtook or a mine that resumed.
+  const keys = useMemo(
+    () =>
+      data
+        ? problemKeys(data, (run) =>
+            isOverdueKbPause(run, hasLaterKbRun(run, data.runs), resumeWay)
+          )
+        : [],
+    [data, resumeWay]
+  );
   const problemOpen = hasUnseenProblem(keys, closedProblems);
   const newest = data?.runs[0];
   const runs = data?.runs ?? [];
   const importOnScreen = importShown(data);
+  // The daily KB limit holds this mailbox's KB work now — until each resume time plus the grace
+  // (RESUME_GRACE_MS): a mail run owing only that work is paused, not processing or stalled.
+  const now = Date.now();
+  const kbParkPhases = kbParkTimes(data, runs, session?.kbPausedUntil, resumeWay).map(
+    ({ until, windowEnd }) => resumePhase(until, now, windowEnd)
+  );
+  const kbParked = kbParkPhases.some((phase) => phase === 'ahead' || phase === 'resuming');
+  // BE round 21: a mail run whose only owed KB work may be held — and that cannot be told
+  // (`kbStateUnknown`) — is not processing either: the summary leaves it out of `inProgress`.
+  const kbStateUnknownOf = (run: RunView) =>
+    run.workRemaining && !!run.kbStateUnknown && !isParkedByKbLimit(run, kbParked);
+  const owesUnparked = (run: RunView) =>
+    run.workRemaining && !isParkedByKbLimit(run, kbParked) && !kbStateUnknownOf(run);
 
   // Mail only: a KB mine reads what is already in Odly — it is no reason to list the mailbox.
   const importSized = runs.some(
@@ -201,6 +409,8 @@ export const ProcessingPanel = ({
   }, [fingerprint, stillKey]);
   const importMovingNow = importOnScreen && importMoving(data, standingStill);
   const importIdle = importOnScreen && !importMovingNow;
+  // Its only open question is whether the KB limit holds it: whether it moves is not known (F7).
+  const importUnknown = importIdle && importKbHoldNotKnown(data);
 
   // What opens the panel by itself, from the run records (newest first), once per id:
   // - a run of 20+ still running;
@@ -225,7 +435,7 @@ export const ProcessingPanel = ({
       (run) =>
         (run.channel === 'kb' ? !kbRetry(run) : !importClosed) &&
         ((run.active && run.found >= SMALL_RUN_BELOW) ||
-          (run.found >= IMPORT_LISTING_THRESHOLD && (run.active || run.workRemaining)))
+          (run.found >= IMPORT_LISTING_THRESHOLD && (run.active || owesUnparked(run))))
     )?.id ?? (importMovingNow && !importClosed ? importId : null);
   useEffect(() => {
     if (opener && openPanel === undefined && !closedRuns?.includes(opener)) {
@@ -248,11 +458,42 @@ export const ProcessingPanel = ({
       ? `Knowledge-base mining on this mailbox: ${(session.kbMessagesProcessed ?? 0).toLocaleString()} of ${(session.kbMessagesTotal ?? 0).toLocaleString()} messages`
       : null;
 
+  // Past its resume instant the line says it is resuming, and once the wake window is over (the
+  // reset + the spread; no summary entry: the grace) it goes — it went AT the instant, so the header read
+  // "Done" until the first `kb:progress` (FE audit pass 18, NIT). A clock re-renders the panel at
+  // each boundary; a later render reads it again.
+  const kbPausedUntil = session?.kbPausedUntil;
+  const kbPausedUntilMs = kbPausedUntil ? Date.parse(kbPausedUntil) : Number.NaN;
+  const kbPausedWindowEnd = ownWay(resumeWay, kbPausedUntil)?.resumeWindowEnd;
+  const kbPausedEndMs = kbPausedWindowEnd
+    ? Date.parse(kbPausedWindowEnd)
+    : kbPausedUntilMs + RESUME_GRACE_MS;
+  const [clockNow, setClockNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (Number.isNaN(kbPausedUntilMs)) return undefined;
+    const at = Date.now();
+    const next = [kbPausedUntilMs, kbPausedEndMs].find((boundary) => boundary > at);
+    if (next === undefined) {
+      // Guarded: once `clockNow` is past the end, setting it again would loop.
+      if (clockNow < kbPausedEndMs) setClockNow(at);
+      return undefined;
+    }
+    const timer = window.setTimeout(
+      () => setClockNow(Date.now()),
+      Math.min(next - at + 1, 2 ** 31 - 1)
+    );
+    return () => window.clearTimeout(timer);
+  }, [kbPausedUntilMs, kbPausedEndMs, clockNow]);
+  // `clockNow` alone (the effect sets it at once when a boundary is already past): the panel
+  // also re-renders on its polls, which must not be what moves the line.
+  const kbPauseCurrent = !Number.isNaN(kbPausedUntilMs) && clockNow < kbPausedEndMs;
+  const kbPauseResuming = kbPauseCurrent && clockNow >= kbPausedUntilMs;
+
   // Any recorded run still running or owing work — the same rule as the summary's `inProgress`;
   // reading only the newest said "Done" over an import a small run had landed on top of (FE audit
   // pass 5, H2) — and KB mining the socket reports (a re-mine has no run record, H3).
   const running =
-    importMovingNow || runs.some((run) => run.active || run.workRemaining) || kbWork !== null;
+    importMovingNow || runs.some((run) => run.active || owesUnparked(run)) || kbWork !== null;
   const visible = supported && (openPanel !== undefined || problemOpen);
 
   useEffect(() => {
@@ -278,7 +519,9 @@ export const ProcessingPanel = ({
   const openedRun = openPanel?.runId ? runs.find((run) => run.id === openPanel.runId) : undefined;
   const runOver = openPanel?.runId?.startsWith('import:')
     ? !importMovingNow
-    : !openedRun || (!openedRun.active && !openedRun.workRemaining);
+    : // A run whose only work left the KB limit holds is over too: its panel stayed up all night
+      // (FE audit pass 18, LOW) — the same rule that keeps such a run from opening one.
+      !openedRun || (!openedRun.active && !owesUnparked(openedRun));
   const settled =
     data !== null && !data.runsUnavailable && runOver && !importMovingNow && !problemOpen;
   useEffect(() => {
@@ -315,17 +558,6 @@ export const ProcessingPanel = ({
   // not be read, not over an import that is stalled or whose finish is unknown (FE audit pass 4,
   // M4) — that one stopped holding the panel open, it did not finish.
   const unknown = !running && !needsAttention && (data === null || data.runsUnavailable);
-  const statusWord = needsAttention
-    ? 'Needs attention'
-    : running
-      ? 'Processing'
-      : data === null
-        ? 'Loading'
-        : unknown
-          ? 'Unknown'
-          : importIdle
-            ? 'No progress'
-            : 'Done';
   // The run the panel opened for is the one it details; otherwise the newest.
   const shownRun = openedRun ?? newest;
   const otherRuns = runs.filter((run) => run !== shownRun);
@@ -333,6 +565,99 @@ export const ProcessingPanel = ({
   const olderOwing = otherRuns.filter(
     (run) => run.problems.length === 0 && (run.active || run.workRemaining)
   );
+
+  // The socket session paused at the daily KB limit (`kb:completed` with `paused`): progress kept,
+  // with when it resumes — not "complete". Left to the run record only when a line ON SCREEN
+  // already says so: the detailed run's pause line, or an older run's paused problem. A record
+  // whose pause was since closed (`problems: []`, off screen) says nothing, so it must not silence
+  // this line (FE audit pass 7, MED).
+  // Whatever the outcome: a mine that also failed conversations (`failed`) says its pause in its
+  // details and in the older-run line alike (FE audit pass 8, F8-1).
+  // A record marked `resumed` (BE round 9) means a later mine is carrying the paused work on NOW:
+  // "Paused — resumes from …" would then be false, whether or not that record is on screen — so it
+  // counts as the pause being said (FE audit pass 10, NIT).
+  const kbPausedSaid =
+    (shownRun !== undefined && isKbLimitPause(shownRun)) ||
+    olderWithProblems.some(isKbLimitPause) ||
+    runs.some((run) => run.resumed === true);
+  // Since BE round 9 a session's total leaves out the jobs the limit parked, so it can equal the
+  // processed count: "40 of 40" would read as all mined. Then only the processed count is said.
+  const kbPausedDone = session?.kbMessagesProcessed ?? 0;
+  const kbPausedTotal = session?.kbMessagesTotal ?? 0;
+  // A force-ended session (timeout / manual, BE R12 B(b)): total − processed counts jobs that never
+  // reported, not parked work — so no "N of M … resumes", and the force-end is said (pass 13, LOW).
+  const kbStoppedEarly = session?.kbPauseStoppedEarly;
+  const kbPaused =
+    !kbPausedSaid && session && kbPauseCurrent
+      ? `Knowledge-base mining on this mailbox: ${
+          kbStoppedEarly !== undefined
+            ? `${plural(kbPausedDone, 'message', 'messages')} processed; this run ${
+                kbStoppedEarly === 'timeout' ? 'timed out' : 'was stopped'
+              } before every message reported. Work paused at today’s AI limit resumes`
+            : kbPausedTotal > kbPausedDone
+              ? `${kbPausedDone.toLocaleString()} of ${kbPausedTotal.toLocaleString()} messages. Paused — resumes`
+              : kbPausedDone === 0
+                ? // BE R13 B: a poll's session that took the day's carried pause and found no KB
+                  // work ends paused at 0 of 0 — that count is the poll's, not the mailbox's, and
+                  // "0 processed … the rest" is untrue of it (FE audit pass 14, LOW).
+                  `paused at today’s AI limit. Parked work resumes`
+                : `${plural(kbPausedDone, 'message', 'messages')} processed. Paused at today’s AI limit — the rest resume`
+        } from ${formatUtcDateAndLocal(kbPausedUntil) ?? '00:00 UTC'}${kbPauseResuming ? '; resuming now' : ''}.`
+      : null;
+
+  // A KB pause line on screen with nothing else to say is "KB paused", never "Done" beside a green
+  // check (FE audit pass 14, LOW): the paused session is no longer processing, so it fell through.
+  // "KB paused", not a bare "Paused": mail checks of this mailbox keep running (pass 16, NIT).
+  // A run RECORD paused at the KB limit (`problems: ['paused']`, BE runsView) is "KB paused": the
+  // summary counts it apart from problems (`pausedByLimit`) and the indicator says "paused" too
+  // (FE audit pass 16, 2 LOW). Calm only when that is ALL there is (pass 15): no other problem, no
+  // conversation the mine failed,
+  // not overtaken by a later KB run (history then), and its resume time not yet past — a resume
+  // that never came warns here as on the indicator.
+  // A mail run whose only work left is KB work the limit parked carries the backend's `stalled`
+  // after 30 min (BE 44f0f921 runsView): that is the same pause, not a fault (pass 17, P17-F2).
+  // Its resume time "late" only past RESUME_GRACE_MS (pass 17, P17-F1).
+  const problemRuns = data ? data.runs.filter((run) => run.problems.length > 0) : [];
+  const limitPauseOnly =
+    needsAttention &&
+    data !== null &&
+    data.kbMiningFailures.length === 0 &&
+    problemRuns.length > 0 &&
+    problemRuns.every(
+      (run) =>
+        (isKbLimitPause(run) &&
+          run.problems.every((problem) => problem === 'paused') &&
+          !hasLaterKbRun(run, runs) &&
+          !isOverdue(pausePhase(run.resumesAt, now, ownWay(resumeWay, run.resumesAt)))) ||
+        (isParkedByKbLimit(run, kbParked) && run.problems.every((problem) => problem === 'stalled'))
+    );
+  const attention = needsAttention && !limitPauseOnly;
+  // An import the daily limit parked (BE R16 eta `paused`) that stopped moving: paused, not "No
+  // progress" — its eta line says when it continues.
+  const importPaused = importIdle && data?.progress?.eta.state === 'paused';
+  const parkedOwing = runs.some((run) => run.workRemaining && isParkedByKbLimit(run, kbParked));
+  // BE round 21: nothing else to say but a run whose KB work's hold is not known ⇒ "Unknown", never
+  // "Done" over work left, nor "Processing" (it is not moving) or "Needs attention" (no problem).
+  const runKbHoldUnknown = runs.some(kbStateUnknownOf);
+  // ONE "not known" for both sources — the import's KB stage and a run's KB work: one place in the
+  // order (after a known pause), one icon, one Close title (pass 22, NIT).
+  const kbHoldUnknown = importUnknown || runKbHoldUnknown;
+  const paused = kbPaused !== null || limitPauseOnly || importPaused || parkedOwing;
+  const statusWord = attention
+    ? 'Needs attention'
+    : running
+      ? 'Processing'
+      : data === null
+        ? 'Loading'
+        : unknown
+          ? 'Unknown'
+          : importIdle && !importPaused && !importUnknown
+            ? 'No progress'
+            : paused
+              ? 'KB paused'
+              : kbHoldUnknown
+                ? 'Unknown'
+                : 'Done';
 
   return (
     <div
@@ -362,12 +687,16 @@ export const ProcessingPanel = ({
         title={isMobile ? undefined : 'Drag to move'}
       >
         <div className="flex flex-1 gap-2 items-center min-w-0">
-          {needsAttention ? (
+          {attention ? (
             <AlertTriangle className="w-4 h-4 shrink-0 text-warning" />
           ) : running || data === null ? (
             <Loader2 className="w-4 h-4 animate-spin shrink-0 text-muted-foreground" />
-          ) : unknown || importIdle ? (
+          ) : unknown || (importIdle && !importPaused && !importUnknown) ? (
             <AlertTriangle className="w-4 h-4 shrink-0 text-muted-foreground" />
+          ) : paused ? (
+            <PauseCircle className="w-4 h-4 shrink-0 text-muted-foreground" />
+          ) : kbHoldUnknown ? (
+            <HelpCircle className="w-4 h-4 shrink-0 text-muted-foreground" />
           ) : (
             <CheckCircle className="w-4 h-4 shrink-0 text-success" />
           )}
@@ -395,9 +724,24 @@ export const ProcessingPanel = ({
             onClick={handleClose}
             className="p-0 w-6 h-6"
             title={
-              needsAttention
-                ? 'Close. It opens again only for a new problem; the count stays by the bell.'
-                : 'Close. Processing carries on; the count stays by the bell.'
+              // Calm "KB paused": no count by the bell, and the pause is not a problem (pass 17).
+              // Worded from the pause's phase: "after the reset" was false for a release-queued
+              // mine and for one resuming past the reset (FE audit pass 20, LOW).
+              statusWord === 'KB paused'
+                ? pausedCloseTitle(
+                    pausedTitlePhase(runs, resumeWay, now, kbParkPhases),
+                    keys.some((key) => key.startsWith('kb-run:paused:'))
+                  )
+                : needsAttention
+                  ? 'Close. It opens again only for a new problem; the count stays by the bell.'
+                  : statusWord === 'Unknown' && !unknown && kbHoldUnknown
+                    ? // Nothing is processing and there is no count. Only a RUN whose hold is not
+                      // known is counted by the bell (summary `kbStateUnknown`); an import's KB
+                      // stage is not, so the note is promised only for the run.
+                      runKbHoldUnknown
+                      ? 'Close. The note by the bell stays while it is not known whether the daily KB limit holds this work.'
+                      : 'Close. It is not known whether the daily KB limit holds this work; nothing is counted by the bell for it.'
+                    : 'Close. Processing carries on; the count stays by the bell.'
             }
           >
             <X className="w-3 h-3" />
@@ -422,6 +766,8 @@ export const ProcessingPanel = ({
             </p>
           )}
 
+          {kbPaused && <p className="text-xs text-muted-foreground">{kbPaused}</p>}
+
           {data === null ? (
             <p className="flex gap-2 items-center text-xs text-muted-foreground">
               <Loader2 className="w-3 h-3 animate-spin" />
@@ -430,7 +776,12 @@ export const ProcessingPanel = ({
           ) : data.runsUnavailable ? (
             <p className="text-xs text-warning">Recent checks could not be read just now.</p>
           ) : shownRun ? (
-            <RunDetails run={shownRun} />
+            <RunDetails
+              run={shownRun}
+              laterKbRun={hasLaterKbRun(shownRun, runs)}
+              kbParked={kbParked}
+              resumeWay={resumeWay}
+            />
           ) : (
             !importOnScreen &&
             !kbWork && (
@@ -445,6 +796,16 @@ export const ProcessingPanel = ({
                   <li key={run.id}>
                     Knowledge-base mining at {formatRunTime(run.startedAt)} is still going.
                   </li>
+                ) : isParkedByKbLimit(run, kbParked) ? (
+                  <li key={run.id}>
+                    Check at {formatRunTime(run.startedAt)} ({run.found.toLocaleString()} found):
+                    its knowledge-base processing is paused at the daily AI limit.
+                  </li>
+                ) : kbStateUnknownOf(run) ? (
+                  <li key={run.id} data-testid="older-kb-unknown">
+                    Check at {formatRunTime(run.startedAt)} ({run.found.toLocaleString()} found):{' '}
+                    {kbStateUnknownClause(run)}
+                  </li>
                 ) : (
                   <li key={run.id}>
                     Check at {formatRunTime(run.startedAt)} ({run.found.toLocaleString()} found) is
@@ -458,7 +819,13 @@ export const ProcessingPanel = ({
           {olderWithProblems.length > 0 && (
             <ul className="pt-2 space-y-0.5 text-[11px] border-t text-warning">
               {olderWithProblems.map((run) => (
-                <OlderProblem key={run.id} run={run} />
+                <OlderProblem
+                  key={run.id}
+                  run={run}
+                  laterKbRun={hasLaterKbRun(run, runs)}
+                  kbParked={kbParked}
+                  resumeWay={resumeWay}
+                />
               ))}
             </ul>
           )}
@@ -478,7 +845,7 @@ export const ProcessingPanel = ({
             />
           )}
 
-          {data && <RecentRuns runs={data.runs} />}
+          {data && <RecentRuns runs={data.runs} kbParked={kbParked} resumeWay={resumeWay} />}
         </div>
       )}
     </div>

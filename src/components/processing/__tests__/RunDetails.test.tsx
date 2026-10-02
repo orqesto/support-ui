@@ -3,11 +3,14 @@
  * Timing + linked replies) as sentences that stay true in every state a run can be in.
  */
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RunDetails } from '../RunDetails';
-import { makeRun } from './fixtures';
+import { makeKbRun, makeRun } from './fixtures';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 describe('RunDetails', () => {
   it('counts what the run found and saved, and duplicates as already in Odly', () => {
@@ -136,23 +139,15 @@ describe('RunDetails', () => {
   });
 
   describe('a knowledge-base mine (channel kb)', () => {
+    // makeKbRun: `stages.kb` follows the overridden kbThreadsDone, as the BE derives it — a
+    // "30 / 30" row beside "Read 12 of 30" was a screen the BE never sends (pass 17 follow-up).
     const kbRun = (over: Parameters<typeof makeRun>[0] = {}) =>
-      makeRun({
-        channel: 'kb',
+      makeKbRun({
         found: 120,
         saved: 0,
-        duplicates: null,
         kbThreads: 30,
         kbThreadsDone: 30,
         kbPairsSaved: 7,
-        kbEntries: { qaPairs: 7, documents: 0 },
-        stages: {
-          decided: { queued: 0, done: 0 },
-          analysis: { queued: 0, done: 0 },
-          embedding: { queued: 0, done: 0 },
-          kb: { queued: 30, done: 30 },
-          awaitingRouting: 0,
-        },
         ...over,
       });
 
@@ -214,6 +209,36 @@ describe('RunDetails', () => {
       render(<RunDetails run={kbRun({ outcome: 'error', problems: ['failed'] })} />);
       expect(screen.getByText(/The mine stopped on an error/)).toBeTruthy();
       expect(screen.queryByText(/The check stopped on an error/)).toBeNull();
+    });
+
+    it('a mine paused by the daily KB limit says why and when it resumes (pass 7 MED)', () => {
+      // Pinned (FE fix round 15): the resume is in the future of a fixed now, so the exact time
+      // and day are asserted, not whatever "now + 3 h" happens to be.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-09-30T18:00:00.000Z'));
+      const resumesAt = '2026-10-01T00:00:00.000Z';
+      render(
+        <RunDetails
+          run={kbRun({
+            outcome: 'paused',
+            stoppedBy: 'kb_token_limit',
+            resumesAt,
+            problems: ['paused'],
+            kbThreadsDone: 12,
+          })}
+        />
+      );
+      expect(screen.getByText('Paused')).toBeTruthy();
+      expect(
+        screen.getByText(
+          /Paused: today’s AI limit for KB processing was reached\. Mining resumes by itself after 00:00 UTC on 2026-10-01 \(\d\d:\d\d your time\)\./
+        )
+      ).toBeTruthy();
+    });
+
+    it('CONTROL: a finished mine carries no pause line', () => {
+      render(<RunDetails run={kbRun()} />);
+      expect(screen.queryByText(/AI limit for KB processing/)).toBeNull();
     });
   });
 });

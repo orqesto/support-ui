@@ -49,6 +49,16 @@ vi.mock('@/hooks/useStaleKbAlerts', () => ({
   KB_DOCUMENT_STALE_KIND: 'kb_document_stale',
 }));
 
+// The daily-token-limit hook polls /api/notifications on mount; unmocked, jsdom would send a
+// real request from every bell render here (audit F11).
+vi.mock('@/hooks/useTokenLimitAlerts', async () => {
+  const actual = await vi.importActual<Record<string, unknown>>('@/hooks/useTokenLimitAlerts');
+  return {
+    ...actual,
+    useTokenLimitAlerts: () => ({ alerts: [], badged: 0, dismiss: () => {}, refresh: () => {} }),
+  };
+});
+
 const { NotificationCenter } = await import('../NotificationCenter');
 
 // `sla` and `learning` arrive as PROPS, not hooks — the parent owns them.
@@ -68,7 +78,7 @@ const slaProp: CenterProps['sla'] = {
   fetchError: false,
   onlyAssignedToMe: false,
   setOnlyMine: vi.fn(),
-  clearAll: vi.fn(),
+  clearAll: () => Promise.resolve(),
   dismiss: vi.fn(),
   markRead: vi.fn(),
   markAllRead: vi.fn(),

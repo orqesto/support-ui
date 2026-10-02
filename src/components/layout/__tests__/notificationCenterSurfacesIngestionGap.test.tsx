@@ -14,8 +14,18 @@
  */
 import type { ComponentProps } from 'react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { act, render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import type { TokenLimitAlert } from '@/hooks/useTokenLimitAlerts';
+
+// The hooks left real (dark mailboxes, KB review) read /api/notifications on mount; unmocked,
+// jsdom sends real requests that fail into whichever test is still waiting (audit pass 8).
+vi.mock('@/lib/api-client', () => ({
+  apiClient: {
+    get: () => Promise.resolve({ data: { data: { notifications: [] } } }),
+    patch: () => Promise.resolve({ data: {} }),
+  },
+}));
 
 let gapAlerts: Array<Record<string, unknown>> = [];
 
@@ -53,6 +63,49 @@ vi.mock('@/hooks/useUnansweredOutboundAlerts', async () => {
   };
 });
 
+// The daily-token-limit hook polls /api/notifications on mount; unmocked, jsdom would send a
+// real request from every bell render here (audit F11).
+// `badged` is worked out by the hook's own rule (`isNoLongerInForce`), not handed in: a badge test
+// that supplies its own count proves nothing about which notices are badged (audit pass 8).
+let tokenLimitState: { alerts: TokenLimitAlert[] } = { alerts: [] };
+/** A KB limit notice in the hook's real shape (typed: a missing field fails type-check). */
+const makeLimitAlert = (over: Partial<TokenLimitAlert> = {}): TokenLimitAlert => ({
+  id: 77,
+  bucket: 'kb',
+  title: 'Daily AI limit for KB processing reached',
+  spent: 5_000_100,
+  limit: 5_000_000,
+  enforced: true,
+  resetsAt: '2099-01-01T00:00:00.000Z',
+  effect: null,
+  releasedAt: null,
+  checkedAt: null,
+  releasePartial: null,
+  releaseKind: null,
+  releaseCause: 'limit_setting',
+  ...over,
+});
+let tokenLimitRefreshes = 0;
+let tokenLimitDismissed: number[] = [];
+vi.mock('@/hooks/useTokenLimitAlerts', async () => {
+  const actual = await vi.importActual<{
+    isNoLongerInForce: (alert: TokenLimitAlert) => boolean;
+  }>('@/hooks/useTokenLimitAlerts');
+  return {
+    ...actual,
+    useTokenLimitAlerts: () => ({
+      ...tokenLimitState,
+      badged: tokenLimitState.alerts.filter((alert) => !actual.isNoLongerInForce(alert)).length,
+      dismiss: (id: number) => {
+        tokenLimitDismissed.push(id);
+      },
+      refresh: () => {
+        tokenLimitRefreshes += 1;
+      },
+    }),
+  };
+});
+
 const { NotificationCenter } = await import('../NotificationCenter');
 
 type CenterProps = ComponentProps<typeof NotificationCenter>;
@@ -64,7 +117,7 @@ const slaProp: CenterProps['sla'] = {
   fetchError: false,
   onlyAssignedToMe: false,
   setOnlyMine: vi.fn(),
-  clearAll: vi.fn(),
+  clearAll: () => Promise.resolve(),
   dismiss: vi.fn(),
   markRead: vi.fn(),
   markAllRead: vi.fn(),
@@ -105,6 +158,9 @@ const tacoGap = {
 
 beforeEach(() => {
   gapAlerts = [];
+  tokenLimitState = { alerts: [] };
+  tokenLimitRefreshes = 0;
+  tokenLimitDismissed = [];
 });
 afterEach(() => cleanup());
 
@@ -356,5 +412,175 @@ describe('Notification Center — ingestion gaps', () => {
     gapAlerts = [];
     open();
     expect(screen.queryByText(/Mail may be missing/)).toBeNull();
+  });
+});
+
+describe('Notification Center — daily AI limit notices on the badge (audit F3)', () => {
+  const limitAlert = (resetsAt: string) => makeLimitAlert({ resetsAt });
+  const badge = () => screen.getByRole('button', { name: 'Notifications' }).textContent;
+
+  it("an earlier day's notice is listed but not badged", () => {
+    tokenLimitState = { alerts: [limitAlert('2000-01-01T00:00:00.000Z')] };
+    open();
+    expect(badge()).toBe('');
+    expect(screen.getByText(/AI limit for KB processing was reached/)).toBeTruthy();
+  });
+
+  it("CONTROL: today's notice is listed and badged", () => {
+    tokenLimitState = { alerts: [limitAlert('2099-01-01T00:00:00.000Z')] };
+    open();
+    expect(badge()).toBe('1');
+    expect(screen.getByText(/AI limit for KB processing/)).toBeTruthy();
+  });
+});
+
+describe('Notification Center — Clear all and the limit notices (audit pass 8, F8-2)', () => {
+  it('re-reads the limit notices once dismiss-all has answered', async () => {
+    const sla = {
+      ...slaProp,
+      notifications: [
+        {
+          id: 501,
+          kind: 'sla_breach',
+          title: 'SLA breach',
+          message: 'First response overdue',
+          severity: 'warning',
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          details: {},
+        },
+      ],
+      total: 1,
+      unreadCount: 1,
+    } as unknown as CenterProps['sla'];
+    render(
+      <MemoryRouter>
+        <NotificationCenter sla={sla} learning={learningProp} />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getAllByRole('button')[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
+    await waitFor(() => expect(tokenLimitRefreshes).toBe(1));
+  });
+
+  it('does NOT re-read before dismiss-all answers (pass 9, deferred promise)', async () => {
+    let answer: () => void = () => {};
+    const sla = {
+      ...slaProp,
+      notifications: [
+        {
+          id: 502,
+          kind: 'sla_breach',
+          title: 'SLA breach',
+          message: 'First response overdue',
+          severity: 'warning',
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          details: {},
+        },
+      ],
+      total: 1,
+      unreadCount: 1,
+      clearAll: () => new Promise<void>((resolve) => (answer = resolve)),
+    } as unknown as CenterProps['sla'];
+    render(
+      <MemoryRouter>
+        <NotificationCenter sla={sla} learning={learningProp} />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getAllByRole('button')[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(tokenLimitRefreshes).toBe(0);
+    answer();
+    await waitFor(() => expect(tokenLimitRefreshes).toBe(1));
+  });
+
+  it('R8: never removes a limit notice — dismiss-all keeps it; only the re-read may change it', async () => {
+    tokenLimitState = {
+      alerts: [makeLimitAlert()],
+    };
+    const sla = {
+      ...slaProp,
+      notifications: [
+        {
+          id: 501,
+          kind: 'sla_breach',
+          title: 'SLA breach',
+          message: 'First response overdue',
+          severity: 'warning',
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          details: {},
+        },
+      ],
+      total: 1,
+      unreadCount: 1,
+    } as unknown as CenterProps['sla'];
+    render(
+      <MemoryRouter>
+        <NotificationCenter sla={sla} learning={learningProp} />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getAllByRole('button')[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
+    expect(screen.getByText('Daily AI limit for KB processing reached')).toBeTruthy();
+    await waitFor(() => expect(tokenLimitRefreshes).toBe(1));
+    expect(tokenLimitDismissed).toEqual([]);
+  });
+});
+
+describe('Notification Center — "Only mine"', () => {
+  it('on: never claims ONLY assigned alerts — unassigned workspace alerts show too (pass 11)', () => {
+    render(
+      <MemoryRouter>
+        <NotificationCenter sla={{ ...slaProp, onlyAssignedToMe: true }} learning={learningProp} />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getAllByRole('button')[0]);
+    const title = screen.getByRole('button', { name: 'Only mine' }).getAttribute('title') ?? '';
+    expect(title).not.toContain('only assigned');
+    expect(title).toContain(
+      'unassigned workspace alerts (AI limits, AI provider down, mail intake)'
+    );
+  });
+
+  it('CONTROL: off reads all org alerts', () => {
+    open();
+    expect(screen.getByRole('button', { name: 'Only mine' }).getAttribute('title')).toBe(
+      'Showing all org alerts'
+    );
+  });
+});
+
+describe('Notification Center — "+N more" under the SLA list (pass 12 NIT)', () => {
+  // `total` counts every kind the backend lists, AI-limit notices too, and Clear all keeps those
+  // (R8) — so the line never tells the reader Clear all dismisses all N.
+  it('says how many more are not listed, without promising Clear all dismisses them', () => {
+    const breach = {
+      id: 1,
+      entityId: 10,
+      type: 'message',
+      organizationId: 4,
+      severity: 'warning',
+      breachAmount: 5,
+      details: {},
+      createdAt: '2026-10-01T10:00:00.000Z',
+      receivedAt: 0,
+      isRead: false,
+    } as unknown as CenterProps['sla']['notifications'][number];
+    render(
+      <MemoryRouter>
+        <NotificationCenter
+          sla={{ ...slaProp, notifications: [breach], total: 4 }}
+          learning={learningProp}
+        />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getAllByRole('button')[0]);
+    expect(screen.getByText('+3 more not listed here')).toBeTruthy();
+    expect(screen.queryByText(/dismiss all/)).toBeNull();
   });
 });

@@ -10,6 +10,70 @@ import {
 export const PROCESSING_SUMMARY_POLL_MS = 15_000;
 
 /**
+ * How long a `resumeQueued: false` must persist, across polls, before it is passed on: the
+ * backend's two 15 s caches (the runs view and the resume-job scan) can answer "no resume queued"
+ * beside a pause a resume has just taken up, and every scheduled resume flashed "will not continue
+ * by itself" (FE audit pass 19, LOW). 45 s covers both caches; a mine that is really stuck is
+ * called so one poll later — never held back for longer than that.
+ */
+export const RESUME_QUEUED_CONFIRM_MS = 45_000;
+
+/**
+ * A sighting older than this is not trusted: the tab was hidden, or polls stopped, and what the
+ * backend answered in between was not seen — a `false` seen before a hide must not combine with
+ * one after it across an unseen `true` (FE audit pass 20, NIT). One missed poll is allowed, with
+ * room for a slow answer: two polls apart plus half a poll (pass 21, NIT — at exactly two polls,
+ * one failed poll and a 300 ms later answer restarted the wait).
+ */
+export const SIGHTING_GAP_MS = 2.5 * PROCESSING_SUMMARY_POLL_MS;
+
+/** What the hook last saw of one source, for the pause it was seen against. */
+export type ResumeQueuedSightings = Map<
+  number,
+  {
+    pause: string;
+    /** When `resumeQueued: false` was first seen in the current run of them; null: not now. */
+    since: number | null;
+    /** When this source was last answered for. */
+    lastSeen: number;
+  }
+>;
+
+/**
+ * What one poll passes on, per source: `resumeQueued: false` only once it has been seen on polls
+ * RESUME_QUEUED_CONFIRM_MS apart, against the same paused mine (`minePausedUntil`), with no other
+ * answer and no unseen stretch in between; until then null (not known — the pause keeps the phase
+ * of its time). Every other field is the backend's. Updates `sightings` in place.
+ */
+export const confirmResumeQueued = (
+  entries: ProcessingSummaryEntry[],
+  sightings: ResumeQueuedSightings,
+  now: number
+): ProcessingSummaryEntry[] => {
+  const seen = new Set<number>();
+  const confirmed = entries.map((entry) => {
+    seen.add(entry.sourceId);
+    // `resumeQueued` is about the paused MINE only (null when there is none), so its own pause is
+    // the one the sightings are kept against.
+    const pause = entry.minePausedUntil ?? '';
+    const before = sightings.get(entry.sourceId);
+    const same = before?.pause === pause && now - before.lastSeen <= SIGHTING_GAP_MS;
+    let out = entry;
+    let since: number | null = null;
+    if (entry.resumeQueued === false) {
+      since = same && before.since !== null ? before.since : now;
+      if (now - since < RESUME_QUEUED_CONFIRM_MS) out = { ...out, resumeQueued: null };
+    }
+    sightings.set(entry.sourceId, { pause, since, lastSeen: now });
+    return out;
+  });
+  for (const sourceId of [...sightings.keys()]) {
+    if (!seen.has(sourceId)) sightings.delete(sourceId);
+  }
+  return confirmed;
+};
+
+/**
  * The header indicator's numbers: per mail source, runs still in progress and problems wanting
  * attention. Polled every 15 s while the tab is visible (the backend caches each source's view
  * for 15 s). `refreshKey` asks again at once — the socket's run start and end move it, so the
@@ -26,10 +90,12 @@ export const useProcessingSummary = (organizationId: number | undefined, refresh
   const inFlight = useRef<number | undefined | null>(null);
   const refused = useRef(false);
   const scope = useRef(organizationId);
+  const sightings = useRef<ResumeQueuedSightings>(new Map());
 
   useEffect(() => {
     scope.current = organizationId;
     refused.current = false;
+    sightings.current = new Map();
     setEntries([]);
     setRefusedFor(null);
   }, [organizationId]);
@@ -41,7 +107,9 @@ export const useProcessingSummary = (organizationId: number | undefined, refresh
     try {
       const next = await importProgressService.summary();
       // An answer for a workspace we have since left is not this workspace's.
-      if (scope.current === askedFor) setEntries(next);
+      if (scope.current === askedFor) {
+        setEntries(confirmResumeQueued(next, sightings.current, Date.now()));
+      }
     } catch (error) {
       const status = isAxiosError(error) ? error.response?.status : undefined;
       if (status === 404 || status === 401 || status === 403) {

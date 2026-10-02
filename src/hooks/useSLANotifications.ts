@@ -95,6 +95,8 @@ const NON_SLA_BELL_KINDS = new Set([
   // KB merge proposals waiting for review (#873): no breach fields, own surface in
   // useKbReviewAlerts (the same hook as the capture reviews).
   'kb_consolidation_pending',
+  // A daily AI token limit reached: no breach fields, own surface in useTokenLimitAlerts.
+  'ai_token_limit_reached',
 ]);
 const isNonSlaBellKind = (kind: unknown): boolean =>
   typeof kind === 'string' && NON_SLA_BELL_KINDS.has(kind);
@@ -346,13 +348,18 @@ export const useSLANotifications = () => {
     // Keep id in seenSeverity so a re-broadcast doesn't re-add it
   }, []);
 
-  const clearAll = useCallback(() => {
-    apiClient.patch('/api/notifications/dismiss-all').catch(() => {});
+  // Settles once the server has answered, so a caller can re-read what dismiss-all touched.
+  const clearAll = useCallback((): Promise<void> => {
+    const done = apiClient
+      .patch('/api/notifications/dismiss-all')
+      .then(() => {})
+      .catch(() => {});
     // Don't clear seenSeverity — dismissed IDs must stay tracked so re-broadcast
     // socket events don't re-add them immediately after dismiss-all.
     setNotifications([]);
     setTotal(0);
     setUnreadCount(0);
+    return done;
   }, []);
 
   const markRead = useCallback((id: number) => {

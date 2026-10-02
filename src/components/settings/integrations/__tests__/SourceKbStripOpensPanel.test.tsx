@@ -9,7 +9,11 @@ import { useProcessingPanelStore } from '@/stores/processingPanelStore';
 /** Plain function, not a module-level vi.fn (see RecentRunsAndKbFailures.test). */
 let reprocess: () => Promise<unknown> = () => Promise.resolve({});
 vi.mock('@/services/kb.service', () => ({
-  kbService: { reprocessSource: () => reprocess() },
+  kbService: {
+    // The confirmation asks for a forecast; an older backend has none (rejects) — the strip copes.
+    getMiningForecast: () => Promise.reject(new Error('no forecast')),
+    reprocessSource: () => reprocess(),
+  },
 }));
 
 const { SourceKbStrip } = await import('../SourceKbStrip');

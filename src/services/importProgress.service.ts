@@ -8,13 +8,30 @@ import { apiClient } from '@/lib/api-client';
  */
 export type ImportStage = 'imported' | 'decided' | 'analysis' | 'embedding' | 'kb';
 
+export type UnknownEtaReason = 'listing_capped' | 'limit_unreadable' | 'pause_unknown';
+
 export type StageEta =
   | { state: 'done' }
   | { state: 'estimating' }
   /** Neither the 5- nor the 15-minute window finished anything; overall, it names the stage. */
   | { state: 'stalled'; stage?: ImportStage }
-  /** How much is left is not known (a capped listing counted past its floor). */
-  | { state: 'unknown' }
+  /**
+   * The finish is not known. `reason` (BE round 20): `listing_capped` — how much is left is not
+   * known (a capped listing counted past its floor); `limit_unreadable` — whether the daily AI
+   * (KB) limit holds the stage's work could not be read (`stage` names it, `kb`); `pause_unknown`
+   * (BE round 21) — the KB stage's own work is not moving, the KB limit is not over now, and the
+   * queue's KB jobs parked by the limit could not be read in full, so whether the limit holds that
+   * work is not known (`stage` `kb`; never finished, stalled or paused). Absent from an
+   * older backend, whose only unknown was a capped listing; a reason this build does not know is
+   * dropped by `normaliseImportProgress`, never guessed.
+   */
+  | { state: 'unknown'; reason?: UnknownEtaReason; stage?: ImportStage }
+  /**
+   * Work a daily AI token limit PARKED until `until` (ISO, the 00:00 UTC reset): it runs after the
+   * reset, so it is neither finished nor stalled. Per stage (`kb`) and overall. BE R16; an older
+   * backend never sends it.
+   */
+  | { state: 'paused'; stage?: ImportStage; until: string; resumeWindowEnd?: string }
   | {
       state: 'running';
       perMinute?: { short: number; long: number };
@@ -99,11 +116,34 @@ export type RunView = {
   kbEntries: { qaPairs: number; documents: number } | null;
   /** A KB mine's own progress: conversations to read, read so far, new Q&A pairs saved. */
   kbThreads?: number;
+  /** A mine the daily KB token limit paused: when it resumes (ISO). Absent otherwise. */
+  resumesAt?: string | null;
+  /**
+   * A KB-limit pause a later KB mine is carrying on NOW (support-service runsView, BE round 9): its
+   * `paused` problem is dropped (`failed` stays). Absent otherwise and from an older backend.
+   */
+  resumed?: true;
+  /**
+   * BE R17: a MAIL run whose only owed work is KB work the daily KB limit holds — held `until` the
+   * reset, due to wake by `resumeWindowEnd`. Such a run is not `stalled`. Absent otherwise.
+   */
+  kbLimitPause?: { until: string; resumeWindowEnd: string };
+  /**
+   * BE round 21: a MAIL run whose only owed work is KB work, ended over 30 min ago, where whether
+   * the daily KB limit holds that work is NOT KNOWN — `pause_unknown` (the queue's parked KB jobs
+   * could not be read in full) or `limit_unreadable` (the limit could not be read and none was
+   * found parked). Such a run is neither `stalled` nor paused and not a problem; the summary counts
+   * it in `kbStateUnknown`. Absent otherwise and from an older backend; an unknown reason is
+   * dropped by `normaliseImportProgress` (the field with it).
+   */
+  kbStateUnknown?: { reason: KbStateUnknownReason };
   kbThreadsDone?: number;
   kbPairsSaved?: number;
   /** Documents (from attachments) the mine saved; absent from a backend before it counted them. */
   kbDocumentsSaved?: number;
 };
+
+export type KbStateUnknownReason = 'pause_unknown' | 'limit_unreadable';
 
 export type KBMiningFailure = { conversationId: number; at: string; error: string };
 
@@ -148,11 +188,106 @@ export type ProcessingSummaryEntry = {
   unavailable: boolean;
   inProgress: number;
   problems: number;
+  /**
+   * The KB-limit pauses, counted apart from `problems` (which does not include them): the paused KB
+   * mine and the mail runs whose only owed work the KB limit holds (in neither `problems` nor
+   * `inProgress`). `pausedUntil`: the latest of their resume times (may be PAST for a stale
+   * record, and inside the wake window); `resumeWindowEnd`: the latest end of their wake window —
+   * the reset + 30 min, or for KB jobs found parked in the queue the latest one's due time —
+   * before it a pause is on schedule. Null: none recorded.
+   *
+   * Optional in the type, but `normaliseSummary` always sets every field below (0 / null from a
+   * backend from before the token limits, which never pauses anything).
+   */
+  pausedByLimit?: number;
+  pausedUntil?: string | null;
+  resumeWindowEnd?: string | null;
+  /** The paused mine's way back (null = no paused mine, or not known). */
+  resumeQueued?: boolean | null;
+  waitingForSlot?: boolean | null;
+  releaseQueuedAt?: string | null;
+  /**
+   * The paused KB MINE's own reset and wake-window end (null: no paused mine, or the source could
+   * not be read). `pausedUntil`/`resumeWindowEnd` are the latest over EVERY pause, so a stuck mine
+   * hid behind a held mail run whose pause is still ahead.
+   */
+  minePausedUntil?: string | null;
+  mineResumeWindowEnd?: string | null;
+  /**
+   * When a resume admitted the paused mine (non-null only while that admission is newer than the
+   * pause and the mine's running record has not replaced it) — the mine is starting.
+   */
+  resumeAdmittedAt?: string | null;
+  /**
+   * BE round 21: mail runs whose only owed KB work may be held by the daily KB limit and that
+   * cannot be told (`RunView.kbStateUnknown`) — in none of `inProgress`, `pausedByLimit` or
+   * `problems`. Always set by `normaliseSummary` (0 from a backend without it).
+   */
+  kbStateUnknown?: number;
   countCapped: boolean;
+};
+
+const UNKNOWN_REASONS: readonly string[] = ['listing_capped', 'limit_unreadable', 'pause_unknown'];
+const KB_STATE_UNKNOWN_REASONS: readonly string[] = ['pause_unknown', 'limit_unreadable'];
+const STAGES: readonly string[] = ['imported', 'decided', 'analysis', 'embedding', 'kb'];
+
+/**
+ * An `unknown` eta keeps only a reason (and stage) this build knows: absent stays absent, an
+ * unknown string is dropped (it then reads as an older backend's — a capped listing). Every other
+ * eta passes through unchanged.
+ */
+export const normaliseEta = (eta: StageEta): StageEta => {
+  if (!eta || typeof eta !== 'object' || eta.state !== 'unknown') return eta;
+  const raw = eta as Record<string, unknown>;
+  return {
+    state: 'unknown',
+    ...(typeof raw.reason === 'string' && UNKNOWN_REASONS.includes(raw.reason)
+      ? { reason: raw.reason as UnknownEtaReason }
+      : {}),
+    ...(typeof raw.stage === 'string' && STAGES.includes(raw.stage)
+      ? { stage: raw.stage as ImportStage }
+      : {}),
+  };
+};
+
+const normaliseProgress = (progress: unknown): unknown => {
+  if (!progress || typeof progress !== 'object') return progress;
+  const data = progress as Record<string, unknown>;
+  return {
+    ...data,
+    ...(data.eta ? { eta: normaliseEta(data.eta as StageEta) } : {}),
+    ...(Array.isArray(data.stages)
+      ? {
+          stages: (data.stages as unknown[]).map((stage) =>
+            stage && typeof stage === 'object' && (stage as StageProgress).eta
+              ? { ...stage, eta: normaliseEta((stage as StageProgress).eta) }
+              : stage
+          ),
+        }
+      : {}),
+  };
 };
 
 const numberOr = (value: unknown, fallback: number): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+
+const stringOrNull = (value: unknown): string | null => (typeof value === 'string' ? value : null);
+
+/**
+ * A mail run's `kbStateUnknown` is kept only with a reason this build knows: an unknown reason drops
+ * the field (never guessed into one of ours). Every other field passes through unchanged.
+ */
+const normaliseRun = (run: unknown): RunView => {
+  if (!run || typeof run !== 'object' || !('kbStateUnknown' in run)) return run as RunView;
+  const { kbStateUnknown, ...rest } = run as Record<string, unknown>;
+  const reason =
+    kbStateUnknown && typeof kbStateUnknown === 'object'
+      ? (kbStateUnknown as Record<string, unknown>).reason
+      : undefined;
+  return typeof reason === 'string' && KB_STATE_UNKNOWN_REASONS.includes(reason)
+    ? ({ ...rest, kbStateUnknown: { reason: reason as KbStateUnknownReason } } as RunView)
+    : (rest as RunView);
+};
 
 /**
  * A backend without the runs view (or a partial answer) must not white-screen the panel: every
@@ -161,7 +296,7 @@ const numberOr = (value: unknown, fallback: number): number =>
 export const normaliseImportProgress = (raw: unknown): ImportProgress => {
   const data = (raw ?? {}) as Record<string, unknown>;
   const runs: RunsFields = {
-    runs: Array.isArray(data.runs) ? (data.runs as RunView[]) : [],
+    runs: Array.isArray(data.runs) ? (data.runs as unknown[]).map(normaliseRun) : [],
     kbMiningFailures: Array.isArray(data.kbMiningFailures)
       ? (data.kbMiningFailures as KBMiningFailure[])
       : [],
@@ -170,11 +305,16 @@ export const normaliseImportProgress = (raw: unknown): ImportProgress => {
     runsUnavailable: data.runsUnavailable === true,
   };
   return data.tracked === true
-    ? ({ ...data, ...runs, tracked: true } as ImportProgress)
+    ? ({
+        ...data,
+        ...('progress' in data ? { progress: normaliseProgress(data.progress) } : {}),
+        ...runs,
+        tracked: true,
+      } as ImportProgress)
     : { ...runs, tracked: false };
 };
 
-const normaliseSummary = (raw: unknown): ProcessingSummaryEntry[] =>
+export const normaliseSummary = (raw: unknown): ProcessingSummaryEntry[] =>
   (Array.isArray(raw) ? raw : [])
     .filter((entry): entry is Record<string, unknown> => typeof entry === 'object' && !!entry)
     .filter((entry) => typeof entry.sourceId === 'number')
@@ -185,6 +325,20 @@ const normaliseSummary = (raw: unknown): ProcessingSummaryEntry[] =>
       unavailable: entry.unavailable === true,
       inProgress: numberOr(entry.inProgress, 0),
       problems: numberOr(entry.problems, 0),
+      // The KB-limit pause fields: the current backend sends every one on every entry; a backend
+      // from before the token limits sends none (nothing is ever paused there) — read as nothing
+      // paused and nothing known, never guessed. A non-answer is null (not known).
+      pausedByLimit: numberOr(entry.pausedByLimit, 0),
+      pausedUntil: stringOrNull(entry.pausedUntil),
+      resumeWindowEnd: stringOrNull(entry.resumeWindowEnd),
+      resumeQueued: typeof entry.resumeQueued === 'boolean' ? entry.resumeQueued : null,
+      waitingForSlot: typeof entry.waitingForSlot === 'boolean' ? entry.waitingForSlot : null,
+      releaseQueuedAt: stringOrNull(entry.releaseQueuedAt),
+      minePausedUntil: stringOrNull(entry.minePausedUntil),
+      mineResumeWindowEnd: stringOrNull(entry.mineResumeWindowEnd),
+      resumeAdmittedAt: stringOrNull(entry.resumeAdmittedAt),
+      // BE round 21; absent from an older backend (which never says "not known") ⇒ 0.
+      kbStateUnknown: numberOr(entry.kbStateUnknown, 0),
       countCapped: entry.countCapped === true,
     }));
 

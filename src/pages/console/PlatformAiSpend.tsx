@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Coins } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -13,6 +13,9 @@ import {
   type ManagedAiTierStat,
 } from '@/services/managedAiUsage.service';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { nextUtcMidnight } from '@/lib/utcClock';
+import { TokenLimitsCard } from './TokenLimitsCard';
+import { WorkspaceLimitCell, WorkspaceTokenLimitsDialog } from './WorkspaceTokenLimits';
 
 const RANGES = [7, 30, 90] as const;
 
@@ -83,6 +86,9 @@ const CallCap = ({ calls, via }: { calls: ManagedAiOrgUsage['calls']; via?: Mana
   // The monthly cap governs the PLATFORM key; on its own key a workspace has none — that is
   // not "unknown", and saying so would send someone looking for a missing number.
   if (!calls && via === 'own_key') return <span className="text-muted-foreground">own key · no cap</span>;
+  // Listed only for its limit override: nothing ran in the range, so no cap was read for it.
+  if (!calls && via === 'no_usage')
+    return <span className="text-muted-foreground">not read · no usage</span>;
   if (!calls) return <span className="text-muted-foreground">unknown</span>;
   const pct = calls.limit > 0 ? Math.min(100, Math.round((calls.used / calls.limit) * 100)) : 0;
   const tone = pct >= 90 ? 'bg-destructive' : pct >= 75 ? 'bg-warning' : 'bg-primary';
@@ -108,13 +114,34 @@ const CallCap = ({ calls, via }: { calls: ManagedAiOrgUsage['calls']; via?: Mana
  */
 export const PlatformAiSpend = () => {
   const [days, setDays] = useState<number>(30);
+  const [limitsFor, setLimitsFor] = useState<number | null>(null);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isPlaceholderData, error } = useQuery({
     queryKey: ['platform-managed-ai-usage', days],
     queryFn: () => managedAiUsageService.get(days),
+    // Switching the range keeps the page (and a limits edit or dialog in progress) on screen
+    // instead of unmounting it while the new range loads (FE audit pass 8, LOW).
+    placeholderData: keepPreviousData,
+    // "Today" is a UTC day: read again just after 00:00 UTC, so yesterday's spend is not shown
+    // as today's against the limits (FE audit pass 8, NIT).
+    refetchInterval: () =>
+      Math.max(1_000, new Date(nextUtcMidnight()).getTime() - Date.now() + 5_000),
+    // A once-a-day read, so cheap in the background too: a tab hidden over 00:00 UTC would
+    // otherwise show yesterday as today when it is shown again (FE audit pass 9, LOW).
+    refetchIntervalInBackground: true,
   });
 
   const usage = data?.usage;
+  // The split limits arrive with a newer backend; an older one keeps the single-ceiling tile.
+  const hasBudgets = Boolean(usage?.totals.tokenBudgets);
+  const limitsOrg = usage?.orgs.find((org) => org.organizationId === limitsFor);
+  // The open dialog's workspace dropped out of the answer (e.g. listed only for its override while
+  // the stored limits are unreadable): the dialog unmounted without onClose, and came back by
+  // itself once the workspace was listed again (FE audit pass 19, NIT). It is closed instead.
+  const limitsShown = Boolean(limitsOrg?.tokenBudget && usage?.totals.tokenBudgets);
+  useEffect(() => {
+    if (limitsFor !== null && usage && !limitsShown) setLimitsFor(null);
+  }, [limitsFor, usage, limitsShown]);
   const totalTokens = usage?.totals.byTier.reduce((sum, tier) => sum + tier.totalTokens, 0) ?? 0;
   // The all-spend split. `split` is false on an older backend (managed mode only) — every label
   // below keeps that backend's wording then, because it genuinely could not see the rest.
@@ -123,6 +150,8 @@ export const PlatformAiSpend = () => {
     (usage?.totals.managedOrgCount ?? 0) +
     (usage?.totals.defaultKeyOrgCount ?? 0) +
     (usage?.totals.ownKeyOrgCount ?? 0);
+  // Listed only for a token-limit override, with no usage in the range: in none of the counts above.
+  const noUsageCount = usage?.orgs.filter((org) => org.via === 'no_usage').length ?? 0;
   const totalRequests = usage?.totals.byTier.reduce((sum, tier) => sum + tier.requests, 0) ?? 0;
   /**
    * The backend now prices per MODEL and reports the rollup, because a per-tier rate
@@ -254,6 +283,9 @@ export const PlatformAiSpend = () => {
       )}
 
       {isLoading && <ConsoleLoading />}
+      {isPlaceholderData && (
+        <p className="text-xs text-muted-foreground">Loading the last {days} days…</p>
+      )}
 
       {usage && (
         <>
@@ -327,10 +359,14 @@ export const PlatformAiSpend = () => {
                   <span className="text-xs text-muted-foreground">
                     {usage.totals.managedOrgCount} managed · {usage.totals.defaultKeyOrgCount ?? 0}{' '}
                     platform key via settings · {usage.totals.ownKeyOrgCount} own key
+                    {noUsageCount > 0 && ` · ${noUsageCount} listed for a limit, no usage`}
                   </span>
                 )}
               </CardContent>
             </Card>
+            {usage.totals.tokenBudgets ? (
+              <TokenLimitsCard budgets={usage.totals.tokenBudgets} />
+            ) : (
             <Card>
               <CardContent className="flex flex-col gap-1 p-4">
                 <span className="text-xs text-muted-foreground">Daily token ceiling</span>
@@ -354,6 +390,7 @@ export const PlatformAiSpend = () => {
                 </span>
               </CardContent>
             </Card>
+            )}
           </div>
 
           <Card className="flex overflow-hidden flex-col flex-1 min-h-0">
@@ -382,6 +419,7 @@ export const PlatformAiSpend = () => {
                           {TIER_LABEL[tier]}
                         </th>
                       ))}
+                      {hasBudgets && <th className="px-3 py-2 font-medium">Today vs limits</th>}
                       <th className="px-3 py-2 font-medium">
                         Monthly cap
                         {capMonth && (
@@ -400,16 +438,24 @@ export const PlatformAiSpend = () => {
                           <span className="ml-2 text-xs text-muted-foreground">
                             #{org.organizationId}
                           </span>
-                          {(org.via === 'default_key' || org.via === 'own_key') && (
+                          {(org.via === 'default_key' ||
+                            org.via === 'own_key' ||
+                            org.via === 'no_usage') && (
                             <span
                               title={
-                                org.via === 'own_key'
-                                  ? 'Ran on the workspace\'s own AI key — not billed to the platform key.'
-                                  : 'Not in managed mode: its own AI settings hold the platform key, so this spend bills the platform. Counted from the release that started recording it.'
+                                org.via === 'no_usage'
+                                  ? 'Listed for its own daily token limits — no AI usage in this range, so no key paid for anything.'
+                                  : org.via === 'own_key'
+                                    ? "Ran on the workspace's own AI key — not billed to the platform key."
+                                    : 'Not in managed mode: its own AI settings hold the platform key, so this spend bills the platform. Counted from the release that started recording it.'
                               }
                               className="ml-2 rounded px-1 py-0.5 text-[10px] font-semibold uppercase tracking-[0.09em] bg-muted text-muted-foreground"
                             >
-                              {org.via === 'own_key' ? 'own key' : 'platform key via settings'}
+                              {org.via === 'no_usage'
+                                ? 'no usage'
+                                : org.via === 'own_key'
+                                  ? 'own key'
+                                  : 'platform key via settings'}
                             </span>
                           )}
                         </td>
@@ -429,6 +475,19 @@ export const PlatformAiSpend = () => {
                             {formatTokens(tokensFor(org, tier))}
                           </td>
                         ))}
+                        {hasBudgets && (
+                          <td className="px-3 py-2">
+                            {org.tokenBudget && (
+                              <WorkspaceLimitCell
+                                budget={org.tokenBudget}
+                                settingsUnreadable={
+                                  usage.totals.tokenBudgets?.settingsLookupFailed === true
+                                }
+                                onOpen={() => setLimitsFor(org.organizationId)}
+                              />
+                            )}
+                          </td>
+                        )}
                         <td className="px-3 py-2">
                           <CallCap calls={org.calls} via={org.via} />
                         </td>
@@ -506,6 +565,20 @@ export const PlatformAiSpend = () => {
             </Card>
           )}
         </>
+      )}
+      {limitsOrg?.tokenBudget && usage?.totals.tokenBudgets && (
+        <WorkspaceTokenLimitsDialog
+          key={limitsOrg.organizationId}
+          organizationId={limitsOrg.organizationId}
+          name={limitsOrg.name}
+          budget={limitsOrg.tokenBudget}
+          budgets={usage.totals.tokenBudgets}
+          // Only THIS workspace's dialog: a save that finishes after it was closed must not close
+          // another workspace's dialog opened since (FE audit pass 8, LOW).
+          onClose={() =>
+            setLimitsFor((current) => (current === limitsOrg.organizationId ? null : current))
+          }
+        />
       )}
     </div>
   );
