@@ -11,6 +11,7 @@ import { Turnstile } from '@/components/common/Turnstile';
 import type { TurnstileInstance } from '@marsidev/react-turnstile';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/stores/authStore';
+import { readPendingSignup, writePendingSignup } from '@/lib/pendingSignup';
 
 // Mirror the BE password policy for instant UX feedback (BE re-enforces): at
 // least 8 chars, one uppercase letter, one digit.
@@ -32,9 +33,9 @@ const PRESELECTABLE_PLANS: Record<string, string> = {
 
 /**
  * Read the preselected plan once, at mount. Read here rather than in the wizard
- * because this URL does not survive the handoff: signup navigates to /dashboard
- * and Layout then redirects to /onboarding with `replace: true`, dropping the
- * query string. We send it to the BE instead, which stores it on the org so the
+ * because this URL does not survive the handoff: the user reaches the wizard
+ * later, from the emailed link (or, on a BE from before verify-first, via
+ * /dashboard → /onboarding with `replace: true`), so the query string is gone. We send it to the BE instead, which stores it on the org so the
  * wizard can read it back from the onboarding status it already fetches.
  */
 const readPreselectedPlan = (): string | undefined => {
@@ -51,8 +52,9 @@ const readPreselectedPlan = (): string | undefined => {
  * as before, so this page works whichever side deploys first.
  */
 export const CreateWorkspacePage = () => {
+  const [restored] = useState(readPendingSignup);
   const [formData, setFormData] = useState({
-    workspaceName: '',
+    workspaceName: restored?.workspaceName ?? '',
     firstName: '',
     lastName: '',
     email: '',
@@ -65,13 +67,24 @@ export const CreateWorkspacePage = () => {
   const turnstileRef = useRef<TurnstileInstance>(null);
   const [selectedPlan] = useState<string | undefined>(readPreselectedPlan);
   // Set once signup succeeds and the BE wants the address verified first.
-  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [sentTo, setSentTo] = useState<string | null>(restored?.email ?? null);
+  // When the same-browser cookie was last (re)issued: signup, resend and correction renew it.
+  const [renewedAt, setRenewedAt] = useState<number>(restored?.renewedAt ?? 0);
   // False when the BE could not send the mail (it still created the workspace).
-  const [mailLeft, setMailLeft] = useState(true);
+  const [mailLeft, setMailLeft] = useState(restored?.mailLeft ?? true);
+  // From the BE, never a literal here: null on deployments that never remove a signup.
+  const [removedAfterDays, setRemovedAfterDays] = useState<number | null>(
+    restored?.removedAfterDays ?? null
+  );
   const [resendState, setResendState] = useState<
     'idle' | 'sending' | 'sent' | 'failed' | 'verified'
   >('idle');
   const [pendingNotice, setPendingNotice] = useState('');
+  // Set when nothing in this tab can continue (see classifyPendingFailure): the end screen.
+  const [ended, setEnded] = useState<{ message: string; canSignIn: boolean } | null>(null);
+  // Bumped whenever the screen a request was made for is abandoned (start-over, a new signup): a
+  // late answer for the old screen must not land on the new one.
+  const generation = useRef(0);
   const [editingEmail, setEditingEmail] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [changeError, setChangeError] = useState('');
@@ -130,8 +143,18 @@ export const CreateWorkspacePage = () => {
       });
 
       if (response.success && response.data?.verificationRequired) {
+        // A new waiting screen: nothing from an earlier one (a late answer, a notice, an end
+        // screen, an open correction) may carry over.
+        generation.current += 1;
+        setEnded(null);
+        setResendState('idle');
+        setPendingNotice('');
+        setEditingEmail(false);
+        setChangeError('');
         setSentTo(response.data.email);
         setMailLeft(response.data.emailSent !== false);
+        setRemovedAfterDays(response.data.abandonedAfterDays ?? null);
+        setRenewedAt(Date.now());
         return;
       }
 
@@ -168,59 +191,226 @@ export const CreateWorkspacePage = () => {
     }
   };
 
+  const isVerifiedScreen = resendState === 'verified';
+  const isEndedScreen = ended !== null;
+  const requestInFlight = isChanging || resendState === 'sending';
+
+  // Keep the waiting screen across a reload while it means something; drop it once it does not.
+  useEffect(() => {
+    if (sentTo && !isVerifiedScreen && !isEndedScreen) {
+      writePendingSignup({
+        email: sentTo,
+        mailLeft,
+        removedAfterDays,
+        workspaceName: formData.workspaceName,
+        renewedAt,
+      });
+    } else {
+      writePendingSignup(null);
+    }
+  }, [
+    sentTo,
+    isVerifiedScreen,
+    isEndedScreen,
+    mailLeft,
+    removedAfterDays,
+    formData.workspaceName,
+    renewedAt,
+  ]);
+
   // The screen swaps under the user; move focus to its heading so keyboard and screen-reader
-  // users land on "Check your inbox" rather than on a button that no longer exists.
+  // users land on the new heading rather than on a button that no longer exists.
   useEffect(() => {
     if (sentTo) inboxHeadingRef.current?.focus();
-  }, [sentTo]);
+  }, [sentTo, isVerifiedScreen, isEndedScreen]);
 
-  /** "already verified" (409) is not a failure: the address is done, the user signs in. */
-  const pendingFailureMessage = (err: unknown, fallback: string) => {
+  /**
+   * Every failure of resend / correction is one of three outcomes, decided in ONE place so the two
+   * buttons cannot disagree:
+   * - verified: the address was verified meanwhile — the verified screen;
+   * - ended: nothing in this tab can continue (the signup is gone — 404; this browser no longer
+   *   holds it — 401; a newer signup in this browser took over its cookie — 409 "newer") — the
+   *   end screen, and the saved waiting screen is forgotten;
+   * - retry: anything else (address taken, invalid, rate-limited with its real wait, a network
+   *   error) — the message, and the waiting screen stays.
+   */
+  type PendingFailure =
+    | { kind: 'verified' }
+    | { kind: 'ended'; message: string; canSignIn: boolean }
+    | { kind: 'retry'; message: string };
+  const classifyPendingFailure = (err: unknown, fallback: string): PendingFailure => {
     const failure = err as { status?: number; data?: { error?: string } } | null;
-    // 429 carries the real wait (the limiter is per hour) — never invent a shorter one.
-    if ([400, 409, 429].includes(failure?.status ?? 0)) return failure?.data?.error ?? fallback;
-    if (failure?.status === 401) {
-      return 'This browser no longer holds your sign-up. Sign in — the login page can resend the email.';
+    const text = failure?.data?.error ?? '';
+    if (failure?.status === 409 && /already verified/i.test(text)) return { kind: 'verified' };
+    if (failure?.status === 404) {
+      // The account is gone too: signing in cannot work, so it is not offered.
+      return {
+        kind: 'ended',
+        message: text || 'This sign-up no longer exists. Please sign up again.',
+        canSignIn: false,
+      };
     }
-    return fallback;
+    if (failure?.status === 401) {
+      // This browser no longer holds the signup's cookie. The usual reason is the good one: the
+      // link was opened (in another tab), which verified the address and signed this browser in.
+      return {
+        kind: 'ended',
+        message:
+          'This sign-up is no longer waiting in this browser. If you opened the link, your email is verified — sign in to continue. If not, the login page can send the email again.',
+        canSignIn: true,
+      };
+    }
+    if (failure?.status === 409 && /newer sign-up/i.test(text)) {
+      return { kind: 'ended', message: text, canSignIn: true };
+    }
+    // 429 carries the real wait (the limiter is per hour) — never invent a shorter one.
+    if ([400, 409, 429].includes(failure?.status ?? 0)) {
+      return { kind: 'retry', message: text || fallback };
+    }
+    return { kind: 'retry', message: fallback };
   };
 
   const handleResend = async () => {
+    if (!sentTo) return;
+    const asked = generation.current;
     setResendState('sending');
     setPendingNotice('');
     try {
-      const response = await authService.resendPendingSignup();
+      const response = await authService.resendPendingSignup(sentTo);
+      if (generation.current !== asked) return;
       if (response.data) {
         setSentTo(response.data.email);
         setMailLeft(response.data.emailSent);
+        setRenewedAt(Date.now());
       }
       setResendState(response.data?.emailSent === false ? 'failed' : 'sent');
     } catch (err) {
-      const verified = (err as { status?: number } | null)?.status === 409;
-      setResendState(verified ? 'verified' : 'failed');
-      setPendingNotice(pendingFailureMessage(err, ''));
+      if (generation.current !== asked) return;
+      const outcome = classifyPendingFailure(err, '');
+      if (outcome.kind === 'verified') {
+        setResendState('verified');
+      } else if (outcome.kind === 'ended') {
+        setResendState('idle');
+        setEnded({ message: outcome.message, canSignIn: outcome.canSignIn });
+      } else {
+        setResendState('failed');
+        setPendingNotice(outcome.message);
+      }
     }
   };
 
   const handleChangeEmail = async (event: FormEvent) => {
     event.preventDefault();
     setChangeError('');
+    if (!sentTo) return;
+    // The generation this request owns; a successful change moves it on (below).
+    let owned = generation.current;
     setIsChanging(true);
     try {
-      const response = await authService.changePendingSignupEmail(newEmail.trim());
+      const response = await authService.changePendingSignupEmail(newEmail.trim(), sentTo);
+      if (generation.current !== owned) return;
+      // The screen now stands for the corrected address: an answer still in flight for the old
+      // one (a resend) must not land on it.
+      generation.current += 1;
+      owned = generation.current;
       if (response.data) {
         setSentTo(response.data.email);
         setMailLeft(response.data.emailSent);
+        setRenewedAt(Date.now());
       }
       setEditingEmail(false);
       setResendState('idle');
       setPendingNotice('');
     } catch (err) {
-      setChangeError(pendingFailureMessage(err, 'Could not change the address. Please try again.'));
+      if (generation.current !== owned) return;
+      const outcome = classifyPendingFailure(
+        err,
+        'Could not change the address. Please try again.'
+      );
+      if (outcome.kind === 'retry') {
+        setChangeError(outcome.message);
+      } else {
+        setEditingEmail(false);
+        if (outcome.kind === 'verified') setResendState('verified');
+        else setEnded({ message: outcome.message, canSignIn: outcome.canSignIn });
+      }
     } finally {
-      setIsChanging(false);
+      // An abandoned correction must not switch off a newer one's spinner.
+      if (generation.current === owned) setIsChanging(false);
     }
   };
+
+  const startOver = () => {
+    // The persistence effect forgets the waiting screen once there is no address. The form
+    // starts empty (the old signup still holds its name and address) with a fresh captcha (the
+    // old token was spent).
+    generation.current += 1;
+    setSentTo(null);
+    setEnded(null);
+    setEditingEmail(false);
+    setChangeError('');
+    setIsChanging(false);
+    setResendState('idle');
+    setPendingNotice('');
+    setFormData({ workspaceName: '', firstName: '', lastName: '', email: '', password: '' });
+    resetCaptcha();
+  };
+
+  // Nothing in this tab can continue: say why, and offer only what can work.
+  if (sentTo && ended) {
+    return (
+      <div className="flex justify-center items-center px-4 min-h-screen bg-background">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <div ref={inboxHeadingRef} tabIndex={-1} className="outline-none">
+              <CardTitle className="text-2xl">This sign-up can&apos;t continue here</CardTitle>
+            </div>
+            <CardDescription>{ended.message}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {ended.canSignIn && (
+              <Button className="w-full" onClick={() => navigate('/login')}>
+                Sign in
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant={ended.canSignIn ? 'ghost' : 'primary'}
+              className="w-full"
+              onClick={startOver}
+            >
+              Start a different sign-up
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Verified meanwhile (another tab, another device): nothing on the waiting screen is true any
+  // more — no inbox to check, no link to resend — so it gives way to the one thing left to do.
+  if (sentTo && resendState === 'verified') {
+    return (
+      <div className="flex justify-center items-center px-4 min-h-screen bg-background">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <div ref={inboxHeadingRef} tabIndex={-1} className="outline-none">
+              <CardTitle className="text-2xl">Already verified</CardTitle>
+            </div>
+            <CardDescription>
+              <span className="font-medium text-foreground break-all">{sentTo}</span> is verified.
+              Sign in to continue setting up {formData.workspaceName.trim() || 'your workspace'}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button className="w-full" onClick={() => navigate('/login')}>
+              Sign in
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (sentTo) {
     return (
@@ -234,7 +424,9 @@ export const CreateWorkspacePage = () => {
               </CardTitle>
             </div>
             <CardDescription>
-              {mailLeft ? 'We sent a verification link to ' : 'Your workspace is ready, but the link to '}
+              {mailLeft
+                ? 'We sent a verification link to '
+                : 'Your workspace is ready, but the link to '}
               <span className="font-medium text-foreground break-all">{sentTo}</span>
               {mailLeft
                 ? `. Open it in this browser to set up ${formData.workspaceName.trim() || 'your workspace'}.`
@@ -242,22 +434,23 @@ export const CreateWorkspacePage = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              The link works for 24 hours, and each new email replaces the previous link — use the
-              newest one. Opened on another device, it verifies your email and asks you to sign in.
-            </p>
+            {mailLeft && (
+              <p className="text-sm text-muted-foreground">
+                The link works for 24 hours, and each new email replaces the previous link — use the
+                newest one. Opened on another device, it verifies your email and asks you to sign
+                in.
+              </p>
+            )}
+            {/* Every state: the cleanup applies whether or not a mail went out — where it runs at all. */}
+            {removedAfterDays !== null && (
+              <p className="text-sm text-muted-foreground">
+                A sign-up that is not verified within {removedAfterDays} days is removed, and its
+                workspace name becomes available again.
+              </p>
+            )}
             {resendState === 'sent' && (
               <Alert variant="success">
-                Sent again. Check your spam folder if it does not arrive in a few minutes.
-              </Alert>
-            )}
-            {resendState === 'verified' && (
-              <Alert variant="info">
-                This email is already verified.{' '}
-                <Link to="/login" className="font-medium underline">
-                  Sign in
-                </Link>
-                .
+                Sent. Check your spam folder if it does not arrive in a few minutes.
               </Alert>
             )}
             {resendState === 'failed' && (
@@ -270,6 +463,9 @@ export const CreateWorkspacePage = () => {
               variant="outline"
               className="w-full"
               isLoading={resendState === 'sending'}
+              // One request at a time, its own included: Button's `disabled ?? isLoading` means an
+              // explicit value REPLACES the spinner's lock, so it must cover both requests.
+              disabled={requestInFlight}
               onClick={() => void handleResend()}
             >
               Resend email
@@ -286,12 +482,19 @@ export const CreateWorkspacePage = () => {
                 />
                 {changeError && <Alert variant="danger">{changeError}</Alert>}
                 <div className="flex gap-2">
-                  <Button type="submit" className="flex-1" isLoading={isChanging}>
+                  <Button
+                    type="submit"
+                    className="flex-1"
+                    isLoading={isChanging}
+                    disabled={requestInFlight}
+                  >
                     Send to this address
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
+                    // A correction in flight lands anyway; closing the form under it would hide it.
+                    disabled={isChanging}
                     onClick={() => {
                       setEditingEmail(false);
                       setChangeError('');
@@ -308,12 +511,16 @@ export const CreateWorkspacePage = () => {
                 className="w-full"
                 onClick={() => {
                   setNewEmail(sentTo);
+                  setChangeError('');
                   setEditingEmail(true);
                 }}
               >
                 Wrong address? Change it
               </Button>
             )}
+            <Button type="button" variant="ghost" className="w-full" onClick={startOver}>
+              Start a different sign-up
+            </Button>
             <div className="text-sm text-center text-muted-foreground">
               Already verified?{' '}
               <Link to="/login" className="font-medium text-primary hover:underline">
