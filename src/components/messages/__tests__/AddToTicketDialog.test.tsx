@@ -208,4 +208,48 @@ describe('AddToTicketDialog', () => {
     expect(screen.getByText('AB result')).toBeInTheDocument();
     expect(screen.getByRole('dialog')).not.toHaveTextContent(/boom|Could not search tickets/);
   });
+
+  it('an older search landing AFTER a newer one does not overwrite the newer list', async () => {
+    // Mutation batch: `if (seq !== searchSeq.current) return;` forced off let the slow "a" reply
+    // replace the "ab" list the agent is looking at.
+    let resolveA: (value: unknown) => void = () => {};
+    getAll.mockImplementation((filters?: { search?: string }) => {
+      if (filters?.search === 'a')
+        return new Promise((resolve) => {
+          resolveA = resolve;
+        });
+      if (filters?.search === 'ab')
+        return Promise.resolve({ data: [{ id: 31, title: 'AB result', status: 'open' }] });
+      return Promise.resolve({ data: [{ id: 9, title: 'Default list', status: 'open' }] });
+    });
+    renderPicker();
+    await openPicker();
+    await screen.findByText('Default list');
+    const box = screen.getByPlaceholderText(/Search tickets/);
+    await userEvent.type(box, 'a');
+    await waitFor(() => expect(getAll).toHaveBeenCalledWith({ search: 'a' }, 1, 20));
+    await userEvent.type(box, 'b');
+    expect(await screen.findByText('AB result')).toBeInTheDocument();
+    act(() => resolveA({ data: [{ id: 30, title: 'A result', status: 'open' }] }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.getByText('AB result')).toBeInTheDocument();
+    expect(screen.queryByText('A result')).not.toBeInTheDocument();
+  });
+
+  it('a failed add says so inside the picker, which stays open for another try', async () => {
+    addThreads.mockRejectedValue(new Error('boom'));
+    renderPicker();
+    await openPicker();
+    const addButton = await screen.findByRole('button', { name: /^Add$/ });
+    await userEvent.click(addButton);
+    await waitFor(() => expect(addThreads).toHaveBeenCalledWith(9, [11]));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() =>
+      expect(dialog).toHaveTextContent(/boom|This thread could not be added to that ticket/)
+    );
+    // Not closed, nothing reported as added, and the button is usable again (busy cleared).
+    expect(onAdded).not.toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    expect(screen.getByRole('button', { name: /^Add$/ })).toBeEnabled();
+  });
 });
