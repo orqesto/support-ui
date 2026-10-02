@@ -61,7 +61,8 @@ export const extractImageFiles = (dt: DataTransfer | null): File[] => {
 };
 
 export type RichTextEditorHandle = {
-  focus: () => void;
+  /** `'end'` puts the caret after the last character (text just appended); omitted, unchanged. */
+  focus: (position?: 'end') => void;
   /**
    * Insert content at the current cursor position. Accepts plain text OR an
    * HTML fragment — tiptap will parse strings with tags as HTML. Used by
@@ -170,9 +171,10 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
 
     // Expose imperative handles to parent (focus + token/template insertion)
     useImperativeHandle(ref, () => ({
-      focus: () => {
+      focus: (position?: 'end') => {
         setIsExpanded(true);
-        editor?.commands.focus();
+        if (position) editor?.commands.focus(position);
+        else editor?.commands.focus();
       },
       insertText: (text: string) => {
         setIsExpanded(true);

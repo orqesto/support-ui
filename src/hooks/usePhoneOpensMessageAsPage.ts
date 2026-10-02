@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useIsPhone } from '@/components/messages/useIsPhone';
 
 /**
  * Below the `sm` breakpoint the message detail is a PAGE (`/messages/:id`), not the slide-in
@@ -21,13 +21,13 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
  * ⛔ `clearSelection` must drop the `?id=` param with `replace`, not push: otherwise Back from
  * the page lands on `/messages?id=…`, which re-selects the message, which redirects again.
  */
-export const PHONE_QUERY = '(max-width: 639px)';
-
 export const usePhoneOpensMessageAsPage = (
   selectedMessage: { id: number } | null,
   clearSelection: () => void
 ): boolean => {
-  const isPhone = useMediaQuery(PHONE_QUERY);
+  // The detail's own hook — ONE query (Tailwind's `max-sm:`), so a fractional width cannot get
+  // the slide-over here and the phone layout there.
+  const isPhone = useIsPhone();
   const navigate = useNavigate();
   // The callback closes over page state and changes identity every render; the effect must
   // key on the SELECTION, not on the callback.

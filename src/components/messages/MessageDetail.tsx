@@ -3,7 +3,11 @@
 // wiring out is the natural follow-up refactor.
 /* eslint-disable max-lines */
 import { Fragment, useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useAiRecordNote } from './useAiRecordNote';
+import { RecordInsertTargetContext, useAiRecordNote, type AddOutcome } from './useAiRecordNote';
+import { appendReplyParagraph, replyHasSentence } from './customApiRecordNote';
+import { useAiConfigured } from '@/hooks/useAiConfigured';
+import { usePhoneDetailScroll } from './usePhoneDetailScroll';
+import { useCustomApiLookupAvailability } from '@/hooks/useCustomApiLookup';
 import { draftToRecipients, emptyRecipientDraft, type RecipientDraft } from './RecipientFields';
 import {
   messageService,
@@ -48,6 +52,7 @@ import { PromoteToKbDialog } from './PromoteToKbDialog';
 import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useIsPhone } from './useIsPhone';
 import { Permission } from '@/types/roles';
 import { ThreadMessageItem } from './ThreadMessageItem';
 import { ThreadNoteItem } from './ThreadNoteItem';
@@ -58,6 +63,7 @@ import type { Attachment } from './MessageAttachments';
 import { useLeadState } from './useLeadState';
 import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog';
 import { Button } from '@/components/ui/Button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { logger } from '@/lib/logger';
 import {
   isRetryableSendFailure,
@@ -67,7 +73,7 @@ import { SendFailedBar } from './SendFailedBar';
 import { resolveComposerWindow } from '@/components/messages/whatsappWindowState';
 import { WhatsAppTemplatePicker } from '@/components/messages/WhatsAppTemplatePicker';
 import type { WhatsAppTemplate } from '@/components/messages/whatsappTemplates';
-import { isBlankRichText } from '@/lib/stripHtml';
+import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
 import { toast } from '@/lib/toast';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { getApiErrorMessage } from '@/lib/errorMessages';
@@ -78,6 +84,21 @@ import {
   type SuggestedAnswerMeta,
   LABEL,
 } from './messageDetailConstants';
+
+/** v4 ".k-flash": a short ring on the Connected systems block after the composer's Look up. */
+const LOOKUP_FLASH_CLASSES = ['ring-[3px]', 'ring-primary-line', 'rounded-[8px]'];
+const LOOKUP_FLASH_MS = 1200;
+const LOOKUP_SEEK_FRAMES = 10;
+/*
+  ⛔ The composer holds ONE text for both modes: turning words WRITTEN AS A TEAM NOTE into Reply
+  would put them one Send from the customer. Every path that would (rail tabs, "Reply to this
+  message", R, the lookup insert, a KB / suggested answer) asks this ONE rule. Keyed on the mode
+  the text was last EDITED in, not the mode on screen: a reply carried into note mode by N is
+  still a reply and may go back; a blank composer always may.
+*/
+const holdsUnsentNote = (html: string, lastEditMode: 'reply' | 'note' | null) =>
+  lastEditMode === 'note' && !isBlankRichText(html);
+const NOTE_IN_PROGRESS = 'Post or clear your internal note first';
 
 type PanelTab =
   | 'ai'
@@ -226,6 +247,31 @@ export function MessageDetail({
     }
   }, [aiSource, composer]);
   const [composerMode, setComposerMode] = useState<'reply' | 'note'>('reply');
+  // Refs, not state: two writes inside one render batch must both see the first one's text.
+  const latestComposer = useRef(composer);
+  latestComposer.current = composer;
+  const composerModeRef = useRef(composerMode);
+  composerModeRef.current = composerMode;
+  // The mode the composer's words were last written in (holdsUnsentNote) — null while blank.
+  const lastEditMode = useRef<'reply' | 'note' | null>(null);
+  /*
+    EVERY composer text write goes through here. Typing counts in the mode on screen; a
+    programmatic insert passes the mode it lands in. A write that leaves the visible text as it
+    was (TipTap re-normalising the HTML when the other mode's editor mounts) is not an edit, so
+    N alone never turns a reply into a note.
+  */
+  const writeComposer = useCallback(
+    (next: React.SetStateAction<string>, landsIn?: 'reply' | 'note') => {
+      const prev = latestComposer.current;
+      const value = typeof next === 'function' ? next(prev) : next;
+      latestComposer.current = value;
+      if (isBlankRichText(value)) lastEditMode.current = null;
+      else if (landsIn || lastEditMode.current === null || stripHtml(value) !== stripHtml(prev))
+        lastEditMode.current = landsIn ?? composerModeRef.current;
+      setComposer(value);
+    },
+    []
+  );
   const [submitting, setSubmitting] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -357,7 +403,12 @@ export function MessageDetail({
   const isWide = useMediaQuery('(min-width: 1024px)');
   const [sideMetaEl, setSideMetaEl] = useState<HTMLDivElement | null>(null);
   const twoColumn = fullPage && isWide;
+  // v4 mobile (<640px). Structure that moves on a phone keys on this; pure styling uses `max-sm:`.
+  const isPhone = useIsPhone();
   const [highlightAttachmentId, setHighlightAttachmentId] = useState<number | null>(null);
+  // Phone scrolling: a new message and a new tab start at their top (usePhoneDetailScroll).
+  const detailRootRef = useRef<HTMLDivElement>(null);
+  usePhoneDetailScroll(detailRootRef, isPhone && !twoColumn, panelOpen ? tab : 'thread');
 
   // Reset panel when message changes
   useEffect(() => {
@@ -365,6 +416,70 @@ export function MessageDetail({
     setTab('ai');
     setHighlightAttachmentId(null);
   }, [message.id]);
+
+  /*
+    v4 composer "Look up": open the Customer tab and bring the Connected systems block into view.
+    ⛔ Offered only when the lookup panel itself would render — the SAME cached availability query
+    (react-query key shared with CustomApiLookupPanel's thread surface), so this adds no request.
+    It fails closed exactly like the panel: loading, error or an older backend ⇒ no button.
+  */
+  const lookupAvailable = useCustomApiLookupAvailability('thread');
+  const lookupFlash = useRef<{
+    frame: number | null;
+    timer: ReturnType<typeof setTimeout> | null;
+    flashed: HTMLElement | null;
+  }>({ frame: null, timer: null, flashed: null });
+  /*
+    ⛔ Cancelling must also take the ring OFF. The lookup panel stays mounted across a thread
+    switch and a second press, so a cancelled removal timer would leave the ring on for good.
+  */
+  const cancelLookupFlash = useCallback(() => {
+    const pending = lookupFlash.current;
+    if (pending.frame !== null) cancelAnimationFrame(pending.frame);
+    if (pending.timer !== null) clearTimeout(pending.timer);
+    pending.flashed?.classList.remove(...LOOKUP_FLASH_CLASSES);
+    pending.frame = null;
+    pending.timer = null;
+    pending.flashed = null;
+  }, []);
+  useEffect(() => cancelLookupFlash, [cancelLookupFlash, message.id]);
+  const handleLookUp = useCallback(() => {
+    setTab('customer');
+    // The sidebar always shows its content; the slide-over's rail has to be opened.
+    if (!twoColumn) setPanelOpen(true);
+    cancelLookupFlash();
+    /*
+      The panel renders after this state commits, and its body can arrive a frame or two later, so
+      look for the root over a few frames. `data-lookup-root` sits on CustomApiLookupPanel's root;
+      when it is missing (lookup hidden, tab not mounted yet) nothing happens — the tab is open.
+    */
+    let attempts = 0;
+    const seek = () => {
+      lookupFlash.current.frame = null;
+      const root = document.querySelector<HTMLElement>('[data-lookup-root]');
+      if (!root) {
+        attempts += 1;
+        if (attempts < LOOKUP_SEEK_FRAMES) lookupFlash.current.frame = requestAnimationFrame(seek);
+        return;
+      }
+      root.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+      /*
+        …and focus goes there too (the block is focusable, tabIndex -1, named "Connected
+        systems"): a screen reader lands on what the press opened, and on a phone — where the
+        Customer tab hides the composer the press came from — focus does not fall to <body>.
+        preventScroll: the smooth scroll above already brings it into view.
+      */
+      root.focus({ preventScroll: true });
+      root.classList.add(...LOOKUP_FLASH_CLASSES);
+      lookupFlash.current.flashed = root;
+      lookupFlash.current.timer = setTimeout(() => {
+        root.classList.remove(...LOOKUP_FLASH_CLASSES);
+        lookupFlash.current.timer = null;
+        lookupFlash.current.flashed = null;
+      }, LOOKUP_FLASH_MS);
+    };
+    lookupFlash.current.frame = requestAnimationFrame(seek);
+  }, [twoColumn, cancelLookupFlash]);
 
   // ── Notes / activity / attachments / lead state ────────────────────────────
   const user = useAuthStore((store) => store.user);
@@ -534,7 +649,7 @@ export function MessageDetail({
           );
         }
         sendIdempotencyKeyRef.current = null; // success — the next send is a new logical send
-        setComposer('');
+        writeComposer('');
         setAiSource(null);
         setAiDraft(null);
         setSelectedFiles([]);
@@ -567,6 +682,7 @@ export function MessageDetail({
       recipientDraft,
       selectedFiles,
       supportsRecipients,
+      writeComposer,
     ]
   );
 
@@ -732,13 +848,81 @@ export function MessageDetail({
     canClose: onClose !== undefined && !fullPage,
     busy: resolving,
   };
+  /*
+    Phones show the composer only under the Thread and Notes tabs (it is display:none under the
+    others), and an editor that is not displayed cannot take focus. R and N there go back to the
+    Thread tab first, so the editor they focus is on screen (Notes already shows the composer, so
+    it stays). Desktop: the composer always shows, and nothing moves.
+  */
+  const showComposerForShortcut = useCallback(() => {
+    if (isPhone && panelOpen && tab !== 'notes') setPanelOpen(false);
+  }, [isPhone, panelOpen, tab]);
+  /*
+    A lookup record's "Use in reply" is offered always: a record is plain data an agent can state
+    to the customer, whether or not AI drafting is available. While the AI note
+    can be used it adds to that note, unchanged. When it cannot — the SAME two predicates the
+    composer's AI controls hide on (ComposerAiActions: drafts off, no provider; both cached
+    queries, so this adds no request) — the ticked sentence goes into the REPLY instead: a new
+    paragraph at its end, the composer switched to Reply, shown (phone: back to the Thread tab,
+    where the composer lives) and focused. It is the agent's own text, so no AI source is stamped.
+  */
+  const { aiConfigured } = useAiConfigured();
+  const aiNoteUsable = aiConfigured && !aiDraftsOff;
+  const addRecordToReply = useCallback(
+    (sentence: string): AddOutcome => {
+      const current = latestComposer.current;
+      /*
+        ⛔ The composer holds ONE text for both modes. Switching an internal note being written to
+        Reply would carry that note — words for the team — into a message to the customer.
+      */
+      if (holdsUnsentNote(current, lastEditMode.current)) return 'note_in_progress';
+      // The exact sentence is already there: saying it twice to the customer helps nobody.
+      if (replyHasSentence(current, sentence)) return 'duplicate';
+      const next = appendReplyParagraph(current, sentence);
+      writeComposer(next, 'reply');
+      setComposerMode('reply');
+      showComposerForShortcut();
+      // Deferred: from note mode the reply editor mounts with this render; on a phone the composer
+      // is display:none under the Customer tab until the Thread tab is back.
+      setTimeout(() => richEditorRef.current?.focus('end'), 0);
+      return 'added';
+    },
+    [showComposerForShortcut, writeComposer]
+  );
+  /*
+    ⛔ The panel tabs' mode switch (phone rail / slide-over: any non-Notes tab, Thread, closing a
+    tab) never flips an unsent internal note to Reply — the composer holds ONE text, and the flip
+    put the note one Send from the customer (and made "Add to my reply" append to it). A blank
+    composer still flips. Stable identity, like the setter it wraps; reads the ref, not the state.
+  */
+  const setPanelComposerMode = useCallback((next: React.SetStateAction<'reply' | 'note'>) => {
+    setComposerMode((prev) => {
+      const mode = typeof next === 'function' ? next(prev) : next;
+      return holdsUnsentNote(latestComposer.current, lastEditMode.current) && mode === 'reply'
+        ? prev
+        : mode;
+    });
+  }, []);
+  /*
+    "Reply to this message" and R: refused (toast, nothing switched, recipients untouched) while an
+    internal note is being written. True when refused.
+  */
+  const refuseReplyOverNote = useCallback((): boolean => {
+    if (!holdsUnsentNote(latestComposer.current, lastEditMode.current)) return false;
+    toast.info(NOTE_IN_PROGRESS);
+    return true;
+  }, []);
+
   useDetailShortcuts(shortcutContext, {
     reply: () => {
+      if (refuseReplyOverNote()) return;
+      showComposerForShortcut();
       setComposerMode('reply');
       // Deferred: in note mode the reply editor is not mounted until the swap settles.
       setTimeout(() => richEditorRef.current?.focus(), 0);
     },
     note: () => {
+      showComposerForShortcut();
       setComposerMode('note');
       setTimeout(() => noteEditorRef.current?.focus(), 0);
     },
@@ -750,15 +934,18 @@ export function MessageDetail({
     close: handleRequestClose,
   });
 
-  const handleGhostClick = useCallback(
-    (answer: string, source: string, _attachments?: KBAttachment[]) => {
+  const applyGhostAnswer = useCallback(
+    (answer: string, source: string) => {
       // Suggested answers arrive as plain text with markdown-ish syntax; turn
       // them into HTML so the editor holds editable rich text and the customer
       // receives formatted output instead of literal "**bold**" / "- " runs.
       // Shared with the composer's AI actions via answerToEditorHtml.
       const applied = answerToEditorHtml(answer);
-      setComposer(applied);
+      writeComposer(applied, 'reply');
       setComposerMode('reply');
+      // Phone: the answer came from a panel (KB "Use in reply", the AI tab's sources) under which
+      // the composer is display:none — go back to the Thread tab, where it shows. Desktop: no-op.
+      showComposerForShortcut();
       // Expand the (initially collapsed) reply editor + focus it so the agent
       // sees the populated suggested answer immediately, instead of having to
       // click the editor's expand button first. Deferred so it fires AFTER
@@ -782,7 +969,34 @@ export function MessageDetail({
       // as suggestedAnswerSource on the send.
       handleAiSourceChange(source || 'suggested_answer', { text: applied });
     },
-    [handleAiSourceChange]
+    [handleAiSourceChange, showComposerForShortcut, writeComposer]
+  );
+  /*
+    A suggested answer (KB "Use in reply", the AI tab's sources, the similar-messages dialog, the
+    ghost bubble) REPLACES the composer's text — so it never does that silently:
+      - composer blank → inserted, as before;
+      - a reply being written → asked first ("Replace your reply with this answer?"); Cancel
+        leaves the reply exactly as it was;
+      - an internal note being written → untouched, and said so in the lookup path's own words
+        (the composer holds ONE text for both modes: switching it to Reply would turn words for
+        the team into a message to the customer).
+    The ghost bubble only shows over an empty composer, so it always inserts.
+  */
+  const [pendingGhost, setPendingGhost] = useState<{ answer: string; source: string } | null>(null);
+  const handleGhostClick = useCallback(
+    (answer: string, source: string, _attachments?: KBAttachment[]) => {
+      const current = latestComposer.current;
+      if (isBlankRichText(current)) {
+        applyGhostAnswer(answer, source);
+        return;
+      }
+      if (holdsUnsentNote(current, lastEditMode.current)) {
+        toast.info(NOTE_IN_PROGRESS);
+        return;
+      }
+      setPendingGhost({ answer, source });
+    },
+    [applyGhostAnswer]
   );
 
   // `resolving` is set here too (not only on close/resolve): the header button and the
@@ -934,44 +1148,93 @@ export function MessageDetail({
   // Tabbed panel. In the slide-over it sits above the thread and its Thread tab gives the space
   // back; on the wide full page (v3) it is the right sidebar, always showing, beside the thread.
   const panelTabs = (
-    <MessagePanelTabs
-      onUseInReply={aiRecordNote.add}
-      variant={twoColumn ? 'sidebar' : 'rail'}
-      message={message}
-      tab={tab}
-      setTab={setTab}
-      panelOpen={panelOpen}
-      setPanelOpen={setPanelOpen}
-      notes={notes}
-      onNoteUpdated={handleNoteUpdated}
-      onNoteDeleted={handleNoteDeleted}
-      noteActivityLog={noteActivityLog}
-      messageActivity={messageActivity}
-      sortedThread={sortedThread}
-      threadRefreshKey={threadRefreshKey}
-      highlightAttachmentId={highlightAttachmentId}
-      attachments={flatAttachments}
-      currentUserId={currentUserId}
-      leadState={leadState}
-      setLeadState={setLeadState}
-      leadFieldDefs={leadFieldDefs}
-      onGhostClick={handleGhostClick}
-      // Passed as the setters themselves: React guarantees a stable identity for a
-      // useState setter, while the inline arrows they replace were a NEW function on
-      // every render. AiTabPanel's fetch effect can only declare these as honest
-      // dependencies if they hold still.
-      onOptionsLoaded={setAlternativeCount}
-      onAiLoadingChange={setAiLoading}
-      setComposerMode={setComposerMode}
-      noteEditorRef={noteEditorRef}
-      onCheckContradiction={handleCheckContradiction}
-      onRefresh={handleContactChanged}
+    <RecordInsertTargetContext.Provider value={aiNoteUsable ? 'note' : 'reply'}>
+      <MessagePanelTabs
+        /*
+          Only while the composer exists (it renders only on an ACTIVE thread). On a closed,
+          filtered or suspicious thread there is no reply and no AI note on screen: "Added to your
+          reply" would put the sentence into hidden composer state, to surface later if the thread
+          reopens. The record cards still show there, without the insert control.
+        */
+        onUseInReply={isActive ? (aiNoteUsable ? aiRecordNote.add : addRecordToReply) : undefined}
+        variant={twoColumn ? 'sidebar' : 'rail'}
+        message={message}
+        tab={tab}
+        setTab={setTab}
+        panelOpen={panelOpen}
+        setPanelOpen={setPanelOpen}
+        notes={notes}
+        onNoteUpdated={handleNoteUpdated}
+        onNoteDeleted={handleNoteDeleted}
+        noteActivityLog={noteActivityLog}
+        messageActivity={messageActivity}
+        sortedThread={sortedThread}
+        threadRefreshKey={threadRefreshKey}
+        highlightAttachmentId={highlightAttachmentId}
+        attachments={flatAttachments}
+        currentUserId={currentUserId}
+        leadState={leadState}
+        setLeadState={setLeadState}
+        leadFieldDefs={leadFieldDefs}
+        // Same rule as onUseInReply above: no composer, so no "Use in reply" into hidden state.
+        onGhostClick={isActive ? handleGhostClick : undefined}
+        // Passed as the setters themselves: React guarantees a stable identity for a
+        // useState setter, while the inline arrows they replace were a NEW function on
+        // every render. AiTabPanel's fetch effect can only declare these as honest
+        // dependencies if they hold still.
+        onOptionsLoaded={setAlternativeCount}
+        onAiLoadingChange={setAiLoading}
+        setComposerMode={setPanelComposerMode}
+        noteEditorRef={noteEditorRef}
+        onCheckContradiction={handleCheckContradiction}
+        onRefresh={handleContactChanged}
+      />
+    </RecordInsertTargetContext.Provider>
+  );
+
+  /*
+    v4 mobile resolve row (M6): on a phone it leaves the composer and sits after the thread, above
+    it — and only while the Thread tab is showing. Same handlers and dialogs as the desktop row.
+  */
+  const decisionsFor = (variant: 'inline' | 'phone') => (
+    <ResolveDecisions
+      variant={variant}
+      mode={resolveMode}
+      busy={resolving}
+      // The SAME dialogs the old header split button opened: an unreviewed thread is
+      // dismissed through the reject dialog, an active one closes through the no-KB
+      // confirm. Nothing new reaches the BE.
+      onResolve={openResolveDialog}
+      onResolveToKb={() => setResolveConfirmOpen(true)}
+      onNotCustomerWork={() => setNotCustomerWorkOpen(true)}
+      // Owner, 2026-09-22: the agent resolving AS spam is the CONFIRMED layer.
+      onResolveAsSpam={
+        onClassify ? () => void onClassify('move_to_spam', undefined, undefined, true) : undefined
+      }
     />
   );
 
   return (
-    <div className={`flex h-full min-h-0 overflow-hidden ${twoColumn ? '' : 'flex-col'}`}>
-      <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
+    /*
+      v4 mobile: the DOCUMENT scrolls on a phone (so the browser's pull-to-refresh works), so
+      below 640px nothing here clips or scrolls — the boxes take their content's height, and the
+      header row, the tab strip and the composer stick instead. `--md-sticky-top` is where they
+      stick: under the app's fixed mobile header (a phone always opens the full page, never the
+      slide-over — usePhoneOpensMessageAsPage). Sideways it CLIPS (`overflow-x: clip`, which —
+      unlike hidden — makes no scroll container, so sticking still works): an over-wide value must
+      not widen the page. Inputs are 16px on phones so iOS does not zoom on focus.
+    */
+    <div
+      ref={detailRootRef}
+      data-testid="message-detail-root"
+      style={
+        {
+          '--md-sticky-top': 'var(--mobile-header-h, 0px)',
+        } as React.CSSProperties
+      }
+      className={`flex h-full min-h-0 overflow-hidden ${twoColumn ? '' : 'flex-col'} max-sm:block max-sm:h-auto max-sm:overflow-visible max-sm:overflow-x-clip max-sm:[&_input]:text-base max-sm:[&_textarea]:text-base max-sm:[&_.ProseMirror]:text-base`}
+    >
+      <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden max-sm:overflow-visible max-sm:overflow-x-clip max-sm:bg-card">
         {/* Header */}
         <MessageDetailHeader
           message={message}
@@ -982,7 +1245,7 @@ export function MessageDetail({
           onRefresh={handleRefresh}
           labelsRefreshKey={labelsRefreshKey}
           onContactChanged={handleContactChanged}
-          onDelete={handleDelete}
+          onDelete={onDelete ? handleDelete : undefined}
           onApprove={onApprove}
           onClassify={onClassify}
           onOptimisticMove={onOptimisticMove}
@@ -990,6 +1253,9 @@ export function MessageDetail({
           isRead={readState}
           onToggleRead={handleToggleRead}
           metaTarget={twoColumn ? sideMetaEl : undefined}
+          merges={mergeContext.merges}
+          onReloadMerges={mergeContext.reloadMerges}
+          onMergeChange={mergeContext.applyMergeChange}
         />
 
         {/* History banner */}
@@ -1025,7 +1291,7 @@ export function MessageDetail({
           isActive={isActive}
           hasLinkedTicket={false}
           onReopen={handleReopen}
-          onDelete={handleDelete}
+          onDelete={onDelete ? handleDelete : undefined}
           onClassify={handleClassify}
           // UX gate only — the BE re-validates (MANAGE_TICKETS on both endpoints). Offering an
           // action that answers 403 is worse than not offering it.
@@ -1045,10 +1311,11 @@ export function MessageDetail({
           WHOLE thread into a sideways-scrolling pane that clipped every message
           (ORB-SUP-1358). Wide content is contained per-bubble in ThreadBubble. */}
         <div
-          className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background ${panelOpen && !twoColumn ? 'hidden' : ''}`}
+          data-testid="thread-scroller"
+          className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background max-sm:flex-none ${panelOpen && !twoColumn ? 'hidden' : ''}`}
         >
           {/* v3: the thread is the canvas; bubbles are the cards on it. */}
-          <div className="flex flex-col gap-3.5 px-3.5 py-4">
+          <div className="flex flex-col gap-3.5 px-3.5 py-4 max-sm:gap-3 max-sm:px-3 max-sm:pt-3 max-sm:pb-2">
             {threadLoading && sortedThread.length === 0 && (
               <div className="py-8 text-sm text-center text-muted-foreground">
                 <div className="mx-auto mb-2 w-5 h-5 rounded-full border-2 animate-spin border-primary border-t-transparent" />
@@ -1094,6 +1361,7 @@ export function MessageDetail({
                     onReplyTo={
                       supportsRecipients && isActive
                         ? (addresses) => {
+                            if (refuseReplyOverNote()) return;
                             setComposerMode('reply');
                             setRecipientDraft((draft) => ({ ...draft, to: addresses.join(', ') }));
                           }
@@ -1112,32 +1380,40 @@ export function MessageDetail({
               </Fragment>
             ))}
 
-            {/* Ghost bubble */}
-            <MessageGhostBubble
-              aiLoading={aiLoading}
-              ghostVisible={ghostVisible}
-              ghostOption={ghostOption}
-              autoReply={autoReply}
-              composer={composer}
-              composerMode={composerMode}
-              resolved={message.status === 'resolved'}
-              alternativeCount={alternativeCount}
-              onGhostClick={handleGhostClick}
-              onShowAlternatives={() => {
-                setTab('kb');
-                setPanelOpen(true);
-              }}
-            />
+            {/* Ghost bubble — a suggested reply, so only where a reply can be written. */}
+            {isActive && (
+              <MessageGhostBubble
+                aiLoading={aiLoading}
+                ghostVisible={ghostVisible}
+                ghostOption={ghostOption}
+                autoReply={autoReply}
+                composer={composer}
+                composerMode={composerMode}
+                resolved={message.status === 'resolved'}
+                alternativeCount={alternativeCount}
+                onGhostClick={handleGhostClick}
+                onShowAlternatives={() => {
+                  setTab('kb');
+                  setPanelOpen(true);
+                }}
+              />
+            )}
           </div>
         </div>
 
-        {/* Composer — shown for active conversations */}
+        {/* Phone: the resolve row between the thread and the composer, Thread tab only (M6) — and,
+            as on desktop, only while the composer is on Reply: a note is not an answer. */}
+        {isPhone && isActive && !panelOpen && composerMode === 'reply' && decisionsFor('phone')}
+
+        {/* Composer — shown for active conversations. On a phone, only under the Thread or Notes
+            tab (M7) — hidden, not unmounted, so a draft and its AI undo survive a tab visit. */}
         {isActive && (
           <MessageComposer
+            hidden={isPhone && panelOpen && tab !== 'notes'}
             shortcutHint={shortcutHint(shortcutContext)}
             message={message}
             composer={composer}
-            setComposer={setComposer}
+            setComposer={writeComposer}
             composerMode={composerMode}
             setComposerMode={setComposerMode}
             submitting={submitting}
@@ -1148,6 +1424,7 @@ export function MessageDetail({
             aiNote={aiRecordNote.note}
             onAiNoteChange={aiRecordNote.change}
             aiNoteReveal={aiRecordNote.reveal}
+            onLookUp={lookupAvailable ? handleLookUp : null}
             selectedFiles={selectedFiles}
             onFilesChange={setSelectedFiles}
             onAiSourceChange={handleAiSourceChange}
@@ -1165,24 +1442,8 @@ export function MessageDetail({
             decisions={
               // Under the reply, where the answer is written (v3, 2026-09-23). Reply mode only: a
               // note is not an answer, and a note's Post button must not sit beside Resolve.
-              composerMode === 'reply' ? (
-                <ResolveDecisions
-                  mode={resolveMode}
-                  busy={resolving}
-                  // The SAME dialogs the old header split button opened: an unreviewed thread is
-                  // dismissed through the reject dialog, an active one closes through the no-KB
-                  // confirm. Nothing new reaches the BE.
-                  onResolve={openResolveDialog}
-                  onResolveToKb={() => setResolveConfirmOpen(true)}
-                  onNotCustomerWork={() => setNotCustomerWorkOpen(true)}
-                  // Owner, 2026-09-22: the agent resolving AS spam is the CONFIRMED layer.
-                  onResolveAsSpam={
-                    onClassify
-                      ? () => void onClassify('move_to_spam', undefined, undefined, true)
-                      : undefined
-                  }
-                />
-              ) : null
+              // Phones render it above the composer instead (M6).
+              composerMode === 'reply' && !isPhone ? decisionsFor('inline') : null
             }
             recipientDraft={supportsRecipients ? recipientDraft : undefined}
             onRecipientDraftChange={supportsRecipients ? setRecipientDraft : undefined}
@@ -1191,10 +1452,14 @@ export function MessageDetail({
         )}
       </div>
 
-      {/* 312px is the v3 design width; wide screens get more so the tabs and the why-parked
-          text beside Dept stop wrapping into a narrow column (owner, 2026-09-22). */}
+      {/* v4: the sidebar grows with the window — 312px (the v3 width, and what 1024px leaves room
+          for) up to 520px, 30% of the VIEWPORT between (vw, not the page frame — the page caps
+          the view at 1640px in MessageDetailPage, the sidebar still tops out at 520px). */}
       {twoColumn && (
-        <aside className="flex flex-col flex-none w-[312px] xl:w-[360px] 2xl:w-[420px] min-h-0 border-l border-border bg-card">
+        <aside
+          data-testid="detail-sidebar"
+          className="flex flex-col flex-none w-[clamp(312px,30vw,520px)] min-h-0 border-l border-border bg-card"
+        >
           <div ref={setSideMetaEl} className="flex-none" />
           {panelTabs}
         </aside>
@@ -1250,6 +1515,20 @@ export function MessageDetail({
           onClose?.();
         }}
         onKeepUnreadAndClose={() => onClose?.()}
+      />
+
+      <ConfirmDialog
+        open={pendingGhost !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingGhost(null);
+        }}
+        onConfirm={() => {
+          if (pendingGhost) applyGhostAnswer(pendingGhost.answer, pendingGhost.source);
+        }}
+        title="Replace your reply with this answer?"
+        description="What you have written so far will be replaced."
+        confirmText="Replace"
+        variant="warning"
       />
 
       {/* Similar messages dialog */}

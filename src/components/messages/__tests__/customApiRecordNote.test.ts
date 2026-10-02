@@ -9,14 +9,21 @@
 import { describe, it, expect } from 'vitest';
 import {
   appendNote,
+  appendReplyParagraph,
+  replyHasSentence,
   buildRecordNote,
   defaultSelection,
   offerableFields,
 } from '../customApiRecordNote';
 import type { LookupField } from '@/services/customApiLookup.service';
 
-const field = (over: { path: string; label: string; role?: string; kind?: 'plain' | 'money'; currency?: string }) =>
-  ({ kind: 'plain', ...over }) as LookupField;
+const field = (over: {
+  path: string;
+  label: string;
+  role?: string;
+  kind?: 'plain' | 'money';
+  currency?: string;
+}) => ({ kind: 'plain', ...over }) as LookupField;
 
 const FIELDS = [
   field({ path: 'order_id', label: 'Order', role: 'identifier' }),
@@ -217,5 +224,64 @@ describe('a record that cannot fit at all', () => {
 
   it('CONTROL: a normal fact against a nearly-full note still reports the NOTE', () => {
     expect(appendNote('x'.repeat(1995), 'Order 1.', 2000).reason).toBe('too_long');
+  });
+});
+
+describe('the sentence in the REPLY', () => {
+  it('a blank reply becomes the sentence as one paragraph', () => {
+    expect(appendReplyParagraph('', 'Order 5 shipped.')).toBe('<p>Order 5 shipped.</p>');
+    expect(appendReplyParagraph('<p></p>', 'Order 5 shipped.')).toBe('<p>Order 5 shipped.</p>');
+  });
+
+  it('a reply with text gets it as a NEW paragraph at the end', () => {
+    expect(appendReplyParagraph('<p>Hi Ada,</p>', 'Order 5 shipped.')).toBe(
+      '<p>Hi Ada,</p><p>Order 5 shipped.</p>'
+    );
+  });
+
+  it('⛔ a vendor value carrying markup arrives as TEXT, never as HTML', () => {
+    expect(appendReplyParagraph('', 'Note: <b>VIP</b> & "rush"')).toBe(
+      '<p>Note: &lt;b&gt;VIP&lt;/b&gt; &amp; &quot;rush&quot;</p>'
+    );
+  });
+
+  it('finds the exact sentence through markup, entities and spacing', () => {
+    const sentence = 'Order 5 — Status: A & B.';
+    const reply = appendReplyParagraph('<p>Hi</p>', sentence);
+    expect(replyHasSentence(reply, sentence)).toBe(true);
+    expect(replyHasSentence('<p>Order 5 —\n Status: A &amp; B.</p>', sentence)).toBe(true);
+  });
+
+  it('bold or a link around a word before punctuation is still the same sentence', () => {
+    const sentence = 'Order 123. Status: shipped.';
+    expect(replyHasSentence('<p>Order <strong>123</strong>. Status: shipped.</p>', sentence)).toBe(
+      true
+    );
+    expect(
+      replyHasSentence(
+        '<p>Order <a href="https://shop.example/o/123" target="_blank">123</a>. Status: <em>shipped</em>.</p>',
+        sentence
+      )
+    ).toBe(true);
+    // Mid-word markup too: the agent bolded part of the number.
+    expect(replyHasSentence('<p>Order 12<b>3</b>. Status: shipped.</p>', sentence)).toBe(true);
+  });
+
+  it('CONTROL: block boundaries still separate, and a different sentence is not a duplicate', () => {
+    // Two paragraphs are two sentences: "Order" ending one and "123." starting the next is not it.
+    expect(
+      replyHasSentence('<p>Order</p><p>123. Status: shipped.</p>', 'Order123. Status: shipped.')
+    ).toBe(false);
+    expect(
+      replyHasSentence(
+        '<p>Order <strong>124</strong>. Status: shipped.</p>',
+        'Order 123. Status: shipped.'
+      )
+    ).toBe(false);
+  });
+
+  it('CONTROL: part of the sentence, or nothing, is not the sentence', () => {
+    expect(replyHasSentence('<p>Order 5</p>', 'Order 5 — Status: shipped.')).toBe(false);
+    expect(replyHasSentence('<p>anything</p>', '   ')).toBe(false);
   });
 });

@@ -5,7 +5,24 @@
  */
 import type { MessageActivityEntry, MessageNote } from '@/services/message.service';
 
-export type TimelineItem = { label: string; time: string; who: string; dot: string | undefined };
+/**
+ * What kind of thing happened, for the row's dot (v4 `.a-dot.in/.out/.note/.ai`, else plain).
+ * ⛔ Derived ONLY from what the data says: the audit action, a note, or an in-session note edit.
+ * `ai` has no source today — no audit action the activity endpoint returns is authored by the AI
+ * (auto-routing is rule-based and stays `other`) — so nothing maps to it until one exists.
+ */
+export type ActivityKind = 'in' | 'out' | 'note' | 'ai' | 'other';
+
+export type TimelineItem = { label: string; time: string; who: string; kind: ActivityKind };
+
+/** The dot's colour per kind. Theme tokens only, so it holds in dark mode. */
+export const ACTIVITY_DOT: Record<ActivityKind, string> = {
+  in: 'bg-primary-solid',
+  out: 'bg-success',
+  note: 'bg-warning',
+  ai: 'bg-ai',
+  other: 'bg-border-strong',
+};
 
 const ACTION_LABEL: Record<string, string> = {
   'message.reply': 'Reply sent',
@@ -28,12 +45,20 @@ const ACTION_LABEL: Record<string, string> = {
   'message.auto_route': 'Routed automatically',
 };
 
-const ACTION_DOT: Record<string, string> = {
-  'ticket.resolve': 'bg-success/60',
-  'ticket.reopen': 'bg-warning/60',
-  'message.auto_reopen': 'bg-warning/60',
-  'message.auto_client_replied': 'bg-faint-foreground',
+/**
+ * Audit actions that ARE a message arriving or leaving. Everything else (status, assignment,
+ * routing, labels, read state…) is `other`. The two auto actions are written when a CUSTOMER
+ * message arrives on the thread, so they count as inbound.
+ */
+const ACTION_KIND: Record<string, ActivityKind> = {
+  'message.create': 'in',
+  'message.auto_client_replied': 'in',
+  'message.auto_reopen': 'in',
+  'message.reply': 'out',
+  'message.compose_new': 'out',
 };
+
+export const activityKindOf = (action: string): ActivityKind => ACTION_KIND[action] ?? 'other';
 
 export function auditEntryLabel(action: string, details: Record<string, unknown> | null): string {
   if (action === 'message.status_change') {
@@ -80,20 +105,20 @@ export function buildTimeline(
     label: auditEntryLabel(entry.action, entry.details),
     time: entry.createdAt,
     who: entry.userEmail ?? 'System',
-    dot: ACTION_DOT[entry.action],
+    kind: activityKindOf(entry.action),
   }));
 
   const fromNotes: TimelineItem[] = notes.map((note) => ({
     label: 'Internal note',
     time: note.createdAt,
     who: note.user ? `${note.user.firstName} ${note.user.lastName ?? ''}`.trim() : note.authorName,
-    dot: 'bg-note/70',
+    kind: 'note',
   }));
 
-  const ephemeral: TimelineItem[] = inSession.map((entry) => ({ ...entry, dot: undefined }));
+  // In-session entries are the agent's own note edits and deletions (MessageDetail).
+  const ephemeral: TimelineItem[] = inSession.map((entry) => ({ ...entry, kind: 'note' }));
 
   return [...fromAudit, ...fromNotes, ...ephemeral].sort(
     (itemA, itemB) => new Date(itemA.time).getTime() - new Date(itemB.time).getTime()
   );
 }
-

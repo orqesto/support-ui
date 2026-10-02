@@ -19,4 +19,13 @@ export type SelectProps = Omit<
   onChange?: (value: string) => void;
   options: Option[];
   variant?: 'default' | 'chip' | 'value';
+  /** 'chip' only: 'sentence' drops the uppercase label (message detail v4 header). Default 'upper'. */
+  chipCase?: 'upper' | 'sentence';
+  /**
+   * 'chip' / 'value' only, phones (<640px) only — message detail v4 mobile: the menu opens as a
+   * bottom sheet (8px from the sides and bottom, 16px radius, 46px options at 15px, a dim scrim)
+   * and the control grows to a touch size. Pure CSS behind `max-sm:`, so wider screens are
+   * unchanged, and so is every caller that does not pass it.
+   */
+  mobileSheet?: boolean;
 };

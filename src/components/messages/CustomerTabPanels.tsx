@@ -1,42 +1,104 @@
 import { CustomApiLookupPanel, NO_EMAIL_IDENTITY_NOTE } from './CustomApiLookupPanel';
-import { MergeThreads } from './MergeThreads';
-import { ThreadTickets } from './ThreadTickets';
+import { channelName, getInitials, priorityLabel } from './messageDetailConstants';
 import type { AddOutcome } from './useAiRecordNote';
-import type { Message } from '@/types';
+import { formatDate } from '@/lib/utils';
+import { parseSender } from '@/lib/messageHelpers';
+import type { Message, MessageEvent } from '@/types';
 
 /**
- * The two per-conversation panels on the CUSTOMER tab, extracted so `MessagePanelTabs` stays
- * inside its 650-line cap rather than the cap deciding what the tab may contain.
+ * The CUSTOMER tab's own blocks, extracted so `MessagePanelTabs` stays inside its 650-line cap
+ * rather than the cap deciding what the tab may contain.
  *
- * Both belong to the customer rather than the thread body: what the connected systems know about
- * them (CA-3), which tickets (incidents) this thread is part of, and whether another thread is
- * the same conversation (merge).
+ * v4 order: sender, conversation facts, connected systems, then the contact profile (rendered by
+ * the host). ⛔ The thread's tickets and merges are NOT here any more: v4 moves them to the
+ * header's Related chip and popover (MessageDetailHeader), so they are not shown twice.
  */
+
+/** v4 `.k-sender`: avatar initials, the bold name, then the address and (non-email) channel. */
+export const CustomerSenderBlock = ({ message }: { message: Message }) => {
+  const { name, address } = parseSender(message.sender);
+  const second = [
+    name ? address : null,
+    message.channel !== 'email' ? channelName(message.channel) : null,
+  ].filter((part): part is string => !!part);
+  return (
+    <div className="flex gap-2 items-center mb-2.5" data-testid="customer-sender">
+      <div className="w-[30px] h-[30px] rounded-full bg-sunken border border-border flex items-center justify-center font-display text-[10.5px] font-semibold text-muted-foreground flex-shrink-0">
+        {getInitials(message.sender)}
+      </div>
+      <div className="min-w-0">
+        <b className="block text-[12.5px] font-semibold text-foreground truncate">
+          {name ?? address}
+        </b>
+        {second.length > 0 && (
+          <span className="block text-[11px] text-faint-foreground truncate">
+            {second.join(' · ')}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * v4 `.kv`: the conversation's facts, small sentence-case labels and plain values. Same fields as
+ * staging: Channel, Received, Thread, and Assigned / Priority when set.
+ */
+export const ConversationFacts = ({
+  message,
+  sortedThread,
+}: {
+  message: Message;
+  sortedThread: MessageEvent[];
+}) => {
+  const rows: { label: string; value: string }[] = [
+    {
+      label: 'Channel',
+      value: channelName(message.channel),
+    },
+    {
+      label: 'Received',
+      value: formatDate(
+        (message.metadata as { receivedAt?: string } | null)?.receivedAt ?? message.createdAt
+      ),
+    },
+    {
+      label: 'Thread',
+      // No events loaded yet still means the one message this thread was opened from.
+      value: sortedThread.length > 1 ? `${sortedThread.length} messages` : '1 message',
+    },
+    ...(message.assigneeName ? [{ label: 'Assigned', value: message.assigneeName }] : []),
+    ...(message.priority
+      ? [{ label: 'Priority', value: priorityLabel(String(message.priority)) }]
+      : []),
+  ];
+  return (
+    <dl className="grid grid-cols-[78px_1fr] gap-x-[9px] gap-y-1.5 text-[12.5px] mb-3">
+      {rows.map((row) => (
+        <div key={row.label} className="contents">
+          <dt className="self-center text-[11px] text-faint-foreground">{row.label}</dt>
+          <dd className="self-center truncate text-foreground">{row.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+};
+
 export const CustomerTabPanels = ({
   message,
   hasEmailIdentity,
-  onChanged,
   onUseInReply,
 }: {
   message: Message;
   hasEmailIdentity: boolean;
-  onChanged?: () => void;
   /** L2 P4: a record joins the agent's note for the AI draft. It answers added / duplicate / full. */
   onUseInReply?: (note: string) => AddOutcome;
 }) => (
-  <>
-    {/* CA-3: nothing is fetched until the agent presses Look up (SC1). */}
-    <CustomApiLookupPanel
-      className="pt-1"
-      conversationId={message.id}
-      identityNote={hasEmailIdentity ? undefined : NO_EMAIL_IDENTITY_NOTE}
-      onUseInReply={onUseInReply}
-    />
-    {/* The incidents this thread reports — a ticket covers many customers' threads, and a thread
-        can be on several (2026-09-30). Replaces "Same piece of work" (thread links, retired). */}
-    <ThreadTickets message={message} onChanged={onChanged} />
-    {/* One ticket, not two: the other ticket's messages move in and it leaves the inbox.
-        Undoable from here (owner, 2026-09-23). */}
-    <MergeThreads message={message} onChanged={onChanged} />
-  </>
+  /* CA-3: nothing is fetched until the agent presses Look up (SC1). */
+  <CustomApiLookupPanel
+    className="pt-1"
+    conversationId={message.id}
+    identityNote={hasEmailIdentity ? undefined : NO_EMAIL_IDENTITY_NOTE}
+    onUseInReply={onUseInReply}
+  />
 );

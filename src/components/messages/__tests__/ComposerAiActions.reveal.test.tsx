@@ -8,7 +8,7 @@
  * nothing at all.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ComposerAiActions } from '../ComposerAiActions';
 
@@ -47,7 +47,7 @@ describe('bringing the note box on screen', () => {
   it('⛔ stays CLOSED when it mounts holding a counter from another thread', () => {
     setup(3);
 
-    expect(screen.queryByText(/What should the reply say/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Your note for the AI draft/i)).not.toBeInTheDocument();
   });
 
   it('🔴 OPENS when the counter moves — a record was just added', () => {
@@ -64,9 +64,75 @@ describe('bringing the note box on screen', () => {
       />
     );
 
-    expect(screen.getByText(/What should the reply say/i)).toBeInTheDocument();
+    expect(screen.getByText(/Your note for the AI draft/i)).toBeInTheDocument();
     // And the fact is in the box the agent is now looking at.
     expect(screen.getByDisplayValue('Order 137416.')).toBeInTheDocument();
+  });
+});
+
+describe('v4: the note field flashes when a record lands in it', () => {
+  const at = (revealNote: number, instructions = 'Order 137416.') => (
+    <ComposerAiActions
+      messageId={1}
+      composer=""
+      setComposer={vi.fn()}
+      instructions={instructions}
+      onInstructionsChange={vi.fn()}
+      revealNote={revealNote}
+    />
+  );
+  const ring = () => {
+    const cls = screen.getByDisplayValue('Order 137416.').className;
+    return cls.includes('ring-[3px]') && cls.includes('ring-primary-line');
+  };
+  afterEach(() => vi.useRealTimers());
+
+  it('rings for 1.2 s after an add, then the ring is removed', () => {
+    vi.useFakeTimers();
+    const { rerender } = render(at(3));
+    rerender(at(4));
+    expect(ring()).toBe(true);
+    act(() => {
+      vi.advanceTimersByTime(1150);
+    });
+    expect(ring()).toBe(true);
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(ring()).toBe(false);
+  });
+
+  it('a second add restarts the 1.2 s', () => {
+    vi.useFakeTimers();
+    const { rerender } = render(at(3));
+    rerender(at(4));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    rerender(at(5));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(ring()).toBe(true);
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+    expect(ring()).toBe(false);
+  });
+
+  it('CONTROL: no ring when the panel is opened by hand, or on a mount holding a counter', async () => {
+    render(at(3));
+    await userEvent.click(screen.getByRole('button', { name: /AI draft/i }));
+    expect(ring()).toBe(false);
+  });
+
+  it('unmounting mid-flash leaves no timer behind', () => {
+    vi.useFakeTimers();
+    const { rerender, unmount } = render(at(3));
+    rerender(at(4));
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
 
@@ -88,7 +154,7 @@ describe('switching threads', () => {
       />
     );
 
-    expect(screen.queryByText(/What should the reply say/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Your note for the AI draft/i)).not.toBeInTheDocument();
   });
 
   it('CONTROL: and an add AFTER the reset still opens it', () => {
@@ -108,7 +174,7 @@ describe('switching threads', () => {
     render1(0);
     render1(1);
 
-    expect(screen.getByText(/What should the reply say/i)).toBeInTheDocument();
+    expect(screen.getByText(/Your note for the AI draft/i)).toBeInTheDocument();
   });
 });
 

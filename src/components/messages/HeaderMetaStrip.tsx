@@ -17,7 +17,7 @@ import type { Message, Category } from '@/types';
 import type { Label } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
 import { LABEL } from './messageDetailConstants';
-import { solidChip } from '@/lib/userColor';
+import { tintedChip } from '@/lib/userColor';
 
 /** The label picker's drawn width — the ONE number its on-screen clamp also uses. */
 const LABEL_PICKER_WIDTH_PX = 200;
@@ -25,8 +25,12 @@ const LABEL_PICKER_WIDTH_PX = 200;
 const PICKER_MARGIN_PX = 8;
 
 type Props = {
-  /** 'rows' — stacked label/value rows for the full page's sidebar (v3); default inline row. */
-  layout?: 'inline' | 'rows';
+  /**
+   * 'rows' — stacked label/value rows for the full page's sidebar (v3); 'card' — the phone's
+   * sender Details card (v4 mobile `.mrow`: 84px label, value on the right, a hairline between
+   * rows, 40px tall); default inline row.
+   */
+  layout?: 'inline' | 'rows' | 'card';
   message: Message;
   categories: Category[];
   messageLabels: Label[];
@@ -65,6 +69,9 @@ export function HeaderMetaStrip({
   onDepartmentChange,
 }: Props) {
   const rows = layout === 'rows';
+  const card = layout === 'card';
+  // The label column: 62px in the sidebar, 84px (pushing the value right) in the phone card.
+  const labelWidth = rows ? 'w-[62px]' : card ? 'w-[84px] mr-auto' : '';
   const labelPickerRef = useRef<HTMLDivElement>(null);
   const labelBtnRef = useRef<HTMLButtonElement>(null);
   const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
@@ -172,17 +179,18 @@ export function HeaderMetaStrip({
     // v3 meta row: Dept / Assigned / Category as compact values, labels inline — one wrapping
     // row instead of three large selects and a separate Labels line.
     <div
+      data-testid={card ? 'meta-card-rows' : undefined}
       className={
         rows
           ? 'flex flex-col items-stretch gap-1.5 px-[13px] py-[11px] bg-raised border-b border-border [&>div]:gap-2'
-          : 'flex flex-wrap items-center gap-x-[9px] gap-y-1.5 px-3.5 pb-2.5'
+          : card
+            ? 'flex flex-col items-stretch pl-3 text-[13.5px] [&>div]:justify-end [&>div]:gap-3 [&>div]:min-h-10 [&>div]:py-1 [&>div]:pr-3 [&>div]:border-b [&>div]:border-hair [&>div:last-child]:border-b-0'
+            : 'flex flex-wrap items-center gap-x-[9px] gap-y-1.5 px-3.5 pb-2.5'
       }
     >
       {/* Department (resolved by smart routing; admins can re-route inline) */}
       <div className="flex items-center gap-2 min-w-0">
-        <span className={`flex-shrink-0 ${LABEL} text-muted-foreground ${rows ? 'w-[62px]' : ''}`}>
-          Dept
-        </span>
+        <span className={`flex-shrink-0 ${LABEL} text-muted-foreground ${labelWidth}`}>Dept</span>
         {editingDept && canRoute ? (
           <div className="flex items-center gap-2">
             <ReactSelect
@@ -225,7 +233,7 @@ export function HeaderMetaStrip({
             // on the icon. Needs routing keeps its state tone — it is a condition, not a value.
             // v3 `.val`: one line, never wraps. It must not SHRINK either: the why-parked text beside
             // it would squeeze it to its icon. max-w-full still ellipsizes a very long name.
-            className={`inline-flex flex-shrink-0 gap-1 items-center h-[23px] max-w-full px-2 rounded-md border text-[11.5px] font-normal whitespace-nowrap overflow-hidden ${
+            className={`inline-flex flex-shrink-0 gap-1 items-center ${card ? 'h-9 text-[13.5px]' : 'h-[23px] text-[11.5px]'} max-w-full px-2 rounded-md border font-normal whitespace-nowrap overflow-hidden ${
               canRoute ? 'cursor-pointer hover:border-border-strong' : 'cursor-default'
             } ${needsRouting ? 'bg-warning-muted text-warning border-warning-line' : 'bg-card text-foreground border-border'}`}
           >
@@ -252,7 +260,7 @@ export function HeaderMetaStrip({
 
       {/* Assignee */}
       <div className="flex items-center gap-2 min-w-0">
-        <span className={`flex-shrink-0 ${LABEL} text-muted-foreground ${rows ? 'w-[62px]' : ''}`}>
+        <span className={`flex-shrink-0 ${LABEL} text-muted-foreground ${labelWidth}`}>
           Assigned
         </span>
         <AssignmentSelect
@@ -262,6 +270,7 @@ export function HeaderMetaStrip({
           departmentId={message.departmentId ?? null}
           onAssign={onAssign}
           variant="value"
+          mobileSheet={card}
         />
       </div>
 
@@ -269,9 +278,7 @@ export function HeaderMetaStrip({
       {categories.length > 0 && (
         <>
           <div className="flex items-center gap-2 min-w-0">
-            <span
-              className={`flex-shrink-0 ${LABEL} text-muted-foreground ${rows ? 'w-[62px]' : ''}`}
-            >
+            <span className={`flex-shrink-0 ${LABEL} text-muted-foreground ${labelWidth}`}>
               Category
             </span>
             <ReactSelect
@@ -288,6 +295,7 @@ export function HeaderMetaStrip({
               isDisabled={updatingCategory}
               variant="value"
               className="min-w-0"
+              mobileSheet={card}
             />
           </div>
         </>
@@ -300,24 +308,31 @@ export function HeaderMetaStrip({
       {showLabelRow && (
         <>
           <div className="flex items-center gap-[5px] min-w-0 flex-wrap">
-            {rows && (
-              <span className={`flex-shrink-0 ${LABEL} text-muted-foreground w-[62px]`}>
+            {(rows || card) && (
+              <span className={`flex-shrink-0 ${LABEL} text-muted-foreground ${labelWidth}`}>
                 Labels
               </span>
             )}
             {messageLabels.map((label) => (
+              // v4 `.tagpill[data-t]`: a tint of the label colour with a 7px dot, not a solid fill.
               <span
                 key={label.id}
-                className="inline-flex items-center gap-1 h-5 pl-2 pr-1 rounded-full text-[10.5px] font-semibold whitespace-nowrap"
-                style={solidChip(label.color)}
+                data-testid="label-pill"
+                className={`inline-flex items-center gap-[5px] h-[22px] pl-[7px] ${hasManageLabels ? 'pr-1' : 'pr-2'} rounded-full border text-[11.5px] font-medium whitespace-nowrap ${tintedChip(label.color, 0.12).className}`}
+                style={tintedChip(label.color, 0.12).style}
               >
+                <span
+                  aria-hidden
+                  className="w-[7px] h-[7px] rounded-full flex-none"
+                  style={{ background: safeCssColor(label.color) }}
+                />
                 {label.name}
                 {hasManageLabels && (
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => onToggleLabel(label)}
-                    className="flex items-center justify-center w-3.5 h-3.5 p-0 rounded-full hover:bg-black/20 transition-colors"
+                    className="flex items-center justify-center w-3.5 h-3.5 p-0 rounded-full text-muted-foreground hover:text-foreground hover:bg-transparent transition-colors"
                     aria-label={`Remove ${label.name}`}
                   >
                     <X className="w-2 h-2" />
@@ -332,7 +347,7 @@ export function HeaderMetaStrip({
                   ref={labelBtnRef}
                   variant="ghost"
                   onClick={onToggleLabelPicker}
-                  className="inline-flex flex-shrink-0 justify-center items-center py-0 px-2 h-5 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent border border-dashed border-border-strong transition-colors"
+                  className={`inline-flex flex-shrink-0 justify-center items-center py-0 px-2 ${card ? 'h-[30px] w-[30px]' : 'h-5'} rounded-full text-muted-foreground hover:text-foreground hover:bg-accent border border-dashed border-border-strong transition-colors`}
                   aria-label="Add label"
                   title="Add label"
                 >
@@ -370,7 +385,7 @@ export function HeaderMetaStrip({
                             onChange={(ev) => setLabelQuery(ev.target.value)}
                             placeholder={onCreateLabel ? 'Search or create…' : 'Search…'}
                             autoFocus
-                            className="w-full px-2 py-1 mb-1 text-xs bg-background border border-border rounded outline-none focus:ring-1 focus:ring-ring"
+                            className="w-full px-2 py-1 mb-1 text-xs max-sm:text-base bg-background border border-border rounded outline-none focus:ring-1 focus:ring-ring"
                           />
                           {filtered.map((label) => {
                             const assigned = messageLabels.some((lbl) => lbl.id === label.id);

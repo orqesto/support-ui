@@ -3,7 +3,6 @@ import { BookOpen, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { Message } from '@/types';
 import { getSpamCheck, humanizeSignalFlag, spamClassLabel } from '@/lib/messageHelpers';
-import { LABEL } from './messageDetailConstants';
 import { SIMILAR_RESULTS_LIMIT, SIMILAR_RESULTS_MIN_SIMILARITY } from '@/lib/constants';
 import { messageService } from '@/services/message.service';
 import { AnswerPreview } from './AnswerPreview';
@@ -15,6 +14,7 @@ import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import { logger } from '@/lib/logger';
 import { languageName as languageNameOf } from '@/lib/languageName';
 import { stripGreetingName } from '@/lib/depersonalise';
+import { priorityLabel } from './messageDetailConstants';
 
 type Analysis = {
   isTicketWorthy?: boolean;
@@ -108,7 +108,11 @@ type ReplyOption = {
 
 type Props = {
   message: Message;
-  onGhostClick: (answer: string, source: string, attachments?: KBAttachment[]) => void;
+  /**
+   * Puts an answer into the reply. Absent where there is no composer (a closed, filtered or
+   * suspicious thread): the suggestions and their sources still show, without the insert controls.
+   */
+  onGhostClick?: (answer: string, source: string, attachments?: KBAttachment[]) => void;
   onOptionSelect?: (answer: string, label: string, type: ReplyOption['type']) => void;
   onOptionsLoaded?: (total: number) => void;
   onLoadingChange?: (loading: boolean) => void;
@@ -135,17 +139,38 @@ export const similarResultsCache = {
   },
 };
 
+/** v4 `.k-sum-card`: the Summary and Reason cards. */
+const SUM_CARD = 'rounded-[9px] border border-border bg-card px-3 py-2.5';
+/** v4's small ghost label, in sentence case rather than the shouting uppercase LABEL. */
+const GHOST_LABEL = 'text-[11px] font-medium text-faint-foreground';
+
+/** v4 `.k-pill`: a 6px-radius source chip, the label in the display face and the rest plain. */
+const PILL =
+  'inline-flex items-center gap-1 h-auto rounded-[6px] border px-2 py-[3px] font-sans text-[11px] font-normal whitespace-nowrap transition-colors';
+
 const PILL_BASE: Record<ReplyOption['type'], string> = {
-  lead: 'text-ai border-ai-line bg-ai-muted',
-  documentation: 'text-primary border-primary-line bg-primary-muted',
-  similar: 'text-warning border-warning-line bg-warning-muted',
+  lead: 'text-ai border-ai-line bg-ai-muted hover:bg-ai-muted hover:text-ai',
+  documentation:
+    'text-primary border-primary-line bg-primary-muted hover:bg-primary-muted hover:text-primary',
+  similar:
+    'text-warning border-warning-line bg-warning-muted hover:bg-warning-muted hover:text-warning',
 };
 
+/** v4 `.k-pill.on`: the selected source gets a 1.5px border in its own colour. */
 const PILL_ACTIVE: Record<ReplyOption['type'], string> = {
-  lead: 'text-ai border-ai-line bg-ai-muted ring-1 ring-ai-line/50',
-  documentation: 'text-primary border-primary-line bg-primary-muted ring-1 ring-primary-line',
-  similar: 'text-warning border-warning-line bg-warning-muted ring-1 ring-warning',
+  lead: `${PILL_BASE.lead} border-[1.5px] border-current`,
+  documentation: `${PILL_BASE.documentation} border-[1.5px] border-current`,
+  similar: `${PILL_BASE.similar} border-[1.5px] border-current`,
 };
+
+/** "AI 87%", "PAST REPLY 82% → j@x.net": staging's label and sublabel, v4's two weights. */
+const PillText = ({ option }: { option: Pick<ReplyOption, 'label' | 'sublabel'> }) => (
+  <>
+    <b className="font-display text-[10px] font-semibold tracking-[0.08em]">{option.label}</b>
+    {/* The space is in the text, not only the gap: it is what a screen reader and a copy hear. */}
+    {option.sublabel && <span>{` ${option.sublabel}`}</span>}
+  </>
+);
 
 export function AiTabPanel({
   message,
@@ -352,8 +377,31 @@ export function AiTabPanel({
 
   const activeOption = options.find((opt) => opt.id === selectedId) ?? options[0];
 
+  /** The analysis facets, in staging's order, each only when the backend sent it. */
+  const facets: { label: string; value: string }[] = [
+    ...(spamCheck ? [{ label: 'Class', value: spamClassLabel(spamCheck) }] : []),
+    ...(analysis?.suggestedCategory
+      ? [{ label: 'Category', value: analysis.suggestedCategory }]
+      : []),
+    ...(analysis?.confidence !== undefined
+      ? [{ label: 'Confidence', value: `${Math.round(analysis.confidence * 100)}%` }]
+      : []),
+    ...(analysis?.isTicketWorthy !== undefined
+      ? [{ label: 'Ticket', value: analysis.isTicketWorthy ? 'Worthy' : 'No' }]
+      : []),
+    ...(analysis?.needsMoreInfo !== undefined
+      ? [{ label: 'Info', value: analysis.needsMoreInfo ? 'Needs more' : 'Complete' }]
+      : []),
+    // v3 "Language": the language stamped at ingestion (conversations.detected_language), shown
+    // only when the backend sends it — never a guess from this client.
+    ...(languageName ? [{ label: 'Language', value: languageName }] : []),
+    ...(analysis?.suggestedPriority
+      ? [{ label: 'Priority', value: priorityLabel(analysis.suggestedPriority) }]
+      : []),
+  ];
+
   return (
-    <div className="space-y-1.5">
+    <div className={section === 'analysis' ? 'space-y-2.5' : 'space-y-1.5'}>
       {!analysis && !spamCheck && options.length === 0 && !loadingSimilar && (
         <p className="text-[11px] text-muted-foreground text-center py-4">No AI analysis yet</p>
       )}
@@ -369,12 +417,13 @@ export function AiTabPanel({
 
       {/* Suggested reply with source switcher */}
       {section !== 'analysis' && (loadingSimilar || options.length > 0) && (
-        <div className="p-1.5 rounded border border-border">
-          <div className="flex justify-between items-center mb-1.5">
-            <p className={`${LABEL} text-muted-foreground`}>SUGGESTED REPLY</p>
-            {!loadingSimilar && activeOption && (
+        // v4 `.k-sr`: header + "Use in reply", the source pills, the answer, the source line.
+        <div className="grid gap-[9px] rounded-[10px] border border-border bg-card px-3 py-[11px]">
+          <div className="flex items-center gap-2">
+            <span className={`flex-1 ${GHOST_LABEL}`}>Suggested reply</span>
+            {!loadingSimilar && activeOption && onGhostClick && (
               <Button
-                variant="ghost"
+                variant="primary"
                 size="sm"
                 onClick={() =>
                   onGhostClick(
@@ -387,55 +436,58 @@ export function AiTabPanel({
                     activeOption.attachments
                   )
                 }
-                className="p-0 h-auto text-[10px] text-muted-foreground hover:text-foreground underline"
+                className="h-7 px-[9px] rounded-[7px] font-sans text-[11.5px]"
               >
-                Use
+                Use in reply
               </Button>
             )}
           </div>
 
           {!aiConfigured && !aiDraftsOff && (
-            <p className="text-[10px] leading-snug text-warning mb-1.5">
+            <p className="text-[10.5px] leading-snug text-warning">
               Connect an AI provider in Settings to get suggested replies — showing similar messages
               instead.
             </p>
           )}
 
           {loadingSimilar && options.length === 0 && (
-            <div className="flex items-center gap-1.5 py-1">
+            <div className="flex items-center gap-1.5">
               <Spinner />
               <span className="text-[11px] text-muted-foreground">Loading…</span>
             </div>
           )}
 
           {options.length > 1 && (
-            <div className="flex flex-wrap gap-1 mb-1.5">
+            // Toggle buttons in a named group (staging's plain buttons + aria-pressed): tab roles
+            // promised arrow-key movement and a tabpanel that this row does not have.
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Suggestion source">
               {options.map((opt) => {
                 const isActive = opt.id === (activeOption?.id ?? options[0]?.id);
                 return (
-                  <button
+                  <Button
                     key={opt.id}
+                    variant="ghost"
+                    aria-pressed={isActive}
+                    // The name is the pill's own words ("AI 87%", "Past reply 82% j@x.net"), said
+                    // explicitly: the text sits inside <PillText>, where a name check cannot see it.
+                    aria-label={opt.sublabel ? `${opt.label} ${opt.sublabel}` : opt.label}
                     onClick={() => {
                       setSelectedId(opt.id);
                       onOptionSelect?.(opt.answer, opt.label, opt.type);
                     }}
-                    className={`font-display ${LABEL} px-1.5 py-0.5 rounded border text-[9px] transition-colors ${
-                      isActive ? PILL_ACTIVE[opt.type] : PILL_BASE[opt.type]
-                    }`}
+                    className={`${PILL} ${isActive ? PILL_ACTIVE[opt.type] : PILL_BASE[opt.type]}`}
                   >
-                    {opt.sublabel ? `${opt.label} ${opt.sublabel}` : opt.label}
-                  </button>
+                    <PillText option={opt} />
+                  </Button>
                 );
               })}
             </div>
           )}
 
           {options.length === 1 && activeOption && (
-            <div className="mb-1">
-              <span
-                className={`${LABEL} px-1 py-0.5 rounded border text-[9px] ${PILL_BASE[activeOption.type]}`}
-              >
-                {activeOption.label}
+            <div className="flex">
+              <span className={`${PILL} cursor-default ${PILL_BASE[activeOption.type]}`}>
+                <PillText option={activeOption} />
               </span>
             </div>
           )}
@@ -444,10 +496,10 @@ export function AiTabPanel({
             <>
               <AnswerPreview
                 answer={activeOption.answer}
-                className="text-[11px] leading-snug text-muted-foreground"
+                className="text-[13px] leading-[1.6] text-foreground"
               />
               {activeOption.documentationId && (
-                <div className="mt-1.5 pt-1.5 border-t border-border flex items-center gap-1 min-w-0">
+                <div className="pt-2 border-t border-hair flex items-center gap-1.5 text-[12px] min-w-0">
                   <BookOpen className="flex-shrink-0 w-3 h-3 text-muted-foreground" />
                   {activeOption.references && activeOption.references.length > 1 ? (
                     <Button
@@ -457,7 +509,7 @@ export function AiTabPanel({
                         event.stopPropagation();
                         setViewKBSources(activeOption);
                       }}
-                      className="inline-block p-0 h-auto text-[10px] text-primary hover:text-primary/80 truncate"
+                      className="inline-block p-0 h-auto text-[12px] text-primary hover:text-primary/80 truncate"
                     >
                       {activeOption.documentTitle
                         ?.replace(/^Q:\s*/i, '')
@@ -471,7 +523,7 @@ export function AiTabPanel({
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(event) => event.stopPropagation()}
-                      className="text-[10px] text-primary hover:text-primary/80 truncate"
+                      className="text-[12px] text-primary hover:text-primary/80 truncate"
                     >
                       {activeOption.documentTitle
                         ? activeOption.documentTitle
@@ -487,7 +539,7 @@ export function AiTabPanel({
               {activeOption.kbSources &&
                 activeOption.kbSources.length > 0 &&
                 !activeOption.documentationId && (
-                  <div className="mt-1.5 pt-1.5 border-t border-border flex items-center gap-1 min-w-0">
+                  <div className="pt-2 border-t border-hair flex items-center gap-1.5 text-[12px] min-w-0">
                     <BookOpen className="flex-shrink-0 w-3 h-3 text-ai" />
                     <Button
                       variant="ghost"
@@ -496,7 +548,7 @@ export function AiTabPanel({
                         event.stopPropagation();
                         setViewLeadSources(activeOption);
                       }}
-                      className="inline-block p-0 h-auto text-[10px] text-ai hover:text-ai/80 truncate"
+                      className="inline-block p-0 h-auto text-[12px] text-ai hover:text-ai/80 truncate"
                     >
                       {activeOption.kbSources.length === 1
                         ? (activeOption.kbSources[0].title
@@ -512,7 +564,7 @@ export function AiTabPanel({
                 activeOption.messageId > 0 &&
                 !activeOption.documentationId &&
                 !activeOption.kbSources && (
-                  <div className="mt-1.5 pt-1.5 border-t border-border flex items-center gap-1">
+                  <div className="pt-2 border-t border-hair flex items-center gap-1.5 text-[12px]">
                     <MessageSquare className="flex-shrink-0 w-3 h-3 text-warning" />
                     {activeOption.content ? (
                       <Button
@@ -522,7 +574,7 @@ export function AiTabPanel({
                           event.stopPropagation();
                           setViewOriginal(activeOption);
                         }}
-                        className="p-0 h-auto text-[10px] text-warning hover:text-warning"
+                        className="p-0 h-auto text-[12px] text-warning hover:text-warning"
                       >
                         View original message
                       </Button>
@@ -530,7 +582,7 @@ export function AiTabPanel({
                       <Link
                         to={`/messages/${activeOption.messageId}`}
                         onClick={(event) => event.stopPropagation()}
-                        className="text-[10px] text-warning hover:text-warning"
+                        className="text-[12px] text-warning hover:text-warning"
                       >
                         View original message
                       </Link>
@@ -542,90 +594,80 @@ export function AiTabPanel({
         </div>
       )}
 
-      {section !== 'suggested' && !!(analysis ?? spamCheck) && (
-        <div className="grid grid-cols-3 gap-1.5">
-          {spamCheck && (
-            <div className="rounded border border-border p-1.5">
-              <p className={`${LABEL} text-muted-foreground mb-0.5`}>CLASS</p>
-              <p className="text-[11px] font-medium truncate">{spamClassLabel(spamCheck)}</p>
-            </div>
-          )}
-          {analysis?.suggestedCategory && (
-            <div className="rounded border border-border p-1.5">
-              <p className={`${LABEL} text-muted-foreground mb-0.5`}>CATEGORY</p>
-              <p className="text-[11px] font-medium truncate">{analysis.suggestedCategory}</p>
-            </div>
-          )}
-          {analysis?.confidence !== undefined && (
-            <div className="rounded border border-border p-1.5">
-              <p className={`${LABEL} text-muted-foreground mb-0.5`}>CONFIDENCE</p>
-              <p className="text-[11px] font-medium">{Math.round(analysis.confidence * 100)}%</p>
-            </div>
-          )}
-          {analysis?.isTicketWorthy !== undefined && (
-            <div className="rounded border border-border p-1.5">
-              <p className={`${LABEL} text-muted-foreground mb-0.5`}>TICKET</p>
-              <p className="text-[11px] font-medium">{analysis.isTicketWorthy ? 'Worthy' : 'No'}</p>
-            </div>
-          )}
-          {analysis?.needsMoreInfo !== undefined && (
-            <div className="rounded border border-border p-1.5">
-              <p className={`${LABEL} text-muted-foreground mb-0.5`}>INFO</p>
-              <p className="text-[11px] font-medium">
-                {analysis.needsMoreInfo ? 'Needs more' : 'Complete'}
-              </p>
-            </div>
-          )}
-          {languageName && (
-            // v3 "Language": the language stamped at ingestion (conversations.detected_language),
-            // shown only when the backend sends it — never a guess from this client.
-            <div className="rounded border border-border p-1.5">
-              <p className={`${LABEL} text-muted-foreground mb-0.5`}>LANGUAGE</p>
-              <p className="text-[11px] font-medium truncate">{languageName}</p>
-            </div>
-          )}
-          {analysis?.suggestedPriority && (
-            <div className="rounded border border-border p-1.5">
-              <p className={`${LABEL} text-muted-foreground mb-0.5`}>PRIORITY</p>
-              <p className="text-[11px] font-medium capitalize">{analysis.suggestedPriority}</p>
-            </div>
-          )}
+      {/* v4: a past reply was written to ANOTHER customer — said beside the card, every time it is
+          the one selected. The address on its pill says to whom; this says what to check. */}
+      {section !== 'analysis' &&
+        !loadingSimilar &&
+        activeOption?.id.startsWith('sim-') &&
+        activeOption.type === 'similar' && (
+          <p
+            className="text-[10.5px] leading-[1.45] text-faint-foreground"
+            data-testid="past-reply-hint"
+          >
+            {/* Always true: the greeting strip misses many shapes ("Thanks Marta", "Dear Mr. Smith"). */}
+            A reply sent to another customer. Check it for their name or account details before you
+            use it.
+          </p>
+        )}
+
+      {/* v4 AI tab: Summary first (what the agent reads first), then the facets, then the Reason,
+          then the flags. Every field staging showed is kept; only the order and the look change. */}
+      {section !== 'suggested' && analysis?.summary && (
+        <div className={SUM_CARD} data-testid="ai-summary">
+          <span className={GHOST_LABEL}>Summary</span>
+          <p className="mt-[5px] text-[13px] leading-[1.55]">{analysis.summary}</p>
         </div>
       )}
 
-      {section !== 'suggested' && analysis?.summary && (
-        <div className="p-1.5 rounded border border-border">
-          <p className={`mb-0.5 ${LABEL} text-muted-foreground`}>SUMMARY</p>
-          <p className="text-[11px] leading-snug">{analysis.summary}</p>
+      {section !== 'suggested' && facets.length > 0 && (
+        // Two columns in a narrow panel, three once it is wide enough for three 130px facets —
+        // v4's `@container (min-width:430px)`, without a container-query plugin.
+        <div
+          className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-[7px]"
+          data-testid="ai-facets"
+        >
+          {facets.map((facet) => (
+            <div
+              key={facet.label}
+              className="min-w-0 rounded-lg border border-border bg-card px-2.5 py-[7px]"
+            >
+              <span className={`block mb-[3px] ${GHOST_LABEL}`}>{facet.label}</span>
+              <b className="block truncate text-[13px] font-semibold text-foreground">
+                {facet.value}
+              </b>
+            </div>
+          ))}
         </div>
       )}
 
       {section !== 'suggested' && spamCheck?.reason && (
-        <div className="p-1.5 rounded border border-border">
-          <p className={`mb-0.5 ${LABEL} text-muted-foreground`}>REASON</p>
-          <p className="text-[11px] leading-snug text-muted-foreground">{spamCheck.reason}</p>
+        <div className={SUM_CARD}>
+          <span className={GHOST_LABEL}>Reason</span>
+          <p className="mt-[5px] text-[12.5px] leading-[1.55] text-muted-foreground">
+            {spamCheck.reason}
+          </p>
         </div>
       )}
 
       {section !== 'suggested' && spamCheck?.redFlags && spamCheck.redFlags.length > 0 && (
-        <div className="p-2 rounded border border-destructive-line bg-destructive-muted">
-          <p className={`mb-1 text-destructive ${LABEL}`}>RED FLAGS</p>
-          {spamCheck.redFlags.map((flag: string) => (
-            <p key={flag} className="text-[11px] text-destructive">
-              • {humanizeSignalFlag(flag)}
-            </p>
-          ))}
+        <div className="rounded-[9px] border border-destructive-line bg-destructive-muted px-3 py-[9px] text-destructive">
+          <span className="text-[11px] font-medium">Red flags</span>
+          <ul className="mt-[5px] pl-4 list-disc text-[12.5px] leading-[1.55]">
+            {spamCheck.redFlags.map((flag: string) => (
+              <li key={flag}>{humanizeSignalFlag(flag)}</li>
+            ))}
+          </ul>
         </div>
       )}
 
       {section !== 'suggested' && spamCheck?.greenFlags && spamCheck.greenFlags.length > 0 && (
-        <div className="p-2 rounded border border-success-line bg-success-muted">
-          <p className={`mb-1 text-success ${LABEL}`}>GREEN FLAGS</p>
-          {spamCheck.greenFlags.map((flag: string) => (
-            <p key={flag} className="text-[11px] text-success">
-              • {humanizeSignalFlag(flag)}
-            </p>
-          ))}
+        <div className="rounded-[9px] border border-success-line bg-success-muted px-3 py-[9px] text-success">
+          <span className="text-[11px] font-medium">Green flags</span>
+          <ul className="mt-[5px] pl-4 list-disc text-[12.5px] leading-[1.55]">
+            {spamCheck.greenFlags.map((flag: string) => (
+              <li key={flag}>{humanizeSignalFlag(flag)}</li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -634,10 +676,14 @@ export function AiTabPanel({
           messageId={message.id}
           open
           onClose={() => setViewKBSources(null)}
-          onSelectAnswer={(answer) => {
-            onGhostClick(answer, 'documentation');
-            setViewKBSources(null);
-          }}
+          onSelectAnswer={
+            onGhostClick
+              ? (answer) => {
+                  onGhostClick(answer, 'documentation');
+                  setViewKBSources(null);
+                }
+              : undefined
+          }
           preloadedSources={viewKBSources.references.filter(isKBReference).map((ref) => ({
             content: '',
             directReply: viewKBSources.answer,
@@ -654,10 +700,14 @@ export function AiTabPanel({
           messageId={message.id}
           open
           onClose={() => setViewLeadSources(null)}
-          onSelectAnswer={(answer) => {
-            onGhostClick(answer, 'lead_qualification');
-            setViewLeadSources(null);
-          }}
+          onSelectAnswer={
+            onGhostClick
+              ? (answer) => {
+                  onGhostClick(answer, 'lead_qualification');
+                  setViewLeadSources(null);
+                }
+              : undefined
+          }
           preloadedSources={viewLeadSources.kbSources
             .filter((src) => src.type === 'documentation')
             .map((src) => ({
@@ -677,10 +727,14 @@ export function AiTabPanel({
           messageId={message.id}
           open
           onClose={() => setViewOriginal(null)}
-          onSelectAnswer={(answer) => {
-            onGhostClick(answer, 'message');
-            setViewOriginal(null);
-          }}
+          onSelectAnswer={
+            onGhostClick
+              ? (answer) => {
+                  onGhostClick(answer, 'message');
+                  setViewOriginal(null);
+                }
+              : undefined
+          }
           preloadedSources={[
             {
               messageId: viewOriginal.messageId,

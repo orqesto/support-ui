@@ -2,7 +2,14 @@ import { Sparkles, BookOpen } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { stripHtml } from '@/lib/stripHtml';
-import { ghostCaption, type GhostOption } from './messageDetailConstants';
+import {
+  ghostCaption,
+  PHONE_THREAD_AVATAR,
+  PHONE_THREAD_BUBBLE,
+  PHONE_THREAD_COL_OUT,
+  PHONE_THREAD_ROW,
+  type GhostOption,
+} from './messageDetailConstants';
 
 type Props = {
   aiLoading: boolean;
@@ -36,8 +43,10 @@ export function MessageGhostBubble({
 
   if (aiLoading) {
     return (
-      <div className="flex flex-row-reverse items-start gap-[9px] w-full">
-        <div className="grid place-items-center mt-px w-[21px] h-[21px] rounded-full border border-dashed border-ai-line flex-none">
+      <div className={`flex flex-row-reverse items-start gap-[9px] w-full ${PHONE_THREAD_ROW}`}>
+        <div
+          className={`grid place-items-center mt-px w-[21px] h-[21px] rounded-full border border-dashed border-ai-line flex-none ${PHONE_THREAD_AVATAR}`}
+        >
           <Spinner size={12} className="text-ai" />
         </div>
         <div className="rounded-xl px-[13px] py-[11px] border border-dashed border-ai-line text-[12.5px] leading-relaxed">
@@ -49,8 +58,10 @@ export function MessageGhostBubble({
 
   if (!aiLoading && !ghostOption) {
     return (
-      <div className="flex flex-row-reverse items-start gap-[9px] w-full">
-        <div className="grid place-items-center mt-px w-[21px] h-[21px] rounded-full border border-dashed border-ai-line flex-none">
+      <div className={`flex flex-row-reverse items-start gap-[9px] w-full ${PHONE_THREAD_ROW}`}>
+        <div
+          className={`grid place-items-center mt-px w-[21px] h-[21px] rounded-full border border-dashed border-ai-line flex-none ${PHONE_THREAD_AVATAR}`}
+        >
           <Sparkles className="w-3 h-3 text-ai" />
         </div>
         <div className="rounded-xl px-[13px] py-[9px] border border-dashed border-ai-line text-[11.5px] leading-relaxed text-muted-foreground">
@@ -91,12 +102,14 @@ export function MessageGhostBubble({
       }
       // v3: an outbound-side row in the AI role — dashed teal, so it can never be mistaken for
       // a reply that was actually sent.
-      className="flex flex-row-reverse items-start gap-[9px] w-full group cursor-pointer focus-visible:outline-none"
+      className={`flex flex-row-reverse items-start gap-[9px] w-full group cursor-pointer focus-visible:outline-none ${PHONE_THREAD_ROW}`}
     >
-      <div className="grid place-items-center mt-px w-[21px] h-[21px] rounded-full border border-dashed border-ai-line text-ai flex-none">
+      <div
+        className={`grid place-items-center mt-px w-[21px] h-[21px] rounded-full border border-dashed border-ai-line text-ai flex-none ${PHONE_THREAD_AVATAR}`}
+      >
         <Sparkles className="w-3 h-3" />
       </div>
-      <div className="flex flex-col items-end gap-1 min-w-0 max-w-[90%]">
+      <div className={`flex flex-col items-end gap-1 min-w-0 max-w-[90%] ${PHONE_THREAD_COL_OUT}`}>
         <div className="flex items-center gap-1.5 font-display text-[10.5px] tracking-[0.03em] text-ai">
           <span className="inline-flex items-center h-[17px] px-1.5 rounded-[5px] border border-ai-line bg-ai-muted text-[9.5px] tracking-[0.09em] font-semibold uppercase">
             {ghostOption.type === 'documentation' ? 'Docs' : ghostOption.type}
@@ -117,7 +130,9 @@ export function MessageGhostBubble({
             </Button>
           )}
         </div>
-        <div className="rounded-xl px-[13px] py-[11px] border border-dashed border-ai-line bg-transparent text-muted-foreground group-hover:bg-ai-muted group-hover:text-foreground group-focus-visible:bg-ai-muted text-[13.5px] leading-[1.62] text-left transition-colors">
+        <div
+          className={`rounded-xl px-[13px] py-[11px] border border-dashed border-ai-line bg-transparent text-muted-foreground group-hover:bg-ai-muted group-hover:text-foreground group-focus-visible:bg-ai-muted text-[13.5px] leading-[1.62] text-left transition-colors ${PHONE_THREAD_BUBBLE}`}
+        >
           {/* Preview only — suggestions are rich text, so the raw markup would
               otherwise show as literal "<p>Hello…</p>". The click handler above
               still passes the ORIGINAL html, which is what the composer wants. */}

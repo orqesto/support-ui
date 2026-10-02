@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GitMerge, Undo2 } from 'lucide-react';
+import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,
@@ -18,6 +19,22 @@ import { conversationMergeService, type ManualMerge } from '@/services/conversat
 import { messageService } from '@/services/message.service';
 import type { Message } from '@/types';
 import { MergeConfirmDialog, type MergeRow } from './MergeConfirmDialog';
+import {
+  MG_BODY,
+  MG_DIALOG,
+  MG_DIM,
+  MG_EMPTY,
+  MG_HEAD,
+  MG_TITLE,
+  REL_BTN,
+  REL_HINT,
+  REL_LEAD,
+  REL_ROW,
+  REL_SECTION,
+  REL_SECTION_HEAD,
+  REL_SECTION_TITLE,
+} from './relatedStyles';
+import { channelInSentence } from './messageDetailConstants';
 
 /**
  * The customer's organisation, as a search: `mp@deals.badideas.fund` → `badideas.fund`.
@@ -67,46 +84,45 @@ export const customerDomainQuery = (sender: string | null | undefined): string =
   return labels.length >= 2 ? labels.slice(-2).join('.') : labels.join('.');
 };
 
-type Props = {
+type MergePickerDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   message: Message;
-  /** Refresh the surrounding surfaces — a merge changes the thread and the board. */
-  onChanged?: () => void;
+  /**
+   * After a merge. When this thread was merged AWAY the dialog has already navigated to the
+   * survivor; the caller only refreshes what it shows.
+   */
+  onMerged?: (survivor: MergeRow, mergedIn: MergeRow[]) => void;
 };
 
 /**
- * "These are the SAME conversation." Unlike adding threads to a ticket (related reports, each
- * thread stays), a merge leaves ONE thread: the others' messages move in and they leave the
- * inbox. Undoable here.
- *
- * ⛔ Hidden entirely when the backend cannot answer `GET /merges` — an older backend has no merge
- * route, and offering a button that 404s would be worse than not offering it.
+ * "Merge with another thread" — search, choose, then MergeConfirmDialog says what will happen.
+ * v4 `.mg-dlg` visuals; the search starts from the customer's organisation (customerDomainQuery).
  */
-export const MergeThreads = ({ message, onChanged }: Props) => {
+export const MergePickerDialog = ({
+  open,
+  onOpenChange,
+  message,
+  onMerged,
+}: MergePickerDialogProps) => {
   const navigate = useNavigate();
   const orgCode = useCurrentOrgCode();
-  const [merges, setMerges] = useState<ManualMerge[] | null>(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [candidates, setCandidates] = useState<Message[]>([]);
   const [searching, setSearching] = useState(false);
   const [confirmRows, setConfirmRows] = useState<MergeRow[] | null>(null);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setMerges(await conversationMergeService.listMerges(message.id));
-  }, [message.id]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  // Searches can overlap (a reopen, a second Search press): only the latest may write the list.
+  const searchSeq = useRef(0);
 
   const search = useCallback(
     async (term: string) => {
+      const seq = ++searchSeq.current;
       setSearching(true);
       setError(null);
       try {
         const res = await messageService.getThreads({ search: term, lifecycle: 'all' }, 1, 25);
+        if (seq !== searchSeq.current) return;
         const rows = (res.data ?? []) as unknown as Array<{
           latestMessage?: Message;
           sender?: string | null;
@@ -125,157 +141,209 @@ export const MergeThreads = ({ message, onChanged }: Props) => {
             .filter((row) => row.channel === message.channel)
         );
       } catch (err) {
-        logger.error('Failed to search tickets to merge', err);
-        setError(getApiErrorMessage(err) ?? 'Could not search tickets just now.');
+        if (seq !== searchSeq.current) return;
+        logger.error('Failed to search threads to merge', err);
+        setCandidates([]);
+        setError(getApiErrorMessage(err) ?? 'Could not search threads just now.');
       } finally {
-        setSearching(false);
+        if (seq === searchSeq.current) setSearching(false);
       }
     },
     [message.id, message.channel]
   );
 
-  const openPicker = () => {
+  // Every opening starts from the customer's organisation.
+  useEffect(() => {
+    if (!open) return;
     const initial = customerDomainQuery(message.sender);
     setQuery(initial);
     setCandidates([]);
-    setPickerOpen(true);
+    setError(null);
     if (initial) void search(initial);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per opening
+  }, [open]);
 
-  const afterMerge = (survivor: MergeRow) => {
+  const afterMerge = (survivor: MergeRow, mergedIn: MergeRow[]) => {
     setConfirmRows(null);
-    setPickerOpen(false);
+    onOpenChange(false);
     if (survivor.id !== message.id) {
-      // This ticket was merged away — show the one that now holds its messages. Navigate FIRST:
+      // This thread was merged away — show the one that now holds its messages. Navigate FIRST:
       // refreshing here would reload a thread that no longer exists and flash an error.
       navigate(
         `/messages?id=${getConvUrlId({ id: survivor.id, publicId: survivor.publicId }, orgCode)}`
       );
-    } else {
-      void load();
     }
-    onChanged?.();
+    onMerged?.(survivor, mergedIn);
   };
-
-  const doUnmerge = async (merge: ManualMerge) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await conversationMergeService.unmerge(message.id, merge.id);
-      await load();
-      onChanged?.();
-    } catch (err) {
-      logger.error('Failed to unmerge', err);
-      setError(
-        getApiErrorMessage(err) ?? 'That ticket could not be unmerged. Nothing was changed.'
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (merges === null) return null;
 
   const label = (row: { id: number; publicId?: string | null }) => getConvUrlId(row, orgCode);
+  const channelWord = channelInSentence(message.channel);
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <h4 className="font-display text-sm font-medium flex items-center gap-1.5">
-          <GitMerge className="h-3.5 w-3.5" aria-hidden />
-          Same conversation
-        </h4>
-        <Button variant="outline" size="sm" onClick={openPicker} disabled={busy}>
-          Merge…
-        </Button>
-      </div>
-
-      {merges.length === 0 ? (
-        <p className="text-[12px] text-muted-foreground">
-          Merge when the same conversation arrived as two tickets — for example the customer wrote
-          back from another address.
-        </p>
-      ) : (
-        <ul className="space-y-1">
-          {merges.map((merge) => (
-            <li key={merge.id} className="flex items-center justify-between gap-2 text-[12px]">
-              <span className="truncate">
-                <span className="font-mono">{label(merge)}</span> merged in
-                {merge.mergedAt && (
-                  <span className="text-muted-foreground">
-                    {' '}
-                    · {new Date(merge.mergedAt).toLocaleDateString()}
-                  </span>
-                )}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void doUnmerge(merge)}
-                disabled={busy}
-              >
-                <Undo2 className="h-3 w-3 mr-1" aria-hidden />
-                Unmerge
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {error && <p className="text-[12px] text-destructive">{error}</p>}
-
-      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
-        <DialogHeader>
-          <DialogTitle>Merge with another ticket</DialogTitle>
-          <DialogClose onClose={() => setPickerOpen(false)} />
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange} className={MG_DIALOG} sheetOnPhone>
+        <DialogHeader className={MG_HEAD}>
+          <DialogTitle className={MG_TITLE}>Merge with another thread</DialogTitle>
+          <DialogClose onClose={() => onOpenChange(false)} />
         </DialogHeader>
-        <DialogContent>
-          <div className="space-y-3">
-            <SearchInput
-              value={query}
-              onChange={setQuery}
-              onSearch={() => void search(query)}
-              showSearchButton
-              placeholder="Ticket number, address or subject"
-            />
-            {searching ? (
-              <p className="text-sm text-muted-foreground">Searching…</p>
-            ) : candidates.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No other tickets match.</p>
-            ) : (
-              <ul className="space-y-1">
-                {candidates.map((candidate) => (
-                  <li key={candidate.id} className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm">
-                      <span className="font-mono text-xs mr-1.5">{label(candidate)}</span>
-                      {candidate.subject?.trim() ? candidate.subject : '(no subject)'}
-                      {candidate.sender && (
-                        <span className="text-muted-foreground"> · {candidate.sender}</span>
-                      )}
+        <DialogContent className={MG_BODY}>
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            onSearch={() => void search(query)}
+            showSearchButton
+            placeholder="Thread number, address or subject"
+          />
+          <p className="m-0 text-[11.5px] text-muted-foreground">
+            Only {channelWord} threads can merge into this one.
+          </p>
+          {error && <p className="m-0 text-destructive">{error}</p>}
+          {searching ? (
+            <p className={MG_EMPTY}>Searching…</p>
+          ) : candidates.length === 0 ? (
+            !error && <p className={MG_EMPTY}>No other threads match.</p>
+          ) : (
+            <ul className="grid gap-0.5">
+              {candidates.map((candidate) => (
+                <li
+                  key={candidate.id}
+                  className="flex items-center gap-2.5 px-2 py-[7px] -mx-2 rounded-lg hover:bg-muted"
+                >
+                  <span className="flex flex-col flex-1 min-w-0 leading-[1.35]">
+                    <span className="font-mono text-[11.5px] text-muted-foreground">
+                      {label(candidate)}
                     </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setConfirmRows([message, candidate])}
-                    >
-                      Choose
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+                    <span className="text-[13px] font-medium truncate">
+                      {candidate.subject?.trim() ? candidate.subject : '(no subject)'}
+                    </span>
+                    {candidate.sender && <span className={MG_DIM}>{candidate.sender}</span>}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-3"
+                    onClick={() => setConfirmRows([message, candidate])}
+                  >
+                    Choose
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
         </DialogContent>
       </Dialog>
 
       <MergeConfirmDialog
         open={confirmRows !== null}
         rows={confirmRows ?? []}
-        onOpenChange={(open) => {
-          if (!open) setConfirmRows(null);
+        currentId={message.id}
+        onOpenChange={(next) => {
+          if (!next) setConfirmRows(null);
         }}
         onMerged={afterMerge}
       />
-    </div>
+    </>
+  );
+};
+
+type MergedSectionProps = {
+  message: Pick<Message, 'id'>;
+  /** What was merged into this thread. */
+  merges: ManualMerge[];
+  canManage: boolean;
+  /** Open the merge picker. */
+  onMerge: () => void;
+  /** After an unmerge the server confirmed (with the thread it took out): reload what shows. */
+  onUnmerged: (unmergedId: number) => void;
+};
+
+/**
+ * v4 "Same conversation" (`mergedHTML`): what was merged in, each with Unmerge, and Merge….
+ * Rendered in the header's "Merged · n" popover. A merge leaves ONE thread (the others' messages
+ * move in and they leave the inbox), unlike adding threads to a ticket, where each stays.
+ */
+export const MergedSection = ({
+  message,
+  merges,
+  canManage,
+  onMerge,
+  onUnmerged,
+}: MergedSectionProps) => {
+  const orgCode = useCurrentOrgCode();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const doUnmerge = async (merge: ManualMerge) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await conversationMergeService.unmerge(message.id, merge.id);
+      toast.success(`${getConvUrlId(merge, orgCode)} unmerged — it is its own thread again`);
+      onUnmerged(merge.id);
+    } catch (err) {
+      logger.error('Failed to unmerge', err);
+      setError(
+        getApiErrorMessage(err) ?? 'That thread could not be unmerged. Nothing was changed.'
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className={REL_SECTION} aria-label="Same conversation">
+      <div className={REL_SECTION_HEAD}>
+        <h5 className={REL_SECTION_TITLE}>
+          <GitMerge className="h-[13px] w-[13px] text-muted-foreground flex-none" aria-hidden />
+          Same conversation
+        </h5>
+        {canManage && (
+          <Button variant="ghost" className={REL_BTN} onClick={onMerge} disabled={busy}>
+            Merge…
+          </Button>
+        )}
+      </div>
+      <p className={REL_LEAD}>
+        Two threads become one. The other thread’s messages move in here and it leaves the inbox;
+        Unmerge undoes it.
+      </p>
+      {merges.length === 0 ? (
+        <p className={REL_HINT}>
+          Merge when the same conversation arrived as two threads — for example the customer wrote
+          back from another address.
+        </p>
+      ) : (
+        <ul className="grid gap-1.5">
+          {merges.map((merge) => (
+            <li key={merge.id} className={REL_ROW}>
+              <span className="flex-1 min-w-0">
+                <span className="font-mono text-[11.5px] text-foreground">
+                  {getConvUrlId(merge, orgCode)}
+                </span>{' '}
+                merged in
+                {merge.mergedAt && !Number.isNaN(Date.parse(merge.mergedAt)) && (
+                  <span className="block text-[10.5px] text-muted-foreground">
+                    {new Date(merge.mergedAt).toLocaleDateString()}
+                  </span>
+                )}
+              </span>
+              {canManage && (
+                <Button
+                  variant="ghost"
+                  className={REL_BTN}
+                  onClick={() => void doUnmerge(merge)}
+                  disabled={busy}
+                  aria-label={`Unmerge ${getConvUrlId(merge, orgCode)}`}
+                >
+                  <Undo2 className="h-3 w-3 mr-1" aria-hidden />
+                  Unmerge
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && <p className="m-0 text-[12px] text-destructive">{error}</p>}
+    </section>
   );
 };

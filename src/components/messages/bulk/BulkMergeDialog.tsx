@@ -91,7 +91,7 @@ export const BulkMergeDialog = ({ open, selectedIds, onOpenChange, onMerged }: P
         rows={[]}
         onOpenChange={onOpenChange}
         onMerged={onMerged}
-        notice="Some of the selected tickets could not be read just now, so nothing can be merged. Close and try again."
+        notice="Some of the selected threads could not be read just now, so nothing can be merged. Close and try again."
       />
     );
   }
@@ -104,9 +104,9 @@ export const BulkMergeDialog = ({ open, selectedIds, onOpenChange, onMerged }: P
       onMerged={onMerged}
       notice={
         rows.length === 0
-          ? 'Reading the selected tickets…'
+          ? 'Reading the selected threads…'
           : new Set(rows.map((row) => (row as Message).channel)).size > 1
-            ? 'These tickets arrived on different channels and cannot be merged.'
+            ? 'These threads arrived on different channels and cannot be merged.'
             : undefined
       }
     />

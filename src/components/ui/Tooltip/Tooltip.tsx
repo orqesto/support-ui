@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getTooltipClasses } from './tooltip.styles';
 import type { TooltipProps } from './tooltip.types';
@@ -16,6 +16,24 @@ const TRANSFORM_BY_SIDE: Record<NonNullable<TooltipProps['side']>, string> = {
   right: 'translate(0, -50%)',
 };
 
+/*
+  Elements being focused by `focusWithoutTooltip` right now. A tooltip with `quietFocus` does not
+  open for that one focus — a component handing focus BACK after a mouse press (a popover closed
+  by an outside click) should not flash a tooltip the user never pointed at. Held only for the
+  duration of the synchronous `focus()` call, so a later real focus is never swallowed.
+*/
+const quietTargets = new WeakSet<EventTarget>();
+
+/** Focus `el` without opening a `quietFocus` tooltip around it (every other tooltip: unchanged). */
+export const focusWithoutTooltip = (el: HTMLElement): void => {
+  quietTargets.add(el);
+  try {
+    el.focus({ preventScroll: true });
+  } finally {
+    quietTargets.delete(el);
+  }
+};
+
 const GAP_PX = 6;
 const VIEWPORT_MARGIN_PX = 4;
 
@@ -26,12 +44,22 @@ export const Tooltip = ({
   size = 'md',
   delayDuration = 200,
   className = 'inline-flex',
+  quietFocus = false,
 }: TooltipProps) => {
   const [isVisible, setIsVisible] = useState(false);
+  // The unshifted anchor from the trigger; `shiftX` is the edge clamp applied on top of it.
   const [coords, setCoords] = useState<Coords | null>(null);
+  const [shiftX, setShiftX] = useState(0);
   const triggerRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLSpanElement>(null);
   const timeoutRef = useRef<number | null>(null);
+  // A tooltip that goes away mid-delay (its trigger unmounted) must not fire into nothing.
+  useEffect(
+    () => () => {
+      if (timeoutRef.current !== null) window.clearTimeout(timeoutRef.current);
+    },
+    []
+  );
 
   const computeCoords = useCallback((): Coords | null => {
     if (!triggerRef.current) return null;
@@ -66,23 +94,32 @@ export const Tooltip = ({
     setIsVisible(false);
   };
 
-  // After the portal renders we know the tooltip's real bounding box.
-  // If it spills past either viewport edge, shift the anchor `left` so the
-  // box sits flush against the margin instead. Only relevant for top/bottom
-  // sides — left/right don't horizontally clamp the same way.
+  // After the portal renders we know the tooltip's real width. If the box would spill past either
+  // viewport edge, shift it horizontally so it sits flush against the margin instead. Only relevant
+  // for top/bottom sides — left/right don't horizontally clamp the same way.
+  //
+  // The shift is computed from the UNSHIFTED anchor (`coords`) and the box's width — never from where
+  // the box currently sits — so it is idempotent: a second run yields the same shift and React bails
+  // out. (Measuring the current box and nudging `coords` again did not converge where the box never
+  // moves, e.g. jsdom's 0×0 layout: +4 px per render until "Maximum update depth exceeded".) The tip
+  // is `whitespace-nowrap`, so its width does not depend on where it is placed, and the
+  // `translate(-50%, …)` of top/bottom puts its left edge at `anchor - width / 2`.
   useLayoutEffect(() => {
     if (!isVisible || !tooltipRef.current || !coords) return;
-    if (side !== 'top' && side !== 'bottom') return;
-    const tip = tooltipRef.current.getBoundingClientRect();
-    let nextLeft = coords.left;
-    if (tip.left < VIEWPORT_MARGIN_PX) {
-      nextLeft = coords.left + (VIEWPORT_MARGIN_PX - tip.left);
-    } else if (tip.right > window.innerWidth - VIEWPORT_MARGIN_PX) {
-      nextLeft = coords.left - (tip.right - (window.innerWidth - VIEWPORT_MARGIN_PX));
+    if (side !== 'top' && side !== 'bottom') {
+      setShiftX(0);
+      return;
     }
-    if (nextLeft !== coords.left) {
-      setCoords({ ...coords, left: nextLeft });
+    const { width } = tooltipRef.current.getBoundingClientRect();
+    const left = coords.left - width / 2;
+    const right = left + width;
+    let next = 0;
+    if (left < VIEWPORT_MARGIN_PX) {
+      next = VIEWPORT_MARGIN_PX - left;
+    } else if (right > window.innerWidth - VIEWPORT_MARGIN_PX) {
+      next = window.innerWidth - VIEWPORT_MARGIN_PX - right;
     }
+    setShiftX(next);
   }, [isVisible, coords, side]);
 
   return (
@@ -92,7 +129,10 @@ export const Tooltip = ({
       className={className}
       onMouseEnter={show}
       onMouseLeave={hide}
-      onFocus={show}
+      onFocus={(event) => {
+        if (quietFocus && quietTargets.has(event.target)) return;
+        show();
+      }}
       onBlur={hide}
     >
       {children}
@@ -108,7 +148,7 @@ export const Tooltip = ({
             style={{
               position: 'fixed',
               top: coords.top,
-              left: coords.left,
+              left: coords.left + shiftX,
               transform: TRANSFORM_BY_SIDE[side ?? 'top'],
             }}
           >

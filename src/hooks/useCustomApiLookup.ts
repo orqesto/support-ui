@@ -113,6 +113,8 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
   const [results, setResults] = useState<CustomApiLookupResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasRun, setHasRun] = useState(false);
+  /** When the results on screen were looked up (ISO); null with `hasRun` false. The "ran …" hint. */
+  const [ranAt, setRanAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   /**
    * ⚠️ THE SKEW WINDOW, handled rather than described. A push to `main` deploys this frontend while
@@ -153,6 +155,7 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
     // spinner it started is cleared here — otherwise it would stick on the new thread for ever.
     setLoading(false);
     setHasRun(false);
+    setRanAt(null);
     setError(null);
     setUnavailable(false);
     setLookedUpAs(null);
@@ -190,6 +193,7 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
           setResults([]);
           setLookedUpAs(null);
           setHasRun(false);
+          setRanAt(null);
           setError('This server cannot look up another email yet.');
           return;
         }
@@ -203,6 +207,7 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
             : data
         );
         setHasRun(true);
+        setRanAt(new Date().toISOString());
         // The press is the freshest evidence there is. A full run that found NOTHING to run means
         // the cached "available" is stale (an admin disabled the last lookup since): refetch it so
         // the panel stands down, rather than keep offering a button that does nothing.
@@ -232,5 +237,5 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
     [conversationId, contactId, queryClient]
   );
 
-  return { results, loading, hasRun, error, unavailable, run, lookedUpAs };
+  return { results, loading, hasRun, ranAt, error, unavailable, run, lookedUpAs };
 }

@@ -3,8 +3,23 @@ import { X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '../Button';
-import { getDialogOverlayClasses, getDialogContentClasses } from './dialog.styles';
+import {
+  getDialogOverlayClasses,
+  getDialogContentClasses,
+  DIALOG_SHEET_CONTENT,
+  DIALOG_SHEET_WRAPPER,
+} from './dialog.styles';
 import type { DialogProps, DialogSubComponentProps, DialogCloseProps } from './dialog.types';
+
+/*
+  How many dialogs hold the page still right now, and the page's own `overflow` from before the
+  first one opened. Shared across every Dialog so stacked dialogs closing in ONE update (a merge
+  closes its picker and its confirm together) restore the page's value whatever order React runs
+  their cleanups in — a per-dialog "previous value" restored the outer dialog's 'hidden' last and
+  left the phone's document-scrolled page unable to scroll.
+*/
+let scrollLocks = 0;
+let overflowBeforeLocks = '';
 
 export const Dialog = ({
   open,
@@ -14,6 +29,7 @@ export const Dialog = ({
   size = 'md',
   blur = 'none',
   dismissOnOverlayClick = true,
+  sheetOnPhone = false,
 }: DialogProps) => {
   /**
    * Escape closes, listened for on the document rather than on the backdrop.
@@ -41,24 +57,31 @@ export const Dialog = ({
    * content the user is reading slides away from them. Every dialog in the app had this, not
    * just the payment one.
    *
-   * The previous `overflow` is restored rather than assumed to be `''`, so a dialog opened from
-   * a page that manages its own scrolling does not leave that page permanently unscrollable
-   * after closing. Nested dialogs are safe for the same reason: the inner one restores what the
-   * outer one set, and the outer one restores the page's own value.
+   * The page's own `overflow` is restored rather than assumed to be `''`, so a dialog opened
+   * from a page that manages its own scrolling does not leave that page permanently unscrollable
+   * after closing. Stacked dialogs share one lock (see `scrollLocks`): the first to open saves
+   * the page's value, the last to close puts it back, in any close order.
    */
   useEffect(() => {
     if (!open) return;
-    const previousOverflow = document.body.style.overflow;
+    if (scrollLocks === 0) overflowBeforeLocks = document.body.style.overflow;
+    scrollLocks += 1;
     document.body.style.overflow = 'hidden';
     return () => {
-      document.body.style.overflow = previousOverflow;
+      scrollLocks -= 1;
+      if (scrollLocks === 0) document.body.style.overflow = overflowBeforeLocks;
     };
   }, [open]);
 
   if (!open) return null;
 
   return createPortal(
-    <div className="flex fixed inset-0 z-[60] justify-center items-center">
+    <div
+      className={cn(
+        'flex fixed inset-0 z-[60] justify-center items-center',
+        sheetOnPhone && DIALOG_SHEET_WRAPPER
+      )}
+    >
       {dismissOnOverlayClick ? (
         <button
           type="button"
@@ -74,7 +97,16 @@ export const Dialog = ({
       {/* role + aria-modal: screen readers announce it as a dialog, and keyboard handlers
           elsewhere (message detail's single-key shortcuts) can tell a modal owns the keys —
           without it, Escape closed the dialog AND the rail behind it. */}
-      <div role="dialog" aria-modal="true" className={cn(getDialogContentClasses(size), className)}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        data-sheet-on-phone={sheetOnPhone ? 'true' : undefined}
+        className={cn(
+          getDialogContentClasses(size),
+          className,
+          sheetOnPhone && DIALOG_SHEET_CONTENT
+        )}
+      >
         {children}
       </div>
     </div>,
@@ -109,7 +141,10 @@ export const DialogContent = ({ className, children }: DialogSubComponentProps) 
 );
 
 export const DialogFooter = ({ className, children }: DialogSubComponentProps) => (
-  <div className={cn('flex gap-2 justify-end items-center p-6 border-t border-border', className)}>
+  <div
+    data-dialog-footer
+    className={cn('flex gap-2 justify-end items-center p-6 border-t border-border', className)}
+  >
     {children}
   </div>
 );

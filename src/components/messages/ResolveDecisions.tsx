@@ -17,12 +17,22 @@ export type ResolveDecisionsProps = {
   onNotCustomerWork?: () => void;
   /** Confirmed spam: `move_to_spam` + `confirm` (owner, 2026-09-22). */
   onResolveAsSpam?: () => void;
+  /**
+   * 'phone' — v4 mobile `.decide` (M6): its own band between the thread and the composer, the
+   * Resolve buttons sharing the width at 42px, the quiet exits on a centred row of their own.
+   * Default 'inline': the row under the reply, unchanged.
+   */
+  variant?: 'inline' | 'phone';
 };
 
 // v3 ".act": outlined. ⛔ Nothing here is filled — Send owns the composer's right edge and is its
 // ONLY filled button, so a hand going for Send cannot land on Resolve.
 const ACT =
   'inline-flex items-center gap-1.5 h-[27px] px-[11px] rounded-[7px] border border-border bg-card text-foreground text-[12px] whitespace-nowrap transition-colors disabled:opacity-50';
+// v4 mobile `.decide .on .act` / `.decide .q`: the Resolve pair share the row at 42px; the quiet
+// exits are 38px. Appended after ACT / QUIET, so these heights win.
+const PHONE_ACT = '!flex-1 !justify-center !h-[42px] !text-[13.5px]';
+const PHONE_QUIET = '!h-[38px] !text-[13px]';
 // v3 ".q": the quiet exits that are not "we answered it".
 const QUIET =
   'inline-flex items-center gap-[5px] h-[27px] px-2 rounded-[7px] text-muted-foreground text-[12px] whitespace-nowrap transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50';
@@ -45,8 +55,10 @@ export function ResolveDecisions({
   onResolveToKb,
   onNotCustomerWork,
   onResolveAsSpam,
+  variant = 'inline',
 }: ResolveDecisionsProps) {
   if (mode === null) return null;
+  const phone = variant === 'phone';
   const offerKb = mode === 'active' && onResolveToKb !== undefined;
   const hasQuiet = onNotCustomerWork !== undefined || onResolveAsSpam !== undefined;
 
@@ -54,9 +66,14 @@ export function ResolveDecisions({
     <div
       role="group"
       aria-label="Resolve decisions"
-      className="flex flex-wrap items-center gap-2 mt-[9px] pt-[9px] border-t border-hair"
+      data-variant={variant}
+      className={
+        phone
+          ? 'flex flex-col gap-2 px-3 pt-3 pb-4 border-t border-hair bg-card'
+          : 'flex flex-wrap items-center gap-2 mt-[9px] pt-[9px] border-t border-hair'
+      }
     >
-      <div className="flex items-center gap-1.5">
+      <div className={phone ? 'flex gap-2 items-center w-full' : 'flex items-center gap-1.5'}>
         <Button
           variant="ghost"
           size="sm"
@@ -65,7 +82,7 @@ export function ResolveDecisions({
           // E opens the same dialog and follows the same resolveMode — and E also acts in note
           // mode, where this row is hidden (a keystroke is not a button beside Post).
           title="Resolve (E)"
-          className={`${ACT} hover:text-success hover:bg-success-muted hover:border-success-line`}
+          className={`${ACT} ${phone ? PHONE_ACT : ''} hover:text-success hover:bg-success-muted hover:border-success-line`}
         >
           <Check className="w-[13px] h-[13px]" strokeWidth={2.5} />
           Resolve
@@ -76,7 +93,7 @@ export function ResolveDecisions({
             size="sm"
             onClick={onResolveToKb}
             disabled={busy}
-            className={`${ACT} hover:text-pending hover:bg-pending-muted hover:border-pending-line`}
+            className={`${ACT} ${phone ? PHONE_ACT : ''} hover:text-pending hover:bg-pending-muted hover:border-pending-line`}
           >
             <BookOpen className="w-[13px] h-[13px]" />
             Resolve &amp; save to KB
@@ -85,8 +102,12 @@ export function ResolveDecisions({
       </div>
       {hasQuiet && (
         <>
-          <span aria-hidden="true" className="w-px h-4 mx-0.5 bg-border" />
-          <div className="flex items-center gap-1.5">
+          {!phone && <span aria-hidden="true" className="w-px h-4 mx-0.5 bg-border" />}
+          <div
+            className={
+              phone ? 'flex gap-1 justify-center items-center w-full' : 'flex items-center gap-1.5'
+            }
+          >
             {onNotCustomerWork && (
               <Button
                 variant="ghost"
@@ -94,7 +115,7 @@ export function ResolveDecisions({
                 onClick={onNotCustomerWork}
                 disabled={busy}
                 title="Clear it off the queue without claiming anyone answered it"
-                className={QUIET}
+                className={`${QUIET} ${phone ? PHONE_QUIET : ''}`}
               >
                 Not customer work
               </Button>
@@ -106,7 +127,7 @@ export function ResolveDecisions({
                 onClick={onResolveAsSpam}
                 disabled={busy}
                 title="Confirms it as spam — it moves to Spam (confirmed), not Resolved"
-                className={`${QUIET} hover:!bg-destructive-muted hover:!text-destructive`}
+                className={`${QUIET} ${phone ? PHONE_QUIET : ''} hover:!bg-destructive-muted hover:!text-destructive`}
               >
                 <Ban className="w-[13px] h-[13px]" />
                 Resolve as spam

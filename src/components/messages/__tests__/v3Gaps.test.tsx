@@ -16,7 +16,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { MessageGhostBubble } from '../MessageGhostBubble';
 import { AiTabPanel } from '../AiTabPanel';
 
-// The thread's tickets (header bar + Customer tab, 2026-09-30) — hermetic: an unmocked request
+// The thread's tickets (the header chip, 2026-09-30) — hermetic: an unmocked request
 // fails after the test and logs during teardown.
 vi.mock('@/services/ticketThreads.service', () => ({
   ticketThreadsService: {
@@ -233,14 +233,14 @@ describe('wiring: the AI tab shows the detected language', () => {
 
   it('names the language when the backend sends one', () => {
     renderAnalysis('es');
-    expect(screen.getByText('LANGUAGE')).toBeTruthy();
+    expect(screen.getByText('Language')).toBeTruthy();
     expect(screen.getByText('Spanish')).toBeTruthy();
   });
 
   it('CONTROL: no language → no facet (an older backend sends none)', () => {
     renderAnalysis(undefined);
-    expect(screen.queryByText('LANGUAGE')).toBeNull();
+    expect(screen.queryByText('Language')).toBeNull();
     // …and the grid itself still rendered, so the absence is not vacuous.
-    expect(screen.getByText('CATEGORY')).toBeTruthy();
+    expect(screen.getByText('Category')).toBeTruthy();
   });
 });

@@ -8,6 +8,7 @@ import { NO_EMAIL_IDENTITY_NOTE } from '../CustomApiLookupPanel';
 import type * as LookupService from '@/services/customApiLookup.service';
 import { useAuthStore } from '@/stores/authStore';
 import type { Message, User } from '@/types';
+import type * as MessageService from '@/services/message.service';
 
 /**
  * The WIRING of the no-email note, not the constant. Audit 2026-09-19: the only test of the note
@@ -19,16 +20,6 @@ import type { Message, User } from '@/types';
 
 const availability = vi.fn<(surface: string) => Promise<boolean>>();
 
-// The thread's tickets (header bar + Customer tab, 2026-09-30) — hermetic: an unmocked request
-// fails after the test and logs during teardown.
-vi.mock('@/services/ticketThreads.service', () => ({
-  ticketThreadsService: {
-    ticketsOfThread: () => Promise.resolve({ unavailable: false, rows: [], hiddenCount: 0 }),
-    threadsOfTicket: () => Promise.resolve({ unavailable: false, rows: [], hiddenCount: 0 }),
-    addThreads: () => Promise.resolve({ added: [], alreadyAttached: [] }),
-    removeThread: () => Promise.resolve(false),
-  },
-}));
 vi.mock('@/services/customApiLookup.service', async () => {
   const actual = await vi.importActual<typeof LookupService>('@/services/customApiLookup.service');
   return {
@@ -43,6 +34,19 @@ vi.mock('@/services/customApiLookup.service', async () => {
 // The customer tab also mounts the AI analysis section, which fetches on mount; it has nothing to
 // do with the note and would otherwise fire real XHRs at a host that is not there.
 vi.mock('../AiTabPanel', () => ({ AiTabPanel: () => null }));
+// MessageKBReferences (the Thread/AI tab footer) fetches on mount; without this every render sent a
+// real GET /api/messages/<id>/kb-references at a host that is not there (CI noise, and a late
+// response can land after the environment is torn down).
+vi.mock('@/services/message.service', async () => {
+  const actual = await vi.importActual<typeof MessageService>('@/services/message.service');
+  return {
+    ...actual,
+    messageService: {
+      ...actual.messageService,
+      getKBReferences: () => Promise.resolve({ success: true, data: [] }),
+    },
+  };
+});
 
 vi.mock('@/components/contacts/useContactProfile', () => ({
   useContactProfile: () => ({ loading: false, contact: null }),

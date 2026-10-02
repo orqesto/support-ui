@@ -2,7 +2,7 @@
 // no-AI-provider note + failure toast tipped it over; splitting the source-card
 // renderer out is the natural follow-up refactor.
 /* eslint-disable max-lines */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type KeyboardEvent } from 'react';
 import { AlertTriangle, BookOpen, Check, ChevronDown, ChevronUp, Clock, ExternalLink, FileText, Globe, Languages, Loader2, MessageCircle, Quote, Search, Sparkles, TrendingUp, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
@@ -41,7 +41,11 @@ type SimilarMessagesDialogProps = {
   messageId: number;
   open: boolean;
   onClose: () => void;
-  onSelectAnswer: (answer: string, source?: string) => void;
+  /**
+   * Puts the chosen answer into the reply. Absent where there is no reply to put it into: the
+   * sources still show for reading, without the "use" buttons.
+   */
+  onSelectAnswer?: (answer: string, source?: string) => void;
   preloadedSources?: SimilarMessage[];
   preloadedTitle?: string;
 };
@@ -68,6 +72,22 @@ const NO_ANSWER_COPY: Record<string, string> = {
   default: 'No reply was drafted for this message.',
 };
 
+/** A choosable card's click + keyboard props — none at all when the dialog is read-only. */
+const selectableProps = (selectable: boolean, onSelect: () => void) =>
+  selectable
+    ? {
+        onClick: onSelect,
+        onKeyDown: (event: KeyboardEvent) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onSelect();
+          }
+        },
+        role: 'button' as const,
+        tabIndex: 0,
+      }
+    : {};
+
 export const SimilarMessagesDialog = ({
   messageId,
   open,
@@ -76,6 +96,12 @@ export const SimilarMessagesDialog = ({
   preloadedSources,
   preloadedTitle,
 }: SimilarMessagesDialogProps) => {
+  /*
+    Read-only without a handler (an inactive thread's AI/KB tab): nothing here can be put into a
+    reply, so nothing is offered as a choice either — no selectable rows, no "Selected" badge or
+    ring, no "read it before sending" caution, and the footer just closes.
+  */
+  const selectable = Boolean(onSelectAnswer);
   const [loading, setLoading] = useState(false);
   const [similarMessages, setSimilarMessages] = useState<SimilarMessage[]>(preloadedSources ?? []);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -164,11 +190,14 @@ export const SimilarMessagesDialog = ({
    * sent are not the same artefact and must not be offered as though they were.
    */
   const selectedIsRawSource =
+    selectable &&
     !useAiResponse &&
     selectedIndex !== null &&
     similarMessages[selectedIndex]?.isRawSourceText === true;
 
   const handleUseAnswer = async (forceText?: string) => {
+    // Its controls only render with a handler; this keeps the type honest.
+    if (!onSelectAnswer) return;
     // If AI response is selected
     if (useAiResponse && aiResponse) {
       // Use translated text if available and no override provided
@@ -295,23 +324,16 @@ export const SimilarMessagesDialog = ({
           {!loading && aiMode === 'ai-generated' && aiResponse && (
             <div className="mb-4">
               <div
-                onClick={() => {
+                {...selectableProps(selectable, () => {
                   setUseAiResponse(true);
                   setSelectedIndex(null);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    setUseAiResponse(true);
-                    setSelectedIndex(null);
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-                className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
-                  useAiResponse
-                    ? 'ring-2 border-primary bg-primary/10 ring-primary'
-                    : 'border-dashed border-muted-foreground/30 hover:border-primary hover:bg-accent/20'
+                })}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  !selectable
+                    ? 'border-dashed border-muted-foreground/30'
+                    : useAiResponse
+                      ? 'cursor-pointer ring-2 border-primary bg-primary/10 ring-primary'
+                      : 'cursor-pointer border-dashed border-muted-foreground/30 hover:border-primary hover:bg-accent/20'
                 }`}
               >
                 <div className="flex justify-between items-start mb-3">
@@ -390,17 +412,19 @@ export const SimilarMessagesDialog = ({
                       <p className="text-sm font-medium text-primary">
                         Translated to {languages?.find((lang) => lang.code === selectedLanguage)?.name}:
                       </p>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-auto px-2 py-0.5 text-xs text-primary hover:bg-primary-muted"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void handleUseAnswer(aiResponse);
-                        }}
-                      >
-                        Use original instead
-                      </Button>
+                      {onSelectAnswer && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-auto px-2 py-0.5 text-xs text-primary hover:bg-primary-muted"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleUseAnswer(aiResponse);
+                          }}
+                        >
+                          Use original instead
+                        </Button>
+                      )}
                     </div>
                     <div className="overflow-y-auto max-h-[200px]">
                       <AnswerPreview
@@ -418,7 +442,7 @@ export const SimilarMessagesDialog = ({
                   </div>
                 )}
 
-                {useAiResponse && (
+                {selectable && useAiResponse && (
                   <div className="flex justify-center items-center mt-3">
                     <Badge variant="success" className="text-xs">
                       <Check className="mr-1 w-3 h-3" />
@@ -434,7 +458,7 @@ export const SimilarMessagesDialog = ({
           {!loading && aiMode === 'ai-generated' && similarMessages.length > 0 && (
             <div className="mb-2">
               <h4 className="font-display text-xs font-medium tracking-[0.09em] uppercase text-muted-foreground">
-                Or choose from sources:
+                {selectable ? 'Or choose from sources:' : 'Sources:'}
               </h4>
             </div>
           )}
@@ -464,19 +488,13 @@ export const SimilarMessagesDialog = ({
                       ? `doc-${msg.documentationId}-${index}`
                       : `msg-${msg.messageId}-${index}`
                   }
-                  onClick={() => setSelectedIndex(index)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      setSelectedIndex(index);
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  className={`p-4 rounded-lg border transition-all cursor-pointer ${
-                    selectedIndex === index
-                      ? 'ring-2 ring-primary bg-accent/50'
-                      : 'hover:border-primary hover:bg-accent/20'
+                  {...selectableProps(selectable, () => setSelectedIndex(index))}
+                  className={`p-4 rounded-lg border transition-all ${
+                    !selectable
+                      ? ''
+                      : selectedIndex === index
+                        ? 'cursor-pointer ring-2 ring-primary bg-accent/50'
+                        : 'cursor-pointer hover:border-primary hover:bg-accent/20'
                   }`}
                 >
                   {/* Header */}
@@ -739,7 +757,7 @@ export const SimilarMessagesDialog = ({
                     )}
                   </div>
 
-                  {selectedIndex === index && (
+                  {selectable && selectedIndex === index && (
                     <div className="flex justify-center items-center mt-3">
                       <Badge variant="success" className="text-xs">
                         <Check className="mr-1 w-3 h-3" />
@@ -770,21 +788,23 @@ export const SimilarMessagesDialog = ({
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {selectable ? 'Cancel' : 'Close'}
           </Button>
-          <Button
-            onClick={() => void handleUseAnswer()}
-            disabled={!useAiResponse && selectedIndex === null}
-          >
-            <Check className="mr-2 w-4 h-4" />
-            {useAiResponse
-              ? showTranslation && translatedAiResponse
-                ? 'Use Translated Response'
-                : 'Use AI Response'
-              : selectedIsRawSource
-                ? 'Insert source text'
-                : 'Use This Answer'}
-          </Button>
+          {onSelectAnswer && (
+            <Button
+              onClick={() => void handleUseAnswer()}
+              disabled={!useAiResponse && selectedIndex === null}
+            >
+              <Check className="mr-2 w-4 h-4" />
+              {useAiResponse
+                ? showTranslation && translatedAiResponse
+                  ? 'Use Translated Response'
+                  : 'Use AI Response'
+                : selectedIsRawSource
+                  ? 'Insert source text'
+                  : 'Use This Answer'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

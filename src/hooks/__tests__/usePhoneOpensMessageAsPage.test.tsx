@@ -7,7 +7,8 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
-import { usePhoneOpensMessageAsPage, PHONE_QUERY } from '@/hooks/usePhoneOpensMessageAsPage';
+import { usePhoneOpensMessageAsPage } from '@/hooks/usePhoneOpensMessageAsPage';
+import { PHONE_QUERY } from '@/components/messages/useIsPhone';
 
 const mockMatchMedia = (matches: boolean) => {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({

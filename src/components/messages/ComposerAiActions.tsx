@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Sparkles, Undo2, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Label } from '@/components/ui/Label';
 import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Textarea';
 import { TranslateButton } from '@/components/shared/TranslateButton';
@@ -50,7 +51,14 @@ export const composerAiSource = (mode: Mode): string => `ai_compose_${mode}`;
  * existed since the guided fallback shipped and nothing rendered it, so an
  * ungrounded draft was indistinguishable from a KB-backed answer.
  */
-type Draft = { text: string; language?: string; mode: Mode; groundedInKb?: boolean };
+type Draft = {
+  text: string;
+  language?: string;
+  mode: Mode;
+  groundedInKb?: boolean;
+  /** The note as it was when this draft was asked for — "Use it" clears only THAT note. */
+  madeWithNote: string;
+};
 
 type Props = {
   messageId: number;
@@ -83,6 +91,17 @@ type Props = {
    * never sees and cannot vouch for.
    */
   revealNote?: number;
+  /**
+   * v4 mobile: the phone composer is a pill at rest, where the panel is CSS-hidden. The AI draft
+   * button then OPENS the panel (never toggles it shut — an open panel there is one the agent
+   * cannot see), and `aria-expanded` says what is on screen, not what is mounted.
+   */
+  atRest?: boolean;
+  /**
+   * Reports whether the agent is mid-way through something here — a request in flight, a draft
+   * on screen, or a note in the open panel — so the phone composer never folds it away.
+   */
+  onActivityChange?: (active: boolean) => void;
 };
 
 /**
@@ -107,6 +126,9 @@ const NO_INBOUND_GUIDANCE = 'Write the reply yourself below, then use “Make it
  * language dropdown (TranslateButton); the draft gets the same one.
  */
 const OWN_TEXT_PREVIEW_CHARS = 160;
+/** v4 `.k-flash`: the lookup flash's ring and length (MessageDetail LOOKUP_FLASH_*). */
+const NOTE_FLASH = 'ring-[3px] ring-primary-line';
+const NOTE_FLASH_MS = 1200;
 
 export function ComposerAiActions({
   messageId,
@@ -117,8 +139,11 @@ export function ComposerAiActions({
   instructions: instructionsProp,
   onInstructionsChange,
   revealNote,
+  atRest = false,
+  onActivityChange,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const noteId = useId();
   const [ownInstructions, setOwnInstructions] = useState('');
   const instructions = instructionsProp ?? ownInstructions;
   const setInstructions = onInstructionsChange ?? setOwnInstructions;
@@ -137,6 +162,31 @@ export function ComposerAiActions({
   // failure that makes people stop trusting the feature.
   const [previous, setPrevious] = useState<string | null>(null);
 
+  const { aiConfigured } = useAiConfigured();
+  const { off: aiDraftsOff } = useAiDraftsOff();
+  const refreshAiDrafts = useRefreshAiDrafts();
+  /*
+    The two early returns below render NO panel: drafts switched off (on load, or mid-session by
+    a 409) and no provider connected. An open panel's note is then not on screen, so it is not
+    something the agent is working on — reporting it as activity kept the phone composer from
+    ever folding while showing nothing AI-related.
+  */
+  const hiddenByDraftsOff = aiDraftsOff && previous === null && !draft;
+  const hiddenByNoProvider = !aiConfigured && previous === null;
+  const rendersPanel = !hiddenByDraftsOff && !hiddenByNoProvider;
+
+  // Laid out before the browser paints and before the phone composer's document click listener
+  // reads it; cleared on unmount (note mode, another thread), when nothing here is in progress.
+  const active = rendersPanel && (busy || draft !== null || (open && instructions.trim() !== ''));
+  const reportActivity = useRef(onActivityChange);
+  reportActivity.current = onActivityChange;
+  useLayoutEffect(() => {
+    reportActivity.current?.(active);
+  }, [active]);
+  useLayoutEffect(() => () => reportActivity.current?.(false), []);
+
+  // The add counter whose note-field flash is showing; 0 = none.
+  const [flashNote, setFlashNote] = useState(0);
   /*
     L2 P4: a record was just added to the note. Open the panel and switch to the note view — on a
     thread where the agent has already typed a reply, `showWriteView` is false, so the box holding
@@ -165,11 +215,18 @@ export function ComposerAiActions({
     seenReveal.current = next;
     setOpen(true);
     setStartFresh(true);
+    setFlashNote(next);
   }, [revealNote]);
+  /*
+    v4: the note field flashes (the lookup's ring) so the eye finds the fact just added. Keyed on
+    the add's counter, so a second add restarts the 1.2 s; the timer dies with the component.
+  */
+  useEffect(() => {
+    if (!flashNote) return undefined;
+    const timer = setTimeout(() => setFlashNote(0), NOTE_FLASH_MS);
+    return () => clearTimeout(timer);
+  }, [flashNote]);
 
-  const { aiConfigured } = useAiConfigured();
-  const { off: aiDraftsOff } = useAiDraftsOff();
-  const refreshAiDrafts = useRefreshAiDrafts();
   const ownText = stripHtml(composer).trim();
   const hasOwnText = !isBlankRichText(composer);
 
@@ -211,6 +268,7 @@ export function ComposerAiActions({
   };
 
   const run = async (mode: Mode) => {
+    const madeWithNote = instructions;
     setBusy(true);
     setError(null);
     setTranslation(null);
@@ -235,6 +293,7 @@ export function ComposerAiActions({
         language: response.data?.language,
         mode,
         groundedInKb: response.data?.groundedInKb,
+        madeWithNote,
       });
     } catch (err) {
       logger.error('Compose-reply failed:', err);
@@ -250,9 +309,19 @@ export function ComposerAiActions({
     }
   };
 
-  /** Re-run whatever produced the draft currently on screen. */
+  /**
+   * Re-run whatever produced the draft currently on screen.
+   *
+   * v4 keeps the note editable beside a draft, so "Try again" reads the note AS IT IS NOW: a
+   * generate draft becomes guided once the agent adds a fact, and a guided draft whose note was
+   * emptied goes back to generate — re-sending `guided` with blank instructions would 400.
+   * A polish draft does not use the note (polish sends only the composer text), so it re-runs
+   * as polish.
+   */
   const retry = () => {
-    if (draft) void run(draft.mode);
+    if (!draft) return;
+    if (draft.mode === 'polish') void run('polish');
+    else void run(instructions.trim() ? 'guided' : 'generate');
   };
 
   /**
@@ -284,7 +353,9 @@ export function ComposerAiActions({
     const appliedSource = composerAiSource(draft.mode);
     setDraft(null);
     setTranslation(null);
-    setInstructions('');
+    // v4 shows the note under the draft, so the agent can type there after it was generated.
+    // The note the draft was made from has been used up; anything typed since has not.
+    if (instructions === draft.madeWithNote) setInstructions('');
     setStartFresh(false);
     setOpen(false);
     onApplied?.(appliedSource, {
@@ -320,7 +391,7 @@ export function ComposerAiActions({
   // bug. Undo stays reachable: text a draft replaced before the switch is still the agent's.
   // Ahead of the no-provider check: with drafts off, the admin's choice is WHY there is no
   // button, whether or not a provider is connected.
-  if (aiDraftsOff && previous === null && !draft) {
+  if (hiddenByDraftsOff) {
     return (
       <span className="text-[11px] text-muted-foreground" data-testid="ai-drafts-off-note">
         {AI_DRAFTS_OFF_MESSAGE}
@@ -330,10 +401,42 @@ export function ComposerAiActions({
 
   // No provider connected → the endpoint 403s, so offering the button is a dead
   // end. Stay mounted only while an undo is still pending.
-  if (!aiConfigured && previous === null) return null;
+  if (hiddenByNoProvider) return null;
 
   const showOwnTextView = !busy && !draft && hasOwnText && !startFresh;
   const showWriteView = !busy && !draft && (!hasOwnText || startFresh);
+
+  /*
+    v4: the note for the AI draft — one field, shown in the write view AND under a generate/guided
+    draft, so the agent can add a fact and press Try again without losing the draft from view.
+    MAX_INSTRUCTIONS still caps it (it mirrors the backend's slice); the counter makes the cap
+    visible instead of silent.
+  */
+  const noteField = (
+    <div>
+      <div className="flex items-center gap-2">
+        <Label htmlFor={noteId} className={`${LABEL} mb-0 text-ai`}>
+          Your note for the AI draft
+        </Label>
+        <span className="flex-1" />
+        {/* No aria-live: announcing every keystroke would drown a screen reader. */}
+        <span className="font-mono text-[10px] text-faint-foreground" data-testid="ai-note-count">
+          {instructions.length} / {MAX_INSTRUCTIONS}
+        </span>
+      </div>
+      <Textarea
+        id={noteId}
+        value={instructions}
+        onChange={(event) => setInstructions(event.target.value.slice(0, MAX_INSTRUCTIONS))}
+        rows={2}
+        placeholder="Optional — leave empty and I'll answer from your knowledge base"
+        // The DS Textarea is resize-y by default, so width is already safe, but height was
+        // unbounded — dragging the handle could push the buttons off-screen inside this compact
+        // panel. max-h-44 matches the reply-preview block.
+        className={`mt-1 text-[13px] max-h-44 border-ai-line bg-card ${flashNote ? NOTE_FLASH : ''}`}
+      />
+    </div>
+  );
 
   return (
     <>
@@ -341,11 +444,13 @@ export function ComposerAiActions({
         variant="ghost"
         onClick={() => {
           setError(null);
-          setOpen((wasOpen) => !wasOpen);
+          // At rest the panel is hidden whatever its state: this press opens the composer, and
+          // the panel with it — toggling would shut a panel the agent was just shown into.
+          setOpen((wasOpen) => (atRest ? true : !wasOpen));
         }}
         disabled={disabled}
         title="Draft this reply with AI"
-        aria-expanded={open}
+        aria-expanded={open && !atRest}
         // v3 ".ibtn.aib": the AI role, soft — the draft is a suggestion, not an action.
         className="inline-flex items-center gap-[5px] h-auto px-[9px] py-1 rounded-[7px] border border-ai-line bg-ai-muted text-ai text-[11.5px] hover:bg-ai-muted hover:brightness-95 transition-colors"
       >
@@ -448,6 +553,8 @@ export function ComposerAiActions({
                 </p>
               )}
 
+              {draft.mode !== 'polish' && noteField}
+
               <div className="flex flex-wrap gap-2 items-center">
                 <Button size="sm" onClick={useDraft}>
                   Use it
@@ -495,23 +602,7 @@ export function ComposerAiActions({
           {/* Nothing to work from → write one. */}
           {showWriteView && (
             <div className="space-y-2">
-              <span className="text-[11px] text-muted-foreground">What should the reply say?</span>
-              <Textarea
-                value={instructions}
-                onChange={(event) => setInstructions(event.target.value.slice(0, MAX_INSTRUCTIONS))}
-                rows={2}
-                // Example stays industry-neutral on purpose: tenants range from
-                // physical-product sellers to service businesses with nothing to
-                // ship, and a parcel/border example reads as "not for us" to half
-                // of them. What it has to convey is the SHAPE of a useful
-                // instruction — case facts the knowledge base cannot know.
-                placeholder="Optional — leave empty and I'll answer from your knowledge base. e.g. we've fixed it on our side, we'll follow up on Monday"
-                // The DS Textarea is resize-y by default, so width is already
-                // safe, but height was unbounded — dragging the handle could push
-                // the Write reply button off-screen inside this compact panel.
-                // max-h-44 matches the reply-preview block above it.
-                className="text-[13px] max-h-44"
-              />
+              {noteField}
               <div className="flex flex-wrap gap-2 items-center">
                 <Button
                   size="sm"

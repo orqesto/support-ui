@@ -3,12 +3,20 @@ import { User } from 'lucide-react';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { Button } from '@/components/ui/Button';
 import { relayedFromLabel } from '@/lib/relayedFrom';
+import { isOutgoingEvent } from '@/lib/messageHelpers';
 import { formatDate, formatWhen } from '@/lib/utils';
 import type { MessageEvent } from '@/types';
 import { useMessageHtml } from '@/hooks/useMessageHtml';
 import { ThreadAttachmentChip } from './ThreadAttachmentChip';
 import { ThreadBubble } from './ThreadBubble';
-import { getInitials } from './messageDetailConstants';
+import {
+  getInitials,
+  PHONE_THREAD_AVATAR,
+  PHONE_THREAD_BUBBLE,
+  PHONE_THREAD_COL_IN,
+  PHONE_THREAD_COL_OUT,
+  PHONE_THREAD_ROW,
+} from './messageDetailConstants';
 import type { Attachment } from './MessageAttachments';
 import { ReceivedAtAddresses } from './ReceivedAtAddresses';
 
@@ -67,10 +75,7 @@ export function ThreadMessageItem({
   const wantsHtml = translatedContent === null;
   const { data: originalHtml } = useMessageHtml(msg.id, wantsHtml);
 
-  const isAgent =
-    msg.type !== 'inbound' ||
-    (msg.authorEmail ?? '').toLowerCase() === 'bot' ||
-    (msg.metadata as { isSystemReply?: boolean } | null)?.isSystemReply === true;
+  const isAgent = isOutgoingEvent(msg);
 
   const msgTime = isAgent
     ? (msg.sentAt ?? (msg.metadata as { receivedAt?: string } | null)?.receivedAt ?? msg.createdAt)
@@ -105,7 +110,9 @@ export function ThreadMessageItem({
   // is a card above the canvas; a reply WE wrote sits on the soft --agent ground (it used to be
   // solid primary, which made every reply the loudest thing on screen).
   const avatar = (
-    <div className="w-[21px] h-[21px] mt-px rounded-full bg-sunken border border-border grid place-items-center font-display text-[9px] font-semibold text-muted-foreground flex-none">
+    <div
+      className={`w-[21px] h-[21px] mt-px rounded-full bg-sunken border border-border grid place-items-center font-display text-[9px] font-semibold text-muted-foreground flex-none ${PHONE_THREAD_AVATAR}`}
+    >
       {initials || <User className="w-3 h-3" />}
     </div>
   );
@@ -167,9 +174,11 @@ export function ThreadMessageItem({
 
   if (isAgent) {
     return (
-      <div className="flex flex-row-reverse items-start gap-[9px]">
+      <div className={`flex flex-row-reverse items-start gap-[9px] ${PHONE_THREAD_ROW}`}>
         {avatar}
-        <div className="flex flex-col items-end gap-1 min-w-0 max-w-[90%]">
+        <div
+          className={`flex flex-col items-end gap-1 min-w-0 max-w-[90%] ${PHONE_THREAD_COL_OUT}`}
+        >
           {/* Who sent this, then what the customer saw it come from. They are different facts:
               `authorEmail` is the shared mailbox, identical on every agent's reply, so on its
               own the thread reads as though the mailbox answered itself. Without `authorName`
@@ -195,7 +204,9 @@ export function ThreadMessageItem({
               itself, so if the shared inbox doesn't show it here, nobody can answer "who
               else got this". */}
           <ReceivedAtAddresses recipients={msg.recipients} variant="detail" />
-          <div className="rounded-xl px-[13px] py-[11px] bg-agent border border-agent-line text-agent-foreground text-[13.5px] leading-[1.62] max-w-full">
+          <div
+            className={`rounded-xl px-[13px] py-[11px] bg-agent border border-agent-line text-agent-foreground text-[13.5px] leading-[1.62] max-w-full ${PHONE_THREAD_BUBBLE} max-sm:rounded-tr-md`}
+          >
             <div className="flex items-start gap-2">
               <div className="flex-1 min-w-0 break-words">
                 {translatedBar(true)}
@@ -221,9 +232,9 @@ export function ThreadMessageItem({
   }
 
   return (
-    <div className="flex items-start gap-[9px]">
+    <div className={`flex items-start gap-[9px] ${PHONE_THREAD_ROW}`}>
       {avatar}
-      <div className="flex flex-col gap-1 min-w-0 max-w-[90%]">
+      <div className={`flex flex-col gap-1 min-w-0 max-w-[90%] ${PHONE_THREAD_COL_IN}`}>
         <div className={meta} title={msg.authorEmail ?? undefined}>
           {relayedFrom ? (
             <>
@@ -256,7 +267,9 @@ export function ThreadMessageItem({
             conversation (2026-06-17 routing audit: a reply meant for conv_4 landed on conv_5).
             The "focus an older message" intent was never wired up beyond the URL navigation,
             so removing the click is non-regressive. */}
-        <div className="rounded-xl px-[13px] py-[11px] bg-bubble border border-bubble-line text-foreground text-[13.5px] leading-[1.62] max-w-full">
+        <div
+          className={`rounded-xl px-[13px] py-[11px] bg-bubble border border-bubble-line text-foreground text-[13.5px] leading-[1.62] max-w-full ${PHONE_THREAD_BUBBLE} max-sm:rounded-tl-md`}
+        >
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0 break-words">
               {translatedBar(false)}
