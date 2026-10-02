@@ -1,6 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { ReactElement, ReactNode } from 'react';
-import { act, render as rtlRender, renderHook, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  render as rtlRender,
+  renderHook,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -355,9 +362,10 @@ describe('D36 — the number from the customer’s message', () => {
     const field = await screen.findByLabelText(/record number for this order/i);
     await userEvent.clear(field);
     await userEvent.type(field, '999999');
-    // Exact name: the panel's own "Look up" is [0], this card's is [1] — "Look up another email"
-    // (2026-09-29) sits between them and a prefix match would press it instead.
-    await userEvent.click(screen.getAllByRole('button', { name: /^look up$/i })[1]);
+    // This card's own press, by exact name: "Look up another email" (2026-09-29) would match a
+    // prefix, and the panel's own press reads "Look up again" once a lookup has run.
+    const [orderCard] = screen.getAllByTestId('lookup-card');
+    await userEvent.click(within(orderCard).getByRole('button', { name: /^look up$/i }));
 
     await waitFor(() =>
       expect(run).toHaveBeenLastCalledWith({

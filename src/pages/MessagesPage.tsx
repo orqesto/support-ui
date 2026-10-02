@@ -21,7 +21,6 @@ import {
   Dialog,
   DialogHeader,
   DialogTitle,
-  DialogClose,
   DialogContent,
   DialogFooter,
 } from '@/components/ui/Dialog';
@@ -52,6 +51,7 @@ import { MessageFilterBar } from '@/components/messages/filters/MessageFilterBar
 import { ListScopeNotice } from '@/components/messages/ListScopeNotice';
 import { MessageListItem } from '@/components/messages/MessageListItem';
 import { MessageDetail } from '@/components/messages/MessageDetail';
+import { DeleteMessageDialog } from '@/components/messages/DeleteMessageDialog';
 import { neighbourThread } from '@/components/messages/detailShortcuts';
 import { threadIdForMessage } from '@/components/messages/threadForMessage';
 import { ThreadBubble } from '@/components/messages/ThreadBubble';
@@ -75,6 +75,7 @@ import { useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // URL params that are list-view-only filters. Kanban groups by status itself and
 // ignores these, so arriving via a filter-bearing link (dashboard cards, or the
@@ -219,6 +220,12 @@ export const MessagesPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const deletingRef = useRef(false);
+  // DELETE /api/messages/:id takes DELETE_MESSAGES or MANAGE_ORGANIZATION; a viewer it would
+  // refuse is not offered "Delete message" (the full page uses the same gate).
+  const { hasPermission } = usePermissions();
+  const canDelete =
+    hasPermission(Permission.DELETE_MESSAGES) || hasPermission(Permission.MANAGE_ORGANIZATION);
   const [contactsPagination, setContactsPagination] = useState({
     page: 1,
     limit: 50,
@@ -667,28 +674,50 @@ export const MessagesPage = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!messageToDelete) return;
+    if (!messageToDelete || deletingRef.current) return;
+    const target = messageToDelete;
+    // Delete is offered from the open detail, so its card is the one captured when it opened.
+    const deletingOpenThread = selectedMessage?.id === target.id;
 
+    deletingRef.current = true;
     setDeleting(true);
     try {
-      await messageService.delete(messageToDelete.id);
-      clearCache();
-      void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
-      setDeleteDialogOpen(false);
-      setMessageToDelete(null);
-      setSelectedMessage(null);
-      await fetchMessages(1, true);
+      await messageService.delete(target.id);
     } catch (error) {
       logger.error('Failed to delete message:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Delete Failed',
-        description: 'Failed to delete message',
-        variant: 'error',
-      });
+      // The full page's wording: the server's reason when it gave one (a 4xx), else generic.
+      // The dialog stays up, so a retry is one press away.
+      toast.error(getApiErrorMessage(error) ?? 'Failed to delete message');
+      return;
     } finally {
+      deletingRef.current = false;
       setDeleting(false);
     }
+    clearCache();
+    void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
+    setDeleteDialogOpen(false);
+    setMessageToDelete(null);
+    /*
+      The detail stayed open behind the question (Cancel leaves it as it was); only now that the
+      thread is gone does it close — and only if it is still the deleted one.
+    */
+    setSelectedMessage((current) => (current?.id === target.id ? null : current));
+    /*
+      The board too: the backend emits no delete event, so nothing else takes the card away. The
+      open thread's card goes at once (a full board refetch where none was captured — list mode,
+      a deep link); anything else is a refetch.
+    */
+    // The captured card is trusted only if it IS the deleted message's thread: Back / a merge's
+    // navigation change the open message without touching the ref, and moving the captured card
+    // would take a LIVE card off the board while the deleted one stayed.
+    const deletedCard = threadIdForMessage(threads, target.id);
+    if (deletingOpenThread && deletedCard !== null && selectedThreadIdRef.current === deletedCard) {
+      moveSelectedCard(null);
+    } else {
+      bumpKanban();
+    }
+    if (deletingOpenThread) selectedThreadIdRef.current = null;
+    await fetchMessages(1, true).catch((err) => logger.error('Failed to fetch messages:', err));
   };
 
   // Refresh thread list + kanban when any linked ticket status changes
@@ -1179,7 +1208,8 @@ export const MessagesPage = () => {
               }}
             />
 
-            {/* Detail panel — slides in from right, full viewport height */}
+            {/* Detail panel — slides in from right, full viewport height. Never on a phone:
+                there every selection opens the full page (usePhoneOpensMessageAsPage). */}
             <div
               className="fixed right-0 bottom-0 w-full sm:w-[40rem] z-[60] border-l border-border bg-background flex flex-col overflow-hidden shadow-2xl transition-[top] duration-300"
               style={{ top: 'var(--mobile-header-h, 0px)' }}
@@ -1207,10 +1237,9 @@ export const MessagesPage = () => {
                 onReopen={async () => {
                   await handleReopen(selectedMessage);
                 }}
-                onDelete={() => {
-                  handleDeleteClick(selectedMessage);
-                  setSelectedMessage(null);
-                }}
+                // The detail stays open until the delete succeeds: Cancel leaves it as it was,
+                // with focus back on More (the header's focus return waits for the dialog).
+                onDelete={canDelete ? () => handleDeleteClick(selectedMessage) : undefined}
                 onResolve={handleResolve}
                 onReadChanged={() => {
                   // Refresh the board so the triage unread dot updates, without
@@ -1243,31 +1272,13 @@ export const MessagesPage = () => {
       </div>
       {/* end flex row wrapper */}
 
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogHeader>
-          <DialogTitle>Delete Message</DialogTitle>
-          <DialogClose onClose={() => setDeleteDialogOpen(false)} />
-        </DialogHeader>
-        <DialogContent>
-          <p>Are you sure you want to delete this message? This action cannot be undone.</p>
-          {messageToDelete && (
-            <div className="p-4 mt-4 rounded bg-muted">
-              <p className="text-sm font-medium">From: {messageToDelete.sender}</p>
-              {messageToDelete.subject && (
-                <p className="text-sm text-muted-foreground">Subject: {messageToDelete.subject}</p>
-              )}
-            </div>
-          )}
-        </DialogContent>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={handleDeleteConfirm} isLoading={deleting}>
-            Delete
-          </Button>
-        </DialogFooter>
-      </Dialog>
+      <DeleteMessageDialog
+        open={deleteDialogOpen}
+        message={messageToDelete}
+        deleting={deleting}
+        onCancel={() => setDeleteDialogOpen(false)}
+        onConfirm={() => void handleDeleteConfirm()}
+      />
 
       <AlertDialog
         open={alertDialog.open}

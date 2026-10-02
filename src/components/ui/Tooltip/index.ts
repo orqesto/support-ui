@@ -1,3 +1,3 @@
-export { Tooltip } from './Tooltip';
+export { Tooltip, focusWithoutTooltip } from './Tooltip';
 export { tooltipVariants, getTooltipClasses } from './tooltip.styles';
 export type { TooltipProps } from './tooltip.types';

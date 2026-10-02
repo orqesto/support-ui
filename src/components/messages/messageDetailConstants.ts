@@ -10,6 +10,66 @@ import type { ThreadStatus, TicketPriority } from '@/types';
 // for `font-mono` or `font-display` could not find them. Identifiers take `font-mono`.
 export const LABEL = 'font-display text-[10px] font-medium uppercase tracking-[0.09em]';
 export const CHIP_BASE = `inline-flex items-center gap-1 px-2 py-0.5 rounded border ${LABEL} transition-colors`;
+/**
+ * v4 header chip (`.arow .chip .lab`): the same chip, read in sentence case — 12px / 500, no
+ * uppercase, no tracking. For the message-detail header's status, SLA, priority and Related chips
+ * only; LABEL / CHIP_BASE stay as they are for every other caller.
+ */
+export const CHIP_SENTENCE =
+  'inline-flex items-center gap-[5px] h-[23px] px-2 rounded-md border text-[12px] font-medium leading-none normal-case tracking-normal whitespace-nowrap transition-colors';
+
+/** "In Progress" → "In progress": a status or priority label as the v4 chips read it. */
+export const sentenceCase = (label: string): string =>
+  label ? label.charAt(0).toUpperCase() + label.slice(1).toLowerCase() : label;
+
+/**
+ * "in_progress" → "In progress": a ticket or thread status as every message-detail surface reads
+ * it — the Related popover and the Add-to-ticket picker share this, so the two never disagree.
+ * Every underscore, not just the first.
+ */
+export const statusLabel = (status: string): string => sentenceCase(status.replace(/_/g, ' '));
+
+/**
+ * "high" → "High": a priority as every message-detail surface words it — the header chip and its
+ * menu, the AI tab's suggestion, the Customer tab and the Related popover. One helper, so none of
+ * them can drift into "HIGH" or a CSS-capitalised "high".
+ */
+export const priorityLabel = (priority: string): string => sentenceCase(priority);
+
+/** A channel by its name: "WhatsApp", never the capitalised key "Whatsapp". */
+const CHANNEL_NAMES: Record<string, string> = {
+  email: 'Email',
+  telegram: 'Telegram',
+  whatsapp: 'WhatsApp',
+  slack: 'Slack',
+  chat: 'Chat',
+  widget: 'Widget',
+  other: 'Other',
+};
+/**
+ * Unknown keys fall back to the key in sentence case — a new channel still reads as a word. A
+ * missing channel (an older or newer backend) reads as nothing rather than throwing.
+ */
+export const channelName = (channel: string | null | undefined): string =>
+  channel ? (CHANNEL_NAMES[channel] ?? sentenceCase(channel.replace(/_/g, ' '))) : '';
+
+/** Channels that are product names: they keep their capitals mid-sentence. */
+const PROPER_CHANNELS = new Set(['telegram', 'whatsapp', 'slack']);
+/**
+ * The channel inside a sentence ("Only email threads can merge…", "Only WhatsApp threads…"): the
+ * same word as `channelName`, lower case unless it is a product name.
+ */
+export const channelInSentence = (channel: string | null | undefined): string => {
+  const name = channelName(channel);
+  return channel && PROPER_CHANNELS.has(channel) ? name : name.toLowerCase();
+};
+
+/**
+ * The "new ticket from this thread" action, worded once for the More menu and the Related
+ * popover so the two never disagree: a lead thread makes a lead ticket. Sentence case (v4).
+ */
+export const createTicketLabel = (isLead?: boolean | null): string =>
+  isLead ? 'Create lead ticket' : 'Create ticket';
 
 // ─── Status display ───────────────────────────────────────────────────────────
 
@@ -81,40 +141,37 @@ export const STATUS_OPTIONS = SETTABLE_STATUSES.map((stat) => ({
 
 export const PRIORITY_OPTIONS: {
   value: TicketPriority;
-  label: string;
-  menuLabel: string;
   chipClassName: string;
   dotClassName: string;
 }[] = [
   {
     value: 'low',
-    label: 'LOW',
-    menuLabel: 'Low',
     dotClassName: 'bg-success',
     chipClassName: 'text-success  bg-success-muted   border-success-line   ',
   },
   {
     value: 'medium',
-    label: 'MEDIUM',
-    menuLabel: 'Medium',
     dotClassName: 'bg-warning',
     chipClassName: 'text-warning bg-warning-muted border-warning-line',
   },
   {
     value: 'high',
-    label: 'HIGH',
-    menuLabel: 'High',
     dotClassName: 'bg-warning',
     chipClassName: 'text-warning bg-warning-muted  border-warning-line',
   },
   {
     value: 'critical',
-    label: 'CRITICAL',
-    menuLabel: 'Critical',
     dotClassName: 'bg-destructive',
     chipClassName: 'text-destructive    bg-destructive-muted     border-destructive-line         ',
   },
 ];
+
+/** PRIORITY_OPTIONS for the v4 header chip and its menu: "High", not "HIGH" (`priorityLabel`). */
+export const HEADER_PRIORITY_OPTIONS = PRIORITY_OPTIONS.map((option) => ({
+  ...option,
+  label: priorityLabel(option.value),
+  menuLabel: priorityLabel(option.value),
+}));
 
 export const CHANNEL_ICONS: Record<string, string> = {
   email: '✉',
@@ -753,3 +810,15 @@ export function answerToEditorHtml(raw: string): string {
     ALLOWED_URI_REGEXP: /^https?:/i,
   });
 }
+
+/*
+  v4 mobile thread (M5, <640px): no avatars — the name is already on the meta line — so every row
+  runs the full width; a reply WE sent is indented 28px; bubbles read at 14px; preformatted text
+  wraps instead of widening the page. CSS only (`max-sm:`): nothing changes from 640px up.
+*/
+export const PHONE_THREAD_ROW = 'max-sm:block';
+export const PHONE_THREAD_AVATAR = 'max-sm:hidden';
+export const PHONE_THREAD_COL_IN = 'max-sm:max-w-none max-sm:w-full';
+export const PHONE_THREAD_COL_OUT = 'max-sm:max-w-none max-sm:ml-7';
+export const PHONE_THREAD_BUBBLE =
+  'max-sm:text-[14px] max-sm:px-3 max-sm:py-2.5 max-sm:rounded-[14px] max-sm:[&_pre]:whitespace-pre-wrap max-sm:[&_pre]:[overflow-wrap:anywhere] max-sm:[&_code]:whitespace-pre-wrap max-sm:[&_code]:[overflow-wrap:anywhere]';

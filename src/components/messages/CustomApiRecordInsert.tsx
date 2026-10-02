@@ -1,17 +1,16 @@
-import { useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { CornerUpLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
-import {
-  buildRecordNote,
-  defaultSelection,
-  offerableFields,
-} from './customApiRecordNote';
+import { buildRecordNote, defaultSelection, offerableFields } from './customApiRecordNote';
 import { renderValue } from './customApiRowFields';
 import type { CustomApiCategory } from '@/components/settings/customApi/categories';
-import type { AddOutcome } from './useAiRecordNote';
+import { RecordInsertTargetContext, type AddOutcome } from './useAiRecordNote';
 import type { LookupField } from '@/services/customApiLookup.service';
+
+/** v4 `.k-ob`: the outcome chip beside the buttons. */
+const OUTCOME = 'rounded-[5px] px-[7px] py-0.5 font-sans text-[10.5px] font-medium cursor-default';
 
 /**
  * L2 P4 — the one control that puts a record into the reply.
@@ -21,6 +20,11 @@ import type { LookupField } from '@/services/customApiLookup.service';
  * to the model as fact. So this saves the retyping and changes nothing about who decides what
  * the customer is told: the agent still presses Write reply, still reads the draft, still edits
  * it, and can still delete the line.
+ *
+ * When the AI note cannot be used (AI drafts off, or no AI provider) the same ticks and the same
+ * sentence go into the REPLY composer instead — the host decides, and says so
+ * through RecordInsertTargetContext so every word here names where the sentence lands. It still
+ * sends nothing: the agent reads and edits the reply before pressing Send.
  *
  * ⛔ PER FIELD, NEVER ALL-OR-NOTHING. A record holds things an agent may not want to send. The
  * boxes open on the category's own idea of what an answer needs — reference, status, date — and
@@ -55,6 +59,15 @@ export const CustomApiRecordInsert = ({
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>(() => defaultSelection(row, fields));
   const [outcome, setOutcome] = useState<AddOutcome | null>(null);
+  /*
+    With no usable AI note the same ticks and the same sentence go into the REPLY. Every word
+    below names where the sentence lands — an agent told "your note" whose text went into the
+    reply would not look for it there. A switch mid-way (the setting loading, a 409) drops an
+    outcome that named the other place.
+  */
+  const target = useContext(RecordInsertTargetContext);
+  const toReply = target === 'reply';
+  useEffect(() => setOutcome(null), [target]);
 
   // Nothing this record can contribute ⇒ no control. An agent pressing a button that can only
   // ever produce an empty note learns to distrust the button.
@@ -68,12 +81,13 @@ export const CustomApiRecordInsert = ({
     );
 
   return (
-    <div className="pt-1">
+    <div className="pt-0.5">
       {!open ? (
+        // v4 `.k-use`: a quiet link-button under the record, "↩ Use in reply".
         <Button
           variant="ghost"
           size="sm"
-          className="h-6 px-1 text-[10px] text-muted-foreground"
+          className="h-auto px-[5px] py-0.5 rounded-[5px] font-sans text-[11px] font-normal text-faint-foreground hover:bg-sunken hover:text-foreground"
           onClick={() => {
             setOpen(true);
             setOutcome(null);
@@ -83,10 +97,13 @@ export const CustomApiRecordInsert = ({
           Use in reply
         </Button>
       ) : (
-        <div className="space-y-1 rounded border border-border/60 p-1.5">
-          <p className="text-[10px] text-muted-foreground">
+        // v4 `.k-ins`: the per-field ticks, the exact sentence, then add / cancel and the outcome.
+        <div className="grid gap-1.5 rounded-[7px] border border-border bg-raised px-2 py-[7px]">
+          <p className="text-[10.5px] leading-[1.45] text-faint-foreground">
             {/* Says where it goes. An agent who thinks this SENDS something will not press it. */}
-            Adds these to your note for the AI draft — you still write and edit the reply.
+            {toReply
+              ? 'Adds these to your reply as a sentence — edit it before sending.'
+              : 'Adds these to your note for the AI draft — you still write and edit the reply.'}
           </p>
           {ownership === 'mismatch' && (
             /* ⛔ NOT A REFUSAL (D38: the owner chose to show these rather than strand an agent
@@ -113,9 +130,13 @@ export const CustomApiRecordInsert = ({
 
           {/* ⛔ THE EXACT TEXT, before it is added. The model is told to treat this as fact, so
               an agent must be able to read the sentence they are vouching for. */}
-          {note && <p className="text-[10px] text-foreground break-words">{note}</p>}
+          {note && (
+            <p className="rounded-[5px] border border-hair bg-card px-[7px] py-[5px] text-[11.5px] leading-[1.45] text-foreground break-words">
+              {note}
+            </p>
+          )}
 
-          <div className="flex gap-2 items-center">
+          <div className="flex flex-wrap gap-1.5 items-center">
             <Button
               size="sm"
               variant="ghost"
@@ -125,28 +146,43 @@ export const CustomApiRecordInsert = ({
                 setOutcome(onUseInReply(note));
               }}
             >
-              Add to my note
+              {toReply ? 'Add to my reply' : 'Add to my note'}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             {outcome === 'added' && (
-              <Badge variant="success">Added to your note</Badge>
+              <Badge variant="success" className={OUTCOME}>
+                {toReply ? 'Added to your reply' : 'Added to your note'}
+              </Badge>
             )}
             {outcome === 'duplicate' && (
               /* Not a failure, and not the same as a full note: saying it twice would only make
                  the model repeat itself. */
-              <Badge variant="secondary">Already in your note</Badge>
+              <Badge variant="secondary" className={OUTCOME}>
+                {toReply ? 'Already in your reply' : 'Already in your note'}
+              </Badge>
             )}
             {outcome === 'too_long' && (
               /* ⛔ NEVER SILENTLY CUT. The backend slices the note at 2000 characters, which
                  would take a total or a date in half. */
-              <Badge variant="warning">Note is full — shorten it and try again</Badge>
+              <Badge variant="warning" className={OUTCOME}>
+                Note is full — shorten it and try again
+              </Badge>
+            )}
+            {outcome === 'note_in_progress' && (
+              /* The composer holds an internal note being written: switching it to Reply would
+                 carry that note's text into a message to the customer. */
+              <Badge variant="warning" className={OUTCOME}>
+                Post or clear your internal note first
+              </Badge>
             )}
             {outcome === 'fact_too_long' && (
               /* A DIFFERENT SENTENCE, because "shorten your note" is false here: the note may be
                  empty and it is this record that does not fit. Untick a field instead. */
-              <Badge variant="warning">Too long for the note — untick a field</Badge>
+              <Badge variant="warning" className={OUTCOME}>
+                Too long for the note — untick a field
+              </Badge>
             )}
           </div>
         </div>

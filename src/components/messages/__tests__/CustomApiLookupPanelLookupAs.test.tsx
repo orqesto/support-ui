@@ -9,7 +9,7 @@
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { ReactElement, ReactNode } from 'react';
-import { render as rtlRender, screen } from '@testing-library/react';
+import { render as rtlRender, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -112,13 +112,25 @@ describe('look up another email', () => {
     expect(screen.queryByText('Order details')).toBeNull();
   });
 
+  it('…and after an earlier run: no "ran" hint, no "Look up again"', async () => {
+    render(<CustomApiLookupPanel conversationId={1} identityNote={NO_EMAIL_IDENTITY_NOTE} />);
+    await userEvent.click((await screen.findAllByRole('button', { name: /^look up$/i }))[0]);
+    expect(await screen.findByText('ran just now')).toBeInTheDocument();
+    echo = false;
+    await typeAndRun();
+    await screen.findByText('This server cannot look up another email yet.');
+    expect(screen.queryByText(/^ran /)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Look up again' })).toBeNull();
+  });
+
   it('a typed order number made in that mode is checked against the typed person', async () => {
     render(<CustomApiLookupPanel conversationId={1} identityNote={NO_EMAIL_IDENTITY_NOTE} />);
     await typeAndRun();
 
     await userEvent.type(await screen.findByLabelText('Record number for Order details'), '137416');
-    // [0] is the panel's own press, [1] this card's.
-    await userEvent.click(screen.getAllByRole('button', { name: /^look up$/i })[1]);
+    // This card's own press (the panel's reads "Look up again" once a lookup has run).
+    const [orderCard] = screen.getAllByTestId('lookup-card');
+    await userEvent.click(within(orderCard).getByRole('button', { name: /^look up$/i }));
 
     // RED: the manual press forgets the mode ⇒ "is it theirs" is judged against the shop.
     expect(runDetailed).toHaveBeenLastCalledWith(

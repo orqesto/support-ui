@@ -3,14 +3,11 @@ import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/re
 
 // Typed so the mock's return isn't `any` — the repo lints tests too, and
 // @typescript-eslint/no-unsafe-return rejects an untyped vi.fn() passthrough.
-const composeReply =
-  vi.fn<
-    (
-      ...args: unknown[]
-    ) => Promise<{
-      data: { text: string | null; language?: string; groundedInKb?: boolean };
-    }>
-  >();
+const composeReply = vi.fn<
+  (...args: unknown[]) => Promise<{
+    data: { text: string | null; language?: string; groundedInKb?: boolean };
+  }>
+>();
 
 vi.mock('@/services/message.service', () => ({
   messageService: {
@@ -59,7 +56,9 @@ import { apiError } from '@/test/apiError';
 const setComposer = vi.fn<(html: string) => void>();
 
 const onApplied =
-  vi.fn<(source: string | null, draft?: { text: string; mode?: string; language?: string }) => void>();
+  vi.fn<
+    (source: string | null, draft?: { text: string; mode?: string; language?: string }) => void
+  >();
 
 const openPanel = (composer = '') => {
   const utils = render(
@@ -89,7 +88,7 @@ describe('ComposerAiActions', () => {
   describe('which action is offered (state-aware — never a mystery disabled button)', () => {
     it('empty composer → asks what the reply should say, offers only "Write reply"', () => {
       openPanel('');
-      expect(screen.getByText('What should the reply say?')).toBeInTheDocument();
+      expect(screen.getByText('Your note for the AI draft')).toBeInTheDocument();
       expect(screen.getByText('Write reply')).toBeInTheDocument();
       expect(screen.queryByText('Make it customer-ready')).not.toBeInTheDocument();
     });
@@ -105,14 +104,14 @@ describe('ComposerAiActions', () => {
 
     it('a markup-only composer counts as empty', () => {
       openPanel('<p></p>');
-      expect(screen.getByText('What should the reply say?')).toBeInTheDocument();
+      expect(screen.getByText('Your note for the AI draft')).toBeInTheDocument();
     });
 
     it('"write a new reply instead" switches views without discarding your text', () => {
       openPanel('<p>my rough note</p>');
       fireEvent.click(screen.getByText('Write a new reply instead →'));
 
-      expect(screen.getByText('What should the reply say?')).toBeInTheDocument();
+      expect(screen.getByText('Your note for the AI draft')).toBeInTheDocument();
       expect(screen.getByText(/kept until you choose/i)).toBeInTheDocument();
       expect(setComposer).not.toHaveBeenCalled();
 
@@ -173,13 +172,36 @@ describe('ComposerAiActions', () => {
       expect(setComposer.mock.calls[0][0]).toContain('Your parcel is at the border.');
     });
 
+    // The note under a draft (v4) stays editable after the draft came back: "Use it" clears the
+    // note the draft was MADE from, never one the agent typed since.
+    const noteBox = () => screen.getByLabelText('Your note for the AI draft');
+    it('"Use it" clears the note the draft was made from', async () => {
+      openPanel('');
+      fireEvent.change(noteBox(), { target: { value: 'parcel is at the border' } });
+      fireEvent.click(screen.getByText('Write reply'));
+      fireEvent.click(await screen.findByText('Use it'));
+      fireEvent.click(screen.getByTitle('Draft this reply with AI'));
+      expect(noteBox()).toHaveValue('');
+    });
+
+    it('"Use it" keeps a note the agent changed under the draft after it was generated', async () => {
+      openPanel('');
+      fireEvent.change(noteBox(), { target: { value: 'parcel is at the border' } });
+      fireEvent.click(screen.getByText('Write reply'));
+      await screen.findByText('Use it');
+      fireEvent.change(noteBox(), { target: { value: 'parcel is at the border. Refund 20 EUR.' } });
+      fireEvent.click(screen.getByText('Use it'));
+      fireEvent.click(screen.getByTitle('Draft this reply with AI'));
+      expect(noteBox()).toHaveValue('parcel is at the border. Refund 20 EUR.');
+    });
+
     it('"Discard" leaves the composer alone and returns to the input', async () => {
       openPanel('');
       fireEvent.click(screen.getByText('Write reply'));
       fireEvent.click(await screen.findByText('Discard'));
 
       expect(setComposer).not.toHaveBeenCalled();
-      expect(screen.getByText('What should the reply say?')).toBeInTheDocument();
+      expect(screen.getByText('Your note for the AI draft')).toBeInTheDocument();
     });
 
     it('"Try again" re-runs the same action', async () => {
@@ -229,7 +251,7 @@ describe('ComposerAiActions', () => {
       expect(onApplied.mock.calls[0]?.[0]).toBe('ai_compose_guided');
     });
 
-    it('reports null on undo — the agent\'s own text is back, so the reply is theirs', async () => {
+    it("reports null on undo — the agent's own text is back, so the reply is theirs", async () => {
       openPanel('<p>my rough note</p>');
       fireEvent.click(screen.getByText('Make it customer-ready'));
       fireEvent.click(await screen.findByText('Use it'));
@@ -322,8 +344,12 @@ describe('ComposerAiActions', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /Use it \(EN\)/i }));
 
-      expect(setComposer).toHaveBeenCalledWith(expect.stringContaining('Your parcel is at customs.'));
-      expect(setComposer).not.toHaveBeenCalledWith(expect.stringContaining('Ihr Paket ist im Zoll.'));
+      expect(setComposer).toHaveBeenCalledWith(
+        expect.stringContaining('Your parcel is at customs.')
+      );
+      expect(setComposer).not.toHaveBeenCalledWith(
+        expect.stringContaining('Ihr Paket ist im Zoll.')
+      );
     });
 
     it('records the language it actually applied, not the one the draft was written in', async () => {
@@ -440,7 +466,9 @@ describe('ComposerAiActions', () => {
     });
 
     it('a 400 about the request itself is shown, not masked as an outage', async () => {
-      composeReply.mockRejectedValue(await apiError(400, { error: 'polish mode requires a draft' }));
+      composeReply.mockRejectedValue(
+        await apiError(400, { error: 'polish mode requires a draft' })
+      );
       openPanel('<p>note</p>');
       fireEvent.click(screen.getByText('Make it customer-ready'));
 
@@ -538,9 +566,16 @@ describe('ComposerAiActions', () => {
     it('says drafts are off where the AI button was, and offers no AI action', () => {
       aiDrafts.off = true;
       render(
-        <ComposerAiActions messageId={42} composer="" setComposer={setComposer} onApplied={onApplied} />
+        <ComposerAiActions
+          messageId={42}
+          composer=""
+          setComposer={setComposer}
+          onApplied={onApplied}
+        />
       );
-      expect(screen.getByText('AI drafts are switched off for this workspace.')).toBeInTheDocument();
+      expect(
+        screen.getByText('AI drafts are switched off for this workspace.')
+      ).toBeInTheDocument();
       expect(screen.queryByTitle('Draft this reply with AI')).not.toBeInTheDocument();
       expect(composeReply).not.toHaveBeenCalled();
     });
@@ -549,9 +584,16 @@ describe('ComposerAiActions', () => {
       aiDrafts.off = true;
       aiConfigured.value = false;
       render(
-        <ComposerAiActions messageId={42} composer="" setComposer={setComposer} onApplied={onApplied} />
+        <ComposerAiActions
+          messageId={42}
+          composer=""
+          setComposer={setComposer}
+          onApplied={onApplied}
+        />
       );
-      expect(screen.getByText('AI drafts are switched off for this workspace.')).toBeInTheDocument();
+      expect(
+        screen.getByText('AI drafts are switched off for this workspace.')
+      ).toBeInTheDocument();
     });
 
     // ⛔ compose-reply answers 409 for TWO reasons. Keyed on status alone, a drafts-off refusal

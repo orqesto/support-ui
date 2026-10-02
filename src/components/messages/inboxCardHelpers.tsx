@@ -5,6 +5,7 @@ import { getSpamCheck, hasMessageAttachments } from '@/lib/messageHelpers';
 import { formatDuration } from '@/lib/utils';
 import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/types/ai';
 import { notCustomerWorkMark } from './notCustomerWork';
+import { sentenceCase, statusLabel } from './messageDetailConstants';
 
 /**
  * Shared derivations for the redesigned inbox cards (MessageListItem + KanbanCard).
@@ -128,6 +129,23 @@ export const getStatusBadge = (
   const wf = deriveWorkflowStatus(message);
   if (!wf) return null;
   return closedStatusMeta(message) ?? WORKFLOW_STATUS_META[wf];
+};
+
+/**
+ * The status label for a row with ONLY the raw `conversations.status` (Related popover's other
+ * threads: no parkedAt / lastReplyFromClient), as the board's chip words it in sentence case. Reply
+ * sub-values stand in for the flag; a parked thread cannot be seen and reads as its reply state,
+ * not On-hold. A status with no work status (`filtered`) keeps its raw name.
+ */
+export const bareStatusLabel = (status: string): string => {
+  const ours = ['awaiting_response', 'pending'].includes(status) ? false : null;
+  const fromClient = ['client_replied', 'in_progress'].includes(status) ? true : ours;
+  const badge = getStatusBadge({
+    status: status as Message['status'],
+    parkedAt: null,
+    lastReplyFromClient: fromClient,
+  });
+  return badge ? sentenceCase(badge.label) : statusLabel(status);
 };
 
 /**

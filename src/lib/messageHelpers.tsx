@@ -33,6 +33,59 @@ export const hasMessageAttachments = (message: { attachmentCount?: number }) =>
   (message.attachmentCount ?? 0) > 0;
 
 /**
+ * A thread event that is OURS, not the customer's: anything not inbound, the bot, or a system
+ * reply. The thread bubble (ThreadMessageItem) and the Files row (MessageAttachments) both read an
+ * event through this, so a file and the message it came with cannot sit on opposite sides.
+ */
+export const isOutgoingEvent = (event: {
+  type: string;
+  authorEmail?: string | null;
+  metadata?: unknown;
+}): boolean =>
+  event.type !== 'inbound' ||
+  (event.authorEmail ?? '').toLowerCase() === 'bot' ||
+  (event.metadata as { isSystemReply?: boolean } | null | undefined)?.isSystemReply === true;
+
+/**
+ * The display name and the address out of a `Name <addr>` sender. A bare address (or a phone
+ * number, or a chat handle) has no name — the caller then shows the address itself, bold.
+ * Surrounding quotes are the mail header's, not part of the name. A name that IS the address
+ * (`a@x.com <a@x.com>`) is no name: the address shows once. Shared by the message header and the
+ * Customer tab, so the two cannot name one sender two ways.
+ */
+export const parseSender = (
+  sender: string | null | undefined
+): { name: string | null; address: string } => {
+  const raw = (sender ?? '').trim();
+  // The address is the LAST `<…>` holding an '@': a quoted display name may itself contain angle
+  // brackets (`"Smith <Sales>" <s@x.com>`), and text may trail the address
+  // ("Ada <a@x.io> (via form)") — the header's contact-profile lookup needs the bare address, not
+  // the whole line. With no '@' anywhere (a chat handle in brackets) the last `<…>` still wins.
+  const angles = [...raw.matchAll(/<([^<>]+)>/g)];
+  if (angles.length === 0) return { name: null, address: raw };
+  const angle =
+    [...angles].reverse().find((match) => match[1].includes('@')) ?? angles[angles.length - 1];
+  const address = angle[1].trim();
+  // A quote at either end is the header's quoting, even an unbalanced one.
+  const name = raw.slice(0, angle.index).trim().replace(/^"|"$/g, '').trim();
+  return {
+    name: name.length > 0 && name.toLowerCase() !== address.toLowerCase() ? name : null,
+    address,
+  };
+};
+
+/**
+ * The Customer tab's contact-lookup key: the sender block's address (parseSender) when it is an
+ * email — `"Smith <Sales>" <s@x.com>` → s@x.com, not "Sales". With no '@' (a chat handle) the
+ * earlier resolution stands, the first `<…>` or the whole line: D17 still wants a key for those.
+ */
+export const contactLookupKey = (sender: string | null | undefined): string => {
+  const { address } = parseSender(sender);
+  if (address.includes('@')) return address;
+  return sender?.match(/<(.+?)>/)?.[1] ?? sender ?? '';
+};
+
+/**
  * Conversation identifier for display. Prefers the Jira-style publicId
  * ('SUP-42') and falls back to '#16798' for unstamped legacy rows / rows
  * that bypassed the orchestrator stamping. See

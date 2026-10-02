@@ -7,7 +7,7 @@ import type { Message } from '@/types';
 import type { MessageThread } from '@/services/message.service';
 
 // Mock dependencies used by MessageListItem
-// The thread's tickets (header bar + Customer tab, 2026-09-30) — hermetic: an unmocked request
+// The thread's tickets (the header chip, 2026-09-30) — hermetic: an unmocked request
 // fails after the test and logs during teardown.
 vi.mock('@/services/ticketThreads.service', () => ({
   ticketThreadsService: {

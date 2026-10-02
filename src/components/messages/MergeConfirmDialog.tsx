@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,
@@ -16,6 +16,15 @@ import {
   conversationMergeService,
   MergeAssigneeConflictError,
 } from '@/services/conversationMerge.service';
+import {
+  MG_BODY,
+  MG_DIALOG,
+  MG_FOOT,
+  MG_HEAD,
+  MG_OPTION,
+  MG_OPTION_SELECTED,
+  MG_TITLE,
+} from './relatedStyles';
 
 /** What the dialog needs to know about each ticket. A `Message` row satisfies it. */
 export type MergeRow = {
@@ -43,10 +52,12 @@ type Props = {
   open: boolean;
   rows: MergeRow[];
   onOpenChange: (open: boolean) => void;
-  /** Called with the survivor once the backend has merged. */
-  onMerged: (survivor: MergeRow) => void;
+  /** Called with the survivor, and the rows merged into it, once the backend has merged. */
+  onMerged: (survivor: MergeRow, mergedIn: MergeRow[]) => void;
   /** Shown instead of the choice when the merge cannot go ahead (loading, unreadable, mixed channels). */
   notice?: string;
+  /** The thread the agent is on, marked "this thread" in the choice (v4). Omitted from a bulk merge. */
+  currentId?: number;
 };
 
 /**
@@ -57,7 +68,14 @@ type Props = {
  * undoable, but an agent should never have to discover what it did by looking for a ticket that
  * is gone.
  */
-export const MergeConfirmDialog = ({ open, rows, onOpenChange, onMerged, notice }: Props) => {
+export const MergeConfirmDialog = ({
+  open,
+  rows,
+  onOpenChange,
+  onMerged,
+  notice,
+  currentId,
+}: Props) => {
   const orgCode = useCurrentOrgCode();
   const [survivorId, setSurvivorId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -75,6 +93,26 @@ export const MergeConfirmDialog = ({ open, rows, onOpenChange, onMerged, notice 
   }, [rowKey, open]);
 
   const survivor = rows.find((row) => row.id === survivorId);
+  /*
+    A real radio group (WAI-ARIA radio pattern): ONE Tab stop — the checked option, or the first
+    when none is — and the arrow keys move AND select, wrapping; Home/End go to the ends.
+  */
+  const radioRefs = useRef(new Map<number, HTMLButtonElement>());
+  const tabStopId = survivor?.id ?? rows[0]?.id ?? null;
+  const onRadioKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const count = rows.length;
+    if (count === 0) return;
+    let next: number;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') next = (index + 1) % count;
+    else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') next = (index - 1 + count) % count;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = count - 1;
+    else return;
+    event.preventDefault();
+    const target = rows[next];
+    setSurvivorId(target.id);
+    radioRefs.current.get(target.id)?.focus();
+  };
   const others = useMemo(() => rows.filter((row) => row.id !== survivorId), [rows, survivorId]);
   const label = (row: MergeRow) => getConvUrlId({ id: row.id, publicId: row.publicId }, orgCode);
 
@@ -89,16 +127,16 @@ export const MergeConfirmDialog = ({ open, rows, onOpenChange, onMerged, notice 
         assigneeId
       );
       setConflictIds(null);
-      onMerged(survivor);
+      onMerged(survivor, others);
     } catch (err) {
       if (err instanceof MergeAssigneeConflictError) {
-        // Not an error: people are working these tickets and the backend will not choose.
+        // Not an error: people are working these threads and the backend will not choose.
         setConflictIds(err.assigneeIds);
         return;
       }
-      logger.error('Failed to merge tickets', err);
+      logger.error('Failed to merge threads', err);
       setError(
-        getApiErrorMessage(err) ?? 'These tickets could not be merged. Nothing was changed.'
+        getApiErrorMessage(err) ?? 'These threads could not be merged. Nothing was changed.'
       );
     } finally {
       setBusy(false);
@@ -110,19 +148,24 @@ export const MergeConfirmDialog = ({ open, rows, onOpenChange, onMerged, notice 
   const nameOf = (userId: number) =>
     rows.find((row) => row.assigneeId === userId)?.assigneeName ?? `Agent #${userId}`;
 
+  const opened = (row: MergeRow) =>
+    row.createdAt && !Number.isNaN(Date.parse(row.createdAt))
+      ? new Date(row.createdAt).toLocaleDateString()
+      : null;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogHeader>
-        <DialogTitle>Merge into one ticket</DialogTitle>
+    <Dialog open={open} onOpenChange={onOpenChange} className={MG_DIALOG} sheetOnPhone>
+      <DialogHeader className={MG_HEAD}>
+        <DialogTitle className={MG_TITLE}>Merge into one thread</DialogTitle>
         <DialogClose onClose={() => onOpenChange(false)} />
       </DialogHeader>
-      <DialogContent>
+      <DialogContent className={MG_BODY}>
         {notice ? (
-          <p className="text-sm text-muted-foreground">{notice}</p>
+          <p className="m-0 text-muted-foreground">{notice}</p>
         ) : conflictIds ? (
-          <div className="space-y-3">
-            <p className="text-sm">
-              Different people are working these tickets. Who keeps the merged ticket?
+          <div className="grid gap-2.5">
+            <p className="m-0">
+              Different people are working these threads. Who keeps the merged thread?
             </p>
             <div className="flex flex-wrap gap-2">
               {conflictIds.map((userId) => (
@@ -138,41 +181,68 @@ export const MergeConfirmDialog = ({ open, rows, onOpenChange, onMerged, notice 
             </div>
           </div>
         ) : (
-          <div className="space-y-3 text-sm">
-            <p className="text-muted-foreground">Keep this ticket:</p>
-            <ul className="space-y-1">
-              {rows.map((row) => (
-                <li key={row.id}>
-                  <Button
-                    variant={row.id === survivorId ? 'secondary' : 'ghost'}
-                    size="sm"
-                    className="w-full justify-start text-left"
-                    aria-pressed={row.id === survivorId}
-                    onClick={() => setSurvivorId(row.id)}
-                    disabled={busy}
-                  >
-                    <span className="font-mono text-xs mr-2">{label(row)}</span>
-                    <span className="truncate">{row.subject?.trim() ? row.subject : '(no subject)'}</span>
-                    {row.sender && (
-                      <span className="ml-2 truncate text-muted-foreground">· {row.sender}</span>
-                    )}
-                  </Button>
-                </li>
-              ))}
+          <div className="grid gap-2.5">
+            <p className="m-0 text-muted-foreground">Keep this thread:</p>
+            <ul role="radiogroup" aria-label="Keep this thread" className="grid gap-1.5">
+              {rows.map((row, index) => {
+                const selected = row.id === survivorId;
+                const when = opened(row);
+                return (
+                  <li key={row.id} role="none">
+                    <Button
+                      ref={(node) => {
+                        if (node) radioRefs.current.set(row.id, node);
+                        else radioRefs.current.delete(row.id);
+                      }}
+                      variant="ghost"
+                      role="radio"
+                      aria-checked={selected}
+                      tabIndex={row.id === tabStopId ? 0 : -1}
+                      onKeyDown={(event) => onRadioKey(event, index)}
+                      className={`w-full h-auto justify-start font-sans font-normal ${MG_OPTION} ${selected ? MG_OPTION_SELECTED : ''}`}
+                      onClick={() => setSurvivorId(row.id)}
+                      disabled={busy}
+                    >
+                      <span
+                        aria-hidden
+                        className={`mt-0.5 w-3.5 h-3.5 rounded-full flex-none box-border ${selected ? 'border-4 border-primary bg-card' : 'border-[1.5px] border-border-strong'}`}
+                      />
+                      <span className="flex flex-col flex-1 min-w-0 leading-[1.35]">
+                        <span className="font-mono text-[11.5px] text-muted-foreground">
+                          {label(row)}
+                          {row.id === currentId && (
+                            <span className="ml-1 px-[5px] rounded font-sans text-[10.5px] bg-primary-muted text-primary">
+                              this thread
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-[13px] font-medium truncate">
+                          {row.subject?.trim() ? row.subject : '(no subject)'}
+                        </span>
+                        {[row.sender, when].some(Boolean) && (
+                          <span className="text-[12px] text-muted-foreground truncate">
+                            {[row.sender, when && `opened ${when}`].filter(Boolean).join(' · ')}
+                          </span>
+                        )}
+                      </span>
+                    </Button>
+                  </li>
+                );
+              })}
             </ul>
             {survivor && others.length > 0 && (
-              <p>
+              <p className="m-0 px-3 py-2.5 rounded-[9px] bg-muted">
                 The messages of {others.map(label).join(', ')} move into {label(survivor)}, and{' '}
                 {others.length === 1 ? 'it leaves' : 'they leave'} the inbox. Replies to{' '}
-                {others.length === 1 ? 'its' : 'their'} thread will arrive in{' '}
-                {label(survivor)}. You can undo this with Unmerge on {label(survivor)}.
+                {others.length === 1 ? 'its' : 'their'} thread will arrive in {label(survivor)}. You
+                can undo this with Unmerge on {label(survivor)}.
               </p>
             )}
           </div>
         )}
-        {error && <p className="text-sm text-destructive mt-2">{error}</p>}
+        {error && <p className="m-0 text-destructive">{error}</p>}
       </DialogContent>
-      <DialogFooter>
+      <DialogFooter className={MG_FOOT}>
         <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
           Cancel
         </Button>

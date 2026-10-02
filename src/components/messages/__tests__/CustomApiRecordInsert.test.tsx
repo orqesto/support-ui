@@ -10,6 +10,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CustomApiRecordInsert } from '../CustomApiRecordInsert';
+import { RecordInsertTargetContext } from '../useAiRecordNote';
 import type { LookupField } from '@/services/customApiLookup.service';
 
 afterEach(cleanup);
@@ -249,5 +250,90 @@ describe('a record we could not confirm belongs to this customer (D38)', () => {
     await user.click(screen.getByRole('button', { name: /Use in reply/i }));
 
     expect(screen.queryByText(/not confirmed as this customer/i)).not.toBeInTheDocument();
+  });
+});
+
+/*
+  With no usable AI note the host routes the same sentence into the REPLY
+  and says so through RecordInsertTargetContext. Every word must name where it lands.
+*/
+describe('the reply target: every word names the reply', () => {
+  const renderForReply = (onUseInReply = vi.fn().mockReturnValue('added')) => {
+    render(
+      <RecordInsertTargetContext.Provider value="reply">
+        <CustomApiRecordInsert
+          row={ROW}
+          fields={FIELDS}
+          category="order"
+          lookupLabel="Their records"
+          onUseInReply={onUseInReply}
+        />
+      </RecordInsertTargetContext.Provider>
+    );
+    return onUseInReply;
+  };
+
+  it('still offered; hint, button and outcome say "reply"; the SAME sentence goes out', async () => {
+    const user = userEvent.setup();
+    const onUseInReply = renderForReply();
+    await open(user);
+    expect(
+      screen.getByText('Adds these to your reply as a sentence — edit it before sending.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/note for the AI draft/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Add to my reply' }));
+    expect(onUseInReply).toHaveBeenCalledWith(
+      'Order 137416 — Status: On its way. Placed: 2026-09-01.'
+    );
+    expect(screen.getByText('Added to your reply')).toBeInTheDocument();
+  });
+
+  it('"Already in your reply" for a duplicate', async () => {
+    const user = userEvent.setup();
+    renderForReply(vi.fn().mockReturnValue('duplicate'));
+    await open(user);
+    await user.click(screen.getByRole('button', { name: 'Add to my reply' }));
+    expect(screen.getByText('Already in your reply')).toBeInTheDocument();
+  });
+
+  it('an internal note being written: says so instead of moving it', async () => {
+    const user = userEvent.setup();
+    renderForReply(vi.fn().mockReturnValue('note_in_progress'));
+    await open(user);
+    await user.click(screen.getByRole('button', { name: 'Add to my reply' }));
+    expect(screen.getByText('Post or clear your internal note first')).toBeInTheDocument();
+  });
+
+  it('the target switching (the setting loaded, a 409) drops an outcome that named the other place', async () => {
+    const user = userEvent.setup();
+    const props = {
+      row: ROW,
+      fields: FIELDS,
+      category: 'order' as const,
+      lookupLabel: 'Their records',
+      onUseInReply: vi.fn().mockReturnValue('added'),
+    };
+    const view = render(
+      <RecordInsertTargetContext.Provider value="note">
+        <CustomApiRecordInsert {...props} />
+      </RecordInsertTargetContext.Provider>
+    );
+    await open(user);
+    await user.click(screen.getByRole('button', { name: 'Add to my note' }));
+    expect(screen.getByText('Added to your note')).toBeInTheDocument();
+    view.rerender(
+      <RecordInsertTargetContext.Provider value="reply">
+        <CustomApiRecordInsert {...props} />
+      </RecordInsertTargetContext.Provider>
+    );
+    expect(screen.queryByText(/Added to your/)).not.toBeInTheDocument();
+  });
+
+  it('CONTROL: without the context (every other host) the copy is the note’s', async () => {
+    const user = userEvent.setup();
+    renderInsert();
+    await open(user);
+    expect(screen.getByRole('button', { name: 'Add to my note' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add to my reply' })).not.toBeInTheDocument();
   });
 });

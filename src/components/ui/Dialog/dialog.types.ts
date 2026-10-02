@@ -17,6 +17,12 @@ export type DialogProps = VariantProps<typeof dialogContentVariants> &
      * dismissal, which is the one that loses work.
      */
     dismissOnOverlayClick?: boolean;
+    /**
+     * Phones (<640px) only: open as a bottom sheet — full width, 18px top corners, at most 88% of
+     * the screen tall, footer buttons stretched to 44px. Default false: every other caller, and
+     * every wider screen, keeps the centred dialog.
+     */
+    sheetOnPhone?: boolean;
   };
 
 export type DialogSubComponentProps = {

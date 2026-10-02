@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react';
 import { CustomApiRecordInsert } from './CustomApiRecordInsert';
-import { CATEGORY_RECORD_LABELS, type CustomApiCategory } from '@/components/settings/customApi/categories';
+import {
+  CATEGORY_RECORD_LABELS,
+  type CustomApiCategory,
+} from '@/components/settings/customApi/categories';
 import { LABEL } from './messageDetailConstants';
 import type { AddOutcome } from './useAiRecordNote';
 import type { CustomApiLookupResult, LookupField } from '@/services/customApiLookup.service';
@@ -165,34 +168,40 @@ const RecordCard = ({
       cannot tell where one order ends. `first:` keeps a single record, the common case, exactly as
       it looks today. The plain grid path is untouched: it never gained a heading to be confused by.
     */
-    <div className="space-y-1 border-t border-border/60 pt-1.5 first:border-t-0 first:pt-0">
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[11px] font-medium text-foreground break-words">
+    <div className="grid gap-1 border-t border-hair pt-1.5 first:border-t-0 first:pt-0">
+      {/* v4 `.k-rt`: what the record is and its reference, then the status pill `.k-st`. */}
+      <div className="flex items-center justify-between gap-1.5">
+        <p className="text-[12px] font-medium text-foreground break-words">
           {/* The category names the thing; the reference identifies it. With no reference the
               heading still says WHAT this is, which is more than the generic list ever did. */}
           {CATEGORY_RECORD_LABELS[category]}
           {/* A real space, not only the margin: `Order137416` is what a screen reader would
               otherwise announce, and what a copy-paste would carry. */}
-          {identifier && <span className="ml-1 font-mono">{` ${renderValue(row, identifier)}`}</span>}
+          {identifier && (
+            <span className="ml-1 font-mono">{` ${renderValue(row, identifier)}`}</span>
+          )}
         </p>
         {status && (
           /* The admin's word when they wrote one, the vendor's own value when they did not —
              `renderValue` already decides that, and P2's rule is that we never invent one. */
-          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-foreground">
+          <span className="shrink-0 whitespace-nowrap rounded bg-sunken px-1.5 py-px text-[10.5px] text-foreground">
             {renderValue(row, status)}
           </span>
         )}
       </div>
 
       {meta.length > 0 && (
-        <p className="text-[11px] text-muted-foreground">
+        // v4 `.k-meta`: "Placed: 11 Sep 2026 · Total: 106.50 PLN".
+        <p className="text-[11.5px] text-faint-foreground">
           {meta.map((field, index) => (
             /* Keyed on path AND role: the same path can be configured twice under two roles,
                and a duplicate key silently drops a node in React. */
             <span key={`${field.path}-${roleOf(field) ?? ''}`}>
               {index > 0 && <span className="mx-1.5">·</span>}
-              <span className="text-muted-foreground">{field.label}: </span>
-              <span className="text-foreground">{renderValue(row, field)}</span>
+              <span>{field.label}: </span>
+              <span className="text-foreground [font-variant-numeric:tabular-nums]">
+                {renderValue(row, field)}
+              </span>
             </span>
           ))}
         </p>

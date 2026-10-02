@@ -98,70 +98,73 @@ export const MessageKBReferences = ({ messageId, onCountChange }: MessageKBRefer
   };
 
   return (
-    <div className="p-4 mb-4 bg-ai-muted rounded-lg border-2 border-ai-line">
-      <div className="flex gap-2 items-center mb-3">
-        <BookOpen className="w-5 h-5 text-ai" />
-        <h3 className="font-display font-semibold text-ai">
-          Knowledge Base References
-        </h3>
-        <span className="text-xs text-ai">
-          {references.length} {references.length === 1 ? 'entry' : 'entries'}
-        </span>
-      </div>
-
-      <p className="mb-3 text-xs text-ai">
-        This message was used to create the following knowledge base entries:
-      </p>
-
-      <div className="space-y-2">
+    // v4 KB tab: a heading and compact `.filerow` rows, in place of the big violet card. Same data.
+    <section className="pt-2" aria-labelledby={`kb-refs-${messageId}`}>
+      <h4
+        id={`kb-refs-${messageId}`}
+        className="mb-1 font-display text-[10px] font-semibold uppercase tracking-[0.1em] text-faint-foreground"
+      >
+        {/* ⛔ What the endpoint returns is entries CREATED FROM this message (kb-references), not
+            articles quoted to the customer — the heading says exactly that. */}
+        Saved to the knowledge base from this thread
+      </h4>
+      <ul>
         {references.map((ref) => (
-          <div
+          <li
             key={ref.id}
-            className="p-3 bg-card rounded border border-ai-line"
+            className="flex items-center gap-2.5 mb-1.5 py-2 pl-2.5 pr-2 rounded-lg border border-border bg-card"
           >
-            <div className="flex gap-2 items-start justify-between mb-2">
-              <div className="flex-1">
-                <div className="flex gap-2 items-center mb-1">
-                  <span className="px-2 py-0.5 text-xs font-medium text-ai bg-ai-muted rounded">
-                    {getTypeLabel(ref.type)}
-                  </span>
-                  {ref.approved && (
-                    <CheckCircle className="w-3 h-3 text-success" />
-                  )}
-                  {ref.topics && ref.topics.length > 0 && (
-                    <span className="text-xs text-ai">
-                      {ref.topics.slice(0, 2).join(', ')}
-                      {ref.topics.length > 2 && '...'}
-                    </span>
-                  )}
-                </div>
-                <h4 className="font-display text-sm font-semibold text-ai">
-                  {ref.title}
-                </h4>
-                <p className="mt-1 text-xs text-ai line-clamp-2">
+            <span className="grid place-items-center w-7 h-7 rounded-[7px] bg-sunken text-muted-foreground flex-shrink-0">
+              <BookOpen className="w-3.5 h-3.5" aria-hidden />
+            </span>
+            <span className="flex flex-col flex-1 min-w-0 leading-[1.3]">
+              <b className="flex items-center gap-1 text-[12.5px] font-medium text-foreground">
+                <span className="truncate">{ref.title}</span>
+                {ref.approved && (
+                  <CheckCircle
+                    className="w-3 h-3 text-success flex-shrink-0"
+                    aria-label="Approved"
+                  />
+                )}
+              </b>
+              <span className="text-[11px] text-muted-foreground truncate">
+                {[
+                  getTypeLabel(ref.type),
+                  ref.topics && ref.topics.length > 0
+                    ? `${ref.topics.slice(0, 2).join(', ')}${ref.topics.length > 2 ? '...' : ''}`
+                    : null,
+                  ref.qualityScore ? `Quality: ${Math.round(ref.qualityScore * 100)}%` : null,
+                  // timesReferenced is workspace-wide: bumped each time the AI cites the entry in
+                  // a suggested or automatic answer, on ANY thread (BE trackKBUsage).
+                  ref.timesReferenced > 0
+                    ? `AI used it ${ref.timesReferenced}× (all threads)`
+                    : null,
+                  `Created: ${formatDate(ref.createdAt)}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </span>
+              {ref.content && (
+                <span className="text-[11px] text-faint-foreground line-clamp-1">
                   {ref.content}
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => window.open(`/knowledge-base?id=${ref.id}`, '_blank', 'noopener,noreferrer')}
-                title="View in Knowledge Base"
-                aria-label="View in Knowledge Base"
-                className="flex-shrink-0"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </Button>
-            </div>
-
-            <div className="flex gap-3 items-center text-xs text-ai">
-              {ref.qualityScore && <span>Quality: {Math.round(ref.qualityScore * 100)}%</span>}
-              <span>Referenced: {ref.timesReferenced}×</span>
-              <span>Created: <span className="font-mono">{formatDate(ref.createdAt)}</span></span>
-            </div>
-          </div>
+                </span>
+              )}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() =>
+                window.open(`/knowledge-base?id=${ref.id}`, '_blank', 'noopener,noreferrer')
+              }
+              title="View in Knowledge Base"
+              aria-label="View in Knowledge Base"
+              className="w-[30px] h-[30px] flex-shrink-0 rounded-[7px] border border-border text-muted-foreground"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+            </Button>
+          </li>
         ))}
-      </div>
-    </div>
+      </ul>
+    </section>
   );
 };

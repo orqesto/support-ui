@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AlertTriangle, Search } from 'lucide-react';
+import { AlertTriangle, RotateCw, Search } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useCustomApiLookup, useCustomApiLookupAvailability } from '@/hooks/useCustomApiLookup';
@@ -10,7 +11,7 @@ import { conversationContactService } from '@/services/conversationContact.servi
 import type { AddOutcome } from './useAiRecordNote';
 import type { CustomApiLookupResult } from '@/services/customApiLookup.service';
 import { CATEGORY_RECORD_LABELS, readCategory } from '@/components/settings/customApi/categories';
-import { LABEL } from './messageDetailConstants';
+import { LABEL, relativeTime } from './messageDetailConstants';
 import { projectFields, RowFields, UNCONFIGURED_FIELD_PREVIEW } from './customApiRowFields';
 
 /**
@@ -164,6 +165,90 @@ export const ownershipNotice = (
   }
 };
 
+/**
+ * v4 `.k-sum`: how the press went, counted by outcome, above the cards — so "1 failed" is seen
+ * before scrolling past three cards to find it. Only non-zero counts. It counts what the CARDS
+ * say: an `ok` with no rows renders "No matching records", so it is a no match here too.
+ * `shape_changed` is not in v4's list; it is counted ("needs an admin") rather than left out, or a
+ * dead integration would vanish from the summary while its card says it needs fixing. Same for a
+ * record the ownership check REJECTED ("not this customer’s"). A status this build does not know
+ * is not counted: its card shows the backend's own words, muted.
+ */
+export const summariseLookup = (
+  results: CustomApiLookupResult[]
+): { key: string; text: string; tone: 'ok' | 'ask' | 'warn' | 'bad' | 'plain' }[] => {
+  const count = (test: (result: CustomApiLookupResult) => boolean) => results.filter(test).length;
+  const plural = (amount: number, one: string, many: string) =>
+    `${amount} ${amount === 1 ? one : many}`;
+  const hasRows = (result: CustomApiLookupResult) =>
+    result.status === 'ok' && !!result.rows?.length;
+  // ⛔ A record the ownership check says is SOMEONE ELSE'S is not "found" for this customer: its
+  // card says "does NOT belong to this customer" (D38), and the summary must not contradict it.
+  const found = count((result) => hasRows(result) && result.ownership !== 'mismatch');
+  const notTheirs = count((result) => hasRows(result) && result.ownership === 'mismatch');
+  const ask = count((result) => result.status === 'needs_input');
+  const noMatch = count(
+    (result) => result.status === 'no_match' || (result.status === 'ok' && !result.rows?.length)
+  );
+  const noIdentity = count((result) => result.status === 'no_identity');
+  const changed = count((result) => result.status === 'shape_changed');
+  const failed = count((result) => result.status === 'failed');
+  const parts: {
+    key: string;
+    amount: number;
+    text: string;
+    tone: 'ok' | 'ask' | 'warn' | 'bad' | 'plain';
+  }[] = [
+    { key: 'found', amount: found, text: `${found} found`, tone: 'ok' },
+    { key: 'not_theirs', amount: notTheirs, text: `${notTheirs} not this customer’s`, tone: 'bad' },
+    { key: 'ask', amount: ask, text: plural(ask, 'needs a number', 'need a number'), tone: 'ask' },
+    { key: 'no_match', amount: noMatch, text: `${noMatch} no match`, tone: 'plain' },
+    {
+      key: 'no_identity',
+      amount: noIdentity,
+      text: `${noIdentity} can’t run — no email`,
+      tone: 'plain',
+    },
+    {
+      key: 'changed',
+      amount: changed,
+      text: plural(changed, 'needs an admin', 'need an admin'),
+      tone: 'warn',
+    },
+    { key: 'failed', amount: failed, text: `${failed} failed`, tone: 'bad' },
+  ];
+  return parts
+    .filter((part) => part.amount > 0)
+    .map(({ key, text, tone }) => ({ key, text, tone }));
+};
+
+const SUMMARY_TONE: Record<ReturnType<typeof summariseLookup>[number]['tone'], string> = {
+  ok: 'bg-success-muted text-success',
+  ask: 'bg-primary-muted text-primary',
+  warn: 'bg-warning-muted text-warning',
+  bad: 'bg-destructive-muted text-destructive',
+  plain: 'bg-sunken text-muted-foreground',
+};
+
+const LookupSummary = ({ results }: { results: CustomApiLookupResult[] }) => {
+  const parts = summariseLookup(results);
+  if (parts.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-[5px]" data-testid="lookup-summary">
+      {parts.map((part) => (
+        <Badge
+          key={part.key}
+          variant="secondary"
+          data-tone={part.tone}
+          className={`rounded-[5px] px-[7px] py-0.5 font-sans text-[11px] font-medium cursor-default ${SUMMARY_TONE[part.tone]}`}
+        >
+          {part.text}
+        </Badge>
+      ))}
+    </div>
+  );
+};
+
 const ResultCard = ({
   result,
   onRunManual,
@@ -200,22 +285,37 @@ const ResultCard = ({
   const category = readCategory((result as { category?: unknown }).category);
 
   return (
-    <div className="rounded border border-border p-2 space-y-1.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[11px] font-medium text-foreground">
-          {result.label}
-          {category && (
-            /* ⛔ Beside the admin's own label, never instead of it. The label is what the agents of
-               THIS workspace call the lookup ("This customer's orders"); the category is what the
-               product knows the records to be. Replacing one with the other would rename a thing
-               an admin deliberately named — the parity rule an audit caught on 2026-09-09, where a
-               page renamed what the list it was opened from had said. */
-            <span className={`${LABEL} ml-1.5 font-normal text-muted-foreground`}>
-              · {CATEGORY_RECORD_LABELS[category]}
-            </span>
-          )}
-        </p>
-        <p className={`${LABEL} text-muted-foreground`}>{result.connectionName}</p>
+    // v4 `.k-c`: one card per lookup; a failed one is edged in red so it is found at a glance.
+    <div
+      data-testid="lookup-card"
+      className={`grid gap-1.5 rounded-lg border bg-card px-[9px] py-2 ${
+        result.status === 'failed' ? 'border-destructive-line' : 'border-border'
+      }`}
+    >
+      {/* v4 `.k-ch`: the admin's label · the category, then the connection and the row count. */}
+      <div className="flex items-baseline gap-1.5 text-[12px] min-w-0">
+        <b className="font-semibold text-foreground truncate">{result.label}</b>
+        {category && (
+          /* ⛔ Beside the admin's own label, never instead of it. The label is what the agents of
+             THIS workspace call the lookup ("This customer's orders"); the category is what the
+             product knows the records to be. Replacing one with the other would rename a thing
+             an admin deliberately named — the parity rule an audit caught on 2026-09-09, where a
+             page renamed what the list it was opened from had said. */
+          <span className="text-[10.5px] text-faint-foreground whitespace-nowrap">
+            · {CATEGORY_RECORD_LABELS[category]}
+          </span>
+        )}
+        <span className="flex-1" />
+        <span className="text-[10.5px] text-faint-foreground whitespace-nowrap">
+          {result.connectionName}
+          {result.status === 'ok' && result.rows?.length
+            ? ` · ${
+                typeof result.total === 'number' && result.total > result.rows.length
+                  ? `${result.rows.length} of ${result.total}`
+                  : result.rows.length
+              }`
+            : ''}
+        </span>
       </div>
 
       {notice && (
@@ -345,10 +445,11 @@ export const CustomApiLookupPanel = ({
   className,
   onUseInReply,
 }: Props) => {
-  const { results, loading, hasRun, error, unavailable, run, lookedUpAs } = useCustomApiLookup({
-    conversationId,
-    contactId,
-  });
+  const { results, loading, hasRun, ranAt, error, unavailable, run, lookedUpAs } =
+    useCustomApiLookup({
+      conversationId,
+      contactId,
+    });
   /**
    * LOOK UP ANOTHER EMAIL (2026-09-29). A shop's order notification names the buyer only in its
    * body, so the ticket's customer is the shop and every identity lookup keys on the wrong address.
@@ -410,9 +511,24 @@ export const CustomApiLookupPanel = ({
   if (unavailable) return null;
 
   return (
-    <div className={className ? `space-y-2 ${className}` : 'space-y-2'}>
+    // `data-lookup-root`: the composer's "Look up" button opens the Customer tab, then scrolls
+    // this into view, focuses it (tabIndex -1: reachable by script, not a Tab stop) and flashes it.
+    // Harmless on the contacts page.
+    <div
+      data-lookup-root
+      role="group"
+      aria-label="Connected systems"
+      tabIndex={-1}
+      className={`focus:outline-none ${className ? `space-y-2 ${className}` : 'space-y-2'}`}
+    >
       <div className="flex items-center justify-between gap-2">
         <p className={`${LABEL} text-muted-foreground`}>CONNECTED SYSTEMS</p>
+        {/* v4: after a run, "ran just now" and "↻ Look up again"; computed per render, no ticker. */}
+        {ranAt && (
+          <span className="ml-auto text-[10.5px] text-faint-foreground">
+            ran {relativeTime(ranAt)}
+          </span>
+        )}
         <Button
           size="sm"
           variant="outline"
@@ -420,8 +536,12 @@ export const CustomApiLookupPanel = ({
           disabled={loading}
           onClick={() => run(undefined, lookedUpAs ?? undefined)}
         >
-          <Search className="h-3 w-3 mr-1" aria-hidden />
-          {loading ? 'Looking up…' : 'Look up'}
+          {ranAt ? (
+            <RotateCw className="h-3 w-3 mr-1" aria-hidden />
+          ) : (
+            <Search className="h-3 w-3 mr-1" aria-hidden />
+          )}
+          {loading ? 'Looking up…' : ranAt ? 'Look up again' : 'Look up'}
         </Button>
       </div>
 
@@ -467,8 +587,8 @@ export const CustomApiLookupPanel = ({
            results are on screen: every card below is about this person, not the ticket's customer. */
         <div className="flex items-center justify-between gap-2 rounded border border-primary/40 bg-primary/10 px-2 py-1">
           <p className="text-[11px] text-foreground">
-            Showing results for <span className="font-medium">{lookedUpAs}</span>, not this
-            ticket’s customer.
+            Showing results for <span className="font-medium">{lookedUpAs}</span>, not this ticket’s
+            customer.
           </p>
           <Button
             size="sm"
@@ -535,6 +655,8 @@ export const CustomApiLookupPanel = ({
             No lookups are available to you right now.
           </p>
         )}
+
+        {results.length > 0 && <LookupSummary results={results} />}
 
         {results.map((result) => (
           <ResultCard

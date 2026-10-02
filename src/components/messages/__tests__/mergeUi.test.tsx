@@ -2,7 +2,7 @@
  * The merge dialog and Reply all, rendered (owner, 2026-09-23).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import type * as MergeServiceModule from '@/services/conversationMerge.service';
 
 const merge = vi.fn();
@@ -64,8 +64,19 @@ describe('MergeConfirmDialog', () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Merge' }));
 
-    await waitFor(() => expect(onMerged).toHaveBeenCalledWith(SUP19));
+    // …with the rows merged INTO it, so the header can list them before its re-read.
+    await waitFor(() => expect(onMerged).toHaveBeenCalledWith(SUP19, [MKT1]));
     expect(merge).toHaveBeenCalledWith(29312, [30384], undefined);
+  });
+
+  it('each choice names its sender and the day it was opened', () => {
+    render(
+      <MergeConfirmDialog open rows={[MKT1, SUP19]} onOpenChange={vi.fn()} onMerged={vi.fn()} />
+    );
+    const opened = (row: typeof SUP19) =>
+      `${row.sender} · opened ${new Date(row.createdAt).toLocaleDateString()}`;
+    expect(screen.getByText(opened(SUP19))).toBeInTheDocument();
+    expect(screen.getByText(opened(MKT1))).toBeInTheDocument();
   });
 
   it('asks who keeps the ticket when both are being worked, and sends that choice', async () => {
@@ -80,6 +91,49 @@ describe('MergeConfirmDialog', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Anna' }));
 
     await waitFor(() => expect(merge).toHaveBeenLastCalledWith(29312, [30384], 9));
+  });
+
+  it('the choice is a real radio group: one Tab stop, arrow keys move AND select, wrapping', () => {
+    const THIRD = { id: 31000, publicId: 'SUP-31', subject: 'Third', createdAt: '2026-09-25T00:00:00Z' };
+    render(
+      <MergeConfirmDialog
+        open
+        rows={[MKT1, SUP19, THIRD]}
+        onOpenChange={vi.fn()}
+        onMerged={vi.fn()}
+      />
+    );
+    const group = screen.getByRole('radiogroup', { name: 'Keep this thread' });
+    const radios = within(group).getAllByRole('radio');
+    expect(radios).toHaveLength(3);
+    // The older ticket (SUP-19) is checked by default and is the ONLY Tab stop.
+    const checked = () => radios.map((radio) => radio.getAttribute('aria-checked'));
+    const stops = () => radios.map((radio) => radio.tabIndex);
+    expect(checked()).toEqual(['false', 'true', 'false']);
+    expect(stops()).toEqual([-1, 0, -1]);
+
+    radios[1].focus();
+    fireEvent.keyDown(radios[1], { key: 'ArrowDown' });
+    expect(checked()).toEqual(['false', 'false', 'true']);
+    expect(stops()).toEqual([-1, -1, 0]);
+    expect(document.activeElement).toBe(radios[2]);
+    // Wraps from the last to the first.
+    fireEvent.keyDown(radios[2], { key: 'ArrowRight' });
+    expect(checked()).toEqual(['true', 'false', 'false']);
+    expect(document.activeElement).toBe(radios[0]);
+    // …and back from the first to the last.
+    fireEvent.keyDown(radios[0], { key: 'ArrowUp' });
+    expect(checked()).toEqual(['false', 'false', 'true']);
+    expect(document.activeElement).toBe(radios[2]);
+    fireEvent.keyDown(radios[2], { key: 'Home' });
+    expect(checked()).toEqual(['true', 'false', 'false']);
+    fireEvent.keyDown(radios[0], { key: 'End' });
+    expect(checked()).toEqual(['false', 'false', 'true']);
+    // The sentence follows the choice.
+    expect(screen.getByText(/move into ODL-SUP-31/)).toBeInTheDocument();
+    // CONTROL: another key does nothing.
+    fireEvent.keyDown(radios[2], { key: 'a' });
+    expect(checked()).toEqual(['false', 'false', 'true']);
   });
 
   it('offers no Merge while a notice stands in for the choice', () => {
@@ -180,6 +234,36 @@ describe('timeline label for a merged-in message', () => {
     );
   });
 
+  it('hands the header its list: a refresh keeps it on screen, another thread starts unread', async () => {
+    const row = { id: 30384, publicId: 'MKT-1', subject: null, mergedAt: null, mergedBy: null };
+    listMerges.mockReset();
+    listMerges.mockResolvedValue([row]);
+    participants.mockResolvedValue([]);
+    let resolveRefresh: (rows: unknown) => void = () => {};
+    const { result, rerender } = renderHook(
+      ({ id, key }: { id: number; key: number }) => useThreadMergeContext(id, true, key),
+      { initialProps: { id: 29312, key: 0 } }
+    );
+    expect(result.current.merges).toBeNull(); // not read yet
+    await waitFor(() => expect(result.current.merges).toEqual([row]));
+    expect(listMerges).toHaveBeenCalledTimes(1);
+    // A refresh: re-read, but the chip does not blink out while it is in flight.
+    listMerges.mockReturnValueOnce(new Promise((resolve) => (resolveRefresh = resolve)));
+    rerender({ id: 29312, key: 1 });
+    expect(listMerges).toHaveBeenCalledTimes(2);
+    expect(result.current.merges).toEqual([row]);
+    resolveRefresh([]);
+    await waitFor(() => expect(result.current.merges).toEqual([]));
+    // Another thread: nothing of the last one's list is shown as this one's.
+    listMerges.mockReturnValueOnce(new Promise(() => {}));
+    rerender({ id: 1, key: 1 });
+    expect(result.current.merges).toBeNull();
+    // reloadMerges re-reads (after an unmerge in the header).
+    listMerges.mockResolvedValue(null);
+    result.current.reloadMerges();
+    await waitFor(() => expect(listMerges).toHaveBeenLastCalledWith(1));
+  });
+
   it('never shows an internal row id for a ticket it cannot name', async () => {
     listMerges.mockResolvedValue([]);
     participants.mockResolvedValue([]);
@@ -219,8 +303,29 @@ describe('BulkMergeDialog', () => {
       id === 29312 ? Promise.resolve({ data: SUP19 }) : Promise.reject(new Error('boom'))
     );
     open();
-    expect(await screen.findByText(/could not be read just now/)).toBeInTheDocument();
+    // "threads", as the shared merge dialog says — never "tickets" (a ticket is something else).
+    expect(
+      await screen.findByText(/^Some of the selected threads could not be read just now/)
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Merge' })).toBeDisabled();
+  });
+
+  it('while reading, and for a mixed-channel selection, the notice speaks of threads', async () => {
+    listMerges.mockResolvedValue([]);
+    getById.mockImplementation(() => new Promise(() => {}));
+    const { unmount } = open();
+    expect(await screen.findByText('Reading the selected threads…')).toBeInTheDocument();
+    unmount();
+    getById.mockImplementation((id: number) =>
+      Promise.resolve({
+        data: { ...(id === 29312 ? SUP19 : MKT1), channel: id === 29312 ? 'email' : 'whatsapp' },
+      })
+    );
+    open();
+    expect(
+      await screen.findByText('These threads arrived on different channels and cannot be merged.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/tickets/)).toBeNull();
   });
 
   it('offers the merge when every ticket was read and the server can merge', async () => {

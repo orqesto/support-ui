@@ -4,6 +4,7 @@ import {
   type CustomApiCategory,
 } from '@/components/settings/customApi/categories';
 import type { LookupField } from '@/services/customApiLookup.service';
+import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
 
 /**
  * L2 P4 — turning ONE vendor record into a line the AI draft can be built on.
@@ -185,4 +186,40 @@ export const appendNote = (
     };
   }
   return { text: next, added: true };
+};
+
+/*
+  A record is plain data an agent can state to the customer as it stands. Without a usable AI note (drafts off, no provider) the same sentence goes into the REPLY. The
+  composer holds rich-text HTML, so the sentence is escaped — a vendor value carrying `<b>` or `&`
+  must arrive as the characters the agent read in the preview, never as markup.
+*/
+const escapeHtml = (text: string): string =>
+  text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const squash = (text: string): string => text.replace(/\s+/g, ' ').trim();
+
+/*
+  INLINE tags go without a trace before the text is read: `stripHtml` turns every tag into a space
+  (right for block tags — paragraphs must not fuse), so an agent who bolded the order number read
+  as "Order 123 ." and the duplicate was missed. Block tags (`<p>`, `<br>`, `<li>`…) still separate.
+*/
+const INLINE_TAG =
+  /<\/?(?:a|abbr|b|bdi|bdo|cite|code|del|dfn|em|font|i|ins|kbd|mark|q|s|samp|small|span|strike|strong|sub|sup|time|u|var)(?:\s[^>]*)?\/?>/gi;
+const replyText = (replyHtml: string): string => stripHtml(replyHtml.replace(INLINE_TAG, ''));
+
+/** Is this exact sentence already in the reply (as text — markup and spacing aside)? */
+export const replyHasSentence = (replyHtml: string, sentence: string): boolean => {
+  const wanted = squash(sentence);
+  return wanted !== '' && replyText(replyHtml).includes(wanted);
+};
+
+/** The reply with the sentence as a new paragraph at its end (or as the reply, when it is blank). */
+export const appendReplyParagraph = (replyHtml: string, sentence: string): string => {
+  const paragraph = `<p>${escapeHtml(squash(sentence))}</p>`;
+  return isBlankRichText(replyHtml) ? paragraph : `${replyHtml}${paragraph}`;
 };

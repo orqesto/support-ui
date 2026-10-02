@@ -25,6 +25,8 @@ type AssignmentSelectProps = {
   className?: string;
   /** Compact 'value' look for the message detail meta row; default elsewhere. */
   variant?: 'default' | 'value';
+  /** Phones only: the menu as a bottom sheet (ReactSelect `mobileSheet`). Off by default. */
+  mobileSheet?: boolean;
 };
 
 export const AssignmentSelect = ({
@@ -36,6 +38,7 @@ export const AssignmentSelect = ({
   onAssign,
   className,
   variant = 'default',
+  mobileSheet = false,
 }: AssignmentSelectProps) => {
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(false);
@@ -102,6 +105,7 @@ export const AssignmentSelect = ({
     <ReactSelect
       className={className}
       variant={variant}
+      mobileSheet={mobileSheet}
       value={currentAssigneeId ? String(currentAssigneeId) : ''}
       onChange={handleAssign}
       options={options}

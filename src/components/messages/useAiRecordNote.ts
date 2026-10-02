@@ -1,9 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useEffect, useRef, useState } from 'react';
 import { MAX_INSTRUCTIONS } from './ComposerAiActions';
 import { appendNote } from './customApiRecordNote';
 
 /** What an add did, in words the control can put on screen without guessing. */
-export type AddOutcome = 'added' | 'duplicate' | 'too_long' | 'fact_too_long';
+export type AddOutcome =
+  | 'added'
+  | 'duplicate'
+  | 'too_long'
+  | 'fact_too_long'
+  /** Reply target only: the composer holds an internal note being written (see MessageDetail). */
+  | 'note_in_progress';
+
+/**
+ * Where a lookup record's "Use in reply" puts its sentence. 'note' (the AI note) while that
+ * note can be used — AI drafts on AND a provider configured; otherwise 'reply' (the composer).
+ * Provided by MessageDetail; the default keeps every other host on the note, as before.
+ */
+export type RecordInsertTarget = 'note' | 'reply';
+export const RecordInsertTargetContext = createContext<RecordInsertTarget>('note');
 
 /**
  * L2 P4 — the note an agent gives the AI draft, shared by the two components that touch it.

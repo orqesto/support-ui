@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { MessagePanelTabs, type MessagePanelTabsProps } from '../MessagePanelTabs';
 import { useAuthStore } from '@/stores/authStore';
 import type { Message, User } from '@/types';
+import type * as MessageService from '@/services/message.service';
 
 /**
  * The full page's sidebar tabs (v3) sit BESIDE the composer, so pressing one must not switch
@@ -13,17 +14,20 @@ import type { Message, User } from '@/types';
  * customer. The slide-over keeps its existing behaviour (the control below).
  */
 
-// The thread's tickets (header bar + Customer tab, 2026-09-30) — hermetic: an unmocked request
-// fails after the test and logs during teardown.
-vi.mock('@/services/ticketThreads.service', () => ({
-  ticketThreadsService: {
-    ticketsOfThread: () => Promise.resolve({ unavailable: false, rows: [], hiddenCount: 0 }),
-    threadsOfTicket: () => Promise.resolve({ unavailable: false, rows: [], hiddenCount: 0 }),
-    addThreads: () => Promise.resolve({ added: [], alreadyAttached: [] }),
-    removeThread: () => Promise.resolve(false),
-  },
-}));
 vi.mock('../AiTabPanel', () => ({ AiTabPanel: () => null }));
+// MessageKBReferences (the Thread/AI tab footer) fetches on mount; without this every render sent a
+// real GET /api/messages/<id>/kb-references at a host that is not there (CI noise, and a late
+// response can land after the environment is torn down).
+vi.mock('@/services/message.service', async () => {
+  const actual = await vi.importActual<typeof MessageService>('@/services/message.service');
+  return {
+    ...actual,
+    messageService: {
+      ...actual.messageService,
+      getKBReferences: () => Promise.resolve({ success: true, data: [] }),
+    },
+  };
+});
 vi.mock('@/components/contacts/useContactProfile', () => ({
   useContactProfile: () => ({ loading: false, contact: null }),
 }));

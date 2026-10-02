@@ -1,12 +1,13 @@
 import { vi, describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
 import type { Message } from '@/types';
 
 // vi.mock factories are hoisted — no variable references allowed inside them
 // Define mock data as literals inside each factory
-// The thread's tickets (header bar + Customer tab, 2026-09-30) — hermetic: an unmocked request
+// The thread's tickets (the header chip, 2026-09-30) — hermetic: an unmocked request
 // fails after the test and logs during teardown.
 vi.mock('@/services/ticketThreads.service', () => ({
   ticketThreadsService: {
@@ -89,11 +90,13 @@ describe('MessageDetailSmoke', () => {
 
   it('renders loading state initially', () => {
     render(
-      <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
-        <Routes>
-          <Route path="/messages/:id" element={<MessageDetailPage />} />
-        </Routes>
-      </MemoryRouter>
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
+          <Routes>
+            <Route path="/messages/:id" element={<MessageDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
     );
     // The layout wrapper is always present
     expect(screen.getByTestId('layout')).toBeTruthy();
@@ -101,11 +104,13 @@ describe('MessageDetailSmoke', () => {
 
   it('renders the page without crashing for a valid message id', () => {
     render(
-      <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
-        <Routes>
-          <Route path="/messages/:id" element={<MessageDetailPage />} />
-        </Routes>
-      </MemoryRouter>
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
+          <Routes>
+            <Route path="/messages/:id" element={<MessageDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
     );
     // Layout renders regardless of loading state
     expect(screen.getByTestId('layout')).toBeTruthy();
@@ -113,11 +118,13 @@ describe('MessageDetailSmoke', () => {
 
   it('shows loading text while fetching message', () => {
     render(
-      <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
-        <Routes>
-          <Route path="/messages/:id" element={<MessageDetailPage />} />
-        </Routes>
-      </MemoryRouter>
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
+          <Routes>
+            <Route path="/messages/:id" element={<MessageDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
     );
     // The page starts in loading state — shows loader text
     expect(screen.getByText(/Loading message/i)).toBeTruthy();

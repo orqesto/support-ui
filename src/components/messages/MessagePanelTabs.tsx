@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { AddOutcome } from './useAiRecordNote';
 import { StickyNote, Pencil, Trash2 } from 'lucide-react';
 import { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
@@ -11,31 +11,84 @@ import {
 import { MessageAttachments, type Attachment } from './MessageAttachments';
 import { MessageKBReferences } from './MessageKBReferences';
 import { AiTabPanel, type KBAttachment } from './AiTabPanel';
-import { CustomerTabPanels } from './CustomerTabPanels';
+import { CustomerTabPanels, CustomerSenderBlock, ConversationFacts } from './CustomerTabPanels';
 import {
   messageService,
   type MessageNote,
   type MessageActivityEntry,
 } from '@/services/message.service';
-import { buildTimeline } from './messageActivityTimeline';
+import { buildTimeline, ACTIVITY_DOT } from './messageActivityTimeline';
 import { ContactProfileDetails } from '@/components/contacts/ContactProfileDetails';
 import { useContactProfile } from '@/components/contacts/useContactProfile';
 import { ContactFactRows } from '@/components/contacts/ContactFactRows';
 import type { LeadQualificationFieldConfig } from '@/services/organization.service';
-import { formatDate } from '@/lib/utils';
 
 import type { Message, MessageEvent } from '@/types';
 import type { ContradictionCheckMetadata } from '@/types/ai';
 import { logger } from '@/lib/logger';
+import { contactLookupKey } from '@/lib/messageHelpers';
 import RichTextEditor from '@/components/shared/RichTextEditor';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import DOMPurify from 'dompurify';
-import { LABEL, relativeTime, getInitials } from './messageDetailConstants';
+import { LABEL, relativeTime } from './messageDetailConstants';
 import { hasLookupEmailIdentity } from './CustomApiLookupPanel';
 import { useTabBadges } from './useTabBadges';
 import { TabBadge } from './TabBadge';
 
 type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
+
+/**
+ * One tab of the strip (v4 `.stabs button` / `.railtabs button`): sentence case, 12.5px / 500, the
+ * body face — not the uppercase LABEL style. `flex-shrink-0 grow basis-auto` is `flex: 1 0 auto`:
+ * share the spare width, never shrink below the label.
+ */
+const TAB_BASE =
+  'flex-shrink-0 grow basis-auto min-w-[4.5rem] justify-center items-center gap-[5px] px-[9px] h-[37px] rounded-none hover:bg-transparent font-sans text-[12.5px] font-medium normal-case tracking-normal whitespace-nowrap border-b-2 transition-colors max-sm:h-11 max-sm:px-[11px] max-sm:text-[13.5px]';
+
+/*
+  v4 mobile (M4): the rail on a phone. The wrapper has no box (`contents`) so the strip's parent is
+  the detail's whole column, and the strip can stick under the 52px header row for the length of
+  the page. The panel below it stops being its own scroller — the document scrolls on a phone.
+*/
+const PHONE_RAIL = 'max-sm:contents';
+const PHONE_STRIP =
+  'max-sm:sticky max-sm:top-[calc(var(--md-sticky-top,0px)+52px)] max-sm:z-[5] max-sm:mt-3.5 max-sm:border-t';
+const PHONE_PANEL = 'max-sm:flex-none max-sm:overflow-visible max-sm:overflow-x-clip';
+/**
+ * The Customer tab's contact controls: 40px touch targets and 16px inputs on a phone (M9).
+ * Tick boxes and radios are left out: a 40px-tall 14px box only drops the tick below its label
+ * (the label row is the touch target for those).
+ */
+const PHONE_CONTACT =
+  'max-sm:[&_button]:min-h-10 max-sm:[&_button]:min-w-10 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-10 max-sm:[&_select]:min-h-10';
+
+/** v4's right-edge fade, applied only while the strip has more to scroll to. Alpha only. */
+const STRIP_FADE =
+  '[mask-image:linear-gradient(90deg,black_calc(100%_-_18px),transparent)] [-webkit-mask-image:linear-gradient(90deg,black_calc(100%_-_18px),transparent)]';
+
+/**
+ * Does the strip overflow AND still have content to the right? Measured, because v4 decides this
+ * with a container query this Tailwind build has no plugin for. Re-measured on scroll and resize,
+ * and when `contentKey` changes — the tabs' widths change when a tab or a badge appears.
+ */
+function useStripFade(contentKey: string) {
+  const stripRef = useRef<HTMLDivElement>(null);
+  const [stripFades, setStripFades] = useState(false);
+  const updateStripFade = useCallback(() => {
+    const strip = stripRef.current;
+    if (!strip) return;
+    setStripFades(strip.scrollWidth - strip.clientWidth - strip.scrollLeft > 1);
+  }, []);
+  useEffect(() => {
+    updateStripFade();
+    const strip = stripRef.current;
+    if (!strip || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(updateStripFade);
+    observer.observe(strip);
+    return () => observer.disconnect();
+  }, [updateStripFade, contentKey]);
+  return { stripRef, stripFades, updateStripFade };
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -62,7 +115,8 @@ export type MessagePanelTabsProps = {
   leadState: LeadState | null;
   setLeadState: React.Dispatch<React.SetStateAction<LeadState | null>>;
   leadFieldDefs: LeadQualificationFieldConfig[];
-  onGhostClick: (answer: string, source: string, attachments?: KBAttachment[]) => void;
+  /** Absent where there is no composer to put an answer into (see AiTabPanel). */
+  onGhostClick?: (answer: string, source: string, attachments?: KBAttachment[]) => void;
   /**
    * L2 P4: a custom-API record joins the agent's note for the AI draft. Returns false when the
    * note is full, so the control says so rather than the fact quietly not arriving.
@@ -124,12 +178,16 @@ export function MessagePanelTabs({
     message.id,
     onOptionsLoaded
   );
+  const { stripRef, stripFades, updateStripFade } = useStripFade(
+    `${message.isLead ? 1 : 0}|${kbBadge}|${customerCount}|${notes.length}|${attachments?.length ?? 0}`
+  );
 
   // Full contact profile for the CUSTOMER tab — the same editable component
   // (assigned manager, labels, channel profiles, linked contacts, notes) used by
   // the standalone Contact drawer, via the shared hook. Resolved by the
   // requester's email; sender may be "Name <email>". Loaded lazily on tab open.
-  const contactEmail = message.sender?.match(/<(.+?)>/)?.[1] ?? message.sender ?? '';
+  // The same address the sender block shows (parseSender), so the two never disagree.
+  const contactEmail = contactLookupKey(message.sender);
   // ⛔ D17: the profile loads for ANY resolvable sender, not only an email one. The old
   // `contactEmail.includes('@')` gate meant a Telegram or WhatsApp customer had NO contact profile
   // in the thread at all — a pre-existing bug, not a custom-API detail. Still keyed on the sender
@@ -195,17 +253,24 @@ export function MessagePanelTabs({
 
   return (
     <div
-      className={`flex flex-col ${sidebar ? '' : 'border-b border-border'} ${panelOpen ? 'flex-1 min-h-0' : 'flex-shrink-0'}`}
+      data-testid="panel-tabs-root"
+      className={`flex flex-col ${sidebar ? '' : `border-b border-border ${PHONE_RAIL}`} ${panelOpen ? 'flex-1 min-h-0' : 'flex-shrink-0'}`}
     >
-      {/* Tab bar */}
-      {/* Sidebar: wraps at five per row (v3 `.stabs`: flex-wrap + 20% basis).
-          Rail / phone: ONE row that scrolls sideways (v3 `.railtabs`: overflow-x auto). Without
-          the scroll the nine tabs squeezed to 27px on a 420px screen and the row overflowed its
-          own box, so the last labels were cut with no way to reach them. */}
+      {/* Tab bar — v4 `.stabs` / `.railtabs`: ONE sentence-case row in both variants (v4's
+          single row, not v3's five-per-row wrap: the tabs keep one order and one place). Each tab is `flex: 1 0
+          auto` — it shares the width when there is room and never shrinks below its label, so
+          when the row does not fit it scrolls sideways instead of squeezing (nine tabs once
+          squeezed to 27px on a 420px screen). The right edge fades while there is more to
+          scroll to, so the cut-off tab reads as "more this way", not as a clipped label. */}
       <div
-        className={`flex w-full border-b border-border bg-card ${
-          sidebar ? 'flex-wrap' : 'overflow-x-auto panel-tabs-scroll'
-        }`}
+        ref={stripRef}
+        // Read by the phone scroll (usePhoneDetailScroll): where the strip sticks.
+        data-panel-strip={sidebar ? undefined : ''}
+        onScroll={updateStripFade}
+        className={`flex flex-nowrap w-full px-2 border-b border-border bg-card overflow-x-auto panel-tabs-scroll ${
+          sidebar ? '' : PHONE_STRIP
+        } ${stripFades ? STRIP_FADE : ''}`}
+        data-fade={stripFades ? 'true' : 'false'}
       >
         {/* Thread tab — active when panel is closed. Not in the sidebar: the thread is beside it. */}
         <Button
@@ -214,7 +279,7 @@ export function MessagePanelTabs({
             setPanelOpen(false);
             setComposerMode('reply');
           }}
-          className={`${sidebar ? 'hidden' : 'flex'} flex-1 flex-shrink-0 justify-center items-center px-2 h-[33px] min-w-[4.5rem] rounded-none hover:bg-transparent ${LABEL} border-b-2 transition-colors ${
+          className={`${sidebar ? 'hidden' : 'flex'} ${TAB_BASE} ${
             !panelOpen
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -227,8 +292,8 @@ export function MessagePanelTabs({
           [
             { id: 'ai', label: 'AI', badge: 0 },
             { id: 'customer', label: 'Customer', badge: hasEmailIdentity ? customerCount : 0 },
-            { id: 'attachments', label: 'Files', badge: attachments?.length ?? 0 },
             { id: 'kb', label: 'KB', badge: kbBadge },
+            { id: 'attachments', label: 'Files', badge: attachments?.length ?? 0 },
             { id: 'activity', label: 'Activity', badge: 0 },
             { id: 'notes', label: 'Notes', badge: notes.length },
             { id: 'contradiction', label: 'Conflict', badge: 0 },
@@ -250,7 +315,7 @@ export function MessagePanelTabs({
                 if (!sidebar) setComposerMode(id === 'notes' ? 'note' : 'reply');
               }
             }}
-            className={`flex flex-1 ${sidebar ? 'basis-1/5' : 'flex-shrink-0 min-w-[4.5rem]'} justify-center items-center gap-1 px-2 h-[33px] rounded-none hover:bg-transparent ${LABEL} border-b-2 transition-colors ${
+            className={`flex ${TAB_BASE} ${
               tab === id && panelOpen
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -263,8 +328,11 @@ export function MessagePanelTabs({
       </div>
 
       {/* Tab content */}
-      <div className={`${panelOpen ? 'flex-1 min-h-0 overflow-y-auto bg-raised' : 'hidden'}`}>
-        <div className="px-3.5 py-3 text-[12.5px] text-foreground">
+      <div
+        data-panel-content={sidebar ? undefined : ''}
+        className={`${panelOpen ? `flex-1 min-h-0 overflow-y-auto bg-raised ${sidebar ? '' : PHONE_PANEL}` : 'hidden'}`}
+      >
+        <div className="px-3.5 py-3 text-[12.5px] text-foreground max-sm:px-4 max-sm:py-4">
           {/* AI Tab */}
           {tab === 'ai' && (
             <div className="space-y-2">
@@ -274,57 +342,14 @@ export function MessagePanelTabs({
 
           {/* Customer Tab */}
           {tab === 'customer' && (
-            <div className="space-y-2">
-              <div className="flex gap-2 items-center">
-                <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold text-muted-foreground">
-                  {getInitials(message.sender)}
-                </div>
-                <div>
-                  <p className="text-[11px] font-medium text-foreground">{message.sender}</p>
-                  {message.channel !== 'email' && (
-                    <p className="text-[10px] text-muted-foreground capitalize">
-                      {message.channel}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-[72px_1fr] gap-x-3 gap-y-1.5">
-                {(
-                  [
-                    { label: 'CHANNEL', value: message.channel.toUpperCase() },
-                    {
-                      label: 'RECEIVED',
-                      value: formatDate(
-                        (message.metadata as { receivedAt?: string })?.receivedAt ??
-                          message.createdAt
-                      ),
-                    },
-                    {
-                      label: 'THREAD',
-                      value:
-                        sortedThread.length > 0 ? `${sortedThread.length} messages` : '1 message',
-                    },
-                    ...(message.assigneeName
-                      ? [{ label: 'ASSIGNED', value: message.assigneeName }]
-                      : []),
-                    ...(message.priority ? [{ label: 'PRIORITY', value: message.priority }] : []),
-                  ] as { label: string; value: string }[]
-                ).map((row) => (
-                  <div key={row.label} className="contents">
-                    <span className={`self-center ${LABEL} text-muted-foreground`}>
-                      {row.label}
-                    </span>
-                    <span className="text-[11px] truncate self-center">{row.value}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* What the connected systems know, and which tickets this thread is on. */}
+            <div className={`space-y-2 ${PHONE_CONTACT}`}>
+              {/* v4: sender, conversation facts, connected systems, contact profile. The thread's
+                  tickets and merges moved to the header's Related chip (MessageDetailHeader). */}
+              <CustomerSenderBlock message={message} />
+              <ConversationFacts message={message} sortedThread={sortedThread} />
               <CustomerTabPanels
                 message={message}
                 hasEmailIdentity={hasEmailIdentity}
-                onChanged={onRefresh}
                 onUseInReply={onUseInReply}
               />
 
@@ -525,31 +550,34 @@ export function MessagePanelTabs({
 
           {/* Activity Tab */}
           {tab === 'activity' && (
-            <div className="space-y-0">
+            // v4 `.actlist`: a 7px dot coloured by what happened (ACTIVITY_DOT), when, then words.
+            <ul className="flex flex-col text-[12.5px]" data-testid="activity-list">
               {buildTimeline(messageActivity, notes, noteActivityLog).map((item) => (
-                <div
+                <li
                   key={`${item.time}-${item.label}-${item.who}`}
-                  className="flex gap-2 items-start py-1 border-b border-border last:border-0"
+                  data-kind={item.kind}
+                  className="flex gap-2 items-start py-[7px] border-b border-hair last:border-0"
                 >
                   <span
-                    className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${item.dot ?? 'bg-muted-foreground/30'}`}
+                    aria-hidden
+                    className={`w-[7px] h-[7px] rounded-full mt-[5px] flex-shrink-0 ${ACTIVITY_DOT[item.kind]}`}
                   />
-                  <span className="font-mono text-[10px] text-muted-foreground w-14 flex-shrink-0 [font-variant-numeric:tabular-nums]">
+                  <span className="font-mono text-[11px] text-muted-foreground w-14 flex-shrink-0 [font-variant-numeric:tabular-nums]">
                     {relativeTime(item.time)}
                   </span>
-                  <span className="flex-1 text-[11px]">
+                  <span className="flex-1 min-w-0">
                     {item.who} · {item.label}
                   </span>
-                </div>
+                </li>
               ))}
               {messageActivity.length === 0 &&
                 noteActivityLog.length === 0 &&
                 notes.length === 0 && (
-                  <p className="text-[11px] text-muted-foreground text-center py-4">
+                  <li className="text-[11px] text-muted-foreground text-center py-4">
                     No activity yet
-                  </p>
+                  </li>
                 )}
-            </div>
+            </ul>
           )}
 
           {/* Notes Tab */}
@@ -570,7 +598,7 @@ export function MessagePanelTabs({
                 return (
                   <div
                     key={note.id}
-                    className="p-1.5 bg-card rounded border-l-2 border-l-note-line border border-border"
+                    className="px-3 py-2.5 bg-card rounded-[9px] border border-border border-l-[3px] border-l-note-line"
                   >
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-[10px] font-medium text-warning">
@@ -586,7 +614,7 @@ export function MessagePanelTabs({
                               setEditingNoteId(note.id);
                               setEditNoteContent(note.content);
                             }}
-                            className="p-0 w-auto h-auto text-note hover:text-note"
+                            className="p-0 w-auto h-auto text-note hover:text-note max-sm:min-w-10 max-sm:min-h-10"
                           >
                             <Pencil className="w-2.5 h-2.5" />
                           </Button>
@@ -596,7 +624,7 @@ export function MessagePanelTabs({
                             aria-label="Delete note"
                             onClick={() => void handleDeleteNote(note.id)}
                             disabled={isDeleting}
-                            className="p-0 w-auto h-auto text-note hover:text-destructive disabled:opacity-40"
+                            className="p-0 w-auto h-auto text-note hover:text-destructive disabled:opacity-40 max-sm:min-w-10 max-sm:min-h-10"
                           >
                             <Trash2 className="w-2.5 h-2.5" />
                           </Button>
@@ -669,7 +697,7 @@ export function MessagePanelTabs({
                   setComposerMode('note');
                   setTimeout(() => noteEditorRef.current?.focus(), 50);
                 }}
-                className="mt-1 w-full flex items-center justify-center gap-1.5 px-3 py-2 h-auto rounded border border-dashed border-note-line text-[11px] text-note hover:bg-note-muted transition-colors"
+                className="mt-2.5 w-full flex items-center justify-center gap-[7px] px-3 h-9 max-sm:h-11 max-sm:text-[14px] rounded-[9px] border border-dashed border-note-line font-sans text-[12.5px] text-note hover:bg-note-muted transition-colors"
               >
                 <StickyNote className="w-3 h-3" />
                 Add a note via the composer

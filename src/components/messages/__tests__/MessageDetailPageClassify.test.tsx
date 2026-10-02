@@ -2,6 +2,7 @@ import { vi, describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
 
 /**
@@ -19,7 +20,7 @@ import { ROUTER_FUTURE } from '@/test/routerFuture';
 const classify = vi.fn<(...args: unknown[]) => Promise<{ success: boolean }>>();
 classify.mockResolvedValue({ success: true });
 
-// The thread's tickets (header bar + Customer tab, 2026-09-30) — hermetic: an unmocked request
+// The thread's tickets (the header chip, 2026-09-30) — hermetic: an unmocked request
 // fails after the test and logs during teardown.
 vi.mock('@/services/ticketThreads.service', () => ({
   ticketThreadsService: {
@@ -75,11 +76,13 @@ import { MessageDetailPage } from '@/pages/MessageDetailPage';
 
 const renderPage = () =>
   render(
-    <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
-      <Routes>
-        <Route path="/messages/:id" element={<MessageDetailPage />} />
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
+        <Routes>
+          <Route path="/messages/:id" element={<MessageDetailPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 
 describe('MessageDetailPage — reclassifying a filtered message', () => {
