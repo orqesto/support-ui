@@ -309,7 +309,7 @@ const KanbanColumn = ({
                   className="min-w-[260px] xl:min-w-0 shrink-0 xl:shrink"
                   title={
                     thread.threadId.startsWith('spamlog_')
-                      ? 'Rule-blocked — cannot be moved'
+                      ? 'Spam-rule record — cannot be moved'
                       : undefined
                   }
                 >

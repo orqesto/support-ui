@@ -1,4 +1,5 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import type * as StripHtmlModule from '@/lib/stripHtml';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
@@ -45,7 +46,8 @@ vi.mock('@/lib/utils', () => ({
   cn: (...args: string[]) => args.filter(Boolean).join(' '),
 }));
 
-vi.mock('@/lib/stripHtml', () => ({
+vi.mock('@/lib/stripHtml', async (importOriginal) => ({
+  ...(await importOriginal<typeof StripHtmlModule>()),
   stripHtml: (str: string) => str,
 }));
 
@@ -219,11 +221,12 @@ describe('InboxSmoke', () => {
     expect(screen.getByText('Test Subject')).toBeTruthy();
   });
 
-  it('marks a spam-log row as having no thread, before it is clicked', () => {
-    // `spamlog_NN` rows are mail a rule rejected BEFORE a conversation existed. They are
-    // listed so they are not invisible, but opening one shows a read-only dialog rather
-    // than the detail pane — MessageDetail loads events/notes/activity by id, which do not
-    // exist for a synthetic negative id. Unmarked, that modal looks like a bug.
+  it('marks a spam-log row as having no thread, before it is clicked — without claiming it was blocked', () => {
+    // A `spamlog_NN` row has no conversation behind it, so opening one shows a read-only dialog
+    // rather than the detail pane. Unmarked, that modal looks like a bug. A listed card is usually
+    // a spam-rule catch record whose conversation is gone, but not always (spamLogCardCopy) — and
+    // never proof the mail was withheld — so the chip says "rule record", never "blocked"
+    // (prod 2026-10-01: false for every card).
     render(
       <MemoryRouter future={ROUTER_FUTURE}>
         <MessageListItem
@@ -233,7 +236,25 @@ describe('InboxSmoke', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/blocked · no thread/i)).toBeInTheDocument();
+    expect(screen.getByText(/rule record · no thread/i)).toBeInTheDocument();
+    expect(screen.queryByText(/blocked/i)).toBeNull();
+  });
+
+  it('a card with a huge body previews only its beginning (the dialog keeps the full body)', () => {
+    const { container } = render(
+      <MemoryRouter future={ROUTER_FUTURE}>
+        <MessageListItem
+          thread={{
+            ...mockThread,
+            threadId: 'spamlog_831',
+            latestIncomingMessage: null,
+            latestMessage: { ...mockMessage, content: `${'x'.repeat(5_000)} TAIL-MARKER` },
+          }}
+          onOpen={vi.fn()}
+        />
+      </MemoryRouter>
+    );
+    expect(container.textContent).not.toContain('TAIL-MARKER');
   });
 
   it('does not mark an ordinary conversation row', () => {
@@ -244,7 +265,7 @@ describe('InboxSmoke', () => {
       </MemoryRouter>
     );
 
-    expect(screen.queryByText(/blocked · no thread/i)).toBeNull();
+    expect(screen.queryByText(/no thread/i)).toBeNull();
   });
 
   it('renders multiple messages', () => {

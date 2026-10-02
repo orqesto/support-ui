@@ -83,7 +83,7 @@ export const KanbanCard = ({
   // Before any early return — hooks must run in the same order on every render.
   const { off: aiDraftsOff } = useAiDraftsOff();
   const msg = thread.latestMessage;
-  // Rule-blocked spam-log rows have no conversation behind them: no box, no long-press, no `x`.
+  // Spam-rule records (spam-log rows) have no conversation behind them: no box, no long-press, no `x`.
   // (The drag grip is a separate element with its own TouchSensor; it never shares this press.)
   const selectableId =
     onToggleSelected && msg && msg.id > 0 && !thread.threadId.startsWith('spamlog_')
@@ -248,7 +248,7 @@ export const KanbanCard = ({
           controls and neither may cover the other.
           `stopPropagation` because the whole card is a button: without it,
           ticking a box would also OPEN the thread — and opening a thread is what an agent
-          triaging fifty of them is trying to avoid. Rule-blocked spam-log rows have no
+          triaging fifty of them is trying to avoid. Spam-rule records (spam-log rows) have no
           conversation behind them and cannot be acted on, so they get no box. */}
       {selectableId !== null && onToggleSelected && (
         <div

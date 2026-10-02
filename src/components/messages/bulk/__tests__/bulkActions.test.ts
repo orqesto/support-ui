@@ -31,6 +31,15 @@ describe('refusal wording', () => {
     }
   });
 
+  it('an id the server can no longer load says it was deleted or merged — not "a spam-rule record"', () => {
+    // spamlog_ cards have no checkbox; the reachable case is a thread deleted/merged by someone
+    // else after it was selected (support-service bulkRows: org + not deleted).
+    // Count-neutral: rendered as "3 no longer available — …".
+    expect(REFUSAL_TEXT.not_a_conversation).toBe(
+      'no longer available — deleted or merged after selection'
+    );
+  });
+
   it('a working thread refused read/unread says why (support-service not_triage)', () => {
     expect(REFUSAL_TEXT.not_triage).toBe('not in triage — read and unread apply to triage threads only');
   });

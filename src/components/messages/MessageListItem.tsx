@@ -29,7 +29,8 @@ import {
   isTriageMessage,
 } from '@/lib/messageHelpers';
 import { logger } from '@/lib/logger';
-import { stripHtml } from '@/lib/stripHtml';
+import { SPAM_LOG_CARD_COPY } from '@/lib/spamLogCardCopy';
+import { previewText } from '@/lib/stripHtml';
 import { cn, formatDate, formatWhen, safeCssColor } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -84,7 +85,7 @@ export const MessageListItem = ({
   // Before any early return — hooks must run in the same order on every render.
   const { off: aiDraftsOff } = useAiDraftsOff();
   const msg = thread.latestMessage;
-  // A rule-blocked spam-log row (`spamlog_NN`, negative id) has no conversation behind it and
+  // A spam-rule record (`spamlog_NN`, negative id) has no conversation behind it and
   // every bulk action refuses it: no box, no long-press, no `x`.
   const selectableId =
     onToggleSelected && msg && msg.id > 0 && !thread.threadId.startsWith('spamlog_')
@@ -381,7 +382,7 @@ export const MessageListItem = ({
 
         {/* Preview — 1 line of the latest incoming message content */}
         <p className="text-sm text-muted-foreground line-clamp-1">
-          {stripHtml(thread.latestIncomingMessage?.content ?? msg.content ?? '')}
+          {previewText(thread.latestIncomingMessage?.content ?? msg.content)}
         </p>
 
         {/* Sig row — at-most-one risk + AI state + labels (2 + N).
@@ -391,8 +392,8 @@ export const MessageListItem = ({
           <MessageSignalBadges message={signalMessage} size="sm" mode="card" />
 
           {/*
-            A spam-log row is NOT a conversation. Mail rejected by a rule before a thread
-            existed is listed here so it is not invisible — that silence is what let a real
+            A spam-log row is NOT a conversation. A spam-rule record whose conversation is no
+            longer here is listed so it is not invisible — that silence is what let a real
             customer's mail go missing — but it has no events, notes or activity, so opening
             it shows a read-only dialog instead of the detail pane.
 
@@ -402,9 +403,9 @@ export const MessageListItem = ({
           {isBlockedSpamLog && (
             <span
               className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-warning-muted text-warning"
-              title="Rejected by a spam rule before it became a conversation — there is no thread to open"
+              title={SPAM_LOG_CARD_COPY.chipTitle}
             >
-              blocked · no thread
+              {SPAM_LOG_CARD_COPY.chip}
             </span>
           )}
 

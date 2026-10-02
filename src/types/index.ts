@@ -118,6 +118,11 @@ export type MessageRecipients = {
 };
 
 export type Message = {
+  /**
+   * Spam-log cards only (`spamlog_NN`): present when the backend cut the body at its per-card
+   * bound — the FULL length, so the dialog can say how much it is showing. Absent = whole body.
+   */
+  contentTruncatedFrom?: number;
   id: number;
   // Jira-style human-readable ID (e.g. 'SUP-42'). Set once routing settles;
   // NULL during backfill window or for unstamped legacy rows. FE renders

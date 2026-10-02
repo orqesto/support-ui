@@ -72,7 +72,11 @@ export const ACTION_LABEL: Record<BulkAction, string> = {
  * cannot act on is worse than no reason at all.
  */
 export const REFUSAL_TEXT: Record<RefusalReason, string> = {
-  not_a_conversation: 'not a conversation — rule-blocked spam cannot be acted on',
+  // The server sends this for any id it can no longer load in this workspace (bulkRows: org +
+  // not deleted). spamlog_ cards have no checkbox, so in practice it is a thread someone else
+  // deleted or merged after it was selected.
+  // Count-neutral like every other reason here: it is shown after a number ("3 no longer …").
+  not_a_conversation: 'no longer available — deleted or merged after selection',
   out_of_scope: 'in a department you do not have access to',
   already_resolved: 'already resolved or closed',
   in_spam: 'in the spam lane',
