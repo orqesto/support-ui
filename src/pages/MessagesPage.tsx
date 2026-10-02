@@ -30,6 +30,7 @@ import { apiClient } from '@/lib/api-client';
 import { messageService, type MessageThread } from '@/services/message.service';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
+import { similarResultsCache } from '@/components/messages/AiTabPanel';
 import { useSharedLinkWorkspace } from '@/hooks/useSharedLinkWorkspace';
 import { cn, formatDate } from '@/lib/utils';
 import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
@@ -696,6 +697,7 @@ export const MessagesPage = () => {
     clearCache();
     void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
     setDeleteDialogOpen(false);
+    similarResultsCache.delete(target.id);
     setMessageToDelete(null);
     /*
       The detail stayed open behind the question (Cancel leaves it as it was); only now that the
