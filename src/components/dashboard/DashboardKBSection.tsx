@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { TONE_BORDER } from './dashboardTones';
 
 type Props = {
-  kbQAPairs: number;
-  kbDocuments: number;
-  kbDocumentation: number;
+  /** null: not known — its request failed, or the role may not read it. Shown as a dash. */
+  kbQAPairs: number | null;
+  kbDocuments: number | null;
+  kbDocumentation: number | null;
 };
 
 export const DashboardKBSection = ({ kbQAPairs, kbDocuments, kbDocumentation }: Props) => {
@@ -15,7 +16,7 @@ export const DashboardKBSection = ({ kbQAPairs, kbDocuments, kbDocumentation }: 
   const cards = [
     {
       label: 'Q&A',
-      value: kbQAPairs,
+      value: kbQAPairs ?? '—',
       icon: MessageSquare,
       iconColor: 'text-muted-foreground',
       bg: 'bg-muted',
@@ -25,7 +26,7 @@ export const DashboardKBSection = ({ kbQAPairs, kbDocuments, kbDocumentation }: 
     },
     {
       label: 'Documents',
-      value: kbDocuments,
+      value: kbDocuments ?? '—',
       icon: FileText,
       iconColor: 'text-success',
       bg: 'bg-success-muted',
@@ -35,7 +36,7 @@ export const DashboardKBSection = ({ kbQAPairs, kbDocuments, kbDocumentation }: 
     },
     {
       label: 'Documentation',
-      value: kbDocumentation,
+      value: kbDocumentation ?? '—',
       icon: BookOpen,
       iconColor: 'text-ai',
       bg: 'bg-ai-muted',

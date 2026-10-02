@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { userService } from '@/services/user.service';
 import { apiClient } from '@/lib/api-client';
+import { logger } from '@/lib/logger';
+import { usePermissions } from '@/hooks/usePermissions';
+import { Permission } from '@/types/roles';
 import { hashNameToLabelColor } from '@/components/messages/inboxCardHelpers';
 import { labelService } from '@/services/settings.service';
 import type { OrgLabel, OrgUser } from '@/components/contacts/ContactProfileDetails';
@@ -33,6 +36,18 @@ export function useContactProfile(
   const [loading, setLoading] = useState(enabled);
   const [users, setUsers] = useState<OrgUser[]>([]);
   const [orgLabels, setOrgLabels] = useState<OrgLabel[]>([]);
+  // The pickers' option lists are EXTRAS: `GET /api/users` needs VIEW_USERS (or MANAGE/CREATE),
+  // `GET /api/labels` needs VIEW_LABELS, and the built-in associate role has neither. They are
+  // not asked for by a role that may not read them, and when they fail anyway the contact still
+  // shows (A-H1, FE audit 2026-09-29: one 403 on the user list read "Failed to load contact." on
+  // every Customer tab and contact drawer an associate opened).
+  const { hasAnyPermission, hasPermission } = usePermissions();
+  const canListUsers = hasAnyPermission([
+    Permission.VIEW_USERS,
+    Permission.MANAGE_USERS,
+    Permission.CREATE_USERS,
+  ]);
+  const canListLabels = hasPermission(Permission.VIEW_LABELS);
 
   // Edit state
   const [editingName, setEditingName] = useState(false);
@@ -53,25 +68,40 @@ export function useContactProfile(
   const load = useCallback(async () => {
     if (!email) return;
     setLoading(true);
-    try {
-      const [profile, usersRes, labelsRes] = await Promise.all([
-        contactService.getByEmail(email),
-        // ⚠️ This called `/api/users` bare, whose limit DEFAULTS TO 10. The result is the
+    // Each list settles on its own; a failure leaves an EMPTY list and the contact intact.
+    const usersPromise: Promise<OrgUser[]> = canListUsers
+      ? // ⚠️ This called `/api/users` bare, whose limit DEFAULTS TO 10. The result is the
         // entire option list of the "Assigned manager" picker, so the eleventh member of a
         // workspace could not be chosen at all — and the dropdown looked complete.
-        userService.getAllPages(),
-        apiClient.get<ApiResponse<OrgLabel[]>>('/api/labels'),
-      ]);
+        userService.getAllPages().then(
+          (res) => res.data as OrgUser[],
+          (error: unknown) => {
+            logger.warn('Contact profile: the user list could not be loaded', error);
+            return [];
+          }
+        )
+      : Promise.resolve([]);
+    const labelsPromise: Promise<OrgLabel[]> = canListLabels
+      ? apiClient.get<ApiResponse<OrgLabel[]>>('/api/labels').then(
+          (res) => res.data.data ?? [],
+          (error: unknown) => {
+            logger.warn('Contact profile: the label list could not be loaded', error);
+            return [];
+          }
+        )
+      : Promise.resolve([]);
+    try {
+      const profile = await contactService.getByEmail(email);
       setContact(profile);
       setNameInput(profile.displayName ?? '');
-      setUsers(usersRes.data as OrgUser[]);
-      setOrgLabels(labelsRes.data.data ?? []);
-    } catch {
+    } catch (error) {
+      logger.warn('Contact profile: the contact could not be loaded', error);
       setContact(null);
-    } finally {
-      setLoading(false);
     }
-  }, [email]);
+    setUsers(await usersPromise);
+    setOrgLabels(await labelsPromise);
+    setLoading(false);
+  }, [email, canListUsers, canListLabels]);
 
   useEffect(() => {
     if (!enabled) return;
