@@ -212,6 +212,28 @@ describe('v4 summary row — how the press went, counted by outcome (P5)', () =>
     expect(await screen.findByText('DeusPower · 2 of 14')).toBeTruthy();
   });
 
+  it('CONTROL: a complete result carries the row count alone — "of" only when rows were cut', async () => {
+    // Mutation batch: `total > rows.length` forced true read "2 of 2", claiming a cut that never
+    // happened; a cap must say it bit, and ONLY when it bit.
+    run.mockResolvedValue([
+      card({
+        endpointId: 1,
+        rows: [
+          { order_id: '1', total: '1', total__currency: 'EUR' },
+          { order_id: '2', total: '2', total__currency: 'EUR' },
+        ],
+        total: 2,
+      }),
+      card({ endpointId: 2, label: 'orders', connectionName: 'Shopify' }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+    expect(await screen.findByText('DeusPower · 2')).toBeTruthy();
+    // No total at all: the count, with no "of" invented.
+    expect(screen.getByText('Shopify · 1')).toBeTruthy();
+    expect(screen.queryByText(/ of /)).toBeNull();
+  });
+
   it('the root carries data-lookup-root, which the composer "Look up" button scrolls to', async () => {
     const { container } = render(<CustomApiLookupPanel conversationId={1} />);
     await screen.findAllByRole('button', { name: /look up/i });

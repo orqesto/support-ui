@@ -195,3 +195,39 @@ describe('MergeConfirmDialog — the chosen option is visibly marked', () => {
     expect(dot(other)).not.toHaveClass('border-4');
   });
 });
+
+describe('MergeConfirmDialog — choosing by click, and the words that follow the count', () => {
+  it('clicking an option selects it (a radio works by pointer, not only by arrow keys)', () => {
+    // Mutation batch: `onClick={() => setSurvivorId(row.id)}` emptied survived — every existing
+    // test selected with the keyboard.
+    render(
+      <MergeConfirmDialog
+        open
+        rows={[MIDDLE, OLDEST, NEWEST]}
+        onOpenChange={vi.fn()}
+        onMerged={vi.fn()}
+      />
+    );
+    expect(checked()).toEqual(['false', 'true', 'false']);
+    fireEvent.click(radios()[2]);
+    expect(checked()).toEqual(['false', 'false', 'true']);
+    expect(screen.getByText(/move into ODL-SUP-3/)).toBeInTheDocument();
+  });
+
+  it('two threads merge away: "they leave" / "their thread"; one: "it leaves" / "its thread"', () => {
+    const { unmount } = render(
+      <MergeConfirmDialog
+        open
+        rows={[OLDEST, MIDDLE, NEWEST]}
+        onOpenChange={vi.fn()}
+        onMerged={vi.fn()}
+      />
+    );
+    expect(screen.getByText(/they leave the inbox\. Replies to their thread/)).toBeInTheDocument();
+    unmount();
+    render(
+      <MergeConfirmDialog open rows={[OLDEST, MIDDLE]} onOpenChange={vi.fn()} onMerged={vi.fn()} />
+    );
+    expect(screen.getByText(/it leaves the inbox\. Replies to its thread/)).toBeInTheDocument();
+  });
+});
