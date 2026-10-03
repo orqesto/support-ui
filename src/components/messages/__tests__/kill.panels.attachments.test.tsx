@@ -1,7 +1,12 @@
-import { describe, it, expect, afterEach, beforeAll } from 'vitest';
-import { render, cleanup, screen } from '@testing-library/react';
+import { describe, it, expect, afterEach, beforeAll, vi } from 'vitest';
+import { render, cleanup, screen, fireEvent } from '@testing-library/react';
 import { MessageAttachments, attachmentOrigin } from '../MessageAttachments';
 import type { MessageEvent } from '@/types';
+
+// The preview dialog fetches the file as a blob the moment it opens; here it only has to open.
+vi.mock('@/lib/api-client', () => ({
+  apiClient: { get: () => Promise.reject(new Error('offline')) },
+}));
 
 /**
  * The FILES-tab row: its card layout, the 14px file icon in the 28px tile, the highlight ring on
@@ -51,6 +56,39 @@ describe('FILES-tab rows', () => {
     expect(second.className).not.toContain('border-border');
     expect(first.className).not.toContain('ring-1');
     expect(first.className).toContain('border-border');
+  });
+});
+
+describe('FILES-tab rows — what a click and a jump do (mutation batch)', () => {
+  it('the row a thread chip jumped to is scrolled into view — that row, once', () => {
+    // Mutation batch: the ref callback that registers each row (`if (el) rowRefs.set(...)`) could
+    // be emptied with the suite green — the ring showed, the scroll silently never happened.
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    render(
+      <MessageAttachments
+        message={{ id: 1 } as never}
+        preloadedAttachments={[pdf(1), pdf(2)]}
+        highlightId={2}
+      />
+    );
+    const [, second] = screen.getAllByTestId('file-row');
+    expect(scroll).toHaveBeenCalledTimes(1);
+    expect(scroll.mock.contexts[0]).toBe(second);
+    expect(scroll).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' });
+  });
+
+  it('clicking a previewable file name opens the preview, titled with that file', () => {
+    // Mutation batch: `onClick={() => setPreviewAttachment(att)}` emptied survived — nothing
+    // proved the name was a working control and not a bold label.
+    render(
+      <MessageAttachments message={{ id: 1 } as never} preloadedAttachments={[pdf(1), pdf(2)]} />
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'file-2.pdf' }));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveTextContent('file-2.pdf');
+    expect(dialog).not.toHaveTextContent('file-1.pdf');
   });
 });
 

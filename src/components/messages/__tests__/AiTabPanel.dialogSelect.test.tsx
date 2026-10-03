@@ -55,12 +55,17 @@ vi.mock('@/components/modals/SimilarMessagesDialog', () => ({
     onSelectAnswer?: (answer: string) => void;
   }) => (
     <div role="dialog" aria-label={preloadedTitle}>
-      {onSelectAnswer && <span>Use This Answer</span>}
+      {onSelectAnswer && (
+        <button type="button" onClick={() => onSelectAnswer('Picked answer')}>
+          Use This Answer
+        </button>
+      )}
     </div>
   ),
 }));
 
 let nextId = 9100;
+const onGhostClick = vi.fn<(answer: string, source: string) => void>();
 const renderPanel = (withHandler: boolean) => {
   const message = {
     id: nextId++, // a fresh id per test: the panel caches results per conversation
@@ -79,7 +84,7 @@ const renderPanel = (withHandler: boolean) => {
     <MemoryRouter>
       <AiTabPanel
         message={message}
-        onGhostClick={withHandler ? () => {} : undefined}
+        onGhostClick={withHandler ? onGhostClick : undefined}
         section="suggested"
       />
     </MemoryRouter>
@@ -92,18 +97,31 @@ const pick = async (pill: RegExp) => {
 };
 
 const DIALOGS = [
-  { name: 'KB sources', pill: /^KB/, opener: 'Sizing guide', title: 'Knowledge Base Sources' },
-  { name: 'lead KB sources', pill: /^LEAD/, opener: 'Pricing', title: 'Lead KB Sources' },
+  {
+    name: 'KB sources',
+    pill: /^KB/,
+    opener: 'Sizing guide',
+    title: 'Knowledge Base Sources',
+    source: 'documentation',
+  },
+  {
+    name: 'lead KB sources',
+    pill: /^LEAD/,
+    opener: 'Pricing',
+    title: 'Lead KB Sources',
+    source: 'lead_qualification',
+  },
   {
     name: 'View original message',
     pill: /^PAST REPLY/,
     opener: 'View original message',
     title: 'Original Message',
+    source: 'message',
   },
 ];
 
 describe('AiTabPanel — the source dialogs offer "use" only with a reply to use it in', () => {
-  for (const { name, pill, opener, title } of DIALOGS) {
+  for (const { name, pill, opener, title, source } of DIALOGS) {
     it(`${name}: without onGhostClick the dialog has no insert control`, async () => {
       renderPanel(false);
       await pick(pill);
@@ -118,6 +136,20 @@ describe('AiTabPanel — the source dialogs offer "use" only with a reply to use
       await userEvent.click(screen.getByRole('button', { name: opener }));
       const dialog = await screen.findByRole('dialog', { name: title });
       expect(within(dialog).getByText('Use This Answer')).toBeInTheDocument();
+    });
+
+    it(`${name}: picking an answer hands it to the reply under its source, and closes the dialog`, async () => {
+      // Mutation batch: the three `onSelectAnswer` wirings had no coverage — the answer, the source
+      // tag the reply records, and the close were all unproven.
+      onGhostClick.mockClear();
+      renderPanel(true);
+      await pick(pill);
+      await userEvent.click(screen.getByRole('button', { name: opener }));
+      const dialog = await screen.findByRole('dialog', { name: title });
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Use This Answer' }));
+      expect(onGhostClick).toHaveBeenCalledTimes(1);
+      expect(onGhostClick).toHaveBeenCalledWith('Picked answer', source);
+      expect(screen.queryByRole('dialog', { name: title })).toBeNull();
     });
   }
 });

@@ -197,6 +197,26 @@ describe('MergePickerDialog — overlapping searches', () => {
   });
 });
 
+describe('MergePickerDialog — the confirm step', () => {
+  it('Escape on the confirm dialog returns to the picker instead of leaving it open', async () => {
+    // Mutation batch: the confirm dialog's `onOpenChange` (`if (!next) setConfirmRows(null)`)
+    // had no coverage — closing it by Escape or backdrop could leave it on screen, or close
+    // nothing at all.
+    mocks.getThreads.mockResolvedValue({ data: [threadRow(7, 'bob@acme.io')] });
+    render(<Host />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Choose' }));
+    const confirm = screen.getByRole('radiogroup', { name: 'Keep this thread' });
+    expect(confirm).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() =>
+      expect(screen.queryByRole('radiogroup', { name: 'Keep this thread' })).toBeNull()
+    );
+    // The picker itself is still there, with its results.
+    expect(screen.getByText('Merge with another thread')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Choose' })).toBeInTheDocument();
+  });
+});
+
 describe('MergedSection', () => {
   const merge = {
     id: 50,
