@@ -64,6 +64,7 @@ import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { logger } from '@/lib/logger';
+import { normaliseThreadPage, type ThreadPage } from '@/services/threadPage';
 import {
   isRetryableSendFailure,
   resolveSendFailureMessage,
@@ -88,6 +89,13 @@ import {
 const LOOKUP_FLASH_CLASSES = ['ring-[3px]', 'ring-primary-line', 'rounded-[8px]'];
 const LOOKUP_FLASH_MS = 1200;
 const LOOKUP_SEEK_FRAMES = 10;
+/**
+ * Events per page of the thread. A thread is read latest page first; "Show earlier messages"
+ * fetches the page before it. 300 is a working day of a busy ticket; the thread that made this
+ * necessary held 1,887 (a mailer-daemon Gmail thread), and rendering every one on open fetched
+ * every markup and spent the API limiter.
+ */
+const THREAD_PAGE = 300;
 /*
   ⛔ The composer holds ONE text for both modes: turning words WRITTEN AS A TEAM NOTE into Reply
   would put them one Send from the customer. Every path that would (rail tabs, "Reply to this
@@ -180,14 +188,29 @@ export function MessageDetail({
   const onRefreshRef = useRef(onRefresh);
   onRefreshRef.current = onRefresh;
 
+  // What the thread endpoint left out (threadPage.ts). A refresh re-reads as many events as are
+  // on screen, so a window the agent expanded is not folded back by a new message arriving.
+  const [threadPage, setThreadPage] = useState<ThreadPage | null>(null);
+  const [loadingEarlier, setLoadingEarlier] = useState(false);
+  const threadSize = useRef({ id: message.id, loaded: 0 });
+  const messageIdRef = useRef(message.id);
+  messageIdRef.current = message.id;
+
   useEffect(() => {
     let cancelled = false;
     setThreadLoading(true);
     setThreadError(null);
+    if (threadSize.current.id !== message.id) threadSize.current = { id: message.id, loaded: 0 };
     messageService
-      .getThreadMessages(message.id)
+      .getThreadMessages(message.id, { limit: Math.max(THREAD_PAGE, threadSize.current.loaded) })
       .then((res) => {
-        if (!cancelled) setThreadMessages(res.data ?? []);
+        if (cancelled) return;
+        const rows = res.data ?? [];
+        threadSize.current = { id: message.id, loaded: rows.length };
+        setThreadMessages(rows);
+        // Normalised again here: a caller that stands in for the service hands back a bare
+        // envelope, and the window must still know what it holds.
+        setThreadPage(normaliseThreadPage(res.page, rows));
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -202,6 +225,36 @@ export function MessageDetail({
       cancelled = true;
     };
   }, [message.id, threadRefreshKey]);
+
+  /** The page of events before the earliest one on screen, prepended. */
+  const loadEarlier = useCallback(() => {
+    const before = threadPage?.earliestId;
+    if (!threadPage?.hasEarlier || !before || loadingEarlier) return;
+    const forId = message.id;
+    setLoadingEarlier(true);
+    messageService
+      .getThreadMessages(forId, { limit: THREAD_PAGE, before })
+      .then((res) => {
+        if (messageIdRef.current !== forId) return;
+        const older = res.data ?? [];
+        threadSize.current = { id: forId, loaded: threadSize.current.loaded + older.length };
+        setThreadMessages((current) => [...older, ...current]);
+        // The older page's own bound says whether there is more before IT; the total is the
+        // thread's and does not move.
+        setThreadPage((current) => ({
+          ...normaliseThreadPage(res.page, older),
+          total: current?.total ?? older.length,
+        }));
+      })
+      .catch((err: unknown) => {
+        if (messageIdRef.current !== forId) return;
+        logger.error('Failed to load earlier messages:', err);
+        setThreadError('Could not load earlier messages. Please try again.');
+      })
+      .finally(() => {
+        if (messageIdRef.current === forId) setLoadingEarlier(false);
+      });
+  }, [message.id, threadPage, loadingEarlier]);
 
   // ── Sorted thread ──────────────────────────────────────────────────────────
 
@@ -1241,7 +1294,7 @@ export function MessageDetail({
           onClose={onClose ? handleRequestClose : undefined}
           showFullPageButton={!!onClose && !fullPage}
           isFullPage={fullPage}
-          threadCount={sortedThread.length}
+          threadCount={threadPage?.total ?? sortedThread.length}
           onRefresh={handleRefresh}
           labelsRefreshKey={labelsRefreshKey}
           onContactChanged={handleContactChanged}
@@ -1339,6 +1392,20 @@ export function MessageDetail({
             {!threadLoading && !threadError && sortedThread.length === 0 && (
               <div className="py-6 text-[12px] text-center text-muted-foreground">
                 No messages in thread yet.
+              </div>
+            )}
+            {threadPage?.hasEarlier && (
+              <div className="text-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={loadEarlier}
+                  isLoading={loadingEarlier}
+                  className="h-auto px-2 py-1 text-xs text-muted-foreground"
+                >
+                  Show earlier messages ({threadPage.total - threadMessages.length} more)
+                </Button>
               </div>
             )}
             {timeline.map((row, index) => (

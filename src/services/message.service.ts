@@ -7,6 +7,7 @@
    endpoint here without paying it. */
 import { normaliseReceivedAtOptions, type ReceivedAtOption } from './receivedAtOption';
 import { fetchThreads } from './threadsQuery';
+import { normaliseThreadPage, threadPageQuery, type ThreadPageRequest } from './threadPage';
 import { apiClient } from '@/lib/api-client';
 import { getErrorStatus } from '@/lib/errorMessages';
 import { PAGINATION } from '@/lib/constants';
@@ -645,9 +646,16 @@ export const messageService = {
     return response.data;
   },
 
-  getThreadMessages: async (id: number) => {
-    const response = await apiClient.get<ApiResponse<MessageEvent[]>>(`/api/messages/${id}/thread`);
-    return response.data;
+  /**
+   * The thread's events, latest page first. `page` always says what was left out, whichever
+   * backend answered (threadPage.ts); pass `before: page.earliestId` for the older page.
+   */
+  getThreadMessages: async (id: number, page?: ThreadPageRequest) => {
+    const response = await apiClient.get<ApiResponse<MessageEvent[]> & { page?: unknown }>(
+      `/api/messages/${id}/thread${threadPageQuery(page)}`
+    );
+    const rows = response.data.data ?? [];
+    return { ...response.data, page: normaliseThreadPage(response.data.page, rows) };
   },
 
   getLinkedTicket: async (id: number) => {

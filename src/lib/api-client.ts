@@ -1,6 +1,7 @@
 import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 import { API_BASE_URL } from './config';
 import { withFailedFields } from '@/lib/errorMessages';
+import { rateLimitRetryAfterMs } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 import {
   isAccessTokenExpired,
@@ -94,7 +95,10 @@ apiClient.interceptors.request.use(
 );
 
 /** A request we have already retried once after refreshing. Marked so it can never loop. */
-type RetriableConfig = InternalAxiosRequestConfig & { _sessionRetry?: boolean };
+type RetriableConfig = InternalAxiosRequestConfig & {
+  _sessionRetry?: boolean;
+  _rateLimitRetry?: boolean;
+};
 
 /**
  * Endpoints whose own 401 must NOT be answered by refreshing.
@@ -236,6 +240,26 @@ export const handleResponseError = async (error: unknown): Promise<unknown> => {
     err: unknown
   ): err is { response?: { status?: number; data?: unknown }; config?: RetriableConfig } =>
     typeof err === 'object' && err !== null && 'response' in err;
+
+  // 429 = the API limiter (1,000 requests a minute per address). A read that was refused is
+  // retried ONCE, after the wait the server named, when that wait is short: a limiter window
+  // ends, and a list or a thread that asked a second too early should not stay empty for it.
+  // Writes are never replayed — the user chooses to send again — and a retry that is refused
+  // again is handed back as the error it is.
+  if (isAxiosError(error) && error.response?.status === 429) {
+    const original = error.config;
+    const waitMs = rateLimitRetryAfterMs(error.response.data);
+    if (
+      original &&
+      (original.method ?? 'get').toLowerCase() === 'get' &&
+      !original._rateLimitRetry &&
+      waitMs !== null
+    ) {
+      original._rateLimitRetry = true;
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+      return await apiClient.request(original);
+    }
+  }
 
   if (isAxiosError(error) && error.response?.status === 401) {
     // Only redirect to login if not already there

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { User } from 'lucide-react';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { Button } from '@/components/ui/Button';
@@ -7,6 +7,7 @@ import { isOutgoingEvent } from '@/lib/messageHelpers';
 import { formatDate, formatWhen } from '@/lib/utils';
 import type { MessageEvent } from '@/types';
 import { useMessageHtml } from '@/hooks/useMessageHtml';
+import { useInView } from '@/hooks/useInView';
 import { ThreadAttachmentChip } from './ThreadAttachmentChip';
 import { ThreadBubble } from './ThreadBubble';
 import {
@@ -72,7 +73,12 @@ export function ThreadMessageItem({
    * agent as an empty box. An agent checking what went out, or answering "what did you send
    * them?", was reading a different document from the customer.
    */
-  const wantsHtml = translatedContent === null;
+  // …and only once this bubble is near the screen. A thread of 1,887 messages used to ask for
+  // all 1,887 markups on open and spend the API limiter (1,000 a minute) in seconds, after which
+  // every other request of the browser failed too. Sticky: scrolled past, the markup stays.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const nearScreen = useInView(rootRef, '800px');
+  const wantsHtml = translatedContent === null && nearScreen;
   const { data: originalHtml } = useMessageHtml(msg.id, wantsHtml);
 
   const isAgent = isOutgoingEvent(msg);
@@ -174,7 +180,7 @@ export function ThreadMessageItem({
 
   if (isAgent) {
     return (
-      <div className={`flex flex-row-reverse items-start gap-[9px] ${PHONE_THREAD_ROW}`}>
+      <div ref={rootRef} className={`flex flex-row-reverse items-start gap-[9px] ${PHONE_THREAD_ROW}`}>
         {avatar}
         <div
           className={`flex flex-col items-end gap-1 min-w-0 max-w-[90%] ${PHONE_THREAD_COL_OUT}`}
@@ -232,7 +238,7 @@ export function ThreadMessageItem({
   }
 
   return (
-    <div className={`flex items-start gap-[9px] ${PHONE_THREAD_ROW}`}>
+    <div ref={rootRef} className={`flex items-start gap-[9px] ${PHONE_THREAD_ROW}`}>
       {avatar}
       <div className={`flex flex-col gap-1 min-w-0 max-w-[90%] ${PHONE_THREAD_COL_IN}`}>
         <div className={meta} title={msg.authorEmail ?? undefined}>
