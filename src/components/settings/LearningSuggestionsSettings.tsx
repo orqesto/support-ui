@@ -640,7 +640,7 @@ export const LearningSuggestionsSettings = () => {
                               // is greyed out for no stated reason is what the old hide-everything
                               // behaviour felt like.
                               <span className="text-xs text-muted-foreground mr-1">
-                                {whyCannotAct(suggestion.domain)}
+                                {whyCannotAct(suggestion)}
                               </span>
                             )}
                             {isKbModeratedSuggestion(suggestion) ? <Button size="sm" variant="outline" onClick={() => setExpandedId(suggestion.id)} disabled={!canAct}>Review</Button> : (<>
@@ -651,7 +651,7 @@ export const LearningSuggestionsSettings = () => {
                               disabled={isActing || !canAct}
                               title={
                                 !canAct
-                                  ? whyCannotAct(suggestion.domain)
+                                  ? whyCannotAct(suggestion)
                                   : suggestion.domain === 'kb_review'
                                     ? `Reject — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days`
                                     : 'Decline'
@@ -667,7 +667,7 @@ export const LearningSuggestionsSettings = () => {
                               disabled={isActing || !canAct}
                               title={
                                 !canAct
-                                  ? whyCannotAct(suggestion.domain)
+                                  ? whyCannotAct(suggestion)
                                   : suggestion.domain === 'reply_style'
                                     ? 'Accept — makes this the house style for AI-drafted replies'
                                     : suggestion.domain === 'kb_review'

@@ -30,7 +30,11 @@ vi.mock('@/services/kbConsolidation.service', () => ({
   kbConsolidationService: { getMembers: (id: number) => getMembers(id) },
 }));
 vi.mock('@/services/kbQuality.service', () => ({
-  kbQualityService: { getDetail: () => new Promise(() => {}), bulkReject: vi.fn(), getStatus: () => Promise.resolve(null) },
+  kbQualityService: {
+    getDetail: () => new Promise(() => {}),
+    bulkReject: () => Promise.resolve({ results: [], rejected: 1, expired: 0, failed: 0, forbidden: 0 }),
+    getStatus: () => Promise.resolve('unsupported'),
+  },
 }));
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -106,11 +110,40 @@ describe('the Quality tab (KB quality review)', () => {
     expect(await screen.findByText('Rewrite #70 — question is a whole email')).toBeInTheDocument();
   });
 
-  it('honours ?tab=quality and an explicit ?tab=merges', async () => {
+  it('honours an explicit ?tab=merges and ?tab=quality', async () => {
+    listSuggestions.mockResolvedValue([
+      suggestion(1, 'kb_quality', 'consolidate', { label: 'refund', memberIds: [4, 5] }),
+      suggestion(7, 'kb_quality', 'entry_review', { verdict: 'improve', entryId: 70, reasons: ['raw_email'] }),
+    ]);
+    renderAt('/knowledge-base/merges?tab=quality');
+    expect(await screen.findByText('Rewrite #70 — question is a whole email')).toBeInTheDocument();
+    cleanup();
     listSuggestions.mockResolvedValue([
       suggestion(7, 'kb_quality', 'entry_review', { verdict: 'improve', entryId: 70, reasons: ['raw_email'] }),
     ]);
     renderAt('/knowledge-base/merges?tab=merges');
     expect(await screen.findByText('No merges waiting for review.')).toBeInTheDocument();
+  });
+
+  it('once it opened on Quality, a reload never flips the tab back (FE audit M1)', async () => {
+    listSuggestions.mockResolvedValueOnce([
+      suggestion(7, 'kb_quality', 'entry_review', { verdict: 'remove', entryId: 70, reasons: ['no_answer'], questionPreview: 'ok' }),
+    ]);
+    renderAt('/knowledge-base/merges');
+    expect(await screen.findByText('Remove #70 — no real answer: ok')).toBeInTheDocument();
+    // A bulk remove empties the list, and a new merge has arrived meanwhile.
+    listSuggestions.mockResolvedValue([suggestion(1, 'kb_quality', 'consolidate', { label: 'refund', memberIds: [4, 5] })]);
+    fireEvent.click(screen.getByRole('checkbox', { name: /Select all removals/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Remove selected/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
+    expect(await screen.findByText('No quality suggestions waiting for review.')).toBeInTheDocument();
+    expect(screen.queryByText(/Merge 2 similar/)).not.toBeInTheDocument();
+  });
+
+  it('a failed load shows its error, never "nothing waiting" (FE audit L4)', async () => {
+    listSuggestions.mockRejectedValue(new Error('boom'));
+    renderAt('/knowledge-base/merges?tab=quality');
+    expect(await screen.findByText(/boom|Could not load the suggestions/)).toBeInTheDocument();
+    expect(screen.queryByText('No quality suggestions waiting for review.')).not.toBeInTheDocument();
   });
 });

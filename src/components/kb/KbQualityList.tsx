@@ -14,20 +14,35 @@ import { summarizeKbQuality } from '@/lib/kbQuality';
 import { kbQualityService, type KbQualityBulkResult } from '@/services/kbQuality.service';
 import type { LearningSuggestion } from '@/services/learning.service';
 
-const isRemove = (row: LearningSuggestion) => row.payload?.verdict !== 'improve';
+/** Only an explicit "remove" is a removal: an unknown or missing verdict is never bulk-removable. */
+const isRemove = (row: LearningSuggestion) => row.payload?.verdict === 'remove';
+const isRewrite = (row: LearningSuggestion) => row.payload?.verdict === 'improve';
 
-/** "Removed 3 entries. 1 had changed since the review and was left alone." */
-export const describeBulkResult = (result: KbQualityBulkResult): string => {
-  const parts = [`Removed ${result.rejected} ${result.rejected === 1 ? 'entry' : 'entries'}.`];
+/**
+ * What a bulk remove did, row by row — never folded into "removed". Green only when everything
+ * picked was removed.
+ */
+export const describeBulkResult = (result: KbQualityBulkResult): { variant: 'success' | 'warning'; text: string } => {
+  const parts = [
+    result.rejected === 0
+      ? 'Nothing was removed.'
+      : `Removed ${result.rejected} ${result.rejected === 1 ? 'entry' : 'entries'}.`,
+  ];
   if (result.expired > 0) {
     parts.push(
-      `${result.expired} had changed since the review and ${result.expired === 1 ? 'was' : 'were'} left alone.`
+      `${result.expired} had changed since the review and ${result.expired === 1 ? 'was' : 'were'} left alone — still in the knowledge base.`
+    );
+  }
+  if (result.forbidden > 0) {
+    parts.push(
+      `${result.forbidden} need knowledge-base permission for every department their mailbox serves — ask an admin.`
     );
   }
   if (result.failed > 0) {
-    parts.push(`${result.failed} could not be removed (already decided, or an error) — reload to see them.`);
+    parts.push(`${result.failed} could not be removed — already decided by someone else, or an error.`);
   }
-  return parts.join(' ');
+  const clean = result.expired === 0 && result.forbidden === 0 && result.failed === 0 && result.rejected > 0;
+  return { variant: clean ? 'success' : 'warning', text: parts.join(' ') };
 };
 
 /**
@@ -50,7 +65,7 @@ export const KbQualityList = ({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<{ variant: 'success' | 'danger'; text: string } | null>(null);
+  const [notice, setNotice] = useState<{ variant: 'success' | 'warning' | 'danger'; text: string } | null>(null);
 
   const ordered = [...rows].sort((left, right) => Number(isRemove(right)) - Number(isRemove(left)) || left.id - right.id);
   const removable = ordered.filter((row) => isRemove(row) && !decided.has(row.id));
@@ -70,7 +85,7 @@ export const KbQualityList = ({
     setNotice(null);
     try {
       const result = await kbQualityService.bulkReject(chosen);
-      setNotice({ variant: 'success', text: describeBulkResult(result) });
+      setNotice(describeBulkResult(result));
       setSelected(new Set());
       announceKbConsolidationDecided();
       onChanged();
@@ -81,11 +96,16 @@ export const KbQualityList = ({
     }
   };
 
+  // The notice comes first: a bulk remove that empties the list must still say what it did —
+  // including the entries it left alone, which are no longer listed (FE audit M1).
   if (rows.length === 0) {
     return (
-      <p className="py-8 text-sm text-center text-muted-foreground">
-        No quality suggestions waiting for review.
-      </p>
+      <div className="space-y-3">
+        {notice && <Alert variant={notice.variant}>{notice.text}</Alert>}
+        <p className="py-8 text-sm text-center text-muted-foreground">
+          No quality suggestions waiting for review.
+        </p>
+      </div>
     );
   }
 
@@ -127,8 +147,8 @@ export const KbQualityList = ({
                         onChange={(event) => toggle(row.id, event.target.checked)}
                       />
                     )}
-                    <Badge variant={isRemove(row) ? 'danger' : 'warning'}>
-                      {isRemove(row) ? 'remove' : 'rewrite'}
+                    <Badge variant={isRemove(row) ? 'danger' : isRewrite(row) ? 'warning' : 'secondary'}>
+                      {isRemove(row) ? 'remove' : isRewrite(row) ? 'rewrite' : 'review'}
                     </Badge>
                     <span className="text-sm font-medium break-words">
                       {summarizeKbQuality(row.payload ?? {})}
@@ -138,6 +158,7 @@ export const KbQualityList = ({
                     <Button
                       size="sm"
                       variant="outline"
+                      aria-label={`Review: ${summarizeKbQuality(row.payload ?? {})}`}
                       onClick={() => setOpened((prev) => new Set(prev).add(row.id))}
                     >
                       Review

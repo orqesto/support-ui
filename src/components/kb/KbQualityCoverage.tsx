@@ -65,7 +65,7 @@ export const describeQualityStatus = (
 
 /** The Quality tab's status line. Renders nothing against a backend that does not serve it. */
 export const KbQualityCoverage = ({ reloadKey }: { reloadKey?: unknown }) => {
-  const [status, setStatus] = useState<KbQualityStatus | null>(null);
+  const [status, setStatus] = useState<KbQualityStatus | 'unsupported' | 'error' | null>(null);
   useEffect(() => {
     let live = true;
     void kbQualityService.getStatus().then((next) => {
@@ -75,8 +75,14 @@ export const KbQualityCoverage = ({ reloadKey }: { reloadKey?: unknown }) => {
       live = false;
     };
   }, [reloadKey]);
-  if (!status) return null;
-  const { variant, text } = describeQualityStatus(status);
+  if (!status || status === 'unsupported') return null;
+  const { variant, text } =
+    status === 'error'
+      ? {
+          variant: 'warning' as const,
+          text: 'Could not load how much of the knowledge base the review has checked — the suggestions below may not be the whole picture.',
+        }
+      : describeQualityStatus(status);
   return (
     <div data-testid="kb-quality-coverage">
       <Alert variant={variant}>{text}</Alert>

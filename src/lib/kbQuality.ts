@@ -26,7 +26,8 @@ export const qualityReasonLabel = (code: string): string =>
 
 /** "Remove #KB-12 — only fits one customer: Can you change the address on…" */
 export const summarizeKbQuality = (payload: Record<string, unknown>): string => {
-  const verdict = payload.verdict === 'improve' ? 'Rewrite' : 'Remove';
+  // An unknown verdict is named neutrally — never presented as a removal.
+  const verdict = payload.verdict === 'improve' ? 'Rewrite' : payload.verdict === 'remove' ? 'Remove' : 'Review';
   const reasons = Array.isArray(payload.reasons)
     ? payload.reasons.filter((reason): reason is string => typeof reason === 'string')
     : [];

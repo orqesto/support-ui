@@ -82,7 +82,11 @@ export const permissionForSuggestion = (suggestion: {
   permissionForSuggestionDomain(suggestion.domain);
 
 /** Human-readable reason for a disabled action, for a tooltip or inline note. */
-export const whyCannotAct = (domain: string): string =>
-  permissionForSuggestionDomain(domain) === null
+export const whyCannotAct = (subject: string | { domain: string; suggestionType: string }): string =>
+  // A suggestion (not just its domain) is judged by its TYPE first: a KB merge or quality fix
+  // needs manage_knowledge_base, not an org admin (FE audit L5).
+  (typeof subject === 'string' ? permissionForSuggestionDomain(subject) : permissionForSuggestion(subject)) === null
     ? 'Only an organisation admin can act on this suggestion.'
-    : 'You do not have permission to change this kind of rule. Ask an admin.';
+    : typeof subject !== 'string' && isKbModeratedSuggestion(subject)
+      ? 'Deciding this needs the knowledge-base permission. Ask an admin.'
+      : 'You do not have permission to change this kind of rule. Ask an admin.';

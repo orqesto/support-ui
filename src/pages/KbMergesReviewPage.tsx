@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -34,20 +34,33 @@ export const KbMergesReviewPage = () => {
   const [quality, setQuality] = useState<LearningSuggestion[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [opened, setOpened] = useState<Set<number>>(new Set());
-  const requested = searchParams.get('tab') === 'quality' ? 'quality' : 'merges';
-  // No merges but quality suggestions waiting: open on those rather than on an empty tab.
-  const tab: ReviewTab =
-    searchParams.get('tab') === null && merges?.length === 0 && quality.length > 0
-      ? 'quality'
-      : requested;
+  const tab: ReviewTab = searchParams.get('tab') === 'quality' ? 'quality' : 'merges';
+  // react-router re-creates `setSearchParams` on every URL change; read through a ref so `load`
+  // stays stable — otherwise each tab switch re-ran it and re-fetched the list.
+  const setParamsRef = useRef(setSearchParams);
+  setParamsRef.current = setSearchParams;
 
   const load = useCallback(async () => {
     setError(null);
     try {
       const all = await learningService.listSuggestions('kb_quality');
       const pending = all.filter((row) => row.status === 'pending');
-      setMerges(pending.filter(isKbConsolidationSuggestion));
-      setQuality(pending.filter(isKbQualitySuggestion));
+      const nextMerges = pending.filter(isKbConsolidationSuggestion);
+      const nextQuality = pending.filter(isKbQualitySuggestion);
+      setMerges(nextMerges);
+      setQuality(nextQuality);
+      // No tab asked for, no merges, quality suggestions waiting: open on Quality — and WRITE it
+      // to the URL, once, so a later reload (a bulk remove emptying the list, a new merge arriving)
+      // never flips the tab under the moderator (FE audit M1).
+      setParamsRef.current(
+        (current) => {
+          if (current.get('tab') !== null || nextMerges.length > 0 || nextQuality.length === 0) return current;
+          const params = new URLSearchParams(current);
+          params.set('tab', 'quality');
+          return params;
+        },
+        { replace: true }
+      );
     } catch (err) {
       setError(getApiErrorMessage(err) ?? 'Could not load the suggestions.');
     }
@@ -80,7 +93,8 @@ export const KbMergesReviewPage = () => {
             { id: 'quality', label: 'Quality', badge: merges === null ? undefined : quality.length },
           ]}
         />
-        {merges === null && !error ? (
+        {merges === null && error ? null : merges === null ? (
+          // A failed first load shows its error only — never "nothing waiting" under it (FE audit L4).
           <div className="flex justify-center py-8" role="status" aria-busy="true">
             <Spinner />
           </div>

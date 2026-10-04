@@ -7,6 +7,7 @@
  * missing field must read as "not known", never crash the review.
  */
 import { apiClient } from '@/lib/api-client';
+import { apiErrorStatus } from '@/lib/apiError';
 
 export type KbQualityVerdict = 'improve' | 'remove';
 
@@ -31,6 +32,8 @@ export type KbQualityDetail = {
   proposed: { question: string; answer: string } | null;
   /** improve without a proposal: why there is none. */
   rewriteProblem: 'failed' | 'nothing_reusable' | 'unsafe_output' | null;
+  /** The entry was longer than the AI could read: its rewrite may miss the end (absent ⇒ false). */
+  inputTruncated: boolean;
   entry: KbQualityEntry | null;
   editedSinceProposed: boolean;
   stillEligible: boolean;
@@ -42,11 +45,13 @@ export type KbQualityDecision =
   | { action: 'reject' };
 
 export type KbQualityAcceptResult = {
-  id: number;
-  status: 'applied' | 'rejected' | 'expired';
+  /** 'unknown': the server answered with a status this UI does not know — never read as done. */
+  status: 'applied' | 'rejected' | 'expired' | 'unknown';
   entryId?: number;
   publicId?: string | null;
   reason?: string;
+  /** Contact details the server's PII guard removed from the saved text (absent on older BEs). */
+  redactions?: number;
 };
 
 export type KbQualityBulkResult = {
@@ -54,6 +59,23 @@ export type KbQualityBulkResult = {
   rejected: number;
   expired: number;
   failed: number;
+  /** Rows this moderator may see but not decide (absent on older BEs, which refuse the batch). */
+  forbidden: number;
+};
+
+/** The server's bulk limit (BE BULK_REJECT_MAX): larger selections go in batches of this. */
+export const BULK_REJECT_BATCH = 100;
+
+export const normaliseAcceptResult = (value: unknown): KbQualityAcceptResult => {
+  const raw = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>;
+  const status = raw.status;
+  return {
+    status: status === 'applied' || status === 'rejected' || status === 'expired' ? status : 'unknown',
+    ...(typeof raw.entryId === 'number' ? { entryId: raw.entryId } : {}),
+    ...(typeof raw.publicId === 'string' || raw.publicId === null ? { publicId: raw.publicId } : {}),
+    ...(typeof raw.reason === 'string' ? { reason: raw.reason } : {}),
+    ...(typeof raw.redactions === 'number' && raw.redactions > 0 ? { redactions: raw.redactions } : {}),
+  };
 };
 
 export type KbQualityStatus = {
@@ -111,6 +133,7 @@ export const normaliseQualityDetail = (value: unknown, suggestionId: number): Kb
       problem === 'failed' || problem === 'nothing_reusable' || problem === 'unsafe_output'
         ? problem
         : null,
+    inputTruncated: raw.inputTruncated === true,
     entry: normaliseEntry(raw.entry),
     editedSinceProposed: raw.editedSinceProposed === true,
     // Absent ⇒ not known to be eligible: the server re-checks at accept either way.
@@ -142,15 +165,19 @@ export const normaliseQualityStatus = (value: unknown): KbQualityStatus | null =
 };
 
 export const kbQualityService = {
-  /** Null when the backend does not serve the status yet (an older release) or sends nonsense. */
-  async getStatus(): Promise<KbQualityStatus | null> {
+  /**
+   * 'unsupported' only when the backend does not serve the route (404, an older release) — any
+   * other failure is 'error', which the page SAYS: a missing coverage line would bring back the
+   * reading "no suggestions means a clean KB".
+   */
+  async getStatus(): Promise<KbQualityStatus | 'unsupported' | 'error'> {
     try {
       const response = await apiClient.get<{ success: boolean; data: unknown }>(
         '/api/knowledge-base/consolidation/quality-status'
       );
-      return normaliseQualityStatus(response.data.data);
-    } catch {
-      return null;
+      return normaliseQualityStatus(response.data.data) ?? 'error';
+    } catch (err) {
+      return apiErrorStatus(err) === 404 ? 'unsupported' : 'error';
     }
   },
 
@@ -162,11 +189,11 @@ export const kbQualityService = {
   },
 
   async accept(suggestionId: number, decision: KbQualityDecision): Promise<KbQualityAcceptResult> {
-    const response = await apiClient.post<{ success: boolean; data: KbQualityAcceptResult }>(
+    const response = await apiClient.post<{ success: boolean; data: unknown }>(
       `/api/learning/suggestions/${suggestionId}/accept`,
       decision
     );
-    return response.data.data;
+    return normaliseAcceptResult(response.data?.data);
   },
 
   /** "Keep as is": not proposed again until the entry is edited. */
@@ -174,11 +201,21 @@ export const kbQualityService = {
     await apiClient.post(`/api/learning/suggestions/${suggestionId}/decline`, {});
   },
 
+  /** In batches of BULK_REJECT_BATCH, totals summed. A batch that fails stops the rest (thrown). */
   async bulkReject(suggestionIds: number[]): Promise<KbQualityBulkResult> {
-    const response = await apiClient.post<{ success: boolean; data: KbQualityBulkResult }>(
-      '/api/knowledge-base/consolidation/quality/bulk-reject',
-      { suggestionIds }
-    );
-    return response.data.data;
+    const total: KbQualityBulkResult = { results: [], rejected: 0, expired: 0, failed: 0, forbidden: 0 };
+    for (let offset = 0; offset < suggestionIds.length; offset += BULK_REJECT_BATCH) {
+      const response = await apiClient.post<{ success: boolean; data: Partial<KbQualityBulkResult> }>(
+        '/api/knowledge-base/consolidation/quality/bulk-reject',
+        { suggestionIds: suggestionIds.slice(offset, offset + BULK_REJECT_BATCH) }
+      );
+      const data = response.data?.data ?? {};
+      total.results.push(...(Array.isArray(data.results) ? data.results : []));
+      total.rejected += count(data.rejected);
+      total.expired += count(data.expired);
+      total.failed += count(data.failed);
+      total.forbidden += count(data.forbidden);
+    }
+    return total;
   },
 };

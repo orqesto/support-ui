@@ -4,9 +4,11 @@ import { Bot, Check, Pencil, Trash2, X } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Label } from '@/components/ui/Label';
 import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Textarea';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { usePermissions } from '@/hooks/usePermissions';
 import { apiErrorStatus } from '@/lib/apiError';
 import { getApiErrorMessage } from '@/lib/errorMessages';
@@ -25,7 +27,7 @@ export const QUALITY_QUESTION_MAX = 600;
 export const QUALITY_ANSWER_MAX = 8000;
 
 export type KbQualityOutcome =
-  | { kind: 'applied' | 'rejected' | 'expired'; result: KbQualityAcceptResult }
+  | { kind: 'applied' | 'rejected' | 'expired' | 'unknown'; result: KbQualityAcceptResult }
   | { kind: 'kept' };
 
 const REWRITE_PROBLEM_TEXT: Record<NonNullable<KbQualityDetail['rewriteProblem']>, string> = {
@@ -59,6 +61,7 @@ export const KbQualityReview = ({ suggestionId, onDecided }: Props) => {
   const [acting, setActing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<KbQualityOutcome | null>(null);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
 
   const load = useCallback(async (): Promise<KbQualityDetail | null> => {
     setLoadError(null);
@@ -212,6 +215,12 @@ export const KbQualityReview = ({ suggestionId, onDecided }: Props) => {
         )}
       </div>
 
+      {detail.proposed && detail.inputTruncated && (
+        <Alert variant="warning">
+          This entry was longer than the AI could read, so its replacement may be missing the end.
+          Compare it with the entry above before saving.
+        </Alert>
+      )}
       {detail.verdict === 'improve' && !detail.proposed && detail.rewriteProblem && (
         <Alert variant="warning">{REWRITE_PROBLEM_TEXT[detail.rewriteProblem]}</Alert>
       )}
@@ -221,14 +230,12 @@ export const KbQualityReview = ({ suggestionId, onDecided }: Props) => {
           <div className="flex gap-2 items-center">
             <span className="font-medium">Replace it with</span>
             {detail.proposed && (
-              <Badge
-                variant="secondary"
-                className="gap-1"
-                title="Written by AI from the entry above — read and edit it before saving."
-              >
-                <Bot className="w-3 h-3" />
-                AI-drafted
-              </Badge>
+              <Tooltip content="Written by AI from the entry above — read and edit it before saving.">
+                <Badge variant="secondary" className="gap-1">
+                  <Bot className="w-3 h-3" />
+                  AI-drafted
+                </Badge>
+              </Tooltip>
             )}
           </div>
           <div>
@@ -279,20 +286,18 @@ export const KbQualityReview = ({ suggestionId, onDecided }: Props) => {
       )}
       {pending && (
         <div className="flex flex-wrap gap-2 justify-end">
-          <Button
-            variant="outline"
-            onClick={() => void keep()}
-            disabled={acting || !detail.canDecide}
-            title="The entry is fine — do not suggest this again unless it is edited"
-          >
-            <X className="mr-1 w-4 h-4" />
-            Keep as is
-          </Button>
+          {/* Keep is blocked on a stale entry too: it stamps the text that was REVIEWED, so on an
+              entry edited since, "not suggested again" would be untrue (FE audit M4). */}
+          <Tooltip content="The entry is fine — do not suggest this again unless it is edited">
+            <Button variant="outline" onClick={() => void keep()} disabled={acting || blocked !== null}>
+              <X className="mr-1 w-4 h-4" />
+              Keep as is
+            </Button>
+          </Tooltip>
           <Button
             variant={detail.verdict === 'remove' && !editing ? 'destructive' : 'outline'}
-            onClick={() => void decide('reject')}
+            onClick={() => setConfirmingRemove(true)}
             disabled={acting || blocked !== null}
-            title={`Out of every answer now, deleted after ${REJECTED_RETENTION_DAYS} days`}
           >
             <Trash2 className="mr-1 w-4 h-4" />
             Remove entry
@@ -309,6 +314,18 @@ export const KbQualityReview = ({ suggestionId, onDecided }: Props) => {
           )}
         </div>
       )}
+      <ConfirmDialog
+        open={confirmingRemove}
+        onOpenChange={setConfirmingRemove}
+        onConfirm={() => {
+          setConfirmingRemove(false);
+          void decide('reject');
+        }}
+        title={`Remove ${entryName}?`}
+        description={`It stops being used in answers now and is deleted after ${REJECTED_RETENTION_DAYS} days. Until then you can bring it back by approving it in the knowledge base.`}
+        confirmText="Remove"
+        variant="danger"
+      />
     </div>
   );
 };
@@ -328,6 +345,10 @@ export const KbQualityOutcomeNotice = ({ outcome }: { outcome: KbQualityOutcome 
       </Alert>
     );
   }
+  if (outcome.kind === 'unknown') {
+    // A status this UI does not know: never claimed as done — the list says what is true.
+    return <Alert variant="warning">The server answered in a way this page does not recognise. Reload to see the entry’s current state.</Alert>;
+  }
   if (outcome.kind === 'rejected') {
     return (
       <Alert variant="success">
@@ -336,5 +357,10 @@ export const KbQualityOutcomeNotice = ({ outcome }: { outcome: KbQualityOutcome 
       </Alert>
     );
   }
-  return <Alert variant="success">{name} was rewritten and approved.</Alert>;
+  return (
+    <Alert variant="success">
+      {name} was rewritten and approved.
+      {result.redactions ? ' Contact details were removed from the saved text — check it in the knowledge base.' : ''}
+    </Alert>
+  );
 };

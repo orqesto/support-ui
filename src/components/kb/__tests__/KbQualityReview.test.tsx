@@ -40,6 +40,7 @@ const detail = (over: Partial<KbQualityDetail> = {}): KbQualityDetail => ({
   note: 'The question is a whole email.',
   proposed: { question: 'Where is my parcel?', answer: 'Use the tracking link.' },
   rewriteProblem: null,
+  inputTruncated: false,
   entry: {
     id: 12,
     publicId: 'KB-12',
@@ -132,6 +133,10 @@ describe('KbQualityReview — remove', () => {
     expect(screen.getByText('only fits one customer')).toBeInTheDocument();
     expect(screen.queryByLabelText('Question')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Remove entry/ }));
+    // A single removal is confirmed too, naming its consequence (FE audit L6).
+    expect(accept).not.toHaveBeenCalled();
+    expect(await screen.findByText(/deleted after 90 days/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
     await waitFor(() => expect(accept).toHaveBeenCalledWith(41, { action: 'reject' }));
     expect(await screen.findByText(/#KB-12 was removed/)).toBeInTheDocument();
   });
@@ -170,11 +175,60 @@ describe('KbQualityReview — who may decide, and when', () => {
     expect(screen.getByRole('button', { name: /Keep as is/ })).toBeDisabled();
   });
 
-  it('an entry edited since the review cannot be acted on — it will expire', async () => {
+  it('an entry edited since the review cannot be acted on — not even "Keep" (FE audit M4)', async () => {
     getDetail.mockResolvedValue(detail({ editedSinceProposed: true }));
     renderReview();
     expect(await screen.findByTestId('quality-blocked-reason')).toHaveTextContent('changed or left the knowledge base');
     expect(screen.getByRole('button', { name: /Remove entry/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Save rewrite/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Keep as is/ })).toBeDisabled();
+  });
+
+  it('an entry no longer in the knowledge base as it was is blocked the same way', async () => {
+    getDetail.mockResolvedValue(detail({ stillEligible: false }));
+    renderReview();
+    expect(await screen.findByTestId('quality-blocked-reason')).toHaveTextContent('changed or left the knowledge base');
+    expect(screen.getByRole('button', { name: /Keep as is/ })).toBeDisabled();
+  });
+
+  it('an answer over the server bound blocks Save', async () => {
+    getDetail.mockResolvedValue(detail());
+    renderReview();
+    fireEvent.change(await screen.findByLabelText('Answer'), { target: { value: 'a'.repeat(8001) } });
+    expect(screen.getByRole('button', { name: /Save rewrite/ })).toBeDisabled();
+    expect(screen.getByTestId('quality-blocked-reason')).toHaveTextContent('8,000');
+  });
+
+  it('a status the page does not know is never reported as done (FE audit L1)', async () => {
+    getDetail.mockResolvedValue(detail());
+    accept.mockResolvedValue({ status: 'unknown' });
+    renderReview();
+    fireEvent.click(await screen.findByRole('button', { name: /Save rewrite/ }));
+    expect(await screen.findByText(/does not recognise/)).toBeInTheDocument();
+    expect(screen.queryByText(/rewritten and approved/)).not.toBeInTheDocument();
+  });
+
+  it('says when the server removed contact details from the saved text', async () => {
+    getDetail.mockResolvedValue(detail());
+    accept.mockResolvedValue({ status: 'applied', entryId: 12, publicId: 'KB-12', redactions: 2 });
+    renderReview();
+    fireEvent.click(await screen.findByRole('button', { name: /Save rewrite/ }));
+    expect(await screen.findByText(/Contact details were removed from the saved text/)).toBeInTheDocument();
+  });
+
+  it('warns that a rewrite of a too-long entry may miss its end', async () => {
+    getDetail.mockResolvedValue(detail({ inputTruncated: true }));
+    renderReview();
+    expect(await screen.findByText(/longer than the AI could read/)).toBeInTheDocument();
+  });
+
+  it('a decision taken elsewhere (409) re-reads the suggestion and shows its real status', async () => {
+    getDetail.mockResolvedValueOnce(detail()).mockResolvedValueOnce(detail({ status: 'accepted' }));
+    accept.mockRejectedValue(Object.assign(new Error('This suggestion was already decided.'), { status: 409 }));
+    renderReview();
+    fireEvent.click(await screen.findByRole('button', { name: /Save rewrite/ }));
+    expect(await screen.findByText(/no longer pending \(accepted\)/)).toBeInTheDocument();
+    expect(getDetail).toHaveBeenCalledTimes(2);
   });
 
   it('reports an expired decision as "nothing was changed", never as done', async () => {
