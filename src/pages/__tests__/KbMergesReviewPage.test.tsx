@@ -30,7 +30,7 @@ vi.mock('@/services/kbConsolidation.service', () => ({
   kbConsolidationService: { getMembers: (id: number) => getMembers(id) },
 }));
 vi.mock('@/services/kbQuality.service', () => ({
-  kbQualityService: { getDetail: () => new Promise(() => {}), bulkReject: vi.fn() },
+  kbQualityService: { getDetail: () => new Promise(() => {}), bulkReject: vi.fn(), getStatus: () => Promise.resolve(null) },
 }));
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,

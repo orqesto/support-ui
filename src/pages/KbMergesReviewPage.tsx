@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { KbConsolidationReview, summarizeKbMerge } from '@/components/kb/KbConsolidationReview';
+import { KbQualityCoverage } from '@/components/kb/KbQualityCoverage';
 import { KbQualityList } from '@/components/kb/KbQualityList';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -84,7 +85,11 @@ export const KbMergesReviewPage = () => {
             <Spinner />
           </div>
         ) : tab === 'quality' ? (
-          <KbQualityList rows={quality} onChanged={() => void load()} />
+          <div className="space-y-3">
+            {/* How much of the KB has been checked: "no suggestions" is not "clean". */}
+            <KbQualityCoverage reloadKey={quality.length} />
+            <KbQualityList rows={quality} onChanged={() => void load()} />
+          </div>
         ) : merges?.length === 0 ? (
           <p className="py-8 text-sm text-center text-muted-foreground">
             No merges waiting for review.

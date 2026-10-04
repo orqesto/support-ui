@@ -56,6 +56,20 @@ export type KbQualityBulkResult = {
   failed: number;
 };
 
+export type KbQualityStatus = {
+  /** 'off': the review does not run · 'dry_run': a KB-cases calibration is running instead ·
+   * 'no_provider': skipped every night, no usable AI provider · 'on': it runs nightly. */
+  state: 'on' | 'off' | 'dry_run' | 'no_provider';
+  coverage: {
+    entries: number;
+    checked: number;
+    notYet: number;
+    unassessed: number;
+    rewritesWaiting: number;
+    lastCheckedAt: string | null;
+  };
+};
+
 const str = (value: unknown): string | null => (typeof value === 'string' ? value : null);
 const num = (value: unknown): number | null => (typeof value === 'number' ? value : null);
 
@@ -105,7 +119,41 @@ export const normaliseQualityDetail = (value: unknown, suggestionId: number): Kb
   };
 };
 
+const count = (value: unknown): number =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0;
+
+export const normaliseQualityStatus = (value: unknown): KbQualityStatus | null => {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as { state?: unknown; coverage?: Record<string, unknown> };
+  const state = raw.state;
+  if (state !== 'on' && state !== 'off' && state !== 'dry_run' && state !== 'no_provider') return null;
+  const coverage = raw.coverage ?? {};
+  return {
+    state,
+    coverage: {
+      entries: count(coverage.entries),
+      checked: count(coverage.checked),
+      notYet: count(coverage.notYet),
+      unassessed: count(coverage.unassessed),
+      rewritesWaiting: count(coverage.rewritesWaiting),
+      lastCheckedAt: str(coverage.lastCheckedAt),
+    },
+  };
+};
+
 export const kbQualityService = {
+  /** Null when the backend does not serve the status yet (an older release) or sends nonsense. */
+  async getStatus(): Promise<KbQualityStatus | null> {
+    try {
+      const response = await apiClient.get<{ success: boolean; data: unknown }>(
+        '/api/knowledge-base/consolidation/quality-status'
+      );
+      return normaliseQualityStatus(response.data.data);
+    } catch {
+      return null;
+    }
+  },
+
   async getDetail(suggestionId: number): Promise<KbQualityDetail> {
     const response = await apiClient.get<{ success: boolean; data: unknown }>(
       `/api/knowledge-base/consolidation/quality/${suggestionId}`
