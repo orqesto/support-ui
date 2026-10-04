@@ -7,7 +7,7 @@ import {
   type LearningSuggestion,
 } from '@/services/learning.service';
 import { logger } from '@/lib/logger';
-import { isKbConsolidationSuggestion } from '@/lib/learningSuggestionPermissions';
+import { isKbModeratedSuggestion } from '@/lib/learningSuggestionPermissions';
 
 // Polls the learning notifications + pending suggestions endpoints. No BE
 // WebSocket emit exists today; 60s poll is fine — the engine cron runs every
@@ -69,13 +69,14 @@ export const useLearningNotifications = () => {
       // admin every review twice.
       // KB consolidation proposals (kb_quality consolidate/attach) likewise have their own bell row
       // (kb_consolidation_pending) and can only be accepted WITH a reviewed body — a bare Accept
-      // here would be refused. Excluded by TYPE: the rest of kb_quality (routing promotes) stays.
+      // here would be refused. The quality review's entry_review rows share that bell row and that
+      // rule. Excluded by TYPE: the rest of kb_quality (routing promotes) stays.
       setSuggestions(
         sugs.filter(
           (sug) =>
             sug.status === 'pending' &&
             sug.domain !== 'kb_review' &&
-            !isKbConsolidationSuggestion(sug)
+            !isKbModeratedSuggestion(sug)
         )
       );
       setFetchError(false);

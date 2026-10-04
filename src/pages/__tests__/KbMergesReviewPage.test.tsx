@@ -29,6 +29,9 @@ vi.mock('@/services/learning.service', () => ({
 vi.mock('@/services/kbConsolidation.service', () => ({
   kbConsolidationService: { getMembers: (id: number) => getMembers(id) },
 }));
+vi.mock('@/services/kbQuality.service', () => ({
+  kbQualityService: { getDetail: () => new Promise(() => {}), bulkReject: vi.fn() },
+}));
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
@@ -71,5 +74,43 @@ describe('merges page loads members lazily (M5)', () => {
     fireEvent.click(within(second).getByRole('button', { name: 'Review' }));
     await waitFor(() => expect(getMembers).toHaveBeenCalledTimes(1));
     expect(getMembers).toHaveBeenCalledWith(2);
+  });
+});
+
+describe('the Quality tab (KB quality review)', () => {
+  const renderAt = (url: string) =>
+    render(
+      <MemoryRouter initialEntries={[url]}>
+        <KbMergesReviewPage />
+      </MemoryRouter>
+    );
+
+  it('keeps quality suggestions off the Merges tab and lists them on the Quality tab', async () => {
+    listSuggestions.mockResolvedValue([
+      suggestion(1, 'kb_quality', 'consolidate', { label: 'refund', memberIds: [4, 5] }),
+      suggestion(7, 'kb_quality', 'entry_review', { verdict: 'remove', entryId: 70, reasons: ['no_answer'], questionPreview: 'ok' }),
+    ]);
+    renderAt('/knowledge-base/merges');
+    expect(await screen.findByText('Merge 2 similar knowledge base answers “refund” into one case')).toBeInTheDocument();
+    expect(screen.queryByText(/Remove #70/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Quality/ }));
+    expect(await screen.findByText('Remove #70 — no real answer: ok')).toBeInTheDocument();
+    expect(screen.queryByText(/Merge 2 similar/)).not.toBeInTheDocument();
+  });
+
+  it('opens on Quality when no merges are waiting but quality suggestions are', async () => {
+    listSuggestions.mockResolvedValue([
+      suggestion(7, 'kb_quality', 'entry_review', { verdict: 'improve', entryId: 70, reasons: ['raw_email'] }),
+    ]);
+    renderAt('/knowledge-base/merges');
+    expect(await screen.findByText('Rewrite #70 — question is a whole email')).toBeInTheDocument();
+  });
+
+  it('honours ?tab=quality and an explicit ?tab=merges', async () => {
+    listSuggestions.mockResolvedValue([
+      suggestion(7, 'kb_quality', 'entry_review', { verdict: 'improve', entryId: 70, reasons: ['raw_email'] }),
+    ]);
+    renderAt('/knowledge-base/merges?tab=merges');
+    expect(await screen.findByText('No merges waiting for review.')).toBeInTheDocument();
   });
 });

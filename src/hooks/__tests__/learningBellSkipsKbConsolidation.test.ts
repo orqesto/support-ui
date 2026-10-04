@@ -1,6 +1,7 @@
 /**
  * KB consolidation proposals (kb_quality consolidate/attach) have their own bell row and need a
- * reviewed body to accept. The org-admin learning section must not list them — but it must keep
+ * reviewed body to accept (so do the quality review's entry_review rows, which share that bell
+ * row). The org-admin learning section must not list them — but it must keep
  * the REST of kb_quality (routing-rule promotes), so the exclusion is by TYPE, not domain.
  */
 import { describe, it, expect, vi } from 'vitest';
@@ -27,6 +28,7 @@ vi.mock('@/services/learning.service', () => ({
         suggestion(2, 'kb_quality', 'consolidate'),
         suggestion(3, 'kb_quality', 'attach'),
         suggestion(4, 'kb_quality', 'promote'),
+        suggestion(5, 'kb_quality', 'entry_review'),
       ]),
   },
 }));
@@ -42,7 +44,7 @@ vi.mock('../useDepartmentContextKey', () => ({ useDepartmentContextKey: () => ''
 const { useLearningNotifications } = await import('../useLearningNotifications');
 
 describe('learning bell section vs KB consolidation', () => {
-  it('drops consolidate and attach, keeps a kb_quality promote', async () => {
+  it('drops consolidate, attach and the quality review\'s entry_review, keeps a kb_quality promote', async () => {
     const { result } = renderHook(() => useLearningNotifications());
     await waitFor(() => expect(result.current.suggestions.length).toBeGreaterThan(0));
     expect(result.current.suggestions.map((row) => row.id)).toEqual([1, 4]);

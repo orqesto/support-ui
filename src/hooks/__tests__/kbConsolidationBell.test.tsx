@@ -137,10 +137,10 @@ describe('KB merge bell row (F3)', () => {
       />
     );
     expect(
-      screen.getByText('3 proposed merges of similar knowledge base answers are waiting for review')
+      screen.getByText('3 knowledge base suggestions (merges and fixes to entries) are waiting for review')
     ).toBeInTheDocument();
     expect(screen.getByText('Support EU')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Review proposed merges' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Review knowledge base suggestions' }));
     expect(onNavigate).toHaveBeenCalledWith(KB_MERGES_REVIEW_PATH);
     expect(KB_MERGES_REVIEW_PATH).toBe('/knowledge-base/merges');
   });

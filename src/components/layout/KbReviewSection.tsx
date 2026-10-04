@@ -9,13 +9,15 @@ import type {
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import { useDepartments } from '@/hooks/useDepartments';
 
-/** Where the bell's "Review" goes: the page listing every pending merge proposal. */
+/** Where the bell's "Review" goes: the page listing every pending merge and quality suggestion. */
 export const KB_MERGES_REVIEW_PATH = '/knowledge-base/merges';
 
+// The row counts merge proposals AND quality suggestions (one bell per department, BE
+// consolidationBell): it cannot say how many of each, so it names both kinds.
 const describeMerges = (pending: number): string =>
   pending === 1
-    ? '1 proposed merge of similar knowledge base answers is waiting for review'
-    : `${pending} proposed merges of similar knowledge base answers are waiting for review`;
+    ? '1 knowledge base suggestion (a merge or a fix to an entry) is waiting for review'
+    : `${pending} knowledge base suggestions (merges and fixes to entries) are waiting for review`;
 
 const describe = (alert: KbReviewAlert): string => {
   const what = alert.entryCount === 1 ? '1 entry' : `${alert.entryCount} entries`;
@@ -50,7 +52,7 @@ const MergeReviewRow = ({
           <Button
             size="sm"
             onClick={() => onNavigate(KB_MERGES_REVIEW_PATH)}
-            aria-label="Review proposed merges"
+            aria-label="Review knowledge base suggestions"
           >
             Review
           </Button>

@@ -1,35 +1,54 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { KbConsolidationReview, summarizeKbMerge } from '@/components/kb/KbConsolidationReview';
+import { KbQualityList } from '@/components/kb/KbQualityList';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
+import { Tabs } from '@/components/ui/Tabs';
 import { getApiErrorMessage } from '@/lib/errorMessages';
-import { isKbConsolidationSuggestion } from '@/lib/learningSuggestionPermissions';
+import {
+  isKbConsolidationSuggestion,
+  isKbQualitySuggestion,
+} from '@/lib/learningSuggestionPermissions';
 import { learningService, type LearningSuggestion } from '@/services/learning.service';
 
+type ReviewTab = 'merges' | 'quality';
+
 /**
- * Every KB merge proposal still waiting for this moderator — where the bell's "Review" lands.
+ * Every KB suggestion still waiting for this moderator — where the bell's "Review" lands.
  * The server already filters the list to the departments this viewer may see.
  *
- * Each proposal is listed by its one-line summary; its members (every entry's full text, files,
- * threads) are read only when it is opened. Mounting a review per row would fire one `/members`
- * request per proposal on every visit (FE audit M5).
+ *  - Merges: similar learned answers proposed as one case. Each is listed by its one-line summary;
+ *    its members are read only when it is opened (mounting a review per row would fire one
+ *    `/members` request per proposal on every visit — FE audit M5).
+ *  - Quality: single entries the nightly review proposes to rewrite or remove (`KbQualityList`).
  */
 export const KbMergesReviewPage = () => {
-  const [rows, setRows] = useState<LearningSuggestion[] | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [merges, setMerges] = useState<LearningSuggestion[] | null>(null);
+  const [quality, setQuality] = useState<LearningSuggestion[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [opened, setOpened] = useState<Set<number>>(new Set());
+  const requested = searchParams.get('tab') === 'quality' ? 'quality' : 'merges';
+  // No merges but quality suggestions waiting: open on those rather than on an empty tab.
+  const tab: ReviewTab =
+    searchParams.get('tab') === null && merges?.length === 0 && quality.length > 0
+      ? 'quality'
+      : requested;
 
   const load = useCallback(async () => {
     setError(null);
     try {
       const all = await learningService.listSuggestions('kb_quality');
-      setRows(all.filter((row) => row.status === 'pending' && isKbConsolidationSuggestion(row)));
+      const pending = all.filter((row) => row.status === 'pending');
+      setMerges(pending.filter(isKbConsolidationSuggestion));
+      setQuality(pending.filter(isKbQualitySuggestion));
     } catch (err) {
-      setError(getApiErrorMessage(err) ?? 'Could not load the proposals.');
+      setError(getApiErrorMessage(err) ?? 'Could not load the suggestions.');
     }
   }, []);
 
@@ -37,25 +56,42 @@ export const KbMergesReviewPage = () => {
     void load();
   }, [load]);
 
+  const changeTab = (next: ReviewTab) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', next);
+    setSearchParams(params, { replace: true });
+  };
+
   return (
     <Layout>
       <div className="px-4 mx-auto space-y-4 w-full">
         <PageHeader
-          title="Proposed knowledge base merges"
-          description="Similar learned answers the AI suggests combining into one case. Nothing changes until you accept."
+          title="Knowledge base review"
+          description="Suggestions from the nightly review of learned answers. Nothing changes until you decide."
         />
         {error && <Alert variant="danger">{error}</Alert>}
-        {rows === null && !error ? (
+        <Tabs<ReviewTab>
+          variant="simple"
+          activeTab={tab}
+          onTabChange={changeTab}
+          tabs={[
+            { id: 'merges', label: 'Merges', badge: merges?.length ?? undefined },
+            { id: 'quality', label: 'Quality', badge: merges === null ? undefined : quality.length },
+          ]}
+        />
+        {merges === null && !error ? (
           <div className="flex justify-center py-8" role="status" aria-busy="true">
             <Spinner />
           </div>
-        ) : rows?.length === 0 ? (
+        ) : tab === 'quality' ? (
+          <KbQualityList rows={quality} onChanged={() => void load()} />
+        ) : merges?.length === 0 ? (
           <p className="py-8 text-sm text-center text-muted-foreground">
             No merges waiting for review.
           </p>
         ) : (
           <ul className="space-y-3" aria-label="Proposed merges">
-            {(rows ?? []).map((row) => (
+            {(merges ?? []).map((row) => (
               <li key={row.id}>
                 <Card>
                   <CardContent className="pt-4 space-y-3">

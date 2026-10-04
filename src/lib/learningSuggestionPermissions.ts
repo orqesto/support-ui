@@ -34,7 +34,8 @@ export const permissionForSuggestionDomain = (domain: string): Permission | null
  * KB consolidation (#873): permission by suggestion TYPE, not domain. `kb_quality` STAYS
  * admin-only — the engine also emits routing-rule `promote` suggestions under it, and opening
  * the whole domain to KB moderators would let them promote routing rules. Only the two KB
- * content types map to manage_knowledge_base (mirrors BE `suggestionPermissions.ts`).
+ * content types — and the quality review's `entry_review` — map to manage_knowledge_base (mirrors BE
+ * `suggestionPermissions.ts`).
  */
 export const KB_CONSOLIDATION_SUGGESTION_TYPES: ReadonlySet<string> = new Set([
   'consolidate',
@@ -47,6 +48,8 @@ export const SUGGESTION_TYPE_PERMISSIONS: Readonly<
   kb_quality: {
     consolidate: Permission.MANAGE_KNOWLEDGE_BASE,
     attach: Permission.MANAGE_KNOWLEDGE_BASE,
+    // KB quality review: rewrite or remove ONE learned entry (BE `entry_review`).
+    entry_review: Permission.MANAGE_KNOWLEDGE_BASE,
   },
 };
 
@@ -56,6 +59,19 @@ export const isKbConsolidationSuggestion = (suggestion: {
 }): boolean =>
   suggestion.domain === 'kb_quality' &&
   KB_CONSOLIDATION_SUGGESTION_TYPES.has(suggestion.suggestionType);
+
+/**
+ * KB quality review: the nightly verdict on one learned entry (rewrite or remove). Like a merge,
+ * it is decided only from its own review — a bare Accept carries no decision and is refused.
+ */
+export const KB_QUALITY_SUGGESTION_TYPE = 'entry_review';
+
+export const isKbQualitySuggestion = (suggestion: { domain: string; suggestionType: string }): boolean =>
+  suggestion.domain === 'kb_quality' && suggestion.suggestionType === KB_QUALITY_SUGGESTION_TYPE;
+
+/** Any kb_quality suggestion a KB moderator decides in its own review (merge, attach, quality). */
+export const isKbModeratedSuggestion = (suggestion: { domain: string; suggestionType: string }): boolean =>
+  isKbConsolidationSuggestion(suggestion) || isKbQualitySuggestion(suggestion);
 
 /** The permission needed to act on this suggestion: its TYPE mapping first, then its domain. */
 export const permissionForSuggestion = (suggestion: {

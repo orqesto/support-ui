@@ -19,8 +19,8 @@ import { ReplyStyleSuggestionDetail } from './ReplyStyleSuggestionDetail';
 import { useAuthStore } from '@/stores/authStore';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
-import { isKbConsolidationSuggestion, whyCannotAct } from '@/lib/learningSuggestionPermissions';
-import { KbMergeInboxReview, KbMergeOutcomeBanner, summarizeKbMerge, useKbMergeOutcome } from './KbMergeInboxParts';
+import { isKbConsolidationSuggestion, isKbModeratedSuggestion, isKbQualitySuggestion, whyCannotAct } from '@/lib/learningSuggestionPermissions';
+import { KbMergeInboxReview, KbMergeOutcomeBanner, KbQualityInboxReview, summarizeKbMerge, summarizeKbQuality, useKbMergeOutcome } from './KbMergeInboxParts';
 import { useSuggestionDomainAccess } from '@/hooks/useSuggestionDomainAccess';
 
 const DOMAIN_LABELS: Record<string, string> = {
@@ -86,6 +86,7 @@ const summarizeSuggestion = (
 ): string => {
   const payload = suggestion.payload ?? {};
   if (isKbConsolidationSuggestion(suggestion)) return summarizeKbMerge(payload, suggestion.suggestionType);
+  if (isKbQualitySuggestion(suggestion)) return summarizeKbQuality(payload);
   if (suggestion.suggestionType === 'add_rule') {
     const value = typeof payload.value === 'string' ? payload.value : '';
     const ruleType = typeof payload.ruleType === 'string' ? payload.ruleType : 'pattern';
@@ -642,7 +643,7 @@ export const LearningSuggestionsSettings = () => {
                                 {whyCannotAct(suggestion.domain)}
                               </span>
                             )}
-                            {isKbConsolidationSuggestion(suggestion) ? <Button size="sm" variant="outline" onClick={() => setExpandedId(suggestion.id)} disabled={!canAct}>Review</Button> : (<>
+                            {isKbModeratedSuggestion(suggestion) ? <Button size="sm" variant="outline" onClick={() => setExpandedId(suggestion.id)} disabled={!canAct}>Review</Button> : (<>
                             <Button
                               size="sm"
                               variant="outline"
@@ -681,7 +682,7 @@ export const LearningSuggestionsSettings = () => {
                         </div>
                         {expandedId === suggestion.id && (
                           <>
-                            {isKbConsolidationSuggestion(suggestion) ? <KbMergeInboxReview suggestionId={suggestion.id} canAct={canAct} onDecided={merge.onDecided} /> : suggestion.domain === 'reply_style' ? (
+                            {isKbConsolidationSuggestion(suggestion) ? <KbMergeInboxReview suggestionId={suggestion.id} canAct={canAct} onDecided={merge.onDecided} /> : isKbQualitySuggestion(suggestion) ? <KbQualityInboxReview suggestionId={suggestion.id} canAct={canAct} /> : suggestion.domain === 'reply_style' ? (
                               <ReplyStyleSuggestionDetail suggestion={suggestion} />
                             ) : suggestion.domain === 'kb_review' ? (
                               <KbReviewSuggestionDetail suggestion={suggestion} />
