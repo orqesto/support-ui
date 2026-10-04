@@ -4,8 +4,10 @@ import {
   KbConsolidationReview,
   type KbConsolidationOutcome,
 } from '@/components/kb/KbConsolidationReview';
+import { KbQualityReview } from '@/components/kb/KbQualityReview';
 
 export { summarizeKbMerge } from '@/components/kb/KbConsolidationReview';
+export { summarizeKbQuality } from '@/lib/kbQuality';
 
 /**
  * The learning inbox's KB-merge pieces (#873), kept out of LearningSuggestionsSettings.
@@ -26,6 +28,15 @@ export const KbMergeInboxReview = ({
   <div className="px-3 pb-3 ml-5">
     {canAct && <KbConsolidationReview suggestionId={suggestionId} onDecided={onDecided} />}
   </div>
+);
+
+/**
+ * A KB quality suggestion (rewrite or remove one entry) in the inbox. The list is NOT re-read on
+ * a decision, so the outcome stays where it was decided; the bell re-counts on its own
+ * (`announceKbConsolidationDecided`), and the row leaves the list on the next load.
+ */
+export const KbQualityInboxReview = ({ suggestionId, canAct }: { suggestionId: number; canAct: boolean }) => (
+  <div className="px-3 pb-3 ml-5">{canAct && <KbQualityReview suggestionId={suggestionId} />}</div>
 );
 
 export const KbMergeOutcomeBanner = ({ outcome }: { outcome: KbConsolidationOutcome | null }) =>

@@ -14,6 +14,8 @@ import { describe, expect, it } from 'vitest';
 import {
   SUGGESTION_DOMAIN_PERMISSIONS,
   isKbConsolidationSuggestion,
+  isKbModeratedSuggestion,
+  isKbQualitySuggestion,
   permissionForSuggestion,
   permissionForSuggestionDomain,
   whyCannotAct,
@@ -80,5 +82,26 @@ describe('KB consolidation — permission by suggestion TYPE (#873)', () => {
     expect(isKbConsolidationSuggestion({ domain: 'kb_quality', suggestionType: 'attach' })).toBe(
       true
     );
+  });
+});
+
+describe('KB quality review — entry_review is a KB moderator\'s decision, by TYPE', () => {
+  it('entry_review needs manage_knowledge_base', () => {
+    expect(permissionForSuggestion({ domain: 'kb_quality', suggestionType: 'entry_review' })).toBe(
+      Permission.MANAGE_KNOWLEDGE_BASE
+    );
+  });
+
+  it('is a quality suggestion and a KB-moderated one, but not a merge', () => {
+    const row = { domain: 'kb_quality', suggestionType: 'entry_review' };
+    expect(isKbQualitySuggestion(row)).toBe(true);
+    expect(isKbModeratedSuggestion(row)).toBe(true);
+    expect(isKbConsolidationSuggestion(row)).toBe(false);
+  });
+
+  it('CONTROL — the type means nothing outside kb_quality, and a promote stays admin-only', () => {
+    expect(isKbQualitySuggestion({ domain: 'routing', suggestionType: 'entry_review' })).toBe(false);
+    expect(isKbModeratedSuggestion({ domain: 'kb_quality', suggestionType: 'promote' })).toBe(false);
+    expect(permissionForSuggestion({ domain: 'kb_quality', suggestionType: 'promote' })).toBeNull();
   });
 });
