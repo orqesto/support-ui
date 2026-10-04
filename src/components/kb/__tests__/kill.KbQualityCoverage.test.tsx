@@ -45,6 +45,12 @@ describe('describeQualityStatus — each part only when it is true', () => {
     expect(text).not.toContain('may be failing');
   });
 
+  it('exactly three days is not yet a stall; a minute more is', () => {
+    const threeDays = new Date(NOW - 3 * 86_400_000).toISOString();
+    expect(describeQualityStatus(on({ checked: 5, notYet: 5, lastCheckedAt: threeDays }), NOW).variant).toBe('default');
+    expect(describeQualityStatus(on({ checked: 5, notYet: 5, lastCheckedAt: threeDays }), NOW + 60_000).variant).toBe('warning');
+  });
+
   it('a stall names the date it stopped', () => {
     const { text } = describeQualityStatus(on({ checked: 5, notYet: 5, lastCheckedAt: '2026-10-01T12:00:00.000Z' }), NOW);
     expect(text).toContain(new Date('2026-10-01T12:00:00.000Z').toLocaleDateString());

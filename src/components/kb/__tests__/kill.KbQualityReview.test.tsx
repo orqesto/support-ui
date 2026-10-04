@@ -136,6 +136,17 @@ describe('what the review shows', () => {
   });
 });
 
+describe('what the review shows — the positive cases', () => {
+  it('an unapproved entry says so; a note is shown; an AI proposal carries its badge', async () => {
+    getDetail.mockResolvedValue(detail({ note: 'a whole email', entry: entry({ approved: false }) }));
+    renderReview();
+    expect(await screen.findByText('not approved')).toBeInTheDocument();
+    expect(screen.getByText(/Why the AI flagged it/)).toBeInTheDocument();
+    expect(screen.getByText('a whole email')).toBeInTheDocument();
+    expect(screen.getByText('AI-drafted')).toBeInTheDocument();
+  });
+});
+
 describe('what is sent, and the bounds', () => {
   it('sends trimmed text; exactly the server bounds are allowed', async () => {
     getDetail.mockResolvedValue(detail());
