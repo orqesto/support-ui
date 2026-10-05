@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/Input';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { usePermissions } from '@/hooks/usePermissions';
 import type { OrganizationRole } from '@/types/roles';
-import { organizationService, type Organization } from '@/services/organization.service';
+import { organizationService } from '@/services/organization.service';
 import { departmentService, type Department } from '@/services/department.service';
 import { integrationsService } from '@/services/integrations.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -40,8 +40,17 @@ export const InviteUserModal = ({
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<OrganizationRole>('associate');
   const [departmentIds, setDepartmentIds] = useState<number[]>([]);
-  const [organizationId, setOrganizationId] = useState<number | null>(null);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  // The invite goes to the workspace the requests carry (`X-Organization-Context`): the backend
+  // invites into that one and refuses a body naming another (FE audit C-H3 — a picker here used
+  // to offer every workspace and silently invite into the current one).
+  const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
+  const organizationId = selectedOrganizationId ?? user?.organizationId ?? null;
+  const [workspaceName, setWorkspaceName] = useState<string | null>(null);
+  // Asked to invite into a workspace other than the one the requests go to: refuse up front.
+  const wrongWorkspace =
+    prefilledOrganizationId !== undefined &&
+    organizationId !== null &&
+    prefilledOrganizationId !== organizationId;
   const [departments, setDepartments] = useState<Department[]>([]);
   const [emailIntegrations, setEmailIntegrations] = useState<EmailIntegrationOption[]>([]);
   const [senderIntegrationId, setSenderIntegrationId] = useState<number | null>(null);
@@ -49,27 +58,14 @@ export const InviteUserModal = ({
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const loadOrganizations = async () => {
+    const loadWorkspaceName = async () => {
       try {
-        if (isAdmin) {
-          // Every workspace, not the first page of 100 — the picker filters client-side,
-          // so anything not loaded is simply not invitable, and this dialog also defaults
-          // the selection to `orgs[0]` off whatever it got.
-          const result = await organizationService.getAllPages(undefined);
-          const orgs = result.data || [];
-          setOrganizations(orgs);
-          if (prefilledOrganizationId) {
-            setOrganizationId(prefilledOrganizationId);
-          } else if (orgs.length > 0 && !organizationId) {
-            setOrganizationId(orgs[0].id);
-          }
-        } else if (user?.organizationId) {
-          const currentOrg = await organizationService.getCurrent();
-          setOrganizations([currentOrg]);
-          setOrganizationId(currentOrg.id);
-        }
+        // The current workspace — the same one the departments and mailboxes below come from.
+        const current = await organizationService.getCurrent();
+        setWorkspaceName(current.id === organizationId ? current.name : null);
       } catch (err) {
-        logger.error('Failed to load organizations:', err);
+        logger.error('Failed to load the workspace:', err);
+        setWorkspaceName(null);
       }
     };
 
@@ -77,7 +73,7 @@ export const InviteUserModal = ({
       if (prefilledEmail) {
         setEmail(prefilledEmail);
       }
-      loadOrganizations().catch((err) => logger.error('Failed to load organizations:', err));
+      loadWorkspaceName().catch((err) => logger.error('Failed to load the workspace:', err));
 
       departmentService
         .getAll()
@@ -108,14 +104,7 @@ export const InviteUserModal = ({
         })
         .catch(() => setEmailIntegrations([]));
     }
-  }, [
-    isOpen,
-    isAdmin,
-    user?.organizationId,
-    organizationId,
-    prefilledEmail,
-    prefilledOrganizationId,
-  ]);
+  }, [isOpen, organizationId, prefilledEmail]);
 
   const toggleDepartment = (id: number) => {
     setDepartmentIds((prev) =>
@@ -128,7 +117,11 @@ export const InviteUserModal = ({
     setError('');
 
     if (!organizationId) {
-      setError('Please select a workspace');
+      setError('No workspace is selected. Choose a workspace first.');
+      return;
+    }
+    if (wrongWorkspace) {
+      setError('This invitation is for a different workspace. Switch to that workspace first.');
       return;
     }
     // org_admin sees every department regardless (the BE fans them out); mirror
@@ -153,9 +146,6 @@ export const InviteUserModal = ({
       setEmail('');
       setRole('associate');
       setDepartmentIds(departments[0] ? [departments[0].id] : []);
-      if (isAdmin) {
-        setOrganizationId(organizations[0]?.id || null);
-      }
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send invitation');
@@ -227,23 +217,18 @@ export const InviteUserModal = ({
             </p>
           </div>
 
-          <ReactSelect
+          <Input
             label="Workspace"
-            value={String(organizationId ?? '')}
-            onChange={(value) => setOrganizationId(Number(value))}
-            options={[
-              ...(organizations.length === 0
-                ? [{ value: '', label: 'Loading workspaces...' }]
-                : []),
-              ...organizations.map((org) => ({ value: String(org.id), label: org.name })),
-            ]}
-            isDisabled={!isAdmin}
-            required
+            value={workspaceName ?? (organizationId ? `Workspace #${organizationId}` : '')}
+            disabled
+            readOnly
           />
-          <p className="-mt-2 text-sm text-muted-foreground">
-            {isAdmin
-              ? 'Select the workspace to invite this user to'
-              : 'User will be added to your workspace'}
+          <p className="-mt-2 text-sm text-muted-foreground" data-testid="invite-workspace-hint">
+            {wrongWorkspace
+              ? 'This invitation is for a different workspace than the one you are working in. Switch to that workspace first.'
+              : isAdmin
+                ? 'Invitations go to the workspace you are working in. To invite into another workspace, switch to it first.'
+                : 'User will be added to your workspace'}
           </p>
 
           <ReactSelect
@@ -345,7 +330,12 @@ export const InviteUserModal = ({
             >
               Cancel
             </Button>
-            <Button type="submit" className="flex-1" isLoading={isLoading}>
+            <Button
+              type="submit"
+              className="flex-1"
+              isLoading={isLoading}
+              disabled={isLoading || wrongWorkspace}
+            >
               <Mail className="mr-2 w-4 h-4" />
               Send Invitation
             </Button>
