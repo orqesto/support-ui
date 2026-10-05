@@ -301,7 +301,9 @@ export const handleResponseError = async (error: unknown): Promise<unknown> => {
   // instead of leaving the user with silently-failing blank screens. Global
   // admins never receive a 402, so this only gates regular users in an expired org.
   if (isAxiosError(error) && error.response?.status === 402) {
-    const data = error.response.data as { error?: string; message?: string; code?: string } | undefined;
+    const data = error.response.data as
+      | { error?: string; message?: string; code?: string; canChoosePlan?: unknown }
+      | undefined;
     // One 402 is NOT the subscription gate: the wizard's Database step answers 402
     // `MANAGED_DB_NOT_ENTITLED` when a workspace with no active plan picks the managed database (BYODB §3.4).
     // That is a step-level refusal the step renders inline; gating the whole app on it would
@@ -309,7 +311,11 @@ export const handleResponseError = async (error: unknown): Promise<unknown> => {
     if (data?.code !== 'MANAGED_DB_NOT_ENTITLED') {
       useSubscriptionGateStore
         .getState()
-        .setGated(data?.error ?? data?.message ?? 'Your subscription is not active.');
+        .setGated(data?.error ?? data?.message ?? 'Your subscription is not active.', {
+          code: data?.code ?? null,
+          // Task #8: only an org admin may choose the plan; read as unknown unless a boolean.
+          canChoosePlan: typeof data?.canChoosePlan === 'boolean' ? data.canChoosePlan : null,
+        });
     }
   }
 

@@ -10,6 +10,9 @@ import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { BasePlanCard, EnterprisePlanCard, type Plan } from '@/components/pricing/PricingPlanCard';
+import { KeepActiveDialog } from '@/components/subscription/KeepActiveDialog';
+import { isOverPlan } from '@/components/subscription/keepActive';
+import { subscriptionService, type KeepChoice, type PlanFit } from '@/services/subscription.service';
 
 /** Subscription statuses with no active plan — their plan card is offered again, not marked current. */
 const LAPSED_STATUSES = new Set(['expired', 'cancelled']);
@@ -25,6 +28,8 @@ export const PricingPage = () => {
     variant: 'success' | 'error' | 'warning' | 'info'; confirmAction?: boolean;
   }>({ open: false, title: '', description: '', variant: 'info', confirmAction: false });
 
+  // Task #8: moving to Free over its limits — who and what stays active (the rest is paused).
+  const [keepFit, setKeepFit] = useState<PlanFit | null>(null);
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const isGlobalAdmin = user?.role === 'admin';
@@ -57,23 +62,31 @@ export const PricingPage = () => {
   const extractApiError = (error: unknown, fallback: string): string =>
     getApiErrorMessage(error) ?? fallback;
 
-  const handleSelectPlan = (planName: string) => {
+  const handleSelectPlan = async (planName: string) => {
     if (planName === 'admin' && !isGlobalAdmin) {
       setAlertDialog({ open: true, title: 'Not Available', description: 'Admin plan cannot be selected. This plan is reserved for system administrators.', variant: 'error', confirmAction: false });
       return;
     }
     setSelectedPlan(planName);
     if (planName === 'free') {
+      // Over Free's limits with pausing on: the admin chooses who and what stays active first. A
+      // failed or older lookup (no `/plan-fit`) falls back to the plain confirmation.
+      const fit = await subscriptionService.getPlanFit('free').catch(() => null);
+      if (fit?.enforced && isOverPlan(fit)) {
+        setKeepFit(fit);
+        return;
+      }
       setAlertDialog({ open: true, title: 'Switch to Free', description: "Switch this workspace to the Free plan? Free's limits apply and AI runs on your own key. This change takes effect immediately.", variant: 'info', confirmAction: true });
       return;
     }
     setAlertDialog({ open: true, title: 'Confirm Upgrade', description: `Are you sure you want to upgrade to the ${planName} plan? This change will take effect immediately.`, variant: 'info', confirmAction: true });
   };
 
-  const confirmUpgrade = async () => {
+  const confirmUpgrade = async (keep?: KeepChoice) => {
     if (!selectedPlan) return;
     setUpgrading(selectedPlan);
     setAlertDialog({ ...alertDialog, open: false });
+    setKeepFit(null);
     try {
       // BE may respond with `requiresCheckout` for paid plans on Stripe-
       // configured installs — in that case we hand off to Stripe Checkout
@@ -81,7 +94,7 @@ export const PricingPage = () => {
       const response = await apiClient.post<{
         success: boolean;
         data: { requiresCheckout?: boolean; checkoutUrl?: string };
-      }>('/api/subscriptions/upgrade', { planName: selectedPlan });
+      }>('/api/subscriptions/upgrade', { planName: selectedPlan, ...(keep ? { keep } : {}) });
 
       const payload = response.data?.data;
       if (payload?.requiresCheckout && payload.checkoutUrl) {
@@ -125,7 +138,7 @@ export const PricingPage = () => {
         <div>
           <h2 className="font-display mb-6 text-2xl font-bold">Base Plans</h2>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            {basePlans.map((plan) => <BasePlanCard key={plan.id} plan={plan} currentPlanName={currentPlanName} upgrading={upgrading} onSelect={handleSelectPlan} />)}
+            {basePlans.map((plan) => <BasePlanCard key={plan.id} plan={plan} currentPlanName={currentPlanName} upgrading={upgrading} onSelect={(name) => void handleSelectPlan(name)} />)}
           </div>
         </div>
 
@@ -134,7 +147,7 @@ export const PricingPage = () => {
           <div>
             <h2 className="font-display mb-6 text-2xl font-bold flex items-center gap-2"><Shield className="w-6 h-6 text-muted-foreground" />Administrator Plans</h2>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-              {enterprisePlans.map((plan) => <EnterprisePlanCard key={plan.id} plan={plan} currentPlanName={currentPlanName} upgrading={upgrading} onSelect={handleSelectPlan} />)}
+              {enterprisePlans.map((plan) => <EnterprisePlanCard key={plan.id} plan={plan} currentPlanName={currentPlanName} upgrading={upgrading} onSelect={(name) => void handleSelectPlan(name)} />)}
             </div>
           </div>
         )}
@@ -174,8 +187,21 @@ export const PricingPage = () => {
         title={alertDialog.title}
         description={alertDialog.description}
         variant={alertDialog.variant}
-        onConfirm={alertDialog.confirmAction ? confirmUpgrade : undefined}
+        onConfirm={alertDialog.confirmAction ? () => void confirmUpgrade() : undefined}
         confirmText={alertDialog.confirmAction ? (selectedPlan === 'free' ? 'Switch to Free' : 'Upgrade') : 'OK'}
+      />
+
+      <KeepActiveDialog
+        open={keepFit !== null}
+        fit={keepFit}
+        currentUserId={user?.id ?? null}
+        mode="switch"
+        busy={upgrading === 'free'}
+        onConfirm={(keep) => void confirmUpgrade(keep)}
+        onCancel={() => {
+          setKeepFit(null);
+          setSelectedPlan(null);
+        }}
       />
     </Layout>
   );

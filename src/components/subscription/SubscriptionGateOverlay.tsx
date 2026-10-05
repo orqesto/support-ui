@@ -18,6 +18,8 @@ import { useSubscriptionGateStore } from '@/stores/subscriptionGateStore';
 export function SubscriptionGateOverlay() {
   const gated = useSubscriptionGateStore((state) => state.gated);
   const message = useSubscriptionGateStore((state) => state.message);
+  const code = useSubscriptionGateStore((state) => state.code);
+  const canChoosePlan = useSubscriptionGateStore((state) => state.canChoosePlan);
   const logout = useAuthStore((state) => state.logout);
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -32,6 +34,18 @@ export function SubscriptionGateOverlay() {
     window.location.href = '/login';
   };
 
+  // Task #8: the trial ended and the backend said who may choose. Only an org admin can switch the
+  // plan — anyone else gets "an admin needs to choose", never a "Choose a plan" button that can
+  // only answer "access denied". Unknown (an older backend) keeps the original screen.
+  const trialEnded = code === 'SUBSCRIPTION_TRIAL_EXPIRED' && canChoosePlan !== null;
+  const waitingForAdmin = trialEnded && canChoosePlan === false;
+  const title = trialEnded ? 'Your free trial has ended' : 'Subscription inactive';
+  const explanation = !trialEnded
+    ? "Access is paused until the workspace has an active plan. Choose one — Free included, with Free's limits — or contact us. Once it's active again, reload to continue."
+    : waitingForAdmin
+      ? "An admin of this workspace has been asked to choose a plan. Incoming messages are still received; nothing is lost. Once a plan is chosen, reload to continue."
+      : "Choose how to continue: a paid plan with a card, or Free with Free's limits. Incoming messages are still received; nothing is lost.";
+
   return (
     <div
       role="alertdialog"
@@ -43,21 +57,22 @@ export function SubscriptionGateOverlay() {
         <div className="flex gap-3 items-center mb-3">
           <AlertTriangle className="w-6 h-6 text-destructive" />
           <h2 id="subscription-gate-title" className="font-display text-lg font-semibold">
-            Subscription inactive
+            {title}
           </h2>
         </div>
 
         <p className="mb-2 text-sm text-muted-foreground">{message}</p>
-        <p className="mb-5 text-sm text-muted-foreground">
-          Access is paused until the workspace has an active plan. Choose one — Free included, with
-          Free&apos;s limits — or contact us. Once it&apos;s active again, reload to continue.
-        </p>
+        <p className="mb-5 text-sm text-muted-foreground">{explanation}</p>
 
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => navigate('/pricing')}>Choose a plan</Button>
-          <Button variant="outline" onClick={() => navigate('/subscription')}>
-            View billing
-          </Button>
+          {!waitingForAdmin && (
+            <>
+              <Button onClick={() => navigate('/pricing')}>Choose a plan</Button>
+              <Button variant="outline" onClick={() => navigate('/subscription')}>
+                View billing
+              </Button>
+            </>
+          )}
           <Button variant="outline" onClick={() => window.location.reload()}>
             Reload
           </Button>
