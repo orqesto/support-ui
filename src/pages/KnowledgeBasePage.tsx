@@ -34,6 +34,8 @@ import { useUiFlags } from '@/hooks/useUiFlags';
 import { isCaseRow, unmergeConsequence } from '@/lib/kbConsolidation';
 import { runCaseAction, type CaseActionNow } from '@/components/kb/runCaseAction';
 import { toast } from '@/lib/toast';
+import { KbFindingBanner } from '@/components/kb/KbFindingBanner';
+import { useKbFindingFilter } from '@/hooks/useKbFindingFilter';
 
 /** An action on a merged CASE row — each one unmerges it, so each is confirmed first. */
 /**
@@ -123,11 +125,13 @@ export const KnowledgeBasePage = () => {
   }>({ open: false, title: '', description: '', variant: 'info' });
   // BE `knowledgeBaseController.getAll` is dept-scoped via X-Department-Context.
   const selectedDeptKey = useDepartmentContextKey();
+  // A KB cases finding ("48 learned entries are raw emails") opens exactly its entries.
+  const finding = useKbFindingFilter(selectedDeptKey);
   const fetchEntries = useCallback(
     async (page = 1) => {
       try {
         setLoading(true);
-        const response = await kbService.getAll({
+        const response = await finding.fetchList({
           type: filterType === 'all' ? undefined : filterType,
           page,
           limit: pagination.limit,
@@ -135,10 +139,12 @@ export const KnowledgeBasePage = () => {
           status: filterStatus === 'all' ? undefined : filterStatus,
           messageSourceId: filterSource === ALL_SOURCES ? undefined : Number(filterSource),
         });
+        if (!response) return; // overtaken by a newer request
         setEntries(response.data.entries);
         setPagination(response.data.pagination);
       } catch (error) {
         logger.error('Failed to fetch KB entries:', error);
+        if (finding.filter) setEntries([]); // never the previous rows under the finding's title
         setAlertDialog({
           open: true,
           title: 'Failed to Load',
@@ -146,12 +152,12 @@ export const KnowledgeBasePage = () => {
           variant: 'error',
         });
       } finally {
-        setLoading(false);
+        if (!finding.overtaken()) setLoading(false);
       }
     },
-    // selectedDeptKey forces re-create on dept toggle; consumer useEffect re-runs.
+    // listScopeKey (department + finding) forces re-create on a toggle; consumer useEffect re-runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filterType, filterStatus, filterSource, searchQuery, pagination.limit, selectedDeptKey]
+    [filterType, filterStatus, filterSource, searchQuery, pagination.limit, finding.listScopeKey]
   );
 
   // Refetch when filters change (immediate, no debounce)
@@ -216,13 +222,15 @@ export const KnowledgeBasePage = () => {
     setFilterSource(ALL_SOURCES);
     setSearchQuery('');
     setPendingSearch('');
+    if (finding.filter) finding.showAllEntries('#all');
   };
 
   const activeFilterCount =
     (filterType !== 'all' ? 1 : 0) +
     (filterStatus !== 'all' ? 1 : 0) +
     (filterSource !== ALL_SOURCES ? 1 : 0) +
-    (searchQuery?.trim() ? 1 : 0);
+    (searchQuery?.trim() ? 1 : 0) +
+    (finding.filter ? 1 : 0);
 
   const handleApprove = async (id: number) => {
     try {
@@ -246,6 +254,10 @@ export const KnowledgeBasePage = () => {
             : entry
         )
       );
+      // An approved entry stays listed while its KB review is open. The review closes once none of
+      // its entries is undecided; the list drops it then, within the report's one-minute cache.
+      // Re-read the same page so the entry's state and the count are current.
+      if (finding.filter) void fetchEntries(pagination.page);
     } catch (error) {
       logger.error('Failed to approve entry:', error);
       setAlertDialog({
@@ -266,6 +278,7 @@ export const KnowledgeBasePage = () => {
           entry.id === id ? { ...entry, approved: false, hidden: true, rejectedAt } : entry
         )
       );
+      if (finding.filter) void fetchEntries(finding.pageAfter(entries.length, pagination.page));
     } catch (error) {
       logger.error('Failed to reject entry:', error);
       setAlertDialog({
@@ -284,6 +297,7 @@ export const KnowledgeBasePage = () => {
       setEntries((prev) =>
         prev.map((entry) => (entry.id === id ? { ...entry, hidden: true, approved: false } : entry))
       );
+      if (finding.filter) void fetchEntries(finding.pageAfter(entries.length, pagination.page));
     } catch (error) {
       logger.error('Failed to hide entry:', error);
       setAlertDialog({
@@ -482,6 +496,7 @@ export const KnowledgeBasePage = () => {
           <Card className="mb-6">
             <CardContent className="p-4">
               <div className="space-y-4">
+                <KbFindingBanner {...finding.banner} total={loading ? null : pagination.total} />
                 {/* Header */}
                 <div className="flex flex-wrap gap-3 justify-between items-center">
                   <div className="flex flex-wrap gap-3 items-center">
