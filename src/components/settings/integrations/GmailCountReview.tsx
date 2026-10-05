@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import {
   formatInOdly,
+  kbHistoryNote,
   MissingSamples,
 } from '@/components/settings/integrations/MailboxReconciliation';
 import { apiErrorMessage } from '@/lib/apiError';
@@ -98,7 +99,7 @@ export const cappedReason = (cappedBy: GmailCountResult['cappedBy'], count: numb
  * whenever `quotaHit` is true, and a sent-check refusal always leaves something missing (the
  * message it could not check), so every case here is one the backend can produce.
  */
-export const quotaNote = (where: 'listing' | 'sentCheck' | 'samples'): string => {
+export const quotaNote = (where: 'listing' | 'sentCheck' | 'samples' | 'kbHistory'): string => {
   switch (where) {
     case 'listing':
       return 'Gmail refused requests (quota) while listing — fewer messages were compared, and no sent-copy check or examples were run.';
@@ -106,6 +107,8 @@ export const quotaNote = (where: 'listing' | 'sentCheck' | 'samples'): string =>
       return 'Gmail refused requests (quota) during the sent-copy check — some of the missing may be sent messages Odly already holds, and no examples could be fetched.';
     case 'samples':
       return 'Gmail refused requests (quota) while fetching examples — the counts are unaffected, but some examples are missing.';
+    case 'kbHistory':
+      return 'Gmail refused requests (quota) while counting the knowledge-base history — the total is unaffected, but how much of it will be mined is not known.';
   }
 };
 
@@ -215,10 +218,12 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
           onChange={changeDays}
           options={historicalRangeOptions}
         />
-        {source.isKnowledgeBase && (
+        {/* Once a count is shown, its own history line says what is mined in THIS mailbox's
+            state (swept already, no cutoff); a general sentence beside it would contradict it. */}
+        {source.isKnowledgeBase && !result?.kbHistory && (
           <p className="text-xs text-muted-foreground">
-            Knowledge Base source: everything counted here will also be mined for Q&amp;A pairs,
-            which is billed AI usage.
+            Knowledge Base source: mail from before the knowledge-base cutoff is mined for Q&amp;A
+            pairs (billed AI usage); later mail is imported as regular work.
           </p>
         )}
       </div>
@@ -229,6 +234,7 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
           {result.capped && (
             <p className="mt-1 text-xs">{cappedReason(result.cappedBy, result.count)}</p>
           )}
+          {result.kbHistory && <p className="mt-1 text-xs">{kbHistoryNote(result.kbHistory)}</p>}
           {/* An older backend returns only the count — show nothing rather than "0". */}
           {typeof result.inOdly === 'number' && typeof result.missing === 'number' && (
             <>
