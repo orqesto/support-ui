@@ -31,7 +31,7 @@ const STAGES: { key: StageKey; label: string; unit: [string, string]; hint: stri
     key: 'decided',
     label: 'Checked',
     unit: ['message', 'messages'],
-    hint: 'Each incoming message checked: spam check and routing, or set aside for the knowledge base. An older message in a thread is covered when a newer one is checked',
+    hint: 'Each incoming message checked: spam check and routing, or set aside for the knowledge base. A message that waited for someone to route its thread is covered once a newer message of the thread is checked, or the thread is closed',
   },
   {
     key: 'analysis',
