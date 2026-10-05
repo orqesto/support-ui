@@ -17,6 +17,8 @@ import { useDepartments } from '@/hooks/useDepartments';
 import { usePermissions } from '@/hooks/usePermissions';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { caseHref, kbRef } from '@/lib/kbConsolidation';
+import { kbFindingHref } from '@/lib/kbFinding';
+import { KbRunNow } from '@/components/kb/KbRunNow';
 import { useAuthStore } from '@/stores/authStore';
 import {
   kbConsolidationService,
@@ -102,7 +104,27 @@ export const KbCaseRowView = ({ row }: { row: KbCaseRow }) => {
   );
 };
 
-export const KbCasesFindingsPanel = ({ findings }: { findings: KbCasesFindings }) => {
+/**
+ * A finding's link opens the knowledge base narrowed to exactly the entries it counted, in the
+ * department the report is for. Without a department there is no such list, so no link — never a
+ * link to "all entries" worded as if it were the list.
+ */
+const FindingLink = ({ to, children }: { to: string | null; children: React.ReactNode }) =>
+  to ? (
+    <Link to={to} className="text-primary hover:underline">
+      {children}
+    </Link>
+  ) : (
+    <>{children}</>
+  );
+
+export const KbCasesFindingsPanel = ({
+  findings,
+  departmentId = null,
+}: {
+  findings: KbCasesFindings;
+  departmentId?: number | null;
+}) => {
   const lines: { key: string; node: React.ReactNode }[] = [];
   if (findings.rawEmails > 0) {
     lines.push({
@@ -115,9 +137,9 @@ export const KbCasesFindingsPanel = ({ findings }: { findings: KbCasesFindings }
             'learned entries are raw emails'
           )}
           , not {findings.rawEmails === 1 ? 'a question' : 'questions'} —{' '}
-          <Link to="/knowledge-base#qa_pair" className="text-primary hover:underline">
+          <FindingLink to={departmentId === null ? null : kbFindingHref('raw_email', departmentId)}>
             clean up
-          </Link>
+          </FindingLink>
           . Until hidden, a raw email that belongs to a real case keeps serving its old answer next
           to the merged one.
         </>
@@ -135,9 +157,11 @@ export const KbCasesFindingsPanel = ({ findings }: { findings: KbCasesFindings }
       node: (
         <>
           {findings.awaitingKbReview} awaiting{' '}
-          <Link to="/knowledge-base?status=pending" className="text-primary hover:underline">
+          <FindingLink
+            to={departmentId === null ? null : kbFindingHref('awaiting_review', departmentId)}
+          >
             KB review
-          </Link>
+          </FindingLink>
         </>
       ),
     });
@@ -289,8 +313,11 @@ const miningOffText = (report: KbCasesReport, learnedSomething: boolean): string
 export const KbCasesReportView = ({
   report,
   search = '',
+  departmentId = null,
 }: {
   report: KbCasesReport;
+  /** The department the report is for: the findings' lists are per department. */
+  departmentId?: number | null;
   /** The search the report was asked for; an empty result then means "nothing matches it". */
   search?: string;
 }) => {
@@ -302,7 +329,7 @@ export const KbCasesReportView = ({
         <BoundedNotice report={report} />
         <ClassifyingStatus report={report} />
         <BelowQualityBar count={report.footer.belowQualityBar} />
-        <KbCasesFindingsPanel findings={report.findings} />
+        <KbCasesFindingsPanel findings={report.findings} departmentId={departmentId} />
       </div>
     );
   }
@@ -344,7 +371,7 @@ export const KbCasesReportView = ({
         </ul>
       )}
       <BelowQualityBar count={report.footer.belowQualityBar} />
-      <KbCasesFindingsPanel findings={report.findings} />
+      <KbCasesFindingsPanel findings={report.findings} departmentId={departmentId} />
     </div>
   );
 };
@@ -420,6 +447,9 @@ export const KbCasesPage = () => {
     void load();
   }, [load]);
 
+  // A run that ended changes the report (classified counts, cases, findings).
+  const handleRunEnded = useCallback(() => void load(), [load]);
+
   const handleCsv = async () => {
     if (departmentId === null) return;
     try {
@@ -436,15 +466,18 @@ export const KbCasesPage = () => {
           title="Knowledge base cases"
           description="The questions customers keep asking, grouped from learned answers"
           actions={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleCsv()}
-              disabled={departmentId === null}
-            >
-              <Download className="mr-1 w-4 h-4" />
-              Download CSV
-            </Button>
+            <div className="flex flex-wrap gap-3 items-start">
+              <KbRunNow onRunEnded={handleRunEnded} />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleCsv()}
+                disabled={departmentId === null}
+              >
+                <Download className="mr-1 w-4 h-4" />
+                Download CSV
+              </Button>
+            </div>
           }
         />
         <p className="text-sm text-muted-foreground" data-testid="cases-caption">
@@ -518,7 +551,9 @@ export const KbCasesPage = () => {
             <Spinner />
           </div>
         ) : (
-          report && <KbCasesReportView report={report} search={reportSearch} />
+          report && (
+            <KbCasesReportView report={report} search={reportSearch} departmentId={departmentId} />
+          )
         )}
         {report && !report.miningOff && report.pagination.totalPages > 1 && (
           <Pagination

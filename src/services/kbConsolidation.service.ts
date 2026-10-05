@@ -7,6 +7,7 @@
  * the UI says it does not know rather than guessing.
  */
 import { apiClient } from '@/lib/api-client';
+import { getErrorBody, getErrorStatus } from '@/lib/errorMessages';
 
 export type KbConsolidationType = 'consolidate' | 'attach';
 
@@ -159,6 +160,54 @@ const casesParams = (query: KbCasesQuery): Record<string, string> => {
   return params;
 };
 
+export type KbConsolidationLastRun = {
+  trigger: 'manual' | 'nightly';
+  startedAt: string;
+  finishedAt: string;
+  outcome: 'done' | 'skipped' | 'failed';
+  skipped: string | null;
+  partial: boolean;
+};
+
+export type KbConsolidationRunState = {
+  /** Null when no run holds the workspace. */
+  runningSince: string | null;
+  last: KbConsolidationLastRun | null;
+  /** Only a workspace admin may start a run. */
+  canRun: boolean;
+};
+
+/** Started, or why "Run now" did not start (BE 409 `data.reason`). */
+export type KbRunNowResult =
+  | { started: true; startedAt: string }
+  | { started: false; reason: string; retryAfter: string | null };
+
+const asString = (value: unknown): string | null => (typeof value === 'string' ? value : null);
+
+/** Defensive: the frontend can reach a deployment before the backend that serves this route. */
+export const normalizeRunState = (raw: unknown): KbConsolidationRunState => {
+  const data = (raw ?? {}) as Record<string, unknown>;
+  const last = (data.last ?? null) as Record<string, unknown> | null;
+  const startedAt = last ? asString(last.startedAt) : null;
+  const finishedAt = last ? asString(last.finishedAt) : null;
+  return {
+    runningSince: asString(data.runningSince),
+    canRun: data.canRun === true,
+    last:
+      last && startedAt && finishedAt
+        ? {
+            trigger: last.trigger === 'manual' ? 'manual' : 'nightly',
+            startedAt,
+            finishedAt,
+            outcome:
+              last.outcome === 'skipped' || last.outcome === 'failed' ? last.outcome : 'done',
+            skipped: asString(last.skipped),
+            partial: last.partial === true,
+          }
+        : null,
+  };
+};
+
 export const kbConsolidationService = {
   async getMembers(suggestionId: number): Promise<KbConsolidationDetail> {
     const response = await apiClient.get<{ success: boolean; data: KbConsolidationDetail }>(
@@ -196,6 +245,47 @@ export const kbConsolidationService = {
       { params: casesParams(query) }
     );
     return response.data.data;
+  },
+
+  /**
+   * Null on a 404: a backend without the run-state route (an older deployment), or a viewer the
+   * backend does not show it to — no button then. The API client's interceptor rejects with a
+   * plain Error carrying `status`/`data`, not an AxiosError: read it through the shared helpers.
+   */
+  async getRunState(): Promise<KbConsolidationRunState | null> {
+    try {
+      const response = await apiClient.get<{ success: boolean; data: unknown }>(
+        '/api/knowledge-base/consolidation/run'
+      );
+      return normalizeRunState(response.data.data);
+    } catch (err) {
+      if (getErrorStatus(err) === 404) return null;
+      throw err;
+    }
+  },
+
+  /** A 409 is an answer, not a failure: it says why the run did not start. */
+  async runNow(): Promise<KbRunNowResult> {
+    try {
+      const response = await apiClient.post<{ success: boolean; data: { startedAt?: unknown } }>(
+        '/api/knowledge-base/consolidation/run'
+      );
+      return {
+        started: true,
+        startedAt: asString(response.data.data?.startedAt) ?? new Date().toISOString(),
+      };
+    } catch (err) {
+      if (getErrorStatus(err) === 409) {
+        const data = (getErrorBody(err) as { data?: { reason?: unknown; retryAfter?: unknown } })
+          ?.data;
+        return {
+          started: false,
+          reason: asString(data?.reason) ?? 'unknown',
+          retryAfter: asString(data?.retryAfter),
+        };
+      }
+      throw err;
+    }
   },
 
   /** The CSV goes through the API client so it carries the same auth as every other call. */

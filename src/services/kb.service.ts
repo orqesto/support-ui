@@ -103,6 +103,10 @@ export const approvalProvenance = (entry: {
   return entry.approvedBy === null ? 'unreviewed' : 'reviewed';
 };
 
+/** The KB cases report findings a list can be narrowed to (BE `KB_FINDINGS`). */
+export type KbFinding = 'raw_email' | 'awaiting_review';
+export const KB_FINDINGS: readonly KbFinding[] = ['raw_email', 'awaiting_review'];
+
 export const kbService = {
   getAll: async (params?: {
     type?: string;
@@ -111,6 +115,9 @@ export const kbService = {
     search?: string;
     status?: string;
     messageSourceId?: number;
+    /** Only the entries behind one finding of the KB cases report (needs `departmentId`). */
+    finding?: KbFinding;
+    departmentId?: number;
   }) => {
     const queryParams = new URLSearchParams();
     if (params?.type) queryParams.set('type', params.type);
@@ -120,6 +127,10 @@ export const kbService = {
     if (params?.status) queryParams.set('status', params.status);
     if (params?.messageSourceId)
       queryParams.set('messageSourceId', params.messageSourceId.toString());
+    if (params?.finding && params.departmentId) {
+      queryParams.set('finding', params.finding);
+      queryParams.set('departmentId', params.departmentId.toString());
+    }
 
     const queryString = queryParams.toString();
     const response = await apiClient.get<PaginatedResponse<KBEntry>>(
