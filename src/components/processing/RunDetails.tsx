@@ -31,7 +31,7 @@ const STAGES: { key: StageKey; label: string; unit: [string, string]; hint: stri
     key: 'decided',
     label: 'Checked',
     unit: ['message', 'messages'],
-    hint: 'Each incoming message checked: spam check and routing, or set aside for the knowledge base',
+    hint: 'Each incoming message checked: spam check and routing, or set aside for the knowledge base. An older message in a thread is covered when a newer one is checked',
   },
   {
     key: 'analysis',
@@ -196,20 +196,35 @@ export const RunDetails = ({
   laterKbRun = false,
   kbParked = false,
   resumeWay,
+  newest = true,
 }: {
   run: RunView;
   laterKbRun?: boolean;
   kbParked?: boolean;
   /** The paused mine's way back, from the header summary. */
   resumeWay?: ResumeWay;
+  /**
+   * The run is the mailbox's newest. The panel keeps detailing the run it opened for; once newer
+   * checks ran, "Last check" under them was untrue (taco 2026-10-05: "Last check 10:55" above
+   * checks at 12:06, 12:21 and 12:26).
+   */
+  newest?: boolean;
 }) => {
   if (run.channel === 'kb') {
     return <KbRunDetails run={run} laterKbRun={laterKbRun} resumeWay={resumeWay} />;
   }
-  return <MailRunDetails run={run} kbParked={kbParked} />;
+  return <MailRunDetails run={run} kbParked={kbParked} newest={newest} />;
 };
 
-const MailRunDetails = ({ run, kbParked }: { run: RunView; kbParked: boolean }) => {
+const MailRunDetails = ({
+  run,
+  kbParked,
+  newest,
+}: {
+  run: RunView;
+  kbParked: boolean;
+  newest: boolean;
+}) => {
   const status = runStatus(run, kbParked);
   // A stage nothing was queued for (AI off, no KB mining) is not shown as a finished 0 / 0.
   const stages = run.stages
@@ -229,7 +244,8 @@ const MailRunDetails = ({ run, kbParked }: { run: RunView; kbParked: boolean }) 
     <div className="space-y-2.5" data-testid="run-details">
       <div className="flex gap-2 justify-between items-center">
         <span className="text-xs font-medium">
-          {status === 'running' ? 'Checking since' : 'Last check'} {formatRunTime(run.startedAt)}
+          {status === 'running' ? 'Checking since' : newest ? 'Last check' : 'Check at'}{' '}
+          {formatRunTime(run.startedAt)}
         </span>
         <Badge size="sm" variant={RUN_STATUS_VARIANT[status]}>
           {runStatusLabel(run, kbParked)}

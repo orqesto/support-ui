@@ -199,10 +199,33 @@ export const describePause = (
     const when = at ? `after ${at}` : `after the daily reset at ${describeNextReset()}`;
     return `Paused: today’s AI limit for KB processing was reached. Mining resumes by itself ${when}.`;
   }
-  if (reason) return `Paused because ${reason}. The rest follow on the next check.`;
+  const rest = leftForNextCheck(run);
+  if (reason) return `Paused because ${reason}. ${rest}`;
   // `deferred` without a code: the run yielded to live mail under load (runLedger `deferred`).
-  if (run.deferred) return 'Paused because the server was busy. The rest follow on the next check.';
-  return 'Stopped before it had looked at everything. The rest follow on the next check.';
+  if (run.deferred) return `Paused because the server was busy. ${rest}`;
+  return `Stopped before it had looked at everything. ${rest}`;
+};
+
+/**
+ * How many messages a Gmail check found but stopped before reaching: found − saved − already in
+ * Odly − could not be saved (support-service gmailService: duplicates = processed − saved, and a
+ * failed message is not processed). Null when it cannot be told — IMAP's `found` is what it went
+ * through and its duplicates are unknown — or when none is left. "The rest" alone left the reader
+ * to do this sum, and a found count that does not add up read as lost mail (taco 2026-10-05: 2,470
+ * found, 1,339 saved, 1,047 already in Odly — 84 left).
+ */
+export const notReachedCount = (run: RunView): number | null => {
+  if (run.channel !== 'gmail' || run.duplicates === null) return null;
+  const left = run.found - run.saved - run.duplicates - run.failed;
+  return left > 0 ? left : null;
+};
+
+// Past tense: the line also describes an older check, whose next check may already have run.
+const leftForNextCheck = (run: RunView): string => {
+  const left = notReachedCount(run);
+  return left === null
+    ? 'The rest follow on the next check.'
+    : `${plural(left, 'message was', 'messages were')} left for the next check.`;
 };
 
 /**
