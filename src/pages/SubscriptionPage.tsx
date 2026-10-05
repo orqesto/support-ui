@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { AddPaymentMethodDialog } from '@/components/billing/AddPaymentMethodDialog';
 import { billingDateLine } from '@/components/subscription/billingDateLine';
+import { FreePlanActiveCard } from '@/components/subscription/FreePlanActiveCard';
 import { MessagePackOfferCard } from '@/components/subscription/MessagePackOfferCard';
 import { describeUsagePeriod } from '@/components/subscription/usagePeriodCopy';
 import { useMessagePackReturn } from '@/components/subscription/useMessagePackReturn';
@@ -516,6 +517,9 @@ export const SubscriptionPage = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Task #8: on Free with pausing on — who is paused, and choosing who stays active. */}
+        <FreePlanActiveCard planName={plan.name} canManage={canManage} currentUserId={user?.id ?? null} />
 
         {/* Plan Limits Reference */}
         <Card>

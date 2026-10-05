@@ -6,9 +6,10 @@ import { apiClient } from '@/lib/api-client';
  */
 const getFeatures = () =>
   apiClient
-    .get<{ success: boolean; data: { features: Record<string, boolean> } }>(
-      '/api/subscriptions/features'
-    )
+    .get<{
+      success: boolean;
+      data: { features: Record<string, boolean> };
+    }>('/api/subscriptions/features')
     .then((res) => res.data.data.features);
 
 /**
@@ -228,7 +229,94 @@ const getPlans = () =>
     .get<{ success: boolean; data: { plans: SubscriptionPlan[] } }>('/api/subscriptions/plans')
     .then((res) => res.data.data.plans);
 
+/** Who and what counts against a plan (task #8): seats are members, channels are message sources. */
+export type PlanFitMember = {
+  userId: number;
+  name: string;
+  email: string;
+  role: string;
+  state: 'active' | 'paused';
+  joinedAt: string | null;
+};
+export type PlanFitChannel = {
+  id: number;
+  name: string;
+  type: string;
+  state: 'active' | 'paused';
+  createdAt: string | null;
+};
+export type PlanFit = {
+  /** Pausing is on for this workspace (`billing.free_pause`). Off → the old behaviour, no choice to make. */
+  enforced: boolean;
+  limits: { maxUsers: number; maxIntegrations: number };
+  over: { members: number; sources: number };
+  members: PlanFitMember[];
+  channels: PlanFitChannel[];
+};
+export type KeepChoice = { memberUserIds: number[]; sourceIds: number[] };
+
+const toNumber = (value: unknown, fallback: number): number =>
+  typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+const asList = (value: unknown): Record<string, unknown>[] =>
+  Array.isArray(value)
+    ? value.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+    : [];
+
+/**
+ * Normalised defensively (FE-app/CLAUDE.md, version skew): this frontend can reach production
+ * before the backend that serves `/plan-fit`. Anything missing reads as "not enforced, nothing
+ * over" — the screen then simply does not appear.
+ */
+export const normalizePlanFit = (raw: unknown): PlanFit => {
+  const data = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const limits = (data.limits ?? {}) as Record<string, unknown>;
+  const over = (data.over ?? {}) as Record<string, unknown>;
+  return {
+    enforced: data.enforced === true,
+    limits: {
+      maxUsers: toNumber(limits.maxUsers, 0),
+      maxIntegrations: toNumber(limits.maxIntegrations, 0),
+    },
+    over: { members: toNumber(over.members, 0), sources: toNumber(over.sources, 0) },
+    members: asList(data.members).map((member) => {
+      const email = typeof member.email === 'string' ? member.email : '';
+      return {
+        userId: toNumber(member.userId, 0),
+        name: typeof member.name === 'string' && member.name ? member.name : email,
+        email,
+        role: typeof member.role === 'string' ? member.role : '',
+        state: member.state === 'paused' ? ('paused' as const) : ('active' as const),
+        joinedAt: typeof member.joinedAt === 'string' ? member.joinedAt : null,
+      };
+    }),
+    channels: asList(data.channels).map((channel) => ({
+      id: toNumber(channel.id, 0),
+      name: typeof channel.name === 'string' ? channel.name : '',
+      type: typeof channel.type === 'string' ? channel.type : '',
+      state: channel.state === 'paused' ? 'paused' : 'active',
+      createdAt: typeof channel.createdAt === 'string' ? channel.createdAt : null,
+    })),
+  };
+};
+
+/** `plan` omitted → the current plan. */
+const getPlanFit = (plan?: string) =>
+  apiClient
+    .get<{
+      success: boolean;
+      data: unknown;
+    }>('/api/subscriptions/plan-fit', { params: plan ? { plan } : {} })
+    .then((res) => normalizePlanFit(res.data.data));
+
+/** Choose who and what stays active within the current plan; the rest is paused, never deleted. */
+const setActiveWithinPlan = (keep: KeepChoice) =>
+  apiClient
+    .put<{ success: boolean; data: unknown }>('/api/subscriptions/plan-fit/active', keep)
+    .then((res) => res.data.data);
+
 export const subscriptionService = {
+  getPlanFit,
+  setActiveWithinPlan,
   getFeatures,
   cancelSubscription,
   resumeSubscription,

@@ -12,13 +12,28 @@ import { create } from 'zustand';
 type SubscriptionGateState = {
   gated: boolean;
   message: string | null;
-  setGated: (message: string) => void;
+  /** The 402's machine code — `SUBSCRIPTION_TRIAL_EXPIRED` or `SUBSCRIPTION_INACTIVE` — when sent. */
+  code: string | null;
+  /**
+   * Task #8: may THIS user choose the plan (an org admin)? `null` when the backend did not say —
+   * an older backend, or a 402 that is not about the trial — and the overlay keeps its old shape.
+   */
+  canChoosePlan: boolean | null;
+  setGated: (message: string, details?: { code?: string | null; canChoosePlan?: boolean | null }) => void;
   clear: () => void;
 };
 
 export const useSubscriptionGateStore = create<SubscriptionGateState>((set) => ({
   gated: false,
   message: null,
-  setGated: (message: string) => set({ gated: true, message }),
-  clear: () => set({ gated: false, message: null }),
+  code: null,
+  canChoosePlan: null,
+  setGated: (message, details) =>
+    set({
+      gated: true,
+      message,
+      code: details?.code ?? null,
+      canChoosePlan: typeof details?.canChoosePlan === 'boolean' ? details.canChoosePlan : null,
+    }),
+  clear: () => set({ gated: false, message: null, code: null, canChoosePlan: null }),
 }));
