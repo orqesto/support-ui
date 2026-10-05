@@ -781,6 +781,7 @@ export const ProcessingPanel = ({
               laterKbRun={hasLaterKbRun(shownRun, runs)}
               kbParked={kbParked}
               resumeWay={resumeWay}
+              newest={shownRun === newest}
             />
           ) : (
             !importOnScreen &&

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { describeRunProblems } from '../processingWords';
+import { describePause, describeRunProblems, notReachedCount } from '../processingWords';
 import { makeKbRun, makeRun } from './fixtures';
 
 /**
@@ -117,5 +117,52 @@ describe('a KB mine paused by the daily KB token limit', () => {
       'Paused by the daily AI limit for KB processing; it was due to resume by itself at 00:12 UTC on 2026-09-29 ('
     );
     expect(line).not.toMatch(/resumes by itself after|today’s/);
+  });
+});
+
+// taco 2026-10-05: "2,470 new messages found, 1,339 saved, 1,047 already in Odly" over "The rest
+// follow on the next check" — 84 unaccounted for, read as lost mail.
+describe('a paused Gmail check says how many it did not reach', () => {
+  const rateLimited = (over: Parameters<typeof makeRun>[0] = {}) =>
+    makeRun({
+      outcome: 'paused',
+      stoppedBy: 'rate_limited',
+      problems: ['paused'],
+      found: 2470,
+      saved: 1339,
+      duplicates: 1047,
+      failed: 0,
+      ...over,
+    });
+
+  it('found − saved − already in Odly − could not be saved', () => {
+    expect(notReachedCount(rateLimited())).toBe(84);
+    expect(notReachedCount(rateLimited({ failed: 4 }))).toBe(80);
+    expect(describePause(rateLimited())).toBe(
+      'Paused because the mail provider limited the rate of requests. 84 messages were left for the next check.'
+    );
+    expect(describePause(rateLimited({ found: 2387 }))).toBe(
+      'Paused because the mail provider limited the rate of requests. 1 message was left for the next check.'
+    );
+  });
+
+  it('the server-busy and the plain stop say it too', () => {
+    expect(describePause(rateLimited({ stoppedBy: null, deferred: true }))).toBe(
+      'Paused because the server was busy. 84 messages were left for the next check.'
+    );
+    expect(describePause(rateLimited({ stoppedBy: null, deferred: false }))).toBe(
+      'Stopped before it had looked at everything. 84 messages were left for the next check.'
+    );
+  });
+
+  it('none left, IMAP (duplicates unknown) or a KB mine: no number is made up', () => {
+    expect(notReachedCount(rateLimited({ found: 2386 }))).toBeNull();
+    expect(notReachedCount(rateLimited({ found: 2000 }))).toBeNull();
+    expect(notReachedCount(rateLimited({ channel: 'imap', duplicates: null }))).toBeNull();
+    expect(notReachedCount(rateLimited({ channel: 'imap', duplicates: 5 }))).toBeNull();
+    expect(notReachedCount(makeKbRun({ found: 50, saved: 0, duplicates: 0 }))).toBeNull();
+    expect(describePause(rateLimited({ found: 2386 }))).toBe(
+      'Paused because the mail provider limited the rate of requests. The rest follow on the next check.'
+    );
   });
 });

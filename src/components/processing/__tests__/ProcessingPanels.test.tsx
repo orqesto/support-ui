@@ -556,3 +556,28 @@ describe('where it sits', () => {
     expect(localStorage.getItem('processingPanel_position_5')).not.toBeNull();
   });
 });
+
+// taco 2026-10-05: the panel kept detailing the import it opened for and called it "Last check
+// 10:55" above checks at 12:06, 12:21 and 12:26.
+describe('the detailed run says whether it is the latest', () => {
+  const older = () => makeRun({ id: 'older', found: 2470, startedAt: '2026-10-05T08:55:00.000Z' });
+  const newer = () => makeRun({ id: 'newer', found: 2, startedAt: '2026-10-05T10:26:00.000Z' });
+
+  it('opened for an older run with newer checks after it: "Check at", not "Last check"', async () => {
+    views.set(5, untracked({ runs: [newer(), older()] }));
+    render(ui([]));
+    act(() => useProcessingPanelStore.getState().open(5, 'manual', 'older'));
+    await settle();
+    const head = screen.getByTestId('run-details').textContent ?? '';
+    expect(head).toMatch(/Check at /);
+    expect(head).not.toMatch(/Last check/);
+  });
+
+  it('CONTROL: the newest run is still the "Last check"', async () => {
+    views.set(5, untracked({ runs: [newer(), older()] }));
+    render(ui([]));
+    act(() => useProcessingPanelStore.getState().open(5, 'manual', 'newer'));
+    await settle();
+    expect(screen.getByTestId('run-details').textContent).toMatch(/Last check /);
+  });
+});
