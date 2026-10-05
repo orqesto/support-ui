@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { X, Mail, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -44,7 +44,11 @@ export const InviteUserModal = ({
   // invites into that one and refuses a body naming another (FE audit C-H3 — a picker here used
   // to offer every workspace and silently invite into the current one).
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
-  const organizationId = selectedOrganizationId ?? user?.organizationId ?? null;
+  // A global admin with no workspace selected has none: the backend gives them no default (it
+  // answers 400), so naming their own workspace here would promise an invite that cannot happen.
+  const organizationId = selectedOrganizationId ?? (isAdmin ? null : (user?.organizationId ?? null));
+  // The workspace the department / sender picks were made in: a pick from another one is invalid.
+  const picksFor = useRef<number | null>(null);
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
   // Asked to invite into a workspace other than the one the requests go to: refuse up front.
   const wrongWorkspace =
@@ -58,18 +62,30 @@ export const InviteUserModal = ({
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // Answers for a workspace this dialog has since left (a switch, another tab) are dropped.
+    let stale = false;
     const loadWorkspaceName = async () => {
       try {
         // The current workspace — the same one the departments and mailboxes below come from.
         const current = await organizationService.getCurrent();
-        setWorkspaceName(current.id === organizationId ? current.name : null);
+        if (!stale) setWorkspaceName(current.id === organizationId ? current.name : null);
       } catch (err) {
         logger.error('Failed to load the workspace:', err);
-        setWorkspaceName(null);
+        if (!stale) setWorkspaceName(null);
       }
     };
 
-    if (isOpen) {
+    if (isOpen && organizationId === null) setWorkspaceName(null);
+    if (isOpen && organizationId !== null) {
+      // Picks made in another workspace (the dialog stays mounted between openings) would be
+      // refused by the backend: start this workspace's picks afresh.
+      const sameWorkspace = picksFor.current === organizationId;
+      picksFor.current = organizationId;
+      if (!sameWorkspace) {
+        setDepartmentIds([]);
+        setSenderIntegrationId(null);
+        setWorkspaceName(null);
+      }
       if (prefilledEmail) {
         setEmail(prefilledEmail);
       }
@@ -78,6 +94,7 @@ export const InviteUserModal = ({
       departmentService
         .getAll()
         .then((depts) => {
+          if (stale) return;
           setDepartments(depts);
           // Preselect the first SERVED department so the form is valid by default — never
           // an unserved one (it's disabled and can't be handled).
@@ -86,12 +103,15 @@ export const InviteUserModal = ({
             setDepartmentIds((prev) => (prev.length > 0 ? prev : [firstServed.id]));
           }
         })
-        .catch(() => setDepartments([]));
+        .catch(() => {
+          if (!stale) setDepartments([]);
+        });
 
       // Email integrations the invite can be sent from (Gmail / IMAP).
       integrationsService
         .getAll()
         .then((res) => {
+          if (stale) return;
           const emailish = (res.data ?? []).filter(
             (integration) =>
               integration.enabled &&
@@ -102,8 +122,13 @@ export const InviteUserModal = ({
           );
           setSenderIntegrationId((prev) => prev ?? emailish[0]?.id ?? null);
         })
-        .catch(() => setEmailIntegrations([]));
+        .catch(() => {
+          if (!stale) setEmailIntegrations([]);
+        });
     }
+    return () => {
+      stale = true;
+    };
   }, [isOpen, organizationId, prefilledEmail]);
 
   const toggleDepartment = (id: number) => {
@@ -224,11 +249,13 @@ export const InviteUserModal = ({
             readOnly
           />
           <p className="-mt-2 text-sm text-muted-foreground" data-testid="invite-workspace-hint">
-            {wrongWorkspace
-              ? 'This invitation is for a different workspace than the one you are working in. Switch to that workspace first.'
-              : isAdmin
-                ? 'Invitations go to the workspace you are working in. To invite into another workspace, switch to it first.'
-                : 'User will be added to your workspace'}
+            {organizationId === null
+              ? 'No workspace is selected. Choose a workspace first.'
+              : wrongWorkspace
+                ? 'This invitation is for a different workspace than the one you are working in. Switch to that workspace first.'
+                : isAdmin
+                  ? 'Invitations go to the workspace you are working in. To invite into another workspace, switch to it first.'
+                  : 'User will be added to this workspace'}
           </p>
 
           <ReactSelect
@@ -334,7 +361,7 @@ export const InviteUserModal = ({
               type="submit"
               className="flex-1"
               isLoading={isLoading}
-              disabled={isLoading || wrongWorkspace}
+              disabled={isLoading || wrongWorkspace || organizationId === null}
             >
               <Mail className="mr-2 w-4 h-4" />
               Send Invitation

@@ -21,13 +21,20 @@ vi.mock('@/services/organization.service', () => ({
     getAllPages: (...args: unknown[]) => getAllPages(...args),
   },
 }));
+let departmentsByWorkspace: Record<
+  number,
+  Array<{ id: number; name: string; active: boolean; served: boolean }>
+> = {};
+const defaultDepartments = [{ id: 70, name: 'Support', active: true, served: true }];
+type Dept = { id: number; name: string; active: boolean; served: boolean };
+const getDepartments = vi.fn<() => Promise<Dept[]>>();
 vi.mock('@/services/department.service', () => ({
-  departmentService: {
-    getAll: () => Promise.resolve([{ id: 70, name: 'Support', active: true, served: true }]),
-  },
+  departmentService: { getAll: () => getDepartments() },
 }));
+type Integration = { id: number; name: string; enabled: boolean; type: string };
+const getIntegrations = vi.fn<() => Promise<{ data: Integration[] }>>();
 vi.mock('@/services/integrations.service', () => ({
-  integrationsService: { getAll: () => Promise.resolve({ data: [] }) },
+  integrationsService: { getAll: () => getIntegrations() },
 }));
 vi.mock('@/utils/departmentReachability', () => ({ isDepartmentServed: () => true }));
 vi.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ theme: 'light' }) }));
@@ -40,6 +47,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   selectedOrganizationId = 7;
   isAdmin = true;
+  departmentsByWorkspace = {};
+  getIntegrations.mockResolvedValue({ data: [] });
+  getDepartments.mockImplementation(() =>
+    Promise.resolve(
+      (selectedOrganizationId !== null && departmentsByWorkspace[selectedOrganizationId]) ||
+        defaultDepartments
+    )
+  );
   getCurrent.mockResolvedValue({ id: 7, name: 'Acme Support' });
   onInvite.mockResolvedValue();
 });
@@ -74,7 +89,7 @@ describe('InviteUserModal — the invite goes to the workspace the requests go t
     render(<InviteUserModal isOpen onClose={vi.fn()} onInvite={onInvite} />);
     expect(await screen.findByDisplayValue('Home')).toBeInTheDocument();
     expect(screen.getByTestId('invite-workspace-hint')).toHaveTextContent(
-      'User will be added to your workspace'
+      'User will be added to this workspace'
     );
     fill();
     await waitFor(() => expect(screen.getByText('Support')).toBeInTheDocument());
@@ -120,5 +135,114 @@ describe('InviteUserModal — the invite goes to the workspace the requests go t
     render(<InviteUserModal isOpen onClose={vi.fn()} onInvite={onInvite} />);
     expect(await screen.findByDisplayValue('Workspace #7')).toBeInTheDocument();
     expect(screen.queryByDisplayValue('Someone else')).not.toBeInTheDocument();
+  });
+
+  it('a global admin with no workspace selected has none: said, submit disabled, nothing sent', async () => {
+    selectedOrganizationId = null;
+    render(<InviteUserModal isOpen onClose={vi.fn()} onInvite={onInvite} />);
+    expect(screen.getByTestId('invite-workspace-hint')).toHaveTextContent(
+      'No workspace is selected'
+    );
+    // Not their own workspace (the backend gives a global admin no default).
+    expect(screen.queryByDisplayValue('Workspace #3')).not.toBeInTheDocument();
+    fill();
+    const submit = screen.getByRole('button', { name: /Send Invitation|Invite/ });
+    expect(submit).toBeDisabled();
+    fireEvent.submit(submit.closest('form') as HTMLFormElement);
+    expect(
+      await screen.findByText('No workspace is selected. Choose a workspace first.', {
+        selector: ':not([data-testid])',
+      })
+    ).toBeInTheDocument();
+    expect(onInvite).not.toHaveBeenCalled();
+  });
+
+  it('a workspace switch while mounted drops the old workspace picks', async () => {
+    departmentsByWorkspace = {
+      7: [{ id: 70, name: 'Support', active: true, served: true }],
+      8: [{ id: 80, name: 'Sales', active: true, served: true }],
+    };
+    const { rerender } = render(<InviteUserModal isOpen onClose={vi.fn()} onInvite={onInvite} />);
+    await waitFor(() => expect(screen.getByText('Support')).toBeInTheDocument());
+    selectedOrganizationId = 8;
+    getCurrent.mockResolvedValue({ id: 8, name: 'Other' });
+    rerender(<InviteUserModal isOpen onClose={vi.fn()} onInvite={onInvite} />);
+    expect(await screen.findByDisplayValue('Other')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Sales')).toBeInTheDocument());
+    fill();
+    fireEvent.click(screen.getByRole('button', { name: /Send Invitation|Invite/ }));
+    await waitFor(() => expect(onInvite).toHaveBeenCalled());
+    // Department 70 belongs to workspace 7: never sent with workspace 8.
+    expect(onInvite.mock.calls[0][2]).toEqual([80]);
+    expect(onInvite.mock.calls[0][3]).toBe(8);
+  });
+
+  it('a late workspace answer from before a switch is not shown', async () => {
+    let resolveOld: (value: { id: number; name: string }) => void = () => {};
+    getCurrent.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOld = resolve;
+        })
+    );
+    const { rerender } = render(<InviteUserModal isOpen onClose={vi.fn()} onInvite={onInvite} />);
+    selectedOrganizationId = 8;
+    getCurrent.mockResolvedValue({ id: 8, name: 'Other' });
+    rerender(<InviteUserModal isOpen onClose={vi.fn()} onInvite={onInvite} />);
+    expect(await screen.findByDisplayValue('Other')).toBeInTheDocument();
+    // The old request answers last — with the old workspace, which even matched ITS render.
+    resolveOld({ id: 7, name: 'Acme Support' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.getByDisplayValue('Other')).toBeInTheDocument();
+  });
+
+  it('a late department list from before a switch is not applied', async () => {
+    let resolveOld: (value: Dept[]) => void = () => {};
+    getDepartments.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOld = resolve;
+        })
+    );
+    const { rerender } = render(<InviteUserModal isOpen onClose={vi.fn()} onInvite={onInvite} />);
+    departmentsByWorkspace = { 8: [{ id: 80, name: 'Sales', active: true, served: true }] };
+    selectedOrganizationId = 8;
+    getCurrent.mockResolvedValue({ id: 8, name: 'Other' });
+    rerender(<InviteUserModal isOpen onClose={vi.fn()} onInvite={onInvite} />);
+    await waitFor(() => expect(screen.getByText('Sales')).toBeInTheDocument());
+    resolveOld([{ id: 70, name: 'Support', active: true, served: true }]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByText('Support')).not.toBeInTheDocument();
+    expect(screen.getByText('Sales')).toBeInTheDocument();
+  });
+
+  it("a late sender list from before a switch never becomes the invite's sender", async () => {
+    const senders = (ids: number[]) => ({
+      data: ids.map((id) => ({ id, name: `Mailbox ${id}`, enabled: true, type: 'email' })),
+    });
+    let resolveOld: (value: { data: Integration[] }) => void = () => {};
+    getIntegrations.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOld = resolve;
+        })
+    );
+    const { rerender } = render(<InviteUserModal isOpen onClose={vi.fn()} onInvite={onInvite} />);
+    departmentsByWorkspace = { 8: [{ id: 80, name: 'Sales', active: true, served: true }] };
+    selectedOrganizationId = 8;
+    getCurrent.mockResolvedValue({ id: 8, name: 'Other' });
+    getIntegrations.mockResolvedValue(senders([801, 802]));
+    rerender(<InviteUserModal isOpen onClose={vi.fn()} onInvite={onInvite} />);
+    await waitFor(() => expect(screen.getByText('Sales')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Mailbox 801')).toBeInTheDocument());
+    resolveOld(senders([701, 702]));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // The picker still offers workspace 8's mailboxes, not workspace 7's.
+    expect(screen.getByText('Mailbox 801')).toBeInTheDocument();
+    expect(screen.queryByText(/Mailbox 70\d/)).not.toBeInTheDocument();
+    fill();
+    fireEvent.click(screen.getByRole('button', { name: /Send Invitation|Invite/ }));
+    await waitFor(() => expect(onInvite).toHaveBeenCalled());
+    expect(onInvite.mock.calls[0][4]).toBe(801);
   });
 });
