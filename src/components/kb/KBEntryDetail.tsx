@@ -19,16 +19,6 @@ import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Drawer } from '@/components/ui/Drawer';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/Dialog';
-import { Input } from '@/components/ui/Input';
-import { Textarea } from '@/components/ui/Textarea';
 import { apiClient } from '@/lib/api-client';
 import { kbService, type KBEntry } from '@/services/kb.service';
 import { KBApprovalProvenance } from './KBApprovalProvenance';
@@ -42,7 +32,7 @@ import {
   mayRemoveCase,
   offersReviewActions,
 } from '@/lib/kbConsolidation';
-import { editableQaOf, editCanSave, editSaveBody, QA_DRIFT_NOTE, type EditStart } from '@/lib/kbQaText';
+import { KBEntryEditDialog } from './KBEntryEditDialog';
 
 const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico']);
 const isImageFile = (filename: string) =>
@@ -92,6 +82,11 @@ type KBEntryDetailProps = {
   onClose: () => void;
   onApprove: (id: number) => void;
   onHide: (id: number) => void;
+  /**
+   * Show a hidden entry again WITHOUT approving it (PATCH /unhide, D5). A REJECTED entry is not
+   * unhidden: its eye is "Restore", which approves it (the backend clears the rejection).
+   */
+  onUnhide: (id: number) => void;
   onReject: (id: number) => void;
   onDelete: (entry: KBEntry) => void;
   onUpdate?: (entry: KBEntry) => void;
@@ -133,6 +128,7 @@ export const KBEntryDetail = ({
   onClose,
   onApprove,
   onHide,
+  onUnhide,
   onReject,
   onDelete,
   onUpdate,
@@ -141,22 +137,9 @@ export const KBEntryDetail = ({
 }: KBEntryDetailProps) => {
   const [fullEntry, setFullEntry] = useState<KBEntry | null>(null);
   const [loading, setLoading] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editForm, setEditForm] = useState({
-    title: '',
-    content: '',
-    category: '',
-    question: '',
-    answer: '',
-  });
-  // A Q&A entry is edited as question + answer (sent as such); anything else as content.
-  const [editsQa, setEditsQa] = useState(false);
+  const [editing, setEditing] = useState(false);
   // The drawer holds the entry's FULL text only once the detail route answered.
   const [detailLoaded, setDetailLoaded] = useState(false);
-  // The Q&A edit's baseline: the halves AI drafts read, how the shown text relates, the start values.
-  const [editStart, setEditStart] = useState<EditStart | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
 
   // Fetch full entry content when drawer opens
   useEffect(() => {
@@ -184,52 +167,7 @@ export const KBEntryDetail = ({
   }, [entry?.id, entry]);
 
   const handleEditClick = () => {
-    if (displayEntry) {
-      const qaText = editableQaOf(displayEntry, detailLoaded);
-      setEditsQa(qaText !== null);
-      setEditStart({
-        title: displayEntry.title,
-        category: displayEntry.category,
-        content: displayEntry.content,
-        qa: qaText,
-      });
-      setEditForm({
-        title: displayEntry.title,
-        content: displayEntry.content,
-        category: displayEntry.category ?? '',
-        question: qaText?.question ?? '',
-        answer: qaText?.answer ?? '',
-      });
-      setEditError(null);
-      setEditDialogOpen(true);
-    }
-  };
-
-  const handleSaveEdit = async () => {
-    if (!displayEntry) return;
-
-    setSaving(true);
-    try {
-      const response = await kbService.update(
-        displayEntry.id,
-        editStart
-          ? editSaveBody(editForm, editStart)
-          : { title: editForm.title, content: editForm.content, category: editForm.category }
-      );
-      if (response.success && response.data) {
-        setFullEntry(response.data);
-        if (onUpdate) {
-          onUpdate(response.data);
-        }
-        setEditDialogOpen(false);
-      }
-    } catch (error) {
-      setEditError(
-        error instanceof Error ? error.message : 'Failed to update entry. Please try again.'
-      );
-    } finally {
-      setSaving(false);
-    }
+    if (displayEntry) setEditing(true);
   };
 
   if (!entry) return null;
@@ -546,24 +484,27 @@ export const KBEntryDetail = ({
                   Edit
                 </Button>
               )}
-              {canReview && offersReviewActions(displayEntry) && !displayEntry.approved && !displayEntry.hidden && (
-                <>
-                  {mayRemoveCase(displayEntry) && (
-                    <Button
-                      variant="outline"
-                      onClick={() => onReject(displayEntry.id)}
-                      title={`Hidden now, deleted after ${REJECTED_RETENTION_DAYS} days unless approved again`}
-                    >
-                      <XCircle className="mr-2 w-4 h-4" />
-                      Reject
+              {canReview &&
+                offersReviewActions(displayEntry) &&
+                !displayEntry.approved &&
+                !displayEntry.hidden && (
+                  <>
+                    {mayRemoveCase(displayEntry) && (
+                      <Button
+                        variant="outline"
+                        onClick={() => onReject(displayEntry.id)}
+                        title={`Hidden now, deleted after ${REJECTED_RETENTION_DAYS} days unless approved again`}
+                      >
+                        <XCircle className="mr-2 w-4 h-4" />
+                        Reject
+                      </Button>
+                    )}
+                    <Button variant="primary" onClick={() => onApprove(displayEntry.id)}>
+                      <CheckCircle className="mr-2 w-4 h-4" />
+                      Approve
                     </Button>
-                  )}
-                  <Button variant="primary" onClick={() => onApprove(displayEntry.id)}>
-                    <CheckCircle className="mr-2 w-4 h-4" />
-                    Approve
-                  </Button>
-                </>
-              )}
+                  </>
+                )}
               {canReview &&
                 offersReviewActions(displayEntry) &&
                 (displayEntry.hidden || mayRemoveCase(displayEntry)) &&
@@ -573,7 +514,14 @@ export const KBEntryDetail = ({
                     Hide
                   </Button>
                 ) : (
-                  <Button variant="outline" onClick={() => onApprove(displayEntry.id)}>
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      displayEntry.rejectedAt
+                        ? onApprove(displayEntry.id)
+                        : onUnhide(displayEntry.id)
+                    }
+                  >
                     <Eye className="mr-2 w-4 h-4" />
                     {displayEntry.rejectedAt ? 'Restore' : 'Unhide'}
                   </Button>
@@ -596,108 +544,17 @@ export const KBEntryDetail = ({
         </div>
       )}
 
-      {/* Edit Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogHeader>
-          <DialogTitle>Edit KB Entry</DialogTitle>
-          <DialogClose onClose={() => setEditDialogOpen(false)} />
-        </DialogHeader>
-        <DialogContent>
-          {editError && (
-            <div className="p-3 mb-4 text-sm text-destructive bg-destructive-muted rounded border border-destructive-line">
-              {editError}
-            </div>
-          )}
-          {editStart?.qa && editStart.qa.drift !== 'none' && (
-            <p className="mb-4 text-sm text-muted-foreground">{QA_DRIFT_NOTE[editStart.qa.drift]}</p>
-          )}
-          {displayEntry && isCaseRow(displayEntry) && (
-            <p className="mb-4 text-sm text-muted-foreground">
-              This is a merged case. Edit its wording here; to change what this case is about,
-              {mayRemoveCase(displayEntry)
-                ? ' Unmerge it.'
-                : ' only a moderator covering every department it serves, or an org admin, can Unmerge it.'}
-            </p>
-          )}
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="edit-title" className="block mb-1 text-sm font-medium">
-                Title
-              </label>
-              <Input
-                id="edit-title"
-                value={editForm.title}
-                onChange={(event) => setEditForm({ ...editForm, title: event.target.value })}
-                placeholder="Entry title"
-              />
-            </div>
-            <div>
-              <label htmlFor="edit-category" className="block mb-1 text-sm font-medium">
-                Category
-              </label>
-              <Input
-                id="edit-category"
-                value={editForm.category}
-                onChange={(event) => setEditForm({ ...editForm, category: event.target.value })}
-                placeholder="Category"
-              />
-            </div>
-            {editsQa ? (
-              <>
-                <div>
-                  <label htmlFor="edit-question" className="block mb-1 text-sm font-medium">
-                    Question
-                  </label>
-                  <Textarea
-                    id="edit-question"
-                    value={editForm.question}
-                    onChange={(event) => setEditForm({ ...editForm, question: event.target.value })}
-                    rows={3}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="edit-answer" className="block mb-1 text-sm font-medium">
-                    Answer
-                  </label>
-                  <Textarea
-                    id="edit-answer"
-                    value={editForm.answer}
-                    onChange={(event) => setEditForm({ ...editForm, answer: event.target.value })}
-                    rows={8}
-                  />
-                </div>
-              </>
-            ) : (
-              <div>
-                <label htmlFor="edit-content" className="block mb-1 text-sm font-medium">
-                  Content
-                </label>
-                <Textarea
-                  id="edit-content"
-                  value={editForm.content}
-                  onChange={(event) => setEditForm({ ...editForm, content: event.target.value })}
-                  placeholder="Entry content"
-                  rows={10}
-                  className="font-mono text-sm"
-                />
-              </div>
-            )}
-          </div>
-        </DialogContent>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={saving}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleSaveEdit}
-            isLoading={saving}
-            disabled={editStart !== null && !editCanSave(editForm, editStart)}
-          >
-            Save Changes
-          </Button>
-        </DialogFooter>
-      </Dialog>
+      {/* Edit Dialog — shared with the KB cases worklist */}
+      <KBEntryEditDialog
+        entry={editing ? displayEntry : null}
+        detailLoaded={detailLoaded}
+        onClose={() => setEditing(false)}
+        onSaved={(saved) => {
+          setFullEntry(saved);
+          if (onUpdate) onUpdate(saved);
+          setEditing(false);
+        }}
+      />
     </Drawer>
   );
 };

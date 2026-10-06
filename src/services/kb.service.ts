@@ -1,4 +1,14 @@
 import { apiClient } from '@/lib/api-client';
+import { isRouteAbsent } from '@/lib/apiError';
+
+/**
+ * What Unhide did. `unsupported`: the backend has no unhide route yet (an older deployment) —
+ * the entry was NOT changed, and the caller must not quietly approve it instead (D5).
+ * `approved`: the state the backend restored, when it says; null when it did not.
+ */
+export type KbUnhideResult =
+  | { outcome: 'unhidden'; approved: boolean | null }
+  | { outcome: 'unsupported' };
 
 export type KBEntry = {
   id: number;
@@ -165,6 +175,23 @@ export const kbService = {
       ApiResponse<{ unmerged?: boolean; restored?: number } | null>
     >(`/api/knowledge-base/entries/${id}/hide`);
     return response.data;
+  },
+
+  /**
+   * Show a hidden entry again WITHOUT approving it: the backend restores what hiding recorded
+   * (approved stays approved, pending stays pending; hidden before that record existed ⇒ pending).
+   */
+  unhide: async (id: number): Promise<KbUnhideResult> => {
+    try {
+      const response = await apiClient.patch<ApiResponse<{ approved?: unknown } | null>>(
+        `/api/knowledge-base/entries/${id}/unhide`
+      );
+      const approved = response.data?.data?.approved;
+      return { outcome: 'unhidden', approved: typeof approved === 'boolean' ? approved : null };
+    } catch (err) {
+      if (isRouteAbsent(err)) return { outcome: 'unsupported' };
+      throw err;
+    }
   },
 
   /**

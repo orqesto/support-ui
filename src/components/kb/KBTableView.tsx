@@ -46,6 +46,11 @@ type KBTableViewProps = {
   onView: (entry: KBEntry) => void;
   onApprove: (id: number) => void;
   onHide: (id: number) => void;
+  /**
+   * Show a hidden entry again WITHOUT approving it (PATCH /unhide, D5). A REJECTED entry is not
+   * unhidden: its eye is "Restore", which approves it (the backend clears the rejection).
+   */
+  onUnhide: (id: number) => void;
   onReject: (id: number) => void;
   onDelete: (entry: KBEntry) => void;
   /** May approve / reject / hide (manage_knowledge_base). Without it the server answers 403. */
@@ -60,6 +65,7 @@ export const KBTableView = ({
   onView,
   onApprove,
   onHide,
+  onUnhide,
   onReject,
   onDelete,
   canReview,
@@ -210,7 +216,9 @@ export const KBTableView = ({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => onApprove(entry.id)}
+                        onClick={() =>
+                          entry.rejectedAt ? onApprove(entry.id) : onUnhide(entry.id)
+                        }
                         title={
                           entry.rejectedAt ? 'Approve — restores the rejected entry' : 'Unhide'
                         }

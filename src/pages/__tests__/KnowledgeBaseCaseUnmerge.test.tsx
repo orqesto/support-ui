@@ -17,6 +17,7 @@ const hide = vi.fn<(...args: unknown[]) => unknown>();
 const del = vi.fn<(...args: unknown[]) => unknown>();
 const unmerge = vi.fn<(...args: unknown[]) => unknown>();
 const approve = vi.fn<(...args: unknown[]) => unknown>();
+const unhide = vi.fn<(...args: unknown[]) => unknown>();
 const toastCalls: Array<{ kind: string; message: string }> = [];
 vi.mock('@/lib/toast', () => ({
   toast: Object.fromEntries(
@@ -36,6 +37,7 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
       getAll: (...args: unknown[]) => getAll(...args),
       hide: (...args: unknown[]) => hide(...args),
       approve: (...args: unknown[]) => approve(...args),
+      unhide: (...args: unknown[]) => unhide(...args),
       delete: (...args: unknown[]) => del(...args),
       getById: (...args: unknown[]) => getById(...args),
     },
@@ -201,7 +203,7 @@ describe('KB page — unmerging a case (F4)', () => {
     await waitFor(() => expect(getAll.mock.calls.length).toBeGreaterThan(callsBefore));
   });
 
-  it('pass 14 LOW-1: an Unhidden detached entry hidden again reads "Hidden", not "detached from case"', async () => {
+  it('pass 14 LOW-1 / D5: Unhide on a detached entry UNHIDES it — never approves it', async () => {
     const detached: KBEntry = {
       ...plain,
       id: 11,
@@ -214,19 +216,37 @@ describe('KB page — unmerging a case (F4)', () => {
       success: true,
       data: { entries: [detached], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } },
     });
-    approve.mockResolvedValue({ success: true, data: null });
-    hide.mockResolvedValue({ success: true, data: null });
+    unhide.mockResolvedValue({ outcome: 'unhidden', approved: false });
     page();
-    let row = await tableRow('Detached one');
+    const row = await tableRow('Detached one');
     expect(within(row).getByText('detached from case #KB-9')).toBeInTheDocument();
     fireEvent.click(within(row).getByRole('button', { name: 'Unhide' }));
-    await waitFor(() => expect(approve).toHaveBeenCalledWith(11));
-    row = await tableRow('Detached one');
-    fireEvent.click(await within(row).findByRole('button', { name: 'Hide' }));
-    await waitFor(() => expect(hide).toHaveBeenCalledWith(11));
-    row = await tableRow('Detached one');
-    await waitFor(() => expect(within(row).getByText('Hidden')).toBeInTheDocument());
-    expect(within(row).queryByText(/detached from case/)).not.toBeInTheDocument();
+    await waitFor(() => expect(unhide).toHaveBeenCalledWith(11));
+    expect(approve).not.toHaveBeenCalled();
+    // Back to what it was before it was hidden: pending stays pending.
+    const after = await tableRow('Detached one');
+    await waitFor(() => expect(within(after).getByText('Pending')).toBeInTheDocument());
+    expect(within(after).queryByText(/detached from case/)).not.toBeInTheDocument();
+  });
+
+  it('D5: on a backend without the unhide route, Unhide approves NOTHING until "Approve instead" is chosen', async () => {
+    getAll.mockResolvedValue({
+      success: true,
+      data: {
+        entries: [{ ...plain, id: 12, title: 'Hidden one', approved: false, hidden: true }],
+        pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      },
+    });
+    unhide.mockResolvedValue({ outcome: 'unsupported' });
+    approve.mockResolvedValue({ success: true, data: null });
+    page();
+    const row = await tableRow('Hidden one');
+    fireEvent.click(within(row).getByRole('button', { name: 'Unhide' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('Unhide is not available on this server yet');
+    expect(approve).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Approve instead' }));
+    await waitFor(() => expect(approve).toHaveBeenCalledWith(12));
   });
 
   it('pass 14 MED-1: a case row the viewer may not unmerge offers no Hide / Unmerge / Delete; the plain row keeps them', async () => {

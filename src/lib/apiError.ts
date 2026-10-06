@@ -35,3 +35,17 @@ export const apiErrorMessage = (error: unknown, fallback: string): string => {
 /** The HTTP status the interceptor recorded, when there was one. */
 export const apiErrorStatus = (error: unknown): number | undefined =>
   (error as { status?: number } | null | undefined)?.status;
+
+/**
+ * A 404 that came from a backend with NO such route (an older deployment), not from a route that
+ * answered "not found". Every route of ours answers a JSON envelope (`{ success, error }`); a
+ * missing route answers Express's default HTML page ("Cannot PATCH …"), which the interceptor
+ * carries as a string body. Keyed on the body's SHAPE, so "entry not found" from a route that
+ * exists is never read as "this server cannot do that yet".
+ */
+export const isRouteAbsent = (error: unknown): boolean => {
+  if (apiErrorStatus(error) !== 404) return false;
+  const body = (error as { data?: unknown } | null | undefined)?.data;
+  if (typeof body !== 'object' || body === null) return true;
+  return !('success' in body) && !('error' in body) && !('message' in body);
+};

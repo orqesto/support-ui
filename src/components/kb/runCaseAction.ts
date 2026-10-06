@@ -37,7 +37,7 @@ const showsCase = (now: CaseActionNow, caseId: number): boolean =>
   now.selectedId === caseId || now.selectedCaseId === caseId;
 
 export const runCaseAction = async (
-  entry: KBEntry,
+  entry: Pick<KBEntry, 'id'>,
   action: CaseActionKind,
   /** Called when the request ANSWERS — never a snapshot taken when it was sent. */
   now: () => CaseActionNow

@@ -292,9 +292,35 @@ describe('KB Cases report (F2)', () => {
     );
     expect(screen.getByRole('list', { name: 'Findings' })).toBeInTheDocument();
     expect(screen.queryByText(/No learned answers match/)).not.toBeInTheDocument();
+    // An older backend sends counts only: nothing is LISTED below, so nothing says so.
     expect(
-      screen.getByText('No learned answer here forms a case yet — what there is is listed below.')
+      screen.getByText('No learned answer here forms a case yet — the findings below say why.')
     ).toBeInTheDocument();
+    expect(screen.queryByText(/listed below/)).not.toBeInTheDocument();
+  });
+
+  it('the detached finding names both ways an entry leaves a case', () => {
+    view(report({ findings: { ...zeroFindings, detached: 2 } }));
+    expect(
+      screen.getByText(
+        '2 entries detached from a case (taken out by a moderator, or the thread moved to another mailbox)'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('set-aside ids but no worklist to list them: never says "listed below"', () => {
+    view(
+      report({
+        headers: [],
+        footer: { belowQualityBar: 0 },
+        classifying: { settled: 50, total: 50, beyondBound: 0, outOfReach: 0 },
+        setAside: [{ entryId: 5, reason: 'raw_email' }],
+      })
+    );
+    expect(
+      screen.getByText('No learned answer here forms a case yet — the findings below say why.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/listed below/)).not.toBeInTheDocument();
   });
 
   it("renders a group row titled 'waiting for the proposed case' as the backend names it", () => {
@@ -415,7 +441,16 @@ describe('KB Cases report (F2)', () => {
     expect(screen.queryByText(/No learned answers match here/)).not.toBeInTheDocument();
   });
 
-  it('a moderator is offered only their own departments, and the first of THOSE is loaded', async () => {
+  const ticked = () =>
+    within(screen.getByRole('group', { name: 'Departments' }))
+      .getAllByRole('checkbox')
+      .map((box) => ({
+        name: box.closest('label')?.textContent,
+        checked: (box as HTMLInputElement).checked,
+      }));
+  const departmentsOf = (query: unknown) => (query as { departmentIds?: number[] }).departmentIds;
+
+  it('D2: a moderator is offered only their own departments, and ALL of them are reported by default', async () => {
     departments = [
       { id: 4, name: 'Support EU' },
       { id: 7, name: 'Billing' },
@@ -426,16 +461,15 @@ describe('KB Cases report (F2)', () => {
         <KbCasesPage />
       </MemoryRouter>
     );
-    const options = within(screen.getByLabelText('Department')).getAllByRole('option');
-    expect(options.map((option) => option.textContent)).toEqual(['Billing']);
+    expect(ticked()).toEqual([{ name: 'Billing', checked: false }]);
+    expect(screen.getByText('No department filter')).toBeInTheDocument();
     await waitFor(() => expect(getCases).toHaveBeenCalled());
-    // Department 4 would 404 for this viewer — it is never asked for.
-    expect(
-      getCases.mock.calls.every(([query]) => (query as { departmentId: number }).departmentId === 7)
-    ).toBe(true);
+    // None ticked = every department the viewer can see: no list is sent, the server decides.
+    expect(getCases.mock.calls.every(([query]) => departmentsOf(query)?.length === 0)).toBe(true);
+    expect(getCases.mock.calls.some(([query]) => 'departmentId' in (query as object))).toBe(false);
   });
 
-  it('an org admin is offered every department', async () => {
+  it('D2: an org admin is offered every department, none forced', async () => {
     departments = [
       { id: 4, name: 'Support EU' },
       { id: 7, name: 'Billing' },
@@ -446,37 +480,37 @@ describe('KB Cases report (F2)', () => {
         <KbCasesPage />
       </MemoryRouter>
     );
-    const options = within(screen.getByLabelText('Department')).getAllByRole('option');
-    expect(options.map((option) => option.textContent)).toEqual(['Support EU', 'Billing']);
+    expect(ticked()).toEqual([
+      { name: 'Support EU', checked: false },
+      { name: 'Billing', checked: false },
+    ]);
     await waitFor(() =>
-      expect(getCases).toHaveBeenCalledWith(expect.objectContaining({ departmentId: 4 }))
+      expect(getCases).toHaveBeenCalledWith(expect.objectContaining({ departmentIds: [] }))
     );
   });
 
-  it('when the chosen department leaves the list (org switch), it is not requested again', async () => {
+  it('a ticked department that leaves the list (org switch) is never requested again', async () => {
     departments = [{ id: 4, name: 'Support EU' }];
     viewer = { isOrgAdmin: true, departmentIds: [] };
     const { rerender } = render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/knowledge-base/cases?departments=4']}>
         <KbCasesPage />
       </MemoryRouter>
     );
     await waitFor(() =>
-      expect(getCases).toHaveBeenCalledWith(expect.objectContaining({ departmentId: 4 }))
+      expect(getCases).toHaveBeenCalledWith(expect.objectContaining({ departmentIds: [4] }))
     );
     getCases.mockClear();
     departments = [{ id: 12, name: 'Other workspace' }];
     rerender(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/knowledge-base/cases?departments=4']}>
         <KbCasesPage />
       </MemoryRouter>
     );
     await waitFor(() =>
-      expect(getCases).toHaveBeenCalledWith(expect.objectContaining({ departmentId: 12 }))
+      expect(getCases).toHaveBeenCalledWith(expect.objectContaining({ departmentIds: [] }))
     );
-    expect(
-      getCases.mock.calls.some(([query]) => (query as { departmentId: number }).departmentId === 4)
-    ).toBe(false);
+    expect(getCases.mock.calls.some(([query]) => departmentsOf(query)?.includes(4))).toBe(false);
   });
 
   it('a moderator in no department is told so, and nothing is requested', async () => {
@@ -492,7 +526,7 @@ describe('KB Cases report (F2)', () => {
     expect(getCases).not.toHaveBeenCalled();
   });
 
-  it('switching department shows loading, never the previous department as if it were this one', async () => {
+  it('changing departments shows loading, never the previous departments as if they were these', async () => {
     departments = [
       { id: 4, name: 'Support EU' },
       { id: 7, name: 'Billing' },
@@ -501,9 +535,10 @@ describe('KB Cases report (F2)', () => {
     let resolveBilling: (value: KbCasesReport) => void = () => {};
     let resolveStale: (value: KbCasesReport) => void = () => {};
     getCases.mockImplementation((query) => {
-      const { departmentId, sort } = query as { departmentId: number; sort: string };
-      if (departmentId === 4 && sort === 'conversations') return Promise.resolve(report());
-      if (departmentId === 4)
+      const { departmentIds, sort } = query as { departmentIds: number[]; sort: string };
+      const all = departmentIds.length === 0;
+      if (all && sort === 'conversations') return Promise.resolve(report());
+      if (all)
         return new Promise((resolve) => {
           resolveStale = resolve;
         });
@@ -517,9 +552,9 @@ describe('KB Cases report (F2)', () => {
       </MemoryRouter>
     );
     expect(await screen.findByText('Refunds take 5 days.')).toBeInTheDocument();
-    // A slow request for department 4 is still out when the viewer switches to 7.
+    // A slow request for all departments is still out when the viewer narrows to Billing.
     fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'lastSeen' } });
-    fireEvent.change(screen.getByLabelText('Department'), { target: { value: '7' } });
+    fireEvent.click(screen.getByLabelText('Billing'));
     expect(screen.queryByText('Refunds take 5 days.')).not.toBeInTheDocument();
     expect(screen.getByRole('status', { busy: true })).toBeInTheDocument();
     resolveBilling(
@@ -531,13 +566,13 @@ describe('KB Cases report (F2)', () => {
       })
     );
     expect(await screen.findByText('No learned answers match here yet.')).toBeInTheDocument();
-    // The stale answer for department 4 lands last — it must not replace department 7's.
+    // The stale answer for all departments lands last — it must not replace Billing's.
     resolveStale(report());
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(screen.queryByText('Refunds take 5 days.')).not.toBeInTheDocument();
   });
 
-  it('the page states what the counts are, asks for the department, sorts, and downloads the CSV', async () => {
+  it('the page states what the counts are, reports every department by default, sorts, and downloads the CSV', async () => {
     render(
       <MemoryRouter>
         <KbCasesPage />
@@ -550,7 +585,7 @@ describe('KB Cases report (F2)', () => {
     expect(KB_CASES_CAPTION).toMatch(/one real case can appear twice/);
     await waitFor(() =>
       expect(getCases).toHaveBeenCalledWith({
-        departmentId: 4,
+        departmentIds: [],
         search: '',
         sort: 'conversations',
         page: 1,
@@ -564,7 +599,7 @@ describe('KB Cases report (F2)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Download CSV/ }));
     await waitFor(() =>
       expect(downloadCasesCsv).toHaveBeenCalledWith({
-        departmentId: 4,
+        departmentIds: [],
         search: '',
         sort: 'lastSeen',
       })
