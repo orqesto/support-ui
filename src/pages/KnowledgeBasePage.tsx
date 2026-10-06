@@ -26,6 +26,7 @@ import { useUiFlags } from '@/hooks/useUiFlags';
 import { isCaseRow, unmergeConsequence } from '@/lib/kbConsolidation';
 import { runCaseAction, type CaseActionNow } from '@/components/kb/runCaseAction';
 import { toast } from '@/lib/toast';
+import { KbExportButton } from '@/components/kb/KbExportButton';
 import { KbFindingBanner } from '@/components/kb/KbFindingBanner';
 import { useKbUnhide } from '@/components/kb/useKbUnhide';
 import { KBDeleteDialog } from '@/components/kb/KBDeleteDialog';
@@ -462,6 +463,9 @@ export const KnowledgeBasePage = () => {
             >
               Cases report
             </Button>
+          )}
+          {filterType !== 'documentation' && (
+            <KbExportButton type={filterType} refreshKey={entries} />
           )}
         </div>
 
