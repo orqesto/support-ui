@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/Input';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { usePermissions } from '@/hooks/usePermissions';
 import systemService from '@/services/system.service';
+import { KbRepairSection } from './KbRepairSection';
 import { departmentService, type Department } from '@/services/department.service';
 
 type ConfirmDialog = {
@@ -291,6 +292,8 @@ export const SystemManagementSettings = () => {
           </div>
         </div>
       </div>
+
+      <KbRepairSection />
 
       {/* Data Cleanup */}
       <div className="p-6 bg-card rounded-lg border border-destructive-line">
