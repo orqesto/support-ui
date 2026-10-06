@@ -7,7 +7,7 @@
  *   C2  The composer's "Look up" opens the Customer tab at the Connected systems block — in the
  *       slide-over it also opens the rail. Hidden in Internal-note mode and whenever the lookup
  *       panel itself would not render (availability no / error), on the panel's own query.
- *   L1  Full page: sidebar `clamp(312px,30vw,520px)`, page frame capped at 1640px; below 1024px
+ *   L1  Full page: sidebar `clamp(312px,30vw,520px)`, page frame full width; below 1024px
  *       the page keeps the one-column (rail) layout.
  *
  * MessageDetail, MessageComposer, ComposerAiActions and MessageDetailPage are REAL. Stubbed: the
