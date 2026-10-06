@@ -104,6 +104,9 @@ vi.mock('@/hooks/usePermissions', () => ({
 }));
 vi.mock('@/hooks/useUiFlags', () => ({ useUiFlags: () => ({ isSurfaceVisibleToMe: () => true }) }));
 vi.mock('@/components/kb/KbRunNow', () => ({ KbRunNow: () => null }));
+vi.mock('@/components/kb/KbExportButton', () => ({
+  KbExportButton: ({ type }: { type: string }) => <div data-testid="kb-export">{type}</div>,
+}));
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({ data: [{ id: 3, name: 'Support' }] }),
   useDepartmentById: (id: number | null | undefined) =>
@@ -214,6 +217,15 @@ describe('Knowledge base list narrowed to a finding', () => {
     await waitFor(() => expect(lastCall().finding).toBeUndefined());
     expect(lastCall().departmentId).toBeUndefined();
     expect(screen.queryByText(/Entries awaiting a KB review/)).toBeNull();
+  });
+
+  it('offers the export on the list tabs with the tab type, and not on the Documentation tab', async () => {
+    renderAt('/knowledge-base#qa_pair');
+    expect((await screen.findByTestId('kb-export')).textContent).toBe('qa_pair');
+    cleanup();
+    renderAt('/knowledge-base#documentation');
+    await waitFor(() => expect(screen.getAllByText(/Knowledge Base/).length).toBeGreaterThan(0));
+    expect(screen.queryByTestId('kb-export')).toBeNull();
   });
 
   it('control: a plain visit asks for no finding and shows no banner', async () => {
