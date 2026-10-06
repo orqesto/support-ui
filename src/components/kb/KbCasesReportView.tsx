@@ -424,6 +424,12 @@ export const KbCasesReportView = ({
                                           ...(Number.isInteger(row.memberCount)
                                             ? { memberCount: row.memberCount }
                                             : {}),
+                                          proposals: new Map(
+                                            (row.pendingAttach ?? []).map((item) => [
+                                              item.entryId,
+                                              item.suggestionId,
+                                            ])
+                                          ),
                                         }
                                       : null
                                   }

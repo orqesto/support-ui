@@ -30,9 +30,25 @@ export const rowEntryIds = (row: KbCaseRow): number[] =>
     ? [row.caseId, ...row.entryIds.filter((id) => id !== row.caseId)]
     : row.entryIds;
 
-/** How many learned entries a row holds (a case's own entry is not one of them). */
-const memberCount = (row: KbCaseRow): number =>
-  row.entryIds.filter((id) => row.kind !== 'case' || id !== row.caseId).length;
+/** Entries a pending suggestion proposes for this case (not members yet). */
+export const proposalIds = (row: KbCaseRow): number[] =>
+  row.kind === 'case'
+    ? Array.isArray(row.pendingAttachIds)
+      ? row.pendingAttachIds
+      : (row.pendingAttach ?? []).map((item) => item.entryId)
+    : [];
+
+/**
+ * How many learned entries a row holds (a case's own entry is not one of them, nor an entry only
+ * PROPOSED for it). A case counts its live members as the server does when it says.
+ */
+const memberCount = (row: KbCaseRow): number => {
+  if (row.kind === 'case' && Number.isInteger(row.memberCount)) return row.memberCount as number;
+  const proposed = new Set(proposalIds(row));
+  return row.entryIds.filter(
+    (id) => (row.kind !== 'case' || id !== row.caseId) && !proposed.has(id)
+  ).length;
+};
 
 export type KbRowExpansion = {
   open: boolean;
@@ -53,6 +69,7 @@ export const KbCaseRowView = ({
   const questions = isCase ? (row.question ? [row.question] : []) : (row.questions ?? []);
   const panelId = useId();
   const members = memberCount(row);
+  const proposals = proposalIds(row).length;
   return (
     <li
       className="p-3 space-y-2 rounded-lg border border-border"
@@ -111,8 +128,8 @@ export const KbCaseRowView = ({
             )}
             {expansion.open
               ? 'Collapse'
-              : members > 0
-                ? `Show entries (${members})`
+              : members > 0 || proposals > 0
+                ? `Show entries (${members}${proposals > 0 ? `, ${proposals} proposed` : ''})`
                 : 'Show the case entry'}
           </Button>
           <div id={panelId} hidden={!expansion.open} className="pl-2 sm:pl-4">

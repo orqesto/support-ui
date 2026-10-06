@@ -391,6 +391,30 @@ describe('KB Cases report (F2)', () => {
     expect(screen.queryByText(/No case matches “refund”/)).not.toBeInTheDocument();
   });
 
+  it('a report that ALSO covers unlinked mailboxes gives no per-department finding link', async () => {
+    getCases.mockResolvedValue({ ...report(), departmentIds: [4], unassignedScopes: true });
+    render(
+      <MemoryRouter>
+        <KbCasesPage />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText(/learned entries are raw emails/)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'clean up' })).toBeNull();
+  });
+
+  it('one department and nothing else: the finding links to that department', async () => {
+    getCases.mockResolvedValue({ ...report(), departmentIds: [4], unassignedScopes: false });
+    render(
+      <MemoryRouter>
+        <KbCasesPage />
+      </MemoryRouter>
+    );
+    expect(await screen.findByRole('link', { name: 'clean up' })).toHaveAttribute(
+      'href',
+      '/knowledge-base?finding=raw_email&departmentId=4#qa_pair'
+    );
+  });
+
   it('FE pass 19 LOW-2: clearing the search box with its X clears the applied search (list and CSV)', async () => {
     getCases.mockImplementation(() => Promise.resolve(report()));
     render(

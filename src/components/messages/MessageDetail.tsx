@@ -1285,9 +1285,9 @@ export function MessageDetail({
           '--md-sticky-top': 'var(--mobile-header-h, 0px)',
         } as React.CSSProperties
       }
-      className={`flex h-full min-h-0 overflow-hidden ${twoColumn ? '' : 'flex-col'} max-sm:block max-sm:h-auto max-sm:overflow-visible max-sm:overflow-x-clip max-sm:[&_input]:text-base max-sm:[&_textarea]:text-base max-sm:[&_.ProseMirror]:text-base`}
+      className={`flex h-full min-h-0 overflow-hidden ${twoColumn ? '':'flex-col'} max-sm:block max-sm:h-auto max-sm:overflow-visible max-sm:overflow-x-clip max-sm:[&_input]:text-base max-sm:[&_textarea]:text-base max-sm:[&_.ProseMirror]:text-base`}
     >
-      <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden max-sm:overflow-visible max-sm:overflow-x-clip max-sm:bg-card">
+      <div className="flex overflow-hidden flex-col flex-1 min-w-0 min-h-0 max-sm:overflow-visible max-sm:overflow-x-clip max-sm:bg-card">
         {/* Header */}
         <MessageDetailHeader
           message={message}
@@ -1383,7 +1383,7 @@ export function MessageDetail({
                   variant="ghost"
                   size="sm"
                   onClick={() => setThreadRefreshKey((key) => key + 1)}
-                  className="block mx-auto mt-1 p-0 h-auto text-xs underline hover:no-underline"
+                  className="block p-0 mx-auto mt-1 h-auto text-xs underline hover:no-underline"
                 >
                   Retry
                 </Button>
@@ -1402,7 +1402,7 @@ export function MessageDetail({
                   size="sm"
                   onClick={loadEarlier}
                   isLoading={loadingEarlier}
-                  className="h-auto px-2 py-1 text-xs text-muted-foreground"
+                  className="px-2 py-1 h-auto text-xs text-muted-foreground"
                 >
                   Show earlier messages ({threadPage.total - threadMessages.length} more)
                 </Button>
@@ -1520,8 +1520,8 @@ export function MessageDetail({
       </div>
 
       {/* v4: the sidebar grows with the window — 312px (the v3 width, and what 1024px leaves room
-          for) up to 520px, 30% of the VIEWPORT between (vw, not the page frame — the page caps
-          the view at 1640px in MessageDetailPage, the sidebar still tops out at 520px). */}
+          for) up to 520px, 30% of the VIEWPORT between (vw, so the sidebar tops out at 520px
+          however wide the page is). */}
       {twoColumn && (
         <aside
           data-testid="detail-sidebar"

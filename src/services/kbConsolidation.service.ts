@@ -102,6 +102,12 @@ export type KbCaseRow = {
    */
   memberCount?: number;
   memberIds?: number[];
+  /**
+   * Entries a pending merge suggestion proposes to attach to this case (they are also at the END
+   * of `entryIds`). ABSENT on a backend before it — then they cannot be told from members.
+   */
+  pendingAttach?: { entryId: number; suggestionId: number }[];
+  pendingAttachIds?: number[];
   conversations: number;
   customers: number;
   firstSeen: string | null;
@@ -173,6 +179,8 @@ export const KB_SET_ASIDE_REASONS = [
   'unclassified',
   'no_clear_language',
   'detached',
+  // Edited or not yet labelled: kept on the list until the next grouping run places it.
+  'classifying',
 ] as const;
 /** `other`: a reason this app does not know yet (a newer backend) — still an entry in no case. */
 export type KbSetAsideReason = (typeof KB_SET_ASIDE_REASONS)[number] | 'other';

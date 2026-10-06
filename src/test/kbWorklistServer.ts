@@ -8,6 +8,9 @@ import type { KbWorkRow, KbSetAsideReason } from '@/services/kbConsolidation.ser
 
 // ---- the fake server -------------------------------------------------------------------------
 
+/** A case question longer than the server's 200-character search cap. */
+export const LONG_QUESTION = `Can I ${'really '.repeat(40)}return a gift I bought on sale?`;
+
 export const workRow = (over: Partial<KbWorkRow> & { id: number }): KbWorkRow => ({
   title: null,
   question: `Question ${over.id}?`,
@@ -29,6 +32,8 @@ export const workRow = (over: Partial<KbWorkRow> & { id: number }): KbWorkRow =>
 export type Server = {
   entries: Map<number, KbWorkRow>;
   reasons: Map<number, KbSetAsideReason>;
+  /** What each hide recorded (BE `typeData.hiddenWasApproved`). */
+  hiddenWasApproved?: Map<number, boolean>;
   /** A backend before the worklist: one department required, no setAside, no new routes. */
   legacy: boolean;
   rowsAbsent: boolean;
@@ -64,6 +69,14 @@ export type Server = {
   rawReasons?: Map<number, string>;
   /** How many pages of cases the report says it has. */
   casesPages?: number;
+  /** Entries a pending suggestion proposes for case 900 → that suggestion's id (BE pendingAttach). */
+  pendingAttach?: Map<number, number>;
+  /** Ids the viewer may not see: the rows route drops them silently. */
+  invisible?: Set<number>;
+  /** A backend before `classifying`: an edited entry leaves the set-aside list until grouped. */
+  noClassifying?: boolean;
+  /** Add case KB-4000 whose question is LONG_QUESTION (past the 200-character search cap). */
+  longQuestion?: boolean;
   /** Hold the answer of a request until released (in-flight tests). */
   hold?: (request: WireRequest) => Promise<void> | null;
 };
@@ -136,6 +149,8 @@ export const setAsideNow = () =>
     .filter(([id, reason]) => {
       const entry = server.entries.get(id);
       if (!entry) return false;
+      // BE: an entry proposed for a case sits in that case's row, not set aside.
+      if (server.pendingAttach?.has(id)) return false;
       // BE: left a case — hidden (thread moved) or pending (taken out by hand) until decided.
       // (A stale case id on it is the skew test's; a merge clears the mark — see attach.)
       if (reason === 'detached') return entry.status === 'hidden' || entry.status === 'pending';
@@ -203,11 +218,24 @@ export const reportNow = (departmentIds: number[]) => {
                   question: 'How do refunds work?',
                   questions: [],
                   standardAnswer: 'Refunds take 5 days.',
-                  // Its members as they are NOW: a removal or a move shows on the next read.
-                  entryIds: [...server.entries.values()]
-                    .filter((entry) => entry.caseId === 900)
-                    .map((entry) => entry.id)
-                    .sort((left, right) => left - right),
+                  // Its members as they are NOW (a removal or a move shows on the next read),
+                  // then the entries a pending suggestion proposes for it (BE order).
+                  entryIds: [
+                    ...[...server.entries.values()]
+                      .filter((entry) => entry.caseId === 900)
+                      .map((entry) => entry.id)
+                      .sort((left, right) => left - right),
+                    ...(server.pendingAttach ? [...server.pendingAttach.keys()] : []),
+                  ],
+                  ...(server.olderCaseRows || !server.pendingAttach
+                    ? {}
+                    : {
+                        pendingAttach: [...server.pendingAttach].map(([entryId, suggestionId]) => ({
+                          entryId,
+                          suggestionId,
+                        })),
+                        pendingAttachIds: [...server.pendingAttach.keys()],
+                      }),
                   // The newer backend counts its LIVE members (the `last_member` rule).
                   ...(server.olderCaseRows ? {} : liveMembers(900)),
                 }),
@@ -245,6 +273,22 @@ export const reportNow = (departmentIds: number[]) => {
                   ...(server.olderCaseRows ? {} : { memberCount: 0, memberIds: [] }),
                 })
               )
+            : []),
+          ...(server.longQuestion
+            ? [
+                row({
+                  kind: 'case',
+                  caseId: 4000,
+                  scopeKey: 'source:1',
+                  casePublicId: 'KB-4000',
+                  question: LONG_QUESTION,
+                  questions: [],
+                  standardAnswer: 'Within 30 days.',
+                  entryIds: [],
+                  memberCount: 0,
+                  memberIds: [],
+                }),
+              ]
             : []),
           row({ kind: 'single', scopeKey: 'source:1', entryIds: [31] }),
         ]),
@@ -306,7 +350,8 @@ export const handle = async (request: WireRequest) => {
     // As the BE searches: whole TOPICS (headers) across every page — by the topic label, any of
     // its cases' questions, and (the newer backend) a case number — and a matched topic keeps
     // ALL its cases.
-    const needle = (request.params.search ?? '').trim().toLowerCase();
+    // BE parseCasesQuery: trimmed, cut at 200 characters, lower-cased.
+    const needle = (request.params.search ?? '').trim().slice(0, 200).toLowerCase();
     if (!needle) return ok(built);
     const hit = (text: string | null | undefined) => (text ?? '').toLowerCase().includes(needle);
     return ok({
@@ -327,8 +372,21 @@ export const handle = async (request: WireRequest) => {
   if (method === 'POST' && path === '/api/knowledge-base/consolidation/entries/rows') {
     if (server.legacy || server.rowsAbsent) return routeAbsent(request);
     const { ids } = request.body as { ids: number[] };
+    // BE: in the order asked, each once; ids the viewer may not see dropped without a word;
+    // every row carries rejectedAt / sourceDeleted / answerTruncated.
     return ok({
-      rows: ids.flatMap((id) => (server.entries.has(id) ? [server.entries.get(id)] : [])),
+      rows: [...new Set(ids)].flatMap((id) => {
+        const entry = server.entries.get(id);
+        if (!entry || server.invisible?.has(id)) return [];
+        return [
+          {
+            rejectedAt: null,
+            sourceDeleted: false,
+            answerTruncated: false,
+            ...entry,
+          },
+        ];
+      }),
     });
   }
   const attach = /^\/api\/knowledge-base\/consolidation\/cases\/(\d+)\/attach$/.exec(path);
@@ -347,6 +405,33 @@ export const handle = async (request: WireRequest) => {
       };
     const caseId = Number(attach[1]);
     const { entryIds } = request.body as { entryIds: number[] };
+    // BE manual attach: the first refusal, in its order, refuses ALL (nothing is written).
+    const caseRow = server.entries.get(caseId);
+    // BE attachToCaseRoute: no such case (or not a case) ⇒ 404 before any per-entry check.
+    if (!caseRow?.isCase) return { status: 404, data: { success: false, error: 'Case not found' } };
+    const refusalOf = (id: number): string | null => {
+      const entry = server.entries.get(id);
+      if (caseRow.status !== 'approved') return 'case_not_live';
+      if (!entry) return 'entry_gone';
+      if (entry.isCase) return 'is_case';
+      if (entry.caseId !== null) return 'already_in_case';
+      if (entry.status === 'rejected') return 'rejected';
+      if (entry.status === 'hidden') return 'hidden';
+      if (entry.sourceDeleted) return 'source_deleted';
+      if (!caseRow.scopeKey || entry.scopeKey !== caseRow.scopeKey) return 'other_scope';
+      if (server.reasons.get(id) === 'awaiting_review') return 'under_review';
+      return null;
+    };
+    const refused = entryIds.map(refusalOf).find((reason) => reason !== null);
+    if (refused)
+      return {
+        status: 409,
+        data: {
+          success: false,
+          message: 'The entries were not attached',
+          data: { reason: refused, entryIds },
+        },
+      };
     for (const id of entryIds) {
       const entry = server.entries.get(id) as KbWorkRow;
       server.entries.set(id, { ...entry, status: 'hidden', caseId, casePublicId: `KB-${caseId}` });
@@ -430,13 +515,49 @@ export const handle = async (request: WireRequest) => {
     }
     const entry = server.entries.get(id) as KbWorkRow;
     const verb = action[2];
+    server.hiddenWasApproved ??= new Map();
+    const recorded = server.hiddenWasApproved;
+    const reason = server.reasons.get(id);
     if (verb === 'unhide') {
       if (server.unhideAbsent) return routeAbsent(request);
-      server.entries.set(id, { ...entry, status: 'pending' });
-      return ok({ id, approved: false });
+      // BE kbEntryState unhideKBEntry: rejected / merged original ⇒ 409; else the recorded
+      // approval comes back (none ⇒ pending); "detached" ends.
+      if (entry.status === 'rejected')
+        return {
+          status: 409,
+          data: { success: false, error: 'This entry was rejected. Approve it to bring it back.' },
+        };
+      if (entry.caseId !== null && reason !== 'detached')
+        return {
+          status: 409,
+          data: { success: false, error: 'This entry is part of a merged case.' },
+        };
+      if (entry.status !== 'hidden')
+        return ok({ id, approved: entry.status === 'approved', hidden: false });
+      const approved: boolean = recorded.get(id) ?? false;
+      recorded.delete(id);
+      if (reason === 'detached') server.reasons.delete(id);
+      server.entries.set(id, { ...entry, status: approved ? 'approved' : 'pending' });
+      return ok({ id, approved, hidden: false });
+    }
+    if (verb === 'hide') {
+      // BE hiddenFields: a hide records the approval (a second hide keeps the first record) and
+      // ends a hand-detach ("detached" then means only a thread that moved mailbox).
+      if (entry.status !== 'hidden') {
+        recorded.set(id, entry.status === 'approved');
+        if (reason === 'detached') server.reasons.delete(id);
+      }
+    } else {
+      // Approve / reject: the record goes; a decided entry is no longer detached or under review.
+      recorded.delete(id);
+      if (reason === 'detached' || reason === 'awaiting_review') server.reasons.delete(id);
     }
     const status = verb === 'approve' ? 'approved' : verb === 'hide' ? 'hidden' : 'rejected';
-    server.entries.set(id, { ...entry, status });
+    server.entries.set(id, {
+      ...entry,
+      status,
+      ...(verb === 'reject' ? { rejectedAt: '2026-01-10T12:00:00.000Z' } : { rejectedAt: null }),
+    });
     return ok(verb === 'reject' ? { id, rejectedAt: '2026-01-10T12:00:00.000Z' } : null);
   }
   const single = /^\/api\/knowledge-base\/entries\/(\d+)$/.exec(path);
@@ -461,6 +582,12 @@ export const handle = async (request: WireRequest) => {
     if (method === 'GET') return ok(full(entry.question ?? '', entry.answer ?? ''));
     const body = request.body as { question: string; answer: string };
     server.entries.set(id, { ...entry, question: body.question, answer: body.answer });
+    // BE: an edit is re-classified — kept on the list as `classifying` until the next run; an
+    // older backend drops it from the list until then.
+    if (!entry.isCase && entry.caseId === null) {
+      if (server.noClassifying) server.reasons.delete(id);
+      else server.reasons.set(id, 'classifying');
+    }
     return ok(full(body.question, body.answer));
   }
   return routeAbsent(request);

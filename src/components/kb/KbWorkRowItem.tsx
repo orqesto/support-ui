@@ -17,6 +17,7 @@ import {
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { KBStatusBadge } from './KBStatusBadge';
+import { KB_MERGES_REVIEW_PATH } from '@/components/layout/KbReviewSection';
 import { caseHref, offersReviewActions } from '@/lib/kbConsolidation';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import { getConvUrlId } from '@/lib/messageHelpers';
@@ -36,6 +37,7 @@ export const KbWorkRowItem = ({
   reason,
   caseId,
   lastMember = false,
+  proposedBy = null,
   busy,
   editLoading,
   error,
@@ -52,6 +54,11 @@ export const KbWorkRowItem = ({
   caseId: number | null;
   /** It is the only member of the listed case: a case cannot be left empty (BE `last_member`). */
   lastMember?: boolean;
+  /**
+   * The pending merge suggestion that proposes this entry for the listed case (it is NOT a member
+   * yet): decided in Merges, so nothing else is offered on it here.
+   */
+  proposedBy?: number | null;
   /** The action in flight on this list, if any (one at a time). */
   busy: { id: number; action: BusyAction } | null;
   editLoading: boolean;
@@ -67,6 +74,7 @@ export const KbWorkRowItem = ({
   const entry = asListEntry(row, caseId, reason);
   const isCase = isCaseEntry(row, caseId);
   // A merged original of the case being listed: served through the case.
+  const proposed = proposedBy !== null && !isCase;
   const member = !isCase && caseId !== null && row.caseId === caseId;
   // Left a case: HIDDEN when its thread moved to another mailbox; PENDING when a moderator took it
   // out by hand (BE keeps it set aside until it is approved, edited, rejected or merged). The KB
@@ -76,12 +84,13 @@ export const KbWorkRowItem = ({
   const moderate = mayModerate(row);
   const idle = busy === null;
   const usable = offersReviewActions(entry);
-  const reviewable = moderate && !isCase && usable;
+  const reviewable = moderate && !isCase && !proposed && usable;
   const rejected = row.status === 'rejected';
   // Could join a case, rights aside: in no case, approved or pending (a hand-detached entry may go
   // into another case; a hidden one may not).
   const candidate =
     !isCase &&
+    !proposed &&
     usable &&
     entry.consolidatedInto === null &&
     (row.status === 'approved' || row.status === 'pending');
@@ -129,7 +138,7 @@ export const KbWorkRowItem = ({
         {detachedHidden ? (
           <Badge
             className="text-muted-foreground"
-            title="It left its case — taken out by a moderator, or its thread moved to another mailbox. It stays hidden."
+            title="Its thread moved to another mailbox, so it left the case. It stays hidden."
           >
             detached from a case
           </Badge>
@@ -137,10 +146,25 @@ export const KbWorkRowItem = ({
           <KBStatusBadge entry={entry} withProvenance={false} />
         )}
         {detachedByHand && <Badge variant="warning">Removed from a case</Badge>}
+        {proposed && <Badge variant="secondary">Proposed to join</Badge>}
         {reason && reason !== 'detached' && (
           <Badge variant="warning">{SET_ASIDE_REASON_LABEL[reason]}</Badge>
         )}
       </div>
+      {proposed && (
+        <p className="text-xs text-muted-foreground">
+          Proposed to join this case (merge suggestion #{proposedBy}) —{' '}
+          <Link to={KB_MERGES_REVIEW_PATH} className="text-primary hover:underline">
+            review it in Merges
+          </Link>
+          .
+        </p>
+      )}
+      {reason === 'classifying' && (
+        <p className="text-xs text-muted-foreground">
+          Being re-grouped — it appears in a case after the next grouping run (or Run now).
+        </p>
+      )}
       {detachedByHand && (
         <p className="text-xs text-muted-foreground">
           Taken out of its case by hand — it needs a decision: approve, edit, reject, or move it
@@ -249,7 +273,7 @@ export const KbWorkRowItem = ({
             Restore
           </Button>
         )}
-        {moderate && usable && (
+        {moderate && usable && !proposed && (
           <Button
             size="sm"
             variant="outline"
