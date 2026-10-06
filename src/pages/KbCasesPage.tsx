@@ -56,7 +56,9 @@ const parseDepartments = (raw: string | null): number[] => [
 ];
 
 export const KbCasesPage = () => {
-  // Inactive departments too: the report's "all" counts them, so ticking every box == all.
+  // Inactive departments too: the report's "all" counts them. Ticking every box covers every
+  // department — "all" (none ticked) can cover more: an org-level viewer's also takes in mailboxes
+  // linked to no department (`unassignedScopes`).
   const { data: allDepartments = [], isLoading: deptsLoading } = useDepartments({
     includeInactive: true,
   });
@@ -222,13 +224,17 @@ export const KbCasesPage = () => {
   };
 
   // The findings' links are per department: offered only when the report covers exactly one.
+  // A report that ALSO covers mailboxes linked to no department (`unassignedScopes`) is not one
+  // department's, even when the workspace has one: a per-department link would drop those entries.
   const oneDepartment = legacy
     ? legacyDepartmentId
-    : report?.departmentIds?.length === 1
-      ? report.departmentIds[0]
-      : selected.length === 1
-        ? selected[0]
-        : null;
+    : report?.unassignedScopes === true
+      ? null
+      : report?.departmentIds?.length === 1
+        ? report.departmentIds[0]
+        : selected.length === 1
+          ? selected[0]
+          : null;
   const shownReport = report && reportScope === scopeKey ? report : null;
 
   return (

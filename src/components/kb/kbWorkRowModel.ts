@@ -18,6 +18,7 @@ export const SET_ASIDE_REASON_LABEL: Record<KbSetAsideReason, string> = {
   unclassified: 'Not classified',
   no_clear_language: 'No clear language',
   detached: 'Detached from a case',
+  classifying: 'Being re-grouped',
   other: 'Set aside (other reason)',
 };
 

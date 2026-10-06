@@ -1,6 +1,7 @@
 /**
- * "Detached" (hidden) has two causes since manual Remove from case (BE round 2): its title must be
- * true for both — taken out by a moderator and then hidden, or its thread moved mailbox.
+ * "Detached" + hidden is only ever a thread that moved to another mailbox: hiding an entry a
+ * moderator took out of its case ENDS its detached mark (BE hiddenFields), so the title names
+ * that one cause.
  */
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -9,7 +10,7 @@ import { KBStatusBadge } from '../KBStatusBadge';
 import type { KBEntry } from '@/services/kb.service';
 
 describe('KBStatusBadge detached', () => {
-  it('names both causes, never only the mailbox move', () => {
+  it('names the one cause a hidden detached entry can have', () => {
     const entry = {
       id: 5,
       type: 'qa_pair',
@@ -32,7 +33,7 @@ describe('KBStatusBadge detached', () => {
     );
     expect(screen.getByText('detached from case #KB-900')).toHaveAttribute(
       'title',
-      'It left its case — taken out by a moderator, or its thread moved to another mailbox. It stays hidden.'
+      'Its thread moved to another mailbox, so it left the case. It stays hidden.'
     );
   });
 });

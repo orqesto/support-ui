@@ -21,6 +21,7 @@ import { KbMoveToCaseDialog, type KbMoveTarget } from './KbMoveToCaseDialog';
 import { KbWorkRowItem } from './KbWorkRowItem';
 import { runCaseAction } from './runCaseAction';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { apiErrorStatus } from '@/lib/apiError';
 import { kbRef } from '@/lib/kbConsolidation';
 import { kbService, type KBEntry } from '@/services/kb.service';
 import {
@@ -61,6 +62,8 @@ type KbWorkRowsProps = {
     casePublicId: string | null;
     /** Its LIVE members as the server counts them (`last_member`); absent on an older backend. */
     memberCount?: number;
+    /** Entries a pending suggestion proposes for this case → that suggestion's id. */
+    proposals?: ReadonlyMap<number, number>;
   } | null;
   /** Set-aside reason per entry, shown as a badge. */
   reasons?: ReadonlyMap<number, KbSetAsideReason>;
@@ -187,7 +190,14 @@ export const KbWorkRows = ({
   // Where focus goes when the row acted on leaves the list (the next row, else the list).
   const listRef = useRef<HTMLUListElement>(null);
   // The row an action was taken on, until the report re-read after it answered (`settled`).
-  const actedOn = useRef<{ id: number; index: number; settled?: boolean } | null>(null);
+  // `edited`: a saved edit — if the re-read takes the row off this list (an older backend drops an
+  // edited entry until it is grouped again), say so instead of letting it vanish.
+  const actedOn = useRef<{
+    id: number;
+    index: number;
+    settled?: boolean;
+    edited?: boolean;
+  } | null>(null);
   // A refused move / removal: focus goes back to the button that started it.
   const refocus = useRef<{ id: number; action: 'move' | 'detach' } | null>(null);
   const [settledTick, setSettledTick] = useState(0);
@@ -216,6 +226,11 @@ export const KbWorkRows = ({
     }
     actedOn.current = null;
     refocus.current = null;
+    if (acted.edited)
+      setNotice({
+        text: 'Saved — it leaves this list until the next grouping run places it.',
+        variant: 'info',
+      });
     if (!lost) return;
     const nextId = listedIds[Math.min(acted.index, listedIds.length - 1)];
     const target =
@@ -350,6 +365,8 @@ export const KbWorkRows = ({
       setNotice({ text: `Moved into case ${ref}.`, variant: 'success' });
     } catch (err) {
       setRowError(row.id, `Not moved into case ${ref}: ${getApiErrorMessage(err) ?? 'try again.'}`);
+      // The case is gone (unmerged meanwhile): re-read, so it leaves the page and the picker.
+      reread = apiErrorStatus(err) === 404;
     } finally {
       end();
       settle(reread, moved ? undefined : 'move');
@@ -486,6 +503,7 @@ export const KbWorkRows = ({
               reason={reasons?.get(row.id)}
               caseId={caseId}
               lastMember={caseContext?.memberCount === 1}
+              proposedBy={caseContext?.proposals?.get(row.id) ?? null}
               busy={busy}
               editLoading={editLoading === row.id}
               error={rowErrors[row.id]}
@@ -523,7 +541,14 @@ export const KbWorkRows = ({
             ...(typeof qa?.answer === 'string' ? { answer: qa.answer } : {}),
           });
           setEditing(null);
-          void onChangedRef.current();
+          setNotice(null);
+          onNoticeRef.current(null);
+          actedOn.current = {
+            id: saved.id,
+            index: Math.max(0, listedIds.indexOf(saved.id)),
+            edited: true,
+          };
+          settle(true);
         }}
       />
       <KbMoveToCaseDialog

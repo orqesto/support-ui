@@ -189,16 +189,31 @@ describe('members of a case', () => {
     ).toBeInTheDocument();
   });
 
-  it('a hidden detached entry keeps the KB wording; no "taken out by hand" claim', async () => {
+  it('a hidden detached entry keeps the KB wording (its thread moved); no "taken out by hand" claim', async () => {
     renderPage();
     const row24 = await workRowEl(24);
-    // Hidden + detached: the thread moved, OR taken out by hand and then hidden — the title claims neither alone.
+    // BE: hiding a hand-detached entry ENDS "detached" — so hidden + detached is only ever a
+    // thread that moved to another mailbox.
     expect(within(row24).getByText('detached from a case')).toHaveAttribute(
       'title',
-      'It left its case — taken out by a moderator, or its thread moved to another mailbox. It stays hidden.'
+      'Its thread moved to another mailbox, so it left the case. It stays hidden.'
     );
     expect(within(row24).queryByText('Removed from a case')).toBeNull();
     expect(within(row24).queryByText(/Taken out of its case by hand/)).toBeNull();
+  });
+
+  it('hiding an entry taken out by hand drops it from "Not in any case"', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Show entries (2)' }));
+    const row11 = await workRowEl(11);
+    fireEvent.click(within(row11).getByRole('button', { name: /Remove from case/ }));
+    fireEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Remove from case' })
+    );
+    const section = screen.getByRole('region', { name: 'Entries not in any case' });
+    const back = await within(section).findByTestId('work-row-11');
+    fireEvent.click(within(back).getByRole('button', { name: /^Hide$/ }));
+    await waitFor(() => expect(within(section).queryByTestId('work-row-11')).toBeNull());
   });
 
   it('Remove refused (409): says why in the row', async () => {

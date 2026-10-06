@@ -49,7 +49,7 @@ export const KbDepartmentFilter = ({
         </span>
       ) : (
         <Button size="sm" variant="ghost" onClick={() => onChange([])}>
-          Show all departments
+          Clear the filter
         </Button>
       )}
     </div>

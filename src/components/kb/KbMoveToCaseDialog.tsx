@@ -121,7 +121,8 @@ export const KbMoveToCaseDialog = ({
             // of its cases (question, and on a newer backend the case number), and then brings ALL
             // its cases. Only a case that matches itself — or whose topic label matches — is a
             // candidate, so a sibling case is neither offered nor counted.
-            const needle = query.trim().toLowerCase();
+            // As the server reads the term: trimmed, at most 200 characters, lower-cased.
+            const needle = query.trim().slice(0, 200).toLowerCase();
             const hit = (text: string | null | undefined) =>
               (text ?? '').toLowerCase().includes(needle);
             // Same scope only (the server refuses any other: `other_scope`). Report case rows carry

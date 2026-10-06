@@ -140,7 +140,7 @@ describe('F1 departments', () => {
     // In the order the departments are listed, whatever order they were ticked in.
     await waitFor(() => expect(reportReads().at(-1)?.params.departmentIds).toBe('4,7'));
     expect(screen.getByTestId('location')).toHaveTextContent('?departments=4%2C7');
-    fireEvent.click(screen.getByRole('button', { name: 'Show all departments' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear the filter' }));
     await waitFor(() => expect(reportReads().at(-1)?.params.departmentIds).toBeUndefined());
     expect(screen.getByTestId('location')).toHaveTextContent(/^$/);
   });
@@ -412,12 +412,26 @@ describe('F3 row actions', () => {
   it('Unhide (F4): PATCH /unhide — never approve — and the row comes back as it was (pending)', async () => {
     renderPage();
     const row24 = await workRowEl(24);
+    // Hold the re-read: the row says what the server restored, at once (it then leaves the list —
+    // unhiding ends "detached").
+    let release: () => void = () => {};
+    server.hold = (request) =>
+      request.path === '/api/knowledge-base/consolidation/cases'
+        ? new Promise<void>((resolve) => {
+            release = resolve;
+          })
+        : null;
     fireEvent.click(within(row24).getByRole('button', { name: /Unhide/ }));
     await waitFor(() =>
       expect(wire.calls('PATCH', '/api/knowledge-base/entries/24/unhide')).toHaveLength(1)
     );
     expect(wire.calls('PATCH', '/api/knowledge-base/entries/24/approve')).toHaveLength(0);
     await waitFor(() => expect(within(row24).getByText('Pending')).toBeInTheDocument());
+    server.hold = undefined;
+    await act(async () => {
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
   });
 
   it('Edit: the full entry is read, the shared editor saves question + answer, the row and report update', async () => {
