@@ -14,14 +14,6 @@ import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import {
-  Dialog,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-} from '@/components/ui/Dialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
@@ -35,6 +27,8 @@ import { isCaseRow, unmergeConsequence } from '@/lib/kbConsolidation';
 import { runCaseAction, type CaseActionNow } from '@/components/kb/runCaseAction';
 import { toast } from '@/lib/toast';
 import { KbFindingBanner } from '@/components/kb/KbFindingBanner';
+import { useKbUnhide } from '@/components/kb/useKbUnhide';
+import { KBDeleteDialog } from '@/components/kb/KBDeleteDialog';
 import { useKbFindingFilter } from '@/hooks/useKbFindingFilter';
 
 /** An action on a merged CASE row — each one unmerges it, so each is confirmed first. */
@@ -268,6 +262,23 @@ export const KnowledgeBasePage = () => {
       });
     }
   };
+
+  const { unhide: handleUnhide, dialog: unhideFallback } = useKbUnhide({
+    setEntries,
+    reread: (approved) => {
+      if (approved === null || finding.filter) void fetchEntries(pagination.page);
+    },
+    onApproveInstead: (id) => void handleApprove(id),
+    onFailed: (_id, error) => {
+      logger.error('Failed to unhide entry:', error);
+      setAlertDialog({
+        open: true,
+        title: 'Failed to Unhide',
+        description: error instanceof Error ? error.message : 'Failed to unhide KB entry',
+        variant: 'error',
+      });
+    },
+  });
 
   const rejectEntry = async (id: number) => {
     try {
@@ -633,6 +644,7 @@ export const KnowledgeBasePage = () => {
                     onView={handleOpenEntry}
                     onApprove={handleApprove}
                     onHide={handleHide}
+                    onUnhide={(id) => void handleUnhide(id)}
                     onReject={handleReject}
                     onDelete={handleDeleteClick}
                     canReview={canReview}
@@ -649,6 +661,7 @@ export const KnowledgeBasePage = () => {
               onView={handleOpenEntry}
               onApprove={handleApprove}
               onHide={handleHide}
+              onUnhide={(id) => void handleUnhide(id)}
               onReject={handleReject}
               onDelete={handleDeleteClick}
               canReview={canReview}
@@ -667,37 +680,13 @@ export const KnowledgeBasePage = () => {
               />
             )}
 
-            {/* Delete Confirmation Dialog */}
-            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-              <DialogHeader>
-                <DialogTitle>Delete KB Entry</DialogTitle>
-                <DialogClose onClose={() => setDeleteDialogOpen(false)} />
-              </DialogHeader>
-              <DialogContent>
-                <p>Are you sure you want to delete this entry? This action cannot be undone.</p>
-                {entryToDelete && (
-                  <div className="p-3 mt-3 bg-muted rounded-md border border-border">
-                    <p className="text-sm font-semibold text-foreground">{entryToDelete.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Type: <span className="font-medium">{entryToDelete.type}</span> | Category:{' '}
-                      <span className="font-medium">{entryToDelete.category}</span>
-                    </p>
-                  </div>
-                )}
-              </DialogContent>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setDeleteDialogOpen(false)}
-                  disabled={deleting}
-                >
-                  Cancel
-                </Button>
-                <Button variant="destructive" onClick={handleDeleteConfirm} isLoading={deleting}>
-                  Delete
-                </Button>
-              </DialogFooter>
-            </Dialog>
+            <KBDeleteDialog
+              open={deleteDialogOpen}
+              onOpenChange={setDeleteDialogOpen}
+              entry={entryToDelete}
+              deleting={deleting}
+              onConfirm={handleDeleteConfirm}
+            />
           </>
         )}
 
@@ -707,6 +696,7 @@ export const KnowledgeBasePage = () => {
           onClose={handleCloseEntry}
           onApprove={handleApprove}
           onHide={handleHide}
+          onUnhide={(id) => void handleUnhide(id)}
           onReject={handleReject}
           onDelete={handleDeleteClick}
           onUpdate={handleUpdate}
@@ -729,6 +719,8 @@ export const KnowledgeBasePage = () => {
           confirmText={caseAction?.action === 'unmerge' ? 'Unmerge' : 'Undo the merge'}
           variant="warning"
         />
+
+        {unhideFallback}
 
         {/* Alert Dialog */}
         <AlertDialog

@@ -60,6 +60,7 @@ const handlers = () => ({
   onView: vi.fn(),
   onApprove: vi.fn(),
   onHide: vi.fn(),
+  onUnhide: vi.fn(),
   onReject: vi.fn(),
   onDelete: vi.fn(),
   onUnmerge: vi.fn(),

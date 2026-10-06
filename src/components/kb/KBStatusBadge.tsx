@@ -91,7 +91,7 @@ export const KBStatusBadge = ({
     return (
       <Badge
         className={`text-muted-foreground ${className}`}
-        title="Its thread moved to another mailbox, so it left the case. It stays hidden."
+        title="It left its case — taken out by a moderator, or its thread moved to another mailbox. It stays hidden."
       >
         {consolidation.caseExists
           ? `detached from case ${caseRef(consolidation)}`

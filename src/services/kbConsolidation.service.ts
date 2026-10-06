@@ -7,6 +7,7 @@
  * the UI says it does not know rather than guessing.
  */
 import { apiClient } from '@/lib/api-client';
+import { isRouteAbsent } from '@/lib/apiError';
 import { getErrorBody, getErrorStatus } from '@/lib/errorMessages';
 
 export type KbConsolidationType = 'consolidate' | 'attach';
@@ -95,6 +96,12 @@ export type KbCaseRow = {
   questions?: string[] | null;
   standardAnswer?: string | null;
   entryIds: number[];
+  /**
+   * A case's LIVE members, as the server counts them for `last_member` (entryIds also lists
+   * members that are no longer live). ABSENT on a backend before it — then no count is claimed.
+   */
+  memberCount?: number;
+  memberIds?: number[];
   conversations: number;
   customers: number;
   firstSeen: string | null;
@@ -141,18 +148,194 @@ export type KbCasesReport = {
    * no usable AI provider.
    */
   labellingMode: 'production' | 'dry_run' | 'off';
+  /**
+   * The departments the report covers (KB cases worklist). ABSENT on a backend before it: that
+   * backend reports on exactly the one `departmentId` it was asked for.
+   */
+  departmentIds?: number[];
+  /**
+   * True only when no department was asked for and the viewer is org-level: the report then ALSO
+   * covers mailboxes linked to no department. Absent (an older backend) or false: departments only.
+   */
+  unassignedScopes?: boolean;
+  /**
+   * The entries each set-aside finding counts, one per entry with its reason. ABSENT on a backend
+   * before the worklist — then the findings are counts only and there are no rows to list.
+   */
+  setAside?: KbSetAsideItem[];
+};
+
+/** Why an entry is in no case — the findings, entry by entry. */
+export const KB_SET_ASIDE_REASONS = [
+  'raw_email',
+  'awaiting_review',
+  'customer_specific',
+  'unclassified',
+  'no_clear_language',
+  'detached',
+] as const;
+/** `other`: a reason this app does not know yet (a newer backend) — still an entry in no case. */
+export type KbSetAsideReason = (typeof KB_SET_ASIDE_REASONS)[number] | 'other';
+export type KbSetAsideItem = { entryId: number; reason: KbSetAsideReason };
+
+export type KbWorkRowStatus = 'approved' | 'pending' | 'hidden' | 'rejected';
+
+/** One entry as the worklist shows it (`POST /consolidation/entries/rows`). */
+export type KbWorkRow = {
+  id: number;
+  /** The entry's own reference (#KB-…), when it has one. */
+  publicId?: string | null;
+  title: string | null;
+  question: string | null;
+  answer: string | null;
+  status: KbWorkRowStatus;
+  /** The case it is merged into (a case's own entry carries its own id, or null). */
+  caseId: number | null;
+  casePublicId: string | null;
+  /** The conversation the answer was learned from — never a raw message-event id. */
+  conversationId: number | null;
+  conversationPublicId: string | null;
+  /**
+   * May this viewer change what CASE it is in (move / remove from case / unmerge)? Unmerge's rule:
+   * a moderator of every department its scope serves.
+   */
+  canDecide: boolean;
+  /**
+   * May this viewer approve / reject / hide / unhide / edit it (the KB list's canReview, per
+   * entry)? ABSENT on a backend before it — then `canDecide` stands in, the stricter rule, so
+   * nothing is offered that answers 403.
+   */
+  canModerate?: boolean;
+  /** The mailbox / department scope it belongs to; an entry joins only a case of the SAME scope. */
+  scopeKey?: string | null;
+  /** The entry IS a merged case (BE sends it; absent on a backend that does not). */
+  isCase?: boolean;
+  /** Not in the contract; read when a backend sends it (the KB list's purge date). */
+  rejectedAt?: string | null;
+  /**
+   * Not in the contract; read when a backend sends it. Its source was removed: the KB list reads
+   * "Source removed — not used" and offers no action — so does this list.
+   */
+  sourceDeleted?: boolean;
 };
 
 export type KbCasesQuery = {
-  departmentId: number;
+  /** The departments to report on; empty or absent = every department the viewer can see. */
+  departmentIds?: number[];
+  /** Older backend only (before the worklist): the ONE department it requires. */
+  departmentId?: number;
   search?: string;
   sort?: 'conversations' | 'lastSeen';
   page?: number;
   pageSize?: number;
 };
 
+/**
+ * The report was refused for want of ONE department: a backend before the worklist, which knows
+ * neither "all departments" nor a list. The page then falls back to a single department.
+ */
+export class KbCasesNeedsDepartmentError extends Error {
+  constructor() {
+    super('This server reports on one department at a time.');
+    this.name = 'KbCasesNeedsDepartmentError';
+  }
+}
+
+const NEEDS_ONE_DEPARTMENT = /'?departmentId'? is required/;
+
+const positiveInt = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value > 0;
+
+/** Defensive: an older backend sends neither field; a newer one may send reasons we do not know. */
+export const normalizeCasesReport = (raw: KbCasesReport): KbCasesReport => {
+  const data = raw as Omit<KbCasesReport, 'setAside' | 'departmentIds' | 'unassignedScopes'> & {
+    setAside?: unknown;
+    departmentIds?: unknown;
+    unassignedScopes?: unknown;
+  };
+  const setAside = Array.isArray(data.setAside)
+    ? data.setAside.flatMap((item: unknown): KbSetAsideItem[] => {
+        const entry = (item ?? {}) as { entryId?: unknown; reason?: unknown };
+        if (!positiveInt(entry.entryId)) return [];
+        const reason = (KB_SET_ASIDE_REASONS as readonly unknown[]).includes(entry.reason)
+          ? (entry.reason as KbSetAsideReason)
+          : // A reason this app does not know yet is still an entry in no case: list it, under
+            // a reason that claims nothing, rather than drop it from the page.
+            'other';
+        return [{ entryId: entry.entryId, reason }];
+      })
+    : undefined;
+  const departmentIds = Array.isArray(data.departmentIds)
+    ? data.departmentIds.filter(positiveInt)
+    : undefined;
+  const {
+    setAside: _omitSetAside,
+    departmentIds: _omitDepartments,
+    unassignedScopes,
+    ...rest
+  } = data;
+  return {
+    ...rest,
+    // Only a real `true` widens what "all" means; anything else claims departments only.
+    unassignedScopes: unassignedScopes === true,
+    ...(setAside ? { setAside } : {}),
+    ...(departmentIds ? { departmentIds } : {}),
+  };
+};
+
+const WORK_ROW_STATUSES: readonly KbWorkRowStatus[] = ['approved', 'pending', 'hidden', 'rejected'];
+const nullableString = (value: unknown): string | null =>
+  typeof value === 'string' ? value : null;
+const nullableId = (value: unknown): number | null => (positiveInt(value) ? value : null);
+
+/** A row with a status we cannot read is dropped from the list, never shown as "Pending". */
+export const normalizeWorkRow = (raw: unknown): KbWorkRow | null => {
+  const data = (raw ?? {}) as Record<string, unknown>;
+  if (!positiveInt(data.id)) return null;
+  if (!WORK_ROW_STATUSES.includes(data.status as KbWorkRowStatus)) return null;
+  return {
+    id: data.id,
+    publicId: nullableString(data.publicId),
+    title: nullableString(data.title),
+    question: nullableString(data.question),
+    answer: nullableString(data.answer),
+    status: data.status as KbWorkRowStatus,
+    caseId: nullableId(data.caseId),
+    casePublicId: nullableString(data.casePublicId),
+    conversationId: nullableId(data.conversationId),
+    conversationPublicId: nullableString(data.conversationPublicId),
+    canDecide: data.canDecide === true,
+    rejectedAt: nullableString(data.rejectedAt),
+    ...(typeof data.sourceDeleted === 'boolean' ? { sourceDeleted: data.sourceDeleted } : {}),
+    ...(data.isCase === true ? { isCase: true } : {}),
+    ...(typeof data.canModerate === 'boolean' ? { canModerate: data.canModerate } : {}),
+    ...(typeof data.scopeKey === 'string' || data.scopeKey === null
+      ? { scopeKey: data.scopeKey }
+      : {}),
+  };
+};
+
+/** The rows route takes at most this many ids per call. */
+export const WORK_ROWS_MAX_IDS = 200;
+
+/** Moved, or why not (BE 409 `reason` / 403), or a backend without the route. */
+export type KbAttachResult =
+  | { outcome: 'attached'; attached: number[] }
+  | { outcome: 'refused'; status: number; reason: string | null; message: string | null }
+  | { outcome: 'unsupported' };
+
+/** Taken out of a case, or why not (409 `reason` / 403), or a backend without the route. */
+export type KbDetachResult =
+  /** `detached` null: the backend did not say which — the caller re-reads, never assumes. */
+  | { outcome: 'detached'; detached: number[] | null }
+  | { outcome: 'refused'; status: number; reason: string | null; message: string | null }
+  | { outcome: 'unsupported' };
+
 const casesParams = (query: KbCasesQuery): Record<string, string> => {
-  const params: Record<string, string> = { departmentId: String(query.departmentId) };
+  const params: Record<string, string> = {};
+  if (query.departmentId !== undefined) params.departmentId = String(query.departmentId);
+  else if (query.departmentIds && query.departmentIds.length > 0)
+    params.departmentIds = query.departmentIds.join(',');
   if (query.search?.trim()) params.search = query.search.trim();
   if (query.sort) params.sort = query.sort;
   if (query.page) params.page = String(query.page);
@@ -239,12 +422,111 @@ export const kbConsolidationService = {
     return response.data.data;
   },
 
+  /**
+   * Throws `KbCasesNeedsDepartmentError` when a backend before the worklist refuses a request
+   * without ONE `departmentId` — the caller falls back to a single department.
+   */
   async getCases(query: KbCasesQuery): Promise<KbCasesReport> {
-    const response = await apiClient.get<{ success: boolean; data: KbCasesReport }>(
-      '/api/knowledge-base/consolidation/cases',
-      { params: casesParams(query) }
-    );
-    return response.data.data;
+    try {
+      const response = await apiClient.get<{ success: boolean; data: KbCasesReport }>(
+        '/api/knowledge-base/consolidation/cases',
+        { params: casesParams(query) }
+      );
+      return normalizeCasesReport(response.data.data);
+    } catch (err) {
+      const body = getErrorBody(err);
+      if (
+        query.departmentId === undefined &&
+        getErrorStatus(err) === 400 &&
+        NEEDS_ONE_DEPARTMENT.test(String(body?.error ?? body?.message ?? ''))
+      )
+        throw new KbCasesNeedsDepartmentError();
+      throw err;
+    }
+  },
+
+  /**
+   * The entries behind a case or a set-aside finding, in the order asked. Ids the viewer may not
+   * see are dropped by the server. Null on a backend without the route (before the worklist).
+   */
+  async getWorkRows(ids: number[]): Promise<KbWorkRow[] | null> {
+    if (ids.length === 0) return [];
+    try {
+      const response = await apiClient.post<{ success: boolean; data: { rows?: unknown } }>(
+        '/api/knowledge-base/consolidation/entries/rows',
+        { ids: ids.slice(0, WORK_ROWS_MAX_IDS) }
+      );
+      const rows = response.data.data?.rows;
+      return Array.isArray(rows)
+        ? rows.map(normalizeWorkRow).filter((row): row is KbWorkRow => row !== null)
+        : [];
+    } catch (err) {
+      if (isRouteAbsent(err)) return null;
+      throw err;
+    }
+  },
+
+  /**
+   * Take entries out of a live case (the case stays; each comes back on its own, pending).
+   * A 403 / 409 is an answer (why not), not a failure.
+   */
+  async detachFromCase(caseId: number, entryIds: number[]): Promise<KbDetachResult> {
+    try {
+      const response = await apiClient.post<{
+        success: boolean;
+        data: { detached?: unknown };
+      }>(`/api/knowledge-base/consolidation/cases/${caseId}/detach`, { entryIds });
+      const detached = response.data.data?.detached;
+      return {
+        outcome: 'detached',
+        detached: Array.isArray(detached) ? detached.filter(positiveInt) : null,
+      };
+    } catch (err) {
+      if (isRouteAbsent(err)) return { outcome: 'unsupported' };
+      const status = getErrorStatus(err);
+      if (status === 403 || status === 409) {
+        const body = getErrorBody(err) as
+          | (ReturnType<typeof getErrorBody> & { reason?: unknown; data?: { reason?: unknown } })
+          | undefined;
+        return {
+          outcome: 'refused',
+          status,
+          reason: asString(body?.reason) ?? asString(body?.data?.reason),
+          message: asString(body?.error) ?? asString(body?.message),
+        };
+      }
+      throw err;
+    }
+  },
+
+  /** Move entries into a live case. A 403 / 409 is an answer (why not), not a failure. */
+  async attachToCase(caseId: number, entryIds: number[]): Promise<KbAttachResult> {
+    try {
+      const response = await apiClient.post<{
+        success: boolean;
+        data: { attached?: unknown };
+      }>(`/api/knowledge-base/consolidation/cases/${caseId}/attach`, { entryIds });
+      const attached = response.data.data?.attached;
+      return {
+        outcome: 'attached',
+        attached: Array.isArray(attached) ? attached.filter(positiveInt) : [],
+      };
+    } catch (err) {
+      if (isRouteAbsent(err)) return { outcome: 'unsupported' };
+      const status = getErrorStatus(err);
+      if (status === 403 || status === 409) {
+        const body = getErrorBody(err) as
+          | (ReturnType<typeof getErrorBody> & { reason?: unknown; data?: { reason?: unknown } })
+          | undefined;
+        return {
+          outcome: 'refused',
+          status,
+          reason: asString(body?.reason) ?? asString(body?.data?.reason),
+          message: asString(body?.error) ?? asString(body?.message),
+        };
+      }
+      throw err;
+    }
   },
 
   /**
@@ -300,7 +582,13 @@ export const kbConsolidationService = {
     const url = URL.createObjectURL(response.data as Blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `kb-cases-department-${query.departmentId}.csv`;
+    const scope =
+      query.departmentId !== undefined
+        ? `department-${query.departmentId}`
+        : query.departmentIds && query.departmentIds.length > 0
+          ? `departments-${query.departmentIds.join('-')}`
+          : 'all-departments';
+    anchor.download = `kb-cases-${scope}.csv`;
     anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   },

@@ -1,0 +1,125 @@
+import { useId } from 'react';
+import { Link } from 'react-router-dom';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import { KB_MERGES_REVIEW_PATH } from '@/components/layout/KbReviewSection';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { caseHref, kbRef } from '@/lib/kbConsolidation';
+import type { KbCaseRow } from '@/services/kbConsolidation.service';
+
+/** One row of the KB cases report (a case, a proposal, a group or a single answer). */
+export const formatDate = (iso: string | null) => {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString();
+};
+
+export const plural = (count: number, one: string, many: string) =>
+  `${count} ${count === 1 ? one : many}`;
+
+export const rowTitle = (row: KbCaseRow): string => {
+  if (row.kind === 'case')
+    return `Case ${row.caseId !== null ? kbRef(row.casePublicId, row.caseId) : '#?'}`;
+  if (row.title) return row.title;
+  return row.kind === 'single' ? 'single learned answer' : row.kind;
+};
+
+/** The entries a row stands for: a case lists its own entry first, then its originals. */
+export const rowEntryIds = (row: KbCaseRow): number[] =>
+  row.kind === 'case' && row.caseId !== null
+    ? [row.caseId, ...row.entryIds.filter((id) => id !== row.caseId)]
+    : row.entryIds;
+
+/** How many learned entries a row holds (a case's own entry is not one of them). */
+const memberCount = (row: KbCaseRow): number =>
+  row.entryIds.filter((id) => row.kind !== 'case' || id !== row.caseId).length;
+
+export type KbRowExpansion = {
+  open: boolean;
+  onToggle: () => void;
+  /** The entries, rendered only while open. */
+  panel: React.ReactNode;
+};
+
+export const KbCaseRowView = ({
+  row,
+  expansion,
+}: {
+  row: KbCaseRow;
+  /** Absent on an older backend (no rows route): the row cannot be opened. */
+  expansion?: KbRowExpansion;
+}) => {
+  const isCase = row.kind === 'case';
+  const questions = isCase ? (row.question ? [row.question] : []) : (row.questions ?? []);
+  const panelId = useId();
+  const members = memberCount(row);
+  return (
+    <li
+      className="p-3 space-y-2 rounded-lg border border-border"
+      data-testid={`case-row-${row.kind}`}
+    >
+      <div className="flex flex-wrap gap-2 items-center">
+        {isCase && row.caseId !== null ? (
+          <Link to={caseHref(row.caseId)} className="font-medium text-primary hover:underline">
+            {rowTitle(row)}
+          </Link>
+        ) : (
+          <span className="font-medium">{rowTitle(row)}</span>
+        )}
+        {row.kind === 'proposed' && (
+          <Link to={KB_MERGES_REVIEW_PATH} className="text-xs text-primary hover:underline">
+            Review
+          </Link>
+        )}
+        {row.source && <Badge variant="secondary">{row.source}</Badge>}
+      </div>
+      {questions.length > 0 && (
+        <ul className="space-y-0.5 text-sm list-disc list-inside" aria-label="Questions">
+          {questions.map((question, index) => (
+            <li key={index} className="break-words">
+              {question}
+            </li>
+          ))}
+        </ul>
+      )}
+      {isCase ? (
+        <div className="text-sm">
+          <span className="text-muted-foreground">Standard answer: </span>
+          <span className="whitespace-pre-wrap break-words">{row.standardAnswer ?? '—'}</span>
+        </div>
+      ) : (
+        <p className="text-sm italic text-muted-foreground">no standard answer yet</p>
+      )}
+      <p className="text-xs text-muted-foreground">
+        {plural(row.conversations, 'conversation', 'conversations')} ·{' '}
+        {plural(row.customers, 'customer', 'customers')} · first seen {formatDate(row.firstSeen)} ·
+        last seen {formatDate(row.lastSeen)}
+      </p>
+      {expansion && (isCase ? row.caseId !== null : members > 0) && (
+        <>
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-expanded={expansion.open}
+            aria-controls={panelId}
+            onClick={expansion.onToggle}
+          >
+            {expansion.open ? (
+              <ChevronDown className="mr-1 w-4 h-4" aria-hidden="true" />
+            ) : (
+              <ChevronRight className="mr-1 w-4 h-4" aria-hidden="true" />
+            )}
+            {expansion.open
+              ? 'Collapse'
+              : members > 0
+                ? `Show entries (${members})`
+                : 'Show the case entry'}
+          </Button>
+          <div id={panelId} hidden={!expansion.open} className="pl-2 sm:pl-4">
+            {expansion.open && expansion.panel}
+          </div>
+        </>
+      )}
+    </li>
+  );
+};
