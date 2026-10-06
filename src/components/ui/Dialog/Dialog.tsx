@@ -19,6 +19,9 @@ import type { DialogProps, DialogSubComponentProps, DialogCloseProps } from './d
   their cleanups in — a per-dialog "previous value" restored the outer dialog's 'hidden' last and
   left the phone's document-scrolled page unable to scroll.
 */
+/** The dialog layer — see the comment where it is used. Exported for the layer-order test. */
+export const DIALOG_LAYER = 'z-[90]';
+
 let scrollLocks = 0;
 let overflowBeforeLocks = '';
 
@@ -74,10 +77,17 @@ export const Dialog = ({
 
   if (!open) return null;
 
+  /*
+    z-[90]: a dialog is opened FROM the page's other layers, so it sits above all of them — the
+    mobile top bar (65), the Drawer (backdrop 68, panel 70) and the contact profile panel (75/80).
+    At z-60 it opened UNDER an open drawer: KB entry → Edit and ticket → Move department rendered
+    behind the drawer's backdrop, and a click on the form closed the drawer (FE audit C-H1).
+    Below what opens from inside a dialog (menus, tooltips: 9999) and the subscription gate (100).
+  */
   return createPortal(
     <div
       className={cn(
-        'flex fixed inset-0 z-[60] justify-center items-center',
+        `flex fixed inset-0 ${DIALOG_LAYER} justify-center items-center`,
         sheetOnPhone && DIALOG_SHEET_WRAPPER
       )}
     >
