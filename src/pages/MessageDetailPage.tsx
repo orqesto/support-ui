@@ -229,11 +229,9 @@ export const MessageDetailPage = () => {
 
         {/* 3-zone panel */}
         <div className="flex overflow-hidden flex-1 justify-center min-h-0 max-sm:block max-sm:overflow-visible">
-          {/* v4: the full page is capped at 1640px and centred; past that the two columns would
-              only spread the thread and sidebar further apart. */}
           <div
             data-testid="detail-page-frame"
-            className="flex flex-col w-full max-w-[1640px] h-full border-x border-border max-sm:block max-sm:h-auto max-sm:border-x-0"
+            className="flex flex-col w-full h-full border-x border-border max-sm:block max-sm:h-auto max-sm:border-x-0"
           >
             <MessageDetail
               key={message.id}

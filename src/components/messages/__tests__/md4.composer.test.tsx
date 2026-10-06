@@ -7,7 +7,7 @@
  *   C2  The composer's "Look up" opens the Customer tab at the Connected systems block — in the
  *       slide-over it also opens the rail. Hidden in Internal-note mode and whenever the lookup
  *       panel itself would not render (availability no / error), on the panel's own query.
- *   L1  Full page: sidebar `clamp(312px,30vw,520px)`, page frame capped at 1640px; below 1024px
+ *   L1  Full page: sidebar `clamp(312px,30vw,520px)`, page frame full width; below 1024px
  *       the page keeps the one-column (rail) layout.
  *
  * MessageDetail, MessageComposer, ComposerAiActions and MessageDetailPage are REAL. Stubbed: the
@@ -578,7 +578,7 @@ describe('L1 — full-page layout', () => {
     expect(panel()).toHaveAttribute('data-variant', 'rail');
   });
 
-  it('the page frame is capped at 1640px and centred', async () => {
+  it('the page frame spans the full width (no max-width cap)', async () => {
     svc.message.getById = vi.fn().mockResolvedValue({ success: true, data: baseMessage });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -591,7 +591,7 @@ describe('L1 — full-page layout', () => {
       </QueryClientProvider>
     );
     const frame = await screen.findByTestId('detail-page-frame');
-    expect(frame).toHaveClass('max-w-[1640px]', 'w-full');
-    expect(frame.parentElement).toHaveClass('justify-center');
+    expect(frame).toHaveClass('w-full');
+    expect(frame.className).not.toMatch(/max-w-/);
   });
 });

@@ -1520,8 +1520,8 @@ export function MessageDetail({
       </div>
 
       {/* v4: the sidebar grows with the window — 312px (the v3 width, and what 1024px leaves room
-          for) up to 520px, 30% of the VIEWPORT between (vw, not the page frame — the page caps
-          the view at 1640px in MessageDetailPage, the sidebar still tops out at 520px). */}
+          for) up to 520px, 30% of the VIEWPORT between (vw, so the sidebar tops out at 520px
+          however wide the page is). */}
       {twoColumn && (
         <aside
           data-testid="detail-sidebar"
