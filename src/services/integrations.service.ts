@@ -427,7 +427,21 @@ export type GmailCountResult = {
   /** inOdly + missing + unverifiable; with notCompared it adds up to count. */
   compared?: number;
   /** Where Google refused: the main listing, the sent-copy check, or the example reads. */
-  quotaHitIn?: 'listing' | 'sentCheck' | 'samples' | null;
+  quotaHitIn?: 'listing' | 'sentCheck' | 'samples' | 'kbHistory' | null;
+  /**
+   * KB sources only: how many listed messages are history from before the KB cutoff — the part
+   * mined for the knowledge base. The rest is imported as regular work. `capped`: at least
+   * `count`, or not counted at all when `count` is 0. Absent on an older backend.
+   */
+  kbHistory?: {
+    count: number;
+    capped: boolean;
+    from: string | null;
+    to: string;
+    approximate?: boolean;
+    sweepOwed?: boolean;
+    miningOff?: boolean;
+  } | null;
   /** Why the main listing is partial. Absent on older backends: read a cap as `size`. */
   cappedBy?: 'size' | 'time' | 'quota' | 'error' | null;
   /** The backend's time budget, not the page cap, stopped the listing. */
@@ -460,6 +474,16 @@ export type ImapCountResult = {
   missingSamples: MissingMessageSample[];
   /** 0 = all time. */
   windowDays: number;
+  /** KB sources only: listed messages from before the KB cutoff — the part mined. See Gmail's. */
+  kbHistory?: {
+    count: number;
+    capped: boolean;
+    from: string | null;
+    to: string;
+    approximate?: boolean;
+    sweepOwed?: boolean;
+    miningOff?: boolean;
+  } | null;
   /**
    * Does the mailbox have a Sent folder? true — the server listed one; false — its LIST named
    * none; null — the LIST failed. Absent on older backends (treated as unknown).

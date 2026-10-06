@@ -9,7 +9,8 @@ type KBProcessingDetails = {
   alreadyProcessed: number;
   qaPairExtracted: boolean;
   rejectedItems: Array<{ filename: string; reason: string; score?: number }>;
-  processedItems: Array<{ filename: string; type: string }>;
+  /** `pendingReview`: saved, but waits for a person before answers use it. Absent on an older backend. */
+  processedItems: Array<{ filename: string; type: string; pendingReview?: boolean }>;
 };
 
 type AlertState = {
@@ -47,11 +48,15 @@ export const useResolveMessageToKB = () => {
     if (totalAttachments > 0) {
       description += `📎 Attachments: ${totalAttachments} total\n`;
       if (processed > 0) {
-        description += `✅ Saved to KB: ${processed}\n`;
+        // Saved is not live: below the bar a document waits for a person (owner, 2026-10-05).
+        const waiting = processedItems.filter(
+          (item) => item.type !== 'Q&A' && item.pendingReview
+        ).length;
+        description += `✅ Saved to KB: ${processed}${waiting > 0 ? ` (${waiting} waiting for review)` : ''}\n`;
         processedItems
           .filter((item) => item.type !== 'Q&A')
           .forEach((item) => {
-            description += `   • ${item.filename} (${item.type})\n`;
+            description += `   • ${item.filename} (${item.type})${item.pendingReview ? ' — waiting for review' : ''}\n`;
           });
       }
       if (alreadyProcessed > 0) {
@@ -99,12 +104,11 @@ export const useResolveMessageToKB = () => {
       return {
         alertState: {
           open: true,
-          title:
-            kbFailed
-              ? 'Resolved (KB capture failed)'
-              : hasIssues
-                ? 'Message Resolved (with issues)'
-                : 'Message Resolved Successfully',
+          title: kbFailed
+            ? 'Resolved (KB capture failed)'
+            : hasIssues
+              ? 'Message Resolved (with issues)'
+              : 'Message Resolved Successfully',
           description: finalDescription,
           variant: kbFailed ? 'warning' : hasIssues ? 'warning' : 'success',
         },

@@ -68,6 +68,77 @@ const criteriaLabel = (criteria: string): string =>
 const windowLabel = (days: number) =>
   days === 0 ? 'all time' : `last ${fmt(days)} day${days === 1 ? '' : 's'}`;
 
+type KbHistoryCount = {
+  count: number;
+  capped: boolean;
+  from: string | null;
+  to: string;
+  /** Gmail: day-granular, may include up to a day after the cutoff. */
+  approximate?: boolean;
+  /** The history sweep has not run yet — the next poll reads this history for the KB. */
+  sweepOwed?: boolean;
+  /** A KB source with no cutoff: mining is off. */
+  miningOff?: boolean;
+};
+
+const kbDay = (iso: string): string =>
+  new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
+/**
+ * Of what was counted, how much is knowledge-base HISTORY — mail from before the KB cutoff, the
+ * only part mined for Q&A pairs. Everything after the cutoff is imported as regular work. Owner,
+ * 2026-10-05: the caption used to say "everything counted here will also be mined", which was
+ * false for every message after the cutoff — on taco's DeusPower, for all 2,597 of them.
+ */
+export const kbHistoryNote = (history: KbHistoryCount): string => {
+  // ⛔ True in every state the backend reports (audit passes 1–2): an approximate Gmail number is
+  // never an "at least"; once the history sweep has run it is not read again; and with no cutoff
+  // nothing is mined YET — but any save of the mailbox (Start sync included) sets one, then.
+  const to = kbDay(history.to);
+  // Said once: "(9 Sep – 16 Sep, before the cutoff)" or "(everything before the cutoff, 16 Sep)".
+  const span = history.from
+    ? `${kbDay(history.from)} – ${to}, before the cutoff`
+    : `everything before the cutoff, ${to}`;
+  const count = history.count.toLocaleString('en-US');
+  const shown = history.approximate
+    ? history.capped
+      ? `Roughly ${count} or more`
+      : `About ${count}`
+    : history.capped
+      ? `At least ${count}`
+      : count;
+  const verb = history.count === 1 && !history.capped ? 'is' : 'are';
+  const swept =
+    "This mailbox's history was already swept, so it is not read for Q&A pairs again unless a re-sweep is requested.";
+  if (history.miningOff) {
+    const after =
+      history.sweepOwed === false
+        ? `It would then cover ${history.from ? `${kbDay(history.from)} – ${to}` : `everything before ${to}`}, but ${swept.charAt(0).toLowerCase()}${swept.slice(1)}`
+        : `The history sweep then reads the mail from ${history.from ? `${kbDay(history.from)} – ${to}` : `before ${to}`} for Q&A pairs, which is billed AI usage.`;
+    return `This mailbox has no knowledge-base cutoff yet, so nothing is mined now. Saving its settings (Start sync included) sets the cutoff to that moment. ${after}`;
+  }
+  if (history.capped && history.count === 0) {
+    return `How many are knowledge-base history (${span}) could not be counted. ${history.sweepOwed === false ? swept : 'Only that history is read for Q&A pairs; later mail is imported as regular work.'}`;
+  }
+  if (history.count === 0) {
+    return `None of these are from before the knowledge-base cutoff (${to}), so nothing here will be mined for Q&A pairs — it is all regular work.`;
+  }
+  if (history.sweepOwed === false) {
+    return `${shown} ${verb} knowledge-base history (${span}). ${swept}`;
+  }
+  return `${shown} ${verb} knowledge-base history (${span}): the history sweep reads ${verb === 'is' ? 'it' : 'them'} for Q&A pairs, which is billed AI usage. The rest is imported as regular work.`;
+};
+
+/**
+ * The mailbox line's window. A KB source's first sync also reads its history before the cutoff,
+ * which is not "the last N days" — the label must say so, or it names a window the count did not
+ * list.
+ */
+const mailboxWindowLabel = (days: number, history: KbHistoryCount | null | undefined): string =>
+  history && !history.miningOff && days > 0
+    ? `${windowLabel(days)} + ${history.from ? `${fmt(days)} day${days === 1 ? '' : 's'} ` : ''}before the knowledge-base cutoff ${kbDay(history.to)}`
+    : windowLabel(days);
+
 /** One folder as the mailbox line shows it — never "Sent 0" for a folder that failed. */
 /**
  * A failed Sent entry after a failed LIST (`sentKnown === null`) is the backend's stand-in for
@@ -167,10 +238,12 @@ export const ImapReconciliationResult = ({ result }: { result: ImapCountResult }
   return (
     <div className="space-y-1">
       <p className="text-sm">
-        Mailbox ({windowLabel(result.windowDays)}): {result.capped ? 'at least ' : ''}
+        Mailbox ({mailboxWindowLabel(result.windowDays, result.kbHistory)}):{' '}
+        {result.capped ? 'at least ' : ''}
         {fmt(result.count)} message{result.count === 1 ? '' : 's'}
         {folders && ` (${folders})`}
       </p>
+      {result.kbHistory && <p className="text-xs">{kbHistoryNote(result.kbHistory)}</p>}
       <p className="text-sm">{formatInOdly(result)}</p>
       {result.capped && (
         <p className="text-xs">Partial comparison: {partialReasons(result).join(' ')}</p>
