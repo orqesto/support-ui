@@ -106,6 +106,14 @@ describe('TicketDetail — label picker', () => {
     await waitFor(() => expect(screen.getByTitle('Remove Billing')).toBeTruthy());
   });
 
+  it('a workspace with no labels yet says so, not "No matches."', async () => {
+    getTicketLabels.mockResolvedValue([]);
+    getLabels.mockResolvedValue([]);
+    renderDetail();
+    await openPicker();
+    expect(await screen.findByText('No labels yet — type a name to create one.')).toBeInTheDocument();
+  });
+
   it('unticking an assigned label removes it', async () => {
     renderDetail();
     await screen.findByTitle('Remove Bug');

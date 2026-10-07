@@ -333,6 +333,14 @@ export const TicketDetail = ({
                     if (label) void handleToggleLabel(label);
                   }}
                   creatable={hasManageLabels}
+                  // The same wording as the message header's label picker.
+                  noOptionsMessage={() =>
+                    allLabels.length === 0
+                      ? hasManageLabels
+                        ? 'No labels yet — type a name to create one.'
+                        : 'No labels yet.'
+                      : 'No labels match.'
+                  }
                   onCreate={(name) => void handleCreateLabel(name)}
                   placeholder={hasManageLabels ? 'Search or create…' : 'Search…'}
                   trigger={({ toggle }) => (

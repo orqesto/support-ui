@@ -92,14 +92,17 @@ export const SelectPopover = ({
       setPos(null);
       return undefined;
     }
-    const place = () => {
+    const place = (event?: Event) => {
+      // The panel's own list scrolling moves nothing.
+      if (event?.target instanceof Node && panelRef.current?.contains(event.target)) return;
       if (!rootRef.current) return;
       const rect = rootRef.current.getBoundingClientRect();
       const visibleWidth = document.documentElement.clientWidth;
       const wanted = align === 'end' ? rect.right - width : rect.left;
       const inView = Math.max(EDGE_MARGIN_PX, Math.min(wanted, visibleWidth - width - EDGE_MARGIN_PX));
       // Page coordinates: the panel is absolutely positioned in <body>.
-      setPos({ top: rect.bottom + window.scrollY + 4, left: inView + window.scrollX });
+      const next = { top: rect.bottom + window.scrollY + 4, left: inView + window.scrollX };
+      setPos((prev) => (prev && prev.top === next.top && prev.left === next.left ? prev : next));
     };
     place();
     // Follow the trigger when a scroll container (capture: any of them) or the window moves it.
@@ -136,7 +139,27 @@ export const SelectPopover = ({
       'button, [href], input, [tabindex]:not([tabindex="-1"])'
     );
     // After the panel (which held the focus) is gone.
-    window.setTimeout(() => target?.focus({ preventScroll: true }), 0);
+    window.setTimeout(() => {
+      if (!target) return;
+      if (!(target as HTMLButtonElement).disabled) {
+        target.focus({ preventScroll: true });
+        return;
+      }
+      /*
+       * A pick can disable its own trigger (TranslateButton: busy while translating), and focus()
+       * on a disabled button does nothing — the focus fell to <body>. Wait until it is enabled
+       * again, unless the user has put the focus somewhere else in the meantime.
+       */
+      const observer = new MutationObserver(() => {
+        if ((target as HTMLButtonElement).disabled) return;
+        observer.disconnect();
+        if (document.activeElement === document.body || document.activeElement === null) {
+          target.focus({ preventScroll: true });
+        }
+      });
+      observer.observe(target, { attributes: true, attributeFilter: ['disabled'] });
+      window.setTimeout(() => observer.disconnect(), 60_000);
+    }, 0);
   };
 
   const value = multi

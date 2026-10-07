@@ -278,6 +278,46 @@ describe('Select — one component for every dropdown', () => {
       await waitFor(() => expect(document.activeElement).toBe(screen.getByText('Add label')));
     });
 
+    it('a pick that disables its own trigger still gets the focus back once it is enabled', async () => {
+      const Busy = () => {
+        const [busy, setBusy] = useState(false);
+        return (
+          <>
+            <Select
+              variant="popover"
+              aria-label="Lang"
+              options={labels}
+              onChange={() => setBusy(true)}
+              trigger={({ toggle }) => (
+                <button type="button" disabled={busy} onClick={toggle}>Translate</button>
+              )}
+            />
+            <button type="button" onClick={() => setBusy(false)}>finish</button>
+          </>
+        );
+      };
+      render(<Busy />);
+      fireEvent.click(screen.getByText('Translate'));
+      fireEvent.click(screen.getByRole('option', { name: 'Bug' }));
+      await waitFor(() => expect(screen.getByText('Translate')).toBeDisabled());
+      // The work finishes (fireEvent.click does not move the focus in jsdom).
+      fireEvent.click(screen.getByText('finish'));
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByText('Translate')));
+    });
+
+    it('scrolling the panel\'s own list does not re-place it', () => {
+      const page = vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(1000);
+      const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect');
+      render(<Select variant="popover" aria-label="Own" trigger={trigger} options={labels} />);
+      fireEvent.click(screen.getByText('Add label'));
+      const calls = rect.mock.calls.length;
+      const list = screen.getByRole('listbox');
+      for (let round = 0; round < 5; round += 1) fireEvent.scroll(list);
+      expect(rect.mock.calls.length).toBe(calls);
+      rect.mockRestore();
+      page.mockRestore();
+    });
+
     it('a stored colour is drawn as a dot (sanitised)', () => {
       render(<Select variant="popover" aria-label="C" trigger={trigger} options={[{ value: 'x', label: 'X', color: 'red;background:url(evil)' }, ...labels]} />);
       fireEvent.click(screen.getByText('Add label'));
