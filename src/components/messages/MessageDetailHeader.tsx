@@ -337,9 +337,13 @@ export function MessageDetailHeader({
           // A write overlapped this load: its answer may predate it, so keep the lists we hold
           // and ask again once every write has settled. The picker stays usable meanwhile —
           // left on 'loading', one hung write (the client has no timeout) froze it for good.
-          setLabelsStatus('ready');
-          if (now.started === now.settled) setLabelsAttempt((attempt) => attempt + 1);
-          else refetchWhenWritesSettle.current = true;
+          if (now.started === now.settled) {
+            // Nothing in flight any more: ask again right away (status stays 'loading').
+            setLabelsAttempt((attempt) => attempt + 1);
+          } else {
+            setLabelsStatus('ready');
+            refetchWhenWritesSettle.current = true;
+          }
           return;
         }
         setMessageLabels(ml);

@@ -90,10 +90,13 @@ type StripProps = {
   onCreateLabel?: (name: string) => void;
   messageLabels?: Label[];
 };
-const strips = vi.hoisted(() => ({ card: null as StripProps | null }));
+const strips = vi.hoisted(() => ({ card: null as StripProps | null, statuses: [] as string[] }));
 vi.mock('../HeaderMetaStrip', () => ({
   HeaderMetaStrip: (props: StripProps) => {
-    if (props.layout === 'card') strips.card = props;
+    if (props.layout === 'card') {
+      strips.card = props;
+      strips.statuses.push(String((props as { labelsStatus?: string }).labelsStatus));
+    }
     return (
       <div data-testid={`strip-${props.layout ?? 'inline'}`}>
         picker:{String(props.showLabelPicker)}
@@ -327,6 +330,32 @@ describe('Phone Details card — the meta strip handlers', () => {
       });
       expect((strips.card as unknown as PickerProps).labelsStatus).toBe('ready');
       expect(strips.card?.messageLabels).toEqual([]);
+    });
+    it('a discarded answer with every write settled goes straight to the refetch (no flash of rows)', async () => {
+      spies.getMessageLabels.mockResolvedValue([BUG]);
+      spies.removeLabelFromMessage.mockResolvedValue(undefined);
+      const { rerender } = render(tree(0));
+      openCard();
+      await waitFor(() => expect(strips.card?.messageLabels).toEqual([BUG]));
+      let answerReload: (labels: Label[]) => void = () => {};
+      spies.getMessageLabels.mockImplementationOnce(() => new Promise((resolve) => (answerReload = resolve)));
+      rerender(tree(1));
+      await act(async () => {
+        strips.card!.onToggleLabel(BUG); // settles before the reload answers
+        await Promise.resolve();
+      });
+      strips.statuses.length = 0;
+      spies.getMessageLabels.mockResolvedValue([]);
+      await act(async () => {
+        answerReload([BUG]);
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(spies.getMessageLabels).toHaveBeenCalledTimes(3));
+      await waitFor(() => expect(strips.card?.messageLabels).toEqual([]));
+      // From the discarded answer to the refetch's: never a 'ready' that falls back to 'loading'.
+      expect(
+        strips.statuses.filter((status, index, all) => status === 'ready' && all[index + 1] === 'loading')
+      ).toEqual([]);
     });
   });
 });
