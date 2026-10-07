@@ -270,11 +270,25 @@ export function MessageDetailHeader({
   /** Bumped to fetch the labels again (the picker opened after a failed load). */
   const [labelsAttempt, setLabelsAttempt] = useState(0);
   /**
-   * Bumped by every label write of ours (tick, chip ×, create). A load that STARTED before a
-   * write may have been served before it committed: its list would undo the write on screen
-   * (a removed chip reappearing, a ticked one vanishing), so it keeps the labels we hold.
+   * Our label writes (tick, chip ×, create): how many started and how many settled. A load's
+   * answer is applied only if NO write of ours was in flight at any moment during it — its list
+   * may predate a write (a removed chip came back, a created one vanished). An answer that is not
+   * applied is fetched again once every write has settled, so the screen still ends on the
+   * server's list (a contact edit's new labels were otherwise never shown).
    */
-  const labelWrites = useRef(0);
+  const labelWrites = useRef({ started: 0, settled: 0 });
+  const refetchWhenWritesSettle = useRef(false);
+  const beginLabelWrite = () => {
+    labelWrites.current.started += 1;
+  };
+  const endLabelWrite = () => {
+    labelWrites.current.settled += 1;
+    const { started, settled } = labelWrites.current;
+    if (refetchWhenWritesSettle.current && started === settled) {
+      refetchWhenWritesSettle.current = false;
+      setLabelsAttempt((attempt) => attempt + 1);
+    }
+  };
   const [categories, setCategories] = useState<Category[]>([]);
   const [linkCopied, setLinkCopied] = useState(false);
   // "Link copied" reverts after 2 s — cleared on unmount, so it never fires into an unmounted header.
@@ -309,12 +323,23 @@ export function MessageDetailHeader({
   useEffect(() => {
     // Only the latest request's answer lands (a refresh or a new message overtakes an old one).
     let live = true;
-    const writesAtStart = labelWrites.current;
+    const atStart = { ...labelWrites.current };
     setLabelsStatus('loading');
     Promise.all([labelService.getMessageLabels(message.id), labelService.getLabels()])
       .then(([ml, al]) => {
         if (!live) return;
-        if (labelWrites.current === writesAtStart) setMessageLabels(ml);
+        const now = labelWrites.current;
+        const quiet =
+          atStart.started === atStart.settled &&
+          now.started === atStart.started &&
+          now.settled === atStart.settled;
+        if (!quiet) {
+          // A write overlapped this load: its answer may predate it. Ask again once all settle.
+          if (now.started === now.settled) setLabelsAttempt((attempt) => attempt + 1);
+          else refetchWhenWritesSettle.current = true;
+          return;
+        }
+        setMessageLabels(ml);
         setAllLabels(al);
         setLabelsStatus('ready');
       })
@@ -718,7 +743,7 @@ export function MessageDetailHeader({
 
   const handleToggleLabel = useCallback(
     async (label: Label) => {
-      labelWrites.current += 1;
+      beginLabelWrite();
       const assigned = messageLabels.some((lbl) => lbl.id === label.id);
       const prev = messageLabels;
       setMessageLabels(
@@ -730,6 +755,8 @@ export function MessageDetailHeader({
       } catch (err) {
         logger.error('Failed to toggle label:', err);
         setMessageLabels(prev);
+      } finally {
+        endLabelWrite();
       }
     },
     [message.id, messageLabels]
@@ -737,7 +764,7 @@ export function MessageDetailHeader({
 
   const handleCreateLabel = useCallback(
     async (name: string) => {
-      labelWrites.current += 1;
+      beginLabelWrite();
       try {
         // Scope the new label to THIS message's department so it's immediately
         // applicable (and so non-admins, who can't create org-wide labels, succeed).
@@ -761,6 +788,8 @@ export function MessageDetailHeader({
         setShowLabelPicker(false);
       } catch (err) {
         logger.error('Failed to create label:', err);
+      } finally {
+        endLabelWrite();
       }
     },
     [message.id, message.departmentId]

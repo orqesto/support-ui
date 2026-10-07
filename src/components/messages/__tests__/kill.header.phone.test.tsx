@@ -248,5 +248,67 @@ describe('Phone Details card — the meta strip handlers', () => {
     });
     expect(strips.card?.messageLabels).toEqual([]);
   });
+
+  describe('a label reload overlapping our own writes ends on the server\'s list', () => {
+    const BUG = { id: 5, name: 'Bug', color: '#f00' } as Label;
+    const VIP = { id: 6, name: 'VIP', color: '#0f0' } as Label;
+    const tree = (refresh: number) => (
+      <ThemeProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <MemoryRouter>
+            <MessageDetailHeader message={message} showFullPageButton={false} isFullPage threadCount={1} labelsRefreshKey={refresh} />
+          </MemoryRouter>
+        </QueryClientProvider>
+      </ThemeProvider>
+    );
+
+    it('a reload that starts while our remove is still in flight does not bring the chip back', async () => {
+      spies.getMessageLabels.mockResolvedValue([BUG]);
+      const { rerender } = render(tree(0));
+      openCard();
+      await waitFor(() => expect(strips.card?.messageLabels).toEqual([BUG]));
+      let commitRemove: () => void = () => {};
+      spies.removeLabelFromMessage.mockImplementation(() => new Promise<void>((resolve) => (commitRemove = resolve)));
+      await act(async () => {
+        strips.card!.onToggleLabel(BUG);
+        await Promise.resolve();
+      });
+      // The reload is answered before the remove commits: [Bug] is stale.
+      rerender(tree(1));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(strips.card?.messageLabels).toEqual([]);
+      // Once the remove commits, the labels are asked for again — the server now says [].
+      spies.getMessageLabels.mockResolvedValue([]);
+      await act(async () => {
+        commitRemove();
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(spies.getMessageLabels).toHaveBeenCalledTimes(3));
+      expect(strips.card?.messageLabels).toEqual([]);
+    });
+
+    it('a reload discarded because a write overlapped it is fetched again — the contact edit still shows', async () => {
+      spies.getMessageLabels.mockResolvedValue([BUG]);
+      const { rerender } = render(tree(0));
+      openCard();
+      await waitFor(() => expect(strips.card?.messageLabels).toEqual([BUG]));
+      let answerReload: (labels: Label[]) => void = () => {};
+      spies.getMessageLabels.mockImplementationOnce(() => new Promise((resolve) => (answerReload = resolve)));
+      spies.removeLabelFromMessage.mockRejectedValue(new Error('500'));
+      rerender(tree(1)); // a contact label "VIP" was added
+      await act(async () => {
+        strips.card!.onToggleLabel(BUG); // fails and rolls back
+        await Promise.resolve();
+      });
+      spies.getMessageLabels.mockResolvedValue([BUG, VIP]);
+      await act(async () => {
+        answerReload([BUG, VIP]);
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(strips.card?.messageLabels).toEqual([BUG, VIP]));
+    });
+  });
 });
 
