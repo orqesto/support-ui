@@ -587,6 +587,9 @@ export const TicketsPage = () => {
           title="Ticket Details"
         >
           <TicketDetail
+            // One mount per ticket, as MessageDetail is: state (labels, pickers, in-flight writes)
+            // from the ticket you left must not show — or act — on the next one.
+            key={selectedTicket.id}
             ticket={selectedTicket}
             onPushToJira={
               hasPermission(Permission.MANAGE_TICKETS)

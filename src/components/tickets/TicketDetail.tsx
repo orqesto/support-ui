@@ -98,6 +98,8 @@ export const TicketDetail = ({
   const [ticketLabels, setTicketLabels] = useState<Label[]>([]);
   const [allLabels, setAllLabels] = useState<Label[]>([]);
   const [labelsStatus, setLabelsStatus] = useState<LabelsStatus>('loading');
+  /** Bumped to fetch the labels again (the picker reopened after a failed load). */
+  const [labelsAttempt, setLabelsAttempt] = useState(0);
   // Bumped after a label is created: remounting the picker closes it, as the old panel did.
   const [labelPickerKey, setLabelPickerKey] = useState(0);
   const [editingDescription, setEditingDescription] = useState(false);
@@ -188,7 +190,7 @@ export const TicketDetail = ({
     return () => {
       live = false;
     };
-  }, [ticket.id]);
+  }, [ticket.id, labelsAttempt]);
 
   const handleToggleLabel = async (label: Label) => {
     const assigned = ticketLabels.some((lbl) => lbl.id === label.id);
@@ -360,7 +362,13 @@ export const TicketDetail = ({
                     labelPickerEmptyText(labelsStatus, allLabels.length, hasManageLabels)
                   }
                   onCreate={(name) => void handleCreateLabel(name)}
-                  placeholder={hasManageLabels ? 'Search or create…' : 'Search…'}
+                  placeholder={
+                    hasManageLabels && labelsStatus === 'ready' ? 'Search or create…' : 'Search…'
+                  }
+                  // A failed load is retried each time the picker opens — not a dead end.
+                  onOpenChange={(open) => {
+                    if (open && labelsStatus === 'error') setLabelsAttempt((attempt) => attempt + 1);
+                  }}
                   trigger={({ toggle }) => (
                     <Button
                       size="sm"

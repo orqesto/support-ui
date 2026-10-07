@@ -4,6 +4,8 @@
  * name offers "Create …", which creates the label, assigns it and closes the panel.
  */
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { readFileSync } from 'fs';
+import ts from 'typescript';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { Label } from '@/services/settings.service';
@@ -151,6 +153,60 @@ describe('TicketDetail — label picker', () => {
     finishOld([BUG]);
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(screen.queryByText('Bug')).toBeNull();
+  });
+
+  it('mounted per ticket (as both pages do), the ticket you left leaves no chips behind', async () => {
+    getTicketLabels.mockImplementation((id) =>
+      id === 42 ? Promise.resolve([BUG]) : new Promise(() => {})
+    );
+    const { rerender } = render(
+      <MemoryRouter>
+        <TicketDetail key={42} ticket={ticket} showFullPageButton={false} />
+      </MemoryRouter>
+    );
+    await screen.findByTitle('Remove Bug');
+    rerender(
+      <MemoryRouter>
+        <TicketDetail key={43} ticket={{ ...ticket, id: 43 }} showFullPageButton={false} />
+      </MemoryRouter>
+    );
+    expect(screen.queryByTitle('Remove Bug')).toBeNull();
+  });
+
+  it('every page that renders TicketDetail keys it by the ticket id', () => {
+    for (const file of ['src/pages/TicketsPage.tsx', 'src/pages/TicketDetailPage.tsx']) {
+      const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+      const keys: string[] = [];
+      const visit = (node: ts.Node) => {
+        if ((ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) && node.tagName.getText(source) === 'TicketDetail') {
+          const key = node.attributes.properties.find((prop) => ts.isJsxAttribute(prop) && prop.name.getText(source) === 'key');
+          keys.push(key && ts.isJsxAttribute(key) && key.initializer ? key.initializer.getText(source) : '');
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+      expect(keys.length).toBeGreaterThan(0);
+      for (const key of keys) expect(key).toMatch(/\.id\}$/);
+    }
+  });
+
+  it('after a failed load, opening the picker retries it', async () => {
+    getLabels.mockRejectedValueOnce(new Error('500')).mockResolvedValue([BUG, BILLING]);
+    renderDetail();
+    await waitFor(() => expect(getLabels).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    await openPicker();
+    expect(await screen.findByRole('option', { name: 'Billing' })).toBeInTheDocument();
+    expect(getLabels).toHaveBeenCalledTimes(2);
+  });
+
+  it('while labels cannot load it does not promise "or create"', async () => {
+    getLabels.mockRejectedValue(new Error('500'));
+    renderDetail();
+    await openPicker();
+    expect(await screen.findByText('Couldn’t load labels.')).toBeInTheDocument();
+    expect(screen.queryByText('Search or create…')).toBeNull();
+    expect(screen.getByText('Search…')).toBeInTheDocument();
   });
 
   it('unticking an assigned label removes it', async () => {

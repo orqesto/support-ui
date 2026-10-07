@@ -267,6 +267,8 @@ export function MessageDetailHeader({
   const [messageLabels, setMessageLabels] = useState<Label[]>([]);
   const [allLabels, setAllLabels] = useState<Label[]>([]);
   const [labelsStatus, setLabelsStatus] = useState<LabelsStatus>('loading');
+  /** Bumped to fetch the labels again (the picker opened after a failed load). */
+  const [labelsAttempt, setLabelsAttempt] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [linkCopied, setLinkCopied] = useState(false);
   // "Link copied" reverts after 2 s — cleared on unmount, so it never fires into an unmounted header.
@@ -315,7 +317,7 @@ export function MessageDetailHeader({
     return () => {
       live = false;
     };
-  }, [message.id, labelsRefreshKey]);
+  }, [message.id, labelsRefreshKey, labelsAttempt]);
 
   useEffect(() => {
     if (!showLabelPicker) return;
@@ -1215,6 +1217,7 @@ export function MessageDetailHeader({
             messageLabels={messageLabels}
             allLabels={allLabels}
             labelsStatus={labelsStatus}
+            onRetryLabels={() => setLabelsAttempt((attempt) => attempt + 1)}
             hasManageLabels={hasManageLabels}
             showLabelPicker={showLabelPicker}
             updatingCategory={updatingCategory}
@@ -1527,6 +1530,7 @@ export function MessageDetailHeader({
             messageLabels={messageLabels}
             allLabels={allLabels}
             labelsStatus={labelsStatus}
+            onRetryLabels={() => setLabelsAttempt((attempt) => attempt + 1)}
             hasManageLabels={hasManageLabels}
             showLabelPicker={showLabelPicker}
             updatingCategory={updatingCategory}
@@ -1547,6 +1551,7 @@ export function MessageDetailHeader({
           messageLabels={messageLabels}
           allLabels={allLabels}
           labelsStatus={labelsStatus}
+          onRetryLabels={() => setLabelsAttempt((attempt) => attempt + 1)}
           hasManageLabels={hasManageLabels}
           showLabelPicker={showLabelPicker}
           updatingCategory={updatingCategory}

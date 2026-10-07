@@ -43,6 +43,8 @@ const renderStrip = (over: {
   onCreateLabel?: (name: string) => void;
   showLabelPicker?: boolean;
   labelsStatus?: 'loading' | 'ready' | 'error';
+  onRetryLabels?: () => void;
+  onToggleLabelPicker?: () => void;
 }) =>
   render(
     <HeaderMetaStrip
@@ -53,10 +55,11 @@ const renderStrip = (over: {
       hasManageLabels={over.hasManageLabels ?? true}
       showLabelPicker={over.showLabelPicker ?? false}
       labelsStatus={over.labelsStatus}
+      onRetryLabels={over.onRetryLabels}
       updatingCategory={false}
       onSetCategory={vi.fn()}
       onToggleLabel={vi.fn()}
-      onToggleLabelPicker={vi.fn()}
+      onToggleLabelPicker={over.onToggleLabelPicker ?? vi.fn()}
       onCloseLabelPicker={vi.fn()}
       onCreateLabel={'onCreateLabel' in over ? over.onCreateLabel : vi.fn()}
     />
@@ -85,6 +88,16 @@ describe('HeaderMetaStrip — the Labels row with an empty workspace', () => {
     renderStrip({ allLabels: [], showLabelPicker: true, labelsStatus: 'ready' });
     fireEvent.change(screen.getByRole('combobox', { name: 'Labels' }), { target: { value: 'Bug' } });
     expect(screen.getByText('Create "Bug"')).toBeTruthy();
+  });
+
+  it('opening the picker after a failed load asks the parent to retry; no "or create" meanwhile', () => {
+    const onRetryLabels = vi.fn();
+    renderStrip({ allLabels: [], labelsStatus: 'error', onRetryLabels });
+    fireEvent.click(screen.getByLabelText('Add label'));
+    expect(onRetryLabels).toHaveBeenCalledTimes(1);
+    cleanup();
+    renderStrip({ allLabels: [], showLabelPicker: true, labelsStatus: 'error' });
+    expect(screen.queryByText('Search or create…')).toBeNull();
   });
 
   it('still offers it once labels exist', () => {

@@ -35,6 +35,8 @@ type Props = {
   allLabels: Label[];
   /** Whether `allLabels` is fetched yet — the picker must not say "No labels yet" while loading. */
   labelsStatus?: LabelsStatus;
+  /** Fetch the labels again (called when the picker opens after a failed load). */
+  onRetryLabels?: () => void;
   hasManageLabels: boolean;
   showLabelPicker: boolean;
   updatingCategory: boolean;
@@ -58,6 +60,7 @@ export function HeaderMetaStrip({
   messageLabels,
   allLabels,
   labelsStatus = 'ready',
+  onRetryLabels,
   hasManageLabels,
   showLabelPicker,
   updatingCategory,
@@ -143,7 +146,6 @@ export function HeaderMetaStrip({
       setEditingDept(false);
     }
   };
-
 
   // Assign the conversation directly via the `conv_<id>` form — the same key the
   // message list and Kanban cards emit and that the backend fully supports.
@@ -331,6 +333,8 @@ export function HeaderMetaStrip({
                 onOpenChange={(next) => {
                   if (!next) onCloseLabelPicker();
                   else if (!showLabelPicker) onToggleLabelPicker();
+                  // A failed load is retried each time the picker opens — not a dead end.
+                  if (next && labelsStatus === 'error') onRetryLabels?.();
                 }}
                 popoverWidth={LABEL_PICKER_WIDTH_PX}
                 panelProps={{ 'data-label-picker': true }}
@@ -351,7 +355,9 @@ export function HeaderMetaStrip({
                 // Only once the list is known: before that "Create Bug" would duplicate an existing Bug.
                 creatable={!!onCreateLabel && labelsStatus === 'ready'}
                 onCreate={(name) => void onCreateLabel?.(name)}
-                placeholder={onCreateLabel ? 'Search or create…' : 'Search…'}
+                placeholder={
+                  onCreateLabel && labelsStatus === 'ready' ? 'Search or create…' : 'Search…'
+                }
                 noOptionsMessage={() =>
                   labelPickerEmptyText(labelsStatus, allLabels.length, !!onCreateLabel)
                 }
