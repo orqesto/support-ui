@@ -41,6 +41,10 @@ vi.mock('@/services/system.service', () => ({
   },
 }));
 
+// The captured-question block (2026-10-07) lists workspaces on mount — never a real request.
+vi.mock('@/services/organization.service', () => ({
+  organizationService: { getAllPages: () => new Promise(() => undefined) },
+}));
 let workspace: number | null = 67;
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: (select: (state: { selectedOrganizationId: number | null }) => unknown) =>

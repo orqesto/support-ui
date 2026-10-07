@@ -74,6 +74,7 @@ vi.mock('@/hooks/usePlatformSettings', () => ({
   useTestPlatformStorage: () => noopMutation,
   useUpdatePlatformReasoning: () => noopMutation,
   useIsSavingPlatformReasoning: () => false,
+  useUpdatePlatformKb: () => noopMutation,
 }));
 
 const { PlatformDefaults } = await import('../PlatformDefaults');
@@ -85,6 +86,12 @@ beforeEach(() => {
 });
 
 describe('PlatformDefaults', () => {
+  it('shows the knowledge-base capture setting (absent from this backend: says so)', () => {
+    render(<PlatformDefaults />);
+    expect(screen.getByText('Rewrite captured questions with AI')).toBeInTheDocument();
+    expect(screen.getByText(/arrives with the next backend release/)).toBeInTheDocument();
+  });
+
   it('renders both cards with secret status, and says where each value came from', () => {
     render(<PlatformDefaults />);
     expect(screen.getByText('Managed AI Defaults')).toBeInTheDocument();

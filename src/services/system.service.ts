@@ -105,6 +105,173 @@ export type FusedSplitResult = {
   createdConversationIds?: number[];
 };
 
+/** What the captured-question repair does to one KB entry (BE contract, 2026-10-07). */
+export type KbQuestionTextAction = 'clean' | 'unchanged' | 'uncertain' | 'reject';
+export const KB_QUESTION_TEXT_ACTIONS: readonly KbQuestionTextAction[] = [
+  'reject',
+  'uncertain',
+  'clean',
+  'unchanged',
+];
+
+export type KbQuestionTextTotals = {
+  organizationId: number | null;
+  organizationName: string | null;
+  checked: number;
+  cleaned: number;
+  unchanged: number;
+  uncertain: number;
+  rejected: number;
+  aiRewritten: number;
+  rawEmailBefore: number;
+  rawEmailAfter: number;
+  /** Rows whose write failed or that changed since they were read — counted in `checked` only. */
+  failed: number;
+  /** …of `unchanged`: left as a person edited them, or with no original to clean from. */
+  keptAsEdited: number;
+};
+
+export type KbQuestionTextRow = {
+  id: number;
+  organizationId: number | null;
+  kind: 'automatic' | 'captured' | null;
+  approved: boolean;
+  action: KbQuestionTextAction;
+  reasons: string[];
+  before: { question: string; answer: string };
+  after: { question: string; answer: string };
+  aiQuestion: string | null;
+  aiFallbackReason: string | null;
+};
+
+/** `POST /api/system/repair-kb-question-text` — normalised (see `normalizeKbQuestionText`). */
+export type KbQuestionTextResult = {
+  dryRun: boolean;
+  organizationId: number | null;
+  totals: KbQuestionTextTotals[];
+  rows: KbQuestionTextRow[];
+  pagination: {
+    offset: number;
+    limit: number;
+    total: number;
+    /** The server's time budget stopped the run before the end of the scope. */
+    truncated: boolean;
+    /** Dry run: unused (always null). */
+    nextOffset: number | null;
+    /** Apply: pass as `cursor` to continue where this call stopped. Null at the end. */
+    nextCursor: string | null;
+  } | null;
+  aiAvailable: boolean;
+  /** Dry run: the AI question tried on the first few rows that can take one, whatever the filter. */
+  aiSamples: KbQuestionTextRow[];
+  /** The run stopped on an error after the totals it reports. */
+  error: string | null;
+};
+
+export type KbQuestionTextRequest = {
+  organizationId: number | null;
+  dryRun: boolean;
+  offset?: number;
+  limit?: number;
+  /** Dry run: how many rows try the AI question (0 = none; the server defaults to 10). */
+  aiSample?: number;
+  /** Apply: resume after this point (`pagination.nextCursor` of the previous call). */
+  cursor?: string;
+  /**
+   * Not in the 2026-10-07 contract yet: a backend that ignores it returns every action, and the
+   * section then filters the page itself and says so.
+   */
+  action?: KbQuestionTextAction;
+};
+
+const isObj = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+const num = (value: unknown): number =>
+  typeof value === 'number' && Number.isFinite(value) ? value : 0;
+const numOrNull = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
+const str = (value: unknown): string => (typeof value === 'string' ? value : '');
+const strOrNull = (value: unknown): string | null =>
+  typeof value === 'string' && value.length > 0 ? value : null;
+const text = (value: unknown): { question: string; answer: string } =>
+  isObj(value)
+    ? { question: str(value.question), answer: str(value.answer) }
+    : { question: '', answer: '' };
+const isAction = (value: unknown): value is KbQuestionTextAction =>
+  typeof value === 'string' && (KB_QUESTION_TEXT_ACTIONS as readonly string[]).includes(value);
+
+/** A row whose action this build does not know is dropped rather than shown under a wrong badge. */
+const toRows = (value: unknown): KbQuestionTextRow[] =>
+  Array.isArray(value)
+    ? value.filter(isObj).flatMap((entry): KbQuestionTextRow[] => {
+        const id = numOrNull(entry.id);
+        if (id === null || !isAction(entry.action)) return [];
+        return [
+          {
+            id,
+            organizationId: numOrNull(entry.organizationId),
+            kind: entry.kind === 'automatic' || entry.kind === 'captured' ? entry.kind : null,
+            approved: entry.approved === true,
+            action: entry.action,
+            reasons: Array.isArray(entry.reasons)
+              ? entry.reasons.filter((reason): reason is string => typeof reason === 'string')
+              : [],
+            before: text(entry.before),
+            after: text(entry.after),
+            aiQuestion: strOrNull(entry.aiQuestion),
+            aiFallbackReason: strOrNull(entry.aiFallbackReason),
+          },
+        ];
+      })
+    : [];
+
+/**
+ * The backend is built in parallel with this screen and can reach production after it — every
+ * field is read defensively, so a missing or oddly-shaped one renders as nothing, never a crash.
+ * A row whose action this build does not know is dropped rather than shown under a wrong badge.
+ */
+export const normalizeKbQuestionText = (raw: unknown): KbQuestionTextResult | null => {
+  if (!isObj(raw)) return null;
+  const totals = Array.isArray(raw.totals)
+    ? raw.totals.filter(isObj).map((entry) => ({
+        organizationId: numOrNull(entry.organizationId),
+        organizationName: strOrNull(entry.organizationName),
+        checked: num(entry.checked),
+        cleaned: num(entry.cleaned),
+        unchanged: num(entry.unchanged),
+        uncertain: num(entry.uncertain),
+        rejected: num(entry.rejected),
+        aiRewritten: num(entry.aiRewritten),
+        rawEmailBefore: num(entry.rawEmailBefore),
+        rawEmailAfter: num(entry.rawEmailAfter),
+        failed: num(entry.failed),
+        keptAsEdited: num(entry.keptAsEdited),
+      }))
+    : [];
+  const rows = toRows(raw.rows);
+  const page = isObj(raw.pagination) ? raw.pagination : null;
+  return {
+    // Only an explicit `true` marks a dry run; an apply answer without the field is an apply.
+    dryRun: raw.dryRun === true,
+    organizationId: numOrNull(raw.organizationId),
+    totals,
+    rows,
+    pagination: page
+      ? {
+          offset: num(page.offset),
+          limit: num(page.limit),
+          total: num(page.total),
+          truncated: page.truncated === true,
+          nextOffset: numOrNull(page.nextOffset),
+          nextCursor: strOrNull(page.nextCursor),
+        }
+      : null,
+    aiAvailable: raw.aiAvailable === true,
+    aiSamples: toRows(raw.aiSamples),
+    error: strOrNull(raw.error),
+  };
+};
+
 /** Where a KB mailbox's history read stands (BE `KbSweepState`). */
 export type KbSweepState = 'swept' | 'in_progress' | 'not_started' | 'gmail_pending' | 'disabled';
 
@@ -212,6 +379,19 @@ const systemService = {
       { messageSourceId, apply: true }
     );
     return response.data;
+  },
+
+  /**
+   * Clean captured KB questions. `dryRun: true` writes nothing; only the confirm sends
+   * `dryRun: false`. `organizationId: null` = every workspace.
+   */
+  repairKbQuestionText: async (request: KbQuestionTextRequest) => {
+    const response = await apiClient.post<ApiResponse<unknown>>(
+      '/api/system/repair-kb-question-text',
+      request
+    );
+    const body = response.data;
+    return { ...body, data: normalizeKbQuestionText(body?.data) ?? undefined };
   },
 
   listGlobalAdminMemberships: async (organizationId?: number) => {
