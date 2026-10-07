@@ -2,6 +2,7 @@ import { io, type Socket } from 'socket.io-client';
 import { API_BASE_URL } from './config';
 import { ensureFreshSession } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
+import { writeTabWorkspace } from '@/lib/tabWorkspace';
 
 type EventCallback = (data: unknown) => void;
 
@@ -31,6 +32,7 @@ const endSessionAndRedirect = () => {
   activeOrgRooms.clear();
   authRecoveryUsed = false;
   localStorage.removeItem('auth-storage');
+  writeTabWorkspace(null);
   window.location.href = '/login';
 };
 
