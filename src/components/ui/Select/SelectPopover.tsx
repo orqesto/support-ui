@@ -90,15 +90,27 @@ export const SelectPopover = ({
   useLayoutEffect(() => {
     if (!open || !rootRef.current) {
       setPos(null);
-      return;
+      return undefined;
     }
-    const rect = rootRef.current.getBoundingClientRect();
-    const visibleWidth = document.documentElement.clientWidth;
-    const wanted = align === 'end' ? rect.right - width : rect.left;
-    const inView = Math.max(EDGE_MARGIN_PX, Math.min(wanted, visibleWidth - width - EDGE_MARGIN_PX));
-    // Page coordinates: the panel is absolutely positioned in <body>.
-    setPos({ top: rect.bottom + window.scrollY + 4, left: inView + window.scrollX });
-  }, [open, align, width]);
+    const place = () => {
+      if (!rootRef.current) return;
+      const rect = rootRef.current.getBoundingClientRect();
+      const visibleWidth = document.documentElement.clientWidth;
+      const wanted = align === 'end' ? rect.right - width : rect.left;
+      const inView = Math.max(EDGE_MARGIN_PX, Math.min(wanted, visibleWidth - width - EDGE_MARGIN_PX));
+      // Page coordinates: the panel is absolutely positioned in <body>.
+      setPos({ top: rect.bottom + window.scrollY + 4, left: inView + window.scrollX });
+    };
+    place();
+    // Follow the trigger when a scroll container (capture: any of them) or the window moves it.
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+    // selectedValues.length: a tick can add a chip before the trigger and move it (ticket labels).
+  }, [open, align, width, selectedValues.length]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -117,6 +129,15 @@ export const SelectPopover = ({
     if (!disabled) setOpen(!open);
   };
   const close = () => setOpen(false);
+  /** Escape or a pick: close and give the focus back to the trigger, where the user was. */
+  const closeToTrigger = () => {
+    close();
+    const target = rootRef.current?.querySelector<HTMLElement>(
+      'button, [href], input, [tabindex]:not([tabindex="-1"])'
+    );
+    // After the panel (which held the focus) is gone.
+    window.setTimeout(() => target?.focus({ preventScroll: true }), 0);
+  };
 
   const value = multi
     ? options.filter((opt) => selectedValues.includes(opt.value))
@@ -142,12 +163,14 @@ export const SelectPopover = ({
     noOptionsMessage: noOptionsMessage ?? (() => 'No matches.'),
     onChange: (next: unknown) => {
       emit(next as Option | readonly Option[] | null);
-      if (!multi) close();
+      if (!multi) closeToTrigger();
     },
     onKeyDown: (event: React.KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        close();
+        // The popover's Escape, not the surrounding Dialog's (see Select's onKeyDown).
+        event.nativeEvent.stopPropagation();
+        closeToTrigger();
       }
     },
     components: { DropdownIndicator: null, IndicatorSeparator: null },
@@ -202,7 +225,7 @@ export const SelectPopover = ({
                 {...shared}
                 onCreateOption={(input) => {
                   onCreate?.(input.trim());
-                  if (!multi) close();
+                  if (!multi) closeToTrigger();
                 }}
                 formatCreateLabel={(input) =>
                   createLabel?.(input.trim()) ?? `Create "${input.trim()}"`

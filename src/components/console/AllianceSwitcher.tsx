@@ -49,9 +49,10 @@ export const AllianceSwitcher = () => {
       onChange={(value) => navigate(`/console/alliance/${value}`)}
       options={alliances.map((alliance) => ({
         value: String(alliance.id),
-        // The workspace count the old list showed under each name, worded as the single-alliance
-        // badge above words it. (A single default Select shows `label` in its menu, not `menuLabel`.)
-        label: `${alliance.name} — ${alliance.orgCount} workspace${alliance.orgCount === 1 ? '' : 's'}`,
+        // The control shows the name, as the old button did; the menu adds the workspace count the
+        // old list showed under each name, worded as the single-alliance badge above words it.
+        label: alliance.name,
+        menuLabel: `${alliance.name} — ${alliance.orgCount} workspace${alliance.orgCount === 1 ? '' : 's'}`,
       }))}
     />
   );

@@ -323,12 +323,9 @@ export const TicketDetail = ({
                   value={ticketLabels.map((label) => String(label.id))}
                   onChange={(next) => {
                     // The panel ticks one label per press: find it and run the same toggle as the chips.
-                    // Only labels the panel lists can come back in `next` — an applied label missing
-                    // from `allLabels` must not read as "unticked".
-                    const listed = new Set(allLabels.map((label) => String(label.id)));
-                    const before = new Set(
-                      ticketLabels.map((label) => String(label.id)).filter((id) => listed.has(id))
-                    );
+                    // Select hands back applied labels it does not list untouched, so the plain
+                    // difference between the two sets is exactly the one label pressed.
+                    const before = new Set(ticketLabels.map((label) => String(label.id)));
                     const after = new Set(next);
                     const changed =
                       next.find((id) => !before.has(id)) ?? [...before].find((id) => !after.has(id));

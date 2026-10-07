@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { Select, SELECT_SIZES, SEARCHABLE_FROM } from '@/components/ui/Select';
 import { inputVariants } from '@/components/ui/Input/input.styles';
 import { chooseOption, listOptions } from '@/test/chooseOption';
+import { Dialog, DialogContent } from '@/components/ui/Dialog';
 
 afterEach(cleanup);
 
@@ -108,6 +109,59 @@ describe('Select — one component for every dropdown', () => {
     expect(container.querySelector('.select__clear-indicator')).toBeNull();
   });
 
+  it('a server-searched picker stays typeable when its options shrink below the threshold', () => {
+    const Server = () => {
+      const [query, setQuery] = useState('');
+      const all = opts(10);
+      const shown = query ? all.filter((opt) => opt.label.includes(query)) : all;
+      return <Select aria-label="Users" options={shown} filterOption={null} onInputChange={(text) => setQuery(text)} />;
+    };
+    render(<Server />);
+    const box = screen.getByRole('combobox', { name: 'Users' });
+    fireEvent.change(box, { target: { value: 'Option 1' } });
+    expect(screen.getByRole('combobox', { name: 'Users' }).getAttribute('aria-readonly')).not.toBe('true');
+    expect(screen.getByRole<HTMLInputElement>('combobox', { name: 'Users' }).value).toBe('Option 1');
+  });
+
+  it('inside a Dialog: Escape closes the open menu only; a second Escape closes the dialog', async () => {
+    const onOpenChange = vi.fn();
+    render(
+      <Dialog open onOpenChange={onOpenChange}>
+        <DialogContent>
+          <Select aria-label="InDialog" options={opts(3)} />
+        </DialogContent>
+      </Dialog>
+    );
+    const control = screen.getByRole('combobox', { name: 'InDialog' });
+    control.focus();
+    fireEvent.keyDown(control, { key: 'ArrowDown', keyCode: 40 });
+    expect(await screen.findAllByRole('option')).toHaveLength(3);
+    fireEvent.keyDown(control, { key: 'Escape', keyCode: 27 });
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
+    expect(onOpenChange).not.toHaveBeenCalled();
+    fireEvent.keyDown(control, { key: 'Escape', keyCode: 27 });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('multi keeps values the list does not offer when another is ticked', async () => {
+    const onChange = vi.fn();
+    render(<Select multi aria-label="Keep" options={opts(2)} value={['ghost', 'v0']} onChange={onChange} />);
+    await chooseOption(screen.getByRole('combobox', { name: 'Keep' }), 'Option 1');
+    expect(onChange).toHaveBeenCalledWith(['ghost', 'v0', 'v1']);
+  });
+
+  it('chip + multi does not crash and behaves as single; chip label becomes the accessible name', async () => {
+    const onChange = vi.fn();
+    render(<Select variant="chip" multi label="Status" options={opts(2)} value={[]} onChange={onChange as (value: string[]) => void} />);
+    await chooseOption(screen.getByRole('combobox', { name: 'Status' }), 'Option 1');
+    expect(onChange).toHaveBeenCalledWith('v1');
+  });
+
+  it('no × when the empty option ("All") is the one selected', () => {
+    const { container } = render(<Select aria-label="All" clearable options={[{ value: '', label: 'All' }, ...opts(2)]} value="" />);
+    expect(container.querySelector('.select__clear-indicator')).toBeNull();
+  });
+
   it('listOptions returns the menu texts', async () => {
     renderIn(<Select aria-label="List" options={opts(2)} />);
     expect(await listOptions(screen.getByRole('combobox', { name: 'List' }))).toEqual(['Option 0', 'Option 1']);
@@ -178,6 +232,24 @@ describe('Select — one component for every dropdown', () => {
       rect.mockRestore();
     });
 
+    it('the panel follows its trigger when a container scrolls', () => {
+      const page = vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(1000);
+      let left = 100;
+      const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+        () => ({ left, right: left + 20, top: 10, bottom: 30, width: 20, height: 20, x: left, y: 10, toJSON: () => ({}) }) as DOMRect
+      );
+      render(<Select variant="popover" aria-label="Follow" trigger={trigger} options={labels} />);
+      fireEvent.click(screen.getByText('Add label'));
+      expect(screen.getByRole('dialog', { name: 'Follow' }).style.left).toBe('100px');
+      left = 140;
+      act(() => {
+        window.dispatchEvent(new Event('scroll'));
+      });
+      expect(screen.getByRole('dialog', { name: 'Follow' }).style.left).toBe('140px');
+      rect.mockRestore();
+      page.mockRestore();
+    });
+
     it('open state can be held by the parent', () => {
       const onOpenChange = vi.fn();
       const { rerender } = render(<Select variant="popover" aria-label="P" open={false} onOpenChange={onOpenChange} trigger={trigger} options={labels} />);
@@ -194,6 +266,16 @@ describe('Select — one component for every dropdown', () => {
       fireEvent.change(screen.getByRole('combobox', { name: 'F' }), { target: { value: '12' } });
       expect(screen.queryByRole('option')).toBeNull();
       expect(screen.getByText('No labels yet.')).toBeInTheDocument();
+    });
+
+    it('Escape and a pick give the focus back to the trigger', async () => {
+      render(<Select variant="popover" aria-label="Back" trigger={trigger} options={labels} />);
+      fireEvent.click(screen.getByText('Add label'));
+      fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByText('Add label')));
+      fireEvent.click(screen.getByText('Add label'));
+      fireEvent.click(screen.getByRole('option', { name: 'Bug' }));
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByText('Add label')));
     });
 
     it('a stored colour is drawn as a dot (sanitised)', () => {

@@ -45,12 +45,12 @@ export const KB_CASES_CAPTION =
   'Counts are conversations whose answers were learned into the knowledge base — not all conversations. ' +
   'Cases are grouped automatically, so one real case can appear twice, and one conversation can appear under several cases.';
 
-/** `?departments=3,5` — positive integers only, each once, in the order given. */
 const SORT_OPTIONS = [
   { value: 'conversations', label: 'Most conversations' },
   { value: 'lastSeen', label: 'Most recently seen' },
 ];
 
+/** `?departments=3,5` — positive integers only, each once, in the order given. */
 const parseDepartments = (raw: string | null): number[] => [
   ...new Set(
     (raw ?? '')

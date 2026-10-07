@@ -43,7 +43,8 @@ describe('AllianceSwitcher', () => {
     ];
     renderAt(1);
     const control = screen.getByRole('combobox', { name: 'Alliance' });
-    expect(screen.getByText('North — 1 workspace')).toBeInTheDocument();
+    // The control shows the name alone, as the old button did; the count is in the menu.
+    expect(control.closest('.select__control')?.textContent).toBe('North');
     expect(await listOptions(control)).toEqual(['North — 1 workspace', 'South — 3 workspaces']);
     await chooseOption(control, 'South — 3 workspaces');
     expect(navigate).toHaveBeenCalledWith('/console/alliance/2');

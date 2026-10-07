@@ -81,22 +81,58 @@ export const Select = forwardRef<unknown, SelectProps>(
     const generatedId = useId();
     // mobileSheet only: whether the menu is open, so the scrim can be drawn behind it.
     const [sheetOpen, setSheetOpen] = useState(false);
+    const menuOpenRef = useRef(false);
+    /**
+     * ⛔ Escape that closes THIS menu stops here. A Dialog listens for Escape on the document; an
+     * Escape meant for the dropdown also closed the dialog and threw away the half-filled form.
+     * (Not `defaultPrevented`: react-select prevents default on every Escape, open or not, and a
+     * closed select must still let Escape close its dialog.) React dispatches at the root / portal
+     * container, below the document, so stopping the native event here is in time.
+     */
+    const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === 'Escape' && menuOpenRef.current) event.nativeEvent.stopPropagation();
+      props.onKeyDown?.(event);
+    };
+    const trackMenu = (open: boolean, then?: () => void) => {
+      menuOpenRef.current = open;
+      then?.();
+    };
     const selectRef = useRef<SelectInstance<Option, boolean> | null>(null);
     const selectId = id ?? generatedId;
     const isMulti = multi && variant === 'default';
+    // chip / value have no multi mode: a `multi` there behaves as single rather than crashing on .map.
+    const emitsMany = multi && (variant === 'default' || variant === 'popover');
     const customStyles = getSelectStyles(!!error, size, isMulti);
     const selectedValues: string[] = Array.isArray(value) ? value : value === undefined || value === null ? [] : [value];
     const selectedOption = options.find((opt) => opt.value === selectedValues[0]) ?? null;
     const selectedOptions = options.filter((opt) => selectedValues.includes(opt.value));
-    const isSearchable = searchable ?? options.length >= SEARCHABLE_FROM;
+    /**
+     * A caller that searches for itself (server-side: `onInputChange` / `inputValue`, or
+     * `filterOption={null}`) is always searchable — its options shrink as the user types, and
+     * flipping to the read-only input below 8 results wiped what they had typed (Add a member).
+     */
+    const drivesOwnSearch =
+      props.onInputChange !== undefined || props.inputValue !== undefined || props.filterOption === null;
+    const isSearchable = searchable ?? (drivesOwnSearch || options.length >= SEARCHABLE_FROM);
     const off = disabled ?? isDisabled;
     // Narrowed once here: the props union says which signature the caller gave.
     const emit = (next: Option | readonly Option[] | null) => {
       if (!onChange) return;
-      if (multi) (onChange as (value: string[]) => void)(((next ?? []) as readonly Option[]).map((opt) => opt.value));
+      if (emitsMany) {
+        // Values the list does not offer (a department this workspace no longer lists) are kept:
+        // the user never saw them, so a tick elsewhere must not delete them.
+        const offered = new Set(options.map((opt) => opt.value));
+        const hidden = selectedValues.filter((val) => !offered.has(val));
+        const picked = (Array.isArray(next) ? (next as readonly Option[]) : []).map((opt) => opt.value);
+        (onChange as (value: string[]) => void)([...hidden, ...picked]);
+      }
       else if (next && !Array.isArray(next)) (onChange as (value: string) => void)((next as Option).value);
       // Only the clear button sends null for a single select: report it as the empty value.
       else if (next === null && clearable) (onChange as (value: string) => void)('');
+      else if (next && Array.isArray(next) && !emitsMany) {
+        const first = (next as readonly Option[])[0];
+        if (first) (onChange as (value: string) => void)(first.value);
+      }
     };
 
     if (variant === 'popover' && trigger) {
@@ -139,6 +175,8 @@ export const Select = forwardRef<unknown, SelectProps>(
           value={selectedOption}
           onChange={emit}
           options={options}
+          // chip / value draw no <label>: `label` becomes the accessible name instead of vanishing.
+          aria-label={props['aria-label'] ?? label}
           unstyled
           isDisabled={off}
           isSearchable={searchable ?? false}
@@ -224,15 +262,20 @@ export const Select = forwardRef<unknown, SelectProps>(
               ),
             noOptionsMessage: () => 'text-[13px] text-muted-foreground px-2 py-1.5',
           }}
-          onMenuOpen={() => {
-            if (mobileSheet) setSheetOpen(true);
-            onMenuOpen?.();
-          }}
-          onMenuClose={() => {
-            if (mobileSheet) setSheetOpen(false);
-            onMenuClose?.();
-          }}
+          onMenuOpen={() =>
+            trackMenu(true, () => {
+              if (mobileSheet) setSheetOpen(true);
+              onMenuOpen?.();
+            })
+          }
+          onMenuClose={() =>
+            trackMenu(false, () => {
+              if (mobileSheet) setSheetOpen(false);
+              onMenuClose?.();
+            })
+          }
           {...props}
+          onKeyDown={onKeyDown}
         />
       );
       if (!mobileSheet || !sheetOpen) return chip;
@@ -328,7 +371,11 @@ export const Select = forwardRef<unknown, SelectProps>(
           closeMenuOnSelect={!isMulti}
           hideSelectedOptions={false}
           styles={customStyles}
-          components={{ DropdownIndicator }}
+          components={{
+            DropdownIndicator,
+            // Nothing to clear when the empty option ("All") is the one selected.
+            ...(selectedValues[0] === '' || selectedValues.length === 0 ? { ClearIndicator: () => null } : {}),
+          }}
           menuPortalTarget={document.body}
           menuPosition="fixed"
           menuPlacement="auto"
@@ -345,9 +392,10 @@ export const Select = forwardRef<unknown, SelectProps>(
           aria-label={label}
           aria-invalid={!!error}
           aria-describedby={error ? `${selectId}-error` : hint ? `${selectId}-hint` : undefined}
-          onMenuOpen={onMenuOpen}
-          onMenuClose={onMenuClose}
+          onMenuOpen={() => trackMenu(true, onMenuOpen)}
+          onMenuClose={() => trackMenu(false, onMenuClose)}
           {...props}
+          onKeyDown={onKeyDown}
         />
         {error ? (
           <p id={`${selectId}-error`} className={getInputErrorClasses(size)} role="alert">
