@@ -299,14 +299,22 @@ export function MessageDetailHeader({
   }, []);
 
   useEffect(() => {
+    // Only the latest request's answer lands (a refresh or a new message overtakes an old one).
+    let live = true;
     setLabelsStatus('loading');
     Promise.all([labelService.getMessageLabels(message.id), labelService.getLabels()])
       .then(([ml, al]) => {
+        if (!live) return;
         setMessageLabels(ml);
         setAllLabels(al);
         setLabelsStatus('ready');
       })
-      .catch(() => setLabelsStatus('error'));
+      .catch(() => {
+        if (live) setLabelsStatus('error');
+      });
+    return () => {
+      live = false;
+    };
   }, [message.id, labelsRefreshKey]);
 
   useEffect(() => {

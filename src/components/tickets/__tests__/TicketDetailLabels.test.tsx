@@ -128,6 +128,31 @@ describe('TicketDetail — label picker', () => {
     expect(screen.queryByText(/No labels yet/)).toBeNull();
   });
 
+  it('no "Create …" row until the label list is known (it would duplicate an existing label)', async () => {
+    getLabels.mockReturnValue(new Promise(() => {}));
+    renderDetail();
+    const search = await openPicker();
+    fireEvent.change(search, { target: { value: 'Bug' } });
+    expect(screen.queryByText(/^Create /)).toBeNull();
+  });
+
+  it('a slow answer for the ticket just left does not land on the new one', async () => {
+    let finishOld: (labels: Label[]) => void = () => {};
+    getTicketLabels.mockImplementation((id) =>
+      id === 42 ? new Promise((resolve) => (finishOld = resolve)) : Promise.resolve([BILLING])
+    );
+    const { rerender } = renderDetail();
+    rerender(
+      <MemoryRouter>
+        <TicketDetail ticket={{ ...ticket, id: 43 }} showFullPageButton={false} />
+      </MemoryRouter>
+    );
+    await screen.findByText('Billing');
+    finishOld([BUG]);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByText('Bug')).toBeNull();
+  });
+
   it('unticking an assigned label removes it', async () => {
     renderDetail();
     await screen.findByTitle('Remove Bug');

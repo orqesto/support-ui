@@ -163,13 +163,31 @@ export const TicketDetail = ({
   };
 
   useEffect(() => {
+    /*
+     * ⛔ Only the CURRENT ticket's answer lands. This component is not remounted per ticket, so a
+     * slow reply for the ticket you just left arrived on the new one: its labels showed as applied
+     * and the next tick sent a remove for a label this ticket never had.
+     */
+    let live = true;
     setLabelsStatus('loading');
     Promise.all([
       labelService.getTicketLabels(ticket.id),
       labelService.getLabels(),
     ])
-      .then(([tl, al]) => { setTicketLabels(tl); setAllLabels(al); setLabelsStatus('ready'); })
-      .catch((err) => { logger.error(err); setLabelsStatus('error'); });
+      .then(([tl, al]) => {
+        if (!live) return;
+        setTicketLabels(tl);
+        setAllLabels(al);
+        setLabelsStatus('ready');
+      })
+      .catch((err) => {
+        if (!live) return;
+        logger.error(err);
+        setLabelsStatus('error');
+      });
+    return () => {
+      live = false;
+    };
   }, [ticket.id]);
 
   const handleToggleLabel = async (label: Label) => {
@@ -335,7 +353,8 @@ export const TicketDetail = ({
                     const label = allLabels.find((lbl) => String(lbl.id) === changed);
                     if (label) void handleToggleLabel(label);
                   }}
-                  creatable={hasManageLabels}
+                  // Only once the list is known: before that "Create Bug" would duplicate an existing Bug.
+                  creatable={hasManageLabels && labelsStatus === 'ready'}
                   // The same wording as the message header's label picker (one helper for both).
                   noOptionsMessage={() =>
                     labelPickerEmptyText(labelsStatus, allLabels.length, hasManageLabels)

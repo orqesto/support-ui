@@ -335,6 +335,33 @@ describe('Select — one component for every dropdown', () => {
       expect(document.activeElement).not.toBe(screen.getByText('Translate2'));
     });
 
+    it('unmounting while waiting to return focus removes its document listeners', async () => {
+      const removed = vi.spyOn(document, 'removeEventListener');
+      const Busy = () => {
+        const [busy, setBusy] = useState(false);
+        return (
+          <Select
+            variant="popover"
+            aria-label="Lang3"
+            options={labels}
+            onChange={() => setBusy(true)}
+            trigger={({ toggle }) => (
+              <button type="button" disabled={busy} onClick={toggle}>Translate3</button>
+            )}
+          />
+        );
+      };
+      const { unmount } = render(<Busy />);
+      fireEvent.click(screen.getByText('Translate3'));
+      fireEvent.click(screen.getByRole('option', { name: 'Bug' }));
+      await waitFor(() => expect(screen.getByText('Translate3')).toBeDisabled());
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      const before = removed.mock.calls.filter(([type]) => type === 'keydown').length;
+      unmount();
+      expect(removed.mock.calls.filter(([type]) => type === 'keydown').length).toBeGreaterThan(before);
+      removed.mockRestore();
+    });
+
     it('scrolling the panel\'s own list does not re-place it', () => {
       const page = vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(1000);
       const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect');

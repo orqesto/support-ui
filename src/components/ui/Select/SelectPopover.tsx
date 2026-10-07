@@ -86,6 +86,9 @@ export const SelectPopover = ({
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  /** Cancels a pending focus-return wait (its document listeners, observer and timer). */
+  const stopWaitRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopWaitRef.current?.(), []);
 
   useLayoutEffect(() => {
     if (!open || !rootRef.current) {
@@ -155,6 +158,7 @@ export const SelectPopover = ({
        */
       let timer = 0;
       const stop = () => {
+        stopWaitRef.current = null;
         observer.disconnect();
         window.clearTimeout(timer);
         document.removeEventListener('pointerdown', stop, true);
@@ -171,6 +175,8 @@ export const SelectPopover = ({
       document.addEventListener('pointerdown', stop, true);
       document.addEventListener('keydown', stop, true);
       timer = window.setTimeout(stop, 60_000);
+      stopWaitRef.current?.();
+      stopWaitRef.current = stop;
     }, 0);
   };
 

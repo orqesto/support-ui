@@ -5,7 +5,7 @@
  * create one from a message — the control appeared only once you no longer needed it.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { fireEvent, render, screen, cleanup } from '@testing-library/react';
 import type { Message } from '@/types';
 import type { Label } from '@/services/settings.service';
 
@@ -75,6 +75,16 @@ describe('HeaderMetaStrip — the Labels row with an empty workspace', () => {
     renderStrip({ allLabels: [], showLabelPicker: true, labelsStatus: 'error' });
     expect(screen.getByText('Couldn’t load labels.')).toBeTruthy();
     expect(screen.queryByText(/No labels yet/)).toBeNull();
+  });
+
+  it('offers "Create …" only once the label list is known', () => {
+    const { unmount } = renderStrip({ allLabels: [], showLabelPicker: true, labelsStatus: 'loading' });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Labels' }), { target: { value: 'Bug' } });
+    expect(screen.queryByText(/^Create /)).toBeNull();
+    unmount();
+    renderStrip({ allLabels: [], showLabelPicker: true, labelsStatus: 'ready' });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Labels' }), { target: { value: 'Bug' } });
+    expect(screen.getByText('Create "Bug"')).toBeTruthy();
   });
 
   it('still offers it once labels exist', () => {

@@ -348,7 +348,8 @@ export function HeaderMetaStrip({
                   const label = allLabels.find((candidate) => String(candidate.id) === changed);
                   if (label) onToggleLabel(label);
                 }}
-                creatable={!!onCreateLabel}
+                // Only once the list is known: before that "Create Bug" would duplicate an existing Bug.
+                creatable={!!onCreateLabel && labelsStatus === 'ready'}
                 onCreate={(name) => void onCreateLabel?.(name)}
                 placeholder={onCreateLabel ? 'Search or create…' : 'Search…'}
                 noOptionsMessage={() =>
