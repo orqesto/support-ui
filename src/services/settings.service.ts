@@ -33,6 +33,10 @@ export type SpamRule = {
   pattern: string | null;
   exampleText: string | null;
   category: string;
+  /** Which text the pattern is tested against. Absent from a backend older than the field. */
+  matchField?: string | null;
+  /** Who made the rule ('seed', 'admin_added', 'promoted', …). Absent from an older backend. */
+  provenance?: string | null;
   severity: number;
   active: boolean;
   departmentId: number | null;
@@ -188,6 +192,7 @@ const createSpamRule = async (data: {
   pattern?: string;
   exampleText?: string;
   category: string;
+  matchField?: 'sender' | 'subject' | 'content';
   severity?: number;
   active?: boolean;
 }): Promise<SpamRule> => {
@@ -206,6 +211,7 @@ const updateSpamRule = async (
     pattern?: string;
     exampleText?: string;
     category?: string;
+    matchField?: 'sender' | 'subject' | 'content';
     severity?: number;
     active?: boolean;
   }

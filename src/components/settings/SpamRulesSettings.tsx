@@ -11,16 +11,17 @@ import { useRuleManagement } from '@/hooks/useRuleManagement';
 import { settingsService, type SpamRule } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
 import { prettifyRulePattern } from '@/lib/prettifyRulePattern';
-
-type SpamRuleFormData = {
-  name: string;
-  description: string;
-  pattern: string;
-  exampleText: string;
-  category: string;
-  severity: number;
-  active: boolean;
-};
+import {
+  MATCH_FIELD_OPTIONS,
+  categoryLabel,
+  categoryOptionsFor,
+  filesAsNotice,
+  initialSpamRuleForm,
+  matchFieldLabel,
+  spamRuleFormFromRule,
+  type SpamRuleFormData,
+  type SpamRuleMatchField,
+} from './spamRuleForm';
 
 type RuleFilter = 'all' | 'manual' | 'feedback';
 
@@ -33,24 +34,8 @@ export const SpamRulesSettings = () => {
     createRule: settingsService.createSpamRule,
     updateRule: settingsService.updateSpamRule,
     deleteRule: settingsService.deleteSpamRule,
-    getInitialFormData: () => ({
-      name: '',
-      description: '',
-      pattern: '',
-      exampleText: '',
-      category: 'content',
-      severity: 10,
-      active: true,
-    }),
-    getFormDataFromRule: (rule) => ({
-      name: rule.name,
-      description: rule.description,
-      pattern: rule.pattern ?? '',
-      exampleText: rule.exampleText ?? '',
-      category: rule.category,
-      severity: rule.severity,
-      active: rule.active,
-    }),
+    getInitialFormData: initialSpamRuleForm,
+    getFormDataFromRule: spamRuleFormFromRule,
   });
 
   const toggleActive = async (rule: SpamRule) => {
@@ -130,9 +115,12 @@ export const SpamRulesSettings = () => {
         {
           header: 'Category',
           render: (rule) => (
-            <Badge variant="secondary" className="capitalize">
-              {rule.category}
-            </Badge>
+            <div className="flex flex-col gap-1 items-start">
+              <Badge variant="secondary">{categoryLabel(rule.category)}</Badge>
+              <span className="text-xs text-muted-foreground" data-testid="spam-rule-match-on">
+                on {matchFieldLabel(rule).toLowerCase()}
+              </span>
+            </div>
           ),
         },
       ]}
@@ -228,23 +216,47 @@ export const SpamRulesSettings = () => {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <ReactSelect
+              label="Match on"
+              value={formData.matchField}
+              onChange={(value) =>
+                setFormData({ ...formData, matchField: value as SpamRuleMatchField })
+              }
+              options={MATCH_FIELD_OPTIONS}
+            />
+            <ReactSelect
               label="Category"
               value={formData.category}
               onChange={(value) => setFormData({ ...formData, category: value })}
-              options={[
-                { value: 'sender', label: 'Sender' },
-                { value: 'subject', label: 'Subject' },
-                { value: 'content', label: 'Content' },
-              ]}
+              options={categoryOptionsFor(formData.category)}
             />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Sender address is the customer&apos;s. When your own address (a web form, a shop)
+            sends mail that names the customer, the customer&apos;s address is the one checked, not
+            yours — match those on the subject.
+          </p>
+          {filesAsNotice(formData) && (
+            <p className="text-xs text-muted-foreground" data-testid="spam-rule-notice-hint">
+              This rule files matching mail as a system notice, without AI and outside the inbox.
+              If the same mail looks like phishing or a security threat (a failed sender check, or a
+              phishing or security rule), it is flagged as that instead. Severity is not used.
+            </p>
+          )}
+          <div>
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <label className="text-sm font-medium">Severity</label>
                 <span className="text-sm font-medium text-foreground">
                   {formData.severity}
-                  {formData.severity >= 100 && ' 🚫 Auto-Reject'}
-                  {formData.severity >= 50 && formData.severity < 100 && ' ⚠️ Mark as Spam'}
-                  {formData.severity < 50 && ' ℹ️ Flag for Review'}
+                  {filesAsNotice(formData) ? (
+                    ' — not used for a notice rule'
+                  ) : (
+                    <>
+                      {formData.severity >= 100 && ' 🚫 Auto-Reject'}
+                      {formData.severity >= 50 && formData.severity < 100 && ' ⚠️ Mark as Spam'}
+                      {formData.severity < 50 && ' ℹ️ Flag for Review'}
+                    </>
+                  )}
                 </span>
               </div>
               <input
