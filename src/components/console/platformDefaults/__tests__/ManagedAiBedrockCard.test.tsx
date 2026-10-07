@@ -1,6 +1,7 @@
 import { vi, describe, it, expect, afterEach } from 'vitest';
-import { act, render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
+import { act, render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import type * as platformSettingsModule from '@/services/platformSettings.service';
+import { chooseOption, listOptions } from '@/test/chooseOption';
 
 type PlatformSettings = platformSettingsModule.PlatformSettings;
 type SecretStatus = platformSettingsModule.SecretStatus;
@@ -162,12 +163,24 @@ describe('Managed AI defaults — Save and test', () => {
     await waitFor(() => expect(screen.getByText(/bedrock answered with/i)).toBeInTheDocument());
 
     openEditor();
-    fireEvent.change(screen.getByDisplayValue('eu-west-1 (Ireland)'), {
-      target: { value: 'us-east-1' },
-    });
+    await chooseOption(screen.getByRole('combobox', { name: 'Region' }), 'us-east-1 (N. Virginia)');
     fireEvent.click(screen.getByRole('button', { name: /save ai defaults/i }));
 
     expect(screen.queryByText(/bedrock answered with/i)).not.toBeInTheDocument();
+  });
+
+  it('the picked region is what gets saved, and the × clears it back to none', async () => {
+    renderCard(bedrockAi());
+    openEditor();
+    const region = screen.getByRole('combobox', { name: 'Region' });
+    const clear = () =>
+      region.closest('.select__control')?.querySelector('.select__clear-indicator') as HTMLElement;
+    fireEvent.mouseDown(clear(), { button: 0 });
+    expect(screen.getByText('Select a region…')).toBeInTheDocument();
+
+    await chooseOption(region, 'us-east-1 (N. Virginia)');
+    fireEvent.click(screen.getByRole('button', { name: /save ai defaults/i }));
+    expect(saveMutation.mutate.mock.calls[0][0]).toMatchObject({ bedrockRegion: 'us-east-1' });
   });
 
   it('⛔ a probe still running when the config is saved does not report on the new config', async () => {
@@ -178,9 +191,7 @@ describe('Managed AI defaults — Save and test', () => {
     renderCard(bedrockAi());
     fireEvent.click(screen.getByRole('button', { name: /^test connection/i }));
     openEditor();
-    fireEvent.change(screen.getByDisplayValue('eu-west-1 (Ireland)'), {
-      target: { value: 'us-east-1' },
-    });
+    await chooseOption(screen.getByRole('combobox', { name: 'Region' }), 'us-east-1 (N. Virginia)');
     fireEvent.click(screen.getByRole('button', { name: /save ai defaults/i }));
     expect(saveMutation.mutate).toHaveBeenCalledTimes(1);
 
@@ -199,7 +210,7 @@ describe('Managed AI defaults — Save and test', () => {
     renderCard(bedrockAi());
     fireEvent.click(screen.getByRole('button', { name: /^test connection/i }));
     openEditor();
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'openai' } });
+    await chooseOption(screen.getByRole('combobox', { name: 'Provider' }), 'OpenAI');
 
     await act(async () => {
       failOldProbe(new Error('OLD-CONFIG timed out'));
@@ -291,7 +302,7 @@ describe('Managed AI defaults — a result belongs to the credential it probed',
     testManagedAi.mockResolvedValue(answered);
     const { rerender } = renderCard(openAiStored());
     openEditor();
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'bedrock' } });
+    await chooseOption(screen.getByRole('combobox', { name: 'Provider' }), 'AWS Bedrock');
     fireEvent.click(screen.getByRole('button', { name: /save and test/i }));
     await waitFor(() => expect(screen.getByText(/bedrock answered with/i)).toBeInTheDocument());
 
@@ -392,23 +403,25 @@ describe('Managed AI defaults — what the stored Bedrock view says', () => {
 });
 
 describe('Managed AI defaults — Bedrock form', () => {
-  it('offers Claude Haiku 4.5 for the Vision tier in a dropdown, not a free-text box', () => {
+  it('offers Claude Haiku 4.5 for the Vision tier in a dropdown, not a free-text box', async () => {
     renderCard(bedrockAi());
     openEditor();
-    const visionLabel = screen.getByText(/vision tier — model/i);
-    const field = visionLabel.closest('div')?.parentElement as HTMLElement;
-    const picker = within(field).getByRole('combobox');
-    const ids = Array.from((picker as HTMLSelectElement).options).map((option) => option.value);
+    // Each option reads "<name> — <id>".
+    const labels = await listOptions(screen.getByRole('combobox', { name: 'Vision tier — model' }));
+    const ids = labels.map((label) => label.split(' — ').pop());
     expect(ids).toContain('anthropic.claude-haiku-4-5-20251001-v1:0');
     expect(ids).toContain(PROFILE);
   });
 
-  it("does not show the stored provider's model as the placeholder under a switch", () => {
+  it("does not show the stored provider's model as the placeholder under a switch", async () => {
     // Custom has no catalog, so every tier is free text — the case the screenshot showed for
     // Bedrock's vision tier ("gpt-4o-mini" under AWS Bedrock).
     renderCard(openAiStored());
     openEditor();
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'custom' } });
+    await chooseOption(
+      screen.getByRole('combobox', { name: 'Provider' }),
+      'Custom (OpenAI-compatible)'
+    );
     expect(screen.queryByPlaceholderText('gpt-4o-mini')).not.toBeInTheDocument();
     expect(screen.getAllByPlaceholderText('model id').length).toBe(3);
   });

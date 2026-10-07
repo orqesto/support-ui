@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { assignmentService, type AssignableUser } from '@/services/assignment.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
@@ -69,11 +69,13 @@ export const AssigneeFilter = ({
           Assignee:
         </span>
       )}
-      <ReactSelect
+      <Select
         value={value ?? 'all'}
         onChange={onChange}
         options={options}
-        isDisabled={loading}
+        disabled={loading}
+        size="sm"
+        aria-label="Assignee"
         placeholder={loading ? 'Loading...' : 'Select assignee'}
         className="min-w-[150px]"
       />

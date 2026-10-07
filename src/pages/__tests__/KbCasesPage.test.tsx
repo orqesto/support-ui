@@ -8,6 +8,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { chooseOption } from '@/test/chooseOption';
 import { MemoryRouter } from 'react-router-dom';
 import type { KbCasesReport } from '@/services/kbConsolidation.service';
 import { report, row, zeroFindings } from '@/test/kbCasesReportFixture';
@@ -577,7 +578,7 @@ describe('KB Cases report (F2)', () => {
     );
     expect(await screen.findByText('Refunds take 5 days.')).toBeInTheDocument();
     // A slow request for all departments is still out when the viewer narrows to Billing.
-    fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'lastSeen' } });
+    await chooseOption(screen.getByLabelText('Sort'), 'Most recently seen');
     fireEvent.click(screen.getByLabelText('Billing'));
     expect(screen.queryByText('Refunds take 5 days.')).not.toBeInTheDocument();
     expect(screen.getByRole('status', { busy: true })).toBeInTheDocument();
@@ -616,7 +617,7 @@ describe('KB Cases report (F2)', () => {
         pageSize: 25,
       })
     );
-    fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'lastSeen' } });
+    await chooseOption(screen.getByLabelText('Sort'), 'Most recently seen');
     await waitFor(() =>
       expect(getCases).toHaveBeenLastCalledWith(expect.objectContaining({ sort: 'lastSeen' }))
     );

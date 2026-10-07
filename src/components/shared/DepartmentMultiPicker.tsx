@@ -1,5 +1,5 @@
-import { Check, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import { Loader2 } from 'lucide-react';
+import { Select, type Option } from '@/components/ui/Select';
 import type { Department } from '@/services/department.service';
 
 type Props = {
@@ -19,13 +19,22 @@ export const DepartmentMultiPicker = ({
   onSelectedChange,
   onDefaultChange,
 }: Props) => {
-  const toggle = (id: number) => {
-    const next = selected.includes(id)
-      ? selected.filter((item) => item !== id)
-      : [...selected, id];
+  /*
+    The Select reports the whole ticked set; rebuild `next` the way the old toggle row did —
+    the existing order kept, a newly ticked department appended — so "first remaining" (the
+    fallback default below) names the same department it always did. Ids the list does not
+    offer (not in `allDepts`) are left alone, never dropped by a tick elsewhere.
+  */
+  const offered = new Set(allDepts.map((dept) => dept.id));
+  const handleChange = (values: string[]) => {
+    const ticked = values.map(Number);
+    const kept = selected.filter((id) => !offered.has(id) || ticked.includes(id));
+    const added = ticked.filter((id) => !selected.includes(id));
+    const next = [...kept, ...added];
     onSelectedChange(next);
+    const removed = selected.filter((id) => !next.includes(id));
     // If the current default got deselected, pick a new one (first remaining, or undefined).
-    if (defaultId === id && !next.includes(id)) {
+    if (defaultId !== undefined && removed.includes(defaultId)) {
       onDefaultChange(next[0]);
     } else if (defaultId === undefined && next.length > 0) {
       onDefaultChange(next[0]);
@@ -40,60 +49,36 @@ export const DepartmentMultiPicker = ({
     );
   }
 
+  const options: Option[] = allDepts.map((dept) => ({
+    value: String(dept.id),
+    // The chip of the default department says so, as the old toggle did; the menu row does not.
+    label: dept.id === defaultId && selected.includes(dept.id) ? `${dept.name} (default)` : dept.name,
+    menuLabel: dept.name,
+  }));
+  const defaultOptions: Option[] = selected.flatMap((id) => {
+    const dept = allDepts.find((dep) => dep.id === id);
+    return dept ? [{ value: String(id), label: dept.name }] : [];
+  });
+
   return (
     <>
-      <div className="flex flex-wrap gap-1.5">
-        {allDepts.map((dept) => {
-          const isSelected = selected.includes(dept.id);
-          const isDefault = dept.id === defaultId;
-          return (
-            <Button
-              key={dept.id}
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => toggle(dept.id)}
-              className={`gap-1 items-center px-2 py-1 h-auto text-xs ${
-                isSelected
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'border-border hover:bg-accent'
-              }`}
-            >
-              {isSelected && <Check className="w-3 h-3" />}
-              {dept.name}
-              {isDefault && isSelected && (
-                <span className="ml-0.5 opacity-70">(default)</span>
-              )}
-            </Button>
-          );
-        })}
-      </div>
+      <Select
+        multi
+        aria-label="Departments"
+        placeholder="Choose departments…"
+        options={options}
+        value={selected.map(String)}
+        onChange={handleChange}
+      />
 
       {selected.length > 1 && (
         <div className="mt-3">
-          <p className="text-xs text-muted-foreground mb-1">Default department:</p>
-          <div className="flex flex-wrap gap-1">
-            {selected.map((id) => {
-              const dept = allDepts.find((dep) => dep.id === id);
-              if (!dept) return null;
-              return (
-                <Button
-                  key={id}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onDefaultChange(id)}
-                  className={`px-2 py-0.5 h-auto text-xs ${
-                    id === defaultId
-                      ? 'bg-primary/20 border-primary text-primary'
-                      : 'border-border hover:bg-accent'
-                  }`}
-                >
-                  {dept.name}
-                </Button>
-              );
-            })}
-          </div>
+          <Select
+            label="Default department"
+            options={defaultOptions}
+            value={defaultId !== undefined ? String(defaultId) : ''}
+            onChange={(value) => onDefaultChange(Number(value))}
+          />
         </div>
       )}
     </>

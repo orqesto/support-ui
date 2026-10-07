@@ -6,10 +6,9 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
-import { Select } from '@/components/ui/Select';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { Spinner } from '@/components/ui/Spinner';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { Dialog, DialogHeader, DialogTitle, DialogContent } from '@/components/ui/Dialog';
 import { DataTable, type ColumnDef } from '@/components/ui/DataTable';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
@@ -35,6 +34,11 @@ import type { AllianceOrg } from '@/services/alliance-admin.service';
  * runs client-side via the shared DataTable.
  */
 type StatusFilter = 'all' | 'active' | 'inactive';
+const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: 'all', label: 'All statuses' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+];
 
 export const ConsoleOrganizations = () => {
   const { allianceId } = useParams();
@@ -223,12 +227,9 @@ export const ConsoleOrganizations = () => {
                     <Select
                       aria-label="Filter workspaces by status"
                       value={statusFilter}
-                      onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-                    >
-                      <option value="all">All statuses</option>
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                    </Select>
+                      onChange={(value) => setStatusFilter(value as StatusFilter)}
+                      options={STATUS_FILTER_OPTIONS}
+                    />
                   </div>
                 </>
               }
@@ -264,7 +265,7 @@ export const ConsoleOrganizations = () => {
             </p>
           ) : (
             <div className="space-y-4">
-              <ReactSelect
+              <Select
                 label="Workspace"
                 options={attachableOptions}
                 value={selectedOrgId === null ? '' : String(selectedOrgId)}

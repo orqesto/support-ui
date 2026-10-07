@@ -14,7 +14,7 @@ import { AssigneeFilter } from '@/components/filters/AssigneeFilter';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { SearchInput } from '@/components/ui/SearchInput';
 import type { PaginationMeta } from '@/services/ticket.service';
 import { categoryService } from '@/services/category.service';
@@ -168,7 +168,9 @@ export const TicketFilters = ({
           <FilterSection label="Queue">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3">
               <FilterCell label="Status">
-                <ReactSelect
+                <Select
+                  size="sm"
+                  aria-label="Status"
                   value={filters.status ?? 'all'}
                   onChange={(value) => onFilterChange('status', value)}
                   options={STATUS_OPTIONS as unknown as { value: string; label: string }[]}
@@ -177,7 +179,9 @@ export const TicketFilters = ({
               </FilterCell>
 
               <FilterCell label="Priority">
-                <ReactSelect
+                <Select
+                  size="sm"
+                  aria-label="Priority"
                   value={filters.priority ?? 'all'}
                   onChange={(value) => onFilterChange('priority', value)}
                   options={PRIORITY_OPTIONS as unknown as { value: string; label: string }[]}
@@ -208,7 +212,9 @@ export const TicketFilters = ({
 
               {categories.length > 0 && (
                 <FilterCell label="Category">
-                  <ReactSelect
+                  <Select
+                    size="sm"
+                    aria-label="Category"
                     value={filters.categoryId || ''}
                     onChange={(value) => onFilterChange('categoryId', value || 'all')}
                     options={[
@@ -216,7 +222,7 @@ export const TicketFilters = ({
                       ...categories.map((cat) => ({ value: cat.id.toString(), label: cat.name })),
                     ]}
                     className="w-full"
-                    isSearchable
+                    searchable
                   />
                 </FilterCell>
               )}
@@ -228,7 +234,9 @@ export const TicketFilters = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3">
               {labels.length > 0 && (
                 <FilterCell label="Label">
-                  <ReactSelect
+                  <Select
+                    size="sm"
+                    aria-label="Label"
                     value={filters.labelId ?? ''}
                     onChange={(value) => onFilterChange('labelId', value)}
                     options={[
@@ -241,7 +249,9 @@ export const TicketFilters = ({
               )}
 
               <FilterCell label="Linked" icon={<Link className="w-3 h-3 text-primary" />}>
-                <ReactSelect
+                <Select
+                  size="sm"
+                  aria-label="Linked"
                   value={filters.linked ?? 'all'}
                   onChange={(value) => onFilterChange('linked', value)}
                   options={LINKED_OPTIONS as unknown as { value: string; label: string }[]}
@@ -255,7 +265,9 @@ export const TicketFilters = ({
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-3 pb-1">
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground shrink-0">Sort:</span>
-              <ReactSelect
+              <Select
+                size="sm"
+                aria-label="Sort by"
                 value={sorting.sortBy}
                 onChange={(value) => onSortingChange({ ...sorting, sortBy: value as SortingState['sortBy'] })}
                 options={[
@@ -265,7 +277,9 @@ export const TicketFilters = ({
                 ]}
                 className="w-36"
               />
-              <ReactSelect
+              <Select
+                size="sm"
+                aria-label="Sort order"
                 value={sorting.sortOrder}
                 onChange={(value) => onSortingChange({ ...sorting, sortOrder: value as 'asc' | 'desc' })}
                 options={[

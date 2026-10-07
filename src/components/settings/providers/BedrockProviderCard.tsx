@@ -15,7 +15,7 @@ import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/Button';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { useBedrockModels } from '@/hooks/useBedrockModels';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { TRUST_POLICY_TEMPLATE, PERMISSION_POLICY_TEMPLATE } from './bedrockPolicyTemplates';
@@ -477,7 +477,7 @@ export const BedrockProviderCard = ({
                 </div>
               </div>
 
-              <ReactSelect
+              <Select
                 label="Region *"
                 value={config.region}
                 onChange={(value) => setConfig({ ...config, region: value })}
@@ -581,7 +581,7 @@ export const BedrockProviderCard = ({
               )}
 
               <div>
-                <ReactSelect
+                <Select
                   label="Default Model *"
                   value={config.defaultModel}
                   onChange={(value) => setConfig({ ...config, defaultModel: value })}

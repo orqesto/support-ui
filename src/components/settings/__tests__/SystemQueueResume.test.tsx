@@ -29,8 +29,8 @@ vi.mock('@/services/system.service', () => ({
   },
 }));
 // Pulls in ThemeContext, which this test has no reason to stand up.
-vi.mock('@/components/ui/ReactSelect', () => ({
-  ReactSelect: () => <div data-testid="react-select" />,
+vi.mock('@/components/ui/Select', () => ({
+  Select: () => <div data-testid="react-select" />,
 }));
 vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => ({ isAdmin: true }) }));
 vi.mock('@/services/department.service', () => ({

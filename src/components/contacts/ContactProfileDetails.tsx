@@ -13,10 +13,18 @@ import { tintedChip } from '@/lib/userColor';
 export type OrgUser = { id: number; firstName: string; lastName: string | null; email: string };
 export type OrgLabel = { id: number; name: string; color: string };
 
-function SectionLabel({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
+function SectionLabel({
+  children,
+  action,
+}: {
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
   return (
     <div className="flex gap-2 items-center mb-2">
-      <p className="font-display text-[10.5px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">{children}</p>
+      <p className="font-display text-[10.5px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
+        {children}
+      </p>
       <div className="flex-1 h-px bg-border" />
       {action}
     </div>
@@ -24,9 +32,12 @@ function SectionLabel({ children, action }: { children: React.ReactNode; action?
 }
 
 const profileIcon = (type: ContactProfileType) => {
-  if (type === 'telegram_username') return <Hash className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />;
-  if (type === 'telegram_phone') return <Phone className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />;
-  if (type === 'slack') return <MessageSquare className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />;
+  if (type === 'telegram_username')
+    return <Hash className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />;
+  if (type === 'telegram_phone')
+    return <Phone className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />;
+  if (type === 'slack')
+    return <MessageSquare className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />;
   if (type === 'whatsapp_phone') return <Phone className="w-3.5 h-3.5 shrink-0 text-success" />;
   return <AtSign className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />;
 };
@@ -102,16 +113,17 @@ export function ContactProfileDetails(props: ContactProfileDetailsProps) {
       <div>
         <SectionLabel>Assigned manager</SectionLabel>
         <Select
-          value={contact.assignedUserId ?? ''}
-          onChange={(event) => props.onAssign(event.target.value ? parseInt(event.target.value) : null)}
-        >
-          <option value="">Unassigned</option>
-          {users.map((usr) => (
-            <option key={usr.id} value={usr.id}>
-              {usr.firstName} {usr.lastName ?? ''} ({usr.email})
-            </option>
-          ))}
-        </Select>
+          aria-label="Assigned manager"
+          value={String(contact.assignedUserId ?? '')}
+          options={[
+            { value: '', label: 'Unassigned' },
+            ...users.map((usr) => ({
+              value: String(usr.id),
+              label: `${usr.firstName} ${usr.lastName ?? ''} (${usr.email})`,
+            })),
+          ]}
+          onChange={(value) => props.onAssign(value ? parseInt(value) : null)}
+        />
       </div>
 
       {/* Labels */}
@@ -139,14 +151,26 @@ export function ContactProfileDetails(props: ContactProfileDetailsProps) {
               className={`inline-flex gap-1.5 items-center pl-2 pr-1.5 h-6 rounded-full text-[11.5px] font-medium ${tintedChip(label.color, 0.12).className}`}
               style={tintedChip(label.color, 0.12).style}
             >
-              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: safeCssColor(label.color) }} />
+              <span
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{ background: safeCssColor(label.color) }}
+              />
               {label.name}
-              <Button type="button" variant="ghost" size="icon" aria-label="Remove label" className="p-0 w-auto h-auto hover:bg-transparent" onClick={() => props.onRemoveLabel(label.id)}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Remove label"
+                className="p-0 w-auto h-auto hover:bg-transparent"
+                onClick={() => props.onRemoveLabel(label.id)}
+              >
                 <X className="w-2.5 h-2.5" />
               </Button>
             </span>
           ))}
-          {contact.labels.length === 0 && <span className="text-sm text-muted-foreground">No labels</span>}
+          {contact.labels.length === 0 && (
+            <span className="text-sm text-muted-foreground">No labels</span>
+          )}
         </div>
         {props.showLabelPicker && (
           <Card className="mt-2">
@@ -253,14 +277,17 @@ export function ContactProfileDetails(props: ContactProfileDetailsProps) {
         {props.showProfileForm && (
           <div className="mt-2 space-y-2">
             <Select
+              aria-label="Profile type"
+              size="sm"
               value={props.profileTypeInput}
-              onChange={(event) => props.setProfileTypeInput(event.target.value as ContactProfileType)}
-            >
-              <option value="email">Email</option>
-              <option value="telegram_username">Telegram Username</option>
-              <option value="telegram_phone">Telegram Phone</option>
-              <option value="slack">Slack</option>
-            </Select>
+              options={[
+                { value: 'email', label: 'Email' },
+                { value: 'telegram_username', label: 'Telegram Username' },
+                { value: 'telegram_phone', label: 'Telegram Phone' },
+                { value: 'slack', label: 'Slack' },
+              ]}
+              onChange={(value) => props.setProfileTypeInput(value as ContactProfileType)}
+            />
             <Input
               size="sm"
               placeholder={profilePlaceholder(props.profileTypeInput)}

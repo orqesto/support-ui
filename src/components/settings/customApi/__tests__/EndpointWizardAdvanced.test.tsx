@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { chooseOption } from '@/test/chooseOption';
 import { EndpointWizard } from '../EndpointWizard';
 import type * as Svc from '@/services/customApi.service';
 
@@ -191,7 +192,10 @@ describe('advanced request settings (2026-09-29)', () => {
     // No {value} in the path: the warning says so…
     expect(screen.getByText(/This address has no/i)).toBeInTheDocument();
     await openAdvanced(user);
-    await user.selectOptions(screen.getByLabelText(/How we ask/i), 'POST');
+    await chooseOption(
+      screen.getByLabelText(/How we ask/i),
+      'POST — the value goes in a request body'
+    );
     await user.click(screen.getByLabelText(/Request body/i));
     await user.paste('{"email":"{value}"}');
     // …and goes once the body carries it.
@@ -214,7 +218,10 @@ describe('advanced request settings (2026-09-29)', () => {
     render(<EndpointWizard connection={modern()} onClose={noop} onSaved={noop} />);
     await fill(user);
     await openAdvanced(user);
-    await user.selectOptions(screen.getByLabelText(/How we ask/i), 'POST');
+    await chooseOption(
+      screen.getByLabelText(/How we ask/i),
+      'POST — the value goes in a request body'
+    );
     await user.click(screen.getByLabelText(/Request body/i));
     await user.paste('{"id": {value}}');
     expect(screen.getByText(/not valid JSON/i)).toBeInTheDocument();
@@ -316,8 +323,8 @@ describe('a category this build does not know is KEPT (FE audit M16)', () => {
     render(
       <EndpointWizard connection={connection()} endpoint={ep} onClose={noop} onSaved={noop} />
     );
-    const kept = screen.getByRole('option', { name: /Keep “subscription”/ });
-    expect((kept as HTMLOptionElement).selected).toBe(true);
+    // Selected: the closed control shows it as its value.
+    expect(screen.getByText(/Keep “subscription”/)).toBeTruthy();
     await user.click(screen.getByRole('button', { name: /^Save/ }));
     await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
     expect('category' in (updateEndpoint.mock.calls.at(-1)?.[2] as object)).toBe(false);
@@ -333,7 +340,10 @@ describe('a category this build does not know is KEPT (FE audit M16)', () => {
         onSaved={noop}
       />
     );
-    await user.selectOptions(screen.getByLabelText(/What kind of record/i), '');
+    await chooseOption(
+      screen.getByLabelText(/What kind of record/i),
+      'Not set — just show the fields'
+    );
     await user.click(screen.getByRole('button', { name: /^Save/ }));
     await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
     expect(updateEndpoint.mock.calls.at(-1)?.[2]).toMatchObject({ category: null });

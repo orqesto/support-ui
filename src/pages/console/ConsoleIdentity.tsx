@@ -421,14 +421,9 @@ export const ConsoleIdentity = () => {
               <Select
                 id="sso-provider"
                 value={provider}
-                onChange={(event) => applyProvider(event.target.value)}
-              >
-                {PROVIDERS.map((prov) => (
-                  <option key={prov.id} value={prov.id}>
-                    {prov.label}
-                  </option>
-                ))}
-              </Select>
+                onChange={applyProvider}
+                options={PROVIDERS.map((prov) => ({ value: prov.id, label: prov.label }))}
+              />
             </div>
 
             <div className="space-y-1">

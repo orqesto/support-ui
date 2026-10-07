@@ -309,7 +309,7 @@ export const ManagedAiDefaultsCard = ({
     });
   };
 
-  const renderModelPicker = (modelKey: ModelKey, visionOnly: boolean) => {
+  const renderModelPicker = (modelKey: ModelKey, visionOnly: boolean, tierLabel: string) => {
     const options = visionOnly
       ? providerModels.filter((model) => model.supportsVision)
       : providerModels;
@@ -332,9 +332,23 @@ export const ManagedAiDefaultsCard = ({
     }
     return (
       <Select
+        aria-label={`${tierLabel} — model`}
         value={current}
-        onChange={(event) => {
-          const next = event.target.value;
+        options={[
+          // The resolved value belongs to the STORED provider; naming it under another provider
+          // ("Use the default (gpt-5-mini)" under Bedrock) reads as a promise the server will
+          // not keep.
+          {
+            value: '',
+            label:
+              provider === storedProvider
+                ? `Use the default (${ai[modelKey].value ?? 'unset'})`
+                : "Use this provider's default",
+          },
+          ...options.map((model) => ({ value: model.id, label: `${model.name} — ${model.id}` })),
+          { value: OTHER, label: 'Other (type an id)…' },
+        ]}
+        onChange={(next) => {
           if (next === OTHER) {
             setFreeText((prev) => ({ ...prev, [modelKey]: true }));
             setModels((prev) => ({ ...prev, [modelKey]: '' }));
@@ -342,22 +356,7 @@ export const ManagedAiDefaultsCard = ({
           }
           setModels((prev) => ({ ...prev, [modelKey]: next }));
         }}
-      >
-        {/* The resolved value belongs to the STORED provider; naming it under another provider
-            ("Use the default (gpt-5-mini)" under Bedrock) reads as a promise the server will
-            not keep. */}
-        <option value="">
-          {provider === storedProvider
-            ? `Use the default (${ai[modelKey].value ?? 'unset'})`
-            : "Use this provider's default"}
-        </option>
-        {options.map((model) => (
-          <option key={model.id} value={model.id}>
-            {model.name} — {model.id}
-          </option>
-        ))}
-        <option value={OTHER}>Other (type an id)…</option>
-      </Select>
+      />
     );
   };
 
@@ -552,21 +551,20 @@ export const ManagedAiDefaultsCard = ({
             <SourceBadge source={ai.provider.source} />
           </div>
           <Select
+            aria-label="Provider"
             value={provider}
-            onChange={(event) => {
-              setProvider(event.target.value as AIProvider);
+            options={AI_PROVIDER_TYPES.map((type) => ({
+              value: type,
+              label: PROVIDER_LABELS[type],
+            }))}
+            onChange={(value) => {
+              setProvider(value as AIProvider);
               setFreeText({ defaultModel: false, strongModel: false, visionModel: false });
               // A result that outlives what it describes is worse than none: "openai answered"
               // still sitting there under a freshly-selected Bedrock reads as a pass.
               discardTestResult();
             }}
-          >
-            {AI_PROVIDER_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {PROVIDER_LABELS[type]}
-              </option>
-            ))}
-          </Select>
+          />
           <p className="mt-2 text-xs text-muted-foreground">
             Every provider keeps its own credential, so you can store a key here before switching
             over — and switching back never reuses the previous provider&apos;s credential. Cost
@@ -611,7 +609,7 @@ export const ManagedAiDefaultsCard = ({
                 <Label className="mb-0">{label} — model</Label>
                 <SourceBadge source={ai[modelKey].source} />
               </div>
-              {renderModelPicker(modelKey, modelKey === 'visionModel')}
+              {renderModelPicker(modelKey, modelKey === 'visionModel', label)}
               <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
             </div>
             <div>
@@ -647,20 +645,17 @@ export const ManagedAiDefaultsCard = ({
         {isBedrock && (
           <div className="pt-4 space-y-4 border-t border-border">
             <div>
-              <Label>Region</Label>
               <Select
+                label="Region"
                 value={bedrock.region}
-                onChange={(event) =>
-                  setBedrock((prev) => ({ ...prev, region: event.target.value }))
-                }
-              >
-                <option value="">Select a region…</option>
-                {BEDROCK_REGIONS.map((region) => (
-                  <option key={region.value} value={region.value}>
-                    {region.label}
-                  </option>
-                ))}
-              </Select>
+                placeholder="Select a region…"
+                clearable
+                options={BEDROCK_REGIONS.map((region) => ({
+                  value: region.value,
+                  label: region.label,
+                }))}
+                onChange={(value) => setBedrock((prev) => ({ ...prev, region: value }))}
+              />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>

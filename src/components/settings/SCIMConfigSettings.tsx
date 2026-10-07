@@ -536,14 +536,9 @@ export const SCIMConfigSettings = () => {
                           id={`scim-role-${group.id}`}
                           value={group.mappedRole ?? ''}
                           disabled={savingGroupId === group.id}
-                          onChange={(event) => onRoleChange(group, event.target.value)}
-                        >
-                          {ROLE_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </Select>
+                          options={ROLE_OPTIONS}
+                          onChange={(value) => onRoleChange(group, value)}
+                        />
                       </div>
 
                       {departments.length > 0 && (

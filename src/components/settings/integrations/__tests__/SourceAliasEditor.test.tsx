@@ -10,6 +10,7 @@
  * the array wholesale.
  */
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { chooseOption } from '@/test/chooseOption';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SourceAliasEditor, declaredAliases } from '../SourceAliasEditor';
 
@@ -91,8 +92,10 @@ describe('SourceAliasEditor', () => {
 
     // Search only renders past 3 candidates — below that there is nothing to fix.
     const sort = await screen.findByRole('combobox', { name: 'Sort addresses' });
-    expect(sort.className).not.toMatch(/\bw-full\b/);
-    expect(sort.className).toMatch(/\bw-48\b/);
+    // The width classes sit on the Select's wrapper, not on its combobox input.
+    const sortBox = sort.closest('.w-48');
+    expect(sortBox).not.toBeNull();
+    expect(sortBox?.className).not.toMatch(/\bw-full\b/);
     expect(screen.getByPlaceholderText('Search addresses')).toBeInTheDocument();
   });
 
@@ -495,7 +498,7 @@ describe('SourceAliasEditor — search and sort', () => {
 
     expect(listed()[0]).toMatch(/info@coresarms\.co\.uk/);
 
-    fireEvent.change(screen.getByLabelText('Sort addresses'), { target: { value: 'address' } });
+    await chooseOption(screen.getByLabelText('Sort addresses'), 'A–Z');
     expect(listed()[0]).toMatch(/alpha@other\.com/);
   });
 });

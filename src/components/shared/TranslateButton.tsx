@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { useState } from 'react';
 import { Languages, Loader2, X } from 'lucide-react';
 import { useTranslation, useSupportedLanguages } from '@/hooks/useTranslation';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
-import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { toast } from '@/lib/toast';
 import {
@@ -38,44 +37,16 @@ export const TranslateButton = ({
   spinnerClassName,
   clearClassName,
 }: TranslateButtonProps) => {
-  const [isOpen, setIsOpen] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState('');
   const [hasTranslation, setHasTranslation] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const { translateMessage, translateTicket, translateText, isTranslating } = useTranslation();
   const { languages, fetchLanguages } = useSupportedLanguages();
   const { aiConfigured } = useAiConfigured();
-  const { theme } = useTheme();
-  const bgColor = theme === 'dark' ? '#1e293b' : '#ffffff';
 
-  useEffect(() => {
-    if (isOpen) {
-      void fetchLanguages();
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
-
+  // The panel closes itself on a pick (single select).
   const handleSelect = async (language: string) => {
     setSelectedLanguage(language);
-    setIsOpen(false);
     try {
       if (messageId) {
         const result = await translateMessage(messageId, language);
@@ -103,7 +74,6 @@ export const TranslateButton = ({
   };
 
   const handleClear = () => {
-    setIsOpen(false);
     setSelectedLanguage('');
     setHasTranslation(false);
     onCleared();
@@ -114,52 +84,55 @@ export const TranslateButton = ({
       ? languages.map((lang) => ({ value: lang.code, label: lang.name }))
       : [{ value: 'en', label: 'English' }];
 
-  const handleToggle = () => {
-    // One translation at a time: with the dropdown re-openable mid-flight, a second
-    // language could be fired while the first was pending, and whichever request
-    // RESOLVED last won — not whichever the agent clicked last.
-    if (isTranslating) return;
-    if (!isOpen && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      setDropdownPos({
-        top: rect.bottom + 4,
-        left: rect.right - 110,
-      });
-    }
-    setIsOpen(!isOpen);
-  };
-
   return (
     <div className="flex items-center gap-1">
-      <Tooltip
-        content={
-          aiConfigured
-            ? ''
-            : 'AI translation needs a provider — configure one in Settings.'
-        }
-        size="sm"
-      >
-        <Button
-          ref={buttonRef}
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={handleToggle}
-          disabled={!aiConfigured || isTranslating}
-          title={aiConfigured ? 'Translate' : 'AI translation needs a provider'}
-          aria-label="Translate"
-          className={`${
-            buttonClassName ??
-            `inline-flex items-center justify-center w-5 h-5 rounded transition-colors ${
-              isOpen || hasTranslation
-                ? 'text-primary'
-                : 'text-muted-foreground/40 hover:text-muted-foreground'
-            }`
-          } ${!aiConfigured ? 'opacity-40 cursor-not-allowed' : ''}`}
-        >
-          <Languages className="w-3 h-3" />
-        </Button>
-      </Tooltip>
+      {/*
+        One translation at a time: with the dropdown re-openable mid-flight, a second language
+        could be fired while the first was pending, and whichever request RESOLVED last won — not
+        whichever the agent clicked last. `disabled` keeps it shut while one is in flight.
+      */}
+      <Select
+        variant="popover"
+        align="end"
+        aria-label="Language"
+        options={languageOptions}
+        value={selectedLanguage}
+        onChange={(language) => void handleSelect(language)}
+        disabled={!aiConfigured || isTranslating}
+        trigger={({ open, toggle }) => (
+          <Tooltip
+            content={
+              aiConfigured
+                ? ''
+                : 'AI translation needs a provider — configure one in Settings.'
+            }
+            size="sm"
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                if (!open) void fetchLanguages();
+                toggle();
+              }}
+              disabled={!aiConfigured || isTranslating}
+              title={aiConfigured ? 'Translate' : 'AI translation needs a provider'}
+              aria-label="Translate"
+              className={`${
+                buttonClassName ??
+                `inline-flex items-center justify-center w-5 h-5 rounded transition-colors ${
+                  open || hasTranslation
+                    ? 'text-primary'
+                    : 'text-muted-foreground/40 hover:text-muted-foreground'
+                }`
+              } ${!aiConfigured ? 'opacity-40 cursor-not-allowed' : ''}`}
+            >
+              <Languages className="w-3 h-3" />
+            </Button>
+          </Tooltip>
+        )}
+      />
       {isTranslating && (
         <Loader2
           className={`w-3 h-3 animate-spin flex-shrink-0 ${spinnerClassName ?? 'text-muted-foreground'}`}
@@ -181,43 +154,6 @@ export const TranslateButton = ({
           <X className="w-2.5 h-2.5" />
         </Button>
       )}
-
-      {isOpen &&
-        createPortal(
-          <div
-            ref={dropdownRef}
-            style={{
-              position: 'fixed',
-              top: dropdownPos.top,
-              left: dropdownPos.left,
-              backgroundColor: bgColor,
-              width: 'max-content',
-            }}
-            className="z-[9999] rounded-lg border border-border shadow-lg overflow-hidden"
-          >
-            <div className="overflow-y-auto max-h-52 py-1">
-              {languageOptions.map((lang) => (
-                <Button
-                  key={lang.value}
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    void handleSelect(lang.value);
-                  }}
-                  className={`block justify-start w-full whitespace-nowrap text-left px-2.5 py-1.5 h-auto text-[13px] rounded-none ${
-                    selectedLanguage === lang.value
-                      ? 'font-medium text-foreground bg-accent'
-                      : 'text-foreground/80 hover:bg-accent'
-                  }`}
-                >
-                  {lang.label}
-                </Button>
-              ))}
-            </div>
-          </div>,
-          document.body
-        )}
     </div>
   );
 };

@@ -32,7 +32,7 @@ about interactive controls and styled primitives.
 | `<button>`                 | `Button` — `variant` (default/outline/ghost/destructive), `size` (sm/md), `isLoading`                  |
 | `<input type="text">`      | `Input`                                                                                                |
 | a search field             | `SearchInput` — `value`, `onChange(value: string)`, optional `showSearchButton`, `onSearch`            |
-| `<select>`                 | `Select` (native) or `ReactSelect` (searchable/rich)                                                   |
+| `<select>`, any dropdown   | `Select` — `options`, `value`/`onChange(value)`; `multi`; `variant` default/chip/value; `size` sm/md/lg = Input |
 | `<textarea>`               | `Textarea`                                                                                             |
 | a status/tag `<span>` pill | `Badge` — `variant`: default / success / warning / danger / secondary; `size`: sm/md/lg                |
 | a bordered `<div>` panel   | `Card` (+ `CardHeader`, `CardContent`, `CardTitle`, `CardDescription`); `padding` prop controls insets |
@@ -186,3 +186,21 @@ Two failure modes have bitten this work, both invisible to type-check and tests:
 
 And verify in a **built** app: a class in a source file is not a rendered colour, and a
 hidden automation tab pauses CSS transitions, which freezes measured colours mid-flight.
+
+## Select — the only dropdown
+
+`import { Select } from '@/components/ui/Select'`. One component for every "pick from a list" control
+(react-select underneath). There is no native-select wrapper and no `ReactSelect` any more.
+
+- **Size** matches `Input`: `sm` 32px / `md` 40px (default) / `lg` 48px. Forms: default. Filter bars,
+  toolbars, list headers: `size="sm"`.
+- **Variants**: `default` (form field), `chip` (status/priority chip in headers and cards), `value`
+  (compact sentence-case value in a meta row). `size` applies to `default`.
+- **Search** turns on by itself at 8+ options (`searchable` overrides).
+- **Multi**: `multi value={string[]} onChange={(values) => …}` — checklist menu that stays open.
+- **Label** it: `label`, `aria-label`, or an `id` a `<Label htmlFor>` points at. Enforced by
+  `src/test/selectsAreUnified.test.ts`, which also fails on a raw `<select>` or a direct `react-select`
+  import outside `src/components/ui/`.
+- **Tests**: `chooseOption(control, 'Option text')` / `listOptions(control)` from `@/test/chooseOption`
+  — not `userEvent.selectOptions`, which only drives a native `<select>`.
+

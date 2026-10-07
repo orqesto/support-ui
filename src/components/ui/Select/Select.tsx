@@ -2,12 +2,14 @@ import { forwardRef, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import ReactSelectLib, { type SelectInstance } from 'react-select';
 import { Check } from 'lucide-react';
-import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
-import { getReactSelectStyles } from './reactSelect.styles';
+import { getInputErrorClasses, getInputLabelClasses } from '../Input/input.styles';
+import { getSelectStyles } from './select.styles';
 import { DropdownIndicator } from './DropdownIndicator';
 import { ChipDropdownIndicator } from './ChipDropdownIndicator';
-import type { SelectProps, Option } from './reactSelect.types';
+import { SEARCHABLE_FROM, type SelectProps, type Option } from './select.types';
+import { ColorDot, SelectPopover } from './SelectPopover';
+import { matchesLabel } from './selectFilter';
 
 // 'value': a compact field value in sentence case (message detail v3 meta row — Assigned,
 // Category). Same unstyled machinery as 'chip', none of the uppercase-label styling.
@@ -41,7 +43,7 @@ const SHEET_OPTION = 'max-sm:min-h-[46px] max-sm:text-[15px] max-sm:px-3';
 const SHEET_CHIP_CONTROL = 'max-sm:h-[26px]';
 const SHEET_VALUE_CONTROL = 'max-sm:h-9 max-sm:text-[13.5px]';
 
-export const ReactSelect = forwardRef<unknown, SelectProps>(
+export const Select = forwardRef<unknown, SelectProps>(
   (
     {
       label,
@@ -52,6 +54,22 @@ export const ReactSelect = forwardRef<unknown, SelectProps>(
       id,
       className,
       variant = 'default',
+      size = 'md',
+      multi = false,
+      searchable,
+      disabled,
+      isDisabled,
+      hint,
+      trigger,
+      align = 'start',
+      popoverWidth = 220,
+      open,
+      onOpenChange,
+      panelProps,
+      creatable = false,
+      onCreate,
+      createLabel,
+      clearable = false,
       chipCase = 'upper',
       mobileSheet = false,
       onMenuOpen,
@@ -63,13 +81,50 @@ export const ReactSelect = forwardRef<unknown, SelectProps>(
     const generatedId = useId();
     // mobileSheet only: whether the menu is open, so the scrim can be drawn behind it.
     const [sheetOpen, setSheetOpen] = useState(false);
-    const selectRef = useRef<SelectInstance<Option, false> | null>(null);
+    const selectRef = useRef<SelectInstance<Option, boolean> | null>(null);
     const selectId = id ?? generatedId;
-    const { theme } = useTheme();
+    const isMulti = multi && variant === 'default';
+    const customStyles = getSelectStyles(!!error, size, isMulti);
+    const selectedValues: string[] = Array.isArray(value) ? value : value === undefined || value === null ? [] : [value];
+    const selectedOption = options.find((opt) => opt.value === selectedValues[0]) ?? null;
+    const selectedOptions = options.filter((opt) => selectedValues.includes(opt.value));
+    const isSearchable = searchable ?? options.length >= SEARCHABLE_FROM;
+    const off = disabled ?? isDisabled;
+    // Narrowed once here: the props union says which signature the caller gave.
+    const emit = (next: Option | readonly Option[] | null) => {
+      if (!onChange) return;
+      if (multi) (onChange as (value: string[]) => void)(((next ?? []) as readonly Option[]).map((opt) => opt.value));
+      else if (next && !Array.isArray(next)) (onChange as (value: string) => void)((next as Option).value);
+      // Only the clear button sends null for a single select: report it as the empty value.
+      else if (next === null && clearable) (onChange as (value: string) => void)('');
+    };
 
-    const isDark = theme === 'dark';
-    const customStyles = getReactSelectStyles(isDark, !!error);
-    const selectedOption = options.find((opt) => opt.value === value) ?? null;
+    if (variant === 'popover' && trigger) {
+      return (
+        <SelectPopover
+          trigger={trigger}
+          options={options}
+          selectedValues={selectedValues}
+          multi={multi}
+          emit={emit}
+          align={align}
+          width={popoverWidth}
+          open={open}
+          onOpenChange={onOpenChange}
+          panelProps={panelProps}
+          noOptionsMessage={props.noOptionsMessage}
+          filterOption={props.filterOption}
+          searchable={searchable ?? true}
+          creatable={creatable}
+          onCreate={onCreate}
+          createLabel={createLabel}
+          placeholder={props.placeholder}
+          disabled={off}
+          ariaLabel={props['aria-label'] ?? label}
+          className={className}
+        />
+      );
+    }
 
     if (variant === 'chip' || variant === 'value') {
       const chipColor =
@@ -78,16 +133,15 @@ export const ReactSelect = forwardRef<unknown, SelectProps>(
           : (selectedOption?.chipClassName ??
             'text-muted-foreground border-border bg-muted hover:bg-accent hover:text-foreground');
       const chip = (
-        <ReactSelectLib<Option, false>
+        <ReactSelectLib<Option, boolean>
           ref={selectRef}
           inputId={selectId}
           value={selectedOption}
-          onChange={(newValue) => {
-            if (onChange && newValue) onChange(newValue.value);
-          }}
+          onChange={emit}
           options={options}
           unstyled
-          isSearchable={false}
+          isDisabled={off}
+          isSearchable={searchable ?? false}
           isClearable={false}
           menuPortalTarget={document.body}
           menuPosition="fixed"
@@ -107,7 +161,7 @@ export const ReactSelect = forwardRef<unknown, SelectProps>(
             }),
           }}
           formatOptionLabel={(data, { context }) => {
-            const isSelected = data.value === value;
+            const isSelected = selectedValues.includes(data.value);
             if (context === 'menu') {
               return (
                 <div className="flex items-center gap-2 w-full">
@@ -116,6 +170,7 @@ export const ReactSelect = forwardRef<unknown, SelectProps>(
                       className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${data.dotClassName}`}
                     />
                   )}
+                  {data.color && <ColorDot color={data.color} />}
                   <span className="whitespace-nowrap">{data.menuLabel ?? data.label}</span>
                   {isSelected && <Check className="ml-auto w-3 h-3 flex-shrink-0 opacity-70" />}
                 </div>
@@ -226,7 +281,8 @@ export const ReactSelect = forwardRef<unknown, SelectProps>(
           <label
             htmlFor={selectId}
             className={cn(
-              'block mb-2 text-sm font-medium transition-colors',
+              getInputLabelClasses(size),
+              'transition-colors',
               error ? 'text-destructive' : 'text-foreground'
             )}
           >
@@ -234,41 +290,77 @@ export const ReactSelect = forwardRef<unknown, SelectProps>(
             {props.required && <span className="ml-1 text-destructive">*</span>}
           </label>
         )}
-        <ReactSelectLib<Option, false>
+        <ReactSelectLib<Option, boolean>
+          ref={selectRef}
           inputId={selectId}
-          value={selectedOption}
-          onChange={(newValue) => {
-            if (onChange && newValue) onChange(newValue.value);
-          }}
+          value={isMulti ? selectedOptions : selectedOption}
+          onChange={emit}
           options={options}
+          isMulti={isMulti}
+          formatOptionLabel={
+            isMulti
+              ? (data, { context }) =>
+                  context === 'menu' ? (
+                    <span className="flex items-center gap-2 w-full">
+                      <span className="truncate">{data.menuLabel ?? data.label}</span>
+                      {selectedValues.includes(data.value) && (
+                        <Check className="ml-auto w-3.5 h-3.5 flex-shrink-0 opacity-70" />
+                      )}
+                    </span>
+                  ) : (
+                    data.label
+                  )
+              : (data, { context }) =>
+                  // `menuLabel` (Title Case) in the menu, `label` in the control — as the chip variant does.
+                  context === 'menu' && data.color ? (
+                    <span className="flex items-center gap-2">
+                      <ColorDot color={data.color} />
+                      {data.menuLabel ?? data.label}
+                    </span>
+                  ) : context === 'menu' ? (
+                    (data.menuLabel ?? data.label)
+                  ) : (
+                    data.label
+                  )
+          }
+          isDisabled={off}
+          // A checklist: stays open while ticking, and keeps ticked rows in the list.
+          closeMenuOnSelect={!isMulti}
+          hideSelectedOptions={false}
           styles={customStyles}
           components={{ DropdownIndicator }}
           menuPortalTarget={document.body}
           menuPosition="fixed"
           menuPlacement="auto"
+          classNamePrefix="select"
+          filterOption={matchesLabel}
           closeMenuOnScroll={false}
-          isClearable={false}
-          isSearchable={true}
-          blurInputOnSelect={true}
+          isClearable={clearable}
+          isSearchable={isSearchable}
+          blurInputOnSelect={!isMulti}
           captureMenuScroll={false}
           tabSelectsValue={true}
           noOptionsMessage={() => 'No options available'}
           loadingMessage={() => 'Loading...'}
           aria-label={label}
           aria-invalid={!!error}
-          aria-describedby={error ? `${selectId}-error` : undefined}
+          aria-describedby={error ? `${selectId}-error` : hint ? `${selectId}-hint` : undefined}
           onMenuOpen={onMenuOpen}
           onMenuClose={onMenuClose}
           {...props}
         />
-        {error && (
-          <p id={`${selectId}-error`} className="mt-1.5 text-sm text-destructive" role="alert">
+        {error ? (
+          <p id={`${selectId}-error`} className={getInputErrorClasses(size)} role="alert">
             {error}
           </p>
-        )}
+        ) : hint ? (
+          <p id={`${selectId}-hint`} className="mt-1 text-xs text-muted-foreground">
+            {hint}
+          </p>
+        ) : null}
       </div>
     );
   }
 );
 
-ReactSelect.displayName = 'ReactSelect';
+Select.displayName = 'Select';

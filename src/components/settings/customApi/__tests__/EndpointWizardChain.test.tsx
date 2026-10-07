@@ -21,6 +21,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { chooseOption, listOptions } from '@/test/chooseOption';
 import { EndpointWizard } from '../EndpointWizard';
 import type * as Svc from '@/services/customApi.service';
 
@@ -176,13 +177,13 @@ describe('D21 — the chain on the settings form', () => {
     expect(lastPayload()).not.toHaveProperty('ownershipSourceEndpointId');
   });
 
-  it('offers only a lookup that finds the customer by email as the source', () => {
+  it('offers only a lookup that finds the customer by email as the source', async () => {
     render(
       <EndpointWizard connection={withSiblings()} endpoint={orders} onClose={noop} onSaved={noop} />
     );
 
     const source = screen.getByLabelText('Which lookup gives the value?');
-    const offered = Array.from((source as HTMLSelectElement).options).map((one) => one.text);
+    const offered = await listOptions(source);
     expect(offered).toContain('Customer account');
     // The backend refuses a typed source; offering it would be offering a failing save.
     expect(offered).not.toContain('Order details');
@@ -200,11 +201,14 @@ describe('D21 — the chain on the settings form', () => {
       />
     );
 
-    await user.selectOptions(screen.getByLabelText('What do we look up by?'), 'endpoint');
+    await chooseOption(
+      screen.getByLabelText('What do we look up by?'),
+      'A value from another lookup’s answer, like the customer’s id'
+    );
     // ⛔ Incomplete ⇒ Save is refused on screen rather than sent to be a 400.
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
 
-    await user.selectOptions(screen.getByLabelText('Which lookup gives the value?'), '10');
+    await chooseOption(screen.getByLabelText('Which lookup gives the value?'), 'Customer account');
     // The source's picked field is offered as a one-press answer.
     await user.click(screen.getByRole('button', { name: 'customer_id' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -226,7 +230,6 @@ describe('D21 — the chain on the settings form', () => {
   });
 
   it('says what is missing when no lookup can be a source', async () => {
-    const user = userEvent.setup();
     const existing = { ...base, id: 60, label: 'Orders by id', parameterSource: 'manual' as const };
     render(
       <EndpointWizard
@@ -237,7 +240,10 @@ describe('D21 — the chain on the settings form', () => {
       />
     );
 
-    await user.selectOptions(screen.getByLabelText('What do we look up by?'), 'endpoint');
+    await chooseOption(
+      screen.getByLabelText('What do we look up by?'),
+      'A value from another lookup’s answer, like the customer’s id'
+    );
 
     expect(screen.getByText(/finds the customer by their email/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();

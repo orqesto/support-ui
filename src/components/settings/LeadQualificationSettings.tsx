@@ -471,20 +471,17 @@ export const LeadQualificationSettings = () => {
                   placeholder="Label"
                 />
                 <Select
+                  size="sm"
+                  className="w-28 shrink-0"
+                  aria-label={`Priority for ${cat.label || cat.key}`}
                   value={cat.priority}
-                  onChange={(event) =>
+                  options={PRIORITY_OPTIONS.map((prio) => ({ value: prio, label: prio }))}
+                  onChange={(value) =>
                     updateCategory(cat.key, {
-                      priority: event.target.value as LeadCategoryConfig['priority'],
+                      priority: value as LeadCategoryConfig['priority'],
                     })
                   }
-                  className="w-auto h-8 text-xs"
-                >
-                  {PRIORITY_OPTIONS.map((prio) => (
-                    <option key={prio} value={prio}>
-                      {prio}
-                    </option>
-                  ))}
-                </Select>
+                />
                 <label className="flex items-center gap-1 text-xs whitespace-nowrap cursor-pointer">
                   <input
                     type="checkbox"
@@ -539,22 +536,23 @@ export const LeadQualificationSettings = () => {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>Priority</label>
+                <label htmlFor="lead-new-category-priority" className={labelCls}>
+                  Priority
+                </label>
                 <Select
+                  id="lead-new-category-priority"
                   value={newCategory.priority}
-                  onChange={(event) =>
+                  options={PRIORITY_OPTIONS.map((prio) => ({
+                    value: prio,
+                    label: prio.charAt(0).toUpperCase() + prio.slice(1),
+                  }))}
+                  onChange={(value) =>
                     setNewCategory((cat) => ({
                       ...cat,
-                      priority: event.target.value as LeadCategoryConfig['priority'],
+                      priority: value as LeadCategoryConfig['priority'],
                     }))
                   }
-                >
-                  {PRIORITY_OPTIONS.map((prio) => (
-                    <option key={prio} value={prio}>
-                      {prio.charAt(0).toUpperCase() + prio.slice(1)}
-                    </option>
-                  ))}
-                </Select>
+                />
               </div>
               <div className="flex items-end pb-1.5">
                 <label className="flex items-center gap-2 cursor-pointer text-sm">

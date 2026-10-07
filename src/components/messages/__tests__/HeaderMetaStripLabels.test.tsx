@@ -20,7 +20,6 @@ vi.mock('@/hooks/usePermissions', () => ({
 vi.mock('@/stores/authStore', () => ({ useAuthStore: () => ({ id: 1, role: 'admin' }) }));
 vi.mock('@/services/message.service', () => ({ messageService: {} }));
 vi.mock('@/components/admin/AssignmentSelect', () => ({ AssignmentSelect: () => null }));
-vi.mock('@/components/ui/ReactSelect', () => ({ ReactSelect: () => null }));
 
 const { HeaderMetaStrip } = await import('../HeaderMetaStrip');
 

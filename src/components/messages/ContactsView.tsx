@@ -1,5 +1,13 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { ArrowLeft, ArrowRight, ChevronDown, Mail, MessageSquare, Ticket, Target } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChevronDown,
+  Mail,
+  MessageSquare,
+  Ticket,
+  Target,
+} from 'lucide-react';
 import { ContactProfilePanel } from '@/components/contacts/ContactProfilePanel';
 import { ContactAvatar } from '@/components/contacts/ContactAvatar';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
@@ -31,7 +39,10 @@ type SubjectState = {
 
 type SortKey = 'recent' | 'messages' | 'name' | 'unread';
 
-const SORTS: Record<string, { label: string; fn: (lhs: MessageContact, rhs: MessageContact) => number }> = {
+const SORTS: Record<
+  string,
+  { label: string; fn: (lhs: MessageContact, rhs: MessageContact) => number }
+> = {
   recent: {
     label: 'Recent',
     fn: (lhs, rhs) => new Date(rhs.lastMessageAt).getTime() - new Date(lhs.lastMessageAt).getTime(),
@@ -94,11 +105,7 @@ function ContactRow({
   );
 
   return (
-    <div
-      className={`group transition-colors ${
-        active ? 'bg-primary/5' : 'hover:bg-muted/50'
-      }`}
-    >
+    <div className={`group transition-colors ${active ? 'bg-primary/5' : 'hover:bg-muted/50'}`}>
       <div className="flex items-stretch">
         {/* Full-height expand column — separate hit target from the row's open action */}
         <Button
@@ -112,9 +119,7 @@ function ContactRow({
           title={expanded ? 'Collapse topics' : `Show ${contact.subjectCount} topics`}
           aria-label={expanded ? 'Collapse topics' : 'Show topics'}
           className={`flex justify-center items-center self-stretch w-9 h-auto shrink-0 border-r transition-colors ${
-            expanded
-              ? 'bg-muted/70 border-border'
-              : 'border-transparent hover:bg-muted'
+            expanded ? 'bg-muted/70 border-border' : 'border-transparent hover:bg-muted'
           }`}
         >
           <ChevronDown
@@ -222,7 +227,9 @@ function ContactRow({
                     {subject.displaySubject || '(no subject)'}
                   </span>
                   {subject.isLead && <Target className="w-3 h-3 text-muted-foreground shrink-0" />}
-                  {subject.hasTicket && <Ticket className="w-3 h-3 text-muted-foreground shrink-0" />}
+                  {subject.hasTicket && (
+                    <Ticket className="w-3 h-3 text-muted-foreground shrink-0" />
+                  )}
                   <span className="inline-flex gap-1 items-center text-[11px] text-muted-foreground tabular-nums">
                     <MessageSquare className="w-3 h-3" />
                     {subject.messageCount}
@@ -408,22 +415,24 @@ export function ContactsView({
       {/* Toolbar */}
       <div className="flex flex-shrink-0 gap-2 justify-between items-center px-4 py-3 border-b border-border">
         <div className="flex gap-2 items-baseline">
-          <h2 className="font-display text-base font-bold tracking-tight text-foreground">Contacts</h2>
+          <h2 className="font-display text-base font-bold tracking-tight text-foreground">
+            Contacts
+          </h2>
           <span className="text-xs text-muted-foreground tabular-nums">{pagination.total}</span>
         </div>
         <div className="flex gap-1 items-center px-1 h-8 rounded-lg bg-muted">
           <span className="pl-2 pr-0.5 text-[11px] text-muted-foreground">Sort</span>
           <Select
             value={sort}
-            onChange={(event) => setSort(event.target.value as SortKey)}
-            className="px-1 pr-1 w-auto h-7 text-xs font-medium bg-transparent border-0 cursor-pointer"
-          >
-            {Object.entries(SORTS).map(([key, sortDef]) => (
-              <option key={key} value={key}>
-                {sortDef.label}
-              </option>
-            ))}
-          </Select>
+            onChange={(value) => setSort(value as SortKey)}
+            aria-label="Sort"
+            // The compact inline value: it sits inside the h-8 "Sort" pill, as the old borderless select did.
+            variant="value"
+            options={Object.entries(SORTS).map(([key, sortDef]) => ({
+              value: key,
+              label: sortDef.label,
+            }))}
+          />
         </div>
       </div>
 
@@ -456,7 +465,9 @@ export function ContactsView({
           <div className="grid place-items-center py-16 text-center">
             <div>
               <Mail className="mx-auto mb-3 w-7 h-7 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">No senders match your current filters.</p>
+              <p className="text-sm text-muted-foreground">
+                No senders match your current filters.
+              </p>
             </div>
           </div>
         )}

@@ -327,21 +327,27 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
             <SourceBadge source={storage.driver.source} unsetLabel="Not set" />
           </div>
           <Select
+            aria-label="Storage backend"
             value={mode}
-            onChange={(event) => {
-              setMode(event.target.value as Mode);
+            options={[
+              ...(storage.envS3Configured
+                ? [
+                    {
+                      value: 's3-env',
+                      label: `S3 — use the environment's configuration${
+                        storage.bucket.value ? ` (${storage.bucket.value})` : ''
+                      }`,
+                    },
+                  ]
+                : []),
+              { value: 's3', label: 'S3 / compatible — configure here' },
+              { value: 'local', label: 'Local disk — fallback, single node only' },
+            ]}
+            onChange={(value) => {
+              setMode(value as Mode);
               invalidateTest();
             }}
-          >
-            {storage.envS3Configured && (
-              <option value="s3-env">
-                S3 — use the environment&apos;s configuration
-                {storage.bucket.value ? ` (${storage.bucket.value})` : ''}
-              </option>
-            )}
-            <option value="s3">S3 / compatible — configure here</option>
-            <option value="local">Local disk — fallback, single node only</option>
-          </Select>
+          />
           <p className="mt-2 text-xs text-muted-foreground">
             Local disk keeps files on the container&apos;s own filesystem: it is lost on a rebuild
             and cannot be shared across replicas. Use it only for local development or a single-node

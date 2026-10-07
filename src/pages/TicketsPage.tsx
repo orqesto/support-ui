@@ -14,7 +14,7 @@ import { TicketListItem } from '@/components/tickets/TicketListItem';
 import { TicketsKanbanView } from '@/components/tickets/TicketsKanbanView';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Drawer } from '@/components/ui/Drawer';
 import { Pagination } from '@/components/ui/Pagination';
@@ -441,7 +441,7 @@ export const TicketsPage = () => {
             actions={
               <>
                 {jiraIntegrations.length > 1 && (
-                  <ReactSelect
+                  <Select
                     value={selectedJiraId?.toString() ?? ''}
                     onChange={(value) => setSelectedJiraId(value ? Number(value) : undefined)}
                     options={[
@@ -451,6 +451,8 @@ export const TicketsPage = () => {
                         label: jira.name,
                       })),
                     ]}
+                    size="sm"
+                    aria-label="Jira integration"
                     className="w-40"
                   />
                 )}

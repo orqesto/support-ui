@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { chooseOption, listOptions } from '@/test/chooseOption';
 import { MemoryRouter } from 'react-router-dom';
 
 /**
@@ -60,7 +61,10 @@ const daysInput = () => screen.getByLabelText('Days');
 const presetSelect = () => screen.getByLabelText('Window');
 const offSwitch = () => screen.getByRole('switch', { name: 'Use an open-conversation window' });
 const saveButton = () => screen.getByRole('button', { name: /save/i });
-const chooseCustom = () => fireEvent.change(presetSelect(), { target: { value: 'custom' } });
+const chooseCustom = () => chooseOption(presetSelect(), 'Custom');
+/** The option the Window select shows as chosen (its visible value, menu closed). */
+const shownPreset = (text: string) =>
+  within(presetSelect().closest('.w-56') as HTMLElement).getByText(text);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -76,18 +80,18 @@ describe('OpenConversationWindowSettings', () => {
     render(<OpenConversationWindowSettings />);
 
     expect(await screen.findByText(/Currently 14 days/)).toBeInTheDocument();
-    expect(presetSelect()).toHaveValue('14');
+    expect(shownPreset('14 days')).toBeInTheDocument();
     expect(screen.queryByLabelText('Days')).not.toBeInTheDocument();
     expect(saveButton()).toBeDisabled();
 
-    fireEvent.change(presetSelect(), { target: { value: '30' } });
+    await chooseOption(presetSelect(), '1 month (30 days)');
     expect(saveButton()).not.toBeDisabled();
     fireEvent.click(saveButton());
 
     await waitFor(() => expect(updateOpenConversationWindow).toHaveBeenCalledWith(30));
     expect(await screen.findByText(/Currently 31 days/)).toBeInTheDocument();
     // 31 is no preset: the card shows it as Custom with the stored number.
-    expect(presetSelect()).toHaveValue('custom');
+    expect(shownPreset('Custom')).toBeInTheDocument();
     expect(daysInput()).toHaveValue(31);
     expect(screen.getByText(/Saved: 31 days/)).toBeInTheDocument();
 
@@ -102,12 +106,10 @@ describe('OpenConversationWindowSettings', () => {
     render(<OpenConversationWindowSettings />);
     await screen.findByText(/Currently 14 days/);
 
-    const labels = Array.from((presetSelect() as HTMLSelectElement).options).map(
-      (option) => `${option.value}:${option.text}`
-    );
-    expect(labels).toEqual(['7:7 days', '14:14 days', '30:1 month (30 days)', 'custom:Custom']);
+    const labels = await listOptions(presetSelect());
+    expect(labels).toEqual(['7 days', '14 days', '1 month (30 days)', 'Custom']);
 
-    chooseCustom();
+    await chooseCustom();
     fireEvent.change(daysInput(), { target: { value: '200' } });
     fireEvent.click(saveButton());
     await waitFor(() => expect(updateOpenConversationWindow).toHaveBeenCalledWith(200));
@@ -115,16 +117,16 @@ describe('OpenConversationWindowSettings', () => {
   });
 
   it.each([
-    [7, '7'],
-    [30, '30'],
-    [1, 'custom'],
-    [365, 'custom'],
+    [7, '7 days'],
+    [30, '1 month (30 days)'],
+    [1, 'Custom'],
+    [365, 'Custom'],
   ])('a stored %i shows as %s', async (days, shown) => {
     getOpenConversationWindow.mockResolvedValue(supported(days));
     render(<OpenConversationWindowSettings />);
     await screen.findByText(new RegExp(`Currently ${days} days?\\.`));
-    expect(presetSelect()).toHaveValue(shown);
-    if (shown === 'custom') expect(daysInput()).toHaveValue(days);
+    expect(shownPreset(shown)).toBeInTheDocument();
+    if (shown === 'Custom') expect(daysInput()).toHaveValue(days);
   });
 
   it.each(['0', '366', '2.5', '-1', ''])(
@@ -134,7 +136,7 @@ describe('OpenConversationWindowSettings', () => {
       render(<OpenConversationWindowSettings />);
       await screen.findByText(/Currently 14 days/);
 
-      chooseCustom();
+      await chooseCustom();
       fireEvent.change(daysInput(), { target: { value: typed } });
       fireEvent.click(saveButton());
 
@@ -153,7 +155,7 @@ describe('OpenConversationWindowSettings', () => {
     render(<OpenConversationWindowSettings />);
     await screen.findByText(/Currently 14 days/);
 
-    fireEvent.change(presetSelect(), { target: { value: '7' } });
+    await chooseOption(presetSelect(), '7 days');
     fireEvent.click(saveButton());
 
     expect(await screen.findByText(/Admin access required/)).toBeInTheDocument();
@@ -207,7 +209,7 @@ describe('OpenConversationWindowSettings', () => {
     render(<OpenConversationWindowSettings />);
     await screen.findByText(/Currently 14 days/);
 
-    fireEvent.change(presetSelect(), { target: { value: '30' } });
+    await chooseOption(presetSelect(), '1 month (30 days)');
     // Held from before the click: while saving, the button shows its loading state.
     const button = saveButton();
     fireEvent.click(button);
@@ -270,7 +272,7 @@ describe('OpenConversationWindowSettings — Off', () => {
     expect(screen.queryByText(/inside the window/)).not.toBeInTheDocument();
 
     fireEvent.click(offSwitch());
-    expect(presetSelect()).toHaveValue('14');
+    expect(shownPreset('14 days')).toBeInTheDocument();
     fireEvent.click(saveButton());
     await waitFor(() => expect(updateOpenConversationWindow).toHaveBeenCalledWith(14));
     expect(await screen.findByText(/Currently 14 days/)).toBeInTheDocument();
@@ -300,7 +302,7 @@ describe('OpenConversationWindowSettings — Off', () => {
 
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
     expect(screen.queryByText(/Off:/)).not.toBeInTheDocument();
-    fireEvent.change(presetSelect(), { target: { value: '7' } });
+    await chooseOption(presetSelect(), '7 days');
     fireEvent.click(saveButton());
     await waitFor(() => expect(updateOpenConversationWindow).toHaveBeenCalledWith(7));
     expect(await screen.findByText(/Currently 7 days/)).toBeInTheDocument();
@@ -334,7 +336,7 @@ describe('OpenConversationWindowSettings — Off', () => {
     render(<OpenConversationWindowSettings />);
     await screen.findByText(/Currently 14 days/);
 
-    fireEvent.change(presetSelect(), { target: { value: '7' } });
+    await chooseOption(presetSelect(), '7 days');
     fireEvent.click(saveButton());
 
     expect(await screen.findByText(/Validation failed/)).toBeInTheDocument();

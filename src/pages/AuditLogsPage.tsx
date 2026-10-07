@@ -237,30 +237,22 @@ export const AuditLogsPage = () => {
                 {/* Action */}
                 <Select
                   value={filters.action ?? ''}
-                  onChange={(event) => patchFilter({ action: event.target.value || undefined })}
-                  className="w-auto h-8"
+                  onChange={(value) => patchFilter({ action: value || undefined })}
+                  options={ACTION_OPTIONS}
+                  size="sm"
+                  className="min-w-[11rem]"
                   aria-label="Filter by action"
-                >
-                  {ACTION_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </Select>
+                />
 
                 {/* Entity */}
                 <Select
                   value={filters.entity ?? ''}
-                  onChange={(event) => patchFilter({ entity: event.target.value || undefined })}
-                  className="w-auto h-8"
+                  onChange={(value) => patchFilter({ entity: value || undefined })}
+                  options={ENTITY_OPTIONS}
+                  size="sm"
+                  className="min-w-[11rem]"
                   aria-label="Filter by entity"
-                >
-                  {ENTITY_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </Select>
+                />
 
                 {/* Date range */}
                 <div className="flex items-center gap-1">

@@ -16,6 +16,7 @@
 import { vi, describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import type { PlatformSettings } from '@/services/platformSettings.service';
+import { chooseOption, listOptions } from '@/test/chooseOption';
 
 const noopMutation = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, reset: vi.fn() };
 vi.mock('@/hooks/usePlatformSettings', () => ({
@@ -78,10 +79,8 @@ const renderEditing = () => {
   render(<ManagedAiDefaultsCard ai={settings.ai} secrets={settings.secrets} />);
   fireEvent.click(screen.getByRole('button', { name: /edit|configure/i }));
 };
-const switchToBedrock = () => {
-  const providerSelect = screen.getAllByRole('combobox')[0];
-  fireEvent.change(providerSelect, { target: { value: 'bedrock' } });
-};
+const switchToBedrock = () =>
+  chooseOption(screen.getByRole('combobox', { name: 'Provider' }), 'AWS Bedrock');
 
 afterEach(cleanup);
 
@@ -89,9 +88,9 @@ describe('Managed AI Defaults — testing while editing', () => {
   // A probe of the STORED provider under a Bedrock draft read as "Bedrock is broken" when it
   // was OpenAI being probed (2026-09-07). The editor therefore offers no test of what is stored
   // at all — only "Save and test", which probes the draft once it IS stored (2026-09-30).
-  it('offers only Save and test, and says the stored provider serves traffic until saved', () => {
+  it('offers only Save and test, and says the stored provider serves traffic until saved', async () => {
     renderEditing();
-    switchToBedrock();
+    await switchToBedrock();
     expect(screen.queryByRole('button', { name: /^test connection/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save and test/i })).toBeEnabled();
     expect(screen.getByText(/Save and test stores this draft/)).toHaveTextContent(
@@ -107,10 +106,12 @@ describe('Managed AI Defaults — testing while editing', () => {
 });
 
 describe('Managed AI Defaults — Bedrock parity with the workspace card', () => {
-  it('lists the curated catalog (Claude Haiku 4.5 first), not the stale server list', () => {
+  it('lists the curated catalog (Claude Haiku 4.5 first), not the stale server list', async () => {
     renderEditing();
-    switchToBedrock();
-    const labels = screen.getAllByRole('option').map((option) => option.textContent ?? '');
+    await switchToBedrock();
+    const labels = await listOptions(
+      screen.getByRole('combobox', { name: 'Default tier — model' })
+    );
     expect(
       labels.some((label) => label.includes('eu.anthropic.claude-haiku-4-5-20251001-v1:0'))
     ).toBe(true);
@@ -118,23 +119,23 @@ describe('Managed AI Defaults — Bedrock parity with the workspace card', () =>
     expect(labels.some((label) => label.includes('amazon.titan-embed-text-v2:0'))).toBe(false);
   });
 
-  it("does not name the stored provider's model as the default of another provider", () => {
+  it("does not name the stored provider's model as the default of another provider", async () => {
     renderEditing();
-    switchToBedrock();
+    await switchToBedrock();
     expect(screen.queryByText(/Use the default \(gpt-5-mini\)/)).not.toBeInTheDocument();
     expect(screen.getAllByText("Use this provider's default").length).toBeGreaterThan(0);
   });
 
-  it('gates the instance-profile switch exactly like the workspace card', () => {
+  it('gates the instance-profile switch exactly like the workspace card', async () => {
     backendVersionData = { bedrockInstanceProfile: false };
     renderEditing();
-    switchToBedrock();
+    await switchToBedrock();
     expect(screen.getByRole('switch')).toBeDisabled();
     expect(screen.getByText(/Not available on this deployment/)).toBeInTheDocument();
     cleanup();
     backendVersionData = { bedrockInstanceProfile: true };
     renderEditing();
-    switchToBedrock();
+    await switchToBedrock();
     expect(screen.getByRole('switch')).toBeEnabled();
     expect(screen.queryByText(/Not available on this deployment/)).not.toBeInTheDocument();
   });
@@ -142,10 +143,10 @@ describe('Managed AI Defaults — Bedrock parity with the workspace card', () =>
   // Found reviewing the first cut: `data?.bedrockInstanceProfile ?? false` read a LOADING
   // version as "not allowed", so the switch rendered disabled and a Save in that window
   // persisted `false` over a stored `true` on the very box where the mode works.
-  it('does not gate, and does not clear the switch, while the version is still unknown', () => {
+  it('does not gate, and does not clear the switch, while the version is still unknown', async () => {
     backendVersionData = undefined;
     renderEditing();
-    switchToBedrock();
+    await switchToBedrock();
     const toggle = screen.getByRole('switch');
     expect(toggle).toBeEnabled();
     expect(screen.queryByText(/Not available on this deployment/)).not.toBeInTheDocument();

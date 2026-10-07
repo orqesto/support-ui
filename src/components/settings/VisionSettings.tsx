@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { Toggle } from '@/components/ui/Toggle';
 import { logger } from '@/lib/logger';
 import { aiService } from '@/services/ai.service';
@@ -123,7 +123,7 @@ export const VisionSettings = () => {
 
       {enabled && (
         <div className="space-y-1.5">
-          <ReactSelect
+          <Select
             label="Vision model (your own AI keys)"
             value={model}
             onChange={(value) => {

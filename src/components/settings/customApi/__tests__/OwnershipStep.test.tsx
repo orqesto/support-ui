@@ -4,6 +4,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { chooseOption, listOptions } from '@/test/chooseOption';
 import { EndpointWizard } from '../EndpointWizard';
 import { OwnershipStep, hasIdentifier } from '../OwnershipStep';
 import type * as Svc from '@/services/customApi.service';
@@ -99,16 +100,18 @@ describe('the question an admin actually reads', () => {
   });
 
   it('reports the chosen id as a number, and the "no" option as null', async () => {
-    const user = userEvent.setup();
     const onChange = vi.fn();
     render(<OwnershipStep siblings={[endpoint()]} value={null} onChange={onChange} />);
 
-    await user.selectOptions(screen.getByLabelText(/Which lookup lists/i), '10');
+    await chooseOption(screen.getByLabelText(/Which lookup lists/i), "This customer's orders");
     expect(onChange).toHaveBeenLastCalledWith(10);
 
     cleanup();
     render(<OwnershipStep siblings={[endpoint()]} value={10} onChange={onChange} />);
-    await user.selectOptions(screen.getByLabelText(/Which lookup lists/i), '');
+    await chooseOption(
+      screen.getByLabelText(/Which lookup lists/i),
+      'We can’t check — show the record marked unverified'
+    );
     // RED: report '' and the API receives a string where it expects an id or null.
     expect(onChange).toHaveBeenLastCalledWith(null);
   });
@@ -192,7 +195,7 @@ describe('in the wizard', () => {
   const manual = (over: Partial<Endpoint> = {}) =>
     endpoint({ id: 20, label: 'Look up an order by number', parameterSource: 'manual', ...over });
 
-  it('⛔ a lookup is never offered as its OWN ownership source', () => {
+  it('⛔ a lookup is never offered as its OWN ownership source', async () => {
     const self = manual();
     const sibling = endpoint({ id: 10, label: "This customer's orders" });
     render(
@@ -204,9 +207,7 @@ describe('in the wizard', () => {
       />
     );
 
-    const options = Array.from(
-      screen.getByLabelText(/Which lookup lists/i).querySelectorAll('option')
-    ).map((option) => option.textContent);
+    const options = await listOptions(screen.getByLabelText(/Which lookup lists/i));
     /*
      * ⛔ RED: offer it and a check that fetches the named record, then verifies it against a list
      * containing exactly that record, passes UNCONDITIONALLY while looking fully configured. It
@@ -304,7 +305,10 @@ describe('in the wizard', () => {
       ownershipSourceEndpointId: 10,
     });
 
-    await user.selectOptions(screen.getByLabelText(/Which lookup lists/i), '');
+    await chooseOption(
+      screen.getByLabelText(/Which lookup lists/i),
+      'We can’t check — show the record marked unverified'
+    );
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await vi.waitFor(() => expect(updateEndpoint).toHaveBeenCalledTimes(2));
     // ⛔ null, not absent: "we can't check" is a DECISION, and absent would read as "leave it".

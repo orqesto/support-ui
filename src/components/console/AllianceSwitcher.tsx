@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Building2, ChevronDown, Check } from 'lucide-react';
+import { Building2 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { useMyAlliances } from '@/hooks/useAllianceAdmin';
 
@@ -17,31 +16,6 @@ export const AllianceSwitcher = () => {
   const currentId = allianceId ? Number(allianceId) : null;
   const navigate = useNavigate();
   const { data: alliances = [], isLoading } = useMyAlliances();
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Dismiss the dropdown on outside click / Escape without a focusable overlay element.
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-    const handlePointer = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handlePointer);
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('mousedown', handlePointer);
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [isOpen]);
 
   if (isLoading) {
     return <Spinner size={16} />;
@@ -66,47 +40,19 @@ export const AllianceSwitcher = () => {
     );
   }
 
-  const handleSelect = (id: number) => {
-    setIsOpen(false);
-    navigate(`/console/alliance/${id}`);
-  };
-
   return (
-    <div className="relative" ref={containerRef}>
-      <Button
-        variant="ghost"
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex gap-2 items-center px-3 py-1.5 text-sm font-medium rounded-md border border-border bg-card hover:bg-accent"
-      >
-        <Building2 className="flex-shrink-0 w-4 h-4" />
-        <span className="truncate max-w-[16rem]">{current?.name ?? 'Select alliance'}</span>
-        <ChevronDown className="flex-shrink-0 w-4 h-4" />
-      </Button>
-
-      {isOpen && (
-        <div className="overflow-y-auto absolute left-0 top-full z-20 mt-2 w-72 max-h-80 rounded-md border shadow-lg bg-card border-border">
-          <div className="p-2">
-            {alliances.map((alliance) => (
-              <Button
-                key={alliance.id}
-                variant="ghost"
-                onClick={() => handleSelect(alliance.id)}
-                className="flex gap-2 justify-between items-center px-3 py-2 w-full h-auto text-sm text-left rounded-md hover:bg-accent"
-              >
-                <span className="flex-1 min-w-0">
-                  <span className="block font-medium truncate">{alliance.name}</span>
-                  <span className="block text-xs truncate text-muted-foreground">
-                    {alliance.orgCount} workspace{alliance.orgCount === 1 ? '' : 's'}
-                  </span>
-                </span>
-                {alliance.id === currentId && (
-                  <Check className="flex-shrink-0 ml-2 w-4 h-4 text-muted-foreground" />
-                )}
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    <Select
+      aria-label="Alliance"
+      placeholder="Select alliance"
+      className="w-72"
+      value={current ? String(current.id) : undefined}
+      onChange={(value) => navigate(`/console/alliance/${value}`)}
+      options={alliances.map((alliance) => ({
+        value: String(alliance.id),
+        // The workspace count the old list showed under each name, worded as the single-alliance
+        // badge above words it. (A single default Select shows `label` in its menu, not `menuLabel`.)
+        label: `${alliance.name} — ${alliance.orgCount} workspace${alliance.orgCount === 1 ? '' : 's'}`,
+      }))}
+    />
   );
 };

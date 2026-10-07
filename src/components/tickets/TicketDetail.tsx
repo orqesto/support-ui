@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import DOMPurify from 'dompurify';
 import { addNoopenerHook } from '@/components/messages/messageDetailConstants';
 
@@ -24,8 +24,8 @@ import { TranslateButton } from '@/components/shared/TranslateButton';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ExternalLink } from '@/components/ui/ExternalLink';
-import { ReactSelect } from '@/components/ui/ReactSelect';
-import { formatDate, safeCssColor } from '@/lib/utils';
+import { Select } from '@/components/ui/Select';
+import { formatDate } from '@/lib/utils';
 import { categoryService } from '@/services/category.service';
 import { messageService } from '@/services/message.service';
 import { labelService, type Label } from '@/services/settings.service';
@@ -96,28 +96,12 @@ export const TicketDetail = ({
   const [linkCopied, setLinkCopied] = useState(false);
   const [ticketLabels, setTicketLabels] = useState<Label[]>([]);
   const [allLabels, setAllLabels] = useState<Label[]>([]);
-  const [showLabelPicker, setShowLabelPicker] = useState(false);
-  const [labelQuery, setLabelQuery] = useState('');
-  const labelPickerRef = useRef<HTMLDivElement>(null);
+  // Bumped after a label is created: remounting the picker closes it, as the old panel did.
+  const [labelPickerKey, setLabelPickerKey] = useState(0);
   const [editingDescription, setEditingDescription] = useState(false);
   const [localDescription, setLocalDescription] = useState(ticket.description ?? '');
   const [translatedDescription, setTranslatedDescription] = useState<string | null>(null);
   const [moveDeptOpen, setMoveDeptOpen] = useState(false);
-
-  useEffect(() => {
-    if (!showLabelPicker) return;
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (labelPickerRef.current && !labelPickerRef.current.contains(event.target as Node)) {
-        setShowLabelPicker(false);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [showLabelPicker]);
-
-  useEffect(() => {
-    if (!showLabelPicker) setLabelQuery('');
-  }, [showLabelPicker]);
 
   const handleCreateLabel = async (name: string) => {
     try {
@@ -133,7 +117,7 @@ export const TicketDetail = ({
         logger.error('Failed to assign newly-created label:', assignErr);
         setTicketLabels((prev) => prev.filter((lbl) => lbl.id !== created.id));
       }
-      setShowLabelPicker(false);
+      setLabelPickerKey((key) => key + 1);
     } catch (err) {
       logger.error('Failed to create label:', err);
     }
@@ -245,7 +229,7 @@ export const TicketDetail = ({
             <div className="flex gap-2 items-center">
               <span className="text-sm font-medium text-muted-foreground">Status:</span>
               {hasManageTickets && !ticket.externalId ? (
-                <ReactSelect
+                <Select
                   value={localStatus}
                   onChange={(val) => { setLocalStatus(val as TicketStatus); void handleFieldUpdate('status', val); }}
                   // Only offer transitions the backend allows from the current status
@@ -256,6 +240,8 @@ export const TicketDetail = ({
                     label: STATUS_LABELS[status],
                   }))}
                   className="min-w-[130px]"
+                  size="sm"
+                  aria-label="Status"
                 />
               ) : (
                 <Badge variant={statusColors[localStatus]}>{localStatus}</Badge>
@@ -264,7 +250,7 @@ export const TicketDetail = ({
             <div className="flex gap-2 items-center">
               <span className="text-sm font-medium text-muted-foreground">Priority:</span>
               {hasManageTickets && !ticket.externalId ? (
-                <ReactSelect
+                <Select
                   value={localPriority}
                   onChange={(val) => { setLocalPriority(val as TicketPriority); void handleFieldUpdate('priority', val); }}
                   options={[
@@ -274,6 +260,8 @@ export const TicketDetail = ({
                     { value: 'critical', label: 'Critical' },
                   ]}
                   className="min-w-[120px]"
+                  size="sm"
+                  aria-label="Priority"
                 />
               ) : (
                 <Badge variant={priorityColors[localPriority]}>{localPriority}</Badge>
@@ -282,7 +270,7 @@ export const TicketDetail = ({
             <div className="flex gap-2 items-center">
               <span className="text-sm font-medium text-muted-foreground">Category:</span>
               {hasManageTickets && !ticket.externalId ? (
-                <ReactSelect
+                <Select
                   value={localCategoryId}
                   onChange={(val) => { setLocalCategoryId(val); void handleFieldUpdate('categoryId', val); }}
                   options={[
@@ -290,7 +278,9 @@ export const TicketDetail = ({
                     ...categories.map((cat) => ({ value: cat.id.toString(), label: cat.name })),
                   ]}
                   className="min-w-[140px]"
-                  isSearchable
+                  size="sm"
+                  aria-label="Category"
+                  searchable
                 />
               ) : (
                 ticket.categoryName ? <Badge variant="default">{ticket.categoryName}</Badge> : null
@@ -319,75 +309,50 @@ export const TicketDetail = ({
                   )}
                 </span>
               ))}
-              {hasManageLabels && <div className="relative" ref={labelPickerRef}>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 px-1.5 text-xs"
-                  onClick={() => setShowLabelPicker((val) => !val)}
-                  title="Add label"
-                  aria-label="Add label"
-                >
-                  <Tag className="w-3 h-3 mr-1" />
-                  <Plus className="w-3 h-3" />
-                </Button>
-                {showLabelPicker && (() => {
-                  const trimmed = labelQuery.trim();
-                  const lower = trimmed.toLowerCase();
-                  const filtered = trimmed
-                    ? allLabels.filter((label) => label.name.toLowerCase().includes(lower))
-                    : allLabels;
-                  const exact = trimmed && allLabels.some(
-                    (label) => label.name.toLowerCase() === lower
-                  );
-                  const showCreate = hasManageLabels && trimmed.length > 0 && !exact;
-                  return (
-                    <div className="absolute top-full left-0 mt-1 z-50 min-w-[200px] rounded-lg border bg-card shadow-md p-1">
-                      <input
-                        type="text"
-                        value={labelQuery}
-                        onChange={(ev) => setLabelQuery(ev.target.value)}
-                        placeholder={hasManageLabels ? 'Search or create…' : 'Search…'}
-                        autoFocus
-                        className="w-full px-2 py-1 mb-1 text-sm bg-background border border-border rounded outline-none focus:ring-1 focus:ring-ring"
-                      />
-                      {filtered.map((label) => {
-                        const isAssigned = ticketLabels.some((lbl) => lbl.id === label.id);
-                        return (
-                          <Button
-                            key={label.id}
-                            variant="ghost"
-                            onClick={() => handleToggleLabel(label)}
-                            className="w-full flex items-center justify-start gap-2 px-2 py-1.5 h-auto rounded text-sm font-normal hover:bg-accent text-left"
-                          >
-                            <span
-                              className="w-3 h-3 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: safeCssColor(label.color) }}
-                            />
-                            <span className="flex-1">{label.name}</span>
-                            {isAssigned && <span className="text-xs text-muted-foreground">✓</span>}
-                          </Button>
-                        );
-                      })}
-                      {showCreate && (
-                        <Button
-                          variant="ghost"
-                          onClick={() => void handleCreateLabel(trimmed)}
-                          className="w-full flex items-center justify-start gap-2 px-2 py-1.5 mt-1 h-auto rounded text-sm font-normal hover:bg-accent text-left border-t border-border"
-                        >
-                          <Plus className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                          <span className="flex-1">Create &quot;{trimmed}&quot;</span>
-                        </Button>
-                      )}
-                      {filtered.length === 0 && !showCreate && (
-                        <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                          No labels match.
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>}
+              {hasManageLabels && (
+                <Select
+                  key={labelPickerKey}
+                  variant="popover"
+                  multi
+                  aria-label="Labels"
+                  options={allLabels.map((label) => ({
+                    value: String(label.id),
+                    label: label.name,
+                    color: label.color,
+                  }))}
+                  value={ticketLabels.map((label) => String(label.id))}
+                  onChange={(next) => {
+                    // The panel ticks one label per press: find it and run the same toggle as the chips.
+                    // Only labels the panel lists can come back in `next` — an applied label missing
+                    // from `allLabels` must not read as "unticked".
+                    const listed = new Set(allLabels.map((label) => String(label.id)));
+                    const before = new Set(
+                      ticketLabels.map((label) => String(label.id)).filter((id) => listed.has(id))
+                    );
+                    const after = new Set(next);
+                    const changed =
+                      next.find((id) => !before.has(id)) ?? [...before].find((id) => !after.has(id));
+                    const label = allLabels.find((lbl) => String(lbl.id) === changed);
+                    if (label) void handleToggleLabel(label);
+                  }}
+                  creatable={hasManageLabels}
+                  onCreate={(name) => void handleCreateLabel(name)}
+                  placeholder={hasManageLabels ? 'Search or create…' : 'Search…'}
+                  trigger={({ toggle }) => (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-1.5 text-xs"
+                      onClick={toggle}
+                      title="Add label"
+                      aria-label="Add label"
+                    >
+                      <Tag className="w-3 h-3 mr-1" />
+                      <Plus className="w-3 h-3" />
+                    </Button>
+                  )}
+                />
+              )}
             </div>
 
             {ticket.externalId && ticket.externalUrl && (

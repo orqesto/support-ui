@@ -46,7 +46,6 @@ import { ORGANIZATION_ROLES, type OrganizationRole } from '@/types/roles';
  * org-admin still requires an explicit, confirmed action.
  */
 
-
 /**
  * The target select encodes its one kind as `orgrole:<role>`. `role:<alliance role>` and
  * `group:<id>` were the two retired kinds (see the header); a value in either shape is
@@ -95,8 +94,9 @@ export const describeGrant = (
   orgs: { id: number; name: string }[]
 ): string | null => {
   const role = group.orgRole ? ORG_ROLE_LABELS[group.orgRole] : null;
-  const names = (group.orgIds ?? [])
-    .map((id) => orgs.find((org) => org.id === id)?.name ?? `workspace #${id}`);
+  const names = (group.orgIds ?? []).map(
+    (id) => orgs.find((org) => org.id === id)?.name ?? `workspace #${id}`
+  );
   if (!role && names.length === 0) return null;
   return `${role ?? 'No role'} in ${names.length > 0 ? names.join(', ') : 'no workspace'}`;
 };
@@ -114,10 +114,7 @@ export const unwireDescription = (group: SyncedGroup | null): string => {
   }
 };
 
-const wiredLabel = (
-  group: SyncedGroup,
-  grants: Map<number, string | null> = new Map()
-): string => {
+const wiredLabel = (group: SyncedGroup, grants: Map<number, string | null> = new Map()): string => {
   // A pre-existing alliance-role wiring still WORKS and is still shown — new ones just
   // can't be created. Labelled as legacy so an admin knows to move it onto a group.
   if (group.wiredRole) {
@@ -125,7 +122,7 @@ const wiredLabel = (
       group.wiredRole.mappedRole === 'alliance_admin' ? 'Alliance admin' : 'Alliance agent';
     return `Wired → ${role} (legacy)`;
   }
-    if (group.wiredGroup) {
+  if (group.wiredGroup) {
     const grant = grants.get(group.wiredGroup.groupId);
     return grant
       ? `Wired → ${grant} (group ${group.wiredGroup.groupName})`
@@ -136,7 +133,7 @@ const wiredLabel = (
 
 /** A single synced-group row: identity, members, and either its wired state or a wire control. */
 const SyncedGroupRow = ({
-    group,
+  group,
   allianceId,
   targetOptions,
   grants,
@@ -153,7 +150,7 @@ const SyncedGroupRow = ({
   canEditBacking,
   wiring,
 }: {
-    group: SyncedGroup;
+  group: SyncedGroup;
   allianceId: number;
   targetOptions: { value: string; label: string }[];
   /** groupId → what it grants, for the wired label. */
@@ -276,17 +273,11 @@ const SyncedGroupRow = ({
                   <Select
                     id={`wire-workspace-${group.id}`}
                     value={selectedOrgId === null ? '' : String(selectedOrgId)}
-                    onChange={(event) =>
-                      onSelectOrg(event.target.value === '' ? null : Number(event.target.value))
-                    }
-                  >
-                    <option value="">Select a workspace…</option>
-                    {activeOrgs.map((org) => (
-                      <option key={org.id} value={org.id}>
-                        {org.name}
-                      </option>
-                    ))}
-                  </Select>
+                    placeholder="Select a workspace…"
+                    clearable
+                    options={activeOrgs.map((org) => ({ value: String(org.id), label: org.name }))}
+                    onChange={(value) => onSelectOrg(value === '' ? null : Number(value))}
+                  />
                   {selectedOrgId !== null && selectedOrgRole !== 'org_admin' && (
                     <div className="pt-2">
                       <OrgDepartmentPicker
@@ -318,14 +309,12 @@ const SyncedGroupRow = ({
               <Select
                 id={`wire-target-${group.id}`}
                 value={selectedValue}
-                onChange={(event) => onSelect(event.target.value)}
-              >
-                {targetOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
+                options={targetOptions.map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                }))}
+                onChange={(value) => onSelect(value)}
+              />
             </div>
             <Button
               type="button"
@@ -558,7 +547,7 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
               key={group.id}
               group={group}
               allianceId={allianceId}
-                            targetOptions={TARGET_OPTIONS}
+              targetOptions={TARGET_OPTIONS}
               grants={grants}
               canEditBacking={Boolean(
                 (allianceGroupsQuery.data ?? []).find(

@@ -4,7 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { Toggle } from '@/components/ui/Toggle';
 import { useRuleManagement } from '@/hooks/useRuleManagement';
@@ -108,7 +108,7 @@ export const PriorityRulesSettings = () => {
       )}
       renderFormFields={(formData, setFormData) => (
         <>
-          <ReactSelect
+          <Select
             label="Priority"
             value={formData.priority}
             onChange={(value) => setFormData({ ...formData, priority: value as PriorityLevel })}

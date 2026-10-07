@@ -81,7 +81,7 @@ const { PlatformUserPage } = await import('../PlatformUserPage');
 const renderAt = (path: string, state?: unknown) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    // ReactSelect (the "Add to workspace" picker) reads the theme, so the page cannot
+    // Select (the "Add to workspace" picker) reads the theme, so the page cannot
     // mount without the provider.
     <ThemeProvider>
       <QueryClientProvider client={client}>

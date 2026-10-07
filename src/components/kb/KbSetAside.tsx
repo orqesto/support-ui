@@ -103,20 +103,20 @@ export const KbSetAside = ({
               <Select
                 id="set-aside-reason"
                 value={reason}
-                onChange={(event) => {
-                  setReason(event.target.value as 'all' | KbSetAsideReason);
+                options={[
+                  { value: 'all', label: `All reasons (${items.length})` },
+                  ...[...KB_SET_ASIDE_REASONS, 'other' as const]
+                    .filter((key) => (counts.get(key) ?? 0) > 0 || key === reason)
+                    .map((key) => ({
+                      value: key,
+                      label: `${SET_ASIDE_REASON_LABEL[key]} (${counts.get(key) ?? 0})`,
+                    })),
+                ]}
+                onChange={(value) => {
+                  setReason(value as 'all' | KbSetAsideReason);
                   setPage(1);
                 }}
-              >
-                <option value="all">All reasons ({items.length})</option>
-                {[...KB_SET_ASIDE_REASONS, 'other' as const]
-                  .filter((key) => (counts.get(key) ?? 0) > 0 || key === reason)
-                  .map((key) => (
-                    <option key={key} value={key}>
-                      {SET_ASIDE_REASON_LABEL[key]} ({counts.get(key) ?? 0})
-                    </option>
-                  ))}
-              </Select>
+              />
             </div>
           </div>
           {rawEmails > 0 && (reason === 'all' || reason === 'raw_email') && (

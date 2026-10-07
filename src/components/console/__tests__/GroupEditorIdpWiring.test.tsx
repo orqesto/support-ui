@@ -12,6 +12,8 @@ import { GroupEditor } from '@/components/console/GroupEditor';
 import type { AllianceGroup } from '@/services/alliance-groups.service';
 import type { AllianceMember } from '@/services/alliance-admin.service';
 import { backingGroupName } from '@/components/console/backingGroupName';
+import { roleDisplayNames } from '@/types/roles';
+import { chooseOption } from '@/test/chooseOption';
 
 const saveMutate = vi.fn();
 vi.mock('@/hooks/useAllianceGroups', () => ({
@@ -101,11 +103,16 @@ describe('GroupEditor — IdP wiring', () => {
   // Provisioning row read it as "the mapping for that IdP group". So the name is derived —
   // it follows the role picked here — and is never typed: a role edit that left
   // "— Associate" on a group granting Moderator would lie on every screen.
-  it('derives a minted group\'s name from the IdP group and the role, and saves that', () => {
+  it("derives a minted group's name from the IdP group and the role, and saves that", async () => {
     renderEditor(
       group({
         name: 'SSO - Support — Support',
-        idpGroup: { mappingId: 7, externalId: 'ext-1', displayName: 'SSO - Support', mintedByWire: true },
+        idpGroup: {
+          mappingId: 7,
+          externalId: 'ext-1',
+          displayName: 'SSO - Support',
+          mintedByWire: true,
+        },
       })
     );
 
@@ -115,19 +122,28 @@ describe('GroupEditor — IdP wiring', () => {
     expect(nameInput.value).toBe(backingGroupName('SSO - Support', 'support'));
     expect(screen.getByText(/the name follows the mapping/)).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Grants role'), { target: { value: 'moderator' } });
+    await chooseOption(screen.getByLabelText('Grants role'), roleDisplayNames.moderator);
     expect(nameInput.value).toBe(backingGroupName('SSO - Support', 'moderator'));
 
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(saveMutate).toHaveBeenCalledTimes(1);
-    expect((saveMutate.mock.calls[0][0] as { draft: { name: string } }).draft.name).toBe(backingGroupName('SSO - Support', 'moderator'));
+    expect((saveMutate.mock.calls[0][0] as { draft: { name: string } }).draft.name).toBe(
+      backingGroupName('SSO - Support', 'moderator')
+    );
   });
 
   // A hand-authored group wired LATER is the admin's — their name, kept on unwire — so it
   // must stay renamable, or "read-only" would just be "nobody can rename a wired group".
   it('CONTROL: leaves the name editable for a hand-wired (not minted) group', () => {
     renderEditor(
-      group({ idpGroup: { mappingId: 7, externalId: 'ext-1', displayName: 'SSO - Support', mintedByWire: false } })
+      group({
+        idpGroup: {
+          mappingId: 7,
+          externalId: 'ext-1',
+          displayName: 'SSO - Support',
+          mintedByWire: false,
+        },
+      })
     );
 
     const nameInput = screen.getByLabelText<HTMLInputElement>('Name');
@@ -135,7 +151,9 @@ describe('GroupEditor — IdP wiring', () => {
     fireEvent.change(nameInput, { target: { value: 'Renamed by hand' } });
     expect(nameInput.value).toBe('Renamed by hand');
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
-    expect((saveMutate.mock.calls[0][0] as { draft: { name: string } }).draft.name).toBe('Renamed by hand');
+    expect((saveMutate.mock.calls[0][0] as { draft: { name: string } }).draft.name).toBe(
+      'Renamed by hand'
+    );
   });
 
   // Skew: an older backend omits mintedByWire. Deriving would overwrite a name we cannot

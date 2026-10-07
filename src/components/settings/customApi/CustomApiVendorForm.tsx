@@ -10,7 +10,6 @@ import {
 } from '@/components/ui/Dialog';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { Input } from '@/components/ui/Input';
-import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { Toggle } from '@/components/ui/Toggle';
 import { departmentService } from '@/services/department.service';
@@ -240,18 +239,17 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
             placeholder="Orders and shipping status"
           />
 
-          <div className="space-y-1">
-            <Label htmlFor="ca-auth-type">How does it check who we are?</Label>
-            <Select
-              id="ca-auth-type"
-              value={authType}
-              onChange={(event) => setAuthType(event.target.value as AuthType)}
-            >
-              <option value="none">It does not need a key</option>
-              <option value="header">An API key in a header</option>
-              <option value="bearer">A bearer token</option>
-            </Select>
-          </div>
+          <Select
+            id="ca-auth-type"
+            label="How does it check who we are?"
+            value={authType}
+            options={[
+              { value: 'none', label: 'It does not need a key' },
+              { value: 'header', label: 'An API key in a header' },
+              { value: 'bearer', label: 'A bearer token' },
+            ]}
+            onChange={(value) => setAuthType(value as AuthType)}
+          />
 
           {/*
             ⛔ THE BROWSER MUST NOT TREAT THIS PAIR AS A LOGIN FORM. Observed on staging
@@ -311,17 +309,16 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
                   </AlertDescription>
                 </Alert>
               )}
-              <div className="space-y-1">
-                <Label htmlFor="ca-scope">Which departments can use it?</Label>
-                <Select
-                  id="ca-scope"
-                  value={scopeMode}
-                  onChange={(event) => setScopeMode(event.target.value as 'all' | 'departments')}
-                >
-                  <option value="all">Every department</option>
-                  <option value="departments">Only the ones I choose</option>
-                </Select>
-              </div>
+              <Select
+                id="ca-scope"
+                label="Which departments can use it?"
+                value={scopeMode}
+                options={[
+                  { value: 'all', label: 'Every department' },
+                  { value: 'departments', label: 'Only the ones I choose' },
+                ]}
+                onChange={(value) => setScopeMode(value as 'all' | 'departments')}
+              />
               {scopeMode === 'departments' && (
                 <div className="space-y-1">
                   {departments.map((dept) => (

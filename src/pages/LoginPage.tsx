@@ -438,21 +438,14 @@ export const LoginPage = () => {
 
             {step === 'selectOrg' && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Workspace</label>
                 <Select
-                  value={selectedOrgId ?? ''}
-                  onChange={(event) => setSelectedOrgId(Number(event.target.value) || null)}
+                  label="Workspace"
+                  value={selectedOrgId === null ? '' : String(selectedOrgId)}
+                  onChange={(value) => setSelectedOrgId(Number(value) || null)}
                   required
-                >
-                  <option value="" disabled>
-                    Select workspace
-                  </option>
-                  {orgOptions.map((org) => (
-                    <option key={org.id} value={org.id}>
-                      {org.name}
-                    </option>
-                  ))}
-                </Select>
+                  placeholder="Select workspace"
+                  options={orgOptions.map((org) => ({ value: String(org.id), label: org.name }))}
+                />
               </div>
             )}
 

@@ -26,7 +26,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { ContactProfilePanel } from '@/components/contacts/ContactProfilePanel';
@@ -1263,7 +1263,8 @@ export function MessageDetailHeader({
             />
           </div>
         )}
-        <ReactSelect
+        <Select
+          aria-label="Status"
           variant="chip"
           chipCase="sentence"
           value={currentWorkflowStatus}
@@ -1310,7 +1311,8 @@ export function MessageDetailHeader({
           </div>
         )}
         {message.priority && (
-          <ReactSelect
+          <Select
+            aria-label="Priority"
             variant="chip"
             chipCase="sentence"
             value={message.priority}

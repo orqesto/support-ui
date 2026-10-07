@@ -80,11 +80,12 @@ export const RequestAdvancedSettings = ({
         <Select
           id="ca-method"
           value={settings.method}
-          onChange={(event) => set('method', event.target.value as RequestSettings['method'])}
-        >
-          <option value="GET">GET — the value goes in the address</option>
-          <option value="POST">POST — the value goes in a request body</option>
-        </Select>
+          options={[
+            { value: 'GET', label: 'GET — the value goes in the address' },
+            { value: 'POST', label: 'POST — the value goes in a request body' },
+          ]}
+          onChange={(value) => set('method', value as RequestSettings['method'])}
+        />
       </div>
 
       {settings.method === 'POST' && (
@@ -94,13 +95,12 @@ export const RequestAdvancedSettings = ({
             <Select
               id="ca-body-format"
               value={settings.bodyFormat}
-              onChange={(event) =>
-                set('bodyFormat', event.target.value as RequestSettings['bodyFormat'])
-              }
-            >
-              <option value="json">JSON</option>
-              <option value="form">Form (name=value&amp;…)</option>
-            </Select>
+              options={[
+                { value: 'json', label: 'JSON' },
+                { value: 'form', label: 'Form (name=value&…)' },
+              ]}
+              onChange={(value) => set('bodyFormat', value as RequestSettings['bodyFormat'])}
+            />
           </div>
           <Textarea
             id="ca-body-template"
@@ -123,13 +123,12 @@ export const RequestAdvancedSettings = ({
         <Select
           id="ca-not-found"
           value={settings.notFoundMeans}
-          onChange={(event) =>
-            set('notFoundMeans', event.target.value as RequestSettings['notFoundMeans'])
-          }
-        >
-          <option value="no_match">It has nothing for this value</option>
-          <option value="failed">Something is wrong with the lookup (for example the path)</option>
-        </Select>
+          options={[
+            { value: 'no_match', label: 'It has nothing for this value' },
+            { value: 'failed', label: 'Something is wrong with the lookup (for example the path)' },
+          ]}
+          onChange={(value) => set('notFoundMeans', value as RequestSettings['notFoundMeans'])}
+        />
       </div>
 
       {many && (
@@ -145,16 +144,17 @@ export const RequestAdvancedSettings = ({
             <Select
               id="ca-pagination"
               value={mode}
-              onChange={(event) =>
-                set('paginationMode', event.target.value as RequestSettings['paginationMode'])
+              options={[
+                { value: 'none', label: 'Read the first page only' },
+                { value: 'page', label: 'Page numbers (page=1, 2, 3…)' },
+                { value: 'offset', label: 'Offsets (skip the rows already read)' },
+                { value: 'cursor', label: 'A cursor or next-page link in the response' },
+                { value: 'link', label: 'A “Link: rel=next” response header' },
+              ]}
+              onChange={(value) =>
+                set('paginationMode', value as RequestSettings['paginationMode'])
               }
-            >
-              <option value="none">Read the first page only</option>
-              <option value="page">Page numbers (page=1, 2, 3…)</option>
-              <option value="offset">Offsets (skip the rows already read)</option>
-              <option value="cursor">A cursor or next-page link in the response</option>
-              <option value="link">A “Link: rel=next” response header</option>
-            </Select>
+            />
           </div>
           {(mode === 'page' || mode === 'offset' || mode === 'cursor') && (
             <Input

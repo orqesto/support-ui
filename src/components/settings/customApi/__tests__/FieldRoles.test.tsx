@@ -7,6 +7,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { chooseOption } from '@/test/chooseOption';
 import { EndpointWizard } from '../EndpointWizard';
 import { ROLE_OPTIONS, applyRole, fieldWithRole, roleOption } from '../fieldRoles';
 import type * as Svc from '@/services/customApi.service';
@@ -238,7 +239,10 @@ describe('in the wizard', () => {
     // not prove an admin can pick it or that the value survives to the request. A typo in the
     // option value ships green against a list-only test. This selects it in the real control and
     // reads the payload the service was called with.
-    await user.selectOptions(screen.getByLabelText('What is order_id?'), 'customer_email');
+    await chooseOption(
+      screen.getByLabelText('What is order_id?'),
+      "The customer's own email address"
+    );
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
@@ -252,7 +256,10 @@ describe('in the wizard', () => {
     const user = userEvent.setup();
     await openWithField(user);
     await user.click(screen.getByRole('checkbox', { name: /order_id/ }));
-    await user.selectOptions(screen.getByLabelText('What is order_id?'), 'customer_email');
+    await chooseOption(
+      screen.getByLabelText('What is order_id?'),
+      "The customer's own email address"
+    );
 
     // ⛔ The most important privacy control in the product must not be configured by accident.
     // RED: render the picker without `buys` and the admin sees what to do and never why.
@@ -280,7 +287,10 @@ describe('in the wizard', () => {
     const user = userEvent.setup();
     await openWithField(user);
     await user.click(screen.getByRole('checkbox', { name: /order_id/ }));
-    await user.selectOptions(screen.getByLabelText('What is order_id?'), 'identifier');
+    await chooseOption(
+      screen.getByLabelText('What is order_id?'),
+      'The number the customer quotes'
+    );
 
     expect(screen.getByText(/really belongs to the customer who wrote in/i)).toBeTruthy();
 
@@ -301,8 +311,11 @@ describe('in the wizard', () => {
      * field (audit pass 4). With five picked fields all called "What is this?", neither a test
      * nor a screen-reader user can tell them apart.
      */
-    await user.selectOptions(screen.getByLabelText('What is order_id?'), 'identifier');
-    await user.selectOptions(screen.getByLabelText('What is status?'), 'identifier');
+    await chooseOption(
+      screen.getByLabelText('What is order_id?'),
+      'The number the customer quotes'
+    );
+    await chooseOption(screen.getByLabelText('What is status?'), 'The number the customer quotes');
 
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());

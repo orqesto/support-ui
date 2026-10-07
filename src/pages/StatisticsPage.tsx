@@ -29,6 +29,15 @@ const LEGACY_TAB_REDIRECTS: Record<string, TabType> = {
   speedToLead: 'performance',
 };
 
+const CHANNEL_OPTIONS = [
+  { value: 'all', label: 'All Channels' },
+  { value: 'email', label: 'Email' },
+  { value: 'telegram', label: 'Telegram' },
+  { value: 'slack', label: 'Slack' },
+  { value: 'chat', label: 'Chat Widget' },
+  { value: 'other', label: 'Other' },
+];
+
 const DAYS_OPTIONS = [
   { label: '7 days', value: 7 },
   { label: '30 days', value: 30 },
@@ -294,16 +303,11 @@ export const StatisticsPage = () => {
             <span className="text-sm text-muted-foreground">Channel:</span>
             <Select
               value={channel}
-              onChange={(event) => setChannel(event.target.value)}
-              className="w-auto"
-            >
-              <option value="all">All Channels</option>
-              <option value="email">Email</option>
-              <option value="telegram">Telegram</option>
-              <option value="slack">Slack</option>
-              <option value="chat">Chat Widget</option>
-              <option value="other">Other</option>
-            </Select>
+              onChange={setChannel}
+              options={CHANNEL_OPTIONS}
+              aria-label="Channel"
+              className="min-w-[10rem]"
+            />
           </div>
         </div>
 

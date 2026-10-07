@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { MergePickerDialog } from '../MergeThreads';
 import { MergeConfirmDialog } from '../MergeConfirmDialog';
 import { AddToTicketDialog } from '../AddToTicketDialog';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { categoryService } from '@/services/category.service';
 
 // In each test file, not the shared utils: the apiClient path scanner
@@ -117,8 +117,8 @@ describe('M8 — popovers and dialogs as bottom sheets', () => {
     ];
     render(
       <>
-        <ReactSelect id="sheet" variant="chip" value="a" options={options} mobileSheet />
-        <ReactSelect id="plain" variant="chip" value="b" options={options} />
+        <Select id="sheet" variant="chip" value="a" options={options} mobileSheet />
+        <Select id="plain" variant="chip" value="b" options={options} />
       </>
     );
     fireEvent.keyDown(document.getElementById('sheet')!, { key: 'ArrowDown' });
@@ -149,7 +149,7 @@ describe('M8 — a select sheet takes the tap on its scrim', () => {
         <button type="button" onClick={underneath}>
           Under the scrim
         </button>
-        <ReactSelect id="sheet" variant="chip" value="a" options={options} mobileSheet />
+        <Select id="sheet" variant="chip" value="a" options={options} mobileSheet />
       </>
     );
     const documentClicks = vi.fn();
@@ -183,7 +183,7 @@ describe('M8 — a select sheet takes the tap on its scrim', () => {
       { value: 'a', label: 'Alpha' },
       { value: 'b', label: 'Bravo' },
     ];
-    render(<ReactSelect id="sheet" variant="chip" value="a" options={options} mobileSheet />);
+    render(<Select id="sheet" variant="chip" value="a" options={options} mobileSheet />);
     fireEvent.keyDown(document.getElementById('sheet')!, { key: 'ArrowDown' });
     await screen.findByRole('option', { name: 'Bravo' });
     // ONLY the touch: its preventDefault means the browser never synthesises the click.
@@ -198,12 +198,12 @@ describe('M8 — a select sheet takes the tap on its scrim', () => {
       { value: 'a', label: 'Alpha' },
       { value: 'b', label: 'Bravo' },
     ];
-    render(<ReactSelect id="plain" variant="chip" value="a" options={options} />);
+    render(<Select id="plain" variant="chip" value="a" options={options} />);
     fireEvent.keyDown(document.getElementById('plain')!, { key: 'ArrowDown' });
     await screen.findByRole('option', { name: 'Bravo' });
     expect(screen.queryByTestId('select-sheet-scrim')).toBeNull();
     cleanup();
-    render(<ReactSelect id="sheet2" variant="chip" value="a" options={options} mobileSheet />);
+    render(<Select id="sheet2" variant="chip" value="a" options={options} mobileSheet />);
     fireEvent.keyDown(document.getElementById('sheet2')!, { key: 'ArrowDown' });
     const option = await screen.findByRole('option', { name: 'Bravo' });
     expect(document.querySelector('[class*="100vmax"]')).toBeNull();

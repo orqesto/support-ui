@@ -4,10 +4,9 @@ import { GitBranch, RefreshCw, ArrowRight, AlertCircle, Ban } from 'lucide-react
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
-import { Select } from '@/components/ui/Select';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Pagination } from '@/components/ui/Pagination';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { ALL_SOURCES, MessageSourceFilter } from '@/components/messages/MessageSourceFilter';
 import { RoutingBarScorecard } from '@/components/routing/RoutingBarScorecard';
@@ -73,6 +72,7 @@ export const NeedsRoutingPage = () => {
   const [createRule, setCreateRule] = useState(false);
 
   const activeDepts = departments.filter((dept) => dept.active);
+  const deptOptions = activeDepts.map((dept) => ({ value: String(dept.id), label: dept.name }));
 
   const load = useCallback(
     async (pageNum: number) => {
@@ -266,10 +266,11 @@ export const NeedsRoutingPage = () => {
             <MessageSourceFilter value={sourceId} onChange={handleSourceChange} />
           </div>
           <div className="w-48">
-            <ReactSelect
+            <Select
               value={sortValue}
               onChange={handleSortChange}
               options={SORT_OPTIONS}
+              size="sm"
               aria-label="Sort messages"
             />
           </div>
@@ -373,22 +374,18 @@ export const NeedsRoutingPage = () => {
                       </td>
                       <td className="px-4 py-3" onClick={(ev) => ev.stopPropagation()}>
                         <Select
-                          value={selectedDept[msg.id] ?? ''}
-                          onChange={(ev) =>
+                          value={String(selectedDept[msg.id] ?? '')}
+                          onChange={(value) =>
                             setSelectedDept((prev) => ({
                               ...prev,
-                              [msg.id]: Number(ev.target.value),
+                              [msg.id]: Number(value),
                             }))
                           }
-                          className="w-auto"
-                        >
-                          <option value="">Select department…</option>
-                          {activeDepts.map((dept) => (
-                            <option key={dept.id} value={dept.id}>
-                              {dept.name}
-                            </option>
-                          ))}
-                        </Select>
+                          options={deptOptions}
+                          placeholder="Select department…"
+                          aria-label="Department to route to"
+                          className="min-w-[12rem]"
+                        />
                       </td>
                       <td
                         className="px-4 py-3 text-right whitespace-nowrap"
@@ -458,24 +455,22 @@ export const NeedsRoutingPage = () => {
                     {/* Action row — each control stops propagation individually so triaging
                         in place doesn't bubble up to the Card's open-thread handler. */}
                     <div className="flex flex-wrap gap-2 items-end">
-                      <Select
-                        value={selectedDept[msg.id] ?? ''}
-                        onClick={(ev) => ev.stopPropagation()}
-                        onChange={(ev) =>
-                          setSelectedDept((prev) => ({
-                            ...prev,
-                            [msg.id]: Number(ev.target.value),
-                          }))
-                        }
-                        className="flex-1"
-                      >
-                        <option value="">Select department…</option>
-                        {activeDepts.map((dept) => (
-                          <option key={dept.id} value={dept.id}>
-                            {dept.name}
-                          </option>
-                        ))}
-                      </Select>
+                      {/* The wrapper stops the click: the menu renders in a portal, but React
+                          still bubbles its clicks up the component tree to the Card. */}
+                      <div className="flex-1" onClick={(ev) => ev.stopPropagation()}>
+                        <Select
+                          value={String(selectedDept[msg.id] ?? '')}
+                          onChange={(value) =>
+                            setSelectedDept((prev) => ({
+                              ...prev,
+                              [msg.id]: Number(value),
+                            }))
+                          }
+                          options={deptOptions}
+                          placeholder="Select department…"
+                          aria-label="Department to route to"
+                        />
+                      </div>
                       <Button
                         size="sm"
                         onClick={(ev) => {

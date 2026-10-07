@@ -1,5 +1,6 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
+import { chooseOption } from '@/test/chooseOption';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { AdminFeatureFlag } from '@/services/featureFlags.service';
 
@@ -123,8 +124,7 @@ describe('PlatformFeatureFlags — own-key note on the kb.* switches', () => {
     renderPage();
     await rowFor(KB_KEYS[0]);
     expect(screen.getAllByText(OWN_KEY_GLOBAL_NOTE)).toHaveLength(3);
-    await screen.findByRole('option', { name: 'CoreSarms' });
-    fireEvent.change(screen.getByLabelText('Editing'), { target: { value: '4' } });
+    await chooseOption(screen.getByLabelText('Editing'), 'CoreSarms');
     await rowFor(KB_KEYS[0]);
     expect(screen.queryByText(OWN_KEY_GLOBAL_NOTE)).toBeNull();
   });
@@ -135,8 +135,7 @@ describe('PlatformFeatureFlags — workspace scope, global row does not reach (g
   const GLOBAL_ON = { enabled: true, updatedAt: '2026-10-07T00:00:00Z', updatedBy: 1, notes: null };
   const atWorkspace = async () => {
     renderPage();
-    await screen.findByRole('option', { name: 'CoreSarms' });
-    fireEvent.change(screen.getByLabelText('Editing'), { target: { value: '4' } });
+    await chooseOption(screen.getByLabelText('Editing'), 'CoreSarms');
   };
   // What BE 25f329c4 sends for an own-key workspace on a hosted deployment, global row ON.
   const ownKey = (key: string): AdminFeatureFlag => ({
@@ -254,8 +253,7 @@ describe('PlatformFeatureFlags — workspace scope, global row does not reach (g
     const globalRow = await rowFor('kb.consolidation_dry_run');
     expect(within(globalRow).getByText(DRY_RUN_WARNING)).toBeInTheDocument();
     expect(screen.getAllByText(DRY_RUN_WARNING)).toHaveLength(1);
-    await screen.findByRole('option', { name: 'CoreSarms' });
-    fireEvent.change(screen.getByLabelText('Editing'), { target: { value: '4' } });
+    await chooseOption(screen.getByLabelText('Editing'), 'CoreSarms');
     await waitFor(() => expect(screen.queryByText(OWN_KEY_GLOBAL_NOTE)).toBeNull());
     expect(
       within(await rowFor('kb.consolidation_dry_run')).getByText(DRY_RUN_WARNING)

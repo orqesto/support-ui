@@ -139,15 +139,14 @@ export const WorkspaceMembershipRow = ({
             value={role}
             disabled={savingRole || idpManaged}
             aria-label={`Role for ${userEmail} in ${orgName}`}
-            className="h-9 w-44"
-            onChange={(event) => void handleRoleChange(event.target.value)}
-          >
-            {ORGANIZATION_ROLES.map((orgRole: OrganizationRole) => (
-              <option key={orgRole} value={orgRole}>
-                {roleDisplayNames[orgRole]}
-              </option>
-            ))}
-          </Select>
+            size="sm"
+            className="w-44"
+            options={ORGANIZATION_ROLES.map((orgRole: OrganizationRole) => ({
+              value: orgRole,
+              label: roleDisplayNames[orgRole],
+            }))}
+            onChange={(value) => void handleRoleChange(value)}
+          />
           <Button
             variant="outline"
             size="sm"

@@ -13,6 +13,7 @@ import { installTransport, ok, routeAbsent, type WireResponse } from '@/test/api
 import type { KBEntry } from '@/services/kb.service';
 import { KBEntryEditDialog, FOLLOWS_MAILBOX_MESSAGE } from '../KBEntryEditDialog';
 import { KBEntryDetail } from '../KBEntryDetail';
+import { chooseOption, listOptions } from '@/test/chooseOption';
 
 const MAILBOX_NOTE = 'from the ticket it came from — the mailbox decides where it is used';
 
@@ -101,10 +102,16 @@ const openEditor = (entry: KBEntry) => {
   return saved;
 };
 
-const departmentSelect = () => screen.queryByLabelText<HTMLSelectElement>('Department');
+const departmentSelect = () => screen.queryByLabelText('Department');
 const saveButton = () => screen.getByRole<HTMLButtonElement>('button', { name: 'Save Changes' });
-const waitForDepartments = () =>
-  waitFor(() => expect(screen.getByRole('option', { name: 'Sales' })).toBeTruthy());
+// Opens the picker until the departments have loaded into it, then closes it again.
+const waitForDepartments = async () => {
+  const control = await screen.findByLabelText('Department');
+  await waitFor(async () => expect(await listOptions(control)).toContain('Sales'));
+  // Blur, not Escape: Escape would also close the dialog/drawer around it.
+  fireEvent.blur(control);
+  await waitFor(() => expect(screen.queryByRole('option')).toBeNull());
+};
 const patches = () => wire.calls('PATCH', /^\/api\/knowledge-base\/entries\//);
 
 describe('Department in the KB entry editor (F1)', () => {
@@ -112,7 +119,9 @@ describe('Department in the KB entry editor (F1)', () => {
     openEditor(brochure);
     await waitForDepartments();
     expect(departmentSelect()).not.toBeNull();
-    expect(departmentSelect()?.value).toBe('');
+    // Nothing picked: the placeholder shows, not a department.
+    expect(screen.getByText('Unassigned')).toBeTruthy();
+    expect(screen.queryByText('Support')).toBeNull();
     expect(screen.queryByText(MAILBOX_NOTE)).toBeNull();
   });
 
@@ -135,7 +144,7 @@ describe('Department in the KB entry editor (F1)', () => {
     const saved = openEditor(brochure);
     await waitForDepartments();
     expect(saveButton().disabled).toBe(true);
-    fireEvent.change(departmentSelect()!, { target: { value: '5' } });
+    await chooseOption(departmentSelect()!, 'Sales');
     expect(saveButton().disabled).toBe(false);
     fireEvent.click(saveButton());
     await waitFor(() => expect(saved.length).toBe(1));
@@ -146,7 +155,7 @@ describe('Department in the KB entry editor (F1)', () => {
   it('a Q&A entry with no mailbox: a department-only change does not resend the text', async () => {
     const saved = openEditor({ ...mailboxQa, messageSourceId: null });
     await waitForDepartments();
-    fireEvent.change(departmentSelect()!, { target: { value: '5' } });
+    await chooseOption(departmentSelect()!, 'Sales');
     fireEvent.click(saveButton());
     await waitFor(() => expect(saved.length).toBe(1));
     expect(patches().map((call) => call.body)).toEqual([{ departmentId: 5 }]);
@@ -155,8 +164,9 @@ describe('Department in the KB entry editor (F1)', () => {
   it('an unchanged department is not sent; picking the current one again is no change', async () => {
     const saved = openEditor({ ...brochure, departmentId: 3 });
     await waitForDepartments();
-    expect(departmentSelect()?.value).toBe('3');
-    fireEvent.change(departmentSelect()!, { target: { value: '3' } });
+    expect(screen.getByText('Support')).toBeTruthy();
+    expect(screen.queryByText('Unassigned')).toBeNull();
+    await chooseOption(departmentSelect()!, 'Support');
     expect(saveButton().disabled).toBe(true);
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Brochure 2026' } });
     fireEvent.click(saveButton());
@@ -177,7 +187,7 @@ describe('The backend refusing a department change (F3)', () => {
     });
     const saved = openEditor(brochure);
     await waitForDepartments();
-    fireEvent.change(departmentSelect()!, { target: { value: '5' } });
+    await chooseOption(departmentSelect()!, 'Sales');
     fireEvent.click(saveButton());
     await waitFor(() => expect(screen.getByText(FOLLOWS_MAILBOX_MESSAGE)).toBeTruthy());
     expect(FOLLOWS_MAILBOX_MESSAGE).toBe(
@@ -193,7 +203,7 @@ describe('The backend refusing a department change (F3)', () => {
     });
     openEditor(brochure);
     await waitForDepartments();
-    fireEvent.change(departmentSelect()!, { target: { value: '5' } });
+    await chooseOption(departmentSelect()!, 'Sales');
     fireEvent.click(saveButton());
     await waitFor(() =>
       expect(screen.getByText('You are not a member of that department')).toBeTruthy()
