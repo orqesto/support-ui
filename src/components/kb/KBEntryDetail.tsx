@@ -112,7 +112,14 @@ const LIST_ONLY_FIELDS = [
   'consolidatedInto',
   'consolidation',
 ] as const;
-const withListFields = (detail: KBEntry, listed: KBEntry): KBEntry => {
+const withListFields = (fromDetail: KBEntry, listed: KBEntry): KBEntry => {
+  // `messageSourceId` decides whether the editor offers a department picker; the detail route
+  // sends it only from the backend release that added the picker, so on an older backend the list
+  // row's value stands in whenever it is absent — whatever `sourceDeleted` says.
+  const detail =
+    fromDetail.messageSourceId === undefined && listed.messageSourceId !== undefined
+      ? { ...fromDetail, messageSourceId: listed.messageSourceId }
+      : fromDetail;
   if (detail.sourceDeleted !== undefined) return detail;
   const merged = { ...detail };
   for (const key of LIST_ONLY_FIELDS) {

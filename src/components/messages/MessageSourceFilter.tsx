@@ -3,12 +3,16 @@ import { ReactSelect, type Option } from '@/components/ui/ReactSelect';
 import { messageService } from '@/services/message.service';
 
 const ALL_SOURCES = 'all';
+/** The rows that come from no mailbox (the KB list's `messageSourceId=none`). */
+const NO_SOURCE = 'none';
 
 interface MessageSourceFilterProps {
-  /** Selected source id as a string, or 'all'. */
+  /** Selected source id as a string, 'all', or (with `includeNoSource`) 'none'. */
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  /** Offer "No source" (value 'none') — only where the list's endpoint understands it (KB). */
+  includeNoSource?: boolean;
 }
 
 /**
@@ -17,7 +21,12 @@ interface MessageSourceFilterProps {
  * (Needs Routing now; Q&A-Pairs / KB-Documents next). Soft filter — always offers an
  * "All sources" reset so results never appear to vanish.
  */
-export const MessageSourceFilter = ({ value, onChange, className }: MessageSourceFilterProps) => {
+export const MessageSourceFilter = ({
+  value,
+  onChange,
+  className,
+  includeNoSource = false,
+}: MessageSourceFilterProps) => {
   const { data: sources = [] } = useQuery({
     queryKey: ['message-sources-filter'],
     queryFn: () => messageService.getMessageSourcesForFilter(),
@@ -26,6 +35,7 @@ export const MessageSourceFilter = ({ value, onChange, className }: MessageSourc
 
   const options: Option[] = [
     { value: ALL_SOURCES, label: 'All sources' },
+    ...(includeNoSource ? [{ value: NO_SOURCE, label: 'No source' }] : []),
     ...sources.map((source) => ({ value: String(source.id), label: source.name })),
   ];
 
@@ -40,4 +50,4 @@ export const MessageSourceFilter = ({ value, onChange, className }: MessageSourc
   );
 };
 
-export { ALL_SOURCES };
+export { ALL_SOURCES, NO_SOURCE };

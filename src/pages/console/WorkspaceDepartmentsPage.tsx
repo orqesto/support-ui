@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { usePermissions } from '@/hooks/usePermissions';
+import { kbMovedSuffix } from '@/lib/kbEntriesMove';
 import {
   platformService,
   type WorkspaceDepartmentRow,
@@ -92,14 +93,16 @@ export const WorkspaceDepartmentsPage = () => {
         targetDepartmentId
       );
       setView(next);
+      // What happened to its KB entries (owner 2026-10-07); '' on an older backend.
+      const kbTail = kbMovedSuffix(next.result.kbEntries);
       if (next.result.merged && next.result.counts) {
         const moved = next.result.counts;
         toast.success(
           `Merged “${deactivateFor.name}” — moved ${moved.messageSources} source(s), ` +
-            `${moved.userMemberships} member(s), ${moved.conversations} conversation(s)`
+            `${moved.userMemberships} member(s), ${moved.conversations} conversation(s)${kbTail}`
         );
       } else {
-        toast.success(`Deactivated “${deactivateFor.name}”`);
+        toast.success(`Deactivated “${deactivateFor.name}”${kbTail}`);
       }
       setDeactivateFor(null);
     } catch (err) {

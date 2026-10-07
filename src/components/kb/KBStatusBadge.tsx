@@ -8,7 +8,7 @@ import {
   isSourceRemoved,
 } from '@/lib/kbConsolidation';
 import { KBApprovalBadge } from './KBApprovalProvenance';
-import { formatPurgeDate } from '@/lib/kbRejection';
+import { AUTO_SUPERSEDED_NOTE, formatPurgeDate, isAutoSupersededReject } from '@/lib/kbRejection';
 import type { KBEntry } from '@/services/kb.service';
 
 /**
@@ -45,19 +45,27 @@ export const KBStatusBadge = ({
   if (entry.rejectedAt) {
     const purge = formatPurgeDate(entry.rejectedAt);
     return (
-      <Badge
-        variant="danger"
-        className={className}
-        title={
-          purge
-            ? `Rejected — the AI never uses it. Deleted by the daily cleanup after ${purge} unless approved again.`
-            : 'Rejected — the AI never uses it.'
-        }
-      >
-        {/* "after", not "on": the purge is a daily job and takes the row on its first run past
-            the date, not at the stroke of it. */}
-        {purge ? `Rejected · deleted after ${purge}` : 'Rejected'}
-      </Badge>
+      <>
+        <Badge
+          variant="danger"
+          className={className}
+          title={
+            purge
+              ? `Rejected — the AI never uses it. Deleted by the daily cleanup after ${purge} unless approved again.`
+              : 'Rejected — the AI never uses it.'
+          }
+        >
+          {/* "after", not "on": the purge is a daily job and takes the row on its first run past
+              the date, not at the stroke of it. */}
+          {purge ? `Rejected · deleted after ${purge}` : 'Rejected'}
+        </Badge>
+        {/* Nobody rejected it: the backend retired a duplicate automatic capture. */}
+        {isAutoSupersededReject(entry) && (
+          <Badge variant="secondary" className={className}>
+            {AUTO_SUPERSEDED_NOTE}
+          </Badge>
+        )}
+      </>
     );
   }
   // KB consolidation (#873): a merged original is hidden because it lives on in its case —

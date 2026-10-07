@@ -386,6 +386,18 @@ export type WorkspaceDepartmentCounts = {
   totalConversations: number;
 };
 
+/**
+ * KB entries filed under a department and the department they move to on deactivation. On a list
+ * row: where they go when no target is chosen (the active default department; both destination
+ * fields null when there is none — the backend then refuses with 409). On a deactivate result:
+ * where they actually went.
+ */
+export type KbEntriesMove = {
+  count: number;
+  toDepartmentId: number | null;
+  toDepartmentName: string | null;
+};
+
 export type WorkspaceDepartmentRow = {
   id: number;
   name: string;
@@ -393,6 +405,8 @@ export type WorkspaceDepartmentRow = {
   active: boolean;
   isDefault: boolean;
   counts: WorkspaceDepartmentCounts;
+  /** Null = no entries. Absent on a backend that predates it — then nothing is said. */
+  kbEntries?: KbEntriesMove | null;
 };
 
 export type WorkspaceDepartmentsView = {
@@ -414,6 +428,8 @@ export type DeactivateDepartmentResult = {
   merged: boolean;
   mergedInto?: number;
   counts?: DepartmentMergeCounts;
+  /** The KB entries that moved, and where; null = none. Absent on an older backend. */
+  kbEntries?: KbEntriesMove | null;
 };
 
 const PLATFORM = '/api/admin/platform';
@@ -731,9 +747,12 @@ export const platformService = {
     return res.data.data;
   },
   getQueueHistory: async (queue: string, hours: number): Promise<QueueHistorySample[]> => {
-    const res = await apiClient.get<{ data: { samples: QueueHistorySample[] } }>(`${ADMIN}/queue-history`, {
-      params: { queue, hours },
-    });
+    const res = await apiClient.get<{ data: { samples: QueueHistorySample[] } }>(
+      `${ADMIN}/queue-history`,
+      {
+        params: { queue, hours },
+      }
+    );
     return res.data.data.samples;
   },
 
@@ -752,16 +771,22 @@ export const platformService = {
   },
 
   retryFailedJobs: async (jobs: QueueFailureJobRef[]): Promise<QueueFailureActionResult> => {
-    const res = await apiClient.post<{ data: QueueFailureActionResult }>(`${ADMIN}/queues/failures/retry`, {
-      jobs,
-    });
+    const res = await apiClient.post<{ data: QueueFailureActionResult }>(
+      `${ADMIN}/queues/failures/retry`,
+      {
+        jobs,
+      }
+    );
     return res.data.data;
   },
 
   removeFailedJobs: async (jobs: QueueFailureJobRef[]): Promise<QueueFailureActionResult> => {
-    const res = await apiClient.post<{ data: QueueFailureActionResult }>(`${ADMIN}/queues/failures/remove`, {
-      jobs,
-    });
+    const res = await apiClient.post<{ data: QueueFailureActionResult }>(
+      `${ADMIN}/queues/failures/remove`,
+      {
+        jobs,
+      }
+    );
     return res.data.data;
   },
 
@@ -819,5 +844,4 @@ export const platformService = {
     });
     return res.data.data;
   },
-
 };

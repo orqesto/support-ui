@@ -57,6 +57,7 @@ vi.mock('@/components/settings/DocumentationSettings', () => ({
 }));
 vi.mock('@/components/messages/MessageSourceFilter', () => ({
   ALL_SOURCES: 'all',
+  NO_SOURCE: 'none',
   MessageSourceFilter: () => null,
 }));
 vi.mock('@/components/admin/DepartmentBadge', () => ({ default: () => null }));

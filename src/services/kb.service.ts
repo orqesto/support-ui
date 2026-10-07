@@ -17,6 +17,14 @@ export type KBEntry = {
   content: string;
   category: string;
   departmentId: number | null;
+  /**
+   * The mailbox the entry was learned from; null = no mailbox (an uploaded document, a manual
+   * entry). Such an entry's department is set by hand; a mailbox entry's is not (its mailbox's
+   * departments decide where the AI uses it).
+   * Optional: the list sends it, but the detail route of the deployed backend does not — absent
+   * means "we cannot tell", never "no mailbox".
+   */
+  messageSourceId?: number | null;
   qualityScore: number;
   approved: boolean;
   /**
@@ -117,6 +125,15 @@ export const approvalProvenance = (entry: {
 export type KbFinding = 'raw_email' | 'awaiting_review';
 export const KB_FINDINGS: readonly KbFinding[] = ['raw_email', 'awaiting_review'];
 
+/**
+ * The list's `messageSourceId` for a source filter value (MessageSourceFilter): 'all' ⇒ none,
+ * 'none' ⇒ the entries from no mailbox, anything else ⇒ that source's id.
+ */
+export const kbSourceParam = (value: string): number | 'none' | undefined => {
+  if (value === 'all') return undefined;
+  return value === 'none' ? 'none' : Number(value);
+};
+
 export type KbExportType = 'qa_pair' | 'document';
 export type KbExportSize = { count: number; cap: number; truncated: boolean };
 
@@ -127,7 +144,8 @@ export const kbService = {
     limit?: number;
     search?: string;
     status?: string;
-    messageSourceId?: number;
+    /** A mailbox id, or 'none' for the entries that come from no mailbox. */
+    messageSourceId?: number | 'none';
     /** Only the entries behind one finding of the KB cases report (needs `departmentId`). */
     finding?: KbFinding;
     departmentId?: number;
@@ -138,8 +156,7 @@ export const kbService = {
     if (params?.limit) queryParams.set('limit', params.limit.toString());
     if (params?.search) queryParams.set('search', params.search);
     if (params?.status) queryParams.set('status', params.status);
-    if (params?.messageSourceId)
-      queryParams.set('messageSourceId', params.messageSourceId.toString());
+    if (params?.messageSourceId) queryParams.set('messageSourceId', String(params.messageSourceId));
     if (params?.finding && params.departmentId) {
       queryParams.set('finding', params.finding);
       queryParams.set('departmentId', params.departmentId.toString());
@@ -243,6 +260,8 @@ export const kbService = {
       category?: string;
       question?: string;
       answer?: string;
+      /** Source-less entries only — refused on a mailbox entry (400). */
+      departmentId?: number;
     }
   ) => {
     const response = await apiClient.patch<ApiResponse<KBEntry>>(
