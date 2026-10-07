@@ -41,6 +41,13 @@ export interface AdminFeatureFlag {
   organization: { enabled: boolean; updatedAt: string; updatedBy: number | null; notes: string | null } | null;
   effective: boolean;
   source: 'organization' | 'global' | 'code_default';
+  /**
+   * Workspace scope, kb.* switches only (BE 25f329c4): whether the GLOBAL row reaches this
+   * workspace. False for an own-key workspace on a hosted deployment — `effective`/`source` are
+   * then what the job does (off, code default), not what the global row says. ABSENT at global
+   * scope, on other flags and from an older backend: feature-detect on presence.
+   */
+  globalReaches?: boolean;
 }
 
 export interface AdminFeatureFlagList {
@@ -66,7 +73,16 @@ const listAdmin = (organizationId?: number | null): Promise<AdminFeatureFlagList
     .get<{ success: boolean; data: AdminFeatureFlagList }>('/api/admin/platform/feature-flags', {
       params: isGlobalScope(organizationId) ? undefined : { organizationId },
     })
-    .then((res) => res.data.data);
+    .then((res) => normalizeAdminFlagList(res.data.data));
+
+/** Keeps `globalReaches` only when it is a real boolean (version skew: absent on older BEs). */
+export const normalizeAdminFlagList = (list: AdminFeatureFlagList): AdminFeatureFlagList => ({
+  ...list,
+  flags: (list?.flags ?? []).map((flag) => {
+    const { globalReaches, ...rest } = flag;
+    return typeof globalReaches === 'boolean' ? { ...rest, globalReaches } : rest;
+  }),
+});
 
 /** Write the override row for a scope. Omit `organizationId` for the global row. */
 const setFlag = (input: {

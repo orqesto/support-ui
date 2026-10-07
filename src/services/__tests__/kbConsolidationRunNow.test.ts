@@ -76,6 +76,34 @@ describe('kbConsolidationService run now', () => {
     });
   });
 
+  it('409 with switches (newer backend) ⇒ the refusal carries them, normalised', async () => {
+    const switches = {
+      ownKey: true,
+      selfHosted: false,
+      globalApplies: false,
+      enabled: { on: false, from: 'default' },
+      dryRun: { on: false, from: 'default' },
+      quality: { on: false, from: 'default' },
+    };
+    postImpl = () =>
+      Promise.reject(
+        httpError(409, { success: false, data: { reason: 'disabled', retryAfter: null, switches } })
+      );
+    await expect(kbConsolidationService.runNow()).resolves.toEqual({
+      started: false,
+      reason: 'disabled',
+      retryAfter: null,
+      switches,
+    });
+    // The BE sends `switches: null` when it has none: no key, as from an older backend.
+    postImpl = () =>
+      Promise.reject(
+        httpError(409, { data: { reason: 'disabled', retryAfter: null, switches: null } })
+      );
+    const refused = await kbConsolidationService.runNow();
+    expect('switches' in refused).toBe(false);
+  });
+
   it('a 500 is an error, not a refusal', async () => {
     postImpl = () => Promise.reject(httpError(500, { success: false }));
     await expect(kbConsolidationService.runNow()).rejects.toMatchObject({ status: 500 });
