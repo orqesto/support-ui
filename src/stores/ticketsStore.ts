@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useDepartmentContextStore } from './departmentContextStore';
 import { identityScope } from '@/stores/identityScope';
+import {
+  rehydrateOnWorkspaceSwitch,
+  workspaceScopedStorage,
+} from '@/stores/workspaceScopedStorage';
 import type { Ticket, TicketStatus, TicketPriority } from '@/types';
 
 type TicketFilters = {
@@ -131,7 +135,18 @@ export const useTicketsStore = create<TicketsState>()(
     }),
     {
       name: 'tickets-filters',
+      // Per workspace: the filters name categories, sources and assignees of ONE workspace.
+      storage: workspaceScopedStorage<Pick<TicketsState, 'filters' | 'sorting'>>(),
       partialize: (state) => ({ filters: state.filters, sorting: state.sorting }),
+      // A workspace with nothing saved starts from the defaults — never from the previous one's.
+      merge: (persisted, current) => ({
+        ...current,
+        filters: defaultFilters,
+        sorting: defaultSorting,
+        ...(persisted as Partial<TicketsState> | undefined),
+      }),
     }
   )
 );
+
+rehydrateOnWorkspaceSwitch(useTicketsStore);

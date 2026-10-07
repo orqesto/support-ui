@@ -45,6 +45,12 @@ export const SsoCallbackPage = () => {
       return;
     }
 
+    // `/users/me` answers for the workspace the request names (X-Organization-Context) when the
+    // caller is a member there — that is how each browser tab keeps its own workspace. A selection
+    // left in this tab from before sign-in would therefore override the workspace this SSO login
+    // was minted for. Drop it first so the session's own workspace answers.
+    useAuthStore.setState({ selectedOrganizationId: null });
+
     userService
       .getCurrentUser()
       .then((user) => {

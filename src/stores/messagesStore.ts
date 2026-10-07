@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useDepartmentContextStore } from './departmentContextStore';
 import { identityScope } from '@/stores/identityScope';
+import {
+  rehydrateOnWorkspaceSwitch,
+  workspaceScopedStorage,
+} from '@/stores/workspaceScopedStorage';
 // Value import, but not a cycle: filterSchema's reference back to this module is
 // `import type` and erases at build time.
 import { scopeReadToTriage } from '@/components/messages/filters/filterSchema';
@@ -253,6 +257,8 @@ type MessagesState = {
   clearCache: () => void;
 };
 
+const defaultSorting: SortingState = { sortBy: 'time', sortOrder: 'desc' };
+
 export const defaultFilters: FilterState = {
   messageSourceId: 'all',
   departmentId: 'all',
@@ -310,7 +316,7 @@ export const useMessagesStore = create<MessagesState>()(
     (set, get) => ({
       cache: {},
       filters: defaultFilters,
-      sorting: { sortBy: 'time', sortOrder: 'desc' },
+      sorting: defaultSorting,
       currentPage: 1,
       listScope: null,
 
@@ -380,7 +386,18 @@ export const useMessagesStore = create<MessagesState>()(
     }),
     {
       name: 'messages-filters',
+      // Per workspace: the filters name departments, labels, columns and assignees of ONE workspace.
+      storage: workspaceScopedStorage<Pick<MessagesState, 'filters' | 'sorting'>>(),
       partialize: (state) => ({ filters: state.filters, sorting: state.sorting }),
+      // A workspace with nothing saved starts from the defaults — never from the previous one's.
+      merge: (persisted, current) => ({
+        ...current,
+        filters: defaultFilters,
+        sorting: defaultSorting,
+        ...(persisted as Partial<MessagesState> | undefined),
+      }),
     }
   )
 );
+
+rehydrateOnWorkspaceSwitch(useMessagesStore);

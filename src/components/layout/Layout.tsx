@@ -329,14 +329,12 @@ export const Layout = ({ children }: LayoutProps) => {
   const slaNotifications = useSLANotifications();
   const learningNotifications = useLearningNotifications();
 
-  // For admins: use selectedOrganizationId to filter widgets by current org context.
+  // Use selectedOrganizationId — this TAB's workspace — to filter widgets and pick the WS room.
   // WS-H-04: fall back to user.organizationId so the WS room is joined on first login
   // before OrganizationSwitcher auto-selects an org (avoids transient no-events window).
-  // For regular users: use their user.organizationId
-  const organizationFilter =
-    user?.role === 'admin'
-      ? (selectedOrganizationId ?? user?.organizationId ?? null)
-      : user?.organizationId;
+  // Members too: the selection is per TAB, so two tabs may be in two of the member's
+  // workspaces while the token names only one — follow the tab, as every request does.
+  const organizationFilter = selectedOrganizationId ?? user?.organizationId ?? null;
 
   const { sessions } = useEmailProcessing(true, organizationFilter ?? undefined);
   // A run starting or ending on the socket asks the indicator's summary at once.
