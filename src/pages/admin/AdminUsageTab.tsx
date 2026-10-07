@@ -39,6 +39,7 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
+import { OrgLimitOverridesSection } from './OrgLimitOverridesSection';
 
 /** Rows shown per page in the client-paginated workspace usage table. */
 const PAGE_SIZE = 20;
@@ -646,6 +647,8 @@ export const AdminUsageTab = () => {
                               )}
                             </div>
                             <OrgFeatureOverridesSection orgId={org.id} />
+
+                            <OrgLimitOverridesSection orgId={org.id} />
 
                             <OrgAiUsageSection aiCalls={org.usage.aiCalls} />
                           </div>

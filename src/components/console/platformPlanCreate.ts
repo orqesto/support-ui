@@ -1,4 +1,5 @@
 import type { CreatePlanInput, PlanType } from '@/services/platform.service';
+import { parseLimitDraft, type LimitDraft } from './limitFields';
 
 /**
  * Pure validation + normalization for the "New plan" form (POST /api/admin/plans).
@@ -31,9 +32,8 @@ export type CreatePlanDraft = {
   planType: PlanType;
   priceEuros: string;
   stripePriceId: string;
-  maxUsers: string;
-  maxMessagesPerMonth: string;
-  maxIntegrations: string;
+  /** Every plan limit (limitFields.ts). Users and channels are required; any other blank is unlimited. */
+  limits: LimitDraft;
 };
 
 /** Field-keyed validation errors — each maps to an inline message under its input. */
@@ -52,9 +52,7 @@ export const emptyCreatePlanDraft = (): CreatePlanDraft => ({
   priceEuros: '',
   stripePriceId: '',
   createStripePrice: false,
-  maxUsers: '',
-  maxMessagesPerMonth: '',
-  maxIntegrations: '',
+  limits: {},
 });
 
 const SLUG_RE = /^[a-z0-9-]+$/;
@@ -83,20 +81,12 @@ export const validateCreatePlanDraft = (draft: CreatePlanDraft): CreatePlanValid
     errors.stripePriceId = 'Must look like a Stripe price id (price_…).';
   }
 
-  const maxUsers = Number.parseInt(draft.maxUsers, 10);
-  const maxIntegrations = Number.parseInt(draft.maxIntegrations, 10);
-  const trimmedMessages = draft.maxMessagesPerMonth.trim();
-  const maxMessagesPerMonth =
-    trimmedMessages === '' ? undefined : Number.parseInt(trimmedMessages, 10);
-  if (
-    !Number.isInteger(maxUsers) ||
-    maxUsers < 0 ||
-    !Number.isInteger(maxIntegrations) ||
-    maxIntegrations < 0 ||
-    (maxMessagesPerMonth !== undefined &&
-      (!Number.isInteger(maxMessagesPerMonth) || maxMessagesPerMonth < 0))
-  ) {
+  const parsedLimits = parseLimitDraft(draft.limits);
+  if (!parsedLimits.ok) {
     errors.limits = 'Limits must be non-negative whole numbers.';
+  } else if (parsedLimits.limits.maxUsers === undefined || parsedLimits.limits.maxIntegrations === undefined) {
+    // A plan without them would be unlimited seats and channels — make that a deliberate 999999.
+    errors.limits = 'Set Users and Channels (999999 means unlimited).';
   }
 
   if (Object.keys(errors).length > 0) {
@@ -116,11 +106,7 @@ export const validateCreatePlanDraft = (draft: CreatePlanDraft): CreatePlanValid
       ...(!stripePriceId && draft.createStripePrice && priceCents > 0
         ? { createStripePrice: true }
         : {}),
-      limits: {
-        maxUsers,
-        maxIntegrations,
-        ...(maxMessagesPerMonth !== undefined ? { maxMessagesPerMonth } : {}),
-      },
+      limits: parsedLimits.ok ? parsedLimits.limits : {},
       // BE requires the `features` key but every flag inside is optional — an empty
       // object satisfies the strict schema (new plans start with no features enabled).
       features: {},

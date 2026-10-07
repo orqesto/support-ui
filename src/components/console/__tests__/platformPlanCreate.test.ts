@@ -12,9 +12,7 @@ const validDraft = (): CreatePlanDraft => ({
   planType: 'bundle',
   priceEuros: '500',
   stripePriceId: '',
-  maxUsers: '25',
-  maxMessagesPerMonth: '10000',
-  maxIntegrations: '5',
+  limits: { maxUsers: '25', maxMessagesPerMonth: '10000', maxIntegrations: '5' },
 });
 
 describe('validateCreatePlanDraft — createStripePrice', () => {
@@ -73,7 +71,7 @@ describe('validateCreatePlanDraft', () => {
     const result = validateCreatePlanDraft({
       ...validDraft(),
       name: '  starter  ',
-      maxMessagesPerMonth: '   ',
+      limits: { maxUsers: '25', maxMessagesPerMonth: '   ', maxIntegrations: '5' },
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -134,7 +132,7 @@ describe('validateCreatePlanDraft', () => {
   });
 
   it('rejects non-integer / negative limits', () => {
-    const result = validateCreatePlanDraft({ ...validDraft(), maxUsers: '-1' });
+    const result = validateCreatePlanDraft({ ...validDraft(), limits: { ...validDraft().limits, maxUsers: '-1' } });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errors.limits).toBeDefined();
