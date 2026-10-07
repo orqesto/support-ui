@@ -95,7 +95,20 @@ vi.mock('@/components/settings/DocumentationSettings', () => ({
 }));
 vi.mock('@/components/messages/MessageSourceFilter', () => ({
   ALL_SOURCES: 'all',
-  MessageSourceFilter: () => null,
+  NO_SOURCE: 'none',
+  // Stands in for picking "No source" — offered only where the page opts in (F2).
+  MessageSourceFilter: ({
+    onChange,
+    includeNoSource,
+  }: {
+    onChange: (value: string) => void;
+    includeNoSource?: boolean;
+  }) =>
+    includeNoSource ? (
+      <button type="button" onClick={() => onChange('none')}>
+        pick No source
+      </button>
+    ) : null,
 }));
 vi.mock('@/components/admin/DepartmentBadge', () => ({ default: () => null }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => '' }));
@@ -363,5 +376,39 @@ describe('Knowledge base list narrowed to a finding', () => {
     await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(callsBefore));
     expect(lastCall()).toMatchObject({ finding: 'awaiting_review', page: 2 });
     expect(await screen.findAllByText('Raw one')).not.toHaveLength(0);
+  });
+});
+
+describe('Source filter: "No source" (F2)', () => {
+  it('asks the backend for messageSourceId=none, counts as a filter, and Clear All drops it', async () => {
+    render(
+      <MemoryRouter initialEntries={['/knowledge-base#all']}>
+        <Routes>
+          <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(0));
+    expect(lastCall().messageSourceId).toBeUndefined();
+    fireEvent.click(await screen.findByRole('button', { name: 'pick No source' }));
+    await waitFor(() => expect(lastCall().messageSourceId).toBe('none'));
+    fireEvent.click(screen.getByRole('button', { name: /Clear All/ }));
+    await waitFor(() => expect(lastCall().messageSourceId).toBeUndefined());
+  });
+});
+
+describe('Rejected tab (pass-5 F1)', () => {
+  it("its tooltip holds for an automatic reject as well as a reviewer's", async () => {
+    render(
+      <MemoryRouter initialEntries={['/knowledge-base#all']}>
+        <Routes>
+          <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    const tab = await screen.findByRole('button', { name: 'Rejected' });
+    expect(tab.getAttribute('title')).toBe(
+      'Rejected by a reviewer or automatically — deleted 90 days after the reject; Approve restores one before then.'
+    );
   });
 });

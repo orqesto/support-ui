@@ -19,7 +19,7 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { usePermissions } from '@/hooks/usePermissions';
 import { logger } from '@/lib/logger';
-import { kbService, type KBEntry, type PaginationMeta } from '@/services/kb.service';
+import { kbService, kbSourceParam, type KBEntry, type PaginationMeta } from '@/services/kb.service';
 import { Permission } from '@/types/roles';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useUiFlags } from '@/hooks/useUiFlags';
@@ -91,7 +91,7 @@ export const KnowledgeBasePage = () => {
   // only ever fail for them.
   const { hasPermission } = usePermissions();
   const canReview = hasPermission(Permission.MANAGE_KNOWLEDGE_BASE);
-  // Source filter — 'all' = no source narrowing. Maps to kbService messageSourceId.
+  // Source filter — 'all' (no narrowing), 'none' (no mailbox) or a source id: kbSourceParam.
   const [filterSource, setFilterSource] = useState<string>(ALL_SOURCES);
 
   // Handle tab change by updating URL hash via React Router
@@ -132,7 +132,7 @@ export const KnowledgeBasePage = () => {
           limit: pagination.limit,
           search: searchQuery || undefined,
           status: filterStatus === 'all' ? undefined : filterStatus,
-          messageSourceId: filterSource === ALL_SOURCES ? undefined : Number(filterSource),
+          messageSourceId: kbSourceParam(filterSource),
         });
         if (!response) return; // overtaken by a newer request
         setEntries(response.data.entries);
@@ -595,7 +595,7 @@ export const KnowledgeBasePage = () => {
                           size="sm"
                           onClick={() => setFilterStatus('rejected')}
                           className="h-8 text-xs rounded-none border-r-0"
-                          title="Rejected by a reviewer — deleted 90 days after the reject"
+                          title="Rejected by a reviewer or automatically — deleted 90 days after the reject; Approve restores one before then."
                         >
                           Rejected
                         </Button>
@@ -617,6 +617,7 @@ export const KnowledgeBasePage = () => {
                     <MessageSourceFilter
                       value={filterSource}
                       onChange={setFilterSource}
+                      includeNoSource
                       className="w-full sm:w-64"
                     />
                   </div>

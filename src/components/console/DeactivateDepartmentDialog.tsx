@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
+import { kbEntriesCount } from '@/lib/kbEntriesMove';
 import type { WorkspaceDepartmentRow } from '@/services/platform.service';
 
 interface DeactivateDepartmentDialogProps {
@@ -20,6 +21,48 @@ interface DeactivateDepartmentDialogProps {
   onConfirm: (targetDepartmentId?: number) => void;
   onClose: () => void;
 }
+
+/**
+ * Where this department's KB entries will go, said BEFORE the admin confirms (owner 2026-10-07).
+ * With a target (a merge) they go to the target; without one, to the workspace's active default
+ * department — and with no default the backend refuses (409), so that is said instead. Nothing
+ * when there are none, or when the backend does not report them (`kbEntries` absent: older BE).
+ */
+const KbEntriesNotice = ({
+  department,
+  needsTarget,
+  targetName,
+}: {
+  department: WorkspaceDepartmentRow;
+  needsTarget: boolean;
+  targetName: string | null;
+}) => {
+  const kb = department.kbEntries;
+  if (!kb || kb.count <= 0) return null;
+  const entries = kbEntriesCount(kb.count);
+  if (needsTarget) {
+    return (
+      <p className="text-sm text-foreground">
+        {targetName
+          ? `${entries} will move to ${targetName}.`
+          : `${entries} will move to the department you choose.`}
+      </p>
+    );
+  }
+  if (kb.toDepartmentName) {
+    return (
+      <p className="text-sm text-foreground">
+        {entries} will move to {kb.toDepartmentName}.
+      </p>
+    );
+  }
+  return (
+    <p className="text-sm text-destructive">
+      This department has {entries} and the workspace has no active default department to move them
+      to, so deactivating it will be refused. Set an active default department first.
+    </p>
+  );
+};
 
 const isEmpty = (dept: WorkspaceDepartmentRow): boolean =>
   dept.counts.messageSources === 0 &&
@@ -52,6 +95,7 @@ export const DeactivateDepartmentDialog = ({
   const empty = isEmpty(department);
   const needsTarget = !empty;
   const canConfirm = !busy && (empty || targetId !== '');
+  const targetName = targets.find((target) => String(target.id) === targetId)?.name ?? null;
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
@@ -63,8 +107,8 @@ export const DeactivateDepartmentDialog = ({
         <div className="p-4 space-y-4">
           {empty ? (
             <p className="text-sm text-foreground">
-              This department has no message sources, members, or conversations. It will be
-              turned off and can be re-activated later.
+              This department has no message sources, members, or conversations. It will be turned
+              off and can be re-activated later.
             </p>
           ) : (
             <>
@@ -100,13 +144,18 @@ export const DeactivateDepartmentDialog = ({
                 </Select>
                 {targets.length === 0 && (
                   <p className="text-xs text-destructive">
-                    No other active department to move this data into. Activate another
-                    department first.
+                    No other active department to move this data into. Activate another department
+                    first.
                   </p>
                 )}
               </div>
             </>
           )}
+          <KbEntriesNotice
+            department={department}
+            needsTarget={needsTarget}
+            targetName={targetName}
+          />
         </div>
 
         <DialogFooter>
