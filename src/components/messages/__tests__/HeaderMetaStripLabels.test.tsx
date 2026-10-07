@@ -100,6 +100,12 @@ describe('HeaderMetaStrip — the Labels row with an empty workspace', () => {
     expect(screen.queryByText('Search or create…')).toBeNull();
   });
 
+  it('no label can be ticked while the list is reloading (its older answer would undo the tick)', () => {
+    renderStrip({ allLabels: [{ id: 1, name: 'Bug', color: '#f00' } as Label], showLabelPicker: true, labelsStatus: 'loading' });
+    expect(screen.queryByRole('option', { name: 'Bug' })).toBeNull();
+    expect(screen.getByText('Loading labels…')).toBeTruthy();
+  });
+
   it('still offers it once labels exist', () => {
     renderStrip({ allLabels: [{ id: 1, name: 'Bug', color: '#f00' } as Label] });
     expect(screen.getByLabelText('Add label')).toBeTruthy();

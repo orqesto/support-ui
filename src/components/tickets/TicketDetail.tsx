@@ -166,9 +166,9 @@ export const TicketDetail = ({
 
   useEffect(() => {
     /*
-     * ⛔ Only the CURRENT ticket's answer lands. This component is not remounted per ticket, so a
-     * slow reply for the ticket you just left arrived on the new one: its labels showed as applied
-     * and the next tick sent a remove for a label this ticket never had.
+     * Only the latest request's answer lands. The pages mount one TicketDetail per ticket (keyed
+     * by id), so a reply for another ticket cannot arrive here — but a retry (labelsAttempt)
+     * re-runs this effect, and a superseded attempt's late reply must not overwrite a newer one.
      */
     let live = true;
     setLabelsStatus('loading');

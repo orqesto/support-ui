@@ -338,7 +338,9 @@ export function HeaderMetaStrip({
                 }}
                 popoverWidth={LABEL_PICKER_WIDTH_PX}
                 panelProps={{ 'data-label-picker': true }}
-                options={allLabels.map((label) => ({
+                // Rows only from a list known to be current: ticking during a reload let the
+                // reload's older answer overwrite the tick just made (the chip vanished).
+                options={(labelsStatus === 'ready' ? allLabels : []).map((label) => ({
                   value: String(label.id),
                   label: label.name,
                   color: label.color,
