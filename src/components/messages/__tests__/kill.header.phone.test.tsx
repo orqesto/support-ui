@@ -309,6 +309,24 @@ describe('Phone Details card — the meta strip handlers', () => {
       });
       await waitFor(() => expect(strips.card?.messageLabels).toEqual([BUG, VIP]));
     });
+    it('a hung write does not freeze the picker on "Loading labels…"', async () => {
+      spies.getMessageLabels.mockResolvedValue([BUG]);
+      type PickerProps = { labelsStatus?: string };
+      const { rerender } = render(tree(0));
+      openCard();
+      await waitFor(() => expect(strips.card?.messageLabels).toEqual([BUG]));
+      spies.removeLabelFromMessage.mockImplementation(() => new Promise<void>(() => {}));
+      await act(async () => {
+        strips.card!.onToggleLabel(BUG);
+        await Promise.resolve();
+      });
+      rerender(tree(1));
+      await waitFor(() => expect(spies.getMessageLabels).toHaveBeenCalledTimes(2));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect((strips.card as unknown as PickerProps).labelsStatus).toBe('ready');
+      expect(strips.card?.messageLabels).toEqual([]);
+    });
   });
 });
-

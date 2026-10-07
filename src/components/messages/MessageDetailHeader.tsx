@@ -334,7 +334,10 @@ export function MessageDetailHeader({
           now.started === atStart.started &&
           now.settled === atStart.settled;
         if (!quiet) {
-          // A write overlapped this load: its answer may predate it. Ask again once all settle.
+          // A write overlapped this load: its answer may predate it, so keep the lists we hold
+          // and ask again once every write has settled. The picker stays usable meanwhile —
+          // left on 'loading', one hung write (the client has no timeout) froze it for good.
+          setLabelsStatus('ready');
           if (now.started === now.settled) setLabelsAttempt((attempt) => attempt + 1);
           else refetchWhenWritesSettle.current = true;
           return;
