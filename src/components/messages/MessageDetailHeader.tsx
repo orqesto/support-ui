@@ -269,6 +269,12 @@ export function MessageDetailHeader({
   const [labelsStatus, setLabelsStatus] = useState<LabelsStatus>('loading');
   /** Bumped to fetch the labels again (the picker opened after a failed load). */
   const [labelsAttempt, setLabelsAttempt] = useState(0);
+  /**
+   * Bumped by every label write of ours (tick, chip ×, create). A load that STARTED before a
+   * write may have been served before it committed: its list would undo the write on screen
+   * (a removed chip reappearing, a ticked one vanishing), so it keeps the labels we hold.
+   */
+  const labelWrites = useRef(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [linkCopied, setLinkCopied] = useState(false);
   // "Link copied" reverts after 2 s — cleared on unmount, so it never fires into an unmounted header.
@@ -303,11 +309,12 @@ export function MessageDetailHeader({
   useEffect(() => {
     // Only the latest request's answer lands (a refresh or a new message overtakes an old one).
     let live = true;
+    const writesAtStart = labelWrites.current;
     setLabelsStatus('loading');
     Promise.all([labelService.getMessageLabels(message.id), labelService.getLabels()])
       .then(([ml, al]) => {
         if (!live) return;
-        setMessageLabels(ml);
+        if (labelWrites.current === writesAtStart) setMessageLabels(ml);
         setAllLabels(al);
         setLabelsStatus('ready');
       })
@@ -711,6 +718,7 @@ export function MessageDetailHeader({
 
   const handleToggleLabel = useCallback(
     async (label: Label) => {
+      labelWrites.current += 1;
       const assigned = messageLabels.some((lbl) => lbl.id === label.id);
       const prev = messageLabels;
       setMessageLabels(
@@ -729,6 +737,7 @@ export function MessageDetailHeader({
 
   const handleCreateLabel = useCallback(
     async (name: string) => {
+      labelWrites.current += 1;
       try {
         // Scope the new label to THIS message's department so it's immediately
         // applicable (and so non-admins, who can't create org-wide labels, succeed).

@@ -162,6 +162,12 @@ describe('Select — one component for every dropdown', () => {
     expect(container.querySelector('.select__clear-indicator')).toBeNull();
   });
 
+  it('with no value and no placeholder it says the app\'s "Select…", not react-select\'s "Select..."', () => {
+    render(<Select aria-label="Empty" options={opts(2)} />);
+    expect(screen.getByText('Select…')).toBeInTheDocument();
+    expect(screen.queryByText('Select...')).toBeNull();
+  });
+
   it('listOptions returns the menu texts', async () => {
     renderIn(<Select aria-label="List" options={opts(2)} />);
     expect(await listOptions(screen.getByRole('combobox', { name: 'List' }))).toEqual(['Option 0', 'Option 1']);

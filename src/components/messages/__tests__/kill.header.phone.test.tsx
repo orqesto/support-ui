@@ -47,6 +47,7 @@ const spies = vi.hoisted(() => ({
   assignLabelToMessage: vi.fn(),
   removeLabelFromMessage: vi.fn(),
   createLabel: vi.fn(),
+  getMessageLabels: vi.fn<(id: number) => Promise<Label[]>>(),
 }));
 vi.mock('@/services/message.service', () => ({
   messageService: new Proxy(
@@ -64,7 +65,7 @@ vi.mock('@/services/category.service', () => ({
 }));
 vi.mock('@/services/settings.service', () => ({
   labelService: {
-    getMessageLabels: () => Promise.resolve([]),
+    getMessageLabels: (id: number) => spies.getMessageLabels(id),
     getLabels: () => Promise.resolve([]),
     assignLabelToMessage: spies.assignLabelToMessage,
     removeLabelFromMessage: spies.removeLabelFromMessage,
@@ -87,6 +88,7 @@ type StripProps = {
   onToggleLabelPicker: () => void;
   onCloseLabelPicker: () => void;
   onCreateLabel?: (name: string) => void;
+  messageLabels?: Label[];
 };
 const strips = vi.hoisted(() => ({ card: null as StripProps | null }));
 vi.mock('../HeaderMetaStrip', () => ({
@@ -137,6 +139,7 @@ const pickerText = () => screen.getByTestId('strip-card').textContent;
 beforeEach(() => {
   vi.clearAllMocks();
   strips.card = null;
+  spies.getMessageLabels.mockResolvedValue([]);
   spies.setCategory.mockResolvedValue({ success: true });
   spies.assignLabelToMessage.mockResolvedValue(undefined);
   spies.createLabel.mockResolvedValue({ id: 9, name: 'Urgent', color: '#f00' });
@@ -213,4 +216,37 @@ describe('Phone Details card — the meta strip handlers', () => {
     );
     await waitFor(() => expect(spies.assignLabelToMessage).toHaveBeenCalledWith(1, 9));
   });
+
+  it('a reload that started before our own label write does not undo it on screen', async () => {
+    const BUG = { id: 5, name: 'Bug', color: '#f00' } as Label;
+    spies.getMessageLabels.mockResolvedValue([BUG]);
+    spies.removeLabelFromMessage.mockResolvedValue(undefined);
+    const tree = (refresh: number) => (
+      <ThemeProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <MemoryRouter>
+            <MessageDetailHeader message={message} showFullPageButton={false} isFullPage threadCount={1} labelsRefreshKey={refresh} />
+          </MemoryRouter>
+        </QueryClientProvider>
+      </ThemeProvider>
+    );
+    const { rerender } = render(tree(0));
+    openCard();
+    await waitFor(() => expect(strips.card?.messageLabels).toEqual([BUG]));
+    // A contact edit reloads; its answer is slow and was read before our remove committed.
+    let finish: (labels: Label[]) => void = () => {};
+    spies.getMessageLabels.mockImplementation(() => new Promise((resolve) => (finish = resolve)));
+    rerender(tree(1));
+    await act(async () => {
+      strips.card!.onToggleLabel(BUG);
+      await Promise.resolve();
+    });
+    expect(strips.card?.messageLabels).toEqual([]);
+    await act(async () => {
+      finish([BUG]);
+      await Promise.resolve();
+    });
+    expect(strips.card?.messageLabels).toEqual([]);
+  });
 });
+

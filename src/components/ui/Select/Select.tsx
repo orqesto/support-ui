@@ -380,6 +380,8 @@ export const Select = forwardRef<unknown, SelectProps>(
           menuPosition="fixed"
           menuPlacement="auto"
           classNamePrefix="select"
+          // The app's wording, not react-select's English "Select..." (three ASCII dots).
+          placeholder="Select…"
           filterOption={matchesLabel}
           closeMenuOnScroll={false}
           isClearable={clearable}

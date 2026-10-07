@@ -215,7 +215,8 @@ export const TicketFilters = ({
                   <Select
                     size="sm"
                     aria-label="Category"
-                    value={filters.categoryId || ''}
+                    // The store says 'all' for no filter; the option for it is ''.
+                    value={filters.categoryId === 'all' ? '' : filters.categoryId || ''}
                     onChange={(value) => onFilterChange('categoryId', value || 'all')}
                     options={[
                       { value: '', label: 'All' },
