@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
+import { usageRowsFrom, type RawUsage } from './usageStatsRows';
 
 type UsageModule = {
   moduleName: string;
@@ -26,40 +27,10 @@ export const UsageStatsPage = () => {
   useEffect(() => {
     const fetchUsage = async () => {
       try {
-        type RawUsage = {
-          aiCalls: { current: number; limit: number; overage: number; percentage: number };
-          messages: { current: number; limit: number; percentage: number };
-        };
         const usageRes = await apiClient.get<{ success: boolean; data: { usage: RawUsage } }>(
           '/api/subscriptions/usage'
         );
-        const raw = usageRes.data.data.usage;
-        const aiCurrent = raw?.aiCalls?.current ?? 0;
-        const aiLimit = raw?.aiCalls?.limit ?? 0;
-        const msgCurrent = raw?.messages?.current ?? 0;
-        const msgLimit = raw?.messages?.limit ?? 0;
-        setUsage([
-          {
-            moduleName: 'ai-calls',
-            displayName: 'AI Calls',
-            current: aiCurrent,
-            included: aiLimit,
-            overage: raw?.aiCalls?.overage ?? Math.max(0, aiCurrent - aiLimit),
-            overagePrice: 0,
-            estimatedOverageCost: 0,
-            unitName: 'call',
-          },
-          {
-            moduleName: 'messages',
-            displayName: 'Messages',
-            current: msgCurrent,
-            included: msgLimit,
-            overage: Math.max(0, msgCurrent - msgLimit),
-            overagePrice: 0,
-            estimatedOverageCost: 0,
-            unitName: 'message',
-          },
-        ]);
+        setUsage(usageRowsFrom(usageRes.data.data.usage));
       } catch (error) {
         logger.error('Failed to load usage:', error);
       } finally {
