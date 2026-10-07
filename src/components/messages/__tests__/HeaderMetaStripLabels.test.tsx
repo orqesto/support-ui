@@ -41,6 +41,8 @@ const renderStrip = (over: {
   messageLabels?: Label[];
   hasManageLabels?: boolean;
   onCreateLabel?: (name: string) => void;
+  showLabelPicker?: boolean;
+  labelsStatus?: 'loading' | 'ready' | 'error';
 }) =>
   render(
     <HeaderMetaStrip
@@ -49,7 +51,8 @@ const renderStrip = (over: {
       messageLabels={over.messageLabels ?? []}
       allLabels={over.allLabels ?? []}
       hasManageLabels={over.hasManageLabels ?? true}
-      showLabelPicker={false}
+      showLabelPicker={over.showLabelPicker ?? false}
+      labelsStatus={over.labelsStatus}
       updatingCategory={false}
       onSetCategory={vi.fn()}
       onToggleLabel={vi.fn()}
@@ -63,6 +66,15 @@ describe('HeaderMetaStrip — the Labels row with an empty workspace', () => {
   it('offers "Add label" even when the workspace has NO labels yet', () => {
     renderStrip({ allLabels: [] });
     expect(screen.getByLabelText('Add label')).toBeTruthy();
+  });
+
+  it('the open picker says "Loading labels…" / "Couldn’t load labels." until labels are really known', () => {
+    const { unmount } = renderStrip({ allLabels: [], showLabelPicker: true, labelsStatus: 'loading' });
+    expect(screen.getByText('Loading labels…')).toBeTruthy();
+    unmount();
+    renderStrip({ allLabels: [], showLabelPicker: true, labelsStatus: 'error' });
+    expect(screen.getByText('Couldn’t load labels.')).toBeTruthy();
+    expect(screen.queryByText(/No labels yet/)).toBeNull();
   });
 
   it('still offers it once labels exist', () => {

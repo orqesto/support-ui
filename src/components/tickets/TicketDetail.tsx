@@ -25,6 +25,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ExternalLink } from '@/components/ui/ExternalLink';
 import { Select } from '@/components/ui/Select';
+import { labelPickerEmptyText, type LabelsStatus } from '@/components/shared/labelPickerText';
 import { formatDate } from '@/lib/utils';
 import { categoryService } from '@/services/category.service';
 import { messageService } from '@/services/message.service';
@@ -96,6 +97,7 @@ export const TicketDetail = ({
   const [linkCopied, setLinkCopied] = useState(false);
   const [ticketLabels, setTicketLabels] = useState<Label[]>([]);
   const [allLabels, setAllLabels] = useState<Label[]>([]);
+  const [labelsStatus, setLabelsStatus] = useState<LabelsStatus>('loading');
   // Bumped after a label is created: remounting the picker closes it, as the old panel did.
   const [labelPickerKey, setLabelPickerKey] = useState(0);
   const [editingDescription, setEditingDescription] = useState(false);
@@ -161,12 +163,13 @@ export const TicketDetail = ({
   };
 
   useEffect(() => {
+    setLabelsStatus('loading');
     Promise.all([
       labelService.getTicketLabels(ticket.id),
       labelService.getLabels(),
     ])
-      .then(([tl, al]) => { setTicketLabels(tl); setAllLabels(al); })
-      .catch((err) => { logger.error(err); });
+      .then(([tl, al]) => { setTicketLabels(tl); setAllLabels(al); setLabelsStatus('ready'); })
+      .catch((err) => { logger.error(err); setLabelsStatus('error'); });
   }, [ticket.id]);
 
   const handleToggleLabel = async (label: Label) => {
@@ -333,13 +336,9 @@ export const TicketDetail = ({
                     if (label) void handleToggleLabel(label);
                   }}
                   creatable={hasManageLabels}
-                  // The same wording as the message header's label picker.
+                  // The same wording as the message header's label picker (one helper for both).
                   noOptionsMessage={() =>
-                    allLabels.length === 0
-                      ? hasManageLabels
-                        ? 'No labels yet — type a name to create one.'
-                        : 'No labels yet.'
-                      : 'No labels match.'
+                    labelPickerEmptyText(labelsStatus, allLabels.length, hasManageLabels)
                   }
                   onCreate={(name) => void handleCreateLabel(name)}
                   placeholder={hasManageLabels ? 'Search or create…' : 'Search…'}

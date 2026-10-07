@@ -305,6 +305,36 @@ describe('Select — one component for every dropdown', () => {
       await waitFor(() => expect(document.activeElement).toBe(screen.getByText('Translate')));
     });
 
+    it('a click elsewhere while the trigger is busy cancels the focus return', async () => {
+      const Busy = () => {
+        const [busy, setBusy] = useState(false);
+        return (
+          <>
+            <Select
+              variant="popover"
+              aria-label="Lang2"
+              options={labels}
+              onChange={() => setBusy(true)}
+              trigger={({ toggle }) => (
+                <button type="button" disabled={busy} onClick={toggle}>Translate2</button>
+              )}
+            />
+            <p>message text</p>
+            <button type="button" onClick={() => setBusy(false)}>finish2</button>
+          </>
+        );
+      };
+      render(<Busy />);
+      fireEvent.click(screen.getByText('Translate2'));
+      fireEvent.click(screen.getByRole('option', { name: 'Bug' }));
+      await waitFor(() => expect(screen.getByText('Translate2')).toBeDisabled());
+      fireEvent.pointerDown(screen.getByText('message text'));
+      fireEvent.click(screen.getByText('finish2'));
+      await waitFor(() => expect(screen.getByText('Translate2')).not.toBeDisabled());
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(document.activeElement).not.toBe(screen.getByText('Translate2'));
+    });
+
     it('scrolling the panel\'s own list does not re-place it', () => {
       const page = vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(1000);
       const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect');

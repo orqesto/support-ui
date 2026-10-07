@@ -5,6 +5,7 @@ import { AlertTriangle, Building2, X, Plus } from 'lucide-react';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { WhyParked } from '@/components/messages/WhyParked';
 import { Select } from '@/components/ui/Select';
+import { labelPickerEmptyText, type LabelsStatus } from '@/components/shared/labelPickerText';
 import { Button } from '@/components/ui/Button';
 import { Toggle } from '@/components/ui/Toggle';
 import { useDepartmentById, useDepartments } from '@/hooks/useDepartments';
@@ -32,6 +33,8 @@ type Props = {
   categories: Category[];
   messageLabels: Label[];
   allLabels: Label[];
+  /** Whether `allLabels` is fetched yet — the picker must not say "No labels yet" while loading. */
+  labelsStatus?: LabelsStatus;
   hasManageLabels: boolean;
   showLabelPicker: boolean;
   updatingCategory: boolean;
@@ -54,6 +57,7 @@ export function HeaderMetaStrip({
   categories,
   messageLabels,
   allLabels,
+  labelsStatus = 'ready',
   hasManageLabels,
   showLabelPicker,
   updatingCategory,
@@ -348,11 +352,7 @@ export function HeaderMetaStrip({
                 onCreate={(name) => void onCreateLabel?.(name)}
                 placeholder={onCreateLabel ? 'Search or create…' : 'Search…'}
                 noOptionsMessage={() =>
-                  allLabels.length === 0
-                    ? onCreateLabel
-                      ? 'No labels yet — type a name to create one.'
-                      : 'No labels yet.'
-                    : 'No labels match.'
+                  labelPickerEmptyText(labelsStatus, allLabels.length, !!onCreateLabel)
                 }
                 trigger={({ toggle }) => (
                   <Button

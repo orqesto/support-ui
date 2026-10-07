@@ -114,6 +114,20 @@ describe('TicketDetail — label picker', () => {
     expect(await screen.findByText('No labels yet — type a name to create one.')).toBeInTheDocument();
   });
 
+  it('while labels are still loading it says so, and a failed load says that — never "No labels yet"', async () => {
+    getLabels.mockReturnValue(new Promise(() => {}));
+    renderDetail();
+    await openPicker();
+    expect(screen.getByText('Loading labels…')).toBeInTheDocument();
+    cleanup();
+
+    getLabels.mockRejectedValue(new Error('500'));
+    renderDetail();
+    await openPicker();
+    expect(await screen.findByText('Couldn’t load labels.')).toBeInTheDocument();
+    expect(screen.queryByText(/No labels yet/)).toBeNull();
+  });
+
   it('unticking an assigned label removes it', async () => {
     renderDetail();
     await screen.findByTitle('Remove Bug');

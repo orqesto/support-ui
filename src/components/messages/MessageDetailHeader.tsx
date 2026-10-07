@@ -27,6 +27,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Select } from '@/components/ui/Select';
+import type { LabelsStatus } from '@/components/shared/labelPickerText';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { ContactProfilePanel } from '@/components/contacts/ContactProfilePanel';
@@ -265,6 +266,7 @@ export function MessageDetailHeader({
   const [updatingCategory, setUpdatingCategory] = useState(false);
   const [messageLabels, setMessageLabels] = useState<Label[]>([]);
   const [allLabels, setAllLabels] = useState<Label[]>([]);
+  const [labelsStatus, setLabelsStatus] = useState<LabelsStatus>('loading');
   const [categories, setCategories] = useState<Category[]>([]);
   const [linkCopied, setLinkCopied] = useState(false);
   // "Link copied" reverts after 2 s — cleared on unmount, so it never fires into an unmounted header.
@@ -297,12 +299,14 @@ export function MessageDetailHeader({
   }, []);
 
   useEffect(() => {
+    setLabelsStatus('loading');
     Promise.all([labelService.getMessageLabels(message.id), labelService.getLabels()])
       .then(([ml, al]) => {
         setMessageLabels(ml);
         setAllLabels(al);
+        setLabelsStatus('ready');
       })
-      .catch(() => {});
+      .catch(() => setLabelsStatus('error'));
   }, [message.id, labelsRefreshKey]);
 
   useEffect(() => {
@@ -1202,6 +1206,7 @@ export function MessageDetailHeader({
             categories={categories}
             messageLabels={messageLabels}
             allLabels={allLabels}
+            labelsStatus={labelsStatus}
             hasManageLabels={hasManageLabels}
             showLabelPicker={showLabelPicker}
             updatingCategory={updatingCategory}
@@ -1513,6 +1518,7 @@ export function MessageDetailHeader({
             categories={categories}
             messageLabels={messageLabels}
             allLabels={allLabels}
+            labelsStatus={labelsStatus}
             hasManageLabels={hasManageLabels}
             showLabelPicker={showLabelPicker}
             updatingCategory={updatingCategory}
@@ -1532,6 +1538,7 @@ export function MessageDetailHeader({
           categories={categories}
           messageLabels={messageLabels}
           allLabels={allLabels}
+          labelsStatus={labelsStatus}
           hasManageLabels={hasManageLabels}
           showLabelPicker={showLabelPicker}
           updatingCategory={updatingCategory}

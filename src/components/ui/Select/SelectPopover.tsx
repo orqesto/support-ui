@@ -148,17 +148,29 @@ export const SelectPopover = ({
       /*
        * A pick can disable its own trigger (TranslateButton: busy while translating), and focus()
        * on a disabled button does nothing — the focus fell to <body>. Wait until it is enabled
-       * again, unless the user has put the focus somewhere else in the meantime.
+       * again — but ANY click or key press meanwhile cancels the wait: a click on plain text also
+       * leaves the focus on <body>, so "focus is still on body" cannot tell "the user did nothing"
+       * from "the user went elsewhere", and yanking focus back then turned their next Space into
+       * reopening this picker.
        */
+      let timer = 0;
+      const stop = () => {
+        observer.disconnect();
+        window.clearTimeout(timer);
+        document.removeEventListener('pointerdown', stop, true);
+        document.removeEventListener('keydown', stop, true);
+      };
       const observer = new MutationObserver(() => {
         if ((target as HTMLButtonElement).disabled) return;
-        observer.disconnect();
+        stop();
         if (document.activeElement === document.body || document.activeElement === null) {
           target.focus({ preventScroll: true });
         }
       });
       observer.observe(target, { attributes: true, attributeFilter: ['disabled'] });
-      window.setTimeout(() => observer.disconnect(), 60_000);
+      document.addEventListener('pointerdown', stop, true);
+      document.addEventListener('keydown', stop, true);
+      timer = window.setTimeout(stop, 60_000);
     }, 0);
   };
 

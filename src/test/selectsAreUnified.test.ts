@@ -56,9 +56,12 @@ export const unlabelledSelects = (file: string, text: string) => {
   visit(source);
   return selects
     .filter(({ attrs }) => {
+      // A popover names its panel and search box from label / aria-label ONLY — it forwards
+      // neither an id nor aria-labelledby. `variant="popover"` and `variant={'popover'}` alike.
+      if ((attrs.get('variant') ?? '').replace(/['"`]/g, '') === 'popover') {
+        return !['label', 'aria-label', '...spread'].some((key) => attrs.has(key));
+      }
       if (['label', 'aria-label', 'aria-labelledby', '...spread'].some((key) => attrs.has(key))) return false;
-      // A popover names its panel and search box from label / aria-label only; an id is not used.
-      if (attrs.get('variant') === '"popover"') return true;
       const id = attrs.get('id') ?? attrs.get('inputId');
       return !(id && htmlFors.has(id));
     })
@@ -91,7 +94,13 @@ describe('one Select everywhere', () => {
       const A = () => <><Select options={[]} /><Select label="Ok" options={[]} />
         <Label htmlFor="dept">Dept</Label><Select id="dept" options={[]} />
         <Select id="orphan" options={[]} />
-        <Label htmlFor="pop">P</Label><Select variant="popover" id="pop" options={[]} /></>;`;
-    expect(unlabelledSelects('fixture.tsx', fixture)).toEqual(['fixture.tsx:2', 'fixture.tsx:4', 'fixture.tsx:5']);
+        <Label htmlFor="pop">P</Label><Select variant="popover" id="pop" options={[]} />
+        <Select variant={'popover'} aria-labelledby="x" options={[]} /><Select variant="popover" aria-label="Ok" options={[]} /></>;`;
+    expect(unlabelledSelects('fixture.tsx', fixture)).toEqual([
+      'fixture.tsx:2',
+      'fixture.tsx:4',
+      'fixture.tsx:5',
+      'fixture.tsx:6',
+    ]);
   });
 });
