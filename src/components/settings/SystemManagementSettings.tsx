@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/Input';
 import { ReactSelect } from '@/components/ui/ReactSelect';
 import { usePermissions } from '@/hooks/usePermissions';
 import systemService from '@/services/system.service';
+import { BounceRepairSection } from './BounceRepairSection';
 import { KbRepairSection } from './KbRepairSection';
 import { departmentService, type Department } from '@/services/department.service';
 
@@ -294,6 +295,7 @@ export const SystemManagementSettings = () => {
       </div>
 
       <KbRepairSection />
+      <BounceRepairSection />
 
       {/* Data Cleanup */}
       <div className="p-6 bg-card rounded-lg border border-destructive-line">

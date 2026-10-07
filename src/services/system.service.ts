@@ -52,6 +52,59 @@ export type KbDocumentRepairResult = {
   samples: { id: number; title: string; reason: KbDocumentRepairReason; why: string }[];
 };
 
+/** `POST /api/system/repair-bounce-damage` — the same shape for a check and an apply. */
+export type BounceRepairResult = {
+  applied: boolean;
+  organizationId: number;
+  limit: number;
+  /** Messages left on a merged-away conversation: shown nowhere, never decided. */
+  stranded: {
+    found: number;
+    moved: number;
+    /** Of those moved, the ones still owed a decision — queued for it. */
+    queued: number;
+    truncated: boolean;
+    samples: { eventId: number; tombstoneId: number; survivorId: number | null }[];
+  };
+  /** Bounces stored before they were marked — they still counted as the customer replying. */
+  marked?: { found: number; marked: number; recomputed: number; truncated: boolean };
+  /** Open conversations whose requester is a mail system and whose every inbound message is a bounce. */
+  bounceOnly: {
+    found: number;
+    refiled: number;
+    truncated: boolean;
+    samples: { id: number; publicId: string | null; subject: string | null }[];
+  };
+  /** Open mail-system conversations holding more than one customer — listed, never changed here. */
+  fused: {
+    found: number;
+    truncated: boolean;
+    conversations: {
+      id: number;
+      publicId: string | null;
+      subject: string | null;
+      correspondents: number;
+      bounces: number;
+    }[];
+  };
+  /** A step that failed stopped the run; what came before it IS done. */
+  failed: { step: string; error: string } | null;
+};
+
+/** `POST /api/system/split-fused-conversation` — the plan on a check, what it did on an apply. */
+export type FusedSplitResult = {
+  applied: boolean;
+  conversationId: number;
+  splittable: boolean;
+  keeps: { correspondent: string; messages: number } | null;
+  moves: { correspondent: string; messages: number; startsAs: string }[];
+  /** Messages nothing identifies the owner of — they stay on the original. */
+  unattributedMessages: number;
+  /** Customer messages that had been filed as OUR reply, put back as the customer's. */
+  retyped?: { eventId: number; correspondent: string; via: string }[];
+  createdConversationIds?: number[];
+};
+
 /** Where a KB mailbox's history read stands (BE `KbSweepState`). */
 export type KbSweepState = 'swept' | 'in_progress' | 'not_started' | 'gmail_pending' | 'disabled';
 
@@ -100,6 +153,45 @@ const systemService = {
     const response = await apiClient.post<ApiResponse<KbDocumentRepairResult>>(
       '/api/system/repair-unvalidated-kb-documents',
       { apply: true }
+    );
+    return response.data;
+  },
+
+  /**
+   * What bounces did to the selected workspace before they stopped changing threads.
+   * ⛔ The check sends NO `apply` — the backend writes only on exactly `apply: true`.
+   */
+  checkBounceRepair: async () => {
+    const response = await apiClient.post<ApiResponse<BounceRepairResult>>(
+      '/api/system/repair-bounce-damage',
+      {}
+    );
+    return response.data;
+  },
+
+  /** Move stranded messages to their thread and file back bounce-only conversations. */
+  applyBounceRepair: async () => {
+    const response = await apiClient.post<ApiResponse<BounceRepairResult>>(
+      '/api/system/repair-bounce-damage',
+      { apply: true }
+    );
+    return response.data;
+  },
+
+  /** How ONE fused conversation would be separated, per customer. Changes nothing. */
+  checkFusedSplit: async (conversationId: number) => {
+    const response = await apiClient.post<ApiResponse<FusedSplitResult>>(
+      '/api/system/split-fused-conversation',
+      { conversationId }
+    );
+    return response.data;
+  },
+
+  /** Separate it: each customer's messages move to a ticket of their own. */
+  applyFusedSplit: async (conversationId: number) => {
+    const response = await apiClient.post<ApiResponse<FusedSplitResult>>(
+      '/api/system/split-fused-conversation',
+      { conversationId, apply: true }
     );
     return response.data;
   },

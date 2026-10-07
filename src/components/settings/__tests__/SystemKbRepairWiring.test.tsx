@@ -21,14 +21,16 @@ describe('Settings → System — knowledge base repair', () => {
     isAdmin = true;
     render(<SystemManagementSettings />);
     expect(screen.getByText('Knowledge base repair')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Check$/ })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^Check$/ })).toHaveLength(2);
     expect(screen.getByRole('button', { name: /Show mailboxes/ })).toBeInTheDocument();
+    expect(screen.getByText('Bounce repair')).toBeInTheDocument();
   });
 
   it('is not shown to anyone else', () => {
     isAdmin = false;
     render(<SystemManagementSettings />);
     expect(screen.queryByText('Knowledge base repair')).not.toBeInTheDocument();
+    expect(screen.queryByText('Bounce repair')).not.toBeInTheDocument();
     expect(screen.getByText(/Access Denied/)).toBeInTheDocument();
   });
 });
