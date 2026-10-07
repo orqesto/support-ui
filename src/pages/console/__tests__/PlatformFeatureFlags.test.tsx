@@ -49,6 +49,10 @@ vi.mock('@/services/organization.service', () => ({
   },
 }));
 
+// The page reads the deployment for the kb.* own-key note (PlatformFeatureFlagsOwnKeyNote.test);
+// here it must not send a real request.
+vi.mock('@/hooks/useBackendVersion', () => ({ useBackendVersion: () => ({ data: undefined }) }));
+
 const { PlatformFeatureFlags } = await import('../PlatformFeatureFlags');
 
 const renderPage = () => {

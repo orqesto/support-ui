@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { kbQualityService, type KbQualityStatus } from '@/services/kbQuality.service';
+import {
+  kbConsolidationService,
+  type KbConsolidationSwitches,
+} from '@/services/kbConsolidation.service';
+import { qualitySwitchText } from '@/components/kb/kbSwitchText';
+import { useWorkspaceNameWhen } from '@/hooks/useWorkspaceNameWhen';
 
 /** A review that has checked nothing for this long while entries still wait has likely stopped. */
 export const QUALITY_STALL_DAYS = 3;
@@ -18,11 +24,18 @@ const formatDate = (iso: string) => {
  */
 export const describeQualityStatus = (
   status: KbQualityStatus,
-  now: number = Date.now()
+  now: number = Date.now(),
+  /** The off-state's reason (`qualitySwitchText`); absent on a backend without `switches`. */
+  offReason?: string | null
 ): { variant: 'default' | 'warning'; text: string } => {
   const { coverage } = status;
   if (status.state === 'off') {
-    return { variant: 'default', text: 'The nightly quality review is off for this workspace — nothing new will be suggested.' };
+    return {
+      variant: 'default',
+      text: offReason
+        ? `${offReason} Nothing new will be suggested until then.`
+        : 'The nightly quality review is off for this workspace — nothing new will be suggested.',
+    };
   }
   if (status.state === 'dry_run') {
     return {
@@ -66,15 +79,30 @@ export const describeQualityStatus = (
 /** The Quality tab's status line. Renders nothing against a backend that does not serve it. */
 export const KbQualityCoverage = ({ reloadKey }: { reloadKey?: unknown }) => {
   const [status, setStatus] = useState<KbQualityStatus | 'unsupported' | 'error' | null>(null);
+  const [switches, setSwitches] = useState<KbConsolidationSwitches | null>(null);
   useEffect(() => {
     let live = true;
-    void kbQualityService.getStatus().then((next) => {
-      if (live) setStatus(next);
+    void kbQualityService.getStatus().then(async (next) => {
+      // Only "off" has a switch to name: read the switches then, and only then. Any failure (an
+      // older backend, a viewer it is not shown to) keeps today's text.
+      let nextSwitches: KbConsolidationSwitches | null = null;
+      if (next !== 'unsupported' && next !== 'error' && next.state === 'off') {
+        try {
+          nextSwitches = (await kbConsolidationService.getRunState())?.switches ?? null;
+        } catch {
+          nextSwitches = null;
+        }
+      }
+      if (!live) return;
+      setSwitches(nextSwitches);
+      setStatus(next);
     });
     return () => {
       live = false;
     };
   }, [reloadKey]);
+  const offReasonUnnamed = qualitySwitchText(switches);
+  const workspaceName = useWorkspaceNameWhen(offReasonUnnamed !== null);
   if (!status || status === 'unsupported') return null;
   const { variant, text } =
     status === 'error'
@@ -82,7 +110,7 @@ export const KbQualityCoverage = ({ reloadKey }: { reloadKey?: unknown }) => {
           variant: 'warning' as const,
           text: 'Could not load how much of the knowledge base the review has checked — the suggestions below may not be the whole picture.',
         }
-      : describeQualityStatus(status);
+      : describeQualityStatus(status, Date.now(), qualitySwitchText(switches, workspaceName));
   return (
     <div data-testid="kb-quality-coverage">
       <Alert variant={variant}>{text}</Alert>
