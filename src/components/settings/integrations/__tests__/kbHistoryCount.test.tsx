@@ -7,7 +7,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
  * A KB mailbox's count says how much of it is HISTORY — mail from before the knowledge-base
  * cutoff, the only part mined for Q&A pairs. Owner, 2026-10-05: the caption said "everything
  * counted here will also be mined", which was false for every message after the cutoff — on
- * taco's DeusPower, all 2,597 counted were live work and none were mined.
+ * petro's Militech, all 2,597 counted were live work and none were mined.
  */
 const countGmailMessages = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 vi.mock('@/services/integrations.service', () => ({
@@ -37,7 +37,7 @@ describe('kbHistoryNote', () => {
     );
   });
 
-  it('none from before the cutoff: says nothing will be mined — the DeusPower case', () => {
+  it('none from before the cutoff: says nothing will be mined — the Militech case', () => {
     expect(kbHistoryNote({ count: 0, capped: false, from: FROM, to: TO })).toBe(
       `None of these are from before the knowledge-base cutoff (${day(TO)}), so nothing here will be mined for Q&A pairs — it is all regular work.`
     );
@@ -132,7 +132,7 @@ describe('the Gmail count panel on a KB source', () => {
 
   const source = {
     id: 68,
-    email: 'orders@deuspower.info',
+    email: 'orders@militech.info',
     enabled: false,
     isKnowledgeBase: true,
     searchQuery: '',

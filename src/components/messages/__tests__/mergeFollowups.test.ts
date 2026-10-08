@@ -7,14 +7,14 @@ import { customerDomainQuery } from '../MergeThreads';
 
 describe('customerDomainQuery — public providers', () => {
   it('searches the customer’s own address, not every Gmail sender', () => {
-    expect(customerDomainQuery('ecttet@gmail.com')).toBe('ecttet@gmail.com');
-    expect(customerDomainQuery('Dmitry Skumin <ecttet@gmail.com>')).toBe('ecttet@gmail.com');
-    expect(customerDomainQuery('evija@inbox.lv')).toBe('evija@inbox.lv');
+    expect(customerDomainQuery('qwerty@gmail.com')).toBe('qwerty@gmail.com');
+    expect(customerDomainQuery('Dmitry Skumin <qwerty@gmail.com>')).toBe('qwerty@gmail.com');
+    expect(customerDomainQuery('anna@inbox.lv')).toBe('anna@inbox.lv');
   });
 
   it('still searches a company domain, so two addresses of one person both show', () => {
-    expect(customerDomainQuery('mp@deals.badideas.fund')).toBe('badideas.fund');
-    expect(customerDomainQuery('"Mārtiņš" <mp@badideas.fund>')).toBe('badideas.fund');
+    expect(customerDomainQuery('mp@deals.lowtide.fund')).toBe('lowtide.fund');
+    expect(customerDomainQuery('"Mārtiņš" <mp@lowtide.fund>')).toBe('lowtide.fund');
   });
 });
 

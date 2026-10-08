@@ -1,5 +1,5 @@
 /**
- * Taco, 2026-09-23: during a 2,287-message Gmail import the progress widget's numbers "jumped",
+ * Petro, 2026-09-23: during a 2,287-message Gmail import the progress widget's numbers "jumped",
  * and when the run stopped under load it closed as "Complete — Processed 0". Three causes, each
  * pinned here:
  *  1. Knowledge-base progress overwrote Found/Processed on a session an email fetch was driving,

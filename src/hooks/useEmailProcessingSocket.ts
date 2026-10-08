@@ -195,7 +195,7 @@ export const useEmailProcessingSocket = ({
 
                 // Stale = no event for 60 s (left over from an earlier cycle). Measured from the
                 // LAST event: measured from creation, every run older than a minute "reset" on
-                // the next total change, zeroing the counters mid-import (taco, 2026-09-23).
+                // the next total change, zeroing the counters mid-import (petro, 2026-09-23).
                 const sessionAge = Date.now() - (existing.timestamp ?? 0);
                 const silentFor = Date.now() - (existing.updatedAt ?? existing.timestamp ?? 0);
                 const isStaleSession = silentFor > 60000;

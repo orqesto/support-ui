@@ -119,7 +119,7 @@ const REASONS: Array<{
      * no KB exclusion at all — these rows ARE on the board". Four of the nine lanes
      * (`notAnalysed`, `archived`, `spam`, `suspicious`) each carry `notKb`, so a KB row
      * that never reached a terminal status was refused by every one of them. Measured on
-     * CoreSarms: of 1,322 KB rows, 1,211 had a lane and 111 had none — and because this
+     * TraumaTeam: of 1,322 KB rows, 1,211 had a lane and 111 had none — and because this
      * bucket is suppressed on the board, those 111 were counted by `hidden` (114) and named
      * by nothing. The menu read "Not shown 114" over a single visible entry of 3.
      *
@@ -176,7 +176,7 @@ const REASONS: Array<{
      * `status` is not decoration: `useMessagesData` maps `status: 'all'` to the widening the
      * backend sanctions (`view=active&processed=all`), and SKIPS it entirely while a
      * lifecycle or queue is set. So clearing the pair is what actually widens — measured on
-     * CoreSarms 2026-09-14, a lensed list of 45 becomes 223. Leaving `status` behind would
+     * TraumaTeam 2026-09-14, a lensed list of 45 becomes 223. Leaving `status` behind would
      * clear the lens and keep the narrower `view`, which reads as the click doing nothing.
      */
     filters: {

@@ -5,7 +5,7 @@
  * honouring it, because overriding it did real damage: the directory re-creates the account
  * under a NEW id but does not re-send its group memberships, so the person returns
  * provisioned with no access and unable to sign in at all — and a re-sync cannot repair it.
- * On taco that happened twice in three days, and one of those deletes also took a
+ * On petro that happened twice in three days, and one of those deletes also took a
  * colleague's password with it.
  *
  * So the dialog now explains instead of acting. Leaving the button in place would turn that

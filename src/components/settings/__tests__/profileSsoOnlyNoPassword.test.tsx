@@ -41,7 +41,7 @@ const setUser = (hasPassword: boolean | undefined) => {
   useAuthStore.setState({
     user: {
       id: 1,
-      email: 'vincent@tacoteam.info',
+      email: 'vincent@petrochem.info',
       firstName: 'V',
       lastName: 'T',
       role: 'user',

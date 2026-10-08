@@ -104,7 +104,7 @@ describe('StatisticsMessagesTab — response metrics', () => {
 /**
  * The empty panel that was not broken.
  *
- * On prod, framehouse has 2,936 resolved conversations and every one carries a NULL `closed_at`,
+ * On prod, kangtao has 2,936 resolved conversations and every one carries a NULL `closed_at`,
  * because ten of the eleven backend paths that resolve a conversation never stamped it. Both
  * duration metrics require that column, so the page showed six em-dashes, two zeros, and a
  * footnote whose every number was ALSO zero — the metric's own exclusion counters are filters

@@ -211,7 +211,7 @@ export const describePause = (
  * Odly − could not be saved (support-service gmailService: duplicates = processed − saved, and a
  * failed message is not processed). Null when it cannot be told — IMAP's `found` is what it went
  * through and its duplicates are unknown — or when none is left. "The rest" alone left the reader
- * to do this sum, and a found count that does not add up read as lost mail (taco 2026-10-05: 2,470
+ * to do this sum, and a found count that does not add up read as lost mail (petro 2026-10-05: 2,470
  * found, 1,339 saved, 1,047 already in Odly — 84 left).
  */
 export const notReachedCount = (run: RunView): number | null => {

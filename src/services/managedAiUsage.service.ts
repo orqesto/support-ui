@@ -14,7 +14,7 @@ import { apiClient } from '@/lib/api-client';
  * ⛔ `vision` is not optional here. The backend has reported four tiers since the fix that
  * added it (it is the token-heaviest managed tier — two images cost 76,826 tokens), and
  * this union listed three. The console rendered three columns to match, so vision spend
- * was invisible: framehouse showed 40,787,419 tokens against columns summing to ~9.7M,
+ * was invisible: kangtao showed 40,787,419 tokens against columns summing to ~9.7M,
  * and nothing on the page accounted for the other ~31M.
  */
 export type ManagedAiTier = 'default' | 'strong' | 'vision' | 'other';

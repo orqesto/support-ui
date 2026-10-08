@@ -39,12 +39,12 @@ const STORED = {
   fetchedAt: '2026-09-19T12:00:00.000Z',
   endpointId: 70,
   endpointLabel: 'Their orders',
-  connectionName: 'DeusPower',
+  connectionName: 'Militech',
 };
 const MANUAL_LOOKUP = {
   endpointId: 20,
   label: 'this order',
-  connectionName: 'DeusPower',
+  connectionName: 'Militech',
   parameterSource: 'manual',
   resultShape: 'one',
   // The backend sends this on every option (CA-6). A fixture omitting it describes a row the API
@@ -86,7 +86,7 @@ describe('CustomerRecordsPage', () => {
     renderPage();
 
     expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
-    expect(screen.getByText(/Their orders · DeusPower/)).toBeInTheDocument();
+    expect(screen.getByText(/Their orders · Militech/)).toBeInTheDocument();
   });
 
   it('⛔ formats money from MINOR units using the currency’s own exponent', async () => {
@@ -147,7 +147,7 @@ describe('CustomerRecordsPage', () => {
 
   it('checking a reference runs the manual lookup with that value', async () => {
     run.mockResolvedValue([
-      { endpointId: 20, label: 'this order', connectionName: 'DeusPower', status: 'ok', rows: [] },
+      { endpointId: 20, label: 'this order', connectionName: 'Militech', status: 'ok', rows: [] },
     ]);
     renderPage();
 
@@ -221,7 +221,7 @@ describe('CustomerRecordsPage', () => {
       {
         endpointId: 20,
         label: 'this order',
-        connectionName: 'DeusPower',
+        connectionName: 'Militech',
         status: 'ok',
         rows: [{ id: 1 }],
         ownership: 'mismatch',
@@ -322,7 +322,7 @@ describe('CustomerRecordsPage', () => {
       {
         endpointId: 20,
         label: 'this order',
-        connectionName: 'DeusPower',
+        connectionName: 'Militech',
         status: 'ok',
         rows: [{ secret: 'ada-only' }],
       },
@@ -406,7 +406,7 @@ describe('CustomerRecordsPage', () => {
       {
         endpointId: 20,
         label: 'this order',
-        connectionName: 'DeusPower',
+        connectionName: 'Militech',
         status: 'ok',
         rows: [{ secret: 'ada-only' }],
       },
@@ -512,7 +512,7 @@ describe('CustomerRecordsPage', () => {
       {
         endpointId: 20,
         label: 'this order',
-        connectionName: 'DeusPower',
+        connectionName: 'Militech',
         status: 'ok',
         fields: [{ path: 'status', label: 'Where it is', kind: 'plain' }],
         rows: [{ status: 'out for delivery', customer_ip: '203.0.113.7' }],
@@ -539,7 +539,7 @@ describe('CustomerRecordsPage', () => {
       {
         endpointId: 20,
         label: 'this order',
-        connectionName: 'DeusPower',
+        connectionName: 'Militech',
         status: 'ok',
         fields: [{ path: 'status', label: 'Where it is', kind: 'plain' }],
         rows: [{ status: 'out for delivery', customer_ip: '203.0.113.7' }],
@@ -568,7 +568,7 @@ describe('CustomerRecordsPage', () => {
      * RED: restore the bare fallback and this fails.
      */
     run.mockResolvedValue([
-      { endpointId: 20, label: 'this order', connectionName: 'DeusPower', status: 'needs_input', rows: [] },
+      { endpointId: 20, label: 'this order', connectionName: 'Militech', status: 'needs_input', rows: [] },
     ]);
     renderPage();
 
@@ -582,7 +582,7 @@ describe('CustomerRecordsPage', () => {
     // `no_identity` is the same class: not asking is not the same answer as asking and finding
     // nothing, and only one of the two says anything about the customer.
     run.mockResolvedValue([
-      { endpointId: 20, label: 'their account', connectionName: 'DeusPower', status: 'no_identity', rows: [] },
+      { endpointId: 20, label: 'their account', connectionName: 'Militech', status: 'no_identity', rows: [] },
     ]);
     renderPage();
 
@@ -595,7 +595,7 @@ describe('CustomerRecordsPage', () => {
     // Without this, copy that never said "nothing found" would pass both tests above while
     // hiding the one state where that sentence is true.
     run.mockResolvedValue([
-      { endpointId: 20, label: 'this order', connectionName: 'DeusPower', status: 'no_match', rows: [] },
+      { endpointId: 20, label: 'this order', connectionName: 'Militech', status: 'no_match', rows: [] },
     ]);
     renderPage();
 

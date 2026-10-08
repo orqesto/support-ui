@@ -143,7 +143,7 @@ export const useIngestionDarkAlerts = () => {
    * gap alert's meaning. The condition may still be live when you dismiss it, and the backend
    * publishes this kind with a severity that ESCALATES (warning → critical past its
    * threshold), which re-surfaces a dismissed row. So a mailbox that stays dark comes back.
-   * That is deliberate: `one_sided_outbound` has no such path, and four threads on taco sit
+   * That is deliberate: `one_sided_outbound` has no such path, and four threads on petro sit
    * broken today with their alerts dismissed and nothing able to raise them again.
    */
   const dismiss = useCallback((id: number) => {

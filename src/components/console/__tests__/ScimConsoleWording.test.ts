@@ -11,19 +11,19 @@ import { eventReason } from '@/components/console/ScimEventLedgerCard';
 import type { AllianceScimEvent } from '@/services/alliance-scim.service';
 
 const orgs = [
-  { id: 3, name: 'Orbelli' },
-  { id: 4, name: 'CoreSarms' },
+  { id: 3, name: 'Zetatech' },
+  { id: 4, name: 'TraumaTeam' },
 ];
 
 describe('describeGrant — what a backing group grants, in words', () => {
   it('names the role and the workspace, not the IdP group', () => {
     expect(
-      describeGrant({ name: 'SSO - Odly - Coresarms - Associate — Associate', orgRole: 'associate', orgIds: [4] }, orgs)
-    ).toBe('Associate in CoreSarms');
+      describeGrant({ name: 'SSO - Odly - Traumateam - Associate — Associate', orgRole: 'associate', orgIds: [4] }, orgs)
+    ).toBe('Associate in TraumaTeam');
   });
   it('lists every workspace and survives an unknown id', () => {
     expect(describeGrant({ name: 'x', orgRole: 'moderator', orgIds: [3, 4, 99] }, orgs)).toBe(
-      'Moderator in Orbelli, CoreSarms, workspace #99'
+      'Moderator in Zetatech, TraumaTeam, workspace #99'
     );
   });
   it('is null for a group with neither role nor workspace, so the caller keeps the name', () => {
@@ -34,8 +34,8 @@ describe('describeGrant — what a backing group grants, in words', () => {
 describe('idpFeedLabel — the Groups list says which IdP group feeds a backing group', () => {
   it('names the IdP group and says it is the mapping, not the group', () => {
     expect(
-      idpFeedLabel({ idpGroup: { mappingId: 1, externalId: 'abc', displayName: 'SSO - Odly - Orbelli - Admin' } })
-    ).toBe('Backing group for IdP group SSO - Odly - Orbelli - Admin — the mapping, not the IdP group itself');
+      idpFeedLabel({ idpGroup: { mappingId: 1, externalId: 'abc', displayName: 'SSO - Odly - Zetatech - Admin' } })
+    ).toBe('Backing group for IdP group SSO - Odly - Zetatech - Admin — the mapping, not the IdP group itself');
   });
   it('falls back to the external id and is null for a hand-authored group', () => {
     expect(idpFeedLabel({ idpGroup: { mappingId: 1, externalId: 'abc', displayName: null } })).toContain('abc');
@@ -77,11 +77,11 @@ describe('splitGroups — the Groups page lists what the admin authored, and the
     const { authored, backing } = splitGroups([
       group(1, null),
       // Older backend: no flag ⇒ treated as minted (the behaviour this page shipped with).
-      group(2, { mappingId: 9, externalId: 'x', displayName: 'SSO - Odly - Orbelli - Admin' }),
+      group(2, { mappingId: 9, externalId: 'x', displayName: 'SSO - Odly - Zetatech - Admin' }),
       group(3, undefined),
-      group(4, { mappingId: 10, externalId: 'y', displayName: 'SSO - Odly - Orbelli - Support', mintedByWire: true }),
+      group(4, { mappingId: 10, externalId: 'y', displayName: 'SSO - Odly - Zetatech - Support', mintedByWire: true }),
       // Hand-authored, wired later: the admin's group — listed here, kept on unwire.
-      group(5, { mappingId: 11, externalId: 'z', displayName: 'SSO - Odly - Coresarms - Support', mintedByWire: false }),
+      group(5, { mappingId: 11, externalId: 'z', displayName: 'SSO - Odly - Traumateam - Support', mintedByWire: false }),
     ]);
     expect(authored.map((item) => item.id)).toEqual([1, 3, 5]);
     expect(backing.map((item) => item.id)).toEqual([2, 4]);

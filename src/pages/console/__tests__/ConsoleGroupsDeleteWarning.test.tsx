@@ -2,7 +2,7 @@
  * Deleting a WIRED alliance group is refused by the backend (409, support-service#651): the
  * mapping is one thing, retired by unwiring on the Provisioning screen. This copy used to
  * promise the opposite — "deleting it also removes that mapping" — from the days when
- * `alliance_group_idp_map.group_id` cascaded silently (taco, 2026-08-20: five groups wired,
+ * `alliance_group_idp_map.group_id` cascaded silently (petro, 2026-08-20: five groups wired,
  * deleted, and the mapping work looked like it had never happened).
  *
  * Say the refusal BEFORE the click. The control matters as much as the warning — an unmapped
@@ -25,9 +25,9 @@ const group = (overrides: Partial<AllianceGroup> = {}): AllianceGroup =>
 describe('the group-delete warning', () => {
   it('names the IdP group by display name', () => {
     const text = deleteDescription(
-      group({ idpGroup: { mappingId: 4, externalId: '6a84087', displayName: 'SSO - Odly - Biaxol - View-new' } })
+      group({ idpGroup: { mappingId: 4, externalId: '6a84087', displayName: 'SSO - Odly - Dynalar - View-new' } })
     );
-    expect(text).toContain('SSO - Odly - Biaxol - View-new');
+    expect(text).toContain('SSO - Odly - Dynalar - View-new');
     expect(text).toMatch(/refused while it is wired/);
     expect(text).toMatch(/Provisioning screen/);
   });

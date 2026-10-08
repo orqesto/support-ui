@@ -36,22 +36,22 @@ const render = (ui: ReactElement) => rtlRender(<ThemeProvider>{ui}</ThemeProvide
 
 const pausedRow = {
   id: 68,
-  name: 'Gmail-orders@deuspower.info',
+  name: 'Gmail-orders@militech.info',
   type: 'gmail' as const,
   enabled: false,
   isKnowledgeBase: true,
-  config: { user: 'orders@deuspower.info', gmail: { searchQuery: '', bulkImportDays: 7 } },
+  config: { user: 'orders@militech.info', gmail: { searchQuery: '', bulkImportDays: 7 } },
 };
 
 /**
- * WIRING. Taco 2026-09-16: a Gmail source synced 25,000 messages the moment Google sign-in
+ * WIRING. Petro 2026-09-16: a Gmail source synced 25,000 messages the moment Google sign-in
  * finished. The fix only works if the card asks for a PAUSED create and then opens the count —
  * drop either and the source syncs before anyone sees a number, with every unit test green.
  */
 describe('Gmail connect — saved paused, count first', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    connectWithPopup.mockResolvedValue({ success: true, data: { id: 68, email: 'orders@deuspower.info' } });
+    connectWithPopup.mockResolvedValue({ success: true, data: { id: 68, email: 'orders@militech.info' } });
     countGmailMessages.mockResolvedValue({ count: 1200, capped: false, query: 'after:2026/09/09' });
   });
 

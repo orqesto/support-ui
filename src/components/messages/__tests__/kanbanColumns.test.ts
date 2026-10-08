@@ -2,7 +2,7 @@
  * The board's coverage guarantee: every conversation has a lane.
  *
  * Before the tenth column the board COUNTED rows it would not show. Measured on the client
- * deploy 2026-09-14, CoreSarms: `scope.hidden` 114 with `other` 3, and the 111-row remainder
+ * deploy 2026-09-14, TraumaTeam: `scope.hidden` 114 with `other` 3, and the 111-row remainder
  * was KB-sourced mail in the `filtered` state — refused by all four triage lanes through
  * their `notKb` clause, returned by no `lifecycle`, and claimed only by a "1,322 from the
  * knowledge base" chip whose own lens returned zero rows. Counted by the product, openable

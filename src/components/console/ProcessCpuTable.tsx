@@ -46,7 +46,7 @@ const columns: ColumnDef<ProcessCpu>[] = [
  * Which processes in the backend's container use the CPU.
  *
  * The container CPU figure above counts every process in it, but the throttle only limits the
- * jobs the backend itself starts — taco read 97% with the backend at 8–14%, and nothing on this
+ * jobs the backend itself starts — petro read 97% with the backend at 8–14%, and nothing on this
  * page could say where the rest went. `cores` is null on the first sample after a restart.
  */
 export const ProcessCpuTable = ({ report }: { report?: ProcessCpuReport }) => {

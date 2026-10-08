@@ -31,7 +31,7 @@ function OpenHours({ stats, pick }: { stats?: BusinessHoursStats | null; pick: '
  *
  * Both duration metrics require a conversation to carry `closed_at`. Ten of the eleven backend
  * paths that resolve a conversation never stamped it, so the panel can be blank while the team
- * resolves mail all day: framehouse has 2,936 resolved conversations, every one with a NULL
+ * resolves mail all day: kangtao has 2,936 resolved conversations, every one with a NULL
  * `closed_at`, and not one of them can appear here.
  *
  * ⚠️ The metric's OWN exclusion counters cannot explain that. `excludedUnknownActor` and

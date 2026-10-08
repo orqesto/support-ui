@@ -55,6 +55,18 @@ about **controls and styled primitives**, which must come from the design system
 See `docs/UI_CONVENTIONS.md` for details and examples (its "Select — the only dropdown" section
 covers sizes, variants, multi and the `chooseOption` test helper).
 
+## ⛔ No production content in this repo — it is PUBLIC
+
+This repository is public and mirrored. Never paste production data into a fixture, test, comment,
+doc or commit message: no customer or workspace names, mail domains, addresses, people's names,
+phone numbers, order numbers, or KB/message text — not even "just the shape". Invent the data
+(`*.example`, `*.test`, `example.com`, or a fictional brand already in the allowlist) and describe
+measurements without naming whose data it was ("a customer's workspace, 2026-09"). 2026-10-08:
+~55 files carried real customers' data copied from production.
+`src/test/fixturesUseInventedAddresses.test.ts` fails on an address outside its allowlist; never
+add a real customer's domain to that list. It only sees email addresses — names and pasted text
+are on you.
+
 ## Other
 
 - Services live in `src/services/*.service.ts` and go through `@/lib/api-client` (`apiClient`).

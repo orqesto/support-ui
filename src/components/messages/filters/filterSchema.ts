@@ -345,7 +345,7 @@ export const KANBAN_ONLY_KEYS: FilterKey[] = ['threadStatus'];
  * an ordinary inbox thread read: not opening it, not replying, not resolving.
  *
  * The backend predicate, by contrast, applies to EVERY conversation. Offering the control
- * outside triage therefore filtered on a column almost nothing writes: on the CoreSarms
+ * outside triage therefore filtered on a column almost nothing writes: on the TraumaTeam
  * workspace `read=unread` returned 189 threads and `read=read` returned 3 — the only three
  * conversations in the workspace with a `conversation_reads` row. The filter was working;
  * there was no state for it to filter on, and no dot or toggle on those rows to show or

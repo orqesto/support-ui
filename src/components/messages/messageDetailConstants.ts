@@ -725,7 +725,7 @@ export function splitAtQuote(
   if (isHtml) {
     // Split at the EARLIEST marker in the document, never at whichever pattern happens to
     // be first in this list. Returning on the first matching PATTERN is what broke
-    // COR-SUP-251: every message there carries a `gmail_quote` div in the first ~2 KB and
+    // TRA-SUP-251: every message there carries a `gmail_quote` div in the first ~2 KB and
     // two `<hr>`s belonging to the shop's footer template ~20 KB down. `<hr>` was tested
     // first, so the split landed PAST the whole quoted history and collapsed only the
     // footer. Each reply then re-rendered the entire chain — visible text grew
@@ -767,7 +767,7 @@ export function splitAtQuote(
   // single space (imapEmailProcessor.ts / gmailMessageParser.ts). The line structure
   // is gone before the FE ever sees it, so the reply, our previous answer and the
   // customer's own first mail render as one wall of text with no `show quoted` at all
-  // (COR-SUP-2108). Re-run the same markers unanchored — but ONLY for that case: in a
+  // (TRA-SUP-2108). Re-run the same markers unanchored — but ONLY for that case: in a
   // body that still has line structure a mid-line "wrote:" is prose, not a quote.
   if (!content.includes('\n')) {
     // Bounded and lazy (`{5,300}?`, no nested quantifier) so a long body cannot

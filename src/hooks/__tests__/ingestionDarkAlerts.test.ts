@@ -45,7 +45,7 @@ const darkRow = (over: Record<string, unknown> = {}) => ({
   entityId: 34,
   severity: 'critical',
   details: {
-    sourceName: 'Gmail-info@coresarms.info',
+    sourceName: 'Gmail-info@traumateam.info',
     minutesSince: 68,
     neverPolled: false,
     locked: false,
@@ -82,7 +82,7 @@ describe('useIngestionDarkAlerts', () => {
     await waitFor(() => expect(result.current.alerts).toHaveLength(1));
     expect(result.current.alerts[0]).toMatchObject({
       messageSourceId: 34,
-      mailbox: 'Gmail-info@coresarms.info',
+      mailbox: 'Gmail-info@traumateam.info',
       minutesSince: 68,
       neverPolled: false,
       locked: false,

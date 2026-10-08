@@ -58,7 +58,7 @@ const pick = (path: string, role: Svc.FieldPick['role'] = 'none'): Svc.FieldPick
 
 const connection = (): Connection => ({
   id: 1,
-  name: 'DeusPower',
+  name: 'Militech',
   purpose: null,
   baseUrl: 'https://shop.example/index.php',
   enabled: true,

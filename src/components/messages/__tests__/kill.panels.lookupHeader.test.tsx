@@ -35,7 +35,7 @@ const card = (over: Partial<CustomApiLookupResult> = {}): CustomApiLookupResult 
   ({
     endpointId: 20,
     label: 'this order',
-    connectionName: 'DeusPower',
+    connectionName: 'Militech',
     resultShape: 'one',
     status: 'ok',
     rows: [{ order_id: '137416', total: '348.50', total__currency: 'EUR' }],
@@ -99,7 +99,7 @@ describe('card header — the connection, then the row count only for an ok card
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
     const [node] = await screen.findAllByTestId('lookup-card');
-    expect(headerOf(node)).toBe('DeusPower');
+    expect(headerOf(node)).toBe('Militech');
   });
 
   it('a no-row card reads just the connection name', async () => {
@@ -107,7 +107,7 @@ describe('card header — the connection, then the row count only for an ok card
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
     const [node] = await screen.findAllByTestId('lookup-card');
-    expect(headerOf(node)).toBe('DeusPower');
+    expect(headerOf(node)).toBe('Militech');
   });
 
   it('total equal to the rows shown reads "· 2", not "2 of 2"', async () => {
@@ -123,7 +123,7 @@ describe('card header — the connection, then the row count only for an ok card
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
     const [node] = await screen.findAllByTestId('lookup-card');
-    expect(headerOf(node)).toBe('DeusPower · 2');
+    expect(headerOf(node)).toBe('Militech · 2');
   });
 
   it('no total reads the row count alone', async () => {
@@ -131,7 +131,7 @@ describe('card header — the connection, then the row count only for an ok card
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
     const [node] = await screen.findAllByTestId('lookup-card');
-    expect(headerOf(node)).toBe('DeusPower · 1');
+    expect(headerOf(node)).toBe('Militech · 1');
   });
 
   it('CONTROL: more rows exist than shown reads "2 of 14"', async () => {
@@ -147,7 +147,7 @@ describe('card header — the connection, then the row count only for an ok card
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
     const [node] = await screen.findAllByTestId('lookup-card');
-    expect(headerOf(node)).toBe('DeusPower · 2 of 14');
+    expect(headerOf(node)).toBe('Militech · 2 of 14');
   });
 });
 

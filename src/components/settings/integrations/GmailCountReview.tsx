@@ -26,7 +26,7 @@ import {
  * credentials until Google sign-in finishes, so the connect flow saves the new source PAUSED
  * (`startPaused`) and lands here: see the number, adjust the filter or range, then Start sync.
  *
- * Taco, 2026-09-16: `orders@deuspower.info` connected as a KB source on "Last 7 Days" and
+ * Petro, 2026-09-16: `orders@militech.info` connected as a KB source on "Last 7 Days" and
  * listed 25,000 messages before anyone saw a number. This panel exists so that number comes
  * first.
  *

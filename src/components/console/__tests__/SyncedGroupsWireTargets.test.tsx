@@ -127,7 +127,7 @@ describe('SyncedGroupsCard wire targets', () => {
 
   // The picker offered "every authored alliance group" as a target too. Every wire mints a
   // backing group named after its IdP group, so on a console where all groups are minted
-  // (taco, 2026-09-07) the list was four roles plus one by-product per wire already made,
+  // (petro, 2026-09-07) the list was four roles plus one by-product per wire already made,
   // and the owner asked what they were for. Nothing that target could express is lost:
   // workspace and departments sit on the role wire; overrides are edited on the minted group.
   it('offers the four workspace roles and NO alliance group, minted or hand-authored', async () => {
@@ -224,7 +224,7 @@ describe('SyncedGroupsCard wire targets', () => {
 /**
  * A group wired ONLY to a legacy alliance role was locked out of workspace mapping: the card
  * branched on `wiredRole || wiredGroup`, so it rendered the re-point-only control — whose picker
- * lists existing alliance groups. On an alliance with none authored (taco, 2026-08-20) that select
+ * lists existing alliance groups. On an alliance with none authored (petro, 2026-08-20) that select
  * is empty and Re-point never enables, leaving five real groups with members and no way to map
  * them to a workspace at all.
  *

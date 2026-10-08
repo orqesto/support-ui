@@ -32,7 +32,7 @@ export type ProcessingSession = {
   /**
    * An email fetch drives this session (started/found seen). Knowledge-base progress then fills
    * only the kb* fields — it used to overwrite Found/Processed too, so the two streams took turns
-   * writing the same tiles and the numbers "jumped" (taco, 2026-09-23).
+   * writing the same tiles and the numbers "jumped" (petro, 2026-09-23).
    */
   hasEmailFetch?: boolean;
   /**

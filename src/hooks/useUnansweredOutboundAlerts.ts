@@ -117,7 +117,7 @@ export const useUnansweredOutboundAlerts = () => {
      * ⛔ ASK FOR THESE KINDS BY NAME. The unfiltered call serves the newest 20 rows across
      * ALL kinds, so these two compete for slots with a breach feed that never stops.
      *
-     * Measured on the taco client box, 2026-09-10: CoreSarms held 165 notifications; the
+     * Measured on the petro client box, 2026-09-10: TraumaTeam held 165 notifications; the
      * three one-sided alerts raised at 12:03Z sat at positions 2-4 of the newest 20, and a
      * fresh SLA breach landed at 12:38Z. Roughly seventeen more and those alerts fall out of
      * the payload, `alerts` empties, `UnansweredOutboundSection` returns null, and the rows

@@ -3,7 +3,7 @@
  *
  * A website contact form mails the shop from its own address — `mailer@shopify.com`,
  * or the shop's own mailbox — and puts the person only in the body. The bubble
- * rendered `authorEmail` bare, so the message from Safina read as though Shopify had
+ * rendered `authorEmail` bare, so the message from Sam read as though Shopify had
  * written it, and the one fact a reader needs (who is this?) was the one missing.
  *
  * The BE recovers the person and stamps `relayedFrom` on the EVENT — per message,
@@ -40,7 +40,7 @@ const inbound = (over: Partial<MessageEvent>): MessageEvent =>
     type: 'inbound',
     content: 'hi i have newly been diagnosed and i dont know what supplement is good for me',
     authorId: null,
-    authorEmail: '"Orbelli (Shopify)" <mailer@shopify.com>',
+    authorEmail: '"Zetatech (Shopify)" <mailer@shopify.com>',
     authorName: null,
     authorUserEmail: null,
     channel: 'email',
@@ -51,28 +51,28 @@ const inbound = (over: Partial<MessageEvent>): MessageEvent =>
     ...over,
   }) as unknown as MessageEvent;
 
-const relayed = (name: string | null, email = 'safina.pathaan@gmail.com') =>
+const relayed = (name: string | null, email = 'sam.taylor@gmail.com') =>
   inbound({ metadata: { relayedFrom: { email, name, via: 'body-email-label' } } });
 
 describe('ThreadMessageItem — mail that arrived through a relay', () => {
   it('names the person who wrote it', () => {
-    render(<ThreadMessageItem msg={relayed('safina patha')} />);
-    expect(screen.getByText('safina patha')).toBeTruthy();
+    render(<ThreadMessageItem msg={relayed('sam taylo')} />);
+    expect(screen.getByText('sam taylo')).toBeTruthy();
   });
 
   it('still says what it came through, so the header is not hidden', () => {
-    render(<ThreadMessageItem msg={relayed('safina patha')} />);
+    render(<ThreadMessageItem msg={relayed('sam taylo')} />);
     expect(screen.getByText(/via mailer@shopify\.com/)).toBeTruthy();
   });
 
   it('falls back to the address when the form carried no name', () => {
     render(<ThreadMessageItem msg={relayed(null)} />);
-    expect(screen.getByText('safina.pathaan@gmail.com')).toBeTruthy();
+    expect(screen.getByText('sam.taylor@gmail.com')).toBeTruthy();
   });
 
   it('treats a blank name as absent rather than rendering an empty author', () => {
     render(<ThreadMessageItem msg={relayed('   ')} />);
-    expect(screen.getByText('safina.pathaan@gmail.com')).toBeTruthy();
+    expect(screen.getByText('sam.taylor@gmail.com')).toBeTruthy();
   });
 
   it('leaves ordinary customer mail exactly as it was', () => {

@@ -528,7 +528,7 @@ describe('P6 — Files: v4 rows with "size · who · when" and always-visible ac
     const relayedEvent = {
       ...inbound,
       id: 5,
-      authorEmail: '"Orbelli (Shopify)" <mailer@shopify.com>',
+      authorEmail: '"Zetatech (Shopify)" <mailer@shopify.com>',
       metadata: { receivedAt: minutesAgo(120), relayedFrom: { email: 'jane@x.io', name: 'Jane' } },
     } as unknown as MessageEvent;
     const noName = {

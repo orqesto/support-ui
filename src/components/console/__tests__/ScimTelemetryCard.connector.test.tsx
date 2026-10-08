@@ -2,10 +2,10 @@
  * The provisioning card used to report two things wrongly.
  *
  * It printed "<n> mapped" for a number that counts groups RECEIVED from the IdP, so on
- * taco it read "10 mapped" while exactly one group was wired to a role — the card said
+ * petro it read "10 mapped" while exactly one group was wired to a role — the card said
  * the wiring was done. And nothing on it distinguished a quiet connector from a dead one,
  * because the only freshness signal shown (`groups.lastSyncedAt`) moves solely when a
- * group changes; taco's read 3 September while the IdP had authenticated on the 6th.
+ * group changes; petro's read 3 September while the IdP had authenticated on the 6th.
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
@@ -89,15 +89,15 @@ describe('ScimTelemetryCard — connector liveness', () => {
 });
 
 describe('ScimTelemetryCard — members the IdP could not add', () => {
-  // taco, 2026-09-07 10:29 UTC: the IdP put alice, stella and mia into a group; none had an
+  // petro, 2026-09-07 10:29 UTC: the IdP put alice, stella and mia into a group; none had an
   // account, so all three were dropped. The IdP reported the push successful and our card
   // showed nothing — three people had no access and both consoles read green.
-  const skipped = { total: 3, emails: ['alice@biaxol.com', 'stella@x.info'], lastSkippedAt: null };
+  const skipped = { total: 3, emails: ['alice@dynalar.com', 'stella@x.info'], lastSkippedAt: null };
 
   it('warns, names the people, and says what to do about it', () => {
     render(<ScimTelemetryCard telemetry={telemetry(undefined, skipped)} />);
     expect(screen.getByRole('alert')).toHaveTextContent(/3 members left out of a group/);
-    expect(screen.getByText(/alice@biaxol.com/)).toBeInTheDocument();
+    expect(screen.getByText(/alice@dynalar.com/)).toBeInTheDocument();
     // The advice is "push the group again", NOT "provision them first".
     //
     // 2026-09-09: the old copy sent a customer's admin to provision three people who were
@@ -112,7 +112,7 @@ describe('ScimTelemetryCard — members the IdP could not add', () => {
   });
 
   it('dates the warning, so a stale one does not read as live', () => {
-    // The three on taco were skipped by a push that predates the fix that would have adopted
+    // The three on petro were skipped by a push that predates the fix that would have adopted
     // them. With no date on screen that leftover warning is indistinguishable from a live one.
     render(
       <ScimTelemetryCard

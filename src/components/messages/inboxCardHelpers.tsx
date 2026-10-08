@@ -21,7 +21,7 @@ import { sentenceCase, statusLabel } from './messageDetailConstants';
  * ⛔ THE SERVER FLAG FIRST. `message.isSpam` (support-service #799) is resolved from the newest
  * inbound event — the same predicate the Spam lane and its halves claim rows by.
  * `metadata.spamCheck` is frozen at thread creation, and the two disagree on real threads: three
- * live CoreSarms ones in 2026-09, one a customer asking about an order. Reading the frozen copy
+ * live TraumaTeam ones in 2026-09, one a customer asking about an order. Reading the frozen copy
  * badges the wrong rows in BOTH directions — a thread that turned spam mid-thread wears no mark,
  * and one that was cleared keeps a red one.
  *

@@ -251,7 +251,7 @@ describe('NotificationCenter — unanswered outbound', () => {
   });
 
   it('never says "+0" when nothing is hidden but the API capped its own list', () => {
-    // Observed on the taco client box, 2026-09-10, v1.1.268: CoreSarms held 3 one-sided
+    // Observed on the petro client box, 2026-09-10, v1.1.268: TraumaTeam held 3 one-sided
     // alerts — all three visible — while `/api/notifications` reported hasMore, because that
     // endpoint caps at 20 rows across ALL kinds and the workspace had 20 (13 of them SLA
     // breaches). The panel rendered "+0 or more not shown".

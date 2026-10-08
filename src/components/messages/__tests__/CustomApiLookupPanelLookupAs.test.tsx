@@ -1,8 +1,8 @@
 /**
  * "Look up another email" (2026-09-29).
  *
- * taco DEU-SUP-8049 is the shop's own order notification: its customer is the shop, and the buyer
- * (`sergio@deuspower.org`) is only in the body. The agent types the buyer's email and the panel runs
+ * petro MIL-SUP-8049 is the shop's own order notification: its customer is the shop, and the buyer
+ * (`rico@militech.org`) is only in the body. The agent types the buyer's email and the panel runs
  * as them. These pin that the email reaches the backend on EVERY press made in that mode, and that
  * the "showing results for" banner appears only when the backend CONFIRMED it — an older backend
  * drops the field and answers for the ticket's customer, which must never be labelled as the buyer.
@@ -39,7 +39,7 @@ vi.mock('@/services/customApiLookup.service', async () => {
 const ORDER_CARD = {
   endpointId: 20,
   label: 'Order details',
-  connectionName: 'DeusPower',
+  connectionName: 'Militech',
   resultShape: 'one',
   status: 'needs_input',
 } as Result;
@@ -54,7 +54,7 @@ const render = (ui: ReactElement) => {
   return rtlRender(ui, { wrapper });
 };
 
-const TYPED = 'sergio@deuspower.org';
+const TYPED = 'rico@militech.org';
 
 beforeEach(() => {
   // The availability query runs only for a signed-in user in a workspace.
@@ -78,7 +78,7 @@ describe('look up another email', () => {
   it('is open straight away on a ticket with no customer email, and runs as the typed person', async () => {
     render(<CustomApiLookupPanel conversationId={24425} identityNote={NO_EMAIL_IDENTITY_NOTE} />);
 
-    await typeAndRun('  Sergio@DeusPower.org ');
+    await typeAndRun('  Rico@Militech.org ');
 
     // RED: drop lookupEmail from the request ⇒ the panel re-runs as the shop.
     expect(runDetailed).toHaveBeenCalledWith(
@@ -96,7 +96,7 @@ describe('look up another email', () => {
 
   it('will not send something that is not an email', async () => {
     render(<CustomApiLookupPanel conversationId={1} identityNote={NO_EMAIL_IDENTITY_NOTE} />);
-    await userEvent.type(await screen.findByLabelText('Look up another email'), 'sergio');
+    await userEvent.type(await screen.findByLabelText('Look up another email'), 'rico');
     expect(screen.getByRole('button', { name: 'Look up as' })).toBeDisabled();
   });
 

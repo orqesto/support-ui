@@ -27,7 +27,7 @@ afterEach(cleanup);
 const thread = (over: Record<string, unknown> = {}): MessageThread =>
   ({
     threadId: 'conv_361',
-    publicId: 'COR-SUP-361',
+    publicId: 'TRA-SUP-361',
     sender: 'customer@example.com',
     subject: 'Where is my order?',
     status: 'in_progress',

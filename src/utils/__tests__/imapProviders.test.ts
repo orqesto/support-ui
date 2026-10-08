@@ -18,7 +18,7 @@ describe('deriveSmtpDefaults', () => {
   });
 
   it('leaves a host alone when one name serves both protocols', () => {
-    expect(deriveSmtpDefaults('mail.frame-house.eu')?.host).toBe('mail.frame-house.eu');
+    expect(deriveSmtpDefaults('mail.kangtaohost.eu')?.host).toBe('mail.kangtaohost.eu');
   });
 
   it('maps the one provider whose submission host shares no prefix with its IMAP host', () => {

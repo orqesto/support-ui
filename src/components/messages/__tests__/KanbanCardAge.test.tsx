@@ -1,7 +1,7 @@
 /**
  * A card's age must be LATEST ACTIVITY, not when the thread started.
  *
- * Reported from the taco board: COR-SUP-361 showed "6d" while the newest message in
+ * Reported from the petro board: TRA-SUP-361 showed "6d" while the newest message in
  * it was a customer reply from 48 minutes earlier. The card rendered
  * `metadata.receivedAt`, which is stamped from the message that CREATED the
  * conversation and never moves. The list view — same data, same request — already
@@ -38,8 +38,8 @@ const iso = (msAgo: number) => new Date(Date.now() - msAgo).toISOString();
 const thread = (over: Record<string, unknown>): MessageThread =>
   ({
     threadId: 'conv_361',
-    publicId: 'COR-SUP-361',
-    sender: 'info@coresarms.co.uk',
+    publicId: 'TRA-SUP-361',
+    sender: 'info@traumateam.co.uk',
     subject: 'Re: Your order from CORE SARMS - UK is on its way!',
     status: 'in_progress',
     priority: 'medium',

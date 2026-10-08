@@ -4,8 +4,8 @@ import { replyToLabel } from '../RecipientFields';
 describe('replyToLabel', () => {
   it("shows the customer's Reply-To, which is where the backend sends (SUP-19)", () => {
     expect(
-      replyToLabel({ sender: 'mp@deals.badideas.fund', defaultReplyTo: ['deals@badideas.fund'] })
-    ).toBe('deals@badideas.fund');
+      replyToLabel({ sender: 'mp@deals.lowtide.fund', defaultReplyTo: ['deals@lowtide.fund'] })
+    ).toBe('deals@lowtide.fund');
   });
 
   it('lists every Reply-To address', () => {

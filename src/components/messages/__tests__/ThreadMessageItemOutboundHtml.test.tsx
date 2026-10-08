@@ -48,7 +48,7 @@ const message = (over: Partial<MessageEvent>): MessageEvent =>
     content: 'Quotation attached',
     authorId: 7,
     authorEmail: 'info@example.test',
-    authorName: 'Mia Taco',
+    authorName: 'Mia Petro',
     channel: 'email',
     sentAt: '2026-08-18T17:50:00Z',
     createdAt: '2026-08-18T17:50:00Z',

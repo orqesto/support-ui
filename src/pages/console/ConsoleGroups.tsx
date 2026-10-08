@@ -26,7 +26,7 @@ const orgRoleLabel = (role: string): string => roleDisplayNames[role as UserRole
  */
 /**
  * A group fed by an IdP is deleted with its wire: `alliance_group_idp_map.group_id` is
- * ON DELETE CASCADE, so provisioning from that IdP group stops too. On taco (2026-08-20) five
+ * ON DELETE CASCADE, so provisioning from that IdP group stops too. On petro (2026-08-20) five
  * groups were wired and later deleted, and nothing said the wire went with them — the synced
  * groups fell back to an older legacy display, so the mapping work looked like it had never
  * happened. Say it before the click, not after.

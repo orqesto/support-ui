@@ -14,7 +14,7 @@ import { useAuthStore } from '@/stores/authStore';
  * Settings → System → Knowledge base repair (global admin, the selected workspace).
  *
  * The two repairs a workspace needs after the KB was filled by text extraction or wiped by a
- * cleanup (taco DeusPower, 2026-10-05). Both endpoints existed (#905) but were reachable only by
+ * cleanup (petro Militech, 2026-10-05). Both endpoints existed (#905) but were reachable only by
  * a hand-written fetch in the browser console — a step only we could take.
  *
  * ⛔ Every write is two steps: a read that changes nothing, then a confirm that names what it

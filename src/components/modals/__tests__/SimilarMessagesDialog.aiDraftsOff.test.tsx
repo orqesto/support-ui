@@ -106,7 +106,7 @@ describe('SimilarMessagesDialog — read-only without an answer handler', () => 
   choosable.
 */
 describe('SimilarMessagesDialog — read-only offers nothing to choose', () => {
-  const RAW = 'OPEN COMPLIANCE ITEM — escalate, do not improvise.';
+  const RAW = 'INTERNAL — hand to legal, never answer this yourself.';
   const respondAi = () =>
     getSuggestedAnswer.mockResolvedValue({
       success: true,

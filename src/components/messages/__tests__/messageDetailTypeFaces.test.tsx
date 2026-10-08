@@ -38,9 +38,9 @@ describe('message detail — type faces', () => {
       type: 'agent_reply',
       content: 'hello',
       authorId: 7,
-      authorEmail: 'info@coresarms.co.uk',
-      authorName: 'Mia Taco',
-      authorUserEmail: 'mia@coresarms.co.uk',
+      authorEmail: 'info@traumateam.co.uk',
+      authorName: 'Mia Petro',
+      authorUserEmail: 'mia@traumateam.co.uk',
       channel: 'email',
       sentAt: '2026-08-18T17:50:00Z',
       createdAt: '2026-08-18T17:50:00Z',
@@ -48,11 +48,11 @@ describe('message detail — type faces', () => {
       recipients: null,
     } as unknown as MessageEvent;
     render(<ThreadMessageItem msg={msg} />);
-    const name = screen.getByText('Mia Taco');
+    const name = screen.getByText('Mia Petro');
     expect(classes(name.className)).toContain('font-display');
     // The address is an identifier: it inherits mono from the row, and must not be pulled
     // into the label face along with the name.
-    const via = screen.getByText(/via info@coresarms\.co\.uk/);
+    const via = screen.getByText(/via info@traumateam\.co\.uk/);
     expect(classes(via.className)).not.toContain('font-display');
     expect(via.closest('.font-mono')).not.toBeNull();
   });

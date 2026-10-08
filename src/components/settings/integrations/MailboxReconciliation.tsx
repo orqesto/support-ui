@@ -88,7 +88,7 @@ const kbDay = (iso: string): string =>
  * Of what was counted, how much is knowledge-base HISTORY — mail from before the KB cutoff, the
  * only part mined for Q&A pairs. Everything after the cutoff is imported as regular work. Owner,
  * 2026-10-05: the caption used to say "everything counted here will also be mined", which was
- * false for every message after the cutoff — on taco's DeusPower, for all 2,597 of them.
+ * false for every message after the cutoff — on petro's Militech, for all 2,597 of them.
  */
 export const kbHistoryNote = (history: KbHistoryCount): string => {
   // ⛔ True in every state the backend reports (audit passes 1–2): an approximate Gmail number is

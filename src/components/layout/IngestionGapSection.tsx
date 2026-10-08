@@ -5,7 +5,7 @@ import type { IngestionGapAlert } from '@/hooks/useIngestionGapAlerts';
 
 /**
  * Minutes of clock skew, said the way a person would. Never "1500 minutes": the number that
- * matters is "a day ahead", and the raw figure is what made the taco checkpoint unreadable in
+ * matters is "a day ahead", and the raw figure is what made the petro checkpoint unreadable in
  * the logs. Whole units only — a gap is not a stopwatch.
  */
 export const formatMinutesAhead = (minutes: number): string => {
@@ -21,7 +21,7 @@ export const formatMinutesAhead = (minutes: number): string => {
  *
  * ⛔ Rendered FIRST among the fault sections, above unanswered outbound and the AI alerts, and
  * the order is the point: everything else here can be found later by looking harder. This
- * cannot. Taco, 2026-09-08: nine hours of a live client mailbox, invisible for fourteen hours
+ * cannot. Petro, 2026-09-08: nine hours of a live client mailbox, invisible for fourteen hours
  * behind a healthy-looking `failed: 0`.
  *
  * Extracted from NotificationCenter because that file hit its 650-line cap — no behaviour

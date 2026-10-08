@@ -142,12 +142,12 @@ const open = () => {
   fireEvent.click(screen.getAllByRole('button')[0]);
 };
 
-/** The taco row, field for field as the backend published it on 2026-09-10. */
+/** The petro row, field for field as the backend published it on 2026-09-10. */
 const tacoGap = {
   id: 8243,
   title: 'Mail may be missing — this mailbox’s sync position was in the future',
   messageSourceId: 3,
-  mailbox: 'Gmail-usetixly@gmail.com',
+  mailbox: 'Gmail-streamline@gmail.com',
   cause: 'checkpoint_ahead',
   minutesAhead: 1500,
   window: '2026-09-10T07:58:28.754Z → 2026-09-11T08:58:03.336Z',
@@ -169,7 +169,7 @@ describe('Notification Center — ingestion gaps', () => {
     gapAlerts = [tacoGap];
     open();
     expect(screen.getByText(/sync position was in the future/)).toBeTruthy();
-    expect(screen.getByText('Gmail-usetixly@gmail.com')).toBeTruthy();
+    expect(screen.getByText('Gmail-streamline@gmail.com')).toBeTruthy();
     // 1500 minutes is 25 hours. ⛔ The raw figure is what made this unreadable in the logs.
     expect(screen.getByText(/25 hours in the future/)).toBeTruthy();
     expect(screen.queryByText(/1500/)).toBeNull();

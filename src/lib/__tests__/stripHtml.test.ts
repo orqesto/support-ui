@@ -17,7 +17,7 @@ describe('stripHtml', () => {
   });
 
   it('collapses <br> and source formatting to single spaces', () => {
-    expect(stripHtml('<p>Kind regards,<br>Orbelli Team</p>')).toBe('Kind regards, Orbelli Team');
+    expect(stripHtml('<p>Kind regards,<br>Zetatech Team</p>')).toBe('Kind regards, Zetatech Team');
     expect(stripHtml('<p>a</p>\n\n   <p>b</p>')).toBe('a b');
   });
 

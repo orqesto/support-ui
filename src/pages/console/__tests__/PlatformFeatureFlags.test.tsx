@@ -43,7 +43,7 @@ vi.mock('@/services/organization.service', () => ({
   organizationService: {
     getAll: () =>
       Promise.resolve({
-        data: [{ id: 4, name: 'CoreSarms' }],
+        data: [{ id: 4, name: 'TraumaTeam' }],
         pagination: { page: 1, limit: 100, total: 1, totalPages: 1, hasMore: false },
       }),
   },

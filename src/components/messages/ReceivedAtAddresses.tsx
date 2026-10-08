@@ -2,7 +2,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import type { MessageRecipients } from '@/types';
 
 /**
- * "Received at info@coresarms.info" — which of our addresses a message was
+ * "Received at info@traumateam.info" — which of our addresses a message was
  * actually delivered to.
  *
  * A mailbox answers to more than one address, so the integration's own name

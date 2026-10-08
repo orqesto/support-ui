@@ -6,7 +6,7 @@ import { answerToEditorHtml } from './messageDetailConstants';
  * These previews used to print the string raw. A generated AI answer is plain text
  * with markdown-ish syntax, so it read fine; a PAST REPLY or KB answer is stored as
  * the HTML it was sent as, so the agent was shown literal
- * `<p>Hello,</p><p>Here's the full ingredient list…` (ORB-SUP-1395).
+ * `<p>Hello,</p><p>Here's the full ingredient list…` (ZET-SUP-1395).
  *
  * `answerToEditorHtml` is the same converter the "Use" button runs before dropping
  * the answer into the composer, so what an agent reads here is exactly what they get

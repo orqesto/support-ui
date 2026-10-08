@@ -117,13 +117,13 @@ describe('ScimEventLedgerCard', () => {
             severity: 'warning',
             outcome: 'rejected',
             afterRole: null,
-            targetEmail: 'smith@taconet.info',
+            targetEmail: 'smith@petronet.info',
             // The BE's real string: the reason has to NAME the cause and the remedy —
             // the old 'This account cannot be provisioned by SCIM.' rendered fine and
             // told the admin reading it nothing at all.
             detail: {
               reason:
-                'smith@taconet.info is a platform administrator in Odly, and SCIM never ' +
+                'smith@petronet.info is a platform administrator in Odly, and SCIM never ' +
                 'takes over a platform-admin account. Provision this person from a ' +
                 'different email address, or change their platform role to User in the ' +
                 'platform console (Console → Users) and re-push from your IdP.',
@@ -135,7 +135,7 @@ describe('ScimEventLedgerCard', () => {
     ]);
     render(<ScimEventLedgerCard allianceId={1} />);
     expect(screen.getByText('Provisioning rejected')).toBeInTheDocument();
-    expect(screen.getByText('smith@taconet.info')).toBeInTheDocument();
+    expect(screen.getByText('smith@petronet.info')).toBeInTheDocument();
     expect(screen.getByText(/platform administrator/i)).toBeInTheDocument();
     expect(screen.getByText(/platform role to User/i)).toBeInTheDocument();
   });
@@ -153,7 +153,7 @@ describe('ScimEventLedgerCard', () => {
             severity: 'warning',
             outcome: 'skipped',
             afterRole: null,
-            targetEmail: 'jerry@taconet.info',
+            targetEmail: 'jerry@petronet.info',
             detail: {
               skipped: 1,
               reason:

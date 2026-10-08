@@ -28,22 +28,21 @@ describe('toSimilarMessages', () => {
    * `directReply: source.answer ?? source.content` is where raw documentation becomes a
    * "reply". A chunk carries no `answer`, so its own body — written for AGENTS — was
    * offered under the same "Use This Answer" button as a reply somebody actually sent a
-   * customer. On prod, orbelli's top-ranked chunk (0.91, "Very Similar") opens with
-   * "OPEN COMPLIANCE ITEM — escalate, do not improvise … escalate immediately to
-   * info@orbelli.com". The flag is what lets the UI stop presenting the two as equivalent.
+   * customer. On prod, a customer's top-ranked chunk (0.91, "Very Similar") was an internal
+   * hand-off note for agents. The flag is what lets the UI stop presenting the two as equivalent.
    */
   it('flags a documentation chunk as RAW SOURCE TEXT, not an authored reply', () => {
     const [row] = toSimilarMessages([
       src({
         type: 'documentation',
         id: 4958,
-        title: 'orbelli-support-knowledge-base',
-        content: 'OPEN COMPLIANCE ITEM — escalate, do not improvise: …',
+        title: 'zetatech-support-knowledge-base',
+        content: 'INTERNAL — hand to legal, never answer this yourself: …',
       }),
     ]);
 
     expect(row.isRawSourceText).toBe(true);
-    expect(row.directReply).toContain('escalate, do not improvise');
+    expect(row.directReply).toContain('never answer this yourself');
   });
 
   it('CONTROL: a source that carries an authored answer is NOT raw source text', () => {

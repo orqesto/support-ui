@@ -1,6 +1,6 @@
 /**
  * prod test-workspace, 2026-09-18: the wizard's Gmail row said "1 connected" and the panel under
- * it said "No Gmail accounts connected", while Settings listed usetixly@gmail.com. The mailbox is
+ * it said "No Gmail accounts connected", while Settings listed streamline@gmail.com. The mailbox is
  * ticked as a Knowledge Base source, and the step mounted the Gmail card with `defaultKB={false}`,
  * which filters its own list to non-KB mailboxes. #260 removed that prop from the IMAP card only.
  */
@@ -10,11 +10,11 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 
 const kbGmail = {
   id: 91,
-  name: 'Gmail-usetixly@gmail.com',
+  name: 'Gmail-streamline@gmail.com',
   type: 'gmail' as const,
   enabled: true,
   isKnowledgeBase: true,
-  config: { user: 'usetixly@gmail.com', gmail: { searchQuery: '', bulkImportDays: 0 } },
+  config: { user: 'streamline@gmail.com', gmail: { searchQuery: '', bulkImportDays: 0 } },
 };
 const kbImap = {
   id: 92,
@@ -67,7 +67,7 @@ describe('ChannelsStep — a Knowledge-Base mailbox is listed where it is counte
       </ThemeProvider>
     );
     await openRow(/Gmail/);
-    expect(await screen.findByText(/usetixly@gmail\.com/)).toBeTruthy();
+    expect(await screen.findByText(/streamline@gmail\.com/)).toBeTruthy();
     expect(screen.queryByText('No Gmail accounts connected')).toBeNull();
   });
 

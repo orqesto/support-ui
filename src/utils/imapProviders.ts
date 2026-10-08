@@ -90,11 +90,6 @@ const IMAP_PROVIDERS: Record<string, ImapConfig> = {
     port: 993,
     secure: true,
   },
-  'prefabhome.eu': {
-    host: 'mail.frame-house.eu',
-    port: 993,
-    secure: true,
-  },
 };
 
 /**

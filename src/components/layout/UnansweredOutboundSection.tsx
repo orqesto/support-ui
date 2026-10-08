@@ -154,7 +154,7 @@ export const UnansweredOutboundSection = ({
             ? `+${hidden}${truncated ? ' or more' : ''} not shown`
             : // Nothing is hidden by the CAP here, but the endpoint said its own list was
               // truncated, so what this section holds is still a floor. Saying "+0 or more
-              // not shown" — which is what taco rendered on 2026-09-10 — reads as a broken
+              // not shown" — which is what petro rendered on 2026-09-10 — reads as a broken
               // counter and sends the reader after rows this section does not know about.
               // No row count is claimed, because there is no honest one to claim.
               'There may be more — the notification list is capped'}

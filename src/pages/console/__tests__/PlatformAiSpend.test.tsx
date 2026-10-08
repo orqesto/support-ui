@@ -41,7 +41,7 @@ const result = (over: Partial<ManagedAiUsageResult['usage']> = {}): ManagedAiUsa
     orgs: [
       {
         organizationId: 18,
-        name: 'framehouse',
+        name: 'kangtao',
         calls: { used: 7935, limit: 96000, remaining: 88065 },
         totalTokens: 20_800_000,
         byTier: [
@@ -52,7 +52,7 @@ const result = (over: Partial<ManagedAiUsageResult['usage']> = {}): ManagedAiUsa
       },
       {
         organizationId: 21,
-        name: 'adapta',
+        name: 'dynalar',
         calls: null,
         totalTokens: 1_000,
         byTier: [tier('default', 1_000, 0.01), tier('strong', 0, null), tier('other', 0, null)],
@@ -92,8 +92,8 @@ describe('Platform → AI Spend', () => {
     get.mockResolvedValue(result());
     renderPage();
 
-    expect(await screen.findByText('framehouse')).toBeInTheDocument();
-    expect(screen.getByText('adapta')).toBeInTheDocument();
+    expect(await screen.findByText('kangtao')).toBeInTheDocument();
+    expect(screen.getByText('dynalar')).toBeInTheDocument();
     expect(screen.getByText('20,800,000')).toBeInTheDocument();
     // The whole point of the page: whose spend it is, not just that spend happened.
     expect(screen.getByText('#18')).toBeInTheDocument();
@@ -104,7 +104,7 @@ describe('Platform → AI Spend', () => {
     renderPage();
 
     expect(await screen.findByText('7,935 / 96,000 calls')).toBeInTheDocument();
-    // adapta's limits could not be read — "unknown", never a comforting 0/0.
+    // dynalar's limits could not be read — "unknown", never a comforting 0/0.
     expect(screen.getByText('unknown')).toBeInTheDocument();
   });
 
@@ -147,7 +147,7 @@ describe('Platform → AI Spend', () => {
       get.mockResolvedValue(inMonth);
       renderPage();
 
-      expect(await screen.findByText('framehouse')).toBeInTheDocument();
+      expect(await screen.findByText('kangtao')).toBeInTheDocument();
       expect(screen.queryByText(/does not follow the range above/)).not.toBeInTheDocument();
     });
 

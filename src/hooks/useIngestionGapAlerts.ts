@@ -12,7 +12,7 @@ import type { Notification } from '@/types/api';
 /**
  * "Mail may be missing" — the ONLY signal in the product that reports mail we do NOT have.
  *
- * ⛔ Why it needs a surface of its own, and why that is not a nicety. On taco, 2026-09-08, a
+ * ⛔ Why it needs a surface of its own, and why that is not a nicety. On petro, 2026-09-08, a
  * sender's `Date:` header carried the Gmail checkpoint 25 hours into the future; every later
  * poll asked Gmail for mail newer than a day that had not happened, and nine hours of a live
  * client mailbox — a customer's refund request among it — fell outside every query. It ran

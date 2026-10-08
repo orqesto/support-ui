@@ -1,6 +1,6 @@
 /**
  * AI Spend shows ALL AI spend, split by the key that paid (owner, 2026-09-22: "we should count
- * all even if it's managed by default ai" → "all spend, everywhere", so taco can track tokens).
+ * all even if it's managed by default ai" → "all spend, everywhere", so petro can track tokens).
  * Each label must stay true in every state the backend can report — including an older backend
  * that counted managed mode only and could not see the rest.
  */
@@ -87,7 +87,7 @@ describe('AI Spend — all spend, split by key', () => {
       usage(splitTotals(), [
         org(1, 'Managed Co', 'managed_mode', 1000, 0),
         org(2, 'Default Key Co', 'default_key', 300, 200),
-        org(3, 'Taco WS', 'own_key', 0, 700),
+        org(3, 'Petro WS', 'own_key', 0, 700),
       ])
     );
     renderPage();
@@ -96,7 +96,7 @@ describe('AI Spend — all spend, split by key', () => {
       screen.getByText(/1 managed · 1 platform key via settings · 1 own key/)
     ).toBeInTheDocument();
     const rowOf = (name: string) => screen.getByText(name).closest('tr') as HTMLElement;
-    expect(within(rowOf('Taco WS')).getByText('own key')).toBeInTheDocument();
+    expect(within(rowOf('Petro WS')).getByText('own key')).toBeInTheDocument();
     expect(
       within(rowOf('Default Key Co')).getByText('platform key via settings')
     ).toBeInTheDocument();
@@ -106,23 +106,23 @@ describe('AI Spend — all spend, split by key', () => {
   it('an own-key workspace has no platform cap — it says so instead of "unknown"', async () => {
     get.mockResolvedValue(
       usage(splitTotals({ managedOrgCount: 0, defaultKeyOrgCount: 0 }), [
-        org(3, 'Taco WS', 'own_key', 0, 700),
+        org(3, 'Petro WS', 'own_key', 0, 700),
       ])
     );
     renderPage();
-    const taco = (await screen.findByText('Taco WS')).closest('tr') as HTMLElement;
-    expect(within(taco).getByText('own key · no cap')).toBeInTheDocument();
-    expect(within(taco).queryByText('unknown')).toBeNull();
+    const petro = (await screen.findByText('Petro WS')).closest('tr') as HTMLElement;
+    expect(within(petro).getByText('own key · no cap')).toBeInTheDocument();
+    expect(within(petro).queryByText('unknown')).toBeNull();
   });
 
-  it('an own-key-only install (taco) is NOT reported as empty', async () => {
+  it('an own-key-only install (petro) is NOT reported as empty', async () => {
     get.mockResolvedValue(
       usage(splitTotals({ managedOrgCount: 0, defaultKeyOrgCount: 0 }), [
-        org(3, 'Taco WS', 'own_key', 0, 700),
+        org(3, 'Petro WS', 'own_key', 0, 700),
       ])
     );
     renderPage();
-    expect(await screen.findByText('Taco WS')).toBeInTheDocument();
+    expect(await screen.findByText('Petro WS')).toBeInTheDocument();
     expect(screen.queryByText(/No AI spend in this window/)).toBeNull();
     expect(screen.queryByText(/No workspace is in managed mode/)).toBeNull();
   });

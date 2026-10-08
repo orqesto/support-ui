@@ -30,11 +30,11 @@ vi.mock('@/hooks/useAllianceAdmin', () => ({
 
 const proposal = (overrides: Partial<AllianceAdminProposal> = {}): AllianceAdminProposal => ({
   userId: 7,
-  name: 'Mike Taco',
-  email: 'mike@tacoteam.info',
+  name: 'Mike Petro',
+  email: 'mike@petrochem.info',
   adminOf: [
-    { orgId: 1, orgName: 'orbelli' },
-    { orgId: 2, orgName: 'CoreSarms' },
+    { orgId: 1, orgName: 'zetatech' },
+    { orgId: 2, orgName: 'TraumaTeam' },
   ],
   ...overrides,
 });
@@ -56,8 +56,8 @@ describe('AllianceAdminProposalsCard', () => {
   it('names the workspaces that justify the proposal', () => {
     proposals = [proposal()];
     renderCard();
-    expect(screen.getByText('Mike Taco')).toBeInTheDocument();
-    expect(screen.getByText(/orbelli, CoreSarms/)).toBeInTheDocument();
+    expect(screen.getByText('Mike Petro')).toBeInTheDocument();
+    expect(screen.getByText(/zetatech, TraumaTeam/)).toBeInTheDocument();
   });
 
   it('does NOT grant on render — the whole safety property', () => {
@@ -71,7 +71,7 @@ describe('AllianceAdminProposalsCard', () => {
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Make alliance admin' }));
     expect(changeRoleMutate).not.toHaveBeenCalled();
-    expect(screen.getByText(/Make Mike Taco an alliance admin\?/)).toBeInTheDocument();
+    expect(screen.getByText(/Make Mike Petro an alliance admin\?/)).toBeInTheDocument();
   });
 
   it('spells out what the power carries before anyone confirms', () => {
@@ -100,7 +100,7 @@ describe('AllianceAdminProposalsCard', () => {
   it('falls back to the email when a SCIM push carried no name', () => {
     proposals = [proposal({ name: '' })];
     renderCard();
-    expect(screen.getAllByText('mike@tacoteam.info').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('mike@petrochem.info').length).toBeGreaterThan(0);
   });
   /**
    * ⛔ THE PROMOTION CAN BE REFUSED, AND THE PERSON HAS TO HEAR IT.

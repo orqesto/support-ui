@@ -7,7 +7,7 @@ describe('getInitials', () => {
   });
   it('CONTROL: a plain name and a bare address still work', () => {
     expect(getInitials('Marta Kowalczyk <marta@x.example>')).toBe('MK');
-    expect(getInitials('ecttet@gmail.com')).toBe('EG');
+    expect(getInitials('qwerty@gmail.com')).toBe('QG');
     expect(getInitials('')).toBe('?');
   });
 });

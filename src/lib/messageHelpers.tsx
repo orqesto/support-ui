@@ -309,7 +309,7 @@ export const getFilteredCategoryMeta = (category?: string): FilteredCategoryMeta
 /**
  * The spam check's own verdict, named. This tile used to read `isSpam` alone, and a
  * `suspicious` or `solicitation` verdict also carries `isSpam: false` — so it said "Legit"
- * right beside the SUSPICIOUS badge (taco COR-SUP-2654, 2026-09-18), and was read as the AI
+ * right beside the SUSPICIOUS badge (petro TRA-SUP-2654, 2026-09-18), and was read as the AI
  * having cleared the message.
  */
 const SPAM_CLASS_LABELS: Record<string, string> = {

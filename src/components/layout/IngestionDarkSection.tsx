@@ -7,7 +7,7 @@ import type { IngestionDarkAlert } from '@/hooks/useIngestionDarkAlerts';
  * How long a mailbox has been quiet, said the way a person would.
  *
  * Whole units only. "97 minutes" is a stopwatch reading; "2 hours" is the thing an operator
- * decides on. The raw figure is what made the taco checkpoint unreadable in the logs.
+ * decides on. The raw figure is what made the petro checkpoint unreadable in the logs.
  */
 export const formatMinutesDark = (minutes: number): string => {
   if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'}`;
@@ -97,7 +97,7 @@ export const IngestionDarkSection = ({
             // ⛔ Honest about what dismissal does, and it is the OPPOSITE of the gap alert's.
             // The condition may still be live; the backend escalates warning → critical, which
             // re-surfaces a dismissed row. Saying so is what stops this becoming
-            // `one_sided_outbound`, where dismissal WAS final and four broken threads on taco
+            // `one_sided_outbound`, where dismissal WAS final and four broken threads on petro
             // had no path back to anyone's attention. ⚠️ That is no longer true of that kind
             // either: it re-announces after ONE_SIDED_REALERT_HOURS and, since 2026-09-21,
             // escalates warning→critical past ONE_SIDED_CRITICAL_HOURS. Left here as the

@@ -42,12 +42,12 @@ const render = (ui: ReactElement) => rtlRender(<ThemeProvider>{ui}</ThemeProvide
 
 const existing = {
   id: 68,
-  name: 'Gmail-orders@deuspower.info',
+  name: 'Gmail-orders@militech.info',
   type: 'gmail' as const,
   enabled: true,
   isKnowledgeBase: true,
   config: {
-    user: 'orders@deuspower.info',
+    user: 'orders@militech.info',
     gmail: { searchQuery: 'label:orders', bulkImportDays: 7 },
   },
 };
@@ -62,7 +62,7 @@ describe('reconnecting a Gmail source keeps what it had', () => {
   it('Reconnect Google Account sends NO settings and relinks nothing', async () => {
     connectWithPopup.mockResolvedValue({
       success: true,
-      data: { id: 68, email: 'orders@deuspower.info' },
+      data: { id: 68, email: 'orders@militech.info' },
     });
     const onShowAlert = vi.fn();
     render(
@@ -88,7 +88,7 @@ describe('reconnecting a Gmail source keeps what it had', () => {
   it('Reconnect that Google answers with a DIFFERENT mailbox says so', async () => {
     connectWithPopup.mockResolvedValue({
       success: true,
-      data: { id: 99, email: 'other@deuspower.info' },
+      data: { id: 99, email: 'other@militech.info' },
     });
     const onShowAlert = vi.fn();
     render(
@@ -103,13 +103,13 @@ describe('reconnecting a Gmail source keeps what it had', () => {
     await waitFor(() => expect(onShowAlert).toHaveBeenCalled());
     const alert = onShowAlert.mock.calls.at(-1)?.[0] as { variant: string; description: string };
     expect(alert.variant).toBe('warning');
-    expect(alert.description).toContain('other@deuspower.info');
+    expect(alert.description).toContain('other@militech.info');
   });
 
   it('Add Gmail that lands on an EXISTING mailbox does not relink its departments', async () => {
     connectWithPopup.mockResolvedValue({
       success: true,
-      data: { id: 68, email: 'orders@deuspower.info' },
+      data: { id: 68, email: 'orders@militech.info' },
     });
     const onShowAlert = vi.fn();
     render(
@@ -130,7 +130,7 @@ describe('reconnecting a Gmail source keeps what it had', () => {
   it('CONTROL: Add Gmail that creates a NEW mailbox links it to the chosen departments', async () => {
     connectWithPopup.mockResolvedValue({
       success: true,
-      data: { id: 99, email: 'new@deuspower.info' },
+      data: { id: 99, email: 'new@militech.info' },
     });
     render(
       <GmailIntegrationCard
