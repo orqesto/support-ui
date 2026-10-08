@@ -39,7 +39,7 @@ const RESET_FALLBACK =
  * 2026-09-30) — and whether a workspace on its OWN key is stopped at them or only measured.
  *
  * Every figure says where it came from: a built-in default nobody chose must not read like a
- * decision (the old single ceiling showed "2,000,000" on taco while applying to none of its
+ * decision (the old single ceiling showed "2,000,000" on petro while applying to none of its
  * workspaces, because all four ran on their own keys).
  */
 export const TokenLimitsCard = ({ budgets }: { budgets: Budgets }) => {

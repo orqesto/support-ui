@@ -775,8 +775,8 @@ export const SimilarMessagesDialog = ({
 
         {/* ⛔ The selected row is documentation, not a reply somebody sent a customer.
             Inserting it verbatim is a real path for internal content to reach a customer —
-            orbelli's top-ranked chunk on prod begins "OPEN COMPLIANCE ITEM — escalate, do
-            not improvise". The insert is still allowed (agents legitimately paste a passage
+            a customer's top-ranked chunk on prod was an internal hand-off note for agents.
+            The insert is still allowed (agents legitimately paste a passage
             and edit it); what is removed is the false equivalence with a written answer. */}
         {selectedIsRawSource && (
           <div className="flex gap-2 items-start px-6 pt-3 text-[13px] text-warning">

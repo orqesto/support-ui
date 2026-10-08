@@ -1,7 +1,7 @@
 /**
  * Read/unread belongs to the triage queues and nowhere else.
  *
- * Measured on the CoreSarms workspace (2026-09-09): `read=unread` returned 189 threads
+ * Measured on the TraumaTeam workspace (2026-09-09): `read=unread` returned 189 threads
  * and `read=read` returned 3 — the only three conversations that have ever had a
  * `conversation_reads` row. The backend predicate was correct; the column it reads is
  * written ONLY by the triage-gated controls (`isTriageMessage`), so outside triage the

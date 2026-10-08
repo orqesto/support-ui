@@ -35,7 +35,7 @@ import { ORGANIZATION_ROLES, type OrganizationRole } from '@/types/roles';
  *   - an alliance role (Role-Model v2 §0.2 collapsed the two mapping layers into one);
  *   - an existing authored alliance group. Every wire mints a backing group named after
  *     the IdP group, and the picker listed those too — so each wire an admin made added a
- *     "Group — SSO - Odly - … " row to every other IdP group's picker (taco, 2026-09-07:
+ *     "Group — SSO - Odly - … " row to every other IdP group's picker (petro, 2026-09-07:
  *     four roles and six of its own by-products). Nothing it could express is out of reach
  *     without it: workspace and departments are on the role wire, and permission overrides
  *     are edited on the minted group through "Edit role / workspace". One door per job.
@@ -83,10 +83,10 @@ const privilegedKind = (value: string): 'org_admin' | null =>
  * hatch for a group the provider has genuinely stopped pushing. It is simply not a button.
  */
 /**
- * What an authored group GRANTS, in words: "Associate in CoreSarms". The picker used to show
+ * What an authored group GRANTS, in words: "Associate in TraumaTeam". The picker used to show
  * only the group's NAME, and a backing group minted by this screen is named after the IdP
- * group it mirrors — so "SSO - Odly - Coresarms - Associate" wired to
- * "SSO - Odly - Coresarms - Associate — Associate" read as a group mapped to itself.
+ * group it mirrors — so "SSO - Odly - Traumateam - Associate" wired to
+ * "SSO - Odly - Traumateam - Associate — Associate" read as a group mapped to itself.
  * A group with no role and no workspace (a fixture, or a bare authored group) keeps its name.
  */
 export const describeGrant = (

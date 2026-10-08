@@ -1,7 +1,7 @@
 /**
  * A bubble asks for its original markup only once it is near the screen.
  *
- * DEU-SUP-7750, 2026-10-02: a mailer-daemon Gmail thread of 1,887 messages fetched 1,887
+ * MIL-SUP-7750, 2026-10-02: a mailer-daemon Gmail thread of 1,887 messages fetched 1,887
  * markups on open, spent the API limiter (1,000 a minute) in seconds, and every other request
  * of the browser answered 429 for the rest of the minute.
  */

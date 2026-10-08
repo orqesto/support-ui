@@ -81,7 +81,7 @@ const endpoint = (over: Partial<Endpoint> = {}): Endpoint => ({
 
 const connection = (endpoints: Endpoint[] = [endpoint()]): Connection => ({
   id: 1,
-  name: 'DeusPower',
+  name: 'Militech',
   purpose: null,
   baseUrl: 'https://shop.example/index.php',
   enabled: true,
@@ -153,7 +153,7 @@ describe('the lookup editor page', () => {
   it('SAYS so when the lookup is gone, instead of opening an empty editor that would create one', async () => {
     renderAt('/settings/custom-apis/1/lookups/77');
 
-    expect(await screen.findByText(/That lookup no longer exists under DeusPower/)).toBeTruthy();
+    expect(await screen.findByText(/That lookup no longer exists under Militech/)).toBeTruthy();
     expect(screen.queryByLabelText(/What should agents call this/i)).toBeNull();
   });
 

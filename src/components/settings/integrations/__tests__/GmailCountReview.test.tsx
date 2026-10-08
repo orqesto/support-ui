@@ -43,10 +43,10 @@ import {
 
 const render = (ui: ReactElement) => rtlRender(<ThemeProvider>{ui}</ThemeProvider>);
 
-/** Taco source 68 as it was connected on 2026-09-16, but paused. */
+/** Petro source 68 as it was connected on 2026-09-16, but paused. */
 const paused: GmailCountReviewSource = {
   id: 68,
-  email: 'orders@deuspower.info',
+  email: 'orders@militech.info',
   enabled: false,
   isKnowledgeBase: true,
   searchQuery: '',

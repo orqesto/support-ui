@@ -2,7 +2,7 @@
  * When the processing panel shows itself (owner decisions 2026-09-27), decided from the backend's
  * RUN RECORDS by run id — never from the socket session (FE audit passes 2–4):
  * - a small routine run (< 20 found) is a count on the header indicator — no pop-up. The old
- *   widget popped for a 1-message poll (taco screenshot, 2026-09-29 17:30);
+ *   widget popped for a 1-message poll (petro screenshot, 2026-09-29 17:30);
  * - a recorded run of 20+ still running opens it; it closes itself once THAT run owes nothing;
  *   closed, that run (its KB tail, a late event) never brings it back — the next run does;
  * - a problem opens it with no live run at all and it STAYS; closing it remembers which problems
@@ -557,7 +557,7 @@ describe('where it sits', () => {
   });
 });
 
-// taco 2026-10-05: the panel kept detailing the import it opened for and called it "Last check
+// petro 2026-10-05: the panel kept detailing the import it opened for and called it "Last check
 // 10:55" above checks at 12:06, 12:21 and 12:26.
 describe('the detailed run says whether it is the latest', () => {
   const older = () => makeRun({ id: 'older', found: 2470, startedAt: '2026-10-05T08:55:00.000Z' });

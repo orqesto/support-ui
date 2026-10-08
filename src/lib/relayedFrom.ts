@@ -20,7 +20,7 @@ import type { MessageEvent } from '@/types';
  */
 
 /**
- * `"Orbelli (Shopify)" <mailer@shopify.com>` → `mailer@shopify.com`.
+ * `"Zetatech (Shopify)" <mailer@shopify.com>` → `mailer@shopify.com`.
  *
  * Comparing the bare address is the point: the stored header keeps its display name, and
  * a comparison against the raw string would never match, so the label would fire on

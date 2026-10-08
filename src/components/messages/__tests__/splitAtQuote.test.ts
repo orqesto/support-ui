@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { splitAtQuote } from '../messageDetailConstants';
 
 /**
- * COR-SUP-2108 (taco, coresarms): the customer's iPhone reply rendered as one wall of
+ * TRA-SUP-2108 (petro, traumateam): the customer's iPhone reply rendered as one wall of
  * text — his two sentences followed by our entire previous reply and, inside it, his own
  * first email. The bubble showed no "show quoted" control at all.
  *
@@ -13,11 +13,11 @@ import { splitAtQuote } from '../messageDetailConstants';
  */
 const ONE_LINE_IPHONE_REPLY =
   'Yes please, that would be much appreciated. Thanks, Ricky. Sent from my iPhone ' +
-  'On 1 Sep 2026, at 13:12, Info Coresarms &lt;info@coresarms.info&gt; wrote: Hello, ' +
+  'On 1 Sep 2026, at 13:12, Info Traumateam &lt;info@traumateam.info&gt; wrote: Hello, ' +
   'Thank you for your patience, and we sincerely apologize for the inconvenience. ' +
   'Unfortunately, it looks like your parcel has been returned to us during the delivery ' +
   'process . Kind regards, Mia — On Sat, Aug 1, 2026, 3:43 PM, Ricky Thomas &lt; ' +
-  'ricky.thomas42@yahoo.co.uk &gt; wrote: Hi, I placed an order on the 21st of July.';
+  'alex.kim42@yahoo.co.uk &gt; wrote: Hi, I placed an order on the 21st of July.';
 
 describe('splitAtQuote — plain text', () => {
   it('collapses the reply history of a body whose line breaks did not survive ingestion', () => {
@@ -53,7 +53,7 @@ describe('splitAtQuote — plain text', () => {
 
   it('does not empty the bubble when the quote starts at the very top', () => {
     const body =
-      'On 1 Sep 2026, at 13:12, Info Coresarms wrote: Hello, thank you for your patience.';
+      'On 1 Sep 2026, at 13:12, Info Traumateam wrote: Hello, thank you for your patience.';
     const { main, quote } = splitAtQuote(body, false);
     expect(main).toBe(body);
     expect(quote).toBeNull();
@@ -61,15 +61,15 @@ describe('splitAtQuote — plain text', () => {
 
   it('collapses an inline Outlook header in a body that lost its line breaks', () => {
     const body =
-      'Yes please go ahead with the reshipment, thank you. From: info@coresarms.info Sent: 01 September 2026 13:12 To: ricky.thomas42@yahoo.co.uk Subject: RE: My order';
+      'Yes please go ahead with the reshipment, thank you. From: info@traumateam.info Sent: 01 September 2026 13:12 To: alex.kim42@yahoo.co.uk Subject: RE: My order';
     const { main, quote } = splitAtQuote(body, false);
     expect(main).toBe('Yes please go ahead with the reshipment, thank you.');
-    expect(quote).toContain('From: info@coresarms.info');
+    expect(quote).toContain('From: info@traumateam.info');
   });
 });
 
 /**
- * COR-SUP-251 (taco, coresarms): an 11-message thread where every reply re-rendered the
+ * TRA-SUP-251 (petro, traumateam): an 11-message thread where every reply re-rendered the
  * whole conversation. Visible text per message grew 675 → 5,122 characters; by the end an
  * agent scrolled through the entire history to find two new sentences.
  *
@@ -88,7 +88,7 @@ const FOOTER_HR_AFTER_QUOTE =
   // Long enough to clear the 80-character floor the code applies to structural markers —
   // in the real mail the gmail_quote div sat at 1,268, far past it.
   '<div>Thanks for the update, that works for me and I appreciate you chasing the courier.</div>' +
-  '<div class="gmail_quote"><div>On Tue, 12 Aug 2026 at 10:53, Info Coresarms wrote:</div>' +
+  '<div class="gmail_quote"><div>On Tue, 12 Aug 2026 at 10:53, Info Traumateam wrote:</div>' +
   '<div>Hello Mark, your parcel is with the courier.</div>' +
   '<div>Hello Mark, an earlier reply quoted again and again.</div></div>' +
   '<div>CORE SARMS UK</div><hr><div>Unsubscribe | View in browser</div>';
@@ -109,7 +109,7 @@ describe('splitAtQuote — HTML', () => {
   it('still splits at an <hr> when that is the earliest marker', () => {
     const body =
       '<div>Short reply that stands on its own and says enough to clear the 80-char floor.</div>' +
-      '<hr><div>On Tue, 12 Aug 2026, Info Coresarms wrote: earlier text</div>';
+      '<hr><div>On Tue, 12 Aug 2026, Info Traumateam wrote: earlier text</div>';
     const { main, quote } = splitAtQuote(body, true);
     expect(main).toContain('Short reply that stands on its own');
     expect(quote).toContain('<hr>');

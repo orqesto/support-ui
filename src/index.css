@@ -468,7 +468,7 @@
 
    ⛔ NOTHING below may set padding, alignment, width or display on a table, cell
    or image, and no `min-width` on a table: the first re-collapses the signature,
-   the second is ORB-SUP-1358 (the thread panel turns into a sideways scroller). */
+   the second is ZET-SUP-1358 (the thread panel turns into a sideways scroller). */
 
 .email-body * {
   color: inherit !important;

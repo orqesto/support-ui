@@ -1,6 +1,6 @@
 /**
  * Settings → System → Knowledge base repair. The two repairs existed only as hand-written fetches
- * in a browser console (taco DeusPower, 2026-10-05) — a step only we could take. Pinned here:
+ * in a browser console (petro Militech, 2026-10-05) — a step only we could take. Pinned here:
  * nothing writes before a confirm, the write sends exactly `apply: true`, and every answer the
  * backend can give reads true on screen (none, partial, more-remaining, failed, not-yet-deployed).
  */
@@ -70,7 +70,7 @@ const repair = (over: Partial<KbDocumentRepairResult> = {}): KbDocumentRepairRes
 
 const source = (over: Partial<KbSweepSource> = {}): KbSweepSource => ({
   id: 68,
-  name: 'Gmail-support@deuspower.com',
+  name: 'Gmail-support@militech.com',
   type: 'gmail',
   lastSweptAt: '2026-09-16T10:40:00Z',
   enabled: true,
@@ -308,7 +308,7 @@ describe('Re-read mailbox history', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: /Re-read history/ }));
     expect(
       await screen.findByText(
-        /Gmail-support@deuspower\.com reads its history again on its next check/
+        /Gmail-support@militech\.com reads its history again on its next check/
       )
     ).toBeInTheDocument();
     expect(calls).toEqual(['list', 'request:68', 'list']);

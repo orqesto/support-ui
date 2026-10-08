@@ -156,7 +156,7 @@ export const PlatformAiSpend = () => {
   /**
    * The backend now prices per MODEL and reports the rollup, because a per-tier rate
    * could not price the `other` tier at all — which on this platform was 9,667,902 of
-   * framehouse's 40,787,419 tokens. `cost` is optional so an older backend still renders:
+   * kangtao's 40,787,419 tokens. `cost` is optional so an older backend still renders:
    * fall back to summing the per-tier estimates, exactly as this page did before.
    */
   const cost = usage?.totals.cost;

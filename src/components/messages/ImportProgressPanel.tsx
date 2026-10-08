@@ -153,7 +153,7 @@ const StageRow = ({ stage, capped }: { stage: StageProgress; capped: boolean }) 
 /**
  * Where a Gmail import stands, from the database. Replaces the widget's socket-driven numbers
  * for a Gmail source: those came from per-process counters that a restart reset and two trackers
- * overwrote in turn (taco, 2026-09-25: "0 / 2173 · 0%" and "50 / 51 · 98%" a minute apart, then
+ * overwrote in turn (petro, 2026-09-25: "0 / 2173 · 0%" and "50 / 51 · 98%" a minute apart, then
  * "Complete" with ~2,100 still to import).
  */
 export const ImportProgressPanel = ({ data }: { data: TrackedImport }) => {

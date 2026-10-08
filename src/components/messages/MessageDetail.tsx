@@ -1362,7 +1362,7 @@ export function MessageDetail({
           compute overflow-x as `auto` too (CSS couples the axes), so one over-wide
           message — an unwrapped <pre> body, a fixed-width email table — turned the
           WHOLE thread into a sideways-scrolling pane that clipped every message
-          (ORB-SUP-1358). Wide content is contained per-bubble in ThreadBubble. */}
+          (ZET-SUP-1358). Wide content is contained per-bubble in ThreadBubble. */}
         <div
           data-testid="thread-scroller"
           className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background max-sm:flex-none ${panelOpen && !twoColumn ? 'hidden' : ''}`}

@@ -37,7 +37,7 @@ vi.mock('@/services/customApi.service', async () => {
 
 const connection = (): Connection => ({
   id: 1,
-  name: 'DeusPower',
+  name: 'Militech',
   purpose: null,
   baseUrl: 'https://shop.example/index.php',
   enabled: true,
@@ -77,19 +77,19 @@ describe('Settings › Integrations › Custom APIs — every button goes to the
   it('“Manage” opens the VENDOR form', async () => {
     const user = userEvent.setup();
     renderSection(true);
-    await waitFor(() => expect(screen.getByText('DeusPower')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Militech')).toBeTruthy());
 
     await user.click(screen.getByRole('button', { name: 'Manage' }));
     // The vendor form, identified by something only it has: the D42 acknowledgement is absent on
     // an edit, so use the address field plus the title.
-    expect(screen.getByText('Edit DeusPower')).toBeTruthy();
+    expect(screen.getByText('Edit Militech')).toBeTruthy();
     expect(screen.getByLabelText('Address')).toBeTruthy();
   });
 
   it('“Add a lookup” opens the lookup editor PAGE, not the vendor form', async () => {
     const user = userEvent.setup();
     renderSection(true);
-    await waitFor(() => expect(screen.getByText('DeusPower')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Militech')).toBeTruthy());
 
     await user.click(screen.getByRole('button', { name: 'Add a lookup' }));
     // ⛔ RED: swap the two handlers and this is the vendor form — it type-checks, and every other
@@ -149,7 +149,7 @@ describe('Settings › Integrations › Custom APIs — every button goes to the
   it('⛔ a moderator gets the lookup editor and NO vendor controls (D40)', async () => {
     const user = userEvent.setup();
     renderSection(false);
-    await waitFor(() => expect(screen.getByText('DeusPower')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Militech')).toBeTruthy());
 
     // The vendor half is not offered at all — not disabled, not present.
     expect(screen.queryByRole('button', { name: 'Manage' })).toBeNull();
@@ -164,11 +164,11 @@ describe('Settings › Integrations › Custom APIs — every button goes to the
   it('closing the vendor dialog leaves the list, not a blank panel', async () => {
     const user = userEvent.setup();
     renderSection(true);
-    await waitFor(() => expect(screen.getByText('DeusPower')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Militech')).toBeTruthy());
     await user.click(screen.getByRole('button', { name: 'Manage' }));
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
-    expect(screen.queryByText('Edit DeusPower')).toBeNull();
-    expect(screen.getByText('DeusPower')).toBeTruthy();
+    expect(screen.queryByText('Edit Militech')).toBeNull();
+    expect(screen.getByText('Militech')).toBeTruthy();
   });
 });

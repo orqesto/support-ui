@@ -51,7 +51,7 @@ vi.mock('@/services/organization.service', () => ({
   organizationService: {
     getAllPages: () =>
       Promise.resolve({
-        data: [{ id: 4, name: 'CoreSarms' }],
+        data: [{ id: 4, name: 'TraumaTeam' }],
         pagination: { page: 1, limit: 100, total: 1, totalPages: 1, hasMore: false },
       }),
   },
@@ -124,7 +124,7 @@ describe('PlatformFeatureFlags — own-key note on the kb.* switches', () => {
     renderPage();
     await rowFor(KB_KEYS[0]);
     expect(screen.getAllByText(OWN_KEY_GLOBAL_NOTE)).toHaveLength(3);
-    await chooseOption(screen.getByLabelText('Editing'), 'CoreSarms');
+    await chooseOption(screen.getByLabelText('Editing'), 'TraumaTeam');
     await rowFor(KB_KEYS[0]);
     expect(screen.queryByText(OWN_KEY_GLOBAL_NOTE)).toBeNull();
   });
@@ -135,7 +135,7 @@ describe('PlatformFeatureFlags — workspace scope, global row does not reach (g
   const GLOBAL_ON = { enabled: true, updatedAt: '2026-10-07T00:00:00Z', updatedBy: 1, notes: null };
   const atWorkspace = async () => {
     renderPage();
-    await chooseOption(screen.getByLabelText('Editing'), 'CoreSarms');
+    await chooseOption(screen.getByLabelText('Editing'), 'TraumaTeam');
   };
   // What BE 25f329c4 sends for an own-key workspace on a hosted deployment, global row ON.
   const ownKey = (key: string): AdminFeatureFlag => ({
@@ -253,7 +253,7 @@ describe('PlatformFeatureFlags — workspace scope, global row does not reach (g
     const globalRow = await rowFor('kb.consolidation_dry_run');
     expect(within(globalRow).getByText(DRY_RUN_WARNING)).toBeInTheDocument();
     expect(screen.getAllByText(DRY_RUN_WARNING)).toHaveLength(1);
-    await chooseOption(screen.getByLabelText('Editing'), 'CoreSarms');
+    await chooseOption(screen.getByLabelText('Editing'), 'TraumaTeam');
     await waitFor(() => expect(screen.queryByText(OWN_KEY_GLOBAL_NOTE)).toBeNull());
     expect(
       within(await rowFor('kb.consolidation_dry_run')).getByText(DRY_RUN_WARNING)

@@ -31,7 +31,7 @@ afterEach(cleanup);
 
 const withMessage = {
   threadId: 'conv_1',
-  publicId: 'COR-SUP-1',
+  publicId: 'TRA-SUP-1',
   sender: 'a@b.example',
   subject: 'Hi',
   status: 'open',

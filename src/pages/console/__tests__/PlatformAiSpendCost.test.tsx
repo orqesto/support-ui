@@ -21,7 +21,7 @@ const payload = (): ManagedAiUsageResult => ({
     orgs: [
       {
         organizationId: 18,
-        name: 'framehouse',
+        name: 'kangtao',
         calls: null,
         totalTokens: 3_000_000,
         costUsd: 2.25,

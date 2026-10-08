@@ -120,7 +120,7 @@ describe('a KB mine paused by the daily KB token limit', () => {
   });
 });
 
-// taco 2026-10-05: "2,470 new messages found, 1,339 saved, 1,047 already in Odly" over "The rest
+// petro 2026-10-05: "2,470 new messages found, 1,339 saved, 1,047 already in Odly" over "The rest
 // follow on the next check" — 84 unaccounted for, read as lost mail.
 describe('a paused Gmail check says how many it did not reach', () => {
   const rateLimited = (over: Parameters<typeof makeRun>[0] = {}) =>

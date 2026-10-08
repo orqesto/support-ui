@@ -136,7 +136,7 @@ export function MessageActionStrip({
      *
      * `message.isSpam` is resolved server-side from the newest inbound event — the same predicate
      * the Spam lane and its halves claim rows by (support-service #799). `metadata.spamCheck` is
-     * frozen at thread creation and the two disagree on real threads: three live CoreSarms ones
+     * frozen at thread creation and the two disagree on real threads: three live TraumaTeam ones
      * in 2026-09, one a customer asking about an order. Reading the frozen copy meant a row in
      * `spam_unconfirmed` could offer no way to confirm it — work in the queue nobody could finish.
      *

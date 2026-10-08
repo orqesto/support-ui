@@ -74,7 +74,7 @@ describe('validation errors name the field', () => {
    * messages describe the schema. Nothing read `fields`, so a console full of inputs said only
    * "Validation error" and the operator had to guess which one.
    *
-   * Observed on taco prod, 2026-09-11: `PATCH /api/admin/platform/settings/ai` rejected
+   * Observed on petro prod, 2026-09-11: `PATCH /api/admin/platform/settings/ai` rejected
    * `bedrockRoleArn`, and the screen could not say so.
    */
   it('appends the failed field paths', () => {

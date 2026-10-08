@@ -45,7 +45,7 @@ const card = (over: Partial<CustomApiLookupResult> = {}): CustomApiLookupResult 
   ({
     endpointId: 20,
     label: 'this order',
-    connectionName: 'DeusPower',
+    connectionName: 'Militech',
     resultShape: 'one',
     status: 'ok',
     rows: [{ order_id: '137416', total: '348.50', total__currency: 'EUR' }],
@@ -489,7 +489,7 @@ describe('FE/BE skew — this frontend can reach production first', () => {
       {
         endpointId: 20,
         label: 'this order',
-        connectionName: 'DeusPower',
+        connectionName: 'Militech',
         resultShape: 'one',
         status: 'ok',
       },
@@ -537,8 +537,8 @@ describe('an unconfigured lookup does not become a dossier', () => {
     total: '348.50',
     date_added: '2026-09-08',
     currency_code: 'EUR',
-    name: 'Sergio',
-    email: 'sergio@deuspower.org',
+    name: 'Rico',
+    email: 'rico@militech.org',
     telephone: '0000',
     ip: '193.138.7.145',
     user_agent: 'Mozilla/5.0 (iPhone)',

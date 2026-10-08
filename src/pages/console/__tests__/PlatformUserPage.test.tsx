@@ -24,7 +24,7 @@ const row: PlatformUserRow = {
   workspaces: [
     {
       organizationId: 7,
-      organizationName: 'CoreSarms',
+      organizationName: 'TraumaTeam',
       role: 'moderator',
       preAllianceRole: null,
       idpManaged: false,
@@ -39,7 +39,7 @@ const row: PlatformUserRow = {
 const getUser = vi.fn<(id: number) => Promise<PlatformUserRow>>();
 const getUserOrganizations = vi.fn(() =>
   Promise.resolve([
-    { id: 7, name: 'CoreSarms', role: 'moderator', departmentIds: [], idpManaged: false },
+    { id: 7, name: 'TraumaTeam', role: 'moderator', departmentIds: [], idpManaged: false },
   ])
 );
 
@@ -64,7 +64,7 @@ vi.mock('@/services/organization.service', () => ({
   organizationService: {
     getAll: () =>
       Promise.resolve({
-        data: [{ id: 7, name: 'CoreSarms' }],
+        data: [{ id: 7, name: 'TraumaTeam' }],
         pagination: { page: 1, limit: 100, total: 1, totalPages: 1, hasMore: false },
       }),
     addMember: vi.fn(),
@@ -182,7 +182,7 @@ describe('PlatformUserPage — audit', () => {
         { ...row.workspaces[0], idpManaged: true },
         {
           organizationId: 8,
-          organizationName: 'Orbelli',
+          organizationName: 'Zetatech',
           role: 'support',
           preAllianceRole: null,
           idpManaged: false,

@@ -13,18 +13,18 @@ afterEach(() => {
  * logo cell, and a contact block whose geometry lives in `valign`/`align`/`width` and inline
  * `style` — every one of which the old sanitizer deleted. The visible result was a signature
  * whose columns collapsed into a single stack and whose contact line broke mid-token
- * ("natalie.antonenko@prefabh" / "ome.eu").
+ * ("jane.roe@kangt" / "ao.eu").
  */
 const SIGNATURE = `
 <table width="100%" cellpadding="0" cellspacing="0">
   <tr>
     <td width="150" valign="top" align="center">
-      <img src="https://vlc.xe10.lv/sig/logo.png" width="150" height="32" alt="Frame House">
+      <img src="https://cdn.kangtao.test/sig/logo.png" width="150" height="32" alt="Kangtao">
     </td>
     <td valign="middle" align="left" style="padding-left:12px; color:#333333; font-size:13px">
-      <b>Natalie Antonenko</b><br>
-      Export manager | Frame House group SIA<br>
-      <a href="mailto:natalie.antonenko@prefabhome.eu">natalie.antonenko@prefabhome.eu</a>
+      <b>Jane Roe</b><br>
+      Export manager | Kangtao group SIA<br>
+      <a href="mailto:jane.roe@kangtao.eu">jane.roe@kangtao.eu</a>
     </td>
   </tr>
 </table>`;
@@ -97,7 +97,7 @@ describe('the two-column signature keeps its layout', () => {
      * ⚠️ This assertion is the REVERSE of what it was, and the reversal is the point.
      *
      * A `min-w-[600px]` floor was added on the theory that the reported mid-token wrap
-     * ("natalie.antonenko@prefabh" / "ome.eu") came from the body being narrower than the 600px
+     * ("jane.roe@kangt" / "ao.eu") came from the body being narrower than the 600px
      * email is designed for. Measured on the deployed build against that exact mail, it did not:
      * with the floor the address wrapped 0 times out of 16, and WITHOUT it, also 0 out of 16 —
      * while the floor cost 152px of horizontal scroll on 12 of the thread's 22 email bodies (152px is a quarter of the 600px body, and a third of the 472px panel;
@@ -119,7 +119,7 @@ describe('the two-column signature keeps its layout', () => {
       /min-w-\[/
     );
 
-    // The containment that ORB-SUP-1358 needs is on the ground and must NOT go with the floor:
+    // The containment that ZET-SUP-1358 needs is on the ground and must NOT go with the floor:
     // a table genuinely wider than the bubble still has to scroll inside its own container
     // rather than turn the whole thread panel into a sideways scroller.
     const ground = container.querySelector('table')?.closest('.overflow-x-auto');

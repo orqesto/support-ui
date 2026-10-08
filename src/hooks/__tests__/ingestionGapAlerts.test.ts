@@ -2,7 +2,7 @@
  * The push surface for "mail may be missing" — the only kind in this product that reports
  * mail we do NOT have.
  *
- * ⛔ The quiet way it fails is silence, and silence is indistinguishable from health. On taco,
+ * ⛔ The quiet way it fails is silence, and silence is indistinguishable from health. On petro,
  * 2026-09-08, a sender's `Date:` header carried the Gmail checkpoint 25h into the future and
  * nine hours of a live client mailbox went unfetched — invisible for fourteen hours behind a
  * `failed: 0` that every other ingestion signal agreed with. So the two failure modes tested
@@ -35,7 +35,7 @@ vi.mock('@/stores/authStore', () => ({
 
 const { useIngestionGapAlerts } = await import('../useIngestionGapAlerts');
 
-/** The taco row as the backend actually published it, 2026-09-10. */
+/** The petro row as the backend actually published it, 2026-09-10. */
 const gapRow = (over: Record<string, unknown> = {}) => ({
   id: 8243,
   kind: 'ingestion_gap',
@@ -44,7 +44,7 @@ const gapRow = (over: Record<string, unknown> = {}) => ({
   organizationId: 1,
   details: {
     cause: 'checkpoint_ahead',
-    mailbox: 'Gmail-usetixly@gmail.com',
+    mailbox: 'Gmail-streamline@gmail.com',
     minutesAhead: 1500,
     window: '2026-09-10T07:58:28.754Z → 2026-09-11T08:58:03.336Z',
     recovery: 're-scanning the last 48h; raise MAIL_POLL_OVERLAP_HOURS to reach further back',
@@ -83,7 +83,7 @@ describe('useIngestionGapAlerts', () => {
     expect(result.current.alerts[0]).toMatchObject({
       id: 8243,
       messageSourceId: 3,
-      mailbox: 'Gmail-usetixly@gmail.com',
+      mailbox: 'Gmail-streamline@gmail.com',
       cause: 'checkpoint_ahead',
       minutesAhead: 1500,
     });

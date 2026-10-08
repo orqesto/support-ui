@@ -218,11 +218,11 @@ export const SourceAliasEditor = ({
    *
    * So the default view is the rows carrying evidence, and everything else is one click away.
    * The sender list is not dropped — an UNDECLARED alias shows up as requester volume rather
-   * than delivery data, which is exactly how the CoreSarms storefronts hid — but it stops
+   * than delivery data, which is exactly how the TraumaTeam storefronts hid — but it stops
    * being the first thing an admin sees.
    *
    * ⛔ Same-domain is deliberately NOT evidence. A colleague's own mailbox at our company
-   * (`zhanat.chokin@prefabhome.eu` beside `natalie.antonenko@prefabhome.eu`) is not an alias
+   * (`john.doe@kangtao.eu` beside `jane.roe@kangtao.eu`) is not an alias
    * of this mailbox, and declaring it would send their mail out of the inbox.
    */
   const hasEvidence = useCallback(

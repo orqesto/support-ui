@@ -1,7 +1,7 @@
 /**
  * Whether sending a reply should first ask the agent about ownership, and what to ask.
  *
- * Owner decision 2026-09-07 (taco: "responding in thread doesn't make you assignee"):
+ * Owner decision 2026-09-07 (petro: "responding in thread doesn't make you assignee"):
  *  - a thread nobody owns → ask every time: "Assign this thread to you?"
  *  - a colleague's thread  → ask: "Take over from <name>, or just reply?"
  *  - your own thread       → nothing to ask

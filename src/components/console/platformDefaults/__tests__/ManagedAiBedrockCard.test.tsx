@@ -58,7 +58,7 @@ const SECRETS = {
 const PROFILE = 'eu.anthropic.claude-haiku-4-5-20251001-v1:0';
 const ROLE = 'arn:aws:iam::123456789012:role/OdlyBedrock';
 
-/** taco's stored platform defaults as of 2026-09-30 (owner's screenshot). */
+/** petro's stored platform defaults as of 2026-09-30 (owner's screenshot). */
 const bedrockAi = (over: Partial<PlatformSettings['ai']> = {}): PlatformSettings['ai'] => ({
   provider: { value: 'bedrock', source: 'db' },
   defaultModel: { value: 'anthropic.claude-haiku-4-5-20251001-v1:0', source: 'db' },

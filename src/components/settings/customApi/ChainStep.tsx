@@ -6,7 +6,7 @@ import type { CustomApiEndpoint, FieldPick } from '@/services/customApi.service'
 /**
  * D21 — "take the value from another lookup's answer".
  *
- * 🔴 WHY IT EXISTS. DeusPower lists a customer's orders by `user` = customer_id, and the only way to
+ * 🔴 WHY IT EXISTS. Militech lists a customer's orders by `user` = customer_id, and the only way to
  * learn a customer_id is to look the customer up by their email first. Without a chain the orders
  * lookup had to be TYPED by an agent who had first read the id off another card — found configuring
  * it against the real vendor on 2026-09-28.

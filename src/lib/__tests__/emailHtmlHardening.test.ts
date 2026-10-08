@@ -43,10 +43,10 @@ describe('links an email actually contains', () => {
   it('keeps mailto: and tel:, which a signature is mostly made of', () => {
     // `^https?:` stripped every one of these, so a contact block rendered as dead text.
     const out = render(
-      '<a href="mailto:natalie@prefabhome.eu">mail</a><a href="tel:+37123558987">call</a>'
+      '<a href="mailto:jane@kangtao.eu">mail</a><a href="tel:+37120000000">call</a>'
     );
-    expect(out).toContain('href="mailto:natalie@prefabhome.eu"');
-    expect(out).toContain('href="tel:+37123558987"');
+    expect(out).toContain('href="mailto:jane@kangtao.eu"');
+    expect(out).toContain('href="tel:+37120000000"');
   });
 
   it('still refuses the schemes that can execute', () => {

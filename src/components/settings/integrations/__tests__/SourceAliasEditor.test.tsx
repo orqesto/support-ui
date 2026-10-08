@@ -263,14 +263,14 @@ describe('SourceAliasEditor — when delivery data is empty', () => {
     getReceivedAddresses.mockResolvedValue({
       addresses: [],
       senderCandidates: [
-        senderRow('info@coresarms.co.uk', { conversations: 257, likelyOurs: true }),
+        senderRow('info@traumateam.co.uk', { conversations: 257, likelyOurs: true }),
         senderRow('a.customer@gmail.com', { conversations: 2 }),
       ],
       coverage: { conversations: 931, withDeliveryAddress: 0 },
     });
     renderPanel([]);
 
-    await screen.findByText('info@coresarms.co.uk');
+    await screen.findByText('info@traumateam.co.uk');
     // The flagged one leads WITHOUT expanding; the customer is behind the disclosure.
     expect(screen.queryByText('a.customer@gmail.com')).toBeNull();
     await showEverything();
@@ -282,12 +282,12 @@ describe('SourceAliasEditor — when delivery data is empty', () => {
       expect(toggle).toHaveAttribute('aria-checked', 'false');
     }
 
-    fireEvent.click(screen.getByRole('switch', { name: /info@coresarms\.co\.uk/ }));
+    fireEvent.click(screen.getByRole('switch', { name: /info@traumateam\.co\.uk/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(update).toHaveBeenCalled());
     expect(update).toHaveBeenCalledWith(7, {
       type: 'gmail',
-      config: { aliases: ['info@coresarms.co.uk'] },
+      config: { aliases: ['info@traumateam.co.uk'] },
     });
   });
 
@@ -301,12 +301,12 @@ describe('SourceAliasEditor — when delivery data is empty', () => {
 
     await screen.findByText(/No addresses suggested yet/i);
     fireEvent.change(screen.getByLabelText('Add an address by hand'), {
-      target: { value: '  INFO@Coresarms.DE  ' },
+      target: { value: '  INFO@Traumateam.DE  ' },
     });
     fireEvent.click(screen.getByRole('button', { name: /Add/ }));
 
     // Normalised, listed, and selected — typing it is an act of adoption.
-    expect(screen.getByText('info@coresarms.de')).toBeInTheDocument();
+    expect(screen.getByText('info@traumateam.de')).toBeInTheDocument();
     // Labelled by where it came from. Falling back to the generic "declared" here
     // would hide that this address has no evidence behind it at all.
     expect(screen.getByText(/added by you/i)).toBeInTheDocument();
@@ -314,7 +314,7 @@ describe('SourceAliasEditor — when delivery data is empty', () => {
     await waitFor(() => expect(update).toHaveBeenCalled());
     expect(update).toHaveBeenCalledWith(7, {
       type: 'gmail',
-      config: { aliases: ['info@coresarms.de'] },
+      config: { aliases: ['info@traumateam.de'] },
     });
   });
 
@@ -341,24 +341,24 @@ describe('SourceAliasEditor — when delivery data is empty', () => {
   it('selects rather than duplicates when the typed address is already listed', async () => {
     getReceivedAddresses.mockResolvedValue({
       addresses: [],
-      senderCandidates: [senderRow('info@coresarms.co.uk')],
+      senderCandidates: [senderRow('info@traumateam.co.uk')],
       coverage: { conversations: 931, withDeliveryAddress: 0 },
     });
     renderPanel([]);
     await showEverything();
-    await screen.findByText('info@coresarms.co.uk');
+    await screen.findByText('info@traumateam.co.uk');
 
     fireEvent.change(screen.getByLabelText('Add an address by hand'), {
-      target: { value: 'info@coresarms.co.uk' },
+      target: { value: 'info@traumateam.co.uk' },
     });
     fireEvent.click(screen.getByRole('button', { name: /Add/ }));
 
-    expect(screen.getAllByText('info@coresarms.co.uk')).toHaveLength(1);
+    expect(screen.getAllByText('info@traumateam.co.uk')).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(update).toHaveBeenCalled());
     expect(update).toHaveBeenCalledWith(7, {
       type: 'gmail',
-      config: { aliases: ['info@coresarms.co.uk'] },
+      config: { aliases: ['info@traumateam.co.uk'] },
     });
   });
 });
@@ -376,7 +376,7 @@ describe('SourceAliasEditor — what it puts in front of you', () => {
       addresses: [row('info@shop.es', { likelyOurs: true, deliveredConversations: 665 })],
       senderCandidates: [
         senderRow('messages-noreply@linkedin.com', { conversations: 273 }),
-        senderRow('reports@laima.lv', { conversations: 282 }),
+        senderRow('reports@segatari.lv', { conversations: 282 }),
       ],
       coverage: { conversations: 3022, withDeliveryAddress: 2393 },
     });
@@ -384,10 +384,10 @@ describe('SourceAliasEditor — what it puts in front of you', () => {
 
     await screen.findByText('info@shop.es');
     expect(screen.queryByText('messages-noreply@linkedin.com')).toBeNull();
-    expect(screen.queryByText('reports@laima.lv')).toBeNull();
+    expect(screen.queryByText('reports@segatari.lv')).toBeNull();
 
     // Not dropped — an UNDECLARED alias hides in requester volume, which is how the
-    // CoreSarms storefronts were found. One click away, and counted honestly.
+    // TraumaTeam storefronts were found. One click away, and counted honestly.
     await showEverything();
     expect(screen.getByText('messages-noreply@linkedin.com')).toBeInTheDocument();
   });
@@ -423,8 +423,8 @@ describe('SourceAliasEditor — search and sort', () => {
   const many = {
     addresses: [],
     senderCandidates: [
-      senderRow('info@coresarms.co.uk', { conversations: 257 }),
-      senderRow('info@coresarms.de', { conversations: 49 }),
+      senderRow('info@traumateam.co.uk', { conversations: 257 }),
+      senderRow('info@traumateam.de', { conversations: 49 }),
       senderRow('zeta@other.com', { conversations: 3 }),
       senderRow('alpha@other.com', { conversations: 1 }),
     ],
@@ -439,10 +439,10 @@ describe('SourceAliasEditor — search and sort', () => {
     await screen.findByText(/Show 4 more addresses/);
 
     fireEvent.change(screen.getByPlaceholderText('Search addresses'), {
-      target: { value: 'coresarms' },
+      target: { value: 'traumateam' },
     });
 
-    expect(await screen.findByText('info@coresarms.co.uk')).toBeInTheDocument();
+    expect(await screen.findByText('info@traumateam.co.uk')).toBeInTheDocument();
     expect(screen.queryByText('zeta@other.com')).toBeNull();
   });
 
@@ -450,11 +450,11 @@ describe('SourceAliasEditor — search and sort', () => {
     // The API replaces the alias array wholesale, so saving the filtered view would
     // silently delete every alias not matching the search box.
     getReceivedAddresses.mockResolvedValue(many);
-    renderPanel(['info@coresarms.de']);
+    renderPanel(['info@traumateam.de']);
     await showEverything();
-    await screen.findByText('info@coresarms.co.uk');
+    await screen.findByText('info@traumateam.co.uk');
 
-    fireEvent.click(screen.getByRole('switch', { name: /info@coresarms\.co\.uk/ }));
+    fireEvent.click(screen.getByRole('switch', { name: /info@traumateam\.co\.uk/ }));
     fireEvent.change(screen.getByPlaceholderText('Search addresses'), {
       target: { value: 'zeta' },
     });
@@ -463,7 +463,7 @@ describe('SourceAliasEditor — search and sort', () => {
     await waitFor(() => expect(update).toHaveBeenCalled());
     expect(update).toHaveBeenCalledWith(7, {
       type: 'gmail',
-      config: { aliases: ['info@coresarms.de', 'info@coresarms.co.uk'] },
+      config: { aliases: ['info@traumateam.de', 'info@traumateam.co.uk'] },
     });
   });
 
@@ -475,28 +475,28 @@ describe('SourceAliasEditor — search and sort', () => {
       addresses: [],
       senderCandidates: [
         senderRow('newsletter@vendor.com', { conversations: 37 }),
-        senderRow('info@coresarms.pl', { conversations: 1, likelyOurs: true }),
+        senderRow('info@traumateam.pl', { conversations: 1, likelyOurs: true }),
       ],
       coverage: { conversations: 931, withDeliveryAddress: 0 },
     });
     renderPanel([]);
-    await screen.findByText('info@coresarms.pl');
+    await screen.findByText('info@traumateam.pl');
 
     const first = screen.getAllByRole('switch')[0]?.closest('label')?.textContent ?? '';
-    expect(first).toMatch(/info@coresarms\.pl/);
+    expect(first).toMatch(/info@traumateam\.pl/);
   });
 
   it('orders by volume by default and alphabetically on request', async () => {
     getReceivedAddresses.mockResolvedValue(many);
     renderPanel([]);
     await showEverything();
-    await screen.findByText('info@coresarms.co.uk');
+    await screen.findByText('info@traumateam.co.uk');
 
     // Toggle carries its name on the wrapping <label>, not an aria-label attribute.
     const listed = () =>
       screen.getAllByRole('switch').map((node) => node.closest('label')?.textContent ?? '');
 
-    expect(listed()[0]).toMatch(/info@coresarms\.co\.uk/);
+    expect(listed()[0]).toMatch(/info@traumateam\.co\.uk/);
 
     await chooseOption(screen.getByLabelText('Sort addresses'), 'A–Z');
     expect(listed()[0]).toMatch(/alpha@other\.com/);

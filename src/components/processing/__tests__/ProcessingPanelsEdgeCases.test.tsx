@@ -6,7 +6,7 @@
  * When the processing panel shows itself (owner decisions 2026-09-27), decided from the backend's
  * RUN RECORDS by run id — never from the socket session (FE audit passes 2–4):
  * - a small routine run (< 20 found) is a count on the header indicator — no pop-up. The old
- *   widget popped for a 1-message poll (taco screenshot, 2026-09-29 17:30);
+ *   widget popped for a 1-message poll (petro screenshot, 2026-09-29 17:30);
  * - a recorded run of 20+ still running opens it; it closes itself once THAT run owes nothing;
  *   closed, that run (its KB tail, a late event) never brings it back — the next run does;
  * - a problem opens it with no live run at all and it STAYS; closing it remembers which problems

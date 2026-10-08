@@ -1,6 +1,6 @@
 /**
  * The pure rules behind merge and Reply all (owner, 2026-09-23). The fixture is prod's
- * ODL-SUP-19 + ODL-MKT-1: one person writing from `mp@deals.badideas.fund` and `mp@badideas.fund`.
+ * ODL-SUP-19 + ODL-MKT-1: one person writing from `mp@deals.lowtide.fund` and `mp@lowtide.fund`.
  */
 import { describe, expect, it } from 'vitest';
 import { defaultSurvivor } from '../MergeConfirmDialog';
@@ -23,8 +23,8 @@ describe('defaultSurvivor', () => {
 
 describe('customerDomainQuery', () => {
   it('finds BOTH addresses of the same customer', () => {
-    expect(customerDomainQuery('mp@deals.badideas.fund')).toBe('badideas.fund');
-    expect(customerDomainQuery('mp@badideas.fund')).toBe('badideas.fund');
+    expect(customerDomainQuery('mp@deals.lowtide.fund')).toBe('lowtide.fund');
+    expect(customerDomainQuery('mp@lowtide.fund')).toBe('lowtide.fund');
   });
 
   it('passes anything that is not an address through', () => {
@@ -35,23 +35,23 @@ describe('customerDomainQuery', () => {
 
 describe('replyAllDraft', () => {
   const empty = { to: '', cc: '', bcc: '' };
-  const people = ['mp@badideas.fund', 'deals@badideas.fund', 'mp@deals.badideas.fund'];
+  const people = ['mp@lowtide.fund', 'deals@lowtide.fund', 'mp@deals.lowtide.fund'];
 
   it('puts everyone except who we are answering into Cc', () => {
-    expect(replyAllDraft(empty, 'mp@badideas.fund', people).cc).toBe(
-      'deals@badideas.fund, mp@deals.badideas.fund'
+    expect(replyAllDraft(empty, 'mp@lowtide.fund', people).cc).toBe(
+      'deals@lowtide.fund, mp@deals.lowtide.fund'
     );
   });
 
   it('never adds someone already in To, Cc or Bcc — in any case', () => {
-    const draft = { to: '', cc: 'DEALS@badideas.fund', bcc: 'mp@deals.badideas.fund' };
-    expect(replyAllDraft(draft, 'mp@badideas.fund', people).cc).toBe('DEALS@badideas.fund');
+    const draft = { to: '', cc: 'DEALS@lowtide.fund', bcc: 'mp@deals.lowtide.fund' };
+    expect(replyAllDraft(draft, 'mp@lowtide.fund', people).cc).toBe('DEALS@lowtide.fund');
   });
 
   it('answers the typed To, not the default, when the agent chose one', () => {
-    const draft = { ...empty, to: 'deals@badideas.fund' };
-    expect(replyAllDraft(draft, 'mp@badideas.fund', people).cc).toBe(
-      'mp@badideas.fund, mp@deals.badideas.fund'
+    const draft = { ...empty, to: 'deals@lowtide.fund' };
+    expect(replyAllDraft(draft, 'mp@lowtide.fund', people).cc).toBe(
+      'mp@lowtide.fund, mp@deals.lowtide.fund'
     );
   });
 });

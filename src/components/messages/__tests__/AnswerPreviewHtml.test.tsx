@@ -1,5 +1,5 @@
 /**
- * ORB-SUP-1395: the KB tab's "Suggested reply" printed a past reply's source.
+ * ZET-SUP-1395: the KB tab's "Suggested reply" printed a past reply's source.
  *
  * A generated AI answer is plain text with markdown-ish syntax, so it read fine and the
  * defect stayed invisible; a PAST REPLY / KB answer is stored as the HTML it was sent as,
@@ -14,7 +14,7 @@ import { render, screen, cleanup } from '@testing-library/react';
 import { AnswerPreview } from '@/components/messages/AnswerPreview';
 import { answerToEditorHtml } from '@/components/messages/messageDetailConstants';
 
-const PAST_REPLY = "<p>Hello,</p><p>Here's the full ingredient list for Orbelli:</p>";
+const PAST_REPLY = "<p>Hello,</p><p>Here's the full ingredient list for Zetatech:</p>";
 
 afterEach(cleanup);
 

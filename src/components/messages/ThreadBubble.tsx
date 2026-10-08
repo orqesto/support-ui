@@ -84,7 +84,7 @@ export function ThreadBubble({
   // contact-form relay wraps the whole body in one), an `<img>`/`<table>` lays out at
   // its natural size. Any of those wider than the bubble used to propagate up to the
   // thread panel, whose `overflow-y-auto` implicitly makes overflow-x scrollable —
-  // the entire thread then scrolled sideways, clipping every message (ORB-SUP-1358).
+  // the entire thread then scrolled sideways, clipping every message (ZET-SUP-1358).
   // Wide tables instead scroll inside their own bubble.
   const base =
     'prose prose-sm max-w-none break-words [overflow-wrap:anywhere] [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 ' +
@@ -143,7 +143,7 @@ export function ThreadBubble({
    * layout. Only removing one change and re-measuring, on real mail in a real browser,
    * separated them — and it still only rules ONE of the three in or out.
    *
-   * `overflow-x-auto` STAYS. It is what holds the ORB-SUP-1358 line: a table genuinely wider
+   * `overflow-x-auto` STAYS. It is what holds the ZET-SUP-1358 line: a table genuinely wider
    * than the bubble scrolls inside its own container instead of propagating overflow up to the
    * thread panel. Without a floor that is now rare, but "rare" is not "never".
    */
@@ -156,7 +156,7 @@ export function ThreadBubble({
   // with `!important` because from there it is fighting an inline `style` the filter
   // deliberately preserved. ⛔ It sets NO padding, width or display on a cell, and no
   // `min-width` on a table: both re-collapse the two-column signatures, and the
-  // second one is ORB-SUP-1358 exactly. Sender GEOMETRY is untouched.
+  // second one is ZET-SUP-1358 exactly. Sender GEOMETRY is untouched.
   const emailGround =
     'email-body rounded px-3 py-2 overflow-x-auto ' +
     // `<pre>` never wraps by default and a contact-form relay wraps the ENTIRE body in one, so

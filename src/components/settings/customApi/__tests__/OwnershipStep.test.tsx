@@ -169,7 +169,7 @@ describe('⛔ a source that cannot actually confirm anything', () => {
 
 const connectionWith = (endpoints: Endpoint[]): Svc.CustomApiConnection => ({
   id: 1,
-  name: 'DeusPower',
+  name: 'Militech',
   purpose: null,
   baseUrl: 'https://shop.example/index.php',
   enabled: true,

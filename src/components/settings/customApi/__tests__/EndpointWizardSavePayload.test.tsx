@@ -39,7 +39,7 @@ vi.mock('@/hooks/useCustomApiLookup', () => ({
 
 const connection = (): Connection => ({
   id: 1,
-  name: 'DeusPower',
+  name: 'Militech',
   purpose: null,
   baseUrl: 'https://shop.example/index.php',
   enabled: true,

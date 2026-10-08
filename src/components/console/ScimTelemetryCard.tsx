@@ -81,7 +81,7 @@ export const ScimTelemetryCard = ({ telemetry }: { telemetry: AllianceScimTeleme
             <p className="text-sm text-foreground">
               {/* ⛔ This said "mapped". It counts rows in `alliance_scim_groups` — every group
                 the IdP has PUSHED — and says nothing about how many are wired to a role.
-                On taco it read "10 mapped" while exactly one was wired, so the card
+                On petro it read "10 mapped" while exactly one was wired, so the card
                 reported the wiring as finished. */}
               <strong>{telemetry.groups.total}</strong> synced from IdP
               <span className="text-muted-foreground">
@@ -154,7 +154,7 @@ export const ScimTelemetryCard = ({ telemetry }: { telemetry: AllianceScimTeleme
         {/*
         Provisioned, but reaching nothing.
 
-        This is the warning that did not exist when it was needed. `esmeralda@biaxol.com` was
+        This is the warning that did not exist when it was needed. `esmeralda@dynalar.com` was
         provisioned into this alliance on 11 Sept and landed with no workspace at all: she had
         been hard-deleted as user 10, the IdP's group still pointed at that dead id, and when
         it re-created her under a new id it never re-sent the group membership — nothing had

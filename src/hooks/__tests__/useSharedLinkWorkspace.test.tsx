@@ -44,7 +44,7 @@ beforeEach(() => {
     data: {
       status: 'found',
       organizationId: 19,
-      organizationSlug: 'orbelli-test',
+      organizationSlug: 'zetatech-test',
       publicId: 'MKT-170',
     },
   });
@@ -55,16 +55,16 @@ describe('useSharedLinkWorkspace', () => {
     renderHook(() => useSharedLinkWorkspace('ORB-MKT-170'));
 
     await waitFor(() => expect(setSelectedOrganization).toHaveBeenCalledWith(19));
-    expect(toastInfo).toHaveBeenCalledWith(expect.stringContaining('orbelli-test'));
+    expect(toastInfo).toHaveBeenCalledWith(expect.stringContaining('zetatech-test'));
   });
 
   it('names the workspace instead of failing silently when you are not a member', async () => {
-    locate.mockResolvedValue({ data: { status: 'not-a-member', organizationSlug: 'framehouse' } });
+    locate.mockResolvedValue({ data: { status: 'not-a-member', organizationSlug: 'kangtao' } });
 
-    renderHook(() => useSharedLinkWorkspace('FRA-SUP-9'));
+    renderHook(() => useSharedLinkWorkspace('KAN-SUP-9'));
 
     await waitFor(() => expect(toastError).toHaveBeenCalled());
-    expect(toastError.mock.calls[0][0]).toContain('framehouse');
+    expect(toastError.mock.calls[0][0]).toContain('kangtao');
     expect(setSelectedOrganization).not.toHaveBeenCalled();
   });
 

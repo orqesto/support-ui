@@ -147,7 +147,7 @@ export const COLUMNS: KanbanColumnDef[] = [
      * triage lanes refuse via `notKb`.
      *
      * Before this column the board COUNTED them and offered no way to open them: 114 rows
-     * on CoreSarms, of which 111 were claimed by a "1,322 from the knowledge base" chip
+     * on TraumaTeam, of which 111 were claimed by a "1,322 from the knowledge base" chip
      * whose own lens returned zero. Measured on the client deploy 2026-09-14.
      *
      * ⚠️ It can be large and it is mostly not work: 1,267 outbound echoes on one production

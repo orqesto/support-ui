@@ -1,7 +1,7 @@
 /**
  * D21 — a lookup that takes its value from ANOTHER lookup's answer, as the settings form saves it.
  *
- * 🔴 Found configuring DeusPower on 2026-09-28: its orders list takes `user` = customer_id, which
+ * 🔴 Found configuring Militech on 2026-09-28: its orders list takes `user` = customer_id, which
  * only the customer-by-email lookup returns. The form offered "email" or "typed", and held the
  * choice as a boolean — so a chained lookup opened here showed "typed" and Save rewrote it.
  *
@@ -48,7 +48,7 @@ vi.mock('@/hooks/useCustomApiLookup', () => ({
 
 const connection = (): Connection => ({
   id: 1,
-  name: 'DeusPower',
+  name: 'Militech',
   purpose: null,
   baseUrl: 'https://shop.example/index.php',
   enabled: true,

@@ -278,7 +278,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   // notifications page is 20 rows, the alert is RETIRED when the customer replies, and
   // dismissal is permanent for this kind (it carries no resurfaceDismissed). Verified, not
   // assumed — the spam kind DOES opt into resurfacing, which is why only it comes back.
-  // ⛔ `ingestion_gap` IS badged — the only kind reporting mail we do NOT have; on taco it ran
+  // ⛔ `ingestion_gap` IS badged — the only kind reporting mail we do NOT have; on petro it ran
   // fourteen hours behind `failed: 0`, and an unbadged bell reproduces exactly that.
   const badgeCount =
     sla.unreadCount +
@@ -477,7 +477,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                             ⛔ WHEN IT STARTED, not just what it said. The backend has always
                             sent `since` and the hook has always parsed it; the card threw it
                             away, so a card raised three days ago read exactly like one raised
-                            a minute ago. On taco that produced the whole confusion: a red
+                            a minute ago. On petro that produced the whole confusion: a red
                             "bedrock is not answering" beside a Test Connection that had just
                             passed, and no way to tell which was current.
                           */}

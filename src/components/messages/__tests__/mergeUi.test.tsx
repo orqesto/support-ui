@@ -33,18 +33,18 @@ const { BulkMergeDialog } = await import('../bulk/BulkMergeDialog');
 const SUP19 = {
   id: 29312,
   publicId: 'SUP-19',
-  subject: 'odly.ai + BADideas',
+  subject: 'odly.ai + LowTide',
   createdAt: '2026-08-31T07:18:23Z',
-  sender: 'mp@deals.badideas.fund',
+  sender: 'mp@deals.lowtide.fund',
   assigneeId: 7,
   assigneeName: 'Dmytro',
 };
 const MKT1 = {
   id: 30384,
   publicId: 'MKT-1',
-  subject: 'Re: odly.ai + BADideas',
+  subject: 'Re: odly.ai + LowTide',
   createdAt: '2026-09-23T12:54:03Z',
-  sender: 'mp@badideas.fund',
+  sender: 'mp@lowtide.fund',
   assigneeId: 9,
   assigneeName: 'Anna',
 };
@@ -151,7 +151,7 @@ describe('MergeConfirmDialog', () => {
 });
 
 describe('RecipientFields — Reply all', () => {
-  const people = ['mp@badideas.fund', 'deals@badideas.fund', 'mp@deals.badideas.fund'];
+  const people = ['mp@lowtide.fund', 'deals@lowtide.fund', 'mp@deals.lowtide.fund'];
 
   it('offers Reply all with the number it adds, and fills Cc with the others', () => {
     const onChange = vi.fn();
@@ -159,14 +159,14 @@ describe('RecipientFields — Reply all', () => {
       <RecipientFields
         draft={{ to: '', cc: '', bcc: '' }}
         onChange={onChange}
-        defaultTo="mp@badideas.fund"
+        defaultTo="mp@lowtide.fund"
         participants={people}
       />
     );
     fireEvent.click(screen.getByRole('button', { name: 'Reply all (+2)' }));
     expect(onChange).toHaveBeenCalledWith({
       to: '',
-      cc: 'deals@badideas.fund, mp@deals.badideas.fund',
+      cc: 'deals@lowtide.fund, mp@deals.lowtide.fund',
       bcc: '',
     });
   });
@@ -176,8 +176,8 @@ describe('RecipientFields — Reply all', () => {
       <RecipientFields
         draft={{ to: '', cc: '', bcc: '' }}
         onChange={vi.fn()}
-        defaultTo="mp@badideas.fund"
-        participants={['mp@badideas.fund']}
+        defaultTo="mp@lowtide.fund"
+        participants={['mp@lowtide.fund']}
       />
     );
     expect(screen.queryByRole('button', { name: /Reply all/ })).not.toBeInTheDocument();

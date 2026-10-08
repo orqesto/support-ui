@@ -11,7 +11,7 @@ import { showsWorkspaceBanner } from './workspaceBannerRoutes';
  * Names the workspace you are about to write to, above every screen.
  *
  * 2026-08-16: a `reply_style` activation intended for `odly` was applied to
- * **framehouse — the client** and was live ~90 seconds. Not a slip: the Prompts screen
+ * **kangtao — the client** and was live ~90 seconds. Not a slip: the Prompts screen
  * contains no reference to a workspace at all, and the only tenant control is a small
  * switcher at the far bottom-left of the sidebar, nowhere near the toggle you click.
  *

@@ -38,9 +38,9 @@ const agentReply = (over: Partial<MessageEvent>): MessageEvent =>
     type: 'agent_reply',
     content: 'here are the bank details',
     authorId: 7,
-    authorEmail: 'info@coresarms.co.uk',
-    authorName: 'Mia Taco',
-    authorUserEmail: 'mia@coresarms.co.uk',
+    authorEmail: 'info@traumateam.co.uk',
+    authorName: 'Mia Petro',
+    authorUserEmail: 'mia@traumateam.co.uk',
     channel: 'email',
     sentAt: '2026-08-18T17:50:00Z',
     createdAt: '2026-08-18T17:50:00Z',
@@ -52,32 +52,32 @@ const agentReply = (over: Partial<MessageEvent>): MessageEvent =>
 describe('ThreadMessageItem — reply authorship', () => {
   it('names the agent who sent the reply', () => {
     render(<ThreadMessageItem msg={agentReply({})} />);
-    expect(screen.getByText('Mia Taco')).toBeTruthy();
+    expect(screen.getByText('Mia Petro')).toBeTruthy();
   });
 
   it('still shows the mailbox the customer saw it come from', () => {
     // Both facts, not one replacing the other: the agent needs to know which of the
     // org's addresses the customer received this on.
     render(<ThreadMessageItem msg={agentReply({})} />);
-    expect(screen.getByText(/info@coresarms\.co\.uk/)).toBeTruthy();
+    expect(screen.getByText(/info@traumateam\.co\.uk/)).toBeTruthy();
   });
 
   it('falls back to the mailbox when no person is resolved', () => {
     // AI/automated replies and imported mail: authorId is null, so authorName is too.
     render(<ThreadMessageItem msg={agentReply({ authorId: null, authorName: null })} />);
-    expect(screen.getByText('info@coresarms.co.uk')).toBeTruthy();
-    expect(screen.queryByText('Mia Taco')).toBeNull();
+    expect(screen.getByText('info@traumateam.co.uk')).toBeTruthy();
+    expect(screen.queryByText('Mia Petro')).toBeNull();
   });
 
   it('treats a blank name as no name rather than rendering an empty author', () => {
     render(<ThreadMessageItem msg={agentReply({ authorName: '   ' })} />);
-    expect(screen.getByText('info@coresarms.co.uk')).toBeTruthy();
+    expect(screen.getByText('info@traumateam.co.uk')).toBeTruthy();
   });
 
   it('uses the person for the avatar initials once one is known', () => {
     // Initials taken from a shared mailbox are identical for every agent on it —
     // the same failure the header line fixes.
     const { container } = render(<ThreadMessageItem msg={agentReply({})} />);
-    expect(container.textContent).toContain('MT');
+    expect(container.textContent).toContain('MP');
   });
 });

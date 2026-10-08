@@ -33,7 +33,7 @@ const card = (over: Partial<CustomApiLookupResult> = {}): CustomApiLookupResult 
   ({
     endpointId: 20,
     label: 'this order',
-    connectionName: 'DeusPower',
+    connectionName: 'Militech',
     resultShape: 'one',
     status: 'ok',
     rows: [{ status: 'in_transit' }],

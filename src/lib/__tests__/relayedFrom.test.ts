@@ -14,7 +14,7 @@ const msg = (authorEmail: string | null, relayedFrom?: Record<string, unknown> |
 
 describe('bareAddress', () => {
   it('unwraps a display-name header', () => {
-    expect(bareAddress('"Orbelli (Shopify)" <mailer@shopify.com>')).toBe('mailer@shopify.com');
+    expect(bareAddress('"Zetatech (Shopify)" <mailer@shopify.com>')).toBe('mailer@shopify.com');
   });
 
   it('passes a plain address through, lowercased', () => {
@@ -31,12 +31,12 @@ describe('relayedFromLabel', () => {
   it('names the person and what the message came through', () => {
     expect(
       relayedFromLabel(
-        msg('"Orbelli (Shopify)" <mailer@shopify.com>', {
-          email: 'safina.pathaan@gmail.com',
-          name: 'safina patha',
+        msg('"Zetatech (Shopify)" <mailer@shopify.com>', {
+          email: 'sam.taylor@gmail.com',
+          name: 'sam taylo',
         })
       )
-    ).toEqual({ email: 'safina.pathaan@gmail.com', name: 'safina patha', via: 'mailer@shopify.com' });
+    ).toEqual({ email: 'sam.taylor@gmail.com', name: 'sam taylo', via: 'mailer@shopify.com' });
   });
 
   it('reports no name rather than an empty one', () => {

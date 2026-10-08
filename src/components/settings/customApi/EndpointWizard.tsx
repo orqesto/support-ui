@@ -44,7 +44,7 @@ import { useInvalidateCustomApiAvailability } from '@/hooks/useCustomApiLookup';
  * who never opens them still has something that works.
  *
  * A PAGE, not a dialog (2026-09-29). Every picked field grows its own row of settings, so on a
- * real vendor (DeusPower's customer record) the dialog became a long inner scroll with Save far
+ * real vendor (Militech's customer record) the dialog became a long inner scroll with Save far
  * from the field being edited. The page puts "where to look" beside "what agents see", keeps
  * Save pinned, and gives the editor a URL. The logic and both write payloads are unchanged.
  */
@@ -606,7 +606,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
                     {/*
                      * ⛔ D39: the second route to the same tree. An admin whose system is behind a
                      * VPN, IP-allowlisted, or on a tunnel that has died can still get there — and
-                     * DeusPower is reached through tunnels that die. Making the live call the only
+                     * Militech is reached through tunnels that die. Making the live call the only
                      * way blocks them with nothing to do but call us.
                      */}
                     {/*

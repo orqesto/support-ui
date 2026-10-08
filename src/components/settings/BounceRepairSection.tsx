@@ -16,7 +16,7 @@ import { useAuthStore } from '@/stores/authStore';
  *
  * Before 2026-10-07 a bounce that joined a thread changed it: it made our own sent copy a live
  * "customer replied" ticket with the mail system as the customer, those tickets were then merged
- * together (taco DeusPower: 237 buyers in one ticket), and a message saved during such a merge was
+ * together (petro Militech: 237 buyers in one ticket), and a message saved during such a merge was
  * left where nobody could see it. This undoes that, in the workspace selected above.
  *
  * ⛔ Every write is two steps: a check that changes nothing, then a confirm that names what it

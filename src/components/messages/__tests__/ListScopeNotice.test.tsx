@@ -16,8 +16,8 @@ afterEach(cleanup);
  */
 const openMenu = () => fireEvent.click(screen.getByRole('button', { name: /Not shown/ }));
 
-/** The real framehouse shape: 5 shown, 3,009 hidden, categories that overlap. */
-const framehouse: ListScope = {
+/** The real kangtao shape: 5 shown, 3,009 hidden, categories that overlap. */
+const kangtao: ListScope = {
   withoutLens: 3014,
   hidden: 3009,
   hiddenBecause: {
@@ -35,7 +35,7 @@ const framehouse: ListScope = {
 
 describe('ListScopeNotice', () => {
   it('says how many of the total the list is actually showing', () => {
-    render(<ListScopeNotice scope={framehouse} shown={5} onJump={vi.fn()} />);
+    render(<ListScopeNotice scope={kangtao} shown={5} onJump={vi.fn()} />);
     const notice = screen.getByTestId('list-scope-notice');
     expect(notice.textContent).toContain('5');
     expect(notice.textContent).toContain('3,014');
@@ -51,7 +51,7 @@ describe('ListScopeNotice', () => {
   });
 
   it('stays silent when the list really is everything', () => {
-    const nothingHidden: ListScope = { ...framehouse, hidden: 0, withoutLens: 5 };
+    const nothingHidden: ListScope = { ...kangtao, hidden: 0, withoutLens: 5 };
     const { container } = render(
       <ListScopeNotice scope={nothingHidden} shown={5} onJump={vi.fn()} />
     );
@@ -62,12 +62,12 @@ describe('ListScopeNotice', () => {
     // 2935 + 2952 + 40 + 17 + 12 + 5 = 5,961 against 3,009 hidden rows, because a
     // resolved thread mined from the KB is counted under both. A component that
     // summed them would render a number larger than the set it describes.
-    render(<ListScopeNotice scope={framehouse} shown={5} onJump={vi.fn()} />);
+    render(<ListScopeNotice scope={kangtao} shown={5} onJump={vi.fn()} />);
     expect(screen.getByTestId('list-scope-notice').textContent).not.toContain('5,961');
   });
 
   it('omits reasons with no rows rather than listing zeros', () => {
-    render(<ListScopeNotice scope={framehouse} shown={5} onJump={vi.fn()} />);
+    render(<ListScopeNotice scope={kangtao} shown={5} onJump={vi.fn()} />);
     openMenu();
     const text = screen.getByTestId('list-scope-notice').textContent ?? '';
     // Control: the element has text at all, so the not.toContain assertions mean something.
@@ -80,7 +80,7 @@ describe('ListScopeNotice', () => {
     // Each chip must land on the queue the backend counted, or the number is a
     // promise the click cannot keep.
     const onJump = vi.fn();
-    render(<ListScopeNotice scope={framehouse} shown={5} onJump={onJump} />);
+    render(<ListScopeNotice scope={kangtao} shown={5} onJump={onJump} />);
 
     // The trailing `undefined` is the `needsListView` flag: these categories DO have a
     // kanban column, so the jump must not also throw the user off the board.
@@ -96,14 +96,14 @@ describe('ListScopeNotice', () => {
   });
 
   it('anchors the panel to the edge its trigger sits on, so it cannot open off-screen', () => {
-    // Measured on live taco at 2560px: the trigger ended at x=2504 and the 290px panel ran
+    // Measured on live petro at 2560px: the trigger ended at x=2504 and the 290px panel ran
     // to x=2663 — 103px past the viewport, and worse the narrower the window. `left-0` pins
     // the panel's LEFT edge to the trigger's left, but the list pushes that trigger to the
     // far right with `ml-auto`, so there is nothing to grow into.
     //
     // jsdom does no layout, so this asserts the anchoring SIDE rather than pixels — the
     // thing that was wrong. The pixel claim above came from the browser, not from here.
-    const { unmount } = render(<ListScopeNotice scope={framehouse} shown={5} onJump={vi.fn()} />);
+    const { unmount } = render(<ListScopeNotice scope={kangtao} shown={5} onJump={vi.fn()} />);
     openMenu();
     expect(screen.getByRole('menu')).toHaveClass('right-0');
     expect(screen.getByRole('menu')).not.toHaveClass('left-0');
@@ -123,8 +123,8 @@ describe('ListScopeNotice', () => {
    */
   it('offers to clear the view for rows no single lens holds', () => {
     const withOther: ListScope = {
-      ...framehouse,
-      hiddenBecause: { ...framehouse.hiddenBecause, other: 3 },
+      ...kangtao,
+      hiddenBecause: { ...kangtao.hiddenBecause, other: 3 },
     };
     const onJump = vi.fn();
     render(<ListScopeNotice scope={withOther} shown={5} onJump={onJump} lensActive />);
@@ -146,8 +146,8 @@ describe('ListScopeNotice', () => {
     // the same group made the menu read as a decomposition and the counts as broken
     // arithmetic — the bug the wording above it was written to prevent.
     const withOther: ListScope = {
-      ...framehouse,
-      hiddenBecause: { ...framehouse.hiddenBecause, other: 3 },
+      ...kangtao,
+      hiddenBecause: { ...kangtao.hiddenBecause, other: 3 },
     };
     render(<ListScopeNotice scope={withOther} shown={5} onJump={vi.fn()} lensActive />);
     openMenu();
@@ -164,8 +164,8 @@ describe('ListScopeNotice', () => {
      * visibly does nothing. The count stays; the promise goes.
      */
     const withOther: ListScope = {
-      ...framehouse,
-      hiddenBecause: { ...framehouse.hiddenBecause, other: 3 },
+      ...kangtao,
+      hiddenBecause: { ...kangtao.hiddenBecause, other: 3 },
     };
     render(<ListScopeNotice scope={withOther} shown={5} onJump={vi.fn()} lensActive={false} />);
     openMenu();
@@ -180,8 +180,8 @@ describe('ListScopeNotice', () => {
     // existed they fell into `other` and rendered as an unclickable number — counted by
     // the product and reachable from nowhere in it.
     const withEchoes: ListScope = {
-      ...framehouse,
-      hiddenBecause: { ...framehouse.hiddenBecause, orphanOutgoing: 3 },
+      ...kangtao,
+      hiddenBecause: { ...kangtao.hiddenBecause, orphanOutgoing: 3 },
     };
     const onJump = vi.fn();
     render(<ListScopeNotice scope={withEchoes} shown={5} onJump={onJump} surface="board" />);
@@ -199,7 +199,7 @@ describe('ListScopeNotice', () => {
     // An older backend does not send `orphanOutgoing` at all. `?? 0` here would be the
     // start of rendering "0 outbound echoes" as a fact about a deployment that never
     // counted them.
-    render(<ListScopeNotice scope={framehouse} shown={5} onJump={vi.fn()} />);
+    render(<ListScopeNotice scope={kangtao} shown={5} onJump={vi.fn()} />);
     openMenu();
     const text = screen.getByTestId('list-scope-notice').textContent ?? '';
     expect(text).toContain('3,009 hidden'); // control
@@ -210,7 +210,7 @@ describe('ListScopeNotice', () => {
     // Was: asserted the board said "not shown on this board". That wording is gone, and
     // the reason it is gone matters more than the phrase — see the block below.
     const text =
-      render(<ListScopeNotice scope={framehouse} shown={5} onJump={vi.fn()} surface="board" />) &&
+      render(<ListScopeNotice scope={kangtao} shown={5} onJump={vi.fn()} surface="board" />) &&
       (screen.getByTestId('list-scope-notice').textContent ?? '');
     expect(text).toContain('has a lane for');
     expect(text).not.toContain('Showing');
@@ -420,14 +420,14 @@ describe('a chip is a destination, not a share of the hidden count', () => {
   });
 
   /**
-   * taco CoreSarms, 2026-09-18: the list hides Suspicious and Spam by default, and the menu
+   * petro TraumaTeam, 2026-09-18: the list hides Suspicious and Spam by default, and the menu
    * showed "suspicious 33" with nothing saying any of it was NEW — the board badges its
    * columns with the unread arrival counts, the list said nothing.
    */
   describe('unread arrivals in hidden queues', () => {
     const withSuspicious: ListScope = {
-      ...framehouse,
-      hiddenBecause: { ...framehouse.hiddenBecause, suspicious: 33 },
+      ...kangtao,
+      hiddenBecause: { ...kangtao.hiddenBecause, suspicious: 33 },
     };
 
     it('says how many are new, on the trigger and on the queue row', () => {
@@ -465,11 +465,11 @@ describe('a chip is a destination, not a share of the hidden count', () => {
     });
 
     it('does not count arrivals for a queue the menu does not offer', () => {
-      // framehouse has suspicious: 0, so there is no Suspicious row to open — its arrivals
+      // kangtao has suspicious: 0, so there is no Suspicious row to open — its arrivals
       // must not inflate the trigger, or the badge points nowhere.
       render(
         <ListScopeNotice
-          scope={framehouse}
+          scope={kangtao}
           shown={5}
           onJump={vi.fn()}
           arrivals={{ suspicious: 4, spam: 2 }}

@@ -28,7 +28,7 @@ afterEach(() => {
 const row = (): MessageThread =>
   ({
     threadId: 'conv_7',
-    publicId: 'COR-SUP-7',
+    publicId: 'TRA-SUP-7',
     sender: 'a@b.example',
     subject: 'Refund?',
     status: 'open',

@@ -70,7 +70,7 @@ describe('useUnansweredOutboundAlerts', () => {
   });
 
   it('asks for its own kinds, so a busy workspace cannot push them past the 20-row cap', async () => {
-    // MEASURED on the taco client box, 2026-09-10, v1.1.268. CoreSarms holds 165
+    // MEASURED on the petro client box, 2026-09-10, v1.1.268. TraumaTeam holds 165
     // notifications and `GET /api/notifications` serves the newest 20 across ALL kinds with
     // `hasMore: true`. The three one-sided alerts raised at 12:03Z sat at positions 2-4 of
     // that window, and a new SLA breach landed at 12:38Z. Once ~17 more arrive the outbound

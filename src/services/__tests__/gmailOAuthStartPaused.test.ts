@@ -11,7 +11,7 @@ const { gmailOAuthService } = await import('@/services/gmail-oauth.service');
  * The REDIRECT flow (popup blocked) crosses a full page load: the connect settings are stashed
  * in sessionStorage and replayed to the callback on the way back. A field that is not replayed
  * is silently dropped — and a dropped `startPaused` means the new Gmail source syncs at once,
- * before its count was seen (taco, 2026-09-16).
+ * before its count was seen (petro, 2026-09-16).
  */
 describe('Gmail redirect flow replays startPaused', () => {
   beforeEach(() => {

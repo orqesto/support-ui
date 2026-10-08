@@ -120,7 +120,7 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
       // a mailbox added with the KB box ticked disappeared behind "No … accounts configured"
       // the moment it was created, while the row header (isConnectedChannel) said "1 connected".
       // #260 fixed that for IMAP only; Gmail kept it until 2026-09-18 (prod test-workspace:
-      // usetixly@gmail.com, KB-marked, listed in Settings, "No Gmail accounts connected" in the
+      // streamline@gmail.com, KB-marked, listed in Settings, "No Gmail accounts connected" in the
       // wizard). The prop's other jobs are unchanged: `undefined` already falls back to a
       // non-KB create form and the plain heading.
       case 'gmail':

@@ -121,7 +121,7 @@ describe('useAiProviderAlerts', () => {
    * ⛔ The END of an outage is an event too. The backend deletes the row the moment the
    * provider answers again; listening only for `notification:new` left a fixed provider's red
    * card on screen until the admin happened to reload — a smaller copy of the staleness this
-   * alert exists to report. Observed on taco 2026-09-03 as a red "bedrock is not answering"
+   * alert exists to report. Observed on petro 2026-09-03 as a red "bedrock is not answering"
    * beside a Test Connection that had just passed.
    */
   it('refetches when the backend says an alert was resolved', async () => {
@@ -160,7 +160,7 @@ describe('useAiProviderAlerts', () => {
     renderHook(() => useAiProviderAlerts());
     await waitFor(() => expect(get).toHaveBeenCalled());
     // `GET /api/notifications` serves the newest 20 rows across ALL kinds. Measured on the
-    // taco client box 2026-09-10 at 13:30Z: CoreSarms held 165 notifications and the newest
+    // petro client box 2026-09-10 at 13:30Z: TraumaTeam held 165 notifications and the newest
     // 20 spanned ~28 h, so an alert of this kind is pushed out of the payload in about a day
     // and then renders nowhere.
     //

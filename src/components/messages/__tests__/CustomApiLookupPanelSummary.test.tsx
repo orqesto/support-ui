@@ -40,7 +40,7 @@ const card = (over: Partial<CustomApiLookupResult> = {}): CustomApiLookupResult 
   ({
     endpointId: 20,
     label: 'this order',
-    connectionName: 'DeusPower',
+    connectionName: 'Militech',
     resultShape: 'one',
     status: 'ok',
     rows: [{ order_id: '137416', total: '348.50', total__currency: 'EUR' }],
@@ -209,7 +209,7 @@ describe('v4 summary row — how the press went, counted by outcome (P5)', () =>
     ]);
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
-    expect(await screen.findByText('DeusPower · 2 of 14')).toBeTruthy();
+    expect(await screen.findByText('Militech · 2 of 14')).toBeTruthy();
   });
 
   it('CONTROL: a complete result carries the row count alone — "of" only when rows were cut', async () => {
@@ -228,7 +228,7 @@ describe('v4 summary row — how the press went, counted by outcome (P5)', () =>
     ]);
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
-    expect(await screen.findByText('DeusPower · 2')).toBeTruthy();
+    expect(await screen.findByText('Militech · 2')).toBeTruthy();
     // No total at all: the count, with no "of" invented.
     expect(screen.getByText('Shopify · 1')).toBeTruthy();
     expect(screen.queryByText(/ of /)).toBeNull();

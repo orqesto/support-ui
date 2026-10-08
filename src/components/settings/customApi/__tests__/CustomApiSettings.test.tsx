@@ -43,7 +43,7 @@ const endpoint = (over: Partial<Connection['endpoints'][number]> = {}) =>
 const connection = (over: Partial<Connection> = {}) =>
   ({
     id: 1,
-    name: 'DeusPower',
+    name: 'Militech',
     baseUrl: 'https://shop.example/index.php',
     enabled: true,
     hasCredential: true,
@@ -96,7 +96,7 @@ describe('the vendor list', () => {
     list.mockResolvedValue([connection()]);
     const { container } = render(<CustomApiSettings canManageVendors />);
 
-    expect(await screen.findByText('DeusPower')).toBeTruthy();
+    expect(await screen.findByText('Militech')).toBeTruthy();
     expect(screen.getByText(/API key set/i)).toBeTruthy();
     expect(container.textContent).not.toMatch(/•{3,}|\*{3,}/);
   });
@@ -112,7 +112,7 @@ describe('the vendor list', () => {
     ]);
     render(<CustomApiSettings canManageVendors />);
 
-    await screen.findByText('DeusPower');
+    await screen.findByText('Militech');
     expect(screen.getAllByText('Off').length).toBeGreaterThan(0);
     expect(screen.queryByText('Ready')).toBeNull();
   });
@@ -260,7 +260,7 @@ describe('removing what you connected', () => {
     // ⛔ The sentence must say what is destroyed. "Are you sure?" leaves an admin to find out
     // afterwards that the lookups and the stored key went too.
     expect(screen.getByText(/Its 2 lookups and its stored key go with it/i)).toBeTruthy();
-    expect(screen.getByText(/Nothing is deleted in DeusPower itself/i)).toBeTruthy();
+    expect(screen.getByText(/Nothing is deleted in Militech itself/i)).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Disconnect it' }));
     await waitFor(() => expect(remove).toHaveBeenCalledWith(1));
@@ -345,7 +345,7 @@ describe('removing what you connected', () => {
      */
     const user = await userEvent();
     list.mockResolvedValue([
-      connection({ id: 1, name: 'DeusPower', endpoints: [] }),
+      connection({ id: 1, name: 'Militech', endpoints: [] }),
       connection({ id: 2, name: 'Other vendor', endpoints: [] }),
     ]);
     remove.mockImplementation(() => new Promise<void>(() => {}));

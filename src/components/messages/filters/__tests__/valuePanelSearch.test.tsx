@@ -26,8 +26,8 @@ const alias = (address: string, ours = false, hint?: string) => ({
 });
 
 const MANY = [
-  alias('info@coresarms.co.uk', true, '257 · confirmed'),
-  alias('info@coresarms.de', true, '49 · confirmed'),
+  alias('info@traumateam.co.uk', true, '257 · confirmed'),
+  alias('info@traumateam.de', true, '49 · confirmed'),
   ...Array.from({ length: 10 }, (_, index) => alias(`customer${index}@example.com`, false, '1')),
 ];
 
@@ -54,8 +54,8 @@ describe('value panel search', () => {
 
   it('narrows the list to what was typed', () => {
     open();
-    fireEvent.change(screen.getByLabelText('Search Delivered to'), { target: { value: 'coresarms' } });
-    expect(screen.getByText('info@coresarms.co.uk')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Search Delivered to'), { target: { value: 'traumateam' } });
+    expect(screen.getByText('info@traumateam.co.uk')).toBeTruthy();
     expect(screen.queryByText('customer0@example.com')).toBeNull();
   });
 
@@ -63,8 +63,8 @@ describe('value panel search', () => {
     // Someone hunting an alias types the domain, not the local part.
     open();
     fireEvent.change(screen.getByLabelText('Search Delivered to'), { target: { value: '.de' } });
-    expect(screen.getByText('info@coresarms.de')).toBeTruthy();
-    expect(screen.queryByText('info@coresarms.co.uk')).toBeNull();
+    expect(screen.getByText('info@traumateam.de')).toBeTruthy();
+    expect(screen.queryByText('info@traumateam.co.uk')).toBeNull();
   });
 
   it('says so when nothing matches, rather than showing an empty panel', () => {
@@ -81,7 +81,7 @@ describe('value panel search', () => {
   });
 
   it('does NOT offer search on a short list', () => {
-    open([alias('info@coresarms.co.uk', true), alias('info@coresarms.de', true)]);
+    open([alias('info@traumateam.co.uk', true), alias('info@traumateam.de', true)]);
     expect(screen.queryByLabelText('Search Delivered to')).toBeNull();
   });
 });

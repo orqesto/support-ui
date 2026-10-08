@@ -166,7 +166,7 @@ describe('confirming a spam thread', () => {
  * The lane flag (support-service #799) replaces the frozen-copy guess.
  *
  * `metadata.spamCheck` is frozen at thread creation; the lane resolves the newest inbound event.
- * Three live CoreSarms threads differed between the two in 2026-09, one a customer asking about
+ * Three live TraumaTeam threads differed between the two in 2026-09, one a customer asking about
  * an order — and for those the confirm button simply was not there, in the very queue that
  * contains them.
  */

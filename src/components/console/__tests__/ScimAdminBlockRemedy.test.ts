@@ -19,12 +19,12 @@ const event = (over: Partial<AllianceScimEvent> = {}): AllianceScimEvent =>
     actorTokenId: null,
     actorUserId: null,
     targetUserId: 4,
-    targetEmail: 'smith@taconet.info',
+    targetEmail: 'smith@petronet.info',
     idpGroupExternalId: null,
     beforeRole: null,
     afterRole: null,
     outcome: 'rejected',
-    detail: { reason: 'smith@taconet.info is a platform administrator in Odly, and SCIM never…' },
+    detail: { reason: 'smith@petronet.info is a platform administrator in Odly, and SCIM never…' },
     createdAt: '2026-09-03T05:56:46.352Z',
     ...over,
   }) as AllianceScimEvent;
@@ -33,7 +33,7 @@ describe('the platform-admin remedy', () => {
   it('offers the remedy on the refusal a role change actually resolves', () => {
     expect(platformAdminBlock(event())).toEqual({
       userId: 4,
-      email: 'smith@taconet.info',
+      email: 'smith@petronet.info',
     });
   });
 
@@ -60,7 +60,7 @@ describe('the platform-admin remedy', () => {
 
   /**
    * Rejection rows recorded before support-service#642 carry `targetUserId: null` — every row
-   * on taco older than today does. A remedy cannot name an account it does not have, so those
+   * on petro older than today does. A remedy cannot name an account it does not have, so those
    * rows get no button rather than a broken one.
    */
   it('offers nothing when the row cannot name the account', () => {

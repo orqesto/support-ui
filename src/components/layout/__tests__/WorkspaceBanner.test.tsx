@@ -1,6 +1,6 @@
 /**
  * 2026-08-16, production: a `reply_style` activation meant for `odly` landed on
- * **framehouse — the client** and stood for ~90 seconds. The screen offered nothing to
+ * **kangtao — the client** and stood for ~90 seconds. The screen offered nothing to
  * check against; the only tenant control is a switcher at the far bottom-left of the sidebar.
  *
  * The banner is mounted by the Layout, not by the 52 screens that write per-org rows, so
@@ -44,18 +44,18 @@ const renderBanner = (path = '/settings') =>
 beforeEach(() => {
   role = 'admin';
   getCurrent.mockReset();
-  getCurrent.mockResolvedValue({ id: 4, name: 'framehouse', code: 'FRM' });
+  getCurrent.mockResolvedValue({ id: 4, name: 'kangtao', code: 'KGT' });
   myOrganizations.mockReset();
-  myOrganizations.mockResolvedValue([{ id: 4, name: 'framehouse', slug: 'framehouse' }]);
+  myOrganizations.mockResolvedValue([{ id: 4, name: 'kangtao', slug: 'kangtao' }]);
 });
 afterEach(cleanup);
 
 describe('the workspace banner', () => {
   it('names the workspace whose rows the next click will write', async () => {
     renderBanner();
-    expect(await screen.findByText('framehouse')).toBeInTheDocument();
+    expect(await screen.findByText('kangtao')).toBeInTheDocument();
     expect(screen.getByText(/You are editing/)).toBeInTheDocument();
-    expect(screen.getByText('(FRM)')).toBeInTheDocument();
+    expect(screen.getByText('(KGT)')).toBeInTheDocument();
   });
 
   it('says so rather than guessing when the workspace has not resolved', async () => {
@@ -63,7 +63,7 @@ describe('the workspace banner', () => {
     renderBanner();
     expect(await screen.findByText('an unidentified workspace')).toBeInTheDocument();
     // A wrong name is worse than no name — nothing may be invented here.
-    expect(screen.queryByText('framehouse')).not.toBeInTheDocument();
+    expect(screen.queryByText('kangtao')).not.toBeInTheDocument();
   });
 
   it('stays out of the way of users who cannot switch workspaces', async () => {
@@ -78,12 +78,12 @@ describe('the workspace banner', () => {
     // anyone with two memberships. This user could switch and write with no banner.
     role = 'agent';
     myOrganizations.mockResolvedValue([
-      { id: 4, name: 'framehouse', slug: 'framehouse' },
+      { id: 4, name: 'kangtao', slug: 'kangtao' },
       { id: 5, name: 'odly', slug: 'odly' },
     ]);
     renderBanner();
     expect(await screen.findByTestId('workspace-banner')).toBeInTheDocument();
-    expect(await screen.findByText('framehouse')).toBeInTheDocument();
+    expect(await screen.findByText('kangtao')).toBeInTheDocument();
   });
 
   // Owner, 2026-09-22: settings screens only. The work surfaces show whose data they are.

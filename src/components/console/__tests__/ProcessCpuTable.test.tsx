@@ -1,5 +1,5 @@
 /**
- * S3: the console names the processes using the container's CPU. Taco read 97% with the backend
+ * S3: the console names the processes using the container's CPU. Petro read 97% with the backend
  * at 8–14%; the rest had no name on this page.
  */
 import { render, screen } from '@testing-library/react';

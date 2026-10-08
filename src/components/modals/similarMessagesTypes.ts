@@ -15,9 +15,8 @@ export type SimilarMessage = {
    * customer — i.e. the source carried no `answer` and the chunk's own body was used.
    *
    * ⛔ This is a safety flag, not a formatting hint. Documentation chunks are written for
-   * US: orbelli's top-ranked chunk on prod (0.91 "Very Similar") opens with
-   * "OPEN COMPLIANCE ITEM — escalate, do not improvise … escalate immediately to
-   * info@orbelli.com … Owner: marketing + compliance". Inserting that into a reply puts
+   * US: a customer's top-ranked chunk on prod (0.91 "Very Similar") was an internal note
+   * telling agents not to answer and whom to hand the case to. Inserting that into a reply puts
    * internal escalation instructions in front of a customer, and until this flag existed
    * the UI offered it under the same "Use This Answer" button as a written reply.
    */

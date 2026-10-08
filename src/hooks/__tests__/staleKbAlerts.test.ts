@@ -146,7 +146,7 @@ describe('useStaleKbAlerts', () => {
     renderHook(() => useStaleKbAlerts());
     await waitFor(() => expect(get).toHaveBeenCalled());
     // `GET /api/notifications` serves the newest 20 rows across ALL kinds. Measured on the
-    // taco client box 2026-09-10 at 13:30Z: CoreSarms held 165 notifications and the newest
+    // petro client box 2026-09-10 at 13:30Z: TraumaTeam held 165 notifications and the newest
     // 20 spanned ~28 h, so an alert of this kind is pushed out of the payload in about a day
     // and then renders nowhere.
     //

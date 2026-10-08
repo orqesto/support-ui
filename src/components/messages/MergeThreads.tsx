@@ -37,7 +37,7 @@ import {
 import { channelInSentence } from './messageDetailConstants';
 
 /**
- * The customer's organisation, as a search: `mp@deals.badideas.fund` → `badideas.fund`.
+ * The customer's organisation, as a search: `mp@deals.lowtide.fund` → `lowtide.fund`.
  *
  * Why not the address itself: the case this exists for (ODL-SUP-19 + ODL-MKT-1, 2026-09-23) is
  * one person writing from TWO addresses, and a search on either misses the other. The last two

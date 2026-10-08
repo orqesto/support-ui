@@ -17,7 +17,7 @@ const SectionLabel = ({ children }: { children: React.ReactNode }) => <div>{chil
 const alert = (over: Partial<IngestionDarkAlert> = {}): IngestionDarkAlert => ({
   id: 1,
   messageSourceId: 34,
-  mailbox: 'Gmail-info@coresarms.info',
+  mailbox: 'Gmail-info@traumateam.info',
   minutesSince: 68,
   neverPolled: false,
   locked: false,
@@ -77,8 +77,8 @@ describe('IngestionDarkSection', () => {
   });
 
   it('names the mailbox, so an operator knows WHICH one', () => {
-    renderSection([alert({ mailbox: 'Gmail-orders@deuspower.info' })]);
+    renderSection([alert({ mailbox: 'Gmail-orders@militech.info' })]);
 
-    expect(screen.getByText('Gmail-orders@deuspower.info')).toBeInTheDocument();
+    expect(screen.getByText('Gmail-orders@militech.info')).toBeInTheDocument();
   });
 });

@@ -31,22 +31,22 @@ describe('the Effective roles column', () => {
   it('does NOT show a dash when access was revoked — that is the whole point', () => {
     const summary = accessSummary({
       effectiveRoles: [],
-      revokedRoles: [role(3, 'Orbelli', 'moderator')],
+      revokedRoles: [role(3, 'Zetatech', 'moderator')],
     });
 
     expect(summary.neverHadAccess).toBe(false);
     expect(summary.revoked).toHaveLength(1);
-    expect(summary.revoked[0].orgName).toBe('Orbelli');
+    expect(summary.revoked[0].orgName).toBe('Zetatech');
   });
 
   it('keeps granted and revoked apart when a member holds one and lost the other', () => {
     const summary = accessSummary({
-      effectiveRoles: [role(4, 'CoreSarms')],
-      revokedRoles: [role(3, 'Orbelli', 'moderator')],
+      effectiveRoles: [role(4, 'TraumaTeam')],
+      revokedRoles: [role(3, 'Zetatech', 'moderator')],
     });
 
-    expect(summary.granted.map((entry) => entry.orgName)).toEqual(['CoreSarms']);
-    expect(summary.revoked.map((entry) => entry.orgName)).toEqual(['Orbelli']);
+    expect(summary.granted.map((entry) => entry.orgName)).toEqual(['TraumaTeam']);
+    expect(summary.revoked.map((entry) => entry.orgName)).toEqual(['Zetatech']);
     expect(summary.neverHadAccess).toBe(false);
   });
 
@@ -55,7 +55,7 @@ describe('the Effective roles column', () => {
    * exactly as it does today, never a phantom "revoked".
    */
   it('treats a backend that does not send revokedRoles as "nothing revoked"', () => {
-    const summary = accessSummary({ effectiveRoles: [role(4, 'CoreSarms')] });
+    const summary = accessSummary({ effectiveRoles: [role(4, 'TraumaTeam')] });
 
     expect(summary.revoked).toEqual([]);
     expect(summary.neverHadAccess).toBe(false);
@@ -67,7 +67,7 @@ describe('the Effective roles column', () => {
 
 /**
  * Reported 2026-09-09: the workspace Users page showed alice, mia and stella as "Workspace
- * Administrator · IdP-managed" while their group (SSO - Odly - Orbelli - Moderator) maps to
+ * Administrator · IdP-managed" while their group (SSO - Odly - Zetatech - Moderator) maps to
  * Moderator. That is not a sync failure — all three were made admins by hand in July, and the
  * reconciler resolves highest-wins over (direct grant, group target), so `org_admin` beats
  * `moderator` and stays.
@@ -78,7 +78,7 @@ describe('the Effective roles column', () => {
 describe('why a membership diverges from its IdP group', () => {
   const withDirect = (role: string, directRole: string | null): EffectiveRole => ({
     orgId: 3,
-    orgName: 'Orbelli',
+    orgName: 'Zetatech',
     role,
     directRole,
   });
@@ -100,7 +100,7 @@ describe('why a membership diverges from its IdP group', () => {
   });
 
   it('flags customised permissions, and separates "not recorded" from "nobody"', () => {
-    const base: EffectiveRole = { orgId: 3, orgName: 'Orbelli', role: 'moderator' };
+    const base: EffectiveRole = { orgId: 3, orgName: 'Zetatech', role: 'moderator' };
 
     expect(roleDivergence(base).hasOverrides).toBe(false);
 
@@ -157,7 +157,7 @@ describe('the Effective roles column shows roles, not restore values', () => {
     // verbatim when the IdP stops naming a member.
     const row: EffectiveRole = {
       orgId: 3,
-      orgName: 'Orbelli',
+      orgName: 'Zetatech',
       role: 'moderator',
       directRole: 'org_admin',
     };

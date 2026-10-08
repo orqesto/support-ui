@@ -205,7 +205,7 @@ export const RunDetails = ({
   resumeWay?: ResumeWay;
   /**
    * The run is the mailbox's newest. The panel keeps detailing the run it opened for; once newer
-   * checks ran, "Last check" under them was untrue (taco 2026-10-05: "Last check 10:55" above
+   * checks ran, "Last check" under them was untrue (petro 2026-10-05: "Last check 10:55" above
    * checks at 12:06, 12:21 and 12:26).
    */
   newest?: boolean;

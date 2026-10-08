@@ -403,7 +403,7 @@ describe('ThreadBubble plain-text branch', () => {
   });
 });
 
-describe('ThreadBubble wide-content containment (ORB-SUP-1358)', () => {
+describe('ThreadBubble wide-content containment (ZET-SUP-1358)', () => {
   // The typography plugin is not installed, so `prose` is inert and these arbitrary
   // variants are the ONLY thing stopping browser defaults: an unwrapped <pre> (how a
   // Shopify contact-form relay ships the body) or a natural-width <img>/<table> used
@@ -434,7 +434,7 @@ describe('ThreadBubble wide-content containment (ORB-SUP-1358)', () => {
     /**
      * ⚠️ The containment MECHANISM changed on 2026-09-19 and the guarantee did not.
      *
-     * ORB-SUP-1358 is that a table wider than the bubble propagates overflow up to the thread
+     * ZET-SUP-1358 is that a table wider than the bubble propagates overflow up to the thread
      * panel, whose `overflow-y-auto` makes overflow-x scrollable too, and the whole thread then
      * scrolls sideways. The old fix was `[&_table]:block` + `[&_table]:max-w-full` — which
      * contained the overflow by DESTROYING table layout, and that is what flattened every

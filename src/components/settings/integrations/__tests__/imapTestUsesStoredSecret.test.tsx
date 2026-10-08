@@ -27,15 +27,15 @@ const MASKED = 'tjdf••••••••dGTc';
 
 const integration = {
   id: 12,
-  name: 'Email-natalie.antonenko@prefabhome.eu',
+  name: 'Email-jane.roe@kangtao.eu',
   type: 'email' as const,
   enabled: true,
   isKnowledgeBase: false,
   config: {
     email: {
-      host: 'mail.frame-house.eu',
+      host: 'mail.kangtaohost.eu',
       port: 993,
-      user: 'natalie.antonenko@prefabhome.eu',
+      user: 'jane.roe@kangtao.eu',
       password: MASKED,
       secure: true,
     },

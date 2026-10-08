@@ -40,7 +40,7 @@ const ROW = {
   status__label: 'On its way',
   placed: '2026-09-01',
   total: 348.5,
-  email: 'sergio@deuspower.org',
+  email: 'rico@militech.org',
   note: 'Leave with the neighbour',
 };
 

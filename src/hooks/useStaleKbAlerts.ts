@@ -71,7 +71,7 @@ export const useStaleKbAlerts = () => {
       /**
        * ⛔ Name the kind. The unfiltered call serves the newest 20 rows across ALL kinds, so
        * this alert competes for slots with an SLA breach feed that never stops. Measured on
-       * the taco client box 2026-09-10: CoreSarms held 165 notifications and the endpoint
+       * the petro client box 2026-09-10: TraumaTeam held 165 notifications and the endpoint
        * returned 20, and that window spanned ~28 h — so a stale knowledge-base document drops off the
        * bell in about a day and reaches the user on zero surfaces.
        * `useIngestionGapAlerts` already fetches this way; this hook did not.

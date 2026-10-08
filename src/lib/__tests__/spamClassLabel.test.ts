@@ -1,5 +1,5 @@
 /**
- * taco COR-SUP-2654, 2026-09-18: the AI tab's CLASS tile said "Legit" beside a SUSPICIOUS
+ * petro TRA-SUP-2654, 2026-09-18: the AI tab's CLASS tile said "Legit" beside a SUSPICIOUS
  * badge, because it read `isSpam` alone and a suspicious verdict also has `isSpam: false`.
  */
 import { describe, it, expect } from 'vitest';
