@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Select, type Option } from '@/components/ui/Select';
+import { Select, type Option, type SelectSize } from '@/components/ui/Select';
 import { messageService } from '@/services/message.service';
 
 const ALL_SOURCES = 'all';
@@ -13,6 +13,8 @@ interface MessageSourceFilterProps {
   className?: string;
   /** Offer "No source" (value 'none') — only where the list's endpoint understands it (KB). */
   includeNoSource?: boolean;
+  /** Match the row it sits in: 'sm' beside h-8 buttons (KB), 'md' beside a 40px search box. */
+  size?: SelectSize;
 }
 
 /**
@@ -26,6 +28,7 @@ export const MessageSourceFilter = ({
   onChange,
   className,
   includeNoSource = false,
+  size = 'sm',
 }: MessageSourceFilterProps) => {
   const { data: sources = [] } = useQuery({
     queryKey: ['message-sources-filter'],
@@ -45,7 +48,7 @@ export const MessageSourceFilter = ({
       onChange={onChange}
       options={options}
       aria-label="Filter by message source"
-      size="sm"
+      size={size}
       className={className}
     />
   );
