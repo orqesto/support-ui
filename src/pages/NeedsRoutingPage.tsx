@@ -263,14 +263,14 @@ export const NeedsRoutingPage = () => {
             filter can always be changed or cleared. */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="w-48">
-            <MessageSourceFilter value={sourceId} onChange={handleSourceChange} />
+            {/* md: the row's search box is 40px (Input md); the selects match it. */}
+            <MessageSourceFilter value={sourceId} onChange={handleSourceChange} size="md" />
           </div>
           <div className="w-48">
             <Select
               value={sortValue}
               onChange={handleSortChange}
               options={SORT_OPTIONS}
-              size="sm"
               aria-label="Sort messages"
             />
           </div>
@@ -384,6 +384,8 @@ export const NeedsRoutingPage = () => {
                           options={deptOptions}
                           placeholder="Select department…"
                           aria-label="Department to route to"
+                          // sm: sits in a table row beside the row's small buttons.
+                          size="sm"
                           className="min-w-[12rem]"
                         />
                       </td>
