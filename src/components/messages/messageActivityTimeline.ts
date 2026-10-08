@@ -76,6 +76,11 @@ export function auditEntryLabel(action: string, details: Record<string, unknown>
   if (action === 'message.auto_reopen') {
     const from = details?.['fromStatus'] as string | undefined;
     if (details?.['reason'] === 'promoted_from_orphan') return 'Surfaced — real customer reply';
+    // A repair (lost-job / bounce) moved or restored mail left on a merged-away ticket: one neutral
+    // label, true of every shape it writes — never said as a customer reply or a reopen.
+    const via = details?.['via'];
+    if (via === 'lost_job_repair' || via === 'bounce_repair')
+      return 'Restored by a repair — mail left on a merged-away ticket';
     return `Customer replied — reopened${from ? ` from ${from}` : ''}`;
   }
   // Read state is shared org-wide (one agent reading a thread reads it for the

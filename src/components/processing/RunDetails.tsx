@@ -18,7 +18,9 @@ import {
   runStatusVariant,
   RUN_STATUS_VARIANT,
   runStatus,
+  RUN_STAGE_LABELS,
 } from './processingWords';
+import { OwedWork } from './OwedWork';
 
 type StageKey = 'decided' | 'analysis' | 'embedding' | 'kb';
 
@@ -29,25 +31,25 @@ type StageKey = 'decided' | 'analysis' | 'embedding' | 'kb';
 const STAGES: { key: StageKey; label: string; unit: [string, string]; hint: string }[] = [
   {
     key: 'decided',
-    label: 'Checked',
+    label: RUN_STAGE_LABELS.decided,
     unit: ['message', 'messages'],
     hint: 'Each incoming message checked: spam check and routing, or set aside for the knowledge base. A message that waited for someone to route its thread is covered once the thread is checked after it arrived, or the thread is closed',
   },
   {
     key: 'analysis',
-    label: 'AI analysis',
+    label: RUN_STAGE_LABELS.analysis,
     unit: ['message', 'messages'],
     hint: 'AI analysis of each incoming message',
   },
   {
     key: 'embedding',
-    label: 'Search index',
+    label: RUN_STAGE_LABELS.embedding,
     unit: ['conversation', 'conversations'],
     hint: 'Each conversation indexed for similar-message search',
   },
   {
     key: 'kb',
-    label: 'Knowledge base',
+    label: RUN_STAGE_LABELS.kb,
     unit: ['conversation', 'conversations'],
     hint: 'Each conversation mined for knowledge-base answers',
   },
@@ -197,8 +199,14 @@ export const RunDetails = ({
   kbParked = false,
   resumeWay,
   newest = true,
+  sourceId,
+  onRetried,
 }: {
   run: RunView;
+  /** The mail source: with it, a check that owes work can say which tickets hold it. */
+  sourceId?: number;
+  /** After a retry of what the check owes: read the panel's progress again. */
+  onRetried?: () => void;
   laterKbRun?: boolean;
   kbParked?: boolean;
   /** The paused mine's way back, from the header summary. */
@@ -213,17 +221,29 @@ export const RunDetails = ({
   if (run.channel === 'kb') {
     return <KbRunDetails run={run} laterKbRun={laterKbRun} resumeWay={resumeWay} />;
   }
-  return <MailRunDetails run={run} kbParked={kbParked} newest={newest} />;
+  return (
+    <MailRunDetails
+      run={run}
+      kbParked={kbParked}
+      newest={newest}
+      sourceId={sourceId}
+      onRetried={onRetried}
+    />
+  );
 };
 
 const MailRunDetails = ({
   run,
   kbParked,
   newest,
+  sourceId,
+  onRetried,
 }: {
   run: RunView;
   kbParked: boolean;
   newest: boolean;
+  sourceId?: number;
+  onRetried?: () => void;
 }) => {
   const status = runStatus(run, kbParked);
   // A stage nothing was queued for (AI off, no KB mining) is not shown as a finished 0 / 0.
@@ -335,6 +355,14 @@ const MailRunDetails = ({
         )}
         {timing && <li>{timing}.</li>}
       </ul>
+      {sourceId !== undefined &&
+        status !== 'running' &&
+        // Owner 2026-10-08: only a STALLED check — one with work left that is still moving is not
+        // held by anything yet.
+        run.problems.includes('stalled') && (
+          // Keyed by run: a newer check shown here starts closed, never with the last one's list.
+          <OwedWork key={run.id} sourceId={sourceId} runId={run.id} onRetried={onRetried} />
+        )}
     </div>
   );
 };

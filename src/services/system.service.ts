@@ -61,6 +61,18 @@ export type BounceRepairResult = {
   stranded: {
     found: number;
     moved: number;
+    /**
+     * No conversation to move it to: its merged-away conversation was restored as its own ticket.
+     * Absent from a backend before it (that one only moved).
+     */
+    restored?: number;
+    /** Skipped: nothing could be done with them. */
+    skipped?: number;
+    /**
+     * Messages a restore lands that were not among `found` (counted in `restored`):
+     * found + landedBeyondList = moved + restored + skipped.
+     */
+    landedBeyondList?: number;
     /** Of those moved, the ones still owed a decision — queued for it. */
     queued: number;
     truncated: boolean;

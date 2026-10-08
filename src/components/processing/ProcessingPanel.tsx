@@ -782,6 +782,8 @@ export const ProcessingPanel = ({
               kbParked={kbParked}
               resumeWay={resumeWay}
               newest={shownRun === newest}
+              sourceId={sourceId}
+              onRetried={() => void refresh()}
             />
           ) : (
             !importOnScreen &&

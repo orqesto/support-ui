@@ -33,3 +33,24 @@ describe('messageActivityTimeline — read/unread entries', () => {
     expect(auditEntryLabel('message.something_new', null)).toBe('message.something_new');
   });
 });
+
+describe('messageActivityTimeline — reopen entries written by the repairs', () => {
+  it('every entry a repair writes reads as one neutral label, whatever its reason or how', () => {
+    for (const via of ['lost_job_repair', 'bounce_repair'])
+      for (const details of [
+        { reason: 'stranded_mail_restored', how: 'restored', fromStatus: 'closed', toStatus: 'closed' },
+        { reason: 'customer_replied', how: 'restored', fromStatus: 'closed', toStatus: 'open' },
+        { reason: 'customer_replied', how: 'revived', fromStatus: 'open', toStatus: 'open' },
+        { reason: 'customer_replied', how: 'reopened', fromStatus: 'resolved', toStatus: 'open' },
+      ])
+        expect(auditEntryLabel('message.auto_reopen', { ...details, via })).toBe(
+          'Restored by a repair — mail left on a merged-away ticket'
+        );
+  });
+
+  it('a normal customer reopen keeps its words', () => {
+    expect(auditEntryLabel('message.auto_reopen', { fromStatus: 'resolved' })).toBe(
+      'Customer replied — reopened from resolved'
+    );
+  });
+});

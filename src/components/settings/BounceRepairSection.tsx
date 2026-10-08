@@ -38,6 +38,12 @@ const normalize = (data: Partial<BounceRepairResult>): BounceRepairResult => ({
   stranded: {
     found: data.stranded?.found ?? 0,
     moved: data.stranded?.moved ?? 0,
+    // Absent from an older backend: stays absent, so the words stay that backend's ("moved").
+    ...(typeof data.stranded?.restored === 'number' ? { restored: data.stranded.restored } : {}),
+    ...(typeof data.stranded?.skipped === 'number' ? { skipped: data.stranded.skipped } : {}),
+    ...(typeof data.stranded?.landedBeyondList === 'number'
+      ? { landedBeyondList: data.stranded.landedBeyondList }
+      : {}),
     queued: data.stranded?.queued ?? 0,
     truncated: data.stranded?.truncated === true,
     samples: data.stranded?.samples ?? [],
@@ -61,6 +67,26 @@ const normalize = (data: Partial<BounceRepairResult>): BounceRepairResult => ({
   },
   failed: data.failed ?? null,
 });
+
+/**
+ * Per-outcome counts (per message; a check says what it would do, a repair what it did) — from a
+ * backend that sends `restored`. An older one only moved: null keeps its words.
+ */
+const strandedCounts = (
+  stranded: BounceRepairResult['stranded']
+): { moved: number; restored: number; skipped: number } | null =>
+  stranded.restored === undefined
+    ? null
+    : { moved: stranded.moved, restored: stranded.restored, skipped: stranded.skipped ?? 0 };
+
+/** found + landed = moved + restored + skipped: the extra ones a restore brings along, said. */
+const landedText = (stranded: BounceRepairResult['stranded'], verb: string): string =>
+  (stranded.landedBeyondList ?? 0) > 0
+    ? ` (${stranded.landedBeyondList?.toLocaleString()} more ${verb} with restored tickets)`
+    : '';
+
+const countsText = (counts: { moved: number; restored: number; skipped: number }): string =>
+  `${counts.moved.toLocaleString()} moved, ${counts.restored.toLocaleString()} restored, ${counts.skipped.toLocaleString()} skipped`;
 
 const label = (row: { id: number; publicId: string | null; subject: string | null }): string =>
   `${row.publicId ?? `#${row.id}`}${row.subject ? ` — ${row.subject}` : ''}`;
@@ -246,6 +272,7 @@ const BounceRepair = () => {
     }
   };
 
+  const strandedCheck = check ? strandedCounts(check.stranded) : null;
   const marks = check?.marked?.found ?? 0;
   const toFix = check ? check.stranded.found + marks + check.bounceOnly.found : 0;
   const truncated =
@@ -290,11 +317,13 @@ const BounceRepair = () => {
         <div className="space-y-2">
           <ul className="text-sm list-disc pl-5">
             {check.stranded.found > 0 && (
-              <li>
+              <li data-testid="stranded-line">
                 {truncated ? 'At least ' : ''}
                 <strong>{plural(check.stranded.found, 'message')}</strong> left on a merged-away
-                conversation — moved to the conversation it belongs to; any not yet processed are
-                processed then.
+                conversation{landedText(check.stranded, 'would land')} —{' '}
+                {strandedCheck
+                  ? `would be: ${countsText(strandedCheck)}.`
+                  : 'moved to the conversation it belongs to; any not yet processed are processed then.'}
               </li>
             )}
             {marks > 0 && (
@@ -359,7 +388,11 @@ const BounceRepair = () => {
         open={confirming}
         onOpenChange={setConfirming}
         title="Repair this workspace?"
-        description="Stranded messages move to the conversation they belong to, and conversations only a mail system wrote to are filed away. Conversations that hold several customers are not changed here. The repair runs its own check when it starts, so the numbers can differ from this check; the result says what it actually did."
+        description={`${
+          strandedCheck
+            ? 'Moves or restores messages left on merged-away tickets, following the same rules as new mail. Conversations'
+            : 'Stranded messages move to the conversation they belong to, and conversations'
+        } only a mail system wrote to are filed away. Conversations that hold several customers are not changed here. The repair runs its own check when it starts, so the numbers can differ from this check; the result says what it actually did.`}
         confirmText="Repair"
         onConfirm={() => {
           if (busy === null) void runApply();
@@ -370,7 +403,12 @@ const BounceRepair = () => {
 };
 
 const RepairOutcome = ({ outcome }: { outcome: BounceRepairResult }) => {
-  const text = `Moved ${plural(outcome.stranded.moved, 'message')} (${outcome.stranded.queued.toLocaleString()} queued for processing), marked ${plural(outcome.marked?.marked ?? 0, 'bounce')} and filed away ${plural(outcome.bounceOnly.refiled, 'conversation')}.`;
+  const rest = `marked ${plural(outcome.marked?.marked ?? 0, 'bounce')} and filed away ${plural(outcome.bounceOnly.refiled, 'conversation')}.`;
+  const counts = strandedCounts(outcome.stranded);
+  // An older backend (no `restored`) only moved: its words stay.
+  const text = counts
+    ? `${plural(outcome.stranded.found, 'message')} left on merged-away tickets${landedText(outcome.stranded, 'landed')}: ${countsText(counts)} (${outcome.stranded.queued.toLocaleString()} queued for processing); ${rest}`
+    : `Moved ${plural(outcome.stranded.moved, 'message')} (${outcome.stranded.queued.toLocaleString()} queued for processing), ${rest}`;
   if (outcome.failed) {
     return (
       <Alert variant="warning">
