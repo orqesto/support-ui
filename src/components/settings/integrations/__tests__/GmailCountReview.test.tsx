@@ -13,8 +13,8 @@ vi.mock('@/services/integrations.service', () => ({
 }));
 
 // A native stand-in, so a setting can be changed without driving react-select's menu.
-vi.mock('@/components/ui/ReactSelect', () => ({
-  ReactSelect: ({
+vi.mock('@/components/ui/Select', () => ({
+  Select: ({
     label,
     value,
     onChange,

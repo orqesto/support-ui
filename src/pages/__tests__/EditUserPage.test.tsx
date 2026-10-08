@@ -81,7 +81,7 @@ vi.mock('@/components/layout/Layout', () => ({
 
 const renderAt = (path: string, routePath: string, embedded = false) =>
   render(
-    // ReactSelect reads the theme, so every render needs the provider.
+    // Select reads the theme, so every render needs the provider.
     <ThemeProvider>
       <MemoryRouter initialEntries={[path]} future={ROUTER_FUTURE}>
         <Routes>

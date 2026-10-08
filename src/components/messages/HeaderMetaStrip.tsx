@@ -1,11 +1,11 @@
 import { safeCssColor } from '@/lib/utils';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { createPortal } from 'react-dom';
-import { AlertTriangle, Building2, Check, X, Plus } from 'lucide-react';
+import { AlertTriangle, Building2, X, Plus } from 'lucide-react';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { WhyParked } from '@/components/messages/WhyParked';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
+import { labelPickerEmptyText, type LabelsStatus } from '@/components/shared/labelPickerText';
 import { Button } from '@/components/ui/Button';
 import { Toggle } from '@/components/ui/Toggle';
 import { useDepartmentById, useDepartments } from '@/hooks/useDepartments';
@@ -21,8 +21,6 @@ import { tintedChip } from '@/lib/userColor';
 
 /** The label picker's drawn width — the ONE number its on-screen clamp also uses. */
 const LABEL_PICKER_WIDTH_PX = 200;
-/** Gap kept between the picker and either edge of the visible page. */
-const PICKER_MARGIN_PX = 8;
 
 type Props = {
   /**
@@ -35,6 +33,10 @@ type Props = {
   categories: Category[];
   messageLabels: Label[];
   allLabels: Label[];
+  /** Whether `allLabels` is fetched yet — the picker must not say "No labels yet" while loading. */
+  labelsStatus?: LabelsStatus;
+  /** Fetch the labels again (called when the picker opens after a failed load). */
+  onRetryLabels?: () => void;
   hasManageLabels: boolean;
   showLabelPicker: boolean;
   updatingCategory: boolean;
@@ -57,6 +59,8 @@ export function HeaderMetaStrip({
   categories,
   messageLabels,
   allLabels,
+  labelsStatus = 'ready',
+  onRetryLabels,
   hasManageLabels,
   showLabelPicker,
   updatingCategory,
@@ -64,7 +68,7 @@ export function HeaderMetaStrip({
   onSetCategory,
   onToggleLabel,
   onToggleLabelPicker,
-  onCloseLabelPicker: _onCloseLabelPicker,
+  onCloseLabelPicker,
   onCreateLabel,
   onDepartmentChange,
 }: Props) {
@@ -72,18 +76,15 @@ export function HeaderMetaStrip({
   const card = layout === 'card';
   // The label column: 62px in the sidebar, 84px (pushing the value right) in the phone card.
   const labelWidth = rows ? 'w-[62px]' : card ? 'w-[84px] mr-auto' : '';
-  const labelPickerRef = useRef<HTMLDivElement>(null);
   const labelBtnRef = useRef<HTMLButtonElement>(null);
-  const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
-  const [labelQuery, setLabelQuery] = useState('');
+  // Only labels the picker lists can come back from it, so only they take part in the diff.
+  const listedAssignedIds = messageLabels
+    .filter((assigned) => allLabels.some((label) => label.id === assigned.id))
+    .map((assigned) => String(assigned.id));
   // Inline create needs BOTH the permission and a handler — `hasManageLabels` alone
   // would render a picker whose only useful action is absent.
   const canCreateLabel = hasManageLabels && !!onCreateLabel;
   const showLabelRow = allLabels.length > 0 || messageLabels.length > 0 || canCreateLabel;
-  // Reset the search input each time the picker opens so it starts fresh.
-  useEffect(() => {
-    if (!showLabelPicker) setLabelQuery('');
-  }, [showLabelPicker]);
   const primaryDept = useDepartmentById(message.departmentId ?? null);
   const needsRouting = message.status === 'needs_routing';
   const { data: allDepts = [] } = useDepartments();
@@ -146,28 +147,6 @@ export function HeaderMetaStrip({
     }
   };
 
-  useEffect(() => {
-    if (showLabelPicker && labelBtnRef.current) {
-      const rect = labelBtnRef.current.getBoundingClientRect();
-      /**
-       * ⛔ Kept on screen with the width it is DRAWN at, against the width you can SEE.
-       * This assumed 176 px for a 200 px picker and measured `innerWidth`, which includes the
-       * scrollbar — so near the right edge it hung 16–27 px past the page. The picker is
-       * `absolute` in <body>, so that widened the document, and the search box's autofocus then
-       * scrolled the whole page sideways (staging, 2026-09-29: scrollWidth 595 → 622, scrollX 22).
-       */
-      const visibleWidth = document.documentElement.clientWidth;
-      const inView = Math.max(
-        PICKER_MARGIN_PX,
-        Math.min(rect.left, visibleWidth - LABEL_PICKER_WIDTH_PX - PICKER_MARGIN_PX)
-      );
-      // Page coordinates, both axes: the picker is absolutely positioned in <body>.
-      const left = inView + window.scrollX;
-      const top = rect.bottom + window.scrollY + 6;
-      setPickerPos({ top, left });
-    }
-  }, [showLabelPicker]);
-
   // Assign the conversation directly via the `conv_<id>` form — the same key the
   // message list and Kanban cards emit and that the backend fully supports.
   // The old `subj::<subject>::<sender>` key produced only 3 segments, but the
@@ -193,14 +172,16 @@ export function HeaderMetaStrip({
         <span className={`flex-shrink-0 ${LABEL} text-muted-foreground ${labelWidth}`}>Dept</span>
         {editingDept && canRoute ? (
           <div className="flex items-center gap-2">
-            <ReactSelect
+            <Select
               // needs_routing carries a placeholder departmentId; leave the picker
               // UNSET so choosing any dept (incl. the placeholder) is a real change
               // that fires onChange. Active convs keep their current dept selected.
               value={needsRouting ? '' : message.departmentId ? String(message.departmentId) : ''}
               onChange={(value) => void handleDeptChange(value)}
               options={activeDeptOptions}
-              isDisabled={savingDept}
+              disabled={savingDept}
+              size="sm"
+              aria-label="Department"
               autoFocus
               onBlur={() => setEditingDept(false)}
               className="min-w-[140px]"
@@ -281,7 +262,7 @@ export function HeaderMetaStrip({
             <span className={`flex-shrink-0 ${LABEL} text-muted-foreground ${labelWidth}`}>
               Category
             </span>
-            <ReactSelect
+            <Select
               value={
                 message.categoryId !== null && message.categoryId !== undefined
                   ? String(message.categoryId)
@@ -292,7 +273,8 @@ export function HeaderMetaStrip({
                 { value: '', label: 'No category' },
                 ...categories.map((cat) => ({ value: String(cat.id), label: cat.name })),
               ]}
-              isDisabled={updatingCategory}
+              disabled={updatingCategory}
+              aria-label="Category"
               variant="value"
               className="min-w-0"
               mobileSheet={card}
@@ -342,98 +324,58 @@ export function HeaderMetaStrip({
             ))}
 
             {hasManageLabels && (
-              <div ref={labelPickerRef}>
-                <Button
-                  ref={labelBtnRef}
-                  variant="ghost"
-                  onClick={onToggleLabelPicker}
-                  className={`inline-flex flex-shrink-0 justify-center items-center py-0 px-2 ${card ? 'h-[30px] w-[30px]' : 'h-5'} rounded-full text-muted-foreground hover:text-foreground hover:bg-accent border border-dashed border-border-strong transition-colors`}
-                  aria-label="Add label"
-                  title="Add label"
-                >
-                  <Plus className="w-2.5 h-2.5" />
-                </Button>
-
-                {showLabelPicker &&
-                  pickerPos &&
-                  createPortal(
-                    (() => {
-                      const trimmed = labelQuery.trim();
-                      const lower = trimmed.toLowerCase();
-                      const filtered = trimmed
-                        ? allLabels.filter((label) => label.name.toLowerCase().includes(lower))
-                        : allLabels;
-                      const exact =
-                        trimmed && allLabels.some((label) => label.name.toLowerCase() === lower);
-                      const showCreate = !!onCreateLabel && trimmed.length > 0 && !exact;
-                      return (
-                        <div
-                          data-label-picker
-                          // A non-modal dialog: the detail's shortcuts stand down while it is open.
-                          role="dialog"
-                          aria-label="Labels"
-                          style={{
-                            top: pickerPos.top,
-                            left: pickerPos.left,
-                            width: LABEL_PICKER_WIDTH_PX,
-                          }}
-                          className="absolute z-[9999] rounded-lg border border-border shadow-xl p-1 bg-card text-card-foreground"
-                        >
-                          <input
-                            type="text"
-                            value={labelQuery}
-                            onChange={(ev) => setLabelQuery(ev.target.value)}
-                            placeholder={onCreateLabel ? 'Search or create…' : 'Search…'}
-                            autoFocus
-                            className="w-full px-2 py-1 mb-1 text-xs max-sm:text-base bg-background border border-border rounded outline-none focus:ring-1 focus:ring-ring"
-                          />
-                          {filtered.map((label) => {
-                            const assigned = messageLabels.some((lbl) => lbl.id === label.id);
-                            return (
-                              <Button
-                                key={label.id}
-                                variant="ghost"
-                                onClick={() => onToggleLabel(label)}
-                                className="w-full flex justify-start items-center gap-2 px-2 py-1.5 h-auto rounded-md text-xs hover:bg-accent transition-colors text-left"
-                              >
-                                <span
-                                  className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-1 ring-border"
-                                  style={{ backgroundColor: safeCssColor(label.color) }}
-                                />
-                                <span className="flex-1 text-foreground">{label.name}</span>
-                                {assigned && (
-                                  <Check className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                                )}
-                              </Button>
-                            );
-                          })}
-                          {showCreate && (
-                            <Button
-                              variant="ghost"
-                              onClick={() => void onCreateLabel?.(trimmed)}
-                              className="w-full flex justify-start items-center gap-2 px-2 py-1.5 mt-1 h-auto rounded-md text-xs hover:bg-accent transition-colors text-left border-t border-border"
-                            >
-                              <Plus className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />
-                              <span className="flex-1 text-foreground">
-                                Create &quot;{trimmed}&quot;
-                              </span>
-                            </Button>
-                          )}
-                          {filtered.length === 0 && !showCreate && (
-                            <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                              {allLabels.length === 0
-                                ? onCreateLabel
-                                  ? 'No labels yet — type a name to create one.'
-                                  : 'No labels yet.'
-                                : 'No labels match.'}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })(),
-                    document.body
-                  )}
-              </div>
+              <Select
+                variant="popover"
+                multi
+                aria-label="Labels"
+                // Open state stays with the parent: it drives the phone scrim, Esc and close-after-create.
+                open={showLabelPicker}
+                onOpenChange={(next) => {
+                  if (!next) onCloseLabelPicker();
+                  else if (!showLabelPicker) onToggleLabelPicker();
+                  // A failed load is retried each time the picker opens — not a dead end.
+                  if (next && labelsStatus === 'error') onRetryLabels?.();
+                }}
+                popoverWidth={LABEL_PICKER_WIDTH_PX}
+                panelProps={{ 'data-label-picker': true }}
+                // Rows only from a list known to be current: ticking during a reload let the
+                // reload's older answer overwrite the tick just made (the chip vanished).
+                options={(labelsStatus === 'ready' ? allLabels : []).map((label) => ({
+                  value: String(label.id),
+                  label: label.name,
+                  color: label.color,
+                }))}
+                value={listedAssignedIds}
+                onChange={(next) => {
+                  // One tick or untick per change: hand that one label to the parent's toggle.
+                  const changed =
+                    next.find((id) => !listedAssignedIds.includes(id)) ??
+                    listedAssignedIds.find((id) => !next.includes(id));
+                  const label = allLabels.find((candidate) => String(candidate.id) === changed);
+                  if (label) onToggleLabel(label);
+                }}
+                // Only once the list is known: before that "Create Bug" would duplicate an existing Bug.
+                creatable={!!onCreateLabel && labelsStatus === 'ready'}
+                onCreate={(name) => void onCreateLabel?.(name)}
+                placeholder={
+                  onCreateLabel && labelsStatus === 'ready' ? 'Search or create…' : 'Search…'
+                }
+                noOptionsMessage={() =>
+                  labelPickerEmptyText(labelsStatus, allLabels.length, !!onCreateLabel)
+                }
+                trigger={({ toggle }) => (
+                  <Button
+                    ref={labelBtnRef}
+                    variant="ghost"
+                    onClick={toggle}
+                    className={`inline-flex flex-shrink-0 justify-center items-center py-0 px-2 ${card ? 'h-[30px] w-[30px]' : 'h-5'} rounded-full text-muted-foreground hover:text-foreground hover:bg-accent border border-dashed border-border-strong transition-colors`}
+                    aria-label="Add label"
+                    title="Add label"
+                  >
+                    <Plus className="w-2.5 h-2.5" />
+                  </Button>
+                )}
+              />
             )}
           </div>
         </>

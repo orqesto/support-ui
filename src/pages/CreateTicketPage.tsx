@@ -6,7 +6,7 @@ import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { apiClient } from '@/lib/api-client';
 import { assignmentService, type AssignableUser } from '@/services/assignment.service';
 import { categoryService } from '@/services/category.service';
@@ -445,7 +445,7 @@ export const CreateTicketPage = () => {
               )}
 
               <div>
-                <ReactSelect
+                <Select
                   label="Priority"
                   value={formData.priority}
                   onChange={(value) =>
@@ -467,7 +467,7 @@ export const CreateTicketPage = () => {
               </div>
 
               <div>
-                <ReactSelect
+                <Select
                   label="Category"
                   value={formData.categoryId}
                   onChange={async (value) => {
@@ -495,7 +495,6 @@ export const CreateTicketPage = () => {
                     }
                   }}
                   options={[
-                    { value: '', label: 'Select a category' },
                     ...categories.map((cat) => ({
                       value: String(cat.id),
                       label: cat.name,
@@ -505,8 +504,10 @@ export const CreateTicketPage = () => {
                       : []),
                   ]}
                   placeholder="Select a category"
-                  isSearchable
-                  isDisabled={creatingCategory}
+                  // No category is a valid state: the × returns to it (emits '' as the old empty option did).
+                  clearable
+                  searchable
+                  disabled={creatingCategory}
                 />
                 {aiSuggestions.category && !formData.categoryId && (
                   <p className="mt-1 text-xs text-ai">
@@ -519,7 +520,7 @@ export const CreateTicketPage = () => {
               </div>
 
               <div>
-                <ReactSelect
+                <Select
                   label="Assigned to"
                   value={formData.assigneeId ? String(formData.assigneeId) : ''}
                   onChange={(value) =>
@@ -536,7 +537,7 @@ export const CreateTicketPage = () => {
                     })),
                   ]}
                   placeholder="Select assignee"
-                  isSearchable
+                  searchable
                 />
               </div>
 

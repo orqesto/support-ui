@@ -1,6 +1,5 @@
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import type { CustomApiEndpoint, FieldPick } from '@/services/customApi.service';
 
@@ -50,26 +49,23 @@ export const ChainStep = ({ siblings, sourceEndpointId, sourceFieldPath, onChang
 
   return (
     <div className="space-y-2 rounded-md border border-border p-3">
-      <div className="space-y-1">
-        <Label htmlFor="ca-chain-source">Which lookup gives the value?</Label>
-        <Select
-          id="ca-chain-source"
-          value={sourceEndpointId === null ? '' : String(sourceEndpointId)}
-          onChange={(event) =>
-            onChange({
-              sourceEndpointId: event.target.value === '' ? null : Number(event.target.value),
-              sourceFieldPath,
-            })
-          }
-        >
-          <option value="">Choose…</option>
-          {sources.map((endpoint) => (
-            <option key={endpoint.id} value={endpoint.id}>
-              {endpoint.label}
-            </option>
-          ))}
-        </Select>
-      </div>
+      <Select
+        id="ca-chain-source"
+        label="Which lookup gives the value?"
+        placeholder="Choose…"
+        clearable
+        value={sourceEndpointId === null ? '' : String(sourceEndpointId)}
+        options={sources.map((endpoint) => ({
+          value: String(endpoint.id),
+          label: endpoint.label,
+        }))}
+        onChange={(value) =>
+          onChange({
+            sourceEndpointId: value === '' ? null : Number(value),
+            sourceFieldPath,
+          })
+        }
+      />
       <Input
         label="Which field of its answer holds the value?"
         value={sourceFieldPath}

@@ -3,7 +3,7 @@ import { Brain, Plus, Save, Trash2, Edit, TestTube2, ChevronDown, ChevronUp } fr
 import { Button } from '@/components/ui/Button';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import type { Integration } from '@/services/integrations.service';
 import type { AIModel } from '@/types/aiProviders';
 
@@ -237,7 +237,7 @@ export const OpenAIProviderCard = ({
                   placeholder="sk-..."
                 />
               </div>
-              <ReactSelect
+              <Select
                 label="Default Chat Model"
                 value={config.defaultChatModel}
                 onChange={(value) => setConfig({ ...config, defaultChatModel: value })}

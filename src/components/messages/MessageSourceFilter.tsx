@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ReactSelect, type Option } from '@/components/ui/ReactSelect';
+import { Select, type Option } from '@/components/ui/Select';
 import { messageService } from '@/services/message.service';
 
 const ALL_SOURCES = 'all';
@@ -40,11 +40,12 @@ export const MessageSourceFilter = ({
   ];
 
   return (
-    <ReactSelect
+    <Select
       value={value}
       onChange={onChange}
       options={options}
       aria-label="Filter by message source"
+      size="sm"
       className={className}
     />
   );

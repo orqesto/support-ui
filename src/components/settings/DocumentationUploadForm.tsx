@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { useDepartments } from '@/hooks/useDepartments';
 import type { DocumentType } from '@/services/documentation.service';
 
@@ -300,7 +300,7 @@ export const DocumentationUploadForm = ({
         </div>
 
         <div>
-          <ReactSelect
+          <Select
             label="Document Type"
             value={documentType}
             onChange={(value) => onDocumentTypeChange(value as DocumentType)}

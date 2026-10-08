@@ -98,9 +98,7 @@ export const PlatformPlans = () => {
       await deletePlan.mutateAsync(plan.id);
     } catch (error) {
       logger.error('Failed to delete plan', error);
-      setActionError(
-        error instanceof Error ? error.message : `Could not delete '${plan.name}'.`
-      );
+      setActionError(error instanceof Error ? error.message : `Could not delete '${plan.name}'.`);
     }
   };
 
@@ -266,7 +264,9 @@ export const PlatformPlans = () => {
           {/* Slug — disambiguates same-named plans (e.g. two "Enterprise Cloud":
               enterprise-cloud vs enterprise). */}
           <code className="text-xs text-muted-foreground">{plan.name}</code>
-          <div className="font-mono mt-1 text-lg font-semibold text-foreground">{formatPrice(plan)}</div>
+          <div className="font-mono mt-1 text-lg font-semibold text-foreground">
+            {formatPrice(plan)}
+          </div>
         </CardHeader>
 
         <CardContent className="space-y-3">
@@ -281,7 +281,8 @@ export const PlatformPlans = () => {
               messages/month
             </p>
             <p>
-              <strong className="text-foreground">{plan.limits.maxIntegrations}</strong> integrations
+              <strong className="text-foreground">{plan.limits.maxIntegrations}</strong>{' '}
+              integrations
             </p>
           </div>
 
@@ -364,9 +365,7 @@ export const PlatformPlans = () => {
 
   return (
     <div className="space-y-8">
-      {actionError && (
-        <Alert variant="danger">{actionError}</Alert>
-      )}
+      {actionError && <Alert variant="danger">{actionError}</Alert>}
 
       <div className="flex justify-end">
         <Button onClick={openCreate}>
@@ -453,9 +452,7 @@ export const PlatformPlans = () => {
               <p className="text-xs text-muted-foreground">
                 Unique identifier — lowercase letters, numbers and hyphens only.
               </p>
-              {createErrors.name && (
-                <p className="text-xs text-destructive">{createErrors.name}</p>
-              )}
+              {createErrors.name && <p className="text-xs text-destructive">{createErrors.name}</p>}
             </div>
 
             <div className="space-y-1">
@@ -477,16 +474,14 @@ export const PlatformPlans = () => {
               <Select
                 id="create-plan-type"
                 value={createDraft.planType}
-                onChange={(event) =>
-                  patchCreate({ planType: event.target.value as CreatePlanDraft['planType'] })
+                options={PLAN_TYPE_OPTIONS.map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                }))}
+                onChange={(value) =>
+                  patchCreate({ planType: value as CreatePlanDraft['planType'] })
                 }
-              >
-                {PLAN_TYPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
+              />
             </div>
 
             <div className="space-y-1">
@@ -513,9 +508,7 @@ export const PlatformPlans = () => {
                 disabled={createDraft.createStripePrice}
               />
               {createErrors.stripePriceId && (
-                <p className="text-xs text-destructive">
-                  {createErrors.stripePriceId}
-                </p>
+                <p className="text-xs text-destructive">{createErrors.stripePriceId}</p>
               )}
               {/* Offered only for a paid plan: a free plan has nothing to bill, which is
                   also the BE's own guard. Pasting an id and asking us to create one are
@@ -539,7 +532,9 @@ export const PlatformPlans = () => {
                 idPrefix="create-plan"
                 blankMeans="unlimited"
                 draft={createDraft.limits}
-                onChange={(key, value) => patchCreate({ limits: { ...createDraft.limits, [key]: value } })}
+                onChange={(key, value) =>
+                  patchCreate({ limits: { ...createDraft.limits, [key]: value } })
+                }
               />
               {createErrors.limits && (
                 <p className="text-xs text-destructive">{createErrors.limits}</p>

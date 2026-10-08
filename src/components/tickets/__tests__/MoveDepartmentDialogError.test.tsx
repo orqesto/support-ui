@@ -9,6 +9,7 @@
  */
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { chooseOption } from '@/test/chooseOption';
 
 const moveTicketDepartment = vi.fn<(...args: unknown[]) => Promise<{ assigneeCleared: boolean }>>();
 const getAssignableUsers = vi.fn<(...args: unknown[]) => Promise<{ id: number }[]>>();
@@ -34,7 +35,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { apiError, networkError } from '@/test/apiError';
 import type { User } from '@/types';
 
-const openAndAttemptMove = () => {
+const openAndAttemptMove = async () => {
   render(
     <MoveDepartmentDialog
       isOpen
@@ -44,7 +45,7 @@ const openAndAttemptMove = () => {
       currentAssigneeId={null}
     />
   );
-  fireEvent.change(screen.getByRole('combobox'), { target: { value: '2' } });
+  await chooseOption(screen.getByRole('combobox'), 'Billing');
   fireEvent.click(screen.getByRole('button', { name: 'Move' }));
 };
 
@@ -62,7 +63,7 @@ describe('MoveDepartmentDialog — a refused move explains itself', () => {
     moveTicketDepartment.mockRejectedValue(
       await apiError(403, { message: 'You are not a member of the target department.' })
     );
-    openAndAttemptMove();
+    await openAndAttemptMove();
     expect(
       await screen.findByText('You are not a member of the target department.')
     ).toBeInTheDocument();
@@ -72,13 +73,13 @@ describe('MoveDepartmentDialog — a refused move explains itself', () => {
     moveTicketDepartment.mockRejectedValue(
       await apiError(409, { error: 'That department is no longer served.' })
     );
-    openAndAttemptMove();
+    await openAndAttemptMove();
     expect(await screen.findByText('That department is no longer served.')).toBeInTheDocument();
   });
 
   it('falls back to the generic line when there is nothing to say', async () => {
     moveTicketDepartment.mockRejectedValue(await networkError());
-    openAndAttemptMove();
+    await openAndAttemptMove();
     expect(
       await screen.findByText('Failed to move the ticket. Please try again.')
     ).toBeInTheDocument();
@@ -88,7 +89,7 @@ describe('MoveDepartmentDialog — a refused move explains itself', () => {
     moveTicketDepartment.mockRejectedValue(
       await apiError(500, { error: 'duplicate key value violates unique constraint "dept_pkey"' })
     );
-    openAndAttemptMove();
+    await openAndAttemptMove();
     expect(
       await screen.findByText('Failed to move the ticket. Please try again.')
     ).toBeInTheDocument();
@@ -97,7 +98,7 @@ describe('MoveDepartmentDialog — a refused move explains itself', () => {
 
   it('leaves no error banner on a successful move', async () => {
     moveTicketDepartment.mockResolvedValue({ assigneeCleared: false });
-    openAndAttemptMove();
+    await openAndAttemptMove();
     await waitFor(() => expect(moveTicketDepartment).toHaveBeenCalled());
     expect(screen.queryByText(/Failed to move/)).not.toBeInTheDocument();
   });

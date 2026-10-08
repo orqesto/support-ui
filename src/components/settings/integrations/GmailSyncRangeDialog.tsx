@@ -2,7 +2,7 @@ import { Save } from 'lucide-react';
 import { useState } from 'react';
 import type { AlertState } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { logger } from '@/lib/logger';
 import { integrationsService } from '@/services/integrations.service';
 
@@ -60,7 +60,7 @@ export const GmailSyncRangeDialog = ({ source, onClose, onRefresh, onShowAlert }
         <p className="mb-4 text-sm text-muted-foreground">{source.name}</p>
         <div className="space-y-4">
           <div>
-            <ReactSelect
+            <Select
               label="Historical Import Range"
               value={daysInput}
               onChange={(value) => setDaysInput(value)}

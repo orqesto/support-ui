@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { OrgDepartmentPicker } from '@/components/console/OrgDepartmentPicker';
+import { chooseOption, listOptions } from '@/test/chooseOption';
 
 // The picker's only data source is useOrgDepartments; mock it so these are pure
 // component tests (render + toggle wiring), no react-query / network.
@@ -11,8 +12,8 @@ const mockHook = useOrgDepartments as unknown as ReturnType<typeof vi.fn>;
 const withDepartments = (data: Array<{ id: number; name: string }>, isLoading = false) =>
   mockHook.mockReturnValue({ data, isLoading });
 
-const switchFor = (name: string): HTMLButtonElement =>
-  screen.getByText(name).closest('label')!.querySelector('[role="switch"]') as HTMLButtonElement;
+/** The department Select inside the opened disclosure. */
+const picker = (): HTMLElement => screen.getByRole('combobox', { name: 'Acme — departments' });
 
 /** The picker is collapsed by default, so open it before asserting on its contents. */
 const disclosure = (): HTMLElement => screen.getByRole('button', { name: /departments/i });
@@ -38,13 +39,13 @@ describe('OrgDepartmentPicker — collapsed by default', () => {
   // empty for the role default". Opening a row of toggles on every workspace made that
   // rare decision compete with the common ones (which role, which workspace), so this
   // matches PermissionOverridesSection's "Customize permissions" disclosure.
-  it('hides the toggles until the disclosure is opened', () => {
+  it('hides the department picker until the disclosure is opened', () => {
     withDepartments(DEPTS);
     render(
       <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[]} onChange={vi.fn()} />
     );
 
-    expect(screen.queryByRole('switch')).toBeNull();
+    expect(screen.queryByRole('combobox')).toBeNull();
     // The workspace is still named while collapsed — the label IS the disclosure.
     expect(disclosure()).toHaveTextContent(/Acme — departments/);
     expect(disclosure()).toHaveAttribute('aria-expanded', 'false');
@@ -57,11 +58,11 @@ describe('OrgDepartmentPicker — collapsed by default', () => {
     );
 
     fireEvent.click(disclosure());
-    expect(screen.getAllByRole('switch')).toHaveLength(2);
+    expect(picker()).toBeInTheDocument();
     expect(disclosure()).toHaveAttribute('aria-expanded', 'true');
 
     fireEvent.click(disclosure());
-    expect(screen.queryByRole('switch')).toBeNull();
+    expect(screen.queryByRole('combobox')).toBeNull();
   });
 
   it('⛔ collapsing must hide the CONTROL, never the STATE — a scoped group says so while collapsed', () => {
@@ -86,7 +87,7 @@ describe('OrgDepartmentPicker — collapsed by default', () => {
 });
 
 describe('OrgDepartmentPicker', () => {
-  it('renders each department, reflecting which are selected via aria-checked', () => {
+  it('offers each department and shows which are selected', async () => {
     withDepartments(DEPTS);
     renderOpen(
       <OrgDepartmentPicker
@@ -98,56 +99,71 @@ describe('OrgDepartmentPicker', () => {
       />
     );
 
-    // Sales is selected...
-    expect(switchFor('Sales')).toHaveAttribute('aria-checked', 'true');
+    // Sales is selected (its chip and its remove control)...
+    expect(screen.getByRole('button', { name: 'Remove Sales' })).toBeInTheDocument();
     // ...Billing is the control that must NOT be.
-    expect(switchFor('Billing')).toHaveAttribute('aria-checked', 'false');
+    expect(screen.queryByRole('button', { name: 'Remove Billing' })).toBeNull();
+    expect(await listOptions(picker())).toEqual(['Sales', 'Billing']);
   });
 
-  it('adds a department to the selection when an unchecked one is toggled', () => {
+  it('adds a department to the selection when an unticked one is chosen', async () => {
     withDepartments(DEPTS);
     const onChange = vi.fn();
     renderOpen(
       <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[3]} onChange={onChange} />
     );
 
-    fireEvent.click(switchFor('Billing'));
+    await chooseOption(picker(), 'Billing');
     // Appended, not replaced — the already-selected Sales survives.
     expect(onChange).toHaveBeenCalledWith([3, 4]);
   });
 
-  it('removes a department from the selection when a checked one is toggled off', () => {
+  it('removes a department from the selection when its chip is removed', () => {
     withDepartments(DEPTS);
     const onChange = vi.fn();
     renderOpen(
       <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[3, 4]} onChange={onChange} />
     );
 
-    fireEvent.click(switchFor('Sales'));
-    expect(onChange).toHaveBeenCalledWith([4]);
+    // react-select acts on mousedown for the chip's remove control.
+    fireEvent.mouseDown(screen.getByRole('button', { name: 'Remove Sales' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Sales' }));
+    expect(onChange).toHaveBeenLastCalledWith([4]);
   });
 
-  it('shows the role-default hint (no toggles) when the org has no departments', () => {
+  it('keeps a mapped id this org does not list when another department is chosen', async () => {
+    withDepartments(DEPTS);
+    const onChange = vi.fn();
+    renderOpen(
+      <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[3, 99]} onChange={onChange} />
+    );
+
+    await chooseOption(picker(), 'Billing');
+    // 99 is not offered here, so the Select cannot show it — the tick must not drop it.
+    expect(onChange).toHaveBeenCalledWith([3, 99, 4]);
+  });
+
+  it('shows the role-default hint (no picker) when the org has no departments', () => {
     withDepartments([]);
     renderOpen(
       <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[]} onChange={vi.fn()} />
     );
 
     expect(screen.getByText(/members get the role default/i)).toBeInTheDocument();
-    expect(screen.queryByRole('switch')).toBeNull();
+    expect(screen.queryByRole('combobox')).toBeNull();
   });
 
-  it('shows a loading affordance and no toggles while departments are loading', () => {
+  it('shows a loading affordance and no picker while departments are loading', () => {
     withDepartments([], true);
     renderOpen(
       <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[]} onChange={vi.fn()} />
     );
 
     expect(screen.getByText(/loading departments/i)).toBeInTheDocument();
-    expect(screen.queryByRole('switch')).toBeNull();
+    expect(screen.queryByRole('combobox')).toBeNull();
   });
 
-  it('disables the toggles and blocks changes when disabled', () => {
+  it('disables the picker and blocks changes when disabled', () => {
     withDepartments(DEPTS);
     const onChange = vi.fn();
     renderOpen(
@@ -161,8 +177,9 @@ describe('OrgDepartmentPicker', () => {
       />
     );
 
-    expect(switchFor('Sales')).toBeDisabled();
-    fireEvent.click(switchFor('Billing'));
+    expect(picker()).toBeDisabled();
+    fireEvent.keyDown(picker(), { key: 'ArrowDown', code: 'ArrowDown', keyCode: 40 });
+    expect(screen.queryByRole('option', { name: 'Billing' })).toBeNull();
     expect(onChange).not.toHaveBeenCalled();
   });
 });

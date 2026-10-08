@@ -5,7 +5,7 @@ import { RuleEditor } from '@/components/shared/RuleEditor';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useRuleManagement } from '@/hooks/useRuleManagement';
 import { settingsService, type SpamRule } from '@/services/settings.service';
@@ -215,7 +215,7 @@ export const SpamRulesSettings = () => {
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <ReactSelect
+            <Select
               label="Match on"
               value={formData.matchField}
               onChange={(value) =>
@@ -223,7 +223,7 @@ export const SpamRulesSettings = () => {
               }
               options={MATCH_FIELD_OPTIONS}
             />
-            <ReactSelect
+            <Select
               label="Category"
               value={formData.category}
               onChange={(value) => setFormData({ ...formData, category: value })}

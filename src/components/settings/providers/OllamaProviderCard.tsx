@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Server, Plus, Save, Trash2, Edit, TestTube2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import type { Integration } from '@/services/integrations.service';
 import type { AIModel } from '@/types/aiProviders';
 
@@ -224,7 +224,7 @@ export const OllamaProviderCard = ({
                   placeholder="http://localhost:11434/v1"
                 />
               </div>
-              <ReactSelect
+              <Select
                 label="Model"
                 value={config.defaultModel}
                 onChange={(value) => setConfig({ ...config, defaultModel: value })}

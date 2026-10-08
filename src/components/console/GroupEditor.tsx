@@ -5,11 +5,10 @@ import { Alert } from '@/components/ui/Alert';
 import { Drawer } from '@/components/ui/Drawer';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
-import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent } from '@/components/ui/Card';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { OrgDepartmentPicker } from '@/components/console/OrgDepartmentPicker';
 import { useSaveGroup } from '@/hooks/useAllianceGroups';
 import { backingGroupName } from '@/components/console/backingGroupName';
@@ -218,14 +217,9 @@ export const GroupEditor = ({
           <Select
             id="group-role"
             value={orgRole}
-            onChange={(event) => setOrgRole(event.target.value as OrganizationRole)}
-          >
-            {ROLE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
+            options={ROLE_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+            onChange={(value) => setOrgRole(value as OrganizationRole)}
+          />
         </div>
 
         {group?.idpGroup && (
@@ -262,17 +256,14 @@ export const GroupEditor = ({
               <Select
                 id="group-workspace"
                 value={selectedOrgId === null ? '' : String(selectedOrgId)}
-                onChange={(event) =>
-                  selectOrg(event.target.value === '' ? null : Number(event.target.value))
-                }
-              >
-                <option value="">Select a workspace…</option>
-                {orgs.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    {`${org.name} (/${org.slug})`}
-                  </option>
-                ))}
-              </Select>
+                placeholder="Select a workspace…"
+                clearable
+                options={orgs.map((org) => ({
+                  value: String(org.id),
+                  label: `${org.name} (/${org.slug})`,
+                }))}
+                onChange={(value) => selectOrg(value === '' ? null : Number(value))}
+              />
               {selectedOrgId !== null && orgRole !== 'org_admin' && (
                 <OrgDepartmentPicker
                   allianceId={allianceId}
@@ -344,8 +335,9 @@ export const GroupEditor = ({
                   })}
                 </div>
               )}
-              <ReactSelect
+              <Select
                 options={addableMemberOptions}
+                aria-label="Add member"
                 value=""
                 onChange={(value) => {
                   if (value) {

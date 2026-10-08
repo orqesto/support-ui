@@ -3,8 +3,7 @@ import { ChevronDown, ChevronRight, ScrollText } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Label } from '@/components/ui/Label';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
-import { ReactSelect, type Option } from '@/components/ui/ReactSelect';
+import { Select, type Option } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
@@ -92,7 +91,13 @@ export const PlatformAudit = () => {
 
   // Distinct actions now come from the dedicated endpoint (not derived from the current
   // page), so the option list is complete regardless of which page is shown.
-  const knownActions = actionsQuery.data ?? [];
+  const actionOptions = useMemo<Option[]>(
+    () => [
+      { value: '', label: 'All actions' },
+      ...(actionsQuery.data ?? []).map((option) => ({ value: option, label: option })),
+    ],
+    [actionsQuery.data]
+  );
 
   const workspaceOptions = useMemo<Option[]>(() => {
     const workspaces = workspacesQuery.data?.data ?? [];
@@ -198,14 +203,14 @@ export const PlatformAudit = () => {
               <Label htmlFor="audit-workspace" className="mb-1">
                 Filter by workspace
               </Label>
-              <ReactSelect
+              <Select
                 inputId="audit-workspace"
                 value={organizationId}
                 onChange={handleWorkspaceChange}
                 options={workspaceOptions}
                 isLoading={workspacesQuery.isLoading}
                 placeholder="All workspaces"
-                isSearchable
+                searchable
               />
             </div>
             <div className="min-w-[14rem]">
@@ -215,15 +220,9 @@ export const PlatformAudit = () => {
               <Select
                 id="audit-action"
                 value={action}
-                onChange={(event) => handleActionChange(event.target.value)}
-              >
-                <option value="">All actions</option>
-                {knownActions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </Select>
+                onChange={handleActionChange}
+                options={actionOptions}
+              />
             </div>
             <div className="min-w-[14rem]">
               <Label htmlFor="audit-actor" className="mb-1">

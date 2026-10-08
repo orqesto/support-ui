@@ -23,8 +23,7 @@ visual and behavioural drift.
 | Button / action | `Button` (`variant`, `size`, `isLoading`) | `<button>` |
 | Text field | `Input` | `<input>` |
 | Search box | `SearchInput` (`value`, `onChange(value)`, `showSearchButton`) | `<input>` |
-| Dropdown (native) | `Select` | `<select>` |
-| Dropdown (rich/searchable) | `ReactSelect` | custom |
+| Dropdown / picker (single, multi, chip) | `Select` (`options`, `value`/`onChange(value)`, `multi`, `variant`, `size` = Input's) | `<select>`, hand-built menus |
 | Multi-line text | `Textarea` | `<textarea>` |
 | Status / tag / chip | `Badge` (`variant`: default/success/warning/danger/secondary) | styled `<span>` |
 | Card / panel container | `Card` (+ `CardHeader`/`CardContent`/`CardTitle`, `padding` prop) | styled `<div>` |
@@ -42,7 +41,7 @@ visual and behavioural drift.
 | External link | `ExternalLink` | `<a target=_blank>` |
 
 Full inventory: `Alert, AlertDialog, Badge, Button, Card, ConfirmDialog, DataTable, Dialog, Drawer,
-ExternalLink, Input, Label, ListCard, Pagination, Progress, ReactSelect, SearchInput, Select,
+ExternalLink, Input, Label, ListCard, Pagination, Progress, SearchInput, Select,
 Spinner, Tabs, Textarea, Toggle, Tooltip, Typography`.
 (Generated from `src/components/ui/` on 2026-08-21.)
 
@@ -53,7 +52,8 @@ Spinner, Tabs, Textarea, Toggle, Tooltip, Typography`.
 Semantic layout elements (`<ul>`/`<li>`/`<section>`/`<nav>` for structure) are fine; the rule is
 about **controls and styled primitives**, which must come from the design system.
 
-See `docs/UI_CONVENTIONS.md` for details and examples.
+See `docs/UI_CONVENTIONS.md` for details and examples (its "Select — the only dropdown" section
+covers sizes, variants, multi and the `chooseOption` test helper).
 
 ## Other
 

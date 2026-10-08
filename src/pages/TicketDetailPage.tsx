@@ -120,7 +120,7 @@ export const TicketDetailPage = () => {
           </div>
 
           <div className="p-6 rounded-lg border bg-card">
-            <TicketDetail ticket={ticket} onDelete={handleDeleteClick} />
+            <TicketDetail key={ticket.id} ticket={ticket} onDelete={handleDeleteClick} />
           </div>
         </div>
       </Layout>

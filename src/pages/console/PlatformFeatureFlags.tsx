@@ -241,15 +241,15 @@ export const PlatformFeatureFlags = () => {
           <Select
             id="flag-scope"
             value={scope}
-            onChange={(event) => setScope(event.target.value)}
-          >
-            <option value={SCOPE_GLOBAL}>All workspaces (global)</option>
-            {(orgsQuery.data?.data ?? []).map((org) => (
-              <option key={org.id} value={String(org.id)}>
-                {org.name}
-              </option>
-            ))}
-          </Select>
+            onChange={setScope}
+            options={[
+              { value: SCOPE_GLOBAL, label: 'All workspaces (global)' },
+              ...(orgsQuery.data?.data ?? []).map((org) => ({
+                value: String(org.id),
+                label: org.name,
+              })),
+            ]}
+          />
         </div>
         <p className="pb-2 text-xs text-muted-foreground">
           {scopeOrgId === null

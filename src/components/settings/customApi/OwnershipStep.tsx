@@ -1,5 +1,4 @@
 import { Alert, AlertDescription } from '@/components/ui/Alert';
-import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import type { CustomApiEndpoint, FieldPick } from '@/services/customApi.service';
 
@@ -61,26 +60,21 @@ export const OwnershipStep = ({ siblings, value, onChange }: Props) => {
 
   return (
     <div className="space-y-2">
-      <Label htmlFor="ca-ownership">Which lookup lists this customer’s own records?</Label>
       <Select
         id="ca-ownership"
+        label="Which lookup lists this customer’s own records?"
         value={value === null ? '' : String(value)}
-        onChange={(event) =>
-          onChange(event.target.value === '' ? null : Number(event.target.value))
-        }
-      >
-        {/*
-         * ⛔ The "no" option is FIRST and is a real answer, not an absence. It is the carrier
-         * case, and an admin who has no such lookup must not feel they are leaving the form
-         * broken.
-         */}
-        <option value="">We can’t check — show the record marked unverified</option>
-        {siblings.map((endpoint) => (
-          <option key={endpoint.id} value={endpoint.id}>
-            {endpoint.label}
-          </option>
-        ))}
-      </Select>
+        options={[
+          /*
+           * ⛔ The "no" option is FIRST and is a real answer, not an absence. It is the carrier
+           * case, and an admin who has no such lookup must not feel they are leaving the form
+           * broken.
+           */
+          { value: '', label: 'We can’t check — show the record marked unverified' },
+          ...siblings.map((endpoint) => ({ value: String(endpoint.id), label: endpoint.label })),
+        ]}
+        onChange={(next) => onChange(next === '' ? null : Number(next))}
+      />
 
       {value === null ? (
         <p className="text-xs text-muted-foreground">

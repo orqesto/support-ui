@@ -47,6 +47,7 @@ const spies = vi.hoisted(() => ({
   assignLabelToMessage: vi.fn(),
   removeLabelFromMessage: vi.fn(),
   createLabel: vi.fn(),
+  getMessageLabels: vi.fn<(id: number) => Promise<Label[]>>(),
 }));
 vi.mock('@/services/message.service', () => ({
   messageService: new Proxy(
@@ -64,7 +65,7 @@ vi.mock('@/services/category.service', () => ({
 }));
 vi.mock('@/services/settings.service', () => ({
   labelService: {
-    getMessageLabels: () => Promise.resolve([]),
+    getMessageLabels: (id: number) => spies.getMessageLabels(id),
     getLabels: () => Promise.resolve([]),
     assignLabelToMessage: spies.assignLabelToMessage,
     removeLabelFromMessage: spies.removeLabelFromMessage,
@@ -87,11 +88,15 @@ type StripProps = {
   onToggleLabelPicker: () => void;
   onCloseLabelPicker: () => void;
   onCreateLabel?: (name: string) => void;
+  messageLabels?: Label[];
 };
-const strips = vi.hoisted(() => ({ card: null as StripProps | null }));
+const strips = vi.hoisted(() => ({ card: null as StripProps | null, statuses: [] as string[] }));
 vi.mock('../HeaderMetaStrip', () => ({
   HeaderMetaStrip: (props: StripProps) => {
-    if (props.layout === 'card') strips.card = props;
+    if (props.layout === 'card') {
+      strips.card = props;
+      strips.statuses.push(String((props as { labelsStatus?: string }).labelsStatus));
+    }
     return (
       <div data-testid={`strip-${props.layout ?? 'inline'}`}>
         picker:{String(props.showLabelPicker)}
@@ -137,6 +142,7 @@ const pickerText = () => screen.getByTestId('strip-card').textContent;
 beforeEach(() => {
   vi.clearAllMocks();
   strips.card = null;
+  spies.getMessageLabels.mockResolvedValue([]);
   spies.setCategory.mockResolvedValue({ success: true });
   spies.assignLabelToMessage.mockResolvedValue(undefined);
   spies.createLabel.mockResolvedValue({ id: 9, name: 'Urgent', color: '#f00' });
@@ -212,5 +218,144 @@ describe('Phone Details card — the meta strip handlers', () => {
       )
     );
     await waitFor(() => expect(spies.assignLabelToMessage).toHaveBeenCalledWith(1, 9));
+  });
+
+  it('a reload that started before our own label write does not undo it on screen', async () => {
+    const BUG = { id: 5, name: 'Bug', color: '#f00' } as Label;
+    spies.getMessageLabels.mockResolvedValue([BUG]);
+    spies.removeLabelFromMessage.mockResolvedValue(undefined);
+    const tree = (refresh: number) => (
+      <ThemeProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <MemoryRouter>
+            <MessageDetailHeader message={message} showFullPageButton={false} isFullPage threadCount={1} labelsRefreshKey={refresh} />
+          </MemoryRouter>
+        </QueryClientProvider>
+      </ThemeProvider>
+    );
+    const { rerender } = render(tree(0));
+    openCard();
+    await waitFor(() => expect(strips.card?.messageLabels).toEqual([BUG]));
+    // A contact edit reloads; its answer is slow and was read before our remove committed.
+    let finish: (labels: Label[]) => void = () => {};
+    spies.getMessageLabels.mockImplementation(() => new Promise((resolve) => (finish = resolve)));
+    rerender(tree(1));
+    await act(async () => {
+      strips.card!.onToggleLabel(BUG);
+      await Promise.resolve();
+    });
+    expect(strips.card?.messageLabels).toEqual([]);
+    await act(async () => {
+      finish([BUG]);
+      await Promise.resolve();
+    });
+    expect(strips.card?.messageLabels).toEqual([]);
+  });
+
+  describe('a label reload overlapping our own writes ends on the server\'s list', () => {
+    const BUG = { id: 5, name: 'Bug', color: '#f00' } as Label;
+    const VIP = { id: 6, name: 'VIP', color: '#0f0' } as Label;
+    const tree = (refresh: number) => (
+      <ThemeProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <MemoryRouter>
+            <MessageDetailHeader message={message} showFullPageButton={false} isFullPage threadCount={1} labelsRefreshKey={refresh} />
+          </MemoryRouter>
+        </QueryClientProvider>
+      </ThemeProvider>
+    );
+
+    it('a reload that starts while our remove is still in flight does not bring the chip back', async () => {
+      spies.getMessageLabels.mockResolvedValue([BUG]);
+      const { rerender } = render(tree(0));
+      openCard();
+      await waitFor(() => expect(strips.card?.messageLabels).toEqual([BUG]));
+      let commitRemove: () => void = () => {};
+      spies.removeLabelFromMessage.mockImplementation(() => new Promise<void>((resolve) => (commitRemove = resolve)));
+      await act(async () => {
+        strips.card!.onToggleLabel(BUG);
+        await Promise.resolve();
+      });
+      // The reload is answered before the remove commits: [Bug] is stale.
+      rerender(tree(1));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(strips.card?.messageLabels).toEqual([]);
+      // Once the remove commits, the labels are asked for again — the server now says [].
+      spies.getMessageLabels.mockResolvedValue([]);
+      await act(async () => {
+        commitRemove();
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(spies.getMessageLabels).toHaveBeenCalledTimes(3));
+      expect(strips.card?.messageLabels).toEqual([]);
+    });
+
+    it('a reload discarded because a write overlapped it is fetched again — the contact edit still shows', async () => {
+      spies.getMessageLabels.mockResolvedValue([BUG]);
+      const { rerender } = render(tree(0));
+      openCard();
+      await waitFor(() => expect(strips.card?.messageLabels).toEqual([BUG]));
+      let answerReload: (labels: Label[]) => void = () => {};
+      spies.getMessageLabels.mockImplementationOnce(() => new Promise((resolve) => (answerReload = resolve)));
+      spies.removeLabelFromMessage.mockRejectedValue(new Error('500'));
+      rerender(tree(1)); // a contact label "VIP" was added
+      await act(async () => {
+        strips.card!.onToggleLabel(BUG); // fails and rolls back
+        await Promise.resolve();
+      });
+      spies.getMessageLabels.mockResolvedValue([BUG, VIP]);
+      await act(async () => {
+        answerReload([BUG, VIP]);
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(strips.card?.messageLabels).toEqual([BUG, VIP]));
+    });
+    it('a hung write does not freeze the picker on "Loading labels…"', async () => {
+      spies.getMessageLabels.mockResolvedValue([BUG]);
+      type PickerProps = { labelsStatus?: string };
+      const { rerender } = render(tree(0));
+      openCard();
+      await waitFor(() => expect(strips.card?.messageLabels).toEqual([BUG]));
+      spies.removeLabelFromMessage.mockImplementation(() => new Promise<void>(() => {}));
+      await act(async () => {
+        strips.card!.onToggleLabel(BUG);
+        await Promise.resolve();
+      });
+      rerender(tree(1));
+      await waitFor(() => expect(spies.getMessageLabels).toHaveBeenCalledTimes(2));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect((strips.card as unknown as PickerProps).labelsStatus).toBe('ready');
+      expect(strips.card?.messageLabels).toEqual([]);
+    });
+    it('a discarded answer with every write settled goes straight to the refetch (no flash of rows)', async () => {
+      spies.getMessageLabels.mockResolvedValue([BUG]);
+      spies.removeLabelFromMessage.mockResolvedValue(undefined);
+      const { rerender } = render(tree(0));
+      openCard();
+      await waitFor(() => expect(strips.card?.messageLabels).toEqual([BUG]));
+      let answerReload: (labels: Label[]) => void = () => {};
+      spies.getMessageLabels.mockImplementationOnce(() => new Promise((resolve) => (answerReload = resolve)));
+      rerender(tree(1));
+      await act(async () => {
+        strips.card!.onToggleLabel(BUG); // settles before the reload answers
+        await Promise.resolve();
+      });
+      strips.statuses.length = 0;
+      spies.getMessageLabels.mockResolvedValue([]);
+      await act(async () => {
+        answerReload([BUG]);
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(spies.getMessageLabels).toHaveBeenCalledTimes(3));
+      await waitFor(() => expect(strips.card?.messageLabels).toEqual([]));
+      // From the discarded answer to the refetch's: never a 'ready' that falls back to 'loading'.
+      expect(
+        strips.statuses.filter((status, index, all) => status === 'ready' && all[index + 1] === 'loading')
+      ).toEqual([]);
+    });
   });
 });

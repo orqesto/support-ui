@@ -4,7 +4,7 @@ import { render, screen, cleanup } from '@testing-library/react';
 
 let isAdmin = true;
 vi.mock('@/services/system.service', () => ({ default: {} }));
-vi.mock('@/components/ui/ReactSelect', () => ({ ReactSelect: () => <div /> }));
+vi.mock('@/components/ui/Select', () => ({ Select: () => <div /> }));
 vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => ({ isAdmin }) }));
 vi.mock('@/services/department.service', () => ({
   departmentService: { getAll: () => Promise.resolve([]) },

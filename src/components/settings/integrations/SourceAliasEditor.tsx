@@ -416,14 +416,13 @@ export const SourceAliasEditor = ({
               <Select
                 className="w-48 shrink-0"
                 value={sort}
-                onChange={(event) =>
-                  setSort(event.target.value === 'address' ? 'address' : 'volume')
-                }
+                options={[
+                  { value: 'volume', label: 'Most mail first' },
+                  { value: 'address', label: 'A–Z' },
+                ]}
+                onChange={(value) => setSort(value === 'address' ? 'address' : 'volume')}
                 aria-label="Sort addresses"
-              >
-                <option value="volume">Most mail first</option>
-                <option value="address">A–Z</option>
-              </Select>
+              />
             </div>
           )}
 

@@ -203,17 +203,12 @@ export const PlatformUsers = () => {
       <Select
         aria-label="Filter by role"
         value={roleFilter}
-        onChange={(event) => {
-          setRoleFilter(event.target.value as RoleFilter);
+        onChange={(value) => {
+          setRoleFilter(value as RoleFilter);
           setPage(1);
         }}
-      >
-        {ROLE_FILTER_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </Select>
+        options={ROLE_FILTER_OPTIONS}
+      />
     </div>
   );
 
@@ -222,17 +217,12 @@ export const PlatformUsers = () => {
       <Select
         aria-label="Filter by verification"
         value={verifiedFilter}
-        onChange={(event) => {
-          setVerifiedFilter(event.target.value as VerifiedFilter);
+        onChange={(value) => {
+          setVerifiedFilter(value as VerifiedFilter);
           setPage(1);
         }}
-      >
-        {VERIFIED_FILTER_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </Select>
+        options={VERIFIED_FILTER_OPTIONS}
+      />
     </div>
   );
 

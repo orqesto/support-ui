@@ -169,7 +169,9 @@ const IntegrationCatalog = ({
       });
       const freshPages = res.data?.pages ?? [];
       const freshFolders = res.data?.folders ?? [];
-      const completed = freshPages.some((page) => page.processed && pendingRef.current.has(page.id));
+      const completed = freshPages.some(
+        (page) => page.processed && pendingRef.current.has(page.id)
+      );
       setPages(freshPages);
       setFolders(freshFolders);
       setPending((prev) => {
@@ -219,8 +221,7 @@ const IntegrationCatalog = ({
     setPending((prev) => new Set(prev).add(page.id));
     integrationsService.processConfluencePage(integration.id, page.id).catch((err) => {
       setError(
-        getApiErrorMessage(err) ??
-          `Could not queue “${page.title}” for the Knowledge Base.`
+        getApiErrorMessage(err) ?? `Could not queue “${page.title}” for the Knowledge Base.`
       );
       setPending((prev) => {
         const next = new Set(prev);
@@ -287,8 +288,7 @@ const IntegrationCatalog = ({
         .then(() => onKbChange?.())
         .catch((err) => {
           setError(
-            getApiErrorMessage(err) ??
-              `Could not add “${folder.title}” to the Knowledge Base.`
+            getApiErrorMessage(err) ?? `Could not add “${folder.title}” to the Knowledge Base.`
           );
           setFolderSelected(folder.id, false);
         })
@@ -306,8 +306,7 @@ const IntegrationCatalog = ({
         .then(() => onKbChange?.())
         .catch((err) => {
           setError(
-            getApiErrorMessage(err) ??
-              `Could not remove “${folder.title}” from the selection.`
+            getApiErrorMessage(err) ?? `Could not remove “${folder.title}” from the selection.`
           );
           setFolderSelected(folder.id, true);
         })
@@ -363,7 +362,9 @@ const IntegrationCatalog = ({
   const { coveredPages, coveredFolders } = useMemo(() => {
     const cp = new Set<string>();
     const cf = new Set<string>();
-    const selectedIds = new Set(folders.filter((folder) => folder.selected).map((folder) => folder.id));
+    const selectedIds = new Set(
+      folders.filter((folder) => folder.selected).map((folder) => folder.id)
+    );
     const walk = (nodes: TreeNode[], underSelected: boolean) => {
       for (const node of nodes) {
         if (underSelected) (node.kind === 'page' ? cp : cf).add(node.id);
@@ -397,7 +398,8 @@ const IntegrationCatalog = ({
     const page = node.page;
     const folder = node.folder;
     const busy = isFolder && folder ? folderBusy.has(folder.id) : false;
-    const isProcessing = !isFolder && !!page && (pending.has(page.id) || page.status === 'processing');
+    const isProcessing =
+      !isFolder && !!page && (pending.has(page.id) || page.status === 'processing');
     const isRemoving = !isFolder && !!page && removing.has(page.id);
     const folderSelected = isFolder && folder ? folder.selected : false;
     const covered = isFolder ? coveredFolders.has(node.id) : coveredPages.has(node.id);
@@ -457,7 +459,12 @@ const IntegrationCatalog = ({
             {isRemoving ? <Spinner /> : 'Remove from KB'}
           </Button>
         ) : (
-          <Button variant="outline" size="sm" className="shrink-0" onClick={() => processPage(page)}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={() => processPage(page)}
+          >
             Add to KB
           </Button>
         );
@@ -503,9 +510,13 @@ const IntegrationCatalog = ({
             ) : (
               <FileText className="w-4 h-4 shrink-0 text-muted-foreground" />
             )}
-            <span className={`text-sm truncate ${isFolder ? 'font-medium' : ''}`}>{node.title}</span>
+            <span className={`text-sm truncate ${isFolder ? 'font-medium' : ''}`}>
+              {node.title}
+            </span>
             {hasChildren && (
-              <span className="text-xs text-muted-foreground shrink-0">({node.children.length})</span>
+              <span className="text-xs text-muted-foreground shrink-0">
+                ({node.children.length})
+              </span>
             )}
             {isProcessing ? (
               <Badge variant="warning" size="sm">
@@ -580,24 +591,24 @@ const IntegrationCatalog = ({
         <div className="px-4 pt-3">
           <Select
             value={spaceKey}
-            onChange={(event) => setSpaceKey(event.target.value)}
+            onChange={(value) => setSpaceKey(value)}
             aria-label="Confluence space"
-          >
-            <option value="" disabled>
-              {spaces === null ? 'Loading spaces…' : 'Select a space'}
-            </option>
-            {(spaces ?? []).map((space) => (
-              <option key={space.id} value={space.key}>
-                {space.name} ({space.key})
-              </option>
-            ))}
-          </Select>
+            placeholder={spaces === null ? 'Loading spaces…' : 'Select a space'}
+            options={(spaces ?? []).map((space) => ({
+              value: space.key,
+              label: `${space.name} (${space.key})`,
+            }))}
+          />
         </div>
       )}
 
       {hasContent && (
         <div className="px-4 pt-3">
-          <SearchInput value={filter} onChange={setFilter} placeholder="Search folders and pages…" />
+          <SearchInput
+            value={filter}
+            onChange={setFilter}
+            placeholder="Search folders and pages…"
+          />
         </div>
       )}
 
@@ -626,7 +637,9 @@ const IntegrationCatalog = ({
         {searchMatches && hasContent && (
           <ul role="tree" className="mt-2 divide-y divide-border">
             {searchMatches.folders.length === 0 && searchMatches.pages.length === 0 && (
-              <li className="px-4 py-3 text-sm text-muted-foreground">No matches for “{filter}”.</li>
+              <li className="px-4 py-3 text-sm text-muted-foreground">
+                No matches for “{filter}”.
+              </li>
             )}
             {searchMatches.folders.map((folder) => renderNode(folderLeaf(folder)))}
             {searchMatches.pages.map((page) => renderNode(pageLeaf(page)))}
@@ -680,8 +693,7 @@ export const ConfluenceCatalogSection = ({
       .then((res) =>
         setIntegrations(
           res.data?.filter(
-            (integration): integration is ConfluenceIntegration =>
-              integration.type === 'confluence'
+            (integration): integration is ConfluenceIntegration => integration.type === 'confluence'
           ) ?? []
         )
       )
@@ -695,8 +707,8 @@ export const ConfluenceCatalogSection = ({
       <div>
         <h2 className="font-display text-lg font-semibold">Confluence</h2>
         <p className="text-sm text-muted-foreground">
-          Browse your spaces and pick the folders or pages to answer from. Adding a folder pulls
-          in everything inside it — including nested sub-folders — and keeps it in sync.
+          Browse your spaces and pick the folders or pages to answer from. Adding a folder pulls in
+          everything inside it — including nested sub-folders — and keeps it in sync.
         </p>
       </div>
       {integrations.map((integration) => (

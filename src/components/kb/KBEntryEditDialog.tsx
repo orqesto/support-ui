@@ -279,19 +279,12 @@ const DepartmentPicker = ({
       <Select
         id="edit-department"
         value={shown === null ? '' : String(shown)}
-        onChange={(event) => {
-          if (event.target.value !== '') onPick(Number(event.target.value));
+        placeholder="Unassigned"
+        options={departments.map((dept) => ({ value: String(dept.id), label: dept.name }))}
+        onChange={(value) => {
+          if (value !== '') onPick(Number(value));
         }}
-      >
-        <option value="" disabled>
-          Unassigned
-        </option>
-        {departments.map((dept) => (
-          <option key={dept.id} value={String(dept.id)}>
-            {dept.name}
-          </option>
-        ))}
-      </Select>
+      />
       {isError && <p className="mt-1 text-xs text-destructive">Could not load the departments.</p>}
     </div>
   );

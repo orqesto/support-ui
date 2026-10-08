@@ -4,8 +4,7 @@ import { ChevronDown, ChevronRight, ScrollText } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Label } from '@/components/ui/Label';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
-import { ReactSelect, type Option } from '@/components/ui/ReactSelect';
+import { Select, type Option } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
@@ -24,7 +23,7 @@ import type { AllianceAuditRow } from '@/services/alliance-audit.service';
  * the route param, never the header — T-05-30). This page renders + paginates.
  *
  * Mirrors the Platform console Audit page:
- *  - A searchable workspace filter (ReactSelect over the alliance's orgs) passes
+ *  - A searchable workspace filter (Select over the alliance's orgs) passes
  *    `organizationId` to the endpoint, which INTERSECTS it with the alliance's org
  *    set server-side (allianceAuditService.listAuditForAlliance) — a foreign org id
  *    can only narrow the read, never leak another alliance's trail.
@@ -103,7 +102,13 @@ export const ConsoleAudit = () => {
 
   // Distinct actions come from the dedicated per-alliance endpoint (the BE intersects
   // with the alliance's org set), so the option list is complete, not page-derived.
-  const knownActions = actionsQuery.data ?? [];
+  const actionOptions = useMemo<Option[]>(
+    () => [
+      { value: '', label: 'All actions' },
+      ...(actionsQuery.data ?? []).map((option) => ({ value: option, label: option })),
+    ],
+    [actionsQuery.data]
+  );
 
   const workspaceOptions = useMemo<Option[]>(() => {
     const workspaces = orgsQuery.data ?? [];
@@ -212,14 +217,14 @@ export const ConsoleAudit = () => {
               <Label htmlFor="audit-workspace" className="mb-1">
                 Filter by workspace
               </Label>
-              <ReactSelect
+              <Select
                 inputId="audit-workspace"
                 value={organizationId}
                 onChange={handleWorkspaceChange}
                 options={workspaceOptions}
                 isLoading={orgsQuery.isLoading}
                 placeholder="All workspaces"
-                isSearchable
+                searchable
               />
             </div>
             <div className="min-w-[14rem]">
@@ -229,15 +234,9 @@ export const ConsoleAudit = () => {
               <Select
                 id="audit-action"
                 value={action}
-                onChange={(event) => handleActionChange(event.target.value)}
-              >
-                <option value="">All actions</option>
-                {knownActions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </Select>
+                onChange={handleActionChange}
+                options={actionOptions}
+              />
             </div>
             <div className="min-w-[14rem]">
               <Label htmlFor="audit-actor" className="mb-1">

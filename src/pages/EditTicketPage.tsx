@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { assignmentService, type AssignableUser } from '@/services/assignment.service';
 import { categoryService } from '@/services/category.service';
 import { labelService, type Label } from '@/services/settings.service';
@@ -292,7 +292,7 @@ export const EditTicketPage = () => {
                 />
               </div>
 
-              <ReactSelect
+              <Select
                 label="Status"
                 value={formData.status}
                 onChange={(value) =>
@@ -305,11 +305,11 @@ export const EditTicketPage = () => {
                   { value: 'resolved', label: 'Resolved' },
                   { value: 'closed', label: 'Closed' },
                 ]}
-                isDisabled={!!ticket?.externalId}
+                disabled={!!ticket?.externalId}
                 placeholder="Select status"
               />
 
-              <ReactSelect
+              <Select
                 label="Priority"
                 value={formData.priority}
                 onChange={(value) =>
@@ -321,27 +321,26 @@ export const EditTicketPage = () => {
                   { value: 'high', label: 'High' },
                   { value: 'critical', label: 'Critical' },
                 ]}
-                isDisabled={!!ticket?.externalId}
+                disabled={!!ticket?.externalId}
                 placeholder="Select priority"
               />
 
-              <ReactSelect
+              <Select
                 label="Category"
                 value={formData.categoryId}
                 onChange={(value) => setFormData((prev) => ({ ...prev, categoryId: value }))}
-                options={[
-                  { value: '', label: 'Select a category' },
-                  ...categories.map((cat) => ({
-                    value: String(cat.id),
-                    label: cat.name,
-                  })),
-                ]}
-                isDisabled={!!ticket?.externalId}
+                options={categories.map((cat) => ({
+                  value: String(cat.id),
+                  label: cat.name,
+                }))}
+                disabled={!!ticket?.externalId}
                 placeholder="Select a category"
-                isSearchable
+                // No category is a valid state: the × returns to it (emits '' as the old empty option did).
+                clearable
+                searchable
               />
 
-              <ReactSelect
+              <Select
                 label="Assignee"
                 value={assigneeId}
                 onChange={(value) => setAssigneeId(value)}
@@ -352,9 +351,9 @@ export const EditTicketPage = () => {
                     label: `${user.firstName} ${user.lastName}`.trim(),
                   })),
                 ]}
-                isDisabled={!!ticket?.externalId}
+                disabled={!!ticket?.externalId}
                 placeholder="Select assignee"
-                isSearchable
+                searchable
               />
 
               {allLabels.length > 0 && (

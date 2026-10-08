@@ -14,10 +14,7 @@ import {
 } from '@/hooks/usePlatformSettings';
 import { useConfigCardState } from '@/hooks/useConfigCardState';
 import { formatError, getErrorBody, getErrorStatus } from '@/lib/errorMessages';
-import type {
-  PlatformReasoning,
-  ReasoningInput,
-} from '@/services/platformSettings.service';
+import type { PlatformReasoning, ReasoningInput } from '@/services/platformSettings.service';
 
 const TITLE = 'AI reasoning';
 
@@ -108,7 +105,9 @@ const toInput = (draft: Draft, { features, efforts }: Vocabulary): ReasoningInpu
 const keyOf = (input: ReasoningInput): string =>
   JSON.stringify([
     input.defaultEffort ?? '',
-    Object.entries(input.effortByFeature ?? {}).sort(([left], [right]) => left.localeCompare(right)),
+    Object.entries(input.effortByFeature ?? {}).sort(([left], [right]) =>
+      left.localeCompare(right)
+    ),
     input.headroomTokens ?? null,
   ]);
 
@@ -133,10 +132,12 @@ const fieldName = (path: string): string | null => {
  */
 const problemLines = (reasoning: PlatformReasoning): string[] => [
   ...reasoning.ignoredFeatures.map(
-    (feature) => `Saved level for ${featureLabel(feature)} isn't a feature this server knows, and is ignored.`
+    (feature) =>
+      `Saved level for ${featureLabel(feature)} isn't a feature this server knows, and is ignored.`
   ),
   ...reasoning.ignoredFields.map(
-    (path) => `Saved value for ${fieldName(path) ?? path} isn't valid on this server and is ignored.`
+    (path) =>
+      `Saved value for ${fieldName(path) ?? path} isn't valid on this server and is ignored.`
   ),
   ...reasoning.adjustedFields.map(({ field, stored, used }) => {
     const name = field === 'headroomTokens' ? 'Headroom' : (fieldName(field) ?? field);
@@ -284,11 +285,10 @@ const ReasoningForm = ({ reasoning }: { reasoning: PlatformReasoning }) => {
     ? `Default level (${effortLabel(draft.defaultEffort)})`
     : `Default level: ${MODEL_DEFAULT}`;
 
-  const effortOptions = options.efforts.map((effort) => (
-    <option key={effort} value={effort}>
-      {effortLabel(effort)}
-    </option>
-  ));
+  const effortOptions = options.efforts.map((effort) => ({
+    value: effort,
+    label: effortLabel(effort),
+  }));
 
   const ignored = new Set(reasoning.ignoredFeatures);
   const storedByFeature = Object.entries(stored.effortByFeature ?? {}).filter(
@@ -348,12 +348,12 @@ const ReasoningForm = ({ reasoning }: { reasoning: PlatformReasoning }) => {
               later) and o-series models (o1, o3, o3-mini, o4-mini). Nothing is sent to other
               models, including gpt-4o, Claude, DeepSeek and Ollama models; to o1-mini or
               o1-preview; to any chat, pro, search, codex or deep-research variant (for example
-              gpt-5-chat-latest, o3-pro, o3-deep-research); or on requests that carry tools. A
-              level a model does not accept is moved to the nearest one it does.
+              gpt-5-chat-latest, o3-pro, o3-deep-research); or on requests that carry tools. A level
+              a model does not accept is moved to the nearest one it does.
             </p>
             <p className="text-xs text-muted-foreground">
-              A change applies at once on the server that saves it; the other server processes
-              pick it up within about a minute.
+              A change applies at once on the server that saves it; the other server processes pick
+              it up within about a minute.
             </p>
             {problems.length > 0 && (
               <Alert variant="warning">
@@ -378,8 +378,8 @@ const ReasoningForm = ({ reasoning }: { reasoning: PlatformReasoning }) => {
             )}
             {serverMoved && (
               <Alert variant="warning">
-                The saved values changed on the server while you were editing. Your edits are
-                still here; press Cancel to load the saved values instead.
+                The saved values changed on the server while you were editing. Your edits are still
+                here; press Cancel to load the saved values instead.
               </Alert>
             )}
             {saveError && <Alert variant="danger">{saveError}</Alert>}
@@ -409,10 +409,9 @@ const ReasoningForm = ({ reasoning }: { reasoning: PlatformReasoning }) => {
       >
         <div className="space-y-5">
           <p className="text-sm text-muted-foreground">
-            Saving replaces every value on this card: a feature left on the default level, a
-            default level left on &quot;{MODEL_DEFAULT}&quot; and an empty headroom are all
-            cleared on the server. &quot;{MODEL_DEFAULT}&quot; sends no level, so the model uses
-            its own.
+            Saving replaces every value on this card: a feature left on the default level, a default
+            level left on &quot;{MODEL_DEFAULT}&quot; and an empty headroom are all cleared on the
+            server. &quot;{MODEL_DEFAULT}&quot; sends no level, so the model uses its own.
           </p>
 
           <div>
@@ -421,13 +420,9 @@ const ReasoningForm = ({ reasoning }: { reasoning: PlatformReasoning }) => {
               id="reasoning-default-effort"
               disabled={busy}
               value={draft.defaultEffort}
-              onChange={(event) =>
-                setDraft((prev) => ({ ...prev, defaultEffort: event.target.value }))
-              }
-            >
-              <option value="">{MODEL_DEFAULT}</option>
-              {effortOptions}
-            </Select>
+              options={[{ value: '', label: MODEL_DEFAULT }, ...effortOptions]}
+              onChange={(value) => setDraft((prev) => ({ ...prev, defaultEffort: value }))}
+            />
             <p className="mt-1 text-xs text-muted-foreground">
               Used by every feature below that is left on the default level, and by calls that do
               not name a feature.
@@ -452,8 +447,8 @@ const ReasoningForm = ({ reasoning }: { reasoning: PlatformReasoning }) => {
             <p className="mt-1 text-xs text-muted-foreground">
               Added to the token limit of every GPT-5 / o-series request, so the thinking does not
               use up the room for the answer. Leave empty for the built-in {defaultHeadroom}. A
-              lower headroom risks empty replies: the model can spend the whole limit thinking.
-              In effect now: {effective.headroomTokens.value} tokens (
+              lower headroom risks empty replies: the model can spend the whole limit thinking. In
+              effect now: {effective.headroomTokens.value} tokens (
               {effective.headroomTokens.source === 'db' ? 'saved here' : 'built-in default'}).
             </p>
           </div>
@@ -477,16 +472,14 @@ const ReasoningForm = ({ reasoning }: { reasoning: PlatformReasoning }) => {
                     id={id}
                     disabled={busy}
                     value={current}
-                    onChange={(event) =>
+                    options={[{ value: '', label: defaultLevelPhrase }, ...effortOptions]}
+                    onChange={(value) =>
                       setDraft((prev) => ({
                         ...prev,
-                        byFeature: { ...prev.byFeature, [feature]: event.target.value },
+                        byFeature: { ...prev.byFeature, [feature]: value },
                       }))
                     }
-                  >
-                    <option value="">{defaultLevelPhrase}</option>
-                    {effortOptions}
-                  </Select>
+                  />
                 </div>
               );
             })}

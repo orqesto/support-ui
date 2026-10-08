@@ -7,6 +7,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { chooseOption } from '@/test/chooseOption';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
@@ -215,10 +216,10 @@ describe('F2 the list', () => {
     expect(within(await workRowEl(24)).getByText('detached from a case')).toBeInTheDocument();
     // Listed as rows — not counted a second time in the findings panel.
     expect(screen.queryByRole('list', { name: 'Findings' })).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'raw_email' } });
+    await chooseOption(screen.getByLabelText('Reason'), /^Raw email \(/);
     await waitFor(() => expect(screen.queryByTestId('work-row-22')).not.toBeInTheDocument());
     expect(screen.getByTestId('work-row-21')).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Raw email (1)' })).toBeInTheDocument();
+    expect(screen.getByText('Raw email (1)')).toBeInTheDocument();
   });
 
   it('an approved entry with no clear language says it is ALSO a single answer; a pending one does not', async () => {

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { Toggle } from '@/components/ui/Toggle';
 import { usePermissions } from '@/hooks/usePermissions';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
@@ -202,7 +202,7 @@ export const BusinessHoursSettings = () => {
           <>
             <div className="space-y-2">
               <Label htmlFor="business-hours-timezone">Timezone</Label>
-              <ReactSelect
+              <Select
                 inputId="business-hours-timezone"
                 options={zones}
                 value={timezone}

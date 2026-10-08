@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { X, Mail, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { usePermissions } from '@/hooks/usePermissions';
 import type { OrganizationRole } from '@/types/roles';
 import { organizationService } from '@/services/organization.service';
@@ -258,7 +258,7 @@ export const InviteUserModal = ({
                   : 'User will be added to this workspace'}
           </p>
 
-          <ReactSelect
+          <Select
             label="Role"
             value={role}
             onChange={(value) => setRole(value as OrganizationRole)}
@@ -327,7 +327,7 @@ export const InviteUserModal = ({
           {/* Send-from picker — only when the org has more than one email integration. */}
           {emailIntegrations.length > 1 && (
             <div>
-              <ReactSelect
+              <Select
                 label="Send invitation from"
                 value={String(senderIntegrationId ?? '')}
                 onChange={(value) => setSenderIntegrationId(value ? Number(value) : null)}

@@ -152,8 +152,8 @@ vi.mock('@/components/messages/MessagesViewToggle', () => ({
 }));
 vi.mock('@/components/messages/ListScopeNotice', () => ({ ListScopeNotice: () => null }));
 vi.mock('@/components/messages/QuickFilterChips', () => ({ QuickFilterChips: () => null }));
-// The list caption's Sort is a ReactSelect, which needs a ThemeProvider this page test does not mount.
-vi.mock('@/components/ui/ReactSelect', () => ({ ReactSelect: () => null }));
+// The list caption's Sort is a Select, which needs a ThemeProvider this page test does not mount.
+vi.mock('@/components/ui/Select', () => ({ Select: () => null }));
 vi.mock('@/components/messages/ComposeNewModal', () => ({ ComposeNewModal: () => null }));
 vi.mock('@/components/messages/ThreadBubble', () => ({ ThreadBubble: () => null }));
 vi.mock('@/components/messages/ContactsView', () => ({

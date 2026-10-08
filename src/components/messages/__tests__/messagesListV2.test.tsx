@@ -22,7 +22,7 @@ vi.mock('@/stores/authStore', () => ({ useAuthStore: () => null }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'COR' }));
 vi.mock('@/services/message.service', () => ({ messageService: {} }));
 // The caption's Sort needs a ThemeProvider; what is under test here is everything around it.
-vi.mock('@/components/ui/ReactSelect', () => ({ ReactSelect: () => null }));
+vi.mock('@/components/ui/Select', () => ({ Select: () => null }));
 
 import { MessageListItem } from '../MessageListItem';
 import { MessagesListCaption } from '../MessagesListCaption';

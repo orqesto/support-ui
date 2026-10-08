@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { chooseOption } from '@/test/chooseOption';
 import { CustomApiVendorForm } from '../CustomApiVendorForm';
 import type * as Svc from '@/services/customApi.service';
 
@@ -187,7 +188,7 @@ describe('audit pass 2 — the blank header name', () => {
   it('⛔ clears the header name to null when the auth no longer uses one', async () => {
     const user = userEvent.setup();
     render(<CustomApiVendorForm open connection={connection()} onClose={noop} onSaved={noop} />);
-    await user.selectOptions(screen.getByLabelText(/How does it check who we are/i), 'bearer');
+    await chooseOption(screen.getByLabelText(/How does it check who we are/i), 'A bearer token');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(update).toHaveBeenCalled());
@@ -201,7 +202,10 @@ describe('audit pass 2 — the blank header name', () => {
     render(<CustomApiVendorForm open onClose={noop} onSaved={noop} />);
     await user.type(screen.getByLabelText('Name'), 'Our shop');
     await user.type(screen.getByLabelText('Address'), 'https://shop.example/api');
-    await user.selectOptions(screen.getByLabelText(/How does it check who we are/i), 'header');
+    await chooseOption(
+      screen.getByLabelText(/How does it check who we are/i),
+      'An API key in a header'
+    );
     await user.click(screen.getByRole('checkbox'));
 
     // ⛔ RED: leave the header name out of the blocked condition and this form creates a
@@ -220,10 +224,13 @@ describe('audit pass 15 — a secret that will be discarded is never sent', () =
     await user.type(screen.getByLabelText('Name'), 'Our shop');
     await user.type(screen.getByLabelText('Address'), 'https://shop.example/api');
     // They type a key first...
-    await user.selectOptions(screen.getByLabelText(/How does it check who we are/i), 'bearer');
+    await chooseOption(screen.getByLabelText(/How does it check who we are/i), 'A bearer token');
     await user.type(screen.getByLabelText(/API key/i), 'sk_live_typed_then_abandoned');
     // ...then decide the system does not need one.
-    await user.selectOptions(screen.getByLabelText(/How does it check who we are/i), 'none');
+    await chooseOption(
+      screen.getByLabelText(/How does it check who we are/i),
+      'It does not need a key'
+    );
     await user.click(screen.getByRole('checkbox'));
     await user.click(screen.getByRole('button', { name: 'Connect' }));
 
@@ -239,7 +246,7 @@ describe('audit pass 15 — a secret that will be discarded is never sent', () =
     render(<CustomApiVendorForm open onClose={noop} onSaved={noop} />);
     await user.type(screen.getByLabelText('Name'), 'Our shop');
     await user.type(screen.getByLabelText('Address'), 'https://shop.example/api');
-    await user.selectOptions(screen.getByLabelText(/How does it check who we are/i), 'bearer');
+    await chooseOption(screen.getByLabelText(/How does it check who we are/i), 'A bearer token');
     await user.type(screen.getByLabelText(/API key/i), 'sk_live_kept');
     await user.click(screen.getByRole('checkbox'));
     await user.click(screen.getByRole('button', { name: 'Connect' }));
@@ -309,9 +316,12 @@ describe('⛔ a saved connection reaches the thread panel now, not in five minut
  * vendor credential and send it to a third party on every lookup.
  */
 describe('the browser must not treat the credential fields as a login form', () => {
-  const showKeyFields = async (user: ReturnType<typeof userEvent.setup>) => {
+  const showKeyFields = async (_user: ReturnType<typeof userEvent.setup>) => {
     render(<CustomApiVendorForm open onClose={noop} onSaved={noop} />);
-    await user.selectOptions(screen.getByLabelText(/How does it check who we are/i), 'header');
+    await chooseOption(
+      screen.getByLabelText(/How does it check who we are/i),
+      'An API key in a header'
+    );
   };
 
   it('⛔ the API key field opts out of saved-password fill', async () => {
@@ -454,7 +464,7 @@ describe('switch a vendor off, and choose its departments (FE audit M17)', () =>
   it('only chosen departments: the scope is saved; none chosen says only admins can', async () => {
     const user = userEvent.setup();
     render(<CustomApiVendorForm open connection={connection()} onClose={noop} onSaved={noop} />);
-    await user.selectOptions(screen.getByLabelText(/Which departments/i), 'departments');
+    await chooseOption(screen.getByLabelText(/Which departments/i), 'Only the ones I choose');
     expect(await screen.findByText(/only workspace admins will be able to use/i)).toBeTruthy();
     await user.click(await screen.findByRole('checkbox', { name: 'Support' }));
     expect(screen.queryByText(/only workspace admins will be able to use/i)).toBeNull();

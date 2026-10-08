@@ -17,7 +17,7 @@ vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () 
 vi.mock('@/hooks/useNotificationCounts', () => ({
   useNotificationCounts: () => ({ counts: {}, clearKind: vi.fn() }),
 }));
-vi.mock('@/components/ui/ReactSelect', () => ({ ReactSelect: () => null }));
+vi.mock('@/components/ui/Select', () => ({ Select: () => null }));
 vi.mock('../KanbanCard', () => ({
   KanbanCard: ({ thread }: { thread: MessageThread }) => (
     <div data-testid="card">{`${thread.threadId}|${thread.sender}`}</div>

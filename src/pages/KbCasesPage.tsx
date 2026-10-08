@@ -45,6 +45,11 @@ export const KB_CASES_CAPTION =
   'Counts are conversations whose answers were learned into the knowledge base — not all conversations. ' +
   'Cases are grouped automatically, so one real case can appear twice, and one conversation can appear under several cases.';
 
+const SORT_OPTIONS = [
+  { value: 'conversations', label: 'Most conversations' },
+  { value: 'lastSeen', label: 'Most recently seen' },
+];
+
 /** `?departments=3,5` — positive integers only, each once, in the order given. */
 const parseDepartments = (raw: string | null): number[] => [
   ...new Set(
@@ -268,16 +273,12 @@ export const KbCasesPage = () => {
               <Label htmlFor="cases-dept">Department</Label>
               <Select
                 id="cases-dept"
-                value={legacyDepartmentId ?? ''}
-                onChange={(event) => setDepartments([Number(event.target.value)])}
+                value={legacyDepartmentId === null ? '' : String(legacyDepartmentId)}
+                onChange={(value) => setDepartments([Number(value)])}
                 disabled={deptsLoading || departments.length === 0}
-              >
-                {departments.map((dept) => (
-                  <option key={dept.id} value={dept.id}>
-                    {dept.name}
-                  </option>
-                ))}
-              </Select>
+                options={departments.map((dept) => ({ value: String(dept.id), label: dept.name }))}
+                className="min-w-[12rem]"
+              />
             </div>
           ) : departments.length === 0 ? (
             // No department to tick (an org-level viewer still gets a report): say what it covers.
@@ -306,15 +307,14 @@ export const KbCasesPage = () => {
             <Select
               id="cases-sort"
               value={sort}
-              onChange={(event) => {
-                setSort(event.target.value === 'lastSeen' ? 'lastSeen' : 'conversations');
+              onChange={(value) => {
+                setSort(value === 'lastSeen' ? 'lastSeen' : 'conversations');
                 setPage(1);
                 setNotice(null);
               }}
-            >
-              <option value="conversations">Most conversations</option>
-              <option value="lastSeen">Most recently seen</option>
-            </Select>
+              options={SORT_OPTIONS}
+              className="min-w-[12rem]"
+            />
           </div>
           <div className="flex-1 min-w-[200px]">
             <SearchInput

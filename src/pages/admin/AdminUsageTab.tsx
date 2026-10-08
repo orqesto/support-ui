@@ -33,7 +33,7 @@ import {
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { Select, type Option } from '@/components/ui/Select';
 import { Label } from '@/components/ui/Label';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { Pagination } from '@/components/ui/Pagination';
@@ -43,6 +43,16 @@ import { OrgLimitOverridesSection } from './OrgLimitOverridesSection';
 
 /** Rows shown per page in the client-paginated workspace usage table. */
 const PAGE_SIZE = 20;
+
+const STATUS_FILTER_OPTIONS: Option[] = [
+  { value: 'all', label: 'All statuses' },
+  { value: 'active', label: 'Active' },
+  { value: 'trialing', label: 'Trialing' },
+  { value: 'past_due', label: 'Past due' },
+  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'expired', label: 'Expired' },
+  { value: 'none', label: 'No subscription' },
+];
 
 export const AdminUsageTab = () => {
   const [organizations, setOrganizations] = useState<OrganizationUsage[]>([]);
@@ -236,6 +246,20 @@ export const AdminUsageTab = () => {
       org.usage.aiCalls.critical
   ).length;
 
+  const planOptions: Option[] = [
+    { value: 'all', label: 'All plans' },
+    ...availablePlans.map((plan) => ({ value: plan.name, label: plan.displayName })),
+    // A deep-link (?plan=…) can target a plan that's no longer active — the plans endpoint
+    // returns active plans only. Surface it so the control reflects the filtered table instead
+    // of rendering blank.
+    ...(planFilter !== 'all' &&
+    planFilter !== 'none' &&
+    !availablePlans.some((plan) => plan.name === planFilter)
+      ? [{ value: planFilter, label: `${planFilter} (inactive)` }]
+      : []),
+    { value: 'none', label: 'No plan' },
+  ];
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -286,27 +310,12 @@ export const AdminUsageTab = () => {
           <Select
             id="usage-plan-filter"
             value={planFilter}
-            onChange={(evt) => {
-              setPlanFilter(evt.target.value);
+            options={planOptions}
+            onChange={(value) => {
+              setPlanFilter(value);
               setPage(1);
             }}
-          >
-            <option value="all">All plans</option>
-            {availablePlans.map((plan) => (
-              <option key={plan.id} value={plan.name}>
-                {plan.displayName}
-              </option>
-            ))}
-            {/* A deep-link (?plan=…) can target a plan that's no longer active — the plans
-                endpoint returns active plans only. Surface it so the control reflects the
-                filtered table instead of rendering blank. */}
-            {planFilter !== 'all' &&
-              planFilter !== 'none' &&
-              !availablePlans.some((plan) => plan.name === planFilter) && (
-                <option value={planFilter}>{planFilter} (inactive)</option>
-              )}
-            <option value="none">No plan</option>
-          </Select>
+          />
         </div>
         <div className="min-w-[12rem]">
           <Label htmlFor="usage-status-filter" className="mb-1">
@@ -315,19 +324,12 @@ export const AdminUsageTab = () => {
           <Select
             id="usage-status-filter"
             value={statusFilter}
-            onChange={(evt) => {
-              setStatusFilter(evt.target.value);
+            options={STATUS_FILTER_OPTIONS}
+            onChange={(value) => {
+              setStatusFilter(value);
               setPage(1);
             }}
-          >
-            <option value="all">All statuses</option>
-            <option value="active">Active</option>
-            <option value="trialing">Trialing</option>
-            <option value="past_due">Past due</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="expired">Expired</option>
-            <option value="none">No subscription</option>
-          </Select>
+          />
         </div>
       </div>
 

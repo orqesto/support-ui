@@ -301,32 +301,31 @@ const FilterBar = ({
     <div className="flex items-center gap-2">
       <span className="text-sm text-muted-foreground">Feature:</span>
       <Select
+        aria-label="Feature"
+        className="min-w-[12rem]"
         value={feature}
-        onChange={(event) => setFeature(event.target.value)}
-        className="w-auto"
-      >
-        <option value="all">All features</option>
-        {featureOptions.map((opt) => (
-          <option key={opt} value={opt}>
-            {featureLabel(opt)}
-          </option>
-        ))}
-      </Select>
+        options={[
+          { value: 'all', label: 'All features' },
+          ...featureOptions.map((opt) => ({ value: opt, label: featureLabel(opt) })),
+        ]}
+        onChange={(value) => setFeature(value)}
+      />
     </div>
     <div className="flex items-center gap-2">
       <span className="text-sm text-muted-foreground">Provider:</span>
       <Select
+        aria-label="Provider"
+        className="min-w-[10rem]"
         value={provider}
-        onChange={(event) => setProvider(event.target.value)}
-        className="w-auto"
-      >
-        <option value="all">All providers</option>
-        {providerOptions.map((opt) => (
-          <option key={opt} value={opt} className="capitalize">
-            {opt}
-          </option>
-        ))}
-      </Select>
+        options={[
+          { value: 'all', label: 'All providers' },
+          ...providerOptions.map((opt) => ({
+            value: opt,
+            label: opt.charAt(0).toUpperCase() + opt.slice(1),
+          })),
+        ]}
+        onChange={(value) => setProvider(value)}
+      />
     </div>
   </div>
 );

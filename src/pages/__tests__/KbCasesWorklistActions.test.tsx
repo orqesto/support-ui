@@ -8,6 +8,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { chooseOption } from '@/test/chooseOption';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
@@ -378,7 +379,7 @@ describe('audit round 2 — the page line and focus', () => {
   it("the page's line clears when the sort changes", async () => {
     renderPage();
     await unmergeCase();
-    fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'lastSeen' } });
+    await chooseOption(screen.getByLabelText('Sort'), 'Most recently seen');
     await waitFor(() => expect(screen.queryByText(/^Case unmerged\./)).toBeNull());
   });
 
@@ -430,7 +431,7 @@ describe('audit round 3 — lines and focus that outlive their list', () => {
   it('moving the LAST row of the set-aside list: the line stays, focus goes to the heading', async () => {
     renderPage();
     await workRowEl(21);
-    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'raw_email' } });
+    await chooseOption(screen.getByLabelText('Reason'), /^Raw email \(/);
     await waitFor(() => expect(screen.queryByTestId('work-row-22')).toBeNull());
     await moveInto(screen.getByTestId('work-row-21'));
     const section = screen.getByRole('region', { name: 'Entries not in any case' });
@@ -507,7 +508,7 @@ describe('audit round 3 — lines and focus that outlive their list', () => {
     (document.activeElement as HTMLElement | null)?.blur();
     // Later, 22 leaves the list on a re-read the viewer did not start with a row action.
     server.entries.set(22, { ...(server.entries.get(22) as KbWorkRow), status: 'rejected' });
-    fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'lastSeen' } });
+    await chooseOption(screen.getByLabelText('Sort'), 'Most recently seen');
     await waitFor(() => expect(screen.queryByTestId('work-row-22')).toBeNull());
     expect(document.activeElement).toBe(document.body);
   });
@@ -561,7 +562,7 @@ describe('audit round 3 — lines and focus that outlive their list', () => {
     renderPage();
     await moveInto(await workRowEl(21));
     expect(await screen.findByText('Moved into case #KB-900.')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'lastSeen' } });
+    await chooseOption(screen.getByLabelText('Sort'), 'Most recently seen');
     await waitFor(() => expect(screen.queryByText('Moved into case #KB-900.')).toBeNull());
   });
 

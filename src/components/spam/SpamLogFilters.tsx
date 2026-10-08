@@ -3,7 +3,7 @@ import { Filter, X } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import type { SpamLogFilters as SpamLogFiltersType } from '@/services/spamLog.service';
@@ -137,7 +137,9 @@ export const SpamLogFilters = ({
               <div className="flex flex-col gap-3 w-full sm:flex-row sm:flex-wrap sm:items-center">
                 <div className="flex flex-col gap-2 items-start w-full sm:flex-row sm:items-center sm:w-auto">
                   <span className="text-xs font-semibold text-muted-foreground shrink-0">Channel:</span>
-                  <ReactSelect
+                  <Select
+                    size="sm"
+                    aria-label="Channel"
                     value={filters.channel ?? 'all'}
                     onChange={(value) => onFilterChange('channel', value)}
                     options={[
@@ -151,7 +153,9 @@ export const SpamLogFilters = ({
                 </div>
                 <div className="flex flex-col gap-2 items-start w-full sm:flex-row sm:items-center sm:w-auto">
                   <span className="text-xs font-semibold text-muted-foreground shrink-0">Source:</span>
-                  <ReactSelect
+                  <Select
+                    size="sm"
+                    aria-label="Source"
                     value={filters.messageSourceId?.toString() ?? 'all'}
                     onChange={(value) =>
                       onFilterChange('messageSourceId', value === 'all' ? '' : Number(value))
@@ -168,7 +172,9 @@ export const SpamLogFilters = ({
                 </div>
                 <div className="flex flex-col gap-2 items-start w-full sm:flex-row sm:items-center sm:w-auto">
                   <span className="text-xs font-semibold text-muted-foreground shrink-0">Period:</span>
-                  <ReactSelect
+                  <Select
+                    size="sm"
+                    aria-label="Period"
                     value={filters.days?.toString() ?? '30'}
                     onChange={(value) => onFilterChange('days', Number(value))}
                     options={[
@@ -182,7 +188,9 @@ export const SpamLogFilters = ({
                 </div>
                 <div className="flex flex-col gap-2 items-start w-full sm:flex-row sm:items-center sm:w-auto">
                   <span className="text-xs font-semibold text-muted-foreground shrink-0">Sort:</span>
-                  <ReactSelect
+                  <Select
+                    size="sm"
+                    aria-label="Sort"
                     value={filters.sortOrder ?? 'desc'}
                     onChange={(value) => onSortingChange(value as 'asc' | 'desc')}
                     options={[

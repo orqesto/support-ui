@@ -39,8 +39,8 @@ vi.mock('@/hooks/useDepartments', () => ({
 }));
 
 // A plain stand-in for the searchable select, so a test can read its options and pick one.
-vi.mock('@/components/ui/ReactSelect', () => ({
-  ReactSelect: ({
+vi.mock('@/components/ui/Select', () => ({
+  Select: ({
     label,
     value,
     onChange,

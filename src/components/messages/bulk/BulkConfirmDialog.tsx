@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { assignmentService, type AssignableUser } from '@/services/assignment.service';
 import {
   ACTION_LABEL,
@@ -169,21 +170,17 @@ export const BulkConfirmDialog = ({
               <label className="text-xs font-medium text-foreground" htmlFor="bulk-assignee">
                 Assign to
               </label>
-              <select
+              <Select
                 id="bulk-assignee"
-                className="px-2 py-1.5 w-full text-sm rounded-md border border-border bg-background"
-                value={assigneeId ?? ''}
-                onChange={(event) =>
-                  setAssigneeId(event.target.value ? Number(event.target.value) : null)
-                }
-              >
-                <option value="">Choose a person…</option>
-                {assignable.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.firstName} {user.lastName}
-                  </option>
-                ))}
-              </select>
+                className="w-full"
+                placeholder="Choose a person…"
+                value={assigneeId !== null ? String(assigneeId) : ''}
+                onChange={(value) => setAssigneeId(value ? Number(value) : null)}
+                options={assignable.map((user) => ({
+                  value: String(user.id),
+                  label: `${user.firstName} ${user.lastName}`,
+                }))}
+              />
               {assignableState === 'loaded' && assignable.length === 0 && (
                 <p className="text-xs text-muted-foreground">
                   No one in this workspace can be assigned conversations.

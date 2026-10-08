@@ -26,7 +26,7 @@ import { SourceRowBadges } from '@/components/settings/integrations/SourceRowBad
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
 import { integrationsService } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
@@ -615,7 +615,7 @@ export const EmailIntegrationCard = ({
             </p>
 
             <div className="mb-4">
-              <ReactSelect
+              <Select
                 label="Fetch emails from:"
                 value={bulkImportDaysInput}
                 onChange={(value) => setBulkImportDaysInput(value)}

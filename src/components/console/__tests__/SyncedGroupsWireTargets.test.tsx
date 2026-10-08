@@ -16,13 +16,17 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { SyncedGroupsCard } from '@/components/console/SyncedGroupsCard';
 import type { SyncedGroup } from '@/services/alliance-scim.service';
+import { listOptions } from '@/test/chooseOption';
 
 const syncedGroups: SyncedGroup[] = [];
 
 const unwireMutate = vi.fn();
 vi.mock('@/hooks/useAllianceProvisioning', () => ({
   useAllianceSyncedGroups: () => ({ data: syncedGroups, isLoading: false }),
-  useWireSyncedGroup: () => ({ mutateAsync: vi.fn().mockResolvedValue({ usersReconciled: 0 }), isPending: false }),
+  useWireSyncedGroup: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ usersReconciled: 0 }),
+    isPending: false,
+  }),
   useResyncAllianceProvisioning: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteAllianceGroupMap: () => ({ mutate: unwireMutate, isPending: false }),
   useRemoveSyncedGroup: () => ({ mutate: vi.fn(), isPending: false }),
@@ -74,30 +78,28 @@ beforeEach(() => {
 });
 
 describe('SyncedGroupsCard wire targets', () => {
-  it('offers no alliance-role target', () => {
+  it('offers no alliance-role target', async () => {
     syncedGroups.push(baseGroup());
     renderCard();
 
-    const options = screen.getAllByRole('option').map((option) => option.textContent ?? '');
+    const options = await listOptions(screen.getByLabelText('Map to'));
     expect(options.some((label) => /Alliance admin|Alliance agent/.test(label))).toBe(false);
   });
 
   // CONTROL: the picker must still offer something, or the assertion above would pass
   // simply because the control failed to render.
-  it('still offers the workspace roles', () => {
+  it('still offers the workspace roles', async () => {
     syncedGroups.push(baseGroup());
     renderCard();
 
-    const options = screen.getAllByRole('option').map((option) => option.textContent ?? '');
+    const options = await listOptions(screen.getByLabelText('Map to'));
     expect(options.some((label) => label.includes('Org admin'))).toBe(true);
   });
 
   // The other half of a LAZY retirement: an existing mapping still grants access, so it
   // has to stay visible — flagged as legacy so an admin knows to move it onto a group.
   it('still shows a pre-existing alliance-role wiring, marked legacy', () => {
-    syncedGroups.push(
-      baseGroup({ wiredRole: { mappingId: 4, mappedRole: 'alliance_admin' } })
-    );
+    syncedGroups.push(baseGroup({ wiredRole: { mappingId: 4, mappedRole: 'alliance_admin' } }));
     renderCard();
 
     expect(screen.getByText(/Wired → Alliance admin \(legacy\)/)).toBeInTheDocument();
@@ -115,10 +117,12 @@ describe('SyncedGroupsCard wire targets', () => {
 
     expect(screen.getByRole('button', { name: 'Edit role / workspace' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Unwire' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Re-point', hidden: true })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Re-point', hidden: true })
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/Re-point this IdP group/)).not.toBeInTheDocument();
     // No picker at all on a wired row — the only place a group is chosen is the editor.
-    expect(screen.queryAllByRole('option')).toHaveLength(0);
+    expect(screen.queryAllByRole('combobox')).toHaveLength(0);
   });
 
   // The picker offered "every authored alliance group" as a target too. Every wire mints a
@@ -126,11 +130,10 @@ describe('SyncedGroupsCard wire targets', () => {
   // (taco, 2026-09-07) the list was four roles plus one by-product per wire already made,
   // and the owner asked what they were for. Nothing that target could express is lost:
   // workspace and departments sit on the role wire; overrides are edited on the minted group.
-  it('offers the four workspace roles and NO alliance group, minted or hand-authored', () => {
+  it('offers the four workspace roles and NO alliance group, minted or hand-authored', async () => {
     syncedGroups.push(baseGroup({}));
     renderCard();
-    const target = screen.getByLabelText<HTMLSelectElement>('Map to');
-    const options = Array.from(target.options).map((option) => option.textContent ?? '');
+    const options = await listOptions(screen.getByLabelText('Map to'));
     expect(options).toEqual([
       'Org role — Org admin',
       'Org role — Moderator',
@@ -154,7 +157,9 @@ describe('SyncedGroupsCard wire targets', () => {
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Unwire' }));
 
-    expect(screen.getByText(/"Support EU" — created by this mapping — is retired with it/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/"Support EU" — created by this mapping — is retired with it/)
+    ).toBeInTheDocument();
     expect(screen.queryByText(/nobody loses access/)).not.toBeInTheDocument();
   });
 
@@ -196,7 +201,8 @@ describe('SyncedGroupsCard wire targets', () => {
     );
     renderCard();
 
-    expect(screen.getByLabelText('Map to')).toHaveValue('orgrole:org_admin');
+    expect(screen.getByText('Org role — Org admin')).toBeInTheDocument();
+    expect(screen.queryByText('Org role — Associate')).not.toBeInTheDocument();
   });
 
   // CONTROL for the skew: an old backend still sends { mappedRole }. The pill must stay
@@ -210,7 +216,8 @@ describe('SyncedGroupsCard wire targets', () => {
     renderCard();
 
     expect(screen.queryByText(/Suggested:/)).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Map to')).toHaveValue('orgrole:associate');
+    expect(screen.getByText('Org role — Associate')).toBeInTheDocument();
+    expect(screen.queryByText('Org role — Org admin')).not.toBeInTheDocument();
   });
 });
 
@@ -272,7 +279,8 @@ describe('workspace selection defaults', () => {
   it('selects NO workspace until the admin picks one', () => {
     syncedGroups.push(baseGroup());
     renderCard();
-    expect(screen.getByLabelText('Workspace')).toHaveValue('');
+    expect(screen.getByText('Select a workspace…')).toBeInTheDocument();
+    expect(screen.queryByText('Acme')).not.toBeInTheDocument();
   });
 
   it('refuses to wire while nothing is selected, and says so', () => {
@@ -282,12 +290,14 @@ describe('workspace selection defaults', () => {
     expect(screen.getByText(/Choose one to map/)).toBeInTheDocument();
   });
 
-  it('offers each workspace once, and no way to pick two', () => {
+  it('offers each workspace once, and no way to pick two', async () => {
     // The cap is a product rule, not a schema one: the backend rejects a second id and the
     // control simply cannot express it.
     syncedGroups.push(baseGroup());
     renderCard();
-    expect(screen.getByLabelText<HTMLSelectElement>('Workspace').multiple).toBe(false);
-    expect(screen.getByRole('option', { name: 'Acme' })).toBeInTheDocument();
+    // Single select: the menu is a listbox without multi-selection.
+    const workspace = screen.getByLabelText('Workspace');
+    expect(await listOptions(workspace)).toEqual(['Acme']);
+    expect(screen.getByRole('listbox')).not.toHaveAttribute('aria-multiselectable', 'true');
   });
 });

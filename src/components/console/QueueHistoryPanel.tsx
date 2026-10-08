@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { formatDuration } from '@/components/console/failureAnalysis.format';
 import { usePlatformQueueHistory } from '@/hooks/usePlatformAdmin';
@@ -88,21 +89,17 @@ export const QueueHistoryPanel = ({ queues }: { queues: QueueRow[] }) => {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-3 items-center">
-        <label className="flex gap-2 items-center text-sm text-muted-foreground">
-          History
-          <select
-            className="px-2 py-1 text-sm rounded-md border border-border bg-card text-foreground"
+        <div className="flex gap-2 items-center text-sm text-muted-foreground">
+          <span aria-hidden>History</span>
+          <Select
+            size="sm"
+            className="min-w-[180px]"
             value={queue ?? ''}
-            onChange={(event) => setChosen(event.target.value)}
+            onChange={(value) => setChosen(value)}
             aria-label="Queue to show history for"
-          >
-            {queues.map((row) => (
-              <option key={row.name} value={row.name}>
-                {row.name}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={queues.map((row) => ({ value: row.name, label: row.name }))}
+          />
+        </div>
         <div className="flex gap-1" role="group" aria-label="Time range">
           {RANGES.map((range) => (
             <Button

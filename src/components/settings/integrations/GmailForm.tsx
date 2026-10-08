@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
 import type { Department } from '@/services/department.service';
 import { SourceKbToggle } from '@/components/settings/integrations/SourceKbToggle';
@@ -89,7 +89,7 @@ export const GmailForm = ({
 
       <div className="space-y-3">
         <div>
-          <ReactSelect
+          <Select
             label="Email Filter"
             value={config.searchQuery}
             onChange={(value) => onConfigChange({ ...config, searchQuery: value })}
@@ -102,7 +102,7 @@ export const GmailForm = ({
         </div>
 
         <div>
-          <ReactSelect
+          <Select
             label="Historical Import Range"
             value={config.bulkImportDays.toString()}
             onChange={(value) => onConfigChange({ ...config, bulkImportDays: parseInt(value) })}

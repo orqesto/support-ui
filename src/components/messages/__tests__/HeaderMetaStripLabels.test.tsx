@@ -5,7 +5,7 @@
  * create one from a message — the control appeared only once you no longer needed it.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { fireEvent, render, screen, cleanup } from '@testing-library/react';
 import type { Message } from '@/types';
 import type { Label } from '@/services/settings.service';
 
@@ -20,7 +20,6 @@ vi.mock('@/hooks/usePermissions', () => ({
 vi.mock('@/stores/authStore', () => ({ useAuthStore: () => ({ id: 1, role: 'admin' }) }));
 vi.mock('@/services/message.service', () => ({ messageService: {} }));
 vi.mock('@/components/admin/AssignmentSelect', () => ({ AssignmentSelect: () => null }));
-vi.mock('@/components/ui/ReactSelect', () => ({ ReactSelect: () => null }));
 
 const { HeaderMetaStrip } = await import('../HeaderMetaStrip');
 
@@ -42,6 +41,10 @@ const renderStrip = (over: {
   messageLabels?: Label[];
   hasManageLabels?: boolean;
   onCreateLabel?: (name: string) => void;
+  showLabelPicker?: boolean;
+  labelsStatus?: 'loading' | 'ready' | 'error';
+  onRetryLabels?: () => void;
+  onToggleLabelPicker?: () => void;
 }) =>
   render(
     <HeaderMetaStrip
@@ -50,11 +53,13 @@ const renderStrip = (over: {
       messageLabels={over.messageLabels ?? []}
       allLabels={over.allLabels ?? []}
       hasManageLabels={over.hasManageLabels ?? true}
-      showLabelPicker={false}
+      showLabelPicker={over.showLabelPicker ?? false}
+      labelsStatus={over.labelsStatus}
+      onRetryLabels={over.onRetryLabels}
       updatingCategory={false}
       onSetCategory={vi.fn()}
       onToggleLabel={vi.fn()}
-      onToggleLabelPicker={vi.fn()}
+      onToggleLabelPicker={over.onToggleLabelPicker ?? vi.fn()}
       onCloseLabelPicker={vi.fn()}
       onCreateLabel={'onCreateLabel' in over ? over.onCreateLabel : vi.fn()}
     />
@@ -64,6 +69,41 @@ describe('HeaderMetaStrip — the Labels row with an empty workspace', () => {
   it('offers "Add label" even when the workspace has NO labels yet', () => {
     renderStrip({ allLabels: [] });
     expect(screen.getByLabelText('Add label')).toBeTruthy();
+  });
+
+  it('the open picker says "Loading labels…" / "Couldn’t load labels." until labels are really known', () => {
+    const { unmount } = renderStrip({ allLabels: [], showLabelPicker: true, labelsStatus: 'loading' });
+    expect(screen.getByText('Loading labels…')).toBeTruthy();
+    unmount();
+    renderStrip({ allLabels: [], showLabelPicker: true, labelsStatus: 'error' });
+    expect(screen.getByText('Couldn’t load labels.')).toBeTruthy();
+    expect(screen.queryByText(/No labels yet/)).toBeNull();
+  });
+
+  it('offers "Create …" only once the label list is known', () => {
+    const { unmount } = renderStrip({ allLabels: [], showLabelPicker: true, labelsStatus: 'loading' });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Labels' }), { target: { value: 'Bug' } });
+    expect(screen.queryByText(/^Create /)).toBeNull();
+    unmount();
+    renderStrip({ allLabels: [], showLabelPicker: true, labelsStatus: 'ready' });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Labels' }), { target: { value: 'Bug' } });
+    expect(screen.getByText('Create "Bug"')).toBeTruthy();
+  });
+
+  it('opening the picker after a failed load asks the parent to retry; no "or create" meanwhile', () => {
+    const onRetryLabels = vi.fn();
+    renderStrip({ allLabels: [], labelsStatus: 'error', onRetryLabels });
+    fireEvent.click(screen.getByLabelText('Add label'));
+    expect(onRetryLabels).toHaveBeenCalledTimes(1);
+    cleanup();
+    renderStrip({ allLabels: [], showLabelPicker: true, labelsStatus: 'error' });
+    expect(screen.queryByText('Search or create…')).toBeNull();
+  });
+
+  it('no label can be ticked while the list is reloading (its older answer would undo the tick)', () => {
+    renderStrip({ allLabels: [{ id: 1, name: 'Bug', color: '#f00' } as Label], showLabelPicker: true, labelsStatus: 'loading' });
+    expect(screen.queryByRole('option', { name: 'Bug' })).toBeNull();
+    expect(screen.getByText('Loading labels…')).toBeTruthy();
   });
 
   it('still offers it once labels exist', () => {
