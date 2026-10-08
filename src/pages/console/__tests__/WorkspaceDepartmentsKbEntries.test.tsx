@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
+import { chooseOption } from '@/test/chooseOption';
 import { apiClient } from '@/lib/api-client';
 import { installTransport, ok, routeAbsent, type WireResponse } from '@/test/apiTransport';
 import type {
@@ -132,7 +133,7 @@ describe('Deactivate department — KB entries said before the confirm', () => {
     expect(
       screen.getByText('1 knowledge-base entry will move to the department you choose.')
     ).toBeTruthy();
-    fireEvent.change(screen.getByLabelText('Move everything to'), { target: { value: '3' } });
+    await chooseOption(screen.getByLabelText('Move everything to'), /^Billing/);
     expect(screen.getByText('1 knowledge-base entry will move to Billing.')).toBeTruthy();
     expect(screen.queryByText(/will move to Support/)).toBeNull();
   });
@@ -193,7 +194,7 @@ describe('Deactivate department — KB entries said after the action', () => {
         },
       });
     await openDeactivate('Sales');
-    fireEvent.change(screen.getByLabelText('Move everything to'), { target: { value: '3' } });
+    await chooseOption(screen.getByLabelText('Move everything to'), /^Billing/);
     fireEvent.click(confirmButton()!);
     await waitFor(() =>
       expect(toasts).toEqual([

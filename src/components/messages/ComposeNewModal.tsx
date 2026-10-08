@@ -187,20 +187,17 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
               </div>
             ) : (
               <Select
-                value={messageSourceId ?? ''}
-                onChange={(event) => setMessageSourceId(Number(event.target.value) || null)}
+                aria-label="From"
+                value={String(messageSourceId ?? '')}
+                onChange={(value) => setMessageSourceId(Number(value) || null)}
                 disabled={submitting}
                 required
-              >
-                <option value="" disabled>
-                  Pick a source
-                </option>
-                {emailSources.map((src) => (
-                  <option key={src.id} value={src.id}>
-                    {src.name} ({src.type})
-                  </option>
-                ))}
-              </Select>
+                placeholder="Pick a source"
+                options={emailSources.map((src) => ({
+                  value: String(src.id),
+                  label: `${src.name} (${src.type})`,
+                }))}
+              />
             )}
           </div>
 

@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
-import { ReactSelect } from '@/components/ui/ReactSelect';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -54,6 +53,11 @@ const GLOBAL_ROLE_OPTIONS: { value: GlobalRole; label: string }[] = [
   { value: 'user', label: 'User' },
   { value: 'admin', label: 'Global admin' },
 ];
+
+const ORGANIZATION_ROLE_OPTIONS = ORGANIZATION_ROLES.map((orgRole) => ({
+  value: orgRole,
+  label: roleDisplayNames[orgRole],
+}));
 
 const USERS_PATH = '/console/platform/users';
 
@@ -415,14 +419,9 @@ export const PlatformUserPage = () => {
                 value={role}
                 disabled={!caps.canChangeGlobalRole}
                 aria-label={`Global role for ${user.email}`}
-                onChange={(event) => setRole(event.target.value as GlobalRole)}
-              >
-                {GLOBAL_ROLE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
+                onChange={(value) => setRole(value as GlobalRole)}
+                options={GLOBAL_ROLE_OPTIONS}
+              />
               <p className="text-xs text-muted-foreground">
                 {!caps.canChangeGlobalRole
                   ? "You can't change your own global role."
@@ -491,12 +490,12 @@ export const PlatformUserPage = () => {
               <Label>Add to workspace</Label>
               <div className="flex flex-wrap gap-2 items-start">
                 <div className="flex-1 min-w-[180px]">
-                  <ReactSelect
+                  <Select
                     aria-label="Workspace to add"
                     value={addOrgId}
                     onChange={setAddOrgId}
                     options={workspaceOptions}
-                    isDisabled={workspacesQuery.isLoading || adding}
+                    disabled={workspacesQuery.isLoading || adding}
                     placeholder={
                       workspacesQuery.isLoading ? 'Loading workspaces…' : 'Select a workspace…'
                     }
@@ -507,14 +506,9 @@ export const PlatformUserPage = () => {
                   aria-label="Role for the new workspace"
                   className="w-44"
                   disabled={adding}
-                  onChange={(event) => setAddRole(event.target.value as OrganizationRole)}
-                >
-                  {ORGANIZATION_ROLES.map((orgRole) => (
-                    <option key={orgRole} value={orgRole}>
-                      {roleDisplayNames[orgRole]}
-                    </option>
-                  ))}
-                </Select>
+                  onChange={(value) => setAddRole(value as OrganizationRole)}
+                  options={ORGANIZATION_ROLE_OPTIONS}
+                />
                 <Button
                   variant="outline"
                   onClick={() => void handleAddMember()}

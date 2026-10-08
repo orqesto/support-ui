@@ -11,6 +11,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { getErrorStatus } from '@/lib/errorMessages';
+import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { featureFlagAdminService, type AdminFeatureFlag } from '@/services/featureFlags.service';
 import { organizationService } from '@/services/organization.service';
 
@@ -47,6 +48,35 @@ const SOURCE_VARIANT: Record<AdminFeatureFlag['source'], 'default' | 'secondary'
   code_default: 'secondary',
 };
 
+/**
+ * On a HOSTED deployment a workspace on its own AI key reads only its own row for these flags —
+ * the hosted service never spends a customer's key on a global say-so. A self-hosted install
+ * (the operator pays for every key) lets the global row reach every workspace.
+ */
+export const OWN_KEY_PER_WORKSPACE_FLAGS: readonly string[] = [
+  'kb.consolidation_enabled',
+  'kb.consolidation_dry_run',
+  'kb.quality_review_enabled',
+];
+export const OWN_KEY_GLOBAL_NOTE =
+  'Does not reach workspaces on their own AI key — set those per workspace.';
+/** Workspace scope, when the backend says the global row does not reach this workspace. */
+export const OWN_KEY_WORKSPACE_NOTE =
+  'This workspace uses its own AI key — the global value does not reach it. Set it here.';
+export const DRY_RUN_FLAG = 'kb.consolidation_dry_run';
+export const DRY_RUN_WARNING =
+  'While on, consolidation only labels entries (a trial): no merges are proposed and no quality review runs.';
+/** The badge when the global row does not reach the workspace — not "code default". */
+export const OWN_KEY_SOURCE_LABEL = 'own AI key: global not applied';
+
+/** What "Clear override" does here — true for an own-key workspace the global never reaches. */
+export const clearOverrideHint = (overrideHere: boolean, notReached: boolean): string =>
+  !overrideHere
+    ? 'No override at this scope to remove'
+    : notReached
+      ? 'Remove this override — the global value does not reach this workspace, so it falls back to off'
+      : 'Remove this override so the flag falls back to the layer below';
+
 /** `learning.reply_style_emit_suggestion` → group `learning`. */
 const groupOf = (key: string): string => key.split('.')[0] ?? 'other';
 
@@ -56,13 +86,26 @@ const FlagRow = ({
   onSet,
   onClear,
   busy,
+  note,
 }: {
   flag: AdminFeatureFlag;
   scopeOrgId: number | null;
   onSet: (enabled: boolean) => void;
   onClear: () => void;
   busy: boolean;
+  /** A line under the flag about where its value does not reach. */
+  note?: string;
 }) => {
+  // The backend says the global row does not reach this workspace (own key, hosted): the shown
+  // value is what the job does, and the global row's say is not this workspace's.
+  // Only while no workspace row decides: once the admin sets one (as the note asks), the row is the
+  // reason and the usual "workspace override" badge says so (audit pass 4).
+  // The global row never reaches this workspace (own key, hosted), whatever decided its value:
+  // neither "global says …" nor a fall-back to it may be implied (audit pass 5).
+  const notReached = scopeOrgId !== null && flag.globalReaches === false;
+  const globalUnreached =
+    scopeOrgId !== null && flag.globalReaches === false && flag.source === 'code_default';
+
   // Whether an override exists at the scope being edited. Only then is "clear"
   // meaningful — clearing a scope with no row is a no-op an admin could not tell
   // apart from a failure, so the action is disabled and says why.
@@ -74,16 +117,25 @@ const FlagRow = ({
         <span className="font-mono text-sm text-foreground">{flag.key}</span>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <Badge variant={SOURCE_VARIANT[flag.source]} size="sm">
-            {SOURCE_LABEL[flag.source]}
+            {/* The backend reports such a value as code_default, but the reason it is off is the
+                own-key rule, not the code default (audit pass 3). */}
+            {globalUnreached ? OWN_KEY_SOURCE_LABEL : SOURCE_LABEL[flag.source]}
           </Badge>
           <span>ships {flag.codeDefault ? 'on' : 'off'}</span>
           {/* Shown while editing a workspace because the global row is what a
               workspace without a row of its own is inheriting from — the reason a
               toggle here may look like it "did nothing". */}
-          {flag.global && scopeOrgId !== null && (
+          {flag.global && scopeOrgId !== null && !notReached && (
             <span>· global says {flag.global.enabled ? 'on' : 'off'}</span>
           )}
         </div>
+        {note && <p className="mt-1 text-xs text-muted-foreground">{note}</p>}
+        {globalUnreached && (
+          <p className="mt-1 text-xs text-muted-foreground">{OWN_KEY_WORKSPACE_NOTE}</p>
+        )}
+        {flag.key === DRY_RUN_FLAG && (
+          <p className="mt-1 text-xs text-warning">{DRY_RUN_WARNING}</p>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
@@ -94,11 +146,7 @@ const FlagRow = ({
           label={flag.effective ? 'On' : 'Off'}
         />
         <Tooltip
-          content={
-            overrideHere
-              ? 'Remove this override so the flag falls back to the layer below'
-              : 'No override at this scope to remove'
-          }
+          content={clearOverrideHint(!!overrideHere, notReached)}
         >
           <Button variant="ghost" size="sm" disabled={busy || !overrideHere} onClick={onClear}>
             Clear override
@@ -114,6 +162,15 @@ export const PlatformFeatureFlags = () => {
   const [scope, setScope] = useState<string>(SCOPE_GLOBAL);
   const [error, setError] = useState<string | null>(null);
   const scopeOrgId = scope === SCOPE_GLOBAL ? null : Number(scope);
+  // `selfHostedDeployment` is the BE's `isSelfHostedDeployment()` (DEPLOYMENT_MODE) — the one the
+  // flag resolution keys on. NOT `selfHosted`, which means "billing enforcement off" and is also
+  // true on a managed box before billing is on. Until the version is read nothing is claimed.
+  const version = useBackendVersion();
+  const hostedDeployment = version.data !== undefined && !version.data.selfHostedDeployment;
+  const ownKeyNote = (key: string): string | undefined =>
+    scopeOrgId === null && hostedDeployment && OWN_KEY_PER_WORKSPACE_FLAGS.includes(key)
+      ? OWN_KEY_GLOBAL_NOTE
+      : undefined;
 
   const flagsQuery = useQuery({
     queryKey: ['platform', 'feature-flags', scopeOrgId],
@@ -184,15 +241,15 @@ export const PlatformFeatureFlags = () => {
           <Select
             id="flag-scope"
             value={scope}
-            onChange={(event) => setScope(event.target.value)}
-          >
-            <option value={SCOPE_GLOBAL}>All workspaces (global)</option>
-            {(orgsQuery.data?.data ?? []).map((org) => (
-              <option key={org.id} value={String(org.id)}>
-                {org.name}
-              </option>
-            ))}
-          </Select>
+            onChange={setScope}
+            options={[
+              { value: SCOPE_GLOBAL, label: 'All workspaces (global)' },
+              ...(orgsQuery.data?.data ?? []).map((org) => ({
+                value: String(org.id),
+                label: org.name,
+              })),
+            ]}
+          />
         </div>
         <p className="pb-2 text-xs text-muted-foreground">
           {scopeOrgId === null
@@ -240,6 +297,7 @@ export const PlatformFeatureFlags = () => {
                       flag={flag}
                       scopeOrgId={scopeOrgId}
                       busy={busy}
+                      note={ownKeyNote(flag.key)}
                       onSet={(enabled) => setMutation.mutate({ key: flag.key, enabled })}
                       onClear={() => clearMutation.mutate(flag.key)}
                     />

@@ -122,7 +122,9 @@ describe('PlatformSystem — per-queue timing', () => {
     expect(cells('notify')).toEqual(['notify', '0', '0', '2', '0', '—', '—', '—', '—']);
     expect(screen.getByText(/Typical job and Waited are the median/)).toBeTruthy();
     // The history panel is on the page, opened on the queue with the most jobs waiting.
-    expect(screen.getByLabelText<HTMLSelectElement>('Queue to show history for').value).toBe('process-message');
+    expect(
+      screen.getByRole('combobox', { name: 'Queue to show history for' }).closest('.select__control')?.textContent
+    ).toContain('process-message');
     // The slowest recent job is one hover away on the typical-job cell — and absent without timing.
     expect(screen.getByText('2.4 s').getAttribute('title')).toBe('Slowest of the last 20: 9.0 s');
     const notifyRow = screen.getAllByRole('row').find((tr) => tr.firstElementChild?.textContent === 'notify');

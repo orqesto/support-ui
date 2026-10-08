@@ -100,11 +100,7 @@ export const EditWorkspaceModal = ({ org, isOpen, onClose, onSaved }: Props) => 
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="ws-name">Name</Label>
-            <Input
-              id="ws-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
+            <Input id="ws-name" value={name} onChange={(event) => setName(event.target.value)} />
           </div>
 
           <div className="space-y-1.5">
@@ -125,15 +121,12 @@ export const EditWorkspaceModal = ({ org, isOpen, onClose, onSaved }: Props) => 
               value={planId}
               disabled={plansQuery.isLoading}
               aria-label={`Plan for ${org.name}`}
-              onChange={(event) => setPlanId(event.target.value)}
-            >
-              <option value="">No plan</option>
-              {planOptions.map((plan) => (
-                <option key={plan.id} value={String(plan.id)}>
-                  {plan.displayName}
-                </option>
-              ))}
-            </Select>
+              options={[
+                { value: '', label: 'No plan' },
+                ...planOptions.map((plan) => ({ value: String(plan.id), label: plan.displayName })),
+              ]}
+              onChange={(value) => setPlanId(value)}
+            />
             {plansQuery.isError && (
               <p className="text-xs text-destructive">Couldn&apos;t load plans.</p>
             )}

@@ -2,6 +2,7 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
+import { listOptions } from '@/test/chooseOption';
 import type { WorkspaceDepartmentsView } from '@/services/platform.service';
 
 // Over budget (3 active of 2) so the budget badge + over-budget banner both render.
@@ -123,7 +124,9 @@ describe('WorkspaceDepartmentsPage', () => {
     // The merge dialog opens with a required target picker.
     expect(await screen.findByText('Move everything to')).toBeInTheDocument();
     // Target options exclude Sales itself and the inactive Info; Billing is offered.
-    expect(screen.getByRole('option', { name: /Billing/ })).toBeInTheDocument();
+    expect(await listOptions(screen.getByLabelText('Move everything to'))).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^Billing/)])
+    );
     // Confirm is disabled until a target is chosen (nothing dispatched yet).
     const confirm = screen.getByRole('button', { name: /Merge & deactivate/i });
     expect(confirm).toBeDisabled();

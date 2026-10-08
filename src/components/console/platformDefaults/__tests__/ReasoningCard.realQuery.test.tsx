@@ -1,4 +1,5 @@
 import { vi, describe, it, expect, afterEach, beforeEach } from 'vitest';
+import { chooseOption } from '@/test/chooseOption';
 import { act, render, cleanup, fireEvent, within, waitFor, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -61,7 +62,12 @@ vi.mock('@/services/platformSettings.service', async (orig) => {
     platformSettingsService: {
       get: vi.fn(() => {
         if (failGet) return Promise.reject(new Error('network down'));
-        const answer = () => ({ reasoning: reasoningWith(server), ai: {}, storage: {}, secrets: {} });
+        const answer = () => ({
+          reasoning: reasoningWith(server),
+          ai: {},
+          storage: {},
+          secrets: {},
+        });
         if (deferGet) {
           return new Promise((resolve) => deferredGets.push(() => resolve(answer())));
         }
@@ -82,7 +88,13 @@ vi.mock('@/components/console/platformDefaults/DefaultStorageCard', () => ({
 
 const toastFailure = vi.fn();
 vi.mock('@/lib/toast', () => ({
-  toast: { failure: toastFailure, success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
+  toast: {
+    failure: toastFailure,
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+  },
 }));
 
 const { usePlatformSettings, usePlatformAiModels } = await import('@/hooks/usePlatformSettings');
@@ -111,7 +123,32 @@ const card = () => {
   if (!element) throw new Error('no AI reasoning card');
   return within(element);
 };
-const select = (label: string) => card().getByLabelText<HTMLSelectElement>(label);
+const select = (label: string) => card().getByLabelText(label);
+
+const EFFORT_TEXT: Record<string, string> = {
+  none: 'None',
+  minimal: 'Minimal',
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+};
+/** The text a level picker shows for its current value. */
+const shown = (label: string) =>
+  (select(label).closest('[class*="control"]') as HTMLElement).textContent ?? '';
+/** What a picker shows for `value`; '' is the "default" choice, worded per picker. */
+const textFor = (label: string, value: string): string | RegExp =>
+  value === ''
+    ? label === 'Default level'
+      ? 'Model default (not sent)'
+      : /^Default level/
+    : EFFORT_TEXT[value];
+/** Pick a level by its value, through the visible option. */
+const pick = (label: string, value: string) => chooseOption(select(label), textFor(label, value));
+const expectShown = (label: string, value: string) => {
+  const text = textFor(label, value);
+  if (typeof text === 'string') expect(shown(label)).toBe(text);
+  else expect(shown(label)).toMatch(text);
+};
 const edit = () => fireEvent.click(card().getByRole('button', { name: /^edit$/i }));
 const pressSave = () =>
   fireEvent.click(card().getByRole('button', { name: /save reasoning settings/i }));
@@ -153,7 +190,7 @@ describe('ReasoningCard with a real QueryClient', () => {
   it('locks every field and action while a save is in flight, then lands read-only', async () => {
     await mount();
     edit();
-    fireEvent.change(select('Spam detection'), { target: { value: 'low' } });
+    await pick('Spam detection', 'low');
     pressSave();
     await waitFor(() => expect(pendingSaves.length).toBe(1));
     // Every control in the card: the three kinds of field plus Save (now labelled "Loading...") and Cancel.
@@ -162,8 +199,14 @@ describe('ReasoningCard with a real QueryClient', () => {
     expect(disabled(select('Translation'))).toBe(true);
     expect(disabled(card().getByLabelText(/reasoning headroom/i))).toBe(true);
     expect(card().getAllByRole('button').every(disabled)).toBe(true);
-    // Reverting to the seeded value mid-flight (audit P1) cannot happen: the change is refused.
-    fireEvent.change(select('Spam detection'), { target: { value: '' } });
+    // Reverting to the seeded value mid-flight (audit P1) cannot happen: the locked picker
+    // does not even open, so there is no option to pick.
+    fireEvent.keyDown(select('Spam detection'), {
+      key: 'ArrowDown',
+      code: 'ArrowDown',
+      keyCode: 40,
+    });
+    expect(screen.queryByRole('option')).toBeNull();
     await answerSave();
     expect(card().getByRole('button', { name: /^edit$/i })).toBeTruthy();
     expect(card().getByText('Spam detection').nextElementSibling?.textContent).toMatch(/^Low/);
@@ -187,7 +230,7 @@ describe('ReasoningCard with a real QueryClient', () => {
   it('stays locked until the refetch after the save has landed, not just the PATCH', async () => {
     await mount();
     edit();
-    fireEvent.change(select('Spam detection'), { target: { value: 'low' } });
+    await pick('Spam detection', 'low');
     pressSave();
     deferGet = true;
     await answerSave();
@@ -203,7 +246,7 @@ describe('ReasoningCard with a real QueryClient', () => {
   it('a card remounted mid-save is locked too, and unlocks on the saved value with no alert', async () => {
     const view = await mount();
     edit();
-    fireEvent.change(select('Spam detection'), { target: { value: 'low' } });
+    await pick('Spam detection', 'low');
     pressSave();
     await waitFor(() => expect(pendingSaves.length).toBe(1));
     // Navigate away and back while the save is in flight: same QueryClient, a new card.
@@ -219,17 +262,17 @@ describe('ReasoningCard with a real QueryClient', () => {
     expect(disabled(card().getByRole('button', { name: /^edit$/i }))).toBe(false);
     expect(card().getByText('Spam detection').nextElementSibling?.textContent).toMatch(/^Low/);
     edit();
-    expect(select('Spam detection').value).toBe('low');
+    expectShown('Spam detection', 'low');
     expect(card().queryByText(MOVED)).toBeNull();
   });
 
   it('another admin saving exactly what my open draft holds raises no alert', async () => {
     await mount();
     edit();
-    fireEvent.change(select('Translation'), { target: { value: 'none' } });
+    await pick('Translation', 'none');
     await otherAdminSaves({ ...INITIAL, effortByFeature: { translation: 'none' } });
     expect(card().queryByText(MOVED)).toBeNull();
-    expect(select('Translation').value).toBe('none');
+    expectShown('Translation', 'none');
   });
 
   it('CONTROL: once the save settles the controls are usable again', async () => {
@@ -242,23 +285,23 @@ describe('ReasoningCard with a real QueryClient', () => {
   it('a different value arriving while I edit raises the alert and keeps my edits', async () => {
     await mount();
     edit();
-    fireEvent.change(select('Translation'), { target: { value: 'none' } });
+    await pick('Translation', 'none');
     await otherAdminSaves({ defaultEffort: 'high' });
     expect(card().getByText(MOVED)).toBeTruthy();
-    expect(select('Translation').value).toBe('none');
+    expectShown('Translation', 'none');
   });
 
   it('save A, another admin saves B, I edit, they save A back: the alert shows', async () => {
     await mount();
     edit();
-    fireEvent.change(select('Spam detection'), { target: { value: 'low' } });
+    await pick('Spam detection', 'low');
     pressSave();
     await answerSave();
     const savedA = server;
     await otherAdminSaves({ defaultEffort: 'high' });
     edit();
-    expect(select('Default level').value).toBe('high');
-    fireEvent.change(select('Translation'), { target: { value: 'none' } });
+    expectShown('Default level', 'high');
+    await pick('Translation', 'none');
     await otherAdminSaves(savedA);
     expect(card().getByText(MOVED)).toBeTruthy();
   });
@@ -272,7 +315,7 @@ describe('ReasoningCard with a real QueryClient', () => {
     );
     await waitFor(() => expect(models).toHaveBeenCalledTimes(1));
     edit();
-    fireEvent.change(select('Spam detection'), { target: { value: 'low' } });
+    await pick('Spam detection', 'low');
     pressSave();
     await answerSave();
     expect(models).toHaveBeenCalledTimes(1);
@@ -281,7 +324,7 @@ describe('ReasoningCard with a real QueryClient', () => {
   it('on the page, a refetch failing after a successful save shows the load failure, and Retry shows the saved value', async () => {
     await mount(<PlatformDefaults />);
     edit();
-    fireEvent.change(select('Spam detection'), { target: { value: 'low' } });
+    await pick('Spam detection', 'low');
     pressSave();
     failGet = true;
     await answerSave();
@@ -296,7 +339,7 @@ describe('ReasoningCard with a real QueryClient', () => {
   it('a double click on Save sends one save', async () => {
     await mount();
     edit();
-    fireEvent.change(select('Spam detection'), { target: { value: 'low' } });
+    await pick('Spam detection', 'low');
     pressSave();
     await settle();
     // In flight the Save button reads "Loading...", not its label; it is the first action button.

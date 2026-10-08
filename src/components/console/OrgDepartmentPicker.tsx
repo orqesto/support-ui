@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Toggle } from '@/components/ui/Toggle';
+import { Select } from '@/components/ui/Select';
 import { useOrgDepartments } from '@/hooks/useAllianceGroups';
 
 type OrgDepartmentPickerProps = {
@@ -44,8 +44,13 @@ export const OrgDepartmentPicker = ({
   const query = useOrgDepartments(allianceId, orgId);
   const departments = query.data ?? [];
 
-  const toggle = (deptId: number, checked: boolean) => {
-    onChange(checked ? [...selected, deptId] : selected.filter((id) => id !== deptId));
+  // Ids this org does not list are kept as they are: the picker only offers this org's own
+  // departments, and a tick here must not silently drop anything else from the mapping.
+  const offered = new Set(departments.map((dept) => dept.id));
+  const handleChange = (values: string[]) => {
+    const ticked = values.map(Number);
+    const kept = selected.filter((id) => !offered.has(id) || ticked.includes(id));
+    onChange([...kept, ...ticked.filter((id) => !selected.includes(id))]);
   };
 
   return (
@@ -76,17 +81,15 @@ export const OrgDepartmentPicker = ({
               No departments in this workspace — members get the role default.
             </p>
           ) : (
-            <div className="flex flex-wrap gap-x-4 gap-y-1">
-              {departments.map((dept) => (
-                <Toggle
-                  key={dept.id}
-                  label={dept.name}
-                  checked={selected.includes(dept.id)}
-                  disabled={disabled}
-                  onChange={(checked) => toggle(dept.id, checked)}
-                />
-              ))}
-            </div>
+            <Select
+              multi
+              aria-label={`${orgLabel} — departments`}
+              placeholder="Role default (no departments)"
+              options={departments.map((dept) => ({ value: String(dept.id), label: dept.name }))}
+              value={selected.map(String)}
+              onChange={handleChange}
+              disabled={disabled}
+            />
           )}
         </div>
       )}

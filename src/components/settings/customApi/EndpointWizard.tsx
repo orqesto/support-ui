@@ -501,23 +501,24 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
               placeholder="This customer's orders"
             />
             <div className="space-y-1">
-              <Label htmlFor="ca-category">What kind of record does this return?</Label>
               <Select
                 id="ca-category"
+                label="What kind of record does this return?"
                 value={category}
-                onChange={(event) => setCategory(event.target.value as typeof category)}
-              >
-                {/* ⛔ First, and the default. Every lookup that exists today has no category and
-                      keeps working; making one mandatory would turn an L1 lookup into an invalid
-                      thing to be. */}
-                {categoryField.keepCategoryOption(storedUnknownCategory)}
-                <option value="">Not set — just show the fields</option>
-                {CUSTOM_API_CATEGORIES.map((one) => (
-                  <option key={one} value={one}>
-                    {CATEGORY_LABELS[one]}
-                  </option>
-                ))}
-              </Select>
+                options={[
+                  // The stored category this build has no option for: kept, and selected.
+                  ...categoryField.keepCategoryOptions(storedUnknownCategory),
+                  /* ⛔ First, and the default. Every lookup that exists today has no category and
+                        keeps working; making one mandatory would turn an L1 lookup into an invalid
+                        thing to be. */
+                  { value: '', label: 'Not set — just show the fields' },
+                  ...CUSTOM_API_CATEGORIES.map((one) => ({
+                    value: one,
+                    label: CATEGORY_LABELS[one],
+                  })),
+                ]}
+                onChange={(value) => setCategory(value as typeof category)}
+              />
               <p className="text-xs text-muted-foreground">
                 Tell us what these records ARE and we can lay them out as such for the agent. Leave
                 it unset and nothing changes — the fields you pick are shown as they are.
@@ -547,24 +548,23 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
               Use <code>.</code> if the answer IS the record, with nothing wrapped around it.
             </p>
 
-            <div className="space-y-1">
-              <Label htmlFor="ca-param-source">What do we look up by?</Label>
-              <Select
-                id="ca-param-source"
-                value={paramSource}
-                onChange={(event) =>
-                  setParamSource(event.target.value as 'identity' | 'manual' | 'endpoint')
-                }
-              >
-                <option value="identity">
-                  The customer’s email address — filled in for the agent
-                </option>
-                <option value="manual">Something the agent types, like an order number</option>
-                <option value="endpoint">
-                  A value from another lookup’s answer, like the customer’s id
-                </option>
-              </Select>
-            </div>
+            <Select
+              id="ca-param-source"
+              label="What do we look up by?"
+              value={paramSource}
+              options={[
+                {
+                  value: 'identity',
+                  label: 'The customer’s email address — filled in for the agent',
+                },
+                { value: 'manual', label: 'Something the agent types, like an order number' },
+                {
+                  value: 'endpoint',
+                  label: 'A value from another lookup’s answer, like the customer’s id',
+                },
+              ]}
+              onChange={(value) => setParamSource(value as 'identity' | 'manual' | 'endpoint')}
+            />
 
             {paramSource === 'endpoint' && (
               <ChainStep
@@ -774,34 +774,32 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
                          * label input in the previous audit, recurring in new code. The class, not
                          * the file.
                          */}
-                        <Label htmlFor={`role-${field.path}`}>What is {field.path}?</Label>
                         <Select
                           id={`role-${field.path}`}
+                          label={`What is ${field.path}?`}
                           value={field.role}
-                          onChange={(event) =>
+                          options={ROLE_OPTIONS.map((option) => ({
+                            value: option.value,
+                            label: option.label,
+                          }))}
+                          onChange={(value) =>
                             setPicked((current) =>
-                              applyRole(
-                                current,
-                                field.path,
-                                event.target.value as FieldPick['role']
-                              )
+                              applyRole(current, field.path, value as FieldPick['role'])
                             )
                           }
-                        >
-                          {ROLE_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </Select>
+                        />
                       </div>
                       <div className="flex-1">
-                        <Label htmlFor={`kind-${field.path}`}>How to show {field.path}</Label>
                         <Select
                           id={`kind-${field.path}`}
+                          label={`How to show ${field.path}`}
                           value={field.kind}
-                          onChange={(event) => {
-                            const kind = event.target.value as FieldPick['kind'];
+                          options={[
+                            { value: 'plain', label: 'Just show it' },
+                            { value: 'money', label: 'It’s an amount of money' },
+                          ]}
+                          onChange={(value) => {
+                            const kind = value as FieldPick['kind'];
                             /**
                              * ⛔ A VALUE ALREADY SET (audit pass 5). Switching money → plain used
                              * to leave `currencyPath`/`currencyLiteral` behind: the backend's
@@ -816,40 +814,37 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
                                 : { currencyPath: undefined, currencyLiteral: undefined }),
                             });
                           }}
-                        >
-                          <option value="plain">Just show it</option>
-                          <option value="money">It’s an amount of money</option>
-                        </Select>
+                        />
                       </div>
                       {field.kind === 'money' && (
                         <div className="flex-1">
-                          <Label htmlFor={`cur-${field.path}`}>Currency for {field.path}</Label>
                           <Select
                             id={`cur-${field.path}`}
+                            label={`Currency for ${field.path}`}
+                            placeholder="Choose…"
+                            clearable
                             value={field.currencyPath ?? (field.currencyLiteral ? '__fixed' : '')}
-                            onChange={(event) => {
-                              const value = event.target.value;
+                            options={[
+                              /*
+                               * ⛔ Not the field ITSELF (audit pass 5): an amount priced in its own
+                               * value renders "348.50 348.50" to an agent, and it is one keystroke
+                               * away in an alphabetical list.
+                               */
+                              ...paths
+                                .filter((candidate) => candidate !== field.path)
+                                .map((candidate) => ({
+                                  value: candidate,
+                                  label: `From ${candidate}`,
+                                })),
+                              { value: '__fixed', label: 'Always the same currency' },
+                            ]}
+                            onChange={(value) => {
                               editPick(field.path, {
                                 currencyPath: value && value !== '__fixed' ? value : undefined,
                                 currencyLiteral: value === '__fixed' ? 'EUR' : undefined,
                               });
                             }}
-                          >
-                            <option value="">Choose…</option>
-                            {/*
-                             * ⛔ Not the field ITSELF (audit pass 5): an amount priced in its own
-                             * value renders "348.50 348.50" to an agent, and it is one keystroke
-                             * away in an alphabetical list.
-                             */}
-                            {paths
-                              .filter((candidate) => candidate !== field.path)
-                              .map((candidate) => (
-                                <option key={candidate} value={candidate}>
-                                  From {candidate}
-                                </option>
-                              ))}
-                            <option value="__fixed">Always the same currency</option>
-                          </Select>
+                          />
                         </div>
                       )}
                     </div>

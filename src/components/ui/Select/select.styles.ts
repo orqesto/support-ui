@@ -1,11 +1,25 @@
 import type { StylesConfig } from 'react-select';
-import type { Option } from './reactSelect.types';
+import type { Option, SelectSize } from './select.types';
 
-export const getReactSelectStyles = (isDark: boolean, hasError: boolean): StylesConfig<Option> => ({
+/** Height, side padding and text size per size — the same scale as `Input` (h-8/10/12, px-2/3/4, text-xs/sm/base). */
+export const SELECT_SIZES: Record<SelectSize, { height: string; paddingX: string; fontSize: string }> = {
+  sm: { height: '2rem', paddingX: '0.5rem', fontSize: '0.75rem' },
+  md: { height: '2.5rem', paddingX: '0.75rem', fontSize: '0.875rem' },
+  lg: { height: '3rem', paddingX: '1rem', fontSize: '1rem' },
+};
+
+export const getSelectStyles = (
+  hasError: boolean,
+  size: SelectSize = 'md',
+  multi = false
+): StylesConfig<Option, boolean> => {
+  const { height, paddingX, fontSize } = SELECT_SIZES[size];
+  return {
   control: (base, state) => ({
     ...base,
-    minHeight: '2rem',
-    height: '2rem',
+    minHeight: height,
+    // A multi select grows with its chips; a single one is exactly the Input's height.
+    height: multi ? 'auto' : height,
     minWidth: '120px',
     borderWidth: '1px',
     borderStyle: 'solid',
@@ -38,24 +52,43 @@ export const getReactSelectStyles = (isDark: boolean, hasError: boolean): Styles
   }),
   valueContainer: (base) => ({
     ...base,
-    height: '2rem',
-    padding: '0 0.5rem',
+    height: multi ? 'auto' : height,
+    padding: multi ? `0.125rem ${paddingX}` : `0 ${paddingX}`,
     overflow: 'hidden',
-    flexWrap: 'nowrap',
+    flexWrap: multi ? 'wrap' : 'nowrap',
+    gap: multi ? '0.25rem' : undefined,
+  }),
+  multiValue: (base) => ({
+    ...base,
+    margin: 0,
+    borderRadius: '0.25rem',
+    backgroundColor: 'hsl(var(--muted))',
+  }),
+  multiValueLabel: (base) => ({
+    ...base,
+    color: 'hsl(var(--foreground))',
+    fontSize: '0.75rem',
+    padding: '0.0625rem 0.375rem',
+  }),
+  multiValueRemove: (base) => ({
+    ...base,
+    color: 'hsl(var(--muted-foreground))',
+    borderRadius: '0 0.25rem 0.25rem 0',
+    '&:hover': { backgroundColor: 'hsl(var(--destructive) / 0.1)', color: 'hsl(var(--destructive))' },
   }),
   input: (base) => ({
     ...base,
     margin: 0,
     padding: 0,
     color: 'hsl(var(--foreground))',
-    fontSize: '0.875rem',
+    fontSize,
   }),
   indicatorSeparator: () => ({
     display: 'none',
   }),
   indicatorsContainer: (base) => ({
     ...base,
-    height: '2rem',
+    height: multi ? 'auto' : height,
     alignSelf: 'stretch',
     cursor: 'pointer',
   }),
@@ -85,7 +118,7 @@ export const getReactSelectStyles = (isDark: boolean, hasError: boolean): Styles
   }),
   menu: (base) => ({
     ...base,
-    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+    backgroundColor: 'hsl(var(--card))',
     border: '1px solid hsl(var(--border))',
     borderRadius: '0.5rem',
     boxShadow:
@@ -102,20 +135,20 @@ export const getReactSelectStyles = (isDark: boolean, hasError: boolean): Styles
   menuList: (base) => ({
     ...base,
     padding: '0.25rem',
-    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+    backgroundColor: 'hsl(var(--card))',
     maxHeight: '300px',
     '::-webkit-scrollbar': {
       width: '8px',
     },
     '::-webkit-scrollbar-track': {
-      background: isDark ? '#1e293b' : '#f1f5f9',
+      background: 'hsl(var(--muted))',
     },
     '::-webkit-scrollbar-thumb': {
-      background: isDark ? '#475569' : '#cbd5e1',
+      background: 'hsl(var(--border))',
       borderRadius: '4px',
     },
     '::-webkit-scrollbar-thumb:hover': {
-      background: isDark ? '#64748b' : '#94a3b8',
+      background: 'hsl(var(--muted-foreground))',
     },
   }),
   option: (base, state) => ({
@@ -149,7 +182,7 @@ export const getReactSelectStyles = (isDark: boolean, hasError: boolean): Styles
   singleValue: (base, state) => ({
     ...base,
     color: state.isDisabled ? 'hsl(var(--muted-foreground))' : 'hsl(var(--foreground))',
-    fontSize: '0.8125rem',
+    fontSize,
     lineHeight: '1.25rem',
     maxWidth: '100%',
     overflow: 'hidden',
@@ -159,7 +192,7 @@ export const getReactSelectStyles = (isDark: boolean, hasError: boolean): Styles
   placeholder: (base) => ({
     ...base,
     color: 'hsl(var(--muted-foreground))',
-    fontSize: '0.8125rem',
+    fontSize,
     lineHeight: '1.25rem',
   }),
   noOptionsMessage: (base) => ({
@@ -188,4 +221,5 @@ export const getReactSelectStyles = (isDark: boolean, hasError: boolean): Styles
     letterSpacing: '0.05em',
     padding: '0.5rem 0.75rem 0.25rem',
   }),
-});
+};
+};

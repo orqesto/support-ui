@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import { departmentService, type Department } from '@/services/department.service';
 import { messageService, type MessageSourceOption } from '@/services/message.service';
@@ -274,7 +274,7 @@ export const ChatWidgetModal = ({
           </div>
 
           <div>
-            <ReactSelect
+            <Select
               label="Email account for replies"
               id="escalationSourceId"
               value={hasEmailAccount ? String(accountId) : ''}
@@ -371,7 +371,7 @@ export const ChatWidgetModal = ({
             </div>
 
             <div>
-              <ReactSelect
+              <Select
                 label="Position"
                 id="position"
                 value={formData.position}
@@ -428,7 +428,7 @@ export const ChatWidgetModal = ({
             </summary>
             <div className="space-y-4 px-4 pb-4 pt-2">
               <div>
-                <ReactSelect
+                <Select
                   label="Border Radius"
                   id="borderRadius"
                   value={theme.borderRadius}

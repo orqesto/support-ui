@@ -6,7 +6,7 @@ import {
 import type { AlertState } from '@/components/settings/integrations/types';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import {
   formatInOdly,
   kbHistoryNote,
@@ -206,13 +206,13 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
       </div>
 
       <div className="space-y-3">
-        <ReactSelect
+        <Select
           label="Email Filter"
           value={searchQuery}
           onChange={changeQuery}
           options={searchQueryOptions}
         />
-        <ReactSelect
+        <Select
           label="Historical Import Range"
           value={bulkImportDays.toString()}
           onChange={changeDays}

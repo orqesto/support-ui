@@ -3,10 +3,13 @@ import { Play } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { toast } from '@/lib/toast';
+import { useWorkspaceNameWhen } from '@/hooks/useWorkspaceNameWhen';
+import { consolidationSwitchText } from '@/components/kb/kbSwitchText';
 import {
   kbConsolidationService,
   type KbConsolidationLastRun,
   type KbConsolidationRunState,
+  type KbConsolidationSwitches,
 } from '@/services/kbConsolidation.service';
 
 /** While a run holds the workspace the state is re-read this often. */
@@ -15,7 +18,10 @@ export const RUN_POLL_MS = 10_000;
 const timeOf = (iso: string): string =>
   new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
-/** What a 409 reason means for the person who clicked (BE `RunNowRefusal`). */
+/**
+ * What a 409 reason means for the person who clicked (BE `RunNowRefusal`). `disabled` is the text
+ * for a backend before `switches`; a newer one names the switch through `consolidationSwitchText`.
+ */
 export const RUN_REFUSAL_TEXT: Record<string, string> = {
   disabled:
     'Consolidation is switched off for this workspace (feature flag kb.consolidation_enabled). Ask the platform admin to turn it on.',
@@ -30,6 +36,9 @@ export const RUN_REFUSAL_TEXT: Record<string, string> = {
   daily_limit: "Today's manual runs for this workspace are used up. The nightly run still happens.",
 };
 
+/** Refusals whose reason IS a switch: the switch line is not repeated under them. */
+const SWITCH_REFUSALS: readonly string[] = ['disabled', 'dry_run_unreadable'];
+
 /** Why a run did not start; a cooldown says when it can. Unknown reasons keep their code. */
 export const refusalText = (reason: string, retryAfter: string | null): string => {
   const text = RUN_REFUSAL_TEXT[reason];
@@ -39,12 +48,35 @@ export const refusalText = (reason: string, retryAfter: string | null): string =
     : text;
 };
 
-/** One line about the last run that is true in each state the backend records. */
-export const lastRunText = (last: KbConsolidationLastRun): string => {
+/**
+ * A refusal's text. With `switches` (a newer backend) a `disabled` refusal names the switch that
+ * is off and where it is; without them, today's text.
+ */
+export const refusalTextFor = (
+  reason: string,
+  retryAfter: string | null,
+  switches: KbConsolidationSwitches | null | undefined,
+  workspaceName?: string | null
+): string => {
+  if (reason === 'disabled') {
+    const named = consolidationSwitchText(switches, workspaceName);
+    if (named) return named;
+  }
+  return refusalText(reason, retryAfter);
+};
+
+/**
+ * One line about the last run that is true in each state the backend records. `switchesKnown`:
+ * the backend sends `switches`, so the line under it says which switch is off NOW — the last
+ * run's skip only says that it was off then, never where to turn it on (that may have changed).
+ */
+export const lastRunText = (last: KbConsolidationLastRun, switchesKnown = false): string => {
   const who = last.trigger === 'manual' ? 'Last run (started by hand)' : 'Last nightly run';
   const at = timeOf(last.finishedAt);
   if (last.outcome === 'failed') return `${who} failed at ${at}.`;
   if (last.outcome === 'skipped') {
+    if (switchesKnown && last.skipped === 'disabled')
+      return `${who} did not run (${at}): consolidation was switched off.`;
     const known = last.skipped ? RUN_REFUSAL_TEXT[last.skipped] : undefined;
     return known
       ? `${who} did not run (${at}): ${known}`
@@ -66,7 +98,13 @@ type Props = {
 export const KbRunNow = ({ onRunEnded }: Props) => {
   const [state, setState] = useState<KbConsolidationRunState | null>(null);
   const [starting, setStarting] = useState(false);
-  const [refusal, setRefusal] = useState<string | null>(null);
+  const [refusal, setRefusal] = useState<{
+    reason: string;
+    retryAfter: string | null;
+    switches?: KbConsolidationSwitches;
+  } | null>(null);
+  // A start that failed outright (not a 409): its message is shown as it came.
+  const [startError, setStartError] = useState<string | null>(null);
   // Keep reading even while idle while reads fail on the network or the server — otherwise one
   // failed read leaves the page silent for good. (After a start the backend already holds the
   // lock, so the next read sees the run going on and the `running` polling takes over.)
@@ -89,7 +127,10 @@ export const KbRunNow = ({ onRunEnded }: Props) => {
       const running = next !== null && next.runningSince !== null;
       const finishedAt = next?.last?.finishedAt ?? null;
       // A newer run outcome, seen later, makes an earlier refusal stale.
-      if (!afterRefusal && finishedAt !== lastSeen.current) setRefusal(null);
+      if (!afterRefusal && finishedAt !== lastSeen.current) {
+        setRefusal(null);
+        setStartError(null);
+      }
       lastSeen.current = finishedAt;
       if (wasRunning.current && !running) onRunEndedRef.current();
       wasRunning.current = running;
@@ -121,11 +162,31 @@ export const KbRunNow = ({ onRunEnded }: Props) => {
     return () => clearInterval(timer);
   }, [running, watching, refresh]);
 
+  // Why no real cases are made, from what the backend says NOW (null: nothing to say, or an
+  // older backend without `switches`).
+  const switchesNow = state?.switches;
+  const refusalSwitches = refusal?.switches ?? switchesNow;
+  const needsName =
+    consolidationSwitchText(switchesNow) !== null ||
+    (refusal?.reason === 'disabled' && consolidationSwitchText(refusalSwitches) !== null);
+  const workspaceName = useWorkspaceNameWhen(needsName);
+
   if (!state) return null;
+
+  const switchLine = consolidationSwitchText(switchesNow, workspaceName);
+  const refusalLine =
+    startError ??
+    (refusal
+      ? refusalTextFor(refusal.reason, refusal.retryAfter, refusalSwitches, workspaceName)
+      : null);
+
+  // A refusal that is ABOUT the switches already says why; the line would say it twice.
+  const refusalCoversSwitches = refusal !== null && SWITCH_REFUSALS.includes(refusal.reason);
 
   const start = async () => {
     setStarting(true);
     setRefusal(null);
+    setStartError(null);
     try {
       const result = await kbConsolidationService.runNow();
       if (result.started) {
@@ -134,11 +195,15 @@ export const KbRunNow = ({ onRunEnded }: Props) => {
         toast.success('Run started', { description: 'This page updates when it finishes.' });
         await refresh();
       } else {
-        setRefusal(refusalText(result.reason, result.retryAfter));
+        setRefusal({
+          reason: result.reason,
+          retryAfter: result.retryAfter,
+          ...(result.switches ? { switches: result.switches } : {}),
+        });
         await refresh(true);
       }
     } catch (err) {
-      setRefusal(getApiErrorMessage(err) ?? 'The run could not be started.');
+      setStartError(getApiErrorMessage(err) ?? 'The run could not be started.');
     } finally {
       setStarting(false);
     }
@@ -167,12 +232,19 @@ export const KbRunNow = ({ onRunEnded }: Props) => {
         {running && state.runningSince
           ? `Running since ${timeOf(state.runningSince)}.`
           : state.last
-            ? lastRunText(state.last)
+            ? lastRunText(state.last, state.switches !== undefined)
             : 'No run recorded yet. Runs nightly at 05:00 (server time).'}
       </p>
+      {/* Which switch keeps real cases from being made, and where it is. Not repeated when a
+          refusal below already says the same. */}
+      {switchLine && !refusalCoversSwitches && (
+        <p className="text-xs text-right text-muted-foreground" data-testid="kb-run-switches">
+          {switchLine}
+        </p>
+      )}
       {/* Mounted with the control: a live region inserted together with its text is not announced. */}
       <p className="text-xs text-right text-warning" role="status" data-testid="kb-run-refusal">
-        {refusal ?? ''}
+        {refusalLine ?? ''}
       </p>
     </div>
   );

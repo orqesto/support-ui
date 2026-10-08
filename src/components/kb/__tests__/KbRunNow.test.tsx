@@ -55,7 +55,19 @@ vi.mock('@/lib/toast', () => ({
   },
 }));
 
-const { KbRunNow, RUN_POLL_MS, lastRunText, refusalText } = await import('../KbRunNow');
+let orgReads = 0;
+vi.mock('@/services/organization.service', () => ({
+  organizationService: {
+    getCurrent: () => {
+      orgReads += 1;
+      return Promise.resolve({ id: 7, name: 'Acme' });
+    },
+  },
+}));
+
+const { KbRunNow, RUN_POLL_MS, lastRunText, refusalText, RUN_REFUSAL_TEXT } = await import(
+  '../KbRunNow'
+);
 const { normalizeRunState } = await import('@/services/kbConsolidation.service');
 
 const idle = (overrides: Partial<KbConsolidationRunState> = {}): KbConsolidationRunState => ({
@@ -72,6 +84,7 @@ beforeEach(() => {
   failStatus = undefined;
   readOverride = null;
   reads = 0;
+  orgReads = 0;
   toasts.length = 0;
   runNowResult = () => Promise.resolve({ started: true, startedAt: '2026-10-05T10:00:00Z' });
 });
@@ -417,4 +430,100 @@ describe('KbRunNow after audit pass 1', () => {
       expect(screen.getByRole('button', { name: /Running/ })).toBeTruthy();
     }
   );
+});
+
+/** Owner 2026-10-07: the "off" text must name the switch that is actually off, and where. */
+describe('KbRunNow — which switch (backend `switches`)', () => {
+  const OWN_KEY_OFF = {
+    ownKey: true,
+    selfHosted: false,
+    globalApplies: false,
+    enabled: { on: false, from: 'default' as const },
+    dryRun: { on: false, from: 'default' as const },
+    quality: { on: false, from: 'default' as const },
+  };
+  const OWN_KEY_TEXT =
+    'This workspace uses its own AI key, so the global switch does not reach it. Ask the platform admin to turn kb.consolidation_enabled on for this workspace (Console → Feature flags → scope Acme).';
+
+  it("old backend (no switches): the refusal keeps today's text, no switch line, no workspace read", async () => {
+    stateQueue = [idle()];
+    runNowResult = () => Promise.resolve({ started: false, reason: 'disabled', retryAfter: null });
+    render(<KbRunNow onRunEnded={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: /Run now/ }));
+    expect(await screen.findByText(RUN_REFUSAL_TEXT.disabled)).toBeTruthy();
+    expect(screen.queryByTestId('kb-run-switches')).toBeNull();
+    expect(orgReads).toBe(0);
+  });
+
+  it('own key on a hosted deployment, off ⇒ the line says so and names the workspace', async () => {
+    stateQueue = [idle({ switches: OWN_KEY_OFF })];
+    render(<KbRunNow onRunEnded={() => {}} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('kb-run-switches').textContent).toBe(OWN_KEY_TEXT)
+    );
+  });
+
+  it('a refusal with switches names the switch, never the old generic advice, and is not shown twice', async () => {
+    stateQueue = [idle({ switches: OWN_KEY_OFF })];
+    runNowResult = () =>
+      Promise.resolve({
+        started: false,
+        reason: 'disabled',
+        retryAfter: null,
+        switches: OWN_KEY_OFF,
+      });
+    render(<KbRunNow onRunEnded={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: /Run now/ }));
+    await waitFor(() =>
+      expect(screen.getByTestId('kb-run-refusal').textContent).toBe(OWN_KEY_TEXT)
+    );
+    // The old generic sentence (no switch, no scope) must be gone.
+    expect(screen.queryByText(/feature flag kb\.consolidation_enabled\)\. Ask the platform admin to turn it on\./)).toBeNull();
+    expect(screen.getAllByText(OWN_KEY_TEXT)).toHaveLength(1);
+  });
+
+  it('on + dry run ⇒ the trial line, and Run now is still offered (it starts a trial)', async () => {
+    stateQueue = [
+      idle({
+        switches: {
+          ...OWN_KEY_OFF,
+          ownKey: false,
+          globalApplies: true,
+          enabled: { on: true, from: 'global' },
+          dryRun: { on: true, from: 'global' },
+        },
+      }),
+    ];
+    render(<KbRunNow onRunEnded={() => {}} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('kb-run-switches').textContent).toBe(
+        'Trial run: entries are labelled only — no cases are proposed, and the nightly quality review does not run. For real cases, ask the platform admin to turn kb.consolidation_dry_run off (Console → Feature flags → scope global).'
+      )
+    );
+    expect(screen.getByRole('button', { name: /Run now/ })).toBeTruthy();
+  });
+
+  it('CONTROL — on, no trial ⇒ no switch line', async () => {
+    stateQueue = [
+      idle({
+        switches: { ...OWN_KEY_OFF, enabled: { on: true, from: 'workspace' }, quality: null },
+      }),
+    ];
+    render(<KbRunNow onRunEnded={() => {}} />);
+    expect(await screen.findByText(/No run recorded yet/)).toBeTruthy();
+    expect(screen.queryByTestId('kb-run-switches')).toBeNull();
+  });
+
+  it('a nightly run skipped as disabled, with switches known, does not repeat the stale advice', () => {
+    const last = {
+      trigger: 'nightly' as const,
+      startedAt: '2026-10-05T05:00:00Z',
+      finishedAt: '2026-10-05T05:00:01Z',
+      outcome: 'skipped' as const,
+      skipped: 'disabled',
+      partial: false,
+    };
+    expect(lastRunText(last, true)).toMatch(/: consolidation was switched off\.$/);
+    expect(lastRunText(last)).toContain(RUN_REFUSAL_TEXT.disabled);
+  });
 });

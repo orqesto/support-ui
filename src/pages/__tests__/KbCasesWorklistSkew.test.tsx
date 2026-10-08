@@ -4,6 +4,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { chooseOption } from '@/test/chooseOption';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
@@ -155,7 +156,7 @@ describe('audit pass 1 regressions', () => {
     await screen.findByText('Refunds take 5 days.');
     await waitFor(() => expect(rowReads().length).toBeGreaterThan(0));
     // While the all-reasons page is still loading, narrow to raw emails.
-    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'raw_email' } });
+    await chooseOption(screen.getByLabelText('Reason'), /^Raw email \(/);
     expect(await workRowEl(21)).toBeInTheDocument();
     await act(async () => {
       release();
@@ -180,7 +181,7 @@ describe('F5 older backend', () => {
     const reads = reportReads();
     expect(reads[0].params.departmentId).toBeUndefined();
     expect(reads.at(-1)?.params.departmentId).toBe('4');
-    expect(screen.getByLabelText('Department')).toHaveValue('4');
+    expect(screen.getByText('Support EU')).toBeInTheDocument();
     expect(screen.getByText(/This server reports on one department at a time/)).toBeInTheDocument();
     // No rows route there: nothing to expand, no set-aside rows; the findings stay counts.
     expect(screen.queryByRole('button', { name: /Show entries/ })).not.toBeInTheDocument();
@@ -340,7 +341,7 @@ describe('in-flight answers', () => {
       caseId: null,
       casePublicId: null,
     });
-    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'raw_email' } });
+    await chooseOption(screen.getByLabelText('Reason'), /^Raw email \(/);
     await waitFor(() =>
       expect(within(screen.getByTestId('work-row-21')).getByText('Approved')).toBeInTheDocument()
     );
@@ -369,7 +370,7 @@ describe('in-flight answers', () => {
     renderPage();
     expect(await screen.findByLabelText('Department')).toBeInTheDocument();
     server.legacy = false;
-    fireEvent.change(screen.getByLabelText('Department'), { target: { value: '7' } });
+    await chooseOption(screen.getByLabelText('Department'), 'Billing');
     expect(await screen.findByLabelText('Support EU')).toBeInTheDocument();
     expect(screen.queryByText(/This server reports on one department/)).not.toBeInTheDocument();
     await waitFor(() => expect(reportReads().at(-1)?.params.departmentIds).toBe('7'));

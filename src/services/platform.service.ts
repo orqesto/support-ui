@@ -2,6 +2,7 @@ import { apiClient } from '@/lib/api-client';
 import { apiErrorStatus } from '@/lib/apiError';
 import { normalizeSyncHold, type SyncHold } from '@/services/integrations.service';
 import { buildAuditQueryParams, type AuditQueryFilters } from '@/services/auditQueryParams';
+import type { LimitKey } from '@/components/console/limitFields';
 
 /**
  * Platform (global-admin) console service. Calls hit `/api/admin/platform/*` (the new
@@ -299,6 +300,13 @@ export type PlanLimits = {
   maxIntegrations: number;
   maxOrganizations?: number;
   maxAICallsPerMonth?: number;
+  maxAutoRepliesPerMonth?: number;
+  maxDepartments?: number;
+  maxStorageMb?: number;
+  maxStoredMessages?: number;
+  maxKbItems?: number;
+  maxHistoryDays?: number;
+  maxHistoryMessages?: number;
 };
 
 /** A row from GET /api/admin/plans (the raw subscription_plans record). */
@@ -332,11 +340,8 @@ export type PlanStats = Record<number, number>;
 export type UpdatePlanInput = {
   displayName?: string;
   price?: number; // cents
-  limits?: {
-    maxUsers?: number;
-    maxMessagesPerMonth?: number;
-    maxIntegrations?: number;
-  };
+  /** Merged into the stored limits server-side: a key left out keeps its value. */
+  limits?: Partial<Record<LimitKey, number>>;
   /** `null`/`''` unlinks the plan from Stripe. Verified against Stripe server-side. */
   stripePriceId?: string | null;
   /**
@@ -362,11 +367,8 @@ export type CreatePlanInput = {
   planType: PlanType;
   price: number; // cents
   stripePriceId?: string;
-  limits: {
-    maxUsers?: number;
-    maxIntegrations?: number;
-    maxMessagesPerMonth?: number;
-  };
+  /** Any plan limit (see console/limitFields.ts); a limit left out is unlimited. */
+  limits: Partial<Record<LimitKey, number>>;
   features: Record<string, boolean>;
   isActive?: boolean;
   /**

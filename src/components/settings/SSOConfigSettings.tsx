@@ -369,22 +369,13 @@ export const SSOConfigSettings = () => {
             </div>
 
             {/* Provider preset — prefills the Issuer URL template + scopes. */}
-            <div className="space-y-1">
-              <label htmlFor="sso-provider" className="text-sm font-medium text-foreground">
-                Identity provider
-              </label>
-              <Select
-                id="sso-provider"
-                value={provider}
-                onChange={(event) => applyProvider(event.target.value)}
-              >
-                {PROVIDERS.map((prov) => (
-                  <option key={prov.id} value={prov.id}>
-                    {prov.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
+            <Select
+              id="sso-provider"
+              label="Identity provider"
+              value={provider}
+              options={PROVIDERS.map((prov) => ({ value: prov.id, label: prov.label }))}
+              onChange={(value) => applyProvider(value)}
+            />
 
             <div className="space-y-1">
               <Input

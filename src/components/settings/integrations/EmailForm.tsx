@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Toggle } from '@/components/ui/Toggle';
 import { PasswordInput } from '@/components/ui/PasswordInput';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { detectImapConfig, deriveSmtpDefaults, isProviderSupported } from '@/utils/imapProviders';
 import { SourceKbToggle } from '@/components/settings/integrations/SourceKbToggle';
 import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
@@ -252,7 +252,7 @@ export const EmailForm = ({
       {showAdvanced && (
         <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-muted/30">
           <div>
-            <ReactSelect
+            <Select
               label="Email Filter"
               value={config.searchCriteria ?? 'ALL'}
               onChange={(value) => onConfigChange({ ...config, searchCriteria: value })}
@@ -264,7 +264,7 @@ export const EmailForm = ({
           </div>
 
           <div>
-            <ReactSelect
+            <Select
               label="Time Range"
               value={(config.lookbackDays ?? 30).toString()}
               onChange={(value) => onConfigChange({ ...config, lookbackDays: parseInt(value) })}

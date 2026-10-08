@@ -1,6 +1,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
 import type { PlatformSettings, SecretStatus } from '@/services/platformSettings.service';
+import { chooseOption, listOptions } from '@/test/chooseOption';
 
 const UNSET: SecretStatus = { configured: false, source: 'none', last4: null };
 
@@ -123,24 +124,24 @@ describe('PlatformDefaults', () => {
   const openStorageEditor = () => openEditor('Default Storage');
   const openAiEditor = () => openEditor('Managed AI Defaults');
 
-  it('offers local disk LAST and labels it a fallback', () => {
+  it('offers local disk LAST and labels it a fallback', async () => {
     // Ordering is the point: a managed platform should land on S3, not on the
     // node-local disk that dies with the container.
     render(<PlatformDefaults />);
     openStorageEditor();
-    const options = screen
-      .getAllByRole('option')
-      .map((option) => option.textContent ?? '')
-      .filter((label) => /S3|Local disk/.test(label));
+    const options = (await listOptions(screen.getByLabelText('Storage backend'))).filter((label) =>
+      /S3|Local disk/.test(label)
+    );
     expect(options[0]).toMatch(/S3/);
     expect(options[options.length - 1]).toMatch(/Local disk/);
     expect(options[options.length - 1]).toMatch(/fallback/i);
   });
 
-  it('offers the environment S3 target only when the environment provides one', () => {
+  it('offers the environment S3 target only when the environment provides one', async () => {
     render(<PlatformDefaults />);
     openStorageEditor();
-    expect(screen.queryByText(/use the environment/i)).not.toBeInTheDocument();
+    const without = await listOptions(screen.getByLabelText('Storage backend'));
+    expect(without.some((label) => /use the environment/i.test(label))).toBe(false);
     cleanup();
 
     settings = {
@@ -149,7 +150,8 @@ describe('PlatformDefaults', () => {
     };
     render(<PlatformDefaults />);
     openStorageEditor();
-    expect(screen.getByText(/use the environment/i)).toBeInTheDocument();
+    const withEnv = await listOptions(screen.getByLabelText('Storage backend'));
+    expect(withEnv.some((label) => /use the environment/i.test(label))).toBe(true);
   });
 
   it('warns when env S3 is present but files still go to local disk', () => {
@@ -176,10 +178,10 @@ describe('PlatformDefaults', () => {
     expect(noopMutation.mutate).not.toHaveBeenCalled();
   });
 
-  it('lists every supported AI provider', () => {
+  it('lists every supported AI provider', async () => {
     render(<PlatformDefaults />);
     openAiEditor();
-    const providerLabels = screen.getAllByRole('option').map((option) => option.textContent ?? '');
+    const providerLabels = await listOptions(screen.getByRole('combobox', { name: 'Provider' }));
     [
       'OpenAI',
       'Anthropic',
@@ -210,20 +212,24 @@ describe('PlatformDefaults', () => {
     expect(ai.getByRole('combobox')).toBeInTheDocument();
   });
 
-  it('discards the draft on Cancel and returns to what the server holds', () => {
+  it('discards the draft on Cancel and returns to what the server holds', async () => {
     render(<PlatformDefaults />);
     openAiEditor();
     const ai = within(cardFor('Managed AI Defaults'));
-    const provider = ai.getByRole<HTMLSelectElement>('combobox');
-    fireEvent.change(provider, { target: { value: 'anthropic' } });
-    expect(provider.value).toBe('anthropic');
+    // The text the provider picker shows for its current value.
+    const shownProvider = () =>
+      (
+        within(cardFor('Managed AI Defaults'))
+          .getByRole('combobox', { name: 'Provider' })
+          .closest('[class*="control"]') as HTMLElement
+      ).textContent;
+    await chooseOption(ai.getByRole('combobox', { name: 'Provider' }), 'Anthropic (Claude)');
+    expect(shownProvider()).toBe('Anthropic (Claude)');
 
     fireEvent.click(ai.getByRole('button', { name: /^cancel$/i }));
     openAiEditor();
     // Re-opened on the stored provider, not on the abandoned draft.
-    expect(
-      within(cardFor('Managed AI Defaults')).getByRole<HTMLSelectElement>('combobox').value
-    ).toBe('openai');
+    expect(shownProvider()).toBe('OpenAI');
   });
 });
 

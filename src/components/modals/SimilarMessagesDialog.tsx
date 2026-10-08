@@ -19,7 +19,7 @@ import { formatDate } from '@/lib/utils';
 import { Spinner } from '@/components/ui/Spinner';
 import { messageService } from '@/services/message.service';
 import { useSupportedLanguages } from '@/hooks/useTranslation';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { apiClient } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import {
@@ -358,7 +358,7 @@ export const SimilarMessagesDialog = ({
 
                 {/* Translation Controls */}
                 <div className="flex gap-2 items-center mb-3">
-                  <ReactSelect
+                  <Select
                     value={selectedLanguage}
                     onChange={setSelectedLanguage}
                     options={
@@ -369,6 +369,8 @@ export const SimilarMessagesDialog = ({
                           }))
                         : [{ value: 'en', label: 'English' }]
                     }
+                    size="sm"
+                    aria-label="Translation language"
                     className="flex-1"
                     placeholder="Select language..."
                   />

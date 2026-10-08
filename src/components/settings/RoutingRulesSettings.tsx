@@ -3,7 +3,7 @@ import { Brain } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { RuleEditor } from '@/components/shared/RuleEditor';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { useRuleManagement } from '@/hooks/useRuleManagement';
@@ -288,12 +288,13 @@ export const RoutingRulesSettings = () => {
           resolves one. Exactly one per workspace.
         </p>
         <div className="max-w-xs">
-          <ReactSelect
+          <Select
             value={defaultDept ? String(defaultDept.id) : ''}
             onChange={handleSetDefault}
             options={allDepts.map((dept) => ({ value: String(dept.id), label: dept.name }))}
             placeholder={allDepts.length === 0 ? 'No departments' : 'Select default department'}
-            isDisabled={allDepts.length === 0 || savingDefault}
+            disabled={allDepts.length === 0 || savingDefault}
+            aria-label="Default department"
           />
         </div>
       </div>
@@ -394,7 +395,7 @@ export const RoutingRulesSettings = () => {
       )}
       renderFormFields={(formData, setFormData) => (
         <>
-          <ReactSelect
+          <Select
             label="Department"
             value={formData.departmentId?.toString() ?? ''}
             onChange={(value) => {
@@ -406,14 +407,14 @@ export const RoutingRulesSettings = () => {
             }}
             options={deptOptionsForDialog}
             placeholder={allDepts.length === 0 ? 'No departments' : 'Select a department'}
-            isDisabled={allDepts.length === 0}
+            disabled={allDepts.length === 0}
           />
           {ruleManagement.editingRule !== null && (
             <p className="text-xs text-muted-foreground">
               Changing the department moves this rule to another team.
             </p>
           )}
-          <ReactSelect
+          <Select
             label="Match Type"
             value={formData.type}
             onChange={(value) => {

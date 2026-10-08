@@ -18,7 +18,7 @@ import { Boxes, ChevronDown, ChevronUp, Edit, Plus, Save, TestTube2, Trash2 } fr
 import { Button } from '@/components/ui/Button';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { useCustomProviderModels } from '@/hooks/useCustomProviderModels';
 import type { CustomConfig, Integration } from '@/services/integrations.service';
 
@@ -272,7 +272,8 @@ export const CustomProviderCard = ({
                 Default Chat Model *
               </label>
               {liveModels && liveModels.length > 0 ? (
-                <ReactSelect
+                <Select
+                  id="custom-model"
                   value={config.defaultChatModel}
                   onChange={(value) => setConfig({ ...config, defaultChatModel: value })}
                   options={liveModels

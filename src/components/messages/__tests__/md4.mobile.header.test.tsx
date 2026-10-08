@@ -265,7 +265,7 @@ describe('M3 — chips', () => {
     const chips = screen.getByTestId('header-chips');
     expect(classOf(chips)).toContain('flex-wrap');
     expect(classOf(chips)).not.toContain('overflow-x-auto');
-    // The status chip (a ReactSelect chip) and the SLA chip.
+    // The status chip (a Select chip) and the SLA chip.
     expect(screen.getByText('In progress').closest('[class*="max-sm:h-[26px]"]')).not.toBeNull();
     expect(classOf(screen.getByTestId('sla-clock'))).toContain('max-sm:h-[26px]');
   });

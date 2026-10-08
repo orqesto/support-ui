@@ -5,6 +5,7 @@
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
+import { chooseOption } from '@/test/chooseOption';
 import type { QueueHistorySample, QueueRow } from '@/services/platform.service';
 
 const hookCalls: Array<[string | null, number]> = [];
@@ -70,17 +71,13 @@ describe('QueueHistoryPanel', () => {
     expect(defaultHistoryQueue([row('a', 0, 5), row('b', 3)])).toBe('a');
     expect(defaultHistoryQueue([])).toBeNull();
     render(<QueueHistoryPanel queues={queues} />);
-    expect(screen.getByLabelText<HTMLSelectElement>('Queue to show history for').value).toBe(
-      'process-kb-message'
-    );
+    expect(screen.getByText('process-kb-message')).toBeTruthy();
     expect(hookCalls.at(-1)).toEqual(['process-kb-message', 6]);
   });
 
-  it('asks for the chosen queue and range', () => {
+  it('asks for the chosen queue and range', async () => {
     render(<QueueHistoryPanel queues={queues} />);
-    fireEvent.change(screen.getByLabelText('Queue to show history for'), {
-      target: { value: 'notify' },
-    });
+    await chooseOption(screen.getByLabelText('Queue to show history for'), 'notify');
     fireEvent.click(screen.getByRole('button', { name: '24 h' }));
     expect(hookCalls.at(-1)).toEqual(['notify', 24]);
     expect(screen.getByRole('button', { name: '24 h' }).getAttribute('aria-pressed')).toBe('true');

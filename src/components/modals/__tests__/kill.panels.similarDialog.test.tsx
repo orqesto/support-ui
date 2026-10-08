@@ -24,7 +24,7 @@ vi.mock('@/hooks/useTranslation', () => ({
     fetchLanguages: () => Promise.resolve(),
   }),
 }));
-vi.mock('@/components/ui/ReactSelect', () => ({ ReactSelect: () => null }));
+vi.mock('@/components/ui/Select', () => ({ Select: () => null }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), info: vi.fn() } }));
 
 import { SimilarMessagesDialog } from '../SimilarMessagesDialog';

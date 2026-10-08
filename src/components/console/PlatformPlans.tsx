@@ -36,6 +36,8 @@ import {
   type CreatePlanErrors,
 } from '@/components/console/platformPlanCreate';
 import type { AdminPlan } from '@/services/platform.service';
+import { LimitInputsGrid } from './LimitInputsGrid';
+import { draftFromLimits, LIMIT_FIELDS, parseLimitDraft, type LimitDraft } from './limitFields';
 
 /**
  * Platform console → plan catalog manager. Unlike the org-scoped AdminPlansTab this is a
@@ -50,17 +52,14 @@ import type { AdminPlan } from '@/services/platform.service';
 type EditDraft = {
   displayName: string;
   priceEuros: string;
-  maxUsers: string;
-  maxMessagesPerMonth: string;
-  maxIntegrations: string;
+  /** Every plan limit (limitFields.ts) — the editor used to offer only users, channels, messages. */
+  limits: LimitDraft;
 };
 
 const draftFromPlan = (plan: AdminPlan): EditDraft => ({
   displayName: plan.displayName,
   priceEuros: (plan.price / 100).toString(),
-  maxUsers: plan.limits.maxUsers?.toString() ?? '',
-  maxMessagesPerMonth: plan.limits.maxMessagesPerMonth?.toString() ?? '',
-  maxIntegrations: plan.limits.maxIntegrations?.toString() ?? '',
+  limits: draftFromLimits(plan.limits as Partial<Record<string, number>>),
 });
 
 const formatPrice = (plan: AdminPlan) => {
@@ -99,9 +98,7 @@ export const PlatformPlans = () => {
       await deletePlan.mutateAsync(plan.id);
     } catch (error) {
       logger.error('Failed to delete plan', error);
-      setActionError(
-        error instanceof Error ? error.message : `Could not delete '${plan.name}'.`
-      );
+      setActionError(error instanceof Error ? error.message : `Could not delete '${plan.name}'.`);
     }
   };
 
@@ -203,21 +200,13 @@ export const PlatformPlans = () => {
       return;
     }
 
-    const maxUsers = Number.parseInt(draft.maxUsers, 10);
-    const maxIntegrations = Number.parseInt(draft.maxIntegrations, 10);
-    const trimmedMessages = draft.maxMessagesPerMonth.trim();
-    const maxMessagesPerMonth =
-      trimmedMessages === '' ? undefined : Number.parseInt(trimmedMessages, 10);
-
-    if (
-      !Number.isInteger(maxUsers) ||
-      maxUsers < 0 ||
-      !Number.isInteger(maxIntegrations) ||
-      maxIntegrations < 0 ||
-      (maxMessagesPerMonth !== undefined &&
-        (!Number.isInteger(maxMessagesPerMonth) || maxMessagesPerMonth < 0))
-    ) {
-      setSaveError('Limits must be non-negative whole numbers.');
+    const parsedLimits = parseLimitDraft(draft.limits);
+    if (!parsedLimits.ok) {
+      setSaveError(
+        `Limits must be non-negative whole numbers: ${parsedLimits.invalid
+          .map((key) => LIMIT_FIELDS.find((field) => field.key === key)?.label ?? key)
+          .join(', ')}.`
+      );
       return;
     }
 
@@ -227,11 +216,7 @@ export const PlatformPlans = () => {
         input: {
           displayName: draft.displayName.trim(),
           price: priceCents,
-          limits: {
-            maxUsers,
-            maxIntegrations,
-            ...(maxMessagesPerMonth !== undefined ? { maxMessagesPerMonth } : {}),
-          },
+          limits: parsedLimits.limits,
         },
       });
       closeEdit();
@@ -279,7 +264,9 @@ export const PlatformPlans = () => {
           {/* Slug — disambiguates same-named plans (e.g. two "Enterprise Cloud":
               enterprise-cloud vs enterprise). */}
           <code className="text-xs text-muted-foreground">{plan.name}</code>
-          <div className="font-mono mt-1 text-lg font-semibold text-foreground">{formatPrice(plan)}</div>
+          <div className="font-mono mt-1 text-lg font-semibold text-foreground">
+            {formatPrice(plan)}
+          </div>
         </CardHeader>
 
         <CardContent className="space-y-3">
@@ -294,7 +281,8 @@ export const PlatformPlans = () => {
               messages/month
             </p>
             <p>
-              <strong className="text-foreground">{plan.limits.maxIntegrations}</strong> integrations
+              <strong className="text-foreground">{plan.limits.maxIntegrations}</strong>{' '}
+              integrations
             </p>
           </div>
 
@@ -377,9 +365,7 @@ export const PlatformPlans = () => {
 
   return (
     <div className="space-y-8">
-      {actionError && (
-        <Alert variant="danger">{actionError}</Alert>
-      )}
+      {actionError && <Alert variant="danger">{actionError}</Alert>}
 
       <div className="flex justify-end">
         <Button onClick={openCreate}>
@@ -421,41 +407,16 @@ export const PlatformPlans = () => {
                   )
                 }
               />
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <Input
-                  label="Max users"
-                  type="number"
-                  min={0}
-                  value={draft.maxUsers}
-                  onChange={(event) =>
-                    setDraft((current) =>
-                      current ? { ...current, maxUsers: event.target.value } : current
-                    )
-                  }
-                />
-                <Input
-                  label="Messages / month"
-                  type="number"
-                  min={0}
-                  value={draft.maxMessagesPerMonth}
-                  onChange={(event) =>
-                    setDraft((current) =>
-                      current ? { ...current, maxMessagesPerMonth: event.target.value } : current
-                    )
-                  }
-                />
-                <Input
-                  label="Max integrations"
-                  type="number"
-                  min={0}
-                  value={draft.maxIntegrations}
-                  onChange={(event) =>
-                    setDraft((current) =>
-                      current ? { ...current, maxIntegrations: event.target.value } : current
-                    )
-                  }
-                />
-              </div>
+              <LimitInputsGrid
+                idPrefix="edit-plan"
+                blankMeans="keep"
+                draft={draft.limits}
+                onChange={(key, value) =>
+                  setDraft((current) =>
+                    current ? { ...current, limits: { ...current.limits, [key]: value } } : current
+                  )
+                }
+              />
             </div>
           )}
         </DialogContent>
@@ -491,9 +452,7 @@ export const PlatformPlans = () => {
               <p className="text-xs text-muted-foreground">
                 Unique identifier — lowercase letters, numbers and hyphens only.
               </p>
-              {createErrors.name && (
-                <p className="text-xs text-destructive">{createErrors.name}</p>
-              )}
+              {createErrors.name && <p className="text-xs text-destructive">{createErrors.name}</p>}
             </div>
 
             <div className="space-y-1">
@@ -515,16 +474,14 @@ export const PlatformPlans = () => {
               <Select
                 id="create-plan-type"
                 value={createDraft.planType}
-                onChange={(event) =>
-                  patchCreate({ planType: event.target.value as CreatePlanDraft['planType'] })
+                options={PLAN_TYPE_OPTIONS.map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                }))}
+                onChange={(value) =>
+                  patchCreate({ planType: value as CreatePlanDraft['planType'] })
                 }
-              >
-                {PLAN_TYPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
+              />
             </div>
 
             <div className="space-y-1">
@@ -551,9 +508,7 @@ export const PlatformPlans = () => {
                 disabled={createDraft.createStripePrice}
               />
               {createErrors.stripePriceId && (
-                <p className="text-xs text-destructive">
-                  {createErrors.stripePriceId}
-                </p>
+                <p className="text-xs text-destructive">{createErrors.stripePriceId}</p>
               )}
               {/* Offered only for a paid plan: a free plan has nothing to bill, which is
                   also the BE's own guard. Pasting an id and asking us to create one are
@@ -573,29 +528,14 @@ export const PlatformPlans = () => {
             </div>
 
             <div className="space-y-1">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <Input
-                  label="Max users"
-                  type="number"
-                  min={0}
-                  value={createDraft.maxUsers}
-                  onChange={(event) => patchCreate({ maxUsers: event.target.value })}
-                />
-                <Input
-                  label="Messages / month"
-                  type="number"
-                  min={0}
-                  value={createDraft.maxMessagesPerMonth}
-                  onChange={(event) => patchCreate({ maxMessagesPerMonth: event.target.value })}
-                />
-                <Input
-                  label="Max integrations"
-                  type="number"
-                  min={0}
-                  value={createDraft.maxIntegrations}
-                  onChange={(event) => patchCreate({ maxIntegrations: event.target.value })}
-                />
-              </div>
+              <LimitInputsGrid
+                idPrefix="create-plan"
+                blankMeans="unlimited"
+                draft={createDraft.limits}
+                onChange={(key, value) =>
+                  patchCreate({ limits: { ...createDraft.limits, [key]: value } })
+                }
+              />
               {createErrors.limits && (
                 <p className="text-xs text-destructive">{createErrors.limits}</p>
               )}

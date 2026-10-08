@@ -8,9 +8,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { installTransport, ok, routeAbsent } from '@/test/apiTransport';
 
-// ReactSelect reads the theme context; the options it is given are what is under test.
-vi.mock('@/components/ui/ReactSelect', () => ({
-  ReactSelect: ({ options }: { options: Array<{ value: string; label: string }> }) => (
+// Select reads the theme context; the options it is given are what is under test.
+vi.mock('@/components/ui/Select', () => ({
+  Select: ({ options }: { options: Array<{ value: string; label: string }> }) => (
     <ul>
       {options.map((option) => (
         <li key={option.value} data-value={option.value}>

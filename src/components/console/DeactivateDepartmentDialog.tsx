@@ -130,18 +130,13 @@ export const DeactivateDepartmentDialog = ({
                   id="merge-target"
                   value={targetId}
                   disabled={busy}
-                  onChange={(event) => setTargetId(event.target.value)}
-                >
-                  <option value="" disabled>
-                    Select a department…
-                  </option>
-                  {targets.map((target) => (
-                    <option key={target.id} value={String(target.id)}>
-                      {target.name}
-                      {target.isDefault ? ' (default)' : ''}
-                    </option>
-                  ))}
-                </Select>
+                  placeholder="Select a department…"
+                  options={targets.map((target) => ({
+                    value: String(target.id),
+                    label: `${target.name}${target.isDefault ? ' (default)' : ''}`,
+                  }))}
+                  onChange={(value) => setTargetId(value)}
+                />
                 {targets.length === 0 && (
                   <p className="text-xs text-destructive">
                     No other active department to move this data into. Activate another department

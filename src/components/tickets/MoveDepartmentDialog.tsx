@@ -163,17 +163,15 @@ export const MoveDepartmentDialog = ({
             ) : (
               <Select
                 id="target-dept"
-                value={targetDeptId ?? ''}
-                onChange={(ev) => setTargetDeptId(Number(ev.target.value) || null)}
+                placeholder="Select department…"
+                value={targetDeptId === null ? '' : String(targetDeptId)}
+                options={candidateDepts.map((dept) => ({
+                  value: String(dept.id),
+                  label: dept.name,
+                }))}
+                onChange={(value) => setTargetDeptId(Number(value) || null)}
                 disabled={submitting}
-              >
-                <option value="">Select department…</option>
-                {candidateDepts.map((dept) => (
-                  <option key={dept.id} value={dept.id}>
-                    {dept.name}
-                  </option>
-                ))}
-              </Select>
+              />
             )}
           </div>
 

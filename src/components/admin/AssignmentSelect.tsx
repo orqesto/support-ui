@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { assignmentService, type AssignableUser } from '@/services/assignment.service';
 import { logger } from '@/lib/logger';
 
@@ -25,7 +25,7 @@ type AssignmentSelectProps = {
   className?: string;
   /** Compact 'value' look for the message detail meta row; default elsewhere. */
   variant?: 'default' | 'value';
-  /** Phones only: the menu as a bottom sheet (ReactSelect `mobileSheet`). Off by default. */
+  /** Phones only: the menu as a bottom sheet (Select `mobileSheet`). Off by default. */
   mobileSheet?: boolean;
 };
 
@@ -102,16 +102,18 @@ export const AssignmentSelect = ({
   ];
 
   return (
-    <ReactSelect
+    <Select
       className={className}
       variant={variant}
       mobileSheet={mobileSheet}
       value={currentAssigneeId ? String(currentAssigneeId) : ''}
       onChange={handleAssign}
       options={options}
-      isDisabled={loading || assigning}
+      disabled={loading || assigning}
+      size="sm"
+      aria-label="Assignee"
       placeholder={loading ? 'Loading...' : 'Select assignee'}
-      isSearchable
+      searchable
     />
   );
 };

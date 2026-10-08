@@ -1,6 +1,6 @@
 import { AlignJustify, Columns2, LayoutList, StretchHorizontal } from 'lucide-react';
 import { Checkbox } from '@/components/ui/Checkbox';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { SegmentedControl, type Segment } from '@/components/ui/SegmentedControl';
 import type { ListScope } from '@/services/message.service';
 import type { FilterState } from '@/stores/messagesStore';
@@ -148,8 +148,9 @@ export const MessagesListCaption = ({
         }
       />
       {/* List view only (kanban sorts per column, contacts has no sort). */}
-      <ReactSelect
+      <Select
         aria-label="Sort"
+        size="sm"
         value={sortPreset}
         onChange={onSortChange}
         options={SORT_PRESET_OPTIONS}
@@ -175,8 +176,9 @@ export const MessagesListCaption = ({
 
     {/* Phone: Hide awaiting and Sort under one compact control, as a sheet. */}
     <div className="md:hidden flex gap-2 items-center w-full">
-      <ReactSelect
+      <Select
         aria-label="Sort"
+        size="sm"
         value={sortPreset}
         onChange={onSortChange}
         options={SORT_PRESET_OPTIONS}

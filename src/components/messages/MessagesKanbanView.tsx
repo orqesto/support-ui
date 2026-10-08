@@ -34,7 +34,7 @@ import { useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { messageService, type ListScope, type MessageThread } from '@/services/message.service';
 import { ListScopeNotice } from './ListScopeNotice';
 import { type FilterState, type SortingState } from '@/stores/messagesStore';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { SORT_PRESET_OPTIONS, sortingToPreset, presetToSorting } from './sortPresets';
 import { KanbanCard } from './KanbanCard';
@@ -261,12 +261,12 @@ const KanbanColumn = ({
         )}
         {/* Per-column sort — each column sorts independently. Compact chip select
             keeps the header tight; icon-only trigger avoids crowding the label. */}
-        <ReactSelect
+        <Select
           variant="chip"
           value={sortingToPreset(sort)}
           onChange={(value) => onSortChange(presetToSorting(value))}
           options={SORT_PRESET_OPTIONS}
-          isSearchable={false}
+          searchable={false}
           aria-label={`Sort ${col.label} column`}
           className="shrink-0"
         />

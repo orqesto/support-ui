@@ -6,7 +6,7 @@ import { RuleEditor } from '@/components/shared/RuleEditor';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { useRuleManagement } from '@/hooks/useRuleManagement';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import {
@@ -201,7 +201,7 @@ export const DetectionRulesSettings = () => {
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <ReactSelect
+            <Select
               label="Category"
               value={formData.category}
               onChange={(value) =>

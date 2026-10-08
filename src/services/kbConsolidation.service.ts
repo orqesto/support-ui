@@ -360,20 +360,97 @@ export type KbConsolidationLastRun = {
   partial: boolean;
 };
 
+/** The layer that decided a switch: a workspace row, the global row, or the code default. */
+export type KbSwitchLayer = 'workspace' | 'global' | 'default';
+/**
+ * `from` null: the backend named a layer this app does not know — no scope is claimed.
+ * `unreadable`: the flag rows could not be read (`on` is then the backend's safe answer) — the
+ * text says so instead of "switched off". Absent unless the backend says exactly `true`.
+ */
+export type KbSwitch = { on: boolean; from: KbSwitchLayer | null; unreadable?: true };
+
+/**
+ * Which feature flags decide consolidation for this workspace, and where each value came from
+ * (GET/POST `/consolidation/run` `switches`). ABSENT on a backend before it — then null, and
+ * every text stays what it was.
+ */
+export type KbConsolidationSwitches = {
+  /** The workspace runs on its own AI key (not managed AI). */
+  ownKey: boolean;
+  selfHosted: boolean;
+  /** Whether a GLOBAL flag row reaches this workspace (false: own key on a hosted deployment). */
+  globalApplies: boolean;
+  enabled: KbSwitch;
+  /** Null when the backend did not say — nothing is claimed about a trial then. */
+  dryRun: KbSwitch | null;
+  /** Null when the backend did not say — nothing is claimed about the quality review then. */
+  quality: KbSwitch | null;
+};
+
 export type KbConsolidationRunState = {
   /** Null when no run holds the workspace. */
   runningSince: string | null;
   last: KbConsolidationLastRun | null;
   /** Only a workspace admin may start a run. */
   canRun: boolean;
+  /** Absent on a backend before `switches` (or one that sent a shape this app cannot read). */
+  switches?: KbConsolidationSwitches;
 };
 
 /** Started, or why "Run now" did not start (BE 409 `data.reason`). */
 export type KbRunNowResult =
   | { started: true; startedAt: string }
-  | { started: false; reason: string; retryAfter: string | null };
+  | {
+      started: false;
+      reason: string;
+      retryAfter: string | null;
+      /** Sent with a refusal by a backend with `switches`; absent otherwise. */
+      switches?: KbConsolidationSwitches;
+    };
 
 const asString = (value: unknown): string | null => (typeof value === 'string' ? value : null);
+
+const SWITCH_LAYERS: readonly KbSwitchLayer[] = ['workspace', 'global', 'default'];
+
+const normalizeSwitch = (raw: unknown): KbSwitch | null => {
+  if (!raw || typeof raw !== 'object') return null;
+  const data = raw as { on?: unknown; from?: unknown; unreadable?: unknown };
+  if (typeof data.on !== 'boolean') return null;
+  return {
+    on: data.on,
+    from: SWITCH_LAYERS.includes(data.from as KbSwitchLayer) ? (data.from as KbSwitchLayer) : null,
+    ...(data.unreadable === true ? { unreadable: true as const } : {}),
+  };
+};
+
+/**
+ * Defensive: an older backend sends no `switches` ⇒ null. Without a readable `enabled` nothing is
+ * claimed at all. `globalApplies`, when absent, follows the contract's own rule
+ * (`!ownKey || selfHosted`) only when both of those are sent; otherwise the switches are unread.
+ */
+export const normalizeSwitches = (raw: unknown): KbConsolidationSwitches | null => {
+  if (!raw || typeof raw !== 'object') return null;
+  const data = raw as Record<string, unknown>;
+  const enabled = normalizeSwitch(data.enabled);
+  if (!enabled) return null;
+  const ownKey = typeof data.ownKey === 'boolean' ? data.ownKey : null;
+  const selfHosted = typeof data.selfHosted === 'boolean' ? data.selfHosted : null;
+  const globalApplies =
+    typeof data.globalApplies === 'boolean'
+      ? data.globalApplies
+      : ownKey !== null && selfHosted !== null
+        ? !ownKey || selfHosted
+        : null;
+  if (globalApplies === null) return null;
+  return {
+    ownKey: ownKey ?? !globalApplies,
+    selfHosted: selfHosted ?? false,
+    globalApplies,
+    enabled,
+    dryRun: normalizeSwitch(data.dryRun),
+    quality: normalizeSwitch(data.quality),
+  };
+};
 
 /** Defensive: the frontend can reach a deployment before the backend that serves this route. */
 export const normalizeRunState = (raw: unknown): KbConsolidationRunState => {
@@ -381,7 +458,9 @@ export const normalizeRunState = (raw: unknown): KbConsolidationRunState => {
   const last = (data.last ?? null) as Record<string, unknown> | null;
   const startedAt = last ? asString(last.startedAt) : null;
   const finishedAt = last ? asString(last.finishedAt) : null;
+  const switches = normalizeSwitches(data.switches);
   return {
+    ...(switches ? { switches } : {}),
     runningSince: asString(data.runningSince),
     canRun: data.canRun === true,
     last:
@@ -566,12 +645,17 @@ export const kbConsolidationService = {
       };
     } catch (err) {
       if (getErrorStatus(err) === 409) {
-        const data = (getErrorBody(err) as { data?: { reason?: unknown; retryAfter?: unknown } })
-          ?.data;
+        const data = (
+          getErrorBody(err) as {
+            data?: { reason?: unknown; retryAfter?: unknown; switches?: unknown };
+          }
+        )?.data;
+        const switches = normalizeSwitches(data?.switches);
         return {
           started: false,
           reason: asString(data?.reason) ?? 'unknown',
           retryAfter: asString(data?.retryAfter),
+          ...(switches ? { switches } : {}),
         };
       }
       throw err;

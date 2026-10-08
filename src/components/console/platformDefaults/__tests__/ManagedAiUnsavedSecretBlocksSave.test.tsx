@@ -1,6 +1,7 @@
 import { vi, describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import type { PlatformSettings, SecretStatus } from '@/services/platformSettings.service';
+import { chooseOption } from '@/test/chooseOption';
 
 const noopMutation = { mutate: vi.fn(), isPending: false };
 const saveMutation = {
@@ -119,7 +120,7 @@ describe('Managed AI defaults — a credential nobody saved', () => {
     expect(saveButton()).not.toBeDisabled();
   });
 
-  it('does not stay blocked after the provider switch unmounts that field', () => {
+  it('does not stay blocked after the provider switch unmounts that field', async () => {
     // Switching provider swaps which credential fields exist. A flag left behind by an
     // unmounted field blocked saving over a box that was no longer on screen.
     render(<ManagedAiDefaultsCard ai={ai} secrets={SECRETS} />);
@@ -127,8 +128,7 @@ describe('Managed AI defaults — a credential nobody saved', () => {
     fireEvent.change(keyInput(), { target: { value: 'sk-for-openai' } });
     expect(saveButton()).toBeDisabled();
 
-    const providerSelect = screen.getAllByRole('combobox')[0];
-    fireEvent.change(providerSelect, { target: { value: 'bedrock' } });
+    await chooseOption(screen.getByRole('combobox', { name: 'Provider' }), 'AWS Bedrock');
 
     expect(saveButton()).not.toBeDisabled();
   });

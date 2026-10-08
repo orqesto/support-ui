@@ -243,18 +243,15 @@ export const OpenConversationWindowSettings = () => {
                 className="w-56"
                 value={preset}
                 disabled={saving}
-                onChange={(event) => {
-                  setPreset(event.target.value);
+                options={[
+                  ...PRESETS.map((option) => ({ value: option.value, label: option.label })),
+                  { value: CUSTOM, label: 'Custom' },
+                ]}
+                onChange={(value) => {
+                  setPreset(value);
                   clearNotices();
                 }}
-              >
-                {PRESETS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-                <option value={CUSTOM}>Custom</option>
-              </Select>
+              />
             </div>
             {preset === CUSTOM ? (
               <div className="space-y-2">

@@ -3,7 +3,7 @@ import { X, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Input } from '@/components/ui/Input';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { departmentService, type Department } from '@/services/department.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useOrganizationsStore } from '@/stores/organizationsStore';
@@ -243,7 +243,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
             />
           </div>
 
-          <ReactSelect
+          <Select
             label="Global Role"
             value={role}
             onChange={(value) => setRole(value as 'admin' | 'user')}
@@ -251,7 +251,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
             placeholder="Select global role"
           />
 
-          <ReactSelect
+          <Select
             label="Workspace Role"
             value={organizationRole}
             onChange={(value) => setOrganizationRole(value as OrganizationRole)}

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { chooseOption, listOptions } from '@/test/chooseOption';
 import { EndpointWizard, labelFromPath } from '../EndpointWizard';
 import { ResponseTree } from '../ResponseTree';
 import type * as Svc from '@/services/customApi.service';
@@ -364,7 +365,7 @@ describe('D23 — money without a currency is refused', () => {
     await waitFor(() => expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0));
 
     await user.click(screen.getByRole('checkbox', { name: /^total/ }));
-    await user.selectOptions(screen.getByLabelText(/^How to show/), 'money');
+    await chooseOption(screen.getByLabelText(/^How to show/), 'It’s an amount of money');
 
     // ⛔ RED: allow it and the agent panel renders a bare number — and on this vendor the same
     // figure means different currencies depending on which lookup produced it.
@@ -372,7 +373,7 @@ describe('D23 — money without a currency is refused', () => {
     expect(screen.getByText(/where the currency comes from/i)).toBeTruthy();
 
     // POSITIVE CONTROL: naming the currency field unblocks it.
-    await user.selectOptions(screen.getByLabelText(/^Currency for/), 'currency_code');
+    await chooseOption(screen.getByLabelText(/^Currency for/), 'From currency_code');
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
   });
 });
@@ -428,7 +429,10 @@ describe('audit pass 8 — what we look up BY, and where the value goes', () => 
     const user = userEvent.setup();
     render(<EndpointWizard connection={connection()} onClose={noop} onSaved={noop} />);
     await fill(user);
-    await user.selectOptions(screen.getByLabelText(/What do we look up by/i), 'manual');
+    await chooseOption(
+      screen.getByLabelText(/What do we look up by/i),
+      'Something the agent types, like an order number'
+    );
     await user.click(screen.getByRole('button', { name: 'Test' }));
     await waitFor(() => expect(createEndpoint).toHaveBeenCalled());
     expect(createEndpoint.mock.calls[0][1]).toMatchObject({
@@ -551,14 +555,14 @@ describe('audit pass 5 — a value already set, and a field priced in itself', (
     await user.click(screen.getByRole('button', { name: 'Test' }));
     await waitFor(() => expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0));
     await user.click(screen.getByRole('checkbox', { name: /^total/ }));
-    await user.selectOptions(screen.getByLabelText(/^How to show/), 'money');
-    await user.selectOptions(screen.getByLabelText(/^Currency for/), 'currency_code');
+    await chooseOption(screen.getByLabelText(/^How to show/), 'It’s an amount of money');
+    await chooseOption(screen.getByLabelText(/^Currency for/), 'From currency_code');
   };
 
   it('⛔ drops the currency when the field stops being money', async () => {
     const user = userEvent.setup();
     await pickTotalAsMoney(user);
-    await user.selectOptions(screen.getByLabelText(/^How to show/), 'plain');
+    await chooseOption(screen.getByLabelText(/^How to show/), 'Just show it');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
@@ -577,14 +581,12 @@ describe('audit pass 5 — a value already set, and a field priced in itself', (
   it('⛔ does not offer a field as its OWN currency', async () => {
     const user = userEvent.setup();
     await pickTotalAsMoney(user);
-    const options = Array.from(
-      screen.getByLabelText(/^Currency for/).querySelectorAll('option')
-    ).map((option) => option.getAttribute('value'));
+    const options = await listOptions(screen.getByLabelText(/^Currency for/));
     // RED: list every path and "From total" sits one keystroke away in the list — an amount
     // priced in its own value renders "348.50 348.50" to an agent.
-    expect(options).not.toContain('total');
+    expect(options).not.toContain('From total');
     // POSITIVE CONTROL: the other paths are still offered, so this is not an empty list.
-    expect(options).toContain('currency_code');
+    expect(options).toContain('From currency_code');
   });
 });
 

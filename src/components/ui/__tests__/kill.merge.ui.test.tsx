@@ -2,7 +2,7 @@
  * Design-system pieces the message detail v4 changed:
  *  - focusWithoutTooltip hands focus back WITHOUT scrolling the page;
  *  - the Tooltip right-edge clamp keeps the 4 px margin (a tip 2 px past it is shifted);
- *  - ReactSelect chips stay uppercase unless a caller opts into chipCase="sentence";
+ *  - Select chips stay uppercase unless a caller opts into chipCase="sentence";
  *  - AssignmentSelect is a phone bottom sheet only when asked (mobileSheet defaults off).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -23,7 +23,7 @@ vi.mock('@/services/assignment.service', () => ({
 }));
 
 const { Tooltip, focusWithoutTooltip } = await import('@/components/ui/Tooltip/Tooltip');
-const { ReactSelect } = await import('@/components/ui/ReactSelect/ReactSelect');
+const { Select } = await import('@/components/ui/Select/Select');
 const { AssignmentSelect } = await import('@/components/admin/AssignmentSelect');
 
 afterEach(() => {
@@ -80,14 +80,14 @@ describe('Tooltip right-edge clamp', () => {
   });
 });
 
-describe('ReactSelect chip case', () => {
+describe('Select chip case', () => {
   const options = [{ value: 'open', label: 'Open' }];
   const control = (container: HTMLElement) =>
     container.querySelector('[class*="cursor-pointer"][class*="inline-flex"]') as HTMLElement;
 
   it('a chip is uppercase by default', () => {
     const { container } = render(
-      <ReactSelect variant="chip" value="open" onChange={() => {}} options={options} />
+      <Select variant="chip" value="open" onChange={() => {}} options={options} />
     );
     expect(control(container)).toHaveClass('uppercase');
     expect(control(container)).not.toHaveClass('normal-case');
@@ -95,7 +95,7 @@ describe('ReactSelect chip case', () => {
 
   it('CONTROL: chipCase="sentence" opts out', () => {
     const { container } = render(
-      <ReactSelect
+      <Select
         variant="chip"
         chipCase="sentence"
         value="open"

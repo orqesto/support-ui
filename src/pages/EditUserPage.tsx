@@ -7,7 +7,7 @@ import { PermissionOverridesSection } from '@/components/shared/PermissionOverri
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { usePermissions } from '@/hooks/usePermissions';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
@@ -469,13 +469,13 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <ReactSelect
+                  <Select
                     label="Workspace Role"
                     id="organizationRole"
                     value={organizationRole}
                     onChange={(value) => setOrganizationRole(value as OrganizationRole)}
                     options={orgRoles.map((role) => ({ value: role, label: roleDisplayNames[role] }))}
-                    isDisabled={roleReadOnly || (!isAdmin && isLastOrgAdmin)}
+                    disabled={roleReadOnly || (!isAdmin && isLastOrgAdmin)}
                   />
                   {roleReadOnly ? (
                     <p className="flex gap-1 items-center mt-1 text-xs font-medium text-warning">
@@ -540,7 +540,7 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
                 <CardTitle>Workspace membership</CardTitle>
               </CardHeader>
               <CardContent>
-                <ReactSelect
+                <Select
                   label="Workspace"
                   id="organization"
                   value={String(selectedOrgId ?? '')}

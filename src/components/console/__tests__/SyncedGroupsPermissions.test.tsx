@@ -26,6 +26,7 @@ import type { SyncedGroup, WireResult, WireTarget } from '@/services/alliance-sc
 import type { AllianceGroup } from '@/services/alliance-groups.service';
 import type { GroupDraft } from '@/hooks/useAllianceGroups';
 import type { AllianceMember } from '@/services/alliance-admin.service';
+import { chooseOption } from '@/test/chooseOption';
 
 const syncedGroups: SyncedGroup[] = [];
 
@@ -103,7 +104,14 @@ const renderCard = () =>
 const renderEditor = (value: AllianceGroup | null) =>
   render(
     <ThemeProvider>
-      <GroupEditor open onClose={vi.fn()} allianceId={1} group={value} orgs={[]} members={members} />
+      <GroupEditor
+        open
+        onClose={vi.fn()}
+        allianceId={1}
+        group={value}
+        orgs={[]}
+        members={members}
+      />
     </ThemeProvider>
   );
 
@@ -123,9 +131,8 @@ describe('the wire card no longer authors permissions', () => {
   it('offers no permissions control once a workspace role is selected', async () => {
     syncedGroups.push(baseGroup());
     renderCard();
-    const user = userEvent.setup();
 
-    await user.selectOptions(screen.getByLabelText('Workspace'), 'Acme');
+    await chooseOption(screen.getByLabelText('Workspace'), 'Acme');
 
     expect(
       screen.queryByRole('button', { name: /Customize permissions/i })
@@ -138,9 +145,8 @@ describe('the wire card no longer authors permissions', () => {
   it('still renders the wire form it used to host that control on', async () => {
     syncedGroups.push(baseGroup());
     renderCard();
-    const user = userEvent.setup();
 
-    await user.selectOptions(screen.getByLabelText('Workspace'), 'Acme');
+    await chooseOption(screen.getByLabelText('Workspace'), 'Acme');
 
     expect(screen.getByLabelText('Workspace')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Map access/i })).toBeInTheDocument();
@@ -154,7 +160,7 @@ describe('the wire card no longer authors permissions', () => {
     renderCard();
     const user = userEvent.setup();
 
-    await user.selectOptions(screen.getByLabelText('Workspace'), 'Acme');
+    await chooseOption(screen.getByLabelText('Workspace'), 'Acme');
     await user.click(screen.getByRole('button', { name: /Map access/i }));
 
     await waitFor(() => expect(wireMutateAsync).toHaveBeenCalledTimes(1));
@@ -170,7 +176,7 @@ describe('the wire card no longer authors permissions', () => {
     renderCard();
     const user = userEvent.setup();
 
-    await user.selectOptions(screen.getByLabelText('Workspace'), 'Acme');
+    await chooseOption(screen.getByLabelText('Workspace'), 'Acme');
     await user.click(screen.getByRole('button', { name: /Map access/i }));
 
     await waitFor(() => expect(wireMutateAsync).toHaveBeenCalledTimes(1));

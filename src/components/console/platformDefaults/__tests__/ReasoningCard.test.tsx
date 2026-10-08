@@ -1,4 +1,5 @@
 import { vi, describe, it, expect, afterEach, beforeEach } from 'vitest';
+import { chooseOption } from '@/test/chooseOption';
 import { act, render, screen, cleanup, fireEvent, within } from '@testing-library/react';
 import {
   normalizeReasoning,
@@ -64,7 +65,32 @@ const card = () => {
 };
 const openEditor = () =>
   fireEvent.click(card().getByRole('button', { name: /^(edit|configure reasoning)$/i }));
-const select = (label: string) => card().getByLabelText<HTMLSelectElement>(label);
+const select = (label: string) => card().getByLabelText(label);
+
+const EFFORT_TEXT: Record<string, string> = {
+  none: 'None',
+  minimal: 'Minimal',
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+};
+/** The text a level picker shows for its current value. */
+const shown = (label: string) =>
+  (select(label).closest('[class*="control"]') as HTMLElement).textContent ?? '';
+/** What a picker shows for `value`; '' is the "default" choice, worded per picker. */
+const textFor = (label: string, value: string): string | RegExp =>
+  value === ''
+    ? label === 'Default level'
+      ? 'Model default (not sent)'
+      : /^Default level/
+    : EFFORT_TEXT[value];
+/** Pick a level by its value, through the visible option. */
+const pick = (label: string, value: string) => chooseOption(select(label), textFor(label, value));
+const expectShown = (label: string, value: string) => {
+  const text = textFor(label, value);
+  if (typeof text === 'string') expect(shown(label)).toBe(text);
+  else expect(shown(label)).toMatch(text);
+};
 const headroomInput = () => card().getByLabelText<HTMLInputElement>(/reasoning headroom/i);
 const pressSave = () =>
   fireEvent.click(card().getByRole('button', { name: /save reasoning settings/i }));
@@ -125,20 +151,20 @@ describe('ReasoningCard', () => {
   it('opens the editor on the stored values, with readable feature names', () => {
     render(<ReasoningCard reasoning={STORED} />);
     openEditor();
-    expect(select('Default level').value).toBe('low');
-    expect(select('Translation').value).toBe('medium');
-    expect(select('Spam detection').value).toBe('');
+    expectShown('Default level', 'low');
+    expectShown('Translation', 'medium');
+    expectShown('Spam detection', '');
     // An id this build has no name for is still listed, under its own name.
-    expect(select('brand_new_feature').value).toBe('');
+    expectShown('brand_new_feature', '');
     expect(headroomInput().value).toBe('5000');
   });
 
-  it('saves the complete object, leaving out features on the default level', () => {
+  it('saves the complete object, leaving out features on the default level', async () => {
     render(<ReasoningCard reasoning={STORED} />);
     openEditor();
-    fireEvent.change(select('Spam detection'), { target: { value: 'minimal' } });
-    fireEvent.change(select('Translation'), { target: { value: '' } });
-    fireEvent.change(select('Language detection'), { target: { value: 'none' } });
+    await pick('Spam detection', 'minimal');
+    await pick('Translation', '');
+    await pick('Language detection', 'none');
     pressSave();
     expect(calls).toHaveLength(1);
     expect(calls[0].input).toStrictEqual({
@@ -148,11 +174,11 @@ describe('ReasoningCard', () => {
     });
   });
 
-  it('saves {} when every value is back on its default', () => {
+  it('saves {} when every value is back on its default', async () => {
     render(<ReasoningCard reasoning={STORED} />);
     openEditor();
-    fireEvent.change(select('Default level'), { target: { value: '' } });
-    fireEvent.change(select('Translation'), { target: { value: '' } });
+    await pick('Default level', '');
+    await pick('Translation', '');
     fireEvent.change(headroomInput(), { target: { value: '' } });
     pressSave();
     expect(calls[0].input).toStrictEqual({});
@@ -221,24 +247,24 @@ describe('ReasoningCard', () => {
     expect(card().getByText(/not allowed to edit platform settings/i)).toBeTruthy();
   });
 
-  it('a successful save returns to the read-only view', () => {
+  it('a successful save returns to the read-only view', async () => {
     hold = true;
     render(<ReasoningCard reasoning={STORED} />);
     openEditor();
-    fireEvent.change(select('Spam detection'), { target: { value: 'low' } });
+    await pick('Spam detection', 'low');
     pressSave();
     act(() => calls[0].callbacks.onSuccess?.());
     expect(card().queryByLabelText('Spam detection')).toBeNull();
     expect(card().getByRole('button', { name: /^edit$/i })).toBeTruthy();
   });
 
-  it('a refetch with new stored values does not overwrite edits in progress', () => {
+  it('a refetch with new stored values does not overwrite edits in progress', async () => {
     const { rerender } = render(<ReasoningCard reasoning={STORED} />);
     openEditor();
-    fireEvent.change(select('Spam detection'), { target: { value: 'high' } });
+    await pick('Spam detection', 'high');
     rerender(<ReasoningCard reasoning={reasoningWith({ defaultEffort: 'medium' })} />);
-    expect(select('Spam detection').value).toBe('high');
-    expect(select('Default level').value).toBe('low');
+    expectShown('Spam detection', 'high');
+    expectShown('Default level', 'low');
     expect(card().getByText(/saved values changed on the server/i)).toBeTruthy();
   });
 
@@ -246,8 +272,8 @@ describe('ReasoningCard', () => {
     const { rerender } = render(<ReasoningCard reasoning={STORED} />);
     openEditor();
     rerender(<ReasoningCard reasoning={reasoningWith({ defaultEffort: 'medium' })} />);
-    expect(select('Default level').value).toBe('medium');
-    expect(select('Translation').value).toBe('');
+    expectShown('Default level', 'medium');
+    expectShown('Translation', '');
     expect(card().queryByText(/saved values changed on the server/i)).toBeNull();
   });
 
@@ -262,7 +288,9 @@ describe('ReasoningCard', () => {
       />
     );
     expect(
-      card().getByText("Saved level for old_feature isn't a feature this server knows, and is ignored.")
+      card().getByText(
+        "Saved level for old_feature isn't a feature this server knows, and is ignored."
+      )
     ).toBeTruthy();
     openEditor();
     // The ignored key must not make the untouched form look edited, nor travel with a save.
@@ -279,7 +307,7 @@ describe('ReasoningCard', () => {
     const { rerender } = render(<ReasoningCard reasoning={withIgnored('low')} />);
     openEditor();
     rerender(<ReasoningCard reasoning={withIgnored('medium')} />);
-    expect(select('Translation').value).toBe('medium');
+    expectShown('Translation', 'medium');
     expect(card().queryByText(/saved values changed on the server/i)).toBeNull();
   });
 
@@ -318,19 +346,27 @@ describe('ReasoningCard', () => {
       />
     );
     expect(
-      card().getAllByText("Saved value for Default level isn't valid on this server and is ignored.")
+      card().getAllByText(
+        "Saved value for Default level isn't valid on this server and is ignored."
+      )
     ).toHaveLength(1);
   });
 
   it('lists ignored fields and adjusted values in plain words', () => {
     render(<ReasoningCard reasoning={WITH_PROBLEMS} />);
     const view = card();
-    expect(view.getByText("Saved value for Default level isn't valid on this server and is ignored.")).toBeTruthy();
+    expect(
+      view.getByText("Saved value for Default level isn't valid on this server and is ignored.")
+    ).toBeTruthy();
     expect(
       view.getByText("Saved value for Translation level isn't valid on this server and is ignored.")
     ).toBeTruthy();
     expect(view.getByText('Headroom 0 is below the minimum; 1000 is used.')).toBeTruthy();
-    expect(view.getByText("Saved level for old_feature isn't a feature this server knows, and is ignored.")).toBeTruthy();
+    expect(
+      view.getByText(
+        "Saved level for old_feature isn't a feature this server knows, and is ignored."
+      )
+    ).toBeTruthy();
     expect(view.getByText(/next save or Reset drops the ignored entries/i)).toBeTruthy();
   });
 
@@ -359,9 +395,7 @@ describe('ReasoningCard', () => {
 
   it('a row holding only unusable parts is still offered a Reset', () => {
     render(
-      <ReasoningCard
-        reasoning={{ ...reasoningWith({}), ignoredFields: ['defaultEffort'] }}
-      />
+      <ReasoningCard reasoning={{ ...reasoningWith({}), ignoredFields: ['defaultEffort'] }} />
     );
     expect(card().getByRole('button', { name: /^reset$/i })).toBeTruthy();
   });
@@ -434,16 +468,18 @@ describe('ReasoningCard', () => {
   });
 
   it('warns when a level is High and the headroom is not above the default', () => {
-    render(<ReasoningCard reasoning={reasoningWith({ effortByFeature: { translation: 'high' } })} />);
+    render(
+      <ReasoningCard reasoning={reasoningWith({ effortByFeature: { translation: 'high' } })} />
+    );
     expect(card().getByText(/set to High while the headroom is 3000 tokens/i)).toBeTruthy();
   });
 
-  it('warns in the editor as High is chosen, and stops once the headroom is raised', () => {
+  it('warns in the editor as High is chosen, and stops once the headroom is raised', async () => {
     render(<ReasoningCard reasoning={STORED} />);
     // STORED: low / medium, headroom 5000 — no warning.
     expect(card().queryByText(/set to High/i)).toBeNull();
     openEditor();
-    fireEvent.change(select('Default level'), { target: { value: 'high' } });
+    await pick('Default level', 'high');
     fireEvent.change(headroomInput(), { target: { value: '3000' } });
     expect(card().getByText(/set to High while the headroom is 3000 tokens/i)).toBeTruthy();
     fireEvent.change(headroomInput(), { target: { value: '3001' } });
@@ -509,8 +545,8 @@ describe('normalizeReasoning (version skew)', () => {
         { field: 'headroomTokens', stored: null, used: 1000 },
       ],
     });
-    expect(normalizeReasoning({ ...raw, ignoredFeatures: ['old_feature'] })?.ignoredFeatures).toEqual([
-      'old_feature',
-    ]);
+    expect(
+      normalizeReasoning({ ...raw, ignoredFeatures: ['old_feature'] })?.ignoredFeatures
+    ).toEqual(['old_feature']);
   });
 });

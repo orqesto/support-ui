@@ -36,7 +36,7 @@ vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({ isAdmin: true, isOrgAdmin: true }),
 }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() } }));
-// ReactSelect reads the theme context, which no settings test mounts a provider for.
+// Select reads the theme context, which no settings test mounts a provider for.
 vi.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ theme: 'light' }) }));
 
 const { BusinessHoursSettings } = await import('@/components/settings/BusinessHoursSettings');

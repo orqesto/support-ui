@@ -9,13 +9,15 @@ type Translated = { translated: { content: string; subject?: string; language: s
 const translateMessage = vi.fn<(...args: unknown[]) => Promise<Translated>>();
 const translateTicket = vi.fn<(...args: unknown[]) => Promise<Translated>>();
 const translateText = vi.fn<(...args: unknown[]) => Promise<Translated>>();
+const fetchLanguages = vi.fn<() => Promise<void>>();
+let isTranslating = false;
 
 vi.mock('@/hooks/useTranslation', () => ({
   useTranslation: () => ({
     translateMessage: (...args: unknown[]) => translateMessage(...args),
     translateTicket: (...args: unknown[]) => translateTicket(...args),
     translateText: (...args: unknown[]) => translateText(...args),
-    isTranslating: false,
+    isTranslating,
     error: null,
   }),
   useSupportedLanguages: () => ({
@@ -24,7 +26,7 @@ vi.mock('@/hooks/useTranslation', () => ({
       { code: 'sv', name: 'Swedish' },
     ],
     isLoading: false,
-    fetchLanguages: vi.fn(),
+    fetchLanguages: () => fetchLanguages(),
   }),
 }));
 vi.mock('@/hooks/useAiConfigured', () => ({
@@ -51,6 +53,8 @@ const pick = async (languageName: string) => {
 describe('TranslateButton', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    isTranslating = false;
+    fetchLanguages.mockResolvedValue(undefined);
   });
   afterEach(cleanup);
 
@@ -108,5 +112,40 @@ describe('TranslateButton', () => {
     fireEvent.click(await screen.findByLabelText('Show original'));
 
     expect(onCleared).toHaveBeenCalledTimes(1);
+  });
+
+  it('fetches the languages when the panel opens, not when it closes', () => {
+    render(<TranslateButton text="Ihr Paket." onTranslated={onTranslated} onCleared={onCleared} />);
+
+    fireEvent.click(screen.getByLabelText('Translate'));
+    expect(fetchLanguages).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('combobox', { name: 'Language' })).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText('Translate'));
+    expect(screen.queryByRole('combobox', { name: 'Language' })).toBeNull();
+    expect(fetchLanguages).toHaveBeenCalledTimes(1);
+  });
+
+  it('picking a language closes the panel; reopened, that language is the ticked one', async () => {
+    translateText.mockResolvedValue({ translated: { content: 'Ditt paket.', language: 'sv' } });
+    render(<TranslateButton text="Ihr Paket." onTranslated={onTranslated} onCleared={onCleared} />);
+
+    await pick('Swedish');
+    expect(screen.queryByRole('combobox', { name: 'Language' })).toBeNull();
+    await waitFor(() => expect(onTranslated).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByLabelText('Translate'));
+    expect(screen.getByRole('option', { name: 'Swedish' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('option', { name: 'German' }).getAttribute('aria-selected')).toBe('false');
+  });
+
+  it('stays shut while a translation is in flight — one translation at a time', () => {
+    isTranslating = true;
+    render(<TranslateButton text="Ihr Paket." onTranslated={onTranslated} onCleared={onCleared} />);
+
+    fireEvent.click(screen.getByLabelText('Translate'));
+
+    expect(screen.queryByRole('combobox', { name: 'Language' })).toBeNull();
+    expect(screen.queryByText('Swedish')).toBeNull();
   });
 });

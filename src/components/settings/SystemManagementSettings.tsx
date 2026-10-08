@@ -11,7 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select } from '@/components/ui/Select';
 import { usePermissions } from '@/hooks/usePermissions';
 import systemService from '@/services/system.service';
 import { BounceRepairSection } from './BounceRepairSection';
@@ -306,7 +306,7 @@ export const SystemManagementSettings = () => {
 
         {/* Department Filter */}
         <div className="mb-4 pb-4 border-b border-destructive-line">
-          <ReactSelect
+          <Select
             label="Department Scope"
             value={selectedDepartment}
             onChange={(value) => setSelectedDepartment(value)}
@@ -371,7 +371,9 @@ export const SystemManagementSettings = () => {
                 Delete spam log entries older than the selected number of days
               </p>
               <div className="mt-2 w-40">
-                <ReactSelect
+                <Select
+                  size="sm"
+                  aria-label="Spam log age"
                   value={spamLogDays}
                   onChange={(val) => setSpamLogDays(val)}
                   options={[

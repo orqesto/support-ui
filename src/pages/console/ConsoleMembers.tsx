@@ -6,8 +6,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
-import { Select } from '@/components/ui/Select';
-import { ReactSelect } from '@/components/ui/ReactSelect';
+import { Select, type Option } from '@/components/ui/Select';
 import { Label } from '@/components/ui/Label';
 import { DataTable, type ColumnDef } from '@/components/ui/DataTable';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -64,6 +63,10 @@ const toPower = (value: string): AllianceRole | null =>
 const toValue = (power: AllianceRole | null): AlliancePowerValue =>
   power === 'alliance_admin' ? 'alliance_admin' : NO_POWER;
 const POWER_OPTIONS: AlliancePowerValue[] = [NO_POWER, 'alliance_admin'];
+const POWER_SELECT_OPTIONS: Option[] = POWER_OPTIONS.map((value) => ({
+  value,
+  label: ROLE_LABEL[value],
+}));
 
 /**
  * What the Effective-roles column has to say about one member.
@@ -301,19 +304,15 @@ export const ConsoleMembers = () => {
         <Select
           value={toValue(member.allianceRole)}
           disabled={changeRole.isPending && changeRole.variables?.userId === member.userId}
-          onChange={(event) => {
-            const next = toPower(event.target.value);
+          aria-label={`Alliance role for ${member.name || member.email || `user #${member.userId}`}`}
+          onChange={(value) => {
+            const next = toPower(value);
             if (next !== member.allianceRole) {
               setRoleChange({ member, newRole: next });
             }
           }}
-        >
-          {POWER_OPTIONS.map((value) => (
-            <option key={value || 'member'} value={value}>
-              {ROLE_LABEL[value]}
-            </option>
-          ))}
-        </Select>
+          options={POWER_SELECT_OPTIONS}
+        />
       ),
     },
     {
@@ -496,7 +495,7 @@ export const ConsoleMembers = () => {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="alliance-add-user">User</Label>
-              <ReactSelect
+              <Select
                 id="alliance-add-user"
                 value={selectedUserId}
                 onChange={setSelectedUserId}
@@ -529,14 +528,9 @@ export const ConsoleMembers = () => {
               <Select
                 id="alliance-add-role"
                 value={toValue(newRole)}
-                onChange={(event) => setNewRole(toPower(event.target.value))}
-              >
-                {POWER_OPTIONS.map((value) => (
-                  <option key={value || 'member'} value={value}>
-                    {ROLE_LABEL[value]}
-                  </option>
-                ))}
-              </Select>
+                onChange={(value) => setNewRole(toPower(value))}
+                options={POWER_SELECT_OPTIONS}
+              />
               <p className="text-xs text-muted-foreground">{ROLE_HELP[toValue(newRole)]}</p>
             </div>
             <div className="flex gap-2 justify-end">
@@ -583,20 +577,20 @@ export const ConsoleMembers = () => {
               <Select
                 id="handover-user"
                 value={handoverUserId}
-                onChange={(event) => setHandoverUserId(event.target.value)}
-              >
-                <option value="">Nobody — leave them unassigned</option>
-                {(members ?? [])
-                  .filter(
-                    (member) =>
-                      member.active !== false && member.userId !== deactivateTarget?.userId
-                  )
-                  .map((member) => (
-                    <option key={member.userId} value={String(member.userId)}>
-                      {member.name || member.email || `User #${member.userId}`}
-                    </option>
-                  ))}
-              </Select>
+                onChange={setHandoverUserId}
+                options={[
+                  { value: '', label: 'Nobody — leave them unassigned' },
+                  ...(members ?? [])
+                    .filter(
+                      (member) =>
+                        member.active !== false && member.userId !== deactivateTarget?.userId
+                    )
+                    .map((member) => ({
+                      value: String(member.userId),
+                      label: member.name || member.email || `User #${member.userId}`,
+                    })),
+                ]}
+              />
               <p className="text-xs text-muted-foreground">
                 Tickets in workspaces the colleague cannot access stay unassigned — you’ll be told
                 how many.
