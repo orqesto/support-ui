@@ -342,6 +342,183 @@ export const normaliseSummary = (raw: unknown): ProcessingSummaryEntry[] =>
       countCapped: entry.countCapped === true,
     }));
 
+/** One conversation a run still owes work on (support-service importProgressCounts). */
+export type OwedConversation = {
+  conversationId: number;
+  publicId: string | null;
+  deleted: boolean;
+  /** Set on a merge tombstone: the conversation it was merged into. */
+  mergedIntoConversationId: number | null;
+  /** Whether the ticket the merge chain ends on is live; absent from the #924 backend. */
+  mergedIntoLive?: boolean;
+  /** What a retry does with a tombstone's mail; only `move` is linked (to its live target). */
+  mergeOutcome?: 'move' | 'revive' | 'restore';
+  mergeTargetId?: number;
+  mergeTargetPublicId?: string;
+};
+
+/**
+ * `count`: messages for `decided`/`analysis`, conversations for `embedding`/`kb`.
+ * `conversations` is capped (20). `hiddenCount`: conversations outside the caller's departments;
+ * absent from the #924 backend.
+ */
+export type OwedList = {
+  count: number;
+  hiddenCount?: number;
+  /** Conversations (tickets) owing the stage, all departments; absent from the #924 backend. */
+  conversationCount?: number;
+  conversations: OwedConversation[];
+};
+
+export type OwedStageKey = 'decided' | 'analysis' | 'embedding' | 'kb';
+
+/** GET /api/integrations/:id/import-progress/runs/:runId/owed — what one run still owes. */
+export type RunOwed = {
+  /** Absent from the #924 backend: read as false (the retry is not offered). */
+  canRetry: boolean;
+  owed: Record<OwedStageKey, OwedList>;
+};
+
+/**
+ * POST …/runs/:runId/retry-owed — the same shape for a dry run and the real one, read down to what
+ * the panel says: per stage how many are (or will be) retried, and whether anything was held back.
+ */
+export type RetryOwedResult = {
+  dryRun: boolean;
+  /** Messages: `found` owed and reachable (of which `handled` are only marked), `queued` re-run. */
+  decided: { found: number; handled: number; queued: number };
+  /** Conversations queued (or, in a dry run, to queue) again. */
+  embedding: { queued: number };
+  kb: { queued: number };
+  /** Held back for now: already queued, retried recently, a busy or full queue, too new. */
+  heldBackForNow: boolean;
+  /** Knowledge-base items held while the workspace is paused (`kb.blocked`). */
+  heldBackPaused: boolean;
+  /** Held back for good by this button: retried the most times, too old, not repairable here. */
+  heldBackForGood: boolean;
+  /** This retry did not cover everything it could reach. */
+  truncated: boolean;
+  /** It stopped part-way: the counts are what it did before. */
+  failed: { error: string } | null;
+};
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+
+const normaliseOwedList = (raw: unknown): OwedList => {
+  const data = asRecord(raw);
+  const hidden = data.hiddenCount;
+  return {
+    count: numberOr(data.count, 0),
+    ...(typeof hidden === 'number' && Number.isFinite(hidden) ? { hiddenCount: hidden } : {}),
+    ...(typeof data.conversationCount === 'number' && Number.isFinite(data.conversationCount)
+      ? { conversationCount: data.conversationCount }
+      : {}),
+    conversations: (Array.isArray(data.conversations) ? data.conversations : [])
+      .map(asRecord)
+      .filter((row) => typeof row.conversationId === 'number')
+      .map((row) => ({
+        conversationId: row.conversationId as number,
+        publicId: stringOrNull(row.publicId),
+        deleted: row.deleted === true,
+        mergedIntoConversationId:
+          typeof row.mergedIntoConversationId === 'number' ? row.mergedIntoConversationId : null,
+        ...(typeof row.mergedIntoLive === 'boolean' ? { mergedIntoLive: row.mergedIntoLive } : {}),
+        ...(row.mergeOutcome === 'move' ||
+        row.mergeOutcome === 'revive' ||
+        row.mergeOutcome === 'restore'
+          ? { mergeOutcome: row.mergeOutcome }
+          : {}),
+        ...(typeof row.mergeTargetId === 'number' ? { mergeTargetId: row.mergeTargetId } : {}),
+        ...(typeof row.mergeTargetPublicId === 'string'
+          ? { mergeTargetPublicId: row.mergeTargetPublicId }
+          : {}),
+      })),
+  };
+};
+
+/** Every field the section reads gets a value; `canRetry` absent ⇒ false (never offered blind). */
+export const normaliseRunOwed = (raw: unknown): RunOwed => {
+  const data = asRecord(raw);
+  const owed = asRecord(data.owed);
+  return {
+    canRetry: data.canRetry === true,
+    owed: {
+      decided: normaliseOwedList(owed.decided),
+      analysis: normaliseOwedList(owed.analysis),
+      embedding: normaliseOwedList(owed.embedding),
+      kb: normaliseOwedList(owed.kb),
+    },
+  };
+};
+
+/**
+ * Each held-back count the backend sends, classified ONCE: for now (a later retry may act on it) or
+ * for good (this button will not). `dropped` is the search-index queue past its ceiling — for now.
+ */
+const FOR_NOW_DECIDED = ['pending'];
+const FOR_GOOD_DECIDED = ['exhausted', 'notRepairable'];
+const FOR_NOW_STAGE = ['pending', 'recentlyRetried', 'dropped', 'busy'];
+const FOR_GOOD_STAGE = ['exhausted'];
+
+const anyPositive = (data: Record<string, unknown>, keys: string[]): boolean =>
+  keys.some((key) => numberOr(data[key], 0) > 0);
+
+/**
+ * `unreachable` by its parts: too old is for good; too new / just retried for now. Without a
+ * breakdown, a single reason says which; `mixed` or none means both may apply.
+ */
+const unreachableKinds = (decided: Record<string, unknown>): { now: boolean; good: boolean } => {
+  if (numberOr(decided.unreachable, 0) <= 0) return { now: false, good: false };
+  const by = asRecord(decided.unreachableBy);
+  if ('unreachableBy' in decided && decided.unreachableBy)
+    return {
+      now: numberOr(by.tooNew, 0) + numberOr(by.justRetried, 0) > 0,
+      good: numberOr(by.tooOld, 0) > 0,
+    };
+  const reason = decided.unreachableReason;
+  if (reason === 'too_old') return { now: false, good: true };
+  if (reason === 'too_new' || reason === 'just_retried') return { now: true, good: false };
+  return { now: true, good: true };
+};
+
+export const normaliseRetryOwed = (raw: unknown): RetryOwedResult => {
+  const data = asRecord(raw);
+  const decided = asRecord(data.decided);
+  const embedding = asRecord(data.embedding);
+  const kb = asRecord(data.kb);
+  const failed = asRecord(data.failed);
+  const unreachable = unreachableKinds(decided);
+  return {
+    dryRun: data.dryRun !== false,
+    decided: {
+      found: numberOr(decided.found, 0),
+      handled: numberOr(decided.handled, 0),
+      queued: numberOr(decided.queued, 0),
+    },
+    embedding: { queued: numberOr(embedding.queued, 0) },
+    kb: { queued: numberOr(kb.queued, 0) },
+    heldBackForNow:
+      anyPositive(decided, FOR_NOW_DECIDED) ||
+      anyPositive(embedding, FOR_NOW_STAGE) ||
+      anyPositive(kb, FOR_NOW_STAGE) ||
+      unreachable.now ||
+      data.kbPendingUnknown === true,
+    // `workspaceBlocked` is set whatever is owed: only the KB items it held (`kb.blocked`) count.
+    heldBackPaused: numberOr(kb.blocked, 0) > 0,
+    heldBackForGood:
+      anyPositive(decided, FOR_GOOD_DECIDED) ||
+      anyPositive(embedding, FOR_GOOD_STAGE) ||
+      anyPositive(kb, FOR_GOOD_STAGE) ||
+      unreachable.good,
+    truncated: data.truncated === true,
+    failed:
+      typeof failed.stage === 'string' || typeof failed.error === 'string'
+        ? { error: typeof failed.error === 'string' ? failed.error : '' }
+        : null,
+  };
+};
+
 export const importProgressService = {
   /** `start`: list the mailbox if the source has no run yet (only when this looks like an import). */
   get: async (sourceId: number, start = false): Promise<ImportProgress> => {
@@ -372,6 +549,27 @@ export const importProgressService = {
       if (isAxiosError(error) && error.response?.status === 404) return;
       throw error;
     }
+  },
+
+  /** What one run still owes, per stage — read on demand, never on the panel's poll. */
+  owed: async (sourceId: number, runId: string): Promise<RunOwed> => {
+    const response = await apiClient.get<{ success: boolean; data: unknown }>(
+      `/api/integrations/${sourceId}/import-progress/runs/${encodeURIComponent(runId)}/owed`
+    );
+    return normaliseRunOwed(response.data.data);
+  },
+
+  /**
+   * Re-run what one run owes. ⛔ `dryRun` is always sent: the backend refuses a body without it,
+   * and only the confirm sends `false`.
+   */
+  retryOwed: async (sourceId: number, runId: string, dryRun: boolean): Promise<RetryOwedResult> => {
+    const response = await apiClient.post<{ success: boolean; data: unknown }>(
+      `/api/integrations/${sourceId}/import-progress/runs/${encodeURIComponent(runId)}/retry-owed`,
+      { dryRun }
+    );
+    // The words ("to queue" / "queued") follow what was ASKED, not a field the answer may lack.
+    return { ...normaliseRetryOwed(response.data.data), dryRun };
   },
 
   recount: async (sourceId: number): Promise<void> => {

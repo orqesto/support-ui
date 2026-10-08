@@ -187,4 +187,76 @@ describe('Bounce repair', () => {
     rerender(<BounceRepairSection />);
     expect(screen.queryByText(/12 messages/)).not.toBeInTheDocument();
   });
+
+  describe('stranded messages: per-outcome counts only', () => {
+    const confirmRepair = async () => {
+      fireEvent.click(await screen.findByRole('button', { name: /^Repair$/ }));
+      const buttons = await screen.findAllByRole('button', { name: /^Repair$/ });
+      fireEvent.click(buttons[buttons.length - 1]);
+      await waitFor(() => expect(calls).toEqual(['check', 'apply']));
+    };
+    const stranded = (over: Record<string, unknown>) =>
+      ({ found: 4, moved: 0, restored: 0, skipped: 0, queued: 0, truncated: false, samples: [], ...over }) as BounceRepairResult['stranded'];
+
+    it('an older backend (no restored) keeps "moved to the conversation it belongs to"', async () => {
+      render(<BounceRepairSection />);
+      await runCheck();
+      expect(await screen.findByTestId('stranded-line')).toHaveTextContent(
+        '12 messages left on a merged-away conversation — moved to the conversation it belongs to; any not yet processed are processed then.'
+      );
+    });
+
+    it('the check gives what it would do as counts: moved, restored, skipped', async () => {
+      check = () => ok(result({ stranded: stranded({ moved: 2, restored: 1, skipped: 1 }) }));
+      render(<BounceRepairSection />);
+      await runCheck();
+      expect(await screen.findByTestId('stranded-line')).toHaveTextContent(
+        '4 messages left on a merged-away conversation — would be: 2 moved, 1 restored, 1 skipped.'
+      );
+      // A decision is queued only where the rules allow (not on a ticket waiting for routing):
+      // the check makes no promise that every one is processed.
+      expect(screen.getByTestId('stranded-line')).not.toHaveTextContent(/processed then/);
+    });
+
+    it('the result gives what it did as counts, with the messages a restore brought along', async () => {
+      check = () => ok(result({ stranded: stranded({ moved: 2, restored: 1, skipped: 1 }) }));
+      apply = () =>
+        ok(result({ applied: true, stranded: stranded({ found: 4, landedBeyondList: 1, moved: 2, restored: 2, skipped: 1, queued: 3 }), bounceOnly: { found: 28, refiled: 28, truncated: false, samples: [] } }));
+      render(<BounceRepairSection />);
+      await runCheck();
+      await confirmRepair();
+      // 4 found + 1 landed = 2 moved + 2 restored + 1 skipped.
+      expect(
+        await screen.findByText(
+          '4 messages left on merged-away tickets (1 more landed with restored tickets): 2 moved, 2 restored, 1 skipped (3 queued for processing); marked 0 bounces and filed away 28 conversations.'
+        )
+      ).toBeInTheDocument();
+    });
+
+    it('the check says the extra messages a restore would bring, so the counts add up', async () => {
+      check = () =>
+        ok(result({ stranded: stranded({ found: 2, landedBeyondList: 3, moved: 1, restored: 4, skipped: 0 }) }));
+      render(<BounceRepairSection />);
+      await runCheck();
+      expect(await screen.findByTestId('stranded-line')).toHaveTextContent(
+        '2 messages left on a merged-away conversation (3 more would land with restored tickets) — would be: 1 moved, 4 restored, 0 skipped.'
+      );
+    });
+
+    it('the confirm is general for a backend that restores, and keeps its old words otherwise', async () => {
+      check = () => ok(result({ stranded: stranded({ found: 2, moved: 1, restored: 1 }) }));
+      render(<BounceRepairSection />);
+      await runCheck();
+      fireEvent.click(await screen.findByRole('button', { name: /^Repair$/ }));
+      expect(
+        await screen.findByText(/Moves or restores messages left on merged-away tickets, following the same rules as new mail\./)
+      ).toBeInTheDocument();
+      cleanup();
+      check = () => ok(result());
+      render(<BounceRepairSection />);
+      await runCheck();
+      fireEvent.click(await screen.findByRole('button', { name: /^Repair$/ }));
+      expect(await screen.findByText(/^Stranded messages move to the conversation they belong to, and conversations/)).toBeInTheDocument();
+    });
+  });
 });

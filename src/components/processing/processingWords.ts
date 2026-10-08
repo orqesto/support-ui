@@ -439,3 +439,14 @@ export const formatRunTime = (iso: string, now: Date = new Date()): string => {
 
 export const plural = (count: number, one: string, many: string): string =>
   `${count.toLocaleString()} ${count === 1 ? one : many}`;
+
+/**
+ * The run stages' names, as the panel draws them (RunDetails, ImportProgressPanel): anything that
+ * names a stage — the "what's holding this check" list, the retry — says it with these words.
+ */
+export const RUN_STAGE_LABELS = {
+  decided: 'Checked',
+  analysis: 'AI analysis',
+  embedding: 'Search index',
+  kb: 'Knowledge base',
+} as const;
