@@ -305,6 +305,8 @@ export const ConsoleMembers = () => {
           value={toValue(member.allianceRole)}
           disabled={changeRole.isPending && changeRole.variables?.userId === member.userId}
           aria-label={`Alliance role for ${member.name || member.email || `user #${member.userId}`}`}
+          // sm: one per table row — a full 40px field in every row read heavier than the table.
+          size="sm"
           onChange={(value) => {
             const next = toPower(value);
             if (next !== member.allianceRole) {
