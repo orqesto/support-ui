@@ -83,6 +83,16 @@ describe('M4 — the rail tab strip on a phone', () => {
     ).not.toBeNull();
   });
 
+  it('M9: the Lookups tab gives the lookup panel the same 40px targets on a phone', () => {
+    setViewport(true);
+    wrap(<MessagePanelTabs {...tabsProps({ tab: 'lookups' })} />);
+    const body = screen.getByTestId('lookups-tab-panel');
+    expect(classOf(body)).toContain('max-sm:[&_button]:min-h-10');
+    expect(classOf(body)).toContain(
+      'max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-10'
+    );
+  });
+
   it('M9: the 40px input rule leaves tick boxes and radios alone (a tall checkbox drops below its label)', () => {
     setViewport(true);
     wrap(<MessagePanelTabs {...tabsProps({ tab: 'customer' })} />);

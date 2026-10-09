@@ -4,7 +4,7 @@
  *   C1  The AI panel's note: "Your note for the AI draft", a visible "n / 2000" counter (the cap
  *       was always there, silently), and the note stays on screen and editable under a produced
  *       draft, so a fact added there reaches "Try again".
- *   C2  The composer's "Look up" opens the Customer tab at the Connected systems block — in the
+ *   C2  The composer's "Look up" opens the Lookups tab at the Connected systems block — in the
  *       slide-over it also opens the rail. Hidden in Internal-note mode and whenever the lookup
  *       panel itself would not render (availability no / error), on the panel's own query.
  *   L1  Full page: sidebar `clamp(312px,30vw,520px)`, page frame full width; below 1024px
@@ -118,7 +118,7 @@ vi.mock('@/components/shared/RichTextEditor', async () => {
 });
 vi.mock('@/components/shared/TranslateButton', () => ({ TranslateButton: () => null }));
 // The side panel is another agent's surface — report what MessageDetail asked of it, and stand
-// in for the lookup root (data-lookup-root) on the Customer tab.
+// in for the lookup root (data-lookup-root) on the Lookups tab.
 const panelStub = vi.hoisted(() => ({ lateRoot: false }));
 vi.mock('../MessagePanelTabs', async () => {
   const { useEffect, useState } = await vi.importActual<typeof ReactModule>('react');
@@ -147,7 +147,7 @@ vi.mock('../MessagePanelTabs', async () => {
         data-tab={tab}
         data-open={String(panelOpen)}
       >
-        {tab === 'customer' &&
+        {tab === 'lookups' &&
           (panelStub.lateRoot ? (
             <LateRoot />
           ) : (
@@ -334,14 +334,14 @@ describe('C1 — the note for the AI draft', () => {
 // ─── C2 ───────────────────────────────────────────────────────────────────────
 
 describe('C2 — the composer Look up button', () => {
-  it('slide-over: opens the rail on the Customer tab and flashes the lookup block', async () => {
+  it('slide-over: opens the rail on the Lookups tab and flashes the lookup block', async () => {
     renderDetail();
     expect(panel()).toHaveAttribute('data-tab', 'ai');
     expect(panel()).toHaveAttribute('data-open', 'false');
 
     fireEvent.click(await screen.findByTitle(LOOK_UP));
 
-    expect(panel()).toHaveAttribute('data-tab', 'customer');
+    expect(panel()).toHaveAttribute('data-tab', 'lookups');
     expect(panel()).toHaveAttribute('data-open', 'true');
     const root = screen.getByTestId('lookup-root');
     await waitFor(() => expect(root).toHaveClass('ring-[3px]'));
@@ -402,14 +402,14 @@ describe('C2 — the composer Look up button', () => {
     scrollTo.mockRestore();
   });
 
-  it('full page (sidebar always visible): selects the Customer tab without hiding the thread', async () => {
+  it('full page (sidebar always visible): selects the Lookups tab without hiding the thread', async () => {
     media.wide = true;
     renderDetail({}, { isFullPage: true });
     expect(panel()).toHaveAttribute('data-variant', 'sidebar');
 
     fireEvent.click(await screen.findByTitle(LOOK_UP));
 
-    expect(panel()).toHaveAttribute('data-tab', 'customer');
+    expect(panel()).toHaveAttribute('data-tab', 'lookups');
     expect(panel()).toHaveAttribute('data-open', 'false');
   });
 
@@ -464,7 +464,7 @@ describe('C2 — the composer Look up button', () => {
     await waitFor(() => expect(document.activeElement).toBe(root));
   });
 
-  it('phone: the Customer tab hides the composer — focus still lands on the lookup block', async () => {
+  it('phone: the Lookups tab hides the composer — focus still lands on the lookup block', async () => {
     const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
     setPhone();
     renderDetail();
@@ -472,6 +472,35 @@ describe('C2 — the composer Look up button', () => {
     expect(screen.getByTestId('message-composer').className.split(/\s+/)).toContain('hidden');
     await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('lookup-root')));
     scrollTo.mockRestore();
+  });
+
+  const renderWithClient = () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <MessageDetail message={baseMessage} onClose={vi.fn()} />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    return client;
+  };
+
+  it('⛔ on Lookups when lookups become unavailable ⇒ the panel falls back to AI, never blank', async () => {
+    const client = renderWithClient();
+    fireEvent.click(await screen.findByTitle(LOOK_UP));
+    expect(panel()).toHaveAttribute('data-tab', 'lookups');
+    lookup.availability.mockResolvedValue(false);
+    await act(() => client.invalidateQueries());
+    await waitFor(() => expect(panel()).toHaveAttribute('data-tab', 'ai'));
+  });
+
+  it('CONTROL: a refetch that still says yes leaves the agent on Lookups', async () => {
+    const client = renderWithClient();
+    fireEvent.click(await screen.findByTitle(LOOK_UP));
+    await act(() => client.invalidateQueries());
+    await waitFor(() => expect(lookup.availability).toHaveBeenCalledTimes(2));
+    expect(panel()).toHaveAttribute('data-tab', 'lookups');
   });
 
   it('a closed thread has no composer, so no Look up', async () => {
@@ -497,8 +526,8 @@ describe('R and N on a phone, with another tab open', () => {
   });
   afterEach(() => scrollTo.mockRestore());
 
-  /** Opens the Customer tab (the composer is display:none under it) and parks focus on <body>. */
-  const onCustomerTab = async () => {
+  /** Opens the Lookups tab (the composer is display:none under it) and parks focus on <body>. */
+  const onLookupsTab = async () => {
     fireEvent.click(await screen.findByTitle(LOOK_UP));
     expect(panel()).toHaveAttribute('data-open', 'true');
     expect(composerHidden()).toBe(true);
@@ -509,7 +538,7 @@ describe('R and N on a phone, with another tab open', () => {
   it('R goes back to the Thread tab and focuses the reply editor, which is on screen', async () => {
     setPhone();
     renderDetail();
-    await onCustomerTab();
+    await onLookupsTab();
     press('r');
     expect(panel()).toHaveAttribute('data-open', 'false');
     expect(composerHidden()).toBe(false);
@@ -521,7 +550,7 @@ describe('R and N on a phone, with another tab open', () => {
   it('N goes back where the composer shows and focuses the note editor', async () => {
     setPhone();
     renderDetail();
-    await onCustomerTab();
+    await onLookupsTab();
     press('n');
     expect(composerHidden()).toBe(false);
     await waitFor(() =>
@@ -538,7 +567,7 @@ describe('R and N on a phone, with another tab open', () => {
     (document.activeElement as HTMLElement).blur();
     press('r');
     expect(panel()).toHaveAttribute('data-open', 'true');
-    expect(panel()).toHaveAttribute('data-tab', 'customer');
+    expect(panel()).toHaveAttribute('data-tab', 'lookups');
     await waitFor(() =>
       expect(document.activeElement).toBe(screen.getByPlaceholderText('Reply as Dana…'))
     );

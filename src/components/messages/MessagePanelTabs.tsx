@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import type { AddOutcome } from './useAiRecordNote';
 import { StickyNote, Pencil, Trash2 } from 'lucide-react';
 import { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
@@ -11,7 +11,9 @@ import {
 import { MessageAttachments, type Attachment } from './MessageAttachments';
 import { MessageKBReferences } from './MessageKBReferences';
 import { AiTabPanel, type KBAttachment } from './AiTabPanel';
-import { CustomerTabPanels, CustomerSenderBlock, ConversationFacts } from './CustomerTabPanels';
+import { CustomerSenderBlock, ConversationFacts } from './CustomerTabPanels';
+import { LookupsTabPanel } from './LookupsTabPanel';
+import { useLookupsTab } from './lookupsTab';
 import {
   messageService,
   type MessageNote,
@@ -30,10 +32,11 @@ import { contactLookupKey } from '@/lib/messageHelpers';
 import RichTextEditor from '@/components/shared/RichTextEditor';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import DOMPurify from 'dompurify';
-import { LABEL, relativeTime } from './messageDetailConstants';
+import { LABEL, PHONE_CONTACT, relativeTime, type PanelTab } from './messageDetailConstants';
 import { hasLookupEmailIdentity } from './CustomApiLookupPanel';
 import { useTabBadges } from './useTabBadges';
 import { TabBadge } from './TabBadge';
+import { STRIP_FADE, useStripFade } from './useStripFade';
 
 type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
 
@@ -54,50 +57,12 @@ const PHONE_RAIL = 'max-sm:contents';
 const PHONE_STRIP =
   'max-sm:sticky max-sm:top-[calc(var(--md-sticky-top,0px)+52px)] max-sm:z-[5] max-sm:mt-3.5 max-sm:border-t';
 const PHONE_PANEL = 'max-sm:flex-none max-sm:overflow-visible max-sm:overflow-x-clip';
-/**
- * The Customer tab's contact controls: 40px touch targets and 16px inputs on a phone (M9).
- * Tick boxes and radios are left out: a 40px-tall 14px box only drops the tick below its label
- * (the label row is the touch target for those).
- */
-const PHONE_CONTACT =
-  'max-sm:[&_button]:min-h-10 max-sm:[&_button]:min-w-10 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-10 max-sm:[&_select]:min-h-10';
-
-/** v4's right-edge fade, applied only while the strip has more to scroll to. Alpha only. */
-const STRIP_FADE =
-  '[mask-image:linear-gradient(90deg,black_calc(100%_-_18px),transparent)] [-webkit-mask-image:linear-gradient(90deg,black_calc(100%_-_18px),transparent)]';
-
-/**
- * Does the strip overflow AND still have content to the right? Measured, because v4 decides this
- * with a container query this Tailwind build has no plugin for. Re-measured on scroll and resize,
- * and when `contentKey` changes — the tabs' widths change when a tab or a badge appears.
- */
-function useStripFade(contentKey: string) {
-  const stripRef = useRef<HTMLDivElement>(null);
-  const [stripFades, setStripFades] = useState(false);
-  const updateStripFade = useCallback(() => {
-    const strip = stripRef.current;
-    if (!strip) return;
-    setStripFades(strip.scrollWidth - strip.clientWidth - strip.scrollLeft > 1);
-  }, []);
-  useEffect(() => {
-    updateStripFade();
-    const strip = stripRef.current;
-    if (!strip || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(updateStripFade);
-    observer.observe(strip);
-    return () => observer.disconnect();
-  }, [updateStripFade, contentKey]);
-  return { stripRef, stripFades, updateStripFade };
-}
-
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export type MessagePanelTabsProps = {
   message: Message;
-  tab: 'ai' | 'customer' | 'attachments' | 'kb' | 'activity' | 'notes' | 'lead' | 'contradiction';
-  setTab: (
-    t: 'ai' | 'customer' | 'attachments' | 'kb' | 'activity' | 'notes' | 'lead' | 'contradiction'
-  ) => void;
+  tab: PanelTab;
+  setTab: (t: PanelTab) => void;
   panelOpen: boolean;
   /** 'sidebar' = full page's right column (v3): no Thread tab, wrapping tabs, always open. */
   variant?: 'rail' | 'sidebar';
@@ -172,14 +137,15 @@ export function MessagePanelTabs({
   const [editNoteContent, setEditNoteContent] = useState('');
   const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
   const [checkingContradiction, setCheckingContradiction] = useState(false);
-  // The KB/Customer badges, and the options callback handed to AiTabPanel (memoised in the hook
-  // so its identity stays stable — see AiTabPanel's fetch effect).
-  const { kbBadge, kbSuggested, customerCount, handleOptionsLoaded, onReferenced } = useTabBadges(
+  // The KB badge, and the options callback handed to AiTabPanel (memoised in the hook so its
+  // identity stays stable — see AiTabPanel's fetch effect).
+  const { kbBadge, kbSuggested, handleOptionsLoaded, onReferenced } = useTabBadges(
     message.id,
     onOptionsLoaded
   );
+  const lookups = useLookupsTab('thread');
   const { stripRef, stripFades, updateStripFade } = useStripFade(
-    `${message.isLead ? 1 : 0}|${kbBadge}|${customerCount}|${notes.length}|${attachments?.length ?? 0}`
+    `${message.isLead ? 1 : 0}|${kbBadge}|${lookups.available ? lookups.label : ''}|${lookups.count}|${notes.length}|${attachments?.length ?? 0}`
   );
 
   // Full contact profile for the CUSTOMER tab — the same editable component
@@ -291,7 +257,10 @@ export function MessagePanelTabs({
         {(
           [
             { id: 'ai', label: 'AI', badge: 0 },
-            { id: 'customer', label: 'Customer', badge: hasEmailIdentity ? customerCount : 0 },
+            { id: 'customer', label: 'Customer', badge: 0 },
+            ...(lookups.available
+              ? [{ id: 'lookups', label: lookups.label, badge: hasEmailIdentity ? lookups.count : 0 }]
+              : []),
             { id: 'kb', label: 'KB', badge: kbBadge },
             { id: 'attachments', label: 'Files', badge: attachments?.length ?? 0 },
             { id: 'activity', label: 'Activity', badge: 0 },
@@ -343,15 +312,10 @@ export function MessagePanelTabs({
           {/* Customer Tab */}
           {tab === 'customer' && (
             <div className={`space-y-2 ${PHONE_CONTACT}`}>
-              {/* v4: sender, conversation facts, connected systems, contact profile. The thread's
-                  tickets and merges moved to the header's Related chip (MessageDetailHeader). */}
+              {/* v4: sender, conversation facts, contact profile. The thread's tickets and
+                  merges moved to the header's Related chip (MessageDetailHeader). */}
               <CustomerSenderBlock message={message} />
               <ConversationFacts message={message} sortedThread={sortedThread} />
-              <CustomerTabPanels
-                message={message}
-                hasEmailIdentity={hasEmailIdentity}
-                onUseInReply={onUseInReply}
-              />
 
               {/* Full contact profile — assigned manager, labels, channel
                   profiles, linked contacts and contact-level notes (shared with
@@ -406,6 +370,14 @@ export function MessagePanelTabs({
                 )}
               </div>
             </div>
+          )}
+
+          {tab === 'lookups' && (
+            <LookupsTabPanel
+              message={message}
+              hasEmailIdentity={hasEmailIdentity}
+              onUseInReply={onUseInReply}
+            />
           )}
 
           {/* Attachments Tab */}

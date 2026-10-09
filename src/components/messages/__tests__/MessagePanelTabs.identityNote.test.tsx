@@ -27,6 +27,7 @@ vi.mock('@/services/customApiLookup.service', async () => {
     customApiLookupService: {
       run: vi.fn(),
       availability: (surface: string) => availability(surface),
+      lookupOptions: () => Promise.resolve([]),
     },
   };
 });
@@ -63,7 +64,7 @@ const renderTabs = (sender: string) => {
       createdAt: '2026-09-19T10:00:00Z',
       metadata: {},
     } as unknown as Message,
-    tab: 'customer',
+    tab: 'lookups',
     setTab: noop,
     panelOpen: true,
     setPanelOpen: noop,
@@ -108,7 +109,7 @@ describe('MessagePanelTabs — the no-email note on the lookup panel', () => {
     // RED: an inline string in MessagePanelTabs (the "Enter a record number…" copy this replaced)
     // renders something else, and this finds nothing.
     renderTabs('telegram:123');
-    await screen.findByText('CONNECTED SYSTEMS');
+    await screen.findByRole('group', { name: 'Connected systems' });
     expect(screen.getByText(NO_EMAIL_IDENTITY_NOTE)).toBeInTheDocument();
     expect(screen.queryByText(/record number/i)).toBeNull();
   });
@@ -116,14 +117,14 @@ describe('MessagePanelTabs — the no-email note on the lookup panel', () => {
   it('⛔ the chat widget placeholder counts as NO email, as it does on the backend', async () => {
     // RED: `includes('@')` ⇒ the note is hidden while every identity card says it cannot run.
     renderTabs('Visitor <anonymous@chat-widget.local>');
-    await screen.findByText('CONNECTED SYSTEMS');
+    await screen.findByRole('group', { name: 'Connected systems' });
     expect(screen.getByText(NO_EMAIL_IDENTITY_NOTE)).toBeInTheDocument();
   });
 
   it('a sender WITH an email shows no note', async () => {
     // Control: the note is keyed on the missing email, not shown to everyone.
     renderTabs('Ana <ana@example.com>');
-    await screen.findByText('CONNECTED SYSTEMS');
+    await screen.findByRole('group', { name: 'Connected systems' });
     expect(screen.queryByText(NO_EMAIL_IDENTITY_NOTE)).toBeNull();
   });
 });

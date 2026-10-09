@@ -9,8 +9,9 @@ import type { Message, User } from '@/types';
 
 /**
  * Tab badges (owner, 2026-09-22): KB = the suggestions + references the tab lists, for THIS
- * thread only. Customer = the number of lookups a press could run (owner, 2026-09-23 — it
- * replaced a dot, knowing the number is per workspace and reads the same on every thread).
+ * thread only. Lookups = the number of lookups a press could run (owner, 2026-09-23 — it
+ * replaced a dot, knowing the number is per workspace and reads the same on every thread; moved
+ * from Customer to its own tab 2026-10-09).
  */
 
 // Suggested-option counts per message; a message missing here never reports (still loading).
@@ -128,42 +129,57 @@ describe('MessagePanelTabs — KB badge', () => {
   });
 });
 
-describe('MessagePanelTabs — Customer count', () => {
+describe('MessagePanelTabs — Lookups count (moved off Customer, 2026-10-09)', () => {
+  const lookupsTab = () => screen.getByRole('button', { name: /^Lookups/ });
   const customerTab = () => screen.getByRole('button', { name: /^Customer/ });
   const settle = async () => {
     await waitFor(() => expect(lookupOptions).toHaveBeenCalled());
     await new Promise((resolve) => setTimeout(resolve, 0));
   };
+  beforeEach(() => availability.mockResolvedValue(true));
 
-  it('shows how many lookups a press could run (design v3, owner 2026-09-23)', async () => {
+  it('shows how many lookups a press could run — on Lookups, not on Customer', async () => {
     getKBReferences.mockResolvedValue(refs(0));
     lookupOptions.mockResolvedValue(options(4));
     renderTabs(41);
-    await waitFor(() => expect(within(customerTab()).getByText('4')).toBeInTheDocument());
+    await waitFor(() => expect(within(lookupsTab()).getByText('4')).toBeInTheDocument());
+    expect(within(customerTab()).queryByText(/\d/)).not.toBeInTheDocument();
     expect(lookupOptions).toHaveBeenCalledWith('thread');
   });
 
-  it.each([
-    ['none are configured', () => Promise.resolve([])],
-    [
-      'a backend without the route (404)',
-      () => Promise.reject(Object.assign(new Error('nf'), { status: 404 })),
-    ],
-  ])('shows no number when %s', async (_label, answer) => {
+  it('shows no number when none are configured', async () => {
     getKBReferences.mockResolvedValue(refs(0));
-    lookupOptions.mockImplementation(answer);
+    lookupOptions.mockResolvedValue([]);
     renderTabs(41);
+    await waitFor(() => expect(lookupsTab()).toBeInTheDocument());
     await settle();
-    expect(within(customerTab()).queryByText(/\d/)).not.toBeInTheDocument();
+    expect(within(lookupsTab()).queryByText(/\d/)).not.toBeInTheDocument();
   });
 
-  // The panel tells a customer with no email that identity lookups cannot run; a number saying
-  // some are available beside that would contradict it.
-  it('shows no number for a customer with no email identity', async () => {
+  it('⛔ no email identity: the tab is still there (manual lookups run), with no number', async () => {
     getKBReferences.mockResolvedValue(refs(0));
     lookupOptions.mockResolvedValue(options(4));
     renderTabs(41, 'anonymous@chat-widget.local');
+    await waitFor(() => expect(lookupsTab()).toBeInTheDocument());
     await settle();
-    expect(within(customerTab()).queryByText(/\d/)).not.toBeInTheDocument();
+    expect(within(lookupsTab()).queryByText(/\d/)).not.toBeInTheDocument();
+  });
+
+  it('no tab at all when lookups are unavailable', async () => {
+    availability.mockResolvedValue(false);
+    getKBReferences.mockResolvedValue(refs(0));
+    lookupOptions.mockResolvedValue(options(4));
+    renderTabs(41);
+    await settle();
+    expect(screen.queryByRole('button', { name: /^Lookups/ })).not.toBeInTheDocument();
+  });
+
+  it('named after the shared category', async () => {
+    getKBReferences.mockResolvedValue(refs(0));
+    lookupOptions.mockResolvedValue([{ endpointId: 1, label: 'a', category: 'order' }]);
+    renderTabs(41);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^Orders/ })).toBeInTheDocument()
+    );
   });
 });

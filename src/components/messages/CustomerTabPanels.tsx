@@ -1,6 +1,4 @@
-import { CustomApiLookupPanel, NO_EMAIL_IDENTITY_NOTE } from './CustomApiLookupPanel';
 import { channelName, getInitials, priorityLabel } from './messageDetailConstants';
-import type { AddOutcome } from './useAiRecordNote';
 import { formatDate } from '@/lib/utils';
 import { parseSender } from '@/lib/messageHelpers';
 import type { Message, MessageEvent } from '@/types';
@@ -9,8 +7,8 @@ import type { Message, MessageEvent } from '@/types';
  * The CUSTOMER tab's own blocks, extracted so `MessagePanelTabs` stays inside its 650-line cap
  * rather than the cap deciding what the tab may contain.
  *
- * v4 order: sender, conversation facts, connected systems, then the contact profile (rendered by
- * the host). ⛔ The thread's tickets and merges are NOT here any more: v4 moves them to the
+ * v4 order: sender, conversation facts, then the contact profile (rendered by the host).
+ * Connected-system lookups have their own tab (LookupsTabPanel, 2026-10-09). ⛔ The thread's tickets and merges are NOT here any more: v4 moves them to the
  * header's Related chip and popover (MessageDetailHeader), so they are not shown twice.
  */
 
@@ -83,22 +81,3 @@ export const ConversationFacts = ({
     </dl>
   );
 };
-
-export const CustomerTabPanels = ({
-  message,
-  hasEmailIdentity,
-  onUseInReply,
-}: {
-  message: Message;
-  hasEmailIdentity: boolean;
-  /** L2 P4: a record joins the agent's note for the AI draft. It answers added / duplicate / full. */
-  onUseInReply?: (note: string) => AddOutcome;
-}) => (
-  /* CA-3: nothing is fetched until the agent presses Look up (SC1). */
-  <CustomApiLookupPanel
-    className="pt-1"
-    conversationId={message.id}
-    identityNote={hasEmailIdentity ? undefined : NO_EMAIL_IDENTITY_NOTE}
-    onUseInReply={onUseInReply}
-  />
-);

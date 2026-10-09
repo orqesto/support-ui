@@ -822,3 +822,23 @@ export const PHONE_THREAD_COL_IN = 'max-sm:max-w-none max-sm:w-full';
 export const PHONE_THREAD_COL_OUT = 'max-sm:max-w-none max-sm:ml-7';
 export const PHONE_THREAD_BUBBLE =
   'max-sm:text-[14px] max-sm:px-3 max-sm:py-2.5 max-sm:rounded-[14px] max-sm:[&_pre]:whitespace-pre-wrap max-sm:[&_pre]:[overflow-wrap:anywhere] max-sm:[&_code]:whitespace-pre-wrap max-sm:[&_code]:[overflow-wrap:anywhere]';
+
+/** The message panel's tabs. ONE union for MessageDetail and MessagePanelTabs. */
+export type PanelTab =
+  | 'ai'
+  | 'customer'
+  | 'lookups'
+  | 'attachments'
+  | 'kb'
+  | 'activity'
+  | 'notes'
+  | 'lead'
+  | 'contradiction';
+
+/**
+ * Contact and lookup controls on a phone: 40px touch targets and 16px inputs (M9). Tick boxes and
+ * radios are left out: a 40px-tall 14px box only drops the tick below its label (the label row is
+ * the touch target for those).
+ */
+export const PHONE_CONTACT =
+  'max-sm:[&_button]:min-h-10 max-sm:[&_button]:min-w-10 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-10 max-sm:[&_select]:min-h-10';

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { createRef, type ReactNode } from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { MessagePanelTabs, type MessagePanelTabsProps } from '../MessagePanelTabs';
@@ -27,8 +27,13 @@ vi.mock('@/services/message.service', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   messageService: new Proxy({}, { get: () => () => Promise.resolve({ success: true, data: [] }) }),
 }));
+const availability = vi.fn<(surface: string) => Promise<boolean>>();
 vi.mock('@/services/customApiLookup.service', () => ({
-  customApiLookupService: { run: vi.fn(), availability: vi.fn().mockResolvedValue(false) },
+  customApiLookupService: {
+    run: vi.fn(),
+    availability: (surface: string) => availability(surface),
+    lookupOptions: () => Promise.resolve([]),
+  },
 }));
 
 const noop = () => {};
@@ -76,6 +81,8 @@ const renderTabs = (
 };
 
 beforeEach(() => {
+  availability.mockReset();
+  availability.mockResolvedValue(false);
   lookedUp.mockClear();
   useAuthStore.setState({ selectedOrganizationId: 1, user: { id: 9 } as User });
 });
@@ -101,6 +108,27 @@ describe('MessagePanelTabs — v4 tab order', () => {
     renderTabs('sidebar');
     expect(tabLabels()).toEqual(V4_ORDER.slice(0, -1));
   });
+
+  it.each(['sidebar', 'rail'] as const)(
+    '%s: with lookups available, Lookups sits right after Customer',
+    async (variant) => {
+      availability.mockResolvedValue(true);
+      renderTabs(variant, { isLead: true });
+      await waitFor(() =>
+        expect(tabLabels()).toEqual([
+          'AI',
+          'Customer',
+          'Lookups',
+          'KB',
+          'Files',
+          'Activity',
+          'Notes',
+          'Conflict',
+          'Lead',
+        ])
+      );
+    }
+  );
 });
 
 describe('MessagePanelTabs — the Customer lookup key matches the sender block', () => {
