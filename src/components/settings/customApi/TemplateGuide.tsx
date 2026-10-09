@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import {
   customApiService,
@@ -45,16 +46,37 @@ export const TemplateGuide = ({
     setSavedIds(ids);
   };
 
+  /**
+   * Ids including the step just saved, held until the reload succeeds. ⛔ A failed reload stays
+   * on the step and offers Try again: advancing with the old connection would hide the saved
+   * lookup from the next step's ownership choice, and Skip would drop its id.
+   */
+  const pendingIds = useRef<Record<string, number> | null>(null);
+  const [reloadFailed, setReloadFailed] = useState(false);
+
+  const reload = () => {
+    const ids = pendingIds.current ?? savedIds;
+    setReloadFailed(false);
+    customApiService
+      .list()
+      .then((all) => {
+        const fresh = all.find((one) => one.id === connection.id);
+        if (fresh) setConnection(fresh);
+        saving.current = false;
+        pendingIds.current = null;
+        advance(ids);
+      })
+      .catch(() => {
+        saving.current = false;
+        setReloadFailed(true);
+      });
+  };
+
   const onSaved = () => {
     saving.current = true;
     const id = createdId.current;
-    const ids = id === null ? savedIds : { ...savedIds, [lookup.key]: id };
-    void customApiService.list().then((all) => {
-      const fresh = all.find((one) => one.id === connection.id);
-      if (fresh) setConnection(fresh);
-      saving.current = false;
-      advance(ids);
-    });
+    pendingIds.current = id === null ? savedIds : { ...savedIds, [lookup.key]: id };
+    reload();
   };
 
   return (
@@ -68,6 +90,16 @@ export const TemplateGuide = ({
         </Button>
       </div>
       {lookup.description && <p className="text-sm">{lookup.description}</p>}
+      {reloadFailed && (
+        <Alert variant="warning">
+          <AlertDescription>
+            Saved, but the connection could not be reloaded.{' '}
+            <Button size="sm" variant="outline" onClick={reload}>
+              Try again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
         <EndpointWizard
           key={`${template.key}-${lookup.key}`}

@@ -126,4 +126,47 @@ describe('TemplateGuide', () => {
     fireEvent.click(screen.getByText('fake cancel'));
     expect(onCancel).toHaveBeenCalled();
   });
+  it('a failed reload after Save stays on the step, says so, and Try again advances with the saved id', async () => {
+    list.mockRejectedValueOnce(new Error('network'));
+    render(
+      <TemplateGuide
+        connection={connection}
+        template={template}
+        onDone={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByText('fake test')); // creates id 101
+    fireEvent.click(screen.getByText('fake save'));
+    const failure = await screen.findByText('Saved, but the connection could not be reloaded.', {
+      exact: false,
+    });
+    expect(failure.closest('[role="alert"]')).not.toBeNull();
+    expect(screen.getByText("This customer's orders")).toBeInTheDocument();
+    expect(screen.queryByText('Look up an order number')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await screen.findByText('Look up an order number');
+    const step2 = mounted.at(-1)!;
+    expect(step2.initial?.ownershipSourceEndpointId).toBe(101);
+    expect(step2.connection.endpoints.map((ep) => ep.id)).toEqual([101]);
+    expect(screen.queryByText(/could not be reloaded/)).toBeNull();
+  });
+
+  it('a failed reload does not swallow Cancel', async () => {
+    list.mockRejectedValueOnce(new Error('network'));
+    const onCancel = vi.fn();
+    render(
+      <TemplateGuide
+        connection={connection}
+        template={template}
+        onDone={vi.fn()}
+        onCancel={onCancel}
+      />
+    );
+    fireEvent.click(screen.getByText('fake save'));
+    await screen.findByText(/could not be reloaded/);
+    fireEvent.click(screen.getByText('fake cancel'));
+    expect(onCancel).toHaveBeenCalled();
+  });
 });
