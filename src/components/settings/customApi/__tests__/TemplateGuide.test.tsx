@@ -254,4 +254,63 @@ describe('TemplateGuide', () => {
     await screen.findByText('Look up an order number');
     expect(screen.getByRole('button', { name: /skip/i })).toBeInTheDocument();
   });
+
+  it('⛔ one reload at a time: Try again is disabled while pending, and the last step finishes once', async () => {
+    const oneStep = {
+      ...template,
+      definition: { ...template.definition, lookups: [template.definition.lookups[0]] },
+    } as unknown as CustomApiTemplate;
+    let resolveRetry: (rows: unknown[]) => void = () => {};
+    list
+      .mockRejectedValueOnce(new Error('network'))
+      .mockReturnValue(new Promise((resolve) => (resolveRetry = resolve)));
+    const onDone = vi.fn();
+    render(
+      <TemplateGuide
+        connection={connection}
+        template={oneStep}
+        onDone={onDone}
+        onCancel={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByText('fake save'));
+    await screen.findByText(/could not be reloaded/);
+    const retry = screen.getByRole('button', { name: 'Try again' });
+    fireEvent.click(retry);
+    expect(retry).toBeDisabled();
+    fireEvent.click(retry);
+    resolveRetry([{ id: 9, endpoints: [{ id: 101 }] }]);
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onDone).toHaveBeenCalledTimes(1);
+    expect(list).toHaveBeenCalledTimes(2);
+  });
+
+  it('⛔ cancel during a Try again: the late reload neither advances nor finishes', async () => {
+    let resolveRetry: (rows: unknown[]) => void = () => {};
+    list
+      .mockRejectedValueOnce(new Error('network'))
+      .mockReturnValue(new Promise((resolve) => (resolveRetry = resolve)));
+    const onDone = vi.fn();
+    const onCancel = vi.fn();
+    render(
+      <TemplateGuide
+        connection={connection}
+        template={template}
+        onDone={onDone}
+        onCancel={onCancel}
+      />
+    );
+    fireEvent.click(screen.getByText('fake test'));
+    fireEvent.click(screen.getByText('fake save'));
+    await screen.findByText(/could not be reloaded/);
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    fireEvent.click(screen.getByText('fake cancel'));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    resolveRetry([{ id: 9, endpoints: [{ id: 101 }] }]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onDone).not.toHaveBeenCalled();
+    expect(screen.getByText("This customer's orders")).toBeInTheDocument();
+    expect(screen.queryByText('Look up an order number')).toBeNull();
+  });
 });

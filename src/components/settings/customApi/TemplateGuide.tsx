@@ -47,6 +47,13 @@ export const TemplateGuide = ({
   const [reloadFailed, setReloadFailed] = useState(false);
   /** A saved step whose reload is in flight or failed: Skip would drop its id, so it is hidden. */
   const [awaitingReload, setAwaitingReload] = useState(false);
+  /**
+   * ⛔ One reload at a time (a double "Try again" would advance twice — onDone twice on the last
+   * step), and nothing after the guide has been cancelled or finished: a late result is ignored.
+   */
+  const reloadInFlight = useRef(false);
+  const [retrying, setRetrying] = useState(false);
+  const finished = useRef(false);
 
   const advance = (ids: Record<string, number>) => {
     pendingIds.current = null;
@@ -54,23 +61,34 @@ export const TemplateGuide = ({
     setAwaitingReload(false);
     createdId.current = null;
     setPicked([]);
-    if (step + 1 >= lookups.length) onDone();
-    else setStep(step + 1);
+    if (step + 1 >= lookups.length) {
+      finished.current = true;
+      onDone();
+    } else setStep(step + 1);
     setSavedIds(ids);
   };
 
   const reload = () => {
+    if (reloadInFlight.current || finished.current) return;
+    reloadInFlight.current = true;
+    setRetrying(true);
     const ids = pendingIds.current ?? savedIds;
     // The alert (and so the hidden Skip) stays until a reload succeeds — advance() clears it.
     customApiService
       .list()
       .then((all) => {
+        reloadInFlight.current = false;
+        setRetrying(false);
+        if (finished.current) return;
         const fresh = all.find((one) => one.id === connection.id);
         if (fresh) setConnection(fresh);
         saving.current = false;
         advance(ids);
       })
       .catch(() => {
+        reloadInFlight.current = false;
+        setRetrying(false);
+        if (finished.current) return;
         saving.current = false;
         setReloadFailed(true);
       });
@@ -102,7 +120,7 @@ export const TemplateGuide = ({
         <Alert variant="warning">
           <AlertDescription>
             Saved, but the connection could not be reloaded.{' '}
-            <Button size="sm" variant="outline" onClick={reload}>
+            <Button size="sm" variant="outline" disabled={retrying} onClick={reload}>
               Try again
             </Button>
           </AlertDescription>
@@ -118,7 +136,9 @@ export const TemplateGuide = ({
           }}
           onSaved={onSaved}
           onClose={() => {
-            if (!saving.current) onCancel();
+            if (saving.current) return;
+            finished.current = true;
+            onCancel();
           }}
           onPickedChange={setPicked}
         />
