@@ -2,6 +2,7 @@ import { CATEGORY_TAB_LABELS, readCategory } from '@/components/settings/customA
 import {
   useCustomApiLookupAvailability,
   useCustomApiLookupOptions,
+  useCustomApiLookupOptionsSettled,
 } from '@/hooks/useCustomApiLookup';
 import type { LookupSurface } from '@/services/customApiLookup.service';
 
@@ -23,7 +24,8 @@ export function lookupTabLabel(options: readonly { category?: unknown }[] | null
 
 /**
  * Everything a host needs to render the lookups tab for one surface: whether to show it at all
- * (availability — fails closed), the badge number and the name. Shared by message details
+ * (availability — fails closed — AND the options answered, so the name never changes after it
+ * appears), the badge number and the name. Shared by message details
  * (`thread`) and the contact drawer (`contact`).
  */
 export function useLookupsTab(surface: LookupSurface): {
@@ -31,7 +33,12 @@ export function useLookupsTab(surface: LookupSurface): {
   count: number;
   label: string;
 } {
-  const available = useCustomApiLookupAvailability(surface);
+  const availableHere = useCustomApiLookupAvailability(surface);
+  const settled = useCustomApiLookupOptionsSettled(surface);
   const options = useCustomApiLookupOptions(surface);
-  return { available, count: options?.length ?? 0, label: lookupTabLabel(options) };
+  return {
+    available: availableHere && settled,
+    count: options?.length ?? 0,
+    label: lookupTabLabel(options),
+  };
 }

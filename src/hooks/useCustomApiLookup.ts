@@ -80,18 +80,33 @@ export function useCustomApiLookupCount(surface: LookupSurface): number | null {
  * refreshes it. Fails closed: loading, error, older backend ⇒ null.
  */
 export function useCustomApiLookupOptions(surface: LookupSurface): RunnableLookup[] | null {
+  const { data } = useLookupOptionsQuery(surface);
+  return Array.isArray(data) ? data : null;
+}
+
+/**
+ * Whether the options query has ANSWERED — succeeded or failed — for this surface. The lookups
+ * tab waits for it, so its name is final when it first appears (final review #4, 2026-10-09: it
+ * showed "Lookups", then renamed itself "Orders"). A failure counts as an answer: the tab then
+ * shows as "Lookups" rather than never.
+ */
+export function useCustomApiLookupOptionsSettled(surface: LookupSurface): boolean {
+  const { isSuccess, isError } = useLookupOptionsQuery(surface);
+  return isSuccess || isError;
+}
+
+function useLookupOptionsQuery(surface: LookupSurface) {
   const orgId = useAuthStore(
     (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
   );
   const userId = useAuthStore((state) => state.user?.id ?? null);
-  const { data } = useQuery({
+  return useQuery({
     queryKey: [AVAILABILITY_KEY, 'options', orgId, userId, surface],
     queryFn: () => customApiLookupService.lookupOptions(surface),
     enabled: orgId !== null,
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
-  return Array.isArray(data) ? data : null;
 }
 
 /**

@@ -48,6 +48,21 @@ describe('useLookupsTab', () => {
     expect(result.current).toEqual({ available: true, count: 0, label: 'Lookups' });
   });
 
+  it('⛔ waits for the options, so the tab never appears as "Lookups" and renames itself', async () => {
+    // Final review #4 (2026-10-09): availability answered first, the tab showed "Lookups", then
+    // flipped to "Orders" when the options landed.
+    availability.mockResolvedValue(true);
+    let release: (value: unknown) => void = () => undefined;
+    lookupOptions.mockReturnValue(new Promise((resolve) => (release = resolve)));
+    const { result } = renderHook(() => useLookupsTab('thread'), { wrapper });
+    await waitFor(() => expect(availability).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(result.current.available).toBe(false);
+    release([{ category: 'order' }]);
+    await waitFor(() => expect(result.current.available).toBe(true));
+    expect(result.current.label).toBe('Orders');
+  });
+
   it('not available ⇒ available false (the caller shows no tab)', async () => {
     availability.mockResolvedValue(false);
     lookupOptions.mockResolvedValue([]);
