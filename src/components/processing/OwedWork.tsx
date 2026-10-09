@@ -3,6 +3,7 @@ import { Fragment, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
+import { retryOwedWithheldLine } from '@/components/settings/integrations/kbRangeCopy';
 import { apiErrorMessage, apiErrorStatus, isRouteAbsent } from '@/lib/apiError';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import {
@@ -133,6 +134,13 @@ const RetryLines = ({ result }: { result: RetryOwedResult }) => {
     handled <= 0 &&
     stages.every((line) => line.count <= 0) &&
     !result.failed;
+  // The knowledge-base part queued nothing because the KB is full or AI is refused (per the
+  // tickets held, not the top-level reason alone: that is null when AI is simply available).
+  const withheld = retryOwedWithheldLine({
+    dryRun: dry,
+    ...(result.kb.kbFull > 0 ? { kbFull: result.kb.kbFull } : {}),
+    ...(result.kb.aiUnavailable > 0 ? { aiUnavailable: result.aiUnavailableReason } : {}),
+  });
   return (
     <ul className="space-y-0.5" data-testid="retry-lines">
       {settled > 0 && (
@@ -164,6 +172,7 @@ const RetryLines = ({ result }: { result: RetryOwedResult }) => {
           </li>
         ))}
       {nothing && <li data-testid="retry-none">Nothing was retried.</li>}
+      {withheld && <li data-testid="retry-kb-withheld">{withheld}</li>}
       {result.heldBackForNow && <li data-testid="retry-held-now">{HELD_BACK_FOR_NOW}</li>}
       {result.heldBackPaused && <li data-testid="retry-held-paused">{HELD_BACK_PAUSED}</li>}
       {result.heldBackForGood && <li data-testid="retry-held-good">{HELD_BACK_FOR_GOOD}</li>}

@@ -94,6 +94,7 @@ describe('summary', () => {
         resumeAdmittedAt: null,
         // BE round 21: absent from an older backend ⇒ 0 (it never says "not known").
         kbStateUnknown: 0,
+        kbFullHeld: 0,
         countCapped: false,
       },
     ]);

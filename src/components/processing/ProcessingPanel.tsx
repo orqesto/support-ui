@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { kbFullHoldLine } from '@/components/settings/integrations/kbRangeCopy';
 import { ImportProgressPanel } from '@/components/messages/ImportProgressPanel';
 import type { ProcessingSession } from '@/hooks/useEmailProcessingSessions';
 import {
@@ -365,8 +366,15 @@ export const ProcessingPanel = ({
   // (`kbStateUnknown`) — is not processing either: the summary leaves it out of `inProgress`.
   const kbStateUnknownOf = (run: RunView) =>
     run.workRemaining && !!run.kbStateUnknown && !isParkedByKbLimit(run, kbParked);
+  // BE-6: a mail run whose only owed work a full knowledge base holds — waiting for room, not
+  // processing, not stalled.
+  const kbFullHeldOf = (run: RunView) =>
+    run.workRemaining && !!run.kbFullHold && !isParkedByKbLimit(run, kbParked);
   const owesUnparked = (run: RunView) =>
-    run.workRemaining && !isParkedByKbLimit(run, kbParked) && !kbStateUnknownOf(run);
+    run.workRemaining &&
+    !isParkedByKbLimit(run, kbParked) &&
+    !kbStateUnknownOf(run) &&
+    !kbFullHeldOf(run);
 
   // Mail only: a KB mine reads what is already in Odly — it is no reason to list the mailbox.
   const importSized = runs.some(
@@ -643,6 +651,7 @@ export const ProcessingPanel = ({
   // order (after a known pause), one icon, one Close title (pass 22, NIT).
   const kbHoldUnknown = importUnknown || runKbHoldUnknown;
   const paused = kbPaused !== null || limitPauseOnly || importPaused || parkedOwing;
+  const kbFullHeld = runs.some(kbFullHeldOf);
   const statusWord = attention
     ? 'Needs attention'
     : running
@@ -655,9 +664,11 @@ export const ProcessingPanel = ({
             ? 'No progress'
             : paused
               ? 'KB paused'
-              : kbHoldUnknown
-                ? 'Unknown'
-                : 'Done';
+              : kbFullHeld
+                ? 'KB full'
+                : kbHoldUnknown
+                  ? 'Unknown'
+                  : 'Done';
 
   return (
     <div
@@ -693,7 +704,7 @@ export const ProcessingPanel = ({
             <Loader2 className="w-4 h-4 animate-spin shrink-0 text-muted-foreground" />
           ) : unknown || (importIdle && !importPaused && !importUnknown) ? (
             <AlertTriangle className="w-4 h-4 shrink-0 text-muted-foreground" />
-          ) : paused ? (
+          ) : paused || kbFullHeld ? (
             <PauseCircle className="w-4 h-4 shrink-0 text-muted-foreground" />
           ) : kbHoldUnknown ? (
             <HelpCircle className="w-4 h-4 shrink-0 text-muted-foreground" />
@@ -734,14 +745,16 @@ export const ProcessingPanel = ({
                   )
                 : needsAttention
                   ? 'Close. It opens again only for a new problem; the count stays by the bell.'
-                  : statusWord === 'Unknown' && !unknown && kbHoldUnknown
-                    ? // Nothing is processing and there is no count. Only a RUN whose hold is not
-                      // known is counted by the bell (summary `kbStateUnknown`); an import's KB
-                      // stage is not, so the note is promised only for the run.
-                      runKbHoldUnknown
-                      ? 'Close. The note by the bell stays while it is not known whether the daily KB limit holds this work.'
-                      : 'Close. It is not known whether the daily KB limit holds this work; nothing is counted by the bell for it.'
-                    : 'Close. Processing carries on; the count stays by the bell.'
+                  : statusWord === 'KB full'
+                    ? 'Close. The note by the bell stays while the knowledge base is full.'
+                    : statusWord === 'Unknown' && !unknown && kbHoldUnknown
+                      ? // Nothing is processing and there is no count. Only a RUN whose hold is not
+                        // known is counted by the bell (summary `kbStateUnknown`); an import's KB
+                        // stage is not, so the note is promised only for the run.
+                        runKbHoldUnknown
+                        ? 'Close. The note by the bell stays while it is not known whether the daily KB limit holds this work.'
+                        : 'Close. It is not known whether the daily KB limit holds this work; nothing is counted by the bell for it.'
+                      : 'Close. Processing carries on; the count stays by the bell.'
             }
           >
             <X className="w-3 h-3" />
@@ -803,6 +816,11 @@ export const ProcessingPanel = ({
                   <li key={run.id}>
                     Check at {formatRunTime(run.startedAt)} ({run.found.toLocaleString()} found):
                     its knowledge-base processing is paused at the daily AI limit.
+                  </li>
+                ) : kbFullHeldOf(run) ? (
+                  <li key={run.id} data-testid="older-kb-full">
+                    Check at {formatRunTime(run.startedAt)} ({run.found.toLocaleString()} found):{' '}
+                    {kbFullHoldLine(run.kbFullHold?.owedThreads ?? 0)}
                   </li>
                 ) : kbStateUnknownOf(run) ? (
                   <li key={run.id} data-testid="older-kb-unknown">

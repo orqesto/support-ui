@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { formatUtcAndLocal, formatUtcDateAndLocal, pausePhase, resumePhase } from '@/lib/utcClock';
 import type { ProcessingSummaryEntry } from '@/services/importProgress.service';
+import { kbFullHeldLine } from '@/components/settings/integrations/kbRangeCopy';
 import { plural } from './processingWords';
 
 /**
@@ -23,6 +24,9 @@ export const ProcessingIndicator = ({
   // BE round 21: mail runs whose only owed KB work may be held by the daily KB limit and that cannot
   // be told (`kbStateUnknown`) — in none of inProgress / pausedByLimit / problems. Said calmly.
   const kbUnknown = entries.reduce((sum, entry) => sum + (entry.kbStateUnknown ?? 0), 0);
+  // BE-6: mail runs whose only owed work a full knowledge base holds — in neither inProgress nor
+  // problems. Said calmly, with the way out in the panel.
+  const kbFullHeld = entries.reduce((sum, entry) => sum + (entry.kbFullHeld ?? 0), 0);
   // KB-limit pauses are counted apart from `problems` (`pausedByLimit`): the source's paused MINE and
   // the mail runs whose only owed work the KB limit holds. Each resume time is ahead, RESUMING
   // (passed, inside the backend's wake window `resumeWindowEnd` — the backend spreads resumes up to
@@ -89,7 +93,8 @@ export const ProcessingIndicator = ({
     waiting === 0 &&
     admitted === 0 &&
     queued === 0 &&
-    kbUnknown === 0
+    kbUnknown === 0 &&
+    kbFullHeld === 0
   ) {
     return null;
   }
@@ -149,6 +154,7 @@ export const ProcessingIndicator = ({
     kbUnknown > 0
       ? `${count(kbUnknown, 'mail check', 'mail checks')} with knowledge-base processing not moving; whether the daily KB limit is holding it is not known`
       : null,
+    kbFullHeld > 0 ? kbFullHeldLine(kbFullHeld) : null,
     // What failed is Odly's record of the checks, not the mailbox connection.
     unreadable > 0
       ? `${plural(unreadable, "mailbox's", "mailboxes'")} recent checks could not be read`
@@ -172,7 +178,8 @@ export const ProcessingIndicator = ({
                   entry.problems > 0 ||
                   entry.unavailable ||
                   (entry.pausedByLimit ?? 0) > 0 ||
-                  (entry.kbStateUnknown ?? 0) > 0
+                  (entry.kbStateUnknown ?? 0) > 0 ||
+                  (entry.kbFullHeld ?? 0) > 0
               )
               .map((entry) => entry.sourceId)
           )
@@ -186,6 +193,11 @@ export const ProcessingIndicator = ({
           <PauseCircle
             className="w-4 h-4 text-muted-foreground"
             data-testid="processing-indicator-paused"
+          />
+        ) : kbFullHeld > 0 && unreadable === 0 ? (
+          <PauseCircle
+            className="w-4 h-4 text-muted-foreground"
+            data-testid="processing-indicator-kb-full"
           />
         ) : kbUnknown > 0 && unreadable === 0 ? (
           <HelpCircle

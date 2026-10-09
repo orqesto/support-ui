@@ -137,6 +137,21 @@ export type RunView = {
    * dropped by `normaliseImportProgress` (the field with it).
    */
   kbStateUnknown?: { reason: KbStateUnknownReason };
+  /**
+   * `stoppedBy: 'ai_unavailable'` only: conversations the mine did not reach because AI was refused,
+   * why, and what retries them (`automatic` while the mailbox's history sweep is still owed,
+   * `re_mine` once it is done). Absent on every other record and from an older backend. `aiReason`
+   * is a code (`provider_quota`, `rate_limited`, `settings_unreadable`, `plan_inactive`): word it
+   * with `aiReasonWords`, never print it.
+   */
+  aiSkipped?: number;
+  aiReason?: string;
+  retry?: 'automatic' | 're_mine';
+  /**
+   * A MAIL run whose only owed work is KB work the FULL knowledge base holds (it is neither
+   * `stalled` nor in progress). Absent otherwise and from an older backend.
+   */
+  kbFullHold?: { kind: 'kb_full'; owedThreads: number };
   kbThreadsDone?: number;
   kbPairsSaved?: number;
   /** Documents (from attachments) the mine saved; absent from a backend before it counted them. */
@@ -224,6 +239,8 @@ export type ProcessingSummaryEntry = {
    * `problems`. Always set by `normaliseSummary` (0 from a backend without it).
    */
   kbStateUnknown?: number;
+  /** BE-6: mail runs whose only owed work a full knowledge base holds (not in `inProgress`/`problems`). */
+  kbFullHeld?: number;
   countCapped: boolean;
 };
 
@@ -339,6 +356,7 @@ export const normaliseSummary = (raw: unknown): ProcessingSummaryEntry[] =>
       resumeAdmittedAt: stringOrNull(entry.resumeAdmittedAt),
       // BE round 21; absent from an older backend (which never says "not known") ⇒ 0.
       kbStateUnknown: numberOr(entry.kbStateUnknown, 0),
+      kbFullHeld: numberOr(entry.kbFullHeld, 0),
       countCapped: entry.countCapped === true,
     }));
 
@@ -389,7 +407,13 @@ export type RetryOwedResult = {
   decided: { found: number; handled: number; queued: number };
   /** Conversations queued (or, in a dry run, to queue) again. */
   embedding: { queued: number };
-  kb: { queued: number };
+  /**
+   * `kbFull` / `aiUnavailable`: KB items for which nothing was queued because the knowledge base is
+   * full / AI is refused (BE-6, BE-6b) — no attempt is spent on them.
+   */
+  kb: { queued: number; kbFull: number; aiUnavailable: number };
+  /** Why AI is refused (top level `aiUnavailable`): a code for the words, null when not named. */
+  aiUnavailableReason: string | null;
   /** Held back for now: already queued, retried recently, a busy or full queue, too new. */
   heldBackForNow: boolean;
   /** Knowledge-base items held while the workspace is paused (`kb.blocked`). */
@@ -497,7 +521,12 @@ export const normaliseRetryOwed = (raw: unknown): RetryOwedResult => {
       queued: numberOr(decided.queued, 0),
     },
     embedding: { queued: numberOr(embedding.queued, 0) },
-    kb: { queued: numberOr(kb.queued, 0) },
+    kb: {
+      queued: numberOr(kb.queued, 0),
+      kbFull: numberOr(kb.kbFull, 0),
+      aiUnavailable: numberOr(kb.aiUnavailable, 0),
+    },
+    aiUnavailableReason: typeof data.aiUnavailable === 'string' ? data.aiUnavailable : null,
     heldBackForNow:
       anyPositive(decided, FOR_NOW_DECIDED) ||
       anyPositive(embedding, FOR_NOW_STAGE) ||

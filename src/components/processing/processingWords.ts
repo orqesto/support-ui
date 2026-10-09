@@ -8,6 +8,7 @@ import {
   resumePhase,
   type ResumeWay,
 } from '@/lib/utcClock';
+import { kbFullHoldLine, runStoppedLine } from '@/components/settings/integrations/kbRangeCopy';
 
 /**
  * Why a run stopped before it had looked at everything it found (support-service holdReason
@@ -133,6 +134,8 @@ export const parkedWorkSentence = (run: RunView, now: number = Date.now()): stri
 export const kbWorkSentence = (run: RunView, kbParked = false): string | null => {
   if (run.channel === 'kb' || run.active) return null;
   if (run.kbLimitPause) return parkedWorkSentence(run);
+  // A full knowledge base holds the work: said as that (BE-6 `kbFullHold`), never as "stalled".
+  if (run.kbFullHold) return kbFullHoldLine(run.kbFullHold.owedThreads);
   if (!run.kbStateUnknown) return null;
   return isParkedByKbLimit(run, kbParked) ? parkedWorkSentence(run) : kbStateUnknownSentence(run);
 };
@@ -146,6 +149,10 @@ export const describePause = (
   laterKbRun = false,
   way?: ResumeWay | null
 ): string | null => {
+  // A KB mine stopped for want of room (`kb_full`) or because AI was refused (`ai_unavailable`):
+  // neither is the daily-limit pause (which resumes by itself), each says what the person does.
+  const stopLine = run.channel === 'kb' ? runStoppedLine(run, laterKbRun) : null;
+  if (stopLine) return stopLine;
   if (run.outcome !== 'paused' && !isKbLimitPause(run)) return null;
   const reason = (run.stoppedBy && STOP_REASON[run.stoppedBy]) ?? null;
   if (run.stoppedBy === 'source_deleted') {
@@ -323,7 +330,11 @@ export const describeRunProblems = (
     .filter((sentence): sentence is string => sentence !== null);
   // A mine the KB limit paused that ALSO failed conversations carries only `failed`: its pause is
   // said too, once (FE audit pass 8, F8-1).
-  if (run.problems.length > 0 && !run.problems.includes('paused') && isKbLimitPause(run)) {
+  if (
+    run.problems.length > 0 &&
+    !run.problems.includes('paused') &&
+    (isKbLimitPause(run) || (run.channel === 'kb' && runStoppedLine(run) !== null))
+  ) {
     const pause = describePause(run, laterKbRun, way);
     if (pause) sentences.push(pause);
   }
@@ -344,7 +355,8 @@ export type RunStatus =
   | 'interrupted'
   | 'not_continued'
   | 'kb_paused'
-  | 'kb_unknown';
+  | 'kb_unknown'
+  | 'kb_full';
 
 /**
  * What a run's badge says. A record still `running` that the backend calls interrupted is NOT
@@ -362,6 +374,10 @@ export const runStatus = (run: RunView, kbParked = false): RunStatus => {
   // over work left, not "Work left" (a warning): a calm "not known".
   if (run.outcome === 'done' && run.workRemaining && run.kbStateUnknown && run.channel !== 'kb') {
     return 'kb_unknown';
+  }
+  // A full KB holds its only owed work (BE-6 `kbFullHold`; the backend adds no `stalled`).
+  if (run.outcome === 'done' && run.workRemaining && run.kbFullHold && run.channel !== 'kb') {
+    return 'kb_full';
   }
   // Finished, but its later stages stopped moving: "Done" beside "nothing has moved" is a lie.
   if (run.outcome === 'done' && run.problems.includes('stalled')) return 'stalled';
@@ -381,6 +397,7 @@ export const RUN_STATUS_LABEL: Record<RunStatus, string> = {
   not_continued: 'Stopped',
   kb_paused: 'KB paused',
   kb_unknown: 'KB not known',
+  kb_full: 'KB full',
 };
 
 export const RUN_STATUS_VARIANT: Record<RunStatus, 'secondary' | 'success' | 'warning' | 'danger'> =
@@ -395,6 +412,7 @@ export const RUN_STATUS_VARIANT: Record<RunStatus, 'secondary' | 'success' | 'wa
     not_continued: 'warning',
     kb_paused: 'secondary',
     kb_unknown: 'secondary',
+    kb_full: 'warning',
   };
 
 /**

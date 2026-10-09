@@ -11,6 +11,20 @@ vi.mock('@/services/integrations.service', () => ({
   },
 }));
 
+// The card's department picker would fetch over the real network (a leaked request fails a loaded
+// full run with a teardown error); the checks here never read it.
+vi.mock('@/hooks/useCreateSourceDepartments', () => ({
+  useCreateSourceDepartments: () => ({
+    departments: [],
+    loading: false,
+    selectedIds: [],
+    setSelectedIds: () => undefined,
+    defaultDepartmentId: undefined,
+    setDefaultDepartmentId: () => undefined,
+    assignToNewSource: () => Promise.resolve(true),
+  }),
+}));
+
 import { EmailIntegrationCard } from '@/components/settings/integrations/EmailIntegrationCard';
 
 const render = (ui: ReactElement) => rtlRender(<ThemeProvider>{ui}</ThemeProvider>);
