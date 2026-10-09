@@ -38,14 +38,6 @@ export const TemplateGuide = ({
   const lookup = lookups[step];
   const feedsOwnership = lookups.some((other) => other.ownershipFrom === lookup.key);
 
-  const advance = (ids: Record<string, number>) => {
-    createdId.current = null;
-    setPicked([]);
-    if (step + 1 >= lookups.length) onDone();
-    else setStep(step + 1);
-    setSavedIds(ids);
-  };
-
   /**
    * Ids including the step just saved, held until the reload succeeds. ⛔ A failed reload stays
    * on the step and offers Try again: advancing with the old connection would hide the saved
@@ -54,16 +46,25 @@ export const TemplateGuide = ({
   const pendingIds = useRef<Record<string, number> | null>(null);
   const [reloadFailed, setReloadFailed] = useState(false);
 
+  const advance = (ids: Record<string, number>) => {
+    pendingIds.current = null;
+    setReloadFailed(false);
+    createdId.current = null;
+    setPicked([]);
+    if (step + 1 >= lookups.length) onDone();
+    else setStep(step + 1);
+    setSavedIds(ids);
+  };
+
   const reload = () => {
     const ids = pendingIds.current ?? savedIds;
-    setReloadFailed(false);
+    // The alert (and so the hidden Skip) stays until a reload succeeds — advance() clears it.
     customApiService
       .list()
       .then((all) => {
         const fresh = all.find((one) => one.id === connection.id);
         if (fresh) setConnection(fresh);
         saving.current = false;
-        pendingIds.current = null;
         advance(ids);
       })
       .catch(() => {
@@ -85,9 +86,12 @@ export const TemplateGuide = ({
         <p className="text-sm text-muted-foreground">
           {template.name} · step {step + 1} of {lookups.length}
         </p>
-        <Button size="sm" variant="ghost" onClick={() => advance(savedIds)}>
-          {feedsOwnership ? "My API can't list a customer's records — skip" : 'Skip this step'}
-        </Button>
+        {/* ⛔ No Skip while a saved step awaits its reload: it would drop the saved id. */}
+        {!reloadFailed && (
+          <Button size="sm" variant="ghost" onClick={() => advance(savedIds)}>
+            {feedsOwnership ? "My API can't list a customer's records — skip" : 'Skip this step'}
+          </Button>
+        )}
       </div>
       {lookup.description && <p className="text-sm">{lookup.description}</p>}
       {reloadFailed && (

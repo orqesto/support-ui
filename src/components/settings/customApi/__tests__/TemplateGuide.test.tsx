@@ -169,4 +169,59 @@ describe('TemplateGuide', () => {
     fireEvent.click(screen.getByText('fake cancel'));
     expect(onCancel).toHaveBeenCalled();
   });
+  it('⛔ no Skip while a saved step awaits its reload (Skip would drop the saved id)', async () => {
+    list.mockRejectedValueOnce(new Error('network'));
+    render(
+      <TemplateGuide
+        connection={connection}
+        template={template}
+        onDone={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+    expect(screen.getByRole('button', { name: /skip/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByText('fake test'));
+    fireEvent.click(screen.getByText('fake save'));
+    await screen.findByText(/could not be reloaded/);
+    expect(screen.queryByRole('button', { name: /skip/i })).toBeNull();
+  });
+
+  it('a second failed Try again keeps the alert, and Cancel still leaves', async () => {
+    list.mockRejectedValueOnce(new Error('network')).mockRejectedValueOnce(new Error('network'));
+    const onCancel = vi.fn();
+    render(
+      <TemplateGuide
+        connection={connection}
+        template={template}
+        onDone={vi.fn()}
+        onCancel={onCancel}
+      />
+    );
+    fireEvent.click(screen.getByText('fake save'));
+    await screen.findByText(/could not be reloaded/);
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(/could not be reloaded/)).toBeInTheDocument();
+    expect(screen.getByText("This customer's orders")).toBeInTheDocument();
+    fireEvent.click(screen.getByText('fake cancel'));
+    expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('after a successful Try again the alert is gone on step 2', async () => {
+    list.mockRejectedValueOnce(new Error('network'));
+    render(
+      <TemplateGuide
+        connection={connection}
+        template={template}
+        onDone={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByText('fake save'));
+    await screen.findByText(/could not be reloaded/);
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await screen.findByText('Look up an order number');
+    expect(screen.queryByText(/could not be reloaded/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  });
 });
