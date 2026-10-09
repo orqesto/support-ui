@@ -31,6 +31,8 @@ interface Props {
    * who can see this section may add and edit them under a vendor that already exists.
    */
   onAddLookup?: (connection: CustomApiConnection) => void;
+  /** Start this connection's lookups from a custom API template (spec CUSTOM-API-TEMPLATES). */
+  onStartFromTemplate?: (connection: CustomApiConnection) => void;
   onEditLookup?: (
     connection: CustomApiConnection,
     endpoint: CustomApiConnection['endpoints'][number]
@@ -84,6 +86,7 @@ export const CustomApiSettings = ({
   onAddVendor,
   onOpenVendor,
   onAddLookup,
+  onStartFromTemplate,
   onEditLookup,
 }: Props) => {
   const [connections, setConnections] = useState<CustomApiConnection[]>([]);
@@ -269,11 +272,18 @@ export const CustomApiSettings = ({
               <p className="text-xs text-muted-foreground">
                 No lookups yet — add one to choose what agents can find here.
               </p>
-              {onAddLookup && (
-                <Button size="sm" variant="outline" onClick={() => onAddLookup(connection)}>
-                  Add a lookup
-                </Button>
-              )}
+              <div className="flex flex-wrap gap-2">
+                {onAddLookup && (
+                  <Button size="sm" variant="outline" onClick={() => onAddLookup(connection)}>
+                    Add a lookup
+                  </Button>
+                )}
+                {onStartFromTemplate && (
+                  <Button size="sm" variant="ghost" onClick={() => onStartFromTemplate(connection)}>
+                    Start from a template
+                  </Button>
+                )}
+              </div>
             </div>
           ) : (
             <ul className="space-y-1">
@@ -312,10 +322,19 @@ export const CustomApiSettings = ({
               })}
             </ul>
           )}
-          {connection.endpoints.length > 0 && onAddLookup && (
-            <Button size="sm" variant="outline" onClick={() => onAddLookup(connection)}>
-              Add a lookup
-            </Button>
+          {connection.endpoints.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {onAddLookup && (
+                <Button size="sm" variant="outline" onClick={() => onAddLookup(connection)}>
+                  Add a lookup
+                </Button>
+              )}
+              {onStartFromTemplate && (
+                <Button size="sm" variant="ghost" onClick={() => onStartFromTemplate(connection)}>
+                  Start from a template
+                </Button>
+              )}
+            </div>
           )}
         </Card>
       ))}

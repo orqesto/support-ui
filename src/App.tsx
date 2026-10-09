@@ -26,7 +26,12 @@ import { userService } from './services/user.service';
 import { useAuthStore } from './stores/authStore';
 import { Permission } from './types/roles';
 import { KbCasesRoute, KbMergesReviewRoute } from './pages/kbConsolidationRoutes';
-import { CUSTOM_API_LOOKUP_ROUTE } from './components/settings/customApi/lookupPaths';
+import {
+  CUSTOM_API_LOOKUP_ROUTE,
+  CUSTOM_API_TEMPLATE_ROUTE,
+  CustomApiLookupRoute,
+  CustomApiTemplateRoute,
+} from './pages/customApiRoutes';
 
 // Lazy load non-critical routes
 const MessagesPage = lazy(() =>
@@ -55,9 +60,6 @@ const StatisticsPage = lazy(() =>
 );
 const SettingsPage = lazy(() =>
   import('./pages/SettingsPage').then((mod) => ({ default: mod.SettingsPage }))
-);
-const CustomApiLookupPage = lazy(() =>
-  import('./pages/CustomApiLookupPage').then((mod) => ({ default: mod.CustomApiLookupPage }))
 );
 const UsersPage = lazy(() =>
   import('./pages/UsersPage').then((mod) => ({ default: mod.UsersPage }))
@@ -410,17 +412,10 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
-      {/* The custom-API lookup editor; the page repeats the tab's MANAGE_INTEGRATIONS gate. */}
-      <Route
-        path={CUSTOM_API_LOOKUP_ROUTE}
-        element={
-          <PrivateRoute>
-            <Suspense fallback={<LoadingFallback />}>
-              <CustomApiLookupPage />
-            </Suspense>
-          </PrivateRoute>
-        }
-      />
+      {/* The custom-API lookup editor and template guide; each page repeats the tab's
+          MANAGE_INTEGRATIONS gate (src/pages/customApiRoutes.tsx). */}
+      <Route path={CUSTOM_API_LOOKUP_ROUTE} element={<CustomApiLookupRoute />} />
+      <Route path={CUSTOM_API_TEMPLATE_ROUTE} element={<CustomApiTemplateRoute />} />
       {/* Alliance admin console (Phase 5). `/console` resolves the caller's first
           administered alliance; `/console/alliance/:id` mounts the AdminShell
           (own chrome) behind the alliance-admin route guard, with one child route
