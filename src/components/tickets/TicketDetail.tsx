@@ -518,6 +518,7 @@ export const TicketDetail = ({
         hasJiraLink={!!ticket.externalId}
         linkedMessages={linkedMessages}
         loadingMessages={loadingMessages}
+        ticketStatus={ticket.status}
       />
 
     </div>

@@ -3,6 +3,7 @@ import { ExternalLink as ExternalLinkIcon, Mail, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Checkbox } from '@/components/ui/Checkbox';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,7 @@ import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
 import { ticketThreadsService, type TicketThread } from '@/services/ticketThreads.service';
 import type { Message } from '@/types';
+import { TicketReplyComposer, useTicketReplies } from './TicketReplyComposer';
 
 /**
  * The threads a ticket covers — every customer who reported this incident (owner, 2026-09-30).
@@ -39,6 +41,11 @@ type Props = {
   onCountChange?: (count: number | 'unavailable' | null) => void;
   /** Shown instead when the backend predates these routes (version skew). */
   fallback: ReactNode;
+  /**
+   * The ticket's status, for which threads a reply ticks by default (owner Q2, 2026-10-09): on a
+   * resolved/closed ticket only those still owed a reply, otherwise all of them.
+   */
+  ticketStatus?: string;
 };
 
 type Candidate = { id: number; publicId: string | null; subject: string | null; sender: string };
@@ -48,7 +55,7 @@ const PICKER_LIMIT = 25;
 
 const words = (status: string) => status.replace('_', ' ');
 
-export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
+export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus }: Props) => {
   const orgCode = useCurrentOrgCode();
   const [threads, setThreads] = useState<TicketThread[]>([]);
   const [hiddenCount, setHiddenCount] = useState(0);
@@ -60,6 +67,11 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const searchSeq = useRef(0);
+  const replies = useTicketReplies(ticketId);
+  const replyData = replies.data && !replies.data.unavailable ? replies.data : null;
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  // Once the agent ticks or unticks, the defaults stop applying until the ticket changes.
+  const selectionTouched = useRef(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
@@ -127,6 +139,8 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
 
   // A different ticket: nothing of the previous one may show while this one loads.
   useEffect(() => {
+    setSelected(new Set());
+    selectionTouched.current = false;
     setThreads([]);
     setHiddenCount(0);
     setError(null);
@@ -255,6 +269,39 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
     }
   };
 
+  const unreachable = new Map(
+    (replyData?.unreachable ?? []).map((row) => [row.conversationId, row.reason])
+  );
+  const unreachableKey = [...unreachable.keys()].join(',');
+  const ticketDone = ticketStatus === 'resolved' || ticketStatus === 'closed';
+  /*
+    Default ticks: every thread a reply can reach; on a resolved ticket only the customers not yet
+    told (Q2). Recomputed while the agent has not touched a box — the list, the unreachable set
+    and the status all arrive separately.
+  */
+  useEffect(() => {
+    if (selectionTouched.current || state !== 'ready') return;
+    const blocked = new Set(unreachableKey ? unreachableKey.split(',').map(Number) : []);
+    setSelected(
+      new Set(
+        threads
+          .filter((row) => !blocked.has(row.conversationId))
+          .filter((row) => !ticketDone || row.owesReply === true)
+          .map((row) => row.conversationId)
+      )
+    );
+  }, [threads, unreachableKey, ticketDone, state]);
+
+  const toggle = (conversationId: number, on: boolean) => {
+    selectionTouched.current = true;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(conversationId);
+      else next.delete(conversationId);
+      return next;
+    });
+  };
+
   if (state === 'unavailable') return <>{fallback}</>;
 
   // Only from a list that was actually read — never a count left over from before a failed reload.
@@ -295,6 +342,16 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
               key={row.conversationId}
               className="flex gap-3 items-start p-3 rounded-lg border transition-colors bg-muted border-border hover:bg-accent"
             >
+              {/* A backend without ticket replies offers no reply box, so no boxes to tick. */}
+              {replyData && (
+                <Checkbox
+                  className="pt-1.5"
+                  checked={selected.has(row.conversationId)}
+                  onChange={(event) => toggle(row.conversationId, event.target.checked)}
+                  disabled={unreachable.has(row.conversationId)}
+                  aria-label={`Reply to ${row.requesterEmail}`}
+                />
+              )}
               <div className="p-2 rounded bg-muted flex-shrink-0">
                 <Mail className="w-4 h-4 text-primary" />
               </div>
@@ -330,6 +387,11 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
                   <Badge variant="warning" size="sm">
                     Fixed — reply to tell this customer
                   </Badge>
+                )}
+                {replyData && unreachable.has(row.conversationId) && (
+                  <p className="text-xs text-muted-foreground">
+                    A reply cannot reach this thread: {unreachable.get(row.conversationId)}
+                  </p>
                 )}
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
@@ -370,6 +432,22 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback }: Props) => {
       )}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+
+      {state === 'ready' && threads.length > 0 && replyData && (
+        <TicketReplyComposer
+          ticketId={ticketId}
+          threads={threads}
+          selected={threads.map((row) => row.conversationId).filter((id) => selected.has(id))}
+          replies={replyData}
+          unreachable={unreachable}
+          onSent={() => void replies.refresh()}
+        />
+      )}
+      {state === 'ready' && threads.length > 0 && replies.failed && (
+        <p className="text-sm text-muted-foreground">
+          We could not read the replies sent from this ticket just now, so replying is unavailable.
+        </p>
+      )}
 
       <Dialog
         open={pickerOpen}
