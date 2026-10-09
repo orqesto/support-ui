@@ -11,6 +11,7 @@ import {
 import { ContactProfileDetails } from '@/components/contacts/ContactProfileDetails';
 import { CustomApiLookupPanel } from '@/components/messages/CustomApiLookupPanel';
 import { useContactProfile } from '@/components/contacts/useContactProfile';
+import { useLookupsTab } from '@/components/messages/lookupsTab';
 import { avatarColor, formatAge, getInitials, safeCssColor } from '@/lib/utils';
 import { customerSince } from './contactFacts';
 import { tintedChip } from '@/lib/userColor';
@@ -35,7 +36,12 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 
 export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfilePanelProps) {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<'activity' | 'details'>('activity');
+  const lookups = useLookupsTab('contact');
+  const [tab, setTab] = useState<'activity' | 'details' | 'lookups'>('activity');
+  // The last lookup can go away while the drawer sits on its tab; fall back, never blank.
+  useEffect(() => {
+    if (tab === 'lookups' && !lookups.available) setTab('activity');
+  }, [tab, lookups.available]);
 
   const {
     contact,
@@ -290,7 +296,8 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
                 [
                   { id: 'activity', label: 'Activity' },
                   { id: 'details', label: 'Details' },
-                ] as const
+                  ...(lookups.available ? [{ id: 'lookups', label: lookups.label }] : []),
+                ] as { id: 'activity' | 'details' | 'lookups'; label: string }[]
               ).map((entry) => (
                 <button
                   key={entry.id}
@@ -311,49 +318,44 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
             <div className="overflow-y-auto flex-1 p-4">
               {tab === 'activity' ? (
                 <ContactProfileActivity activity={activity} />
+              ) : tab === 'lookups' ? (
+                /* SC5: the SAME lookup component as the thread's Lookups tab — one copy of every
+                   outcome state (moved out of Details, spec 2026-10-09). */
+                <CustomApiLookupPanel contactId={contact.id} />
               ) : (
-                <>
-                  {/*
-                    SC5: the SAME lookup, reachable without opening a thread. ⛔ The same COMPONENT,
-                    not a second copy of the outcome states — a page opened from a list must not
-                    rename, recolour or flatten what that list said, and two copies are two places
-                    to fix every future state.
-                  */}
-                  <CustomApiLookupPanel contactId={contact.id} className="mb-4" />
-                  <ContactProfileDetails
-                    contact={contact}
-                    users={users}
-                    availableLabels={availableLabels}
-                    showLabelPicker={showLabelPicker}
-                    setShowLabelPicker={setShowLabelPicker}
-                    onAssign={handleAssign}
-                    onAddLabel={handleAddLabel}
-                    onRemoveLabel={handleRemoveLabel}
-                    onCreateLabel={handleCreateLabel}
-                    creatingLabel={creatingLabel}
-                    noteInput={noteInput}
-                    setNoteInput={setNoteInput}
-                    addingNote={addingNote}
-                    onAddNote={handleAddNote}
-                    onDeleteNote={handleDeleteNote}
-                    profileTypeInput={profileTypeInput}
-                    setProfileTypeInput={setProfileTypeInput}
-                    profileValueInput={profileValueInput}
-                    setProfileValueInput={setProfileValueInput}
-                    profileLabelInput={profileLabelInput}
-                    setProfileLabelInput={setProfileLabelInput}
-                    showProfileForm={showProfileForm}
-                    setShowProfileForm={setShowProfileForm}
-                    addingProfile={addingProfile}
-                    onAddProfile={handleAddProfile}
-                    onDeleteProfile={handleDeleteProfile}
-                    linkEmailInput={linkEmailInput}
-                    setLinkEmailInput={setLinkEmailInput}
-                    linkingEmail={linkingEmail}
-                    onLinkEmail={handleLinkEmail}
-                    onUnlink={handleUnlink}
-                  />
-                </>
+                <ContactProfileDetails
+                  contact={contact}
+                  users={users}
+                  availableLabels={availableLabels}
+                  showLabelPicker={showLabelPicker}
+                  setShowLabelPicker={setShowLabelPicker}
+                  onAssign={handleAssign}
+                  onAddLabel={handleAddLabel}
+                  onRemoveLabel={handleRemoveLabel}
+                  onCreateLabel={handleCreateLabel}
+                  creatingLabel={creatingLabel}
+                  noteInput={noteInput}
+                  setNoteInput={setNoteInput}
+                  addingNote={addingNote}
+                  onAddNote={handleAddNote}
+                  onDeleteNote={handleDeleteNote}
+                  profileTypeInput={profileTypeInput}
+                  setProfileTypeInput={setProfileTypeInput}
+                  profileValueInput={profileValueInput}
+                  setProfileValueInput={setProfileValueInput}
+                  profileLabelInput={profileLabelInput}
+                  setProfileLabelInput={setProfileLabelInput}
+                  showProfileForm={showProfileForm}
+                  setShowProfileForm={setShowProfileForm}
+                  addingProfile={addingProfile}
+                  onAddProfile={handleAddProfile}
+                  onDeleteProfile={handleDeleteProfile}
+                  linkEmailInput={linkEmailInput}
+                  setLinkEmailInput={setLinkEmailInput}
+                  linkingEmail={linkingEmail}
+                  onLinkEmail={handleLinkEmail}
+                  onUnlink={handleUnlink}
+                />
               )}
             </div>
           </>
