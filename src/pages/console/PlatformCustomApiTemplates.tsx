@@ -68,6 +68,8 @@ export const PlatformCustomApiTemplates = () => {
     onError: (err) => setError(getApiErrorMessage(err) ?? err.message),
   });
 
+  const locked = save.isPending;
+
   const publish = useMutation({
     mutationFn: (tpl: CustomApiTemplate) =>
       customApiTemplateAdminService.update(tpl.id, {
@@ -84,6 +86,7 @@ export const PlatformCustomApiTemplates = () => {
         description="Ready-made lookup set-ups workspaces apply when they add a custom API. Only published templates are offered."
         actions={
           <Button
+            disabled={locked}
             onClick={() => {
               setError(null);
               setDraft(draftOf(null));
@@ -100,17 +103,20 @@ export const PlatformCustomApiTemplates = () => {
             {draft.id === null && (
               <Input
                 label="Key"
+                disabled={locked}
                 value={draft.key}
                 onChange={(event) => setDraft({ ...draft, key: event.target.value })}
               />
             )}
             <Input
               label="Name"
+              disabled={locked}
               value={draft.name}
               onChange={(event) => setDraft({ ...draft, name: event.target.value })}
             />
             <Input
               label="Description"
+              disabled={locked}
               value={draft.description}
               onChange={(event) => setDraft({ ...draft, description: event.target.value })}
             />
@@ -119,15 +125,29 @@ export const PlatformCustomApiTemplates = () => {
             </label>
             <textarea
               id="tpl-json"
+              disabled={locked}
               className="w-full min-h-[320px] rounded-md border border-border bg-card p-2 font-mono text-xs"
               value={draft.json}
               onChange={(event) => setDraft({ ...draft, json: event.target.value })}
             />
             <div className="flex gap-2">
-              <Button onClick={() => save.mutate(draft)} isLoading={save.isPending}>
+              <Button
+                onClick={() => {
+                  setError(null);
+                  save.mutate(draft);
+                }}
+                isLoading={save.isPending}
+              >
                 Save template
               </Button>
-              <Button variant="ghost" onClick={() => setDraft(null)}>
+              <Button
+                variant="ghost"
+                disabled={locked}
+                onClick={() => {
+                  setError(null);
+                  setDraft(null);
+                }}
+              >
                 Cancel
               </Button>
             </div>
@@ -166,6 +186,7 @@ export const PlatformCustomApiTemplates = () => {
                   <Button
                     size="sm"
                     variant="outline"
+                    disabled={locked}
                     onClick={() => {
                       setError(null);
                       setDraft(draftOf(tpl));

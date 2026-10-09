@@ -115,4 +115,27 @@ describe('Platform Console — Custom API templates', () => {
       })
     );
   });
+
+  it('locks the form while a save is pending', async () => {
+    update.mockImplementationOnce(() => new Promise(() => {}));
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save template' }));
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    expect(screen.getByLabelText('Definition (JSON)')).toBeDisabled();
+    expect(screen.getByLabelText('Name')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'New template' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeDisabled();
+  });
+
+  it('cancel clears a shown error', async () => {
+    update.mockRejectedValueOnce(Object.assign(new Error('boom: bad definition'), { status: 400 }));
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save template' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('boom');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
 });
