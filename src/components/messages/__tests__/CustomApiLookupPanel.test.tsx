@@ -11,7 +11,11 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { CustomApiLookupPanel, NO_EMAIL_IDENTITY_NOTE } from '../CustomApiLookupPanel';
+import {
+  CustomApiLookupPanel,
+  NO_EMAIL_IDENTITY_NOTE,
+  LOOKUPS_NOT_ON_SERVER,
+} from '../CustomApiLookupPanel';
 import { useCustomApiLookup } from '@/hooks/useCustomApiLookup';
 import type * as LookupService from '@/services/customApiLookup.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -466,10 +470,13 @@ describe('FE/BE skew — this frontend can reach production first', () => {
     // copies `status` onto a fresh Error, so a fixture shaped like a raw axios error would pass
     // this test against a hook that could never work in production.
     run.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
-    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
+    render(<CustomApiLookupPanel conversationId={1} />);
     await press();
 
-    await waitFor(() => expect(container.firstChild).toBeNull());
+    // The panel is its tab's only content since 2026-10-09: standing down to nothing left a blank
+    // tab. Still no button that fails — one line saying what is true instead.
+    expect(await screen.findByText(LOOKUPS_NOT_ON_SERVER)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Look up/ })).not.toBeInTheDocument();
   });
 
   it('POSITIVE CONTROL: a real failure still shows a reason', async () => {

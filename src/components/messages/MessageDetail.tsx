@@ -7,7 +7,7 @@ import { RecordInsertTargetContext, useAiRecordNote, type AddOutcome } from './u
 import { appendReplyParagraph, replyHasSentence } from './customApiRecordNote';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { usePhoneDetailScroll } from './usePhoneDetailScroll';
-import { useCustomApiLookupAvailability } from '@/hooks/useCustomApiLookup';
+import { useLookupsTab } from './lookupsTab';
 import { draftToRecipients, emptyRecipientDraft, type RecipientDraft } from './RecipientFields';
 import {
   messageService,
@@ -466,7 +466,8 @@ export function MessageDetail({
     (react-query key shared with CustomApiLookupPanel's thread surface), so this adds no request.
     It fails closed exactly like the panel: loading, error or an older backend ⇒ no button.
   */
-  const lookupAvailable = useCustomApiLookupAvailability('thread');
+  // The SAME gate as the tab itself (useLookupsTab), so the button never points at a hidden tab.
+  const lookupAvailable = useLookupsTab('thread').available;
   // An admin can remove the last lookup while an agent sits on its tab; fall back, never blank.
   useEffect(() => {
     if (tab === 'lookups' && !lookupAvailable) setTab('ai');
@@ -1280,7 +1281,7 @@ export function MessageDetail({
           '--md-sticky-top': 'var(--mobile-header-h, 0px)',
         } as React.CSSProperties
       }
-      className={`flex h-full min-h-0 overflow-hidden ${twoColumn ? '':'flex-col'} max-sm:block max-sm:h-auto max-sm:overflow-visible max-sm:overflow-x-clip max-sm:[&_input]:text-base max-sm:[&_textarea]:text-base max-sm:[&_.ProseMirror]:text-base`}
+      className={`flex h-full min-h-0 overflow-hidden ${twoColumn ? '' : 'flex-col'} max-sm:block max-sm:h-auto max-sm:overflow-visible max-sm:overflow-x-clip max-sm:[&_input]:text-base max-sm:[&_textarea]:text-base max-sm:[&_.ProseMirror]:text-base`}
     >
       <div className="flex overflow-hidden flex-col flex-1 min-w-0 min-h-0 max-sm:overflow-visible max-sm:overflow-x-clip max-sm:bg-card">
         {/* Header */}

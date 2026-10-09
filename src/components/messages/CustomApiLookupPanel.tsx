@@ -42,6 +42,9 @@ import { projectFields, RowFields, UNCONFIGURED_FIELD_PREVIEW } from './customAp
 export const NO_EMAIL_IDENTITY_NOTE =
   'This customer has no email address, so identity-based lookups cannot run.';
 
+/** A deployment without the lookup route (FE/BE skew): said in one line, never a failing button. */
+export const LOOKUPS_NOT_ON_SERVER = 'Lookups are not available on this server yet.';
+
 /**
  * Does this sender carry an email an identity lookup can key on? The SAME rule as the backend's
  * `lookupEmail` (customApiLookupService): a real address shape, and not the chat widget's
@@ -505,10 +508,12 @@ export const CustomApiLookupPanel = ({
   };
   if (!available) return null;
 
-  // ⚠️ FE/BE SKEW: this deployment has no lookup endpoint yet. Show nothing rather than a button
-  // that fails — a broken-looking control reads as a broken integration, not as a feature that has
-  // not shipped. A push to `main` deploys this frontend; the backend ships on a tag.
-  if (unavailable) return null;
+  // ⚠️ FE/BE SKEW: this deployment has no lookup endpoint yet. Never a button that fails — a
+  // broken-looking control reads as a broken integration, not as a feature that has not shipped.
+  // A push to `main` deploys this frontend; the backend ships on a tag. One line, not nothing:
+  // since 2026-10-09 this panel is its tab's only content, and nothing left a blank tab.
+  if (unavailable)
+    return <p className="text-[11px] text-muted-foreground">{LOOKUPS_NOT_ON_SERVER}</p>;
 
   return (
     // `data-lookup-root`: the composer's "Look up" button opens the Lookups tab, then scrolls this
@@ -572,14 +577,18 @@ export const CustomApiLookupPanel = ({
           </Button>
         </div>
       ) : (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 px-0 text-[11px] text-primary hover:underline"
-          onClick={() => setEmailOpen(true)}
-        >
-          Look up another email
-        </Button>
+        // Its own block: beside the records link, two inline buttons ran together as one line of
+        // text ("…emailOpen the full…", staging 2026-10-09).
+        <div>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-0 text-[11px] text-primary hover:underline"
+            onClick={() => setEmailOpen(true)}
+          >
+            Look up another email
+          </Button>
+        </div>
       )}
 
       {lookedUpAs && (
@@ -606,16 +615,17 @@ export const CustomApiLookupPanel = ({
         CA-6: the way OUT of the panel. The owner's objection on 2026-09-20 was that records lived
         only here — a popup an agent had to know to press, with no URL to link or return to.
       */}
-      {contactId !== undefined ? (
-        <Link
-          to={`/contacts/${contactId}/records`}
-          className="text-[11px] text-primary hover:underline inline-block"
-        >
-          Open the full records page
-        </Link>
-      ) : (
-        conversationId !== undefined && (
-          /*
+      <div>
+        {contactId !== undefined ? (
+          <Link
+            to={`/contacts/${contactId}/records`}
+            className="text-[11px] text-primary hover:underline inline-block"
+          >
+            Open the full records page
+          </Link>
+        ) : (
+          conversationId !== undefined && (
+            /*
             ⛔ THE THREAD SURFACE, which had no way there at all. It mounts this panel with a
             conversation and no contact id, because a link that GUESSED one would open a stranger's
             page — so until support-service #800 the page simply did not exist from a thread, which
@@ -623,17 +633,18 @@ export const CustomApiLookupPanel = ({
             It is a BUTTON, not a Link: resolving the customer may CREATE a contact row, and that
             must be an agent's press rather than something a hover or a prefetch can trigger.
           */
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 px-0 text-[11px] text-primary hover:underline"
-            disabled={resolving}
-            onClick={() => void openRecords()}
-          >
-            {resolving ? 'Opening…' : 'Open the full records page'}
-          </Button>
-        )
-      )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-0 text-[11px] text-primary hover:underline"
+              disabled={resolving}
+              onClick={() => void openRecords()}
+            >
+              {resolving ? 'Opening…' : 'Open the full records page'}
+            </Button>
+          )
+        )}
+      </div>
       {resolveError && <p className="text-[11px] text-destructive">{resolveError}</p>}
 
       {/*
