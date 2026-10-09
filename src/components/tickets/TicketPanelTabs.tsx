@@ -17,6 +17,8 @@ type TicketPanelTabsProps = {
   hasJiraLink: boolean;
   linkedMessages: Message[];
   loadingMessages: boolean;
+  /** The ticket's status — which threads a reply ticks by default. */
+  ticketStatus?: string;
 };
 
 export function TicketPanelTabs({
@@ -24,6 +26,7 @@ export function TicketPanelTabs({
   hasJiraLink,
   linkedMessages,
   loadingMessages,
+  ticketStatus,
 }: TicketPanelTabsProps) {
   const [activeTab, setActiveTab] = useState<Tab>('comments');
   const [commentCount, setCommentCount] = useState(0);
@@ -103,6 +106,7 @@ export function TicketPanelTabs({
         <TicketThreads
           ticketId={ticketId}
           onCountChange={setThreadCount}
+          ticketStatus={ticketStatus}
           fallback={
             <>
               {loadingMessages ? (

@@ -15,6 +15,12 @@ vi.mock('@/services/ticketThreads.service', () => ({
   ticketThreadsService: { threadsOfTicket, addThreads, removeThread },
 }));
 vi.mock('@/services/message.service', () => ({ messageService: { getThreads } }));
+// A backend without ticket replies: the list behaves exactly as before (no boxes, no reply box).
+// The reply box itself is covered in TicketReplyComposer.test.tsx.
+vi.mock('@/services/ticketReplies.service', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  ticketRepliesService: { repliesOfTicket: () => Promise.resolve({ unavailable: true }), send: vi.fn() },
+}));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACME' }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 const socketHandlers = new Map<string, (data: unknown) => void>();
