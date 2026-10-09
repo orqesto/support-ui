@@ -25,6 +25,8 @@ export type TicketReplyDelivery = {
   outcome: DeliveryOutcome;
   reason: string | null;
   updatedAt: string;
+  /** This thread was sent its own reviewed draft, not the reply's text (reply templates P2). */
+  hasOwnText: boolean;
 };
 
 export type TicketReply = {
@@ -112,6 +114,8 @@ const toDelivery = (raw: Partial<TicketReplyDelivery>): TicketReplyDelivery => (
     : 'failed',
   reason: typeof raw.reason === 'string' ? raw.reason : null,
   updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : '',
+  // An older backend does not send it: no delivery had its own text there.
+  hasOwnText: raw.hasOwnText === true,
 });
 
 const toReply = (raw: Partial<TicketReply>): TicketReply => ({
@@ -156,12 +160,13 @@ export const ticketRepliesService = {
   },
 
   /**
-   * Send a new reply (`content`) or an earlier one again (`replyId`) to these threads. The server
-   * skips every thread that already has it; sending happens after this returns.
+   * Send a new reply (`content`), an earlier one again (`replyId`) or the reviewed drafts of these
+   * threads (`fromDrafts` — each thread gets its own draft). The server skips every thread that
+   * already has it; sending happens after this returns.
    */
   async send(
     ticketId: number,
-    body: { content: string } | { replyId: number },
+    body: { content: string } | { replyId: number } | { fromDrafts: true },
     conversationIds: number[],
     /** Omitted on a re-send: each thread keeps the choice it was first sent with. */
     resolve: boolean | undefined,
