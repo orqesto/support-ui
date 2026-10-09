@@ -73,6 +73,9 @@ export const Permission = {
   MANAGE_LABELS: 'manage_labels',
   VIEW_LABELS: 'view_labels',
 
+  // Reply templates (2026-10-09): create, edit and archive the workspace's templates.
+  MANAGE_REPLY_TEMPLATES: 'manage_reply_templates',
+
   // Audit Logs
   VIEW_AUDIT_LOGS: 'view_audit_logs',
 
@@ -117,6 +120,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.VIEW_CATEGORIES,
     Permission.MANAGE_LABELS,
     Permission.VIEW_LABELS,
+    Permission.MANAGE_REPLY_TEMPLATES,
     Permission.MANAGE_AI_PROMPTS,
     Permission.MANAGE_SPAM_RULES,
     Permission.MANAGE_ROUTING_RULES,
@@ -156,6 +160,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.VIEW_CATEGORIES,
     Permission.MANAGE_LABELS,
     Permission.VIEW_LABELS,
+    Permission.MANAGE_REPLY_TEMPLATES,
     Permission.MANAGE_AI_PROMPTS,
     Permission.MANAGE_SPAM_RULES,
     Permission.MANAGE_ROUTING_RULES,

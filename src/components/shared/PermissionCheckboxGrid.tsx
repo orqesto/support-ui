@@ -56,6 +56,7 @@ const GROUPS: { label: string; permissions: Permission[] }[] = [
       Permission.MANAGE_CATEGORIES,
       Permission.VIEW_LABELS,
       Permission.MANAGE_LABELS,
+      Permission.MANAGE_REPLY_TEMPLATES,
     ],
   },
   {

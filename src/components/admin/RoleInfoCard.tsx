@@ -66,6 +66,7 @@ export const PERMISSION_CATALOG: PermissionGroup[] = [
       { permission: Permission.VIEW_CATEGORIES, label: 'View categories' },
       { permission: Permission.MANAGE_LABELS, label: 'Manage labels' },
       { permission: Permission.VIEW_LABELS, label: 'View labels' },
+      { permission: Permission.MANAGE_REPLY_TEMPLATES, label: 'Manage reply templates' },
     ],
   },
   {

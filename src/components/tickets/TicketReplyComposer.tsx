@@ -3,6 +3,7 @@ import { Paperclip, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/RichTextEditor';
+import { TemplatePicker } from '@/components/shared/TemplatePicker';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
@@ -16,7 +17,9 @@ import {
   type TicketReplies,
   type TicketReply,
 } from '@/services/ticketReplies.service';
+import { ticketDraftsService } from '@/services/ticketDrafts.service';
 import type { TicketThread } from '@/services/ticketThreads.service';
+import { TicketDraftsReview, useDraftsWorkflow } from './TicketDraftsReview';
 
 /**
  * Reply to a ticket's threads from the ticket page (owner, 2026-09-23): one text, a SEPARATE
@@ -85,7 +88,37 @@ const OUTCOME_WORDS: Record<DeliveryOutcome, string> = {
 
 type Confirm =
   | { kind: 'new'; resolve: boolean; ids: number[]; description: string }
-  | { kind: 'again'; reply: TicketReply; ids: number[]; description: string };
+  | { kind: 'again'; reply: TicketReply; ids: number[]; description: string }
+  /** "Send here": an earlier reply into ONE thread it has not reached. */
+  | { kind: 'here'; reply: TicketReply; ids: number[]; description: string }
+  | { kind: 'reviewed'; resolve: boolean; ids: number[]; description: string }
+  | { kind: 'discard'; ids: number[]; description: string };
+
+/** Sent from reviewed drafts: the text shown is the base each thread's own version came from. */
+const hasReviewedVersions = (reply: TicketReply) => reply.deliveries.some((row) => row.hasOwnText);
+/** A re-send of such a reply carries the base text, not anyone's reviewed version — say so. */
+const originalOnly = (reply: TicketReply) =>
+  hasReviewedVersions(reply)
+    ? ' They get the original text, filled in for them — not a reviewed version.'
+    : '';
+
+const confirmTitle = (confirm: Confirm) => {
+  if (confirm.kind === 'discard') return 'Discard your drafts on this ticket?';
+  const what =
+    confirm.kind === 'reviewed'
+      ? 'the reviewed drafts'
+      : confirm.kind === 'new'
+        ? 'this reply'
+        : 'it';
+  return `Send ${what} to ${confirm.ids.length} ${plural(confirm.ids.length, 'thread', 'threads')}?`;
+};
+
+const confirmButton = (confirm: Confirm | null) => {
+  if (confirm?.kind === 'discard') return 'Discard';
+  return (confirm?.kind === 'new' || confirm?.kind === 'reviewed') && confirm.resolve
+    ? 'Send & resolve'
+    : 'Send';
+};
 
 type Props = {
   ticketId: number;
@@ -127,6 +160,32 @@ export const TicketReplyComposer = ({
     setNotice(null);
     setError(null);
   }, [ticketId]);
+
+  // Drafts (reply templates P2): made per ticked thread, reviewed, then sent.
+  const {
+    drafts,
+    draftsUsable,
+    draftRows,
+    refused,
+    setRefused,
+    adaptPick,
+    setAdaptPick,
+    adaptResults,
+    setAdaptResults,
+    editing,
+    setEditing,
+    draftBusy,
+    setDraftBusy,
+    offerAdapt,
+    adaptSelected,
+    saveEdit,
+    discard,
+  } = useDraftsWorkflow({ ticketId, threads, currentTicket, setError, setNotice });
+  // Send reviewed goes to the TICKED threads that have a draft — unticking one leaves it out.
+  const reviewIds = draftRows
+    .map((row) => row.conversationId)
+    .filter((id) => selected.includes(id) && !unreachable.has(id));
+  const busy = sending || draftBusy;
 
   const emailOf = new Map(threads.map((row) => [row.conversationId, row.requesterEmail]));
   const sentTo = (reply: TicketReply) =>
@@ -190,28 +249,100 @@ export const TicketReplyComposer = ({
       kind: 'again',
       reply,
       ids,
-      description: `Send this earlier reply to the ${ids.length} ${plural(ids.length, 'thread', 'threads')} that ${plural(ids.length, 'has', 'have')} not had it. Threads that already have it get nothing. A thread sent again after a failure keeps the choice it was first sent with (Pending or resolved); a thread new to this reply becomes Pending.`,
+      description: `Send this earlier reply to the ${ids.length} ${plural(ids.length, 'thread', 'threads')} that ${plural(ids.length, 'has', 'have')} not had it. Threads that already have it get nothing. A thread sent again after a failure keeps the choice it was first sent with (Pending or resolved); a thread new to this reply becomes Pending.${originalOnly(reply)}`,
     });
   };
 
-  const send = async (request: Confirm) => {
+  const askHere = (reply: TicketReply, id: number) => {
+    setError(null);
+    setNotice(null);
+    setConfirm({
+      kind: 'here',
+      reply,
+      ids: [id],
+      description: `Send this earlier reply to ${emailOf.get(id) ?? `thread #${id}`} only. That thread becomes Pending.${originalOnly(reply)}`,
+    });
+  };
+
+  /** One draft per ticked thread — from a template or the typed text; no model is called. */
+  const makeDrafts = async (source: { templateId: number } | { content: string }) => {
+    setError(null);
+    setNotice(null);
+    setRefused([]);
+    setAdaptResults(new Map());
+    setDraftBusy(true);
+    const startedOn = ticketId;
+    try {
+      const result = await ticketDraftsService.create(startedOn, source, selected);
+      if (currentTicket.current !== startedOn) return;
+      setRefused(result.refused);
+      setNotice(
+        `${result.created.length} ${plural(result.created.length, 'draft', 'drafts')} ready to review below.`
+      );
+      // The typed text now lives in the drafts; leaving it in the box invites sending it twice.
+      if ('content' in source) {
+        setDraft('');
+        editorRef.current?.setContent('');
+      }
+      await drafts.refresh();
+    } catch (err) {
+      logger.error('Failed to make the drafts', err);
+      if (currentTicket.current !== startedOn) return;
+      setError(getApiErrorMessage(err) ?? 'The drafts could not be made.');
+    } finally {
+      setDraftBusy(false);
+    }
+  };
+
+  const askReviewed = (resolve: boolean) => {
+    setError(null);
+    setNotice(null);
+    const left = draftRows.length - reviewIds.length;
+    setConfirm({
+      kind: 'reviewed',
+      resolve,
+      ids: reviewIds,
+      description: [
+        `Each customer gets the draft written for their thread, separately.`,
+        resolve ? `Each of these threads is resolved.` : `Each of these threads becomes Pending.`,
+        left > 0
+          ? `${left} ${plural(left, 'draft', 'drafts')} for unticked threads ${plural(left, 'is', 'are')} not sent.`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
+    });
+  };
+
+  const send = async (request: Exclude<Confirm, { kind: 'discard' }>) => {
     setConfirm(null);
     setSending(true);
     const startedOn = ticketId;
+    const fresh = request.kind === 'new' || request.kind === 'reviewed';
     try {
       const result = await ticketRepliesService.send(
         startedOn,
-        request.kind === 'new' ? { content: draft.trim() } : { replyId: request.reply.id },
+        request.kind === 'new'
+          ? { content: draft.trim() }
+          : request.kind === 'reviewed'
+            ? { fromDrafts: true }
+            : { replyId: request.reply.id },
         request.ids,
         // A re-send leaves it to each thread's first choice (the server keeps it).
-        request.kind === 'new' ? request.resolve : undefined,
-        request.kind === 'new' ? files : []
+        fresh ? request.resolve : undefined,
+        fresh ? files : []
       );
       if (currentTicket.current !== startedOn) return;
       if (request.kind === 'new') {
         setDraft('');
         setFiles([]);
         editorRef.current?.setContent('');
+      }
+      if (request.kind === 'reviewed') {
+        setFiles([]);
+        setAdaptResults(new Map());
+        setRefused([]);
+        void drafts.refresh();
       }
       const had = result.skipped.filter((row) => row.reason === 'already_sent').length;
       const busy = result.skipped.length - had;
@@ -333,6 +464,25 @@ export const TicketReplyComposer = ({
         >
           Send &amp; resolve all
         </Button>
+        {draftsUsable && (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              type="button"
+              onClick={() => void makeDrafts({ content: draft.trim() })}
+              disabled={busy || blank || selected.length === 0 || tooMany}
+            >
+              Make drafts
+            </Button>
+            <TemplatePicker
+              use="ticket"
+              label="Use template"
+              onPick={(template) => void makeDrafts({ templateId: template.id })}
+              disabled={busy || selected.length === 0 || tooMany}
+            />
+          </>
+        )}
       </div>
       {tooMany && (
         <p className="text-xs text-destructive">
@@ -342,6 +492,44 @@ export const TicketReplyComposer = ({
       )}
       {notice && <p className="text-sm text-muted-foreground">{notice}</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {refused.length > 0 && (
+        <ul className="space-y-0.5" aria-label="Threads given no draft">
+          {refused.map((row) => (
+            <li key={row.conversationId} className="text-xs text-destructive">
+              {emailOf.get(row.conversationId) ?? `Thread #${row.conversationId}`}: no draft —{' '}
+              {row.reason}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {draftRows.length > 0 && (
+        <TicketDraftsReview
+          rows={draftRows}
+          emailOf={emailOf}
+          selected={selected}
+          reviewIds={reviewIds}
+          maxThreads={replies.maxThreads}
+          busy={busy}
+          saving={draftBusy}
+          offerAdapt={offerAdapt}
+          adaptPick={adaptPick}
+          onAdaptPickChange={setAdaptPick}
+          adaptResults={adaptResults}
+          editing={editing}
+          onEditingChange={setEditing}
+          onSaveEdit={() => void saveEdit()}
+          onSendReviewed={askReviewed}
+          onAdapt={() => void adaptSelected()}
+          onDiscard={() =>
+            setConfirm({
+              kind: 'discard',
+              ids: draftRows.map((row) => row.conversationId),
+              description: `Discard your drafts on this ticket — the ${draftRows.length} shown here. Nothing is sent.`,
+            })
+          }
+        />
+      )}
 
       {replies.replies.length > 0 && (
         <div className="space-y-2">
@@ -370,6 +558,17 @@ export const TicketReplyComposer = ({
                 )
                 .map((row) => row.conversationId)
                 .filter((id) => !had.has(id) && !live.has(id) && !unreachable.has(id));
+              // "Send here": every other thread it has not reached that it can reach — one at a time.
+              const offered = new Set(missing);
+              const here =
+                reply.content === null
+                  ? []
+                  : threads
+                      .map((row) => row.conversationId)
+                      .filter(
+                        (id) =>
+                          !had.has(id) && !live.has(id) && !unreachable.has(id) && !offered.has(id)
+                      );
               const problems = reply.deliveries.filter(
                 (row) =>
                   row.outcome === 'failed' ||
@@ -384,6 +583,11 @@ export const TicketReplyComposer = ({
                     </p>
                   ) : (
                     <p className="text-sm line-clamp-2">{stripHtml(reply.content)}</p>
+                  )}
+                  {reply.content !== null && hasReviewedVersions(reply) && (
+                    <p className="text-xs text-muted-foreground">
+                      Each customer received their own reviewed version.
+                    </p>
                   )}
                   {reply.attachments.length > 0 && (
                     <p className="text-xs text-muted-foreground">
@@ -417,6 +621,24 @@ export const TicketReplyComposer = ({
                       {plural(missing.length, 'thread that has', 'threads that have')} not had it
                     </Button>
                   )}
+                  {here.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span className="text-xs text-muted-foreground">Not sent to:</span>
+                      {here.map((id) => (
+                        <Button
+                          key={id}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => askHere(reply, id)}
+                          disabled={busy}
+                          aria-label={`Send this reply to ${emailOf.get(id) ?? `thread #${id}`}`}
+                          className="h-auto px-1.5 py-0.5 text-xs"
+                        >
+                          {emailOf.get(id) ?? `Thread #${id}`} · Send here
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                   {missing.length > replies.maxThreads && (
                     <p className="text-xs text-muted-foreground">
                       More than {replies.maxThreads} threads have not had it — one send reaches at
@@ -436,16 +658,13 @@ export const TicketReplyComposer = ({
           if (!open) setConfirm(null);
         }}
         onConfirm={() => {
-          if (confirm) void send(confirm);
+          if (confirm?.kind === 'discard') void discard();
+          else if (confirm) void send(confirm);
         }}
-        variant="info"
-        title={
-          confirm
-            ? `Send ${confirm.kind === 'again' ? 'it' : 'this reply'} to ${confirm.ids.length} ${plural(confirm.ids.length, 'thread', 'threads')}?`
-            : ''
-        }
+        variant={confirm?.kind === 'discard' ? 'danger' : 'info'}
+        title={confirm ? confirmTitle(confirm) : ''}
         description={confirm?.description ?? ''}
-        confirmText={confirm?.kind === 'new' && confirm.resolve ? 'Send & resolve' : 'Send'}
+        confirmText={confirmButton(confirm)}
       />
     </section>
   );

@@ -21,6 +21,14 @@ vi.mock('@/services/ticketReplies.service', async (importOriginal) => ({
   ticketRepliesService: { repliesOfTicket, send },
 }));
 vi.mock('@/services/message.service', () => ({ messageService: { getThreads: vi.fn() } }));
+// Drafts and templates have their own suite (TicketDrafts.test.tsx); here a backend without them.
+vi.mock('@/services/ticketDrafts.service', () => ({
+  ticketDraftsService: { draftsOfTicket: vi.fn().mockResolvedValue({ unavailable: true }) },
+}));
+vi.mock('@/services/replyTemplates.service', () => ({
+  replyTemplatesService: { list: vi.fn().mockResolvedValue({ unavailable: true }) },
+}));
+vi.mock('@/hooks/useAiDraftsOff', () => ({ useAiDraftsOff: () => ({ off: false }) }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACME' }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 vi.mock('@/lib/socketManager', () => ({

@@ -7,6 +7,9 @@ import RichTextEditor, { extractImageFiles } from '@/components/shared/RichTextE
 import { ComposerAiActions } from './ComposerAiActions';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { isBlankRichText } from '@/lib/stripHtml';
+import { logger } from '@/lib/logger';
+import { TemplatePicker } from '@/components/shared/TemplatePicker';
+import { replyTemplatesService, type ReplyTemplate } from '@/services/replyTemplates.service';
 import { RecipientFields, replyToLabel, type RecipientDraft } from './RecipientFields';
 import type { AiDraft } from '@/services/message.service';
 import type { Message } from '@/types';
@@ -271,6 +274,44 @@ export function MessageComposer({
   // The collapsed editor as the pill's one-line input.
   const restEditorClass = atRest ? 'flex-1 min-w-0 h-10 py-0 px-3 text-base rounded-full' : '';
 
+  /*
+    Reply templates (2026-10-09): the body goes into the editor — in place of a blank draft, after
+    the agent's own words otherwise — and the template's files are attached. Placeholders stay as
+    tokens (filled at send); "Adapt with AI" is the AI panel's polish, which fills them first.
+    ⛔ The files download after the text lands: if the agent has moved to another conversation by
+    then, they are NOT attached — they would go to a different customer.
+  */
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const filesRef = useRef(selectedFiles);
+  filesRef.current = selectedFiles;
+  const messageIdRef = useRef(message.id);
+  messageIdRef.current = message.id;
+  useEffect(() => setTemplateError(null), [message.id]);
+  const insertTemplate = async (template: ReplyTemplate) => {
+    setTemplateError(null);
+    setComposer((prev) => (isBlankRichText(prev) ? template.body : `${prev}${template.body}`));
+    setTimeout(() => richEditorRef.current?.focus(), 0);
+    if (template.attachments.length === 0) return;
+    const startedOn = message.id;
+    const results = await Promise.allSettled(
+      template.attachments.map((file) =>
+        replyTemplatesService.downloadAttachment(template.id, file)
+      )
+    );
+    if (messageIdRef.current !== startedOn) return;
+    const files = results
+      .filter((row): row is PromiseFulfilledResult<File> => row.status === 'fulfilled')
+      .map((row) => row.value);
+    if (files.length > 0) onFilesChange([...filesRef.current, ...files]);
+    const failed = template.attachments.filter((_, idx) => results[idx].status === 'rejected');
+    if (failed.length > 0) {
+      logger.error('Failed to attach a reply template’s files', { templateId: template.id });
+      setTemplateError(
+        `Could not attach ${failed.map((file) => file.filename).join(', ')} from “${template.name}”.`
+      );
+    }
+  };
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) onFilesChange([...selectedFiles, ...Array.from(event.target.files)]);
     // Reset so selecting the SAME file again still fires onChange.
@@ -498,6 +539,14 @@ export function MessageComposer({
               />
             </span>
           )}
+          {composerMode === 'reply' && !atRest && (
+            <TemplatePicker
+              use="thread"
+              onPick={(template) => void insertTemplate(template)}
+              disabled={submitting}
+              triggerClassName={`${IBTN} h-auto`}
+            />
+          )}
           {composerMode === 'reply' && (
             <Button
               variant="ghost"
@@ -559,6 +608,12 @@ export function MessageComposer({
           </Button>
         </div>
       </div>
+
+      {templateError && !atRest && (
+        <p role="alert" className="mt-1.5 text-[11.5px] text-destructive">
+          {templateError}
+        </p>
+      )}
 
       {/* Selected files */}
       {selectedFiles.length > 0 && !atRest && (

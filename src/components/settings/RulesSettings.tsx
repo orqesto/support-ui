@@ -7,12 +7,20 @@ import { Permission } from '@/types/roles';
 import { DetectionRulesSettings } from './DetectionRulesSettings';
 import { KnowledgeDetectionRulesSettings } from './KnowledgeDetectionRulesSettings';
 import { PriorityRulesSettings } from './PriorityRulesSettings';
+import { ReplyTemplatesSettings } from './ReplyTemplatesSettings';
 import { RoutingRulesSettings } from './RoutingRulesSettings';
 import { SpamRulesSettings } from './SpamRulesSettings';
 
-type RuleType = 'spam' | 'detection' | 'knowledge' | 'routing' | 'priority';
+type RuleType = 'spam' | 'detection' | 'knowledge' | 'routing' | 'priority' | 'templates';
 
-const KNOWN_RULE_TYPES: RuleType[] = ['spam', 'detection', 'knowledge', 'routing', 'priority'];
+const KNOWN_RULE_TYPES: RuleType[] = [
+  'spam',
+  'detection',
+  'knowledge',
+  'routing',
+  'priority',
+  'templates',
+];
 const isRuleType = (value: string): value is RuleType =>
   (KNOWN_RULE_TYPES as string[]).includes(value);
 
@@ -32,17 +40,24 @@ export const RulesSettings = ({ section }: RulesSettingsProps = {}) => {
   // without it still gets the tabs hidden rather than a dead-end UI.
   const canManageRouting = hasPermission(Permission.MANAGE_ROUTING_RULES);
 
+  // Reply templates (2026-10-09): every agent who can read messages uses them, so every one sees
+  // the list; who may change them is per template (`canEdit`) and MANAGE_REPLY_TEMPLATES.
+  const canSeeTemplates = hasPermission(Permission.VIEW_MESSAGES);
+
   // Both families share the gate, so they hide and fall back together.
   const isManageOnly = (type: RuleType) => type === 'routing' || type === 'priority';
+  const isHidden = (type: RuleType) =>
+    (isManageOnly(type) && !canManageRouting) || (type === 'templates' && !canSeeTemplates);
 
   const requested = section && isRuleType(section) ? section : 'spam';
-  const initial: RuleType = isManageOnly(requested) && !canManageRouting ? 'spam' : requested;
+  const initial: RuleType = isHidden(requested) ? 'spam' : requested;
   const [activeRuleType, setActiveRuleType] = useState<RuleType>(initial);
 
   useEffect(() => {
     if (!section || !isRuleType(section)) return;
-    setActiveRuleType(isManageOnly(section) && !canManageRouting ? 'spam' : section);
-  }, [section, canManageRouting]);
+    setActiveRuleType(isHidden(section) ? 'spam' : section);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isHidden reads only these two flags
+  }, [section, canManageRouting, canSeeTemplates]);
 
   const goToRuleType = (next: RuleType) => {
     setActiveRuleType(next);
@@ -75,12 +90,15 @@ export const RulesSettings = ({ section }: RulesSettingsProps = {}) => {
       label: 'Priority Rules',
       description: 'Decide which messages are critical, high, medium, or low',
     },
+    {
+      id: 'templates' as RuleType,
+      label: 'Reply templates',
+      description: 'Saved replies for a thread’s or a ticket’s reply box',
+    },
   ];
 
   // Hide the routing sub-tab from users who can't manage it (BE returns 403 on save).
-  const visibleRuleTypes = canManageRouting
-    ? ruleTypes
-    : ruleTypes.filter((type) => !isManageOnly(type.id));
+  const visibleRuleTypes = ruleTypes.filter((type) => !isHidden(type.id));
 
   return (
     <div className="space-y-6">
@@ -111,6 +129,7 @@ export const RulesSettings = ({ section }: RulesSettingsProps = {}) => {
         {activeRuleType === 'knowledge' && <KnowledgeDetectionRulesSettings />}
         {activeRuleType === 'routing' && canManageRouting && <RoutingRulesSettings />}
         {activeRuleType === 'priority' && canManageRouting && <PriorityRulesSettings />}
+        {activeRuleType === 'templates' && canSeeTemplates && <ReplyTemplatesSettings />}
       </Tabs>
     </div>
   );
