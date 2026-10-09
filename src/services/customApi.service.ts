@@ -77,6 +77,8 @@ const normaliseEndpoint = (endpoint: CustomApiEndpoint): CustomApiEndpoint => ({
    */
   skeletonSource: endpoint.skeletonSource ?? null,
   dataPath: endpoint.dataPath ?? null,
+  // Older backend (no field) reads as "not made from a template".
+  templateKey: endpoint.templateKey ?? null,
 });
 
 const normalise = (connection: CustomApiConnection): CustomApiConnection => ({
