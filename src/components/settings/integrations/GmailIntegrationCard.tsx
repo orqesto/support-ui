@@ -33,6 +33,8 @@ import { detectBrowser, getPopupUnblockInstructions } from '@/lib/browserDetect'
 import { logger } from '@/lib/logger';
 import { gmailOAuthService } from '@/services/gmail-oauth.service';
 import { integrationsService } from '@/services/integrations.service';
+import { useKbRangeDialogStore } from '@/stores/kbRangeDialogStore';
+import { KB_RANGE_MENU_LABEL } from '@/components/settings/integrations/kbRangeCopy';
 
 type GmailConfig = {
   isKnowledgeBase?: boolean;
@@ -422,7 +424,7 @@ export const GmailIntegrationCard = ({
                             const gmailConfig = (
                               integration.config as { gmail?: { bulkImportDays?: number } }
                             ).gmail;
-                            const bulkDays = gmailConfig?.bulkImportDays ?? 0;
+                            const bulkDays = gmailConfig?.bulkImportDays ?? 30;
                             return bulkDays === 0 ? (
                               <span className="ml-2 font-medium text-warning">
                                 ⚠️ Bulk: All time
@@ -463,8 +465,8 @@ export const GmailIntegrationCard = ({
                               <div className="py-1">
                                 <SourceMenuItem
                                   icon={Calendar}
-                                  label="Initial Sync Range"
-                                  onClick={() => { const gmailConfig = ( integration.config as { gmail?: { bulkImportDays?: number } } ).gmail; const bulkDays = gmailConfig?.bulkImportDays ?? 0; setEditBulkImport({ id: integration.id, name: integration.name, currentDays: bulkDays, }); setShowMenu(null); }}
+                                  label={integration.isKnowledgeBase ? KB_RANGE_MENU_LABEL : 'Initial Sync Range'}
+                                  onClick={() => { if (integration.isKnowledgeBase) { useKbRangeDialogStore.getState().open(integration.id); setShowMenu(null); return; } const gmailConfig = ( integration.config as { gmail?: { bulkImportDays?: number } } ).gmail; const bulkDays = gmailConfig?.bulkImportDays ?? 30; setEditBulkImport({ id: integration.id, name: integration.name, currentDays: bulkDays, }); setShowMenu(null); }}
                                 />
                                 <SourceMenuItem
                                   icon={Hash}
@@ -525,7 +527,7 @@ export const GmailIntegrationCard = ({
                     onRefresh={onRefresh}
                     onShowAlert={onShowAlert}
                   />
-                  <SourceKbStrip source={integration} onShowAlert={onShowAlert} />
+                  <SourceKbStrip source={integration} onShowAlert={onShowAlert} onRefresh={onRefresh} />
                   {editAliases === integration.id && (
                     <SourceAliasEditor
                       sourceId={integration.id}

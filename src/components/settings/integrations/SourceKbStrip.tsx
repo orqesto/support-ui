@@ -1,4 +1,4 @@
-import { BookOpen, RefreshCw } from 'lucide-react';
+import { BookOpen, Calendar, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -7,6 +7,9 @@ import { useProcessingPanelStore } from '@/stores/processingPanelStore';
 import { logger } from '@/lib/logger';
 import { fallbackLayer } from '@/lib/limitFallback';
 import { describeNextReset, formatUtcDateAndLocal } from '@/lib/utcClock';
+import { useKbRangeDialogStore } from '@/stores/kbRangeDialogStore';
+import { KbHistoryRangeDialog } from '@/components/settings/integrations/KbHistoryRangeDialog';
+import { KB_RANGE_MENU_LABEL, errorText } from '@/components/settings/integrations/kbRangeCopy';
 import type { AlertState } from '@/components/settings/integrations/types';
 
 /**
@@ -148,20 +151,37 @@ export const describeMiningCost = (forecast: KbMiningForecast | undefined): stri
  * id in another workspace is being mined, and the two cannot run together.
  */
 export const remineRefusal = (error: unknown): string => {
-  const body = (error as { status?: unknown; data?: { data?: { reason?: unknown } } } | null) ?? {};
+  const body =
+    (error as {
+      status?: unknown;
+      data?: { code?: unknown; data?: { reason?: unknown } };
+    } | null) ?? {};
   if (body.status === 409 && body.data?.data?.reason === 'source-busy-elsewhere') {
     return 'A mailbox in another workspace is being mined right now and this one cannot be mined at the same time — try again once that finishes.';
   }
+  // Any other 409 that names a code (no plan, AI refused, …): the server's own sentence, with a
+  // reason code left in it put into words — a code is never printed.
+  if (body.status === 409 && typeof body.data?.code === 'string') return errorText(error);
   return error instanceof Error ? error.message : 'Failed to start re-mining';
 };
 
 export const SourceKbStrip = ({
   source,
   onShowAlert,
+  onRefresh,
 }: {
-  source: { id: number; isKnowledgeBase?: boolean; kbMarkedAt?: string | null };
+  source: {
+    id: number;
+    name?: string;
+    type?: string;
+    isKnowledgeBase?: boolean;
+    kbMarkedAt?: string | null;
+  };
   onShowAlert: (alert: AlertState) => void;
+  /** After the history range was changed: the card reads its sources again. */
+  onRefresh?: () => void | Promise<void>;
 }) => {
+  const rangeOpenId = useKbRangeDialogStore((state) => state.openSourceId);
   const [remining, setRemining] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   // Asked for only when the confirmation opens: a forecast counts the whole mailbox. Plain state,
@@ -184,6 +204,9 @@ export const SourceKbStrip = ({
   }, [confirmOpen, source.id, source.isKnowledgeBase]);
 
   if (!source.isKnowledgeBase) return null;
+
+  // The history range is a Gmail / IMAP thing: no other KB source has one.
+  const rangeType = source.type === 'gmail' || source.type === 'email' ? source.type : null;
 
   const cutoff = source.kbMarkedAt ? new Date(source.kbMarkedAt) : null;
   const cutoffValid = cutoff !== null && !Number.isNaN(cutoff.getTime());
@@ -294,15 +317,39 @@ export const SourceKbStrip = ({
       {/* Re-mining sends every conversation before the cutoff that has no mining watermark to
           the AI provider — paid work. The confirmation now says how many and, once measured on
           this workspace, what it costs (backend mining-forecast). */}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setConfirmOpen(true)}
-        isLoading={remining}
-      >
-        <RefreshCw className="mr-1 w-3 h-3" />
-        Re-mine
-      </Button>
+      <div className="flex flex-wrap gap-2 items-center">
+        {rangeType && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => useKbRangeDialogStore.getState().open(source.id)}
+          >
+            <Calendar className="mr-1 w-3 h-3" />
+            {KB_RANGE_MENU_LABEL}
+          </Button>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setConfirmOpen(true)}
+          isLoading={remining}
+        >
+          <RefreshCw className="mr-1 w-3 h-3" />
+          Re-mine
+        </Button>
+      </div>
+      {rangeType && rangeOpenId === source.id && (
+        <KbHistoryRangeDialog
+          source={{ id: source.id, name: source.name ?? '', type: rangeType }}
+          onClose={() => {
+            // A late apply (after Cancel) must not close another mailbox's dialog.
+            const store = useKbRangeDialogStore.getState();
+            if (store.openSourceId === source.id) store.close();
+          }}
+          onShowAlert={onShowAlert}
+          onApplied={() => void onRefresh?.()}
+        />
+      )}
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}

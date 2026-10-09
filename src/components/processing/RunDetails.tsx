@@ -324,6 +324,8 @@ const MailRunDetails = ({
         )}
         {status === 'kb_paused' ? (
           <li>{parkedWorkSentence(run)}</li>
+        ) : status === 'kb_full' ? (
+          <li data-testid="run-kb-full">{kbWork}</li>
         ) : status === 'kb_unknown' ? (
           <li data-testid="run-kb-unknown">{kbStateUnknownSentence(run)}</li>
         ) : kbWork ? (

@@ -29,6 +29,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
 import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
 import { integrationsService } from '@/services/integrations.service';
+import { useKbRangeDialogStore } from '@/stores/kbRangeDialogStore';
+import {
+  KB_MINING_DEFERRED_LINE,
+  KB_RANGE_MENU_LABEL,
+} from '@/components/settings/integrations/kbRangeCopy';
 import { logger } from '@/lib/logger';
 
 type EmailConfig = {
@@ -256,16 +261,22 @@ export const EmailIntegrationCard = ({
         await onRefresh();
         resetForm();
 
-        const actionMessage =
+        const actionMessage = `${
           response.action === 'updated'
             ? 'Email integration updated successfully! (Credentials refreshed for existing integration)'
-            : 'Email integration created successfully!';
+            : 'Email integration created successfully!'
+        }${response.kbMiningDeferred ? `\n\n${KB_MINING_DEFERRED_LINE}` : ''}`;
 
         onShowAlert({
           open: true,
           title: response.action === 'updated' ? 'Updated' : 'Created',
           description: actionMessage,
-          variant: response.action === 'updated' ? 'info' : 'success',
+          // Nothing is mined yet when mining was deferred: a green/blue alert reads as "all good".
+          variant: response.kbMiningDeferred
+            ? 'warning'
+            : response.action === 'updated'
+              ? 'info'
+              : 'success',
         });
       }
     } catch (error) {
@@ -405,6 +416,10 @@ export const EmailIntegrationCard = ({
                         variant="outline"
                         size="sm"
                         onClick={() => {
+                          if (integration.isKnowledgeBase) {
+                            useKbRangeDialogStore.getState().open(integration.id);
+                            return;
+                          }
                           const emailConfig = (integration.config as { email?: EmailConfig }).email;
                           const currentDays = emailConfig?.bulkImportDays ?? 0;
                           setEditBulkImport({
@@ -414,8 +429,16 @@ export const EmailIntegrationCard = ({
                           });
                           setBulkImportDaysInput('7');
                         }}
-                        title="Bulk import historical emails"
-                        aria-label="Bulk import historical emails"
+                        title={
+                          integration.isKnowledgeBase
+                            ? KB_RANGE_MENU_LABEL
+                            : 'Bulk import historical emails'
+                        }
+                        aria-label={
+                          integration.isKnowledgeBase
+                            ? KB_RANGE_MENU_LABEL
+                            : 'Bulk import historical emails'
+                        }
                       >
                         <Calendar className="w-4 h-4" />
                       </Button>
@@ -497,7 +520,11 @@ export const EmailIntegrationCard = ({
                       </Button>
                     </div>
                   </div>
-                  <SourceKbStrip source={integration} onShowAlert={onShowAlert} />
+                  <SourceKbStrip
+                    source={integration}
+                    onShowAlert={onShowAlert}
+                    onRefresh={onRefresh}
+                  />
                   {compareId === integration.id && (
                     <ImapCompareReview
                       sourceId={integration.id}
@@ -521,7 +548,10 @@ export const EmailIntegrationCard = ({
                     <SourceDepartmentEditor
                       sourceId={integration.id}
                       onClose={() => setEditDepts(null)}
-                      onSaved={() => { setEditDepts(null); void onRefresh(); }}
+                      onSaved={() => {
+                        setEditDepts(null);
+                        void onRefresh();
+                      }}
                     />
                   )}
                   {editAckReply === integration.id && (
@@ -627,16 +657,13 @@ export const EmailIntegrationCard = ({
                 ]}
               />
               <p className="mt-2 text-xs text-muted-foreground">
-                How far back to fetch emails on first connect. After the initial sync, normal incremental polling resumes.
+                How far back to fetch emails on first connect. After the initial sync, normal
+                incremental polling resumes.
               </p>
             </div>
 
             <div className="flex gap-3 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setEditBulkImport(null)}
-                disabled={saving}
-              >
+              <Button variant="outline" onClick={() => setEditBulkImport(null)} disabled={saving}>
                 Cancel
               </Button>
               <Button onClick={handleUpdateBulkImportDays} isLoading={saving}>

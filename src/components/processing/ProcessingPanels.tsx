@@ -12,7 +12,7 @@ const SESSION_SILENT_MS = 20 * 60_000;
 /** What the summary says of one source: a change is when a panel off screen asks again. */
 const summaryKeyOf = (entry: ProcessingSummaryEntry | undefined): string =>
   entry
-    ? `${entry.inProgress}:${entry.problems}:${entry.countCapped}:${entry.unavailable}:${entry.pausedByLimit ?? ''}:${entry.pausedUntil ?? ''}:${entry.waitingForSlot ?? ''}:${entry.releaseQueuedAt ?? ''}:${entry.resumeAdmittedAt ?? ''}:${entry.kbStateUnknown ?? ''}`
+    ? `${entry.inProgress}:${entry.problems}:${entry.countCapped}:${entry.unavailable}:${entry.pausedByLimit ?? ''}:${entry.pausedUntil ?? ''}:${entry.waitingForSlot ?? ''}:${entry.releaseQueuedAt ?? ''}:${entry.resumeAdmittedAt ?? ''}:${entry.kbStateUnknown ?? ''}:${entry.kbFullHeld ?? ''}`
     : '';
 
 /**

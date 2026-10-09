@@ -1,6 +1,9 @@
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 
+export * from './kbRangeTypes';
+import { kbHistoryRange } from './kbRangeApi';
+
 // Integration-specific config types
 export type EmailConfig = {
   host: string;
@@ -391,6 +394,7 @@ export type ApiResponse<T> = {
   error?: string;
   message?: string;
   action?: 'created' | 'updated'; // Backend returns this for upsert operations
+  kbMiningDeferred?: 'plan_inactive'; // upsert: KB is on but nothing is mined (no active plan)
 };
 
 // Generic integrations service (for listing all)
@@ -707,12 +711,15 @@ export const integrationsService = {
    * sync window, how many of them are already in Odly (matched by Message-ID) and how many are
    * missing. `unverifiable` = no Message-ID header — never counted as missing.
    */
-  countImapMessages: async (id: number): Promise<ImapCountResult> => {
+  countImapMessages: async (id: number, opts: { days?: number } = {}): Promise<ImapCountResult> => {
     const response = await apiClient.post<{ success: boolean; data: ImapCountResult }>(
-      `/api/integrations/${id}/imap-count`
+      `/api/integrations/${id}/imap-count`,
+      opts.days === undefined ? undefined : { days: opts.days }
     );
     return response.data.data;
   },
+
+  kbHistoryRange,
 
   upsert: async (data: {
     name: string;
@@ -731,15 +738,12 @@ export const integrationsService = {
     departmentIds?: number[];
     defaultDepartmentId?: number;
   }): Promise<ApiResponse<Integration>> => {
-    const response = await apiClient.post<{
-      success: boolean;
-      action?: 'created' | 'updated';
-      data: Integration;
-    }>('/api/integrations', data);
+    const response = await apiClient.post<ApiResponse<Integration>>('/api/integrations', data);
     return {
       success: response.data.success,
       data: response.data.data,
       action: response.data.action,
+      kbMiningDeferred: response.data.kbMiningDeferred,
     };
   },
 
