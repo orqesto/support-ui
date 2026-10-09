@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { getErrorStatus } from '@/lib/errorMessages';
 import type { components } from '@/types/generated/api';
 
 /** A custom API template (spec CUSTOM-API-TEMPLATES 2026-10-09). Not a reply template. */
@@ -21,10 +22,17 @@ const ADMIN_PATH = '/api/admin/platform/custom-api-templates';
 export const customApiTemplateService = {
   /** Published templates this workspace can apply (MANAGE_INTEGRATIONS). */
   async listPublished(): Promise<CustomApiTemplate[]> {
-    const res = await apiClient.get<{ success: boolean; data?: CustomApiTemplate[] }>(
-      '/api/custom-apis/templates'
-    );
-    return res.data.data ?? [];
+    try {
+      const res = await apiClient.get<{ success: boolean; data?: CustomApiTemplate[] }>(
+        '/api/custom-apis/templates'
+      );
+      return res.data.data ?? [];
+    } catch (err) {
+      // FE deploys on merge, BE on a tag: an older backend answers 400 (":id" parser) or 404 here.
+      const status = getErrorStatus(err);
+      if (status === 400 || status === 404) return [];
+      throw err;
+    }
   },
 };
 

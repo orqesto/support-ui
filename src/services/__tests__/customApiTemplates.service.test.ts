@@ -44,4 +44,14 @@ describe('custom API template services', () => {
     get.mockResolvedValue({ data: { success: true } });
     expect(await customApiTemplateService.listPublished()).toEqual([]);
   });
+
+  it.each([400, 404])('an older backend (status %i) reads as no templates', async (status) => {
+    get.mockRejectedValue(Object.assign(new Error('Invalid id'), { status }));
+    expect(await customApiTemplateService.listPublished()).toEqual([]);
+  });
+
+  it('CONTROL: a 500 still throws', async () => {
+    get.mockRejectedValue(Object.assign(new Error('boom'), { status: 500 }));
+    await expect(customApiTemplateService.listPublished()).rejects.toThrow('boom');
+  });
 });
