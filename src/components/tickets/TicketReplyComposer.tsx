@@ -405,7 +405,8 @@ export const TicketReplyComposer = ({
                       {row.reason && ` — ${row.reason}`}
                     </p>
                   ))}
-                  {missing.length > 0 && (
+                  {/* A reply the agent cannot read is not theirs to send on (G1). */}
+                  {reply.content !== null && missing.length > 0 && (
                     <Button
                       size="sm"
                       variant="outline"
