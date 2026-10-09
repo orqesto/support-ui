@@ -45,10 +45,13 @@ export const TemplateGuide = ({
    */
   const pendingIds = useRef<Record<string, number> | null>(null);
   const [reloadFailed, setReloadFailed] = useState(false);
+  /** A saved step whose reload is in flight or failed: Skip would drop its id, so it is hidden. */
+  const [awaitingReload, setAwaitingReload] = useState(false);
 
   const advance = (ids: Record<string, number>) => {
     pendingIds.current = null;
     setReloadFailed(false);
+    setAwaitingReload(false);
     createdId.current = null;
     setPicked([]);
     if (step + 1 >= lookups.length) onDone();
@@ -75,6 +78,7 @@ export const TemplateGuide = ({
 
   const onSaved = () => {
     saving.current = true;
+    setAwaitingReload(true);
     const id = createdId.current;
     pendingIds.current = id === null ? savedIds : { ...savedIds, [lookup.key]: id };
     reload();
@@ -87,7 +91,7 @@ export const TemplateGuide = ({
           {template.name} · step {step + 1} of {lookups.length}
         </p>
         {/* ⛔ No Skip while a saved step awaits its reload: it would drop the saved id. */}
-        {!reloadFailed && (
+        {!awaitingReload && (
           <Button size="sm" variant="ghost" onClick={() => advance(savedIds)}>
             {feedsOwnership ? "My API can't list a customer's records — skip" : 'Skip this step'}
           </Button>

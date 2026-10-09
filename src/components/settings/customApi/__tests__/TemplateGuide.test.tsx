@@ -224,4 +224,34 @@ describe('TemplateGuide', () => {
     expect(screen.queryByText(/could not be reloaded/)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
   });
+  it('⛔ no Skip while the reload after Save is still in flight', async () => {
+    list.mockReturnValue(new Promise(() => {}));
+    render(
+      <TemplateGuide
+        connection={connection}
+        template={template}
+        onDone={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+    expect(screen.getByRole('button', { name: /skip/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByText('fake test'));
+    fireEvent.click(screen.getByText('fake save'));
+    await waitFor(() => expect(list).toHaveBeenCalled());
+    expect(screen.queryByRole('button', { name: /skip/i })).toBeNull();
+  });
+
+  it('Skip is back on the next step once the reload succeeds', async () => {
+    render(
+      <TemplateGuide
+        connection={connection}
+        template={template}
+        onDone={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByText('fake save'));
+    await screen.findByText('Look up an order number');
+    expect(screen.getByRole('button', { name: /skip/i })).toBeInTheDocument();
+  });
 });
