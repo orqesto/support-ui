@@ -83,6 +83,7 @@ import {
   type GhostOption,
   type SuggestedAnswerMeta,
   LABEL,
+  type PanelTab,
 } from './messageDetailConstants';
 
 /** v4 ".k-flash": a short ring on the Connected systems block after the composer's Look up. */
@@ -106,16 +107,6 @@ const THREAD_PAGE = 300;
 const holdsUnsentNote = (html: string, lastEditMode: 'reply' | 'note' | null) =>
   lastEditMode === 'note' && !isBlankRichText(html);
 const NOTE_IN_PROGRESS = 'Post or clear your internal note first';
-
-type PanelTab =
-  | 'ai'
-  | 'customer'
-  | 'attachments'
-  | 'kb'
-  | 'activity'
-  | 'notes'
-  | 'lead'
-  | 'contradiction';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -470,12 +461,16 @@ export function MessageDetail({
   }, [message.id]);
 
   /*
-    v4 composer "Look up": open the Customer tab and bring the Connected systems block into view.
+    v4 composer "Look up": open the Lookups tab and bring the Connected systems block into view.
     ⛔ Offered only when the lookup panel itself would render — the SAME cached availability query
     (react-query key shared with CustomApiLookupPanel's thread surface), so this adds no request.
     It fails closed exactly like the panel: loading, error or an older backend ⇒ no button.
   */
   const lookupAvailable = useCustomApiLookupAvailability('thread');
+  // An admin can remove the last lookup while an agent sits on its tab; fall back, never blank.
+  useEffect(() => {
+    if (tab === 'lookups' && !lookupAvailable) setTab('ai');
+  }, [tab, lookupAvailable]);
   const lookupFlash = useRef<{
     frame: number | null;
     timer: ReturnType<typeof setTimeout> | null;
@@ -496,7 +491,7 @@ export function MessageDetail({
   }, []);
   useEffect(() => cancelLookupFlash, [cancelLookupFlash, message.id]);
   const handleLookUp = useCallback(() => {
-    setTab('customer');
+    setTab('lookups');
     // The sidebar always shows its content; the slide-over's rail has to be opened.
     if (!twoColumn) setPanelOpen(true);
     cancelLookupFlash();
@@ -518,7 +513,7 @@ export function MessageDetail({
       /*
         …and focus goes there too (the block is focusable, tabIndex -1, named "Connected
         systems"): a screen reader lands on what the press opened, and on a phone — where the
-        Customer tab hides the composer the press came from — focus does not fall to <body>.
+        Lookups tab hides the composer the press came from — focus does not fall to <body>.
         preventScroll: the smooth scroll above already brings it into view.
       */
       root.focus({ preventScroll: true });
@@ -935,7 +930,7 @@ export function MessageDetail({
       setComposerMode('reply');
       showComposerForShortcut();
       // Deferred: from note mode the reply editor mounts with this render; on a phone the composer
-      // is display:none under the Customer tab until the Thread tab is back.
+      // is display:none under the Lookups tab until the Thread tab is back.
       setTimeout(() => richEditorRef.current?.focus('end'), 0);
       return 'added';
     },

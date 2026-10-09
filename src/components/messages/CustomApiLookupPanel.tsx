@@ -11,13 +11,13 @@ import { conversationContactService } from '@/services/conversationContact.servi
 import type { AddOutcome } from './useAiRecordNote';
 import type { CustomApiLookupResult } from '@/services/customApiLookup.service';
 import { CATEGORY_RECORD_LABELS, readCategory } from '@/components/settings/customApi/categories';
-import { LABEL, relativeTime } from './messageDetailConstants';
+import { relativeTime } from './messageDetailConstants';
 import { projectFields, RowFields, UNCONFIGURED_FIELD_PREVIEW } from './customApiRowFields';
 
 /**
  * What the connected integrations know about THIS customer (CA-3).
  *
- * ⛔ ONE component, rendered in BOTH the thread's customer tab and the standalone contact drawer.
+ * ⛔ ONE component, rendered in BOTH the thread's Lookups tab and the contact drawer's.
  * Not two copies of the outcome states: a page opened from a list must not rename, recolour or
  * flatten what that list said, and two copies are two places to fix every future state.
  *
@@ -511,9 +511,9 @@ export const CustomApiLookupPanel = ({
   if (unavailable) return null;
 
   return (
-    // `data-lookup-root`: the composer's "Look up" button opens the Customer tab, then scrolls
-    // this into view, focuses it (tabIndex -1: reachable by script, not a Tab stop) and flashes it.
-    // Harmless on the contacts page.
+    // `data-lookup-root`: the composer's "Look up" button opens the Lookups tab, then scrolls this
+    // into view, focuses it (tabIndex -1: reachable by script, not a Tab stop) and flashes it.
+    // Harmless in the contact drawer.
     <div
       data-lookup-root
       role="group"
@@ -521,8 +521,8 @@ export const CustomApiLookupPanel = ({
       tabIndex={-1}
       className={`focus:outline-none ${className ? `space-y-2 ${className}` : 'space-y-2'}`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <p className={`${LABEL} text-muted-foreground`}>CONNECTED SYSTEMS</p>
+      {/* No visible heading: the tab that holds this panel names it (spec 2026-10-09). */}
+      <div className="flex items-center justify-end gap-2">
         {/* v4: after a run, "ran just now" and "↻ Look up again"; computed per render, no ticker. */}
         {ranAt && (
           <span className="ml-auto text-[10.5px] text-faint-foreground">

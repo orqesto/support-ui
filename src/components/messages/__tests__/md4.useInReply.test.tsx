@@ -156,7 +156,7 @@ vi.mock('@/components/layout/Layout', () => ({
 const SENTENCE = 'Their records: order 137416, status On its way, placed 2026-09-01.';
 const SECOND_SENTENCE = 'Their records: order 137417, status Delivered.';
 
-// The side panel: a Customer tab whose record control calls the host's onUseInReply.
+// The side panel: a Lookups tab whose record control calls the host's onUseInReply.
 vi.mock('../MessagePanelTabs', () => ({
   MessagePanelTabs: function PanelStub(props: MessagePanelTabsProps) {
     const [outcome, setOutcome] = useState('');
@@ -174,23 +174,23 @@ vi.mock('../MessagePanelTabs', () => ({
         <button
           type="button"
           onClick={() => {
-            props.setTab('customer');
+            props.setTab('lookups');
             props.setPanelOpen(true);
           }}
         >
-          open Customer tab
+          open Lookups tab
         </button>
         {/* What the REAL rail tab does on a phone / slide-over (MessagePanelTabs): it also asks
             for Reply mode — md4.panelModeGuard.test.tsx proves the real one goes through here. */}
         <button
           type="button"
           onClick={() => {
-            props.setTab('customer');
+            props.setTab('lookups');
             props.setPanelOpen(true);
             props.setComposerMode('reply');
           }}
         >
-          rail Customer tab
+          rail Lookups tab
         </button>
         <button type="button" onClick={() => setOutcome(props.onUseInReply?.(SENTENCE) ?? '')}>
           use record
@@ -400,7 +400,7 @@ describe('No usable AI note: the sentence goes into the REPLY', () => {
     renderDetail();
     fireEvent.click(modeTab('Internal note'));
     fireEvent.change(editor(), { target: { value: '<p>for the team only</p>' } });
-    fireEvent.click(screen.getByRole('button', { name: 'rail Customer tab' }));
+    fireEvent.click(screen.getByRole('button', { name: 'rail Lookups tab' }));
     expect(modeTab('Internal note').getAttribute('aria-pressed')).toBe('true');
     await useRecord();
     expect(outcome()).toBe('note_in_progress');
@@ -431,13 +431,13 @@ describe('No usable AI note: the sentence goes into the REPLY', () => {
     expect(within(composer()).getByRole('button', { name: /SEND/ })).toBeDisabled();
   });
 
-  it('phone: from the Customer tab it goes back to Thread with the composer open', async () => {
+  it('phone: from the Lookups tab it goes back to Thread with the composer open', async () => {
     aiDrafts.off = true;
     setViewport(true);
     renderDetail();
-    fireEvent.click(screen.getByRole('button', { name: 'open Customer tab' }));
+    fireEvent.click(screen.getByRole('button', { name: 'open Lookups tab' }));
     expect(screen.getByTestId('panel-tabs').getAttribute('data-open')).toBe('true');
-    // Under the Customer tab a phone hides the composer.
+    // Under the Lookups tab a phone hides the composer.
     expect(composer().className).toMatch(/(^|\s)hidden(\s|$)/);
     await useRecord();
     expect(screen.getByTestId('panel-tabs').getAttribute('data-open')).toBe('false');
@@ -549,7 +549,7 @@ describe('A suggested answer never silently replaces what the agent wrote', () =
     renderDetail();
     fireEvent.click(modeTab('Internal note'));
     fireEvent.change(editor(), { target: { value: '<p>for the team only</p>' } });
-    fireEvent.click(screen.getByRole('button', { name: 'rail Customer tab' }));
+    fireEvent.click(screen.getByRole('button', { name: 'rail Lookups tab' }));
     fireEvent.click(screen.getByRole('button', { name: 'use KB answer' }));
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
     expect(confirmDialog()).toBeNull();

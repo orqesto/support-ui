@@ -18,8 +18,14 @@ export type CustomApiLookupResult = components['schemas']['CustomApiLookupResult
 export type LookupOwnership = NonNullable<CustomApiLookupResult['ownership']>;
 /** CA-6: a record already fetched by an earlier lookup and kept by D37's store. */
 export type CustomApiStoredRecord = components['schemas']['CustomApiStoredRecord'];
-/** CA-6: a lookup an agent could run — label, vendor and whether it takes a typed reference. */
-export type RunnableLookup = components['schemas']['CustomApiRunnableLookup'];
+/**
+ * CA-6: a lookup an agent could run — label, vendor and whether it takes a typed reference.
+ * `category` is optional here on purpose: a backend older than 2026-10-09 does not send it, and
+ * this frontend deploys on merge while the backend ships on a tag.
+ */
+export type RunnableLookup = components['schemas']['CustomApiRunnableLookup'] & {
+  category?: string | null;
+};
 export type LookupField = NonNullable<CustomApiLookupResult['fields']>[number];
 
 export interface LookupRequest {

@@ -33,6 +33,17 @@ export const CATEGORY_RECORD_LABELS: Record<CustomApiCategory, string> = {
   account: 'Account',
 };
 
+/**
+ * Plural, for the agent's TAB when every lookup there returns this kind of record ("Orders").
+ * Shorter than `CATEGORY_LABELS`: a tab strip has no room for "Shipments or tracking".
+ */
+export const CATEGORY_TAB_LABELS: Record<CustomApiCategory, string> = {
+  order: 'Orders',
+  shipment: 'Shipments',
+  invoice: 'Invoices',
+  account: 'Accounts',
+};
+
 /** The category stored on an endpoint, or null when it is unset or a word this build lacks. */
 export const readCategory = (value: unknown): CustomApiCategory | null =>
   typeof value === 'string' && (CUSTOM_API_CATEGORIES as readonly string[]).includes(value)

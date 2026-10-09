@@ -320,7 +320,7 @@ describe('MessageDetail Look up — seek and flash', () => {
     rerender(tree(queryClient, {}, { isFullPage: true }));
     expect(panel()).toHaveAttribute('data-variant', 'sidebar');
     fireEvent.click(await screen.findByTitle(LOOK_UP));
-    expect(panel()).toHaveAttribute('data-tab', 'customer');
+    expect(panel()).toHaveAttribute('data-tab', 'lookups');
     expect(panel()).toHaveAttribute('data-open', 'false');
   });
 

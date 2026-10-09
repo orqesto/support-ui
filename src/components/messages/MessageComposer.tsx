@@ -73,7 +73,7 @@ export type MessageComposerProps = {
   /** Bumped when a record was added, so the note box comes on screen to show it. */
   aiNoteReveal?: number;
   /**
-   * v4 "Look up": takes the agent to the Connected systems block on the Customer tab. The host
+   * v4 "Look up": takes the agent to the Connected systems block on the Lookups tab. The host
    * passes it ONLY when this workspace has a lookup the agent could run on a thread (the same
    * cached availability answer the lookup panel renders on) — absent, no button, because a
    * button that opens an empty tab is the dead control the availability check exists to remove.

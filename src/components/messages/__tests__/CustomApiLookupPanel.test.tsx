@@ -780,12 +780,18 @@ describe('the panel renders ONLY when this caller has a lookup to run', () => {
 
   it('POSITIVE CONTROL: renders the panel when a lookup IS available', async () => {
     render(<CustomApiLookupPanel conversationId={1} />);
-    expect(await screen.findByText('CONNECTED SYSTEMS')).toBeTruthy();
+    expect(await screen.findByRole('group', { name: 'Connected systems' })).toBeTruthy();
+  });
+
+  it('no visible "CONNECTED SYSTEMS" heading — the tab names it (spec 2026-10-09)', async () => {
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await screen.findByRole('group', { name: 'Connected systems' });
+    expect(screen.queryByText('CONNECTED SYSTEMS')).toBeNull();
   });
 
   it('⛔ asking is NOT a lookup — no lookup request fires on mount (SC1)', async () => {
     render(<CustomApiLookupPanel conversationId={1} />);
-    await screen.findByText('CONNECTED SYSTEMS');
+    await screen.findByRole('group', { name: 'Connected systems' });
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -802,7 +808,7 @@ describe('the panel renders ONLY when this caller has a lookup to run', () => {
   it('a press that finds nothing to run re-asks, and the panel stands down', async () => {
     run.mockResolvedValue([]);
     const { container } = render(<CustomApiLookupPanel conversationId={1} />);
-    await screen.findByText('CONNECTED SYSTEMS');
+    await screen.findByRole('group', { name: 'Connected systems' });
     // An admin disabled the last lookup after the panel asked.
     availability.mockResolvedValue(false);
     await press();
