@@ -20,12 +20,11 @@ export type LookupOwnership = NonNullable<CustomApiLookupResult['ownership']>;
 export type CustomApiStoredRecord = components['schemas']['CustomApiStoredRecord'];
 /**
  * CA-6: a lookup an agent could run — label, vendor and whether it takes a typed reference.
- * `category` is optional here on purpose: a backend older than 2026-10-09 does not send it, and
- * this frontend deploys on merge while the backend ships on a tag.
+ * `category` is now in the generated type (regenerated 2026-10-09); a backend older than that does
+ * not send it, and this frontend deploys on merge while the backend ships on a tag, so readers
+ * still treat it as possibly absent at runtime.
  */
-export type RunnableLookup = components['schemas']['CustomApiRunnableLookup'] & {
-  category?: string | null;
-};
+export type RunnableLookup = components['schemas']['CustomApiRunnableLookup'];
 export type LookupField = NonNullable<CustomApiLookupResult['fields']>[number];
 
 export interface LookupRequest {

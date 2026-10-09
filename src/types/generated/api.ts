@@ -374,6 +374,7 @@ export interface components {
             surface: "thread" | "contact" | "both";
             /** @enum {string|null} */
             category: "order" | "shipment" | "invoice" | "account" | null;
+            templateKey: string | null;
             statusLabels: {
                 [key: string]: string;
             };
@@ -420,6 +421,7 @@ export interface components {
             connectionName: string;
             parameterSource: string;
             resultShape: string;
+            category: string | null;
             storesRecords: boolean;
         };
         CustomApiStoredRecord: {
@@ -464,6 +466,43 @@ export interface components {
             ownership?: "owned" | "mismatch" | "unverified";
             /** @enum {string} */
             ownershipReason?: "not_supported" | "no_customer_email" | "check_failed" | "identity_not_returned" | "check_truncated" | "tagged_field_has_no_address";
+        };
+        CustomApiTemplate: {
+            id: number;
+            key: string;
+            name: string;
+            description: string;
+            /** @enum {string} */
+            status: "draft" | "published";
+            definition: {
+                /** @enum {number} */
+                version: 1;
+                lookups: {
+                    key: string;
+                    label: string;
+                    /** @default  */
+                    description: string;
+                    /** @enum {string|null} */
+                    category: "order" | "shipment" | "invoice" | "account" | null;
+                    /** @enum {string} */
+                    parameterSource: "identity" | "manual";
+                    /** @enum {string} */
+                    surface: "thread" | "contact" | "both";
+                    /** @enum {string} */
+                    resultShape: "one" | "many";
+                    checklist: {
+                        /** @enum {string} */
+                        role: "identifier" | "date" | "status" | "total" | "currency" | "customer_email";
+                        label: string;
+                        required: boolean;
+                    }[];
+                    statusWords: {
+                        [key: string]: string;
+                    };
+                    ownershipFrom: string | null;
+                }[];
+            };
+            updatedAt: string;
         };
         SlaBreach: {
             id: number;

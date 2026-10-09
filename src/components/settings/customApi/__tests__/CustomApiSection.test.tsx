@@ -132,6 +132,7 @@ describe('Settings › Integrations › Custom APIs — every button goes to the
             hasResponseSkeleton: false,
             skeletonSource: null,
             dataPath: null,
+            templateKey: null,
             createdAt: '2026-09-19T10:00:00.000Z',
             updatedAt: '2026-09-19T10:00:00.000Z',
           },

@@ -1,15 +1,4 @@
-/**
- * L2 — what the SAVE button actually sends when an admin EDITS an existing lookup.
- *
- * 🔴 Measured on staging 2026-09-23, against MERGED code: pick a record kind, write a word for a
- * vendor status, press Save → 200, the dialog closes, and the row still has `category` NULL and
- * `status_labels` `{}`. `ensureSaved` carried both, but it runs only when there is no endpoint yet
- * (`endpointId ?? (await ensureSaved())`), so on every edit the `save()` payload was the only
- * write — and it carried neither. Every earlier test drove the API or the step component; none
- * drove this button, which is exactly where both L2 phases died.
- *
- * Its own file because `EndpointWizard.test.tsx` is at the 650-line lint ceiling.
- */
+/** Template starting values for a NEW lookup. Own file: EndpointWizard.test.tsx is at the lint ceiling. */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -18,6 +7,7 @@ import type * as Svc from '@/services/customApi.service';
 
 type Connection = Svc.CustomApiConnection;
 
+const createEndpoint = vi.fn<(connectionId: number, input: unknown) => Promise<Connection>>();
 const updateEndpoint =
   vi.fn<(connectionId: number, endpointId: number, input: unknown) => Promise<Connection>>();
 
@@ -27,6 +17,7 @@ vi.mock('@/services/customApi.service', async () => {
     ...actual,
     customApiService: {
       ...actual.customApiService,
+      createEndpoint: (id: number, input: unknown) => createEndpoint(id, input),
       updateEndpoint: (connectionId: number, endpointId: number, input: unknown) =>
         updateEndpoint(connectionId, endpointId, input),
     },
@@ -109,85 +100,74 @@ const withNewEndpoint = (): Connection => ({
 
 const noop = () => {};
 
-beforeEach(() => {
-  cleanup();
-  updateEndpoint.mockReset().mockResolvedValue(withNewEndpoint());
-});
+const existing = () => ({ ...withNewEndpoint().endpoints[0], label: 'Saved one' });
 
-describe('the Save payload of an EDIT', () => {
-  const existing = () => ({
-    ...withNewEndpoint().endpoints[0],
-    fieldPaths: [
-      { path: 'status', label: 'Status', kind: 'plain' as const, role: 'status' as const },
-    ],
+describe('EndpointWizard — initial values from a template', () => {
+  beforeEach(() => {
+    cleanup();
+    createEndpoint.mockReset().mockResolvedValue(withNewEndpoint());
+    updateEndpoint.mockReset().mockResolvedValue(withNewEndpoint());
+  });
+
+  const initial = {
+    label: 'Look up an order number',
     category: 'order' as const,
-    statusLabels: { in_transit: 'On its way' },
+    parameterSource: 'manual' as const,
+    resultShape: 'one' as const,
+    statusLabels: { shipped: 'On its way' },
+    ownershipSourceEndpointId: null,
+    createExtras: { surface: 'thread' as const, templateKey: 'order_tracking' },
+  };
+
+  it('pre-fills the form and sends surface + templateKey on CREATE only', async () => {
+    const user = userEvent.setup();
+    render(
+      <EndpointWizard connection={connection()} initial={initial} onClose={noop} onSaved={noop} />
+    );
+    expect(screen.getByDisplayValue('Look up an order number')).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/Address in your system/), '/orders/{value}');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(createEndpoint).toHaveBeenCalled());
+    expect(createEndpoint.mock.calls[0][1]).toMatchObject({
+      label: 'Look up an order number',
+      category: 'order',
+      parameterSource: 'manual',
+      statusLabels: { shipped: 'On its way' },
+      surface: 'thread',
+      templateKey: 'order_tracking',
+    });
+    expect(updateEndpoint.mock.calls.at(-1)?.[2]).not.toHaveProperty('templateKey');
   });
 
-  it('🔴 carries the CATEGORY, so a record kind can be changed on an existing lookup', async () => {
-    const user = userEvent.setup();
+  it('reports picked fields to the host as they change', () => {
+    const onPickedChange = vi.fn();
     render(
       <EndpointWizard
         connection={connection()}
-        endpoint={existing()}
+        initial={initial}
+        onClose={noop}
+        onSaved={noop}
+        onPickedChange={onPickedChange}
+      />
+    );
+    expect(onPickedChange).toHaveBeenLastCalledWith([]);
+  });
+
+  it('CONTROL: an existing lookup ignores `initial` (edit, never overwrite)', async () => {
+    const user = userEvent.setup();
+    // category null is the field that would fall through to `initial` if it leaked.
+    render(
+      <EndpointWizard
+        connection={connection()}
+        endpoint={{ ...existing(), category: null }}
+        initial={initial}
         onClose={noop}
         onSaved={noop}
       />
     );
-
+    expect(screen.queryByDisplayValue('Look up an order number')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Save' }));
-
     await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
-    const [, , payload] = updateEndpoint.mock.calls.at(-1) as [
-      number,
-      number,
-      Record<string, unknown>,
-    ];
-    expect(payload.category).toBe('order');
-  });
-
-  it("🔴 carries the admin's STATUS WORDS, which are otherwise silently discarded", async () => {
-    const user = userEvent.setup();
-    render(
-      <EndpointWizard
-        connection={connection()}
-        endpoint={existing()}
-        onClose={noop}
-        onSaved={noop}
-      />
-    );
-
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
-    const [, , payload] = updateEndpoint.mock.calls.at(-1) as [
-      number,
-      number,
-      Record<string, unknown>,
-    ];
-    expect(payload.statusLabels).toEqual({ in_transit: 'On its way' });
-  });
-
-  it('CONTROL: a lookup with NO category still sends null, so one can be taken off', async () => {
-    const user = userEvent.setup();
-    render(
-      <EndpointWizard
-        connection={connection()}
-        endpoint={{ ...existing(), category: null, statusLabels: {} }}
-        onClose={noop}
-        onSaved={noop}
-      />
-    );
-
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
-    const [, , payload] = updateEndpoint.mock.calls.at(-1) as [
-      number,
-      number,
-      Record<string, unknown>,
-    ];
-    expect(payload.category).toBeNull();
-    expect(payload.statusLabels).toEqual({});
+    expect(updateEndpoint.mock.calls.at(-1)?.[2]).toMatchObject({ category: null });
   });
 });

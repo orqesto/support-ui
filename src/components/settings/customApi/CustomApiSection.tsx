@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CustomApiSettings } from './CustomApiSettings';
 import { CustomApiVendorForm } from './CustomApiVendorForm';
-import { customApiLookupPath } from './lookupPaths';
+import { customApiLookupPath, customApiTemplatePath } from './lookupPaths';
 import type { CustomApiConnection } from '@/services/customApi.service';
 
 /**
@@ -51,6 +51,8 @@ export const CustomApiSection = ({ canManageVendors }: Props) => {
         // ⛔ Lookups are NOT admin-gated (D40): a moderator owns them, and the backend keeps the
         // endpoint routes on MANAGE_INTEGRATIONS for exactly that reason.
         onAddLookup={(connection) => navigate(customApiLookupPath(connection.id, 'new'))}
+        // Same gate as onAddLookup: a template only pre-fills that same lookup form.
+        onStartFromTemplate={(connection) => navigate(customApiTemplatePath(connection.id))}
         onEditLookup={(connection, endpoint) =>
           navigate(customApiLookupPath(connection.id, endpoint.id))
         }
