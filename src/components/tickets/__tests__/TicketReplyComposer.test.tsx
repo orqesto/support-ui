@@ -301,7 +301,7 @@ describe('TicketReplyComposer', () => {
         {
           id: 8,
           content: null,
-          createdAt: '2026-10-02T10:00:00Z',
+          createdAt: '2026-09-02T10:00:00Z',
           createdBy: null,
           deliveries: [],
           hiddenCount: 2,
@@ -314,6 +314,8 @@ describe('TicketReplyComposer', () => {
       await screen.findByText('Sent only to threads in departments you cannot open.')
     ).toBeInTheDocument();
     expect(screen.getByText(/2 more in departments you cannot open/)).toBeInTheDocument();
+    // Not readable ⇒ not re-sendable: no "send to the threads that have not had it" (G1).
+    expect(screen.queryByRole('button', { name: /not had it/ })).toBeNull();
   });
 
   it('T-4: {first_name} with no fallback warns how many ticked customers have no name; a fallback clears it', async () => {
