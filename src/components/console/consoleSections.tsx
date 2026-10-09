@@ -17,6 +17,7 @@ import {
   Database,
   ToggleLeft,
   MailOpen,
+  Blocks,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -121,6 +122,9 @@ const PlatformFeatureFlags = lazy(() =>
 const PlatformAudit = lazy(() =>
   import('@/pages/console/PlatformAudit').then((mod) => ({ default: mod.PlatformAudit }))
 );
+const PlatformCustomApiTemplates = lazy(() =>
+  import('@/pages/console/PlatformCustomApiTemplates').then((mod) => ({ default: mod.PlatformCustomApiTemplates }))
+);
 // System-wide email templates (invitation / verification / password-reset). Global-admin
 // scoped, so it lives in the platform console rather than the main app nav.
 const PlatformAiSpend = lazy(() =>
@@ -171,5 +175,6 @@ export const PLATFORM_SECTIONS: ConsoleSection[] = [
   // this way for this tenant", one through settings and one through flags.
   { id: 'feature-flags', label: 'Feature Flags', icon: ToggleLeft, path: 'feature-flags', element: PlatformFeatureFlags },
   { id: 'email-templates', label: 'Email Templates', icon: MailOpen, path: 'email-templates', element: PlatformEmailTemplates },
+  { id: 'custom-api-templates', label: 'Custom API Templates', icon: Blocks, path: 'custom-api-templates', element: PlatformCustomApiTemplates },
   { id: 'audit', label: 'Audit', icon: ScrollText, path: 'audit', element: PlatformAudit },
 ];
