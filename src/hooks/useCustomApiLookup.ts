@@ -7,6 +7,7 @@ import {
   type CustomApiLookupResult,
   type LookupRequest,
   type LookupSurface,
+  type RunnableLookup,
 } from '@/services/customApiLookup.service';
 
 /**
@@ -55,7 +56,7 @@ export function useCustomApiLookupAvailability(surface: LookupSurface): boolean 
 }
 
 /**
- * HOW MANY lookups a press on this surface could run for this caller — the Customer tab's badge
+ * HOW MANY lookups a press on this surface could run for this caller — the Lookups tab's badge
  * (design v3; owner, 2026-09-23). `GET /lookup/options` (CA-6) is the SAME selection as the press
  * and as availability (`eligibleEndpoints` + `isPanelRunnable`), so the number cannot promise a
  * lookup the panel would not run. Configuration only: no vendor call, no customer named (SC1).
@@ -68,6 +69,17 @@ export function useCustomApiLookupAvailability(surface: LookupSurface): boolean 
  * screen's invalidation (below) refreshes the count along with the yes/no.
  */
 export function useCustomApiLookupCount(surface: LookupSurface): number | null {
+  const options = useCustomApiLookupOptions(surface);
+  return options ? options.length : null;
+}
+
+/**
+ * The lookups a press on this surface could run for this caller (CA-6 `GET /lookup/options`).
+ * ONE query shared by the badge count and the tab name (spec 2026-10-09) — the key is the one the
+ * count always used, so nothing new is requested and the settings screen's invalidation still
+ * refreshes it. Fails closed: loading, error, older backend ⇒ null.
+ */
+export function useCustomApiLookupOptions(surface: LookupSurface): RunnableLookup[] | null {
   const orgId = useAuthStore(
     (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
   );
@@ -79,7 +91,7 @@ export function useCustomApiLookupCount(surface: LookupSurface): number | null {
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
-  return Array.isArray(data) ? data.length : null;
+  return Array.isArray(data) ? data : null;
 }
 
 /**
