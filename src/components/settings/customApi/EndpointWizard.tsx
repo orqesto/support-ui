@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ROLE_OPTIONS, applyRole, roleOption } from './fieldRoles';
 import {
   CATEGORY_LABELS,
@@ -16,6 +16,7 @@ import { ResponseTree } from './ResponseTree';
 import { useRequestSettings } from './useRequestSettings';
 import { buildParameterFields } from './parameterFields';
 import { useTestRevert } from './useTestRevert';
+import type { EndpointWizardProps } from './endpointWizardProps';
 import * as categoryField from './categoryField';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -27,8 +28,6 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Textarea';
 import {
   customApiService,
-  type CustomApiConnection,
-  type CustomApiEndpoint,
   type EndpointTestResult,
   type FieldPick,
 } from '@/services/customApi.service';
@@ -49,18 +48,6 @@ import { useInvalidateCustomApiAvailability } from '@/hooks/useCustomApiLookup';
  * Save pinned, and gives the editor a URL. The logic and both write payloads are unchanged.
  */
 
-interface Props {
-  connection: CustomApiConnection;
-  endpoint?: CustomApiEndpoint;
-  onClose: () => void;
-  onSaved: () => void;
-  /**
-   * The first Test (or Save) of a NEW lookup creates it. The page moves its URL to the created
-   * id, so a reload keeps editing that lookup instead of starting a duplicate from `new`.
-   */
-  onCreated?: (endpointId: number) => void;
-}
-
 /** The token the executor substitutes the looked-up value into. */
 export const VALUE_PLACEHOLDER = '{value}';
 
@@ -74,11 +61,21 @@ export const labelFromPath = (path: string): string => {
   return words.charAt(0).toUpperCase() + words.slice(1);
 };
 
-export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreated }: Props) => {
-  const [label, setLabel] = useState(endpoint?.label ?? '');
+export const EndpointWizard = ({
+  connection,
+  endpoint,
+  onClose,
+  onSaved,
+  onCreated,
+  initial: initialProp,
+  onPickedChange,
+}: EndpointWizardProps) => {
+  const initial = endpoint ? undefined : initialProp;
+  const [label, setLabel] = useState(endpoint?.label ?? initial?.label ?? '');
   const [path, setPath] = useState(endpoint?.path ?? '');
   const [endpointId, setEndpointId] = useState<number | null>(endpoint?.id ?? null);
   const [picked, setPicked] = useState<FieldPick[]>(endpoint?.fieldPaths ?? []);
+  useEffect(() => onPickedChange?.(picked), [picked, onPickedChange]);
   /**
    * L2 P2: the vendor's status values in this admin's words, and what the lookup has SEEN and
    * nobody has mapped.
@@ -87,7 +84,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
    * An admin typing into it would turn evidence about a vendor into a guess about one.
    */
   const [statusLabels, setStatusLabels] = useState<Record<string, string>>(
-    endpoint?.statusLabels ?? {}
+    endpoint?.statusLabels ?? initial?.statusLabels ?? {}
   );
   const seenStatuses = endpoint?.seenStatuses ?? [];
   const [paths, setPaths] = useState<string[]>([]);
@@ -132,10 +129,11 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
     // not send the field at all, and a newer one that sends a category this build has no option
     // for; both must land on "not set" rather than selecting nothing and silently clearing the
     // admin's choice on the next save.
-    readCategory(endpoint?.category) ?? (storedUnknownCategory ? categoryField.KEEP_CATEGORY : '')
+    readCategory(endpoint?.category ?? initial?.category) ??
+      (storedUnknownCategory ? categoryField.KEEP_CATEGORY : '')
   );
   const [resultShape, setResultShape] = useState<'one' | 'many'>(
-    (endpoint?.resultShape as 'one' | 'many') ?? 'one'
+    (endpoint?.resultShape as 'one' | 'many') ?? initial?.resultShape ?? 'one'
   );
   /**
    * ⛔ THE SAME CLASS AS `resultShape` (audit pass 8, enumerating what pass 7 found one of).
@@ -155,7 +153,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
   const [paramSource, setParamSource] = useState<'identity' | 'manual' | 'endpoint'>(
     endpoint?.parameterSource === 'manual' || endpoint?.parameterSource === 'endpoint'
       ? endpoint.parameterSource
-      : 'identity'
+      : (initial?.parameterSource ?? 'identity')
   );
   /** D21: which lookup a chained one reads its value from, and which field of its answer. */
   const [chain, setChain] = useState<{ sourceEndpointId: number | null; sourceFieldPath: string }>({
@@ -180,7 +178,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
    * already resolves from the contact, so the record is the customer's by construction.
    */
   const [ownershipSourceEndpointId, setOwnershipSourceEndpointId] = useState<number | null>(
-    endpoint?.ownershipSourceEndpointId ?? null
+    endpoint?.ownershipSourceEndpointId ?? initial?.ownershipSourceEndpointId ?? null
   );
   /** D36 (Task 6). Like ownership, only meaningful for a lookup an agent types a number into. */
   const [recordFormat, setRecordFormat] = useState<RecordFormat | null>(
@@ -316,6 +314,7 @@ export const EndpointWizard = ({ connection, endpoint, onClose, onSaved, onCreat
       statusLabels,
       ...request.payload,
       ...parameterFields,
+      ...initial?.createExtras,
     });
     invalidateAvailability();
     /**
