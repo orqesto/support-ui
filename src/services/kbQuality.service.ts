@@ -54,6 +54,14 @@ export type KbQualityAcceptResult = {
   redactions?: number;
 };
 
+/**
+ * Undo of an automatic personal-data rewrite. A 404 (nothing auto-applied there, or already undone)
+ * and a 409 (the entry changed since) are answers to show, not failures.
+ */
+export type KbQualityUndoResult =
+  | { outcome: 'undone' }
+  | { outcome: 'refused'; status: 404 | 409; message: string | null };
+
 export type KbQualityBulkResult = {
   results: { suggestionId: number; status: string; error?: string }[];
   rejected: number;
@@ -199,6 +207,22 @@ export const kbQualityService = {
   /** "Keep as is": not proposed again until the entry is edited. */
   async keep(suggestionId: number): Promise<void> {
     await apiClient.post(`/api/learning/suggestions/${suggestionId}/decline`, {});
+  },
+
+  /** Put back the original text of an entry the nightly review cleaned automatically. */
+  async undo(suggestionId: number): Promise<KbQualityUndoResult> {
+    try {
+      await apiClient.post(`/api/knowledge-base/consolidation/quality/${suggestionId}/undo`, {});
+      return { outcome: 'undone' };
+    } catch (err) {
+      const status = apiErrorStatus(err);
+      if (status === 404 || status === 409) {
+        const body = (err as { data?: { error?: unknown; message?: unknown } } | null)?.data;
+        const message = str(body?.error) ?? str(body?.message);
+        return { outcome: 'refused', status, message };
+      }
+      throw err;
+    }
   },
 
   /** In batches of BULK_REJECT_BATCH, totals summed. A batch that fails stops the rest (thrown). */

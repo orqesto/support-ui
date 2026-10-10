@@ -5,6 +5,10 @@ import { render, screen, cleanup } from '@testing-library/react';
 let isAdmin = true;
 vi.mock('@/services/system.service', () => ({ default: {} }));
 vi.mock('@/components/ui/Select', () => ({ Select: () => <div /> }));
+// The captured-question block (2026-10-07) lists workspaces on mount — never a real request.
+vi.mock('@/services/organization.service', () => ({
+  organizationService: { getAllPages: () => new Promise(() => undefined) },
+}));
 vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => ({ isAdmin }) }));
 vi.mock('@/services/department.service', () => ({
   departmentService: { getAll: () => Promise.resolve([]) },

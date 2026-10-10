@@ -147,3 +147,37 @@ describe('the Quality tab (KB quality review)', () => {
     expect(screen.queryByText('No quality suggestions waiting for review.')).not.toBeInTheDocument();
   });
 });
+
+describe('?suggestion=<id> opens that one proposal (KB cases "Review")', () => {
+  const renderAt = (url: string) =>
+    render(
+      <MemoryRouter initialEntries={[url]}>
+        <KbMergesReviewPage />
+      </MemoryRouter>
+    );
+
+  it('opens the named proposal only — its members are read, the others stay closed', async () => {
+    renderAt('/knowledge-base/merges?tab=merges&suggestion=2');
+    await waitFor(() => expect(getMembers).toHaveBeenCalledTimes(1));
+    expect(getMembers).toHaveBeenCalledWith(2);
+    const second = screen
+      .getByText('Add 1 entry to a case “shipping”')
+      .closest('li') as HTMLElement;
+    // Opened: its own Review button is gone; the other proposal still offers one.
+    expect(within(second).queryByRole('button', { name: 'Review' })).toBeNull();
+    const first = screen
+      .getByText('Merge 3 similar knowledge base answers “refund” into one case')
+      .closest('li') as HTMLElement;
+    expect(within(first).getByRole('button', { name: 'Review' })).toBeInTheDocument();
+  });
+
+  it('a proposal no longer waiting says so, and opens nothing', async () => {
+    renderAt('/knowledge-base/merges?tab=merges&suggestion=99');
+    expect(
+      await screen.findByText(
+        'That proposal is no longer waiting for review — it was decided, or it expired.'
+      )
+    ).toBeInTheDocument();
+    expect(getMembers).not.toHaveBeenCalled();
+  });
+});

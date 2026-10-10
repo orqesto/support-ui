@@ -1,7 +1,8 @@
 /**
  * KB cases worklist: the entries behind a case or a set-aside finding, each with what can be done
  * to it — Approve / Reject / Hide / Unhide, Edit, Move into a case, Remove from case (a member of
- * the case), Unmerge (the case's own row), Open thread.
+ * the case), Split case (the case's own row), Open thread — and, on an entry the nightly review
+ * changed by itself, Undo (an automatic clean-up) or Keep using / Reject (an entry it held).
  *
  * ⛔ An entry reads the same here as in the KB list: its status is the list's own `KBStatusBadge`,
  * and its actions are offered by the list's own rules (`offersReviewActions`, approved / hidden /
@@ -24,6 +25,7 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import { apiErrorStatus } from '@/lib/apiError';
 import { kbRef } from '@/lib/kbConsolidation';
 import { kbService, type KBEntry } from '@/services/kb.service';
+import { kbQualityService } from '@/services/kbQuality.service';
 import {
   kbConsolidationService,
   type KbSetAsideReason,
@@ -31,7 +33,9 @@ import {
 } from '@/services/kbConsolidation.service';
 
 import {
+  ACTIONS_HELP,
   ACTION_FAILED,
+  QUALITY_FAILED,
   ATTACH_REFUSED,
   DETACH_REFUSED,
   STATUS_AFTER,
@@ -41,6 +45,7 @@ import {
   refusalText,
   type BusyAction,
   type KbWorkNotice,
+  type QualityAction,
   type RowAction,
 } from './kbWorkRowModel';
 
@@ -70,6 +75,11 @@ type KbWorkRowsProps = {
   /** The departments the report covers: where "Move into case" searches for cases. */
   departmentIds: number[];
   /**
+   * Is there a case in those departments to move into? false: none — "Move into case" is not
+   * offered. null / absent: not known — it is offered.
+   */
+  casesExist?: boolean | null;
+  /**
    * Re-read the report (the backend clears its cache on every entry write). Resolves once the
    * report has answered, when the caller can tell.
    */
@@ -93,6 +103,7 @@ export const KbWorkRows = ({
   caseContext = null,
   reasons,
   departmentIds,
+  casesExist = null,
   onChanged,
   onNotice,
   listNotice = null,
@@ -320,6 +331,56 @@ export const KbWorkRows = ({
     }
   };
 
+  /** The nightly review's own change: undo a clean-up, or decide a held entry. */
+  const decideQuality = async (row: KbWorkRow, action: QualityAction) => {
+    const suggestionId =
+      action === 'undoClean' ? row.autoCleaned?.suggestionId : row.heldForReview?.suggestionId;
+    if (suggestionId === undefined || !begin(row, action)) return;
+    let changed = false;
+    try {
+      if (action === 'undoClean') {
+        const result = await kbQualityService.undo(suggestionId);
+        changed = true;
+        if (result.outcome === 'refused')
+          setRowError(
+            row.id,
+            result.status === 409
+              ? 'Not undone: the entry was changed after the clean-up, so the original text was not put back.'
+              : 'Nothing to undo: this text was not cleaned automatically, or it was already put back.'
+          );
+        else setNotice({ text: 'The original text is back.', variant: 'success' });
+      } else if (action === 'keepUsing') {
+        await kbQualityService.keep(suggestionId);
+        changed = true;
+        setNotice({ text: 'The AI uses this answer again.', variant: 'success' });
+      } else {
+        const result = await kbQualityService.accept(suggestionId, { action: 'reject' });
+        changed = true;
+        if (result.status !== 'rejected')
+          setRowError(
+            row.id,
+            result.status === 'expired'
+              ? 'Not rejected: the entry changed since the review — read it again.'
+              : 'Not rejected: the server did not say it was.'
+          );
+      }
+    } catch (err) {
+      setRowError(row.id, `${QUALITY_FAILED[action]}: ${getApiErrorMessage(err) ?? 'try again.'}`);
+      changed = true;
+    } finally {
+      // Read the row as it is now — whatever the answer was, it says what the entry is.
+      if (changed) {
+        try {
+          await rereadRow(row.id);
+        } catch {
+          // The line above already says what happened; the report re-read follows.
+        }
+      }
+      end();
+      settle(changed);
+    }
+  };
+
   const editLock = useRef(false);
   const startEdit = async (row: KbWorkRow) => {
     if (editLock.current) return;
@@ -383,7 +444,7 @@ export const KbWorkRows = ({
       if (result.outcome === 'unsupported') {
         setRowError(
           row.id,
-          'Taking one entry out of a case is not available on this server yet — Unmerge undoes the whole case.'
+          'Taking one entry out of a case is not available on this server yet — Split case undoes the whole case.'
         );
         return;
       }
@@ -493,6 +554,11 @@ export const KbWorkRows = ({
           <Alert variant={notice.variant}>{notice.text}</Alert>
         </div>
       )}
+      {listedIds.length > 0 && (
+        <p className="text-xs text-muted-foreground" data-testid="kb-actions-help">
+          {ACTIONS_HELP}
+        </p>
+      )}
       <ul ref={listRef} tabIndex={-1} className="space-y-2 outline-none" aria-label={label}>
         {listedIds.map((id) => {
           const row = rows.get(id) as KbWorkRow;
@@ -513,6 +579,8 @@ export const KbWorkRows = ({
               onMove={() => setMoving(row)}
               onDetach={() => setDetaching(row)}
               onUnmerge={() => setUnmerging(row)}
+              onQuality={(action) => void decideQuality(row, action)}
+              casesExist={casesExist}
             />
           );
         })}
@@ -583,13 +651,13 @@ export const KbWorkRows = ({
         onConfirm={() => {
           if (unmerging) void unmerge(unmerging);
         }}
-        title="Unmerge this case?"
-        description={`This undoes the merge: the case entry is removed and ${
+        title="Split this case?"
+        description={`This undoes the case: the case entry is removed and ${
           unmerging !== null && memberCount !== undefined && memberCount > 0
             ? `its ${memberCount} original ${memberCount === 1 ? 'entry comes' : 'entries come'}`
             : 'its original entries come'
         } back on their own. To take out one entry and keep the case, use Remove from case on it.`}
-        confirmText="Unmerge"
+        confirmText="Split case"
         variant="warning"
       />
       <ConfirmDialog

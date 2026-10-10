@@ -6,6 +6,7 @@ import {
   type DefaultStorageInput,
   type ManagedAiInput,
   type PlatformDatabaseInput,
+  type PlatformKbInput,
   type PlatformSecretKey,
   type ReasoningInput,
 } from '@/services/platformSettings.service';
@@ -61,6 +62,15 @@ export const useUpdatePlatformStorage = () => {
     mutationFn: (input: DefaultStorageInput) => platformSettingsService.updateStorage(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
     onError: (error: unknown) => toast.failure('save the storage defaults', error),
+  });
+};
+
+export const useUpdatePlatformKb = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PlatformKbInput) => platformSettingsService.updateKb(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onError: (error: unknown) => toast.failure('save the knowledge-base setting', error),
   });
 };
 

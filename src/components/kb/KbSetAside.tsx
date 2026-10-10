@@ -20,6 +20,7 @@ export const SET_ASIDE_PAGE_SIZE = 25;
 export const KbSetAside = ({
   items,
   departmentIds,
+  casesExist = null,
   notice,
   onListNotice,
   onChanged,
@@ -29,6 +30,8 @@ export const KbSetAside = ({
   items: KbSetAsideItem[];
   /** The departments the report covers (where Move into case searches). */
   departmentIds: number[];
+  /** Is there a case to move into (false: none, so "Move into case" is not offered)? */
+  casesExist?: boolean | null;
   /** Its line about the last move / removal — held by the report view, which clears it. */
   notice: KbWorkNotice | null;
   onListNotice: (notice: KbWorkNotice | null) => void;
@@ -141,6 +144,7 @@ export const KbSetAside = ({
               ids={pageIds}
               reasons={reasons}
               departmentIds={departmentIds}
+              casesExist={casesExist}
               onChanged={onChanged}
               onNotice={onNotice}
               listNotice={notice}

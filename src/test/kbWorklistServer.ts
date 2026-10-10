@@ -77,6 +77,15 @@ export type Server = {
   noClassifying?: boolean;
   /** Add case KB-4000 whose question is LONG_QUESTION (past the 200-character search cap). */
   longQuestion?: boolean;
+  /**
+   * No live case in the report: true — none anywhere; 'page' — none on the page asked for, but
+   * the larger read the page makes to tell (pageSize 100) still holds them.
+   */
+  noCases?: boolean | 'page';
+  /** An auto-cleaned entry's original text, by its suggestion id (BE keeps it for the undo). */
+  originals?: Map<number, { question: string; answer: string }>;
+  /** How the undo route answers: 'conflict' = 409 (the entry changed since). */
+  undo?: 'ok' | 'conflict';
   /** Hold the answer of a request until released (in-flight tests). */
   hold?: (request: WireRequest) => Promise<void> | null;
 };
@@ -151,6 +160,8 @@ export const setAsideNow = () =>
       if (!entry) return false;
       // BE: an entry proposed for a case sits in that case's row, not set aside.
       if (server.pendingAttach?.has(id)) return false;
+      // Taken out of use by the review (hidden) but still to be decided: listed, so it can be.
+      if (entry.heldForReview) return true;
       // BE: left a case — hidden (thread moved) or pending (taken out by hand) until decided.
       // (A stale case id on it is the skew test's; a merge clears the mark — see attach.)
       if (reason === 'detached') return entry.status === 'hidden' || entry.status === 'pending';
@@ -342,8 +353,19 @@ export const handle = async (request: WireRequest) => {
     const ids = request.params.departmentIds
       ? request.params.departmentIds.split(',').map(Number)
       : [4, 7];
+    const full = reportNow(ids);
+    const withoutCases =
+      server.noCases === true || (server.noCases === 'page' && request.params.pageSize !== '100');
     const built = {
-      ...reportNow(ids),
+      ...full,
+      headers: withoutCases
+        ? full.headers
+            .map((header) => ({
+              ...header,
+              rows: header.rows.filter((caseRow) => caseRow.kind !== 'case'),
+            }))
+            .filter((header) => header.rows.length > 0)
+        : full.headers,
       // BE: only with NO department asked for, and only for an org-level viewer.
       unassignedScopes: !request.params.departmentIds && !server.departmentViewer,
     };
@@ -501,6 +523,37 @@ export const handle = async (request: WireRequest) => {
     return server.orgCode
       ? ok({ id: 42, name: 'Acme', code: server.orgCode })
       : routeAbsent(request);
+  }
+  // KB quality review (G2–G4): undo an automatic clean-up; Keep using / Reject a held entry.
+  const findBy = (key: 'autoCleaned' | 'heldForReview', suggestionId: number) =>
+    [...server.entries.values()].find((entry) => entry[key]?.suggestionId === suggestionId);
+  const undo = /^\/api\/knowledge-base\/consolidation\/quality\/(\d+)\/undo$/.exec(path);
+  if (method === 'POST' && undo) {
+    const suggestionId = Number(undo[1]);
+    if (server.undo === 'conflict')
+      return { status: 409, data: { success: false, error: 'The entry changed since' } };
+    const entry = findBy('autoCleaned', suggestionId);
+    const original = server.originals?.get(suggestionId);
+    if (!entry || !original)
+      return { status: 404, data: { success: false, error: 'Nothing to undo' } };
+    server.entries.set(entry.id, { ...entry, ...original, autoCleaned: null });
+    return ok({ entryId: entry.id });
+  }
+  const decided = /^\/api\/learning\/suggestions\/(\d+)\/(decline|accept)$/.exec(path);
+  if (method === 'POST' && decided) {
+    const entry = findBy('heldForReview', Number(decided[1]));
+    if (!entry) return { status: 404, data: { success: false, error: 'Suggestion not found' } };
+    if (decided[2] === 'decline') {
+      server.entries.set(entry.id, { ...entry, status: 'approved', heldForReview: null });
+      return ok(null);
+    }
+    server.entries.set(entry.id, {
+      ...entry,
+      status: 'rejected',
+      heldForReview: null,
+      rejectedAt: '2026-01-10T12:00:00.000Z',
+    });
+    return ok({ status: 'rejected', entryId: entry.id });
   }
   const action = entryAction.exec(path);
   if (method === 'PATCH' && action) {

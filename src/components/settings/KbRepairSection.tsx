@@ -9,6 +9,7 @@ import systemService, {
   type KbSweepSource,
 } from '@/services/system.service';
 import { useAuthStore } from '@/stores/authStore';
+import { KbQuestionTextRepair } from './KbQuestionTextRepair';
 
 /**
  * Settings → System → Knowledge base repair (global admin, the selected workspace).
@@ -397,6 +398,7 @@ export const KbRepairSection = () => {
       <div key={workspace ?? 'none'} className="space-y-3">
         <DocumentRepair />
         <HistoryReRead />
+        <KbQuestionTextRepair workspace={workspace ?? null} />
       </div>
     </div>
   );

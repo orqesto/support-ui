@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { KB_MERGES_REVIEW_PATH } from '@/components/layout/KbReviewSection';
+import { kbMergeReviewHref } from '@/components/layout/KbReviewSection';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { caseHref, kbRef } from '@/lib/kbConsolidation';
@@ -42,13 +42,23 @@ export const proposalIds = (row: KbCaseRow): number[] =>
  * How many learned entries a row holds (a case's own entry is not one of them, nor an entry only
  * PROPOSED for it). A case counts its live members as the server does when it says.
  */
-const memberCount = (row: KbCaseRow): number => {
+export const memberCount = (row: KbCaseRow): number => {
   if (row.kind === 'case' && Number.isInteger(row.memberCount)) return row.memberCount as number;
   const proposed = new Set(proposalIds(row));
   return row.entryIds.filter(
     (id) => (row.kind !== 'case' || id !== row.caseId) && !proposed.has(id)
   ).length;
 };
+
+/**
+ * How many conversations a row's answers came from. When there are more answers than
+ * conversations (two answers learned from one thread), both are named — "1 conversation" next to
+ * "Show entries (2)" read as a miscount.
+ */
+export const conversationsText = (answers: number, conversations: number): string =>
+  answers > conversations
+    ? `${plural(answers, 'answer', 'answers')} from ${plural(conversations, 'conversation', 'conversations')}`
+    : plural(conversations, 'conversation', 'conversations');
 
 export type KbRowExpansion = {
   open: boolean;
@@ -84,7 +94,10 @@ export const KbCaseRowView = ({
           <span className="font-medium">{rowTitle(row)}</span>
         )}
         {row.kind === 'proposed' && (
-          <Link to={KB_MERGES_REVIEW_PATH} className="text-xs text-primary hover:underline">
+          <Link
+            to={kbMergeReviewHref(row.suggestionId)}
+            className="text-xs text-primary hover:underline"
+          >
             Review
           </Link>
         )}
@@ -104,11 +117,16 @@ export const KbCaseRowView = ({
           <span className="text-muted-foreground">Standard answer: </span>
           <span className="whitespace-pre-wrap break-words">{row.standardAnswer ?? '—'}</span>
         </div>
+      ) : row.kind === 'proposed' ? (
+        // The proposal carries a drafted standard answer: it waits in the review, not nowhere.
+        <p className="text-sm italic text-muted-foreground">
+          Standard answer drafted — waiting for review
+        </p>
       ) : (
         <p className="text-sm italic text-muted-foreground">no standard answer yet</p>
       )}
       <p className="text-xs text-muted-foreground">
-        {plural(row.conversations, 'conversation', 'conversations')} ·{' '}
+        {conversationsText(members, row.conversations)} ·{' '}
         {plural(row.customers, 'customer', 'customers')} · first seen {formatDate(row.firstSeen)} ·
         last seen {formatDate(row.lastSeen)}
       </p>

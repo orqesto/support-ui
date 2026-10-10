@@ -168,7 +168,7 @@ describe('members of a case', () => {
     expect(within(row12).queryByRole('button', { name: /Remove from case/ })).toBeNull();
     expect(
       within(row12).getByText(
-        'The case’s only entry — a case cannot be left empty. To dissolve it, use Unmerge case on the case’s own row.'
+        'The case’s only entry — a case cannot be left empty. To dissolve it, use Split case on the case’s own row.'
       )
     ).toBeInTheDocument();
   });
@@ -185,7 +185,7 @@ describe('members of a case', () => {
     );
     expect(
       await within(row11).findByText(
-        'Not removed from case #KB-900: it is the case’s only entry, and a case cannot be left empty. To dissolve it, use Unmerge case on the case’s own row.'
+        'Not removed from case #KB-900: it is the case’s only entry, and a case cannot be left empty. To dissolve it, use Split case on the case’s own row.'
       )
     ).toBeInTheDocument();
   });
@@ -242,7 +242,7 @@ describe('members of a case', () => {
     );
     expect(
       await within(row11).findByText(
-        'Taking one entry out of a case is not available on this server yet — Unmerge undoes the whole case.'
+        'Taking one entry out of a case is not available on this server yet — Split case undoes the whole case.'
       )
     ).toBeInTheDocument();
     expect(screen.queryByText(/Removed from case/)).not.toBeInTheDocument();
@@ -361,9 +361,9 @@ describe('audit round 2', () => {
 describe('audit round 2 — the page line and focus', () => {
   const unmergeCase = async () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Show entries (2)' }));
-    fireEvent.click(within(await workRowEl(900)).getByRole('button', { name: /Unmerge case/ }));
+    fireEvent.click(within(await workRowEl(900)).getByRole('button', { name: /Split case/ }));
     fireEvent.click(
-      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unmerge' })
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Split case' })
     );
     return screen.findByText(/^Case unmerged\./);
   };
@@ -491,7 +491,7 @@ describe('audit round 3 — lines and focus that outlive their list', () => {
     const row11 = await workRowEl(11);
     expect(within(row11).getByRole('button', { name: /Remove from case/ })).toBeInTheDocument();
     expect(within(row11).queryByText(/only entry/)).toBeNull();
-    fireEvent.click(within(await workRowEl(900)).getByRole('button', { name: /Unmerge case/ }));
+    fireEvent.click(within(await workRowEl(900)).getByRole('button', { name: /Split case/ }));
     expect(await screen.findByRole('dialog')).toHaveTextContent(
       'the case entry is removed and its original entries come back on their own'
     );
@@ -622,9 +622,9 @@ describe('audit round 3 — lines and focus that outlive their list', () => {
             release = resolve;
           })
         : null;
-    fireEvent.click(within(await workRowEl(900)).getByRole('button', { name: /Unmerge case/ }));
+    fireEvent.click(within(await workRowEl(900)).getByRole('button', { name: /Split case/ }));
     fireEvent.click(
-      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unmerge' })
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Split case' })
     );
     await waitFor(() => expect(screen.queryByText(line)).toBeNull());
     await act(async () => {

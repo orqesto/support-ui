@@ -225,6 +225,16 @@ export type KbWorkRow = {
    * "Source removed — not used" and offers no action — so does this list.
    */
   sourceDeleted?: boolean;
+  /**
+   * Its text was replaced by the nightly review's automatic personal-data rewrite (the original is
+   * kept; `suggestionId` undoes it). Null when not; absent on a backend before it.
+   */
+  autoCleaned?: { suggestionId: number; at: string } | null;
+  /**
+   * An approved entry taken out of use because the review judged it about one customer; decided
+   * through `suggestionId` (Keep using / Reject). Null when not; absent on a backend before it.
+   */
+  heldForReview?: { suggestionId: number } | null;
 };
 
 export type KbCasesQuery = {
@@ -296,6 +306,20 @@ const nullableString = (value: unknown): string | null =>
   typeof value === 'string' ? value : null;
 const nullableId = (value: unknown): number | null => (positiveInt(value) ? value : null);
 
+/** Defensive: an older backend sends neither field, and a shape we cannot read claims nothing. */
+const readAutoCleaned = (raw: unknown): KbWorkRow['autoCleaned'] => {
+  if (!raw || typeof raw !== 'object') return null;
+  const data = raw as { suggestionId?: unknown; at?: unknown };
+  return positiveInt(data.suggestionId)
+    ? { suggestionId: data.suggestionId, at: typeof data.at === 'string' ? data.at : '' }
+    : null;
+};
+const readHeldForReview = (raw: unknown): KbWorkRow['heldForReview'] => {
+  if (!raw || typeof raw !== 'object') return null;
+  const data = raw as { suggestionId?: unknown };
+  return positiveInt(data.suggestionId) ? { suggestionId: data.suggestionId } : null;
+};
+
 /** A row with a status we cannot read is dropped from the list, never shown as "Pending". */
 export const normalizeWorkRow = (raw: unknown): KbWorkRow | null => {
   const data = (raw ?? {}) as Record<string, unknown>;
@@ -314,6 +338,8 @@ export const normalizeWorkRow = (raw: unknown): KbWorkRow | null => {
     conversationPublicId: nullableString(data.conversationPublicId),
     canDecide: data.canDecide === true,
     rejectedAt: nullableString(data.rejectedAt),
+    autoCleaned: readAutoCleaned(data.autoCleaned),
+    heldForReview: readHeldForReview(data.heldForReview),
     ...(typeof data.sourceDeleted === 'boolean' ? { sourceDeleted: data.sourceDeleted } : {}),
     ...(data.isCase === true ? { isCase: true } : {}),
     ...(typeof data.canModerate === 'boolean' ? { canModerate: data.canModerate } : {}),

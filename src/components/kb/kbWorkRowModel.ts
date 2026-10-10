@@ -10,6 +10,7 @@ import {
   type KbWorkRowStatus,
 } from '@/services/kbConsolidation.service';
 import { kbRef } from '@/lib/kbConsolidation';
+import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 
 export const SET_ASIDE_REASON_LABEL: Record<KbSetAsideReason, string> = {
   raw_email: 'Raw email',
@@ -94,7 +95,7 @@ export const DETACH_REFUSED: Record<string, string> = {
   not_member: 'it is no longer in that case.',
   rejected: 'it is rejected — approve it first, then remove it from the case.',
   last_member:
-    'it is the case’s only entry, and a case cannot be left empty. To dissolve it, use Unmerge case on the case’s own row.',
+    'it is the case’s only entry, and a case cannot be left empty. To dissolve it, use Split case on the case’s own row.',
   case_not_live: 'that case is no longer live.',
   entry_gone: 'the entry no longer exists.',
 };
@@ -116,7 +117,40 @@ export const headline = (row: KbWorkRow): string =>
       : `Entry ${kbRef(row.publicId ?? null, row.id)}`;
 
 export type RowAction = 'approve' | 'reject' | 'hide' | 'unhide' | 'restore';
-export type BusyAction = RowAction | 'move' | 'detach' | 'unmerge';
+/** Decisions on the nightly review's own change to an entry (an automatic clean-up, a hold). */
+export type QualityAction = 'undoClean' | 'keepUsing' | 'rejectHeld';
+export type BusyAction = RowAction | 'move' | 'detach' | 'unmerge' | QualityAction;
+
+/**
+ * What each button does, in the words of what the AI then does with the answer (it uses only
+ * approved entries that are not hidden; a pending entry is never used). Shown as its tooltip.
+ */
+export const ACTION_TIPS = {
+  approve: 'The AI may use this answer. Hide undoes it.',
+  reject: `Never used: deleted after ${REJECTED_RETENTION_DAYS} days. Approve restores it until then.`,
+  hide: 'Out of use, not deleted. Unhide restores it as it was.',
+  unhide: 'Restores it exactly as it was before it was hidden.',
+  restore: 'Approve it again: the AI may use this answer.',
+  edit: 'Change the question or answer text.',
+  move: 'Join a case: answered with the case’s standard answer.',
+  detach: 'Take it out of the case; the case stays.',
+  split: 'Undo this case: its original entries come back on their own',
+  undoClean: 'Put back the original text from before the clean-up.',
+  keepUsing: 'The AI uses this answer again, as it is.',
+  rejectHeld: `Never used: deleted after ${REJECTED_RETENTION_DAYS} days.`,
+} as const;
+
+/** The one line above every entry list: what the buttons do. */
+export const ACTIONS_HELP =
+  'The AI uses only approved answers. Approve: it may use the answer. Reject: never used, deleted ' +
+  `after ${REJECTED_RETENTION_DAYS} days. Hide: out of use until Unhide. Edit: change the text. ` +
+  'Move into case: answered with that case’s standard answer. Pending answers are never used.';
+
+export const QUALITY_FAILED: Record<QualityAction, string> = {
+  undoClean: 'Could not undo the clean-up',
+  keepUsing: 'Could not keep using it',
+  rejectHeld: 'Could not reject',
+};
 
 export const STATUS_AFTER: Record<Exclude<RowAction, 'unhide'>, KbWorkRowStatus> = {
   approve: 'approved',

@@ -11,6 +11,13 @@ import { useDepartments } from '@/hooks/useDepartments';
 
 /** Where the bell's "Review" goes: the page listing every pending merge and quality suggestion. */
 export const KB_MERGES_REVIEW_PATH = '/knowledge-base/merges';
+/** The query parameter that opens ONE merge proposal on that page (and scrolls to it). */
+export const KB_MERGE_SUGGESTION_PARAM = 'suggestion';
+/** That page with one proposal opened. */
+export const kbMergeReviewHref = (suggestionId: number | null): string =>
+  suggestionId === null
+    ? KB_MERGES_REVIEW_PATH
+    : `${KB_MERGES_REVIEW_PATH}?tab=merges&${KB_MERGE_SUGGESTION_PARAM}=${suggestionId}`;
 
 // The row counts merge proposals AND quality suggestions (one bell per department, BE
 // consolidationBell): it cannot say how many of each, so it names both kinds.

@@ -3,6 +3,7 @@ import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { ManagedAiDefaultsCard } from '@/components/console/platformDefaults/ManagedAiDefaultsCard';
 import { DefaultStorageCard } from '@/components/console/platformDefaults/DefaultStorageCard';
 import { ReasoningCard } from '@/components/console/platformDefaults/ReasoningCard';
+import { KbCaptureCard } from '@/components/console/platformDefaults/KbCaptureCard';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { Alert } from '@/components/ui/Alert';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
@@ -20,7 +21,7 @@ export const PlatformDefaults = () => {
     <div className="space-y-6">
       <ConsolePageHeader
         title="Platform Defaults"
-        description="Managed-AI models, cost rates, and default storage — resolved DB → environment → built-in default."
+        description="Managed-AI models, cost rates, default storage, and knowledge-base capture — resolved DB → environment → built-in default."
       />
 
       {query.isLoading ? (
@@ -39,6 +40,7 @@ export const PlatformDefaults = () => {
           <ManagedAiDefaultsCard ai={query.data.ai} secrets={query.data.secrets} />
           <DefaultStorageCard storage={query.data.storage} />
           <ReasoningCard reasoning={query.data.reasoning} />
+          <KbCaptureCard kb={query.data.kb} />
         </div>
       )}
     </div>
