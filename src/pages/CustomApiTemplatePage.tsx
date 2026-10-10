@@ -76,12 +76,20 @@ export const CustomApiTemplatePage = () => {
     };
   }, [canManage, connectionId]);
 
-  const back = () => navigate(CUSTOM_APIS_SETTINGS_PATH);
+  /**
+   * F4: a template applied in part hands its notice (what was kept, what was not) to the lookups
+   * list, which shows it — leaving silently made a half-applied template look finished.
+   */
+  const back = (notice?: string) =>
+    navigate(
+      CUSTOM_APIS_SETTINGS_PATH,
+      notice ? { state: { customApiNotice: notice } } : undefined
+    );
 
   return (
     <Layout>
       <div className="px-2 mx-auto space-y-4 w-full max-w-7xl">
-        <Button variant="ghost" size="sm" onClick={back}>
+        <Button variant="ghost" size="sm" onClick={() => back()}>
           <ArrowLeft className="mr-1 w-4 h-4" />
           Custom APIs
         </Button>
@@ -103,7 +111,8 @@ export const CustomApiTemplatePage = () => {
             connection={loaded.connection}
             template={chosen}
             onDone={back}
-            onCancel={() => setChosen(null)}
+            // Nothing kept: back to the template list, as before. Something kept: to the lookups.
+            onCancel={(notice) => (notice ? back(notice) : setChosen(null))}
           />
         ) : loaded.templates.length === 0 ? (
           <p className="text-sm text-muted-foreground">No templates are published yet.</p>
