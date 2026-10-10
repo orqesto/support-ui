@@ -287,11 +287,38 @@ const pageHasCase = (report: KbCasesReport): boolean =>
     header.rows.some((row) => row.kind === 'case' && row.caseId !== null)
   );
 
+/** How far the existence check reads: at most this many pages of MOVE_SEARCH_PAGE topics. */
+export const CASE_PROBE_MAX_PAGES = 20;
+
+/**
+ * Page through the UNSEARCHED report of these departments until a page holds a live case (true)
+ * or the last page is read without one (false). Past the bound, or once `live()` turns false (the
+ * scope changed meanwhile), it is not known (null).
+ */
+const probeCasesExist = async (
+  departmentIds: number[],
+  live: () => boolean
+): Promise<boolean | null> => {
+  for (let page = 1; page <= CASE_PROBE_MAX_PAGES; page += 1) {
+    const read = await kbConsolidationService.getCases({
+      departmentIds,
+      page,
+      pageSize: MOVE_SEARCH_PAGE,
+    });
+    if (!live()) return null;
+    if (pageHasCase(read)) return true;
+    if (page >= (read.pagination?.totalPages ?? 1)) return false;
+  }
+  return null;
+};
+
 /**
  * Is there a live case in the report's departments to move an entry into? A case on the page
  * answers yes; the whole scope on one unsearched page with none answers no. Otherwise (a search, or
- * more pages) the first page of the unsearched report is read once to tell; null while not known
- * — then "Move into case" is still offered and its picker says when no case fits.
+ * more pages) the unsearched report is paged through once per scope (bounded) and the answer kept
+ * for the page's lifetime. Null while not known, or when the bound bit — then "Move into case" is
+ * still offered and its picker says when no case fits. A scope left before its answer came drops
+ * that answer: it is never shown for the scope switched to.
  */
 const useCasesExist = (
   report: KbCasesReport,
@@ -301,39 +328,27 @@ const useCasesExist = (
   const onPage = pageHasCase(report);
   const wholeScopeShown = !search.trim() && (report.pagination?.totalPages ?? 1) <= 1;
   const known = onPage ? true : wholeScopeShown ? false : null;
-  const [probed, setProbed] = useState<{ report: KbCasesReport; exists: boolean | null } | null>(
-    null
-  );
   const departmentsKey = departmentIds?.join(',') ?? null;
+  // Per scope, for the page's lifetime: a re-read (every action) does not read it all again.
+  const [answers, setAnswers] = useState<ReadonlyMap<string, boolean | null>>(() => new Map());
+  const needsProbe = known === null && departmentsKey !== null && !answers.has(departmentsKey);
   useEffect(() => {
-    if (known !== null || departmentsKey === null) return;
+    if (!needsProbe || departmentsKey === null) return;
     let live = true;
-    kbConsolidationService
-      .getCases({
-        departmentIds: departmentsKey ? departmentsKey.split(',').map(Number) : [],
-        page: 1,
-        pageSize: MOVE_SEARCH_PAGE,
-      })
-      .then((first) => {
-        if (!live) return;
-        setProbed({
-          report,
-          exists: pageHasCase(first)
-            ? true
-            : (first.pagination?.totalPages ?? 1) <= 1
-              ? false
-              : null,
-        });
-      })
-      .catch(() => {
-        // Not known: the button stays offered.
-      });
+    const settle = (exists: boolean | null) => {
+      if (!live) return;
+      setAnswers((prev) => new Map(prev).set(departmentsKey, exists));
+    };
+    probeCasesExist(departmentsKey ? departmentsKey.split(',').map(Number) : [], () => live)
+      .then(settle)
+      // Not known: the button stays offered.
+      .catch(() => settle(null));
     return () => {
       live = false;
     };
-  }, [known, departmentsKey, report]);
+  }, [needsProbe, departmentsKey]);
   if (known !== null) return known;
-  return probed?.report === report ? probed.exists : null;
+  return departmentsKey === null ? null : (answers.get(departmentsKey) ?? null);
 };
 
 /**

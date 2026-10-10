@@ -13,9 +13,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { apiClient } from '@/lib/api-client';
 import { installTransport } from '@/test/apiTransport';
-import { handle, resetServer, server, workRow } from '@/test/kbWorklistServer';
+import { handle, reportNow, resetServer, server, workRow } from '@/test/kbWorklistServer';
 import { useAuthStore } from '@/stores/authStore';
-import { ACTIONS_HELP, ACTION_TIPS } from '@/components/kb/kbWorkRowModel';
+import { ACTION_TIPS, actionsHelp } from '@/components/kb/kbWorkRowModel';
+import { CASE_PROBE_MAX_PAGES, KbCasesReportView } from '@/components/kb/KbCasesReportView';
+import type { KbCasesReport } from '@/services/kbConsolidation.service';
 
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -78,7 +80,7 @@ describe('what the buttons do', () => {
     renderPage();
     const row21 = await workRowEl(21);
     const list = screen.getByRole('region', { name: 'Entries not in any case' });
-    expect(within(list).getByTestId('kb-actions-help')).toHaveTextContent(ACTIONS_HELP);
+    expect(within(list).getByTestId('kb-actions-help')).toHaveTextContent(actionsHelp(true));
     expect(await tooltipOf(within(row21).getByRole('button', { name: /Approve/ }))).toBe(
       ACTION_TIPS.approve
     );
@@ -133,16 +135,115 @@ describe('"Move into case" only where a case exists', () => {
     );
   });
 
-  it('no case on this page nor in the larger read, which has more pages: not known — still offered', async () => {
+  const probeReads = () =>
+    reportReads()
+      .filter((read) => read.params.pageSize === '100')
+      .map((read) => Number(read.params.page));
+
+  it('more pages and no case on any of them: read to the last page, then not offered', async () => {
     server.noCases = true;
     server.casesPages = 2;
     renderPage();
     const row21 = await workRowEl(21);
     await waitFor(() =>
-      expect(reportReads().some((read) => read.params.pageSize === '100')).toBe(true)
+      expect(within(row21).queryByRole('button', { name: /Move into case/ })).toBeNull()
     );
-    // Two pages, and the read says it has more: not known — still offered (the picker tells).
+    expect(probeReads()).toEqual([1, 2]);
+    // The help line does not name a button that is not there.
+    expect(screen.getAllByTestId('kb-actions-help')[0]).toHaveTextContent(actionsHelp(false));
+    expect(screen.getAllByTestId('kb-actions-help')[0].textContent).not.toMatch(/Move into case/);
+  });
+
+  it('a case only on page 2: found there, and offered', async () => {
+    server.casesPages = 2;
+    server.withCases = (params) => params.pageSize === '100' && params.page === '2';
+    renderPage();
+    const row21 = await workRowEl(21);
+    await waitFor(() => expect(probeReads()).toEqual([1, 2]));
     expect(within(row21).getByRole('button', { name: /Move into case/ })).toBeInTheDocument();
+    expect(screen.getAllByTestId('kb-actions-help')[0]).toHaveTextContent(actionsHelp(true));
+  });
+
+  it(`past ${CASE_PROBE_MAX_PAGES} pages without a case: not known — still offered`, async () => {
+    server.noCases = true;
+    server.casesPages = CASE_PROBE_MAX_PAGES + 5;
+    renderPage();
+    const row21 = await workRowEl(21);
+    await waitFor(() => expect(probeReads()).toHaveLength(CASE_PROBE_MAX_PAGES));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(probeReads()).toHaveLength(CASE_PROBE_MAX_PAGES);
+    expect(within(row21).getByRole('button', { name: /Move into case/ })).toBeInTheDocument();
+  });
+
+  it('read once per scope: a re-read of the report does not page through again', async () => {
+    server.noCases = true;
+    server.casesPages = 2;
+    renderPage();
+    const row21 = await workRowEl(21);
+    await waitFor(() => expect(probeReads()).toEqual([1, 2]));
+    fireEvent.click(within(row21).getByRole('button', { name: /Approve/ }));
+    await waitFor(() => expect(within(row21).getByText('Approved')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(reportReads().filter((read) => read.params.pageSize !== '100').length).toBeGreaterThan(
+        1
+      )
+    );
+    expect(probeReads()).toEqual([1, 2]);
+  });
+
+  it('scope switched mid-read: the old scope’s late answer is never shown for the new one', async () => {
+    server.casesPages = 2;
+    // Departments 4: a case on page 2 (answer: offered). Departments 7: none anywhere.
+    server.withCases = (params) =>
+      params.pageSize === '100' && params.page === '2' && params.departmentIds === '4';
+    let release: () => void = () => {};
+    server.hold = (request) =>
+      request.params.pageSize === '100' && request.params.departmentIds === '4'
+        ? new Promise<void>((resolve) => {
+            release = resolve;
+          })
+        : null;
+    const pageReport = (ids: number[]): KbCasesReport => {
+      const built = reportNow(ids);
+      return {
+        ...built,
+        headers: built.headers.map((header) => ({
+          ...header,
+          rows: header.rows.filter((caseRow) => caseRow.kind !== 'case'),
+        })),
+      };
+    };
+    const worklist = (ids: number[]) => ({
+      departmentIds: ids,
+      onChanged: () => Promise.resolve(),
+      onNotice: () => {},
+    });
+    const tree = (ids: number[]) => (
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter future={ROUTER_FUTURE}>
+          <KbCasesReportView report={pageReport(ids)} worklist={worklist(ids)} />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const { rerender } = render(tree([4]));
+    await workRowEl(21);
+    await waitFor(() => expect(probeReads()).toEqual([1]));
+    rerender(tree([7]));
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId('work-row-21')).queryByRole('button', { name: /Move into case/ })
+      ).toBeNull()
+    );
+    // The held read for departments 4 answers now: it must change nothing.
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(
+      within(screen.getByTestId('work-row-21')).queryByRole('button', { name: /Move into case/ })
+    ).toBeNull();
+    // …and it stopped paging that scope (no page 2 for departments 4).
+    expect(
+      reportReads().filter((read) => read.params.departmentIds === '4' && read.params.page === '2')
+    ).toHaveLength(0);
   });
 });
 

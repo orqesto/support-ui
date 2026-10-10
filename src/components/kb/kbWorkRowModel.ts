@@ -140,11 +140,12 @@ export const ACTION_TIPS = {
   rejectHeld: `Never used: deleted after ${REJECTED_RETENTION_DAYS} days.`,
 } as const;
 
-/** The one line above every entry list: what the buttons do. */
-export const ACTIONS_HELP =
+/** The one line above every entry list: what the buttons do (Move only where it is offered). */
+export const actionsHelp = (withMove: boolean): string =>
   'The AI uses only approved answers. Approve: it may use the answer. Reject: never used, deleted ' +
   `after ${REJECTED_RETENTION_DAYS} days. Hide: out of use until Unhide. Edit: change the text. ` +
-  'Move into case: answered with that case’s standard answer. Pending answers are never used.';
+  (withMove ? 'Move into case: answered with that case’s standard answer. ' : '') +
+  'Pending answers are never used.';
 
 export const QUALITY_FAILED: Record<QualityAction, string> = {
   undoClean: 'Could not undo the clean-up',
