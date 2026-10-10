@@ -580,6 +580,24 @@ describe('KbHistoryRangeDialog', () => {
     expect(onShowAlert.mock.calls[0][0].description).not.toMatch(/starting now/);
   });
 
+  it('IMAP apply that started a run opens the processing panel', async () => {
+    handler = defaultHandler(
+      policy({
+        type: 'email',
+        options: [7, 30, 90, 180, 365].map((dayCount) => opt(dayCount, 30)),
+      }),
+      dry({ type: 'email', recent: null }),
+      applied({ importRunStarted: true })
+    );
+    mount('email');
+    await ready();
+    selectDays('90');
+    check();
+    fireEvent.click(await screen.findByRole('button', { name: /^Read/ }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(useProcessingPanelStore.getState().opened[5]).toMatchObject({ reason: 'manual' });
+  });
+
   it('IMAP apply with importRunStarted false does NOT announce panel progress or open the panel', async () => {
     handler = defaultHandler(
       policy({

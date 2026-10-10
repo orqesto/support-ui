@@ -311,13 +311,13 @@ export const applyAlert = (
   const restart = applied.restarted
     ? 'The read that was already running restarts with the new range. '
     : '';
-  // IMAP applies never start a tracked run in this release: do not promise one.
-  const body =
-    type === 'gmail'
-      ? applied.importRunStarted
-        ? 'It is starting now. Progress shows in the processing panel.'
-        : 'The next check of this mailbox starts it. Progress shows in the processing panel.'
-      : 'The next check of this mailbox starts it. Live import progress for IMAP arrives with a later update.';
+  // `importRunStarted` is true for Gmail and IMAP when a tracked run was started. False for IMAP
+  // means no run was started (no stored connection details), not "not supported": say so.
+  const body = applied.importRunStarted
+    ? 'It is starting now. Progress shows in the processing panel.'
+    : type === 'gmail'
+      ? 'The next check of this mailbox starts it. Progress shows in the processing panel.'
+      : 'No progress run was started, so none shows in the processing panel.';
   return { title: 'History read requested', body: restart + body };
 };
 

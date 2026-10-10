@@ -9,10 +9,10 @@ import { type ImportProgress, importProgressService } from '@/services/importPro
 export const IMPORT_PROGRESS_POLL_MS = 15_000;
 
 /**
- * Polls a mail source's progress (its recorded runs, and a Gmail import's listing) while
- * `enabled`, paused while the tab is hidden. With `start`, a Gmail source with no run yet has its
- * mailbox listed — asked for only when the run looks like an import, so a routine poll never
- * starts a listing.
+ * Polls a mail source's progress (its recorded runs, and a Gmail or IMAP import's listing) while
+ * `enabled`, paused while the tab is hidden. With `start`, a mail source (Gmail, or an IMAP
+ * mailbox, BE-12) with no run yet has its mailbox listed — asked for only when the run looks like
+ * an import, so a routine poll never starts a listing.
  *
  * `supported` goes false on a 404 (not a mail source of this workspace) or a 401/403, and polling
  * stops. A failed poll keeps the last answer rather than blanking the panel.

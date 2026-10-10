@@ -183,7 +183,7 @@ export const KbHistoryRangeDialog = ({ source, onClose, onShowAlert, onApplied }
           : { days, apply: true as const };
       const done = (await integrationsService.kbHistoryRange(source.id, body)) as KbRangeApplied;
       const alert = applyAlert(done, source.type);
-      if (source.type === 'gmail' && done.sweepRequested) {
+      if (done.importRunStarted || (source.type === 'gmail' && done.sweepRequested)) {
         useProcessingPanelStore.getState().open(source.id, 'manual');
       }
       onShowAlert({ open: true, title: alert.title, description: alert.body, variant: 'success' });

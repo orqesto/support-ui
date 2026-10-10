@@ -36,6 +36,8 @@ export type ApiResponse<T> = {
   data?: T;
   error?: string;
   message?: string;
+  /** Gmail callback: this connect switched the knowledge base on but nothing is mined (no active plan). */
+  kbMiningDeferred?: 'plan_inactive';
 };
 
 export interface ConnectWithPopupConfig {
@@ -80,11 +82,16 @@ export const gmailOAuthService = {
       success: boolean;
       data: { email: string; id: number };
       message: string;
+      kbMiningDeferred?: string;
     }>('/api/oauth/gmail/callback', request);
     return {
       success: response.data.success,
       data: response.data.data,
       message: response.data.message,
+      // The only value the backend sends; anything else is not guessed at.
+      ...(response.data.kbMiningDeferred === 'plan_inactive'
+        ? { kbMiningDeferred: 'plan_inactive' as const }
+        : {}),
     };
   },
 
@@ -340,9 +347,10 @@ export const gmailOAuthService = {
    * then dispatches the BE callback. Returns null if no redirect-flow result is
    * pending.
    */
-  consumePendingRedirectResult: async (): Promise<
-    ApiResponse<{ email: string; id: number }> | null
-  > => {
+  consumePendingRedirectResult: async (): Promise<ApiResponse<{
+    email: string;
+    id: number;
+  }> | null> => {
     const payloadRaw = sessionStorage.getItem('gmail_oauth_payload');
     const configRaw = sessionStorage.getItem('gmail_oauth_pending_config');
     if (!configRaw) return null;

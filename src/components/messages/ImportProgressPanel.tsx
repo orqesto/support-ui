@@ -1,6 +1,15 @@
+import { useState } from 'react';
+import { Button } from '@/components/ui/Button';
 import { Progress } from '@/components/ui/Progress';
 import { Spinner } from '@/components/ui/Spinner';
 import { formatUtcAndLocal, formatUtcDateAndLocal, resumePhase } from '@/lib/utcClock';
+import {
+  COUNT_PENDING_SUFFIX,
+  HISTORY_READ_PENDING,
+  HISTORY_READ_PENDING_ALL_IN,
+  imapUnverifiableLine,
+  SWEEP_OWED_LINE,
+} from './importProgressCopy';
 import type {
   ImportStage,
   StageEta,
@@ -97,6 +106,7 @@ export const describeEta = (eta: StageEta, now: number = Date.now()): string => 
       if (eta.reason === 'pause_unknown') {
         return `Finish time unknown: the work${eta.stage ? PAUSED_FOR[eta.stage] : ''} is not moving, and whether the daily KB limit is holding it is not known`;
       }
+      if (eta.reason === 'sweep_owed') return SWEEP_OWED_LINE;
       return 'Finish time unknown: the mailbox holds more messages than were counted';
     case 'paused': {
       // BE R16: parked by a daily AI token limit until the reset — not stalled, not finished.
@@ -122,6 +132,65 @@ export const describeEta = (eta: StageEta, now: number = Date.now()): string => 
       return `${formatMinutes(eta.minMinutes)} – ${formatMinutes(eta.maxMinutes)} left`;
   }
 };
+
+/** An IMAP source's run (BE-12 `channel: 'email'`); a Gmail run carries no channel. */
+export const isImapRun = (run: TrackedImport['run']): boolean => run.channel === 'email';
+
+/**
+ * An IMAP run whose every listed message may be stored but whose read has not ended: for a
+ * knowledge-base source the history sweep must also have stamped (BE `drained`), so "done" before
+ * that would be untrue. Only an IMAP run is held back this way; a Gmail eta is taken as it comes.
+ */
+export const awaitingHistoryRead = (data: TrackedImport): boolean =>
+  isImapRun(data.run) && !!data.progress && !data.progress.drained;
+
+const RecountButton = ({
+  onRecount,
+  onRecounted,
+}: {
+  onRecount: () => unknown;
+  /** After a recount that started: refresh the view. Its failure is not a failed recount. */
+  onRecounted?: () => unknown;
+}) => {
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    setFailed(false);
+    try {
+      await onRecount();
+    } catch {
+      setFailed(true);
+      setBusy(false);
+      return;
+    }
+    try {
+      await onRecounted?.();
+    } catch {
+      // The recount started; a view that did not refresh catches up at the next poll.
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="flex gap-2 items-center">
+      <Button size="sm" variant="outline" disabled={busy} onClick={() => void run()}>
+        Recount
+      </Button>
+      {failed && (
+        <span className="text-[11px] text-warning">
+          Could not start the recount. Try again in a few minutes.
+        </span>
+      )}
+    </div>
+  );
+};
+
+/** Why an IMAP listing is a floor, in words that stay true for the cause. */
+const imapCappedLine = (total: number, cappedBy: TrackedImport['run']['cappedBy']): string =>
+  cappedBy === 'error'
+    ? `The mailbox listing could not read every folder, so the total is at least ${total.toLocaleString()}.`
+    : `The mailbox listing stopped at the limit, so the total is at least ${total.toLocaleString()}.`;
 
 const StageRow = ({ stage, capped }: { stage: StageProgress; capped: boolean }) => {
   // A capped listing's total is a floor: the count past it is real, a percentage of it is not.
@@ -151,13 +220,24 @@ const StageRow = ({ stage, capped }: { stage: StageProgress; capped: boolean }) 
 };
 
 /**
- * Where a Gmail import stands, from the database. Replaces the widget's socket-driven numbers
- * for a Gmail source: those came from per-process counters that a restart reset and two trackers
+ * Where a mail source's import stands (Gmail, or an IMAP run, BE-12), from the database. Replaces
+ * the widget's socket-driven numbers for a Gmail source: those came from per-process counters that a restart reset and two trackers
  * overwrote in turn (petro, 2026-09-25: "0 / 2173 · 0%" and "50 / 51 · 98%" a minute apart, then
  * "Complete" with ~2,100 still to import).
  */
-export const ImportProgressPanel = ({ data }: { data: TrackedImport }) => {
+export const ImportProgressPanel = ({
+  data,
+  onRecount,
+  onRecounted,
+}: {
+  data: TrackedImport;
+  /** Recount the mailbox (IMAP only: offered on a failed or capped listing, which is never continued). */
+  onRecount?: () => unknown;
+  /** Called after a recount that started (the caller refreshes the view). */
+  onRecounted?: () => unknown;
+}) => {
   const { run, progress } = data;
+  const imap = isImapRun(run);
   if (run.state === 'counting') {
     return (
       <p className="flex gap-2 items-center text-xs text-muted-foreground">
@@ -168,21 +248,33 @@ export const ImportProgressPanel = ({ data }: { data: TrackedImport }) => {
   }
   if (run.state === 'failed' || !progress) {
     return (
-      <p className="text-xs text-warning">
-        {run.error ?? 'Could not count the mailbox.'} Progress will show once it has been counted.
-      </p>
+      <div className="space-y-1.5">
+        <p className="text-xs text-warning">
+          {run.error ?? 'Could not count the mailbox.'}
+          {imap ? '' : COUNT_PENDING_SUFFIX}
+        </p>
+        {imap && onRecount && <RecountButton onRecount={onRecount} onRecounted={onRecounted} />}
+      </div>
     );
   }
   // A capped 0 is a floor (the first page came back empty and the next was refused), not an empty
   // mailbox (independent audit, pass 7).
   if (progress.total === 0 && !progress.capped) {
-    return <p className="text-xs text-muted-foreground">Nothing to import.</p>;
+    const unverifiable = imap ? (run.unverifiable ?? 0) : 0;
+    return (
+      <div className="space-y-0.5 text-xs text-muted-foreground">
+        <p>Nothing to import.</p>
+        {unverifiable > 0 && <p className="text-[11px]">{imapUnverifiableLine(unverifiable)}</p>}
+      </div>
+    );
   }
   const leftovers = progress.stages.filter((stage) => (stage.leftover ?? 0) > 0);
   // The one eta line names ONE stage. A stage paused at a limit while the overall line says
   // something else (BE R17: stalled > unknown > estimating > running > paused) was said nowhere;
   // and an overall pause
   // hid how the stages still moving are doing (FE audit pass 17, queued + BE LOW 3).
+  // An IMAP run is not finished before its read is (see awaitingHistoryRead).
+  const holdDone = awaitingHistoryRead(data);
   const overall = progress.eta;
   // A stage whose hold by the limit is not known (BE round 20 `limit_unreadable`, round 21
   // `pause_unknown`) under an overall line that says something else (a capped listing outranks it)
@@ -208,10 +300,22 @@ export const ImportProgressPanel = ({ data }: { data: TrackedImport }) => {
   return (
     <div className="space-y-2.5">
       <p className="text-sm font-medium" data-testid="import-eta">
-        {describeEta(progress.eta)}
+        {holdDone && overall.state === 'done'
+          ? progress.imported >= progress.total
+            ? HISTORY_READ_PENDING_ALL_IN
+            : HISTORY_READ_PENDING
+          : describeEta(progress.eta)}
       </p>
       {progress.stages.map((stage) => (
-        <StageRow key={stage.stage} stage={stage} capped={progress.capped} />
+        <StageRow
+          key={stage.stage}
+          stage={
+            holdDone && stage.stage === 'imported' && stage.eta.state === 'done'
+              ? { ...stage, eta: { state: 'estimating' } }
+              : stage
+          }
+          capped={progress.capped}
+        />
       ))}
       <ul className="space-y-0.5 text-[11px] text-muted-foreground">
         {stageLines.map((line) => (
@@ -219,7 +323,12 @@ export const ImportProgressPanel = ({ data }: { data: TrackedImport }) => {
             {line}
           </li>
         ))}
+        {progress.capped && imap && <li>{imapCappedLine(progress.total, run.cappedBy)}</li>}
+        {imap && (run.unverifiable ?? 0) > 0 && (
+          <li>{imapUnverifiableLine(run.unverifiable ?? 0)}</li>
+        )}
         {progress.capped &&
+          !imap &&
           (run.countingOn ? (
             <li>
               {progress.total.toLocaleString()} messages counted so far; counting carries on in the
@@ -264,6 +373,9 @@ export const ImportProgressPanel = ({ data }: { data: TrackedImport }) => {
           <li>~ totals are estimates until every message has been imported and checked.</li>
         )}
       </ul>
+      {imap && progress.capped && onRecount && (
+        <RecountButton onRecount={onRecount} onRecounted={onRecounted} />
+      )}
     </div>
   );
 };

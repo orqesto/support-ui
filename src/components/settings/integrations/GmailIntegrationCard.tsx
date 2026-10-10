@@ -34,7 +34,10 @@ import { logger } from '@/lib/logger';
 import { gmailOAuthService } from '@/services/gmail-oauth.service';
 import { integrationsService } from '@/services/integrations.service';
 import { useKbRangeDialogStore } from '@/stores/kbRangeDialogStore';
-import { KB_RANGE_MENU_LABEL } from '@/components/settings/integrations/kbRangeCopy';
+import {
+  KB_MINING_DEFERRED_LINE,
+  KB_RANGE_MENU_LABEL,
+} from '@/components/settings/integrations/kbRangeCopy';
 
 type GmailConfig = {
   isKnowledgeBase?: boolean;
@@ -110,7 +113,10 @@ export const GmailIntegrationCard = ({
     setShowForm(false);
   };
 
-  const handleOAuthSuccess = async (data: { email: string; id: number }) => {
+  const handleOAuthSuccess = async (
+    data: { email: string; id: number },
+    kbMiningDeferred?: 'plan_inactive'
+  ) => {
     const newIntegrationId = data.id;
     // Google signed in to a mailbox that is ALREADY a source here: the backend took its update
     // branch. Its department links are left as they are — relinking "to every department" was
@@ -145,13 +151,15 @@ export const GmailIntegrationCard = ({
     // before someone has seen how much will be. A re-auth of a live source opens it too, as a count.
     if (newIntegrationId) setReviewId(newIntegrationId);
 
+    const connected = reconnected
+      ? `${data.email ?? 'This mailbox'} was already a source here and has been reconnected. Its departments were kept; the settings on this form were applied to it.`
+      : `Gmail account connected!\n\n${data.email ?? 'Account'} has been added. Check the message count, then start the sync.`;
     onShowAlert({
       open: true,
       title: 'Success',
-      description: reconnected
-        ? `${data.email ?? 'This mailbox'} was already a source here and has been reconnected. Its departments were kept; the settings on this form were applied to it.`
-        : `Gmail account connected!\n\n${data.email ?? 'Account'} has been added. Check the message count, then start the sync.`,
-      variant: 'success',
+      description: kbMiningDeferred ? `${connected}\n\n${KB_MINING_DEFERRED_LINE}` : connected,
+      // Nothing is mined yet when mining was deferred: a green alert reads as "all good".
+      variant: kbMiningDeferred ? 'warning' : 'success',
     });
   };
 
@@ -207,7 +215,7 @@ export const GmailIntegrationCard = ({
       if (abortRef.current) return;
 
       if (response.success && response.data) {
-        await handleOAuthSuccess(response.data);
+        await handleOAuthSuccess(response.data, response.kbMiningDeferred);
       } else if (response.error === 'POPUP_BLOCKED') {
         // Surface the retry banner; don't show a generic alert.
         setPopupBlocked(true);
@@ -268,7 +276,7 @@ export const GmailIntegrationCard = ({
       const result = await gmailOAuthService.consumePendingRedirectResult();
       if (cancelled) return;
       if (result?.success && result.data) {
-        await handleOAuthSuccess(result.data);
+        await handleOAuthSuccess(result.data, result.kbMiningDeferred);
       } else if (result) {
         onShowAlert({
           open: true,
