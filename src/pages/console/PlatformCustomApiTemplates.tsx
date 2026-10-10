@@ -11,7 +11,7 @@ import { ConsoleEmpty } from '@/components/console/ConsoleEmpty';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import {
   customApiTemplateAdminService,
-  type CustomApiTemplate,
+  type AdminCustomApiTemplate,
   type TemplateDefinition,
 } from '@/services/customApiTemplates.service';
 
@@ -23,7 +23,11 @@ import {
 type Draft = { id: number | null; key: string; name: string; description: string; json: string };
 const KEY = ['platform', 'custom-api-templates'];
 
-const draftOf = (tpl: CustomApiTemplate | null): Draft => ({
+/**
+ * ⛔ A broken row (C2) opens with its stored JSON AS IS — whatever shape it has — so the admin
+ * repairs what is there instead of starting over.
+ */
+const draftOf = (tpl: AdminCustomApiTemplate | null): Draft => ({
   id: tpl?.id ?? null,
   key: tpl?.key ?? '',
   name: tpl?.name ?? '',
@@ -71,7 +75,7 @@ export const PlatformCustomApiTemplates = () => {
   const locked = save.isPending;
 
   const publish = useMutation({
-    mutationFn: (tpl: CustomApiTemplate) =>
+    mutationFn: (tpl: AdminCustomApiTemplate) =>
       customApiTemplateAdminService.update(tpl.id, {
         status: tpl.status === 'published' ? 'draft' : 'published',
       }),
@@ -179,6 +183,12 @@ export const PlatformCustomApiTemplates = () => {
                     {tpl.description && (
                       <p className="text-xs text-muted-foreground">{tpl.description}</p>
                     )}
+                    {tpl.definitionError && (
+                      <p className="text-xs text-destructive">
+                        The stored definition is broken: {tpl.definitionError}. Fix the JSON and
+                        save.
+                      </p>
+                    )}
                   </div>
                   <Badge variant={tpl.status === 'published' ? 'success' : 'secondary'}>
                     {tpl.status === 'published' ? 'Published' : 'Draft'}
@@ -197,7 +207,17 @@ export const PlatformCustomApiTemplates = () => {
                   <Button
                     size="sm"
                     variant="ghost"
-                    disabled={publish.isPending}
+                    // C3: the backend refuses to publish a broken definition; say so before.
+                    // Unpublishing one stays allowed.
+                    disabled={
+                      publish.isPending ||
+                      (tpl.status !== 'published' && Boolean(tpl.definitionError))
+                    }
+                    title={
+                      tpl.status !== 'published' && tpl.definitionError
+                        ? 'Its stored definition is broken. Fix the JSON and save before publishing.'
+                        : undefined
+                    }
                     onClick={() => publish.mutate(tpl)}
                   >
                     {tpl.status === 'published' ? 'Unpublish' : 'Publish'}

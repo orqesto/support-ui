@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
-import { TemplateChecklist, IDENTIFIER_WARNING } from '../TemplateChecklist';
+import { TemplateChecklist } from '../TemplateChecklist';
 import type { FieldPick } from '@/services/customApi.service';
 
 const checklist = [
@@ -33,7 +33,9 @@ describe('TemplateChecklist', () => {
     const { rerender } = render(
       <TemplateChecklist checklist={[...checklist]} picked={[]} feedsOwnership />
     );
-    expect(screen.getByRole('alert')).toHaveTextContent(IDENTIFIER_WARNING);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'No field is tagged as the order number, so the ownership check cannot work — every order number lookup will read unverified.'
+    );
     rerender(
       <TemplateChecklist
         checklist={[...checklist]}
@@ -44,5 +46,32 @@ describe('TemplateChecklist', () => {
     expect(screen.queryByRole('alert')).toBeNull();
     rerender(<TemplateChecklist checklist={[...checklist]} picked={[]} feedsOwnership={false} />);
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('F3: names the identifier from THIS template’s checklist, not a hard-coded order number', () => {
+    render(
+      <TemplateChecklist
+        checklist={[{ role: 'identifier', label: 'Booking reference', required: true }]}
+        picked={[]}
+        feedsOwnership
+      />
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'No field is tagged as the booking reference, so the ownership check cannot work — every booking reference lookup will read unverified.'
+    );
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/order/);
+  });
+
+  it('F3: falls back to "record number" when the checklist has no identifier label', () => {
+    render(
+      <TemplateChecklist
+        checklist={[{ role: 'status', label: 'Status', required: true }]}
+        picked={[]}
+        feedsOwnership
+      />
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'No field is tagged as the record number, so the ownership check cannot work — every record number lookup will read unverified.'
+    );
   });
 });
