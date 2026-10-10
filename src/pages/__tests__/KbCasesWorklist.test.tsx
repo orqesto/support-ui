@@ -545,7 +545,7 @@ describe('F3 row actions', () => {
     expect(within(row21).getByText('Case')).toBeInTheDocument();
     expect(within(row21).queryByRole('button', { name: /Move into case/ })).not.toBeInTheDocument();
     expect(within(row21).queryByRole('button', { name: /Approve/ })).not.toBeInTheDocument();
-    fireEvent.click(within(row21).getByRole('button', { name: /Unmerge case/ }));
+    fireEvent.click(within(row21).getByRole('button', { name: /Split case/ }));
     // Its originals are not the rows listed around it: no count is claimed.
     expect(await screen.findByRole('dialog')).toHaveTextContent(
       'the case entry is removed and its original entries come back on their own'
@@ -556,11 +556,11 @@ describe('F3 row actions', () => {
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Show entries (2)' }));
     const caseRow = await workRowEl(900);
-    fireEvent.click(within(caseRow).getByRole('button', { name: /Unmerge case/ }));
+    fireEvent.click(within(caseRow).getByRole('button', { name: /Split case/ }));
     const dialog = await screen.findByRole('dialog');
     expect(dialog).toHaveTextContent('its 2 original entries come back on their own');
     const reads = reportReads().length;
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Unmerge' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Split case' }));
     await waitFor(() =>
       expect(
         wire.calls('POST', '/api/knowledge-base/consolidation/cases/900/unmerge')
@@ -584,7 +584,7 @@ describe('F3 row actions', () => {
     expect(within(caseRow).queryAllByRole('button')).toHaveLength(0);
     expect(
       within(caseRow).getByText(
-        'Only a moderator of every department this case serves can unmerge it.'
+        'Only a moderator of every department this case serves can split it.'
       )
     ).toBeInTheDocument();
   });

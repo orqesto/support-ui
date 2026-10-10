@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
+import { KB_MERGE_SUGGESTION_PARAM } from '@/components/layout/KbReviewSection';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { KbConsolidationReview, summarizeKbMerge } from '@/components/kb/KbConsolidationReview';
 import { KbQualityCoverage } from '@/components/kb/KbQualityCoverage';
@@ -35,6 +36,24 @@ export const KbMergesReviewPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [opened, setOpened] = useState<Set<number>>(new Set());
   const tab: ReviewTab = searchParams.get('tab') === 'quality' ? 'quality' : 'merges';
+  // `?suggestion=<id>` (a proposal's "Review" on KB cases): open THAT proposal and bring it into view.
+  const wantedRaw = Number(searchParams.get(KB_MERGE_SUGGESTION_PARAM));
+  const wantedId = Number.isInteger(wantedRaw) && wantedRaw > 0 ? wantedRaw : null;
+  const wantedState =
+    wantedId === null || merges === null
+      ? null
+      : merges.some((row) => row.id === wantedId)
+        ? 'found'
+        : 'gone';
+  useEffect(() => {
+    if (wantedState !== 'found' || wantedId === null) return;
+    setOpened((prev) => (prev.has(wantedId) ? prev : new Set(prev).add(wantedId)));
+    requestAnimationFrame(() =>
+      document
+        .querySelector<HTMLElement>(`[data-suggestion-id="${wantedId}"]`)
+        ?.scrollIntoView?.({ block: 'start' })
+    );
+  }, [wantedState, wantedId]);
   // react-router re-creates `setSearchParams` on every URL change; read through a ref so `load`
   // stays stable — otherwise each tab switch re-ran it and re-fetched the list.
   const setParamsRef = useRef(setSearchParams);
@@ -84,6 +103,11 @@ export const KbMergesReviewPage = () => {
           description="Suggestions from the nightly review of learned answers. Nothing changes until you decide."
         />
         {error && <Alert variant="danger">{error}</Alert>}
+        {wantedState === 'gone' && tab === 'merges' && (
+          <Alert variant="info">
+            That proposal is no longer waiting for review — it was decided, or it expired.
+          </Alert>
+        )}
         <Tabs<ReviewTab>
           variant="simple"
           activeTab={tab}
@@ -111,7 +135,7 @@ export const KbMergesReviewPage = () => {
         ) : (
           <ul className="space-y-3" aria-label="Proposed merges">
             {(merges ?? []).map((row) => (
-              <li key={row.id}>
+              <li key={row.id} data-suggestion-id={row.id}>
                 <Card>
                   <CardContent className="pt-4 space-y-3">
                     <div className="flex flex-wrap gap-2 justify-between items-center">

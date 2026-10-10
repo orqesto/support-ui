@@ -121,7 +121,7 @@ describe('audit round 5', () => {
     expect(within(row22).getByText(/merge suggestion #7001/)).toBeInTheDocument();
     expect(within(row22).getByRole('link', { name: 'review it in Merges' })).toHaveAttribute(
       'href',
-      '/knowledge-base/merges'
+      '/knowledge-base/merges?tab=merges&suggestion=7001'
     );
     expect(within(row22).queryAllByRole('button')).toHaveLength(0);
     // Not a member: the members are still the case's own two.

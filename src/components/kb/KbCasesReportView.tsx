@@ -9,8 +9,21 @@ import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent } from '@/components/ui/Card';
 import { kbRef } from '@/lib/kbConsolidation';
 import { kbFindingHref } from '@/lib/kbFinding';
-import type { KbCaseRow, KbCasesFindings, KbCasesReport } from '@/services/kbConsolidation.service';
-import { KbCaseRowView, plural, rowEntryIds, rowTitle } from './KbCaseRowView';
+import {
+  kbConsolidationService,
+  type KbCaseRow,
+  type KbCasesFindings,
+  type KbCasesReport,
+} from '@/services/kbConsolidation.service';
+import { MOVE_SEARCH_PAGE } from './KbMoveToCaseDialog';
+import {
+  KbCaseRowView,
+  conversationsText,
+  memberCount,
+  plural,
+  rowEntryIds,
+  rowTitle,
+} from './KbCaseRowView';
 import { KbSetAside } from './KbSetAside';
 import { KbWorkRows, type KbWorkNotice } from './KbWorkRows';
 
@@ -92,7 +105,7 @@ export const KbCasesFindingsPanel = ({
     const ids = pair.caseIds.map((id, index) => kbRef(pair.casePublicIds?.[index], id)).join(', ');
     lines.push({
       key: `dup-${pair.caseIds.join('-')}`,
-      node: `${ids} — review whether they are one case (Unmerge one and its entries can be proposed into the other).`,
+      node: `${ids} — review whether they are one case (Split one and its entries can be proposed into the other).`,
     });
   }
   if (lines.length === 0) return null;
@@ -269,6 +282,60 @@ const NO_SET_ASIDE_COUNTS = {
   detached: 0,
 };
 
+const pageHasCase = (report: KbCasesReport): boolean =>
+  report.headers.some((header) =>
+    header.rows.some((row) => row.kind === 'case' && row.caseId !== null)
+  );
+
+/**
+ * Is there a live case in the report's departments to move an entry into? A case on the page
+ * answers yes; the whole scope on one unsearched page with none answers no. Otherwise (a search, or
+ * more pages) the first page of the unsearched report is read once to tell; null while not known
+ * — then "Move into case" is still offered and its picker says when no case fits.
+ */
+const useCasesExist = (
+  report: KbCasesReport,
+  search: string,
+  departmentIds: number[] | null
+): boolean | null => {
+  const onPage = pageHasCase(report);
+  const wholeScopeShown = !search.trim() && (report.pagination?.totalPages ?? 1) <= 1;
+  const known = onPage ? true : wholeScopeShown ? false : null;
+  const [probed, setProbed] = useState<{ report: KbCasesReport; exists: boolean | null } | null>(
+    null
+  );
+  const departmentsKey = departmentIds?.join(',') ?? null;
+  useEffect(() => {
+    if (known !== null || departmentsKey === null) return;
+    let live = true;
+    kbConsolidationService
+      .getCases({
+        departmentIds: departmentsKey ? departmentsKey.split(',').map(Number) : [],
+        page: 1,
+        pageSize: MOVE_SEARCH_PAGE,
+      })
+      .then((first) => {
+        if (!live) return;
+        setProbed({
+          report,
+          exists: pageHasCase(first)
+            ? true
+            : (first.pagination?.totalPages ?? 1) <= 1
+              ? false
+              : null,
+        });
+      })
+      .catch(() => {
+        // Not known: the button stays offered.
+      });
+    return () => {
+      live = false;
+    };
+  }, [known, departmentsKey, report]);
+  if (known !== null) return known;
+  return probed?.report === report ? probed.exists : null;
+};
+
 /**
  * Which row is open survives a re-read by the row's IDENTITY — never its position: an unmerge or a
  * re-sort shifts positions, and another case would open in its place.
@@ -336,6 +403,7 @@ export const KbCasesReportView = ({
     [pageNotice]
   );
   const listed = active !== null && listsSetAside(report);
+  const casesExist = useCasesExist(report, search, active ? active.departmentIds : null);
   // Entries that are listed as rows are not counted again in the panel; possible duplicates
   // (pairs of cases, not entries) stay there.
   const panelFindings = listed ? { ...report.findings, ...NO_SET_ASIDE_COUNTS } : report.findings;
@@ -355,6 +423,7 @@ export const KbCasesReportView = ({
       <KbSetAside
         items={report.setAside ?? []}
         departmentIds={active.departmentIds}
+        casesExist={casesExist}
         notice={setAsideNotice}
         onListNotice={setSetAsideNotice}
         onChanged={active.onChanged}
@@ -394,10 +463,14 @@ export const KbCasesReportView = ({
                     a total: the row counts below overlap and must not be added up. Same noun
                     as the rows and the caption, so nobody reads two different things. */}
                 <span className="text-xs text-muted-foreground">
-                  {plural(header.conversations, 'conversation', 'conversations')}{' '}
-                  {header.rows.length === 1
-                    ? 'in this case'
-                    : 'across these cases, each counted once'}
+                  {header.rows.length === 1 && memberCount(header.rows[0]) > header.conversations
+                    ? // More answers than conversations: name both, as the row does.
+                      conversationsText(memberCount(header.rows[0]), header.conversations)
+                    : `${plural(header.conversations, 'conversation', 'conversations')} ${
+                        header.rows.length === 1
+                          ? 'in this case'
+                          : 'across these cases, each counted once'
+                      }`}
                 </span>
               </div>
               <ul className="space-y-2">
@@ -434,6 +507,7 @@ export const KbCasesReportView = ({
                                       : null
                                   }
                                   departmentIds={active.departmentIds}
+                                  casesExist={casesExist}
                                   onChanged={active.onChanged}
                                   onNotice={onNotice}
                                   label={`Entries of ${rowTitle(row)}`}

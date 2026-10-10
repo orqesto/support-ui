@@ -69,7 +69,15 @@ describe('KB Cases report (F2)', () => {
     expect(screen.getByText('proposed case — awaiting review')).toBeInTheDocument();
     expect(screen.getByText('unreviewed group')).toBeInTheDocument();
     expect(screen.getByText('declined for case #KB-900')).toBeInTheDocument();
-    expect(screen.getAllByText('no standard answer yet')).toHaveLength(4);
+    // A proposal carries a drafted answer waiting in review — "no standard answer yet" only where
+    // there is none at all (groups, single answers).
+    expect(screen.getAllByText('no standard answer yet')).toHaveLength(3);
+    expect(screen.getByText('Standard answer drafted — waiting for review')).toBeInTheDocument();
+    // Its Review opens THAT proposal, not the list of every proposal.
+    expect(screen.getByRole('link', { name: 'Review' })).toHaveAttribute(
+      'href',
+      '/knowledge-base/merges?tab=merges&suggestion=70'
+    );
     expect(screen.getAllByText(/Standard answer:/)).toHaveLength(1);
     expect(screen.queryByText('AI DRAFT TEXT')).not.toBeInTheDocument();
   });
@@ -85,6 +93,54 @@ describe('KB Cases report (F2)', () => {
     expect(container.textContent).not.toMatch(/unique cases/i);
     expect(container.textContent).not.toMatch(/\d+ conversations in total/i);
     expect(container.textContent).not.toMatch(/total conversations/i);
+  });
+
+  it('more answers than conversations: "2 answers from 1 conversation" in the header and the row', () => {
+    view(
+      report({
+        headers: [
+          {
+            label: 'refund',
+            language: 'en',
+            conversations: 1,
+            rows: [
+              row({
+                kind: 'case',
+                caseId: 900,
+                casePublicId: 'KB-900',
+                question: 'How do refunds work?',
+                questions: [],
+                standardAnswer: 'Refunds take 5 days.',
+                entryIds: [11, 12],
+                memberCount: 2,
+                memberIds: [11, 12],
+                conversations: 1,
+                customers: 1,
+              }),
+            ],
+          },
+        ],
+      })
+    );
+    expect(screen.getAllByText(/^2 answers from 1 conversation/)).toHaveLength(2);
+    expect(screen.queryByText('1 conversation in this case')).toBeNull();
+  });
+
+  it('as many answers as conversations: the count names conversations only', () => {
+    view(
+      report({
+        headers: [
+          {
+            label: 'refund',
+            language: 'en',
+            conversations: 2,
+            rows: [row({ kind: 'proposed', suggestionId: 70, entryIds: [1, 2], conversations: 2 })],
+          },
+        ],
+      })
+    );
+    expect(screen.getByText('2 conversations in this case')).toBeInTheDocument();
+    expect(screen.queryByText(/answers from/)).toBeNull();
   });
 
   it('a header over a single row does not say "across these cases"', () => {
@@ -111,7 +167,7 @@ describe('KB Cases report (F2)', () => {
     expect(findings).toMatch(/1 with no clear language/);
     expect(findings).toMatch(/1 entry detached from a case/);
     // Named as the rows name them; a case with no public id yet falls back to its row id.
-    expect(findings).toMatch(/#KB-900, #905 — review whether they are one case \(Unmerge one/);
+    expect(findings).toMatch(/#KB-900, #905 — review whether they are one case \(Split one/);
   });
 
   it('hides "classifying" once everything is settled', () => {

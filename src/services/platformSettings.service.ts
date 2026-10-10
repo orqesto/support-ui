@@ -107,7 +107,15 @@ export type PlatformSettings = {
    * setting is not available rather than guessing.
    */
   reasoning?: PlatformReasoning;
+  /**
+   * Knowledge-base capture settings (`kb.capture_ai_question`, 2026-10-07). Absent on a backend
+   * that predates the setting — the card then says it arrives with the next backend release.
+   */
+  kb?: { captureAiQuestion: ResolvedField<boolean> };
 };
+
+/** PATCH /settings/kb — whether captured questions are rewritten with AI (default on). */
+export type PlatformKbInput = { captureAiQuestion: boolean };
 
 /**
  * What PATCH /settings/reasoning accepts, and what `stored` echoes back. Efforts and feature
@@ -195,6 +203,7 @@ type RawPlatformSettings = {
   secrets?: Partial<Record<PlatformSecretKey, SecretStatus>>;
   database?: { freeSharedRetentionDays?: ResolvedField<number> };
   reasoning?: unknown;
+  kb?: unknown;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -207,7 +216,9 @@ const isFiniteNumber = (value: unknown): value is number =>
 const stringMap = (value: unknown): Record<string, string> =>
   isRecord(value)
     ? Object.fromEntries(
-        Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+        Object.entries(value).filter(
+          (entry): entry is [string, string] => typeof entry[1] === 'string'
+        )
       )
     : {};
 
@@ -282,6 +293,24 @@ export const normalizeReasoning = (raw: unknown): PlatformReasoning | undefined 
   };
 };
 
+const FIELD_SOURCES: readonly FieldSource[] = ['db', 'env', 'default'];
+
+/**
+ * The KB block, only when it carries a boolean `captureAiQuestion` with a known source — any
+ * other shape is treated as "this backend does not have the setting", never guessed at.
+ */
+export const normalizeKb = (raw: unknown): PlatformSettings['kb'] => {
+  if (!isRecord(raw) || !isRecord(raw.captureAiQuestion)) return undefined;
+  const { value, source } = raw.captureAiQuestion;
+  if (typeof value !== 'boolean') return undefined;
+  return {
+    captureAiQuestion: {
+      value,
+      source: FIELD_SOURCES.includes(source as FieldSource) ? (source as FieldSource) : 'default',
+    },
+  };
+};
+
 const UNSET_SECRET: SecretStatus = { configured: false, source: 'none', last4: null };
 
 const field = <T>(raw: ResolvedField<T> | undefined): ResolvedField<T> =>
@@ -344,6 +373,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
   }
 
   const reasoning = normalizeReasoning(raw.reasoning);
+  const kb = normalizeKb(raw.kb);
   const provider = field(raw.ai.provider);
   const effectiveProvider = provider.value ?? 'openai';
   return {
@@ -391,6 +421,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
       ? { database: { freeSharedRetentionDays: raw.database.freeSharedRetentionDays } }
       : {}),
     ...(reasoning ? { reasoning } : {}),
+    ...(kb ? { kb } : {}),
   };
 };
 
@@ -428,6 +459,11 @@ export const platformSettingsService = {
   /** PATCH the no-active-plan managed-database retention window (BYODB §3.4). Applies to future stamps only. */
   updateDatabase: async (input: PlatformDatabaseInput): Promise<void> => {
     await apiClient.patch(`${BASE}/database`, input);
+  },
+
+  /** PATCH the knowledge-base capture settings (`kb.capture_ai_question`). */
+  updateKb: async (input: PlatformKbInput): Promise<void> => {
+    await apiClient.patch(`${BASE}/kb`, input);
   },
 
   /**
