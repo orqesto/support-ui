@@ -82,6 +82,8 @@ export type Server = {
    * the larger read the page makes to tell (pageSize 100) still holds them.
    */
   noCases?: boolean | 'page';
+  /** Decides per request whether its report holds the live cases (overrides `noCases`). */
+  withCases?: (params: Record<string, string>) => boolean;
   /** An auto-cleaned entry's original text, by its suggestion id (BE keeps it for the undo). */
   originals?: Map<number, { question: string; answer: string }>;
   /** How the undo route answers: 'conflict' = 409 (the entry changed since). */
@@ -355,7 +357,10 @@ export const handle = async (request: WireRequest) => {
       : [4, 7];
     const full = reportNow(ids);
     const withoutCases =
-      server.noCases === true || (server.noCases === 'page' && request.params.pageSize !== '100');
+      server.withCases !== undefined
+        ? !server.withCases(request.params)
+        : server.noCases === true ||
+          (server.noCases === 'page' && request.params.pageSize !== '100');
     const built = {
       ...full,
       headers: withoutCases
