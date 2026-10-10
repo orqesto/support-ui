@@ -11,7 +11,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { kbFullHoldLine } from '@/components/settings/integrations/kbRangeCopy';
-import { ImportProgressPanel } from '@/components/messages/ImportProgressPanel';
+import { ImportProgressPanel, isImapRun } from '@/components/messages/ImportProgressPanel';
 import type { ProcessingSession } from '@/hooks/useEmailProcessingSessions';
 import {
   IMPORT_LISTING_THRESHOLD,
@@ -19,7 +19,11 @@ import {
   useImportProgress,
 } from '@/hooks/useImportProgress';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
-import type { ImportProgress, RunView, StageEta } from '@/services/importProgress.service';
+import {
+  type ImportProgress,
+  importProgressService,
+  type RunView,
+} from '@/services/importProgress.service';
 import { useProcessingPanelStore } from '@/stores/processingPanelStore';
 import {
   formatUtcDateAndLocal,
@@ -37,6 +41,7 @@ import {
   SMALL_RUN_BELOW,
   writeClosedProblems,
 } from './panelRules';
+import { importFingerprint, importKbHoldNotKnown, importMoving, importShown } from './importRules';
 import {
   describeRunProblems,
   hasLaterKbRun,
@@ -85,72 +90,6 @@ const readExpanded = (): boolean => {
   } catch {
     return true;
   }
-};
-
-/** A Gmail import worth showing: its listing did not fail and its stages are not all finished. */
-const importShown = (
-  data: ImportProgress | null
-): data is Extract<ImportProgress, { tracked: true }> =>
-  data !== null &&
-  data.tracked &&
-  data.run.state !== 'failed' &&
-  (data.run.state === 'counting' || data.progress?.eta.state !== 'done');
-
-/** Changes whenever the import moves: listing, imported count, or any stage's done count. */
-const importFingerprint = (data: Extract<ImportProgress, { tracked: true }>): string =>
-  [
-    data.run.state,
-    data.run.total ?? '',
-    data.progress?.imported ?? '',
-    ...(data.progress?.stages ?? []).map((stage) => stage.done),
-  ].join(':');
-
-/**
- * An eta whose finish is unknown because whether the daily KB limit holds the work is not known:
- * the limit could not be checked (BE round 20 `limit_unreadable`), or the queue's parked KB jobs
- * could not be read in full (BE round 21 `pause_unknown`).
- */
-const kbHoldNotKnown = (eta: StageEta | undefined): boolean =>
-  eta?.state === 'unknown' && (eta.reason === 'limit_unreadable' || eta.reason === 'pause_unknown');
-
-/**
- * An import whose ONLY open question is whether the daily KB limit holds its work: its overall
- * finish is unknown for that reason (kbHoldNotKnown) and every stage is finished, paused or unknown
- * for that same reason. Whether it is held or moving is not known — neither "Processing" nor "No
- * progress".
- */
-const importKbHoldNotKnown = (data: Extract<ImportProgress, { tracked: true }>): boolean =>
-  data.run.state !== 'counting' &&
-  kbHoldNotKnown(data.progress?.eta) &&
-  (data.progress?.stages ?? []).every(
-    (stage) =>
-      stage.eta.state === 'done' || stage.eta.state === 'paused' || kbHoldNotKnown(stage.eta)
-  );
-
-/**
- * …and still MOVING: counting, or an estimate being measured or run down — or a `stalled` /
- * `unknown` finish whose numbers moved in the last IMPORT_IDLE_MS. A finish that stays stalled for
- * the import record's 14 days is shown (the import panel words it) but stops holding the panel
- * open (FE audit passes 2 H3, 3 H-A).
- */
-const importMoving = (
-  data: Extract<ImportProgress, { tracked: true }>,
-  standingStill: boolean
-): boolean => {
-  const eta = data.progress?.eta.state;
-  if (data.run.state === 'counting' || eta === 'running' || eta === 'estimating') return true;
-  if (importKbHoldNotKnown(data)) return false;
-  // Parked by a daily limit with nothing else open (BE R16 eta `paused`): not moving NOW — it said
-  // "Processing" with a spinner and opened itself for up to IMPORT_IDLE_MS (FE audit pass 17, LOW).
-  if (
-    eta === 'paused' &&
-    (data.progress?.stages ?? []).every(
-      (stage) => stage.eta.state === 'done' || stage.eta.state === 'paused'
-    )
-  ) {
-    return false;
-  }
-  return !standingStill;
 };
 
 /**
@@ -298,7 +237,7 @@ type Props = {
 const KB_SILENT_MS = 20 * 60_000;
 
 /**
- * One mail source's processing, from the database: a Gmail import's progress while one runs,
+ * One mail source's processing, from the database: a mail source's tracked import (Gmail or IMAP) while one runs,
  * the latest recorded run (stages over exactly the messages it saved, and what went wrong), the
  * knowledge-base threads that could not be mined, and the recent runs.
  *
@@ -424,7 +363,7 @@ export const ProcessingPanel = ({
   // - a run of 20+ still running;
   // - an import-sized run (200+) that still owes work — arriving during its long tail of
   //   analysis and mining is the common case, not an edge (FE audit pass 5, M3);
-  // - a tracked Gmail import still moving.
+  // - a tracked mail import (Gmail or IMAP) still moving.
   // Not while the person has closed the panel on the import still moving: its chunks are new
   // runs, and each popped it again (FE audit pass 6, M1) — mail runs only: a KB mine is not a
   // chunk of that import (pass 7, MED). Closed runs outlive a reload (processingPanelStore —
@@ -770,7 +709,15 @@ export const ProcessingPanel = ({
               : 'overflow-y-auto p-3 space-y-3 max-h-96'
           }
         >
-          {importOnScreen && <ImportProgressPanel data={data} />}
+          {importOnScreen && (
+            <ImportProgressPanel
+              data={data}
+              onRecount={
+                isImapRun(data.run) ? () => importProgressService.recount(sourceId) : undefined
+              }
+              onRecounted={() => refresh()}
+            />
+          )}
 
           {kbWork && (
             <p className="flex gap-2 items-center text-xs text-muted-foreground">

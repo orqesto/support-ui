@@ -8,7 +8,11 @@ import { apiClient } from '@/lib/api-client';
  */
 export type ImportStage = 'imported' | 'decided' | 'analysis' | 'embedding' | 'kb';
 
-export type UnknownEtaReason = 'listing_capped' | 'limit_unreadable' | 'pause_unknown';
+export type UnknownEtaReason =
+  | 'listing_capped'
+  | 'limit_unreadable'
+  | 'pause_unknown'
+  | 'sweep_owed';
 
 export type StageEta =
   | { state: 'done' }
@@ -21,7 +25,9 @@ export type StageEta =
    * (KB) limit holds the stage's work could not be read (`stage` names it, `kb`); `pause_unknown`
    * (BE round 21) — the KB stage's own work is not moving, the KB limit is not over now, and the
    * queue's KB jobs parked by the limit could not be read in full, so whether the limit holds that
-   * work is not known (`stage` `kb`; never finished, stalled or paused). Absent from an
+   * work is not known (`stage` `kb`; never finished, stalled or paused); `sweep_owed` (BE-12 fix
+   * round) — a knowledge-base IMAP run has stored everything but its history read has not ended.
+   * Absent from an
    * older backend, whose only unknown was a capped listing; a reason this build does not know is
    * dropped by `normaliseImportProgress`, never guessed.
    */
@@ -55,6 +61,11 @@ export type StageProgress = {
 };
 
 export type ImportRun = {
+  /**
+   * Which kind of mailbox the run lists: `'email'` is an IMAP source (BE-12). Absent on a Gmail run
+   * (and from an older backend): read as Gmail.
+   */
+  channel?: 'gmail' | 'email';
   state: 'counting' | 'ready' | 'failed';
   startedAt: string;
   countedAt: string | null;
@@ -68,7 +79,16 @@ export type ImportRun = {
    */
   countingOn?: boolean;
   query: string | null;
+  /**
+   * `failed` only: a sentence the backend wrote for the person (an IMAP listing names what went
+   * wrong and what to try) — printed as is, never a code.
+   */
   error: string | null;
+  /**
+   * IMAP `ready` runs only: listed messages with no comparable Message-ID. They are NOT in `total`
+   * and cannot be checked. Absent on Gmail, counting and failed runs.
+   */
+  unverifiable?: number;
 };
 
 /** How a recorded mail run ended (support-service runLedger). */
@@ -175,7 +195,7 @@ export type RunsFields = {
   runsUnavailable: boolean;
 };
 
-/** A Gmail import's listing and stage progress (what ImportProgressPanel draws). */
+/** A Gmail or IMAP import's listing and stage progress (what ImportProgressPanel draws). */
 export type TrackedImport = {
   tracked: true;
   run: ImportRun;
@@ -244,7 +264,12 @@ export type ProcessingSummaryEntry = {
   countCapped: boolean;
 };
 
-const UNKNOWN_REASONS: readonly string[] = ['listing_capped', 'limit_unreadable', 'pause_unknown'];
+const UNKNOWN_REASONS: readonly string[] = [
+  'listing_capped',
+  'limit_unreadable',
+  'pause_unknown',
+  'sweep_owed',
+];
 const KB_STATE_UNKNOWN_REASONS: readonly string[] = ['pause_unknown', 'limit_unreadable'];
 const STAGES: readonly string[] = ['imported', 'decided', 'analysis', 'embedding', 'kb'];
 

@@ -379,12 +379,12 @@ describe('kbRangeCopy', () => {
     expect(applyAlert(applied({ importRunStarted: true }), 'gmail').body).toBe(
       'It is starting now. Progress shows in the processing panel.'
     );
+    const imapStarted = applyAlert(applied({ importRunStarted: true }), 'email');
+    expect(imapStarted.body).toBe('It is starting now. Progress shows in the processing panel.');
     const imap = applyAlert(applied({ importRunStarted: false }), 'email');
     expect(imap.title).toBe('History read requested');
-    expect(imap.body).toBe(
-      'The next check of this mailbox starts it. Live import progress for IMAP arrives with a later update.'
-    );
-    expect(imap.body).not.toMatch(/processing panel/);
+    expect(imap.body).toBe('No progress run was started, so none shows in the processing panel.');
+    expect(imap.body).not.toMatch(/later update|arrives/);
     expect(applyAlert(applied({ direction: 'narrower', sweepRequested: false }), 'gmail')).toEqual({
       title: 'Range saved',
       body: 'Later re-reads use the shorter range. Nothing was fetched and the knowledge base is unchanged.',
