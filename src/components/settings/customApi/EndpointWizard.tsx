@@ -13,6 +13,7 @@ import { StatusVocabularyStep } from './StatusVocabularyStep';
 import { RecordFormatStep } from './RecordFormatStep';
 import type { RecordFormat } from './recordFormat';
 import { ResponseTree } from './ResponseTree';
+import { RecordsPathField, explainOutcome as explain } from './RecordsPathField';
 import { useRequestSettings } from './useRequestSettings';
 import { buildParameterFields } from './parameterFields';
 import { useTestRevert } from './useTestRevert';
@@ -196,38 +197,8 @@ export const EndpointWizard = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<string | null>(null);
-
-  /**
-   * ⛔ A FAILED TEST IS NOT AN EMPTY TREE. Each outcome says something different, and collapsing
-   * them into "nothing came back" makes an admin retune a working integration.
-   */
-  const explain = (
-    status: string,
-    reason?: string,
-    missingKind?: 'records' | 'fields',
-    missing?: string[]
-  ): string => {
-    if (status === 'no_match')
-      return 'Your system answered, but had nothing for that value. Try one you know exists.';
-    if (status === 'shape_changed') {
-      /**
-       * ⛔ TWO DIFFERENT PROBLEMS behind one status, and they need opposite actions. `records`
-       * means we could not find the record list at all — the fix is to say where it is, in the
-       * box right there. Telling that admin "the fields changed" sends them to re-pick fields
-       * they have not chosen yet, which is what this said to a brand-new lookup before.
-       * ⚠️ An older backend sends no `missingKind`: unspecified, so keep the original wording
-       * rather than asserting either.
-       */
-      if (missingKind === 'records') {
-        const where = missing?.[0];
-        return where
-          ? `Your system answered, but we could not find the records under “${where}”. Tell us where they are below.`
-          : 'Your system answered, but we could not find the records in it. Tell us where they are below.';
-      }
-      return 'Your system answered, but not with the fields this lookup expects any more.';
-    }
-    return reason ?? 'Your system did not answer.';
-  };
+  /** C1: the records path was filled in from the Test's own suggestion — say so under the box. */
+  const [suggestedPathNote, setSuggestedPathNote] = useState<string | null>(null);
 
   /**
    * Keep picks that still exist, and NAME the ones that vanished rather than dropping them.
@@ -284,12 +255,21 @@ export const EndpointWizard = ({
    * the thread panel's cached availability is dropped here, after the write lands. The test
    * itself (`sendTest` / `shapeSample`) reads the vendor and changes nothing, so it does not.
    */
-  const ensureSaved = async (): Promise<number> => {
-    if (endpointId) {
-      await customApiService.updateEndpoint(connection.id, endpointId, {
+  const ensureSaved = async (
+    override: { id?: number; dataPath?: string } = {}
+  ): Promise<number> => {
+    /*
+     * ⛔ `override` exists for the C1 retry, which runs inside the SAME press as the create: the
+     * closure still holds the pre-press `endpointId` (null) and `dataPath` (blank), so reading
+     * them would create a second lookup and re-test without the suggested path.
+     */
+    const savedId = override.id ?? endpointId;
+    const nextDataPath = (override.dataPath ?? dataPath).trim();
+    if (savedId) {
+      await customApiService.updateEndpoint(connection.id, savedId, {
         label: label.trim(),
         path: path.trim(),
-        dataPath: dataPath.trim() === '' ? null : dataPath.trim(),
+        dataPath: nextDataPath === '' ? null : nextDataPath,
         resultShape,
         // ⛔ `null`, never omitted, when the admin picks "no category" — omitting it means "leave
         // what is stored", so an admin could never take a category off. Same shape as `dataPath`
@@ -300,15 +280,15 @@ export const EndpointWizard = ({
         ...request.payload,
         ...parameterFields,
       });
-      testRevert.markUpdated(endpointId);
+      testRevert.markUpdated(savedId);
       invalidateAvailability();
-      return endpointId;
+      return savedId;
     }
     const knownIds = new Set(connection.endpoints.map((one) => one.id));
     const updated = await customApiService.createEndpoint(connection.id, {
       label: label.trim(),
       path: path.trim(),
-      dataPath: dataPath.trim() === '' ? null : dataPath.trim(),
+      dataPath: nextDataPath === '' ? null : nextDataPath,
       resultShape,
       ...categoryField.categoryPayload(category),
       statusLabels,
@@ -341,12 +321,28 @@ export const EndpointWizard = ({
     setBusy(true);
     setError(null);
     try {
-      const id = await ensureSaved();
-      const result =
+      const attempt = (id: number) =>
         how === 'test'
-          ? await customApiService.sendTest(connection.id, id, parameter || undefined)
-          : await customApiService.shapeSample(connection.id, id, sample);
-      applyResult(result);
+          ? customApiService.sendTest(connection.id, id, parameter || undefined)
+          : customApiService.shapeSample(connection.id, id, sample);
+      const id = await ensureSaved();
+      setSuggestedPathNote(null);
+      const result = await attempt(id);
+      const suggested = result.outcome.suggestedDataPath;
+      /*
+       * C1: a single unwrapped record. The backend never reads the whole answer on its own, it
+       * only suggests it — so the box is filled in where the admin can see (and undo) it, saved,
+       * and tested ONCE more. Only when the box was blank: a path the admin typed is theirs.
+       * ⛔ One automatic retry at most; its result is shown whatever it is.
+       */
+      if (suggested && dataPath.trim() === '') {
+        setDataPath(suggested);
+        setSuggestedPathNote(suggested);
+        await ensureSaved({ id, dataPath: suggested });
+        applyResult(await attempt(id));
+      } else {
+        applyResult(result);
+      }
     } catch (err) {
       /**
        * ⛔ FE/BE SKEW, which this repo ships by design: a push to `main` deploys this frontend
@@ -535,17 +531,14 @@ export const EndpointWizard = ({
               where we put it when an agent looks someone up.
             </p>
 
-            <Input
-              label="Where are the records in the answer? (optional)"
+            <RecordsPathField
               value={dataPath}
-              onChange={(event) => setDataPath(event.target.value)}
-              placeholder="data"
+              suggested={suggestedPathNote}
+              onChange={(next) => {
+                setDataPath(next);
+                setSuggestedPathNote(null);
+              }}
             />
-            <p className="text-xs text-muted-foreground -mt-2">
-              Leave this blank and we work it out. Fill it in only if your system wraps the records
-              under a name we did not guess — <code>results</code>, or <code>payload.items</code>.
-              Use <code>.</code> if the answer IS the record, with nothing wrapped around it.
-            </p>
 
             <Select
               id="ca-param-source"

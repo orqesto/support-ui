@@ -2,8 +2,15 @@ import { fieldWithRole } from './fieldRoles';
 import type { FieldPick } from '@/services/customApi.service';
 import type { TemplateChecklistItem } from '@/services/customApiTemplates.service';
 
-export const IDENTIFIER_WARNING =
-  'Without an order number field the ownership check cannot work — every order-number lookup will read unverified.';
+/**
+ * F3: the warning names the identifier in THIS template's words (its checklist item with role
+ * `identifier`), not an order number — a template for bookings or parcels has none.
+ */
+export const identifierWarning = (checklist: TemplateChecklistItem[]): string => {
+  const label = checklist.find((item) => item.role === 'identifier')?.label.trim();
+  const noun = label ? label.toLowerCase() : 'record number';
+  return `No field is tagged as the ${noun}, so the ownership check cannot work — every ${noun} lookup will read unverified.`;
+};
 
 /** What this template expects tagged, ticked off as the admin tags it. Never blocks Save. */
 export const TemplateChecklist = ({
@@ -40,7 +47,7 @@ export const TemplateChecklist = ({
       </ul>
       {missingIdentifier && (
         <p role="alert" className="text-xs text-destructive">
-          {IDENTIFIER_WARNING}
+          {identifierWarning(checklist)}
         </p>
       )}
     </div>

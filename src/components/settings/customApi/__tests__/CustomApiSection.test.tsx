@@ -173,3 +173,24 @@ describe('Settings › Integrations › Custom APIs — every button goes to the
     expect(screen.getByText('Militech')).toBeTruthy();
   });
 });
+
+describe('F4 — the notice a part-applied template leaves', () => {
+  it('shows the notice handed over by the template page', async () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: '/settings', state: { customApiNotice: 'Step 2 was not added.' } },
+        ]}
+      >
+        <CustomApiSection canManageVendors />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('Step 2 was not added.')).toBeTruthy();
+  });
+
+  it('POSITIVE CONTROL: no notice without one', async () => {
+    renderSection(true);
+    await waitFor(() => expect(screen.getByText('Militech')).toBeTruthy());
+    expect(screen.queryByText(/was not added/)).toBeNull();
+  });
+});

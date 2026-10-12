@@ -112,6 +112,12 @@ export interface EndpointTestResult {
      */
     missing?: string[];
     missingKind?: 'records' | 'fields';
+    /**
+     * `shape_changed` / `records` only, and only when no records path was set and the answer is a
+     * single unwrapped record: the path the backend suggests (`.` = the whole answer). Absent from
+     * an older backend and in every other case. A suggestion, never applied by the backend.
+     */
+    suggestedDataPath?: string;
     reason?: string;
     rows?: unknown[];
     /** The vendor's own `x-total-count`. Absent means "we do not know", never zero. */

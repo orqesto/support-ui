@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { CustomApiSettings } from './CustomApiSettings';
 import { CustomApiVendorForm } from './CustomApiVendorForm';
 import { customApiLookupPath, customApiTemplatePath } from './lookupPaths';
+import { Alert, AlertDescription } from '@/components/ui/Alert';
 import type { CustomApiConnection } from '@/services/customApi.service';
 
 /**
@@ -26,6 +27,12 @@ interface Props {
 
 export const CustomApiSection = ({ canManageVendors }: Props) => {
   const navigate = useNavigate();
+  /** F4: what a template applied in part kept and did not (handed over by the template page). */
+  const state: unknown = useLocation().state;
+  const templateNotice =
+    state && typeof state === 'object' && 'customApiNotice' in state
+      ? state.customApiNotice
+      : undefined;
   const [editing, setEditing] = useState<CustomApiConnection | null>(null);
   const [adding, setAdding] = useState(false);
   /**
@@ -41,6 +48,11 @@ export const CustomApiSection = ({ canManageVendors }: Props) => {
 
   return (
     <>
+      {typeof templateNotice === 'string' && templateNotice && (
+        <Alert variant="info" className="mb-4">
+          <AlertDescription>{templateNotice}</AlertDescription>
+        </Alert>
+      )}
       <CustomApiSettings
         key={reloadKey}
         canManageVendors={canManageVendors}

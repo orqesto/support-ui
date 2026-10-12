@@ -6,7 +6,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { CustomApiTemplatePage } from '../CustomApiTemplatePage';
 import { CUSTOM_API_TEMPLATE_ROUTE } from '@/components/settings/customApi/lookupPaths';
 import type * as Svc from '@/services/customApi.service';
@@ -35,8 +35,23 @@ vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('../../components/settings/customApi/TemplateGuide', () => ({
-  TemplateGuide: ({ template }: { template: CustomApiTemplate }) => (
-    <p>guide for {template.name}</p>
+  TemplateGuide: ({
+    template,
+    onCancel,
+    onDone,
+  }: {
+    template: CustomApiTemplate;
+    onCancel: (notice?: string) => void;
+    onDone: (notice?: string) => void;
+  }) => (
+    <div>
+      <p>guide for {template.name}</p>
+      <button onClick={() => onCancel()}>cancel quietly</button>
+      <button onClick={() => onCancel('Step 1 was saved as “A”. Step 2 was not added.')}>
+        cancel part-way
+      </button>
+      <button onClick={() => onDone('Step 2 was not added.')}>done part-way</button>
+    </div>
   ),
 }));
 
@@ -51,12 +66,17 @@ const template = {
   definition: { version: 1, lookups: [] },
 } as unknown as CustomApiTemplate;
 
+const SettingsStub = () => {
+  const state = useLocation().state as { customApiNotice?: string } | null;
+  return <p>Settings list. Notice: {state?.customApiNotice ?? 'none'}</p>;
+};
+
 const renderAt = (path: string) =>
   render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path={CUSTOM_API_TEMPLATE_ROUTE} element={<CustomApiTemplatePage />} />
-        <Route path="/settings" element={<p>Settings list</p>} />
+        <Route path="/settings" element={<SettingsStub />} />
       </Routes>
     </MemoryRouter>
   );
@@ -97,5 +117,28 @@ describe('the custom API template page', () => {
     ).toBeTruthy();
     expect(listPublished).not.toHaveBeenCalled();
     expect(list).not.toHaveBeenCalled();
+  });
+
+  it('F4: Cancel with nothing kept goes back to the template list', async () => {
+    renderAt('/settings/custom-apis/9/templates');
+    await userEvent.click(await screen.findByRole('button', { name: 'Use this template' }));
+    await userEvent.click(screen.getByRole('button', { name: 'cancel quietly' }));
+    expect(screen.getByRole('button', { name: 'Use this template' })).toBeTruthy();
+  });
+
+  it('⛔ F4: Cancel part-way goes back to the lookups WITH the notice', async () => {
+    renderAt('/settings/custom-apis/9/templates');
+    await userEvent.click(await screen.findByRole('button', { name: 'Use this template' }));
+    await userEvent.click(screen.getByRole('button', { name: 'cancel part-way' }));
+    expect(
+      screen.getByText('Settings list. Notice: Step 1 was saved as “A”. Step 2 was not added.')
+    ).toBeTruthy();
+  });
+
+  it('F4: finishing part-way carries the notice too', async () => {
+    renderAt('/settings/custom-apis/9/templates');
+    await userEvent.click(await screen.findByRole('button', { name: 'Use this template' }));
+    await userEvent.click(screen.getByRole('button', { name: 'done part-way' }));
+    expect(screen.getByText('Settings list. Notice: Step 2 was not added.')).toBeTruthy();
   });
 });

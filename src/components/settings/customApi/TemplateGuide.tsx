@@ -10,6 +10,7 @@ import type { CustomApiTemplate } from '@/services/customApiTemplates.service';
 import { EndpointWizard } from './EndpointWizard';
 import { TemplateChecklist } from './TemplateChecklist';
 import { initialFromTemplate } from './templateInitial';
+import { partialTemplateNotice, type KeptStep } from './templateNotice';
 
 /**
  * Applies a template step by step: one existing lookup form per template lookup, pre-filled.
@@ -25,8 +26,9 @@ export const TemplateGuide = ({
 }: {
   connection: CustomApiConnection;
   template: CustomApiTemplate;
-  onDone: () => void;
-  onCancel: () => void;
+  /** F4: `notice` says what was kept and what was not, when the template was applied in part. */
+  onDone: (notice?: string) => void;
+  onCancel: (notice?: string) => void;
 }) => {
   const lookups = template.definition.lookups;
   const [step, setStep] = useState(0);
@@ -37,6 +39,22 @@ export const TemplateGuide = ({
   const saving = useRef(false);
   const lookup = lookups[step];
   const feedsOwnership = lookups.some((other) => other.ownershipFrom === lookup.key);
+  /** F4: steps kept so far, by step index — saved here, or an existing lookup reused. */
+  const kept = useRef<Record<number, KeptStep>>({});
+  /**
+   * F4: this template already made a lookup for this step on this connection (same template, same
+   * kind of look-up). ⛔ Offered, never silently duplicated: the form opens only on "Add another
+   * one". A lookup this run already saved or reused is not offered twice.
+   */
+  const usedIds = Object.values(savedIds);
+  const existing = connection.endpoints.find(
+    (one) =>
+      one.templateKey === template.key &&
+      one.parameterSource === lookup.parameterSource &&
+      !usedIds.includes(one.id)
+  );
+  const [addAnother, setAddAnother] = useState(false);
+  const notice = () => partialTemplateNotice(lookups, kept.current);
 
   /**
    * Ids including the step just saved, held until the reload succeeds. ⛔ A failed reload stays
@@ -61,9 +79,10 @@ export const TemplateGuide = ({
     setAwaitingReload(false);
     createdId.current = null;
     setPicked([]);
+    setAddAnother(false);
     if (step + 1 >= lookups.length) {
       finished.current = true;
-      onDone();
+      onDone(notice());
     } else setStep(step + 1);
     setSavedIds(ids);
   };
@@ -82,6 +101,9 @@ export const TemplateGuide = ({
         if (finished.current) return;
         const fresh = all.find((one) => one.id === connection.id);
         if (fresh) setConnection(fresh);
+        // Every reload follows a Save of this step (onSaved, or Try again after one).
+        const saved = fresh?.endpoints.find((one) => one.id === ids[lookup.key]);
+        kept.current[step] = { label: saved?.label ?? lookup.label, existing: false };
         saving.current = false;
         advance(ids);
       })
@@ -116,6 +138,27 @@ export const TemplateGuide = ({
         )}
       </div>
       {lookup.description && <p className="text-sm">{lookup.description}</p>}
+      {existing && !addAnother && (
+        <Alert variant="info">
+          <AlertDescription>
+            <span className="block">Already set up: “{existing.label}”.</span>
+            <span className="mt-2 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  kept.current[step] = { label: existing.label, existing: true };
+                  advance({ ...savedIds, [lookup.key]: existing.id });
+                }}
+              >
+                Use the existing one
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setAddAnother(true)}>
+                Add another one
+              </Button>
+            </span>
+          </AlertDescription>
+        </Alert>
+      )}
       {reloadFailed && (
         <Alert variant="warning">
           <AlertDescription>
@@ -126,28 +169,30 @@ export const TemplateGuide = ({
           </AlertDescription>
         </Alert>
       )}
-      <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
-        <EndpointWizard
-          key={`${template.key}-${lookup.key}`}
-          connection={connection}
-          initial={initialFromTemplate(template.key, lookup, savedIds)}
-          onCreated={(id) => {
-            createdId.current = id;
-          }}
-          onSaved={onSaved}
-          onClose={() => {
-            if (saving.current) return;
-            finished.current = true;
-            onCancel();
-          }}
-          onPickedChange={setPicked}
-        />
-        <TemplateChecklist
-          checklist={lookup.checklist}
-          picked={picked}
-          feedsOwnership={feedsOwnership}
-        />
-      </div>
+      {(!existing || addAnother) && (
+        <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
+          <EndpointWizard
+            key={`${template.key}-${lookup.key}`}
+            connection={connection}
+            initial={initialFromTemplate(template.key, lookup, savedIds)}
+            onCreated={(id) => {
+              createdId.current = id;
+            }}
+            onSaved={onSaved}
+            onClose={() => {
+              if (saving.current) return;
+              finished.current = true;
+              onCancel(notice());
+            }}
+            onPickedChange={setPicked}
+          />
+          <TemplateChecklist
+            checklist={lookup.checklist}
+            picked={picked}
+            feedsOwnership={feedsOwnership}
+          />
+        </div>
+      )}
     </div>
   );
 };
