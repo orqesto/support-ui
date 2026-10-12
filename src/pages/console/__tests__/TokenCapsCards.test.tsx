@@ -125,12 +125,11 @@ describe('MonthlyLimitsCard', () => {
   });
 });
 
-describe('review I1: no promise the backend does not keep yet', () => {
-  it('the monthly card does not promise an AI re-analysis (the catch-up ships later)', () => {
+describe('review I1 (2a), superseded in 2b: the catch-up ships, so the card now promises it', () => {
+  it('the monthly card no longer says the mail is only "marked"', () => {
     wrap(<MonthlyLimitsCard caps={{ alliances: [] }} kbMin={1_000_000} />);
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    expect(screen.queryByText(/analysed again with AI/)).toBeNull();
-    expect(screen.getByText(/marked for an AI re-analysis/)).toBeTruthy();
+    expect(screen.queryByText(/marked for an AI re-analysis/)).toBeNull();
   });
 });
 
@@ -146,9 +145,8 @@ describe('TokenLimitRulesCard', () => {
 
   it('pass 2 m1: only the rules this version applies are shown (no untrue settings)', () => {
     wrap(<TokenLimitRulesCard rules={RULES} />);
-    expect(screen.queryByText(/Near-limit warning/)).toBeNull();
+    // The bursts ship with wave 3; the near-limit and catch-up shares are used since 2b.
     expect(screen.queryByText(/Burst margin/)).toBeNull();
-    expect(screen.queryByText(/catch-up/i)).toBeNull();
     expect(screen.queryByText(/burst request/i)).toBeNull();
     expect(screen.getByText(/Lowest KB limit/)).toBeTruthy();
   });

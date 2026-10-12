@@ -75,6 +75,12 @@ export type TokenLimitAlert = {
    * backend reads it.
    */
   releaseCause: 'limit_setting' | 'no_longer_enforced';
+  /**
+   * Wave 2b: the limit the notice is about — a calendar month's, or an alliance's shared pool.
+   * Optional so a notice built elsewhere still type-checks; absent reads as a workspace's day.
+   */
+  period?: 'day' | 'month';
+  scope?: 'workspace' | 'alliance';
 };
 
 type AlertDetails = {
@@ -90,6 +96,8 @@ type AlertDetails = {
   partial?: unknown;
   releaseKind?: unknown;
   releaseCause?: unknown;
+  period?: unknown;
+  scope?: unknown;
 };
 
 /**
@@ -140,6 +148,9 @@ const toAlert = (row: Notification): TokenLimitAlert => {
         : null,
     releaseCause:
       details.releaseCause === 'no_longer_enforced' ? 'no_longer_enforced' : 'limit_setting',
+    // Wave 2b: which limit (absent from a backend before it ⇒ a workspace's daily limit).
+    period: details.period === 'month' ? 'month' : 'day',
+    scope: details.scope === 'alliance' ? 'alliance' : 'workspace',
   };
 };
 

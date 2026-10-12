@@ -19,10 +19,12 @@ import {
 import {
   changedLimitEdit,
   describeDays,
+  describeCatchup,
   describeLimit,
   formatLimit,
   KB_MIN_TOKENS_PER_DAY,
   LEVEL_CLASS,
+  NEAR_LIMIT_SHARE,
   parseKbLimitInput,
   parseLimitInput,
   toastLimitSaved,
@@ -32,15 +34,32 @@ import { WorkspaceMonthlyLimits } from './WorkspaceMonthlyLimits';
 
 type Budgets = NonNullable<ManagedAiUsage['totals']['tokenBudgets']>;
 
-const LEVEL_WORDS = { near: '≥ 80%', reached: 'limit reached' } as const;
-
-/** One line of the cell: "KB 1,200,000 / 5,000,000", coloured at ≥80% and at the limit. */
-const UsageLine = ({ label, spent, limit }: { label: string; spent: number; limit: number }) => {
-  const level = usageLevel(spent, limit);
+/**
+ * One line of the cell: "KB 1,200,000 / 5,000,000", coloured from the near-limit share (the
+ * console rule, wave 2b; the built-in 80 % from an older backend) and at the limit.
+ */
+const UsageLine = ({
+  label,
+  spent,
+  limit,
+  nearShare,
+}: {
+  label: string;
+  spent: number;
+  limit: number;
+  nearShare?: number;
+}) => {
+  const level = usageLevel(spent, limit, nearShare);
+  const words =
+    level === 'near'
+      ? `≥ ${Math.round((nearShare ?? NEAR_LIMIT_SHARE) * 100)}%`
+      : level === 'reached'
+        ? 'limit reached'
+        : null;
   return (
     <span className={`text-xs tabular-nums ${LEVEL_CLASS[level]}`}>
       {label} {spent.toLocaleString()} / {formatLimit(limit)}
-      {(level === 'near' || level === 'reached') && ` · ${LEVEL_WORDS[level]}`}
+      {words && ` · ${words}`}
     </span>
   );
 };
@@ -66,11 +85,14 @@ export const WorkspaceLimitCell = ({
   budget,
   settingsUnreadable = false,
   onOpen,
+  nearShare,
 }: {
   budget: OrgTokenBudget;
   /** BE R16 `settingsLookupFailed`: the limits and override shown are the fallback. */
   settingsUnreadable?: boolean;
   onOpen: () => void;
+  /** The console's near-limit share (`tokenLimitRules`); absent from an older backend. */
+  nearShare?: number;
 }) => (
   <Button
     variant="ghost"
@@ -81,8 +103,18 @@ export const WorkspaceLimitCell = ({
     // are the point of the cell. The title adds what the click does.
     title="Today since 00:00 UTC against this workspace's daily limits — click to change them or see the forecast"
   >
-    <UsageLine label="KB" spent={budget.kb.spentToday} limit={budget.kb.limit} />
-    <UsageLine label="Regular" spent={budget.regular.spentToday} limit={budget.regular.limit} />
+    <UsageLine
+      label="KB"
+      spent={budget.kb.spentToday}
+      limit={budget.kb.limit}
+      nearShare={nearShare}
+    />
+    <UsageLine
+      label="Regular"
+      spent={budget.regular.spentToday}
+      limit={budget.regular.limit}
+      nearShare={nearShare}
+    />
     <span className="text-[10px] text-muted-foreground">
       {settingsUnreadable ? (
         // The override and the enforcement answer are fallbacks too: neither is said as fact.
@@ -264,6 +296,11 @@ const ForecastView = ({ forecast }: { forecast: TokenForecast }) => {
         ) : (
           <p className="text-muted-foreground">
             Not enough mail in any recent week to measure tokens per message.
+          </p>
+        )}
+        {describeCatchup(regular.deferredBacklog) && (
+          <p className="text-xs text-muted-foreground">
+            {describeCatchup(regular.deferredBacklog)}
           </p>
         )}
         <p className="text-xs text-muted-foreground">
@@ -477,6 +514,9 @@ export const WorkspaceTokenLimitsDialog = ({
               override={caps.workspaceOverrides?.[String(organizationId)]}
               kbMin={kbMin}
               unreadable={caps.lookupFailed === true}
+              backlog={budget.aiDeferredBacklog}
+              dailyLimits={{ kb: budget.kb.limit, regular: budget.regular.limit }}
+              poolMonthly={caps.alliances.find((pool) => pool.id === budget.allianceId)?.limits}
             />
           )}
           <div className="pt-3 border-t border-border">

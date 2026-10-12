@@ -12,11 +12,29 @@ const BUCKET_WORDS: Record<string, string> = {
   regular: 'regular work',
 };
 
-/** "Resets at 00:00 UTC (02:00 your time)." — the one time style for daily limits. */
-export const describeReset = (resetsAt: string | null): string | null => {
-  const at = formatUtcAndLocal(resetsAt);
+/**
+ * "Resets at 00:00 UTC (02:00 your time)." — the one time style for daily limits. A monthly limit
+ * resets on a DATE (wave 2b): "Resets at 00:00 UTC on 2026-11-01 (…)".
+ */
+export const describeReset = (
+  resetsAt: string | null,
+  period: 'day' | 'month' = 'day'
+): string | null => {
+  const at = period === 'month' ? formatUtcDateAndLocal(resetsAt) : formatUtcAndLocal(resetsAt);
   return at ? `Resets at ${at}.` : null;
 };
+
+/** "Daily AI limit for KB processing", "Monthly …", or an alliance's shared pool (wave 2b). */
+const limitName = (alert: TokenLimitAlert, words: string): string => {
+  const period = alert.period === 'month' ? 'monthly' : 'daily';
+  return alert.scope === 'alliance'
+    ? `Alliance's shared ${period} AI pool for ${words}`
+    : `${period === 'monthly' ? 'Monthly' : 'Daily'} AI limit for ${words}`;
+};
+
+/** Mail sorted by the local model under a monthly or alliance limit goes to the AI catch-up. */
+const onCatchup = (alert: TokenLimitAlert): boolean =>
+  alert.period === 'month' || alert.scope === 'alliance';
 
 /**
  * What a limit change did to the work a released notice paused, from the backend's own fields
@@ -30,6 +48,11 @@ export const describeRelease = (alert: TokenLimitAlert): string => {
   // (BE `regularLimitReleasedEffect`; its UTC-only time is left out, the footer says it). A
   // partial flag (not expected for regular) is still said (FE audit pass 13, MED).
   if (alert.bucket === 'regular') {
+    if (onCatchup(alert)) {
+      return `AI drafts, auto-replies and widget answers run again for new mail. Open conversations the local model sorted while the limit was reached are analysed again with AI, in batches that leave room for new mail.${
+        alert.releasePartial === true ? ' Some work may still wait for the reset.' : ''
+      }`;
+    }
     return `AI drafts, auto-replies and widget answers run again for new mail. Mail the local model sorted while the limit was reached is not re-run now; it may be analysed again with AI after the reset, best effort.${
       alert.releasePartial === true ? ' Some work may still wait for the reset.' : ''
     }`;
@@ -95,7 +118,13 @@ export const TokenLimitSection = ({
           alert.spent !== null && alert.limit !== null
             ? `${alert.spent.toLocaleString()} of ${alert.limit.toLocaleString()} tokens`
             : null;
-        const reset = describeReset(alert.resetsAt);
+        const reset = describeReset(alert.resetsAt, alert.period);
+        const name = limitName(alert, words);
+        // Whose spend and over which period the figures are (wave 2b).
+        const usedIn =
+          alert.scope === 'alliance'
+            ? `used by the alliance ${alert.period === 'month' ? 'this month' : 'today'}`
+            : `used ${alert.period === 'month' ? 'this month' : 'today'}`;
         return (
           <div
             key={alert.id}
@@ -115,19 +144,19 @@ export const TokenLimitSection = ({
             <div className="flex-1 min-w-0">
               <p className="font-medium break-words text-foreground">
                 {past
-                  ? `Daily AI limit for ${words} was reached on an earlier day`
+                  ? `${name} was reached ${alert.period === 'month' ? 'in an earlier month' : 'on an earlier day'}`
                   : released
-                    ? `Daily AI limit for ${words} was reached; it no longer ${
+                    ? `${name} was reached; it no longer ${
                         alert.bucket === 'kb' ? 'pauses' : 'stops'
                       } this workspace`
-                    : (alert.title ?? `Daily AI limit for ${words} reached`)}
+                    : (alert.title ?? `${name} reached`)}
               </p>
               {figures && (
                 <p className="mt-0.5 text-muted-foreground">
                   {/* The figures are the notice's snapshot, not a live count: said as such. */}
                   {past
-                    ? `${figures} were used that day when the limit was reached.`
-                    : `${figures} used today when the limit was reached.`}
+                    ? `${figures} were used ${alert.period === 'month' ? 'that month' : 'that day'} when the limit was reached.`
+                    : `${figures} ${usedIn} when the limit was reached.`}
                 </p>
               )}
               {!past && released && (

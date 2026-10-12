@@ -210,6 +210,10 @@ export const AlliancePoolsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMi
           ))}
         </ul>
         {adding && editor}
+        {/* Spec §4: membership is read live, so the spend moves with the workspace. */}
+        <span className="text-xs text-muted-foreground">
+          A workspace that moves to another alliance mid-month takes its spend this month with it.
+        </span>
       </CardContent>
     </Card>
   );

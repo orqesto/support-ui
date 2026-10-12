@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { managedAiUsageService, type TokenCapsTotals } from '@/services/managedAiUsage.service';
+import { CapWarnings } from './CapWarnings';
 import { capEdit, describeCap, parseCapInput, toastLimitSaved } from './tokenLimits.helpers';
 
 const NO_LIMIT = 'No monthly limit';
@@ -14,10 +15,19 @@ const NO_LIMIT = 'No monthly limit';
  * The platform's MONTHLY AI token limits (calendar month, UTC; owner D2, 2026-10-12): the default
  * for every workspace without its own. Unlike the daily limits there is no built-in monthly
  * default — a blank field means no monthly limit, and 0 switches one off. Reaching one pauses KB
- * work and moves regular mail to the local model until a raise or the 1st; that mail is
- * marked for an AI re-analysis (the catch-up that re-runs it ships with wave 2b).
+ * work and moves regular mail to the local model until a raise or the 1st; that mail is analysed
+ * again with AI after a raise or the reset (the catch-up, wave 2b).
  */
-export const MonthlyLimitsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMin: number }) => {
+export const MonthlyLimitsCard = ({
+  caps,
+  kbMin,
+  dailyLimits,
+}: {
+  caps: TokenCapsTotals;
+  kbMin: number;
+  /** The platform's daily limits in force — a monthly one below them is warned about (spec §3). */
+  dailyLimits?: { kb: number; regular: number };
+}) => {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [kbText, setKbText] = useState('');
@@ -101,6 +111,7 @@ export const MonthlyLimitsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMi
               error={kb.ok ? undefined : kb.error}
               disabled={locked}
             />
+            <CapWarnings value={kb.ok ? kb.value : null} daily={dailyLimits?.kb} />
             <Input
               label="Regular work (tokens per calendar month)"
               inputMode="numeric"
@@ -109,10 +120,12 @@ export const MonthlyLimitsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMi
               error={regular.ok ? undefined : regular.error}
               disabled={locked}
             />
+            <CapWarnings value={regular.ok ? regular.value : null} daily={dailyLimits?.regular} />
             <p className="text-xs text-muted-foreground">
               Blank = no monthly limit; 0 switches one off. Limits are soft: calls already running
               may go a little over. When a limit is reached, KB work pauses until a raise or the
-              1st, and regular mail is sorted by the local model and marked for an AI re-analysis.
+              1st, and regular mail is sorted by the local model and analysed again with AI after a
+              raise or the reset.
             </p>
             <div className="flex gap-2 justify-end">
               <Button

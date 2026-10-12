@@ -404,7 +404,16 @@ export const PlatformAiSpend = () => {
             <div className="grid gap-4 lg:grid-cols-3">
               {usage.totals.tokenCaps && (
                 <>
-                  <MonthlyLimitsCard caps={usage.totals.tokenCaps} kbMin={kbMin} />
+                  <MonthlyLimitsCard
+                    caps={usage.totals.tokenCaps}
+                    kbMin={kbMin}
+                    dailyLimits={
+                      usage.totals.tokenBudgets && {
+                        kb: usage.totals.tokenBudgets.kb.limit,
+                        regular: usage.totals.tokenBudgets.regular.limit,
+                      }
+                    }
+                  />
                   <AlliancePoolsCard caps={usage.totals.tokenCaps} kbMin={kbMin} />
                 </>
               )}
@@ -505,6 +514,7 @@ export const PlatformAiSpend = () => {
                                   usage.totals.tokenBudgets?.settingsLookupFailed === true
                                 }
                                 onOpen={() => setLimitsFor(org.organizationId)}
+                                nearShare={usage.totals.tokenLimitRules?.nearLimitShare}
                               />
                             )}
                           </td>

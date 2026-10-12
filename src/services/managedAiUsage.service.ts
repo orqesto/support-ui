@@ -205,6 +205,11 @@ export interface KbForecast {
 }
 
 export interface RegularForecast {
+  /**
+   * Wave 2b: conversations waiting for the AI catch-up, with their estimated cost (null when tokens
+   * per message are not measured). Absent from an older backend, and when it could not be counted.
+   */
+  deferredBacklog?: { messages: number; estimatedTokens: number | null };
   windowDays: number;
   /**
    * The days `messagesPerDay` and `actual.last7DaysAverage` are averaged over: `windowDays`, or
