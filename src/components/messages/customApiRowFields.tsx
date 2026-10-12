@@ -95,8 +95,11 @@ export const renderValue = (row: Record<string, unknown>, field: LookupField): s
   // items in order. ⛔ Never JSON on the array — that prints `["a","b"]` to an agent.
   // Only for a `[]` path: a plain key holding a whole list (the no-fields preview) goes through
   // `asText`, which counts a list of records instead of printing each one as JSON.
-  if (listOf(field.path) !== null && Array.isArray(row[field.path]))
-    return renderItems(row, field).join(', ') || '—';
+  if (listOf(field.path) !== null && Array.isArray(row[field.path])) {
+    const items = renderItems(row, field);
+    // No item carries a value ⇒ the plain dash, so a header or a note never reads "—, —".
+    return items.some((item) => item !== '—') ? items.join(', ') : '—';
+  }
   const value = asText(row[field.path]);
   if (value === null) return '—';
   /*
@@ -238,12 +241,18 @@ const FieldGrid = ({ row, fields }: { row: Record<string, unknown>; fields: Look
           );
         if (seen.has(list)) return null;
         seen.add(list);
+        const group = fields.filter((other) => listOf(other.path) === list);
         return (
           <ListGrid
-            key={list}
+            /*
+              ⛔ Keyed on the list's VALUES, not only its name: the panel keys rows by index, so a
+              new lookup reuses this component — and a "Show all" pressed on the last record
+              would open the next one fully expanded.
+            */
+            key={`${list}:${JSON.stringify(group.map((other) => row[other.path]))}`}
             list={list}
             row={row}
-            fields={fields.filter((other) => listOf(other.path) === list)}
+            fields={group}
           />
         );
       })}

@@ -90,6 +90,23 @@ describe('fields read from a list', () => {
     expect(within(screen.getByTestId('lookup-list')).getByText('—')).toBeInTheDocument();
   });
 
+  it('CONTROL: an older backend sends no array at all — the list reads —', () => {
+    render(
+      <RowFields
+        row={{ order_id: '1001' }}
+        fields={[field({ path: 'items[].name', label: 'Name' })]}
+      />
+    );
+    expect(within(screen.getByTestId('lookup-list')).getByText('—')).toBeInTheDocument();
+    expect(renderValue({ order_id: '1001' }, field({ path: 'items[].name', label: 'Name' }))).toBe(
+      '—'
+    );
+  });
+
+  it('a list where no item has the value is one dash, not "—, —"', () => {
+    expect(renderValue({ 'items[].name': [null, null] }, FIELDS[1])).toBe('—');
+  });
+
   it('as one string (the record header, the reply note): items joined, never raw JSON', () => {
     expect(renderValue(ROW, FIELDS[1])).toBe('Blue mug, Red kettle, Green teapot');
     expect(renderValue(ROW, FIELDS[3])).toBe('12 EUR, —, 30 EUR');
@@ -125,6 +142,15 @@ describe('a long list is cut, and says so', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Show all 25 (15 more)' }));
     expect(screen.getByText('Item 25')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument();
+  });
+
+  it('"Show all" does not carry over to the next record looked up', async () => {
+    const { rerender } = render(<RowFields row={{ 'items[].name': many }} fields={fields} />);
+    await userEvent.click(screen.getByRole('button', { name: /Show all/ }));
+    const next = many.map((name) => `Next ${name}`);
+    rerender(<RowFields row={{ 'items[].name': next }} fields={fields} />);
+    expect(screen.queryByText('Next Item 25')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show all 25 (15 more)' })).toBeInTheDocument();
   });
 
   it(`CONTROL: a list of exactly ${LIST_ITEM_PREVIEW} has no button`, () => {
