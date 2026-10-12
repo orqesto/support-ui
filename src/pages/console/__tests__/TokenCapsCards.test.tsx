@@ -1,0 +1,227 @@
+/**
+ * Wave 2 (owner D2/D3/D11): the console edits the monthly limits, the alliance pools and the
+ * thresholds. What must hold:
+ * - an older backend (no `tokenCaps` / `tokenLimitRules`) shows none of it (FE/BE skew);
+ * - a blank monthly field means "no monthly limit" and is sent as null only when one was saved;
+ *   0 switches a limit off; only changed fields are sent;
+ * - the rules card sends only the rule that changed, percent fields as shares, and an out-of-range
+ *   value blocks Save;
+ * - a pool is added for an alliance without one and edited in place.
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { chooseOption } from '@/test/chooseOption';
+
+type Edit = Record<string, unknown>;
+let capsSent: Edit[] = [];
+let poolsSent: Array<{ allianceId: number; edit: Edit }> = [];
+let rulesSent: Edit[] = [];
+let workspaceSent: Array<{ organizationId: number; edit: Edit }> = [];
+const emptyOutcome = { release: null, regularRelease: null };
+vi.mock('@/services/managedAiUsage.service', () => ({
+  managedAiUsageService: {
+    updateTokenCaps: (edit: Edit) => {
+      capsSent.push(edit);
+      return Promise.resolve(emptyOutcome);
+    },
+    updateWorkspaceCaps: (organizationId: number, edit: Edit) => {
+      workspaceSent.push({ organizationId, edit });
+      return Promise.resolve(emptyOutcome);
+    },
+    updateAlliancePool: (allianceId: number, edit: Edit) => {
+      poolsSent.push({ allianceId, edit });
+      return Promise.resolve(emptyOutcome);
+    },
+    updateTokenLimitRules: (edit: Edit) => {
+      rulesSent.push(edit);
+      return Promise.resolve({});
+    },
+  },
+}));
+vi.mock('@/hooks/useAllianceAdmin', () => ({
+  useMyAlliances: () => ({
+    data: [
+      { id: 3, name: 'North Group', slug: 'north', orgCount: 2 },
+      { id: 4, name: 'South Group', slug: 'south', orgCount: 1 },
+    ],
+  }),
+}));
+vi.mock('sonner', () => ({
+  toast: { success: () => {}, warning: () => {}, error: () => {} },
+}));
+
+const { MonthlyLimitsCard } = await import('../MonthlyLimitsCard');
+const { TokenLimitRulesCard } = await import('../TokenLimitRulesCard');
+const { AlliancePoolsCard } = await import('../AlliancePoolsCard');
+const { WorkspaceMonthlyLimits } = await import('../WorkspaceMonthlyLimits');
+const { usageLevel } = await import('../tokenLimits.helpers');
+
+const RULES = {
+  nearLimitShare: 0.8,
+  burstMarginShare: 0.2,
+  periodRecheckMinutes: 60,
+  catchupBudgetShare: 0.5,
+  burstRequestExpiryDays: 7,
+  kbMinTokensPerDay: 1_000_000,
+};
+const wrap = (node: React.ReactNode) =>
+  render(<QueryClientProvider client={new QueryClient()}>{node}</QueryClientProvider>);
+const field = (label: RegExp) => screen.getByLabelText(label);
+const type = (label: RegExp, value: string) =>
+  fireEvent.change(field(label), { target: { value } });
+
+beforeEach(() => {
+  capsSent = [];
+  poolsSent = [];
+  rulesSent = [];
+  workspaceSent = [];
+});
+afterEach(cleanup);
+
+describe('MonthlyLimitsCard', () => {
+  it('shows the saved monthly limits and "no monthly limit" for an unset one', () => {
+    wrap(
+      <MonthlyLimitsCard
+        caps={{ regularTokensPerMonth: 40_000_000, alliances: [] }}
+        kbMin={1_000_000}
+      />
+    );
+    expect(screen.getByText(/40,000,000/)).toBeTruthy();
+    expect(screen.getByText(/No monthly limit/)).toBeTruthy();
+  });
+
+  it('a blank field sends null only where a value was saved; an untouched one is not sent', async () => {
+    wrap(
+      <MonthlyLimitsCard
+        caps={{ kbTokensPerMonth: 90_000_000, regularTokensPerMonth: 40_000_000, alliances: [] }}
+        kbMin={1_000_000}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    type(/KB processing/, '');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(capsSent).toEqual([{ kbTokensPerMonth: null }]));
+  });
+
+  it('0 switches a limit off and is sent as 0; a KB value under the minimum blocks Save', async () => {
+    wrap(<MonthlyLimitsCard caps={{ alliances: [] }} kbMin={1_000_000} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    type(/KB processing/, '10');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(true);
+    type(/KB processing/, '');
+    type(/Regular work/, '0');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(capsSent).toEqual([{ regularTokensPerMonth: 0 }]));
+  });
+});
+
+describe('TokenLimitRulesCard', () => {
+  it('shows every rule and saves ONE changed rule only', async () => {
+    wrap(<TokenLimitRulesCard rules={RULES} />);
+    expect(screen.getByText(/80 %/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    type(/Re-check a monthly or alliance pause/, '30');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(rulesSent).toEqual([{ periodRecheckMinutes: 30 }]));
+  });
+
+  it('percent fields are sent as shares', async () => {
+    wrap(<TokenLimitRulesCard rules={RULES} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    type(/Near-limit warning/, '70');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(rulesSent).toEqual([{ nearLimitShare: 0.7 }]));
+  });
+
+  it('an out-of-range value blocks Save (near-limit share must be between 1 and 99 %)', () => {
+    wrap(<TokenLimitRulesCard rules={RULES} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    type(/Near-limit warning/, '100');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(true);
+    expect(screen.getByText(/between 1 and 99/)).toBeTruthy();
+  });
+});
+
+describe('AlliancePoolsCard', () => {
+  const pool = {
+    id: 3,
+    name: 'North Group',
+    memberIds: [7, 8],
+    limits: { regularTokensPerMonth: 70_000_000 },
+    spentToday: { kb: 0, regular: 1_000 },
+    spentThisMonth: { kb: 0, regular: 2_500_000 },
+  };
+
+  it('lists a pool with its members, limits and this month’s spend', () => {
+    wrap(<AlliancePoolsCard caps={{ alliances: [pool] }} kbMin={1_000_000} />);
+    expect(screen.getByText('North Group')).toBeTruthy();
+    expect(screen.getByText(/2 workspaces/)).toBeTruthy();
+    expect(screen.getByText(/2,500,000 of 70,000,000/)).toBeTruthy();
+  });
+
+  it('adds a pool for an alliance without one, sending only the filled limits', async () => {
+    wrap(<AlliancePoolsCard caps={{ alliances: [pool] }} kbMin={1_000_000} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add pool' }));
+    await chooseOption(screen.getByLabelText(/Alliance/), 'South Group');
+    type(/KB processing per day/, '9000000');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(poolsSent).toEqual([{ allianceId: 4, edit: { kbTokensPerDay: 9_000_000 } }])
+    );
+  });
+
+  it('editing a pool clears an emptied limit with null and leaves the rest alone', async () => {
+    wrap(<AlliancePoolsCard caps={{ alliances: [pool] }} kbMin={1_000_000} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit North Group' }));
+    type(/Regular work per month/, '');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(poolsSent).toEqual([{ allianceId: 3, edit: { regularTokensPerMonth: null } }])
+    );
+  });
+});
+
+describe('WorkspaceMonthlyLimits', () => {
+  const monthly = {
+    kb: null,
+    regular: { limit: 10_000_000, source: 'workspace' as const, spentThisMonth: 4_000_000 },
+  };
+
+  it("shows each limit in force with this month's spend, and where it comes from", () => {
+    wrap(
+      <WorkspaceMonthlyLimits
+        organizationId={7}
+        monthly={monthly}
+        override={{ regularTokensPerMonth: 10_000_000 }}
+        kbMin={1_000_000}
+      />
+    );
+    expect(screen.getByText(/4,000,000 of 10,000,000/)).toBeTruthy();
+    expect(screen.getByText(/set for this workspace/)).toBeTruthy();
+    expect(screen.getByText(/No monthly limit/)).toBeTruthy();
+  });
+
+  it('blank clears a saved override (null); an untouched field is not sent', async () => {
+    wrap(
+      <WorkspaceMonthlyLimits
+        organizationId={7}
+        monthly={monthly}
+        override={{ regularTokensPerMonth: 10_000_000 }}
+        kbMin={1_000_000}
+      />
+    );
+    type(/Regular work this workspace/, '');
+    fireEvent.click(screen.getByRole('button', { name: 'Save monthly limits' }));
+    await waitFor(() =>
+      expect(workspaceSent).toEqual([{ organizationId: 7, edit: { regularTokensPerMonth: null } }])
+    );
+  });
+});
+
+describe('usageLevel', () => {
+  it("uses the rules' near-limit share when given, 80 % otherwise", () => {
+    expect(usageLevel(70, 100, 0.7)).toBe('near');
+    expect(usageLevel(70, 100)).toBe('ok');
+  });
+});

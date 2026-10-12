@@ -30,10 +30,15 @@ export type UsageLevel = 'unlimited' | 'ok' | 'near' | 'reached';
 
 export const NEAR_LIMIT_SHARE = 0.8;
 
-export const usageLevel = (spent: number, limit: number): UsageLevel => {
+/** `nearShare`: the console's near-limit share (`tokenLimitRules.nearLimitShare`) when sent. */
+export const usageLevel = (
+  spent: number,
+  limit: number,
+  nearShare: number = NEAR_LIMIT_SHARE
+): UsageLevel => {
   if (limit <= 0) return 'unlimited';
   if (spent >= limit) return 'reached';
-  if (spent >= limit * NEAR_LIMIT_SHARE) return 'near';
+  if (spent >= limit * nearShare) return 'near';
   return 'ok';
 };
 
@@ -409,4 +414,36 @@ export const toastLimitSaved = (
   if (!said) toast.success(title);
   else if (said.tone === 'warning') toast.warning(title, { description: said.text });
   else toast.success(title, { description: said.text });
+};
+
+/**
+ * A monthly or alliance-pool limit typed into the console (wave 2). Blank = no limit (sent as
+ * null where one was saved). A KB value is 0 or at least the console's KB minimum (`kbMin`, from
+ * `tokenLimitRules`), as the backend checks.
+ */
+export const parseCapInput = (text: string, isKb: boolean, kbMin: number): ParsedLimit => {
+  const parsed = parseLimitInput(text);
+  if (isKb && parsed.ok && parsed.value !== null && parsed.value !== 0 && parsed.value < kbMin) {
+    return {
+      ok: false,
+      error: `A KB limit is at least ${kbMin.toLocaleString('en-US')} tokens, or 0 for no limit.`,
+    };
+  }
+  return parsed;
+};
+
+/** What to send for one cap field: a changed number, null to clear a saved one, else nothing. */
+export const capEdit = (
+  saved: number | undefined,
+  value: number | null
+): number | null | undefined => {
+  if (value === null) return saved === undefined ? undefined : null;
+  return value === saved ? undefined : value;
+};
+
+/** A stored cap in words: unset, switched off (0), or tokens. */
+export const describeCap = (value: number | undefined, unsetWords: string): string => {
+  if (value === undefined) return unsetWords;
+  if (value === 0) return 'Off (0)';
+  return `${formatLimit(value)} tokens`;
 };

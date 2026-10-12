@@ -11,6 +11,7 @@ import {
   managedAiUsageService,
   type ManagedAiUsage,
   type OrgTokenBudget,
+  type TokenCapsTotals,
   type KbForecast,
   type TokenForecast,
   type TokenLimit,
@@ -27,6 +28,7 @@ import {
   toastLimitSaved,
   usageLevel,
 } from './tokenLimits.helpers';
+import { WorkspaceMonthlyLimits } from './WorkspaceMonthlyLimits';
 
 type Budgets = NonNullable<ManagedAiUsage['totals']['tokenBudgets']>;
 
@@ -282,12 +284,17 @@ export const WorkspaceTokenLimitsDialog = ({
   budget,
   budgets,
   onClose,
+  caps,
+  kbMin = KB_MIN_TOKENS_PER_DAY,
 }: {
   organizationId: number;
   name: string;
   budget: OrgTokenBudget;
   budgets: Budgets;
   onClose: () => void;
+  /** Wave 2: the monthly limits (absent from an older backend — the section is hidden). */
+  caps?: TokenCapsTotals;
+  kbMin?: number;
 }) => {
   const queryClient = useQueryClient();
   const seedKb = budget.override?.kbTokensPerDay;
@@ -464,6 +471,14 @@ export const WorkspaceTokenLimitsDialog = ({
                     ' This workspace runs on its own key and own-key limits are measured only — nothing is stopped until own-key enforcement is switched on.'}
             </p>
           </div>
+          {caps && budget.monthly && (
+            <WorkspaceMonthlyLimits
+              organizationId={organizationId}
+              monthly={budget.monthly}
+              override={caps.workspaceOverrides?.[String(organizationId)]}
+              kbMin={kbMin}
+            />
+          )}
           <div className="pt-3 border-t border-border">
             {forecast.isLoading ? (
               <p className="text-sm text-muted-foreground">Working out the forecast…</p>

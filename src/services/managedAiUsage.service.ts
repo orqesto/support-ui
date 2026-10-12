@@ -98,6 +98,60 @@ export interface OrgTokenBudget {
    * BE) ⇒ false.
    */
   enforcementLookupFailed?: boolean;
+  /**
+   * Wave 2: the monthly limits in force (calendar month, UTC) with this month's spend; null = no
+   * monthly limit. Absent on an older backend — then nothing monthly is shown.
+   */
+  monthly?: Record<TokenBucket, (CapLimit & { spentThisMonth: number }) | null>;
+  /** The workspace's alliance (its pool, if any, is in `totals.tokenCaps.alliances`). */
+  allianceId?: number | null;
+  /** Conversations waiting for the AI catch-up; null = could not be counted. */
+  aiDeferredBacklog?: number | null;
+}
+
+/** A monthly or alliance-pool limit in force (wave 2). Always > 0: "no limit" is null. */
+export interface CapLimit {
+  limit: number;
+  source: 'workspace' | 'platform' | 'alliance';
+}
+
+/** An alliance pool's limits: per day and per calendar month; absent = none. */
+export interface AlliancePoolLimits {
+  kbTokensPerDay?: number;
+  regularTokensPerDay?: number;
+  kbTokensPerMonth?: number;
+  regularTokensPerMonth?: number;
+}
+
+/** The monthly and alliance limits at platform level (wave 2, BE `totals.tokenCaps`). */
+export interface TokenCapsTotals {
+  /** Absent = no platform monthly limit; 0 = switched off. */
+  kbTokensPerMonth?: number;
+  regularTokensPerMonth?: number;
+  workspaceOverrides?: Record<
+    string,
+    { kbTokensPerMonth?: number; regularTokensPerMonth?: number }
+  >;
+  /** The stored caps could not be read: everything here is unknown, not "none". */
+  lookupFailed?: boolean;
+  alliances: Array<{
+    id: number;
+    name: string;
+    memberIds: number[];
+    limits: AlliancePoolLimits;
+    spentToday: Record<TokenBucket, number>;
+    spentThisMonth: Record<TokenBucket, number>;
+  }>;
+}
+
+/** The thresholds of the token limits (BE `ai.token_limit_rules`, owner D11). */
+export interface TokenLimitRules {
+  nearLimitShare: number;
+  burstMarginShare: number;
+  periodRecheckMinutes: number;
+  catchupBudgetShare: number;
+  burstRequestExpiryDays: number;
+  kbMinTokensPerDay: number;
 }
 
 export type TokenForecastLimit = TokenLimit;
@@ -253,6 +307,10 @@ export interface ManagedAiUsage {
       settingsLookupFailed?: boolean;
       workspaceOverrides: Record<string, TokenLimitOverride>;
     };
+    /** Wave 2: monthly + alliance limits. Absent on an older backend — those cards are hidden. */
+    tokenCaps?: TokenCapsTotals;
+    /** Wave 2: the thresholds. Absent on an older backend — the rules card is hidden. */
+    tokenLimitRules?: TokenLimitRules;
     /**
      * The money figure and everything needed to read it honestly.
      *
@@ -458,6 +516,51 @@ export const managedAiUsageService = {
       edit
     );
     return readSaveOutcome(response?.data);
+  },
+
+  /** Platform monthly limits. A number sets (0 = off), `null` UNSETS (no monthly limit). */
+  updateTokenCaps: async (edit: {
+    kbTokensPerMonth?: number | null;
+    regularTokensPerMonth?: number | null;
+  }): Promise<TokenLimitSaveOutcome> => {
+    const response = await apiClient.patch<ReleaseResponse>(
+      '/api/admin/platform/settings/token-caps',
+      edit
+    );
+    return readSaveOutcome(response?.data);
+  },
+
+  /** One workspace's monthly limits; `null` clears one (the platform's applies again). */
+  updateWorkspaceCaps: async (
+    organizationId: number,
+    edit: { kbTokensPerMonth?: number | null; regularTokensPerMonth?: number | null }
+  ): Promise<TokenLimitSaveOutcome> => {
+    const response = await apiClient.put<ReleaseResponse>(
+      `/api/admin/platform/settings/token-caps/workspaces/${encodeURIComponent(String(organizationId))}`,
+      edit
+    );
+    return readSaveOutcome(response?.data);
+  },
+
+  /** An alliance pool; `null` clears one limit, all four cleared removes the pool. */
+  updateAlliancePool: async (
+    allianceId: number,
+    edit: { [K in keyof AlliancePoolLimits]?: number | null }
+  ): Promise<TokenLimitSaveOutcome> => {
+    const response = await apiClient.put<ReleaseResponse>(
+      `/api/admin/platform/settings/token-caps/alliances/${encodeURIComponent(String(allianceId))}`,
+      edit
+    );
+    return readSaveOutcome(response?.data);
+  },
+
+  /** The thresholds; only the fields sent change. */
+  updateTokenLimitRules: async (edit: Partial<TokenLimitRules>): Promise<TokenLimitRules> => {
+    const response = await apiClient.patch<{ data: { rules: TokenLimitRules } }>(
+      '/api/admin/platform/settings/token-limit-rules',
+      edit
+    );
+    return response.data.data.rules;
   },
 
   getForecast: async (organizationId: number): Promise<TokenForecast> => {
