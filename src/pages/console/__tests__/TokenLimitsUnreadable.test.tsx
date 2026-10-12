@@ -58,7 +58,7 @@ describe('stored limit settings unreadable (settingsLookupFailed)', () => {
   it('the platform card says the figures are fallbacks and the own-key rule is unknown', () => {
     wrap(<TokenLimitsCard budgets={failed} />);
     expect(screen.getByTestId('token-limits-unreadable').textContent).toBe(
-      'The stored limit settings could not be read. A figure marked “fallback” is the server environment setting or the built-in default, not a saved limit. Workspaces listed only for their own limits may be missing from the table, and the limits cannot be edited until the settings can be read.'
+      'The stored limit settings could not be read. A figure marked “fallback” is the built-in fail-safe value, not a saved limit. Workspaces listed only for their own limits may be missing from the table, and the limits cannot be edited until the settings can be read.'
     );
     expect(text()).toContain('KB processing 5,000,000 · built-in default — fallback');
     expect(text()).toContain(
@@ -97,14 +97,12 @@ describe('stored limit settings unreadable (settingsLookupFailed)', () => {
     );
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
     expect(screen.getByTestId('token-limits-unreadable')).toBeTruthy();
-    // The note says the limits cannot be edited: the open form's fields lock too, and its
-    // placeholders mark the fallback figures (FE audit pass 18, NIT). Cancel stays usable.
+    // The note says the limits cannot be edited: the open form's fields lock too (FE audit pass 18,
+    // NIT), keeping the value they opened with. Cancel stays usable.
     const kbField = screen.getByLabelText<HTMLInputElement>('KB processing (tokens per UTC day)');
     expect(kbField).toBeDisabled();
+    expect(kbField).toHaveValue(String(readable.kb.limit));
     expect(screen.getByLabelText('Regular work (tokens per UTC day)')).toBeDisabled();
-    expect(kbField.placeholder).toBe(
-      '5,000,000 · built-in default — fallback — leave blank to follow the default'
-    );
     expect(screen.getByRole('button', { name: 'Cancel' })).not.toBeDisabled();
   });
 

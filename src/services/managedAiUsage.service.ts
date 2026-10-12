@@ -76,15 +76,6 @@ export interface TokenLimit {
   source: TokenLimitSource;
 }
 
-/**
- * A platform-level limit. `fallback`: what it becomes once its platform setting is cleared (the
- * server env value, else the built-in default). Absent from a backend older than 2026-10-12 — the
- * console then names both layers instead of the value.
- */
-export interface PlatformTokenLimit extends TokenLimit {
-  fallback?: TokenLimit;
-}
-
 export type TokenBucket = 'kb' | 'regular';
 
 /** A workspace's own override; a field absent follows the platform. */
@@ -251,8 +242,8 @@ export interface ManagedAiUsage {
      * backend before the split — the page then shows the single ceiling above.
      */
     tokenBudgets?: {
-      kb: PlatformTokenLimit;
-      regular: PlatformTokenLimit;
+      kb: TokenLimit;
+      regular: TokenLimit;
       ownKeyEnforced: boolean;
       /**
        * BE R16: the stored limits could not be read — `kb`, `regular`, `ownKeyEnforced`, the
