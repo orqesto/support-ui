@@ -15,7 +15,7 @@ const NO_LIMIT = 'No monthly limit';
  * for every workspace without its own. Unlike the daily limits there is no built-in monthly
  * default — a blank field means no monthly limit, and 0 switches one off. Reaching one pauses KB
  * work and moves regular mail to the local model until a raise or the 1st; that mail is
- * re-analysed with AI afterwards.
+ * marked for an AI re-analysis (the catch-up that re-runs it ships with wave 2b).
  */
 export const MonthlyLimitsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMin: number }) => {
   const queryClient = useQueryClient();
@@ -111,8 +111,8 @@ export const MonthlyLimitsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMi
             />
             <p className="text-xs text-muted-foreground">
               Blank = no monthly limit; 0 switches one off. Limits are soft: calls already running
-              may go a little over. When a limit is reached, KB work pauses and regular mail is
-              sorted by the local model, then analysed again with AI after a raise or the 1st.
+              may go a little over. When a limit is reached, KB work pauses until a raise or the
+              1st, and regular mail is sorted by the local model and marked for an AI re-analysis.
             </p>
             <div className="flex gap-2 justify-end">
               <Button

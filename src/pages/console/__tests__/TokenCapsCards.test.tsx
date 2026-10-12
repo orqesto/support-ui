@@ -116,6 +116,15 @@ describe('MonthlyLimitsCard', () => {
   });
 });
 
+describe('review I1: no promise the backend does not keep yet', () => {
+  it('the monthly card does not promise an AI re-analysis (the catch-up ships later)', () => {
+    wrap(<MonthlyLimitsCard caps={{ alliances: [] }} kbMin={1_000_000} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.queryByText(/analysed again with AI/)).toBeNull();
+    expect(screen.getByText(/marked for an AI re-analysis/)).toBeTruthy();
+  });
+});
+
 describe('TokenLimitRulesCard', () => {
   it('shows every rule and saves ONE changed rule only', async () => {
     wrap(<TokenLimitRulesCard rules={RULES} />);
