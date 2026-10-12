@@ -7,7 +7,14 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup, within } from '@testing-library/react';
-import { RowFields, renderValue, listOf } from '../customApiRowFields';
+import userEvent from '@testing-library/user-event';
+import {
+  RowFields,
+  renderValue,
+  listOf,
+  projectFields,
+  LIST_ITEM_PREVIEW,
+} from '../customApiRowFields';
 import type { LookupField } from '@/services/customApiLookup.service';
 
 afterEach(cleanup);
@@ -103,5 +110,62 @@ describe('fields read from a list', () => {
     expect(listOf('order_id')).toBeNull();
     expect(listOf('items[].option[].value')).toBe('items[].option[]');
     expect(renderValue(ROW, FIELDS[0])).toBe('1001');
+  });
+});
+
+describe('a long list is cut, and says so', () => {
+  const many = Array.from({ length: 25 }, (_, index) => `Item ${index + 1}`);
+  const fields = [field({ path: 'items[].name', label: 'Name' })];
+
+  it(`shows the first ${LIST_ITEM_PREVIEW}, then how many more, then all on request`, async () => {
+    render(<RowFields row={{ 'items[].name': many }} fields={fields} />);
+
+    expect(screen.getByText(`Item ${LIST_ITEM_PREVIEW}`)).toBeInTheDocument();
+    expect(screen.queryByText(`Item ${LIST_ITEM_PREVIEW + 1}`)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Show all 25 (15 more)' }));
+    expect(screen.getByText('Item 25')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument();
+  });
+
+  it(`CONTROL: a list of exactly ${LIST_ITEM_PREVIEW} has no button`, () => {
+    render(
+      <RowFields row={{ 'items[].name': many.slice(0, LIST_ITEM_PREVIEW) }} fields={fields} />
+    );
+    expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument();
+  });
+
+  it('the reply note keeps every item — the cut is only the screen', () => {
+    expect(renderValue({ 'items[].name': many }, fields[0]).split(', ')).toHaveLength(25);
+  });
+});
+
+describe('the preview of a lookup with no fields picked', () => {
+  const row = {
+    order_id: '1001',
+    items: [{ name: 'Blue mug' }, { name: 'Red kettle' }],
+    tags: ['gift', 'express'],
+    coupons: [],
+  };
+  const preview = (path: string) => renderValue(row, field({ path, label: path }));
+
+  it('🔴 counts a list of records instead of printing its JSON', () => {
+    expect(preview('items')).toBe('2 items');
+    expect(renderValue({ items: [{ name: 'x' }] }, field({ path: 'items', label: 'items' }))).toBe(
+      '1 item'
+    );
+  });
+
+  it('reads a list of plain values as text, and an empty list as —', () => {
+    expect(preview('tags')).toBe('gift, express');
+    expect(preview('coupons')).toBe('—');
+  });
+
+  it('renders on the card without any JSON', () => {
+    // The panel's own fallback: no fields configured ⇒ the row's first keys, as they are.
+    const { fields, usingFallback } = projectFields({ rows: [row], fields: [] } as never);
+    expect(usingFallback).toBe(true);
+    render(<RowFields row={row} fields={fields} />);
+    expect(screen.getByText('2 items')).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('{"');
   });
 });

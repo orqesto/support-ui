@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { Button } from '@/components/ui/Button';
 import { CustomApiRecordInsert } from './CustomApiRecordInsert';
 import {
   CATEGORY_RECORD_LABELS,
@@ -40,6 +41,17 @@ const asText = (value: unknown): string | null => {
   if (value === null || value === undefined || value === '') return null;
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  /*
+    A whole list where one value belongs — the preview of a lookup with no fields picked shows the
+    vendor's keys as they are, lists included. Plain values read as text; a list of records reads
+    as a count, because its JSON (`[{"name":…}]`) is the vendor's data model, not an answer.
+  */
+  if (Array.isArray(value)) {
+    if (value.length === 0) return null;
+    if (value.every((item) => item === null || typeof item !== 'object'))
+      return value.map((item) => asText(item) ?? '—').join(', ');
+    return value.length === 1 ? '1 item' : `${value.length} items`;
+  }
   try {
     return JSON.stringify(value);
   } catch {
@@ -80,8 +92,11 @@ export const renderItems = (row: Record<string, unknown>, field: LookupField): s
 /** D23: a money figure without its currency is a misquote waiting to happen. */
 export const renderValue = (row: Record<string, unknown>, field: LookupField): string => {
   // A list field anywhere a single string is needed (the header, the note for the reply): its
-  // items in order. ⛔ Never `asText` on the array — that prints `["a","b"]` to an agent.
-  if (Array.isArray(row[field.path])) return renderItems(row, field).join(', ') || '—';
+  // items in order. ⛔ Never JSON on the array — that prints `["a","b"]` to an agent.
+  // Only for a `[]` path: a plain key holding a whole list (the no-fields preview) goes through
+  // `asText`, which counts a list of records instead of printing each one as JSON.
+  if (listOf(field.path) !== null && Array.isArray(row[field.path]))
+    return renderItems(row, field).join(', ') || '—';
   const value = asText(row[field.path]);
   if (value === null) return '—';
   /*
@@ -129,6 +144,12 @@ export const projectFields = (
   };
 };
 
+/**
+ * How many items of a list the card shows before "Show all". An order of 50 lines would otherwise
+ * push everything under it out of the panel.
+ */
+export const LIST_ITEM_PREVIEW = 10;
+
 /** `products[]` → "PRODUCTS", `products[].option[]` → "OPTION": the list's own name. */
 const listTitle = (list: string): string => {
   const last = list.slice(0, -2).split('.').pop() ?? list;
@@ -149,8 +170,11 @@ const ListGrid = ({
   row: Record<string, unknown>;
   fields: LookupField[];
 }) => {
+  const [showAll, setShowAll] = useState(false);
   const columns = fields.map((field) => renderItems(row, field));
-  const count = Math.max(0, ...columns.map((items) => items.length));
+  const total = Math.max(0, ...columns.map((items) => items.length));
+  // ⛔ A cut that says so: "and 40 more" with the way to see them, never a silently short list.
+  const count = showAll ? total : Math.min(total, LIST_ITEM_PREVIEW);
   return (
     <div className="col-span-2 grid gap-0.5" data-testid="lookup-list">
       <p className={`${LABEL} text-muted-foreground`}>{listTitle(list)}</p>
@@ -179,6 +203,16 @@ const ListGrid = ({
             ))
           )}
         </div>
+      )}
+      {total > count && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 justify-self-start px-0 text-[11px] text-primary hover:underline"
+          onClick={() => setShowAll(true)}
+        >
+          {`Show all ${total} (${total - count} more)`}
+        </Button>
       )}
     </div>
   );
