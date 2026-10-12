@@ -30,11 +30,14 @@ export const WorkspaceMonthlyLimits = ({
   monthly,
   override,
   kbMin,
+  unreadable = false,
 }: {
   organizationId: number;
   monthly: Monthly;
   override: Override | undefined;
   kbMin: number;
+  /** The stored monthly limits could not be read: what is shown is unknown, not "none". */
+  unreadable?: boolean;
 }) => {
   const queryClient = useQueryClient();
   const seed = (value: number | undefined) => (value === undefined ? '' : String(value));
@@ -69,9 +72,11 @@ export const WorkspaceMonthlyLimits = ({
     return (
       <span className="text-xs text-muted-foreground">
         {label}:{' '}
-        {cap
-          ? `${cap.spentThisMonth.toLocaleString('en-US')} of ${cap.limit.toLocaleString('en-US')} this month · ${SOURCE[cap.source]}`
-          : 'No monthly limit'}
+        {unreadable
+          ? 'unknown (the stored monthly limits could not be read)'
+          : cap
+            ? `${cap.spentThisMonth.toLocaleString('en-US')} of ${cap.limit.toLocaleString('en-US')} this month · ${SOURCE[cap.source]}`
+            : 'No monthly limit'}
       </span>
     );
   };
@@ -106,7 +111,7 @@ export const WorkspaceMonthlyLimits = ({
           size="sm"
           onClick={() => save.mutate()}
           isLoading={save.isPending}
-          disabled={!kb.ok || !regular.ok || !changed || save.isPending}
+          disabled={!kb.ok || !regular.ok || !changed || save.isPending || unreadable}
         >
           Save monthly limits
         </Button>

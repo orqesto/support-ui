@@ -17,6 +17,8 @@ type Edit = Record<string, unknown>;
 let capsSent: Edit[] = [];
 let poolsSent: Array<{ allianceId: number; edit: Edit }> = [];
 let rulesSent: Edit[] = [];
+let rulesRelease: unknown = null;
+let warned: string[] = [];
 let workspaceSent: Array<{ organizationId: number; edit: Edit }> = [];
 const emptyOutcome = { release: null, regularRelease: null };
 vi.mock('@/services/managedAiUsage.service', () => ({
@@ -35,7 +37,7 @@ vi.mock('@/services/managedAiUsage.service', () => ({
     },
     updateTokenLimitRules: (edit: Edit) => {
       rulesSent.push(edit);
-      return Promise.resolve({});
+      return Promise.resolve({ rules: {}, release: rulesRelease });
     },
   },
 }));
@@ -48,7 +50,11 @@ vi.mock('@/hooks/useAllianceAdmin', () => ({
   }),
 }));
 vi.mock('sonner', () => ({
-  toast: { success: () => {}, warning: () => {}, error: () => {} },
+  toast: {
+    success: () => {},
+    warning: (title: string) => warned.push(title),
+    error: () => {},
+  },
 }));
 
 const { MonthlyLimitsCard } = await import('../MonthlyLimitsCard');
@@ -76,6 +82,8 @@ beforeEach(() => {
   capsSent = [];
   poolsSent = [];
   rulesSent = [];
+  rulesRelease = null;
+  warned = [];
   workspaceSent = [];
 });
 afterEach(cleanup);
@@ -129,27 +137,37 @@ describe('review I1: no promise the backend does not keep yet', () => {
 describe('TokenLimitRulesCard', () => {
   it('shows every rule and saves ONE changed rule only', async () => {
     wrap(<TokenLimitRulesCard rules={RULES} />);
-    expect(screen.getByText(/80 %/)).toBeTruthy();
+    expect(screen.getByText(/60 minutes/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     type(/Re-check a monthly or alliance pause/, '30');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(rulesSent).toEqual([{ periodRecheckMinutes: 30 }]));
   });
 
-  it('percent fields are sent as shares', async () => {
+  it('pass 2 m1: only the rules this version applies are shown (no untrue settings)', () => {
     wrap(<TokenLimitRulesCard rules={RULES} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    type(/Near-limit warning/, '70');
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(rulesSent).toEqual([{ nearLimitShare: 0.7 }]));
+    expect(screen.queryByText(/Near-limit warning/)).toBeNull();
+    expect(screen.queryByText(/Burst margin/)).toBeNull();
+    expect(screen.queryByText(/catch-up/i)).toBeNull();
+    expect(screen.queryByText(/burst request/i)).toBeNull();
+    expect(screen.getByText(/Lowest KB limit/)).toBeTruthy();
   });
 
-  it('an out-of-range value blocks Save (near-limit share must be between 1 and 99 %)', () => {
+  it('an out-of-range value blocks Save (re-check between 5 and 1,440 minutes)', () => {
     wrap(<TokenLimitRulesCard rules={RULES} />);
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    type(/Near-limit warning/, '100');
+    type(/Re-check a monthly or alliance pause/, '2');
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(true);
-    expect(screen.getByText(/between 1 and 99/)).toBeTruthy();
+    expect(screen.getByText(/between 5 and 1,440/)).toBeTruthy();
+  });
+
+  it('pass 2 m4: a release the save ran that failed is shown as a warning', async () => {
+    rulesRelease = { error: 'Paused KB work could not be released now.' };
+    wrap(<TokenLimitRulesCard rules={RULES} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    type(/Lowest KB limit/, '2000000');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(warned).toEqual(['Token limit rules saved']));
   });
 });
 
@@ -263,6 +281,25 @@ describe('review M4: an unreadable pool list is unknown, not empty', () => {
     expect(screen.queryByText(/No alliance has a pool/)).toBeNull();
     expect(screen.getByText(/could not be read/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Add pool' })).toBeNull();
+  });
+});
+
+describe('pass 2 m2: the workspace monthly section when the caps could not be read', () => {
+  it('says unknown, not "No monthly limit", and cannot be saved', () => {
+    wrap(
+      <WorkspaceMonthlyLimits
+        organizationId={7}
+        monthly={{ kb: null, regular: null }}
+        override={undefined}
+        kbMin={1_000_000}
+        unreadable
+      />
+    );
+    expect(screen.queryByText(/No monthly limit/)).toBeNull();
+    expect(screen.getAllByText(/unknown/).length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Save monthly limits' }).disabled
+    ).toBe(true);
   });
 });
 

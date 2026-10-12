@@ -476,6 +476,7 @@ export const WorkspaceTokenLimitsDialog = ({
               monthly={budget.monthly}
               override={caps.workspaceOverrides?.[String(organizationId)]}
               kbMin={kbMin}
+              unreadable={caps.lookupFailed === true}
             />
           )}
           <div className="pt-3 border-t border-border">

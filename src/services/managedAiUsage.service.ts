@@ -554,13 +554,17 @@ export const managedAiUsageService = {
     return readSaveOutcome(response?.data);
   },
 
-  /** The thresholds; only the fields sent change. */
-  updateTokenLimitRules: async (edit: Partial<TokenLimitRules>): Promise<TokenLimitRules> => {
-    const response = await apiClient.patch<{ data: { rules: TokenLimitRules } }>(
-      '/api/admin/platform/settings/token-limit-rules',
-      edit
-    );
-    return response.data.data.rules;
+  /** The thresholds; only the fields sent change. `release`: what a higher KB minimum released. */
+  updateTokenLimitRules: async (
+    edit: Partial<TokenLimitRules>
+  ): Promise<{ rules: TokenLimitRules; release: TokenLimitReleaseOutcome }> => {
+    const response = await apiClient.patch<{
+      data: { rules: TokenLimitRules; release?: unknown };
+    }>('/api/admin/platform/settings/token-limit-rules', edit);
+    return {
+      rules: response.data.data.rules,
+      release: normaliseRelease(response.data.data.release),
+    };
   },
 
   getForecast: async (organizationId: number): Promise<TokenForecast> => {

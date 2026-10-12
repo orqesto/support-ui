@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { managedAiUsageService, type TokenLimitRules } from '@/services/managedAiUsage.service';
+import { toastLimitSaved } from './tokenLimits.helpers';
 
 type RuleKey = keyof TokenLimitRules;
 
@@ -13,35 +14,23 @@ type RuleKey = keyof TokenLimitRules;
 interface RuleSpec {
   key: RuleKey;
   label: string;
-  unit: '%' | 'minutes' | 'days' | 'tokens';
+  unit: 'minutes' | 'tokens';
   min: number;
   max: number;
 }
 
-/** The backend's ranges (`tokenLimitRulesSchema`), in the units typed here. */
+/**
+ * The rules this version APPLIES, with the backend's ranges (`tokenLimitRulesSchema`). The other
+ * saved rules (near-limit share, catch-up share, burst margin and expiry) are used only from wave
+ * 2b / 3 on; showing them editable here would state behaviour that is not shipped (pass 2 m1).
+ */
 const RULES: RuleSpec[] = [
-  { key: 'nearLimitShare', label: 'Near-limit warning at', unit: '%', min: 1, max: 99 },
-  { key: 'burstMarginShare', label: 'Burst margin', unit: '%', min: 0, max: 500 },
   {
     key: 'periodRecheckMinutes',
     label: 'Re-check a monthly or alliance pause every',
     unit: 'minutes',
     min: 5,
     max: 1440,
-  },
-  {
-    key: 'catchupBudgetShare',
-    label: 'AI catch-up may use up to',
-    unit: '%',
-    min: 1,
-    max: 100,
-  },
-  {
-    key: 'burstRequestExpiryDays',
-    label: 'A burst request expires after',
-    unit: 'days',
-    min: 1,
-    max: 90,
   },
   {
     key: 'kbMinTokensPerDay',
@@ -52,11 +41,6 @@ const RULES: RuleSpec[] = [
   },
 ];
 
-/** A share is typed and shown as a whole percent; everything else as is. */
-const shown = (spec: RuleSpec, value: number): number =>
-  spec.unit === '%' ? Math.round(value * 100) : value;
-const stored = (spec: RuleSpec, typed: number): number => (spec.unit === '%' ? typed / 100 : typed);
-
 const parseRule = (
   spec: RuleSpec,
   text: string
@@ -66,7 +50,7 @@ const parseRule = (
   if (digits === '' || !Number.isInteger(value) || value < spec.min || value > spec.max) {
     return {
       ok: false,
-      error: `A whole number between ${spec.min.toLocaleString('en-US')} and ${spec.max.toLocaleString('en-US')}${spec.unit === '%' ? ' %' : ''}.`,
+      error: `A whole number between ${spec.min.toLocaleString('en-US')} and ${spec.max.toLocaleString('en-US')}.`,
     };
   }
   return { ok: true, value };
@@ -84,9 +68,10 @@ export const TokenLimitRulesCard = ({ rules }: { rules: TokenLimitRules }) => {
 
   const startEditing = () => {
     setTexts(
-      Object.fromEntries(
-        RULES.map((spec) => [spec.key, String(shown(spec, rules[spec.key]))])
-      ) as Record<RuleKey, string>
+      Object.fromEntries(RULES.map((spec) => [spec.key, String(rules[spec.key])])) as Record<
+        RuleKey,
+        string
+      >
     );
     setEditing(true);
   };
@@ -95,16 +80,17 @@ export const TokenLimitRulesCard = ({ rules }: { rules: TokenLimitRules }) => {
   const valid = parsed.every(({ result }) => result.ok);
   const edit: Partial<TokenLimitRules> = {};
   for (const { spec, result } of parsed) {
-    if (result.ok && result.value !== shown(spec, rules[spec.key])) {
-      edit[spec.key] = stored(spec, result.value);
+    if (result.ok && result.value !== rules[spec.key]) {
+      edit[spec.key] = result.value;
     }
   }
   const changed = Object.keys(edit).length > 0;
 
   const save = useMutation({
     mutationFn: () => managedAiUsageService.updateTokenLimitRules(edit),
-    onSuccess: async () => {
-      toast.success('Token limit rules saved');
+    // A higher KB minimum releases the KB work it lifts (BE M3): reported like a limit save.
+    onSuccess: async ({ release }) => {
+      toastLimitSaved('Token limit rules saved', { release, regularRelease: null });
       await queryClient.invalidateQueries({ queryKey: ['platform-managed-ai-usage'] });
       setEditing(false);
     },
@@ -112,8 +98,7 @@ export const TokenLimitRulesCard = ({ rules }: { rules: TokenLimitRules }) => {
   });
   const locked = save.isPending;
 
-  const words = (spec: RuleSpec, value: number) =>
-    `${shown(spec, value).toLocaleString('en-US')}${spec.unit === '%' ? ' %' : ` ${spec.unit}`}`;
+  const words = (spec: RuleSpec, value: number) => `${value.toLocaleString('en-US')} ${spec.unit}`;
 
   return (
     <Card>
