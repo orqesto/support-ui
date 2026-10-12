@@ -141,7 +141,10 @@ describe('console forecast — saved limit unreadable (BE R17 settingsLookupFail
         /counted against the server environment setting — the saved KB limit could not be read/
       )
     ).toBeTruthy();
-    expect(document.body.textContent).not.toMatch(/default/);
+    // The forecast's own words; the fields above name the PLATFORM limit's source, whatever it is.
+    expect(screen.getByText('Regular work').closest('.space-y-3')?.textContent).not.toMatch(
+      /default/
+    );
   });
 
   // FE audit pass 19, NIT: the clause qualifies the DAYS — said right after them, not after the

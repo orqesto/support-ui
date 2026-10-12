@@ -1,8 +1,8 @@
 /**
  * The platform's two daily token limits (audit F4). What must hold:
- * - a blank field is "keep": Save never sends null for it (null CLEARS a limit server-side);
- * - Reset clears ONE limit, only after a confirmation, and leaves the other limit, the own-key
- *   switch and whatever is typed alone;
+ * - the platform limits ARE the defaults every workspace gets (owner 2026-10-12): the fields always
+ *   hold the value in force, a blank field is refused (never null — the backend refuses a cleared
+ *   platform limit), and a built-in value not saved yet is labelled "Not saved" and saved on Save;
  * - an invalid value blocks Save.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -94,16 +94,19 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('TokenLimitsCard', () => {
-  it('a blank field is kept: Save sends undefined for it, never null', async () => {
+  it('a blank field is refused: Save is disabled and the field says why — never null', () => {
     renderCard();
     fireEvent.change(kbField(), { target: { value: '' } });
-    fireEvent.change(regularField(), { target: { value: '3,000,000' } });
+    expect(saveButton()).toBeDisabled();
+    expect(screen.getByText('Enter a limit — 0 switches it off.')).toBeTruthy();
     fireEvent.click(saveButton());
-    await waitFor(() => expect(sent).toHaveLength(1));
-    expect(sent[0].kbTokensPerDay).toBeUndefined();
-    expect(sent[0].regularTokensPerDay).toBe(3_000_000);
-    // Unchanged own-key switch: not re-sent (pass 9 — a re-sent "off" re-runs a release).
-    expect(sent[0].ownKeyEnforced).toBeUndefined();
+    expect(sent).toHaveLength(0);
+  });
+
+  it('the fields always open on the value in force — saved or not', () => {
+    renderCard();
+    expect(kbField()).toHaveValue('7000000');
+    expect(regularField()).toHaveValue('2000000');
   });
 
   it('an unchanged KB value and own-key switch are not re-sent; changed ones are (pass 9)', async () => {
@@ -126,12 +129,16 @@ describe('TokenLimitsCard', () => {
     expect(sent[1]).toMatchObject({ kbTokensPerDay: 8_000_000, ownKeyEnforced: true });
   });
 
-  it('CONTROL: a KB value typed where there is no platform setting yet IS sent, even at the same number', async () => {
+  it('a value not saved yet (the built-in fail-safe) IS sent unchanged: Save makes it the platform default', async () => {
     renderCard(budgets({ kb: { limit: 7_000_000, source: 'default' } }));
-    fireEvent.change(kbField(), { target: { value: '7000000' } });
+    fireEvent.change(regularField(), { target: { value: '3000000' } });
     fireEvent.click(saveButton());
     await waitFor(() => expect(sent).toHaveLength(1));
-    expect(sent[0].kbTokensPerDay).toBe(7_000_000);
+    expect(sent[0]).toEqual({
+      kbTokensPerDay: 7_000_000,
+      regularTokensPerDay: 3_000_000,
+      ownKeyEnforced: undefined,
+    });
   });
 
   // FE audit pass 13, LOW: the regular value too — the backend re-runs the regular release (a scan
@@ -146,19 +153,12 @@ describe('TokenLimitsCard', () => {
     expect(sent[0].regularTokensPerDay).toBeUndefined();
   });
 
-  it('CONTROL: a changed regular value IS sent; so is one typed into a blank field at the same number', async () => {
+  it('CONTROL: a changed regular value IS sent', async () => {
     renderCard(budgets({ regular: { limit: 2_000_000, source: 'platform' } }));
     fireEvent.change(regularField(), { target: { value: '2500000' } });
     fireEvent.click(saveButton());
     await waitFor(() => expect(sent).toHaveLength(1));
     expect(sent[0].regularTokensPerDay).toBe(2_500_000);
-    cleanup();
-    renderCard(budgets({ regular: { limit: 2_000_000, source: 'default' } }));
-    expect(regularField()).toHaveValue('');
-    fireEvent.change(regularField(), { target: { value: '2000000' } });
-    fireEvent.click(saveButton());
-    await waitFor(() => expect(sent).toHaveLength(2));
-    expect(sent[1].regularTokensPerDay).toBe(2_000_000);
   });
 
   it('an invalid value blocks Save', () => {
@@ -167,134 +167,40 @@ describe('TokenLimitsCard', () => {
     expect(saveButton()).toBeDisabled();
   });
 
-  it('Reset asks first, then clears ONLY that limit', async () => {
-    renderCard();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Clear the platform setting for KB processing' })
-    );
-    // Nothing sent before the confirmation.
-    expect(sent).toHaveLength(0);
-    const dialog = screen.getByRole('dialog');
-    expect(dialog.textContent).toContain('server environment setting');
-    fireEvent.click(
-      screen
-        .getAllByRole('button', { name: 'Reset' })
-        .find((button) => button.closest('[role="dialog"]')) as HTMLElement
-    );
-    await waitFor(() => expect(sent).toHaveLength(1));
-    expect(sent[0]).toEqual({ kbTokensPerDay: null });
-  });
-
-  // FE audit pass 19, NIT: the Reset dialog was open when a refetch turned the settings
-  // unreadable — it closes, and nothing is sent.
-  it('an open Reset dialog closes once the settings turn unreadable; nothing is sent', async () => {
+  it('a limit not saved yet is tagged "Not saved" and the card says what that means', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const card = (value: Budgets) => (
+    render(
       <QueryClientProvider client={client}>
-        <TokenLimitsCard budgets={value} />
+        <TokenLimitsCard budgets={budgets()} />
       </QueryClientProvider>
     );
-    const { rerender } = render(card(budgets()));
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Clear the platform setting for KB processing' })
+    const card = document.body.textContent ?? '';
+    expect(card).toContain('Regular work 2,000,000 · built-in default Not saved');
+    expect(card).toContain('KB processing 7,000,000 · platform setting');
+    expect(card).not.toContain('platform setting Not saved');
+    expect(screen.getByTestId('token-limits-not-saved').textContent).toContain(
+      'Edit and Save to make it this platform’s default.'
     );
-    const confirm = () =>
-      screen
-        .queryAllByRole('button', { name: 'Reset' })
-        .find((button) => button.closest('[role="dialog"]'));
-    expect(confirm()).toBeTruthy();
-    rerender(card(budgets({ settingsLookupFailed: true })));
-    await waitFor(() => expect(confirm()).toBeUndefined());
-    expect(sent).toHaveLength(0);
-    // Readable again: the dropped ask does not come back by itself.
-    rerender(card(budgets()));
-    expect(confirm()).toBeUndefined();
   });
 
-  it('Reset keeps the unsaved own-key switch and the other typed value', async () => {
+  it('CONTROL: both saved — no tag, no note', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <TokenLimitsCard budgets={budgets({ regular: { limit: 2_000_000, source: 'platform' } })} />
+      </QueryClientProvider>
+    );
+    expect(screen.queryByText('Not saved')).toBeNull();
+    expect(screen.queryByTestId('token-limits-not-saved')).toBeNull();
+  });
+
+  it('there is no Reset or clear anywhere: a platform limit is changed, never cleared', () => {
     renderCard();
-    fireEvent.change(regularField(), { target: { value: '4000000' } });
-    fireEvent.click(screen.getByRole('switch'));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Clear the platform setting for KB processing' })
-    );
-    fireEvent.click(
-      screen
-        .getAllByRole('button', { name: 'Reset' })
-        .find((button) => button.closest('[role="dialog"]')) as HTMLElement
-    );
-    await waitFor(() => expect(sent).toHaveLength(1));
-    // Still editing, typed value and switch intact.
-    expect(regularField()).toHaveValue('4000000');
-    expect(screen.getByRole('switch')).toBeChecked();
-    fireEvent.click(saveButton());
-    await waitFor(() => expect(sent).toHaveLength(2));
-    expect(sent[1]).toMatchObject({ regularTokensPerDay: 4_000_000, ownKeyEnforced: true });
-  });
-
-  it('while a reset is in flight, Save and Reset are disabled', async () => {
-    answer = () => new Promise(() => {});
-    renderCard();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Clear the platform setting for KB processing' })
-    );
-    fireEvent.click(
-      screen
-        .getAllByRole('button', { name: 'Reset' })
-        .find((button) => button.closest('[role="dialog"]')) as HTMLElement
-    );
-    await waitFor(() => expect(saveButton()).toBeDisabled());
-    expect(
-      screen.getByRole('button', { name: /Clear the platform setting for KB processing/ })
-    ).toBeDisabled();
-  });
-
-  it('the confirmation names the limit its override would have to cover (pass 7)', () => {
-    renderCard(budgets({ regular: { limit: 2_000_000, source: 'platform' } }));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Clear the platform setting for regular work' })
-    );
-    const dialog = screen.getByRole('dialog');
-    expect(dialog.textContent).toContain('Reset the regular work limit?');
-    expect(dialog.textContent).toContain('for every workspace without its own regular work limit.');
-    expect(dialog.textContent).not.toContain('override.');
-  });
-
-  it('the hint names the button as it reads, and only when one is shown (pass 7)', () => {
-    renderCard();
-    expect(screen.getByText(/“Clear the platform setting for …” removes/)).toBeTruthy();
-    expect(screen.queryByText(/“Reset”/)).toBeNull();
-    cleanup();
-    renderCard(budgets({ kb: { limit: 7_000_000, source: 'default' } }));
-    expect(screen.queryByRole('button', { name: /Clear the platform setting/ })).toBeNull();
-    expect(screen.queryByText(/Clear the platform setting/)).toBeNull();
-    expect(screen.getByText(/0 switches a limit off/)).toBeTruthy();
-  });
-
-  it('no Reset is offered for a limit without a platform setting', () => {
-    renderCard();
-    expect(
-      screen.queryByRole('button', { name: 'Clear the platform setting for regular work' })
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: /Reset|Clear/ })).toBeNull();
   });
 });
 
 describe('TokenLimitsCard — after Save (audit pass 8)', () => {
-  it('Clear is not offered while a Save is on its way (NIT)', async () => {
-    let finish: () => void = () => {};
-    answer = () => new Promise<void>((resolve) => (finish = resolve));
-    renderCard();
-    fireEvent.change(regularField(), { target: { value: '3000000' } });
-    fireEvent.click(saveButton());
-    await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'Clear the platform setting for KB processing' })
-      ).toHaveProperty('disabled', true)
-    );
-    finish();
-  });
-
   it('the card leaves the form only once the saved limits are read back — never the old ones as saved (LOW)', async () => {
     let shown = budgets();
     let reread: () => void = () => {};
@@ -363,20 +269,6 @@ describe('TokenLimitsCard — after Save (audit pass 8)', () => {
     fireEvent.click(saveButton());
     await waitFor(() => expect(sent).toHaveLength(2));
     expect(sent[1].kbTokensPerDay).toBeUndefined();
-  });
-
-  it('while a Clear is on its way the form cannot be left either (pass 10, same rule)', async () => {
-    let finish: () => void = () => {};
-    answer = () => new Promise<void>((resolve) => (finish = resolve));
-    renderCard();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Clear the platform setting for KB processing' })
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
-    await waitFor(() => expect(sent).toHaveLength(1));
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
-    finish();
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).not.toBeDisabled());
   });
 
   it('CONTROL: a failed Save leaves the form and Cancel works again', async () => {
@@ -460,44 +352,6 @@ describe('TokenLimitsCard — after Save (audit pass 8)', () => {
     expect(kbField()).not.toBeDisabled();
     expect(regularField()).not.toBeDisabled();
     expect(screen.getByRole('switch')).not.toBeDisabled();
-  });
-
-  const clearAndConfirm = async (limit: string) => {
-    fireEvent.click(
-      screen.getByRole('button', { name: `Clear the platform setting for ${limit}` })
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
-    await waitFor(() => expect(warned).toHaveLength(1));
-  };
-
-  it('Clear of the KB setting: the limit after it is not known here, so the 0 case is named (pass 11 NIT)', async () => {
-    answer = () => Promise.resolve({ error: 'x' });
-    renderCard(budgets({ kb: { limit: 0, source: 'platform' } }));
-    await clearAndConfirm('KB processing');
-    expect(warned[0]).toContain(
-      'If the limit now in force is 0 (no limit), nothing is higher: only typing 0 retries it.'
-    );
-  });
-
-  it('Clear of the regular setting: the backend reports no KB release, so no retry advice (pass 12 NIT)', async () => {
-    // be-toklim-wt 64d8d228 updatePlatformLimits: a regular-only clear sends no KB value — neither
-    // liftsKbLimit nor a re-run — so `release` is null (the pass-11 test answered an error here, a
-    // state the backend cannot produce).
-    answer = () => Promise.resolve(null);
-    renderCard(
-      budgets({
-        kb: { limit: 0, source: 'platform' },
-        regular: { limit: 2_000_000, source: 'platform' },
-      })
-    );
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Clear the platform setting for regular work' })
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
-    await waitFor(() => expect(succeeded).toHaveLength(1));
-    expect(sent[0]).toEqual({ regularTokensPerDay: null });
-    expect(succeeded[0]).toBe('The regular work limit no longer has a platform setting');
-    expect(warned).toHaveLength(0);
   });
 });
 

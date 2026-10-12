@@ -371,6 +371,43 @@ export const WorkspaceTokenLimitsDialog = ({
   // form could clear the override just saved (FE audit pass 10, MED P10-F2).
   // The fields lock too: an edit typed while Save is pending was never sent, and the answer closed
   // the dialog over it as if saved (FE audit pass 11, LOW).
+  /**
+   * Under a field: whether the value is this workspace's OWN or inherited from the platform — a
+   * placeholder alone read like a value typed in (tester feedback 2026-10-12).
+   */
+  const fieldState = (
+    bucket: 'kb' | 'regular',
+    text: string,
+    saved: number | undefined,
+    onInherit: () => void
+  ) => {
+    if (unreadable) return null;
+    const platform = platformShown(bucket === 'kb' ? budgets.kb : budgets.regular);
+    if (text.trim() !== '') {
+      return (
+        <span
+          className="flex flex-wrap items-center gap-x-2"
+          data-testid={`workspace-limit-${bucket}-state`}
+        >
+          <span className="text-xs text-muted-foreground">Own limit for this workspace.</span>
+          <Button variant="ghost" size="sm" disabled={save.isPending} onClick={onInherit}>
+            Use the platform {bucket === 'kb' ? 'KB' : 'regular'} limit
+          </Button>
+        </span>
+      );
+    }
+    return (
+      <span
+        className={`text-xs ${saved !== undefined ? 'text-warning' : 'text-muted-foreground'}`}
+        data-testid={`workspace-limit-${bucket}-state`}
+      >
+        {saved !== undefined
+          ? `Follows the platform limit after Save: ${platform}.`
+          : `Inherited from the platform: ${platform}.`}
+      </span>
+    );
+  };
+
   const leave = () => {
     if (!save.isPending) onClose();
   };
@@ -387,20 +424,22 @@ export const WorkspaceTokenLimitsDialog = ({
               label="KB processing (tokens per UTC day)"
               inputMode="numeric"
               value={kbText}
-              placeholder={`Platform: ${platformShown(budgets.kb)}`}
+              placeholder={`Inherits ${platformShown(budgets.kb)}`}
               onChange={(event) => setKbText(event.target.value)}
               disabled={save.isPending || unreadable}
               error={kb.ok ? undefined : kb.error}
             />
+            {fieldState('kb', kbText, seedKb, () => setKbText(''))}
             <Input
               label="Regular work (tokens per UTC day)"
               inputMode="numeric"
               value={regularText}
-              placeholder={`Platform: ${platformShown(budgets.regular)}`}
+              placeholder={`Inherits ${platformShown(budgets.regular)}`}
               onChange={(event) => setRegularText(event.target.value)}
               disabled={save.isPending || unreadable}
               error={regular.ok ? undefined : regular.error}
             />
+            {fieldState('regular', regularText, seedRegular, () => setRegularText(''))}
             {unreadable && (
               // BE R16: the prefilled override and the "Platform:" figures are the fallback — but
               // only when the dialog was FILLED unreadable. One that turned unreadable while open
