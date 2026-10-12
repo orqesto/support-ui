@@ -11,6 +11,7 @@ import {
   managedAiUsageService,
   type ManagedAiUsage,
   type OrgTokenBudget,
+  type KbForecast,
   type TokenForecast,
   type TokenLimit,
 } from '@/services/managedAiUsage.service';
@@ -162,9 +163,27 @@ export const describeImageCheckGap = (firstRecordedAt: string | null): string =>
 /** "the last 12 days", "the last day". */
 const lastDays = (days: number): string => (days === 1 ? 'the last day' : `the last ${days} days`);
 
+/** How the per-conversation figure was measured; null when the backend sent no basis. */
+const describeKbBasis = (perThread: NonNullable<KbForecast['tokensPerThread']>): string | null => {
+  const window = lastDays(perThread.windowDays);
+  const { tokensPerCall, callsPerThread, callsMeasured, threadsMeasured } = perThread;
+  if (
+    typeof tokensPerCall === 'number' &&
+    typeof callsPerThread === 'number' &&
+    typeof callsMeasured === 'number'
+  ) {
+    return `${tokensPerCall.toLocaleString()} per KB call, measured over ${callsMeasured.toLocaleString()} KB calls in ${window}; a conversation is assumed to take ${callsPerThread.toLocaleString()} calls`;
+  }
+  if (typeof threadsMeasured === 'number') {
+    return `measured on ${threadsMeasured.toLocaleString()} mined in ${window}`;
+  }
+  return null;
+};
+
 const ForecastView = ({ forecast }: { forecast: TokenForecast }) => {
   const { kb, regular } = forecast;
   const perThread = kb.tokensPerThread;
+  const basis = perThread ? describeKbBasis(perThread) : null;
   // What the averages are taken over: fewer days than the window for a young workspace (R8).
   const observedDays = regular.observedDays;
   const nothingToMine = kb.threadsToMine === 0;
@@ -199,8 +218,8 @@ const ForecastView = ({ forecast }: { forecast: TokenForecast }) => {
             {nothingToMine ? null : perThread && kb.estimatedTokens !== null ? (
               <p className="text-muted-foreground">
                 ≈ {kb.estimatedTokens.toLocaleString()} tokens at {perThread.value.toLocaleString()}{' '}
-                per conversation (measured on {perThread.threadsMeasured.toLocaleString()} mined in
-                the last {perThread.windowDays} days){days}.
+                per conversation{basis ? ` (${basis})` : ''}
+                {days}.
               </p>
             ) : (
               <p className="text-muted-foreground">

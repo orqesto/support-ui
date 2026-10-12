@@ -41,7 +41,13 @@ const makeForecast = (over: Partial<TokenForecast['kb']> = {}): TokenForecast =>
       { sourceId: 1, name: 'inbox', threadsInScope: 900, threadsToMine: 900, noCutoff: false },
     ],
     threadsToMine: 900,
-    tokensPerThread: { value: 10_000, threadsMeasured: 50, windowDays: 30 },
+    tokensPerThread: {
+      value: 10_000,
+      tokensPerCall: 2_500,
+      callsPerThread: 4,
+      callsMeasured: 200,
+      windowDays: 30,
+    },
     estimatedTokens: 9_000_000,
     daysAtLimit: 3,
     limit: { limit: 5_000_000, source: 'default' },
@@ -151,7 +157,7 @@ describe('console forecast — saved limit unreadable (BE R17 settingsLookupFail
         regular: { ...failed().regular, ...regular },
       });
     renderDialog();
-    return (await screen.findByText(/per conversation \(measured on/)).textContent ?? '';
+    return (await screen.findByText(/per conversation \(2,500 per KB call/)).textContent ?? '';
   };
   it('the "counted against" clause follows the days', async () => {
     expect(await kbLineOf()).toMatch(
@@ -211,7 +217,8 @@ describe('console forecast — saved limit unreadable (BE R17 settingsLookupFail
         makeForecast({ limit: { limit: 0, source: 'workspace' }, daysAtLimit: null, ...verdict })
       );
     renderDialog();
-    const line = (await screen.findByText(/per conversation \(measured on/)).textContent ?? '';
+    const line =
+      (await screen.findByText(/per conversation \(2,500 per KB call/)).textContent ?? '';
     expect(line).not.toMatch(/could not be read|no KB limit under/);
   });
 
