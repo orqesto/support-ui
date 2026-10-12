@@ -347,6 +347,28 @@ describe('pass 4: a saved KB value under a RAISED minimum does not lock the othe
   });
 });
 
+describe('pass 5: a stored KB value under the minimum shows the limit in force', () => {
+  it('platform card and pool line name the minimum that applies', () => {
+    wrap(
+      <MonthlyLimitsCard caps={{ kbTokensPerMonth: 2_000_000, alliances: [] }} kbMin={5_000_000} />
+    );
+    expect(screen.getByText(/the limit in force is 5,000,000/)).toBeTruthy();
+    cleanup();
+    const pool = {
+      id: 3,
+      name: 'North Group',
+      memberIds: [7],
+      limits: { kbTokensPerDay: 2_000_000, regularTokensPerDay: 3_000 },
+      spentToday: { kb: 1_800_000, regular: 0 },
+      spentThisMonth: { kb: 0, regular: 0 },
+    };
+    wrap(<AlliancePoolsCard caps={{ alliances: [pool] }} kbMin={5_000_000} />);
+    expect(screen.getByText(/1,800,000 of 5,000,000/)).toBeTruthy();
+    // CONTROL: a regular limit has no minimum.
+    expect(screen.getByText(/0 of 3,000/)).toBeTruthy();
+  });
+});
+
 describe('usageLevel', () => {
   it("uses the rules' near-limit share when given, 80 % otherwise", () => {
     expect(usageLevel(70, 100, 0.7)).toBe('near');

@@ -462,9 +462,23 @@ export const capEdit = (
   return value === saved ? undefined : value;
 };
 
-/** A stored cap in words: unset, switched off (0), or tokens. */
-export const describeCap = (value: number | undefined, unsetWords: string): string => {
+/** A KB cap as the backend applies it: a stored value under the minimum is read AS the minimum. */
+export const capInForce = (value: number, isKb: boolean, kbMin: number): number =>
+  isKb && value > 0 && value < kbMin ? kbMin : value;
+
+/**
+ * A stored cap in words: unset, switched off (0), or tokens — and, for a KB value saved under the
+ * (since raised) minimum, the limit actually in force, as the daily form says it.
+ */
+export const describeCap = (
+  value: number | undefined,
+  unsetWords: string,
+  kb?: { kbMin: number }
+): string => {
   if (value === undefined) return unsetWords;
   if (value === 0) return 'Off (0)';
-  return `${formatLimit(value)} tokens`;
+  const inForce = kb ? capInForce(value, true, kb.kbMin) : value;
+  return inForce === value
+    ? `${formatLimit(value)} tokens`
+    : `Saved as ${formatLimit(value)}; the limit in force is ${inForce.toLocaleString('en-US')} (the minimum)`;
 };

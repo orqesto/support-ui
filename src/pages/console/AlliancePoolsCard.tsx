@@ -12,7 +12,7 @@ import {
   type AlliancePoolLimits,
   type TokenCapsTotals,
 } from '@/services/managedAiUsage.service';
-import { capEdit, parseCapInput, toastLimitSaved } from './tokenLimits.helpers';
+import { capEdit, capInForce, parseCapInput, toastLimitSaved } from './tokenLimits.helpers';
 
 type PoolField = keyof AlliancePoolLimits;
 const FIELDS: Array<{ key: PoolField; label: string; isKb: boolean }> = [
@@ -30,11 +30,15 @@ const EMPTY_TEXTS: Record<PoolField, string> = {
 
 type Pool = TokenCapsTotals['alliances'][number];
 
-/** "2,500,000 of 70,000,000" for each limit the pool has; spend of the matching period. */
-const describePool = (pool: Pool): string => {
-  const parts = FIELDS.flatMap(({ key, label }) => {
-    const limit = pool.limits[key];
-    if (limit === undefined) return [];
+/**
+ * "2,500,000 of 70,000,000" for each limit the pool has; spend of the matching period. A KB value
+ * saved under the (since raised) minimum shows the minimum — the limit the gate applies.
+ */
+const describePool = (pool: Pool, kbMin: number): string => {
+  const parts = FIELDS.flatMap(({ key, label, isKb }) => {
+    const stored = pool.limits[key];
+    if (stored === undefined) return [];
+    const limit = capInForce(stored, isKb, kbMin);
     const bucket = key.startsWith('kb') ? 'kb' : 'regular';
     const spent = key.endsWith('PerDay') ? pool.spentToday[bucket] : pool.spentThisMonth[bucket];
     return [
@@ -199,7 +203,7 @@ export const AlliancePoolsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMi
               </div>
               <span className="text-xs text-muted-foreground">
                 {pool.memberIds.length} workspace{pool.memberIds.length === 1 ? '' : 's'} ·{' '}
-                {describePool(pool)}
+                {describePool(pool, kbMin)}
               </span>
               {!adding && editingId === pool.id && editor}
             </li>

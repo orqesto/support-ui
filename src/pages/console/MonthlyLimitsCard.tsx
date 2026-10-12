@@ -57,11 +57,11 @@ export const MonthlyLimitsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMi
   });
   const locked = save.isPending;
 
-  const line = (label: string, value: number | undefined) => (
+  const line = (label: string, value: number | undefined, isKb: boolean) => (
     <span className="text-sm flex flex-wrap items-center gap-x-2">
       <span className="font-semibold">{label}</span>
       <span className="text-muted-foreground">
-        {unreadable ? 'unknown' : describeCap(value, NO_LIMIT)}
+        {unreadable ? 'unknown' : describeCap(value, NO_LIMIT, isKb ? { kbMin } : undefined)}
       </span>
     </span>
   );
@@ -88,8 +88,8 @@ export const MonthlyLimitsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMi
                 until they can.
               </span>
             )}
-            {line('KB processing', caps.kbTokensPerMonth)}
-            {line('Regular work', caps.regularTokensPerMonth)}
+            {line('KB processing', caps.kbTokensPerMonth, true)}
+            {line('Regular work', caps.regularTokensPerMonth, false)}
           </>
         ) : (
           <div className="flex flex-col gap-2">
