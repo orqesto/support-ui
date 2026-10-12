@@ -59,7 +59,13 @@ const makeForecast = (over: Partial<TokenForecast['kb']> = {}): TokenForecast =>
       { sourceId: 1, name: 'inbox', threadsInScope: 900, threadsToMine: 900, noCutoff: false },
     ],
     threadsToMine: 900,
-    tokensPerThread: { value: 10_000, threadsMeasured: 50, windowDays: 30 },
+    tokensPerThread: {
+      value: 10_000,
+      tokensPerCall: 2_500,
+      callsPerThread: 4,
+      callsMeasured: 200,
+      windowDays: 30,
+    },
     estimatedTokens: 9_000_000,
     daysAtLimit: 3,
     limit: { limit: 5_000_000, source: 'default' },
@@ -269,11 +275,45 @@ describe('WorkspaceTokenLimitsDialog', () => {
   it('the measured window is the backend’s, not a fixed 30 days (F7, A9)', async () => {
     forecast = () =>
       Promise.resolve(
-        makeForecast({ tokensPerThread: { value: 10_000, threadsMeasured: 50, windowDays: 14 } })
+        makeForecast({
+          tokensPerThread: {
+            value: 10_000,
+            tokensPerCall: 2_500,
+            callsPerThread: 4,
+            callsMeasured: 200,
+            windowDays: 14,
+          },
+        })
       );
     renderDialog();
-    await screen.findByText(/mined in the last 14 days/);
+    await screen.findByText(/KB calls in the last 14 days/);
     expect(screen.queryByText(/30 days/)).toBeNull();
+  });
+
+  it('new shape: states the per-call basis', async () => {
+    renderDialog();
+    await screen.findByText(
+      /2,500 per KB call, measured over 200 KB calls in the last 30 days; a conversation is assumed to take 4 calls/
+    );
+  });
+
+  it('legacy shape (older backend): keeps the old sentence', async () => {
+    forecast = () =>
+      Promise.resolve(
+        makeForecast({
+          tokensPerThread: { value: 10_000, threadsMeasured: 50, windowDays: 30 },
+        })
+      );
+    renderDialog();
+    await screen.findByText(/measured on 50 mined in the last 30 days/);
+  });
+
+  it('no basis fields: renders the figure without a basis and does not throw', async () => {
+    forecast = () =>
+      Promise.resolve(makeForecast({ tokensPerThread: { value: 10_000, windowDays: 30 } }));
+    renderDialog();
+    await screen.findByText(/at 10,000 per conversation/);
+    expect(screen.queryByText(/KB call|mined in/)).toBeNull();
   });
 
   it('image checks not covering the window: says the cost may be higher (A2)', async () => {
@@ -309,7 +349,7 @@ describe('WorkspaceTokenLimitsDialog', () => {
         })
       );
     renderDialog();
-    await screen.findByText(/mined in the last/);
+    await screen.findByText(/KB calls in the last/);
     expect(screen.queryByText(/Image checks during mining/)).toBeNull();
   });
 
@@ -534,7 +574,13 @@ describe('R8 forecast captions', () => {
         { sourceId: 1, name: 'inbox', threadsInScope: 900, threadsToMine: 0, noCutoff: false },
       ],
       threadsToMine: 0,
-      tokensPerThread: { value: 10_000, threadsMeasured: 50, windowDays: 30 },
+      tokensPerThread: {
+        value: 10_000,
+        tokensPerCall: 2_500,
+        callsPerThread: 4,
+        callsMeasured: 200,
+        windowDays: 30,
+      },
       estimatedTokens: 0,
       daysAtLimit: null,
       imageChecks: { firstRecordedAt: '2026-09-30T08:00:00.000Z', coversWindow: false },

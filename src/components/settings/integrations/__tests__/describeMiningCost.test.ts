@@ -3,7 +3,13 @@ import { describeMiningCost } from '../SourceKbStrip';
 
 const base = {
   threadsToMine: 1_200,
-  tokensPerThread: { value: 1_000, threadsMeasured: 40, windowDays: 30 },
+  tokensPerThread: {
+    value: 1_000,
+    tokensPerCall: 2_500,
+    callsPerThread: 4,
+    callsMeasured: 200,
+    windowDays: 30,
+  },
   estimatedTokens: 1_200_000,
   daysAtLimit: 1,
   limit: { limit: 5_000_000, source: 'default' },

@@ -112,7 +112,15 @@ export interface KbForecast {
   }>;
   threadsToMine: number;
   /** Measured on this workspace; null until enough threads were mined to say. */
-  tokensPerThread: { value: number; threadsMeasured: number; windowDays: number } | null;
+  tokensPerThread: {
+    value: number;
+    tokensPerCall?: number;
+    callsPerThread?: number;
+    callsMeasured?: number;
+    windowDays: number;
+    /** Legacy: an older backend sent this instead of the per-call fields. */
+    threadsMeasured?: number;
+  } | null;
   estimatedTokens: number | null;
   /** UTC days at the KB limit, today included; null when not measured or no limit. */
   daysAtLimit: number | null;

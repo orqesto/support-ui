@@ -343,7 +343,15 @@ export interface KbMiningForecast {
    */
   settingsLookupFailed?: boolean;
   threadsToMine: number;
-  tokensPerThread: { value: number; threadsMeasured: number; windowDays: number } | null;
+  tokensPerThread: {
+    value: number;
+    tokensPerCall?: number;
+    callsPerThread?: number;
+    callsMeasured?: number;
+    windowDays: number;
+    /** Legacy: an older backend sent this instead of the per-call fields. */
+    threadsMeasured?: number;
+  } | null;
   estimatedTokens: number | null;
   daysAtLimit: number | null;
   limit: { limit: number; source: string };
