@@ -21,6 +21,7 @@ import { chooseOption, listOptions } from '@/test/chooseOption';
 const noopMutation = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, reset: vi.fn() };
 vi.mock('@/hooks/usePlatformSettings', () => ({
   // The server's Bedrock list is deliberately STALE here: the card must not use it.
+  usePlatformBedrockModels: () => ({ data: undefined, isLoading: false }),
   usePlatformAiModels: () => ({
     data: {
       openai: [{ id: 'gpt-5-mini', name: 'GPT-5 mini', type: 'chat', contextWindow: 1 }],

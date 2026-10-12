@@ -84,8 +84,11 @@ export const BEDROCK_MODELS: AIModel[] = [
   // Haiku 4.5 on-demand is generally served via a cross-region inference
   // profile (the `eu.`-prefixed id) rather than the bare foundation model —
   // both are listed so you can pick whichever your IAM role is scoped to.
-  { id: 'eu.anthropic.claude-haiku-4-5-20251001-v1:0', name: 'Claude Haiku 4.5 (EU cross-region)', type: 'chat', contextWindow: 200000, description: 'Anthropic — latest Haiku, EU inference profile', supportsVision: true },
-  { id: 'anthropic.claude-haiku-4-5-20251001-v1:0',    name: 'Claude Haiku 4.5',                   type: 'chat', contextWindow: 200000, description: 'Anthropic — latest Haiku, foundation model', supportsVision: true },
+  // Haiku 5.5 is listed as a GLOBAL cross-region profile. It rejects a non-default temperature and
+  // thinks by default; the backend adjusts every request for that (claudeModelRules).
+  { id: 'global.anthropic.claude-haiku-5-5', name: 'Claude Haiku 5.5 (global cross-region)', type: 'chat', contextWindow: 1000000, description: 'Anthropic — current Haiku, global inference profile', supportsVision: true },
+  { id: 'eu.anthropic.claude-haiku-4-5-20251001-v1:0', name: 'Claude Haiku 4.5 (EU cross-region)', type: 'chat', contextWindow: 200000, description: 'Anthropic — previous Haiku, EU inference profile', supportsVision: true },
+  { id: 'anthropic.claude-haiku-4-5-20251001-v1:0',    name: 'Claude Haiku 4.5',                   type: 'chat', contextWindow: 200000, description: 'Anthropic — previous Haiku, foundation model', supportsVision: true },
   { id: 'anthropic.claude-3-5-sonnet-20241022-v2:0', name: 'Claude 3.5 Sonnet', type: 'chat', contextWindow: 200000, description: 'Anthropic — balanced cost + quality', supportsVision: true },
   { id: 'anthropic.claude-3-5-haiku-20241022-v1:0',  name: 'Claude 3.5 Haiku',  type: 'chat', contextWindow: 200000, description: 'Anthropic — fast + cheap' },
   { id: 'anthropic.claude-3-opus-20240229-v1:0',     name: 'Claude 3 Opus',     type: 'chat', contextWindow: 200000, description: 'Anthropic — heaviest reasoning', supportsVision: true },

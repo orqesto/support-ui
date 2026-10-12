@@ -34,6 +34,17 @@ export const usePlatformAiModels = () =>
     refetchOnWindowFocus: false,
   });
 
+/** Live Bedrock models for the platform's credentials, while the console is choosing a model. */
+export const usePlatformBedrockModels = (region: string | undefined) =>
+  useQuery({
+    queryKey: ['platform', 'settings', 'bedrock-models', region ?? ''],
+    queryFn: () => platformSettingsService.bedrockModels(region ?? ''),
+    enabled: !!region,
+    // 30 min — match the BE cache — for a list only; a "no list" answer is asked again next time.
+    staleTime: (query) => (query.state.data?.payload ? 30 * 60 * 1000 : 0),
+    retry: 0,
+  });
+
 /**
  * Mutations all invalidate the settings query so the source badges + statuses refresh.
  *

@@ -37,6 +37,7 @@ vi.mock('@/hooks/useBackendVersion', () => ({
   useBackendVersion: () => ({ data: { bedrockInstanceProfile: false }, isLoading: false }),
 }));
 vi.mock('@/hooks/usePlatformSettings', () => ({
+  usePlatformBedrockModels: () => ({ data: undefined, isLoading: false }),
   usePlatformAiModels: () => ({ data: undefined, isLoading: false }),
   useUpdatePlatformAi: () => noopMutation,
   useSetPlatformSecret: () => noopMutation,

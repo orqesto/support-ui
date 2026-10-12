@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { normalizeBedrockDiscovery, type BedrockDiscovery } from '@/services/bedrockDiscovery.service';
 import type { AIModel, AIProvider } from '@/types/aiProviders';
 
 /**
@@ -444,6 +445,22 @@ export const platformSettingsService = {
       `${BASE}/ai/models`
     );
     return res.data.data.models;
+  },
+
+  /**
+   * The Bedrock models the PLATFORM's stored credentials can see, live from AWS. `payload` null +
+   * `reason` when there is none; a backend without this route (404) reads as `error`, so the
+   * console keeps its built-in list.
+   */
+  bedrockModels: async (region: string): Promise<BedrockDiscovery> => {
+    try {
+      const res = await apiClient.get(
+        `${BASE}/ai/bedrock/models?region=${encodeURIComponent(region)}`
+      );
+      return normalizeBedrockDiscovery(res.data);
+    } catch {
+      return { payload: null, reason: 'error' };
+    }
   },
 
   /** PATCH the managed-AI provider/model/cost defaults (only the fields present are persisted). */
