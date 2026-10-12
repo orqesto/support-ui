@@ -41,7 +41,14 @@ const BLANK_ERROR = 'Enter a limit — 0 switches it off.';
  * decision (the old single ceiling showed "2,000,000" on petro while applying to none of its
  * workspaces, because all four ran on their own keys).
  */
-export const TokenLimitsCard = ({ budgets }: { budgets: Budgets }) => {
+export const TokenLimitsCard = ({
+  budgets,
+  kbMin = KB_MIN_TOKENS_PER_DAY,
+}: {
+  budgets: Budgets;
+  /** The console's KB minimum (`tokenLimitRules`); the built-in one from an older backend. */
+  kbMin?: number;
+}) => {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [kbText, setKbText] = useState('');
@@ -63,7 +70,7 @@ export const TokenLimitsCard = ({ budgets }: { budgets: Budgets }) => {
 
   // Held to the KB floor (D-R21-1). The figure shown is the limit in force, which the backend
   // clamps to the floor, so a saved value never falls below it here.
-  const kbParsed = parseKbLimitInput(kbText);
+  const kbParsed = parseKbLimitInput(kbText, undefined, kbMin);
   const regularParsed = parseLimitInput(regularText);
   // A blank field is refused: the backend refuses a cleared platform limit (400).
   const kb =
@@ -192,7 +199,7 @@ export const TokenLimitsCard = ({ budgets }: { budgets: Budgets }) => {
             />
             <p className="text-xs text-muted-foreground">
               Every workspace without its own limit gets these. 0 switches a limit off. The KB limit
-              is at least {KB_MIN_TOKENS_PER_DAY.toLocaleString('en-US')} tokens a day.
+              is at least {kbMin.toLocaleString('en-US')} tokens a day.
             </p>
             <Toggle
               checked={ownKeyEnforced}

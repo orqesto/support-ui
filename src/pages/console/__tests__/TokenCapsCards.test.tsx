@@ -55,7 +55,8 @@ const { MonthlyLimitsCard } = await import('../MonthlyLimitsCard');
 const { TokenLimitRulesCard } = await import('../TokenLimitRulesCard');
 const { AlliancePoolsCard } = await import('../AlliancePoolsCard');
 const { WorkspaceMonthlyLimits } = await import('../WorkspaceMonthlyLimits');
-const { usageLevel } = await import('../tokenLimits.helpers');
+const { usageLevel, parseKbLimitInput } = await import('../tokenLimits.helpers');
+const { TokenLimitsCard } = await import('../TokenLimitsCard');
 
 const RULES = {
   nearLimitShare: 0.8,
@@ -225,6 +226,43 @@ describe('WorkspaceMonthlyLimits', () => {
     await waitFor(() =>
       expect(workspaceSent).toEqual([{ organizationId: 7, edit: { regularTokensPerMonth: null } }])
     );
+  });
+});
+
+describe('review M2: the daily forms use the console KB minimum (rules), not the built-in one', () => {
+  it('parseKbLimitInput holds a value to the given minimum and names it', () => {
+    const refused = parseKbLimitInput('1500000', null, 2_000_000);
+    expect(refused.ok).toBe(false);
+    expect(!refused.ok && refused.error).toMatch(/2,000,000/);
+    expect(parseKbLimitInput('1500000', null).ok).toBe(true); // CONTROL: built-in 1,000,000
+  });
+
+  it('the platform card blocks a KB value under the rule and says the rule', () => {
+    const limit = (value: number) => ({ limit: value, source: 'platform' as const });
+    wrap(
+      <TokenLimitsCard
+        budgets={{
+          kb: limit(5_000_000),
+          regular: limit(2_000_000),
+          ownKeyEnforced: false,
+          workspaceOverrides: {},
+        }}
+        kbMin={2_000_000}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    type(/KB processing/, '1500000');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(true);
+    expect(screen.getAllByText(/2,000,000/).length).toBeGreaterThan(0);
+  });
+});
+
+describe('review M4: an unreadable pool list is unknown, not empty', () => {
+  it('says the pools could not be read instead of "No alliance has a pool"', () => {
+    wrap(<AlliancePoolsCard caps={{ alliances: [], lookupFailed: true }} kbMin={1_000_000} />);
+    expect(screen.queryByText(/No alliance has a pool/)).toBeNull();
+    expect(screen.getByText(/could not be read/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add pool' })).toBeNull();
   });
 });
 

@@ -371,7 +371,7 @@ export const PlatformAiSpend = () => {
               </CardContent>
             </Card>
             {usage.totals.tokenBudgets ? (
-              <TokenLimitsCard budgets={usage.totals.tokenBudgets} />
+              <TokenLimitsCard budgets={usage.totals.tokenBudgets} kbMin={kbMin} />
             ) : (
             <Card>
               <CardContent className="flex flex-col gap-1 p-4">

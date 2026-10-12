@@ -157,7 +157,7 @@ export const AlliancePoolsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMi
           <span className="text-xs text-muted-foreground">
             Alliance pools · the members’ spend summed, per day and per calendar month (UTC)
           </span>
-          {!adding && editingId === null && withoutPool.length > 0 && (
+          {!unreadable && !adding && editingId === null && withoutPool.length > 0 && (
             <Button
               variant="ghost"
               size="sm"
@@ -172,8 +172,13 @@ export const AlliancePoolsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMi
             </Button>
           )}
         </div>
-        {caps.alliances.length === 0 && !adding && (
-          <span className="text-sm text-muted-foreground">No alliance has a pool.</span>
+        {unreadable ? (
+          <span className="text-xs text-warning">
+            The stored alliance pools could not be read; which pools exist is unknown.
+          </span>
+        ) : (
+          caps.alliances.length === 0 &&
+          !adding && <span className="text-sm text-muted-foreground">No alliance has a pool.</span>
         )}
         <ul className="flex flex-col gap-2">
           {caps.alliances.map((pool) => (

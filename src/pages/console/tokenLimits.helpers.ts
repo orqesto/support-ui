@@ -88,7 +88,10 @@ export const parseLimitInput = (text: string): ParsedLimit => {
  */
 export const KB_MIN_TOKENS_PER_DAY = 1_000_000;
 
-export const KB_FLOOR_ERROR = `The KB limit is at least ${KB_MIN_TOKENS_PER_DAY.toLocaleString('en-US')} tokens a day, or 0 for no limit.`;
+/** `kbMin`: the console's KB minimum (`tokenLimitRules`); the built-in one from an older backend. */
+export const kbFloorError = (kbMin: number = KB_MIN_TOKENS_PER_DAY): string =>
+  `The KB limit is at least ${kbMin.toLocaleString('en-US')} tokens a day, or 0 for no limit.`;
+export const KB_FLOOR_ERROR = kbFloorError();
 
 /**
  * A KB limit typed into the console, held to the floor. Only a value that would be SENT is held to
@@ -97,16 +100,20 @@ export const KB_FLOOR_ERROR = `The KB limit is at least ${KB_MIN_TOKENS_PER_DAY.
  * edit of the other limit. The platform card passes none: what it shows is the limit in force,
  * which the backend clamps to the floor.
  */
-export const parseKbLimitInput = (text: string, saved?: number | null): ParsedLimit => {
+export const parseKbLimitInput = (
+  text: string,
+  saved?: number | null,
+  kbMin: number = KB_MIN_TOKENS_PER_DAY
+): ParsedLimit => {
   const parsed = parseLimitInput(text);
   if (
     parsed.ok &&
     parsed.value !== null &&
     parsed.value !== 0 &&
-    parsed.value < KB_MIN_TOKENS_PER_DAY &&
+    parsed.value < kbMin &&
     parsed.value !== saved
   ) {
-    return { ok: false, error: KB_FLOOR_ERROR };
+    return { ok: false, error: kbFloorError(kbMin) };
   }
   return parsed;
 };
