@@ -774,6 +774,17 @@ export const EndpointWizard = ({
                             value: option.value,
                             label: option.label,
                           }))}
+                          /*
+                           * ⛔ A field read from a list (`products[].name`) has one value PER ITEM,
+                           * and every role needs ONE value — the backend refuses the save. Shown,
+                           * not tagged, so the control says so instead of failing at Save.
+                           */
+                          disabled={field.path.includes('[]') && field.role === 'none'}
+                          hint={
+                            field.path.includes('[]')
+                              ? 'One value per item in a list, so it is shown as a list.'
+                              : undefined
+                          }
                           onChange={(value) =>
                             setPicked((current) =>
                               applyRole(current, field.path, value as FieldPick['role'])

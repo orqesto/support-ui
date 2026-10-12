@@ -47,8 +47,41 @@ const asText = (value: unknown): string | null => {
   }
 };
 
+/**
+ * The list a field read through, or null for a plain field: `products[].name` → `products[]`,
+ * `products[].option[].value` → `products[].option[]`. Fields with the same list are laid out
+ * together, one line per item.
+ */
+export const listOf = (path: string): string | null => {
+  const end = path.lastIndexOf('[]');
+  return end === -1 ? null : path.slice(0, end + 2);
+};
+
+/**
+ * One rendered entry per item, for a field read through a list. The backend returns such a field
+ * as an array aligned item for item (a missing value holds a null), and for money a currency array
+ * aligned the same way — or one currency, when the admin configured a literal or a plain path.
+ * An older backend sends no array at all: that reads as no items, which is what it showed before.
+ */
+export const renderItems = (row: Record<string, unknown>, field: LookupField): string[] => {
+  const values = row[field.path];
+  if (!Array.isArray(values)) return [];
+  const currencies = row[`${field.path}__currency`];
+  return values.map((item, index) => {
+    const value = asText(item);
+    if (value === null) return '—';
+    if (field.kind !== 'money') return value;
+    const currency =
+      field.currency ?? asText(Array.isArray(currencies) ? currencies[index] : currencies);
+    return currency ? `${value} ${currency}` : value;
+  });
+};
+
 /** D23: a money figure without its currency is a misquote waiting to happen. */
 export const renderValue = (row: Record<string, unknown>, field: LookupField): string => {
+  // A list field anywhere a single string is needed (the header, the note for the reply): its
+  // items in order. ⛔ Never `asText` on the array — that prints `["a","b"]` to an agent.
+  if (Array.isArray(row[field.path])) return renderItems(row, field).join(', ') || '—';
   const value = asText(row[field.path]);
   if (value === null) return '—';
   /*
@@ -96,17 +129,93 @@ export const projectFields = (
   };
 };
 
-/** The labelled grid every lookup has always rendered. The floor P3 never falls below. */
-const FieldGrid = ({ row, fields }: { row: Record<string, unknown>; fields: LookupField[] }) => (
-  <div className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-0.5">
-    {fields.map((field) => (
-      <div key={field.path} className="contents">
-        <p className={`${LABEL} text-muted-foreground`}>{field.label.toUpperCase()}</p>
-        <p className="text-[11px] text-foreground break-words">{renderValue(row, field)}</p>
-      </div>
-    ))}
-  </div>
-);
+/** `products[]` → "PRODUCTS", `products[].option[]` → "OPTION": the list's own name. */
+const listTitle = (list: string): string => {
+  const last = list.slice(0, -2).split('.').pop() ?? list;
+  return last.replace(/\[\]/g, '').replace(/[_-]+/g, ' ').trim().toUpperCase();
+};
+
+/**
+ * Fields read from one list, one line per item: product, price, quantity together, instead of a
+ * column of names and a separate column of prices an agent has to pair up by counting.
+ * ⚠️ Items are lined up by position; the backend keeps every field of a list the same length.
+ */
+const ListGrid = ({
+  list,
+  row,
+  fields,
+}: {
+  list: string;
+  row: Record<string, unknown>;
+  fields: LookupField[];
+}) => {
+  const columns = fields.map((field) => renderItems(row, field));
+  const count = Math.max(0, ...columns.map((items) => items.length));
+  return (
+    <div className="col-span-2 grid gap-0.5" data-testid="lookup-list">
+      <p className={`${LABEL} text-muted-foreground`}>{listTitle(list)}</p>
+      {count === 0 ? (
+        <p className="text-[11px] text-foreground">—</p>
+      ) : (
+        <div
+          className="grid gap-x-3 gap-y-0.5"
+          style={{ gridTemplateColumns: `repeat(${fields.length}, minmax(0, auto))` }}
+        >
+          {/* A header only when there is more than one column; a lone column is named by the list. */}
+          {fields.length > 1 &&
+            fields.map((field) => (
+              <p key={field.path} className={`${LABEL} text-faint-foreground`}>
+                {field.label.toUpperCase()}
+              </p>
+            ))}
+          {Array.from({ length: count }, (_, item) =>
+            columns.map((items, column) => (
+              <p
+                key={`${item}-${fields[column].path}`}
+                className="text-[11px] text-foreground break-words"
+              >
+                {items[item] ?? '—'}
+              </p>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * The labelled grid every lookup has always rendered. The floor P3 never falls below.
+ * Fields read from a list are gathered where the list's first field was picked and shown as a
+ * `ListGrid`; every other field keeps its own line, in the admin's order.
+ */
+const FieldGrid = ({ row, fields }: { row: Record<string, unknown>; fields: LookupField[] }) => {
+  const seen = new Set<string>();
+  return (
+    <div className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-0.5">
+      {fields.map((field) => {
+        const list = listOf(field.path);
+        if (list === null)
+          return (
+            <div key={field.path} className="contents">
+              <p className={`${LABEL} text-muted-foreground`}>{field.label.toUpperCase()}</p>
+              <p className="text-[11px] text-foreground break-words">{renderValue(row, field)}</p>
+            </div>
+          );
+        if (seen.has(list)) return null;
+        seen.add(list);
+        return (
+          <ListGrid
+            key={list}
+            list={list}
+            row={row}
+            fields={fields.filter((other) => listOf(other.path) === list)}
+          />
+        );
+      })}
+    </div>
+  );
+};
 
 /** A value that is actually there. `renderValue` returns this dash for absent, null or empty. */
 const MISSING = '—';
