@@ -103,7 +103,7 @@ describe('stored limit settings unreadable (settingsLookupFailed)', () => {
     expect(kbField).toBeDisabled();
     expect(screen.getByLabelText('Regular work (tokens per UTC day)')).toBeDisabled();
     expect(kbField.placeholder).toBe(
-      '5,000,000 · built-in default — fallback — leave blank to keep'
+      '5,000,000 · built-in default — fallback — leave blank to follow the default'
     );
     expect(screen.getByRole('button', { name: 'Cancel' })).not.toBeDisabled();
   });
@@ -149,7 +149,7 @@ describe('stored limit settings unreadable (settingsLookupFailed)', () => {
     // Marked as the card marks them (FE audit pass 18, NIT).
     expect(
       screen.getByLabelText<HTMLInputElement>('KB processing (tokens per UTC day)').placeholder
-    ).toBe('Platform: 5,000,000 · built-in default — fallback');
+    ).toBe('Inherits 5,000,000 · built-in default — fallback');
     expect(text()).not.toContain('own-key limits are measured only');
     // One unreadable sentence, not the enforcement-unknown one beside it.
     expect(text()).not.toContain('disagree with the answer in use');
@@ -215,10 +215,10 @@ describe('stored limit settings unreadable (settingsLookupFailed)', () => {
     );
     expect(
       screen.getByLabelText<HTMLInputElement>('KB processing (tokens per UTC day)').placeholder
-    ).toBe('Platform: 7,000,000 · platform setting');
+    ).toBe('Inherits 7,000,000 · platform setting');
     expect(
       screen.getByLabelText<HTMLInputElement>('Regular work (tokens per UTC day)').placeholder
-    ).toBe('Platform: 2,000,000 · server environment setting — fallback');
+    ).toBe('Inherits 2,000,000 · server environment setting — fallback');
   });
 
   // FE audit pass 18, LOW: opened readable, typed, then unreadable and readable again — the typing

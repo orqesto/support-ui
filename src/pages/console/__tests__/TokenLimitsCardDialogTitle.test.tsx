@@ -42,11 +42,11 @@ describe('TokenLimitsCard reset dialog title', () => {
       </QueryClientProvider>
     );
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Clear the platform setting for regular work' })
-    );
-    expect(screen.getByTestId('confirm-title').textContent).toBe('Reset the regular work limit?');
+    fireEvent.click(screen.getByRole('button', { name: 'Reset regular work to default' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    const title = 'Reset the regular work limit to default?';
+    expect(screen.getByTestId('confirm-title').textContent).toBe(title);
     fireEvent.click(screen.getByRole('button', { name: 'Confirm stub' }));
-    expect(screen.getByTestId('confirm-title').textContent).toBe('Reset the regular work limit?');
+    expect(screen.getByTestId('confirm-title').textContent).toBe(title);
   });
 });

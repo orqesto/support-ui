@@ -1,8 +1,9 @@
 /**
  * The platform's two daily token limits (audit F4). What must hold:
- * - a blank field is "keep": Save never sends null for it (null CLEARS a limit server-side);
- * - Reset clears ONE limit, only after a confirmation, and leaves the other limit, the own-key
- *   switch and whatever is typed alone;
+ * - a blank field FOLLOWS THE DEFAULT: blank where nothing is set here sends nothing; a field set
+ *   here and emptied (or "Reset … to default") sends null — it CLEARS that platform setting — and
+ *   only after a confirmation that names the value that applies then (tester feedback 2026-10-12);
+ * - the other limit, the own-key switch and whatever is typed go in the same Save;
  * - an invalid value blocks Save.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -94,9 +95,9 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('TokenLimitsCard', () => {
-  it('a blank field is kept: Save sends undefined for it, never null', async () => {
-    renderCard();
-    fireEvent.change(kbField(), { target: { value: '' } });
+  it('a blank field where nothing is set here sends nothing — never null', async () => {
+    renderCard(budgets({ kb: { limit: 5_000_000, source: 'default' } }));
+    expect(kbField()).toHaveValue('');
     fireEvent.change(regularField(), { target: { value: '3,000,000' } });
     fireEvent.click(saveButton());
     await waitFor(() => expect(sent).toHaveLength(1));
@@ -167,130 +168,189 @@ describe('TokenLimitsCard', () => {
     expect(saveButton()).toBeDisabled();
   });
 
-  it('Reset asks first, then clears ONLY that limit', async () => {
-    renderCard();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Clear the platform setting for KB processing' })
+  const withFallback = (over: Partial<Budgets> = {}) =>
+    budgets({
+      kb: {
+        limit: 7_000_000,
+        source: 'platform',
+        fallback: { limit: 5_000_000, source: 'default' },
+      },
+      ...over,
+    });
+  const confirmButton = () =>
+    screen
+      .queryAllByRole('button', { name: 'Reset and save' })
+      .find((button) => button.closest('[role="dialog"]'));
+
+  it('Reset to default empties the field and names the value after Save; nothing is sent yet', () => {
+    renderCard(withFallback());
+    fireEvent.click(screen.getByRole('button', { name: 'Reset KB processing to default' }));
+    expect(kbField()).toHaveValue('');
+    expect(screen.getByTestId('token-limit-kb-state').textContent).toBe(
+      'Reset to default: 5,000,000 · built-in default after Save.'
     );
-    // Nothing sent before the confirmation.
     expect(sent).toHaveLength(0);
-    const dialog = screen.getByRole('dialog');
-    expect(dialog.textContent).toContain('server environment setting');
-    fireEvent.click(
-      screen
-        .getAllByRole('button', { name: 'Reset' })
-        .find((button) => button.closest('[role="dialog"]')) as HTMLElement
-    );
-    await waitFor(() => expect(sent).toHaveLength(1));
-    expect(sent[0]).toEqual({ kbTokensPerDay: null });
   });
 
-  // FE audit pass 19, NIT: the Reset dialog was open when a refetch turned the settings
+  it('emptying a field set here is the same reset: Save asks first, then clears ONLY that limit', async () => {
+    renderCard(withFallback());
+    fireEvent.change(kbField(), { target: { value: '' } });
+    fireEvent.click(saveButton());
+    expect(sent).toHaveLength(0);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toContain('Reset the KB processing limit to default?');
+    expect(dialog.textContent).toContain('KB processing becomes 5,000,000 · built-in default.');
+    fireEvent.click(confirmButton() as HTMLElement);
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toEqual({
+      kbTokensPerDay: null,
+      regularTokensPerDay: undefined,
+      ownKeyEnforced: undefined,
+    });
+  });
+
+  it('an older backend that sends no fallback: both layers are named instead of a value', () => {
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset KB processing to default' }));
+    expect(screen.getByTestId('token-limit-kb-state').textContent).toContain(
+      'server environment setting'
+    );
+    fireEvent.click(saveButton());
+    expect(screen.getByRole('dialog').textContent).toContain('server environment setting');
+  });
+
+  it('CONTROL: declining the confirmation sends nothing and keeps the form', () => {
+    renderCard(withFallback());
+    fireEvent.click(screen.getByRole('button', { name: 'Reset KB processing to default' }));
+    fireEvent.click(saveButton());
+    fireEvent.click(
+      screen
+        .getAllByRole('button', { name: 'Cancel' })
+        .find((button) => button.closest('[role="dialog"]')) as HTMLElement
+    );
+    expect(sent).toHaveLength(0);
+    expect(kbField()).toHaveValue('');
+    expect(saveButton()).not.toBeDisabled();
+  });
+
+  // FE audit pass 19, NIT: the confirmation was open when a refetch turned the settings
   // unreadable — it closes, and nothing is sent.
-  it('an open Reset dialog closes once the settings turn unreadable; nothing is sent', async () => {
+  it('an open confirmation closes once the settings turn unreadable; nothing is sent', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const card = (value: Budgets) => (
       <QueryClientProvider client={client}>
         <TokenLimitsCard budgets={value} />
       </QueryClientProvider>
     );
-    const { rerender } = render(card(budgets()));
+    const { rerender } = render(card(withFallback()));
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Clear the platform setting for KB processing' })
-    );
-    const confirm = () =>
-      screen
-        .queryAllByRole('button', { name: 'Reset' })
-        .find((button) => button.closest('[role="dialog"]'));
-    expect(confirm()).toBeTruthy();
-    rerender(card(budgets({ settingsLookupFailed: true })));
-    await waitFor(() => expect(confirm()).toBeUndefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Reset KB processing to default' }));
+    fireEvent.click(saveButton());
+    expect(confirmButton()).toBeTruthy();
+    rerender(card(withFallback({ settingsLookupFailed: true })));
+    await waitFor(() => expect(confirmButton()).toBeUndefined());
     expect(sent).toHaveLength(0);
     // Readable again: the dropped ask does not come back by itself.
-    rerender(card(budgets()));
-    expect(confirm()).toBeUndefined();
+    rerender(card(withFallback()));
+    expect(confirmButton()).toBeUndefined();
   });
 
-  it('Reset keeps the unsaved own-key switch and the other typed value', async () => {
-    renderCard();
+  it('a reset goes in ONE Save with the other typed value and the own-key switch', async () => {
+    renderCard(withFallback());
     fireEvent.change(regularField(), { target: { value: '4000000' } });
     fireEvent.click(screen.getByRole('switch'));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Clear the platform setting for KB processing' })
-    );
-    fireEvent.click(
-      screen
-        .getAllByRole('button', { name: 'Reset' })
-        .find((button) => button.closest('[role="dialog"]')) as HTMLElement
-    );
-    await waitFor(() => expect(sent).toHaveLength(1));
-    // Still editing, typed value and switch intact.
-    expect(regularField()).toHaveValue('4000000');
-    expect(screen.getByRole('switch')).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset KB processing to default' }));
     fireEvent.click(saveButton());
-    await waitFor(() => expect(sent).toHaveLength(2));
-    expect(sent[1]).toMatchObject({ regularTokensPerDay: 4_000_000, ownKeyEnforced: true });
+    fireEvent.click(confirmButton() as HTMLElement);
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toEqual({
+      kbTokensPerDay: null,
+      regularTokensPerDay: 4_000_000,
+      ownKeyEnforced: true,
+    });
   });
 
-  it('while a reset is in flight, Save and Reset are disabled', async () => {
-    answer = () => new Promise(() => {});
-    renderCard();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Clear the platform setting for KB processing' })
+  it('both reset: the confirmation names both and what each becomes', () => {
+    renderCard(
+      withFallback({
+        regular: {
+          limit: 1_000_000,
+          source: 'platform',
+          fallback: { limit: 3_000_000, source: 'env' },
+        },
+      })
     );
-    fireEvent.click(
-      screen
-        .getAllByRole('button', { name: 'Reset' })
-        .find((button) => button.closest('[role="dialog"]')) as HTMLElement
+    fireEvent.click(screen.getByRole('button', { name: 'Reset KB processing to default' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset regular work to default' }));
+    fireEvent.click(saveButton());
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toContain(
+      'Reset the KB processing and regular work limits to default?'
     );
-    await waitFor(() => expect(saveButton()).toBeDisabled());
-    expect(
-      screen.getByRole('button', { name: /Clear the platform setting for KB processing/ })
-    ).toBeDisabled();
+    expect(dialog.textContent).toContain(
+      'KB processing becomes 5,000,000 · built-in default. regular work becomes 3,000,000 · server environment setting.'
+    );
   });
 
   it('the confirmation names the limit its override would have to cover (pass 7)', () => {
     renderCard(budgets({ regular: { limit: 2_000_000, source: 'platform' } }));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Clear the platform setting for regular work' })
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Reset regular work to default' }));
+    fireEvent.click(saveButton());
     const dialog = screen.getByRole('dialog');
-    expect(dialog.textContent).toContain('Reset the regular work limit?');
+    expect(dialog.textContent).toContain('Reset the regular work limit to default?');
     expect(dialog.textContent).toContain('for every workspace without its own regular work limit.');
     expect(dialog.textContent).not.toContain('override.');
   });
 
-  it('the hint names the button as it reads, and only when one is shown (pass 7)', () => {
-    renderCard();
-    expect(screen.getByText(/“Clear the platform setting for …” removes/)).toBeTruthy();
-    expect(screen.queryByText(/“Reset”/)).toBeNull();
-    cleanup();
-    renderCard(budgets({ kb: { limit: 7_000_000, source: 'default' } }));
-    expect(screen.queryByRole('button', { name: /Clear the platform setting/ })).toBeNull();
-    expect(screen.queryByText(/Clear the platform setting/)).toBeNull();
-    expect(screen.getByText(/0 switches a limit off/)).toBeTruthy();
+  it('a typed value equal to the default says saving it stops following the default', () => {
+    renderCard(withFallback());
+    fireEvent.change(kbField(), { target: { value: '5000000' } });
+    expect(screen.getByTestId('token-limit-kb-state').textContent).toContain(
+      'Same as the default — saved here it stops following the default.'
+    );
+    fireEvent.change(kbField(), { target: { value: '6000000' } });
+    expect(screen.getByTestId('token-limit-kb-state').textContent).not.toContain(
+      'Same as the default'
+    );
   });
 
-  it('no Reset is offered for a limit without a platform setting', () => {
+  it('no Reset is offered for a limit without a platform setting; its field says what it follows', () => {
     renderCard();
-    expect(
-      screen.queryByRole('button', { name: 'Clear the platform setting for regular work' })
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Reset regular work to default' })).toBeNull();
+    expect(screen.getByTestId('token-limit-regular-state').textContent).toBe(
+      'Follows the default: 2,000,000 · built-in default.'
+    );
+    expect(screen.getByText(/A blank field follows the default/)).toBeTruthy();
+  });
+
+  it('the read view tags a value set here and names its default; a default reads as one', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <TokenLimitsCard budgets={withFallback()} />
+      </QueryClientProvider>
+    );
+    const card = document.body.textContent ?? '';
+    expect(card).toContain(
+      'KB processing 7,000,000 · platform setting Set here Default: 5,000,000 · built-in default'
+    );
+    expect(card).toContain('Regular work 2,000,000 · built-in default Default');
+    expect(card).not.toContain('Default: 2,000,000');
   });
 });
 
 describe('TokenLimitsCard — after Save (audit pass 8)', () => {
-  it('Clear is not offered while a Save is on its way (NIT)', async () => {
+  it('Reset is not offered while a Save is on its way (NIT)', async () => {
     let finish: () => void = () => {};
     answer = () => new Promise<void>((resolve) => (finish = resolve));
     renderCard();
     fireEvent.change(regularField(), { target: { value: '3000000' } });
     fireEvent.click(saveButton());
     await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'Clear the platform setting for KB processing' })
-      ).toHaveProperty('disabled', true)
+      expect(screen.getByRole('button', { name: 'Reset KB processing to default' })).toHaveProperty(
+        'disabled',
+        true
+      )
     );
     finish();
   });
@@ -365,18 +425,17 @@ describe('TokenLimitsCard — after Save (audit pass 8)', () => {
     expect(sent[1].kbTokensPerDay).toBeUndefined();
   });
 
-  it('while a Clear is on its way the form cannot be left either (pass 10, same rule)', async () => {
+  it('while a reset Save is on its way the form cannot be left either (pass 10, same rule)', async () => {
     let finish: () => void = () => {};
     answer = () => new Promise<void>((resolve) => (finish = resolve));
     renderCard();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Clear the platform setting for KB processing' })
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset KB processing to default' }));
+    fireEvent.click(saveButton());
+    fireEvent.click(screen.getByRole('button', { name: 'Reset and save' }));
     await waitFor(() => expect(sent).toHaveLength(1));
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     finish();
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).not.toBeDisabled());
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull());
   });
 
   it('CONTROL: a failed Save leaves the form and Cancel works again', async () => {
@@ -462,27 +521,36 @@ describe('TokenLimitsCard — after Save (audit pass 8)', () => {
     expect(screen.getByRole('switch')).not.toBeDisabled();
   });
 
-  const clearAndConfirm = async (limit: string) => {
-    fireEvent.click(
-      screen.getByRole('button', { name: `Clear the platform setting for ${limit}` })
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
-    await waitFor(() => expect(warned).toHaveLength(1));
+  const resetAndConfirm = async (limit: string, toasts: string[]) => {
+    fireEvent.click(screen.getByRole('button', { name: `Reset ${limit} to default` }));
+    fireEvent.click(saveButton());
+    fireEvent.click(screen.getByRole('button', { name: 'Reset and save' }));
+    await waitFor(() => expect(toasts).toHaveLength(1));
   };
 
-  it('Clear of the KB setting: the limit after it is not known here, so the 0 case is named (pass 11 NIT)', async () => {
+  it('a KB reset against an older backend: the limit after it is not known, so the 0 case is named (pass 11 NIT)', async () => {
     answer = () => Promise.resolve({ error: 'x' });
     renderCard(budgets({ kb: { limit: 0, source: 'platform' } }));
-    await clearAndConfirm('KB processing');
+    await resetAndConfirm('KB processing', warned);
     expect(warned[0]).toContain(
       'If the limit now in force is 0 (no limit), nothing is higher: only typing 0 retries it.'
     );
   });
 
-  it('Clear of the regular setting: the backend reports no KB release, so no retry advice (pass 12 NIT)', async () => {
+  it('CONTROL: a KB reset with the fallback known advises against the value now in force', async () => {
+    answer = () => Promise.resolve({ error: 'x' });
+    renderCard(
+      budgets({
+        kb: { limit: 0, source: 'platform', fallback: { limit: 5_000_000, source: 'default' } },
+      })
+    );
+    await resetAndConfirm('KB processing', warned);
+    expect(warned[0]).not.toContain('If the limit now in force is 0');
+  });
+
+  it('a regular reset: the backend reports no KB release, so no retry advice (pass 12 NIT)', async () => {
     // be-toklim-wt 64d8d228 updatePlatformLimits: a regular-only clear sends no KB value — neither
-    // liftsKbLimit nor a re-run — so `release` is null (the pass-11 test answered an error here, a
-    // state the backend cannot produce).
+    // liftsKbLimit nor a re-run — so `release` is null.
     answer = () => Promise.resolve(null);
     renderCard(
       budgets({
@@ -490,13 +558,14 @@ describe('TokenLimitsCard — after Save (audit pass 8)', () => {
         regular: { limit: 2_000_000, source: 'platform' },
       })
     );
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Clear the platform setting for regular work' })
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
-    await waitFor(() => expect(succeeded).toHaveLength(1));
-    expect(sent[0]).toEqual({ regularTokensPerDay: null });
-    expect(succeeded[0]).toBe('The regular work limit no longer has a platform setting');
+    // The KB field stays as opened (pre-filled 0): only the regular limit is reset.
+    await resetAndConfirm('regular work', succeeded);
+    expect(sent[0]).toEqual({
+      kbTokensPerDay: undefined,
+      regularTokensPerDay: null,
+      ownKeyEnforced: undefined,
+    });
+    expect(succeeded[0]).toBe('Daily token limits saved');
     expect(warned).toHaveLength(0);
   });
 });
