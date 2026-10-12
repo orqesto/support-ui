@@ -184,11 +184,13 @@ type Said = { tone: 'success' | 'warning'; text: string };
  */
 export const describeRelease = (
   release: TokenLimitReleaseOutcome,
-  kbLimitAfter?: number
+  kbLimitAfter?: number,
+  /** The retry advice to give instead of the KB-field one (a rules save — wave 2b). */
+  retry?: string
 ): Said | null => {
   if (!release) return null;
-  if ('error' in release)
-    return { tone: 'warning', text: `${release.error} ${retryAdvice(kbLimitAfter)}` };
+  const advice = retry ?? retryAdvice(kbLimitAfter);
+  if ('error' in release) return { tone: 'warning', text: `${release.error} ${advice}` };
   const parts: string[] = [];
   const released = release.releasedOrganizations.length;
   const still = release.stillPaused.length;
@@ -298,7 +300,7 @@ export const describeRelease = (
     );
   }
   if (release.failedToQueue > 0 || unreachable > 0 || partial > 0) {
-    parts.push(retryAdvice(kbLimitAfter));
+    parts.push(advice);
   }
   if (release.truncated) {
     parts.push(
@@ -392,10 +394,11 @@ export const describeRegularRelease = (
 export const describeSave = (
   outcome: TokenLimitSaveOutcome,
   kbLimitAfter?: number,
-  regularLimitAfter?: number
+  regularLimitAfter?: number,
+  retry?: string
 ): Said | null => {
   const said = [
-    describeRelease(outcome.release, kbLimitAfter),
+    describeRelease(outcome.release, kbLimitAfter, retry),
     describeRegularRelease(outcome.regularRelease, regularLimitAfter),
   ].filter((item): item is Said => item !== null);
   if (said.length === 0) return null;
@@ -414,10 +417,12 @@ export const toastLimitSaved = (
   title: string,
   outcome: TokenLimitSaveOutcome,
   kbLimitAfter?: number,
-  regularLimitAfter?: number
+  regularLimitAfter?: number,
+  /** Retry advice for a save that is not a limit field's (the rules card). */
+  retry?: string
 ): void => {
   window.dispatchEvent(new Event(TOKEN_LIMITS_SAVED_EVENT));
-  const said = describeSave(outcome, kbLimitAfter, regularLimitAfter);
+  const said = describeSave(outcome, kbLimitAfter, regularLimitAfter, retry);
   if (!said) toast.success(title);
   else if (said.tone === 'warning') toast.warning(title, { description: said.text });
   else toast.success(title, { description: said.text });
@@ -478,7 +483,51 @@ export const describeCap = (
   if (value === undefined) return unsetWords;
   if (value === 0) return 'Off (0)';
   const inForce = kb ? capInForce(value, true, kb.kbMin) : value;
+  // One number format for both figures (2a review: the browser's locale beside en-US).
   return inForce === value
-    ? `${formatLimit(value)} tokens`
-    : `Saved as ${formatLimit(value)}; the limit in force is ${inForce.toLocaleString('en-US')} (the minimum)`;
+    ? `${value.toLocaleString('en-US')} tokens`
+    : `Saved as ${value.toLocaleString('en-US')}; the limit in force is ${inForce.toLocaleString('en-US')} (the minimum)`;
+};
+
+/**
+ * The AI catch-up backlog from the forecast (BE `regular.deferredBacklog`, wave 2b): conversations
+ * sorted by the local model under a monthly or alliance limit, re-analysed with AI after a raise
+ * or the reset. Null when there is none, or the backend did not send it.
+ */
+export const describeCatchup = (
+  backlog: { messages: number; estimatedTokens: number | null } | undefined
+): string | null => {
+  if (!backlog || backlog.messages <= 0) return null;
+  const cost =
+    backlog.estimatedTokens !== null
+      ? ` (≈ ${backlog.estimatedTokens.toLocaleString('en-US')} tokens)`
+      : '';
+  return `${backlog.messages.toLocaleString('en-US')} conversation${
+    backlog.messages === 1 ? '' : 's'
+  } wait${backlog.messages === 1 ? 's' : ''} for the AI catch-up${cost}, re-analysed after a raise or the reset.`;
+};
+
+/**
+ * Spec §3: warnings, never blocks, for a monthly limit typed below the daily limit in force (the
+ * monthly one then stops work first) or above the workspace's alliance pool (the pool then stops
+ * it first). 0 and blank are "no limit" and warn nothing.
+ */
+export const capWarnings = (
+  value: number | null,
+  daily: number | undefined,
+  poolMonthly: number | undefined
+): string[] => {
+  if (value === null || value <= 0) return [];
+  const warnings: string[] = [];
+  if (daily !== undefined && daily > 0 && value < daily) {
+    warnings.push(
+      `This is lower than the daily limit (${daily.toLocaleString('en-US')}): the monthly limit stops work first.`
+    );
+  }
+  if (poolMonthly !== undefined && poolMonthly > 0 && value > poolMonthly) {
+    warnings.push(
+      `This is higher than its alliance pool's monthly limit (${poolMonthly.toLocaleString('en-US')}): the pool stops work first.`
+    );
+  }
+  return warnings;
 };

@@ -227,8 +227,10 @@ export const SourceKbStrip = ({
         const at = formatUtcDateAndLocal(result.data.resumesAt);
         onShowAlert({
           open: true,
-          title: 'Re-mining starts after the daily reset',
-          description: `Today's AI limit for KB processing is reached, so the re-mine waits and starts by itself from ${
+          // Wave 2b: worded for any limit — under a monthly or alliance limit `resumesAt` is
+          // the next re-check, not the daily reset.
+          title: 'Re-mining waits for an AI limit',
+          description: `An AI limit for KB processing is reached, so the re-mine waits and is tried again by itself from ${
             at ?? `the reset at ${describeNextReset()}`
           }.`,
           variant: 'info',

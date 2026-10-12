@@ -164,11 +164,13 @@ describe('Re-mine held back by the daily KB limit', () => {
     fireEvent.click(confirmButton());
     await waitFor(() => expect(onShowAlert).toHaveBeenCalled());
     const alert = onShowAlert.mock.calls[0][0] as { title: string; description: string };
-    expect(alert.title).toBe('Re-mining starts after the daily reset');
+    // Wave 2b: no "daily" / "Today's" — under a monthly or alliance limit the time is a re-check.
+    expect(alert.title).toBe('Re-mining waits for an AI limit');
+    expect(alert.description).not.toMatch(/today|daily/i);
     // "From", with the day: the restart waits while the limit is spent, so no later time is a
     // promise (A8), and the reset may not be today in the reader's zone.
     expect(alert.description).toMatch(
-      /starts by itself from 00:07 UTC on 2026-10-01 \(\d\d:\d\d your time\)\./
+      /tried again by itself from 00:07 UTC on 2026-10-01 \(\d\d:\d\d your time\)\./
     );
   });
 

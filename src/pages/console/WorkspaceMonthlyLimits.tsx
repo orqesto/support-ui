@@ -9,6 +9,7 @@ import {
   type OrgTokenBudget,
   type TokenBucket,
 } from '@/services/managedAiUsage.service';
+import { CapWarnings } from './CapWarnings';
 import { capEdit, parseCapInput, toastLimitSaved } from './tokenLimits.helpers';
 
 type Monthly = NonNullable<OrgTokenBudget['monthly']>;
@@ -31,6 +32,9 @@ export const WorkspaceMonthlyLimits = ({
   override,
   kbMin,
   unreadable = false,
+  backlog,
+  dailyLimits,
+  poolMonthly,
 }: {
   organizationId: number;
   monthly: Monthly;
@@ -38,6 +42,15 @@ export const WorkspaceMonthlyLimits = ({
   kbMin: number;
   /** The stored monthly limits could not be read: what is shown is unknown, not "none". */
   unreadable?: boolean;
+  /**
+   * Conversations waiting for the AI catch-up (BE `aiDeferredBacklog`): null = could not be
+   * counted; absent (an older backend) or 0 = nothing said.
+   */
+  backlog?: number | null;
+  /** This workspace's daily limits in force — a monthly one below them is warned about (§3). */
+  dailyLimits?: { kb: number; regular: number };
+  /** Its alliance pool's monthly limits — a workspace limit above them is warned about (§3). */
+  poolMonthly?: { kbTokensPerMonth?: number; regularTokensPerMonth?: number };
 }) => {
   const queryClient = useQueryClient();
   const seed = (value: number | undefined) => (value === undefined ? '' : String(value));
@@ -86,6 +99,17 @@ export const WorkspaceMonthlyLimits = ({
       <span className="text-sm font-semibold">Monthly limits (calendar month, UTC)</span>
       {inForce('kb', 'KB processing')}
       {inForce('regular', 'Regular work')}
+      {backlog === null ? (
+        <span className="text-xs text-muted-foreground">
+          The conversations waiting for the AI catch-up could not be counted.
+        </span>
+      ) : backlog !== undefined && backlog > 0 ? (
+        <span className="text-xs text-muted-foreground">
+          {backlog.toLocaleString('en-US')} conversation{backlog === 1 ? '' : 's'} sorted without AI
+          wait{backlog === 1 ? 's' : ''} for the AI catch-up: they are analysed again with AI after
+          a raise or the reset.
+        </span>
+      ) : null}
       <Input
         label="KB processing this workspace (tokens per month)"
         inputMode="numeric"
@@ -94,6 +118,11 @@ export const WorkspaceMonthlyLimits = ({
         error={kb.ok ? undefined : kb.error}
         disabled={save.isPending}
       />
+      <CapWarnings
+        value={kb.ok ? kb.value : null}
+        daily={dailyLimits?.kb}
+        poolMonthly={poolMonthly?.kbTokensPerMonth}
+      />
       <Input
         label="Regular work this workspace (tokens per month)"
         inputMode="numeric"
@@ -101,6 +130,11 @@ export const WorkspaceMonthlyLimits = ({
         onChange={(event) => setRegularText(event.target.value)}
         error={regular.ok ? undefined : regular.error}
         disabled={save.isPending}
+      />
+      <CapWarnings
+        value={regular.ok ? regular.value : null}
+        daily={dailyLimits?.regular}
+        poolMonthly={poolMonthly?.regularTokensPerMonth}
       />
       <p className="text-xs text-muted-foreground">
         Blank follows the platform monthly limit; 0 switches it off for this workspace.
