@@ -11,6 +11,7 @@ import {
   managedAiUsageService,
   type ManagedAiUsage,
   type OrgTokenBudget,
+  type TokenCapsTotals,
   type KbForecast,
   type TokenForecast,
   type TokenLimit,
@@ -27,6 +28,7 @@ import {
   toastLimitSaved,
   usageLevel,
 } from './tokenLimits.helpers';
+import { WorkspaceMonthlyLimits } from './WorkspaceMonthlyLimits';
 
 type Budgets = NonNullable<ManagedAiUsage['totals']['tokenBudgets']>;
 
@@ -282,12 +284,17 @@ export const WorkspaceTokenLimitsDialog = ({
   budget,
   budgets,
   onClose,
+  caps,
+  kbMin = KB_MIN_TOKENS_PER_DAY,
 }: {
   organizationId: number;
   name: string;
   budget: OrgTokenBudget;
   budgets: Budgets;
   onClose: () => void;
+  /** Wave 2: the monthly limits (absent from an older backend — the section is hidden). */
+  caps?: TokenCapsTotals;
+  kbMin?: number;
 }) => {
   const queryClient = useQueryClient();
   const seedKb = budget.override?.kbTokensPerDay;
@@ -325,9 +332,8 @@ export const WorkspaceTokenLimitsDialog = ({
   // one written outside the console below the floor shows here as saved; the limit in force is
   // the backend's clamp of it (the floor).
   const savedKb = budget.override?.kbTokensPerDay;
-  const kb = parseKbLimitInput(kbText, savedKb ?? null);
-  const savedBelowFloor =
-    typeof savedKb === 'number' && savedKb > 0 && savedKb < KB_MIN_TOKENS_PER_DAY;
+  const kb = parseKbLimitInput(kbText, savedKb ?? null, kbMin);
+  const savedBelowFloor = typeof savedKb === 'number' && savedKb > 0 && savedKb < kbMin;
   const regular = parseLimitInput(regularText);
 
   const forecast = useQuery({
@@ -453,9 +459,9 @@ export const WorkspaceTokenLimitsDialog = ({
             )}
             <p className="text-xs text-muted-foreground">
               Blank follows the platform limit; 0 switches the limit off for this workspace. The KB
-              limit is at least {KB_MIN_TOKENS_PER_DAY.toLocaleString('en-US')} tokens a day.
+              limit is at least {kbMin.toLocaleString('en-US')} tokens a day.
               {savedBelowFloor &&
-                ` Saved as ${savedKb.toLocaleString('en-US')}; the limit in force is ${KB_MIN_TOKENS_PER_DAY.toLocaleString('en-US')} (the minimum).`}
+                ` Saved as ${savedKb.toLocaleString('en-US')}; the limit in force is ${kbMin.toLocaleString('en-US')} (the minimum).`}
               {unreadable
                 ? ''
                 : budget.enforcementLookupFailed
@@ -464,6 +470,15 @@ export const WorkspaceTokenLimitsDialog = ({
                     ' This workspace runs on its own key and own-key limits are measured only — nothing is stopped until own-key enforcement is switched on.'}
             </p>
           </div>
+          {caps && budget.monthly && (
+            <WorkspaceMonthlyLimits
+              organizationId={organizationId}
+              monthly={budget.monthly}
+              override={caps.workspaceOverrides?.[String(organizationId)]}
+              kbMin={kbMin}
+              unreadable={caps.lookupFailed === true}
+            />
+          )}
           <div className="pt-3 border-t border-border">
             {forecast.isLoading ? (
               <p className="text-sm text-muted-foreground">Working out the forecast…</p>

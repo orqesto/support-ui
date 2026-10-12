@@ -14,7 +14,11 @@ import {
 } from '@/services/managedAiUsage.service';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { nextUtcMidnight } from '@/lib/utcClock';
+import { AlliancePoolsCard } from './AlliancePoolsCard';
+import { MonthlyLimitsCard } from './MonthlyLimitsCard';
+import { TokenLimitRulesCard } from './TokenLimitRulesCard';
 import { TokenLimitsCard } from './TokenLimitsCard';
+import { KB_MIN_TOKENS_PER_DAY } from './tokenLimits.helpers';
 import { WorkspaceLimitCell, WorkspaceTokenLimitsDialog } from './WorkspaceTokenLimits';
 
 const RANGES = [7, 30, 90] as const;
@@ -133,6 +137,8 @@ export const PlatformAiSpend = () => {
 
   const usage = data?.usage;
   // The split limits arrive with a newer backend; an older one keeps the single-ceiling tile.
+  // The console's KB minimum (`tokenLimitRules`), the built-in one from an older backend.
+  const kbMin = usage?.totals.tokenLimitRules?.kbMinTokensPerDay ?? KB_MIN_TOKENS_PER_DAY;
   const hasBudgets = Boolean(usage?.totals.tokenBudgets);
   const limitsOrg = usage?.orgs.find((org) => org.organizationId === limitsFor);
   // The open dialog's workspace dropped out of the answer (e.g. listed only for its override while
@@ -365,7 +371,7 @@ export const PlatformAiSpend = () => {
               </CardContent>
             </Card>
             {usage.totals.tokenBudgets ? (
-              <TokenLimitsCard budgets={usage.totals.tokenBudgets} />
+              <TokenLimitsCard budgets={usage.totals.tokenBudgets} kbMin={kbMin} />
             ) : (
             <Card>
               <CardContent className="flex flex-col gap-1 p-4">
@@ -392,6 +398,21 @@ export const PlatformAiSpend = () => {
             </Card>
             )}
           </div>
+          {/* Wave 2: monthly + alliance limits and the thresholds — only from a backend that sends
+              them (an older one omits both blocks). */}
+          {(usage.totals.tokenCaps || usage.totals.tokenLimitRules) && (
+            <div className="grid gap-4 lg:grid-cols-3">
+              {usage.totals.tokenCaps && (
+                <>
+                  <MonthlyLimitsCard caps={usage.totals.tokenCaps} kbMin={kbMin} />
+                  <AlliancePoolsCard caps={usage.totals.tokenCaps} kbMin={kbMin} />
+                </>
+              )}
+              {usage.totals.tokenLimitRules && (
+                <TokenLimitRulesCard rules={usage.totals.tokenLimitRules} />
+              )}
+            </div>
+          )}
 
           <Card className="flex overflow-hidden flex-col flex-1 min-h-0">
             <CardContent padding="none" className="flex overflow-auto flex-col flex-1 min-h-0">
@@ -572,6 +593,8 @@ export const PlatformAiSpend = () => {
           organizationId={limitsOrg.organizationId}
           name={limitsOrg.name}
           budget={limitsOrg.tokenBudget}
+          caps={usage.totals.tokenCaps}
+          kbMin={kbMin}
           budgets={usage.totals.tokenBudgets}
           // Only THIS workspace's dialog: a save that finishes after it was closed must not close
           // another workspace's dialog opened since (FE audit pass 8, LOW).

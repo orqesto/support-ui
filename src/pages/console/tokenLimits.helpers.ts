@@ -30,10 +30,15 @@ export type UsageLevel = 'unlimited' | 'ok' | 'near' | 'reached';
 
 export const NEAR_LIMIT_SHARE = 0.8;
 
-export const usageLevel = (spent: number, limit: number): UsageLevel => {
+/** `nearShare`: the console's near-limit share (`tokenLimitRules.nearLimitShare`) when sent. */
+export const usageLevel = (
+  spent: number,
+  limit: number,
+  nearShare: number = NEAR_LIMIT_SHARE
+): UsageLevel => {
   if (limit <= 0) return 'unlimited';
   if (spent >= limit) return 'reached';
-  if (spent >= limit * NEAR_LIMIT_SHARE) return 'near';
+  if (spent >= limit * nearShare) return 'near';
   return 'ok';
 };
 
@@ -83,7 +88,10 @@ export const parseLimitInput = (text: string): ParsedLimit => {
  */
 export const KB_MIN_TOKENS_PER_DAY = 1_000_000;
 
-export const KB_FLOOR_ERROR = `The KB limit is at least ${KB_MIN_TOKENS_PER_DAY.toLocaleString('en-US')} tokens a day, or 0 for no limit.`;
+/** `kbMin`: the console's KB minimum (`tokenLimitRules`); the built-in one from an older backend. */
+export const kbFloorError = (kbMin: number = KB_MIN_TOKENS_PER_DAY): string =>
+  `The KB limit is at least ${kbMin.toLocaleString('en-US')} tokens a day, or 0 for no limit.`;
+export const KB_FLOOR_ERROR = kbFloorError();
 
 /**
  * A KB limit typed into the console, held to the floor. Only a value that would be SENT is held to
@@ -92,16 +100,20 @@ export const KB_FLOOR_ERROR = `The KB limit is at least ${KB_MIN_TOKENS_PER_DAY.
  * edit of the other limit. The platform card passes none: what it shows is the limit in force,
  * which the backend clamps to the floor.
  */
-export const parseKbLimitInput = (text: string, saved?: number | null): ParsedLimit => {
+export const parseKbLimitInput = (
+  text: string,
+  saved?: number | null,
+  kbMin: number = KB_MIN_TOKENS_PER_DAY
+): ParsedLimit => {
   const parsed = parseLimitInput(text);
   if (
     parsed.ok &&
     parsed.value !== null &&
     parsed.value !== 0 &&
-    parsed.value < KB_MIN_TOKENS_PER_DAY &&
+    parsed.value < kbMin &&
     parsed.value !== saved
   ) {
-    return { ok: false, error: KB_FLOOR_ERROR };
+    return { ok: false, error: kbFloorError(kbMin) };
   }
   return parsed;
 };
@@ -409,4 +421,64 @@ export const toastLimitSaved = (
   if (!said) toast.success(title);
   else if (said.tone === 'warning') toast.warning(title, { description: said.text });
   else toast.success(title, { description: said.text });
+};
+
+/**
+ * A monthly or alliance-pool limit typed into the console (wave 2). Blank = no limit (sent as
+ * null where one was saved). A KB value is 0 or at least the console's KB minimum (`kbMin`, from
+ * `tokenLimitRules`), as the backend checks — but only a value that would be SENT: the `saved`
+ * value is not re-sent unchanged, so one saved under a since-raised minimum does not lock an edit of
+ * the other fields (as `parseKbLimitInput` does for the daily form).
+ */
+export const parseCapInput = (
+  text: string,
+  isKb: boolean,
+  kbMin: number,
+  saved?: number
+): ParsedLimit => {
+  const parsed = parseLimitInput(text);
+  if (
+    isKb &&
+    parsed.ok &&
+    parsed.value !== null &&
+    parsed.value !== 0 &&
+    parsed.value < kbMin &&
+    parsed.value !== saved
+  ) {
+    return {
+      ok: false,
+      error: `A KB limit is at least ${kbMin.toLocaleString('en-US')} tokens, or 0 for no limit.`,
+    };
+  }
+  return parsed;
+};
+
+/** What to send for one cap field: a changed number, null to clear a saved one, else nothing. */
+export const capEdit = (
+  saved: number | undefined,
+  value: number | null
+): number | null | undefined => {
+  if (value === null) return saved === undefined ? undefined : null;
+  return value === saved ? undefined : value;
+};
+
+/** A KB cap as the backend applies it: a stored value under the minimum is read AS the minimum. */
+export const capInForce = (value: number, isKb: boolean, kbMin: number): number =>
+  isKb && value > 0 && value < kbMin ? kbMin : value;
+
+/**
+ * A stored cap in words: unset, switched off (0), or tokens — and, for a KB value saved under the
+ * (since raised) minimum, the limit actually in force, as the daily form says it.
+ */
+export const describeCap = (
+  value: number | undefined,
+  unsetWords: string,
+  kb?: { kbMin: number }
+): string => {
+  if (value === undefined) return unsetWords;
+  if (value === 0) return 'Off (0)';
+  const inForce = kb ? capInForce(value, true, kb.kbMin) : value;
+  return inForce === value
+    ? `${formatLimit(value)} tokens`
+    : `Saved as ${formatLimit(value)}; the limit in force is ${inForce.toLocaleString('en-US')} (the minimum)`;
 };
