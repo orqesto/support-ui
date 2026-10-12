@@ -67,6 +67,7 @@ vi.mock('@/hooks/usePlatformSettings', () => ({
     data: settings,
     refetch: vi.fn(),
   }),
+  usePlatformBedrockModels: () => ({ data: undefined, isLoading: false }),
   usePlatformAiModels: () => ({ data: undefined, isLoading: false }),
   useUpdatePlatformAi: () => noopMutation,
   useUpdatePlatformStorage: () => noopMutation,

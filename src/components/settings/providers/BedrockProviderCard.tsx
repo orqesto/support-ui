@@ -16,12 +16,11 @@ import { Button } from '@/components/ui/Button';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
-import { useBedrockModels } from '@/hooks/useBedrockModels';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
+import { BedrockModelPicker, useBedrockModelOptions } from './BedrockModelPicker';
 import { TRUST_POLICY_TEMPLATE, PERMISSION_POLICY_TEMPLATE } from './bedrockPolicyTemplates';
 import type { BedrockConfig, Integration } from '@/services/integrations.service';
-import type { AIModel } from '@/types/aiProviders';
-import { BEDROCK_MODELS, BEDROCK_REGIONS } from '@/types/aiProviders';
+import { BEDROCK_REGIONS } from '@/types/aiProviders';
 import { apiClient } from '@/lib/api-client';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 
@@ -131,6 +130,7 @@ export const BedrockProviderCard = ({
   onCancel,
 }: Props) => {
   const [showForm, setShowForm] = useState(false);
+  const [pickerKey, setPickerKey] = useState(0);
   const [config, setConfig] = useState<BedrockConfig>(EMPTY_CONFIG);
   // Credential mode: keys (paste IAM access keys) · assume_role (cross-account STS) ·
   // instance_profile (self-hosted EC2 role via IMDS — ignores env keys; the wrong-account fix).
@@ -150,26 +150,10 @@ export const BedrockProviderCard = ({
   const [testing, setTesting] = useState(false);
   const [generatingId, setGeneratingId] = useState(false);
 
-  // Live model discovery — populated when the form is open AND the user has
-  // picked a region. Falls back to the static BEDROCK_MODELS catalog when
-  // discovery returns nothing (no role config yet, IAM denial, AWS hiccup).
-  const discovery = useBedrockModels(showForm ? config.region : undefined);
-  const liveModels = discovery.data?.models ?? null;
-  const modelOptions: AIModel[] =
-    liveModels && liveModels.length > 0
-      ? liveModels.map((model) => ({
-          id: model.id,
-          name: model.name,
-          type: model.type,
-          contextWindow: 0, // not surfaced by Bedrock list API; harmless for the dropdown
-          description: model.description,
-        }))
-      : BEDROCK_MODELS;
-  const modelSourceLabel = discovery.isLoading
-    ? 'Loading…'
-    : liveModels && liveModels.length > 0
-      ? `Live from AWS · ${liveModels.length} models${discovery.data?.source === 'cache' ? ' (cached)' : ''}`
-      : 'Curated fallback list (add bedrock:ListFoundationModels to your role to see live)';
+  // The row's "Available Models" list: live for the form's region while the form is open.
+  const { options: modelOptions, sourceLabel: modelSourceLabel } = useBedrockModelOptions(
+    showForm ? config.region : undefined
+  );
 
   // Auto-fetch a fresh externalId when opening the form for a NEW integration.
   // For edits the existing externalId is loaded from the integration row.
@@ -199,6 +183,9 @@ export const BedrockProviderCard = ({
   }, [showForm, credMode, editingId, config.externalId]);
 
   const handleEdit = (integration: Integration) => {
+    // A fresh model picker per integration loaded HERE — not keyed on the shared `editingId`,
+    // which also changes when another provider card is edited.
+    setPickerKey((key) => key + 1);
     const cfg = { ...EMPTY_CONFIG, ...(integration.config as BedrockConfig) };
     setConfig(cfg);
     // Infer the mode from the saved row: instance-profile flag wins (but only if
@@ -580,18 +567,12 @@ export const BedrockProviderCard = ({
                 </div>
               )}
 
-              <div>
-                <Select
-                  label="Default Model *"
-                  value={config.defaultModel}
-                  onChange={(value) => setConfig({ ...config, defaultModel: value })}
-                  options={modelOptions.map((model) => ({
-                    value: model.id,
-                    label: model.name,
-                  }))}
-                />
-                <p className="mt-1 text-xs text-muted-foreground">{modelSourceLabel}</p>
-              </div>
+              <BedrockModelPicker
+                key={pickerKey}
+                region={config.region}
+                value={config.defaultModel}
+                onChange={(modelId) => setConfig({ ...config, defaultModel: modelId })}
+              />
 
               <div>
                 <label htmlFor="bedrock-inference-profile" className="text-sm font-medium">

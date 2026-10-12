@@ -11,9 +11,11 @@ import {
   useSetPlatformSecret,
   useClearPlatformSecret,
   usePlatformAiModels,
+  usePlatformBedrockModels,
   useUpdatePlatformAi,
 } from '@/hooks/usePlatformSettings';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
+import { bedrockModelSourceLabel, toPickerModels } from '@/services/bedrockDiscovery.service';
 import { useConfigCardState } from '@/hooks/useConfigCardState';
 import {
   AI_KEY_SLOT_BY_PROVIDER,
@@ -216,14 +218,6 @@ export const ManagedAiDefaultsCard = ({
   /** The provider managed traffic is served by NOW — what Test connection and the placeholders describe. */
   const storedProvider: AIProvider = ai.provider.value ?? 'openai';
 
-  // Chat models only — the embedding entries in the catalog can't serve a tier.
-  // Bedrock's list is the curated catalog the workspace Bedrock card renders, so the two
-  // surfaces offer the same models. The platform endpoint's Bedrock list had drifted behind
-  // it (no Claude Haiku 4.5), and an admin here was pushed to "Other" for a model the
-  // workspace card listed first (owner, 2026-09-07).
-  const providerModels: AIModel[] = (
-    provider === 'bedrock' ? BEDROCK_MODELS : (catalog.data?.[provider] ?? [])
-  ).filter((model) => model.type === 'chat');
   const isBedrock = provider === 'bedrock';
   // Same gate the workspace Bedrock card applies: the server only honours the instance-profile
   // switch on a self-hosted box (or with the env override). On the managed platform it logs a
@@ -249,6 +243,32 @@ export const ManagedAiDefaultsCard = ({
    * see afterwards IS the stored config rather than a claim about it.
    */
   const card = useConfigCardState({ configured, onCancel: reseed });
+
+  // Chat models only — the embedding entries in the catalog can't serve a tier.
+  // Bedrock's fallback is the curated catalog the workspace Bedrock card renders, so the two
+  // surfaces offer the same models. The platform endpoint's Bedrock list had drifted behind
+  // it (no Claude Haiku 4.5), and an admin here was pushed to "Other" for a model the
+  // workspace card listed first (owner, 2026-09-07).
+  //
+  // Bedrock reads live from AWS with the platform's stored credentials when it can (the same
+  // listing the workspace card uses), and keeps the curated catalog otherwise — the line under the
+  // pickers says which, and why. Vision follows AWS's IMAGE input (a profile inherits its model's).
+  const bedrockDiscovery = usePlatformBedrockModels(
+    isBedrock && card.isEditing ? bedrock.region || undefined : undefined
+  );
+  const liveBedrock = toPickerModels(bedrockDiscovery.data?.payload?.models ?? []);
+  const providerModels: AIModel[] = (
+    isBedrock
+      ? liveBedrock.length > 0
+        ? liveBedrock
+        : BEDROCK_MODELS
+      : (catalog.data?.[provider] ?? [])
+  ).filter((model) => model.type === 'chat');
+  const bedrockSourceLabel = bedrockModelSourceLabel(
+    bedrockDiscovery,
+    'save the Bedrock settings (with a region) to load the models the platform credentials can use.',
+    'Built-in list — pick a region to load the models the platform credentials can use.'
+  );
 
   /**
    * Prove the stored key answers.
@@ -611,6 +631,9 @@ export const ManagedAiDefaultsCard = ({
               </div>
               {renderModelPicker(modelKey, modelKey === 'visionModel', label)}
               <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+              {isBedrock && modelKey === 'defaultModel' && (
+                <p className="mt-1 text-xs text-muted-foreground">{bedrockSourceLabel}</p>
+              )}
             </div>
             <div>
               <div className="flex gap-2 items-center mb-2">

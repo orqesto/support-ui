@@ -34,6 +34,7 @@ vi.mock('@/hooks/usePlatformSettings', () => ({
   useUpdatePlatformAi: () => saveMutation,
   useSetPlatformSecret: () => noopMutation,
   useClearPlatformSecret: () => noopMutation,
+  usePlatformBedrockModels: () => ({ data: undefined, isLoading: false }),
   usePlatformAiModels: () => ({ data: undefined, isLoading: false }),
 }));
 
