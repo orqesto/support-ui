@@ -33,7 +33,7 @@ import {
 } from '@/services/kbConsolidation.service';
 
 import {
-  ACTIONS_HELP,
+  actionsHelp,
   ACTION_FAILED,
   QUALITY_FAILED,
   ATTACH_REFUSED,
@@ -556,7 +556,7 @@ export const KbWorkRows = ({
       )}
       {listedIds.length > 0 && (
         <p className="text-xs text-muted-foreground" data-testid="kb-actions-help">
-          {ACTIONS_HELP}
+          {actionsHelp(casesExist !== false)}
         </p>
       )}
       <ul ref={listRef} tabIndex={-1} className="space-y-2 outline-none" aria-label={label}>
