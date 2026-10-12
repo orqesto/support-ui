@@ -62,7 +62,7 @@ export const AlliancePoolsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMi
     caps.alliances.find((pool) => pool.id === editingId)?.limits ?? {};
   const parsed = FIELDS.map((field) => ({
     field,
-    result: parseCapInput(texts[field.key], field.isKb, kbMin),
+    result: parseCapInput(texts[field.key], field.isKb, kbMin, saved[field.key]),
   }));
   const valid = parsed.every(({ result }) => result.ok);
   const edit: { [K in PoolField]?: number | null } = {};

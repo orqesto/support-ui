@@ -426,11 +426,25 @@ export const toastLimitSaved = (
 /**
  * A monthly or alliance-pool limit typed into the console (wave 2). Blank = no limit (sent as
  * null where one was saved). A KB value is 0 or at least the console's KB minimum (`kbMin`, from
- * `tokenLimitRules`), as the backend checks.
+ * `tokenLimitRules`), as the backend checks — but only a value that would be SENT: the `saved`
+ * value is not re-sent unchanged, so one saved under a since-raised minimum does not lock an edit of
+ * the other fields (as `parseKbLimitInput` does for the daily form).
  */
-export const parseCapInput = (text: string, isKb: boolean, kbMin: number): ParsedLimit => {
+export const parseCapInput = (
+  text: string,
+  isKb: boolean,
+  kbMin: number,
+  saved?: number
+): ParsedLimit => {
   const parsed = parseLimitInput(text);
-  if (isKb && parsed.ok && parsed.value !== null && parsed.value !== 0 && parsed.value < kbMin) {
+  if (
+    isKb &&
+    parsed.ok &&
+    parsed.value !== null &&
+    parsed.value !== 0 &&
+    parsed.value < kbMin &&
+    parsed.value !== saved
+  ) {
     return {
       ok: false,
       error: `A KB limit is at least ${kbMin.toLocaleString('en-US')} tokens, or 0 for no limit.`,

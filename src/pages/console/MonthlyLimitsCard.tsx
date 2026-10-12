@@ -32,7 +32,7 @@ export const MonthlyLimitsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMi
     setEditing(true);
   };
 
-  const kb = parseCapInput(kbText, true, kbMin);
+  const kb = parseCapInput(kbText, true, kbMin, caps.kbTokensPerMonth);
   const regular = parseCapInput(regularText, false, kbMin);
   const edit = {
     kbTokensPerMonth: kb.ok ? capEdit(caps.kbTokensPerMonth, kb.value) : undefined,

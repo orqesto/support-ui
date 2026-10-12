@@ -303,6 +303,50 @@ describe('pass 2 m2: the workspace monthly section when the caps could not be re
   });
 });
 
+describe('pass 4: a saved KB value under a RAISED minimum does not lock the other fields', () => {
+  it('workspace section: the regular limit saves while the unchanged KB value is under the rule', async () => {
+    wrap(
+      <WorkspaceMonthlyLimits
+        organizationId={7}
+        monthly={{ kb: null, regular: null }}
+        override={{ kbTokensPerMonth: 2_000_000 }}
+        kbMin={5_000_000}
+      />
+    );
+    type(/Regular work this workspace/, '9000000');
+    fireEvent.click(screen.getByRole('button', { name: 'Save monthly limits' }));
+    await waitFor(() =>
+      expect(workspaceSent).toEqual([
+        { organizationId: 7, edit: { regularTokensPerMonth: 9_000_000 } },
+      ])
+    );
+  });
+
+  it('platform card and pools: same; CONTROL: a NEW value under the rule is still refused', () => {
+    wrap(
+      <MonthlyLimitsCard caps={{ kbTokensPerMonth: 2_000_000, alliances: [] }} kbMin={5_000_000} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    type(/Regular work/, '9000000');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(false);
+    type(/KB processing/, '3000000');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(true);
+    cleanup();
+    const pool = {
+      id: 3,
+      name: 'North Group',
+      memberIds: [7],
+      limits: { kbTokensPerDay: 2_000_000 },
+      spentToday: { kb: 0, regular: 0 },
+      spentThisMonth: { kb: 0, regular: 0 },
+    };
+    wrap(<AlliancePoolsCard caps={{ alliances: [pool] }} kbMin={5_000_000} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit North Group' }));
+    type(/Regular work per month/, '9000000');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(false);
+  });
+});
+
 describe('usageLevel', () => {
   it("uses the rules' near-limit share when given, 80 % otherwise", () => {
     expect(usageLevel(70, 100, 0.7)).toBe('near');

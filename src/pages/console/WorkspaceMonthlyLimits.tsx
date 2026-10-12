@@ -44,7 +44,7 @@ export const WorkspaceMonthlyLimits = ({
   const [kbText, setKbText] = useState(seed(override?.kbTokensPerMonth));
   const [regularText, setRegularText] = useState(seed(override?.regularTokensPerMonth));
 
-  const kb = parseCapInput(kbText, true, kbMin);
+  const kb = parseCapInput(kbText, true, kbMin, override?.kbTokensPerMonth);
   const regular = parseCapInput(regularText, false, kbMin);
   const edit = {
     kbTokensPerMonth: kb.ok ? capEdit(override?.kbTokensPerMonth, kb.value) : undefined,
