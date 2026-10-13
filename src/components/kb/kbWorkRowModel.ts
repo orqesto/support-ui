@@ -140,12 +140,31 @@ export const ACTION_TIPS = {
   rejectHeld: `Never used: deleted after ${REJECTED_RETENTION_DAYS} days.`,
 } as const;
 
-/** The one line above every entry list: what the buttons do (Move only where it is offered). */
-export const actionsHelp = (withMove: boolean): string =>
-  'The AI uses only approved answers. Approve: it may use the answer. Reject: never used, deleted ' +
-  `after ${REJECTED_RETENTION_DAYS} days. Hide: out of use until Unhide. Edit: change the text. ` +
-  (withMove ? 'Move into case: answered with that case’s standard answer. ' : '') +
-  'Pending answers are never used.';
+/**
+ * The one line above every entry list: what the buttons do (Move only where it is offered).
+ *
+ * ⛔ Only the buttons the list actually shows. Under a list of approved answers the line used to
+ * explain Approve, Reject and "Pending answers are never used" — none of which was on screen — so
+ * a moderator read it as a decision waiting to be made (2026-10-13). `statuses` absent keeps the
+ * full line.
+ */
+export const actionsHelp = (withMove: boolean, statuses?: ReadonlySet<KbWorkRowStatus>): string => {
+  const has = (status: KbWorkRowStatus) => statuses === undefined || statuses.has(status);
+  const reviewing = has('pending');
+  return (
+    'The AI uses only approved answers. ' +
+    (reviewing
+      ? `Approve: it may use the answer. Reject: never used, deleted after ${REJECTED_RETENTION_DAYS} days. `
+      : '') +
+    (reviewing || has('approved') ? 'Hide: out of use until Unhide. ' : '') +
+    (statuses !== undefined && has('hidden') && !has('approved') && !reviewing
+      ? 'Unhide: back in use as it was. '
+      : '') +
+    'Edit: change the text. ' +
+    (withMove ? 'Move into case: answered with that case’s standard answer. ' : '') +
+    (reviewing ? 'Pending answers are never used.' : '')
+  ).trim();
+};
 
 export const QUALITY_FAILED: Record<QualityAction, string> = {
   undoClean: 'Could not undo the clean-up',
