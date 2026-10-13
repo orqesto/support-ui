@@ -596,7 +596,7 @@ export function MessageDetailHeader({
   const inboxBadge: InboxBadge | null = (() => {
     if (spamCheck?.isSpam === true || isFiltered)
       return {
-        label: 'Spam',
+        label: message.spamConfirmedAt ? 'Spam · confirmed' : 'Spam',
         icon: <ShieldAlert className="w-2.5 h-2.5" />,
         cls: 'text-destructive bg-destructive-muted border-destructive-line',
       };
@@ -1324,19 +1324,24 @@ export function MessageDetailHeader({
             />
           </div>
         )}
-        <Select
-          aria-label="Status"
-          variant="chip"
-          chipCase="sentence"
-          value={currentWorkflowStatus}
-          options={statusDisplayOptions}
-          mobileSheet
-          onChange={(val) => {
-            const beStatus = workflowToBeStatus[val as WorkflowStatus];
-            if (beStatus) void handleSetStatus(beStatus);
-          }}
-          isDisabled={updatingStatus}
-        />
+        {/* ⛔ No work status on a spam thread. `filtered` derives to none, so the chip fell back to
+            "Open" on every spam thread, confirmed ones included, and offered Resolve, which would
+            let new mail reopen it. The Spam badge says what it is; the strip offers the way back. */}
+        {!isFiltered && (
+          <Select
+            aria-label="Status"
+            variant="chip"
+            chipCase="sentence"
+            value={currentWorkflowStatus}
+            options={statusDisplayOptions}
+            mobileSheet
+            onChange={(val) => {
+              const beStatus = workflowToBeStatus[val as WorkflowStatus];
+              if (beStatus) void handleSetStatus(beStatus);
+            }}
+            isDisabled={updatingStatus}
+          />
+        )}
         {slaInfo?.record && (
           <Tooltip
             content={`First reply took ${fmtMin(slaInfo.elapsed)} against a ${fmtMin(slaInfo.target)} target`}

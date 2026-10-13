@@ -55,6 +55,15 @@ describe('the spam mark on a card', () => {
     expect(spamSignal(confirmed)?.tooltip).toMatch(/Confirmed as spam by an agent on/);
   });
 
+  it('⛔ marks a thread a PERSON confirmed even when the AI read it as legitimate', () => {
+    // RED before: "Resolve as spam" on a thread whose newest event the AI called legitimate left
+    // `isSpam` false, so the confirmed thread sat in Spam wearing no spam mark at all.
+    const personBinned = msg({ isSpam: false, spamConfirmedAt: '2026-10-13T16:14:31.101Z' });
+
+    expect(isSpamThread(personBinned)).toBe(true);
+    expect(spamSignal(personBinned)?.label).toBe('Spam · confirmed');
+  });
+
   it('⛔ never claims a confirmation the deployment did not report', () => {
     // The control for the label: an absent field is not a confirmation, and a card that said
     // "confirmed" on every spam row would pass the assertions above.
