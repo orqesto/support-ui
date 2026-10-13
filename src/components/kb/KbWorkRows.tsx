@@ -556,7 +556,10 @@ export const KbWorkRows = ({
       )}
       {listedIds.length > 0 && (
         <p className="text-xs text-muted-foreground" data-testid="kb-actions-help">
-          {actionsHelp(casesExist !== false)}
+          {actionsHelp(
+            casesExist !== false,
+            new Set(listedIds.map((id) => (rows.get(id) as KbWorkRow).status))
+          )}
         </p>
       )}
       <ul ref={listRef} tabIndex={-1} className="space-y-2 outline-none" aria-label={label}>
