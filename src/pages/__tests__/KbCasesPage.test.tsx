@@ -59,6 +59,29 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('KB Cases report (F2)', () => {
+  it('⛔ a case without a standard answer shows no empty "Standard answer: —" line', () => {
+    // RED before: the row printed "Standard answer: —", a line with nothing to do about it.
+    view(
+      report({
+        headers: [
+          {
+            label: 'refund',
+            language: 'en',
+            conversations: 1,
+            rows: [
+              row({ kind: 'case', caseId: 901, casePublicId: 'KB-901', standardAnswer: null }),
+              row({ kind: 'case', caseId: 902, casePublicId: 'KB-902', standardAnswer: 'Kept.' }),
+            ],
+          },
+        ],
+      })
+    );
+    // The control: a case WITH a standard answer still shows it.
+    expect(screen.getAllByText(/Standard answer:/)).toHaveLength(1);
+    expect(screen.getByText('Kept.')).toBeInTheDocument();
+    expect(screen.queryByText('—')).toBeNull();
+  });
+
   it('renders each row kind; ONLY the case row shows a standard answer', () => {
     view(report());
     expect(screen.getByRole('link', { name: 'Case #KB-900' })).toHaveAttribute(
@@ -69,9 +92,9 @@ describe('KB Cases report (F2)', () => {
     expect(screen.getByText('proposed case — awaiting review')).toBeInTheDocument();
     expect(screen.getByText('unreviewed group')).toBeInTheDocument();
     expect(screen.getByText('declined for case #KB-900')).toBeInTheDocument();
-    // A proposal carries a drafted answer waiting in review — "no standard answer yet" only where
-    // there is none at all (groups, single answers).
-    expect(screen.getAllByText('no standard answer yet')).toHaveLength(3);
+    // A proposal carries a drafted answer waiting in review. Rows with no standard answer say
+    // nothing about it: "no standard answer yet" offered no action anywhere (2026-10-13).
+    expect(screen.queryAllByText('no standard answer yet')).toHaveLength(0);
     expect(screen.getByText('Standard answer drafted — waiting for review')).toBeInTheDocument();
     // Its Review opens THAT proposal, not the list of every proposal.
     expect(screen.getByRole('link', { name: 'Review' })).toHaveAttribute(
@@ -395,7 +418,7 @@ describe('KB Cases report (F2)', () => {
     );
     const waiting = screen.getByTestId('case-row-group');
     expect(waiting).toHaveTextContent('waiting for the proposed case');
-    expect(waiting).toHaveTextContent('no standard answer yet');
+    expect(waiting).not.toHaveTextContent('no standard answer yet');
     expect(waiting).toHaveTextContent('Member question?');
   });
 

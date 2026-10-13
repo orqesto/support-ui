@@ -112,19 +112,22 @@ export const KbCaseRowView = ({
           ))}
         </ul>
       )}
+      {/* ⛔ No line without something to do about it: "no standard answer yet" (and a case's
+          "Standard answer: —") offered no action, since a standard answer only comes from a
+          proposal's review, so a moderator read them as a step nobody could take (2026-10-13). */}
       {isCase ? (
-        <div className="text-sm">
-          <span className="text-muted-foreground">Standard answer: </span>
-          <span className="whitespace-pre-wrap break-words">{row.standardAnswer ?? '—'}</span>
-        </div>
+        row.standardAnswer && (
+          <div className="text-sm">
+            <span className="text-muted-foreground">Standard answer: </span>
+            <span className="whitespace-pre-wrap break-words">{row.standardAnswer}</span>
+          </div>
+        )
       ) : row.kind === 'proposed' ? (
-        // The proposal carries a drafted standard answer: it waits in the review, not nowhere.
+        // The proposal carries a drafted standard answer: it waits in the review (linked above).
         <p className="text-sm italic text-muted-foreground">
           Standard answer drafted — waiting for review
         </p>
-      ) : (
-        <p className="text-sm italic text-muted-foreground">no standard answer yet</p>
-      )}
+      ) : null}
       <p className="text-xs text-muted-foreground">
         {conversationsText(members, row.conversations)} ·{' '}
         {plural(row.customers, 'customer', 'customers')} · first seen {formatDate(row.firstSeen)} ·
