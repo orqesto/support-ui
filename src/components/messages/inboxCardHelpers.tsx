@@ -31,9 +31,13 @@ import { sentenceCase, statusLabel } from './messageDetailConstants';
  *
  * ⛔ One helper, because that frozen field was read in five places and a guard fixed in one file
  * while its siblings keep the old answer is this repo's most repeated defect.
+ *
+ * ⛔ A PERSON's confirmation wins. "Resolve as spam" on a thread the AI read as legitimate leaves
+ * `isSpam` false (the newest event's verdict never changes), so the confirmed thread sat in Spam
+ * with no spam mark at all (staging, 2026-10-13). Moving it back to Open clears the stamp.
  */
 export const isSpamThread = (message: Message): boolean =>
-  message.isSpam ?? getSpamCheck(message)?.isSpam === true;
+  message.spamConfirmedAt ? true : (message.isSpam ?? getSpamCheck(message)?.isSpam === true);
 
 export type SpineColor = 'red' | 'amber' | 'blue' | 'none';
 
