@@ -102,7 +102,10 @@ export const SelectPopover = ({
       const rect = rootRef.current.getBoundingClientRect();
       const visibleWidth = document.documentElement.clientWidth;
       const wanted = align === 'end' ? rect.right - width : rect.left;
-      const inView = Math.max(EDGE_MARGIN_PX, Math.min(wanted, visibleWidth - width - EDGE_MARGIN_PX));
+      const inView = Math.max(
+        EDGE_MARGIN_PX,
+        Math.min(wanted, visibleWidth - width - EDGE_MARGIN_PX)
+      );
       // Page coordinates: the panel is absolutely positioned in <body>.
       const next = { top: rect.bottom + window.scrollY + 4, left: inView + window.scrollX };
       setPos((prev) => (prev && prev.top === next.top && prev.left === next.left ? prev : next));
@@ -117,6 +120,43 @@ export const SelectPopover = ({
     };
     // selectedValues.length: a tick can add a chip before the trigger and move it (ticket labels).
   }, [open, align, width, selectedValues.length]);
+
+  /*
+    Flip above the trigger when the panel cannot fit below it and there is more room above —
+    a trigger at the bottom of the screen (the composer's Templates menu) otherwise drops the
+    whole list off the page: the search box shows, every option is under the window's edge.
+    The first `pos` is always below (the panel is not mounted to measure yet); this pass reads
+    the drawn height and moves the panel in the same layout pass, before the paint. The
+    observer re-anchors it as the filtered list grows or shrinks, so the flipped panel keeps
+    its edge against the trigger rather than leaving a gap.
+  */
+  useLayoutEffect(() => {
+    if (!open || pos === null) return undefined;
+    const panel = panelRef.current;
+    if (!panel) return undefined;
+    const fit = () => {
+      if (!rootRef.current) return;
+      const rect = rootRef.current.getBoundingClientRect();
+      const height = panel.offsetHeight;
+      const below = document.documentElement.clientHeight - rect.bottom - 4;
+      const above = rect.top - 4;
+      const top =
+        height <= below || above <= below
+          ? rect.bottom + window.scrollY + 4
+          : rect.top - height + window.scrollY - 4;
+      setPos((prev) => (prev === null || prev.top === top ? prev : { top, left: prev.left }));
+    };
+    fit();
+    // jsdom has none — as RelatedPopover guards the same call.
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver === 'function') {
+      observer = new ResizeObserver(fit);
+      observer.observe(panel);
+    }
+    return () => observer?.disconnect();
+    // pos: every `place` (scroll, resize, a tick that moves the trigger) writes the below
+    // position — re-measuring on the new pos corrects it in the same layout pass.
+  }, [open, pos]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -217,7 +257,7 @@ export const SelectPopover = ({
     components: { DropdownIndicator: null, IndicatorSeparator: null },
     formatOptionLabel: (data: Option, { context }: { context: 'menu' | 'value' }) =>
       context === 'menu' ? (
-        <span className="flex items-center gap-2 w-full">
+        <span className="flex gap-2 items-center w-full">
           {data.color && <ColorDot color={data.color} />}
           <span className="flex-1 truncate">{data.menuLabel ?? data.label}</span>
           {selectedValues.includes(data.value) && (
@@ -248,7 +288,7 @@ export const SelectPopover = ({
   };
 
   return (
-    <div ref={rootRef} className={cn('relative inline-block', className)}>
+    <div ref={rootRef} className={cn('inline-block relative', className)}>
       {trigger({ open, toggle })}
       {open &&
         pos &&
