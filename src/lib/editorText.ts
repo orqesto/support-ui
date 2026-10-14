@@ -18,10 +18,13 @@ const textIsTheTarget = (text: string, href: string): boolean =>
  * `linkTargets` given (Translate): a link becomes `[[a0]]its words[[/a0]]` and its URL is pushed
  * there, so the words can be translated and the link rebuilt around the result — see
  * translatedTextToHtml. Without it (the AI note): `its words (https://…)`.
+ *
+ * `listNumbers` given (Translate): the number of every `<ol>` item, in text order, is pushed there,
+ * so the way back knows which `n. ` paragraphs WERE list items — see translatedTextToHtml.
  */
 export const editorHtmlToText = (
   html: string,
-  options: { linkTargets?: string[] } = {}
+  options: { linkTargets?: string[]; listNumbers?: number[] } = {}
 ): string => {
   const root = new DOMParser().parseFromString(html, 'text/html').body;
   root.querySelectorAll('a[href]').forEach((anchor) => {
@@ -45,15 +48,23 @@ export const editorHtmlToText = (
     if (/^https?:\/\//i.test(href) && !textIsTheTarget(text, href)) anchor.append(` (${href})`);
   });
   root.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
+  const itemNumbers = new Map<Element, number>();
   root.querySelectorAll('ul, ol').forEach((list) => {
     const start = list.tagName === 'OL' ? Number(list.getAttribute('start')) || 1 : 1;
     Array.from(list.children)
       .filter((child) => child.tagName === 'LI')
       .forEach((item, index) => {
+        if (list.tagName === 'OL') itemNumbers.set(item, start + index);
         const marker = list.tagName === 'OL' ? `${start + index}. ` : '- ';
         const first = item.firstElementChild;
         (first?.tagName === 'P' ? first : item).prepend(marker);
       });
+  });
+  // Document order of the items is their order in the text (a nested list's items sit between
+  // its parent item and the next one) — not the order the lists were visited above.
+  root.querySelectorAll('li').forEach((item) => {
+    const number = itemNumbers.get(item);
+    if (number !== undefined) options.listNumbers?.push(number);
   });
   root.querySelectorAll(BLOCKS).forEach((block) => block.after('\n\n'));
   return (root.textContent ?? '')
@@ -72,10 +83,15 @@ const NUMBERED = /^(\d+)\. (.*)$/s;
 
 /**
  * A translation (plain text) back into editor HTML — the reverse of editorHtmlToText with
- * `linkTargets`: blank lines split paragraphs, single newlines become breaks, runs of `- ` /
- * `n. ` paragraphs become a real list again (an `<ol>` keeps its first number), `[[aN]]…[[/aN]]`
- * becomes a link around the translated words, a bare http(s) URL becomes a link, everything else
- * is TEXT.
+ * `linkTargets` and `listNumbers`: blank lines split paragraphs, single newlines become breaks,
+ * runs of `- ` paragraphs become a bulleted list, `[[aN]]…[[/aN]]` becomes a link around the
+ * translated words, a bare http(s) URL becomes a link, everything else is TEXT.
+ *
+ * A `n. ` paragraph is a numbered-list item ONLY when the source had an `<ol>` item with that
+ * number still unclaimed (`listNumbers`, in text order) — the structure is carried, not guessed
+ * from the text. Review of #594 guessed ("two consecutive items", so a German "15. Oktober …" is
+ * not a list) and lost every one-item list (review of #597). Consecutive numbers form one `<ol>`,
+ * which keeps its first number; a nested list comes back flat (plain text has no nesting).
  *
  * A link whose markers the translator dropped or broke keeps its URL: a lone closing marker
  * becomes ` (URL)`, a lone opening marker is removed, and a link with no marker left at all is
@@ -84,7 +100,11 @@ const NUMBERED = /^(\d+)\. (.*)$/s;
  * ⛔ Not the markdown converter the AI answers use — it read the `_` in `{first_name|…}` …
  * `{{ticket_id}}` as italics and ate both underscores.
  */
-export const translatedTextToHtml = (text: string, linkTargets: string[] = []): string => {
+export const translatedTextToHtml = (
+  text: string,
+  linkTargets: string[] = [],
+  listNumbers: number[] = []
+): string => {
   const anchor = (index: number, label: string) =>
     `<a href="${escapeHtml(linkTargets[index] ?? '')}">${label}</a>`;
   const used = new Set<number>();
@@ -117,25 +137,40 @@ export const translatedTextToHtml = (text: string, linkTargets: string[] = []): 
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean);
+  // Source list items not yet matched; a translator that dropped or merged one skips past it.
+  let nextItem = 0;
+  const claimItem = (paragraph: string, previous?: number): RegExpExecArray | null => {
+    const item = NUMBERED.exec(paragraph);
+    if (!item) return null;
+    const number = Number(item[1]);
+    if (previous !== undefined && number !== previous + 1) return null;
+    const found = listNumbers.indexOf(number, nextItem);
+    if (found === -1) return null;
+    nextItem = found + 1;
+    return item;
+  };
+
   const out: string[] = [];
   for (let at = 0; at < paragraphs.length; ) {
-    const numbered = NUMBERED.exec(paragraphs[at]);
-    // A lone "15. Oktober …" is a German date, not a list: a numbered list needs two
-    // consecutive items (review of #594).
-    const next = numbered ? NUMBERED.exec(paragraphs[at + 1] ?? '') : null;
-    const isList =
-      BULLET.test(paragraphs[at]) ||
-      (numbered !== null && next !== null && Number(next[1]) === Number(numbered[1]) + 1);
-    if (isList) {
-      const tag = numbered ? 'ol' : 'ul';
+    const numbered = claimItem(paragraphs[at]);
+    if (numbered) {
+      const items = [`<li><p>${inline(numbered[2])}</p></li>`];
+      for (let previous = Number(numbered[1]); ++at < paragraphs.length; previous++) {
+        const item = claimItem(paragraphs[at], previous);
+        if (!item) break;
+        items.push(`<li><p>${inline(item[2])}</p></li>`);
+      }
+      const first = Number(numbered[1]);
+      const start = first !== 1 ? ` start="${first}"` : '';
+      out.push(`<ol${start}>${items.join('')}</ol>`);
+    } else if (BULLET.test(paragraphs[at])) {
       const items: string[] = [];
       for (; at < paragraphs.length; at++) {
-        const item = (numbered ? NUMBERED : BULLET).exec(paragraphs[at]);
+        const item = BULLET.exec(paragraphs[at]);
         if (!item) break;
-        items.push(`<li><p>${inline(item[item.length - 1])}</p></li>`);
+        items.push(`<li><p>${inline(item[1])}</p></li>`);
       }
-      const start = numbered && numbered[1] !== '1' ? ` start="${numbered[1]}"` : '';
-      out.push(`<${tag}${start}>${items.join('')}</${tag}>`);
+      out.push(`<ul>${items.join('')}</ul>`);
     } else {
       out.push(`<p>${inline(paragraphs[at])}</p>`);
       at++;

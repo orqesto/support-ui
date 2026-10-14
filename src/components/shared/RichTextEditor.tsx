@@ -120,6 +120,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
     const restorePlaceholders = useRef((translated: string) => translated);
     // The URLs of the links in the text being translated, by marker number.
     const linkTargets = useRef<string[]>([]);
+    // The numbers of its <ol> items, in text order: which "n. " lines come back as a list.
+    const listNumbers = useRef<number[]>([]);
     const onImageFilesRef = useRef(onImageFiles);
     useEffect(() => {
       onImageFilesRef.current = onImageFiles;
@@ -387,8 +389,12 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
                     // Template placeholders and links go out as markers, so the model cannot reword
                     // a placeholder, and a link is rebuilt around its translated words.
                     linkTargets.current = [];
+                    listNumbers.current = [];
                     const shielded = shieldPlaceholders(
-                      editorHtmlToText(editor.getHTML(), { linkTargets: linkTargets.current })
+                      editorHtmlToText(editor.getHTML(), {
+                        linkTargets: linkTargets.current,
+                        listNumbers: listNumbers.current,
+                      })
                     );
                     restorePlaceholders.current = shielded.restore;
                     return shielded.text;
@@ -401,7 +407,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
                       .setContent(
                         translatedTextToHtml(
                           restorePlaceholders.current(translated),
-                          linkTargets.current
+                          linkTargets.current,
+                          listNumbers.current
                         )
                       )
                       .run()

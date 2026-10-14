@@ -160,12 +160,30 @@ describe('RichTextEditor — translatable', () => {
     translateText.mockResolvedValue({
       translated: { content: '- Eins\n\n- Zwei\n\n3. Drei\n\n4. Vier', language: 'de' },
     });
-    const editor = await renderEditor('<p>x</p>');
+    // A numbered item comes back as a list item only where the source had one (review of #597).
+    const editor = await renderEditor(
+      '<ul><li><p>One</p></li><li><p>Two</p></li></ul><ol start="3"><li><p>Three</p></li><li><p>Four</p></li></ol>'
+    );
     await pickGerman();
     await waitFor(() => expect(editor.getText()).toContain('Eins'));
     expect(editor.getHTML()).toContain('<ul><li><p>Eins</p></li><li><p>Zwei</p></li></ul>');
     expect(editor.getHTML()).toContain(
       '<ol start="3"><li><p>Drei</p></li><li><p>Vier</p></li></ol>'
+    );
+  });
+
+  it('🔴 a one-item numbered list stays a list; a date the translator wrote stays text', async () => {
+    translateText.mockResolvedValue({
+      translated: { content: '15. Oktober liefern wir.\n\n1. Packen', language: 'de' },
+    });
+    const editor = await renderEditor(
+      '<p>We deliver on October 15.</p><ol><li><p>Pack</p></li></ol>'
+    );
+    await pickGerman();
+    await waitFor(() => expect(editor.getText()).toContain('Packen'));
+    // (the editor appends an empty trailing paragraph after a final list)
+    expect(editor.getHTML()).toContain(
+      '<p>15. Oktober liefern wir.</p><ol><li><p>Packen</p></li></ol>'
     );
   });
 

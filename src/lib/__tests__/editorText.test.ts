@@ -122,7 +122,7 @@ describe('translatedTextToHtml', () => {
   });
 
   it('runs of "- " / "n. " paragraphs become real lists; an <ol> keeps its first number', () => {
-    expect(translatedTextToHtml('Intro\n\n- A\n\n- B\n\n2. C\n\n3. D\n\nEnd')).toBe(
+    expect(translatedTextToHtml('Intro\n\n- A\n\n- B\n\n2. C\n\n3. D\n\nEnd', [], [2, 3])).toBe(
       '<p>Intro</p><ul><li><p>A</p></li><li><p>B</p></li></ul><ol start="2"><li><p>C</p></li><li><p>D</p></li></ol><p>End</p>'
     );
   });
@@ -170,5 +170,76 @@ describe('review of #594 — Translate round trip', () => {
     expect(translatedTextToHtml('[[a1]]hier[[/a1]]', ['https://z.example/b'])).toBe(
       '<p>hier</p><p><a href="https://z.example/b">https://z.example/b</a></p>'
     );
+  });
+});
+
+describe('review of #597 — list structure is carried through Translate, not guessed', () => {
+  /** editorHtmlToText → (translator returns the text unchanged) → translatedTextToHtml. */
+  const roundTrip = (html: string, translate = (text: string) => text): string => {
+    const linkTargets: string[] = [];
+    const listNumbers: number[] = [];
+    const text = editorHtmlToText(html, { linkTargets, listNumbers });
+    return translatedTextToHtml(translate(text), linkTargets, listNumbers);
+  };
+
+  it('🔴 a one-item numbered list stays a list', () => {
+    expect(roundTrip('<ol><li><p>only</p></li></ol>')).toBe('<ol><li><p>only</p></li></ol>');
+    expect(roundTrip('<ol start="4"><li><p>only</p></li></ol>')).toBe(
+      '<ol start="4"><li><p>only</p></li></ol>'
+    );
+  });
+
+  it('a one-item bulleted list stays a list', () => {
+    expect(roundTrip('<ul><li><p>only</p></li></ul>')).toBe('<ul><li><p>only</p></li></ul>');
+  });
+
+  it('multi-item lists keep their items and first number, the text around them stays text', () => {
+    expect(
+      roundTrip(
+        '<p>Intro</p><ol><li><p>One</p></li><li><p>Two</p></li><li><p>Three</p></li></ol><ul><li><p>A</p></li><li><p>B</p></li></ul><p>End</p>'
+      )
+    ).toBe(
+      '<p>Intro</p><ol><li><p>One</p></li><li><p>Two</p></li><li><p>Three</p></li></ol><ul><li><p>A</p></li><li><p>B</p></li></ul><p>End</p>'
+    );
+  });
+
+  it('a nested list comes back flat, every item still a list item', () => {
+    const html =
+      '<ol><li><p>Outer</p><ol><li><p>Inner</p></li><li><p>Inner two</p></li></ol></li><li><p>Outer two</p></li></ol>';
+    const listNumbers: number[] = [];
+    expect(editorHtmlToText(html, { linkTargets: [], listNumbers })).toBe(
+      '1. Outer\n\n1. Inner\n\n2. Inner two\n\n2. Outer two'
+    );
+    expect(listNumbers).toEqual([1, 1, 2, 2]);
+    expect(roundTrip(html)).toBe(
+      '<ol><li><p>Outer</p></li></ol><ol><li><p>Inner</p></li><li><p>Inner two</p></li></ol><ol start="2"><li><p>Outer two</p></li></ol>'
+    );
+  });
+
+  it('🔴 "15. Oktober …" stays a paragraph — typed as text, or produced by the translator', () => {
+    expect(roundTrip('<p>15. Oktober liefern wir.</p>')).toBe('<p>15. Oktober liefern wir.</p>');
+    expect(roundTrip('<p>15. Oktober liefern wir.</p><p>16. Oktober holen wir ab.</p>')).toBe(
+      '<p>15. Oktober liefern wir.</p><p>16. Oktober holen wir ab.</p>'
+    );
+    // English source, German translation: the date only exists on the way back.
+    expect(
+      roundTrip(
+        '<p>We deliver on October 15.</p><ol><li><p>Pack</p></li></ol>',
+        () => '15. Oktober liefern wir.\n\n1. Packen'
+      )
+    ).toBe('<p>15. Oktober liefern wir.</p><ol><li><p>Packen</p></li></ol>');
+  });
+
+  it('a list item the translator dropped does not stop the rest from being list items', () => {
+    expect(
+      roundTrip(
+        '<ol><li><p>One</p></li><li><p>Two</p></li><li><p>Three</p></li></ol>',
+        () => '1. Eins\n\n3. Drei'
+      )
+    ).toBe('<ol><li><p>Eins</p></li></ol><ol start="3"><li><p>Drei</p></li></ol>');
+  });
+
+  it('CONTROL: without the source list numbers, no "n. " paragraph becomes a list', () => {
+    expect(translatedTextToHtml('1. One\n\n2. Two')).toBe('<p>1. One</p><p>2. Two</p>');
   });
 });
