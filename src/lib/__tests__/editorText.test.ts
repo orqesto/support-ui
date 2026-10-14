@@ -4,7 +4,7 @@
  * whitespace and autolinks leaked into the prompt.
  */
 import { describe, it, expect } from 'vitest';
-import { editorHtmlToText, translatedTextToHtml } from '../editorText';
+import { editorHtmlToText, translatedTextToHtml, type SourceLists } from '../editorText';
 
 describe('editorHtmlToText', () => {
   it('🔴 text outside the paragraphs is read too (a template body pasted after a <p>)', () => {
@@ -122,7 +122,14 @@ describe('translatedTextToHtml', () => {
   });
 
   it('runs of "- " / "n. " paragraphs become real lists; an <ol> keeps its first number', () => {
-    expect(translatedTextToHtml('Intro\n\n- A\n\n- B\n\n2. C\n\n3. D\n\nEnd', [], [2, 3])).toBe(
+    const lists = {
+      blocks: 6,
+      items: [
+        { number: 2, block: 3 },
+        { number: 3, block: 4 },
+      ],
+    };
+    expect(translatedTextToHtml('Intro\n\n- A\n\n- B\n\n2. C\n\n3. D\n\nEnd', [], lists)).toBe(
       '<p>Intro</p><ul><li><p>A</p></li><li><p>B</p></li></ul><ol start="2"><li><p>C</p></li><li><p>D</p></li></ol><p>End</p>'
     );
   });
@@ -177,9 +184,9 @@ describe('review of #597 — list structure is carried through Translate, not gu
   /** editorHtmlToText → (translator returns the text unchanged) → translatedTextToHtml. */
   const roundTrip = (html: string, translate = (text: string) => text): string => {
     const linkTargets: string[] = [];
-    const listNumbers: number[] = [];
-    const text = editorHtmlToText(html, { linkTargets, listNumbers });
-    return translatedTextToHtml(translate(text), linkTargets, listNumbers);
+    const lists: SourceLists = { blocks: 0, items: [] };
+    const text = editorHtmlToText(html, { linkTargets, lists });
+    return translatedTextToHtml(translate(text), linkTargets, lists);
   };
 
   it('🔴 a one-item numbered list stays a list', () => {
@@ -206,11 +213,11 @@ describe('review of #597 — list structure is carried through Translate, not gu
   it('a nested list comes back flat, every item still a list item', () => {
     const html =
       '<ol><li><p>Outer</p><ol><li><p>Inner</p></li><li><p>Inner two</p></li></ol></li><li><p>Outer two</p></li></ol>';
-    const listNumbers: number[] = [];
-    expect(editorHtmlToText(html, { linkTargets: [], listNumbers })).toBe(
+    const lists: SourceLists = { blocks: 0, items: [] };
+    expect(editorHtmlToText(html, { linkTargets: [], lists })).toBe(
       '1. Outer\n\n1. Inner\n\n2. Inner two\n\n2. Outer two'
     );
-    expect(listNumbers).toEqual([1, 1, 2, 2]);
+    expect(lists.items.map((item) => item.number)).toEqual([1, 1, 2, 2]);
     expect(roundTrip(html)).toBe(
       '<ol><li><p>Outer</p></li></ol><ol><li><p>Inner</p></li><li><p>Inner two</p></li></ol><ol start="2"><li><p>Outer two</p></li></ol>'
     );
@@ -241,5 +248,87 @@ describe('review of #597 — list structure is carried through Translate, not gu
 
   it('CONTROL: without the source list numbers, no "n. " paragraph becomes a list', () => {
     expect(translatedTextToHtml('1. One\n\n2. Two')).toBe('<p>1. One</p><p>2. Two</p>');
+  });
+});
+
+describe('review of #597 follow-up — a date-like "n. " paragraph cannot steal a list item', () => {
+  const OL = '<ol><li><p>a</p></li><li><p>b</p></li><li><p>c</p></li></ol>';
+  const roundTrip = (html: string, translated: string): string => {
+    const linkTargets: string[] = [];
+    const lists: SourceLists = { blocks: 0, items: [] };
+    editorHtmlToText(html, { linkTargets, lists });
+    return translatedTextToHtml(translated, linkTargets, lists);
+  };
+
+  it('every <ol> item is recorded with its number and paragraph; the tag never leaks', () => {
+    const lists: SourceLists = { blocks: 0, items: [] };
+    const text = editorHtmlToText(`<p>We ship on October 3.</p>${OL}<p>Bye</p>`, { lists });
+    expect(text).toBe('We ship on October 3.\n\n1. a\n\n2. b\n\n3. c\n\nBye');
+    expect(lists).toEqual({
+      blocks: 5,
+      items: [
+        { number: 1, block: 1 },
+        { number: 2, block: 2 },
+        { number: 3, block: 3 },
+      ],
+    });
+    // A source that already holds the first private-use character keeps it, and is not misread.
+    const typed = '\uE001';
+    const other: SourceLists = { blocks: 0, items: [] };
+    expect(editorHtmlToText(`<p>x${typed}</p><ol><li><p>a</p></li></ol>`, { lists: other })).toBe(
+      `x${typed}\n\n1. a`
+    );
+    expect(other.items).toEqual([{ number: 1, block: 1 }]);
+  });
+
+  it('🔴 "3. Oktober …" before a three-item list stays a paragraph; the items stay a list', () => {
+    expect(
+      roundTrip(
+        `<p>We ship on October 3.</p>${OL}`,
+        '3. Oktober versenden wir.\n\n1. a\n\n2. b\n\n3. c'
+      )
+    ).toBe(
+      '<p>3. Oktober versenden wir.</p><ol><li><p>a</p></li><li><p>b</p></li><li><p>c</p></li></ol>'
+    );
+  });
+
+  it('🔴 "1. Oktober …" before a one-item list stays a paragraph', () => {
+    expect(
+      roundTrip(
+        '<p>We ship on October 1.</p><ol><li><p>a</p></li></ol>',
+        '1. Oktober versenden wir.\n\n1. a'
+      )
+    ).toBe('<p>1. Oktober versenden wir.</p><ol><li><p>a</p></li></ol>');
+  });
+
+  it('🔴 items the translator reordered stay list items, each with its number', () => {
+    expect(roundTrip(OL, '2. b\n\n1. a\n\n3. c')).toBe(
+      '<ol start="2"><li><p>b</p></li></ol><ol><li><p>a</p></li></ol><ol start="3"><li><p>c</p></li></ol>'
+    );
+  });
+
+  it('🔴 paragraph count changed: the in-order number match wins, a date does not', () => {
+    // One paragraph more than the source (the translator split the closing line).
+    expect(
+      roundTrip(
+        `<p>We ship on October 3.</p>${OL}<p>Thanks, bye.</p>`,
+        '3. Oktober versenden wir.\n\n1. a\n\n2. b\n\n3. c\n\nDanke.\n\nTschüss.'
+      )
+    ).toBe(
+      '<p>3. Oktober versenden wir.</p><ol><li><p>a</p></li><li><p>b</p></li><li><p>c</p></li></ol><p>Danke.</p><p>Tschüss.</p>'
+    );
+    // One-item list, count changed: the date and the item tie on numbers; position decides.
+    expect(
+      roundTrip(
+        '<p>We ship on October 1.</p><ol><li><p>a</p></li></ol>',
+        '1. Oktober versenden wir.\n\nWirklich.\n\n1. a'
+      )
+    ).toBe('<p>1. Oktober versenden wir.</p><p>Wirklich.</p><ol><li><p>a</p></li></ol>');
+  });
+
+  it('CONTROL: a translation that keeps the paragraphs reproduces the source structure', () => {
+    expect(roundTrip(`<p>Intro</p>${OL}<p>End</p>`, 'Intro\n\n1. a\n\n2. b\n\n3. c\n\nEnd')).toBe(
+      `<p>Intro</p>${OL}<p>End</p>`
+    );
   });
 });
