@@ -31,6 +31,22 @@ vi.mock('@/hooks/useAiConfigured', () => ({
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), info: vi.fn() } }));
 vi.mock('@/lib/toast', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
+/*
+  jsdom has no layout: a Range lacks getClientRects/getBoundingClientRect. The translate path
+  focuses the editor, and ProseMirror then scrolls the caret into view through them — on CI that
+  landed (timing) as an unhandled TypeError that failed the run with every test green.
+*/
+const layoutStubs = {
+  getClientRects: (): DOMRectList =>
+    Object.assign([], { item: () => null }) as unknown as DOMRectList,
+  getBoundingClientRect: (): DOMRect => new DOMRect(),
+};
+for (const [name, value] of Object.entries(layoutStubs)) {
+  if (!(name in Range.prototype)) {
+    Object.defineProperty(Range.prototype, name, { value, configurable: true });
+  }
+}
+
 import RichTextEditor from '../RichTextEditor';
 import { shieldPlaceholders } from '@/lib/replyPlaceholders';
 
