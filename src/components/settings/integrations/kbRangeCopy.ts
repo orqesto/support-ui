@@ -101,9 +101,15 @@ export const historyLine = (tally: KbRangeCount): string => {
     return `Before the cutoff: could not be counted${tally.cappedBy === 'time' || tally.timedOut ? ' in time' : ''}.`;
   }
   const inOdly = countWord(tally, tally.inOdly);
+  // "At least 0 to fetch" said nothing while it read as "nothing to fetch": the count stopped
+  // before it compared the rest with Odly, so how many are missing is simply not known.
+  const toFetch =
+    incomplete(tally) && tally.toFetch === 0 && tally.notCompared > 0
+      ? 'not known yet how many to fetch'
+      : `${countWord(tally, tally.toFetch)} to fetch`;
   const line =
     `Before the cutoff: ${countWord(tally, tally.inRange)} messages · ${inOdly} already in Odly · ` +
-    `${countWord(tally, tally.toFetch)} to fetch`;
+    toFetch;
   return tally.timedOut
     ? `${line} The count ran out of time, so these numbers cover only part of the range.`
     : line;
@@ -117,17 +123,31 @@ export const unverifiableLine = (count: number): string =>
 export const notComparedLine = (count: number): string =>
   `${plural(count, 'message was', 'messages were')} not compared with what is already in Odly.`;
 
-/** Gmail only (`c` null for IMAP). `days` is the chosen range; 0 is all mail since the cutoff. */
+/**
+ * Gmail only (`c` null for IMAP). `days` is the chosen range; 0 is all mail since the cutoff.
+ * Recent mail is mail AFTER the cutoff: a backend that counts it so starts the window (`from`) at
+ * the cutoff when the last `days` reach back before it, and the line says so. Read from `from`,
+ * never worked out here: an older backend still counts the whole last `days` as recent, and
+ * "since the cutoff" above its figure would have stated it more firmly.
+ */
 export const recentLine = (
   tally: KbRangeCount | null,
   days: number,
   cutoff: string | null
 ): string | null => {
   if (!tally) return null;
+  const sinceCutoff = `since the cutoff${date(cutoff) ? `, ${date(cutoff)}` : ''}`;
+  // The backend sets `from` to the cutoff itself when the window starts there.
+  const startsAtCutoff =
+    tally.from !== null &&
+    cutoff !== null &&
+    new Date(tally.from).getTime() === new Date(cutoff).getTime();
   const scope =
-    days > 0
-      ? `last ${num(days)} ${days === 1 ? 'day' : 'days'}`
-      : `all mail since the cutoff${date(cutoff) ? `, ${date(cutoff)}` : ''}`;
+    days <= 0
+      ? `all mail ${sinceCutoff}`
+      : startsAtCutoff
+        ? `mail ${sinceCutoff}`
+        : `last ${num(days)} ${days === 1 ? 'day' : 'days'}`;
   const head = `Recent re-check (${scope}): `;
   if (notCounted(tally) || (tally.capped && tally.inRange === 0)) {
     return `${head}could not be counted.`;
@@ -160,6 +180,11 @@ export const costLine = (
   }
   if (!est || est.estimatedTokens === null || est.tokensPerThread === null) {
     return aiMode === 'unknown' ? unknownAi : 'Token cost: not measured yet on this workspace.';
+  }
+  // An incomplete count that found nothing missing yet is not "≈0 tokens": the mail it did not
+  // reach is what the read would fetch and mine.
+  if (incomplete(history) && est.estimatedTokens === 0) {
+    return 'Token cost: cannot be estimated — the count stopped before it found which messages are missing.';
   }
   const isMessages = est.threadsBasis === 'upper_bound_messages';
   const unit = isMessages ? 'message' : 'conversation';
