@@ -4,7 +4,10 @@
  */
 import { describe, it, expect } from 'vitest';
 import { liftLinks } from '../liftLinks';
-import { renderMarkdown } from '@/components/messages/messageDetailConstants';
+import {
+  renderMarkdown,
+  suggestedAnswerToHtml,
+} from '@/components/messages/messageDetailConstants';
 
 const SENTINEL = '';
 const linked = (raw: string, options?: { markdown?: boolean }): string => {
@@ -72,5 +75,72 @@ describe('liftLinks — where a URL ends', () => {
     const out = linked(raw);
     expect(performance.now() - started).toBeLessThan(2000);
     expect(out.startsWith('<a href="https://x.example/()">')).toBe(true);
+  });
+});
+
+describe('liftLinks — a trailing `_` that closes emphasis (review of #597 follow-up)', () => {
+  const linkTo = (href: string) =>
+    `<a href="${href}" target="_blank" rel="noopener noreferrer">${href}</a>`;
+
+  it('🔴 `_see https://…/a_` italicises, and the href ends at `a`', () => {
+    expect(renderMarkdown('Please _see https://x.example/a_ now')).toBe(
+      `Please <em>see ${linkTo('https://x.example/a')}</em> now`
+    );
+    expect(suggestedAnswerToHtml('Please _see https://x.example/a_ now')).toBe(
+      '<p>Please <em>see <a href="https://x.example/a">https://x.example/a</a></em> now</p>'
+    );
+  });
+
+  it('🔴 `_(https://…/a)_` — `_` and `)` trimmed in either order', () => {
+    expect(renderMarkdown('Note: _(https://x.example/a)_ end')).toBe(
+      `Note: <em>(${linkTo('https://x.example/a')})</em> end`
+    );
+    expect(suggestedAnswerToHtml('Note: _(https://x.example/a)_ end')).toBe(
+      '<p>Note: <em>(<a href="https://x.example/a">https://x.example/a</a>)</em> end</p>'
+    );
+    expect(linked('_x https://x.example/a_).')).toBe(
+      '_x <a href="https://x.example/a">https://x.example/a</a>_).'
+    );
+  });
+
+  it('CONTROL: with no open emphasis, or one closed earlier, a trailing `_` stays in the URL', () => {
+    expect(renderMarkdown('Token: https://x.example/reset_ ok')).toBe(
+      `Token: ${linkTo('https://x.example/reset_')} ok`
+    );
+    expect(linked('_done_ then https://x.example/reset_ ok')).toBe(
+      '_done_ then <a href="https://x.example/reset_">https://x.example/reset_</a> ok'
+    );
+    // An `_` on an earlier line does not open anything on this one.
+    expect(linked('a _b\nhttps://x.example/reset_ ok')).toBe(
+      'a _b\n<a href="https://x.example/reset_">https://x.example/reset_</a> ok'
+    );
+    // Underscores inside an earlier URL are not emphasis.
+    expect(linked('https://x.example/a_b and https://x.example/reset_ ok')).toBe(
+      '<a href="https://x.example/a_b">https://x.example/a_b</a> and <a href="https://x.example/reset_">https://x.example/reset_</a> ok'
+    );
+  });
+});
+
+describe('liftLinks — balanced parens inside a markdown link URL (review of #597 follow-up)', () => {
+  it('🔴 `[t](https://…/a_(b))` keeps the `(b)` and leaves no stray `)`', () => {
+    expect(linked('[t](https://x.example/a_(b)) after', { markdown: true })).toBe(
+      '<a href="https://x.example/a_(b)">t</a> after'
+    );
+    expect(suggestedAnswerToHtml('[t](https://x.example/a_(b)) after')).toBe(
+      '<p><a href="https://x.example/a_(b)">t</a> after</p>'
+    );
+  });
+
+  it('CONTROL: a plain markdown link and prose parens around one are unchanged', () => {
+    expect(linked('([t](https://x.example/a)) after', { markdown: true })).toBe(
+      '(<a href="https://x.example/a">t</a>) after'
+    );
+  });
+
+  it('unclosed parens in a long markdown-link URL are rejected in linear time', () => {
+    const raw = `[t](https://x.example/${'(a'.repeat(100_000)}`;
+    const started = performance.now();
+    linked(raw, { markdown: true });
+    expect(performance.now() - started).toBeLessThan(2000);
   });
 });

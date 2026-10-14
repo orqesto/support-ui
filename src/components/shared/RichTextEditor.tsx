@@ -15,7 +15,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { editorHtmlToText, translatedTextToHtml } from '@/lib/editorText';
+import { editorHtmlToText, translatedTextToHtml, type SourceLists } from '@/lib/editorText';
 import { editorExtensions } from '@/lib/editorSchema';
 import { shieldPlaceholders } from '@/lib/replyPlaceholders';
 import { cn } from '@/lib/utils';
@@ -120,8 +120,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
     const restorePlaceholders = useRef((translated: string) => translated);
     // The URLs of the links in the text being translated, by marker number.
     const linkTargets = useRef<string[]>([]);
-    // The numbers of its <ol> items, in text order: which "n. " lines come back as a list.
-    const listNumbers = useRef<number[]>([]);
+    // Its <ol> items (number + paragraph) and paragraph count: which "n. " lines come back as a list.
+    const sourceLists = useRef<SourceLists>({ blocks: 0, items: [] });
     const onImageFilesRef = useRef(onImageFiles);
     useEffect(() => {
       onImageFilesRef.current = onImageFiles;
@@ -389,11 +389,11 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
                     // Template placeholders and links go out as markers, so the model cannot reword
                     // a placeholder, and a link is rebuilt around its translated words.
                     linkTargets.current = [];
-                    listNumbers.current = [];
+                    sourceLists.current = { blocks: 0, items: [] };
                     const shielded = shieldPlaceholders(
                       editorHtmlToText(editor.getHTML(), {
                         linkTargets: linkTargets.current,
-                        listNumbers: listNumbers.current,
+                        lists: sourceLists.current,
                       })
                     );
                     restorePlaceholders.current = shielded.restore;
@@ -408,7 +408,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
                         translatedTextToHtml(
                           restorePlaceholders.current(translated),
                           linkTargets.current,
-                          listNumbers.current
+                          sourceLists.current
                         )
                       )
                       .run()
