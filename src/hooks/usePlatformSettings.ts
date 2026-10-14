@@ -6,6 +6,7 @@ import {
   type DefaultStorageInput,
   type ManagedAiInput,
   type PlatformDatabaseInput,
+  type PlatformCustomApiInput,
   type PlatformKbInput,
   type PlatformSecretKey,
   type ReasoningInput,
@@ -82,6 +83,16 @@ export const useUpdatePlatformKb = () => {
     mutationFn: (input: PlatformKbInput) => platformSettingsService.updateKb(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
     onError: (error: unknown) => toast.failure('save the knowledge-base setting', error),
+  });
+};
+
+export const useUpdatePlatformCustomApi = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PlatformCustomApiInput) =>
+      platformSettingsService.updateCustomApiHealth(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onError: (error: unknown) => toast.failure('save the custom API health setting', error),
   });
 };
 

@@ -77,6 +77,7 @@ vi.mock('@/hooks/usePlatformSettings', () => ({
   useUpdatePlatformReasoning: () => noopMutation,
   useIsSavingPlatformReasoning: () => false,
   useUpdatePlatformKb: () => noopMutation,
+  useUpdatePlatformCustomApi: () => noopMutation,
 }));
 
 const { PlatformDefaults } = await import('../PlatformDefaults');
@@ -91,7 +92,14 @@ describe('PlatformDefaults', () => {
   it('shows the knowledge-base capture setting (absent from this backend: says so)', () => {
     render(<PlatformDefaults />);
     expect(screen.getByText('Rewrite captured questions with AI')).toBeInTheDocument();
-    expect(screen.getByText(/arrives with the next backend release/)).toBeInTheDocument();
+    // Two cards say so on this backend: knowledge base and custom API health (2026-10-14).
+    expect(screen.getAllByText(/arrives with the next backend release/)).toHaveLength(2);
+  });
+
+  it('shows the custom API health card (absent from this backend: no inputs)', () => {
+    render(<PlatformDefaults />);
+    expect(screen.getByText('Custom API health')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Nothing found in a row/)).toBeNull();
   });
 
   it('renders both cards with secret status, and says where each value came from', () => {
