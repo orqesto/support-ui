@@ -244,6 +244,22 @@ describe('ComposerAiActions — the editor is the only input', () => {
       expect(screen.getByTestId('ai-draft-status').textContent).not.toContain('EN');
     });
 
+    it('🔴 the language badge survives the editor re-serialising a draft with a link', async () => {
+      composeReply.mockResolvedValue({
+        data: { text: 'See the guide: https://help.example/guide', language: 'en' },
+      });
+      render(<Host initial="" />);
+      pressDraft();
+      await waitFor(() => expect(composerNow).toContain('help.example/guide'));
+      // What the editor does to an applied link: same text, more attributes.
+      act(() =>
+        setComposerFromTest(
+          composerNow.replace('<a href=', '<a target="_blank" rel="noopener" class="x" href=')
+        )
+      );
+      expect(screen.getByTestId('ai-draft-status').textContent).toContain('EN');
+    });
+
     it('Try again on a knowledge-base draft stays generate — the draft is not read as a note', async () => {
       render(<Host initial="" />);
       pressDraft();

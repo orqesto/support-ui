@@ -83,8 +83,12 @@ type Applied = {
   mode: Mode;
   /** The agent's text the draft was made from: the note (guided) or the draft (polish). */
   input: string;
-  /** The draft as it went into the editor — the language badge holds only while it is unchanged. */
-  html: string;
+  /**
+   * The draft's TEXT as it went into the editor — the language badge holds only while it is
+   * unchanged. Text, not HTML: the editor re-serialises what it is given (a link gains target,
+   * rel and class), so the HTML never matched again and a draft with a link had no badge.
+   */
+  text: string;
   language?: string;
   groundedInKb?: boolean;
 };
@@ -198,7 +202,7 @@ export function ComposerAiActions({
       setApplied({
         mode,
         input,
-        html,
+        text: editorHtmlToText(html),
         language: response.data?.language,
         groundedInKb: response.data?.groundedInKb,
       });
@@ -315,7 +319,7 @@ export function ComposerAiActions({
       {previous !== null && !busy && (
         <div className="inline-flex items-center gap-1" data-testid="ai-draft-status">
           {/* Only while the draft is as it landed: after Translate it is in another language. */}
-          {applied?.language && composer === applied.html && (
+          {applied?.language && editorHtmlToText(composer) === applied.text && (
             <span className={`${LABEL} text-ai`} title="Written in the customer's language">
               {applied.language.toUpperCase()}
             </span>
