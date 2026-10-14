@@ -311,3 +311,46 @@ describe('a merged-away request shows a notice and nothing else', () => {
     expect(await screen.findByText('This request was combined with another one')).toBeTruthy();
   });
 });
+
+describe('Request details: the true channel and the reference the app shows (demo, 2026-10-14)', () => {
+  // It printed "Channel: Email" for every request, a chat-widget one included, and "#SUP-18"
+  // where the app shows "BRI-SUP-18".
+  const detail = (label: string) => screen.getByText(label).nextElementSibling?.textContent;
+  const withPayload = (patch: (data: ReturnType<typeof payload>['data']) => void) => {
+    const body = payload('in_progress');
+    patch(body.data);
+    get.mockResolvedValue({ data: body });
+  };
+
+  it('🔴 a chat request says Chat, and the reference carries the workspace code', async () => {
+    withPayload((data) => {
+      Object.assign(data.organization, { code: 'ACM' });
+      Object.assign(data.conversation, { channel: 'chat' });
+    });
+    renderAt(TOKEN_URL);
+    await screen.findByText("We're working on your request");
+
+    expect(detail('Channel')).toBe('Chat');
+    expect(detail('Reference')).toBe('ACM-SUP-42');
+  });
+
+  it('control: an email request still says Email', async () => {
+    withPayload((data) => {
+      Object.assign(data.organization, { code: 'ACM' });
+      Object.assign(data.conversation, { channel: 'email' });
+    });
+    renderAt(TOKEN_URL);
+    await screen.findByText("We're working on your request");
+    expect(detail('Channel')).toBe('Email');
+  });
+
+  it('an older backend (no conversation channel, no code): the customer message decides, bare id', async () => {
+    withPayload((data) => {
+      data.events[0].channel = 'chat';
+    });
+    renderAt(TOKEN_URL);
+    await screen.findByText("We're working on your request");
+    expect(detail('Channel')).toBe('Chat');
+    expect(detail('Reference')).toBe('SUP-42');
+  });
+});

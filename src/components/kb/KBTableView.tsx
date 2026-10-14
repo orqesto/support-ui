@@ -15,6 +15,7 @@ import { KBStatusBadge } from './KBStatusBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
+import { kbSourceConversationId } from '@/lib/kbSource';
 import type { KBEntry } from '@/services/kb.service';
 import {
   isCaseRow,
@@ -123,13 +124,13 @@ export const KBTableView = ({
                 <div className="text-sm text-muted-foreground line-clamp-1">{entry.content}</div>
               </td>
               <td className="hidden px-3 py-3 text-center md:table-cell">
-                {entry.metadata && typeof entry.metadata.sourceMessageId === 'number' ? (
+                {kbSourceConversationId(entry) !== null ? (
                   <a
-                    href={`/messages?id=${entry.metadata.sourceMessageId}`}
+                    href={`/messages?id=${kbSourceConversationId(entry)}`}
                     className="font-mono text-sm text-primary hover:text-primary/80 hover:underline"
                     onClick={(event) => event.stopPropagation()}
                   >
-                    #{entry.metadata.sourceMessageId}
+                    #{kbSourceConversationId(entry)}
                   </a>
                 ) : (
                   <span className="text-sm text-muted-foreground">-</span>

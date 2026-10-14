@@ -1,3 +1,4 @@
+import { noteText } from '@/lib/noteText';
 import { formatDate, formatWhen } from '@/lib/utils';
 import type { MessageNote } from '@/services/message.service';
 import {
@@ -34,7 +35,7 @@ export function ThreadNoteItem({ note }: { note: MessageNote }) {
         <div
           className={`rounded-xl px-[13px] py-[11px] bg-warning-muted border border-warning-line border-l-[3px] text-foreground text-[13.5px] leading-[1.62] whitespace-pre-wrap break-words ${PHONE_THREAD_BUBBLE}`}
         >
-          {note.content}
+          {noteText(note.content)}
         </div>
       </div>
     </div>

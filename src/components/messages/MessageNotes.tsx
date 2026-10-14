@@ -3,6 +3,7 @@ import { MessageSquare, Send, Lock, Pencil, Trash2, Check, X } from 'lucide-reac
 import { Badge } from '@/components/ui/Badge';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
+import { noteText } from '@/lib/noteText';
 import { formatDate } from '@/lib/utils';
 import { messageService, type MessageNote } from '@/services/message.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -63,7 +64,7 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
 
   const handleStartEdit = (note: MessageNote) => {
     setEditingId(note.id);
-    setEditContent(note.content);
+    setEditContent(noteText(note.content));
   };
 
   const handleCancelEdit = () => {
@@ -199,7 +200,7 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm whitespace-pre-wrap">{note.content}</p>
+                  <p className="text-sm whitespace-pre-wrap">{noteText(note.content)}</p>
                 )}
               </div>
             );

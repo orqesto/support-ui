@@ -73,6 +73,7 @@ import { resolveComposerWindow } from '@/components/messages/whatsappWindowState
 import { WhatsAppTemplatePicker } from '@/components/messages/WhatsAppTemplatePicker';
 import type { WhatsAppTemplate } from '@/components/messages/whatsappTemplates';
 import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
+import { noteFromEditor } from '@/lib/noteText';
 import { toast } from '@/lib/toast';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { getApiErrorMessage } from '@/lib/errorMessages';
@@ -661,7 +662,8 @@ export function MessageDetail({
       const recipients = supportsRecipients ? draftToRecipients(recipientDraft) : undefined;
       try {
         if (composerMode === 'note') {
-          await messageService.addNote(message.id, composer);
+          // The composer is the rich-text editor; a note is plain text (noteText.ts).
+          await messageService.addNote(message.id, noteFromEditor(composer));
         } else if (selectedFiles.length > 0) {
           await messageService.replyWithAttachments(
             message.id,
