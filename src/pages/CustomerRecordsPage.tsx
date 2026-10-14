@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
-import { ownershipNotice } from '@/components/messages/CustomApiLookupPanel';
+import { ownershipNotice } from '@/components/messages/CustomApiResultCard';
 import { readCategory } from '@/components/settings/customApi/categories';
 import {
   projectFields,

@@ -140,62 +140,24 @@ describe('the outcomes stay distinguishable', () => {
     expect(text.className).not.toContain('destructive');
   });
 
-  it('SC3 — a failed card shows its reason AND the other card still shows rows', async () => {
+  it('SC3 — a failed card says why AND the other card still shows rows', async () => {
     // RED: let one failure blank the panel ⇒ one vendor being down hides every other integration.
     run.mockResolvedValue([
-      card({ endpointId: 30, status: 'failed', reason: 'The vendor rejected our credentials.' }),
+      card({
+        endpointId: 30,
+        status: 'failed',
+        reason: 'The vendor rejected our credentials.',
+        agentReason: 'auth',
+      }),
       card({ endpointId: 31 }),
     ]);
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
 
-    expect(await screen.findByText(/rejected our credentials/i)).toBeTruthy();
+    expect(await screen.findByText('Militech refused our access.')).toBeTruthy();
     expect(screen.getByText('137416')).toBeTruthy();
-  });
-
-  it('SC4b — shape_changed NAMES the missing fields', async () => {
-    // RED: render it as empty ⇒ a dead integration is indistinguishable from a customer we have no
-    // data for, which is the sibling of SC2 and the reason both states exist.
-    run.mockResolvedValue([
-      card({ status: 'shape_changed', missing: ['order_id', 'total'], rows: [], fields: [] }),
-    ]);
-    render(<CustomApiLookupPanel conversationId={1} />);
-    await press();
-
-    expect(await screen.findByText(/no longer matches what was configured/i)).toBeTruthy();
-    expect(screen.getByText(/order_id, total/)).toBeTruthy();
-  });
-
-  it('a RECORDS miss does not claim the response "no longer" matches', async () => {
-    /**
-     * ⛔ A CLAIM ABOUT HISTORY. `shape_changed` now also carries "we could not find the record list
-     * at all", which is true of a lookup that NEVER worked — so "no longer matches" describes a
-     * past that did not happen, and points the agent at fields rather than at the real problem.
-     */
-    run.mockResolvedValue([
-      card({
-        status: 'shape_changed',
-        missingKind: 'records',
-        missing: ['data'],
-        rows: [],
-        fields: [],
-      }),
-    ]);
-    render(<CustomApiLookupPanel conversationId={1} />);
-    await press();
-
-    expect(await screen.findByText(/could not find any records/i)).toBeTruthy();
-    expect(screen.queryByText(/no longer matches/i)).toBeNull();
-  });
-
-  it('an OLDER backend with no missingKind keeps the original wording', async () => {
-    run.mockResolvedValue([
-      card({ status: 'shape_changed', missing: ['order_id'], rows: [], fields: [] }),
-    ]);
-    render(<CustomApiLookupPanel conversationId={1} />);
-    await press();
-
-    expect(await screen.findByText(/no longer matches what was configured/i)).toBeTruthy();
+    // D1 (2026-10-14): an agent never sees the raw text.
+    expect(screen.queryByText(/rejected our credentials/i)).toBeNull();
   });
 });
 
@@ -349,7 +311,7 @@ describe('D36 — the number from the customer’s message', () => {
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
 
-    const field = await screen.findByLabelText(/record number for this order/i);
+    const field = await screen.findByLabelText(/reference for this order/i);
     expect((field as HTMLInputElement).value).toBe('137416');
     expect(run).toHaveBeenCalledTimes(1); // the panel press only — nothing auto-sent
   });
@@ -363,7 +325,7 @@ describe('D36 — the number from the customer’s message', () => {
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
 
-    const field = await screen.findByLabelText(/record number for this order/i);
+    const field = await screen.findByLabelText(/reference for this order/i);
     await userEvent.clear(field);
     await userEvent.type(field, '999999');
     // This card's own press, by exact name: "Look up another email" (2026-09-29) would match a

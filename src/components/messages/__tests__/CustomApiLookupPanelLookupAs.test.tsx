@@ -127,7 +127,7 @@ describe('look up another email', () => {
     render(<CustomApiLookupPanel conversationId={1} identityNote={NO_EMAIL_IDENTITY_NOTE} />);
     await typeAndRun();
 
-    await userEvent.type(await screen.findByLabelText('Record number for Order details'), '137416');
+    await userEvent.type(await screen.findByLabelText('Reference for Order details'), '137416');
     // This card's own press (the panel's reads "Look up again" once a lookup has run).
     const [orderCard] = screen.getAllByTestId('lookup-card');
     await userEvent.click(within(orderCard).getByRole('button', { name: /^look up$/i }));
