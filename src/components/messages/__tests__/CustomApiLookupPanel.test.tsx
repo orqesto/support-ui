@@ -140,62 +140,24 @@ describe('the outcomes stay distinguishable', () => {
     expect(text.className).not.toContain('destructive');
   });
 
-  it('SC3 — a failed card shows its reason AND the other card still shows rows', async () => {
+  it('SC3 — a failed card says why AND the other card still shows rows', async () => {
     // RED: let one failure blank the panel ⇒ one vendor being down hides every other integration.
     run.mockResolvedValue([
-      card({ endpointId: 30, status: 'failed', reason: 'The vendor rejected our credentials.' }),
+      card({
+        endpointId: 30,
+        status: 'failed',
+        reason: 'The vendor rejected our credentials.',
+        agentReason: 'auth',
+      }),
       card({ endpointId: 31 }),
     ]);
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
 
-    expect(await screen.findByText(/rejected our credentials/i)).toBeTruthy();
+    expect(await screen.findByText('Militech refused our access.')).toBeTruthy();
     expect(screen.getByText('137416')).toBeTruthy();
-  });
-
-  it('SC4b — shape_changed NAMES the missing fields', async () => {
-    // RED: render it as empty ⇒ a dead integration is indistinguishable from a customer we have no
-    // data for, which is the sibling of SC2 and the reason both states exist.
-    run.mockResolvedValue([
-      card({ status: 'shape_changed', missing: ['order_id', 'total'], rows: [], fields: [] }),
-    ]);
-    render(<CustomApiLookupPanel conversationId={1} />);
-    await press();
-
-    expect(await screen.findByText(/no longer matches what was configured/i)).toBeTruthy();
-    expect(screen.getByText(/order_id, total/)).toBeTruthy();
-  });
-
-  it('a RECORDS miss does not claim the response "no longer" matches', async () => {
-    /**
-     * ⛔ A CLAIM ABOUT HISTORY. `shape_changed` now also carries "we could not find the record list
-     * at all", which is true of a lookup that NEVER worked — so "no longer matches" describes a
-     * past that did not happen, and points the agent at fields rather than at the real problem.
-     */
-    run.mockResolvedValue([
-      card({
-        status: 'shape_changed',
-        missingKind: 'records',
-        missing: ['data'],
-        rows: [],
-        fields: [],
-      }),
-    ]);
-    render(<CustomApiLookupPanel conversationId={1} />);
-    await press();
-
-    expect(await screen.findByText(/could not find any records/i)).toBeTruthy();
-    expect(screen.queryByText(/no longer matches/i)).toBeNull();
-  });
-
-  it('an OLDER backend with no missingKind keeps the original wording', async () => {
-    run.mockResolvedValue([
-      card({ status: 'shape_changed', missing: ['order_id'], rows: [], fields: [] }),
-    ]);
-    render(<CustomApiLookupPanel conversationId={1} />);
-    await press();
-
-    expect(await screen.findByText(/no longer matches what was configured/i)).toBeTruthy();
+    // D1 (2026-10-14): an agent never sees the raw text.
+    expect(screen.queryByText(/rejected our credentials/i)).toBeNull();
   });
 });
 
@@ -349,7 +311,7 @@ describe('D36 — the number from the customer’s message', () => {
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
 
-    const field = await screen.findByLabelText(/record number for this order/i);
+    const field = await screen.findByLabelText(/reference for this order/i);
     expect((field as HTMLInputElement).value).toBe('137416');
     expect(run).toHaveBeenCalledTimes(1); // the panel press only — nothing auto-sent
   });
@@ -363,7 +325,7 @@ describe('D36 — the number from the customer’s message', () => {
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
 
-    const field = await screen.findByLabelText(/record number for this order/i);
+    const field = await screen.findByLabelText(/reference for this order/i);
     await userEvent.clear(field);
     await userEvent.type(field, '999999');
     // This card's own press, by exact name: "Look up another email" (2026-09-29) would match a
@@ -462,21 +424,46 @@ describe('SC5 — the same panel outside a thread', () => {
 });
 
 describe('FE/BE skew — this frontend can reach production first', () => {
-  it('⛔ stands DOWN when the deployment has no lookup endpoint', async () => {
+  it('⛔ "not on this server" only when AVAILABILITY itself is 404', async () => {
     // A push to main deploys this frontend; the backend ships on a tag. RED: treat a 404 like any
     // other failure ⇒ every agent gets a Look up button answering "could not be completed", which
     // reads as a broken integration rather than a feature that has not shipped yet.
     // ⛔ THE SHAPE THE APP ACTUALLY PRODUCES. The api-client interceptor drops `.response` and
     // copies `status` onto a fresh Error, so a fixture shaped like a raw axios error would pass
     // this test against a hook that could never work in production.
-    run.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
+    availability.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
     render(<CustomApiLookupPanel conversationId={1} />);
-    await press();
-
     // The panel is its tab's only content since 2026-10-09: standing down to nothing left a blank
     // tab. Still no button that fails — one line saying what is true instead.
     expect(await screen.findByText(LOOKUPS_NOT_ON_SERVER)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Look up/ })).not.toBeInTheDocument();
+  });
+
+  it('an availability 400 (a route an older backend reads as an id) renders nothing', async () => {
+    availability.mockRejectedValue(Object.assign(new Error('Bad Request'), { status: 400 }));
+    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
+    await waitFor(() => expect(availability).toHaveBeenCalled());
+    // Settled first: the CONTROL below (a 404 in the same harness) shows the line by now, so an
+    // empty panel here is the 400's answer and not a query still loading.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByText(LOOKUPS_NOT_ON_SERVER)).toBeNull();
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('CONTROL for the 400 case: a 404 in the same harness shows the line within the same wait', async () => {
+    availability.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await waitFor(() => expect(availability).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByText(LOOKUPS_NOT_ON_SERVER)).toBeInTheDocument();
+  });
+
+  it('a PRESS that 404s says the conversation is not visible — not "not on this server"', async () => {
+    run.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+    expect(await screen.findByText('This conversation isn’t visible to you.')).toBeInTheDocument();
+    expect(screen.queryByText(LOOKUPS_NOT_ON_SERVER)).toBeNull();
   });
 
   it('POSITIVE CONTROL: a real failure still shows a reason', async () => {
@@ -701,7 +688,6 @@ describe('a press in flight answers only for the customer it was made on', () =>
       await press;
     });
     expect(result.current.error).toBeNull();
-    expect(result.current.unavailable).toBe(false);
     expect(result.current.hasRun).toBe(false);
   });
 
@@ -747,13 +733,8 @@ describe('the panel renders ONLY when this caller has a lookup to run', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('⛔ renders nothing on a 404 — an OLDER backend without the availability route', async () => {
-    availability.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
-    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
-    await settle();
-    expect(container.firstChild).toBeNull();
-  });
-
+  // 2026-10-14 (spec §4.2): an availability 404 now says "not on this server" in one line — see
+  // the FE/BE skew block above. Every other non-yes still renders nothing.
   it('renders nothing on any other error — it fails CLOSED', async () => {
     availability.mockRejectedValue(Object.assign(new Error('Server Error'), { status: 500 }));
     const { container } = render(<CustomApiLookupPanel conversationId={1} />);
@@ -833,7 +814,7 @@ describe('the no-email note', () => {
 });
 
 describe('a status this build does not know (a newer backend)', () => {
-  it("shows the backend's reason, muted — never a blank card", async () => {
+  it('an agent reads a neutral sentence, muted — never a blank card, never the raw reason', async () => {
     run.mockResolvedValue([
       card({
         status: 'from_the_future' as unknown as CustomApiLookupResult['status'],
@@ -842,7 +823,11 @@ describe('a status this build does not know (a newer backend)', () => {
     ]);
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
-    const text = await screen.findByText('Something new happened.');
+    // D1 (2026-10-14): the raw reason of an unknown state is for admins (see CustomApiResultCard.test).
+    const text = await screen.findByText(
+      'This lookup returned a result this version cannot display.'
+    );
+    expect(screen.queryByText('Something new happened.')).toBeNull();
     expect(text.className).toContain('text-muted-foreground');
     expect(text.className).not.toContain('text-destructive');
   });

@@ -18,6 +18,7 @@ import {
   type CustomApiEndpoint,
 } from '@/services/customApi.service';
 import { Permission } from '@/types/roles';
+import { hostOf } from '@/components/settings/customApi/LookupHealthLine';
 
 type Loaded =
   | { state: 'loading' }
@@ -133,19 +134,26 @@ export const CustomApiLookupPage = () => {
             <AlertDescription>{loaded.message}</AlertDescription>
           </Alert>
         ) : (
-          <EndpointWizard
-            // A different lookup is a different form: its fields are `useState` initialisers.
-            key={`${loaded.connection.id}-${lookupParam}`}
-            connection={loaded.connection}
-            endpoint={loaded.endpoint}
-            onClose={back}
-            // The list re-reads from the API when Settings mounts, so there is nothing to patch.
-            onSaved={() => {}}
-            onCreated={(id) => {
-              createdHere.current = String(id);
-              navigate(customApiLookupPath(loaded.connection.id, id), { replace: true });
-            }}
-          />
+          <>
+            {/* A7 (2026-10-14): the address this lookup calls — a test copy of a system is the
+                first thing to rule out when it never finds anything. */}
+            <p className="text-xs text-muted-foreground">
+              {loaded.connection.name} · {hostOf(loaded.connection.baseUrl)}
+            </p>
+            <EndpointWizard
+              // A different lookup is a different form: its fields are `useState` initialisers.
+              key={`${loaded.connection.id}-${lookupParam}`}
+              connection={loaded.connection}
+              endpoint={loaded.endpoint}
+              onClose={back}
+              // The list re-reads from the API when Settings mounts, so there is nothing to patch.
+              onSaved={() => {}}
+              onCreated={(id) => {
+                createdHere.current = String(id);
+                navigate(customApiLookupPath(loaded.connection.id, id), { replace: true });
+              }}
+            />
+          </>
         )}
       </div>
     </Layout>

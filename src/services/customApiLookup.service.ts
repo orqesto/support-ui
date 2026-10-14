@@ -61,12 +61,51 @@ export interface LookupRun {
  * assert something no backend told us, and defaulting to 'mismatch' would flag every record on an
  * older deployment.
  */
-const normalise = (row: CustomApiLookupResult): CustomApiLookupResult => ({
-  ...row,
-  rows: row.rows ?? [],
-  fields: row.fields ?? [],
-  suggestions: row.suggestions ?? [],
-});
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * A4 (2026-10-14): a `searchedFor` this build can render, or none — a malformed one is dropped,
+ * not shown. A source with no label would read as an empty quote, so it is dropped too.
+ */
+const readSearchedFor = (raw: unknown): CustomApiLookupResult['searchedFor'] => {
+  if (!isRecord(raw)) return undefined;
+  if (raw.kind === 'source' && typeof raw.label === 'string' && raw.label.trim()) {
+    return { kind: 'source', label: raw.label };
+  }
+  if ((raw.kind === 'email' || raw.kind === 'reference') && typeof raw.value === 'string') {
+    return { kind: raw.kind, value: raw.value };
+  }
+  return undefined;
+};
+
+const SKIP_REASONS = ['source_no_match', 'source_failed', 'source_no_identity'] as const;
+
+/** B3: a `skippedBecause` with a known reason and a label to name, or none. */
+const readSkippedBecause = (raw: unknown): CustomApiLookupResult['skippedBecause'] => {
+  if (!isRecord(raw) || typeof raw.sourceLabel !== 'string' || !raw.sourceLabel.trim()) {
+    return undefined;
+  }
+  const reason = SKIP_REASONS.find((known) => known === raw.reason);
+  return reason ? { reason, sourceLabel: raw.sourceLabel } : undefined;
+};
+
+const normalise = (row: CustomApiLookupResult): CustomApiLookupResult => {
+  const searchedFor = readSearchedFor(row.searchedFor);
+  const skippedBecause = readSkippedBecause(row.skippedBecause);
+  const { searchedFor: _searched, skippedBecause: _skipped, ...rest } = row;
+  return {
+    ...rest,
+    rows: row.rows ?? [],
+    fields: row.fields ?? [],
+    suggestions: row.suggestions ?? [],
+    // 2026-10-14 fields: absent from an older backend. `agentReason` stays as sent (absent = an
+    // older backend); the card reads it through `failureSentence`, which refuses unknown classes.
+    referenceLabel: typeof row.referenceLabel === 'string' ? row.referenceLabel : null,
+    ...(searchedFor ? { searchedFor } : {}),
+    ...(skippedBecause ? { skippedBecause } : {}),
+  };
+};
 
 /** Which panel is asking. An endpoint declares where it renders (D15), so the answer differs. */
 export type LookupSurface = 'thread' | 'contact';
@@ -141,6 +180,10 @@ export const customApiLookupService = {
       '/api/custom-apis/lookup/options',
       { params: { surface } }
     );
-    return res.data.data ?? [];
+    // 2026-10-14 (D4): an older backend sends no reference name; null reads as "Reference".
+    return (res.data.data ?? []).map((option) => ({
+      ...option,
+      referenceLabel: typeof option.referenceLabel === 'string' ? option.referenceLabel : null,
+    }));
   },
 };

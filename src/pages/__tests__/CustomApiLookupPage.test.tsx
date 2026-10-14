@@ -246,4 +246,9 @@ describe('the lookup editor page', () => {
     await user.click(await screen.findByRole('button', { name: 'Cancel' }));
     expect(screen.getByTestId('where').textContent).toBe('/settings#integrations/custom-apis');
   });
+
+  it('2026-10-14 — names the connection and its host at the top', async () => {
+    renderAt('/settings/custom-apis/1/lookups/new');
+    expect(await screen.findByText('Militech · shop.example')).toBeInTheDocument();
+  });
 });

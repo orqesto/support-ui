@@ -33,3 +33,22 @@ describe('customApiService.list — normaliseEndpoint (F5)', () => {
     expect(connection?.endpoints[0]?.templateKey).toBe('order_tracking');
   });
 });
+
+describe('customApiService.list — 2026-10-14 fields', () => {
+  it('an older backend: referenceLabel null, health absent', async () => {
+    get.mockResolvedValue({ data: { success: true, data: [olderConnection({})] } });
+    const [connection] = await customApiService.list();
+    expect(connection?.endpoints[0]?.referenceLabel).toBeNull();
+    expect(connection?.endpoints[0]?.health).toBeUndefined();
+  });
+
+  it('POSITIVE CONTROL: keeps what a newer backend sends', async () => {
+    const health = { latest: 'ok', dot: 'green', noMatchStreak: 0 };
+    get.mockResolvedValue({
+      data: { success: true, data: [olderConnection({ referenceLabel: 'User id', health })] },
+    });
+    const [connection] = await customApiService.list();
+    expect(connection?.endpoints[0]?.referenceLabel).toBe('User id');
+    expect(connection?.endpoints[0]?.health).toEqual(health);
+  });
+});

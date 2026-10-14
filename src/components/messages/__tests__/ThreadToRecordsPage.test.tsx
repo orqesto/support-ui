@@ -18,6 +18,8 @@ vi.mock('@/services/conversationContact.service', () => ({
 vi.mock('@/hooks/useCustomApiLookup', () => ({
   useCustomApiLookup: () => ({ results: [], loading: false, error: null, run: vi.fn() }),
   useCustomApiLookupAvailability: () => true,
+  useCustomApiLookupAvailabilityState: () => 'available',
+  useCustomApiLookupOptions: () => null,
 }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 
@@ -42,7 +44,9 @@ describe('opening the records page from a thread', () => {
   it('resolves this conversation’s customer and goes to their page', async () => {
     renderPanel();
 
-    await userEvent.click(await screen.findByRole('button', { name: /Open the full records page/ }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: /Open the full records page/ })
+    );
 
     await waitFor(() => expect(resolve).toHaveBeenCalledWith(88));
     expect(await screen.findByText('RECORDS PAGE FOR CUSTOMER')).toBeInTheDocument();
@@ -71,7 +75,9 @@ describe('opening the records page from a thread', () => {
     });
     renderPanel();
 
-    await userEvent.click(await screen.findByRole('button', { name: /Open the full records page/ }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: /Open the full records page/ })
+    );
 
     expect(await screen.findByText(/no customer address/i)).toBeInTheDocument();
     expect(screen.queryByText('RECORDS PAGE FOR CUSTOMER')).toBeNull();

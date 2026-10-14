@@ -1,5 +1,8 @@
 import { apiClient } from '@/lib/api-client';
-import { normalizeBedrockDiscovery, type BedrockDiscovery } from '@/services/bedrockDiscovery.service';
+import {
+  normalizeBedrockDiscovery,
+  type BedrockDiscovery,
+} from '@/services/bedrockDiscovery.service';
 import type { AIModel, AIProvider } from '@/types/aiProviders';
 
 /**
@@ -126,7 +129,17 @@ export type PlatformSettings = {
    * that predates the setting — the card then says it arrives with the next backend release.
    */
   kb?: { captureAiQuestion: ResolvedField<boolean> };
+  /**
+   * Custom API lookup health thresholds (`custom_api.health`, 2026-10-14). Absent on a backend
+   * that predates the setting — the card then says it arrives with the next backend release.
+   */
+  customApi?: {
+    health: { noMatchStreak: ResolvedField<number>; okWindowDays: ResolvedField<number> };
+  };
 };
+
+/** PUT /settings/custom-api — both thresholds, whole numbers ≥ 1 (the whole value is replaced). */
+export type PlatformCustomApiInput = { noMatchStreak: number; okWindowDays: number };
 
 /** PATCH /settings/kb — whether captured questions are rewritten with AI (default on). */
 export type PlatformKbInput = { captureAiQuestion: boolean };
@@ -224,6 +237,7 @@ type RawPlatformSettings = {
   database?: { freeSharedRetentionDays?: ResolvedField<number> };
   reasoning?: unknown;
   kb?: unknown;
+  customApi?: unknown;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -331,6 +345,29 @@ export const normalizeKb = (raw: unknown): PlatformSettings['kb'] => {
   };
 };
 
+const readCount = (raw: unknown): ResolvedField<number> | undefined => {
+  if (!isRecord(raw) || typeof raw.value !== 'number' || !Number.isInteger(raw.value)) {
+    return undefined;
+  }
+  return {
+    value: raw.value,
+    source: FIELD_SOURCES.includes(raw.source as FieldSource)
+      ? (raw.source as FieldSource)
+      : 'default',
+  };
+};
+
+/**
+ * The custom API block, only when both thresholds are whole numbers — any other shape is "this
+ * backend does not have the setting", never guessed at.
+ */
+export const normalizeCustomApi = (raw: unknown): PlatformSettings['customApi'] => {
+  if (!isRecord(raw) || !isRecord(raw.health)) return undefined;
+  const noMatchStreak = readCount(raw.health.noMatchStreak);
+  const okWindowDays = readCount(raw.health.okWindowDays);
+  return noMatchStreak && okWindowDays ? { health: { noMatchStreak, okWindowDays } } : undefined;
+};
+
 const UNSET_SECRET: SecretStatus = { configured: false, source: 'none', last4: null };
 
 const field = <T>(raw: ResolvedField<T> | undefined): ResolvedField<T> =>
@@ -427,6 +464,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
 
   const reasoning = normalizeReasoning(raw.reasoning);
   const kb = normalizeKb(raw.kb);
+  const customApi = normalizeCustomApi(raw.customApi);
   const provider = field(raw.ai.provider);
   const effectiveProvider = provider.value ?? 'openai';
   return {
@@ -476,6 +514,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
       : {}),
     ...(reasoning ? { reasoning } : {}),
     ...(kb ? { kb } : {}),
+    ...(customApi ? { customApi } : {}),
   };
 };
 
@@ -534,6 +573,11 @@ export const platformSettingsService = {
   /** PATCH the knowledge-base capture settings (`kb.capture_ai_question`). */
   updateKb: async (input: PlatformKbInput): Promise<void> => {
     await apiClient.patch(`${BASE}/kb`, input);
+  },
+
+  /** PUT the custom API health thresholds (`custom_api.health`, 2026-10-14). */
+  updateCustomApiHealth: async (input: PlatformCustomApiInput): Promise<void> => {
+    await apiClient.put(`${BASE}/custom-api`, input);
   },
 
   /**

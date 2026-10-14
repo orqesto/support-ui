@@ -117,3 +117,75 @@ describe('customApiLookupService.availability', () => {
     expect(await customApiLookupService.availability('thread')).toBe(false);
   });
 });
+
+describe('skew — fields a newer backend adds (2026-10-14)', () => {
+  const row = (extra: Record<string, unknown> = {}) => ({
+    endpointId: 1,
+    label: 'x',
+    connectionName: 'Acme',
+    resultShape: 'one',
+    status: 'no_match',
+    ...extra,
+  });
+
+  it('an older backend: referenceLabel null, no searchedFor, no skippedBecause', async () => {
+    post.mockResolvedValue({ data: { success: true, data: [row()] } });
+    const [result] = await customApiLookupService.run({ conversationId: 1 });
+    expect(result.referenceLabel).toBeNull();
+    expect(result).not.toHaveProperty('searchedFor');
+    expect(result).not.toHaveProperty('skippedBecause');
+  });
+
+  it('a malformed searchedFor / skippedBecause is dropped, not rendered', async () => {
+    post.mockResolvedValue({
+      data: {
+        success: true,
+        data: [
+          row({
+            searchedFor: { kind: 'reference' },
+            skippedBecause: { reason: 'a_reason_from_the_future', sourceLabel: 'Account' },
+          }),
+          row({ searchedFor: { kind: 'source', label: '' }, skippedBecause: 'nope' }),
+        ],
+      },
+    });
+    const results = await customApiLookupService.run({ conversationId: 1 });
+    for (const result of results) {
+      expect(result.searchedFor).toBeUndefined();
+      expect(result.skippedBecause).toBeUndefined();
+    }
+  });
+
+  it('well-formed ones pass through', async () => {
+    post.mockResolvedValue({
+      data: {
+        success: true,
+        data: [
+          row({
+            searchedFor: { kind: 'source', label: 'Account' },
+            skippedBecause: { reason: 'source_no_match', sourceLabel: 'Account' },
+            referenceLabel: 'User id',
+          }),
+        ],
+      },
+    });
+    const [result] = await customApiLookupService.run({ conversationId: 1 });
+    expect(result.searchedFor).toEqual({ kind: 'source', label: 'Account' });
+    expect(result.skippedBecause).toEqual({ reason: 'source_no_match', sourceLabel: 'Account' });
+    expect(result.referenceLabel).toBe('User id');
+  });
+
+  it('options from an older backend read referenceLabel as null', async () => {
+    get.mockResolvedValue({
+      data: {
+        success: true,
+        data: [
+          { endpointId: 2, label: 'By id', connectionName: 'Acme', parameterSource: 'manual' },
+          { endpointId: 3, label: 'By id', connectionName: 'Acme', referenceLabel: 'User id' },
+        ],
+      },
+    });
+    const options = await customApiLookupService.lookupOptions('thread');
+    expect(options.map((option) => option.referenceLabel)).toEqual([null, 'User id']);
+  });
+});

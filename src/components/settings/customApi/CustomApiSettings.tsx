@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { customApiService, type CustomApiConnection } from '@/services/customApi.service';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { LookupHealthLine } from './LookupHealthLine';
 
 /**
  * Settings → Integrations → Custom APIs — the vendor list (CA-5 Task 1).
@@ -291,7 +292,13 @@ export const CustomApiSettings = ({
                 const state = lookupState(endpoint);
                 return (
                   <li key={endpoint.id} className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-foreground truncate">{endpoint.label}</span>
+                    <div className="min-w-0">
+                      <span className="text-xs text-foreground truncate block">
+                        {endpoint.label}
+                      </span>
+                      {/* A7 (2026-10-14): the last result agents saw from this lookup. */}
+                      <LookupHealthLine health={endpoint.health} connectionName={connection.name} />
+                    </div>
                     <span className="flex items-center gap-2">
                       <Badge variant={state.variant}>{state.label}</Badge>
                       {onEditLookup && (

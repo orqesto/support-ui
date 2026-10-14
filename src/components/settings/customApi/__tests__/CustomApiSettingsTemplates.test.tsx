@@ -95,3 +95,39 @@ describe('Start from a template', () => {
     expect(screen.queryByRole('button', { name: 'Start from a template' })).toBeNull();
   });
 });
+
+describe('A7 (2026-10-14) — each lookup row shows its last result', () => {
+  it('a reported health line renders under the lookup’s label', async () => {
+    list.mockResolvedValue([
+      connection({
+        endpoints: [
+          endpoint({
+            health: {
+              lastOkAt: null,
+              lastNoMatchAt: '2026-10-14T10:00:00.000Z',
+              lastFailedAt: null,
+              lastFailureClass: null,
+              noMatchStreak: 20,
+              latest: 'no_match',
+              dot: 'grey',
+              streakHint: true,
+            },
+          }),
+        ],
+      }),
+    ]);
+    render(<CustomApiSettings canManageVendors onAddLookup={vi.fn()} />);
+    expect(
+      await screen.findByText(
+        'Nothing found 20 times in a row — check the address points at the live system'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('an older backend (no health) renders the row as before, with no line', async () => {
+    list.mockResolvedValue([connection()]);
+    render(<CustomApiSettings canManageVendors onAddLookup={vi.fn()} />);
+    await screen.findByText("this customer's orders");
+    expect(screen.queryByText(/Nothing found|Found something|Failing since/)).toBeNull();
+  });
+});

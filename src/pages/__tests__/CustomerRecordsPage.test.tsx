@@ -125,7 +125,7 @@ describe('CustomerRecordsPage', () => {
 
     // The whole objection: "check an order id" used to be a card that appeared only after a
     // different press, inside a panel, inside a thread.
-    expect(await screen.findByPlaceholderText('Order or reference number')).toBeInTheDocument();
+    expect(await screen.findByPlaceholderText('Reference')).toBeInTheDocument();
   });
 
   it('⛔ the box does not PROMISE a check the lookup cannot run', async () => {
@@ -138,7 +138,7 @@ describe('CustomerRecordsPage', () => {
      */
     renderPage();
 
-    await screen.findByPlaceholderText('Order or reference number');
+    await screen.findByPlaceholderText('Reference');
     expect(screen.queryByText(/Every answer is checked against this customer/i)).toBeNull();
     expect(
       screen.getByText(/Each answer says what we could confirm about it/i)
@@ -151,7 +151,7 @@ describe('CustomerRecordsPage', () => {
     ]);
     renderPage();
 
-    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '999999');
+    await userEvent.type(await screen.findByPlaceholderText('Reference'), '999999');
     await userEvent.click(screen.getByRole('button', { name: 'Search' }));
 
     await waitFor(() =>
@@ -176,7 +176,7 @@ describe('CustomerRecordsPage', () => {
     run.mockImplementation(() => new Promise((resolve) => (release = resolve)));
     renderPage();
 
-    const box = await screen.findByPlaceholderText('Order or reference number');
+    const box = await screen.findByPlaceholderText('Reference');
     fireEvent.change(box, { target: { value: '42' } });
     const press = screen.getByRole('button', { name: 'Search' });
     // ⛔ RAW dispatch, NOT `fireEvent`. RTL wraps fireEvent in `act()`, which flushes state between
@@ -203,7 +203,7 @@ describe('CustomerRecordsPage', () => {
     run.mockImplementation(() => new Promise((resolve) => (release = resolve)));
     renderPage();
 
-    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '42');
+    await userEvent.type(await screen.findByPlaceholderText('Reference'), '42');
     const press = screen.getByRole('button', { name: 'Search' });
     await userEvent.click(press);
     await userEvent.click(press);
@@ -229,7 +229,7 @@ describe('CustomerRecordsPage', () => {
     ]);
     renderPage();
 
-    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '999999');
+    await userEvent.type(await screen.findByPlaceholderText('Reference'), '999999');
     await userEvent.click(screen.getByRole('button', { name: 'Search' }));
 
     expect(
@@ -255,7 +255,7 @@ describe('CustomerRecordsPage', () => {
     renderPage();
 
     expect(await screen.findByText(/No connected system is set up/i)).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('Order or reference number')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Reference')).not.toBeInTheDocument();
   });
 
   it('⛔ a failed OPTIONS read is not reported as "nothing is configured"', async () => {
@@ -311,7 +311,7 @@ describe('CustomerRecordsPage', () => {
     renderPage();
 
     expect(await screen.findByText('137416')).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('Order or reference number')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Reference')).not.toBeInTheDocument();
     expect(screen.queryByText(/could not be opened/i)).not.toBeInTheDocument();
   });
 
@@ -349,7 +349,7 @@ describe('CustomerRecordsPage', () => {
       </MemoryRouter>
     );
 
-    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '1');
+    await userEvent.type(await screen.findByPlaceholderText('Reference'), '1');
     await userEvent.click(screen.getByRole('button', { name: 'Search' }));
     expect(await screen.findByText(/ada-only/)).toBeInTheDocument();
 
@@ -392,7 +392,7 @@ describe('CustomerRecordsPage', () => {
       </MemoryRouter>
     );
 
-    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '1');
+    await userEvent.type(await screen.findByPlaceholderText('Reference'), '1');
     await userEvent.click(screen.getByRole('button', { name: 'Search' }));
 
     // Grace opens while Ada's lookup is still running.
@@ -447,7 +447,7 @@ describe('CustomerRecordsPage', () => {
       </MemoryRouter>
     );
 
-    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '1');
+    await userEvent.type(await screen.findByPlaceholderText('Reference'), '1');
     await userEvent.click(screen.getByRole('button', { name: 'Search' }));
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
 
@@ -456,7 +456,7 @@ describe('CustomerRecordsPage', () => {
     await screen.findByText('Grace Hopper');
 
     // Ada's lookup is STILL in flight. Grace's agent presses Search.
-    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '2');
+    await userEvent.type(await screen.findByPlaceholderText('Reference'), '2');
     await userEvent.click(screen.getByRole('button', { name: 'Search' }));
 
     await waitFor(() =>
@@ -520,7 +520,7 @@ describe('CustomerRecordsPage', () => {
     ]);
     renderPage();
 
-    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '42');
+    await userEvent.type(await screen.findByPlaceholderText('Reference'), '42');
     await userEvent.click(screen.getByRole('button', { name: 'Search' }));
 
     expect(await screen.findByText('WHERE IT IS')).toBeInTheDocument();
@@ -547,7 +547,7 @@ describe('CustomerRecordsPage', () => {
     ]);
     renderPage();
 
-    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '42');
+    await userEvent.type(await screen.findByPlaceholderText('Reference'), '42');
     await userEvent.click(screen.getByRole('button', { name: 'Search' }));
     await screen.findByText('WHERE IT IS');
 
@@ -568,41 +568,66 @@ describe('CustomerRecordsPage', () => {
      * RED: restore the bare fallback and this fails.
      */
     run.mockResolvedValue([
-      { endpointId: 20, label: 'this order', connectionName: 'Militech', status: 'needs_input', rows: [] },
+      {
+        endpointId: 20,
+        label: 'this order',
+        connectionName: 'Militech',
+        status: 'needs_input',
+        rows: [],
+      },
     ]);
     renderPage();
 
     await userEvent.click(await screen.findByRole('button', { name: /Refresh from source/ }));
 
-    expect(await screen.findByText(/Type a reference above to check this one/)).toBeInTheDocument();
-    expect(screen.queryByText(/Nothing found for that reference/)).toBeNull();
+    expect(
+      await screen.findByText(/Type the Reference above to check this one/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Nothing found|No Reference|No matching records/)).toBeNull();
   });
 
   it('⛔ nor does a lookup that had no address to key on', async () => {
     // `no_identity` is the same class: not asking is not the same answer as asking and finding
     // nothing, and only one of the two says anything about the customer.
     run.mockResolvedValue([
-      { endpointId: 20, label: 'their account', connectionName: 'Militech', status: 'no_identity', rows: [] },
+      {
+        endpointId: 20,
+        label: 'their account',
+        connectionName: 'Militech',
+        status: 'no_identity',
+        rows: [],
+      },
     ]);
     renderPage();
 
     await userEvent.click(await screen.findByRole('button', { name: /Refresh from source/ }));
 
-    expect(await screen.findByText(/no email address for us to look them up by/)).toBeInTheDocument();
+    // The panel's wording (D38 parity, 2026-10-14): the page uses the panel's card.
+    expect(
+      await screen.findByText(/has no email address, so this lookup cannot run/)
+    ).toBeInTheDocument();
   });
 
   it('⛔ a real miss still says so — the control', async () => {
     // Without this, copy that never said "nothing found" would pass both tests above while
     // hiding the one state where that sentence is true.
     run.mockResolvedValue([
-      { endpointId: 20, label: 'this order', connectionName: 'Militech', status: 'no_match', rows: [] },
+      {
+        endpointId: 20,
+        label: 'this order',
+        connectionName: 'Militech',
+        status: 'no_match',
+        rows: [],
+      },
     ]);
     renderPage();
 
-    await userEvent.type(await screen.findByPlaceholderText('Order or reference number'), '999');
+    await userEvent.type(await screen.findByPlaceholderText('Reference'), '999');
     await userEvent.click(screen.getByRole('button', { name: 'Search' }));
 
-    expect(await screen.findByText(/Nothing found for that reference/)).toBeInTheDocument();
+    // 2026-10-14 (A2/A4): it names what was searched — here an older backend's answer, so the
+    // typed value; the lookup has no reference name, so "Reference".
+    expect(await screen.findByText('No Reference 999 in Militech.')).toBeInTheDocument();
   });
 
   it('a non-numeric id is a not-found state, not a request', async () => {

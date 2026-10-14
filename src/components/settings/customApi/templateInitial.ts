@@ -18,4 +18,6 @@ export const initialFromTemplate = (
   statusLabels: { ...lookup.statusWords },
   ownershipSourceEndpointId: lookup.ownershipFrom ? (savedIds[lookup.ownershipFrom] ?? null) : null,
   createExtras: { surface: lookup.surface, templateKey },
+  // D4: copied once, like the status words; absent when the template names none.
+  ...(lookup.referenceLabel ? { referenceLabel: lookup.referenceLabel } : {}),
 });
