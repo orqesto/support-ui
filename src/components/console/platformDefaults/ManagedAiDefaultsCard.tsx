@@ -31,6 +31,7 @@ import {
 } from '@/types/aiProviders';
 import {
   convertCosts,
+  costInUnit,
   CostUnitPicker,
   costPlaceholder,
   fromCostUnit,
@@ -447,7 +448,9 @@ export const ManagedAiDefaultsCard = ({
       source: ai.provider.source,
     }),
     ...TIERS.map((tier) => row(tier.label, ai[tier.modelKey])),
-    ...TIERS.map((tier) => row(`${tier.label} cost / 1k`, ai[tier.costKey])),
+    ...TIERS.map((tier) =>
+      row(`${tier.label} cost / ${costUnit} tokens`, costInUnit(ai[tier.costKey], costUnit))
+    ),
     ...(PROVIDERS_WITH_BASE_URL.includes(storedProvider) ? [row('Base URL', ai.baseUrl)] : []),
     ...(storedIsBedrock
       ? [

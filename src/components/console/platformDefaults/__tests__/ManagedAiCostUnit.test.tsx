@@ -93,6 +93,16 @@ describe('ManagedAiDefaultsCard — cost unit', () => {
     expect(sentInput()).not.toHaveProperty('visionCostPer1k');
   });
 
+  it('the read-only summary shows the stored cost in the same unit as the editor', () => {
+    render(<ManagedAiDefaultsCard ai={aiWithCosts()} secrets={SECRETS} />);
+    expect(screen.getByText('Default tier cost / 1M tokens')).toBeTruthy();
+    expect(screen.getByText('0.13')).toBeTruthy();
+    expect(screen.getByText('Vision tier cost / 1M tokens')).toBeTruthy();
+    expect(screen.getByText('2')).toBeTruthy();
+    expect(screen.queryByText(/cost \/ 1k/)).toBeNull();
+    expect(screen.queryByText('0.00013')).toBeNull();
+  });
+
   it('converts typed values when the unit is switched to 1k', async () => {
     render(<ManagedAiDefaultsCard ai={aiWithCosts()} secrets={SECRETS} />);
     openEditor();
