@@ -369,6 +369,16 @@ describe('M7 — AI draft on a phone', () => {
     });
   });
 
+  it('while a draft is being written, Send is off — the editor holds the NOTE, not a reply', () => {
+    setViewport(false);
+    svc.message.composeReply = vi.fn(() => new Promise(() => {}));
+    render(<MessageComposer {...props()} composer="<p>refund issued</p>" />);
+    const send = () => within(composer()).getByRole('button', { name: /send/i });
+    expect((send() as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(aiButton());
+    expect((send() as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it('CONTROL desktop: AI draft drafts at once — there is no panel to open', () => {
     setViewport(false);
     svc.message.composeReply = vi.fn(() => new Promise(() => {}));

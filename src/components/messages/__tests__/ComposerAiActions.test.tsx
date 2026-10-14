@@ -117,19 +117,28 @@ describe('ComposerAiActions — the editor is the only input', () => {
       expect((lastRequest() as { mode: string }).mode).toBe('guided');
     });
 
-    it('⛔ a note over the backend cap is refused, never cut — nothing sent, text untouched', () => {
+    it('⛔ text longer than a note is a reply the agent wrote → polish, never cut as a note', async () => {
       const long = `<p>${'x'.repeat(MAX_INSTRUCTIONS + 1)}</p>`;
       render(<Host initial={long} />);
       pressDraft();
-      expect(composeReply).not.toHaveBeenCalled();
-      expect(screen.getByRole('alert').textContent).toMatch(/2,000 characters/);
-      expect(composerNow).toBe(long);
+      await waitFor(() => expect(composeReply).toHaveBeenCalledTimes(1));
+      expect(composeReply).toHaveBeenCalledWith(42, { mode: 'polish', draft: long });
     });
 
-    it('CONTROL: a note exactly at the cap is sent', async () => {
+    it('CONTROL: a note exactly at the cap is still a note', async () => {
       render(<Host initial={`<p>${'x'.repeat(MAX_INSTRUCTIONS)}</p>`} />);
       pressDraft();
       await waitFor(() => expect(composeReply).toHaveBeenCalledTimes(1));
+      expect((lastRequest() as { mode: string }).mode).toBe('guided');
+    });
+
+    it('over the polish limit too: refused with a message, nothing sent, text untouched', () => {
+      const huge = `<p>${'x'.repeat(8001)}</p>`;
+      render(<Host initial={huge} />);
+      pressDraft();
+      expect(composeReply).not.toHaveBeenCalled();
+      expect(screen.getByRole('alert').textContent).toMatch(/Too long for AI draft/);
+      expect(composerNow).toBe(huge);
     });
   });
 
@@ -188,6 +197,26 @@ describe('ComposerAiActions — the editor is the only input', () => {
       expect(composerNow).toBe('<p>refund ok</p>');
     });
 
+    it('AI draft pressed again over a draft: Undo still reaches the agent’s OWN text', async () => {
+      render(<Host initial="<p>refund ok</p>" />);
+      pressDraft();
+      await waitFor(() => expect(composerNow).toContain('border'));
+      composeReply.mockResolvedValueOnce({ data: { text: 'Second.', language: 'en' } });
+      pressDraft();
+      await waitFor(() => expect(composerNow).toContain('Second.'));
+      fireEvent.click(screen.getByTitle('Restore what you had written'));
+      expect(composerNow).toBe('<p>refund ok</p>');
+    });
+
+    it('the language badge holds only while the draft is as it landed (Translate changes it)', async () => {
+      render(<Host initial="" />);
+      pressDraft();
+      await waitFor(() => expect(composerNow).toContain('border'));
+      expect(screen.getByTestId('ai-draft-status').textContent).toContain('EN');
+      act(() => setComposerFromTest('<p>Ihr Paket ist an der Grenze.</p>'));
+      expect(screen.getByTestId('ai-draft-status').textContent).not.toContain('EN');
+    });
+
     it('Try again on a knowledge-base draft stays generate — the draft is not read as a note', async () => {
       render(<Host initial="" />);
       pressDraft();
@@ -230,7 +259,24 @@ describe('ComposerAiActions — the editor is the only input', () => {
   });
 
   describe('failures never touch the agent’s text', () => {
-    it('no inbound message (409): the backend sentence plus the way out', async () => {
+    it('no inbound message (409) on a note: falls back to making the text sendable (polish)', async () => {
+      composeReply
+        .mockRejectedValueOnce(
+          await apiError(409, { error: 'This conversation has no customer message to answer' })
+        )
+        .mockResolvedValueOnce({ data: { text: 'Polished.', language: 'en' } });
+      render(<Host initial="<p>refund ok</p>" />);
+      pressDraft();
+      await waitFor(() => expect(composerNow).toContain('Polished.'));
+      expect(composeReply).toHaveBeenLastCalledWith(42, {
+        mode: 'polish',
+        draft: '<p>refund ok</p>',
+      });
+      expect(onApplied).toHaveBeenCalledWith('ai_compose_polish', expect.anything());
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('no inbound message (409) on an empty editor: the backend sentence plus the way out', async () => {
       composeReply.mockRejectedValue(
         await apiError(409, { error: 'This conversation has no customer message to answer' })
       );

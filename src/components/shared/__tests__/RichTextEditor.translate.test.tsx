@@ -123,6 +123,43 @@ describe('RichTextEditor — translatable', () => {
     expect(editor.getText()).toBe('Hallo {first_name|there}, ticket {{ticket_id}}.');
   });
 
+  it('a link keeps its URL through the translation and comes back a link', async () => {
+    const editor = await renderEditor(
+      '<p>Reset it <a href="https://help.example/reset">here</a>.</p>'
+    );
+    await pickGerman();
+    await waitFor(() => expect(editor.getText()).toContain('DE:'));
+    expect(translateText).toHaveBeenCalledWith('Reset it here (https://help.example/reset).', 'de');
+    expect(editor.getHTML()).toContain('href="https://help.example/reset"');
+  });
+
+  it('list items go out as lines a translator keeps', async () => {
+    await renderEditor('<ul><li><p>One</p></li><li><p>Two</p></li></ul><ol><li><p>A</p></li></ol>');
+    await pickGerman();
+    await waitFor(() => expect(translateText).toHaveBeenCalled());
+    expect(translateText).toHaveBeenCalledWith('- One\n\n- Two\n\n1. A', 'de');
+  });
+
+  it('a failed translation does not leave the picker stuck — the same language can be retried', async () => {
+    translateText.mockRejectedValueOnce(new Error('Network down'));
+    const editor = await renderEditor('<p>Hello</p>');
+    await pickGerman();
+    await waitFor(() => expect(translateText).toHaveBeenCalledTimes(1));
+    await pickGerman();
+    await waitFor(() => expect(editor.getText()).toBe('DE: Hello'));
+  });
+
+  it('locked: read-only while locked, editable again after (follows the prop)', async () => {
+    const { container, rerender } = render(
+      <RichTextEditor content="<p>Hi</p>" initiallyHidden={false} locked />
+    );
+    const editorOf = () =>
+      container.querySelector<HTMLElement & { editor?: Editor }>('.ProseMirror')?.editor;
+    await waitFor(() => expect(editorOf()?.isEditable).toBe(false));
+    rerender(<RichTextEditor content="<p>Hi</p>" initiallyHidden={false} locked={false} />);
+    await waitFor(() => expect(editorOf()?.isEditable).toBe(true));
+  });
+
   it('an empty editor sends nothing', async () => {
     await renderEditor('<p></p>');
     await pickGerman();

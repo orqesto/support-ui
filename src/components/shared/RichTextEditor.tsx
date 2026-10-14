@@ -41,25 +41,58 @@ type RichTextEditorProps = {
   onImageFiles?: (files: File[]) => void;
   /**
    * Adds a Translate control to the toolbar: the editor's text is translated and REPLACES the
-   * content in place (the toolbar's Undo / Ctrl+Z brings the original back). Plain text goes out
-   * and paragraphs come back — inline formatting is not kept.
+   * content in place (the toolbar's Undo / Ctrl+Z brings the original back). Plain text goes out;
+   * paragraphs, links and list lines come back — bold/italic/quotes are not kept.
    */
   translatable?: boolean;
+  /**
+   * Read-only for now, toolbar kept (no layout jump) — e.g. while an AI draft that will replace
+   * the content is being written. Unlike `editable`, it follows the prop after mount.
+   */
+  locked?: boolean;
+};
+
+/**
+ * The editor's content as the plain text a translator gets: blocks split by blank lines, a link's
+ * URL kept beside its words (`here (https://…)`) so it survives, list items as `- ` / `1. ` lines.
+ * Parsed with DOMParser: an inert document, nothing in it loads or runs.
+ */
+const textForTranslation = (html: string): string => {
+  const root = new DOMParser().parseFromString(html, 'text/html').body;
+  root.querySelectorAll('a[href]').forEach((anchor) => {
+    const href = anchor.getAttribute('href') ?? '';
+    if (href && anchor.textContent?.trim() !== href) anchor.append(` (${href})`);
+  });
+  root.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
+  root.querySelectorAll('li > p:first-child').forEach((paragraph) => {
+    const item = paragraph.parentElement!;
+    const ordered = item.parentElement?.tagName === 'OL';
+    const position = Array.from(item.parentElement?.children ?? []).indexOf(item) + 1;
+    paragraph.prepend(ordered ? `${position}. ` : '- ');
+  });
+  return Array.from(root.querySelectorAll('p, h1, h2, h3, pre'))
+    .map((block) => block.textContent?.trim() ?? '')
+    .filter(Boolean)
+    .join('\n\n');
 };
 
 /**
  * A translation (plain text) back into editor paragraphs: blank lines split paragraphs, single
- * newlines become breaks, everything else is TEXT. ⛔ Not the markdown converter the AI answers
- * use — it read the `_` in `{first_name|…}` … `{{ticket_id}}` as italics and ate both underscores.
+ * newlines become breaks, bare http(s) URLs become links again, everything else is TEXT.
+ * ⛔ Not the markdown converter the AI answers use — it read the `_` in `{first_name|…}` …
+ * `{{ticket_id}}` as italics and ate both underscores.
  */
 const escapeHtml = (text: string): string =>
-  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+// Trailing punctuation (the ")" of "here (https://…)", a full stop) is not part of the URL.
+const linkify = (escaped: string): string =>
+  escaped.replace(/https?:\/\/[^\s<]*[^\s<.,;:!?)]/g, (url) => `<a href="${url}">${url}</a>`);
 const plainTextToHtml = (text: string): string =>
   text
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean)
-    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`)
+    .map((paragraph) => `<p>${linkify(escapeHtml(paragraph)).replace(/\n/g, '<br>')}</p>`)
     .join('');
 
 // Pull image files out of a clipboard/drag DataTransfer. Covers both dropped/
@@ -116,6 +149,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       initiallyHidden = true,
       onImageFiles,
       translatable = false,
+      locked = false,
     },
     ref
   ) => {
@@ -186,6 +220,12 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
         },
       },
     });
+
+    // ⛔ useEditor reads `editable` once. Without this a lock is only a CSS dimming: the keyboard
+    // still types into it, and Cmd+Enter still submits.
+    useEffect(() => {
+      editor?.setEditable(editable && !locked);
+    }, [editor, editable, locked]);
 
     // Update editor content when content prop changes
     useEffect(() => {
@@ -397,9 +437,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
                 <TranslateButton
                   getText={() => {
                     // Template placeholders go out as markers, so the model cannot reword them.
-                    const shielded = shieldPlaceholders(
-                      editor.getText({ blockSeparator: '\n\n' }).trim()
-                    );
+                    const shielded = shieldPlaceholders(textForTranslation(editor.getHTML()));
                     restorePlaceholders.current = shielded.restore;
                     return shielded.text;
                   }}

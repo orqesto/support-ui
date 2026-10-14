@@ -445,13 +445,15 @@ export function MessageComposer({
             ref={richEditorRef}
             content={composer}
             onChange={setComposer}
-            onSubmit={onSend}
+            // While an AI draft is being written the editor holds the agent's NOTE, not a reply.
+            onSubmit={aiBusy ? undefined : onSend}
             onImageFiles={addImageFiles}
             placeholder={`Reply as ${user?.firstName ?? 'you'}…`}
             minHeight={editorMinHeight}
             maxHeight="180px"
             transparent
             translatable
+            locked={aiBusy}
             className={`rounded-none border-0 shadow-none ${restEditorClass} ${
               aiBusy ? 'pointer-events-none opacity-60' : ''
             }`}
@@ -556,7 +558,9 @@ export function MessageComposer({
             variant="ghost"
             onClick={onSend}
             // Require text even when files are attached — no attachment-only sends.
-            disabled={isBlankRichText(composer) || submitting || Boolean(sendBlockedReason)}
+            disabled={
+              isBlankRichText(composer) || submitting || aiBusy || Boolean(sendBlockedReason)
+            }
             title={
               // The channel block outranks the blank-text hint: if the window is shut,
               // filling the box in changes nothing and saying so would mislead.

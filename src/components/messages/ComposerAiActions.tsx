@@ -65,23 +65,25 @@ type Props = {
 
 /**
  * ⛔ MIRRORS `MAX_INSTRUCTIONS_CHARS` in the backend, which applies a plain `.slice()` to the note.
- * Text over it is refused here rather than cut in half where the agent cannot see it.
+ * Text longer than that is a reply the agent wrote, not a note: it goes to `polish` (the backend
+ * takes a draft up to MAX_DRAFT_CHARS, 8000) instead of being cut in half where nobody sees it.
  */
 export const MAX_INSTRUCTIONS = 2000;
-/*
-  Text holding a reply template's placeholders is a template, i.e. a draft: it goes through
-  `polish`, the only mode that fills placeholders for this thread before the model sees them. As a
-  note the model would get the raw tokens.
-*/
+/** The backend's MAX_DRAFT_CHARS for `polish`. */
+const MAX_DRAFT = 8000;
 
 /** The only 409 compose-reply issues on generate/guided: the thread has no inbound turn to answer. */
-const NO_INBOUND_GUIDANCE = 'Write the reply yourself in the editor.';
+const NO_INBOUND_GUIDANCE = 'Write the reply yourself in the editor, then press AI draft.';
+const isNoInbound = (err: unknown): boolean =>
+  getErrorStatus(err) === 409 && !isAiDraftsOffError(err);
 
 /** What the last applied draft was made from — "Try again" re-asks with exactly this. */
 type Applied = {
   mode: Mode;
   /** The agent's text the draft was made from: the note (guided) or the draft (polish). */
   input: string;
+  /** The draft as it went into the editor — the language badge holds only while it is unchanged. */
+  html: string;
   language?: string;
   groundedInKb?: boolean;
 };
@@ -149,16 +151,34 @@ export function ComposerAiActions({
    * `restoreTo` is what Undo brings back: the editor as it is now on a first draft, the original
    * text on Try again (so Undo after three retries is still the agent's own words).
    */
-  const run = async (mode: Mode, input: string, restoreTo: string) => {
+  const request = (mode: Mode, input: string) =>
+    messageService.composeReply(messageId, {
+      mode,
+      ...(mode === 'guided' ? { instructions: input } : {}),
+      ...(mode === 'polish' ? { draft: input } : {}),
+    });
+
+  const run = async (requestedMode: Mode, requestedInput: string, restoreTo: string) => {
     const before = latestComposer.current;
+    let mode = requestedMode;
+    let input = requestedInput;
     setBusy(true);
     setError(null);
     try {
-      const response = await messageService.composeReply(messageId, {
-        mode,
-        ...(mode === 'guided' ? { instructions: input } : {}),
-        ...(mode === 'polish' ? { draft: input } : {}),
-      });
+      let response;
+      try {
+        response = await request(mode, input);
+      } catch (err) {
+        /*
+          A thread with no customer message (it opens with our own outbound mail) has nothing for
+          a note to answer — but the agent's text can still be made sendable: polish needs only
+          the text. The old panel offered this as "Make it customer-ready"; here it is automatic.
+        */
+        if (mode !== 'guided' || !isNoInbound(err) || !mounted.current) throw err;
+        mode = 'polish';
+        input = before;
+        response = await request(mode, input);
+      }
       if (!mounted.current) return;
       const text = response.data?.text;
       if (!text) {
@@ -177,6 +197,7 @@ export function ComposerAiActions({
       setApplied({
         mode,
         input,
+        html,
         language: response.data?.language,
         groundedInKb: response.data?.groundedInKb,
       });
@@ -192,32 +213,39 @@ export function ComposerAiActions({
       // the note below instead of offering a control that cannot work.
       if (isAiDraftsOffError(err)) refreshAiDrafts();
       const message = describeError(err);
-      const noInbound =
-        getErrorStatus(err) === 409 && !isAiDraftsOffError(err) && mode !== 'polish';
-      setError(noInbound ? `${message} ${NO_INBOUND_GUIDANCE}` : message);
+      setError(
+        isNoInbound(err) && mode === 'generate' ? `${message} ${NO_INBOUND_GUIDANCE}` : message
+      );
     } finally {
       if (mounted.current) setBusy(false);
     }
   };
 
   const draft = () => {
+    // Pressed again over an applied draft: Undo must still reach the agent's OWN text, not the
+    // draft this one replaces.
+    const restoreTo = previous ?? composer;
     if (isBlankRichText(composer)) {
-      void run('generate', '', composer);
+      void run('generate', '', restoreTo);
       return;
     }
-    // A template is a draft to adapt; anything else the agent typed is their note.
-    if (hasTemplatePlaceholders(composer)) {
-      void run('polish', composer, composer);
-      return;
-    }
-    const note = stripHtml(composer).trim();
-    if (note.length > MAX_INSTRUCTIONS) {
+    const text = stripHtml(composer).trim();
+    if (text.length > MAX_DRAFT) {
       setError(
-        `AI draft reads your text as a note of up to ${MAX_INSTRUCTIONS.toLocaleString()} characters — shorten it, or clear the editor to draft from scratch.`
+        `Too long for AI draft (${MAX_DRAFT.toLocaleString()} characters) — shorten it, or clear the editor to draft from scratch.`
       );
       return;
     }
-    void run('guided', note, composer);
+    /*
+      A reply template (placeholders) is a draft to adapt: `polish` is the only mode that fills
+      placeholders for this thread before the model sees them — as a note it would get raw tokens.
+      So is anything longer than a note can be. The rest is the agent's note.
+    */
+    if (hasTemplatePlaceholders(composer) || text.length > MAX_INSTRUCTIONS) {
+      void run('polish', composer, restoreTo);
+      return;
+    }
+    void run('guided', text, restoreTo);
   };
 
   const retry = () => {
@@ -276,7 +304,8 @@ export function ComposerAiActions({
       {/* The draft is in the editor: what it is, and the two ways back out of it. */}
       {previous !== null && !busy && (
         <div className="inline-flex items-center gap-1" data-testid="ai-draft-status">
-          {applied?.language && (
+          {/* Only while the draft is as it landed: after Translate it is in another language. */}
+          {applied?.language && composer === applied.html && (
             <span className={`${LABEL} text-ai`} title="Written in the customer's language">
               {applied.language.toUpperCase()}
             </span>
