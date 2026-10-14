@@ -17,6 +17,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { editorHtmlToText } from '@/lib/editorText';
 import { shieldPlaceholders } from '@/lib/replyPlaceholders';
 import { cn } from '@/lib/utils';
 import { TranslateButton } from './TranslateButton';
@@ -50,30 +51,6 @@ type RichTextEditorProps = {
    * the content is being written. Unlike `editable`, it follows the prop after mount.
    */
   locked?: boolean;
-};
-
-/**
- * The editor's content as the plain text a translator gets: blocks split by blank lines, a link's
- * URL kept beside its words (`here (https://…)`) so it survives, list items as `- ` / `1. ` lines.
- * Parsed with DOMParser: an inert document, nothing in it loads or runs.
- */
-const textForTranslation = (html: string): string => {
-  const root = new DOMParser().parseFromString(html, 'text/html').body;
-  root.querySelectorAll('a[href]').forEach((anchor) => {
-    const href = anchor.getAttribute('href') ?? '';
-    if (href && anchor.textContent?.trim() !== href) anchor.append(` (${href})`);
-  });
-  root.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
-  root.querySelectorAll('li > p:first-child').forEach((paragraph) => {
-    const item = paragraph.parentElement!;
-    const ordered = item.parentElement?.tagName === 'OL';
-    const position = Array.from(item.parentElement?.children ?? []).indexOf(item) + 1;
-    paragraph.prepend(ordered ? `${position}. ` : '- ');
-  });
-  return Array.from(root.querySelectorAll('p, h1, h2, h3, pre'))
-    .map((block) => block.textContent?.trim() ?? '')
-    .filter(Boolean)
-    .join('\n\n');
 };
 
 /**
@@ -437,7 +414,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
                 <TranslateButton
                   getText={() => {
                     // Template placeholders go out as markers, so the model cannot reword them.
-                    const shielded = shieldPlaceholders(textForTranslation(editor.getHTML()));
+                    const shielded = shieldPlaceholders(editorHtmlToText(editor.getHTML()));
                     restorePlaceholders.current = shielded.restore;
                     return shielded.text;
                   }}
