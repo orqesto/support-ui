@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Label } from '@/components/ui/Label';
 import { DataTable, type ColumnDef } from '@/components/ui/DataTable';
 import { SearchInput } from '@/components/ui/SearchInput';
+import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { contactService, type ContactProfile } from '@/services/contact.service';
 import {
@@ -125,6 +126,15 @@ const recordColumns: ColumnDef<CustomApiStoredRecord>[] = [
  * "never rendered until opened" as a comment above a `<details>` first, which was simply false; the
  * test that found it was matching the value twice.
  */
+/** Why a lookup REQUEST failed (not a vendor answer), for an admin's Details on its card. */
+const failedRequestReason = (error: unknown): string => {
+  const status = getErrorStatus(error);
+  return (
+    getApiErrorMessage(error) ??
+    (status ? `The request failed (HTTP ${status}).` : 'The request did not complete.')
+  );
+};
+
 const RawRows = ({ rows }: { rows: Record<string, unknown>[] }) => {
   const [rawOpen, setRawOpen] = useState(false);
   return (
@@ -149,7 +159,7 @@ const RawRows = ({ rows }: { rows: Record<string, unknown>[] }) => {
 /**
  * One live result: the SAME card the thread panel renders (D38 parity, 2026-10-14). This page is
  * opened FROM that panel, and a page that laid the same record out differently — or softened its
- * flag — would make an agent doubt which one is true. The card says "Type a reference above" for a
+ * flag — would make an agent doubt which one is true. The card says "Type the {reference name} above" for a
  * typed-value lookup a Refresh could not run (no value was submitted), and names what was searched
  * on a not-found.
  */
@@ -376,6 +386,9 @@ export const CustomerRecordsPage = () => {
             resultShape: lookup.resultShape,
             referenceLabel: lookup.referenceLabel ?? null,
             status: 'failed',
+            // No class: agents read the generic sentence. What went wrong stays for an admin's
+            // Details (the card shows `reason` only to MANAGE_INTEGRATIONS).
+            reason: failedRequestReason(answer.reason),
           },
         ];
       });

@@ -86,6 +86,7 @@ export const LookupHealthLine = ({
             size="sm"
             variant="ghost"
             className="h-5 px-1 text-[11px]"
+            aria-expanded={open}
             onClick={() => setOpen((was) => !was)}
           >
             {open ? 'Hide details' : 'Details ▸'}

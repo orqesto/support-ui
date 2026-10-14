@@ -680,12 +680,12 @@ export const EndpointWizard = ({
               )}
             </div>
 
+            <ReferenceNameField reference={reference} />
             {/*
              * ⛔ D35, and ONLY for a manual lookup. An identity lookup resolves its parameter from
              * the contact, so the record it returns is that customer's by construction — asking
              * would be a question with one possible answer.
              */}
-            <ReferenceNameField reference={reference} />
             {paramSource === 'manual' && (
               <RecordFormatStep value={recordFormat} onChange={setRecordFormat} />
             )}

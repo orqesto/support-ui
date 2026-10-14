@@ -136,6 +136,7 @@ const Details = ({ text }: { text: string }) => {
         size="sm"
         variant="ghost"
         className="h-6 px-0 text-[11px]"
+        aria-expanded={open}
         onClick={() => setOpen((was) => !was)}
       >
         {open ? 'Hide details' : 'Details ▸'}
@@ -284,7 +285,7 @@ export const CustomApiResultCard = ({
           </div>
         ) : (
           <p className="text-[11px] text-muted-foreground">
-            Type a reference above to check this one.
+            Type the {referenceName} above to check this one.
           </p>
         ))}
 
@@ -315,8 +316,11 @@ export const CustomApiResultCard = ({
         // A status this build does not know yet — a NEWER backend (this frontend ships from `main`,
         // the backend on a tag, so either can lead). Say what the backend said, muted: never a
         // blank card, and never red for a state this build cannot judge.
+        // D1 (2026-10-14): the backend strips raw text only from the states it knows, so an
+        // unknown state's reason is shown to admins only.
         <p className="text-[11px] text-muted-foreground">
-          {result.reason ?? 'This lookup returned a result this version cannot display.'}
+          {(canSeeDetails ? result.reason : undefined) ??
+            'This lookup returned a result this version cannot display.'}
         </p>
       )}
 

@@ -580,7 +580,9 @@ describe('CustomerRecordsPage', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: /Refresh from source/ }));
 
-    expect(await screen.findByText(/Type a reference above to check this one/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Type the Reference above to check this one/)
+    ).toBeInTheDocument();
     expect(screen.queryByText(/Nothing found|No Reference|No matching records/)).toBeNull();
   });
 

@@ -443,9 +443,19 @@ describe('FE/BE skew — this frontend can reach production first', () => {
     availability.mockRejectedValue(Object.assign(new Error('Bad Request'), { status: 400 }));
     const { container } = render(<CustomApiLookupPanel conversationId={1} />);
     await waitFor(() => expect(availability).toHaveBeenCalled());
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    // Settled first: the CONTROL below (a 404 in the same harness) shows the line by now, so an
+    // empty panel here is the 400's answer and not a query still loading.
+    await new Promise((resolve) => setTimeout(resolve, 50));
     expect(screen.queryByText(LOOKUPS_NOT_ON_SERVER)).toBeNull();
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('CONTROL for the 400 case: a 404 in the same harness shows the line within the same wait', async () => {
+    availability.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await waitFor(() => expect(availability).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByText(LOOKUPS_NOT_ON_SERVER)).toBeInTheDocument();
   });
 
   it('a PRESS that 404s says the conversation is not visible — not "not on this server"', async () => {
@@ -804,7 +814,7 @@ describe('the no-email note', () => {
 });
 
 describe('a status this build does not know (a newer backend)', () => {
-  it("shows the backend's reason, muted — never a blank card", async () => {
+  it('an agent reads a neutral sentence, muted — never a blank card, never the raw reason', async () => {
     run.mockResolvedValue([
       card({
         status: 'from_the_future' as unknown as CustomApiLookupResult['status'],
@@ -813,7 +823,11 @@ describe('a status this build does not know (a newer backend)', () => {
     ]);
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
-    const text = await screen.findByText('Something new happened.');
+    // D1 (2026-10-14): the raw reason of an unknown state is for admins (see CustomApiResultCard.test).
+    const text = await screen.findByText(
+      'This lookup returned a result this version cannot display.'
+    );
+    expect(screen.queryByText('Something new happened.')).toBeNull();
     expect(text.className).toContain('text-muted-foreground');
     expect(text.className).not.toContain('text-destructive');
   });

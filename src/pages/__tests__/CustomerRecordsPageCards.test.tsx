@@ -204,4 +204,17 @@ describe('CustomerRecordsPage — the shared card', () => {
     await userEvent.click(screen.getByRole('button', { name: /Everything this system returned/ }));
     expect(screen.getByText(/untagged-value/)).toBeInTheDocument();
   });
+
+  it('a lookup request that threw keeps what went wrong for an admin’s Details', async () => {
+    useAuthStore.setState({
+      selectedOrganizationId: 1,
+      user: { id: 9, role: 'user', organizationRole: 'org_admin' } as User,
+    });
+    run.mockRejectedValue(Object.assign(new Error('Server Error'), { status: 502 }));
+    renderPage();
+    await searchFor('Reference', '1');
+    expect(await screen.findByText('This lookup could not be completed.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Details/ }));
+    expect(screen.getByText('The request failed (HTTP 502).')).toBeInTheDocument();
+  });
 });

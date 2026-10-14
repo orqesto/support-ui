@@ -202,6 +202,42 @@ describe('D1 — failures', () => {
   });
 });
 
+describe('a status this build does not know (a newer backend)', () => {
+  const future = card({
+    status: 'a_status_from_the_future' as CustomApiLookupResult['status'],
+    rows: [],
+    reason: 'vendor said: key sk-test-1 at api.acme.example',
+  });
+
+  it('an agent reads the neutral sentence, never the backend’s raw reason', () => {
+    show(future);
+    expect(
+      screen.getByText('This lookup returned a result this version cannot display.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/sk-test-1/)).toBeNull();
+  });
+
+  it('an admin still sees what the backend said', () => {
+    asRole('org_admin');
+    show(future);
+    expect(screen.getByText(/sk-test-1/)).toBeInTheDocument();
+  });
+});
+
+describe('Details toggles say whether they are open', () => {
+  it('aria-expanded follows the press', async () => {
+    asRole('org_admin');
+    show(card({ status: 'failed', rows: [], reason: 'raw', agentReason: 'auth' }));
+    const toggle = screen.getByRole('button', { name: /Details/ });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(toggle);
+    expect(screen.getByRole('button', { name: /Hide details/ })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
+  });
+});
+
 describe('the reference input', () => {
   it('placeholder and label are the reference name; the button stays on one line', () => {
     show(card({ status: 'needs_input', rows: [] }));
@@ -219,7 +255,7 @@ describe('the reference input', () => {
 
   it('the records page uses its own box: the card says where to type', () => {
     show(card({ status: 'needs_input', rows: [] }), { referenceInput: 'page' });
-    expect(screen.getByText('Type a reference above to check this one.')).toBeInTheDocument();
+    expect(screen.getByText('Type the User id above to check this one.')).toBeInTheDocument();
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 });
