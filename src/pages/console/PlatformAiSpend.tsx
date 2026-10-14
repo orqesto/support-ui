@@ -515,6 +515,7 @@ export const PlatformAiSpend = () => {
                                 settingsUnreadable={
                                   usage.totals.tokenBudgets?.settingsLookupFailed === true
                                 }
+                                capsUnreadable={usage.totals.tokenCaps?.lookupFailed === true}
                                 onOpen={() => setLimitsFor(org.organizationId)}
                                 nearShare={usage.totals.tokenLimitRules?.nearLimitShare}
                               />

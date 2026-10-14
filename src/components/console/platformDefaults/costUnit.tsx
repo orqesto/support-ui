@@ -17,11 +17,15 @@ export const toCostUnit = (per1k: number, unit: CostUnit): number =>
 export const fromCostUnit = (typed: number, unit: CostUnit): number =>
   tidy(typed / COST_UNIT_FACTOR[unit]);
 
-/** A typed cost, or null when the text is not a cost. Accepts "0,13" as well as "0.13". */
+/**
+ * A typed cost, or null when the field is blank or not a cost. The field is `type="number"`, so
+ * the browser hands over a normalised number ("1e-7" included) or "" for anything it can't read.
+ */
 export const parseCost = (text: string): number | null => {
-  const trimmed = text.trim().replace(',', '.');
-  if (!/^\d*\.?\d+$|^\d+\.$/.test(trimmed)) return null;
-  return Number(trimmed);
+  const trimmed = text.trim();
+  if (trimmed === '') return null;
+  const value = Number(trimmed);
+  return Number.isFinite(value) && value >= 0 ? value : null;
 };
 
 /** The effective cost (env/default included) in the typed unit, shown when nothing is typed. */
