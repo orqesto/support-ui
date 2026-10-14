@@ -336,6 +336,20 @@ export interface components {
             recordFormatPrefix: string | null;
             recordFormatLength: number | null;
             recordFormatCharset: string | null;
+            referenceLabel: string | null;
+            health: {
+                lastOkAt: string | null;
+                lastNoMatchAt: string | null;
+                lastFailedAt: string | null;
+                lastFailureClass: string | null;
+                lastFailureReason?: string | null;
+                noMatchStreak: number;
+                /** @enum {string|null} */
+                latest: "ok" | "no_match" | "failed" | null;
+                /** @enum {string} */
+                dot: "green" | "grey" | "red";
+                streakHint: boolean;
+            };
             headers: {
                 [key: string]: string;
             };
@@ -423,6 +437,7 @@ export interface components {
             resultShape: string;
             category: string | null;
             storesRecords: boolean;
+            referenceLabel?: string | null;
         };
         CustomApiStoredRecord: {
             id: number;
@@ -461,7 +476,29 @@ export interface components {
             missing?: string[];
             /** @enum {string} */
             missingKind?: "records" | "fields";
+            suggestedDataPath?: string;
             reason?: string;
+            /** @enum {string} */
+            agentReason?: "unreachable" | "timeout" | "auth" | "rate_limited" | "vendor_error" | "bad_config" | "unavailable";
+            referenceLabel?: string | null;
+            searchedFor?: {
+                /** @enum {string} */
+                kind: "email";
+                value: string;
+            } | {
+                /** @enum {string} */
+                kind: "reference";
+                value: string;
+            } | {
+                /** @enum {string} */
+                kind: "source";
+                label: string;
+            };
+            skippedBecause?: {
+                /** @enum {string} */
+                reason: "source_no_match" | "source_failed" | "source_no_identity";
+                sourceLabel: string;
+            };
             /** @enum {string} */
             ownership?: "owned" | "mismatch" | "unverified";
             /** @enum {string} */
@@ -500,8 +537,20 @@ export interface components {
                         [key: string]: string;
                     };
                     ownershipFrom: string | null;
+                    referenceLabel?: string;
                 }[];
             };
+            updatedAt: string;
+        };
+        CustomApiTemplateAdmin: {
+            id: number;
+            key: string;
+            name: string;
+            description: string;
+            /** @enum {string} */
+            status: "draft" | "published";
+            definition?: unknown;
+            definitionError?: string;
             updatedAt: string;
         };
         SlaBreach: {
