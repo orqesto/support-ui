@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff, useRefreshAiDrafts } from '@/hooks/useAiDraftsOff';
-import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
+import { editorHtmlToText } from '@/lib/editorText';
+import { isBlankRichText } from '@/lib/stripHtml';
 import { logger } from '@/lib/logger';
 import { hasTemplatePlaceholders } from '@/lib/replyPlaceholders';
 import {
@@ -213,8 +214,10 @@ export function ComposerAiActions({
       // the note below instead of offering a control that cannot work.
       if (isAiDraftsOffError(err)) refreshAiDrafts();
       const message = describeError(err);
+      // The backend's sentence has no full stop ("…to answer"), so the guidance ran on into it.
+      const sentence = /[.!?]$/.test(message.trim()) ? message.trim() : `${message.trim()}.`;
       setError(
-        isNoInbound(err) && mode === 'generate' ? `${message} ${NO_INBOUND_GUIDANCE}` : message
+        isNoInbound(err) && mode === 'generate' ? `${sentence} ${NO_INBOUND_GUIDANCE}` : message
       );
     } finally {
       if (mounted.current) setBusy(false);
@@ -229,7 +232,8 @@ export function ComposerAiActions({
       void run('generate', '', restoreTo);
       return;
     }
-    const text = stripHtml(composer).trim();
+    // Links keep their URL (`here (https://…)`): stripped, "see the guide" lost where it pointed.
+    const text = editorHtmlToText(composer);
     if (text.length > MAX_DRAFT) {
       setError(
         `Too long for AI draft (${MAX_DRAFT.toLocaleString()} characters) — shorten it, or clear the editor to draft from scratch.`

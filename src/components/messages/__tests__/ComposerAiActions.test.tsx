@@ -102,6 +102,26 @@ describe('ComposerAiActions — the editor is the only input', () => {
       expect(request.instructions).not.toMatch(/<[a-z]/i);
     });
 
+    it('🔴 a link in the note keeps its URL — "see the guide" alone says nothing', async () => {
+      render(<Host initial='<p>See <a href="https://help.example/guide">the guide</a>.</p>' />);
+      pressDraft();
+      await waitFor(() => expect(composeReply).toHaveBeenCalledTimes(1));
+      expect(composeReply).toHaveBeenCalledWith(42, {
+        mode: 'guided',
+        instructions: 'See the guide (https://help.example/guide).',
+      });
+    });
+
+    it('text with no paragraph markup at all is still read (never an empty note)', async () => {
+      render(<Host initial="refund issued today" />);
+      pressDraft();
+      await waitFor(() => expect(composeReply).toHaveBeenCalledTimes(1));
+      expect(composeReply).toHaveBeenCalledWith(42, {
+        mode: 'guided',
+        instructions: 'refund issued today',
+      });
+    });
+
     it('a reply template (placeholders) → adapted as a draft (polish), HTML and tokens intact', async () => {
       const template = '<p>Hi {first_name|there}, your ticket {{ticket_id}} is closed.</p>';
       render(<Host initial={template} />);
@@ -283,8 +303,10 @@ describe('ComposerAiActions — the editor is the only input', () => {
       render(<Host initial="" />);
       pressDraft();
       const alert = await screen.findByRole('alert');
-      expect(alert.textContent).toContain('no customer message to answer');
-      expect(alert.textContent).toContain('Write the reply yourself');
+      // Two sentences, not one run-on: the backend's has no full stop of its own.
+      expect(alert.textContent).toContain(
+        'no customer message to answer. Write the reply yourself'
+      );
     });
 
     it('429: the limit line; the text is unchanged', async () => {
