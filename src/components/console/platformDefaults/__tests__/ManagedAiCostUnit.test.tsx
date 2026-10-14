@@ -109,4 +109,13 @@ describe('ManagedAiDefaultsCard — cost unit', () => {
 
     expect(sentInput()).toMatchObject({ defaultCostPer1k: 0.00013, strongCostPer1k: 0.003 });
   });
+
+  it('saves a cost the browser hands over in exponent form', () => {
+    render(<ManagedAiDefaultsCard ai={aiWithCosts()} secrets={SECRETS} />);
+    openEditor();
+    fireEvent.change(cost('Strong tier', '1M'), { target: { value: '1e-4' } });
+    fireEvent.click(screen.getByRole('button', { name: /save ai defaults/i }));
+
+    expect(sentInput()).toMatchObject({ strongCostPer1k: 1e-7 });
+  });
 });

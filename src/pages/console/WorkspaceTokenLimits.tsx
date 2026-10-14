@@ -106,10 +106,16 @@ const MonthLine = ({
 export const WorkspaceLimitCell = ({
   budget,
   settingsUnreadable = false,
+  capsUnreadable = false,
   onOpen,
   nearShare,
 }: {
   budget: OrgTokenBudget;
+  /**
+   * BE `totals.tokenCaps.lookupFailed`: the stored monthly limits could not be read, and the
+   * backend then sends every monthly limit as null — "unknown", not "no monthly limit".
+   */
+  capsUnreadable?: boolean;
   /** BE R16 `settingsLookupFailed`: the limits and override shown are the fallback. */
   settingsUnreadable?: boolean;
   onOpen: () => void;
@@ -137,7 +143,10 @@ export const WorkspaceLimitCell = ({
       limit={budget.regular.limit}
       nearShare={nearShare}
     />
-    {budget.monthly && (
+    {budget.monthly && capsUnreadable && (
+      <span className="text-xs text-muted-foreground">Monthly limits unreadable</span>
+    )}
+    {budget.monthly && !capsUnreadable && (
       <>
         <MonthLine label="KB month" cap={budget.monthly.kb} nearShare={nearShare} />
         <MonthLine label="Regular month" cap={budget.monthly.regular} nearShare={nearShare} />

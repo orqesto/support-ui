@@ -49,6 +49,18 @@ describe('WorkspaceLimitCell — monthly limits', () => {
     expect(screen.getByText(/Regular month 0 \/ 10,000,000/)).toBeTruthy();
   });
 
+  it('says the monthly limits are unreadable, not absent, when the backend could not read them', () => {
+    render(
+      <WorkspaceLimitCell
+        budget={budget({ kb: null, regular: null })}
+        capsUnreadable
+        onOpen={noop}
+      />
+    );
+    expect(screen.getByText('Monthly limits unreadable')).toBeTruthy();
+    expect(screen.queryByText(/no monthly limit/)).toBeNull();
+  });
+
   it('shows nothing monthly from a backend that does not send it', () => {
     render(<WorkspaceLimitCell budget={budget()} onOpen={noop} />);
     expect(screen.queryByText(/month/)).toBeNull();
