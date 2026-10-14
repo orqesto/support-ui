@@ -8,7 +8,7 @@ import { useCustomApiLookup, useCustomApiLookupAvailability } from '@/hooks/useC
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { conversationContactService } from '@/services/conversationContact.service';
-import type { AddOutcome } from './useAiRecordNote';
+import type { AddOutcome } from './recordInsertOutcome';
 import type { CustomApiLookupResult } from '@/services/customApiLookup.service';
 import { CATEGORY_RECORD_LABELS, readCategory } from '@/components/settings/customApi/categories';
 import { relativeTime } from './messageDetailConstants';

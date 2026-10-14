@@ -1,6 +1,6 @@
 import { CustomApiLookupPanel, NO_EMAIL_IDENTITY_NOTE } from './CustomApiLookupPanel';
 import { PHONE_CONTACT } from './messageDetailConstants';
-import type { AddOutcome } from './useAiRecordNote';
+import type { AddOutcome } from './recordInsertOutcome';
 import type { Message } from '@/types';
 
 /**

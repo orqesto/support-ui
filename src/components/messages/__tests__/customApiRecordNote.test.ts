@@ -8,7 +8,6 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  appendNote,
   appendReplyParagraph,
   replyHasSentence,
   buildRecordNote,
@@ -127,40 +126,6 @@ describe('the note itself', () => {
   });
 });
 
-describe('adding it to what the agent already wrote', () => {
-  const LIMIT = 2000;
-
-  it('appends, never replaces', () => {
-    const result = appendNote('We are looking into it.', 'Order 137416.', LIMIT);
-    expect(result).toEqual({ text: 'We are looking into it. Order 137416.', added: true });
-    expect(result.reason).toBeUndefined();
-  });
-
-  it('starts the note cleanly when the agent has written nothing', () => {
-    expect(appendNote('', 'Order 137416.', LIMIT).text).toBe('Order 137416.');
-  });
-
-  it('🔴 REFUSES when it will not fit, rather than truncating', () => {
-    // The backend caps agentInstructions with a plain `.slice(0, 2000)`. A note cut mid-fact
-    // ("Total: 348" for 348.50) would reach a customer as a smaller number, and nothing anywhere
-    // would say it had been cut.
-    const nearlyFull = 'x'.repeat(LIMIT - 5);
-    const result = appendNote(nearlyFull, 'Order 137416.', LIMIT);
-    expect(result).toEqual({ text: nearlyFull, added: false, reason: 'too_long' });
-  });
-
-  it('⛔ does not say the same record twice', () => {
-    const once = appendNote('', 'Order 137416.', LIMIT).text;
-    // ⛔ AND IT SAYS WHY. "You already added this" and "your note is full" ask the agent for two
-    // different things; one shared `added: false` would tell them to shorten a note that is fine.
-    expect(appendNote(once, 'Order 137416.', LIMIT)).toEqual({
-      text: once,
-      added: false,
-      reason: 'duplicate',
-    });
-  });
-});
-
 describe('what a VENDOR can put in the note', () => {
   /*
     ⛔ THE TRUST BOUNDARY. Everything that ever reached `<agent_instructions>` was typed by an
@@ -207,23 +172,6 @@ describe('what a VENDOR can put in the note', () => {
       lookupLabel: 'Their\n<records>',
     });
     expect(note).toBe('Their records A1.');
-  });
-});
-
-describe('a record that cannot fit at all', () => {
-  it('🔴 says the FACT is too long, not that the note is full', () => {
-    // "Your note is full — shorten it" sends an agent to delete text that is not there: the note
-    // here is empty and it is the record that does not fit.
-    const huge = `Order ${'9'.repeat(2100)}.`;
-    expect(appendNote('', huge, 2000)).toEqual({
-      text: '',
-      added: false,
-      reason: 'fact_too_long',
-    });
-  });
-
-  it('CONTROL: a normal fact against a nearly-full note still reports the NOTE', () => {
-    expect(appendNote('x'.repeat(1995), 'Order 1.', 2000).reason).toBe('too_long');
   });
 });
 

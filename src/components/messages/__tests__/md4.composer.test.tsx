@@ -1,9 +1,7 @@
 /**
- * Message detail v4 — composer and layout (areas C1, C2, L1 below).
+ * Message detail v4 — composer and layout (areas C2, L1 below; C1, the AI panel's note box, is
+ * gone — the editor is AI draft's only input, see ComposerAiActions.test.tsx).
  *
- *   C1  The AI panel's note: "Your note for the AI draft", a visible "n / 2000" counter (the cap
- *       was always there, silently), and the note stays on screen and editable under a produced
- *       draft, so a fact added there reaches "Try again".
  *   C2  The composer's "Look up" opens the Lookups tab at the Connected systems block — in the
  *       slide-over it also opens the rail. Hidden in Internal-note mode and whenever the lookup
  *       panel itself would not render (availability no / error), on the panel's own query.
@@ -168,7 +166,6 @@ vi.mock('@/components/layout/Layout', () => ({
 }));
 
 import { MessageDetail } from '../MessageDetail';
-import { ComposerAiActions, MAX_INSTRUCTIONS } from '../ComposerAiActions';
 import { MessageDetailPage } from '@/pages/MessageDetailPage';
 import { PHONE_QUERY } from '../useIsPhone';
 
@@ -233,102 +230,6 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
-});
-
-// ─── C1 ───────────────────────────────────────────────────────────────────────
-
-describe('C1 — the note for the AI draft', () => {
-  const openPanel = (props: Partial<React.ComponentProps<typeof ComposerAiActions>> = {}) => {
-    const utils = render(
-      <ComposerAiActions messageId={42} composer="" setComposer={vi.fn()} {...props} />
-    );
-    fireEvent.click(screen.getByTitle('Draft this reply with AI'));
-    return utils;
-  };
-  const note = () => screen.getByLabelText('Your note for the AI draft');
-
-  it('is labelled for what it is, and the label names the textarea', () => {
-    openPanel();
-    expect(note().tagName).toBe('TEXTAREA');
-    expect(note()).toHaveAttribute(
-      'placeholder',
-      "Optional — leave empty and I'll answer from your knowledge base"
-    );
-    expect(screen.getByText('Your note for the AI draft')).toHaveClass('text-ai');
-  });
-
-  it('shows a counter that follows the typing', () => {
-    openPanel();
-    expect(screen.getByTestId('ai-note-count')).toHaveTextContent('0 / 2000');
-    fireEvent.change(note(), { target: { value: 'Order 137416' } });
-    expect(screen.getByTestId('ai-note-count')).toHaveTextContent('12 / 2000');
-  });
-
-  it('keeps the cap: 2100 typed characters store 2000, and the counter says so', () => {
-    openPanel();
-    fireEvent.change(note(), { target: { value: 'x'.repeat(2100) } });
-    expect((note() as HTMLTextAreaElement).value).toHaveLength(MAX_INSTRUCTIONS);
-    expect(screen.getByTestId('ai-note-count')).toHaveTextContent('2000 / 2000');
-  });
-
-  it('a controlled note (shared with the lookup) shows the HOST value and reports edits', () => {
-    const onInstructionsChange = vi.fn();
-    openPanel({ instructions: 'Order 1.', onInstructionsChange });
-    expect(note()).toHaveValue('Order 1.');
-    expect(screen.getByTestId('ai-note-count')).toHaveTextContent('8 / 2000');
-    fireEvent.change(note(), { target: { value: 'Order 12.' } });
-    expect(onInstructionsChange).toHaveBeenCalledWith('Order 12.');
-  });
-
-  it('stays on screen under a draft, and Try again sends what the note says NOW', async () => {
-    openPanel();
-    fireEvent.click(screen.getByText('Write reply'));
-    expect(await screen.findByText('Your parcel is at the border.')).toBeInTheDocument();
-    expect(svc.message.composeReply).toHaveBeenLastCalledWith(42, { mode: 'generate' });
-
-    // Draft text, then the note, then the actions (v4 order).
-    const draftText = screen.getByText('Your parcel is at the border.');
-    const useIt = screen.getByRole('button', { name: 'Use it' });
-    expect(
-      draftText.compareDocumentPosition(note()) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
-    expect(note().compareDocumentPosition(useIt) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-
-    fireEvent.change(note(), { target: { value: 'ships Monday' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
-    await waitFor(() =>
-      expect(svc.message.composeReply).toHaveBeenLastCalledWith(42, {
-        mode: 'guided',
-        instructions: 'ships Monday',
-      })
-    );
-  });
-
-  it('a guided draft whose note was emptied retries as generate, never guided-with-nothing', async () => {
-    openPanel();
-    fireEvent.change(note(), { target: { value: 'ships Monday' } });
-    fireEvent.click(screen.getByText('Write reply'));
-    await screen.findByText('Your parcel is at the border.');
-    fireEvent.change(note(), { target: { value: '   ' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
-    await waitFor(() =>
-      expect(svc.message.composeReply).toHaveBeenLastCalledWith(42, { mode: 'generate' })
-    );
-  });
-
-  it('a POLISH draft shows no note — polish does not send one', async () => {
-    openPanel({ composer: '<p>parcel stuck</p>' });
-    fireEvent.click(screen.getByText('Make it customer-ready'));
-    await screen.findByText('Your parcel is at the border.');
-    expect(screen.queryByLabelText('Your note for the AI draft')).not.toBeInTheDocument();
-  });
-
-  it('AI drafts off: no panel, no note — the off notice instead', () => {
-    aiDrafts.off = true;
-    render(<ComposerAiActions messageId={42} composer="" setComposer={vi.fn()} />);
-    expect(screen.getByTestId('ai-drafts-off-note')).toBeInTheDocument();
-    expect(screen.queryByText('Your note for the AI draft')).not.toBeInTheDocument();
-  });
 });
 
 // ─── C2 ───────────────────────────────────────────────────────────────────────

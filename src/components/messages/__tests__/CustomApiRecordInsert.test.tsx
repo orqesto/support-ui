@@ -1,16 +1,15 @@
 /**
- * L2 P4 — the control that puts a record into the agent's note for the AI draft.
+ * L2 P4 — the control that puts a record into the agent's reply.
  *
  * ⛔ What it must never do: send anything by itself, add a field the agent did not tick, or let a
- * fact go missing quietly. The note reaches the model inside `<agent_instructions>`, which the
- * prompt tells it to treat as fact — so an unticked total appearing there is a number we told a
+ * fact go missing quietly. AI draft reads the reply's text as the agent's note, which the prompt
+ * tells the model to treat as fact — so an unticked total appearing there is a number we told a
  * customer on nobody's authority.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CustomApiRecordInsert } from '../CustomApiRecordInsert';
-import { RecordInsertTargetContext } from '../useAiRecordNote';
 import type { LookupField } from '@/services/customApiLookup.service';
 
 afterEach(cleanup);
@@ -54,15 +53,17 @@ const renderInsert = (onUseInReply = vi.fn().mockReturnValue('added')) => {
 const open = async (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole('button', { name: /Use in reply/i }));
 
-describe('putting a record into the note', () => {
+describe('putting a record into the reply', () => {
   it('🔴 adds the default fields as one readable fact', async () => {
     const user = userEvent.setup();
     const onUseInReply = renderInsert();
 
     await open(user);
-    await user.click(screen.getByRole('button', { name: 'Add to my note' }));
+    await user.click(screen.getByRole('button', { name: 'Add to my reply' }));
 
-    expect(onUseInReply).toHaveBeenCalledWith('Order 137416 — Status: On its way. Placed: 2026-09-01.');
+    expect(onUseInReply).toHaveBeenCalledWith(
+      'Order 137416 — Status: On its way. Placed: 2026-09-01.'
+    );
   });
 
   it('⛔ the TOTAL is not there unless the agent ticks it', async () => {
@@ -73,7 +74,7 @@ describe('putting a record into the note', () => {
     await open(user);
     expect(screen.getByLabelText('Total: 348.5 EUR')).not.toBeChecked();
 
-    await user.click(screen.getByRole('button', { name: 'Add to my note' }));
+    await user.click(screen.getByRole('button', { name: 'Add to my reply' }));
     expect(onUseInReply.mock.calls[0][0]).not.toContain('348.5');
   });
 
@@ -83,7 +84,7 @@ describe('putting a record into the note', () => {
 
     await open(user);
     await user.click(screen.getByLabelText('Total: 348.5 EUR'));
-    await user.click(screen.getByRole('button', { name: 'Add to my note' }));
+    await user.click(screen.getByRole('button', { name: 'Add to my reply' }));
 
     expect(onUseInReply.mock.calls[0][0]).toContain('Total: 348.5 EUR');
   });
@@ -111,25 +112,14 @@ describe('putting a record into the note', () => {
     expect(onUseInReply).not.toHaveBeenCalled();
   });
 
-  it('says the note is FULL rather than letting the fact vanish', async () => {
-    const user = userEvent.setup();
-    renderInsert(vi.fn().mockReturnValue('too_long'));
-
-    await open(user);
-    await user.click(screen.getByRole('button', { name: 'Add to my note' }));
-
-    expect(screen.getByText(/Note is full/i)).toBeInTheDocument();
-  });
-
-  it('⛔ distinguishes "already there" from "full" — they ask for different things', async () => {
+  it('says when the sentence is already there', async () => {
     const user = userEvent.setup();
     renderInsert(vi.fn().mockReturnValue('duplicate'));
 
     await open(user);
-    await user.click(screen.getByRole('button', { name: 'Add to my note' }));
+    await user.click(screen.getByRole('button', { name: 'Add to my reply' }));
 
-    expect(screen.getByText(/Already in your note/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Note is full/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Already in your reply')).toBeInTheDocument();
   });
 
   it('cannot add an empty fact', async () => {
@@ -141,7 +131,7 @@ describe('putting a record into the note', () => {
       await user.click(screen.getByLabelText(label));
     }
 
-    expect(screen.getByRole('button', { name: 'Add to my note' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add to my reply' })).toBeDisabled();
     expect(onUseInReply).not.toHaveBeenCalled();
   });
 });
@@ -175,19 +165,6 @@ describe('records that have nothing to give', () => {
     );
 
     expect(screen.getByRole('button', { name: /Use in reply/i })).toBeInTheDocument();
-  });
-});
-
-describe('a record that cannot fit at all', () => {
-  it('🔴 says to untick a field, not to shorten a note that may be empty', async () => {
-    const user = userEvent.setup();
-    renderInsert(vi.fn().mockReturnValue('fact_too_long'));
-
-    await open(user);
-    await user.click(screen.getByRole('button', { name: 'Add to my note' }));
-
-    expect(screen.getByText(/untick a field/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Note is full/i)).not.toBeInTheDocument();
   });
 });
 
@@ -229,7 +206,7 @@ describe('a record we could not confirm belongs to this customer (D38)', () => {
     );
 
     await user.click(screen.getByRole('button', { name: /Use in reply/i }));
-    await user.click(screen.getByRole('button', { name: 'Add to my note' }));
+    await user.click(screen.getByRole('button', { name: 'Add to my reply' }));
 
     expect(onUseInReply).toHaveBeenCalled();
   });
@@ -253,34 +230,14 @@ describe('a record we could not confirm belongs to this customer (D38)', () => {
   });
 });
 
-/*
-  With no usable AI note the host routes the same sentence into the REPLY
-  and says so through RecordInsertTargetContext. Every word must name where it lands.
-*/
-describe('the reply target: every word names the reply', () => {
-  const renderForReply = (onUseInReply = vi.fn().mockReturnValue('added')) => {
-    render(
-      <RecordInsertTargetContext.Provider value="reply">
-        <CustomApiRecordInsert
-          row={ROW}
-          fields={FIELDS}
-          category="order"
-          lookupLabel="Their records"
-          onUseInReply={onUseInReply}
-        />
-      </RecordInsertTargetContext.Provider>
-    );
-    return onUseInReply;
-  };
-
-  it('still offered; hint, button and outcome say "reply"; the SAME sentence goes out', async () => {
+describe('every word names the reply', () => {
+  it('hint, button and outcome say "reply"; the exact sentence goes out', async () => {
     const user = userEvent.setup();
-    const onUseInReply = renderForReply();
+    const onUseInReply = renderInsert();
     await open(user);
     expect(
       screen.getByText('Adds these to your reply as a sentence — edit it before sending.')
     ).toBeInTheDocument();
-    expect(screen.queryByText(/note for the AI draft/)).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Add to my reply' }));
     expect(onUseInReply).toHaveBeenCalledWith(
       'Order 137416 — Status: On its way. Placed: 2026-09-01.'
@@ -288,52 +245,11 @@ describe('the reply target: every word names the reply', () => {
     expect(screen.getByText('Added to your reply')).toBeInTheDocument();
   });
 
-  it('"Already in your reply" for a duplicate', async () => {
-    const user = userEvent.setup();
-    renderForReply(vi.fn().mockReturnValue('duplicate'));
-    await open(user);
-    await user.click(screen.getByRole('button', { name: 'Add to my reply' }));
-    expect(screen.getByText('Already in your reply')).toBeInTheDocument();
-  });
-
   it('an internal note being written: says so instead of moving it', async () => {
     const user = userEvent.setup();
-    renderForReply(vi.fn().mockReturnValue('note_in_progress'));
+    renderInsert(vi.fn().mockReturnValue('note_in_progress'));
     await open(user);
     await user.click(screen.getByRole('button', { name: 'Add to my reply' }));
     expect(screen.getByText('Post or clear your internal note first')).toBeInTheDocument();
-  });
-
-  it('the target switching (the setting loaded, a 409) drops an outcome that named the other place', async () => {
-    const user = userEvent.setup();
-    const props = {
-      row: ROW,
-      fields: FIELDS,
-      category: 'order' as const,
-      lookupLabel: 'Their records',
-      onUseInReply: vi.fn().mockReturnValue('added'),
-    };
-    const view = render(
-      <RecordInsertTargetContext.Provider value="note">
-        <CustomApiRecordInsert {...props} />
-      </RecordInsertTargetContext.Provider>
-    );
-    await open(user);
-    await user.click(screen.getByRole('button', { name: 'Add to my note' }));
-    expect(screen.getByText('Added to your note')).toBeInTheDocument();
-    view.rerender(
-      <RecordInsertTargetContext.Provider value="reply">
-        <CustomApiRecordInsert {...props} />
-      </RecordInsertTargetContext.Provider>
-    );
-    expect(screen.queryByText(/Added to your/)).not.toBeInTheDocument();
-  });
-
-  it('CONTROL: without the context (every other host) the copy is the note’s', async () => {
-    const user = userEvent.setup();
-    renderInsert();
-    await open(user);
-    expect(screen.getByRole('button', { name: 'Add to my note' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Add to my reply' })).not.toBeInTheDocument();
   });
 });

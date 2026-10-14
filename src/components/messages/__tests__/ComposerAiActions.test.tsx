@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-library/react';
 
 // Typed so the mock's return isn't `any` — the repo lints tests too, and
 // @typescript-eslint/no-unsafe-return rejects an untyped vi.fn() passthrough.
@@ -12,27 +13,6 @@ const composeReply = vi.fn<
 vi.mock('@/services/message.service', () => ({
   messageService: {
     composeReply: (...args: unknown[]) => composeReply(...args),
-  },
-}));
-
-// The real dropdown is exercised in shared/__tests__/TranslateButton.test.tsx. Here it
-// only has to hand back a translation and a clear, and record which text it was given.
-const translateButtonTexts: (string | undefined)[] = [];
-vi.mock('@/components/shared/TranslateButton', () => ({
-  TranslateButton: (props: {
-    text?: string;
-    onTranslated: (content: string, subject?: string, language?: string) => void;
-    onCleared: () => void;
-  }) => {
-    translateButtonTexts.push(props.text);
-    return (
-      <>
-        <button onClick={() => props.onTranslated('Your parcel is at customs.', undefined, 'en')}>
-          mock-translate
-        </button>
-        <button onClick={props.onCleared}>mock-show-original</button>
-      </>
-    );
   },
 }));
 
@@ -50,33 +30,49 @@ vi.mock('@/hooks/useAiDraftsOff', () => ({
   useRefreshAiDrafts: () => refreshAiDrafts,
 }));
 
-import { ComposerAiActions } from '@/components/messages/ComposerAiActions';
+import { ComposerAiActions, MAX_INSTRUCTIONS } from '@/components/messages/ComposerAiActions';
 import { apiError } from '@/test/apiError';
-
-const setComposer = vi.fn<(html: string) => void>();
 
 const onApplied =
   vi.fn<
     (source: string | null, draft?: { text: string; mode?: string; language?: string }) => void
   >();
+const onBusyChange = vi.fn<(busy: boolean) => void>();
 
-const openPanel = (composer = '') => {
-  const utils = render(
+/** The composer as the host holds it — state, so a draft, an undo and a retry all chain. */
+let composerNow = '';
+let setComposerFromTest: (html: string) => void = () => undefined;
+const Host = ({ initial }: { initial: string }) => {
+  const [composer, setComposer] = useState(initial);
+  composerNow = composer;
+  setComposerFromTest = setComposer;
+  return (
     <ComposerAiActions
       messageId={42}
       composer={composer}
       setComposer={setComposer}
       onApplied={onApplied}
+      onBusyChange={onBusyChange}
     />
   );
-  fireEvent.click(screen.getByTitle('Draft this reply with AI'));
-  return utils;
 };
 
-describe('ComposerAiActions', () => {
+const draftButton = () => screen.getByRole('button', { name: /AI draft|Drafting/ });
+const pressDraft = () => fireEvent.click(draftButton());
+const lastRequest = () => composeReply.mock.calls.at(-1)?.[1];
+
+/** A response the test releases by hand — for what happens while one is in flight. */
+const deferred = () => {
+  let resolve: (value: { data: { text: string; language?: string } }) => void = () => undefined;
+  const promise = new Promise<{ data: { text: string; language?: string } }>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+};
+
+describe('ComposerAiActions — the editor is the only input', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    translateButtonTexts.length = 0;
     aiConfigured.value = true;
     aiDrafts.off = false;
     composeReply.mockResolvedValue({
@@ -85,545 +81,282 @@ describe('ComposerAiActions', () => {
   });
   afterEach(cleanup);
 
-  describe('which action is offered (state-aware — never a mystery disabled button)', () => {
-    it('empty composer → asks what the reply should say, offers only "Write reply"', () => {
-      openPanel('');
-      expect(screen.getByText('Your note for the AI draft')).toBeInTheDocument();
-      expect(screen.getByText('Write reply')).toBeInTheDocument();
-      expect(screen.queryByText('Make it customer-ready')).not.toBeInTheDocument();
+  describe('what the editor text means', () => {
+    it('empty editor → a reply from the knowledge base (generate), nothing else sent', async () => {
+      render(<Host initial="<p></p>" />);
+      pressDraft();
+      await waitFor(() => expect(composeReply).toHaveBeenCalledTimes(1));
+      expect(composeReply).toHaveBeenCalledWith(42, { mode: 'generate' });
     });
 
-    it('composer with your text → offers to clean it up and shows what it will act on', () => {
-      openPanel('<p>parcel stuck, we send new one</p>');
-      expect(screen.getByText('Your text:')).toBeInTheDocument();
-      expect(screen.getByText(/parcel stuck, we send new one/)).toBeInTheDocument();
-      // The original bug: this button rendered but was disabled for reasons the
-      // agent could not see, because it read a field outside the panel.
-      expect(screen.getByText('Make it customer-ready').closest('button')).toBeEnabled();
+    it('text in the editor → that text is the note (guided), as plain text', async () => {
+      render(
+        <Host initial="<p>Refund sent <strong>today</strong>.</p><p>Arrives in 3 days.</p>" />
+      );
+      pressDraft();
+      await waitFor(() => expect(composeReply).toHaveBeenCalledTimes(1));
+      const request = lastRequest() as { mode: string; instructions: string };
+      expect(request.mode).toBe('guided');
+      expect(request.instructions).toContain('Refund sent');
+      expect(request.instructions).toContain('Arrives in 3 days.');
+      expect(request.instructions).not.toMatch(/<[a-z]/i);
     });
 
-    it('a markup-only composer counts as empty', () => {
-      openPanel('<p></p>');
-      expect(screen.getByText('Your note for the AI draft')).toBeInTheDocument();
+    it('a reply template (placeholders) → adapted as a draft (polish), HTML and tokens intact', async () => {
+      const template = '<p>Hi {first_name|there}, your ticket {{ticket_id}} is closed.</p>';
+      render(<Host initial={template} />);
+      pressDraft();
+      await waitFor(() => expect(composeReply).toHaveBeenCalledTimes(1));
+      expect(composeReply).toHaveBeenCalledWith(42, { mode: 'polish', draft: template });
     });
 
-    it('"write a new reply instead" switches views without discarding your text', () => {
-      openPanel('<p>my rough note</p>');
-      fireEvent.click(screen.getByText('Write a new reply instead →'));
+    it('CONTROL: braces that are not a placeholder are an ordinary note', async () => {
+      render(<Host initial="<p>Use code {SPRING} at checkout</p>" />);
+      pressDraft();
+      await waitFor(() => expect(composeReply).toHaveBeenCalledTimes(1));
+      expect((lastRequest() as { mode: string }).mode).toBe('guided');
+    });
 
-      expect(screen.getByText('Your note for the AI draft')).toBeInTheDocument();
-      expect(screen.getByText(/kept until you choose/i)).toBeInTheDocument();
-      expect(setComposer).not.toHaveBeenCalled();
+    it('⛔ text longer than a note is a reply the agent wrote → polish, never cut as a note', async () => {
+      const long = `<p>${'x'.repeat(MAX_INSTRUCTIONS + 1)}</p>`;
+      render(<Host initial={long} />);
+      pressDraft();
+      await waitFor(() => expect(composeReply).toHaveBeenCalledTimes(1));
+      expect(composeReply).toHaveBeenCalledWith(42, { mode: 'polish', draft: long });
+    });
 
-      fireEvent.click(screen.getByText('← Back to my text'));
-      expect(screen.getByText('Your text:')).toBeInTheDocument();
+    it('CONTROL: a note exactly at the cap is still a note', async () => {
+      render(<Host initial={`<p>${'x'.repeat(MAX_INSTRUCTIONS)}</p>`} />);
+      pressDraft();
+      await waitFor(() => expect(composeReply).toHaveBeenCalledTimes(1));
+      expect((lastRequest() as { mode: string }).mode).toBe('guided');
+    });
+
+    it('over the polish limit too: refused with a message, nothing sent, text untouched', () => {
+      const huge = `<p>${'x'.repeat(8001)}</p>`;
+      render(<Host initial={huge} />);
+      pressDraft();
+      expect(composeReply).not.toHaveBeenCalled();
+      expect(screen.getByRole('alert').textContent).toMatch(/Too long for AI draft/);
+      expect(composerNow).toBe(huge);
     });
   });
 
-  describe('request shape', () => {
-    it('no instructions → generate', async () => {
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-      await waitFor(() => expect(composeReply).toHaveBeenCalledWith(42, { mode: 'generate' }));
-    });
-
-    it('instructions typed → guided', async () => {
-      openPanel('');
-      fireEvent.change(screen.getByPlaceholderText(/leave empty and I'll answer/i), {
-        target: { value: 'parcel is at the border' },
+  describe('the draft lands in the editor', () => {
+    it('replaces the editor content as editor HTML and reports its source', async () => {
+      render(<Host initial="<p>refund ok</p>" />);
+      pressDraft();
+      await waitFor(() => expect(composerNow).toContain('Your parcel is at the border.'));
+      expect(composerNow).toMatch(/^<p>/);
+      expect(onApplied).toHaveBeenCalledWith('ai_compose_guided', {
+        text: composerNow,
+        mode: 'guided',
+        language: 'en',
       });
-      fireEvent.click(screen.getByText('Write reply'));
-      await waitFor(() =>
-        expect(composeReply).toHaveBeenCalledWith(42, {
-          mode: 'guided',
-          instructions: 'parcel is at the border',
-        })
-      );
+      expect(screen.getByTestId('ai-draft-status').textContent).toContain('EN');
     });
 
-    it('cleaning up your own text → polish, sending the composer content', async () => {
-      openPanel('<p>parcel stuck</p>');
-      fireEvent.click(screen.getByText('Make it customer-ready'));
-      await waitFor(() =>
-        expect(composeReply).toHaveBeenCalledWith(42, {
-          mode: 'polish',
-          draft: '<p>parcel stuck</p>',
-        })
-      );
-    });
-  });
-
-  describe('preview before anything is replaced', () => {
-    it('shows the draft and does NOT touch the composer until accepted', async () => {
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-
-      expect(await screen.findByText('Use it')).toBeInTheDocument();
-      expect(screen.getByText('Your parcel is at the border.')).toBeInTheDocument();
-      expect(setComposer).not.toHaveBeenCalled();
+    it('while drafting: the button says so, is disabled, and the host is told (lock the editor)', async () => {
+      const pending = deferred();
+      composeReply.mockReturnValueOnce(pending.promise);
+      render(<Host initial="" />);
+      pressDraft();
+      expect(draftButton().textContent).toContain('Drafting');
+      expect((draftButton() as HTMLButtonElement).disabled).toBe(true);
+      expect(onBusyChange).toHaveBeenLastCalledWith(true);
+      await act(async () => {
+        pending.resolve({ data: { text: 'Done.' } });
+        await pending.promise;
+      });
+      expect(onBusyChange).toHaveBeenLastCalledWith(false);
+      expect(draftButton().textContent).toContain('AI draft');
     });
 
-    it('"Use it" writes the draft into the composer as HTML', async () => {
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-      fireEvent.click(await screen.findByText('Use it'));
-
-      expect(setComposer).toHaveBeenCalledTimes(1);
-      expect(setComposer.mock.calls[0][0]).toContain('Your parcel is at the border.');
+    it('Undo puts the agent’s own text back and un-stamps the reply', async () => {
+      render(<Host initial="<p>refund ok</p>" />);
+      pressDraft();
+      await waitFor(() => expect(composerNow).toContain('border'));
+      fireEvent.click(screen.getByTitle('Restore what you had written'));
+      expect(composerNow).toBe('<p>refund ok</p>');
+      expect(onApplied).toHaveBeenLastCalledWith(null);
+      expect(screen.queryByTestId('ai-draft-status')).toBeNull();
     });
 
-    // The note under a draft (v4) stays editable after the draft came back: "Use it" clears the
-    // note the draft was MADE from, never one the agent typed since.
-    const noteBox = () => screen.getByLabelText('Your note for the AI draft');
-    it('"Use it" clears the note the draft was made from', async () => {
-      openPanel('');
-      fireEvent.change(noteBox(), { target: { value: 'parcel is at the border' } });
-      fireEvent.click(screen.getByText('Write reply'));
-      fireEvent.click(await screen.findByText('Use it'));
-      fireEvent.click(screen.getByTitle('Draft this reply with AI'));
-      expect(noteBox()).toHaveValue('');
+    it('Try again re-asks with the ORIGINAL note (not the draft now in the editor); Undo still restores it', async () => {
+      render(<Host initial="<p>refund ok</p>" />);
+      pressDraft();
+      await waitFor(() => expect(composerNow).toContain('border'));
+      composeReply.mockResolvedValueOnce({ data: { text: 'Second version.', language: 'en' } });
+      fireEvent.click(screen.getByTitle('Write another version from the same text'));
+      await waitFor(() => expect(composerNow).toContain('Second version.'));
+      expect(composeReply).toHaveBeenLastCalledWith(42, {
+        mode: 'guided',
+        instructions: 'refund ok',
+      });
+      fireEvent.click(screen.getByTitle('Restore what you had written'));
+      expect(composerNow).toBe('<p>refund ok</p>');
     });
 
-    it('"Use it" keeps a note the agent changed under the draft after it was generated', async () => {
-      openPanel('');
-      fireEvent.change(noteBox(), { target: { value: 'parcel is at the border' } });
-      fireEvent.click(screen.getByText('Write reply'));
-      await screen.findByText('Use it');
-      fireEvent.change(noteBox(), { target: { value: 'parcel is at the border. Refund 20 EUR.' } });
-      fireEvent.click(screen.getByText('Use it'));
-      fireEvent.click(screen.getByTitle('Draft this reply with AI'));
-      expect(noteBox()).toHaveValue('parcel is at the border. Refund 20 EUR.');
+    it('AI draft pressed again over a draft: Undo still reaches the agent’s OWN text', async () => {
+      render(<Host initial="<p>refund ok</p>" />);
+      pressDraft();
+      await waitFor(() => expect(composerNow).toContain('border'));
+      composeReply.mockResolvedValueOnce({ data: { text: 'Second.', language: 'en' } });
+      pressDraft();
+      await waitFor(() => expect(composerNow).toContain('Second.'));
+      fireEvent.click(screen.getByTitle('Restore what you had written'));
+      expect(composerNow).toBe('<p>refund ok</p>');
     });
 
-    it('"Discard" leaves the composer alone and returns to the input', async () => {
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-      fireEvent.click(await screen.findByText('Discard'));
-
-      expect(setComposer).not.toHaveBeenCalled();
-      expect(screen.getByText('Your note for the AI draft')).toBeInTheDocument();
+    it('the language badge holds only while the draft is as it landed (Translate changes it)', async () => {
+      render(<Host initial="" />);
+      pressDraft();
+      await waitFor(() => expect(composerNow).toContain('border'));
+      expect(screen.getByTestId('ai-draft-status').textContent).toContain('EN');
+      act(() => setComposerFromTest('<p>Ihr Paket ist an der Grenze.</p>'));
+      expect(screen.getByTestId('ai-draft-status').textContent).not.toContain('EN');
     });
 
-    it('"Try again" re-runs the same action', async () => {
-      openPanel('<p>rough</p>');
-      fireEvent.click(screen.getByText('Make it customer-ready'));
-      fireEvent.click(await screen.findByText('Try again'));
-
+    it('Try again on a knowledge-base draft stays generate — the draft is not read as a note', async () => {
+      render(<Host initial="" />);
+      pressDraft();
+      await waitFor(() => expect(composerNow).toContain('border'));
+      fireEvent.click(screen.getByTitle('Write another version from the same text'));
       await waitFor(() => expect(composeReply).toHaveBeenCalledTimes(2));
-      expect(composeReply.mock.calls[1][1]).toMatchObject({ mode: 'polish' });
+      expect(composeReply).toHaveBeenLastCalledWith(42, { mode: 'generate' });
     });
 
-    it('offers undo after accepting, restoring the exact previous text', async () => {
-      openPanel('<p>my rough note</p>');
-      fireEvent.click(screen.getByText('Make it customer-ready'));
-      fireEvent.click(await screen.findByText('Use it'));
-
-      fireEvent.click(await screen.findByTitle('Restore what you had written'));
-      expect(setComposer).toHaveBeenLastCalledWith('<p>my rough note</p>');
-    });
-  });
-
-  describe('reporting provenance so the send records its true author', () => {
-    // The reply that goes out is captured as training data a human may approve
-    // into the knowledge base. Until this existed the frontend hardcoded
-    // "not AI", so an AI-drafted reply reached that review queue looking exactly
-    // like something a colleague had written.
-
-    it.each([
-      ['Write reply', '', 'ai_compose_generate'],
-      ['Make it customer-ready', '<p>rough note</p>', 'ai_compose_polish'],
-    ])('%s → reports %s', async (button, composer, expected) => {
-      openPanel(composer);
-      fireEvent.click(screen.getByText(button));
-      fireEvent.click(await screen.findByText('Use it'));
-
-      expect(onApplied.mock.calls[0]?.[0]).toBe(expected);
-    });
-
-    it('reports the guided mode when the agent supplied their own facts', async () => {
-      openPanel('');
-      fireEvent.change(screen.getByPlaceholderText(/answer from your knowledge base/i), {
-        target: { value: 'parcel is at the border' },
+    it('⛔ the reply changed while drafting (a template, a lookup record): not overwritten', async () => {
+      const pending = deferred();
+      composeReply.mockReturnValueOnce(pending.promise);
+      render(<Host initial="<p>refund ok</p>" />);
+      pressDraft();
+      act(() => setComposerFromTest('<p>refund ok</p><p>Order 1001.</p>'));
+      await act(async () => {
+        pending.resolve({ data: { text: 'Drafted.' } });
+        await pending.promise;
       });
-      fireEvent.click(screen.getByText('Write reply'));
-      fireEvent.click(await screen.findByText('Use it'));
-
-      expect(onApplied.mock.calls[0]?.[0]).toBe('ai_compose_guided');
-    });
-
-    it("reports null on undo — the agent's own text is back, so the reply is theirs", async () => {
-      openPanel('<p>my rough note</p>');
-      fireEvent.click(screen.getByText('Make it customer-ready'));
-      fireEvent.click(await screen.findByText('Use it'));
-      expect(onApplied.mock.lastCall?.[0]).toBe('ai_compose_polish');
-
-      fireEvent.click(await screen.findByTitle('Restore what you had written'));
-      expect(onApplied.mock.lastCall?.[0]).toBeNull();
-    });
-
-    // reply_style (Phase 1) learns house voice from draft → sent. The draft must
-    // be handed back in the SAME form that lands in the composer (editor HTML):
-    // the backend compares it against the sent body verbatim to tell "accepted
-    // as-is" from "edited", and that body is composer HTML. Handing back the
-    // plain text the endpoint returned would mark every untouched draft edited.
-    it('hands back the applied draft as composer HTML, with its mode and language', async () => {
-      composeReply.mockResolvedValue({
-        data: { text: 'Ihr Paket ist im Zoll.', language: 'de' },
-      });
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-      fireEvent.click(await screen.findByText('Use it'));
-
-      const draft = onApplied.mock.calls[0]?.[1];
-      expect(draft).toEqual({
-        text: setComposer.mock.calls[0][0],
-        mode: 'generate',
-        language: 'de',
-      });
-      expect(draft?.text).toContain('<p>');
-    });
-
-    it('omits the language when the draft came back without one', async () => {
-      composeReply.mockResolvedValue({ data: { text: 'All set.' } });
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-      fireEvent.click(await screen.findByText('Use it'));
-
-      expect(onApplied.mock.calls[0]?.[1]).not.toHaveProperty('language');
-    });
-
-    it('hands back no draft on undo — there is nothing left to learn from', async () => {
-      openPanel('<p>my rough note</p>');
-      fireEvent.click(screen.getByText('Make it customer-ready'));
-      fireEvent.click(await screen.findByText('Use it'));
-      fireEvent.click(await screen.findByTitle('Restore what you had written'));
-
-      expect(onApplied.mock.lastCall?.[1]).toBeUndefined();
-    });
-
-    it('says nothing when the draft is discarded rather than used', async () => {
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-      fireEvent.click(await screen.findByText('Discard'));
-
+      expect(composerNow).toBe('<p>refund ok</p><p>Order 1001.</p>');
+      expect(screen.getByRole('alert').textContent).toMatch(/changed while drafting/);
       expect(onApplied).not.toHaveBeenCalled();
     });
-  });
 
-  describe('reading a draft — the same language dropdown every message has', () => {
-    it('hands the draft text to the translate control and shows what comes back', async () => {
-      composeReply.mockResolvedValue({ data: { text: 'Ihr Paket ist im Zoll.', language: 'de' } });
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-
-      expect(await screen.findByText(/DE \(customer's language\)/)).toBeInTheDocument();
-      expect(translateButtonTexts.at(-1)).toBe('Ihr Paket ist im Zoll.');
-      fireEvent.click(screen.getByText('mock-translate'));
-
-      expect(await screen.findByText('Your parcel is at customs.')).toBeInTheDocument();
-      // The translation is now what "Use it" applies, and the panel says which language that
-      // is. It used to read "the DE version is what gets used" while showing the English —
-      // the preview and the result disagreed, which a footnote cannot fix.
-      expect(screen.getByText(/the customer\s+wrote in DE/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Use it \(EN\)/i })).toBeInTheDocument();
-
-      fireEvent.click(screen.getByText('mock-show-original'));
-      expect(screen.getByText('Ihr Paket ist im Zoll.')).toBeInTheDocument();
-      expect(screen.queryByText('Your parcel is at customs.')).not.toBeInTheDocument();
-    });
-
-    it('applies the TRANSLATION when one is on screen, not the original', async () => {
-      // The defect this closes: the panel showed the translation and the button inserted the
-      // original. The agent read one thing and sent another, and the only thing saying so was
-      // a footnote under the text they had just read.
-      composeReply.mockResolvedValue({ data: { text: 'Ihr Paket ist im Zoll.', language: 'de' } });
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-      fireEvent.click(await screen.findByText('mock-translate'));
-      await screen.findByText('Your parcel is at customs.');
-
-      fireEvent.click(screen.getByRole('button', { name: /Use it \(EN\)/i }));
-
-      expect(setComposer).toHaveBeenCalledWith(
-        expect.stringContaining('Your parcel is at customs.')
+    it('⛔ a response for a thread the agent already left never lands', async () => {
+      const pending = deferred();
+      composeReply.mockReturnValueOnce(pending.promise);
+      const setComposer = vi.fn<(html: string) => void>();
+      const { unmount } = render(
+        <ComposerAiActions messageId={42} composer="" setComposer={setComposer} />
       );
-      expect(setComposer).not.toHaveBeenCalledWith(
-        expect.stringContaining('Ihr Paket ist im Zoll.')
-      );
-    });
-
-    it('records the language it actually applied, not the one the draft was written in', async () => {
-      // The caller stores this. Recording "de" for a reply that went out in English would
-      // misreport what the customer received.
-      composeReply.mockResolvedValue({ data: { text: 'Ihr Paket ist im Zoll.', language: 'de' } });
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-      fireEvent.click(await screen.findByText('mock-translate'));
-      await screen.findByText('Your parcel is at customs.');
-
-      fireEvent.click(screen.getByRole('button', { name: /Use it \(EN\)/i }));
-
-      expect(onApplied).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({ language: 'en' })
-      );
-    });
-
-    it('warns when the applied language is not the one the customer wrote in', async () => {
-      composeReply.mockResolvedValue({ data: { text: 'Ihr Paket ist im Zoll.', language: 'de' } });
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-      fireEvent.click(await screen.findByText('mock-translate'));
-
-      expect(await screen.findByText(/customer\s+wrote in DE/i)).toBeInTheDocument();
-
-      // Back to the original: same language as the customer, so no warning and no suffix.
-      fireEvent.click(screen.getByText('mock-show-original'));
-      expect(screen.queryByText(/customer\s+wrote in DE/i)).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Use it' })).toBeInTheDocument();
-    });
-
-    it('offers the control on an ENGLISH draft too — the agent may not read English', async () => {
-      // The shipped version hid its "Show in English" toggle whenever the draft was
-      // English (a customer who writes English), so an agent who reads Swedish had no
-      // translation at all. Same dropdown as every message: always there.
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-      await screen.findByText(/EN \(customer's language\)/);
-      expect(screen.getByText('mock-translate')).toBeInTheDocument();
-    });
-
-    it('a new draft arrives untranslated', async () => {
-      composeReply.mockResolvedValue({ data: { text: 'Ihr Paket ist im Zoll.', language: 'de' } });
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-      fireEvent.click(await screen.findByText('mock-translate'));
-      await screen.findByText('Your parcel is at customs.');
-
-      composeReply.mockResolvedValue({
-        data: { text: 'Ihr Paket ist unterwegs.', language: 'de' },
+      pressDraft();
+      unmount();
+      await act(async () => {
+        pending.resolve({ data: { text: 'For the other customer.' } });
+        await pending.promise;
       });
-      fireEvent.click(screen.getByText('Try again'));
-      expect(await screen.findByText('Ihr Paket ist unterwegs.')).toBeInTheDocument();
-      expect(screen.queryByText('Your parcel is at customs.')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('failures never destroy the agent text', () => {
-    it('request error → message shown, composer untouched', async () => {
-      composeReply.mockRejectedValue(new Error('boom'));
-      openPanel('<p>my rough note</p>');
-      fireEvent.click(screen.getByText('Make it customer-ready'));
-
-      expect(await screen.findByText(/text is unchanged/i)).toBeInTheDocument();
       expect(setComposer).not.toHaveBeenCalled();
     });
+  });
 
-    // 🪤 These two fed `{ response: { status } }` and passed for months while both
-    // branches were dead in production: the api-client interceptor strips `.response`,
-    // so the component's status read never matched and every agent saw the generic
-    // "assistant is unavailable" line instead. The fixture must come from the real
-    // interceptor or the test only proves itself.
-    it('429 is reported as a limit, not a generic failure', async () => {
+  describe('failures never touch the agent’s text', () => {
+    it('no inbound message (409) on a note: falls back to making the text sendable (polish)', async () => {
+      composeReply
+        .mockRejectedValueOnce(
+          await apiError(409, { error: 'This conversation has no customer message to answer' })
+        )
+        .mockResolvedValueOnce({ data: { text: 'Polished.', language: 'en' } });
+      render(<Host initial="<p>refund ok</p>" />);
+      pressDraft();
+      await waitFor(() => expect(composerNow).toContain('Polished.'));
+      expect(composeReply).toHaveBeenLastCalledWith(42, {
+        mode: 'polish',
+        draft: '<p>refund ok</p>',
+      });
+      expect(onApplied).toHaveBeenCalledWith('ai_compose_polish', expect.anything());
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('no inbound message (409) on an empty editor: the backend sentence plus the way out', async () => {
+      composeReply.mockRejectedValue(
+        await apiError(409, { error: 'This conversation has no customer message to answer' })
+      );
+      render(<Host initial="" />);
+      pressDraft();
+      const alert = await screen.findByRole('alert');
+      expect(alert.textContent).toContain('no customer message to answer');
+      expect(alert.textContent).toContain('Write the reply yourself');
+    });
+
+    it('429: the limit line; the text is unchanged', async () => {
       composeReply.mockRejectedValue(await apiError(429, { error: 'Rate limit exceeded' }));
-      openPanel('<p>note</p>');
-      fireEvent.click(screen.getByText('Make it customer-ready'));
-      expect(await screen.findByText(/AI limit reached/i)).toBeInTheDocument();
+      render(<Host initial="<p>mine</p>" />);
+      pressDraft();
+      expect((await screen.findByRole('alert')).textContent).toMatch(/AI limit reached/);
+      expect(composerNow).toBe('<p>mine</p>');
     });
 
-    it('403 names the missing provider', async () => {
-      composeReply.mockRejectedValue(await apiError(403, { error: 'No AI provider configured' }));
-      openPanel('<p>note</p>');
-      fireEvent.click(screen.getByText('Make it customer-ready'));
-      expect(await screen.findByText(/No AI provider is connected/i)).toBeInTheDocument();
+    it('a 5xx reads as unavailable, never a stack trace', async () => {
+      composeReply.mockRejectedValue(await apiError(500, { error: 'at db.select (x.ts:1)' }));
+      render(<Host initial="" />);
+      pressDraft();
+      expect((await screen.findByRole('alert')).textContent).toMatch(/unavailable/);
     });
 
-    // 🪤 The whole reason this block exists: the panel mapped STATUS ONLY, so a 409
-    // the backend wrote for a human ("no customer message to answer") arrived as
-    // "the assistant is unavailable" — an outage message for a thread that can never
-    // be drafted from. Assert the BACKEND SENTENCE, not just "some error showed".
-    it('a 4xx the backend explained is shown in the backend’s own words', async () => {
+    it('drafts switched off mid-session (409 AI_DRAFTS_OFF): re-reads the setting', async () => {
       composeReply.mockRejectedValue(
-        await apiError(409, { error: 'This conversation has no customer message to answer' })
+        await apiError(409, { code: 'AI_DRAFTS_OFF', error: 'AI drafts are switched off.' })
       );
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-
-      expect(
-        await screen.findByText(/This conversation has no customer message to answer/i)
-      ).toBeInTheDocument();
-      expect(screen.queryByText(/assistant is unavailable/i)).not.toBeInTheDocument();
-    });
-
-    it('the no-inbound 409 names the way out instead of ending at a dead end', async () => {
-      composeReply.mockRejectedValue(
-        await apiError(409, { error: 'This conversation has no customer message to answer' })
-      );
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-
-      expect(await screen.findByText(/Make it customer-ready/i)).toBeInTheDocument();
-    });
-
-    it('a 400 about the request itself is shown, not masked as an outage', async () => {
-      composeReply.mockRejectedValue(
-        await apiError(400, { error: 'polish mode requires a draft' })
-      );
-      openPanel('<p>note</p>');
-      fireEvent.click(screen.getByText('Make it customer-ready'));
-
-      // The agent's own text is at stake on this path, so the reassurance is added
-      // to a backend sentence that does not carry one.
-      expect(await screen.findByText(/polish mode requires a draft/i)).toBeInTheDocument();
-      expect(await screen.findByText(/text is unchanged/i)).toBeInTheDocument();
-    });
-
-    // The masking is deliberate: a 5xx body can carry a stack frame or SQL, so the
-    // generic line is the RIGHT answer there — and the only place it should appear.
-    it('a 5xx keeps the generic line — server bodies are never shown', async () => {
-      composeReply.mockRejectedValue(
-        await apiError(500, { error: 'relation "conversations" does not exist' })
-      );
-      openPanel('<p>note</p>');
-      fireEvent.click(screen.getByText('Make it customer-ready'));
-
-      expect(await screen.findByText(/assistant is unavailable/i)).toBeInTheDocument();
-      expect(screen.queryByText(/relation "conversations"/i)).not.toBeInTheDocument();
-    });
-
-    it('the no-provider contract wins over whatever the body says', async () => {
-      composeReply.mockRejectedValue(
-        await apiError(503, { code: 'AI_NOT_CONFIGURED', error: 'AI is not configured' })
-      );
-      openPanel('<p>note</p>');
-      fireEvent.click(screen.getByText('Make it customer-ready'));
-
-      expect(await screen.findByText(/connect a provider in Settings/i)).toBeInTheDocument();
-    });
-
-    it('an empty result explains itself instead of blanking the composer', async () => {
-      composeReply.mockResolvedValue({ data: { text: null } });
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-
-      expect(await screen.findByText(/Nothing could be drafted/i)).toBeInTheDocument();
-      expect(setComposer).not.toHaveBeenCalled();
-    });
-
-    it('renders nothing when the workspace has no AI provider', () => {
-      aiConfigured.value = false;
-      render(<ComposerAiActions messageId={42} composer="" setComposer={setComposer} />);
-      expect(screen.queryByTitle('Draft this reply with AI')).not.toBeInTheDocument();
-    });
-  });
-
-  /**
-   * The backend has always sent `groundedInKb: false` for a draft written without a
-   * retrieved passage, and this component ignored it — so a draft backed by nothing
-   * looked exactly like an answer from the knowledge base. The two ungrounded modes
-   * need DIFFERENT wording because the agent's next move differs: a guided draft
-   * carries their own facts, a generate draft answers nothing at all.
-   */
-  describe('says when a draft is not backed by the knowledge base', () => {
-    it('generate with an empty KB warns that it does not answer the question', async () => {
-      composeReply.mockResolvedValue({
-        data: { text: 'Thanks for your message. We will come back to you.', groundedInKb: false },
-      });
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-
-      expect(await screen.findByText(/without answering it/i)).toBeInTheDocument();
-      expect(screen.getByText(/Add the answer before sending/i)).toBeInTheDocument();
-    });
-
-    it("guided says the draft came from the agent's own facts, not the KB", async () => {
-      composeReply.mockResolvedValue({
-        data: { text: 'Ihr Paket ist im Zoll.', language: 'de', groundedInKb: false },
-      });
-      openPanel('');
-      fireEvent.change(screen.getByPlaceholderText(/leave empty and I'll answer/i), {
-        target: { value: 'parcel is at the border' },
-      });
-      fireEvent.click(screen.getByText('Write reply'));
-
-      expect(await screen.findByText(/from what you said/i)).toBeInTheDocument();
-      expect(screen.queryByText(/without answering it/i)).not.toBeInTheDocument();
-    });
-
-    it('CONTROL: a KB-grounded draft carries no caution at all', async () => {
-      composeReply.mockResolvedValue({
-        data: { text: 'Your parcel is at the border.', language: 'en' },
-      });
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-
-      expect(await screen.findByText('Your parcel is at the border.')).toBeInTheDocument();
-      expect(screen.queryByText(/knowledge base/i)).not.toBeInTheDocument();
-      expect(screen.queryByText(/from what you said/i)).not.toBeInTheDocument();
-    });
-  });
-  describe('AI drafts off', () => {
-    it('says drafts are off where the AI button was, and offers no AI action', () => {
-      aiDrafts.off = true;
-      render(
-        <ComposerAiActions
-          messageId={42}
-          composer=""
-          setComposer={setComposer}
-          onApplied={onApplied}
-        />
-      );
-      expect(
-        screen.getByText('AI drafts are switched off for this workspace.')
-      ).toBeInTheDocument();
-      expect(screen.queryByTitle('Draft this reply with AI')).not.toBeInTheDocument();
-      expect(composeReply).not.toHaveBeenCalled();
-    });
-
-    it('says drafts are off even when no provider is connected either', () => {
-      aiDrafts.off = true;
-      aiConfigured.value = false;
-      render(
-        <ComposerAiActions
-          messageId={42}
-          composer=""
-          setComposer={setComposer}
-          onApplied={onApplied}
-        />
-      );
-      expect(
-        screen.getByText('AI drafts are switched off for this workspace.')
-      ).toBeInTheDocument();
-    });
-
-    // ⛔ compose-reply answers 409 for TWO reasons. Keyed on status alone, a drafts-off refusal
-    // got the "no customer message — write it yourself, then polish" advice, which is false.
-    it('a 409 AI_DRAFTS_OFF says drafts are off — not the no-customer-message advice', async () => {
-      composeReply.mockRejectedValue(
-        // A different sentence on purpose: the contract is the CODE, so the copy must not
-        // depend on the backend's wording.
-        await apiError(409, { code: 'AI_DRAFTS_OFF', error: 'Drafting refused.' })
-      );
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
-
-      expect(
-        await screen.findByText('AI drafts are switched off for this workspace.')
-      ).toBeInTheDocument();
-      expect(screen.queryByText(/Make it customer-ready/i)).not.toBeInTheDocument();
-      // The setting changed after this screen loaded: re-read it so the panel gives way.
+      render(<Host initial="" />);
+      pressDraft();
+      await screen.findByRole('alert');
       expect(refreshAiDrafts).toHaveBeenCalled();
     });
 
-    it('a 409 without the code still gets the no-customer-message advice (control)', async () => {
-      composeReply.mockRejectedValue(
-        await apiError(409, { error: 'This conversation has no customer message to answer' })
-      );
-      openPanel('');
-      fireEvent.click(screen.getByText('Write reply'));
+    it('an empty response says so and leaves the editor alone', async () => {
+      composeReply.mockResolvedValue({ data: { text: null } });
+      render(<Host initial="<p>mine</p>" />);
+      pressDraft();
+      expect((await screen.findByRole('alert')).textContent).toMatch(/Nothing could be drafted/);
+      expect(composerNow).toBe('<p>mine</p>');
+    });
+  });
 
-      expect(await screen.findByText(/Make it customer-ready/i)).toBeInTheDocument();
-      expect(refreshAiDrafts).not.toHaveBeenCalled();
+  describe('says when a draft is not backed by the knowledge base', () => {
+    it('guided: written from what you said — check the facts', async () => {
+      composeReply.mockResolvedValue({ data: { text: 'Refund sent.', groundedInKb: false } });
+      render(<Host initial="<p>refund sent</p>" />);
+      pressDraft();
+      expect(await screen.findByText(/Written from what you said/)).toBeTruthy();
+    });
+
+    it('generate: acknowledges without answering — add the answer', async () => {
+      composeReply.mockResolvedValue({ data: { text: 'We got it.', groundedInKb: false } });
+      render(<Host initial="" />);
+      pressDraft();
+      expect(await screen.findByText(/acknowledges the question without answering/)).toBeTruthy();
+    });
+
+    it('CONTROL: a grounded draft carries no warning', async () => {
+      composeReply.mockResolvedValue({ data: { text: 'Answer.', groundedInKb: true } });
+      render(<Host initial="" />);
+      pressDraft();
+      await waitFor(() => expect(composerNow).toContain('Answer.'));
+      expect(screen.queryByText(/knowledge base/)).toBeNull();
+    });
+  });
+
+  describe('AI drafts off / no provider', () => {
+    it('drafts off: the notice instead of the button', () => {
+      aiDrafts.off = true;
+      render(<Host initial="" />);
+      expect(screen.getByTestId('ai-drafts-off-note')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: /AI draft/ })).toBeNull();
+    });
+
+    it('no provider: nothing rendered', () => {
+      aiConfigured.value = false;
+      const { container } = render(<Host initial="" />);
+      expect(container.innerHTML).toBe('');
     });
   });
 });
