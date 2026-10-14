@@ -17,6 +17,8 @@ export const SHAPE_CHANGED_FOR_AGENTS = 'This lookup needs attention from an adm
 export const DEFAULT_REFERENCE_NAME = 'Reference';
 export const CONVERSATION_NOT_VISIBLE = 'This conversation isn’t visible to you.';
 export const CONTACT_NOT_VISIBLE = 'This customer isn’t visible to you.';
+/** A deployment without the lookup routes (FE/BE skew): said in one line, never a failing button. */
+export const LOOKUPS_NOT_ON_SERVER = 'Lookups are not available on this server yet.';
 export const NO_MATCH_FALLBACK = 'No matching records for this customer.';
 
 const named = (connection: string, fallback: string) => connection || fallback;

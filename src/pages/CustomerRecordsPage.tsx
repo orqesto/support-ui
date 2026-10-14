@@ -3,7 +3,12 @@ import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { CustomApiResultCard } from '@/components/messages/CustomApiResultCard';
-import { DEFAULT_REFERENCE_NAME, referenceNameOf } from '@/components/messages/customApiLookupText';
+import {
+  CONTACT_NOT_VISIBLE,
+  DEFAULT_REFERENCE_NAME,
+  LOOKUPS_NOT_ON_SERVER,
+  referenceNameOf,
+} from '@/components/messages/customApiLookupText';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -205,6 +210,15 @@ export const CustomerRecordsPage = () => {
    * left sitting in the call directly below it.
    */
   const [optionsFailed, setOptionsFailed] = useState(false);
+  /**
+   * Spec §4.2 (2026-10-14): `/lookup/options` is this page's availability check, as
+   * `/lookup/availability` is the panel's. A 404 — or a 400, from an older backend that reads
+   * `options` as an id — means this deployment has no lookups yet, which is said in one line.
+   * With that settled, a PRESS that 404s can only mean the customer is not visible to this caller.
+   */
+  const [optionsNotOnServer, setOptionsNotOnServer] = useState(false);
+  /** A press 404: not on this server when the options said so, otherwise not visible to you. */
+  const pressNotFoundText = optionsNotOnServer ? LOOKUPS_NOT_ON_SERVER : CONTACT_NOT_VISIBLE;
   const [notFound, setNotFound] = useState(false);
 
   const [reference, setReference] = useState('');
@@ -265,6 +279,7 @@ export const CustomerRecordsPage = () => {
     setLoadFailed(false);
     setNotFound(false);
     setOptionsFailed(false);
+    setOptionsNotOnServer(false);
     /*
       ⛔ A PREVIOUS CUSTOMER'S ANSWERS DO NOT SURVIVE A NAVIGATION. This route re-renders in place
       when the id changes (records page → records page), so without this the live results and the
@@ -314,7 +329,9 @@ export const CustomerRecordsPage = () => {
       // that cannot run is worse than no box.
       logger.error('Failed to load lookup options', options.reason);
       setLookups([]);
-      setOptionsFailed(true);
+      const status = getErrorStatus(options.reason);
+      if (status === 404 || status === 400) setOptionsNotOnServer(true);
+      else setOptionsFailed(true);
     }
 
     setLoading(false);
@@ -375,8 +392,13 @@ export const CustomerRecordsPage = () => {
       );
       // ⛔ PER CARD (2026-10-14): a lookup that threw is said on ITS card, in the same words the
       // panel uses, instead of one sentence for the whole box — and the others still show.
+      // A 404 is about the CUSTOMER (or the deployment), not this lookup: said once, not per card.
+      const notFound = answers.some(
+        (answer) => answer.status === 'rejected' && getErrorStatus(answer.reason) === 404
+      );
       const found = answers.flatMap((answer, index): CustomApiLookupResult[] => {
         if (answer.status === 'fulfilled') return answer.value;
+        if (getErrorStatus(answer.reason) === 404) return [];
         const lookup = manualLookups[index];
         return [
           {
@@ -398,6 +420,7 @@ export const CustomerRecordsPage = () => {
       if (shownContactId.current !== contactId) return;
       setSearchedValue(value);
       setLiveResults(found);
+      if (notFound) setSearchError(pressNotFoundText);
       // A live answer is also stored by the backend, so the list below can now include it.
       const stored = await customApiLookupService.storedRecords(contactId);
       if (shownContactId.current !== contactId) return;
@@ -433,7 +456,11 @@ export const CustomerRecordsPage = () => {
     } catch (error) {
       logger.error('Refresh failed', error);
       if (shownContactId.current !== contactId) return;
-      setSearchError('Could not refresh from the connected systems.');
+      setSearchError(
+        getErrorStatus(error) === 404
+          ? pressNotFoundText
+          : 'Could not refresh from the connected systems.'
+      );
     } finally {
       // ⛔ ONLY IF IT IS STILL OURS. Another customer's press may have taken the claim while this
       // was running; clearing it then would unbound THEIR lookup.
@@ -488,6 +515,10 @@ export const CustomerRecordsPage = () => {
               point of the page — "check an order id" was previously a card that only appeared
               inside a panel after a different press.
             */}
+            {optionsNotOnServer && (
+              <p className="text-[12px] text-muted-foreground">{LOOKUPS_NOT_ON_SERVER}</p>
+            )}
+
             {manualLookups.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
@@ -593,12 +624,14 @@ export const CustomerRecordsPage = () => {
                         rather than render a blank panel that reads like a broken page.
                       */
                       empty={{
-                        message: optionsFailed
-                          ? 'No records held for this customer yet. We could not check which lookups are available just now.'
-                          : lookups.length === 0
-                            ? 'No records held for this customer yet. No connected system is set up for this workspace yet.'
-                            : keepsNothing
-                              ? /*
+                        message: optionsNotOnServer
+                          ? 'No records held for this customer yet.'
+                          : optionsFailed
+                            ? 'No records held for this customer yet. We could not check which lookups are available just now.'
+                            : lookups.length === 0
+                              ? 'No records held for this customer yet. No connected system is set up for this workspace yet.'
+                              : keepsNothing
+                                ? /*
                                   🔴 THE STATE THAT READS AS A BROKEN FEATURE. A record is kept only
                                   once an admin tags which field identifies it, so a workspace that
                                   connected an integration correctly and tagged nothing shows EVERY
@@ -615,8 +648,8 @@ export const CustomerRecordsPage = () => {
                                   customer" would therefore be false; what is true, and what the
                                   agent needs, is that nothing THEY can press here will fill it.
                                 */
-                                'Nothing here keeps a record, so refreshing will not fill this list. No lookup available on this page has a field tagged “The number the customer quotes”, so an answer has no number to be filed under. An admin can tag one where the integration’s fields are set up.'
-                              : 'No records held for this customer yet. Check a reference above, or refresh from the connected systems.',
+                                  'Nothing here keeps a record, so refreshing will not fill this list. No lookup available on this page has a field tagged “The number the customer quotes”, so an answer has no number to be filed under. An admin can tag one where the integration’s fields are set up.'
+                                : 'No records held for this customer yet. Check a reference above, or refresh from the connected systems.',
                       }}
                     />
                     {records.length > 0 && (

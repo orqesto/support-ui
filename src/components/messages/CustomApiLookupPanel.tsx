@@ -16,7 +16,12 @@ import type { AddOutcome } from './recordInsertOutcome';
 import type { CustomApiLookupResult } from '@/services/customApiLookup.service';
 import { relativeTime } from './messageDetailConstants';
 import { CustomApiResultCard } from './CustomApiResultCard';
-import { pressPrompt, referenceHintText, referenceNameOf } from './customApiLookupText';
+import {
+  LOOKUPS_NOT_ON_SERVER,
+  pressPrompt,
+  referenceHintText,
+  referenceNameOf,
+} from './customApiLookupText';
 
 /** Moved to the shared card (2026-10-14); re-exported for existing importers. */
 export { ownershipNotice } from './CustomApiResultCard';
@@ -49,8 +54,8 @@ export { ownershipNotice } from './CustomApiResultCard';
 export const NO_EMAIL_IDENTITY_NOTE =
   'This customer has no email address, so identity-based lookups cannot run.';
 
-/** A deployment without the lookup route (FE/BE skew): said in one line, never a failing button. */
-export const LOOKUPS_NOT_ON_SERVER = 'Lookups are not available on this server yet.';
+/** Moved to the sentence module (2026-10-14, the records page says it too); re-exported. */
+export { LOOKUPS_NOT_ON_SERVER } from './customApiLookupText';
 
 /**
  * Does this sender carry an email an identity lookup can key on? The SAME rule as the backend's

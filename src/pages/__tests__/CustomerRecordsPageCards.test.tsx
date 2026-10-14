@@ -4,7 +4,7 @@
  * Split from `CustomerRecordsPage.test.tsx` for the file-size limit; same harness, neutral data.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
@@ -216,5 +216,57 @@ describe('CustomerRecordsPage — the shared card', () => {
     expect(await screen.findByText('This lookup could not be completed.')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Details/ }));
     expect(screen.getByText('The request failed (HTTP 502).')).toBeInTheDocument();
+  });
+});
+
+describe('CustomerRecordsPage — "not on this server" vs "not visible to you" (spec §4.2)', () => {
+  const NOT_ON_SERVER = 'Lookups are not available on this server yet.';
+  const NOT_VISIBLE = 'This customer isn’t visible to you.';
+  const refresh = async () =>
+    userEvent.click(await screen.findByRole('button', { name: /Refresh from source/ }));
+
+  it('options 404 or 400 (an older backend) says lookups are not on this server', async () => {
+    for (const status of [404, 400]) {
+      lookupOptions.mockRejectedValue(Object.assign(new Error('nope'), { status }));
+      const { unmount } = renderPage();
+      expect(await screen.findByText(NOT_ON_SERVER)).toBeInTheDocument();
+      expect(screen.queryByText(/could not check which lookups are available/i)).toBeNull();
+      unmount();
+    }
+  });
+
+  it('CONTROL: an options 500 is not "not on this server"', async () => {
+    lookupOptions.mockRejectedValue(Object.assign(new Error('boom'), { status: 500 }));
+    renderPage();
+    expect(
+      await screen.findByText(/could not check which lookups are available/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(NOT_ON_SERVER)).toBeNull();
+  });
+
+  it('a press that 404s while the options answered says the customer is not visible', async () => {
+    run.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
+    renderPage();
+    await searchFor('Reference', '1');
+    expect(await screen.findByText(NOT_VISIBLE)).toBeInTheDocument();
+    expect(screen.queryByText('This lookup could not be completed.')).toBeNull();
+  });
+
+  it('a Refresh that 404s says the same', async () => {
+    run.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
+    renderPage();
+    await refresh();
+    expect(await screen.findByText(NOT_VISIBLE)).toBeInTheDocument();
+  });
+
+  it('a Refresh that 404s on a server without lookups says not on this server, not visibility', async () => {
+    lookupOptions.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
+    run.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
+    renderPage();
+    await screen.findByText(NOT_ON_SERVER);
+    await refresh();
+    await waitFor(() => expect(run).toHaveBeenCalled());
+    expect(screen.queryByText(NOT_VISIBLE)).toBeNull();
+    expect(screen.getAllByText(NOT_ON_SERVER).length).toBeGreaterThanOrEqual(1);
   });
 });
