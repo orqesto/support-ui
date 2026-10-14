@@ -59,6 +59,19 @@ export type PlatformSettings = {
     defaultCostPer1k: ResolvedField<number>;
     strongCostPer1k: ResolvedField<number>;
     visionCostPer1k: ResolvedField<number>;
+    /**
+     * Split operator rates, USD per 1M tokens (input = prompt, output = completion). Present only
+     * when the backend sends them; an older backend does not, and `splitCostsSupported` is then
+     * false/absent so the card keeps the blended per-1k rates.
+     */
+    defaultInputPer1M?: ResolvedField<number>;
+    defaultOutputPer1M?: ResolvedField<number>;
+    strongInputPer1M?: ResolvedField<number>;
+    strongOutputPer1M?: ResolvedField<number>;
+    visionInputPer1M?: ResolvedField<number>;
+    visionOutputPer1M?: ResolvedField<number>;
+    /** True only when the backend sent all six split-rate fields. */
+    splitCostsSupported?: boolean;
     baseUrl: ResolvedField<string>;
     organization: ResolvedField<string>;
     bedrockRegion: ResolvedField<string>;
@@ -167,6 +180,12 @@ export type ManagedAiInput = {
   defaultCostPer1k?: number;
   strongCostPer1k?: number;
   visionCostPer1k?: number;
+  defaultInputPer1M?: number;
+  defaultOutputPer1M?: number;
+  strongInputPer1M?: number;
+  strongOutputPer1M?: number;
+  visionInputPer1M?: number;
+  visionOutputPer1M?: number;
   baseUrl?: string;
   organization?: string;
   bedrockRegion?: string;
@@ -317,6 +336,39 @@ const UNSET_SECRET: SecretStatus = { configured: false, source: 'none', last4: n
 const field = <T>(raw: ResolvedField<T> | undefined): ResolvedField<T> =>
   raw ?? { value: null, source: 'default' };
 
+export const SPLIT_COST_KEYS = [
+  'defaultInputPer1M',
+  'defaultOutputPer1M',
+  'strongInputPer1M',
+  'strongOutputPer1M',
+  'visionInputPer1M',
+  'visionOutputPer1M',
+] as const;
+export type SplitCostKey = (typeof SPLIT_COST_KEYS)[number];
+
+/** A split-rate field as the backend sent it, or undefined when it is missing or malformed. */
+const splitField = (raw: unknown): ResolvedField<number> | undefined => {
+  if (!isRecord(raw)) return undefined;
+  const { value, source } = raw;
+  if (value !== null && !isFiniteNumber(value)) return undefined;
+  return {
+    value,
+    source: FIELD_SOURCES.includes(source as FieldSource) ? (source as FieldSource) : 'default',
+  };
+};
+
+/**
+ * The six split rates, only when the backend sent ALL of them. A backend that predates split
+ * rates sends none, and the card must then keep today's blended UI and save payload exactly.
+ */
+export const normalizeSplitCosts = (
+  rawAi: Record<string, unknown>
+): Partial<PlatformSettings['ai']> => {
+  const fields = SPLIT_COST_KEYS.map((key) => [key, splitField(rawAi[key])] as const);
+  if (fields.some(([, value]) => value === undefined)) return {};
+  return { ...Object.fromEntries(fields), splitCostsSupported: true };
+};
+
 const ALL_SECRET_KEYS: PlatformSecretKey[] = [
   'ai.openai_api_key',
   'ai.anthropic_api_key',
@@ -386,6 +438,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
       defaultCostPer1k: field(raw.ai.defaultCostPer1k),
       strongCostPer1k: field(raw.ai.strongCostPer1k),
       visionCostPer1k: field(raw.ai.visionCostPer1k),
+      ...normalizeSplitCosts(raw.ai as Record<string, unknown>),
       baseUrl: field(raw.ai.baseUrl),
       organization: field(raw.ai.organization),
       bedrockRegion: field(raw.ai.bedrockRegion),
