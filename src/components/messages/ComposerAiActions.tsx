@@ -5,6 +5,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff, useRefreshAiDrafts } from '@/hooks/useAiDraftsOff';
 import { editorHtmlToText } from '@/lib/editorText';
+import { normalizeEditorHtml } from '@/lib/editorSchema';
 import { isBlankRichText } from '@/lib/stripHtml';
 import { logger } from '@/lib/logger';
 import { hasTemplatePlaceholders } from '@/lib/replyPlaceholders';
@@ -84,11 +85,11 @@ type Applied = {
   /** The agent's text the draft was made from: the note (guided) or the draft (polish). */
   input: string;
   /**
-   * The draft's TEXT as it went into the editor — the language badge holds only while it is
-   * unchanged. Text, not HTML: the editor re-serialises what it is given (a link gains target,
-   * rel and class), so the HTML never matched again and a draft with a link had no badge.
+   * The draft as it went into the editor — in the EDITOR's serialisation (normalizeEditorHtml),
+   * so the badge's "still as it landed" is an exact comparison and holds only while the draft is
+   * unchanged.
    */
-  text: string;
+  html: string;
   language?: string;
   groundedInKb?: boolean;
 };
@@ -196,13 +197,15 @@ export function ComposerAiActions({
         setError('The reply changed while drafting — press AI draft again.');
         return;
       }
-      const html = answerToEditorHtml(text);
+      // In the editor's own serialisation: the record sent for reply_style (diffed against the sent
+      // body, which IS editor HTML) and the badge's comparison both match an untouched draft.
+      const html = normalizeEditorHtml(answerToEditorHtml(text));
       setPrevious(restoreTo);
       setComposer(html);
       setApplied({
         mode,
         input,
-        text: editorHtmlToText(html),
+        html,
         language: response.data?.language,
         groundedInKb: response.data?.groundedInKb,
       });
@@ -319,7 +322,7 @@ export function ComposerAiActions({
       {previous !== null && !busy && (
         <div className="inline-flex items-center gap-1" data-testid="ai-draft-status">
           {/* Only while the draft is as it landed: after Translate it is in another language. */}
-          {applied?.language && editorHtmlToText(composer) === applied.text && (
+          {applied?.language && composer === applied.html && (
             <span className={`${LABEL} text-ai`} title="Written in the customer's language">
               {applied.language.toUpperCase()}
             </span>

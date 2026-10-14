@@ -92,3 +92,33 @@ describe('renderMarkdown (plain-text mail in the thread) — links survive the e
     );
   });
 });
+
+describe('review of #594 — wrappers stay outside the href', () => {
+  it.each([
+    ['<https://x.example/a>', 'https://x.example/a'],
+    ['**https://x.example/a**', 'https://x.example/a'],
+    ['`https://x.example/a`', 'https://x.example/a'],
+  ])('AI draft: %s links to exactly %s', (input, href) => {
+    const html = answerToEditorHtml(`See ${input} now`);
+    expect(html).toContain(`href="${href}"`);
+    expect(html).not.toMatch(/href="[^"]*(?:&gt;|\*|`)"/);
+  });
+
+  it('🔴 [URL](URL) is ONE link, not a link inside a link', () => {
+    const html = answerToEditorHtml('See [https://x.example/a](https://x.example/a) now');
+    expect(html.match(/<a /g)).toHaveLength(1);
+    expect(html).toContain('<a href="https://x.example/a">https://x.example/a</a>');
+  });
+
+  it('🔴 a markdown link label keeps its emphasis', () => {
+    expect(answerToEditorHtml('[**the guide**](https://x.example/g)')).toContain(
+      '<a href="https://x.example/g"><strong>the guide</strong></a>'
+    );
+  });
+
+  it('thread view: **url** is bold around an exact link', () => {
+    expect(renderMarkdown('**https://track.example/1**')).toBe(
+      '<strong><a href="https://track.example/1" target="_blank" rel="noopener noreferrer">https://track.example/1</a></strong>'
+    );
+  });
+});

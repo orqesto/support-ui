@@ -244,19 +244,22 @@ describe('ComposerAiActions — the editor is the only input', () => {
       expect(screen.getByTestId('ai-draft-status').textContent).not.toContain('EN');
     });
 
-    it('🔴 the language badge survives the editor re-serialising a draft with a link', async () => {
+    it('🔴 a draft with a link goes in as EDITOR HTML: the record and the badge match it', async () => {
       composeReply.mockResolvedValue({
-        data: { text: 'See the guide: https://help.example/guide', language: 'en' },
+        data: { text: 'See the guide: https://help.example/guide\n\n- one\n- two', language: 'en' },
       });
       render(<Host initial="" />);
       pressDraft();
       await waitFor(() => expect(composerNow).toContain('help.example/guide'));
-      // What the editor does to an applied link: same text, more attributes.
-      act(() =>
-        setComposerFromTest(
-          composerNow.replace('<a href=', '<a target="_blank" rel="noopener" class="x" href=')
-        )
-      );
+      // What the editor itself would hold: the link's attributes, <p> inside each <li>.
+      expect(composerNow).toContain('target="_blank"');
+      expect(composerNow).toContain('<li><p>one</p></li>');
+      // reply_style gets exactly what the composer holds, so an untouched draft is no "edit".
+      expect(onApplied).toHaveBeenLastCalledWith('ai_compose_generate', {
+        text: composerNow,
+        mode: 'generate',
+        language: 'en',
+      });
       expect(screen.getByTestId('ai-draft-status').textContent).toContain('EN');
     });
 
