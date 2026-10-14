@@ -56,17 +56,44 @@ describe('editorHtmlToText', () => {
 });
 
 describe('editorHtmlToText — links as markers (Translate)', () => {
-  it('a link becomes [[aN]]its words[[/aN]] and its URL is collected', () => {
+  it('a web or mailto: link becomes [[aN]]its words[[/aN]] and its target is collected', () => {
     const targets: string[] = [];
     expect(
       editorHtmlToText(
-        '<p>See <a href="https://x.example/a">the guide</a> and <a href="mailto:a@b.example">mail</a>.</p>',
-        {
-          linkTargets: targets,
-        }
+        '<p>See <a href="https://x.example/a">the guide</a> and <a href="mailto:a@b.example">mail us</a>.</p>',
+        { linkTargets: targets }
       )
-    ).toBe('See [[a0]]the guide[[/a0]] and mail.');
-    expect(targets).toEqual(['https://x.example/a']);
+    ).toBe('See [[a0]]the guide[[/a0]] and [[a1]]mail us[[/a1]].');
+    expect(targets).toEqual(['https://x.example/a', 'mailto:a@b.example']);
+  });
+
+  it('🔴 a scheme-less autolink (help.example) keeps its link through Translate', () => {
+    const targets: string[] = [];
+    const text = editorHtmlToText('<p><a href="http://help.example">help.example</a></p>', {
+      linkTargets: targets,
+    });
+    expect(text).toBe('[[a0]]help.example[[/a0]]');
+    expect(translatedTextToHtml(text, targets)).toBe(
+      '<p><a href="http://help.example">help.example</a></p>'
+    );
+  });
+
+  it('🔴 words that are a DIFFERENT URL than the href come back as two links, never nested', () => {
+    const targets: string[] = [];
+    const text = editorHtmlToText('<p><a href="https://b.example/x">https://a.example/y</a></p>', {
+      linkTargets: targets,
+    });
+    expect(text).toBe('https://a.example/y (https://b.example/x)');
+    const html = translatedTextToHtml(text, targets);
+    expect(html).toBe(
+      '<p><a href="https://a.example/y">https://a.example/y</a> (<a href="https://b.example/x">https://b.example/x</a>)</p>'
+    );
+  });
+
+  it('🔴 table cells stay apart ("Order#123")', () => {
+    expect(editorHtmlToText('<table><tr><td>Order</td><td>#123</td></tr></table>')).toBe(
+      'Order\n\n#123'
+    );
   });
 });
 

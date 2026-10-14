@@ -8,7 +8,7 @@ import { liftLinks } from './liftLinks';
  * line — never only the `<p>`s (review of #592: a refund fact outside them never reached the note).
  * Parsed with DOMParser: an inert document, nothing in it loads or runs.
  */
-const BLOCKS = 'p, div, li, h1, h2, h3, h4, h5, h6, pre, blockquote, tr, ul, ol, table';
+const BLOCKS = 'p, div, li, h1, h2, h3, h4, h5, h6, pre, blockquote, tr, td, th, ul, ol, table';
 
 /** The link's text already says where it goes (autolinks: `help.example` → `http://help.example`). */
 const textIsTheTarget = (text: string, href: string): boolean =>
@@ -26,17 +26,23 @@ export const editorHtmlToText = (
   const root = new DOMParser().parseFromString(html, 'text/html').body;
   root.querySelectorAll('a[href]').forEach((anchor) => {
     const href = anchor.getAttribute('href')?.trim() ?? '';
-    // Only web links: a mailto: or javascript: target says nothing a reader can follow.
-    if (!/^https?:\/\//i.test(href)) return;
-    // An autolink (its text IS the URL) stays a bare URL: wrapped in markers it was linkified
-    // across them on the way back into a nested, broken anchor (review of #594).
-    if (options.linkTargets && !textIsTheTarget(anchor.textContent?.trim() ?? '', href)) {
+    const text = anchor.textContent?.trim() ?? '';
+    if (options.linkTargets) {
+      // Translate. Kept: web, mailto: and tel: links (review of #593: an address lost its target).
+      if (!/^(?:https?:\/\/|mailto:|tel:)/i.test(href)) return;
+      if (/^https?:\/\//i.test(text)) {
+        // Words that ARE a URL go out bare (the way back links them again); in markers the URL
+        // inside them was linked a second time — nested anchors (review of #597).
+        if (text !== href) anchor.append(` (${href})`);
+        return;
+      }
       const index = options.linkTargets.push(href) - 1;
       anchor.prepend(`[[a${index}]]`);
       anchor.append(`[[/a${index}]]`);
-    } else if (!options.linkTargets && !textIsTheTarget(anchor.textContent?.trim() ?? '', href)) {
-      anchor.append(` (${href})`);
+      return;
     }
+    // The AI note: only web links say anything a reader can follow.
+    if (/^https?:\/\//i.test(href) && !textIsTheTarget(text, href)) anchor.append(` (${href})`);
   });
   root.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
   root.querySelectorAll('ul, ol').forEach((list) => {

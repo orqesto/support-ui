@@ -32,10 +32,12 @@ export const liftLinks = (
   if (markdown) {
     // The label stays in the text, between an opening and a closing token, so its own emphasis
     // (`[**the guide**](…)`) is still converted.
-    text = text.replace(
-      MARKDOWN_LINK,
-      (_match, label: string, url: string) =>
-        `${token(`<a href="${escapeAttr(url)}"${attrs}>`)}${label}${token('</a>')}`
+    text = text.replace(MARKDOWN_LINK, (_match, label: string, url: string) =>
+      // A label that is itself a URL (`[https://x](https://x)`) is lifted whole: left in the text,
+      // the bare-URL rule linked it again inside the link (review of #597).
+      /https?:\/\//i.test(label)
+        ? token(`<a href="${escapeAttr(url)}"${attrs}>${escapeAttr(label)}</a>`)
+        : `${token(`<a href="${escapeAttr(url)}"${attrs}>`)}${label}${token('</a>')}`
     );
   }
   text = text.replace(BARE_URL, (url) =>
