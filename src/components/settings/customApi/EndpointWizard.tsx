@@ -34,6 +34,8 @@ import {
 } from '@/services/customApi.service';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { useInvalidateCustomApiAvailability } from '@/hooks/useCustomApiLookup';
+import { ReferenceNameField } from './ReferenceNameField';
+import { useReferenceName } from './useReferenceName';
 
 /**
  * Add or edit a LOOKUP, and pick what an agent sees — CA-5 Task 3.
@@ -236,7 +238,12 @@ export const EndpointWizard = ({
   };
 
   // Where the value comes from — see parameterFields.ts for why an existing identityField is kept.
-  const parameterFields = buildParameterFields(paramSource, endpoint, chain);
+  // D4: the reference name travels with it, on every write (see useReferenceName).
+  const reference = useReferenceName(endpoint, initial, paramSource);
+  const parameterFields = {
+    ...buildParameterFields(paramSource, endpoint, chain),
+    ...reference.payload,
+  };
 
   /**
    * ⛔ THE PLACEHOLDER THE ADMIN HAS NEVER HEARD OF. The executor substitutes the value at
@@ -678,6 +685,7 @@ export const EndpointWizard = ({
              * the contact, so the record it returns is that customer's by construction — asking
              * would be a question with one possible answer.
              */}
+            <ReferenceNameField reference={reference} />
             {paramSource === 'manual' && (
               <RecordFormatStep value={recordFormat} onChange={setRecordFormat} />
             )}

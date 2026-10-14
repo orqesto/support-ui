@@ -191,3 +191,70 @@ describe('the Save payload of an EDIT', () => {
     expect(payload.statusLabels).toEqual({});
   });
 });
+
+describe('D4 (2026-10-14) — the reference name', () => {
+  const lastPayload = () =>
+    (updateEndpoint.mock.calls.at(-1) as [number, number, Record<string, unknown>])[2];
+  const typedValueLookup = () => ({ ...withNewEndpoint().endpoints[0], referenceLabel: null });
+
+  it('a typed-value lookup saves its reference name', async () => {
+    const user = userEvent.setup();
+    render(
+      <EndpointWizard
+        connection={connection()}
+        endpoint={typedValueLookup()}
+        onClose={noop}
+        onSaved={noop}
+      />
+    );
+    await user.type(screen.getByLabelText('Reference name'), 'Ticket id');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
+    expect(lastPayload().referenceLabel).toBe('Ticket id');
+  });
+
+  it('blank clears it: null is sent, not omitted', async () => {
+    const user = userEvent.setup();
+    render(
+      <EndpointWizard
+        connection={connection()}
+        endpoint={{ ...typedValueLookup(), referenceLabel: 'User id' }}
+        onClose={noop}
+        onSaved={noop}
+      />
+    );
+    expect(screen.getByLabelText('Reference name')).toHaveValue('User id');
+    await user.clear(screen.getByLabelText('Reference name'));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
+    expect(lastPayload()).toHaveProperty('referenceLabel', null);
+  });
+
+  it('an email lookup has no such field and sends no reference name at all', async () => {
+    const user = userEvent.setup();
+    render(
+      <EndpointWizard
+        connection={connection()}
+        endpoint={{ ...typedValueLookup(), parameterSource: 'identity', identityField: 'email' }}
+        onClose={noop}
+        onSaved={noop}
+      />
+    );
+    expect(screen.queryByLabelText('Reference name')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
+    expect(lastPayload()).not.toHaveProperty('referenceLabel');
+  });
+
+  it('a NEW lookup from a template starts with the template’s name', () => {
+    render(
+      <EndpointWizard
+        connection={connection()}
+        initial={{ label: 'Find a ticket', parameterSource: 'manual', referenceLabel: 'Ticket id' }}
+        onClose={noop}
+        onSaved={noop}
+      />
+    );
+    expect(screen.getByLabelText('Reference name')).toHaveValue('Ticket id');
+  });
+});

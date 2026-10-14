@@ -42,4 +42,15 @@ describe('initialFromTemplate', () => {
     initial.statusLabels!.shipped = 'changed';
     expect(source.statusWords.shipped).toBe('On its way');
   });
+
+  it('D4 — applying a template pre-fills the reference name, copied once', () => {
+    expect(
+      initialFromTemplate('order_tracking', lookup({ referenceLabel: 'Order number' }), {})
+        .referenceLabel
+    ).toBe('Order number');
+  });
+
+  it('CONTROL: a template lookup without one leaves it unset', () => {
+    expect('referenceLabel' in initialFromTemplate('order_tracking', lookup(), {})).toBe(false);
+  });
 });
