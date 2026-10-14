@@ -1,8 +1,6 @@
 import { useEffect, useImperativeHandle, useRef, forwardRef, useState, useCallback } from 'react';
-import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
 import {
   Bold,
   Italic,
@@ -18,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { editorHtmlToText, translatedTextToHtml } from '@/lib/editorText';
+import { editorExtensions } from '@/lib/editorSchema';
 import { shieldPlaceholders } from '@/lib/replyPlaceholders';
 import { cn } from '@/lib/utils';
 import { TranslateButton } from './TranslateButton';
@@ -128,20 +127,9 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
 
     const editor = useEditor({
       extensions: [
-        StarterKit.configure({
-          heading: {
-            levels: [1, 2, 3],
-          },
-          link: false,
-        }),
+        ...editorExtensions,
         Placeholder.configure({
           placeholder,
-        }),
-        Link.configure({
-          openOnClick: false,
-          HTMLAttributes: {
-            class: 'text-primary underline hover:text-primary/80',
-          },
         }),
       ],
       content,

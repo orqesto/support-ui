@@ -1,3 +1,5 @@
+import { liftLinks } from './liftLinks';
+
 /**
  * Editor HTML as the plain text a model gets — the translator, or AI draft's note: every block
  * on its own paragraph, a link's URL kept beside its words (`here (https://…)`) so it survives,
@@ -26,11 +28,13 @@ export const editorHtmlToText = (
     const href = anchor.getAttribute('href')?.trim() ?? '';
     // Only web links: a mailto: or javascript: target says nothing a reader can follow.
     if (!/^https?:\/\//i.test(href)) return;
-    if (options.linkTargets) {
+    // An autolink (its text IS the URL) stays a bare URL: wrapped in markers it was linkified
+    // across them on the way back into a nested, broken anchor (review of #594).
+    if (options.linkTargets && !textIsTheTarget(anchor.textContent?.trim() ?? '', href)) {
       const index = options.linkTargets.push(href) - 1;
       anchor.prepend(`[[a${index}]]`);
       anchor.append(`[[/a${index}]]`);
-    } else if (!textIsTheTarget(anchor.textContent?.trim() ?? '', href)) {
+    } else if (!options.linkTargets && !textIsTheTarget(anchor.textContent?.trim() ?? '', href)) {
       anchor.append(` (${href})`);
     }
   });
@@ -56,9 +60,6 @@ export const editorHtmlToText = (
 
 const escapeHtml = (text: string): string =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-// Trailing punctuation (the ")" of "here (https://…)", a full stop) is not part of the URL.
-const linkify = (escaped: string): string =>
-  escaped.replace(/https?:\/\/[^\s<]*[^\s<.,;:!?)]/g, (url) => `<a href="${url}">${url}</a>`);
 
 const BULLET = /^- (.*)$/s;
 const NUMBERED = /^(\d+)\. (.*)$/s;
@@ -81,19 +82,30 @@ export const translatedTextToHtml = (text: string, linkTargets: string[] = []): 
   const anchor = (index: number, label: string) =>
     `<a href="${escapeHtml(linkTargets[index] ?? '')}">${label}</a>`;
   const used = new Set<number>();
-  const inline = (paragraph: string): string =>
-    linkify(escapeHtml(paragraph))
-      .replace(/\[\[a(\d+)\]\]([\s\S]*?)\[\[\/a\1\]\]/g, (_match, index: string, label: string) => {
-        used.add(Number(index));
-        return anchor(Number(index), label);
-      })
-      .replace(/\[\[\/a(\d+)\]\]/g, (_match, index: string) => {
-        used.add(Number(index));
-        const url = linkTargets[Number(index)];
-        return url ? ` (${anchor(Number(index), escapeHtml(url))})` : '';
-      })
-      .replace(/\[\[a\d+\]\]/g, '')
-      .replace(/\n/g, '<br>');
+  const known = (index: string): boolean => linkTargets[Number(index)] !== undefined;
+  const inline = (paragraph: string): string => {
+    // URLs lifted first (liftLinks: never across a `[[` marker), then escaped, then the markers.
+    const links = liftLinks(paragraph);
+    return links.restore(
+      escapeHtml(links.text)
+        .replace(
+          /\[\[a(\d+)\]\]([\s\S]*?)\[\[\/a\1\]\]/g,
+          (_match, index: string, label: string) => {
+            if (!known(index)) return label; // a marker the translator invented: keep the words
+            used.add(Number(index));
+            return anchor(Number(index), label);
+          }
+        )
+        .replace(/\[\[\/a(\d+)\]\]/g, (_match, index: string) => {
+          if (!known(index)) return '';
+          used.add(Number(index));
+          const url = linkTargets[Number(index)];
+          return ` (${anchor(Number(index), escapeHtml(url))})`;
+        })
+        .replace(/\[\[a\d+\]\]/g, '')
+        .replace(/\n/g, '<br>')
+    );
+  };
 
   const paragraphs = text
     .split(/\n{2,}/)
@@ -102,7 +114,13 @@ export const translatedTextToHtml = (text: string, linkTargets: string[] = []): 
   const out: string[] = [];
   for (let at = 0; at < paragraphs.length; ) {
     const numbered = NUMBERED.exec(paragraphs[at]);
-    if (BULLET.test(paragraphs[at]) || numbered) {
+    // A lone "15. Oktober …" is a German date, not a list: a numbered list needs two
+    // consecutive items (review of #594).
+    const next = numbered ? NUMBERED.exec(paragraphs[at + 1] ?? '') : null;
+    const isList =
+      BULLET.test(paragraphs[at]) ||
+      (numbered !== null && next !== null && Number(next[1]) === Number(numbered[1]) + 1);
+    if (isList) {
       const tag = numbered ? 'ol' : 'ul';
       const items: string[] = [];
       for (; at < paragraphs.length; at++) {

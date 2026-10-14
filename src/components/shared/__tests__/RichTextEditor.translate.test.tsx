@@ -48,6 +48,7 @@ for (const [name, value] of Object.entries(layoutStubs)) {
 }
 
 import RichTextEditor from '../RichTextEditor';
+import { normalizeEditorHtml } from '@/lib/editorSchema';
 import { shieldPlaceholders } from '@/lib/replyPlaceholders';
 
 const onChange = vi.fn<(html: string) => void>();
@@ -157,13 +158,15 @@ describe('RichTextEditor — translatable', () => {
 
   it('🔴 lists come back as real lists', async () => {
     translateText.mockResolvedValue({
-      translated: { content: '- Eins\n\n- Zwei\n\n3. Drei', language: 'de' },
+      translated: { content: '- Eins\n\n- Zwei\n\n3. Drei\n\n4. Vier', language: 'de' },
     });
     const editor = await renderEditor('<p>x</p>');
     await pickGerman();
     await waitFor(() => expect(editor.getText()).toContain('Eins'));
     expect(editor.getHTML()).toContain('<ul><li><p>Eins</p></li><li><p>Zwei</p></li></ul>');
-    expect(editor.getHTML()).toContain('<ol start="3"><li><p>Drei</p></li></ol>');
+    expect(editor.getHTML()).toContain(
+      '<ol start="3"><li><p>Drei</p></li><li><p>Vier</p></li></ol>'
+    );
   });
 
   it('list items go out as lines a translator keeps', async () => {
@@ -220,5 +223,16 @@ describe('shieldPlaceholders', () => {
   it('a marker the model invented is left as it came back, never filled with a stranger', () => {
     const shielded = shieldPlaceholders('Hi {first_name}');
     expect(shielded.restore('Hallo [[0]] [[7]]')).toBe('Hallo {first_name} [[7]]');
+  });
+});
+
+describe('normalizeEditorHtml (review of #595)', () => {
+  it('is exactly what the real editor serialises the same content to', async () => {
+    const raw =
+      '<p>See <a href="https://x.example/a?b=1&amp;c=2">the guide</a></p><ul><li>one</li><li>two</li></ul>';
+    const editor = await renderEditor(raw);
+    expect(normalizeEditorHtml(raw)).toBe(editor.getHTML());
+    // CONTROL: the raw HTML is not — that is why it is normalised.
+    expect(raw).not.toBe(editor.getHTML());
   });
 });

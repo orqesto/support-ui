@@ -108,3 +108,40 @@ describe('translatedTextToHtml', () => {
     );
   });
 });
+
+describe('review of #594 — Translate round trip', () => {
+  it('🔴 an autolink (text IS the URL) goes out as a bare URL, not in markers', () => {
+    const targets: string[] = [];
+    expect(
+      editorHtmlToText('<p>Track at <a href="https://t.example/x">https://t.example/x</a></p>', {
+        linkTargets: targets,
+      })
+    ).toBe('Track at https://t.example/x');
+    expect(targets).toEqual([]);
+  });
+
+  it('🔴 a URL right before a marker is not linked across it (no nested anchors)', () => {
+    expect(
+      translatedTextToHtml('Siehe https://y.example/a [[a0]]hier[[/a0]].', ['https://z.example/b'])
+    ).toBe(
+      '<p>Siehe <a href="https://y.example/a">https://y.example/a</a> <a href="https://z.example/b">hier</a>.</p>'
+    );
+    expect(
+      translatedTextToHtml('Siehe https://y.example/a[[a0]]hier[[/a0]]', ['https://z.example/b'])
+    ).toBe(
+      '<p>Siehe <a href="https://y.example/a">https://y.example/a</a><a href="https://z.example/b">hier</a></p>'
+    );
+  });
+
+  it('🔴 a lone "15. Oktober …" is a date, not a one-item list', () => {
+    expect(translatedTextToHtml('15. Oktober liefern wir.')).toBe(
+      '<p>15. Oktober liefern wir.</p>'
+    );
+  });
+
+  it('🔴 a marker number the translator invented keeps its words, never an empty link', () => {
+    expect(translatedTextToHtml('[[a1]]hier[[/a1]]', ['https://z.example/b'])).toBe(
+      '<p>hier</p><p><a href="https://z.example/b">https://z.example/b</a></p>'
+    );
+  });
+});
