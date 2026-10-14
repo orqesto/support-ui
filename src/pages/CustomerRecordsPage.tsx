@@ -551,8 +551,10 @@ export const CustomerRecordsPage = () => {
                   */}
                   <p className="text-[11px] text-muted-foreground">
                     Checked against{' '}
-                    {manualLookups.map((lookup) => lookup.connectionName).join(', ')}. Each answer
-                    says what we could confirm about it.
+                    {/* Each connection once, in first-seen order: two lookups on one system
+                        named it twice (staging, 2026-10-14). */}
+                    {[...new Set(manualLookups.map((lookup) => lookup.connectionName))].join(', ')}.
+                    Each answer says what we could confirm about it.
                   </p>
                 </CardContent>
               </Card>

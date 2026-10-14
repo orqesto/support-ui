@@ -70,6 +70,22 @@ beforeEach(() => {
 });
 
 describe('CustomerRecordsPage — the shared card', () => {
+  it('"Checked against" names each connection once, in first-seen order', async () => {
+    lookupOptions.mockResolvedValue([
+      MANUAL_LOOKUP,
+      TICKET_LOOKUP,
+      { ...MANUAL_LOOKUP, endpointId: 22, label: 'User by email' },
+    ]);
+    renderPage();
+    expect(await screen.findByText(/Checked against Militech, Acme\./)).toBeInTheDocument();
+  });
+
+  it('CONTROL: distinct connections are all listed', async () => {
+    lookupOptions.mockResolvedValue([TICKET_LOOKUP, MANUAL_LOOKUP]);
+    renderPage();
+    expect(await screen.findByText(/Checked against Acme, Militech\./)).toBeInTheDocument();
+  });
+
   it('the box is named by the configured reference names', async () => {
     lookupOptions.mockResolvedValue([
       { ...MANUAL_LOOKUP, referenceLabel: 'User id' },

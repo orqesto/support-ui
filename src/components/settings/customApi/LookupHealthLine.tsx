@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Circle } from 'lucide-react';
-import { failureSentence } from '@/components/messages/customApiLookupText';
+import {
+  failureSentence,
+  SHAPE_CHANGED_FOR_AGENTS,
+} from '@/components/messages/customApiLookupText';
 import { relativeTime } from '@/components/messages/messageDetailConstants';
 import { Button } from '@/components/ui/Button';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -8,6 +11,13 @@ import type { CustomApiEndpoint } from '@/services/customApi.service';
 import { Permission } from '@/types/roles';
 
 /** Absent from a backend before 2026-10-14. */
+/**
+ * The `lastFailureClass` the backend records for a `shape_changed` result. ⚠️ Assumed to be the
+ * status name until the backend change lands; any other unknown class still reads as the generic
+ * sentence, never raw text.
+ */
+export const SHAPE_CHANGED_FAILURE_CLASS = 'shape_changed';
+
 type Health = NonNullable<CustomApiEndpoint['health']>;
 
 /** The host a connection calls — shown wherever an admin could otherwise miss a wrong address. */
@@ -44,7 +54,13 @@ export const healthSentence = (
       dateStyle: 'medium',
       timeStyle: 'short',
     });
-    return `Failing since ${since}: ${failureSentence(health.lastFailureClass, connectionName)}`;
+    // A lookup whose answer changed shape is recorded as a failure too (2026-10-14): the same
+    // sentence the card gives agents, never the raw paths.
+    const why =
+      health.lastFailureClass === SHAPE_CHANGED_FAILURE_CLASS
+        ? SHAPE_CHANGED_FOR_AGENTS
+        : failureSentence(health.lastFailureClass, connectionName);
+    return `Failing since ${since}: ${why}`;
   }
   return null;
 };
