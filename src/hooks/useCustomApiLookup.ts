@@ -9,6 +9,10 @@ import {
   type LookupSurface,
   type RunnableLookup,
 } from '@/services/customApiLookup.service';
+import {
+  CONTACT_NOT_VISIBLE,
+  CONVERSATION_NOT_VISIBLE,
+} from '@/components/messages/customApiLookupText';
 
 /**
  * State for the custom-API lookup panel (CA-3).
@@ -41,18 +45,32 @@ const AVAILABILITY_KEY = 'custom-api-lookup-availability';
  * every panel on screen; never polled. `retry: false` because a 404 is an answer, not a blip.
  */
 export function useCustomApiLookupAvailability(surface: LookupSurface): boolean {
+  return useCustomApiLookupAvailabilityState(surface) === 'available';
+}
+
+/**
+ * Availability with its REASON (2026-10-14). `not_on_server` is the one case the panel names: the
+ * availability route itself 404s, i.e. this backend predates lookups. Everything else that is not
+ * a yes — loading, `available: false`, a 400 or any other error — still renders nothing (fails
+ * closed, unchanged). A press that 404s is NOT this: see `useCustomApiLookup`.
+ */
+export type LookupAvailability = 'loading' | 'available' | 'none' | 'not_on_server';
+
+export function useCustomApiLookupAvailabilityState(surface: LookupSurface): LookupAvailability {
   const orgId = useAuthStore(
     (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
   );
   const userId = useAuthStore((state) => state.user?.id ?? null);
-  const { data } = useQuery({
+  const { data, error, isError } = useQuery({
     queryKey: [AVAILABILITY_KEY, orgId, userId, surface],
     queryFn: () => customApiLookupService.availability(surface),
     enabled: orgId !== null,
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
-  return data === true;
+  if (isError) return getErrorStatus(error) === 404 ? 'not_on_server' : 'none';
+  if (data === undefined) return 'loading';
+  return data ? 'available' : 'none';
 }
 
 /**
@@ -143,15 +161,6 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
   /** When the results on screen were looked up (ISO); null with `hasRun` false. The "ran …" hint. */
   const [ranAt, setRanAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /**
-   * ⚠️ THE SKEW WINDOW, handled rather than described. A push to `main` deploys this frontend while
-   * the backend ships on a tag, so this panel WILL exist in production before the CA-3 backend
-   * does. Without this, every agent gets a Look up button that answers "the lookup could not be
-   * completed" — worse than no button at all, because it reads as a broken integration rather than
-   * a feature that has not shipped yet. A 404 on the route itself means this deployment has no
-   * lookup endpoint, so the panel stands down entirely.
-   */
-  const [unavailable, setUnavailable] = useState(false);
   /** The email the backend CONFIRMED the current results were looked up as; null = the customer. */
   const [lookedUpAs, setLookedUpAs] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -184,7 +193,6 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
     setHasRun(false);
     setRanAt(null);
     setError(null);
-    setUnavailable(false);
     setLookedUpAs(null);
   }, [conversationId, contactId]);
 
@@ -250,7 +258,10 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
         // had the same bug until `errorShape.test.ts` caught it.
         const status = getErrorStatus(err);
         if (status === 404) {
-          setUnavailable(true);
+          // 2026-10-14: a press 404 is the D28 gate — this caller cannot open this conversation (or
+          // contact). "Not on this server" is decided by the availability route alone (the skew
+          // window is handled there: an older backend 404s that route before anyone can press).
+          setError(conversationId ? CONVERSATION_NOT_VISIBLE : CONTACT_NOT_VISIBLE);
         } else {
           // ⛔ SHOW WHAT THE BACKEND SAID. A hardcoded string throws away a reason the agent could
           // act on — "the vendor rejected our credentials" becomes "something went wrong", which is
@@ -264,5 +275,5 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
     [conversationId, contactId, queryClient]
   );
 
-  return { results, loading, hasRun, ranAt, error, unavailable, run, lookedUpAs };
+  return { results, loading, hasRun, ranAt, error, run, lookedUpAs };
 }

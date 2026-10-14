@@ -424,21 +424,36 @@ describe('SC5 — the same panel outside a thread', () => {
 });
 
 describe('FE/BE skew — this frontend can reach production first', () => {
-  it('⛔ stands DOWN when the deployment has no lookup endpoint', async () => {
+  it('⛔ "not on this server" only when AVAILABILITY itself is 404', async () => {
     // A push to main deploys this frontend; the backend ships on a tag. RED: treat a 404 like any
     // other failure ⇒ every agent gets a Look up button answering "could not be completed", which
     // reads as a broken integration rather than a feature that has not shipped yet.
     // ⛔ THE SHAPE THE APP ACTUALLY PRODUCES. The api-client interceptor drops `.response` and
     // copies `status` onto a fresh Error, so a fixture shaped like a raw axios error would pass
     // this test against a hook that could never work in production.
-    run.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
+    availability.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
     render(<CustomApiLookupPanel conversationId={1} />);
-    await press();
-
     // The panel is its tab's only content since 2026-10-09: standing down to nothing left a blank
     // tab. Still no button that fails — one line saying what is true instead.
     expect(await screen.findByText(LOOKUPS_NOT_ON_SERVER)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Look up/ })).not.toBeInTheDocument();
+  });
+
+  it('an availability 400 (a route an older backend reads as an id) renders nothing', async () => {
+    availability.mockRejectedValue(Object.assign(new Error('Bad Request'), { status: 400 }));
+    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
+    await waitFor(() => expect(availability).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByText(LOOKUPS_NOT_ON_SERVER)).toBeNull();
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('a PRESS that 404s says the conversation is not visible — not "not on this server"', async () => {
+    run.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+    expect(await screen.findByText('This conversation isn’t visible to you.')).toBeInTheDocument();
+    expect(screen.queryByText(LOOKUPS_NOT_ON_SERVER)).toBeNull();
   });
 
   it('POSITIVE CONTROL: a real failure still shows a reason', async () => {
@@ -663,7 +678,6 @@ describe('a press in flight answers only for the customer it was made on', () =>
       await press;
     });
     expect(result.current.error).toBeNull();
-    expect(result.current.unavailable).toBe(false);
     expect(result.current.hasRun).toBe(false);
   });
 
@@ -709,13 +723,8 @@ describe('the panel renders ONLY when this caller has a lookup to run', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('⛔ renders nothing on a 404 — an OLDER backend without the availability route', async () => {
-    availability.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
-    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
-    await settle();
-    expect(container.firstChild).toBeNull();
-  });
-
+  // 2026-10-14 (spec §4.2): an availability 404 now says "not on this server" in one line — see
+  // the FE/BE skew block above. Every other non-yes still renders nothing.
   it('renders nothing on any other error — it fails CLOSED', async () => {
     availability.mockRejectedValue(Object.assign(new Error('Server Error'), { status: 500 }));
     const { container } = render(<CustomApiLookupPanel conversationId={1} />);

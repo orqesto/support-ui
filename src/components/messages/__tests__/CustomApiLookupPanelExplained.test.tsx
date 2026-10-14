@@ -1,5 +1,6 @@
 /**
- * The panel explains itself (2026-10-14): what an agent and an admin each read on a card that
+ * The panel explains itself (2026-10-14): what a press will check, which typed-value lookup is
+ * left after an email found nothing (A3), and what an agent and an admin each read on a card that
  * needs an admin (D1). Split from `CustomApiLookupPanel.test.tsx` for the file-size limit; the same
  * harness, neutral fixtures.
  */
@@ -18,6 +19,7 @@ type CustomApiLookupResult = LookupService.CustomApiLookupResult;
 
 const run = vi.fn<(body: unknown) => Promise<CustomApiLookupResult[]>>();
 const availability = vi.fn<(surface: string) => Promise<boolean>>();
+const lookupOptions = vi.fn<(surface: string) => Promise<unknown[]>>();
 
 vi.mock('@/services/customApiLookup.service', async () => {
   const actual = await vi.importActual<typeof LookupService>('@/services/customApiLookup.service');
@@ -26,6 +28,7 @@ vi.mock('@/services/customApiLookup.service', async () => {
     customApiLookupService: {
       run: (body: unknown) => run(body),
       availability: (surface: string) => availability(surface),
+      lookupOptions: (surface: string) => lookupOptions(surface),
     },
   };
 });
@@ -67,6 +70,8 @@ beforeEach(() => {
   run.mockReset();
   availability.mockReset();
   availability.mockResolvedValue(true);
+  lookupOptions.mockReset();
+  lookupOptions.mockResolvedValue([]);
   useAuthStore.setState({ selectedOrganizationId: 1, user: { id: 9 } as User });
 });
 
@@ -127,5 +132,111 @@ describe('shape_changed — an admin sees the paths, an agent is sent to an admi
     await press();
 
     expect(await screen.findByText(/no longer matches what was configured/i)).toBeTruthy();
+  });
+});
+
+const option = (over: Record<string, unknown>) => ({
+  endpointId: 2,
+  label: 'By id',
+  connectionName: 'Militech',
+  parameterSource: 'manual',
+  resultShape: 'one',
+  category: null,
+  storesRecords: true,
+  ...over,
+});
+
+describe('2026-10-14 — the pane explains itself', () => {
+  it('before any press it names the systems a press will ask', async () => {
+    lookupOptions.mockResolvedValue([
+      option({
+        endpointId: 1,
+        label: 'Account',
+        connectionName: 'Acme',
+        parameterSource: 'identity',
+      }),
+      option({ endpointId: 2 }),
+      option({ endpointId: 3, connectionName: 'Acme' }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    expect(
+      await screen.findByText('Press Look up to check Acme and Militech for this customer.')
+    ).toBeInTheDocument();
+  });
+
+  it('the prompt goes once a press has run', async () => {
+    run.mockResolvedValue([card()]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await screen.findByText(/Press Look up to check/);
+    await press();
+    await screen.findByText('137416');
+    expect(screen.queryByText(/Press Look up to check/)).toBeNull();
+  });
+
+  it('an older backend without options (404 or 400) still says something', async () => {
+    for (const status of [404, 400]) {
+      lookupOptions.mockRejectedValue(Object.assign(new Error('nope'), { status }));
+      const { unmount } = render(<CustomApiLookupPanel conversationId={1} />);
+      expect(
+        await screen.findByText('Press Look up to check the connected systems for this customer.')
+      ).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it('A3 — an email no-match offers the typed-value lookup of the same connection, by its name', async () => {
+    lookupOptions.mockResolvedValue([option({ referenceLabel: 'User id' })]);
+    run.mockResolvedValue([
+      card({
+        endpointId: 1,
+        status: 'no_match',
+        rows: [],
+        fields: [],
+        searchedFor: { kind: 'email', value: 'nobody@example.com' },
+      }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+    expect(
+      await screen.findByText('Nothing in Militech for nobody@example.com.')
+    ).toBeInTheDocument();
+    expect(screen.getByText('You can still look up by User id below.')).toBeInTheDocument();
+  });
+
+  it('A3 — without options, a waiting typed-value card of the same connection is used', async () => {
+    lookupOptions.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
+    run.mockResolvedValue([
+      card({
+        endpointId: 1,
+        status: 'no_match',
+        rows: [],
+        fields: [],
+        searchedFor: { kind: 'email', value: 'nobody@example.com' },
+      }),
+      card({ endpointId: 2, status: 'needs_input', rows: [], fields: [], referenceLabel: null }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+    expect(
+      await screen.findByText('You can still look up by Reference below.')
+    ).toBeInTheDocument();
+  });
+
+  it('CONTROL: no typed-value lookup on that connection → no hint', async () => {
+    lookupOptions.mockResolvedValue([
+      option({ connectionName: 'Acme', referenceLabel: 'User id' }),
+    ]);
+    run.mockResolvedValue([
+      card({
+        status: 'no_match',
+        rows: [],
+        fields: [],
+        searchedFor: { kind: 'email', value: 'nobody@example.com' },
+      }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await press();
+    await screen.findByText('Nothing in Militech for nobody@example.com.');
+    expect(screen.queryByText(/You can still look up/)).toBeNull();
   });
 });

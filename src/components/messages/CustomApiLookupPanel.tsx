@@ -4,7 +4,11 @@ import { RotateCw, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { useCustomApiLookup, useCustomApiLookupAvailability } from '@/hooks/useCustomApiLookup';
+import {
+  useCustomApiLookup,
+  useCustomApiLookupAvailabilityState,
+  useCustomApiLookupOptions,
+} from '@/hooks/useCustomApiLookup';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { conversationContactService } from '@/services/conversationContact.service';
@@ -12,6 +16,7 @@ import type { AddOutcome } from './recordInsertOutcome';
 import type { CustomApiLookupResult } from '@/services/customApiLookup.service';
 import { relativeTime } from './messageDetailConstants';
 import { CustomApiResultCard } from './CustomApiResultCard';
+import { pressPrompt, referenceHintText, referenceNameOf } from './customApiLookupText';
 
 /** Moved to the shared card (2026-10-14); re-exported for existing importers. */
 export { ownershipNotice } from './CustomApiResultCard';
@@ -170,11 +175,10 @@ export const CustomApiLookupPanel = ({
   className,
   onUseInReply,
 }: Props) => {
-  const { results, loading, hasRun, ranAt, error, unavailable, run, lookedUpAs } =
-    useCustomApiLookup({
-      conversationId,
-      contactId,
-    });
+  const { results, loading, hasRun, ranAt, error, run, lookedUpAs } = useCustomApiLookup({
+    conversationId,
+    contactId,
+  });
   /**
    * LOOK UP ANOTHER EMAIL (2026-09-29). A shop's order notification names the buyer only in its
    * body, so the ticket's customer is the shop and every identity lookup keys on the wrong address.
@@ -198,7 +202,10 @@ export const CustomApiLookupPanel = ({
 
   // ⛔ ASK FIRST, RENDER ONLY ON A YES. Mirrors the backend: a conversation runs the THREAD
   // surface, anything else the CONTACT surface. Nothing is looked up by asking (SC1).
-  const available = useCustomApiLookupAvailability(conversationId ? 'thread' : 'contact');
+  const surface = conversationId ? 'thread' : 'contact';
+  const availability = useCustomApiLookupAvailabilityState(surface);
+  // Configuration only, the same cached query as the tab's badge — no vendor call (SC1).
+  const options = useCustomApiLookupOptions(surface);
   const navigate = useNavigate();
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
@@ -228,14 +235,35 @@ export const CustomApiLookupPanel = ({
       setResolving(false);
     }
   };
-  if (!available) return null;
-
   // ⚠️ FE/BE SKEW: this deployment has no lookup endpoint yet. Never a button that fails — a
   // broken-looking control reads as a broken integration, not as a feature that has not shipped.
   // A push to `main` deploys this frontend; the backend ships on a tag. One line, not nothing:
   // since 2026-10-09 this panel is its tab's only content, and nothing left a blank tab.
-  if (unavailable)
+  // 2026-10-14: decided by the AVAILABILITY route's own 404 only; a press 404 means "not visible".
+  if (availability === 'not_on_server')
     return <p className="text-[11px] text-muted-foreground">{LOOKUPS_NOT_ON_SERVER}</p>;
+  if (availability !== 'available') return null;
+
+  const systems = [
+    ...new Set((options ?? []).map((option) => option.connectionName).filter(Boolean)),
+  ];
+  /**
+   * A3 (2026-10-14): under an identity no-match, point at a typed-value lookup of the SAME
+   * connection, by its own reference name. The options know which lookups take a typed value; an
+   * older backend without options falls back to the cards on screen that are waiting for one.
+   */
+  const referenceHintFor = (result: CustomApiLookupResult): string | null => {
+    if (result.status !== 'no_match' || result.searchedFor?.kind !== 'email') return null;
+    const typedLookup =
+      (options ?? []).find(
+        (option) =>
+          option.parameterSource === 'manual' && option.connectionName === result.connectionName
+      ) ??
+      results.find(
+        (other) => other.status === 'needs_input' && other.connectionName === result.connectionName
+      );
+    return typedLookup ? referenceHintText(referenceNameOf(typedLookup.referenceLabel)) : null;
+  };
 
   return (
     // `data-lookup-root`: the composer's "Look up" button opens the Lookups tab, then scrolls this
@@ -383,6 +411,11 @@ export const CustomApiLookupPanel = ({
         show. An "empty" panel on open would read as "we know nothing about this customer", which is
         a different and wrong claim.
       */}
+        {!hasRun && !loading && !error && (
+          // The pane is never empty before a press (2026-10-14): it names what a press will ask.
+          <p className="text-[11px] text-muted-foreground">{pressPrompt(systems)}</p>
+        )}
+
         {hasRun && results.length === 0 && !error && (
           <p className="text-[11px] text-muted-foreground">
             No lookups are available to you right now.
@@ -398,6 +431,7 @@ export const CustomApiLookupPanel = ({
             busy={loading}
             referenceInput="card"
             lookedUpAs={lookedUpAs}
+            referenceHint={referenceHintFor(result)}
             onRunManual={(endpointId, parameter) =>
               run({ endpointId, parameter }, lookedUpAs ?? undefined)
             }
