@@ -214,11 +214,16 @@ export function ComposerAiActions({
       // the note below instead of offering a control that cannot work.
       if (isAiDraftsOffError(err)) refreshAiDrafts();
       const message = describeError(err);
-      // The backend's sentence has no full stop ("…to answer"), so the guidance ran on into it.
-      const sentence = /[.!?]$/.test(message.trim()) ? message.trim() : `${message.trim()}.`;
-      setError(
-        isNoInbound(err) && mode === 'generate' ? `${sentence} ${NO_INBOUND_GUIDANCE}` : message
-      );
+      if (isNoInbound(err) && mode === 'generate') {
+        // The backend's sentence has no full stop ("…to answer"), so the guidance ran on into it.
+        const base = message.trim();
+        const ended = /[.!?…)"'”’]$/.test(base);
+        setError(
+          base ? `${ended ? base : `${base}.`} ${NO_INBOUND_GUIDANCE}` : NO_INBOUND_GUIDANCE
+        );
+      } else {
+        setError(message);
+      }
     } finally {
       if (mounted.current) setBusy(false);
     }
@@ -228,12 +233,13 @@ export function ComposerAiActions({
     // Pressed again over an applied draft: Undo must still reach the agent's OWN text, not the
     // draft this one replaces.
     const restoreTo = previous ?? composer;
-    if (isBlankRichText(composer)) {
+    // Links keep their URL (`here (https://…)`): stripped, "see the guide" lost where it pointed.
+    // ONE reading decides both "blank" and the note, so a non-blank editor never sends an empty note.
+    const text = editorHtmlToText(composer);
+    if (!text) {
       void run('generate', '', restoreTo);
       return;
     }
-    // Links keep their URL (`here (https://…)`): stripped, "see the guide" lost where it pointed.
-    const text = editorHtmlToText(composer);
     if (text.length > MAX_DRAFT) {
       setError(
         `Too long for AI draft (${MAX_DRAFT.toLocaleString()} characters) — shorten it, or clear the editor to draft from scratch.`

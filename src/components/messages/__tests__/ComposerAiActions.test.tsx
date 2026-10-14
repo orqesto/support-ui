@@ -102,6 +102,13 @@ describe('ComposerAiActions — the editor is the only input', () => {
       expect(request.instructions).not.toMatch(/<[a-z]/i);
     });
 
+    it('🔴 an editor whose only "text" is empty markup asks the knowledge base — never an empty note', async () => {
+      render(<Host initial="<p></p><div> &nbsp; </div>" />);
+      pressDraft();
+      await waitFor(() => expect(composeReply).toHaveBeenCalledTimes(1));
+      expect(composeReply).toHaveBeenCalledWith(42, { mode: 'generate' });
+    });
+
     it('🔴 a link in the note keeps its URL — "see the guide" alone says nothing', async () => {
       render(<Host initial='<p>See <a href="https://help.example/guide">the guide</a>.</p>' />);
       pressDraft();
@@ -306,6 +313,15 @@ describe('ComposerAiActions — the editor is the only input', () => {
       // Two sentences, not one run-on: the backend's has no full stop of its own.
       expect(alert.textContent).toContain(
         'no customer message to answer. Write the reply yourself'
+      );
+    });
+
+    it('a backend sentence that already ends in "…" gets no second full stop', async () => {
+      composeReply.mockRejectedValue(await apiError(409, { error: 'Nothing to answer here…' }));
+      render(<Host initial="" />);
+      pressDraft();
+      expect((await screen.findByRole('alert')).textContent).toBe(
+        'Nothing to answer here… Write the reply yourself in the editor, then press AI draft.'
       );
     });
 
