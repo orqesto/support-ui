@@ -2,13 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
-import { ownershipNotice } from '@/components/messages/CustomApiResultCard';
-import { readCategory } from '@/components/settings/customApi/categories';
-import {
-  projectFields,
-  RowFields,
-  UNCONFIGURED_FIELD_PREVIEW,
-} from '@/components/messages/customApiRowFields';
+import { CustomApiResultCard } from '@/components/messages/CustomApiResultCard';
+import { DEFAULT_REFERENCE_NAME, referenceNameOf } from '@/components/messages/customApiLookupText';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -118,100 +113,63 @@ const recordColumns: ColumnDef<CustomApiStoredRecord>[] = [
   },
 ];
 
-/** One live result, rendered with the SAME verdict wording the thread panel uses. */
-const LiveResult = ({ result }: { result: CustomApiLookupResult }) => {
-  const notice = ownershipNotice(result.ownership, result.ownershipReason);
-  const { fields, fallbackKeys, usingFallback } = projectFields(result);
-  /*
-    ⛔ NARROWED, and read the same way the thread panel reads it — this page is opened FROM that
-    panel, and a page that laid the same record out differently would make an agent doubt which
-    one is true. `category` arrives as a plain string so a newer backend cannot throw here.
-  */
-  const category = readCategory((result as { category?: unknown }).category);
+/**
+ * Everything the vendor sent for a found record, for what the labelled view cannot cover: a field
+ * nobody tagged, or a value an agent needs to quote exactly.
+ *
+ * ⛔ NOT IN THE DOM UNTIL IT IS OPENED, and that is why this is state rather than a bare
+ * `<details>`: a collapsed `<details>` still RENDERS its children, so the vendor's whole record
+ * would sit in the page, findable by a browser search and copied by any select-all. On the measured
+ * vendor that is 77 fields including the customer's email, telephone, both addresses, postcode, IP
+ * and user-agent — a previous "show everything" put exactly that into the thread view. I wrote
+ * "never rendered until opened" as a comment above a `<details>` first, which was simply false; the
+ * test that found it was matching the value twice.
+ */
+const RawRows = ({ rows }: { rows: Record<string, unknown>[] }) => {
   const [rawOpen, setRawOpen] = useState(false);
   return (
-    <div className="rounded border border-border p-3 space-y-2">
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-sm font-medium">{result.label}</p>
-        <p className="text-[11px] text-muted-foreground">{result.connectionName}</p>
-      </div>
-
-      {/* ⛔ The flag comes FIRST and is never softened for this surface: an agent must not read a
-          record's contents before being told it may not be this customer's (D38). */}
-      {notice && (
-        <p className={`text-[11px] rounded px-2 py-1 ${notice.className}`}>{notice.text}</p>
-      )}
-
-      {result.status === 'ok' && result.rows && result.rows.length > 0 ? (
-        <div className="space-y-1">
-          {/*
-            ⛔ THE SAME LABELLED FIELDS THE THREAD PANEL RENDERS, from the same module. This page
-            showed raw JSON where the panel an agent opened it FROM showed named fields — a page
-            that flattens what the surface before it said makes the reader doubt which is true.
-            The fallback cap comes with it: when no fields are configured the vendor's WHOLE record
-            comes back, which on the measured vendor is 77 fields including the customer's IP.
-          */}
-          {result.rows.map((row) => (
-            <RowFields key={`${result.endpointId}-${JSON.stringify(row)}`} row={row} fields={fields} category={category} />
-          ))}
-          {usingFallback && fallbackKeys.length > UNCONFIGURED_FIELD_PREVIEW && (
-            <p className="text-[10px] text-muted-foreground">
-              No fields chosen for this lookup, so this is a preview of {UNCONFIGURED_FIELD_PREVIEW}{' '}
-              of {fallbackKeys.length} fields the vendor returned.
-            </p>
-          )}
-          {/*
-            Everything the vendor sent, for what the labelled view cannot cover: a field nobody
-            tagged, or a value an agent needs to quote exactly.
-
-            ⛔ NOT IN THE DOM UNTIL IT IS OPENED, and that is why this is state rather than a bare
-            `<details>`: a collapsed `<details>` still RENDERS its children, so the vendor's whole
-            record would sit in the page, findable by a browser search and copied by any
-            select-all. On the measured vendor that is 77 fields including the customer's email,
-            telephone, both addresses, postcode, IP and user-agent — a previous "show everything"
-            put exactly that into the thread view. I wrote "never rendered until opened" as a
-            comment above a `<details>` first, which was simply false; the test that found it was
-            matching the value twice.
-          */}
-          <div className="pt-1">
-            <button
-              type="button"
-              className="text-[11px] text-muted-foreground underline"
-              onClick={() => setRawOpen((open) => !open)}
-            >
-              {rawOpen ? 'Hide what this system returned' : 'Everything this system returned'}
-            </button>
-            {rawOpen && (
-              <pre className="mt-1 text-[11px] whitespace-pre-wrap break-words bg-muted/40 rounded p-2">
-                {JSON.stringify(result.rows, null, 1)}
-              </pre>
-            )}
-          </div>
-        </div>
-      ) : (
-        <p className="text-[11px] text-muted-foreground">
-          {/*
-            🔴 FOUND BY USING IT ON STAGING, 2026-09-21. "Refresh from source" runs every eligible
-            lookup for this customer, and a MANUAL one has no value to run with — the backend
-            answers `needs_input`, carrying no reason. This fell through to the catch-all and said
-            "Nothing found for that reference", which is false twice over: no reference was
-            submitted, and nothing was looked up. An agent reads it as "this customer has no such
-            record" and stops looking.
-
-            ⛔ `no_identity` gets the same treatment for the same reason: not asking is not the
-            same answer as asking and finding nothing, and only one of them is about the customer.
-          */}
-          {result.reason ??
-            (result.status === 'needs_input'
-              ? 'Type a reference above to check this one.'
-              : result.status === 'no_identity'
-                ? 'This customer has no email address for us to look them up by.'
-                : 'Nothing found for that reference.')}
-        </p>
+    <div className="pt-1">
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-6 px-0 text-[11px] text-muted-foreground underline"
+        onClick={() => setRawOpen((open) => !open)}
+      >
+        {rawOpen ? 'Hide what this system returned' : 'Everything this system returned'}
+      </Button>
+      {rawOpen && (
+        <pre className="mt-1 text-[11px] whitespace-pre-wrap break-words bg-muted/40 rounded p-2">
+          {JSON.stringify(rows, null, 1)}
+        </pre>
       )}
     </div>
   );
 };
+
+/**
+ * One live result: the SAME card the thread panel renders (D38 parity, 2026-10-14). This page is
+ * opened FROM that panel, and a page that laid the same record out differently — or softened its
+ * flag — would make an agent doubt which one is true. The card says "Type a reference above" for a
+ * typed-value lookup a Refresh could not run (no value was submitted), and names what was searched
+ * on a not-found.
+ */
+const LiveResult = ({
+  result,
+  typedValue,
+}: {
+  result: CustomApiLookupResult;
+  typedValue?: string;
+}) => (
+  <CustomApiResultCard
+    result={result}
+    busy={false}
+    referenceInput="page"
+    typedValue={typedValue}
+    footer={
+      result.status === 'ok' && result.rows?.length ? <RawRows rows={result.rows} /> : undefined
+    }
+  />
+);
 
 export const CustomerRecordsPage = () => {
   const navigate = useNavigate();
@@ -283,6 +241,8 @@ export const CustomerRecordsPage = () => {
     shownContactId.current = contactId;
   }, [contactId]);
   const [liveResults, setLiveResults] = useState<CustomApiLookupResult[] | null>(null);
+  /** The value the live results answer, for an older backend that does not echo `searchedFor`. */
+  const [searchedValue, setSearchedValue] = useState<string | undefined>(undefined);
   const [searchError, setSearchError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -301,6 +261,7 @@ export const CustomerRecordsPage = () => {
       typed reference from customer A stay on screen under customer B's name. Audit pass 1.
     */
     setLiveResults(null);
+    setSearchedValue(undefined);
     setReference('');
     setSearchError(null);
 
@@ -355,6 +316,11 @@ export const CustomerRecordsPage = () => {
 
   /** The lookups that take a reference an agent types (D44). */
   const manualLookups = lookups.filter((lookup) => lookup.parameterSource === 'manual');
+  /** D4: the box is named by what the admins called these values, never by a record kind. */
+  const referenceBoxName =
+    [...new Set(manualLookups.map((lookup) => referenceNameOf(lookup.referenceLabel)))].join(
+      ' or '
+    ) || DEFAULT_REFERENCE_NAME;
 
   /**
    * ⛔ EVERY lookup here keeps nothing, so this page can never fill — a configuration gap, not a
@@ -397,20 +363,28 @@ export const CustomerRecordsPage = () => {
           })
         )
       );
-      const found = answers
-        .filter(
-          (answer): answer is PromiseFulfilledResult<CustomApiLookupResult[]> =>
-            answer.status === 'fulfilled'
-        )
-        .flatMap((answer) => answer.value);
+      // ⛔ PER CARD (2026-10-14): a lookup that threw is said on ITS card, in the same words the
+      // panel uses, instead of one sentence for the whole box — and the others still show.
+      const found = answers.flatMap((answer, index): CustomApiLookupResult[] => {
+        if (answer.status === 'fulfilled') return answer.value;
+        const lookup = manualLookups[index];
+        return [
+          {
+            endpointId: lookup.endpointId,
+            label: lookup.label,
+            connectionName: lookup.connectionName,
+            resultShape: lookup.resultShape,
+            referenceLabel: lookup.referenceLabel ?? null,
+            status: 'failed',
+          },
+        ];
+      });
       // ⛔ A LATE ANSWER BELONGS TO THE CUSTOMER IT WAS ASKED ABOUT. If the agent has moved on to
       // another customer while this was in flight, these rows are a stranger's — drop them rather
       // than paint them under the name now on screen.
       if (shownContactId.current !== contactId) return;
+      setSearchedValue(value);
       setLiveResults(found);
-      if (found.length === 0 && answers.some((answer) => answer.status === 'rejected')) {
-        setSearchError('That lookup could not be completed. Try again, or check with an admin.');
-      }
       // A live answer is also stored by the backend, so the list below can now include it.
       const stored = await customApiLookupService.storedRecords(contactId);
       if (shownContactId.current !== contactId) return;
@@ -438,6 +412,7 @@ export const CustomerRecordsPage = () => {
       const answers = await customApiLookupService.run({ contactId });
       // Same bound as the box: a refresh that outlives the navigation is a stranger's answer here.
       if (shownContactId.current !== contactId) return;
+      setSearchedValue(undefined);
       setLiveResults(answers);
       const stored = await customApiLookupService.storedRecords(contactId);
       if (shownContactId.current !== contactId) return;
@@ -489,7 +464,9 @@ export const CustomerRecordsPage = () => {
             <div>
               <h1 className="font-display text-xl font-semibold">{heading}</h1>
               {contact?.primaryEmail && contact.displayName && (
-                <p className="font-mono text-[12px] text-muted-foreground">{contact.primaryEmail}</p>
+                <p className="font-mono text-[12px] text-muted-foreground">
+                  {contact.primaryEmail}
+                </p>
               )}
             </div>
 
@@ -510,11 +487,11 @@ export const CustomerRecordsPage = () => {
                     name — and a placeholder disappears the moment an agent starts typing. The one
                     control this page exists for should not be the unlabelled one.
                   */}
-                  <Label htmlFor="ca6-reference">Order or reference number</Label>
+                  <Label htmlFor="ca6-reference">{referenceBoxName}</Label>
                   <SearchInput
                     value={reference}
                     onChange={setReference}
-                    placeholder="Order or reference number"
+                    placeholder={referenceBoxName}
                     showSearchButton
                     onSearch={() => void search()}
                   />
@@ -541,7 +518,11 @@ export const CustomerRecordsPage = () => {
 
             <div role="status" aria-live="polite" className="space-y-2">
               {liveResults?.map((result) => (
-                <LiveResult key={`${result.endpointId}-${result.label}`} result={result} />
+                <LiveResult
+                  key={`${result.endpointId}-${result.label}`}
+                  result={result}
+                  typedValue={searchedValue}
+                />
               ))}
             </div>
 
