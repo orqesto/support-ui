@@ -17,7 +17,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { editorHtmlToText } from '@/lib/editorText';
+import { editorHtmlToText, translatedTextToHtml } from '@/lib/editorText';
 import { shieldPlaceholders } from '@/lib/replyPlaceholders';
 import { cn } from '@/lib/utils';
 import { TranslateButton } from './TranslateButton';
@@ -52,25 +52,6 @@ type RichTextEditorProps = {
    */
   locked?: boolean;
 };
-
-/**
- * A translation (plain text) back into editor paragraphs: blank lines split paragraphs, single
- * newlines become breaks, bare http(s) URLs become links again, everything else is TEXT.
- * ⛔ Not the markdown converter the AI answers use — it read the `_` in `{first_name|…}` …
- * `{{ticket_id}}` as italics and ate both underscores.
- */
-const escapeHtml = (text: string): string =>
-  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-// Trailing punctuation (the ")" of "here (https://…)", a full stop) is not part of the URL.
-const linkify = (escaped: string): string =>
-  escaped.replace(/https?:\/\/[^\s<]*[^\s<.,;:!?)]/g, (url) => `<a href="${url}">${url}</a>`);
-const plainTextToHtml = (text: string): string =>
-  text
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean)
-    .map((paragraph) => `<p>${linkify(escapeHtml(paragraph)).replace(/\n/g, '<br>')}</p>`)
-    .join('');
 
 // Pull image files out of a clipboard/drag DataTransfer. Covers both dropped/
 // pasted File objects and clipboard `items` (how screenshots arrive on paste).
@@ -138,6 +119,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       onSubmitRef.current = onSubmit;
     }, [onSubmit]);
     const restorePlaceholders = useRef((translated: string) => translated);
+    // The URLs of the links in the text being translated, by marker number.
+    const linkTargets = useRef<string[]>([]);
     const onImageFilesRef = useRef(onImageFiles);
     useEffect(() => {
       onImageFilesRef.current = onImageFiles;
@@ -413,8 +396,12 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
                 <div className="w-px h-8 bg-border mx-1" />
                 <TranslateButton
                   getText={() => {
-                    // Template placeholders go out as markers, so the model cannot reword them.
-                    const shielded = shieldPlaceholders(editorHtmlToText(editor.getHTML()));
+                    // Template placeholders and links go out as markers, so the model cannot reword
+                    // a placeholder, and a link is rebuilt around its translated words.
+                    linkTargets.current = [];
+                    const shielded = shieldPlaceholders(
+                      editorHtmlToText(editor.getHTML(), { linkTargets: linkTargets.current })
+                    );
                     restorePlaceholders.current = shielded.restore;
                     return shielded.text;
                   }}
@@ -423,7 +410,12 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
                     editor
                       .chain()
                       .focus()
-                      .setContent(plainTextToHtml(restorePlaceholders.current(translated)))
+                      .setContent(
+                        translatedTextToHtml(
+                          restorePlaceholders.current(translated),
+                          linkTargets.current
+                        )
+                      )
                       .run()
                   }
                   buttonClassName="inline-flex items-center justify-center h-8 w-8 p-0 rounded text-muted-foreground hover:text-foreground"

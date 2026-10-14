@@ -4,7 +4,7 @@
  * whitespace and autolinks leaked into the prompt.
  */
 import { describe, it, expect } from 'vitest';
-import { editorHtmlToText } from '../editorText';
+import { editorHtmlToText, translatedTextToHtml } from '../editorText';
 
 describe('editorHtmlToText', () => {
   it('🔴 text outside the paragraphs is read too (a template body pasted after a <p>)', () => {
@@ -52,5 +52,59 @@ describe('editorHtmlToText', () => {
 
   it('empty and whitespace-only markup is empty', () => {
     expect(editorHtmlToText('<p></p><div> &nbsp; </div>')).toBe('');
+  });
+});
+
+describe('editorHtmlToText — links as markers (Translate)', () => {
+  it('a link becomes [[aN]]its words[[/aN]] and its URL is collected', () => {
+    const targets: string[] = [];
+    expect(
+      editorHtmlToText(
+        '<p>See <a href="https://x.example/a">the guide</a> and <a href="mailto:a@b.example">mail</a>.</p>',
+        {
+          linkTargets: targets,
+        }
+      )
+    ).toBe('See [[a0]]the guide[[/a0]] and mail.');
+    expect(targets).toEqual(['https://x.example/a']);
+  });
+});
+
+describe('translatedTextToHtml', () => {
+  const URL = 'https://x.example/a?b=1&c=2';
+
+  it('rebuilds the link around the translated words, URL attribute-escaped', () => {
+    expect(translatedTextToHtml('Siehe [[a0]]die Anleitung[[/a0]].', [URL])).toBe(
+      '<p>Siehe <a href="https://x.example/a?b=1&amp;c=2">die Anleitung</a>.</p>'
+    );
+  });
+
+  it('⛔ a translator that broke the markers never loses the URL', () => {
+    // Opening marker gone: the URL is kept beside the words.
+    expect(translatedTextToHtml('Siehe die Anleitung[[/a0]].', [URL])).toBe(
+      '<p>Siehe die Anleitung (<a href="https://x.example/a?b=1&amp;c=2">https://x.example/a?b=1&amp;c=2</a>).</p>'
+    );
+    // Closing marker gone: the stray opening marker is dropped, the link added after.
+    expect(translatedTextToHtml('Siehe [[a0]]die Anleitung.', [URL])).toBe(
+      '<p>Siehe die Anleitung.</p><p><a href="https://x.example/a?b=1&amp;c=2">https://x.example/a?b=1&amp;c=2</a></p>'
+    );
+    // Both gone.
+    expect(translatedTextToHtml('Siehe die Anleitung.', [URL])).toBe(
+      '<p>Siehe die Anleitung.</p><p><a href="https://x.example/a?b=1&amp;c=2">https://x.example/a?b=1&amp;c=2</a></p>'
+    );
+  });
+
+  it('runs of "- " / "n. " paragraphs become real lists; an <ol> keeps its first number', () => {
+    expect(translatedTextToHtml('Intro\n\n- A\n\n- B\n\n2. C\n\n3. D\n\nEnd')).toBe(
+      '<p>Intro</p><ul><li><p>A</p></li><li><p>B</p></li></ul><ol start="2"><li><p>C</p></li><li><p>D</p></li></ol><p>End</p>'
+    );
+  });
+
+  it('everything else is TEXT: markup-looking characters, underscores, bare URLs linked', () => {
+    expect(
+      translatedTextToHtml('Use <b>x</b> & {first_name|there} at https://y.example/a_b_c.')
+    ).toBe(
+      '<p>Use &lt;b&gt;x&lt;/b&gt; &amp; {first_name|there} at <a href="https://y.example/a_b_c">https://y.example/a_b_c</a>.</p>'
+    );
   });
 });

@@ -139,14 +139,31 @@ describe('RichTextEditor — translatable', () => {
     expect(editor.getText()).toBe('Hallo {first_name|there}, ticket {{ticket_id}}.');
   });
 
-  it('a link keeps its URL through the translation and comes back a link', async () => {
+  it('🔴 a link goes out as a marker and comes back a link AROUND the translated words', async () => {
+    translateText.mockResolvedValue({
+      translated: { content: 'Setze es [[a0]]hier[[/a0]] zurück.', language: 'de' },
+    });
     const editor = await renderEditor(
       '<p>Reset it <a href="https://help.example/reset">here</a>.</p>'
     );
     await pickGerman();
-    await waitFor(() => expect(editor.getText()).toContain('DE:'));
-    expect(translateText).toHaveBeenCalledWith('Reset it here (https://help.example/reset).', 'de');
-    expect(editor.getHTML()).toContain('href="https://help.example/reset"');
+    await waitFor(() => expect(editor.getText()).toContain('Setze'));
+    expect(translateText).toHaveBeenCalledWith('Reset it [[a0]]here[[/a0]].', 'de');
+    // The link's words are the translation's ("hier"), not its URL.
+    expect(editor.getHTML()).toMatch(
+      /<a [^>]*href="https:\/\/help\.example\/reset"[^>]*>hier<\/a>/
+    );
+  });
+
+  it('🔴 lists come back as real lists', async () => {
+    translateText.mockResolvedValue({
+      translated: { content: '- Eins\n\n- Zwei\n\n3. Drei', language: 'de' },
+    });
+    const editor = await renderEditor('<p>x</p>');
+    await pickGerman();
+    await waitFor(() => expect(editor.getText()).toContain('Eins'));
+    expect(editor.getHTML()).toContain('<ul><li><p>Eins</p></li><li><p>Zwei</p></li></ul>');
+    expect(editor.getHTML()).toContain('<ol start="3"><li><p>Drei</p></li></ol>');
   });
 
   it('list items go out as lines a translator keeps', async () => {
