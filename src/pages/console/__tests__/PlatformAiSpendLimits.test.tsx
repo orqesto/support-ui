@@ -106,7 +106,7 @@ afterEach(() => {
 // The backend from before the limits (2d8552fb managedAIUsageController) sends no
 // `totals.tokenBudgets` and no per-workspace `tokenBudget`: no limits column at all.
 describe('AI Spend — a backend from before the token limits', () => {
-  it('no "Today vs limits" column and no limit cells; the rows still render', async () => {
+  it('no token-limits column and no limit cells; the rows still render', async () => {
     getImpl = () => {
       const result = page();
       delete result.usage.totals.tokenBudgets;
@@ -115,13 +115,13 @@ describe('AI Spend — a backend from before the token limits', () => {
     };
     renderPage();
     expect(await screen.findByText('Bolt')).toBeTruthy();
-    expect(screen.queryByText('Today vs limits')).toBeNull();
+    expect(screen.queryByText('Token limits · today / month')).toBeNull();
     expect(screen.queryAllByTitle(/Today since 00:00 UTC/)).toHaveLength(0);
   });
 
   it('CONTROL: the final backend shows the column and a cell per workspace', async () => {
     renderPage();
-    expect(await screen.findByText('Today vs limits')).toBeTruthy();
+    expect(await screen.findByText('Token limits · today / month')).toBeTruthy();
     await waitFor(() => expect(screen.getAllByTitle(/Today since 00:00 UTC/)).toHaveLength(2));
   });
 });
