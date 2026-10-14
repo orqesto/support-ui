@@ -32,6 +32,15 @@ export const parseCost = (text: string): number | null => {
 export const costPlaceholder = (value: number | null, unit: CostUnit): string =>
   value !== null ? String(toCostUnit(value, unit)) : 'unset';
 
+/**
+ * A stored (per-1k) cost field in the typed unit, for the card's read-only summary: it said
+ * 0.00013 where the editor said 0.13 for the same cost.
+ */
+export const costInUnit = <Field extends { value: number | null }>(
+  field: Field,
+  unit: CostUnit
+): Field => ({ ...field, value: field.value === null ? null : toCostUnit(field.value, unit) });
+
 /** Re-express typed costs in another unit; text that is not a cost stays as it is. */
 export const convertCosts = <Key extends string>(
   costs: Record<Key, string>,
