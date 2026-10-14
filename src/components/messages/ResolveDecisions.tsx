@@ -1,11 +1,17 @@
 import { BookOpen, Check, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Spinner } from '@/components/ui/Spinner';
 import type { ResolveMode } from './resolveMode';
 
 export type ResolveDecisionsProps = {
   /** Decides whether this renders at all and which decisions it offers — see resolveMode.ts. */
   mode: ResolveMode;
   busy?: boolean;
+  /**
+   * "Resolve & save to KB" is in flight. The save runs the KB capture inside the request (a
+   * model call that took ~15 s on the demo), so the row says so instead of sitting greyed out.
+   */
+  savingToKb?: boolean;
   /**
    * The plain resolve. Opens the SAME confirm dialog the header's Resolve did (and the old
    * footer's "Resolve (no KB)" before it) — close() for an active conversation, the reject dialog
@@ -55,6 +61,7 @@ export function ResolveDecisions({
   onResolveToKb,
   onNotCustomerWork,
   onResolveAsSpam,
+  savingToKb = false,
   variant = 'inline',
 }: ResolveDecisionsProps) {
   if (mode === null) return null;
@@ -92,11 +99,23 @@ export function ResolveDecisions({
             variant="ghost"
             size="sm"
             onClick={onResolveToKb}
-            disabled={busy}
+            // Not `isLoading`: Button would swap the label for a bare spinner, and an explicit
+            // `disabled` replaces its own lock anyway — so the lock is `busy || savingToKb`.
+            disabled={busy || savingToKb}
+            aria-busy={savingToKb || undefined}
             className={`${ACT} ${phone ? PHONE_ACT : ''} hover:text-pending hover:bg-pending-muted hover:border-pending-line`}
           >
-            <BookOpen className="w-[13px] h-[13px]" />
-            Resolve &amp; save to KB
+            {savingToKb ? (
+              <>
+                <Spinner size={13} className="text-current" />
+                Saving to KB…
+              </>
+            ) : (
+              <>
+                <BookOpen className="w-[13px] h-[13px]" />
+                Resolve &amp; save to KB
+              </>
+            )}
           </Button>
         )}
       </div>

@@ -83,7 +83,7 @@ export const KBTableView = ({
         <col className="hidden w-16 sm:table-column" />
         <col className="hidden w-14 lg:table-column" />
         <col className="w-28" />
-        <col className="w-44" />
+        <col className="w-48" />
       </colgroup>
       <thead className="bg-muted/50">
         <tr className="border-b">
@@ -166,7 +166,16 @@ export const KBTableView = ({
                 </div>
               </td>
               <td className="px-2 py-3 text-right">
-                <div className="flex gap-1 justify-end">
+                {/* A Pending entry offers five actions (View, Approve, Reject, Hide, Delete). At
+                    `size="sm"` (42px each) they were wider than this column, and a `justify-end`
+                    row that overflows spills out of its START edge — the View button sat on the
+                    end of the Status column's "Pending" pill (demo, 2026-10-15). Square 32px
+                    icon buttons fit five in the column; `flex-wrap` keeps a sixth (a case row's
+                    Unmerge) inside the cell instead of over its neighbour. */}
+                <div
+                  data-testid="kb-row-actions"
+                  className="flex flex-wrap gap-1 justify-end [&>button]:h-8 [&>button]:w-8 [&>button]:px-0"
+                >
                   <Button
                     size="sm"
                     variant="ghost"

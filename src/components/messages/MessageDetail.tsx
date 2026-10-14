@@ -311,6 +311,8 @@ export function MessageDetail({
   );
   const [submitting, setSubmitting] = useState(false);
   const [resolving, setResolving] = useState(false);
+  // Which resolve is in flight when it is "Resolve & save to KB" — its row shows "Saving to KB…".
+  const [savingToKb, setSavingToKb] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
   const [resolveConfirmOpen, setResolveConfirmOpen] = useState(false);
@@ -809,6 +811,7 @@ export function MessageDetail({
 
   const handleResolveWithoutReply = useCallback(async () => {
     setResolving(true);
+    setSavingToKb(true);
     try {
       await messageService.resolve(message.id);
       onResolve?.();
@@ -816,6 +819,7 @@ export function MessageDetail({
       logger.error('Failed to resolve:', err);
     } finally {
       setResolving(false);
+      setSavingToKb(false);
     }
   }, [message.id, onResolve]);
 
@@ -1238,6 +1242,7 @@ export function MessageDetail({
       variant={variant}
       mode={resolveMode}
       busy={resolving}
+      savingToKb={savingToKb}
       // The SAME dialogs the old header split button opened: an unreviewed thread is
       // dismissed through the reject dialog, an active one closes through the no-KB
       // confirm. Nothing new reaches the BE.
