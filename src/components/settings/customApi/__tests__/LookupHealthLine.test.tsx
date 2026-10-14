@@ -67,6 +67,14 @@ describe('healthSentence', () => {
       /^Failing since .+: Acme refused our access\.$/
     );
   });
+  it('a lookup failing because its answer changed shape sends the agent to an admin', () => {
+    const sentence = healthSentence(
+      health({ ...FAILING, lastFailureClass: 'shape_changed', lastFailureReason: 'data.items' }),
+      'Acme'
+    );
+    expect(sentence).toMatch(/^Failing since .+: This lookup needs attention from an admin\.$/);
+    expect(sentence).not.toContain('data.items');
+  });
   it('an unknown failure class is the generic sentence, never raw text', () => {
     expect(healthSentence(health({ ...FAILING, lastFailureClass: 'new_class' }), 'Acme')).toMatch(
       /: This lookup could not be completed\.$/

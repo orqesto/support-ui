@@ -220,7 +220,9 @@ export const CustomApiResultCard = ({
     // v4 `.k-c`: one card per lookup; a failed one is edged in red so it is found at a glance.
     <div
       data-testid="lookup-card"
-      className={`grid gap-1.5 rounded-lg border bg-card px-[9px] py-2 ${
+      // `minmax(0,1fr)`: the card's one column may shrink to the screen, so its rows wrap or
+      // truncate inside it instead of widening it (390 px, 2026-10-14).
+      className={`grid grid-cols-[minmax(0,1fr)] gap-1.5 rounded-lg border bg-card px-[9px] py-2 ${
         result.status === 'failed' ? 'border-destructive-line' : 'border-border'
       }`}
     >
@@ -238,7 +240,7 @@ export const CustomApiResultCard = ({
           </span>
         )}
         <span className="flex-1" />
-        <span className="text-[10.5px] text-faint-foreground whitespace-nowrap">
+        <span className="min-w-0 truncate text-[10.5px] text-faint-foreground">
           {result.connectionName}
           {result.status === 'ok' && result.rows?.length
             ? ` · ${
