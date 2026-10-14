@@ -449,9 +449,11 @@ export const PlatformAiSpend = () => {
                           {TIER_LABEL[tier]}
                         </th>
                       ))}
-                      {hasBudgets && <th className="px-3 py-2 font-medium">Today vs limits</th>}
+                      {hasBudgets && (
+                        <th className="px-3 py-2 font-medium">Token limits · today / month</th>
+                      )}
                       <th className="px-3 py-2 font-medium">
-                        Monthly cap
+                        AI calls / month (plan)
                         {capMonth && (
                           <span className="ml-1 font-normal text-muted-foreground">
                             · {formatMonth(capMonth)}
@@ -530,7 +532,7 @@ export const PlatformAiSpend = () => {
             </CardContent>
             {capWindowIsShorter && capMonth && (
               <p className="px-3 py-2 text-xs border-t text-muted-foreground border-border">
-                The cap column counts {formatMonth(capMonth)} only — it resets on the 1st and
+                The AI-calls column counts {formatMonth(capMonth)} only — it resets on the 1st and
                 does not follow the range above, so a workspace can show heavy token spend
                 beside a nearly untouched cap.
               </p>

@@ -127,7 +127,7 @@ describe('Platform → AI Spend', () => {
 
       // Scoped to the header: the footnote below names the month too, so a bare
       // text query matches twice and proves nothing about where the label landed.
-      const header = await screen.findByRole('columnheader', { name: /Monthly cap/ });
+      const header = await screen.findByRole('columnheader', { name: /AI calls \/ month \(plan\)/ });
       expect(within(header).getByText(/September 2026/)).toBeInTheDocument();
     });
 

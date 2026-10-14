@@ -14,6 +14,7 @@ import {
   type TokenCapsTotals,
   type KbForecast,
   type TokenForecast,
+  type TokenBucket,
   type TokenLimit,
 } from '@/services/managedAiUsage.service';
 import {
@@ -78,8 +79,29 @@ export const describeLimitSource = (override: OrgTokenBudget['override']): strin
 };
 
 /**
- * Today's spend against each daily limit, in the workspace row. Opens the workspace's limits
- * and its forecast.
+ * This month's spend against a monthly limit (calendar month, UTC). The same daily spend adds up
+ * into it, so the monthly limits apply to every workspace — on its own key too. The plan's
+ * "AI calls / month" column beside it is a different, platform-key-only cap (2026-10-14: a
+ * tester read "own key · no cap" there as the monthly token limit not applying).
+ */
+const MonthLine = ({
+  label,
+  cap,
+  nearShare,
+}: {
+  label: string;
+  cap: NonNullable<OrgTokenBudget['monthly']>[TokenBucket];
+  nearShare?: number;
+}) =>
+  cap ? (
+    <UsageLine label={label} spent={cap.spentThisMonth} limit={cap.limit} nearShare={nearShare} />
+  ) : (
+    <span className="text-xs text-muted-foreground">{label} · no monthly limit</span>
+  );
+
+/**
+ * Today's spend against each daily limit and, from a backend that sends them, this month's
+ * against each monthly limit, in the workspace row. Opens the workspace's limits and its forecast.
  */
 export const WorkspaceLimitCell = ({
   budget,
@@ -101,7 +123,7 @@ export const WorkspaceLimitCell = ({
     className="flex flex-col items-start p-1 h-auto text-left"
     // No aria-label: it would REPLACE the figures below as the accessible name, and the figures
     // are the point of the cell. The title adds what the click does.
-    title="Today since 00:00 UTC against this workspace's daily limits — click to change them or see the forecast"
+    title="Today since 00:00 UTC against this workspace's daily limits, and this calendar month (UTC) against its monthly limits — click to change them or see the forecast"
   >
     <UsageLine
       label="KB"
@@ -115,6 +137,12 @@ export const WorkspaceLimitCell = ({
       limit={budget.regular.limit}
       nearShare={nearShare}
     />
+    {budget.monthly && (
+      <>
+        <MonthLine label="KB month" cap={budget.monthly.kb} nearShare={nearShare} />
+        <MonthLine label="Regular month" cap={budget.monthly.regular} nearShare={nearShare} />
+      </>
+    )}
     <span className="text-[10px] text-muted-foreground">
       {settingsUnreadable ? (
         // The override and the enforcement answer are fallbacks too: neither is said as fact.
