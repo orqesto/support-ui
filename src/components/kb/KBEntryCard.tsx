@@ -15,6 +15,7 @@ import { KBStatusBadge } from './KBStatusBadge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
+import { kbSourceConversationId } from '@/lib/kbSource';
 import type { KBEntry } from '@/services/kb.service';
 import {
   isCaseRow,
@@ -109,15 +110,15 @@ export const KBEntryCard = ({
           <Badge variant="secondary" className="text-xs">
             {entry.category}
           </Badge>
-          {entry.metadata && typeof entry.metadata.sourceMessageId === 'number' && (
+          {kbSourceConversationId(entry) !== null && (
             <>
               <span>•</span>
               <a
-                href={`/messages?id=${entry.metadata.sourceMessageId}`}
+                href={`/messages?id=${kbSourceConversationId(entry)}`}
                 className="font-mono text-primary hover:text-primary hover:underline"
                 onClick={(event) => event.stopPropagation()}
               >
-                #{entry.metadata.sourceMessageId}
+                #{kbSourceConversationId(entry)}
               </a>
             </>
           )}

@@ -15,13 +15,17 @@ import { Button } from '@/components/ui/Button';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
+import { formatConvId } from '@/lib/messageHelpers';
+import { channelName } from '@/components/messages/messageDetailConstants';
 
 type TrackingPayload = {
-  organization: { name: string | null };
+  // `code` and `channel` are optional: a backend before 2026-10-14 does not send them.
+  organization: { name: string | null; code?: string | null };
   department: { name: string | null };
   conversation: {
     id: number;
     publicId: string | null;
+    channel?: string | null;
     subject: string | null;
     status: string;
     priority: string;
@@ -665,15 +669,20 @@ export const TrackingPage = () => {
   // publicId ('SUP-42') once stamped; fall back to the int-padded REQ-style id
   // for legacy convs that pre-date the public-id rollout (will disappear once
   // the backfill covers all rows + the NOT NULL constraint lands).
+  // The SAME reference the app shows (`BRI-SUP-18`, formatConvId), so the number a customer
+  // quotes is the one an agent searches for; it read `#SUP-18` (demo, 2026-10-14). Without the
+  // workspace code (an older backend) it is the bare `SUP-18`, as the app shows it then.
   const referenceNumber = conversation.publicId
-    ? `#${conversation.publicId}`
+    ? formatConvId(conversation, organization.code)
     : `#REQ-${conversation.id.toString().padStart(4, '0')}`;
 
-  // Channel label — only shown if we can infer one from the events. Stays
-  // generic to avoid exposing internal source/integration names.
-  const inboundChannel = events.find((event) => event.direction === 'customer')?.id
-    ? 'Email'
-    : null;
+  // The request's own channel. It printed "Email" for EVERY request, a chat-widget one included
+  // (demo, 2026-10-14). An older backend sends no conversation channel: the customer's first
+  // message's channel then, and no row at all when neither is known.
+  const inboundChannel =
+    channelName(
+      conversation.channel ?? events.find((event) => event.direction === 'customer')?.channel
+    ) || null;
 
   return (
     <div

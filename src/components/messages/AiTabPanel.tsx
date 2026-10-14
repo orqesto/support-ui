@@ -88,6 +88,10 @@ const senderAddress = (sender?: string): string => {
   return sender.match(/<([^>]+)>/)?.[1] ?? sender.trim();
 };
 
+/** A knowledge-base ENTRY (Q&A pair, document, manual entry): the KB page opens it by `?id=`. */
+const kbEntryHref = (id: number | undefined): string | undefined =>
+  id ? `/knowledge-base?id=${id}` : undefined;
+
 type ReplyOption = {
   id: string;
   label: string;
@@ -95,6 +99,12 @@ type ReplyOption = {
   answer: string;
   type: 'lead' | 'documentation' | 'similar';
   documentationId?: number;
+  /**
+   * Where the source link opens. A KB hit (`source: 'documentation'` from similar-resolved) is a
+   * KNOWLEDGE-BASE ENTRY id, opened by `?id=`; `?docId=…#documentation` is the uploaded
+   * Documentation tab's own param and opened that empty upload tab instead (demo, 2026-10-14).
+   */
+  sourceHref?: string;
   documentTitle?: string;
   messageId?: number;
   content?: string;
@@ -364,6 +374,7 @@ export function AiTabPanel({
       answer: isPastReply ? stripGreetingName(result.directReply) : result.directReply,
       type: result.source === 'documentation' ? 'documentation' : 'similar',
       documentationId: result.documentationId,
+      sourceHref: isPastReply ? undefined : kbEntryHref(result.documentationId),
       documentTitle: result.documentTitle,
       messageId: result.messageId,
       content: result.content,
@@ -519,7 +530,10 @@ export function AiTabPanel({
                     </Button>
                   ) : (
                     <Link
-                      to={`/knowledge-base?docId=${activeOption.documentationId}#documentation`}
+                      to={
+                        activeOption.sourceHref ??
+                        `/knowledge-base?docId=${activeOption.documentationId}#documentation`
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(event) => event.stopPropagation()}

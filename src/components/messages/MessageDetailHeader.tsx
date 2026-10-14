@@ -256,6 +256,12 @@ export function MessageDetailHeader({
   const [routingTo, setRoutingTo] = useState<number | null>(null);
   // The "Also matched" hint, dismissed for this thread for the rest of the session (v3).
   const [nearMissDismissed, setNearMissDismissed] = useState(() => isNearMissDismissed(message.id));
+  // Never "Move to <the department it is already in>". The scores are the first route's, and the
+  // thread may have moved since (routed by hand out of Needs Routing, or to a runner-up); the
+  // backend filters this too, but an older backend does not (demo, 2026-10-14).
+  const nearMissDepts = (message.nearMissDepts ?? []).filter(
+    (deptId) => deptId !== message.departmentId
+  );
   useEffect(() => setNearMissDismissed(isNearMissDismissed(message.id)), [message.id]);
   // Tracks whether the in-flight near-miss route is the "+ rule" (learn) variant,
   // so only the clicked button shows its busy label while both are disabled.
@@ -1506,7 +1512,7 @@ export function MessageDetailHeader({
 
       {/* Re-route banner — runner-up depts from the routing engine.
           Lets an agent move the conversation to a near-miss dept in one click. */}
-      {(message.nearMissDepts?.length ?? 0) > 0 &&
+      {nearMissDepts.length > 0 &&
         !nearMissDismissed &&
         message.status !== 'resolved' &&
         message.status !== 'closed' && (
@@ -1515,12 +1521,10 @@ export function MessageDetailHeader({
               <span className={`${LABEL} text-primary`}>Also matched</span>
               <span className="flex-1 min-w-[150px] text-[12px] text-muted-foreground">
                 {nearMissSentence(
-                  message.nearMissDepts!.map(
-                    (deptId) => allDepts.find((entry) => entry.id === deptId)?.name
-                  )
+                  nearMissDepts.map((deptId) => allDepts.find((entry) => entry.id === deptId)?.name)
                 )}
               </span>
-              {message.nearMissDepts!.map((deptId) => {
+              {nearMissDepts.map((deptId) => {
                 const dept = allDepts.find((entry) => entry.id === deptId);
                 if (!dept) return null;
                 const busy = routingTo === deptId;

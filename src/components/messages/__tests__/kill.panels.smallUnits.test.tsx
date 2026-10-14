@@ -235,3 +235,22 @@ describe('channelInSentence', () => {
     expect(channelInSentence('email')).toBe('email');
   });
 });
+
+describe('ThreadNoteItem — a note stored as editor HTML', () => {
+  it('🔴 shows the words, never the literal <p> tags (demo, 2026-10-14)', () => {
+    render(
+      <ThreadNoteItem
+        note={
+          {
+            id: 4,
+            content: '<p>Dispatch confirms the redirect.</p>',
+            authorName: 'Mia',
+            createdAt: '2026-08-18T17:50:00Z',
+          } as unknown as MessageNote
+        }
+      />
+    );
+    expect(screen.getByText('Dispatch confirms the redirect.')).toBeInTheDocument();
+    expect(screen.queryByText(/<p>/)).toBeNull();
+  });
+});

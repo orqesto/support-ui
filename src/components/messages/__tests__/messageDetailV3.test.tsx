@@ -455,6 +455,28 @@ describe('routing hint (v3): dismissable', () => {
   });
 });
 
+describe('routing hint: never the department the thread is already in (demo, 2026-10-14)', () => {
+  it('🔴 a thread in department 3 is not offered "Move to" department 3', () => {
+    renderDetail({
+      ...activeThread,
+      id: 9111,
+      departmentId: 3,
+      nearMissDepts: [3],
+    } as Partial<Message>);
+    expect(screen.queryByText('Also matched')).toBeNull();
+  });
+
+  it('control: the same scores on a thread in another department still show the hint', () => {
+    renderDetail({
+      ...activeThread,
+      id: 9112,
+      departmentId: 5,
+      nearMissDepts: [3],
+    } as Partial<Message>);
+    expect(screen.getByText('Also matched')).toBeTruthy();
+  });
+});
+
 describe('routing hint: switching threads in the SAME panel', () => {
   it('a dismissal on thread A does not hide the hint on thread B shown in its place', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
