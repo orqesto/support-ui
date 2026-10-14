@@ -217,7 +217,7 @@ describe('PlatformDefaults', () => {
     // Nothing to type into until you say you are editing.
     expect(ai.queryByRole('combobox')).not.toBeInTheDocument();
     openAiEditor();
-    expect(ai.getByRole('combobox')).toBeInTheDocument();
+    expect(ai.getByRole('combobox', { name: 'Provider' })).toBeInTheDocument();
   });
 
   it('discards the draft on Cancel and returns to what the server holds', async () => {
