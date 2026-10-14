@@ -29,6 +29,15 @@ import {
   type AIModel,
   type AIProvider,
 } from '@/types/aiProviders';
+import {
+  convertCosts,
+  CostUnitPicker,
+  costPlaceholder,
+  fromCostUnit,
+  parseCost,
+  toCostUnit,
+  type CostUnit,
+} from './costUnit';
 import { SecretField } from './SecretField';
 import { useManagedAiTest } from './useManagedAiTest';
 import { SourceBadge } from './SourceBadge';
@@ -86,11 +95,15 @@ const seedModels = (ai: Ai): Record<ModelKey, string> => ({
   visionModel: prefill(ai.visionModel),
 });
 
-const seedCosts = (ai: Ai): Record<CostKey, string> => ({
-  defaultCostPer1k: prefill(ai.defaultCostPer1k),
-  strongCostPer1k: prefill(ai.strongCostPer1k),
-  visionCostPer1k: prefill(ai.visionCostPer1k),
-});
+const seedCosts = (ai: Ai, unit: CostUnit = '1k'): Record<CostKey, string> => {
+  const seed = (field: Ai[CostKey]): string =>
+    field.source === 'db' && field.value !== null ? String(toCostUnit(field.value, unit)) : '';
+  return {
+    defaultCostPer1k: seed(ai.defaultCostPer1k),
+    strongCostPer1k: seed(ai.strongCostPer1k),
+    visionCostPer1k: seed(ai.visionCostPer1k),
+  };
+};
 
 const seedBedrock = (ai: Ai) => ({
   region: ai.bedrockRegion.value ?? '',
@@ -120,7 +133,8 @@ export const ManagedAiDefaultsCard = ({
 }) => {
   const [provider, setProvider] = useState<AIProvider>(ai.provider.value ?? 'openai');
   const [models, setModels] = useState<Record<ModelKey, string>>(() => seedModels(ai));
-  const [costs, setCosts] = useState<Record<CostKey, string>>(() => seedCosts(ai));
+  const [costUnit, setCostUnit] = useState<CostUnit>('1M');
+  const [costs, setCosts] = useState<Record<CostKey, string>>(() => seedCosts(ai, '1M'));
   const [baseUrl, setBaseUrl] = useState(
     ai.baseUrl.source === 'db' ? (ai.baseUrl.value ?? '') : ''
   );
@@ -160,7 +174,7 @@ export const ManagedAiDefaultsCard = ({
   const reseed = () => {
     setProvider(ai.provider.value ?? 'openai');
     setModels(seedModels(ai));
-    setCosts(seedCosts(ai));
+    setCosts(seedCosts(ai, costUnit));
     setBaseUrl(ai.baseUrl.source === 'db' ? (ai.baseUrl.value ?? '') : '');
     setOrganization(ai.organization.value ?? '');
     setBedrock(seedBedrock(ai));
@@ -305,10 +319,8 @@ export const ManagedAiDefaultsCard = ({
       if (trimmed) input[key] = trimmed;
     });
     (Object.keys(costs) as CostKey[]).forEach((key) => {
-      const raw = costs[key].trim();
-      if (!raw) return;
-      const num = Number(raw);
-      if (Number.isFinite(num) && num >= 0) input[key] = num;
+      const typed = parseCost(costs[key]);
+      if (typed !== null) input[key] = fromCostUnit(typed, costUnit);
     });
     if (baseUrlEditable && baseUrl.trim()) input.baseUrl = baseUrl.trim();
     if (provider === 'openai' && organization.trim()) input.organization = organization.trim();
@@ -622,6 +634,14 @@ export const ManagedAiDefaultsCard = ({
           )
         )}
 
+        <CostUnitPicker
+          unit={costUnit}
+          onChange={(next) => {
+            setCosts((prev) => convertCosts(prev, costUnit, next));
+            setCostUnit(next);
+          }}
+        />
+
         {TIERS.map(({ modelKey, costKey, label, hint }) => (
           <div key={modelKey} className="grid gap-3 sm:grid-cols-2">
             <div>
@@ -637,18 +657,19 @@ export const ManagedAiDefaultsCard = ({
             </div>
             <div>
               <div className="flex gap-2 items-center mb-2">
-                <Label className="mb-0">Cost / 1k tokens</Label>
+                <Label className="mb-0">Cost / {costUnit} tokens</Label>
                 <SourceBadge source={ai[costKey].source} unsetLabel="Not set" />
               </div>
               <Input
                 type="number"
                 min={0}
-                step="0.0001"
+                step="any"
+                aria-label={`${label} — cost per ${costUnit} tokens`}
                 value={costs[costKey]}
                 onChange={(event) =>
                   setCosts((prev) => ({ ...prev, [costKey]: event.target.value }))
                 }
-                placeholder={ai[costKey].value !== null ? String(ai[costKey].value) : 'unset'}
+                placeholder={costPlaceholder(ai[costKey].value, costUnit)}
               />
             </div>
           </div>
