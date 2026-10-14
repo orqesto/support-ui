@@ -17,7 +17,9 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { shieldPlaceholders } from '@/lib/replyPlaceholders';
 import { cn } from '@/lib/utils';
+import { TranslateButton } from './TranslateButton';
 
 type RichTextEditorProps = {
   content?: string;
@@ -37,7 +39,28 @@ type RichTextEditorProps = {
    * handed off (e.g. attached to the message) instead of being inserted inline.
    */
   onImageFiles?: (files: File[]) => void;
+  /**
+   * Adds a Translate control to the toolbar: the editor's text is translated and REPLACES the
+   * content in place (the toolbar's Undo / Ctrl+Z brings the original back). Plain text goes out
+   * and paragraphs come back — inline formatting is not kept.
+   */
+  translatable?: boolean;
 };
+
+/**
+ * A translation (plain text) back into editor paragraphs: blank lines split paragraphs, single
+ * newlines become breaks, everything else is TEXT. ⛔ Not the markdown converter the AI answers
+ * use — it read the `_` in `{first_name|…}` … `{{ticket_id}}` as italics and ate both underscores.
+ */
+const escapeHtml = (text: string): string =>
+  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const plainTextToHtml = (text: string): string =>
+  text
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`)
+    .join('');
 
 // Pull image files out of a clipboard/drag DataTransfer. Covers both dropped/
 // pasted File objects and clipboard `items` (how screenshots arrive on paste).
@@ -92,6 +115,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       maxHeight,
       initiallyHidden = true,
       onImageFiles,
+      translatable = false,
     },
     ref
   ) => {
@@ -102,6 +126,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
     useEffect(() => {
       onSubmitRef.current = onSubmit;
     }, [onSubmit]);
+    const restorePlaceholders = useRef((translated: string) => translated);
     const onImageFilesRef = useRef(onImageFiles);
     useEffect(() => {
       onImageFilesRef.current = onImageFiles;
@@ -365,6 +390,31 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
             >
               <Redo className="h-4 w-4" />
             </Button>
+
+            {translatable && (
+              <>
+                <div className="w-px h-8 bg-border mx-1" />
+                <TranslateButton
+                  getText={() => {
+                    // Template placeholders go out as markers, so the model cannot reword them.
+                    const shielded = shieldPlaceholders(
+                      editor.getText({ blockSeparator: '\n\n' }).trim()
+                    );
+                    restorePlaceholders.current = shielded.restore;
+                    return shielded.text;
+                  }}
+                  clearable={false}
+                  onTranslated={(translated) =>
+                    editor
+                      .chain()
+                      .focus()
+                      .setContent(plainTextToHtml(restorePlaceholders.current(translated)))
+                      .run()
+                  }
+                  buttonClassName="inline-flex items-center justify-center h-8 w-8 p-0 rounded text-muted-foreground hover:text-foreground"
+                />
+              </>
+            )}
 
             {initiallyHidden && (
               <>

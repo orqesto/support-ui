@@ -6,7 +6,7 @@ import {
   type CustomApiCategory,
 } from '@/components/settings/customApi/categories';
 import { LABEL } from './messageDetailConstants';
-import type { AddOutcome } from './useAiRecordNote';
+import type { AddOutcome } from './recordInsertOutcome';
 import type { CustomApiLookupResult, LookupField } from '@/services/customApiLookup.service';
 
 /**

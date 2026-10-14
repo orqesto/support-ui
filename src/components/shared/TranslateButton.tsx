@@ -19,9 +19,19 @@ type TranslateButtonProps = {
   ticketId?: number;
   /** Free text with no stored id — an AI draft. Used when neither id is given. */
   text?: string;
+  /**
+   * Free text read at the moment a language is picked — for a source that changes without a
+   * re-render (an editor's content). Takes precedence over `text`.
+   */
+  getText?: () => string;
   /** `language` is the code the agent picked, for callers that label the result. */
   onTranslated: (content: string, subject?: string, language?: string) => void;
-  onCleared: () => void;
+  onCleared?: () => void;
+  /**
+   * Offer "Show original" after a translation (default). Off where the translation REPLACED
+   * editable text: the agent may have edited it since, and the editor's own Undo is the way back.
+   */
+  clearable?: boolean;
   buttonClassName?: string;
   spinnerClassName?: string;
   clearClassName?: string;
@@ -31,8 +41,10 @@ export const TranslateButton = ({
   messageId,
   ticketId,
   text,
+  getText,
   onTranslated,
   onCleared,
+  clearable = true,
   buttonClassName,
   spinnerClassName,
   clearClassName,
@@ -54,11 +66,20 @@ export const TranslateButton = ({
       } else if (ticketId) {
         const result = await translateTicket(ticketId, language);
         onTranslated(result.translated.description ?? '', result.translated.title, language);
-      } else if (text !== undefined) {
-        const result = await translateText(text, language);
+      } else if (getText || text !== undefined) {
+        const source = getText?.() ?? text ?? '';
+        // An empty editor: nothing to translate, and the endpoint would 400.
+        if (!source.trim()) {
+          setSelectedLanguage('');
+          return;
+        }
+        const result = await translateText(source, language);
         onTranslated(result.translated.content, undefined, language);
       }
-      setHasTranslation(true);
+      // Replaced in place: there is no "translated state" to show or clear, and the picker must
+      // allow the same language again after the agent edits the text.
+      if (clearable) setHasTranslation(true);
+      else setSelectedLanguage('');
     } catch (err) {
       logger.error('Translation error:', err);
       // useTranslation tracks `error`, but its state is stale in this synchronous
@@ -76,7 +97,7 @@ export const TranslateButton = ({
   const handleClear = () => {
     setSelectedLanguage('');
     setHasTranslation(false);
-    onCleared();
+    onCleared?.();
   };
 
   const languageOptions =
@@ -102,9 +123,7 @@ export const TranslateButton = ({
         trigger={({ open, toggle }) => (
           <Tooltip
             content={
-              aiConfigured
-                ? ''
-                : 'AI translation needs a provider — configure one in Settings.'
+              aiConfigured ? '' : 'AI translation needs a provider — configure one in Settings.'
             }
             size="sm"
           >

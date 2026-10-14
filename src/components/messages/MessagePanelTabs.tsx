@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { AddOutcome } from './useAiRecordNote';
+import type { AddOutcome } from './recordInsertOutcome';
 import { StickyNote, Pencil, Trash2 } from 'lucide-react';
 import { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
 import { Button } from '@/components/ui/Button';
@@ -259,7 +259,13 @@ export function MessagePanelTabs({
             { id: 'ai', label: 'AI', badge: 0 },
             { id: 'customer', label: 'Customer', badge: 0 },
             ...(lookups.available
-              ? [{ id: 'lookups', label: lookups.label, badge: hasEmailIdentity ? lookups.count : 0 }]
+              ? [
+                  {
+                    id: 'lookups',
+                    label: lookups.label,
+                    badge: hasEmailIdentity ? lookups.count : 0,
+                  },
+                ]
               : []),
             { id: 'kb', label: 'KB', badge: kbBadge },
             { id: 'attachments', label: 'Files', badge: attachments?.length ?? 0 },

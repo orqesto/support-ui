@@ -3,9 +3,8 @@
 // wiring out is the natural follow-up refactor.
 /* eslint-disable max-lines */
 import { Fragment, useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { RecordInsertTargetContext, useAiRecordNote, type AddOutcome } from './useAiRecordNote';
+import type { AddOutcome } from './recordInsertOutcome';
 import { appendReplyParagraph, replyHasSentence } from './customApiRecordNote';
-import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { usePhoneDetailScroll } from './usePhoneDetailScroll';
 import { useLookupsTab } from './lookupsTab';
 import { draftToRecipients, emptyRecipientDraft, type RecipientDraft } from './RecipientFields';
@@ -273,7 +272,6 @@ export function MessageDetail({
    * a record's facts to it, the composer's AI panel is where it is written and sent from.
    * ⛔ Per thread — see the hook, where that rule is the whole reason it exists.
    */
-  const aiRecordNote = useAiRecordNote(message.id);
 
   const handleAiSourceChange = useCallback((source: string | null, draft?: AiDraft) => {
     setAiSource(source);
@@ -906,16 +904,11 @@ export function MessageDetail({
     if (isPhone && panelOpen && tab !== 'notes') setPanelOpen(false);
   }, [isPhone, panelOpen, tab]);
   /*
-    A lookup record's "Use in reply" is offered always: a record is plain data an agent can state
-    to the customer, whether or not AI drafting is available. While the AI note
-    can be used it adds to that note, unchanged. When it cannot — the SAME two predicates the
-    composer's AI controls hide on (ComposerAiActions: drafts off, no provider; both cached
-    queries, so this adds no request) — the ticked sentence goes into the REPLY instead: a new
-    paragraph at its end, the composer switched to Reply, shown (phone: back to the Thread tab,
-    where the composer lives) and focused. It is the agent's own text, so no AI source is stamped.
+    A lookup record's "Use in reply": the ticked sentence goes into the REPLY — a new paragraph at
+    its end, the composer switched to Reply, shown (phone: back to the Thread tab, where the
+    composer lives) and focused. It is the agent's own text, so no AI source is stamped; pressing
+    AI draft afterwards reads it as the agent's note.
   */
-  const { aiConfigured } = useAiConfigured();
-  const aiNoteUsable = aiConfigured && !aiDraftsOff;
   const addRecordToReply = useCallback(
     (sentence: string): AddOutcome => {
       const current = latestComposer.current;
@@ -1197,15 +1190,15 @@ export function MessageDetail({
   // Tabbed panel. In the slide-over it sits above the thread and its Thread tab gives the space
   // back; on the wide full page (v3) it is the right sidebar, always showing, beside the thread.
   const panelTabs = (
-    <RecordInsertTargetContext.Provider value={aiNoteUsable ? 'note' : 'reply'}>
+    <>
       <MessagePanelTabs
         /*
           Only while the composer exists (it renders only on an ACTIVE thread). On a closed,
-          filtered or suspicious thread there is no reply and no AI note on screen: "Added to your
+          filtered or suspicious thread there is no reply on screen: "Added to your
           reply" would put the sentence into hidden composer state, to surface later if the thread
           reopens. The record cards still show there, without the insert control.
         */
-        onUseInReply={isActive ? (aiNoteUsable ? aiRecordNote.add : addRecordToReply) : undefined}
+        onUseInReply={isActive ? addRecordToReply : undefined}
         variant={twoColumn ? 'sidebar' : 'rail'}
         message={message}
         tab={tab}
@@ -1238,7 +1231,7 @@ export function MessageDetail({
         onCheckContradiction={handleCheckContradiction}
         onRefresh={handleContactChanged}
       />
-    </RecordInsertTargetContext.Provider>
+    </>
   );
 
   /*
@@ -1484,9 +1477,6 @@ export function MessageDetail({
             richEditorRef={richEditorRef}
             noteEditorRef={noteEditorRef}
             onOpenSimilarMessages={() => setSimilarOpen(true)}
-            aiNote={aiRecordNote.note}
-            onAiNoteChange={aiRecordNote.change}
-            aiNoteReveal={aiRecordNote.reveal}
             onLookUp={lookupAvailable ? handleLookUp : null}
             selectedFiles={selectedFiles}
             onFilesChange={setSelectedFiles}

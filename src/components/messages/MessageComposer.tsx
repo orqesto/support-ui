@@ -67,11 +67,6 @@ export type MessageComposerProps = {
    * send for reply_style capture (undefined on undo).
    */
   onAiSourceChange?: (source: string | null, draft?: AiDraft) => void;
-  /** L2 P4: the shared note for the AI draft — the lookup panel adds records to this same text. */
-  aiNote?: string;
-  onAiNoteChange?: (next: string) => void;
-  /** Bumped when a record was added, so the note box comes on screen to show it. */
-  aiNoteReveal?: number;
   /**
    * v4 "Look up": takes the agent to the Connected systems block on the Lookups tab. The host
    * passes it ONLY when this workspace has a lookup the agent could run on a thread (the same
@@ -119,9 +114,9 @@ const IBTN =
   'inline-flex items-center gap-[5px] px-[9px] py-1 rounded-[7px] border border-border bg-card text-muted-foreground text-[11.5px] hover:border-border-strong hover:text-foreground transition-colors max-sm:h-9 max-sm:text-[12.5px]';
 // The open toolbar on a phone: tools wrap, 6px apart; the AI draft button is tool-sized too.
 const PHONE_TOOLS = 'max-sm:gap-1.5 max-sm:[&_button]:min-h-9';
-// At rest on a phone: only the AI draft button — the off note, undo and the panel wait for open.
+// At rest on a phone: only the AI draft button — the off note, undo and messages wait for open.
 const AI_AT_REST =
-  '[&>span]:hidden [&>div]:hidden [&>button:not([aria-expanded])]:hidden [&>button]:!h-10 [&>button]:!rounded-full [&>button]:!px-3.5 [&>button]:!text-[13px]';
+  '[&>span]:hidden [&>div]:hidden [&>p]:hidden [&>button:not([data-ai-draft])]:hidden [&>button]:!h-10 [&>button]:!rounded-full [&>button]:!px-3.5 [&>button]:!text-[13px]';
 
 export function MessageComposer({
   message,
@@ -144,9 +139,6 @@ export function MessageComposer({
   windowTone = 'none',
   onUseTemplate = null,
   onAiSourceChange,
-  aiNote,
-  onAiNoteChange,
-  aiNoteReveal,
   onLookUp = null,
   shortcutHint,
   decisions,
@@ -186,22 +178,12 @@ export function MessageComposer({
   draftEmptyRef.current = draftEmpty;
   const phoneOpenRef = useRef(phoneOpen);
   phoneOpenRef.current = phoneOpen;
-  // Set by the AI controls: a request in flight, a draft on screen, or a note in the open panel.
-  const aiActiveRef = useRef(false);
   /*
-    L2 P4 on a phone: a record added to the AI note ("Add to my note") opens the composer, so the
-    panel it reveals is on screen — at rest the panel is CSS-hidden, so the fact the agent just
-    added would sit where nobody can see it. Under another tab the composer is hidden but stays
-    open, so it is there, panel showing, on the way back to Thread. Only an INCREASE is an add
-    (the counter drops back on a thread switch) — the same rule ComposerAiActions applies.
+    An AI draft is being written: the editor is locked (the draft is about to replace its content)
+    and the phone composer never folds away mid-request. The ref feeds the document listener.
   */
-  const seenReveal = useRef(aiNoteReveal ?? 0);
-  useEffect(() => {
-    const next = aiNoteReveal ?? 0;
-    const added = next > seenReveal.current;
-    seenReveal.current = next;
-    if (added && isPhone) setPhoneOpen(true);
-  }, [aiNoteReveal, isPhone]);
+  const [aiBusy, setAiBusy] = useState(false);
+  const aiActiveRef = useRef(false);
   /*
     Open on a press inside, fold on a press outside — decided by where the press BEGAN.
 
@@ -244,7 +226,7 @@ export function MessageComposer({
         return;
       }
       if (press !== 'outside' || !phoneOpenRef.current) return;
-      // A draft is never folded away — nor an AI request, draft or note the agent is working on.
+      // A draft is never folded away — nor an AI request in flight.
       if (!draftEmptyRef.current || aiActiveRef.current) return;
       setPhoneOpen(false);
       setRestGeneration((gen) => gen + 1);
@@ -277,7 +259,7 @@ export function MessageComposer({
   /*
     Reply templates (2026-10-09): the body goes into the editor — in place of a blank draft, after
     the agent's own words otherwise — and the template's files are attached. Placeholders stay as
-    tokens (filled at send); "Adapt with AI" is the AI panel's polish, which fills them first.
+    tokens (filled at send); AI draft on a template adapts it (polish), which fills them first.
     ⛔ The files download after the text lands: if the agent has moved to another conversation by
     then, they are NOT attached — they would go to a different customer.
   */
@@ -469,7 +451,10 @@ export function MessageComposer({
             minHeight={editorMinHeight}
             maxHeight="180px"
             transparent
-            className={`rounded-none border-0 shadow-none ${restEditorClass}`}
+            translatable
+            className={`rounded-none border-0 shadow-none ${restEditorClass} ${
+              aiBusy ? 'pointer-events-none opacity-60' : ''
+            }`}
           />
         ) : (
           <RichTextEditor
@@ -526,15 +511,9 @@ export function MessageComposer({
                   onAiSourceChange?.(source, draft);
                   setTimeout(() => richEditorRef.current?.focus(), 0);
                 }}
-                /* L2 P4: the note is held by MessageDetail, because the lookup panel writes to it
-                 too. Undefined here keeps this component's own state, so every other caller and
-                 the panel's own tests are unaffected. */
-                instructions={aiNote}
-                onInstructionsChange={onAiNoteChange}
-                revealNote={aiNoteReveal}
-                atRest={atRest}
-                onActivityChange={(active) => {
-                  aiActiveRef.current = active;
+                onBusyChange={(busy) => {
+                  aiActiveRef.current = busy;
+                  setAiBusy(busy);
                 }}
               />
             </span>
