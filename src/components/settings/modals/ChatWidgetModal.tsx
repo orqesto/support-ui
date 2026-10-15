@@ -30,6 +30,76 @@ const DEFAULT_HANDOFF_MESSAGE =
 const DEFAULT_HANDOFF_MESSAGE_NO_ACCOUNT = "Thanks — we've passed your message to our team.";
 const MAX_WIDGET_TEXT = 1000;
 
+/**
+ * The email confirmation (one-time code) texts. Mirrors the backend's DEFAULT_VERIFICATION_TEXTS
+ * (chatEmailVerification.ts): shown as placeholders, an empty box keeps the default. Stored in
+ * `metadata.emailVerification`; the backend refuses an email body without {code}.
+ */
+const VERIFICATION_FIELDS = [
+  {
+    key: 'promptText',
+    label: 'Asking the visitor to confirm',
+    max: 300,
+    rows: 2,
+    placeholder: 'Confirm your email so our replies by email stay in this chat.',
+  },
+  {
+    key: 'sentText',
+    label: 'After the code is sent',
+    max: 200,
+    rows: 1,
+    placeholder: 'We sent a code to {email}.',
+  },
+  {
+    key: 'successText',
+    label: 'Confirmed',
+    max: 200,
+    rows: 1,
+    placeholder: 'Thanks, your email is confirmed.',
+  },
+  {
+    key: 'errorText',
+    label: 'Wrong or expired code',
+    max: 200,
+    rows: 1,
+    placeholder: 'That did not work. Please check the code and try again.',
+  },
+  {
+    key: 'sendErrorText',
+    label: 'Code could not be sent',
+    max: 200,
+    rows: 1,
+    placeholder: 'We could not send a code right now. You can skip and continue.',
+  },
+  { key: 'sendLabel', label: 'Send button', max: 40, rows: 1, placeholder: 'Send code' },
+  { key: 'verifyLabel', label: 'Confirm button', max: 40, rows: 1, placeholder: 'Confirm' },
+  { key: 'skipLabel', label: 'Skip button', max: 40, rows: 1, placeholder: 'Skip' },
+  {
+    key: 'codePlaceholder',
+    label: 'Code box placeholder',
+    max: 40,
+    rows: 1,
+    placeholder: '6-digit code',
+  },
+  {
+    key: 'emailSubject',
+    label: 'Email subject',
+    max: 150,
+    rows: 1,
+    placeholder: 'Your confirmation code: {code}',
+  },
+  {
+    key: 'emailBody',
+    label: 'Email text',
+    max: 2000,
+    rows: 3,
+    placeholder:
+      'Your confirmation code is {code}. It expires in 10 minutes.\n\nIf you did not ask for it, you can ignore this email.',
+  },
+] as const;
+type VerificationKey = (typeof VERIFICATION_FIELDS)[number]['key'];
+type VerificationTexts = Partial<Record<VerificationKey, string>>;
+
 interface ChatWidgetModalProps {
   open: boolean;
   widget: ChatWidget | null;
@@ -67,6 +137,7 @@ export const ChatWidgetModal = ({
   const { off: aiDraftsOff } = useAiDraftsOff();
   const accountId = formData.escalationSourceId ?? null;
   const hasEmailAccount = accountId !== null;
+  const [verifyTexts, setVerifyTexts] = useState<VerificationTexts>({});
   const [theme, setTheme] = useState({
     botBubbleColor: '#ffffff',
     botTextColor: '#1f2937',
@@ -76,10 +147,15 @@ export const ChatWidgetModal = ({
 
   useEffect(() => {
     if (open) {
-      departmentService.getAll().then(setDepartments).catch(() => setDepartments([]));
+      departmentService
+        .getAll()
+        .then(setDepartments)
+        .catch(() => setDepartments([]));
       messageService
         .getMessageSourcesForFilter()
-        .then((sources) => setEmailSources(sources.filter((src) => EMAIL_SOURCE_TYPES.has(src.type))))
+        .then((sources) =>
+          setEmailSources(sources.filter((src) => EMAIL_SOURCE_TYPES.has(src.type)))
+        )
         .catch(() => setEmailSources([]));
     }
   }, [open]);
@@ -102,6 +178,7 @@ export const ChatWidgetModal = ({
         emailRequestMessage: widget.emailRequestMessage,
       });
       setDomainsText(widget.allowedDomains.join('\n'));
+      setVerifyTexts((widget.metadata?.emailVerification as VerificationTexts | undefined) ?? {});
       const themeData = (widget.metadata?.theme as typeof theme) ?? {};
       setTheme({
         botBubbleColor: themeData.botBubbleColor ?? '#ffffff',
@@ -121,6 +198,7 @@ export const ChatWidgetModal = ({
         allowedDomains: [],
       });
       setDomainsText('');
+      setVerifyTexts({});
       setTheme({
         botBubbleColor: '#ffffff',
         botTextColor: '#1f2937',
@@ -143,6 +221,20 @@ export const ChatWidgetModal = ({
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    const emailVerification: VerificationTexts = {};
+    for (const field of VERIFICATION_FIELDS) {
+      const value = verifyTexts[field.key]?.trim();
+      if (value) emailVerification[field.key] = value;
+    }
+    if (emailVerification.emailBody && !emailVerification.emailBody.includes('{code}')) {
+      onShowAlert({
+        open: true,
+        title: 'Email text needs the code',
+        description: 'The confirmation email text must contain {code}.',
+        variant: 'error',
+      });
+      return;
+    }
     setSaving(true);
 
     try {
@@ -162,7 +254,8 @@ export const ChatWidgetModal = ({
         handoffMessage: orDefault(formData.handoffMessage),
         emailRequestMessage: orDefault(formData.emailRequestMessage),
         allowedDomains: domains,
-        metadata: { theme },
+        // Keep any other stored keys: the whole column is replaced on save.
+        metadata: { ...(widget?.metadata ?? {}), theme, emailVerification },
       };
 
       if (widget) {
@@ -206,7 +299,13 @@ export const ChatWidgetModal = ({
           <h2 className="font-display text-xl font-semibold">
             {widget ? 'Edit Chat Widget' : 'Create Chat Widget'}
           </h2>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" className="p-0 w-auto h-auto text-muted-foreground hover:text-foreground">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            aria-label="Close"
+            className="p-0 w-auto h-auto text-muted-foreground hover:text-foreground"
+          >
             <X className="h-5 w-5" />
           </Button>
         </div>
@@ -335,9 +434,7 @@ export const ChatWidgetModal = ({
                     setFormData({ ...formData, handoffMessage: event.target.value })
                   }
                   placeholder={
-                    hasEmailAccount
-                      ? DEFAULT_HANDOFF_MESSAGE
-                      : DEFAULT_HANDOFF_MESSAGE_NO_ACCOUNT
+                    hasEmailAccount ? DEFAULT_HANDOFF_MESSAGE : DEFAULT_HANDOFF_MESSAGE_NO_ACCOUNT
                   }
                   rows={2}
                 />
@@ -358,12 +455,16 @@ export const ChatWidgetModal = ({
                   type="color"
                   id="primaryColor"
                   value={formData.primaryColor}
-                  onChange={(event) => setFormData({ ...formData, primaryColor: event.target.value })}
+                  onChange={(event) =>
+                    setFormData({ ...formData, primaryColor: event.target.value })
+                  }
                   className="h-10 w-20"
                 />
                 <Input
                   value={formData.primaryColor}
-                  onChange={(event) => setFormData({ ...formData, primaryColor: event.target.value })}
+                  onChange={(event) =>
+                    setFormData({ ...formData, primaryColor: event.target.value })
+                  }
                   placeholder="#0070F3"
                   className="flex-1 font-mono"
                 />
@@ -407,7 +508,9 @@ export const ChatWidgetModal = ({
               type="checkbox"
               id="collectUserInfo"
               checked={formData.collectUserInfo}
-              onChange={(event) => setFormData({ ...formData, collectUserInfo: event.target.checked })}
+              onChange={(event) =>
+                setFormData({ ...formData, collectUserInfo: event.target.checked })
+              }
               className="h-4 w-4 rounded border-border"
             />
             <Label htmlFor="collectUserInfo" className="!mb-0">
@@ -415,9 +518,48 @@ export const ChatWidgetModal = ({
             </Label>
           </div>
           <p className="-mt-2 ml-6 text-xs text-muted-foreground">
-            When on, the assistant asks for the visitor&apos;s name then email as the first
-            chat messages (they can type &quot;skip&quot;). Off = straight to chat.
+            When on, the assistant asks for the visitor&apos;s name then email as the first chat
+            messages (they can type &quot;skip&quot;). Off = straight to chat.
           </p>
+
+          <details className="rounded-md border border-input">
+            <summary className="cursor-pointer px-4 py-3">
+              <span className="font-medium">Email confirmation</span>
+              <span className="ml-2 text-xs text-muted-foreground">
+                What visitors see when confirming their email with a code
+              </span>
+            </summary>
+            <div className="space-y-3 px-4 pb-4 pt-2">
+              <p className="text-xs text-muted-foreground">
+                When a visitor is handed to your team, the widget offers to email them a 6-digit
+                code. Once they enter it, their email replies to your team stay in the same
+                conversation. Without it, each email reply opens a separate conversation: anyone can
+                type any address into the widget. Needs the email account above. Leave a box empty
+                to use the default. {'{email}'} is the visitor&apos;s address (partly hidden),{' '}
+                {'{code}'} the code.
+              </p>
+              {!hasEmailAccount && (
+                <Alert variant="warning">
+                  No email account is selected, so the widget cannot send confirmation codes.
+                </Alert>
+              )}
+              {VERIFICATION_FIELDS.map((field) => (
+                <div key={field.key}>
+                  <Label htmlFor={`verify-${field.key}`}>{field.label}</Label>
+                  <Textarea
+                    id={`verify-${field.key}`}
+                    value={verifyTexts[field.key] ?? ''}
+                    maxLength={field.max}
+                    rows={field.rows}
+                    placeholder={field.placeholder}
+                    onChange={(event) =>
+                      setVerifyTexts((prev) => ({ ...prev, [field.key]: event.target.value }))
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </details>
 
           <details className="rounded-md border border-input">
             <summary className="cursor-pointer px-4 py-3">
