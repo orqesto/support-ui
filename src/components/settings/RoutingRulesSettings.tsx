@@ -7,7 +7,9 @@ import { Select } from '@/components/ui/Select';
 import { RuleEditor } from '@/components/shared/RuleEditor';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { useRuleManagement } from '@/hooks/useRuleManagement';
+import { getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
+import { toast } from '@/lib/toast';
 import { departmentService, type Department } from '@/services/department.service';
 import {
   ROUTING_RULE_TYPES,
@@ -15,6 +17,14 @@ import {
   type RoutingRule,
   type RoutingRuleType,
 } from '@/services/routingRule.service';
+import { AcceptFromRulesDialog, RoutingRuleLifecycleBadges } from './RoutingRuleLifecycleBadges';
+import {
+  RULE_FILTERS,
+  RULE_FILTER_LABEL,
+  matchesFilter,
+  switchOnIsAccept,
+  type RuleFilter,
+} from './routingRuleLifecycle';
 
 type FormData = {
   departmentId: number | null;
@@ -32,11 +42,6 @@ type RoutingRuleView = RoutingRule & {
   active: boolean;
   departmentName: string;
 };
-
-type RuleFilter = 'all' | 'manual' | 'learned';
-
-const isLearnedRule = (rule: RoutingRuleView): boolean =>
-  rule.provisional === true || rule.metadata?.provenance === 'promoted';
 
 const RULE_TYPE_OPTIONS = ROUTING_RULE_TYPES.map((type) => ({
   value: type,
@@ -223,17 +228,31 @@ export const RoutingRulesSettings = () => {
       }
       setFormError(null);
       const trimmedExample = data.exampleText.trim();
-      const response = await routingRuleService.update(id, {
-        type: data.type,
-        value: normalizedValue,
-        weight: data.weight,
-        enabled: data.enabled,
-        exampleText: trimmedExample.length > 0 ? trimmedExample : null,
-        // The department the dialog shows is the one saved (B-H1): a move is a move.
-        ...(data.departmentId !== null ? { departmentId: data.departmentId } : {}),
-      });
-      if (!response.data) throw new Error('Update failed');
-      return adaptRule(response.data);
+      try {
+        const response = await routingRuleService.update(id, {
+          type: data.type,
+          value: normalizedValue,
+          weight: data.weight,
+          enabled: data.enabled,
+          exampleText: trimmedExample.length > 0 ? trimmedExample : null,
+          // The department the dialog shows is the one saved (B-H1): a move is a move.
+          ...(data.departmentId !== null ? { departmentId: data.departmentId } : {}),
+        });
+        if (!response.data) throw new Error('Update failed');
+        return adaptRule(response.data);
+      } catch (err) {
+        // D5: on a dormant rule switched on, the BE saves the field edits first and then Accept
+        // may answer 409 (routingRulesRoutes.ts PATCH). The edits ARE saved: re-read the rule,
+        // say why it stayed off, and let the dialog close on the saved state.
+        const before = ruleManagement.rules.find((rule) => rule.id === id);
+        if (getErrorStatus(err) !== 409 || !data.enabled || !before || !switchOnIsAccept(before)) {
+          throw err;
+        }
+        toast.failure('switch the rule on', err);
+        const saved = (await routingRuleService.list()).data?.find((rule) => rule.id === id);
+        if (!saved) throw err;
+        return adaptRule(saved);
+      }
     },
     deleteRule: async (id) => {
       await routingRuleService.delete(id);
@@ -253,13 +272,26 @@ export const RoutingRulesSettings = () => {
     setFormError(null);
   }, [ruleManagement.isCreating, ruleManagement.editingRule]);
 
-  const toggleActive = async (rule: RoutingRuleView) => {
+  const [confirmRule, setConfirmRule] = useState<RoutingRuleView | null>(null);
+
+  const switchRule = async (rule: RoutingRuleView, enabled: boolean, scope: string) => {
     try {
-      await routingRuleService.update(rule.id, { enabled: !rule.enabled });
-      await ruleManagement.loadRules();
+      await routingRuleService.update(rule.id, { enabled });
     } catch (err) {
+      // A 409 names why (another department routes the pattern, the group was decided, …).
       logger.error('Failed to toggle routing rule:', err);
+      toast.failure(scope, err);
     }
+    await ruleManagement.loadRules();
+  };
+
+  const toggleActive = (rule: RoutingRuleView) => {
+    // D5: switching on a dormant (proposed / declined / archived) rule IS Accept — ask first.
+    if (switchOnIsAccept(rule)) {
+      setConfirmRule(rule);
+      return;
+    }
+    void switchRule(rule, !rule.enabled, 'update the routing rule');
   };
 
   const deptOptionsForDialog = useMemo(
@@ -272,12 +304,11 @@ export const RoutingRulesSettings = () => {
   );
 
   const { rules } = ruleManagement;
-  const learnedCount = rules.filter(isLearnedRule).length;
-  const filteredRules = rules.filter((rule) => {
-    if (ruleFilter === 'learned') return isLearnedRule(rule);
-    if (ruleFilter === 'manual') return !isLearnedRule(rule);
-    return true;
-  });
+  const countOf = (filter: RuleFilter) =>
+    rules.filter((rule) => matchesFilter(rule, filter)).length;
+  const filteredRules = rules.filter((rule) => matchesFilter(rule, ruleFilter));
+  const editingDormant =
+    ruleManagement.editingRule !== null && switchOnIsAccept(ruleManagement.editingRule);
 
   return (
     <div className="space-y-4">
@@ -301,203 +332,196 @@ export const RoutingRulesSettings = () => {
       <RuleEditor<RoutingRuleView, FormData>
         {...ruleManagement}
         rules={filteredRules}
-      renderFilters={() => (
-        <div className="flex gap-1 p-1 rounded-lg bg-muted w-fit">
-          {(['all', 'manual', 'learned'] as RuleFilter[]).map((filter) => {
-            const label =
-              filter === 'all'
-                ? `All (${rules.length})`
-                : filter === 'manual'
-                  ? `Manual (${rules.length - learnedCount})`
-                  : `Auto-learned (${learnedCount})`;
-            return (
-              <Button
-                key={filter}
-                variant="ghost"
-                size="sm"
-                onClick={() => setRuleFilter(filter)}
-                className={`px-3 py-1.5 h-auto text-sm rounded-md font-medium ${ruleFilter === filter ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                {filter === 'learned' && <Brain className="inline w-3 h-3 mr-1 opacity-70" />}
-                {label}
-              </Button>
-            );
-          })}
-        </div>
-      )}
-      title="Routing Rules"
-      description="Department-scoped rules that decide which department incoming messages route to. Rules apply to all channels serving the department. Highest score wins; if nothing matches, the source default is used."
-      dialogTitle="Routing Rule"
-      emptyMessage="No routing rules yet. Add one to route messages by subject, sender, or header."
-      prefixColumns={[
-        {
-          header: 'Department',
-          render: (rule) => <DepartmentBadge departmentId={rule.departmentId} size="sm" />,
-        },
-        {
-          header: 'Type',
-          render: (rule) => (
-            <div className="flex items-center gap-1.5">
-              <Badge variant="secondary" className="capitalize">
-                {rule.type.replace(/_/g, ' ')}
-              </Badge>
-              {rule.provisional ? (
-                <Badge
-                  variant="secondary"
-                  className="text-warning border-warning-line bg-warning-muted"
-                  title="Auto-learned from a manual route. Will auto-promote or auto-disable based on outcomes."
+        renderFilters={() => (
+          <div className="flex gap-1 p-1 rounded-lg bg-muted w-fit">
+            {RULE_FILTERS.map((filter) => {
+              const label = `${RULE_FILTER_LABEL[filter]} (${countOf(filter)})`;
+              return (
+                <Button
+                  key={filter}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setRuleFilter(filter)}
+                  className={`px-3 py-1.5 h-auto text-sm rounded-md font-medium ${ruleFilter === filter ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                 >
-                  Learned
+                  {filter === 'learned' && <Brain className="inline w-3 h-3 mr-1 opacity-70" />}
+                  {label}
+                </Button>
+              );
+            })}
+          </div>
+        )}
+        title="Routing Rules"
+        description="Department-scoped rules that decide which department incoming messages route to. Rules apply to all channels serving the department. Highest score wins; if nothing matches, the source default is used."
+        dialogTitle="Routing Rule"
+        emptyMessage="No routing rules yet. Add one to route messages by subject, sender, or header."
+        prefixColumns={[
+          {
+            header: 'Department',
+            render: (rule) => <DepartmentBadge departmentId={rule.departmentId} size="sm" />,
+          },
+          {
+            header: 'Type',
+            render: (rule) => (
+              <div className="flex items-center gap-1.5">
+                <Badge variant="secondary" className="capitalize">
+                  {rule.type.replace(/_/g, ' ')}
                 </Badge>
-              ) : null}
-              {rule.metadata?.provenance === 'promoted' ? (
-                <Badge
-                  variant="secondary"
-                  className="text-success border-success-line bg-success-muted"
-                  title="Auto-promoted by the learning engine after proving itself."
-                >
-                  Promoted
-                </Badge>
-              ) : null}
-            </div>
-          ),
-        },
-      ]}
-      suffixColumns={[
-        {
-          header: 'Score',
-          align: 'center',
-          render: (rule) => <Badge>{rule.weight}</Badge>,
-        },
-        {
-          header: 'Matches',
-          align: 'center',
-          render: (rule) => (
-            <span className="text-muted-foreground">{rule.matchCount}</span>
-          ),
-        },
-        {
-          header: 'Last Match',
-          render: (rule) => (
-            <span className="font-mono text-muted-foreground whitespace-nowrap">
-              {formatLastMatched(rule.lastMatchedAt)}
+                <RoutingRuleLifecycleBadges rule={rule} rules={rules} />
+              </div>
+            ),
+          },
+        ]}
+        suffixColumns={[
+          {
+            header: 'Score',
+            align: 'center',
+            render: (rule) => <Badge>{rule.weight}</Badge>,
+          },
+          {
+            header: 'Matches',
+            align: 'center',
+            render: (rule) => <span className="text-muted-foreground">{rule.matchCount}</span>,
+          },
+          {
+            header: 'Last Match',
+            render: (rule) => (
+              <span className="font-mono text-muted-foreground whitespace-nowrap">
+                {formatLastMatched(rule.lastMatchedAt)}
+              </span>
+            ),
+          },
+        ]}
+        renderMobileExtra={(rule) => (
+          <>
+            <Badge>{rule.weight}</Badge>
+            <span className="text-xs text-muted-foreground">
+              {rule.matchCount} match{rule.matchCount === 1 ? '' : 'es'}
             </span>
-          ),
-        },
-      ]}
-      renderMobileExtra={(rule) => (
-        <>
-          <Badge>{rule.weight}</Badge>
-          <span className="text-xs text-muted-foreground">
-            {rule.matchCount} match{rule.matchCount === 1 ? '' : 'es'}
-          </span>
-        </>
-      )}
-      renderFormFields={(formData, setFormData) => (
-        <>
-          <Select
-            label="Department"
-            value={formData.departmentId?.toString() ?? ''}
-            onChange={(value) => {
-              setFormData({
-                ...formData,
-                departmentId: value ? parseInt(value, 10) : null,
-              });
-              setFormError(null);
-            }}
-            options={deptOptionsForDialog}
-            placeholder={allDepts.length === 0 ? 'No departments' : 'Select a department'}
-            disabled={allDepts.length === 0}
-          />
-          {ruleManagement.editingRule !== null && (
-            <p className="text-xs text-muted-foreground">
-              Changing the department moves this rule to another team.
-            </p>
-          )}
-          <Select
-            label="Match Type"
-            value={formData.type}
-            onChange={(value) => {
-              setFormData({ ...formData, type: value as RoutingRuleType });
-              setFormError(null);
-            }}
-            options={RULE_TYPE_OPTIONS}
-          />
-          <div>
-            <label className="block mb-1 text-sm font-medium">Value</label>
-            <input
-              type="text"
-              value={formData.value}
-              onChange={(event) => {
-                setFormData({ ...formData, value: event.target.value });
+          </>
+        )}
+        renderFormFields={(formData, setFormData) => (
+          <>
+            <Select
+              label="Department"
+              value={formData.departmentId?.toString() ?? ''}
+              onChange={(value) => {
+                setFormData({
+                  ...formData,
+                  departmentId: value ? parseInt(value, 10) : null,
+                });
                 setFormError(null);
               }}
-              className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-background"
-              placeholder={valuePlaceholder(formData.type)}
+              options={deptOptionsForDialog}
+              placeholder={allDepts.length === 0 ? 'No departments' : 'Select a department'}
+              disabled={allDepts.length === 0}
             />
-            {formData.type === 'header_match' && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Provide JSON: <code>{`{"name":"X-Header","pattern":"regex"}`}</code>
+            {ruleManagement.editingRule !== null && (
+              <p className="text-xs text-muted-foreground">
+                Changing the department moves this rule to another team.
               </p>
             )}
-          </div>
-          <div>
-            <label className="block mb-1 text-sm font-medium">
-              Example phrases{' '}
-              <span className="text-muted-foreground font-normal">(optional, multilingual)</span>
-            </label>
-            <Textarea
-              value={formData.exampleText}
-              onChange={(event) => setFormData({ ...formData, exampleText: event.target.value })}
-              placeholder="invoice question, payment failure, billing dispute, refund request"
-              rows={2}
-              maxLength={1000}
+            <Select
+              label="Match Type"
+              value={formData.type}
+              onChange={(value) => {
+                setFormData({ ...formData, type: value as RoutingRuleType });
+                setFormError(null);
+              }}
+              options={RULE_TYPE_OPTIONS}
             />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Natural-language examples — embedded for semantic matching so messages in any language
-              that mean the same thing also route here. Leave blank to embed the pattern.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <label className="text-sm font-medium">Score</label>
-              <span className="text-sm font-medium text-foreground">{formData.weight}</span>
+            <div>
+              <label className="block mb-1 text-sm font-medium">Value</label>
+              <input
+                type="text"
+                value={formData.value}
+                onChange={(event) => {
+                  setFormData({ ...formData, value: event.target.value });
+                  setFormError(null);
+                }}
+                className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-background"
+                placeholder={valuePlaceholder(formData.type)}
+              />
+              {formData.type === 'header_match' && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Provide JSON: <code>{`{"name":"X-Header","pattern":"regex"}`}</code>
+                </p>
+              )}
             </div>
-            <input
-              type="range"
-              min="1"
-              max="100"
-              step="1"
-              value={formData.weight}
-              onChange={(event) =>
-                setFormData({ ...formData, weight: parseInt(event.target.value, 10) })
-              }
-              className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-muted accent-primary"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>1 (Weak)</span>
-              <span>100 (Strong)</span>
+            <div>
+              <label className="block mb-1 text-sm font-medium">
+                Example phrases{' '}
+                <span className="text-muted-foreground font-normal">(optional, multilingual)</span>
+              </label>
+              <Textarea
+                value={formData.exampleText}
+                onChange={(event) => setFormData({ ...formData, exampleText: event.target.value })}
+                placeholder="invoice question, payment failure, billing dispute, refund request"
+                rows={2}
+                maxLength={1000}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Natural-language examples — embedded for semantic matching so messages in any
+                language that mean the same thing also route here. Leave blank to embed the pattern.
+              </p>
             </div>
-          </div>
-          <div className="flex gap-2 items-center">
-            <input
-              type="checkbox"
-              id="routing-rule-enabled"
-              checked={formData.enabled}
-              onChange={(event) => setFormData({ ...formData, enabled: event.target.checked })}
-              className="rounded"
-            />
-            <label htmlFor="routing-rule-enabled" className="text-sm">
-              Enabled
-            </label>
-          </div>
-          {formError && <p className="text-sm text-destructive">{formError}</p>}
-        </>
-      )}
-      isSaveDisabled={(formData) =>
-        !formData.value.trim() || (ruleManagement.isCreating && formData.departmentId === null)
-      }
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium">Score</label>
+                <span className="text-sm font-medium text-foreground">{formData.weight}</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="100"
+                step="1"
+                value={formData.weight}
+                onChange={(event) =>
+                  setFormData({ ...formData, weight: parseInt(event.target.value, 10) })
+                }
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-muted accent-primary"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>1 (Weak)</span>
+                <span>100 (Strong)</span>
+              </div>
+            </div>
+            <div className="flex gap-2 items-center">
+              <input
+                type="checkbox"
+                id="routing-rule-enabled"
+                checked={formData.enabled}
+                onChange={(event) => setFormData({ ...formData, enabled: event.target.checked })}
+                className="rounded"
+              />
+              <label htmlFor="routing-rule-enabled" className="text-sm">
+                Enabled
+              </label>
+            </div>
+            {editingDormant && formData.enabled && (
+              <p className="text-xs text-muted-foreground">
+                Saving with Enabled on accepts the proposal: the rule starts routing mail now.
+              </p>
+            )}
+            {formError && <p className="text-sm text-destructive">{formError}</p>}
+          </>
+        )}
+        isSaveDisabled={(formData) =>
+          !formData.value.trim() || (ruleManagement.isCreating && formData.departmentId === null)
+        }
         onToggleActive={toggleActive}
+        toggleTitle={(rule) =>
+          switchOnIsAccept(rule) ? 'Switching this on accepts the proposal' : undefined
+        }
+      />
+      <AcceptFromRulesDialog
+        rule={confirmRule}
+        rules={rules}
+        departmentName={(departmentId) =>
+          deptNameById.get(departmentId) ?? `department #${departmentId}`
+        }
+        onCancel={() => setConfirmRule(null)}
+        onAccept={(rule) => void switchRule(rule, true, 'accept the proposed rule')}
       />
     </div>
   );
