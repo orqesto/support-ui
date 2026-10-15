@@ -87,8 +87,30 @@ const joinNames = (names: string[]): string =>
     ? (names[0] ?? '')
     : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 
-/** Before any press: the pane is never empty, and it says which systems a press will ask. */
-export const pressPrompt = (connectionNames: string[]): string =>
-  `Press Look up to check ${
-    connectionNames.length ? joinNames(connectionNames) : 'the connected systems'
-  } for this customer.`;
+/**
+ * Before any press: the pane is never empty, and it says which systems a press will ask and about
+ * whom (2026-10-15: the sentence sits beside the button, so it no longer says "Press Look up").
+ */
+export const pressPrompt = (connectionNames: string[], customerEmail?: string): string => {
+  const systems = connectionNames.length ? joinNames(connectionNames) : 'the connected systems';
+  // A blank address falls back too, so the sentence never ends "for ."
+  const who = customerEmail?.trim() ? customerEmail.trim() : 'this customer';
+  return `Check ${systems} for ${who}.`;
+};
+
+/** How many lookups shown by name before the rest are counted ("+2"). */
+const LOOKUPS_NAMED = 3;
+
+/**
+ * Under the prompt (2026-10-15): WHICH lookups a press runs, so the count means something.
+ * Empty when none are known (an older backend without options), so nothing is claimed.
+ */
+export const lookupListLine = (labels: string[]): string => {
+  const named = labels.filter((label) => label.trim());
+  if (named.length === 0) return '';
+  const shown = named.slice(0, LOOKUPS_NAMED).join(' · ');
+  const rest = named.length - LOOKUPS_NAMED;
+  return `${named.length} ${named.length === 1 ? 'lookup' : 'lookups'}: ${shown}${
+    rest > 0 ? ` · +${rest}` : ''
+  }`;
+};

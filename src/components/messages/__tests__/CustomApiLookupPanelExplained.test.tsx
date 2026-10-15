@@ -160,17 +160,17 @@ describe('2026-10-14 — the pane explains itself', () => {
     ]);
     render(<CustomApiLookupPanel conversationId={1} />);
     expect(
-      await screen.findByText('Press Look up to check Acme and Militech for this customer.')
+      await screen.findByText('Check Acme and Militech for this customer.')
     ).toBeInTheDocument();
   });
 
   it('the prompt goes once a press has run', async () => {
     run.mockResolvedValue([card()]);
     render(<CustomApiLookupPanel conversationId={1} />);
-    await screen.findByText(/Press Look up to check/);
+    await screen.findByText(/^Check .* for /);
     await press();
     await screen.findByText('137416');
-    expect(screen.queryByText(/Press Look up to check/)).toBeNull();
+    expect(screen.queryByText(/^Check .* for /)).toBeNull();
   });
 
   it('an older backend without options (404 or 400) still says something', async () => {
@@ -178,7 +178,7 @@ describe('2026-10-14 — the pane explains itself', () => {
       lookupOptions.mockRejectedValue(Object.assign(new Error('nope'), { status }));
       const { unmount } = render(<CustomApiLookupPanel conversationId={1} />);
       expect(
-        await screen.findByText('Press Look up to check the connected systems for this customer.')
+        await screen.findByText('Check the connected systems for this customer.')
       ).toBeInTheDocument();
       unmount();
     }
@@ -238,5 +238,45 @@ describe('2026-10-14 — the pane explains itself', () => {
     await press();
     await screen.findByText('Nothing in Militech for nobody@example.com.');
     expect(screen.queryByText(/You can still look up/)).toBeNull();
+  });
+});
+
+describe('2026-10-15 — the idle pane reads top-down, and the badge counts what was found', () => {
+  it('names the address and the lookups a press will run', async () => {
+    lookupOptions.mockResolvedValue([
+      option({ endpointId: 1, label: 'Account', connectionName: 'Acme' }),
+      option({ endpointId: 2, label: 'Orders', connectionName: 'Acme' }),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} customerEmail="buyer@example.com" />);
+    expect(await screen.findByText('Check Acme for buyer@example.com.')).toBeInTheDocument();
+    expect(screen.getByText('2 lookups: Account · Orders')).toBeInTheDocument();
+  });
+
+  it('CONTROL: an older backend without options names no lookups', async () => {
+    lookupOptions.mockRejectedValue(Object.assign(new Error('nope'), { status: 404 }));
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await screen.findByText('Check the connected systems for this customer.');
+    expect(screen.queryByText(/lookups?:/)).toBeNull();
+  });
+
+  it('reports 0 before a press, the found count after, and 0 when the panel goes', async () => {
+    const onFoundChange = vi.fn();
+    run.mockResolvedValue([
+      card(),
+      card({ endpointId: 21, rows: [{ order_id: '2' }], ownership: 'mismatch' }),
+      card({ endpointId: 22, status: 'no_match', rows: [] }),
+      card({ endpointId: 23, rows: [] }),
+    ]);
+    const { unmount } = render(
+      <CustomApiLookupPanel conversationId={1} onFoundChange={onFoundChange} />
+    );
+    await screen.findByText(/^Check .* for /);
+    expect(onFoundChange).toHaveBeenLastCalledWith(0);
+    await press();
+    await screen.findByText('137416');
+    // Only the first card counts: someone else's record, a no-match and an empty ok do not.
+    expect(onFoundChange).toHaveBeenLastCalledWith(1);
+    unmount();
+    expect(onFoundChange).toHaveBeenLastCalledWith(0);
   });
 });

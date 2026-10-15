@@ -3,6 +3,7 @@ import {
   failureSentence,
   GENERIC_FAILURE,
   notFoundText,
+  lookupListLine,
   pressPrompt,
   referenceNameOf,
   skippedText,
@@ -89,15 +90,30 @@ describe('referenceNameOf / pressPrompt', () => {
     expect(referenceNameOf('Ticket id')).toBe('Ticket id');
   });
   it('lists the systems a press will ask', () => {
-    expect(pressPrompt(['Acme'])).toBe('Press Look up to check Acme for this customer.');
-    expect(pressPrompt(['Acme', 'Militech'])).toBe(
-      'Press Look up to check Acme and Militech for this customer.'
-    );
+    expect(pressPrompt(['Acme'])).toBe('Check Acme for this customer.');
+    expect(pressPrompt(['Acme', 'Militech'])).toBe('Check Acme and Militech for this customer.');
     expect(pressPrompt(['Acme', 'Militech', 'Globex'])).toBe(
-      'Press Look up to check Acme, Militech and Globex for this customer.'
+      'Check Acme, Militech and Globex for this customer.'
     );
-    expect(pressPrompt([])).toBe(
-      'Press Look up to check the connected systems for this customer.'
+    // 2026-10-15: the address a press looks up is named; a blank one falls back.
+    expect(pressPrompt(['Acme'], 'buyer@example.com')).toBe('Check Acme for buyer@example.com.');
+    expect(pressPrompt(['Acme'], '  ')).toBe('Check Acme for this customer.');
+    expect(pressPrompt([])).toBe('Check the connected systems for this customer.');
+  });
+});
+
+describe('lookupListLine — which lookups a press runs (2026-10-15)', () => {
+  it('names up to three and counts the rest', () => {
+    expect(lookupListLine(['Account'])).toBe('1 lookup: Account');
+    expect(lookupListLine(['Account', 'Orders', 'Invoices'])).toBe(
+      '3 lookups: Account · Orders · Invoices'
     );
+    expect(lookupListLine(['A1', 'B2', 'C3', 'D4', 'E5'])).toBe('5 lookups: A1 · B2 · C3 · +2');
+  });
+
+  it('says nothing when no lookup is known, and skips blank labels', () => {
+    expect(lookupListLine([])).toBe('');
+    expect(lookupListLine(['', '  '])).toBe('');
+    expect(lookupListLine(['Account', ' '])).toBe('1 lookup: Account');
   });
 });

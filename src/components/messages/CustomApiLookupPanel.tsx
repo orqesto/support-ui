@@ -18,6 +18,7 @@ import { relativeTime } from './messageDetailConstants';
 import { CustomApiResultCard } from './CustomApiResultCard';
 import {
   LOOKUPS_NOT_ON_SERVER,
+  lookupListLine,
   pressPrompt,
   referenceHintText,
   referenceNameOf,
@@ -87,6 +88,16 @@ interface Props {
    * work anywhere it is shown is how an agent learns to stop trusting buttons.
    */
   onUseInReply?: (note: string) => AddOutcome;
+  /**
+   * The address a press looks up, named in the prompt before a press (2026-10-15). Optional: the
+   * prompt says "this customer" without it.
+   */
+  customerEmail?: string;
+  /**
+   * The Lookups tab's badge (2026-10-15): how many lookups FOUND something for this customer. 0
+   * before a press and when the panel goes away, because its results go with it.
+   */
+  onFoundChange?: (found: number) => void;
 }
 
 /**
@@ -98,17 +109,23 @@ interface Props {
  * record the ownership check REJECTED ("not this customer’s"). A status this build does not know
  * is not counted: its card shows the backend's own words, muted.
  */
+const hasRows = (result: CustomApiLookupResult) => result.status === 'ok' && !!result.rows?.length;
+
+/**
+ * Lookups that found something for this customer — the summary's "found" and the tab's badge.
+ * ⛔ A record the ownership check says is SOMEONE ELSE'S is not "found" for this customer: its card
+ * says "does NOT belong to this customer" (D38), and neither count may contradict it.
+ */
+export const countFound = (results: CustomApiLookupResult[]): number =>
+  results.filter((result) => hasRows(result) && result.ownership !== 'mismatch').length;
+
 export const summariseLookup = (
   results: CustomApiLookupResult[]
 ): { key: string; text: string; tone: 'ok' | 'ask' | 'warn' | 'bad' | 'plain' }[] => {
   const count = (test: (result: CustomApiLookupResult) => boolean) => results.filter(test).length;
   const plural = (amount: number, one: string, many: string) =>
     `${amount} ${amount === 1 ? one : many}`;
-  const hasRows = (result: CustomApiLookupResult) =>
-    result.status === 'ok' && !!result.rows?.length;
-  // ⛔ A record the ownership check says is SOMEONE ELSE'S is not "found" for this customer: its
-  // card says "does NOT belong to this customer" (D38), and the summary must not contradict it.
-  const found = count((result) => hasRows(result) && result.ownership !== 'mismatch');
+  const found = countFound(results);
   const notTheirs = count((result) => hasRows(result) && result.ownership === 'mismatch');
   const ask = count((result) => result.status === 'needs_input');
   const noMatch = count(
@@ -179,6 +196,8 @@ export const CustomApiLookupPanel = ({
   identityNote,
   className,
   onUseInReply,
+  customerEmail,
+  onFoundChange,
 }: Props) => {
   const { results, loading, hasRun, ranAt, error, run, lookedUpAs } = useCustomApiLookup({
     conversationId,
@@ -201,6 +220,12 @@ export const CustomApiLookupPanel = ({
     setEmailValue('');
     setEmailOpen(false);
   }, [conversationId, contactId]);
+  const found = countFound(results);
+  useEffect(() => {
+    onFoundChange?.(found);
+  }, [found, onFoundChange]);
+  // The results leave with the panel, so the badge does too.
+  useEffect(() => () => onFoundChange?.(0), [onFoundChange]);
   const runAsTyped = () => {
     if (typedEmailValid) void run(undefined, typedEmail);
   };
@@ -252,6 +277,7 @@ export const CustomApiLookupPanel = ({
   const systems = [
     ...new Set((options ?? []).map((option) => option.connectionName).filter(Boolean)),
   ];
+  const lookupLabels = (options ?? []).map((option) => option.label);
   /**
    * A3 (2026-10-14): under an identity no-match, point at a typed-value lookup of the SAME
    * connection, by its own reference name. The options know which lookups take a typed value; an
@@ -281,18 +307,34 @@ export const CustomApiLookupPanel = ({
       tabIndex={-1}
       className={`focus:outline-none ${className ? `space-y-2 ${className}` : 'space-y-2'}`}
     >
-      {/* No visible heading: the tab that holds this panel names it (spec 2026-10-09). */}
-      <div className="flex items-center justify-end gap-2">
-        {/* v4: after a run, "ran just now" and "↻ Look up again"; computed per render, no ticker. */}
-        {ranAt && (
-          <span className="ml-auto text-[10.5px] text-faint-foreground">
-            ran {relativeTime(ranAt)}
-          </span>
-        )}
+      {/*
+        No visible heading: the tab that holds this panel names it (spec 2026-10-09).
+        2026-10-15: what a press does sits BESIDE the button, read first; it wraps under the
+        sentence at phone width. After a run the sentence gives way to "ran …".
+      */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        <div className="min-w-0 flex-1 basis-48">
+          {!hasRun && !loading ? (
+            <>
+              <p className="text-[12px] text-foreground break-words">
+                {pressPrompt(systems, lookedUpAs ?? customerEmail)}
+              </p>
+              {lookupListLine(lookupLabels) && (
+                <p className="text-[11px] text-muted-foreground break-words">
+                  {lookupListLine(lookupLabels)}
+                </p>
+              )}
+            </>
+          ) : (
+            ranAt && (
+              <span className="text-[10.5px] text-faint-foreground">ran {relativeTime(ranAt)}</span>
+            )
+          )}
+        </div>
         <Button
           size="sm"
-          variant="outline"
-          className="h-7 text-[11px]"
+          variant={ranAt ? 'outline' : 'primary'}
+          className="h-7 text-[11px] shrink-0"
           disabled={loading}
           onClick={() => run(undefined, lookedUpAs ?? undefined)}
         >
@@ -331,20 +373,7 @@ export const CustomApiLookupPanel = ({
             Look up as
           </Button>
         </div>
-      ) : (
-        // Its own block: beside the records link, two inline buttons ran together as one line of
-        // text ("…emailOpen the full…", staging 2026-10-09).
-        <div>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 px-0 text-[11px] text-primary hover:underline"
-            onClick={() => setEmailOpen(true)}
-          >
-            Look up another email
-          </Button>
-        </div>
-      )}
+      ) : null}
 
       {lookedUpAs && (
         /* ⛔ Only on the backend's own confirmation (see the hook), and never dismissable while its
@@ -370,17 +399,35 @@ export const CustomApiLookupPanel = ({
         CA-6: the way OUT of the panel. The owner's objection on 2026-09-20 was that records lived
         only here — a popup an agent had to know to press, with no URL to link or return to.
       */}
-      <div>
-        {contactId !== undefined ? (
-          <Link
-            to={`/contacts/${contactId}/records`}
-            className="text-[11px] text-primary hover:underline inline-block"
-          >
-            Open the full records page
-          </Link>
-        ) : (
-          conversationId !== undefined && (
-            /*
+      {/*
+        2026-10-15: the panel's two links share ONE row, each in a wrapper of its own with a gap —
+        loose in one block they once ran together as one line of text ("…emailOpen the full…",
+        staging 2026-10-09); stacked, they pushed the results a screen down.
+      */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        {!showEmailField && (
+          <div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-0 text-[11px] text-primary hover:underline"
+              onClick={() => setEmailOpen(true)}
+            >
+              Look up another email
+            </Button>
+          </div>
+        )}
+        <div>
+          {contactId !== undefined ? (
+            <Link
+              to={`/contacts/${contactId}/records`}
+              className="text-[11px] text-primary hover:underline inline-block"
+            >
+              Open the full records page
+            </Link>
+          ) : (
+            conversationId !== undefined && (
+              /*
             ⛔ THE THREAD SURFACE, which had no way there at all. It mounts this panel with a
             conversation and no contact id, because a link that GUESSED one would open a stranger's
             page — so until support-service #800 the page simply did not exist from a thread, which
@@ -388,17 +435,18 @@ export const CustomApiLookupPanel = ({
             It is a BUTTON, not a Link: resolving the customer may CREATE a contact row, and that
             must be an agent's press rather than something a hover or a prefetch can trigger.
           */
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 px-0 text-[11px] text-primary hover:underline"
-              disabled={resolving}
-              onClick={() => void openRecords()}
-            >
-              {resolving ? 'Opening…' : 'Open the full records page'}
-            </Button>
-          )
-        )}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-0 text-[11px] text-primary hover:underline"
+                disabled={resolving}
+                onClick={() => void openRecords()}
+              >
+                {resolving ? 'Opening…' : 'Open the full records page'}
+              </Button>
+            )
+          )}
+        </div>
       </div>
       {resolveError && <p className="text-[11px] text-destructive">{resolveError}</p>}
 
@@ -416,11 +464,6 @@ export const CustomApiLookupPanel = ({
         show. An "empty" panel on open would read as "we know nothing about this customer", which is
         a different and wrong claim.
       */}
-        {!hasRun && !loading && !error && (
-          // The pane is never empty before a press (2026-10-14): it names what a press will ask.
-          <p className="text-[11px] text-muted-foreground">{pressPrompt(systems)}</p>
-        )}
-
         {hasRun && results.length === 0 && !error && (
           <p className="text-[11px] text-muted-foreground">
             No lookups are available to you right now.
