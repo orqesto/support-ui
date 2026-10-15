@@ -583,7 +583,8 @@ export function RuleEditor<
               Cancel
             </Button>
             <Button
-              onClick={handleSave}
+              // handleSave already logs; a refused save keeps the dialog open, not an unhandled rejection
+              onClick={() => void Promise.resolve(handleSave()).catch(() => undefined)}
               disabled={isSaveDisabled?.(formData) ?? false}
               className="gap-1"
             >

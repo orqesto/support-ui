@@ -90,6 +90,7 @@ const learningProp: CenterProps['learning'] = {
   unreadCount: 0,
   fetchError: false,
   isOrgAdmin: false,
+  showLearning: false,
   markAllRead: vi.fn(),
   refresh: vi.fn(),
 };

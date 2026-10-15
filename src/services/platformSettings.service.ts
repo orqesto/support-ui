@@ -4,6 +4,11 @@ import {
   type BedrockDiscovery,
 } from '@/services/bedrockDiscovery.service';
 import type { AIModel, AIProvider } from '@/types/aiProviders';
+import {
+  normalizeRouting,
+  type PlatformRoutingInput,
+  type RoutingSettings,
+} from '@/services/routingSettings';
 
 /**
  * Platform Defaults console service (Epic #2). Global-admin only — calls hit
@@ -136,6 +141,11 @@ export type PlatformSettings = {
   customApi?: {
     health: { noMatchStreak: ResolvedField<number>; okWindowDays: ResolvedField<number> };
   };
+  /**
+   * The seven routing-proposal settings (`routing.*`, 2026-10-14). Absent on a backend that
+   * predates them — the card then says it arrives with the next backend release.
+   */
+  routing?: RoutingSettings;
 };
 
 /** PUT /settings/custom-api — both thresholds, whole numbers ≥ 1 (the whole value is replaced). */
@@ -238,6 +248,7 @@ type RawPlatformSettings = {
   reasoning?: unknown;
   kb?: unknown;
   customApi?: unknown;
+  routing?: unknown;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -465,6 +476,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
   const reasoning = normalizeReasoning(raw.reasoning);
   const kb = normalizeKb(raw.kb);
   const customApi = normalizeCustomApi(raw.customApi);
+  const routing = normalizeRouting(raw.routing);
   const provider = field(raw.ai.provider);
   const effectiveProvider = provider.value ?? 'openai';
   return {
@@ -515,6 +527,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
     ...(reasoning ? { reasoning } : {}),
     ...(kb ? { kb } : {}),
     ...(customApi ? { customApi } : {}),
+    ...(routing ? { routing } : {}),
   };
 };
 
@@ -578,6 +591,11 @@ export const platformSettingsService = {
   /** PUT the custom API health thresholds (`custom_api.health`, 2026-10-14). */
   updateCustomApiHealth: async (input: PlatformCustomApiInput): Promise<void> => {
     await apiClient.put(`${BASE}/custom-api`, input);
+  },
+
+  /** PATCH the routing-proposal settings (`routing.*`): any non-empty subset of the seven. */
+  updateRouting: async (input: PlatformRoutingInput): Promise<void> => {
+    await apiClient.patch(`${BASE}/routing`, input);
   },
 
   /**

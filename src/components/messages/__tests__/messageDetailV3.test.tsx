@@ -57,8 +57,11 @@ vi.mock('@/lib/socketManager', () => ({
 vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: () => true, isGlobalAdmin: false }),
 }));
+const depts = vi.hoisted(() => ({
+  list: [] as Array<{ id: number; name: string; active: boolean }>,
+}));
 vi.mock('@/hooks/useDepartments', () => ({
-  useDepartments: () => ({ departments: [] }),
+  useDepartments: () => ({ departments: [], data: depts.list }),
   useDepartmentById: () => null,
 }));
 vi.mock('@/hooks/useAiConfigured', () => ({ useAiConfigured: () => ({ configured: true }) }));
@@ -107,6 +110,9 @@ vi.mock('@/components/contacts/ContactProfilePanel', () => ({ ContactProfilePane
 vi.mock('@/components/modals/SimilarMessagesDialog', () => ({ SimilarMessagesDialog: () => null }));
 vi.mock('../PromoteToKbDialog', () => ({ PromoteToKbDialog: () => null }));
 
+const note = vi.hoisted(() => ({ show: vi.fn() }));
+vi.mock('@/lib/routingCopy', () => ({ showRouteLearningNote: note.show }));
+
 import { MessageDetail } from '../MessageDetail';
 
 const baseMessage = {
@@ -142,6 +148,7 @@ beforeEach(() => {
   svc.message.markAsNotCustomerWork = vi.fn().mockResolvedValue({ success: true });
 });
 afterEach(() => {
+  depts.list = [];
   media.wide = false;
   cleanup();
   vi.clearAllMocks();
@@ -533,5 +540,18 @@ describe('routing hint: switching threads in the SAME panel', () => {
     expect(screen.queryByText('Also matched')).toBeNull();
     rerender(tree(9202));
     expect(screen.getByText('Also matched')).toBeTruthy();
+  });
+});
+
+describe('routing hint: no "+ rule" (spec 2026-10-14 §4.1)', () => {
+  it('offers Move only, and Move routes with (id, departmentId) then shows the note', async () => {
+    depts.list = [{ id: 3, name: 'Billing', active: true }];
+    svc.message.manualRoute = vi.fn().mockResolvedValue({ learningRecorded: true });
+    renderDetail({ ...activeThread, id: 9301, nearMissDepts: [3] } as Partial<Message>);
+    expect(screen.queryByRole('button', { name: '+ rule' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Move to Billing →' }));
+    await waitFor(() => expect(svc.message.manualRoute).toHaveBeenCalledWith(9301, 3));
+    expect(svc.message.manualRoute.mock.calls[0]).toHaveLength(2);
+    await waitFor(() => expect(note.show).toHaveBeenCalledWith({ learningRecorded: true }));
   });
 });

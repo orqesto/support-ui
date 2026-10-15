@@ -591,6 +591,8 @@ export interface components {
             exampleText: string | null;
             weight: number;
             enabled: boolean;
+            /** @enum {string} */
+            lifecycle?: "proposed" | "active" | "declined" | "archived";
             tier?: string;
             lastMatchedAt: string | null;
             matchCount: number;
@@ -602,6 +604,24 @@ export interface components {
                     corroborations: number;
                     contradictions: number;
                     distinctConvsCount: number;
+                };
+                adminConfirmedAt?: string;
+                adminConfirmedBy?: number;
+                autoAcceptedAt?: string;
+                declineReason?: string;
+                siblingRuleId?: number;
+                proposal?: {
+                    /** @enum {string} */
+                    role?: "anchor" | "sibling";
+                    anchorRuleId?: number;
+                    suggestionId?: number;
+                    groupId?: number;
+                    supportTruncated?: boolean;
+                    warnOverlap?: {
+                        ruleId: number;
+                        departmentId: number;
+                        similarity: number;
+                    };
                 };
             } | null;
         };

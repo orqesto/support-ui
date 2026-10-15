@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { VariantProps } from 'class-variance-authority';
 import type { confirmDialogIconVariants } from './confirmDialog.styles';
 
@@ -6,7 +7,7 @@ export type ConfirmDialogProps = VariantProps<typeof confirmDialogIconVariants> 
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
   title: string;
-  description: string;
+  description: ReactNode;
   confirmText?: string;
   cancelText?: string;
   /**

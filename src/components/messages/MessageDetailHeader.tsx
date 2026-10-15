@@ -54,6 +54,7 @@ import type { Message, Category, TicketPriority, ThreadStatus } from '@/types';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
+import { showRouteLearningNote } from '@/lib/routingCopy';
 import { isAiNotConfiguredError, AI_NOT_CONFIGURED_MESSAGE } from '@/lib/errorMessages';
 import {
   LABEL,
@@ -263,9 +264,6 @@ export function MessageDetailHeader({
     (deptId) => deptId !== message.departmentId
   );
   useEffect(() => setNearMissDismissed(isNearMissDismissed(message.id)), [message.id]);
-  // Tracks whether the in-flight near-miss route is the "+ rule" (learn) variant,
-  // so only the clicked button shows its busy label while both are disabled.
-  const [routingLearn, setRoutingLearn] = useState(false);
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [updatingPriority, setUpdatingPriority] = useState(false);
@@ -863,13 +861,11 @@ export function MessageDetailHeader({
   }, [message.id, onRefresh]);
 
   const handleManualRoute = useCallback(
-    // learn=true also mints a routing rule (via the guarded materializer) so
-    // similar future emails auto-route here; default false = one-off move.
-    async (deptId: number, learn = false) => {
+    // Every route is learning evidence on the backend (spec 2026-10-14, D3) — no "+ rule" variant.
+    async (deptId: number) => {
       try {
         setRoutingTo(deptId);
-        setRoutingLearn(learn);
-        await messageService.manualRoute(message.id, deptId, learn);
+        showRouteLearningNote(await messageService.manualRoute(message.id, deptId));
         // Left the needs_routing queue — refresh the sidebar badge immediately.
         void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
         onRefresh?.();
@@ -877,7 +873,6 @@ export function MessageDetailHeader({
         logger.error('Failed to manually route:', err);
       } finally {
         setRoutingTo(null);
-        setRoutingLearn(false);
       }
     },
     [message.id, onRefresh, queryClient]
@@ -1529,30 +1524,18 @@ export function MessageDetailHeader({
                 if (!dept) return null;
                 const busy = routingTo === deptId;
                 return (
-                  <span key={deptId} className="inline-flex items-center">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void handleManualRoute(deptId, false)}
-                      disabled={busy}
-                      title={`Move this conversation to ${dept.name} (one-off, no rule)`}
-                      className="h-[27px] px-[11px] rounded-l-[7px] border border-border bg-card text-[12px] font-normal text-foreground hover:border-border-strong hover:bg-card disabled:opacity-50"
-                    >
-                      {busy && !routingLearn ? `Moving to ${dept.name}…` : `Move to ${dept.name} →`}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void handleManualRoute(deptId, true)}
-                      disabled={busy}
-                      title={`Move to ${dept.name} AND create a routing rule so similar future emails auto-route here`}
-                      className="h-[27px] px-[11px] rounded-r-[7px] border border-l-0 border-border bg-card text-[12px] font-normal text-foreground hover:border-border-strong hover:bg-card disabled:opacity-50"
-                    >
-                      {busy && routingLearn ? 'Adding rule…' : '+ rule'}
-                    </Button>
-                  </span>
+                  <Button
+                    key={deptId}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void handleManualRoute(deptId)}
+                    disabled={busy}
+                    title={`Move this conversation to ${dept.name}`}
+                    className="h-[27px] px-[11px] rounded-[7px] border border-border bg-card text-[12px] font-normal text-foreground hover:border-border-strong hover:bg-card disabled:opacity-50"
+                  >
+                    {busy ? `Moving to ${dept.name}…` : `Move to ${dept.name} →`}
+                  </Button>
                 );
               })}
               <Tooltip content="Dismiss" side="bottom" size="sm">

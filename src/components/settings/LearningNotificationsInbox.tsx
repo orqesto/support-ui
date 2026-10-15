@@ -67,6 +67,12 @@ const ACTION_META: Record<LearningAutoActionType, {
     icon: Trash2,
     className: 'text-destructive',
   },
+  // The BE summary already starts "Accepted automatically: …" (routingProposalPass.ts).
+  auto_accept: {
+    label: 'Auto-accepted',
+    icon: CheckCircle2,
+    className: 'text-success',
+  },
 };
 
 const PAGE_SIZE = 20;
@@ -104,6 +110,20 @@ const evidenceHighlights = (evidence: Record<string, unknown>): string[] => {
   if (support !== null) out.push(`Support ${support}`);
   const cluster = formatNumber(evidence.clusterSize);
   if (cluster !== null) out.push(`Cluster ${cluster}`);
+  // A routing auto-accept (BE routingProposalPass.ts): the bars it cleared.
+  const weighted = evidence.weightedConversations;
+  if (typeof weighted === 'number' && Number.isFinite(weighted)) {
+    // Weighted counts are fractional: read like the card ("about 5"), whole numbers as they are.
+    out.push(`Conversations ${Number.isInteger(weighted) ? weighted : `about ${Math.max(1, Math.round(weighted))}`}`);
+  }
+  const spanDays = formatNumber(evidence.spanDays);
+  if (spanDays !== null) out.push(`Over ${spanDays} days`);
+  const replay = evidence.replay;
+  const replayRatio =
+    replay && typeof replay === 'object' && 'ratio' in replay && typeof replay.ratio === 'number'
+      ? formatNumber(replay.ratio * 100)
+      : null;
+  if (replayRatio !== null) out.push(`Replay ${replayRatio}%`);
   if (typeof evidence.reason === 'string' && evidence.reason.length > 0 && out.length === 0) {
     out.push(evidence.reason);
   }

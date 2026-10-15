@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Sparkles, Check, X, RefreshCw, AlertCircle, ChevronDown, ChevronRight, Eye } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Sparkles, Check, X, RefreshCw, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useDepartments } from '@/hooks/useDepartments';
 import {
+  isRoutingProposal,
   learningService,
   type LearningSuggestion,
-  type SuggestionEvidenceItem,
 } from '@/services/learning.service';
 import { logger } from '@/lib/logger';
 import {
@@ -22,6 +22,8 @@ import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import { isKbConsolidationSuggestion, isKbModeratedSuggestion, isKbQualitySuggestion, whyCannotAct } from '@/lib/learningSuggestionPermissions';
 import { KbMergeInboxReview, KbMergeOutcomeBanner, KbQualityInboxReview, summarizeKbMerge, summarizeKbQuality, useKbMergeOutcome } from './KbMergeInboxParts';
 import { useSuggestionDomainAccess } from '@/hooks/useSuggestionDomainAccess';
+import { EvidenceSection } from './ConflictEvidenceSection';
+import { RoutingProposalCard } from './RoutingProposalCard';
 
 const DOMAIN_LABELS: Record<string, string> = {
   routing: 'Routing',
@@ -131,6 +133,8 @@ const summarizeSuggestion = (
     return 'Flag low-quality output for review';
   }
   if (suggestion.suggestionType === 'promote') {
+    // BE payload: { ruleId, ruleTable, summary, counterfactualRatio, recommendation } (learningEngine.ts).
+    if (typeof payload.summary === 'string' && payload.summary) return `Promote: ${payload.summary}`;
     const value = typeof payload.value === 'string' ? payload.value : '';
     const ruleType = typeof payload.ruleType === 'string' ? payload.ruleType : 'rule';
     return value ? `Promote ${ruleType}: "${value}"` : 'Promote provisional rule';
@@ -181,117 +185,6 @@ const summarizeSuggestion = (
     return conflictType ? `Resolve conflict (${conflictType.replace(/_/g, ' ')})` : 'Resolve conflict';
   }
   return suggestion.suggestionType.replace(/_/g, ' ');
-};
-
-// Evidence section — lazy-fetched on first expand. Shows the actual messages
-// behind the conflict with per-rule match badges and a deep-link to the
-// conversation, so admins can judge whether the conflict is real on
-// user-visible traffic before clicking Accept/Decline.
-const EvidenceSection = ({ suggestionId }: { suggestionId: number }) => {
-  const [open, setOpen] = useState(false);
-  const [items, setItems] = useState<SuggestionEvidenceItem[] | null>(null);
-  // Track the BE's scannedCount alongside items so the empty-state copy can
-  // distinguish "no traffic yet" (scannedCount === 0) from "scanned N, none
-  // co-matched" (scannedCount > 0 — often a false-positive conflict).
-  const [scannedCount, setScannedCount] = useState<number | null | undefined>(undefined);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const toggle = async () => {
-    const next = !open;
-    setOpen(next);
-    // Lazy-load: only fetch on first expand. Subsequent toggles use cache.
-    if (next && items === null && !loading) {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await learningService.getSuggestionEvidence(suggestionId);
-        setItems(response.evidence);
-        setScannedCount(response.scannedCount);
-      } catch (err) {
-        logger.error('Failed to load suggestion evidence:', err);
-        setError(getApiErrorMessage(err) ?? 'Failed to load evidence');
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  return (
-    <div className="mt-2 pt-2 border-t border-border/40">
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={() => void toggle()}
-        className="gap-1 items-center p-0 h-auto text-xs text-muted-foreground hover:text-foreground hover:bg-transparent"
-      >
-        {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-        <Eye className="w-3 h-3" />
-        Evidence messages
-      </Button>
-      {open && (
-        <div className="mt-2">
-          {loading && <p className="text-xs text-muted-foreground">Loading…</p>}
-          {error && (
-            <p className="text-xs text-destructive">{error}</p>
-          )}
-          {!loading && !error && items !== null && items.length === 0 && (
-            <p className="text-xs text-muted-foreground italic">
-              {scannedCount === 0
-                ? 'No messages in the last 30 days yet. Evidence will appear as traffic arrives.'
-                : typeof scannedCount === 'number' && scannedCount > 0
-                  ? `Scanned ${scannedCount.toLocaleString()} recent messages; none matched both rules. This conflict may be a false positive — consider declining if you don't expect these rules to ever co-fire.`
-                  : 'No evidence messages available for this suggestion.'}
-            </p>
-          )}
-          {!loading && !error && items !== null && items.length > 0 && (
-            <ul className="space-y-2">
-              {items.map((item) => (
-                <li
-                  key={item.messageId}
-                  className="rounded-md border border-border/60 bg-background/40 p-2"
-                >
-                  <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                    <Link
-                      to={`/messages/${item.conversationId}`}
-                      className="text-xs font-medium text-primary hover:underline truncate max-w-[280px]"
-                      title={item.subject ?? '(no subject)'}
-                    >
-                      {item.subject && item.subject.length > 0
-                        ? item.subject
-                        : '(no subject)'}
-                    </Link>
-                    {item.ruleAMatched && (
-                      <span className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-warning/15 text-warning">
-                        A
-                      </span>
-                    )}
-                    {item.ruleBMatched && (
-                      <span className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-ai-muted text-ai">
-                        B
-                      </span>
-                    )}
-                    {item.ruleAMatched && item.ruleBMatched && (
-                      <span
-                        className="inline-flex items-center h-4 px-1 rounded text-[10px] font-semibold bg-destructive/15 text-destructive"
-                        title="This message matches both rules — the conflict is real here"
-                      >
-                        Overlap
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {item.contentExcerpt}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-    </div>
-  );
 };
 
 type Refinement = {
@@ -450,7 +343,7 @@ const ConflictDetail = ({
 };
 
 export const LearningSuggestionsSettings = () => {
-  const { canActOnSuggestion, canActOnAnyDomain } = useSuggestionDomainAccess();
+  const { canActOn, canActOnSuggestion, canActOnAnyDomain } = useSuggestionDomainAccess();
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const [suggestions, setSuggestions] = useState<LearningSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -488,6 +381,19 @@ export const LearningSuggestionsSettings = () => {
     void load();
   }, [load, selectedOrganizationId]);
   const merge = useKbMergeOutcome(useCallback(() => void load(true), [load]), selectedOrganizationId);
+
+  // Deep link from the bell (NotificationCenter.goToAiSettings → ?focus=<id>): open that suggestion
+  // and scroll to it, once per focus id (a later reload must not yank the page back to it).
+  const [searchParams] = useSearchParams();
+  const focusId = Number(searchParams.get('focus'));
+  const focusedRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!Number.isInteger(focusId) || focusId <= 0 || focusedRef.current === focusId) return;
+    if (!suggestions.some((row) => row.id === focusId)) return;
+    focusedRef.current = focusId;
+    setExpandedId(focusId);
+    document.querySelector(`[data-suggestion-id="${focusId}"]`)?.scrollIntoView({ block: 'center' });
+  }, [focusId, suggestions]);
 
   const handleAccept = async (id: number) => {
     setActingId(id);
@@ -585,10 +491,10 @@ export const LearningSuggestionsSettings = () => {
         ) : suggestions.length === 0 ? (
           <div className="py-8 text-center">
             <Sparkles className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">No pending suggestions.</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              The analyzer runs nightly. Suggestions appear once enough agent overrides have
-              accumulated to form a high-confidence cluster.
+            <p className="text-sm text-muted-foreground">
+              {canActOn('routing')
+                ? 'No proposals yet — they appear after your team routes similar mail a few times.'
+                : 'No suggestions yet — they appear as your team works through mail.'}
             </p>
           </div>
         ) : (
@@ -605,11 +511,35 @@ export const LearningSuggestionsSettings = () => {
                       : null;
                     const isActing = actingId === suggestion.id;
                     const canAct = canActOnSuggestion(suggestion);
+                    // Routing proposals (propose / disagreement / keep-this-rule) are their own card,
+                    // always open: the evidence IS the decision. 409 = stale → quiet reload.
+                    if (isRoutingProposal(suggestion)) {
+                      return (
+                        <div
+                          key={suggestion.id}
+                          data-suggestion-id={suggestion.id}
+                          className="rounded-lg border border-border bg-background"
+                        >
+                          {!canAct && (
+                            <p className="px-3 pt-3 text-xs text-muted-foreground">{whyCannotAct(suggestion)}</p>
+                          )}
+                          <RoutingProposalCard
+                            suggestion={suggestion}
+                            deptNameById={deptNameById}
+                            canAct={canAct}
+                            onDone={(id) => setSuggestions((prev) => prev.filter((row) => row.id !== id))}
+                            onError={setError}
+                            onStale={() => void load(true)}
+                          />
+                        </div>
+                      );
+                    }
                     // A KB merge is decided only after reading the entries side by side, with a
                     // body saying which ones and what text — a bare Accept is refused (400).
                     return (
                       <div
                         key={suggestion.id}
+                        data-suggestion-id={suggestion.id}
                         className="rounded-lg border border-border bg-background"
                       >
                         <div className="flex justify-between gap-3 items-start p-3">
@@ -668,11 +598,13 @@ export const LearningSuggestionsSettings = () => {
                               title={
                                 !canAct
                                   ? whyCannotAct(suggestion)
-                                  : suggestion.domain === 'reply_style'
-                                    ? 'Accept — makes this the house style for AI-drafted replies'
-                                    : suggestion.domain === 'kb_review'
-                                      ? 'Approve — the AI may quote it from now on'
-                                      : 'Accept — disables the weaker rule'
+                                  : suggestion.suggestionType === 'promote'
+                                    ? 'Accept — makes this rule permanent'
+                                    : suggestion.domain === 'reply_style'
+                                      ? 'Accept — makes this the house style for AI-drafted replies'
+                                      : suggestion.domain === 'kb_review'
+                                        ? 'Approve — the AI may quote it from now on'
+                                        : 'Accept — disables the weaker rule'
                               }
                             >
                               <Check className="w-4 h-4" />
