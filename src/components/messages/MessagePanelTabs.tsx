@@ -44,9 +44,12 @@ type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
  * One tab of the strip (v4 `.stabs button` / `.railtabs button`): sentence case, 12.5px / 500, the
  * body face — not the uppercase LABEL style. `flex-shrink-0 grow basis-auto` is `flex: 1 0 auto`:
  * share the spare width, never shrink below the label.
+ * `min-w-[2.75rem]` (44px, a full tap target), not 4.5rem (2026-10-15): at 72px each, "AI" and "KB"
+ * took Customer's width and the nine tabs needed ~657px, so Conflict was cut off in a ~650px rail.
+ * `flex-shrink-0` alone is what stops the squeeze.
  */
 const TAB_BASE =
-  'flex-shrink-0 grow basis-auto min-w-[4.5rem] justify-center items-center gap-[5px] px-[9px] h-[37px] rounded-none hover:bg-transparent font-sans text-[12.5px] font-medium normal-case tracking-normal whitespace-nowrap border-b-2 transition-colors max-sm:h-11 max-sm:px-[11px] max-sm:text-[13.5px]';
+  'flex-shrink-0 grow basis-auto min-w-[2.75rem] justify-center items-center gap-[5px] px-[9px] h-[37px] rounded-none hover:bg-transparent font-sans text-[12.5px] font-medium normal-case tracking-normal whitespace-nowrap border-b-2 transition-colors max-sm:h-11 max-sm:px-[11px] max-sm:text-[13.5px]';
 
 /*
   v4 mobile (M4): the rail on a phone. The wrapper has no box (`contents`) so the strip's parent is
