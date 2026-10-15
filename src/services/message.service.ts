@@ -997,9 +997,14 @@ export const messageService = {
     return response.data.data;
   },
 
-  // `learn` defaults to false: a manual route is a one-off correction and does NOT train
-  // the router unless the agent explicitly opts in (BE gates learning/rule-creation on it).
-  manualRoute: async (id: number, departmentId: number, learn = false) => {
-    await apiClient.patch(`/api/messages/${id}/manual-route`, { departmentId, learn });
+  // Spec ROUTING-PROPOSALS 2026-10-14 (D3, audit B4): every route is learning evidence on the
+  // backend. NEVER send `learn` — an older backend mints a LIVE rule on learn:true. The backend
+  // answers data.learningRecorded; an older one sends no data, read as false.
+  manualRoute: async (id: number, departmentId: number): Promise<{ learningRecorded: boolean }> => {
+    const response = await apiClient.patch<{
+      success: boolean;
+      data?: { learningRecorded?: unknown };
+    }>(`/api/messages/${id}/manual-route`, { departmentId });
+    return { learningRecorded: response.data?.data?.learningRecorded === true };
   },
 };

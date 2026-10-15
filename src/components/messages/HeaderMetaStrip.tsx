@@ -132,9 +132,9 @@ export function HeaderMetaStrip({
     }
     setSavingDept(true);
     try {
-      // Pass the "Create rule" toggle through as `learn`: on → the BE also mints a
-      // content→department rule; off → a one-off route with no training.
-      await messageService.manualRoute(message.id, nextId, createRule);
+      // `learn` is never sent (routing-proposals spec §4.2): every route is learning
+      // evidence on the BE. The "Create rule" toggle is now inert; Task 20 removes it.
+      await messageService.manualRoute(message.id, nextId);
       // Routing a needs_routing message removes it from the queue — refresh the
       // sidebar badge immediately instead of waiting for the 60s poll.
       void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });

@@ -869,7 +869,8 @@ export function MessageDetailHeader({
       try {
         setRoutingTo(deptId);
         setRoutingLearn(learn);
-        await messageService.manualRoute(message.id, deptId, learn);
+        // `learn` is never sent (routing-proposals spec §4.2); the "+ rule" path is removed in Task 21.
+        await messageService.manualRoute(message.id, deptId);
         // Left the needs_routing queue — refresh the sidebar badge immediately.
         void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
         onRefresh?.();
