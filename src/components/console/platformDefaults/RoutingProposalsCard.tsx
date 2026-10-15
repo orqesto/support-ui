@@ -59,7 +59,8 @@ export const RoutingProposalsCard = ({ routing }: { routing: PlatformSettings['r
       <CardHeader>{TITLE}</CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Platform-wide, not per workspace. Changes apply from the next routing or nightly pass.
+          Platform-wide, not per workspace. Changes apply from the next routing or nightly pass
+          (within a minute).
         </p>
         {ROUTING_SETTING_FIELDS.map((name) => {
           const spec = ROUTING_SETTING_SPECS[name];

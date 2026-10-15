@@ -119,7 +119,17 @@ describe('PlatformDefaults', () => {
     };
     render(<PlatformDefaults />);
     expect(screen.getByText('Routing proposals')).toBeInTheDocument();
-    expect(screen.getAllByRole('spinbutton').length).toBeGreaterThanOrEqual(7);
+    for (const label of [
+      'Conversations before a rule is proposed',
+      'Same-agent re-route window (minutes)',
+      'Archive an idle proposed rule after (days)',
+      'Auto-accept: conversations needed',
+      'Auto-accept: days of support needed',
+      'Auto-accept: share of past mail that must match',
+      'Minimum past-mail matches for an estimate',
+    ]) {
+      expect(screen.getByLabelText(label)).toBeInTheDocument();
+    }
     expect(screen.getByRole('button', { name: 'Save routing settings' })).toBeInTheDocument();
   });
 

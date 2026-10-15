@@ -38,7 +38,7 @@ export const ROUTING_SETTING_SPECS: Record<RoutingSettingField, RoutingSettingSp
   },
   rerouteUndoMinutes: {
     label: 'Same-agent re-route window (minutes)',
-    help: 'Within this many minutes, an agent re-routing their own conversation counts as correcting a slip, not as new evidence. 0 turns the window off.',
+    help: 'If the agent who routed a conversation re-routes it within this many minutes, it counts as correcting a slip: the first department quietly loses it instead of recording a disagreement. 0 turns the window off.',
     defaultValue: 10,
     min: 0,
     max: 240,
