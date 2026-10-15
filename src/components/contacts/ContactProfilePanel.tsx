@@ -321,7 +321,10 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
               ) : tab === 'lookups' ? (
                 /* SC5: the SAME lookup component as the thread's Lookups tab — one copy of every
                    outcome state (moved out of Details, spec 2026-10-09). */
-                <CustomApiLookupPanel contactId={contact.id} />
+                <CustomApiLookupPanel
+                  contactId={contact.id}
+                  customerEmail={contact.primaryEmail ?? undefined}
+                />
               ) : (
                 <ContactProfileDetails
                   contact={contact}

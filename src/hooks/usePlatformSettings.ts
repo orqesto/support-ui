@@ -6,10 +6,12 @@ import {
   type DefaultStorageInput,
   type ManagedAiInput,
   type PlatformDatabaseInput,
+  type PlatformCustomApiInput,
   type PlatformKbInput,
   type PlatformSecretKey,
   type ReasoningInput,
 } from '@/services/platformSettings.service';
+import type { PlatformRoutingInput } from '@/services/routingSettings';
 
 const KEY = ['platform', 'settings'] as const;
 const MODELS_KEY = ['platform', 'settings', 'ai-models'] as const;
@@ -82,6 +84,25 @@ export const useUpdatePlatformKb = () => {
     mutationFn: (input: PlatformKbInput) => platformSettingsService.updateKb(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
     onError: (error: unknown) => toast.failure('save the knowledge-base setting', error),
+  });
+};
+
+export const useUpdatePlatformCustomApi = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PlatformCustomApiInput) =>
+      platformSettingsService.updateCustomApiHealth(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onError: (error: unknown) => toast.failure('save the custom API health setting', error),
+  });
+};
+
+export const useUpdatePlatformRouting = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PlatformRoutingInput) => platformSettingsService.updateRouting(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onError: (error: unknown) => toast.failure('save the routing settings', error),
   });
 };
 

@@ -163,3 +163,44 @@ describe('ResolveDecisions — the row under the reply (v3, 2026-09-23)', () => 
     for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled();
   });
 });
+
+/**
+ * 🔴 Found recording a demo (2026-10-15): after confirming "Resolve & save to KB" the row sat
+ * greyed out for ~15 s with no sign of work — the save runs the KB capture inside the request.
+ */
+describe('ResolveDecisions — "Resolve & save to KB" says it is saving', () => {
+  it('🔴 while the save is in flight the button reads "Saving to KB…", busy and locked', () => {
+    render(
+      <ResolveDecisions mode="active" savingToKb onResolve={vi.fn()} onResolveToKb={vi.fn()} />
+    );
+    const saving = screen.getByRole('button', { name: /Saving to KB…/ });
+    expect(saving.getAttribute('aria-busy')).toBe('true');
+    expect((saving as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: /Resolve & save to KB/ })).toBeNull();
+  });
+
+  it('the lock holds even when the row itself is not busy (Button `disabled` replaces its own lock)', () => {
+    const onResolveToKb = vi.fn();
+    render(
+      <ResolveDecisions
+        mode="active"
+        busy={false}
+        savingToKb
+        onResolve={vi.fn()}
+        onResolveToKb={onResolveToKb}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Saving to KB…/ }));
+    expect(onResolveToKb).not.toHaveBeenCalled();
+  });
+
+  it('control: at rest it reads "Resolve & save to KB" and is clickable', () => {
+    const onResolveToKb = vi.fn();
+    render(<ResolveDecisions mode="active" onResolve={vi.fn()} onResolveToKb={onResolveToKb} />);
+    const button = screen.getByRole('button', { name: /Resolve & save to KB/ });
+    expect(button.getAttribute('aria-busy')).toBeNull();
+    fireEvent.click(button);
+    expect(onResolveToKb).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/Saving to KB/)).toBeNull();
+  });
+});

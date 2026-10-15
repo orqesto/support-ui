@@ -1,4 +1,5 @@
 import DOMPurify, { type default as DOMPurifyType } from 'dompurify';
+import { liftLinks } from '@/lib/liftLinks';
 import type React from 'react';
 import { imageProxyBase } from '@/lib/emailHtml';
 import type { ThreadStatus, TicketPriority } from '@/types';
@@ -355,8 +356,17 @@ export function fmtMin(mins: number): string {
 }
 
 export function renderMarkdown(raw: string): string {
-  return (
-    raw
+  /*
+    Autolink bare URLs. A plain-text mail is the ONLY place a tracking link can appear without
+    markup, and until now the text branch allowed no anchors at all — so the link a customer was
+    told to click was, in the console, unclickable text.
+
+    ⛔ Links are lifted out BEFORE escaping and the emphasis rules (liftLinks): linked last, a
+    tracking link `…/order_id_123` lost "_id_" to <em> and pointed at `…/order` (2026-10-14).
+  */
+  const links = liftLinks(raw, { attrs: ' target="_blank" rel="noopener noreferrer"' });
+  return links.restore(
+    links.text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -364,16 +374,6 @@ export function renderMarkdown(raw: string): string {
       .replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>')
       .replace(/_([^_\n]+)_/g, '<em>$1</em>')
       .replace(/`([^`\n]+)`/g, '<code>$1</code>')
-      // Autolink bare URLs. A plain-text mail is the ONLY place a tracking link can appear
-      // without markup, and until now the text branch allowed no anchors at all — so the
-      // link a customer was told to click was, in the console, unclickable text. Runs after
-      // escaping (so `&` is already `&amp;`) and before newlines become <br>, and stops at
-      // the trailing punctuation that ends a sentence rather than swallowing it into the URL.
-      .replace(/\bhttps?:\/\/[^\s<>"']+/g, (url) => {
-        const trimmed = url.replace(/[.,;:!?)\]]+$/, '');
-        const tail = url.slice(trimmed.length);
-        return `<a href="${trimmed}" target="_blank" rel="noopener noreferrer">${trimmed}</a>${tail}`;
-      })
       .replace(/\n/g, '<br>')
   );
 }
@@ -592,19 +592,24 @@ export function suggestedAnswerToHtml(raw: string): string {
   )
     return raw;
 
-  const inline = (text: string): string =>
-    text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/\*\*(.+?)\*\*/gs, '<strong>$1</strong>')
-      .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
-      .replace(/_([^_\n]+)_/g, '<em>$1</em>')
-      .replace(/`([^`\n]+)`/g, '<code>$1</code>')
-      // URL char class excludes quotes/brackets so a crafted link text can't
-      // break out of the href attribute (belt-and-suspenders — the caller also
-      // runs the result through DOMPurify's attribute allowlist).
-      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s"'<>)]+)\)/g, '<a href="$2">$1</a>');
+  /*
+    Links are lifted out of the RAW line first and put back last (liftLinks): run through the
+    emphasis rules, a URL lost its underscores ("reset<em>password</em>guide", a dead link), and a
+    bare URL — what polish writes for a kept link — stayed plain text.
+  */
+  const inline = (text: string): string => {
+    const links = liftLinks(text, { markdown: true });
+    return links.restore(
+      links.text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\*\*(.+?)\*\*/gs, '<strong>$1</strong>')
+        .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+        .replace(/_([^_\n]+)_/g, '<em>$1</em>')
+        .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+    );
+  };
 
   const out: string[] = [];
   let para: string[] = [];

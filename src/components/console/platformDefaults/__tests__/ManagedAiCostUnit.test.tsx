@@ -93,6 +93,16 @@ describe('ManagedAiDefaultsCard — cost unit', () => {
     expect(sentInput()).not.toHaveProperty('visionCostPer1k');
   });
 
+  it('the read-only summary shows the stored cost in the same unit as the editor', () => {
+    render(<ManagedAiDefaultsCard ai={aiWithCosts()} secrets={SECRETS} />);
+    expect(screen.getByText('Default tier cost / 1M tokens')).toBeTruthy();
+    expect(screen.getByText('0.13')).toBeTruthy();
+    expect(screen.getByText('Vision tier cost / 1M tokens')).toBeTruthy();
+    expect(screen.getByText('2')).toBeTruthy();
+    expect(screen.queryByText(/cost \/ 1k/)).toBeNull();
+    expect(screen.queryByText('0.00013')).toBeNull();
+  });
+
   it('converts typed values when the unit is switched to 1k', async () => {
     render(<ManagedAiDefaultsCard ai={aiWithCosts()} secrets={SECRETS} />);
     openEditor();
@@ -108,5 +118,14 @@ describe('ManagedAiDefaultsCard — cost unit', () => {
     fireEvent.click(screen.getByRole('button', { name: /save ai defaults/i }));
 
     expect(sentInput()).toMatchObject({ defaultCostPer1k: 0.00013, strongCostPer1k: 0.003 });
+  });
+
+  it('saves a cost the browser hands over in exponent form', () => {
+    render(<ManagedAiDefaultsCard ai={aiWithCosts()} secrets={SECRETS} />);
+    openEditor();
+    fireEvent.change(cost('Strong tier', '1M'), { target: { value: '1e-4' } });
+    fireEvent.click(screen.getByRole('button', { name: /save ai defaults/i }));
+
+    expect(sentInput()).toMatchObject({ strongCostPer1k: 1e-7 });
   });
 });

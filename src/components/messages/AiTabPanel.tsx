@@ -51,7 +51,10 @@ type SuggestedAnswer = {
     | 'lead_qualification'
     | 'lead_qualification_kb';
   similarMessageId?: number;
+  /** Documentation-CHUNK ids — never a document id (see the DOCS option below). */
   referencedChunks?: number[];
+  /** The uploaded document the DOCS answer came from (`documentation.id`); absent on older data. */
+  sourceDocumentId?: number;
   documentationId?: number;
   kbSources?: KBSourceRef[];
 };
@@ -88,6 +91,33 @@ const senderAddress = (sender?: string): string => {
   return sender.match(/<([^>]+)>/)?.[1] ?? sender.trim();
 };
 
+/**
+ * A source's title as the link reads it: no "Q:" prefix, no markup — and NOT cut. It used to be
+ * `.slice(0, 80)`, which ended a long title mid-word with no ellipsis ("…already in tr", demo
+ * 2026-10-15). The link's CSS `truncate` adds the "…" where the row runs out of room, and the
+ * full title goes in its `title` tooltip.
+ */
+const sourceTitle = (raw: string | undefined): string | undefined => {
+  if (!raw) return undefined;
+  // The browser's own parser reads the markup (a one-pass tag regex leaves `<scr<b>ipt>` as
+  // `<script>` — CodeQL incomplete-sanitization); its text then loses any stray angle bracket.
+  // A DOMParser document is inert: nothing in it loads or runs.
+  const parsed = new DOMParser().parseFromString(raw.replace(/^Q:\s*/i, ''), 'text/html');
+  const text = (parsed.body.textContent ?? '').replace(/[<>]/g, '').trim();
+  if (!text) return undefined;
+  return text;
+};
+
+/** Uploaded documentation (Settings → Documentation tab), highlighted by `?docId=` when known. */
+const documentationHref = (documentId: number | undefined): string =>
+  documentId
+    ? `/knowledge-base?docId=${documentId}#documentation`
+    : '/knowledge-base#documentation';
+
+/** A knowledge-base ENTRY (Q&A pair, document, manual entry): the KB page opens it by `?id=`. */
+const kbEntryHref = (id: number | undefined): string | undefined =>
+  id ? `/knowledge-base?id=${id}` : undefined;
+
 type ReplyOption = {
   id: string;
   label: string;
@@ -95,6 +125,12 @@ type ReplyOption = {
   answer: string;
   type: 'lead' | 'documentation' | 'similar';
   documentationId?: number;
+  /**
+   * Where the source link opens. A KB hit (`source: 'documentation'` from similar-resolved) is a
+   * KNOWLEDGE-BASE ENTRY id, opened by `?id=`; `?docId=…#documentation` is the uploaded
+   * Documentation tab's own param and opened that empty upload tab instead (demo, 2026-10-14).
+   */
+  sourceHref?: string;
   documentTitle?: string;
   messageId?: number;
   content?: string;
@@ -336,9 +372,17 @@ export function AiTabPanel({
         : undefined,
       answer: suggestedAnswer.answer,
       type: isLead ? 'lead' : isDocs ? 'documentation' : 'similar',
+      // ⛔ `referencedChunks` are DOCUMENTATION-CHUNK ids (BE messageCompletenessAnalyzer), not
+      // document ids: `?docId=<chunk id>` highlighted another document or none. The document id is
+      // `sourceDocumentId` (BE, 2026-10-15); a stored answer from before it carries only chunk ids
+      // and opens the Documentation tab without a highlight. The chunk id stays as the option's
+      // id only so the source row still renders.
       documentationId: isDocs
-        ? (suggestedAnswer.referencedChunks?.[0] ?? suggestedAnswer.documentationId)
+        ? (suggestedAnswer.sourceDocumentId ??
+          suggestedAnswer.referencedChunks?.[0] ??
+          suggestedAnswer.documentationId)
         : undefined,
+      sourceHref: isDocs ? documentationHref(suggestedAnswer.sourceDocumentId) : undefined,
       messageId: suggestedAnswer.similarMessageId,
       content: matchingResult?.content,
       subject: matchingResult?.subject,
@@ -364,6 +408,7 @@ export function AiTabPanel({
       answer: isPastReply ? stripGreetingName(result.directReply) : result.directReply,
       type: result.source === 'documentation' ? 'documentation' : 'similar',
       documentationId: result.documentationId,
+      sourceHref: isPastReply ? undefined : kbEntryHref(result.documentationId),
       documentTitle: result.documentTitle,
       messageId: result.messageId,
       content: result.content,
@@ -509,29 +554,23 @@ export function AiTabPanel({
                         event.stopPropagation();
                         setViewKBSources(activeOption);
                       }}
-                      className="inline-block p-0 h-auto text-[12px] text-primary hover:text-primary/80 truncate"
+                      title={sourceTitle(activeOption.documentTitle)}
+                      className="inline-block min-w-0 max-w-full p-0 h-auto text-[12px] text-primary hover:text-primary/80 truncate"
                     >
-                      {activeOption.documentTitle
-                        ?.replace(/^Q:\s*/i, '')
-                        .replace(/<[^>]+>/g, '')
-                        .trim()
-                        .slice(0, 80) ?? 'View sources'}
+                      {sourceTitle(activeOption.documentTitle) ?? 'View sources'}
                     </Button>
                   ) : (
                     <Link
-                      to={`/knowledge-base?docId=${activeOption.documentationId}#documentation`}
+                      to={
+                        activeOption.sourceHref ?? documentationHref(activeOption.documentationId)
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(event) => event.stopPropagation()}
-                      className="text-[12px] text-primary hover:text-primary/80 truncate"
+                      title={sourceTitle(activeOption.documentTitle)}
+                      className="min-w-0 text-[12px] text-primary hover:text-primary/80 truncate"
                     >
-                      {activeOption.documentTitle
-                        ? activeOption.documentTitle
-                            .replace(/^Q:\s*/i, '')
-                            .replace(/<[^>]+>/g, '')
-                            .trim()
-                            .slice(0, 80)
-                        : 'View in Knowledge Base'}
+                      {sourceTitle(activeOption.documentTitle) ?? 'View in Knowledge Base'}
                     </Link>
                   )}
                 </div>
@@ -548,14 +587,15 @@ export function AiTabPanel({
                         event.stopPropagation();
                         setViewLeadSources(activeOption);
                       }}
-                      className="inline-block p-0 h-auto text-[12px] text-ai hover:text-ai/80 truncate"
+                      title={
+                        activeOption.kbSources.length === 1
+                          ? sourceTitle(activeOption.kbSources[0].title)
+                          : undefined
+                      }
+                      className="inline-block min-w-0 max-w-full p-0 h-auto text-[12px] text-ai hover:text-ai/80 truncate"
                     >
                       {activeOption.kbSources.length === 1
-                        ? (activeOption.kbSources[0].title
-                            ?.replace(/^Q:\s*/i, '')
-                            .replace(/<[^>]+>/g, '')
-                            .trim()
-                            .slice(0, 80) ?? 'View source')
+                        ? (sourceTitle(activeOption.kbSources[0].title) ?? 'View source')
                         : `Combined from ${activeOption.kbSources.length} sources (${Math.round((activeOption.kbSources.reduce((sum, source) => sum + source.similarity, 0) / activeOption.kbSources.length) * 100)}%)`}
                     </Button>
                   </div>

@@ -1,14 +1,14 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { Sparkles, Undo2, X } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { RotateCcw, Sparkles, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Label } from '@/components/ui/Label';
 import { Spinner } from '@/components/ui/Spinner';
-import { Textarea } from '@/components/ui/Textarea';
-import { TranslateButton } from '@/components/shared/TranslateButton';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff, useRefreshAiDrafts } from '@/hooks/useAiDraftsOff';
-import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
+import { editorHtmlToText } from '@/lib/editorText';
+import { normalizeEditorHtml } from '@/lib/editorSchema';
+import { isBlankRichText } from '@/lib/stripHtml';
 import { logger } from '@/lib/logger';
+import { hasTemplatePlaceholders } from '@/lib/replyPlaceholders';
 import {
   AI_DRAFTS_OFF_MESSAGE,
   AI_NOT_CONFIGURED_MESSAGE,
@@ -21,19 +21,15 @@ import { messageService, type AiDraft } from '@/services/message.service';
 import { answerToEditorHtml, LABEL } from './messageDetailConstants';
 
 /**
- * AI drafting for the reply composer.
+ * AI drafting for the reply composer — ONE input: the reply editor itself.
  *
- * The panel is STATE-AWARE rather than mode-aware: it shows only the action that
- * applies right now, so there is never a disabled button whose enabling condition
- * lives in some other field. Empty composer → "write me one". Composer with your
- * own text → "clean mine up", with starting fresh as an explicit secondary path.
- * (The first version exposed the three backend modes directly and put the polish
- * button's enabled state on the composer while its input box sat in the panel —
- * agents typed their draft into the panel box and the button greyed out.)
+ * Empty editor → a reply from the knowledge base (`generate`). Text in the editor → that text is
+ * the agent's note (`guided`): the reply comes from the knowledge base plus their facts, and the
+ * backend falls back to writing from the note alone when the knowledge base has nothing. The draft
+ * replaces the editor content in place; Undo puts the agent's text back.
  *
- * Nothing touches the agent's text until they accept: drafts are previewed inside
- * the panel with Use it / Try again / Discard. Drafts come back in the CUSTOMER's
- * language, so the preview labels that language and can show a translation.
+ * (The previous version was a panel with three text areas — a read-only preview, a note box and
+ * the editor underneath — so "here are my facts, write the reply" had two places to type it.)
  */
 type Mode = 'generate' | 'guided' | 'polish';
 
@@ -44,21 +40,6 @@ type Mode = 'generate' | 'guided' | 'polish';
  * an unrelated saved suggestion for a composer-written reply.
  */
 export const composerAiSource = (mode: Mode): string => `ai_compose_${mode}`;
-
-/**
- * `groundedInKb: false` means the backend wrote this WITHOUT a retrieved passage —
- * guided from the agent's own facts, generate from the thread alone. The field has
- * existed since the guided fallback shipped and nothing rendered it, so an
- * ungrounded draft was indistinguishable from a KB-backed answer.
- */
-type Draft = {
-  text: string;
-  language?: string;
-  mode: Mode;
-  groundedInKb?: boolean;
-  /** The note as it was when this draft was asked for — "Use it" clears only THAT note. */
-  madeWithNote: string;
-};
 
 type Props = {
   messageId: number;
@@ -78,57 +59,40 @@ type Props = {
    */
   onApplied?: (source: string | null, draft?: AiDraft) => void;
   /**
-   * L2 P4 — the note box, controlled from outside when the host has something to put in it.
-   *
-   * ⛔ CONTROLLED OR UNCONTROLLED, never both: with `instructions` given the host owns the text,
-   * without it this component keeps its own, so every existing caller and test is unchanged.
+   * Reports a request in flight, so the host can lock the editor (the draft is about to replace
+   * it) and the phone composer never folds away mid-request.
    */
-  instructions?: string;
-  onInstructionsChange?: (next: string) => void;
-  /**
-   * Increment to say "something was just added to the note". The panel opens and shows the note
-   * box — text arriving in a closed panel, or behind the agent's own draft, is text an agent
-   * never sees and cannot vouch for.
-   */
-  revealNote?: number;
-  /**
-   * v4 mobile: the phone composer is a pill at rest, where the panel is CSS-hidden. The AI draft
-   * button then OPENS the panel (never toggles it shut — an open panel there is one the agent
-   * cannot see), and `aria-expanded` says what is on screen, not what is mounted.
-   */
-  atRest?: boolean;
-  /**
-   * Reports whether the agent is mid-way through something here — a request in flight, a draft
-   * on screen, or a note in the open panel — so the phone composer never folds it away.
-   */
-  onActivityChange?: (active: boolean) => void;
+  onBusyChange?: (busy: boolean) => void;
 };
 
 /**
- * ⛔ MIRRORS `MAX_AGENT_INSTRUCTIONS_CHARS` in the backend prompt builder, which applies a plain
- * `.slice()`. Exported because L2 P4 adds record facts to this same box and must REFUSE rather
- * than let the backend cut a fact in half.
+ * ⛔ MIRRORS `MAX_INSTRUCTIONS_CHARS` in the backend, which applies a plain `.slice()` to the note.
+ * Text longer than that is a reply the agent wrote, not a note: it goes to `polish` (the backend
+ * takes a draft up to MAX_DRAFT_CHARS, 8000) instead of being cut in half where nobody sees it.
  */
 export const MAX_INSTRUCTIONS = 2000;
-/**
- * The only 409 compose-reply issues: the thread has no inbound turn to answer —
- * it opens with our own outbound mail, or the customer's side is missing. Generate
- * and guided have nothing to ground a draft in, but POLISH still works (it needs
- * only the agent's own draft), so name that way out. The bare backend sentence is
- * true and still reads as a dead end.
- */
-const NO_INBOUND_GUIDANCE = 'Write the reply yourself below, then use “Make it customer-ready”.';
-/**
- * ⛔ There is no "agent language" constant here any more. The first version hardcoded
- * English and offered one "Show in English" toggle only when the draft was NOT English —
- * so a customer who writes English produced a draft with no translation control at all,
- * and an agent who reads Swedish had nothing. Every message and ticket already has a
- * language dropdown (TranslateButton); the draft gets the same one.
- */
-const OWN_TEXT_PREVIEW_CHARS = 160;
-/** v4 `.k-flash`: the lookup flash's ring and length (MessageDetail LOOKUP_FLASH_*). */
-const NOTE_FLASH = 'ring-[3px] ring-primary-line';
-const NOTE_FLASH_MS = 1200;
+/** The backend's MAX_DRAFT_CHARS for `polish`. */
+const MAX_DRAFT = 8000;
+
+/** The only 409 compose-reply issues on generate/guided: the thread has no inbound turn to answer. */
+const NO_INBOUND_GUIDANCE = 'Write the reply yourself in the editor, then press AI draft.';
+const isNoInbound = (err: unknown): boolean =>
+  getErrorStatus(err) === 409 && !isAiDraftsOffError(err);
+
+/** What the last applied draft was made from — "Try again" re-asks with exactly this. */
+type Applied = {
+  mode: Mode;
+  /** The agent's text the draft was made from: the note (guided) or the draft (polish). */
+  input: string;
+  /**
+   * The draft as it went into the editor — in the EDITOR's serialisation (normalizeEditorHtml),
+   * so the badge's "still as it landed" is an exact comparison and holds only while the draft is
+   * unchanged.
+   */
+  html: string;
+  language?: string;
+  groundedInKb?: boolean;
+};
 
 export function ComposerAiActions({
   messageId,
@@ -136,262 +100,195 @@ export function ComposerAiActions({
   setComposer,
   disabled,
   onApplied,
-  instructions: instructionsProp,
-  onInstructionsChange,
-  revealNote,
-  atRest = false,
-  onActivityChange,
+  onBusyChange,
 }: Props) {
-  const [open, setOpen] = useState(false);
-  const noteId = useId();
-  const [ownInstructions, setOwnInstructions] = useState('');
-  const instructions = instructionsProp ?? ownInstructions;
-  const setInstructions = onInstructionsChange ?? setOwnInstructions;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState<Draft | null>(null);
-  // Set when the agent picks "write a new reply instead" while their own text is
-  // still in the composer — that text is kept until they accept a draft.
-  const [startFresh, setStartFresh] = useState(false);
-  // The draft rendered in the language the agent picked; null shows the original.
-  const [translation, setTranslation] = useState<{ content: string; language?: string } | null>(
-    null
-  );
-  // The agent's text as it was BEFORE we replaced it. Undo must always be
-  // available — an AI rewrite that destroys what someone typed is the one
-  // failure that makes people stop trusting the feature.
+  const [applied, setApplied] = useState<Applied | null>(null);
+  // The agent's text as it was BEFORE the first draft replaced it. Undo must always be
+  // available — an AI rewrite that destroys what someone typed is the one failure that makes
+  // people stop trusting the feature. Try again keeps the ORIGINAL, not the previous draft.
   const [previous, setPrevious] = useState<string | null>(null);
+
+  // The composer as of the last render, read when a response lands.
+  const latestComposer = useRef(composer);
+  latestComposer.current = composer;
+  /*
+    ⛔ This component is REMOUNTED per conversation (see the `key` where it is used). A response
+    for the thread the agent just left must not land in the next customer's reply.
+  */
+  //
+  // Set true in the effect BODY, not only by `useRef(true)`: React StrictMode (the dev server)
+  // mounts, cleans up and mounts again, and a ref only ever set false by the cleanup stayed false
+  // — every draft was then discarded and the button sat on "Drafting…" (demo, 2026-10-15).
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  const reportBusy = useRef(onBusyChange);
+  reportBusy.current = onBusyChange;
+  useLayoutEffect(() => {
+    reportBusy.current?.(busy);
+  }, [busy]);
+  useLayoutEffect(() => () => reportBusy.current?.(false), []);
 
   const { aiConfigured } = useAiConfigured();
   const { off: aiDraftsOff } = useAiDraftsOff();
   const refreshAiDrafts = useRefreshAiDrafts();
-  /*
-    The two early returns below render NO panel: drafts switched off (on load, or mid-session by
-    a 409) and no provider connected. An open panel's note is then not on screen, so it is not
-    something the agent is working on — reporting it as activity kept the phone composer from
-    ever folding while showing nothing AI-related.
-  */
-  const hiddenByDraftsOff = aiDraftsOff && previous === null && !draft;
-  const hiddenByNoProvider = !aiConfigured && previous === null;
-  const rendersPanel = !hiddenByDraftsOff && !hiddenByNoProvider;
-
-  // Laid out before the browser paints and before the phone composer's document click listener
-  // reads it; cleared on unmount (note mode, another thread), when nothing here is in progress.
-  const active = rendersPanel && (busy || draft !== null || (open && instructions.trim() !== ''));
-  const reportActivity = useRef(onActivityChange);
-  reportActivity.current = onActivityChange;
-  useLayoutEffect(() => {
-    reportActivity.current?.(active);
-  }, [active]);
-  useLayoutEffect(() => () => reportActivity.current?.(false), []);
-
-  // The add counter whose note-field flash is showing; 0 = none.
-  const [flashNote, setFlashNote] = useState(0);
-  /*
-    L2 P4: a record was just added to the note. Open the panel and switch to the note view — on a
-    thread where the agent has already typed a reply, `showWriteView` is false, so the box holding
-    the fact they just added would not be on screen at all.
-    ⛔ Keyed on the COUNTER, not on the text: adding the same record twice is a no-op on the text
-    and must still bring the box back.
-  */
-  const seenReveal = useRef(revealNote ?? 0);
-  useEffect(() => {
-    /*
-      ⛔ ONLY ON A CHANGE, never on mount. This component is REMOUNTED per conversation (see the
-      `key` where it is used), so on a fresh thread it mounts holding whatever the counter last
-      reached — and a bare `if (!revealNote)` would fling the AI panel open on a thread where the
-      agent added nothing. The ref starts at the incoming value, so a mount is never an event.
-    */
-    const next = revealNote ?? 0;
-    /*
-      ⛔ ONLY UPWARDS. Audit pass 5, on the fix from pass 1: switching threads RESETS the counter,
-      so the host drives it 3 → 0 — a change, and under the previous rule that flung the panel
-      open on the new thread, which is the very bug pass 1 was fixing. Only an increase is an add.
-    */
-    if (next <= seenReveal.current) {
-      seenReveal.current = next;
-      return;
-    }
-    seenReveal.current = next;
-    setOpen(true);
-    setStartFresh(true);
-    setFlashNote(next);
-  }, [revealNote]);
-  /*
-    v4: the note field flashes (the lookup's ring) so the eye finds the fact just added. Keyed on
-    the add's counter, so a second add restarts the 1.2 s; the timer dies with the component.
-  */
-  useEffect(() => {
-    if (!flashNote) return undefined;
-    const timer = setTimeout(() => setFlashNote(0), NOTE_FLASH_MS);
-    return () => clearTimeout(timer);
-  }, [flashNote]);
-
-  const ownText = stripHtml(composer).trim();
-  const hasOwnText = !isBlankRichText(composer);
 
   /**
-   * Nothing here ever edits the composer on a failure, but the agent cannot see
-   * that — say so whenever there IS text of theirs at stake (the polish path).
-   */
-  const withTextReassurance = (message: string): string =>
-    hasOwnText && !/unchanged/i.test(message) ? `${message} Your text is unchanged.` : message;
-
-  /**
-   * What went wrong, in the agent's words.
-   *
-   * 🪤 This used to map STATUS ONLY, so every 4xx the endpoint writes for a human to
-   * read — "This conversation has no customer message to answer" (409, a thread that
-   * opens with our own outbound mail), "guided mode requires instructions" (400),
-   * "Message not found" (404) — was replaced by "the assistant is unavailable". That
-   * reads as an outage, so the agent retries a call that CANNOT succeed on this
-   * thread, and the one sentence that would have told them why was already in the
-   * response body. The BE's 4xx copy is the message; keep the generic line for the
-   * cases that really are "we could not reach the model" (5xx, network drop).
-   *
-   * `getApiErrorMessage` returns nothing for a 5xx on purpose — a server body can
-   * carry a stack frame or a SQL fragment — so passing it through cannot leak one.
-   * The 429/403 lines stay AHEAD of it: those two are contracts we tuned copy for,
-   * and their BE wording is longer than this panel has room for.
+   * What went wrong, in the agent's words. The BE's 4xx copy is the message ("This conversation
+   * has no customer message to answer"); the generic line is only for 5xx / network drops.
+   * 429/403 come first: copy tuned for this spot, and their BE wording is longer.
    */
   const describeError = (err: unknown): string => {
     const status = getErrorStatus(err);
-    // Before the status checks: this 409 is an admin's setting, not "no customer message".
     if (isAiDraftsOffError(err)) return AI_DRAFTS_OFF_MESSAGE;
     if (isAiNotConfiguredError(err)) return AI_NOT_CONFIGURED_MESSAGE;
     if (status === 429) return 'AI limit reached for now — try again shortly.';
     if (status === 403)
       return 'No AI provider is connected for this workspace. An admin can add one in Settings.';
-    const beMessage = getApiErrorMessage(err);
-    if (beMessage) return withTextReassurance(beMessage);
-    return 'The assistant is unavailable right now. Your text is unchanged.';
+    return getApiErrorMessage(err) || 'The assistant is unavailable right now.';
   };
 
-  const run = async (mode: Mode) => {
-    const madeWithNote = instructions;
+  /**
+   * Ask for a draft and put it in the editor.
+   *
+   * `restoreTo` is what Undo brings back: the editor as it is now on a first draft, the original
+   * text on Try again (so Undo after three retries is still the agent's own words).
+   */
+  const request = (mode: Mode, input: string) =>
+    messageService.composeReply(messageId, {
+      mode,
+      ...(mode === 'guided' ? { instructions: input } : {}),
+      ...(mode === 'polish' ? { draft: input } : {}),
+    });
+
+  const run = async (requestedMode: Mode, requestedInput: string, restoreTo: string) => {
+    const before = latestComposer.current;
+    let mode = requestedMode;
+    let input = requestedInput;
     setBusy(true);
     setError(null);
-    setTranslation(null);
     try {
-      const response = await messageService.composeReply(messageId, {
-        mode,
-        ...(mode === 'guided' ? { instructions: instructions.trim() } : {}),
-        ...(mode === 'polish' ? { draft: composer } : {}),
-      });
-
+      let response;
+      try {
+        response = await request(mode, input);
+      } catch (err) {
+        /*
+          A thread with no customer message (it opens with our own outbound mail) has nothing for
+          a note to answer — but the agent's text can still be made sendable: polish needs only
+          the text. The old panel offered this as "Make it customer-ready"; here it is automatic.
+        */
+        if (mode !== 'guided' || !isNoInbound(err) || !mounted.current) throw err;
+        mode = 'polish';
+        input = before;
+        response = await request(mode, input);
+      }
+      if (!mounted.current) return;
       const text = response.data?.text;
       if (!text) {
-        setError(
-          mode === 'polish'
-            ? 'Could not rewrite this draft. Your text is unchanged.'
-            : 'Nothing could be drafted from the knowledge base. Try saying what the reply should cover.'
-        );
+        setError('Nothing could be drafted. Add a note in the editor saying what to cover.');
         return;
       }
-      setDraft({
-        text,
-        language: response.data?.language,
+      // The editor is locked while this runs, but a template or a lookup record can still land
+      // in it. Overwriting text the agent watched arrive would lose it with no undo entry.
+      if (latestComposer.current !== before) {
+        setError('The reply changed while drafting — press AI draft again.');
+        return;
+      }
+      // In the editor's own serialisation: the record sent for reply_style (diffed against the sent
+      // body, which IS editor HTML) and the badge's comparison both match an untouched draft.
+      const html = normalizeEditorHtml(answerToEditorHtml(text));
+      setPrevious(restoreTo);
+      setComposer(html);
+      setApplied({
         mode,
+        input,
+        html,
+        language: response.data?.language,
         groundedInKb: response.data?.groundedInKb,
-        madeWithNote,
+      });
+      onApplied?.(composerAiSource(mode), {
+        text: html,
+        mode,
+        ...(response.data?.language && { language: response.data.language }),
       });
     } catch (err) {
+      if (!mounted.current) return;
       logger.error('Compose-reply failed:', err);
-      const message = describeError(err);
-      // Drafts were switched off after this screen loaded — re-read, so the panel gives way to
-      // the note below instead of offering a button that cannot work.
+      // Drafts were switched off after this screen loaded — re-read, so the button gives way to
+      // the note below instead of offering a control that cannot work.
       if (isAiDraftsOffError(err)) refreshAiDrafts();
-      const noInbound =
-        getErrorStatus(err) === 409 && !isAiDraftsOffError(err) && mode !== 'polish';
-      setError(noInbound ? `${message} ${NO_INBOUND_GUIDANCE}` : message);
+      const message = describeError(err);
+      if (isNoInbound(err) && mode === 'generate') {
+        // The backend's sentence has no full stop ("…to answer"), so the guidance ran on into it.
+        const base = message.trim();
+        const ended = /[.!?…)"'”’]$/.test(base);
+        setError(
+          base ? `${ended ? base : `${base}.`} ${NO_INBOUND_GUIDANCE}` : NO_INBOUND_GUIDANCE
+        );
+      } else {
+        setError(message);
+      }
     } finally {
-      setBusy(false);
+      if (mounted.current) setBusy(false);
     }
   };
 
-  /**
-   * Re-run whatever produced the draft currently on screen.
-   *
-   * v4 keeps the note editable beside a draft, so "Try again" reads the note AS IT IS NOW: a
-   * generate draft becomes guided once the agent adds a fact, and a guided draft whose note was
-   * emptied goes back to generate — re-sending `guided` with blank instructions would 400.
-   * A polish draft does not use the note (polish sends only the composer text), so it re-runs
-   * as polish.
-   */
+  const draft = () => {
+    // Pressed again over an applied draft: Undo must still reach the agent's OWN text, not the
+    // draft this one replaces.
+    const restoreTo = previous ?? composer;
+    // Links keep their URL (`here (https://…)`): stripped, "see the guide" lost where it pointed.
+    // ONE reading decides both "blank" and the note, so a non-blank editor never sends an empty note.
+    const text = editorHtmlToText(composer);
+    if (!text) {
+      void run('generate', '', restoreTo);
+      return;
+    }
+    if (text.length > MAX_DRAFT) {
+      setError(
+        `Too long for AI draft (${MAX_DRAFT.toLocaleString()} characters) — shorten it, or clear the editor to draft from scratch.`
+      );
+      return;
+    }
+    /*
+      A reply template (placeholders) is a draft to adapt: `polish` is the only mode that fills
+      placeholders for this thread before the model sees them — as a note it would get raw tokens.
+      So is anything longer than a note can be. The rest is the agent's note.
+    */
+    if (hasTemplatePlaceholders(composer) || text.length > MAX_INSTRUCTIONS) {
+      void run('polish', composer, restoreTo);
+      return;
+    }
+    void run('guided', text, restoreTo);
+  };
+
   const retry = () => {
-    if (!draft) return;
-    if (draft.mode === 'polish') void run('polish');
-    else void run(instructions.trim() ? 'guided' : 'generate');
-  };
-
-  /**
-   * What "Use it" applies: whatever is on screen.
-   *
-   * It used to always apply `draft.text` while the panel could be showing a translation, so
-   * the preview and the result disagreed — the agent read the German, pressed the button, and
-   * got the English. The translation was for checking only and the panel said so, but "read
-   * this, then press the button under it" is not a contract a footnote can undo.
-   *
-   * Applying what is shown makes the two agree. The risk it introduces is the reason the
-   * original was pinned in the first place — the draft is written in the CUSTOMER's language,
-   * so applying a translation means replying in a language the customer did not write in.
-   * That is now a deliberate choice: the button names the language it will insert, and
-   * `appliesForeignLanguage` warns above it when that is not the customer's language.
-   */
-  const applied = translation ?? { content: draft?.text ?? '', language: draft?.language };
-  const appliesForeignLanguage =
-    !!translation &&
-    !!draft?.language &&
-    !!translation.language &&
-    translation.language.toLowerCase() !== draft.language.toLowerCase();
-
-  const useDraft = () => {
-    if (!draft) return;
-    const appliedHtml = answerToEditorHtml(applied.content);
-    setPrevious(composer);
-    setComposer(appliedHtml);
-    const appliedSource = composerAiSource(draft.mode);
-    setDraft(null);
-    setTranslation(null);
-    // v4 shows the note under the draft, so the agent can type there after it was generated.
-    // The note the draft was made from has been used up; anything typed since has not.
-    if (instructions === draft.madeWithNote) setInstructions('');
-    setStartFresh(false);
-    setOpen(false);
-    onApplied?.(appliedSource, {
-      text: appliedHtml,
-      mode: draft.mode,
-      // The language actually applied, not the language the draft was written in — the
-      // caller records this, and recording "en" for a German reply would misreport it.
-      ...(applied.language && { language: applied.language }),
-    });
-  };
-
-  const discard = () => {
-    setDraft(null);
-    setTranslation(null);
+    if (!applied || previous === null) return;
+    void run(applied.mode, applied.input, previous);
   };
 
   const undo = () => {
     if (previous === null) return;
     setComposer(previous);
     setPrevious(null);
+    setApplied(null);
+    setError(null);
     // The agent's own text is back in the composer — this reply is theirs again.
     onApplied?.(null);
-  };
-
-  const closePanel = () => {
-    setOpen(false);
-    discard();
-    setError(null);
-    setStartFresh(false);
   };
 
   // AI drafts off: say so where the button was — a control that silently disappears reads as a
   // bug. Undo stays reachable: text a draft replaced before the switch is still the agent's.
   // Ahead of the no-provider check: with drafts off, the admin's choice is WHY there is no
   // button, whether or not a provider is connected.
-  if (hiddenByDraftsOff) {
+  if (aiDraftsOff && previous === null) {
     return (
       <span className="text-[11px] text-muted-foreground" data-testid="ai-drafts-off-note">
         {AI_DRAFTS_OFF_MESSAGE}
@@ -401,231 +298,79 @@ export function ComposerAiActions({
 
   // No provider connected → the endpoint 403s, so offering the button is a dead
   // end. Stay mounted only while an undo is still pending.
-  if (hiddenByNoProvider) return null;
+  if (!aiConfigured && previous === null) return null;
 
-  const showOwnTextView = !busy && !draft && hasOwnText && !startFresh;
-  const showWriteView = !busy && !draft && (!hasOwnText || startFresh);
-
-  /*
-    v4: the note for the AI draft — one field, shown in the write view AND under a generate/guided
-    draft, so the agent can add a fact and press Try again without losing the draft from view.
-    MAX_INSTRUCTIONS still caps it (it mirrors the backend's slice); the counter makes the cap
-    visible instead of silent.
-  */
-  const noteField = (
-    <div>
-      <div className="flex items-center gap-2">
-        <Label htmlFor={noteId} className={`${LABEL} mb-0 text-ai`}>
-          Your note for the AI draft
-        </Label>
-        <span className="flex-1" />
-        {/* No aria-live: announcing every keystroke would drown a screen reader. */}
-        <span className="font-mono text-[10px] text-faint-foreground" data-testid="ai-note-count">
-          {instructions.length} / {MAX_INSTRUCTIONS}
-        </span>
-      </div>
-      <Textarea
-        id={noteId}
-        value={instructions}
-        onChange={(event) => setInstructions(event.target.value.slice(0, MAX_INSTRUCTIONS))}
-        rows={2}
-        placeholder="Optional — leave empty and I'll answer from your knowledge base"
-        // The DS Textarea is resize-y by default, so width is already safe, but height was
-        // unbounded — dragging the handle could push the buttons off-screen inside this compact
-        // panel. max-h-44 matches the reply-preview block.
-        className={`mt-1 text-[13px] max-h-44 border-ai-line bg-card ${flashNote ? NOTE_FLASH : ''}`}
-      />
-    </div>
-  );
+  const offline = aiDraftsOff || !aiConfigured;
 
   return (
     <>
       <Button
         variant="ghost"
-        onClick={() => {
-          setError(null);
-          // At rest the panel is hidden whatever its state: this press opens the composer, and
-          // the panel with it — toggling would shut a panel the agent was just shown into.
-          setOpen((wasOpen) => (atRest ? true : !wasOpen));
-        }}
-        disabled={disabled}
-        title="Draft this reply with AI"
-        aria-expanded={open && !atRest}
+        onClick={draft}
+        disabled={disabled || busy || offline}
+        data-ai-draft
+        title={
+          isBlankRichText(composer)
+            ? 'Write a reply from the knowledge base'
+            : 'Turn what you typed into a reply'
+        }
+        aria-busy={busy}
         // v3 ".ibtn.aib": the AI role, soft — the draft is a suggestion, not an action.
         className="inline-flex items-center gap-[5px] h-auto px-[9px] py-1 rounded-[7px] border border-ai-line bg-ai-muted text-ai text-[11.5px] hover:bg-ai-muted hover:brightness-95 transition-colors"
       >
-        <Sparkles className="w-3 h-3" />
-        AI draft
+        {busy ? <Spinner size={12} /> : <Sparkles className="w-3 h-3" />}
+        {busy ? 'Drafting…' : 'AI draft'}
       </Button>
 
-      {previous !== null && !open && (
-        <Button
-          variant="ghost"
-          onClick={undo}
-          title="Restore what you had written"
-          className="flex items-center gap-1 px-2 py-1 h-auto rounded text-muted-foreground hover:text-foreground"
-        >
-          <Undo2 className="w-3.5 h-3.5" />
-          <span className={LABEL}>undo</span>
-        </Button>
-      )}
-
-      {open && (
-        <div className="absolute bottom-full left-0 right-0 mb-2 z-20 rounded-[10px] border border-ai-line bg-ai-muted shadow-lg px-[11px] py-[9px] space-y-2">
-          <div className="flex items-center justify-between">
-            <span className={`${LABEL} text-ai`}>AI draft</span>
+      {/* The draft is in the editor: what it is, and the two ways back out of it. */}
+      {previous !== null && !busy && (
+        <div className="inline-flex items-center gap-1" data-testid="ai-draft-status">
+          {/* Only while the draft is as it landed: after Translate it is in another language. */}
+          {applied?.language && composer === applied.html && (
+            <span className={`${LABEL} text-ai`} title="Written in the customer's language">
+              {applied.language.toUpperCase()}
+            </span>
+          )}
+          <Button
+            variant="ghost"
+            onClick={undo}
+            title="Restore what you had written"
+            className="flex items-center gap-1 px-2 py-1 h-auto rounded text-muted-foreground hover:text-foreground"
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+            <span className={LABEL}>undo</span>
+          </Button>
+          {applied && !offline && (
             <Button
               variant="ghost"
-              size="icon"
-              aria-label="Close AI panel"
-              onClick={closePanel}
-              className="p-0 w-auto h-auto text-muted-foreground hover:text-foreground"
+              onClick={retry}
+              disabled={disabled}
+              title="Write another version from the same text"
+              className="flex items-center gap-1 px-2 py-1 h-auto rounded text-muted-foreground hover:text-foreground"
             >
-              <X className="w-3.5 h-3.5" />
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className={LABEL}>try again</span>
             </Button>
-          </div>
-
-          {busy && (
-            <div className="flex items-center gap-2 py-3 text-[13px] text-muted-foreground">
-              <Spinner size={14} />
-              Writing your draft…
-            </div>
           )}
-
-          {/* Preview — read it before it replaces anything. */}
-          {!busy && draft && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-muted-foreground">
-                  Draft
-                  {draft.language ? ` — ${draft.language.toUpperCase()} (customer's language)` : ''}
-                </span>
-                {/*
-                  Always offered, whatever language the draft is in — keyed on the text so
-                  a new draft (Try again) arrives untranslated with a reset control.
-                */}
-                <TranslateButton
-                  key={draft.text}
-                  text={draft.text}
-                  onTranslated={(content, _subject, language) =>
-                    setTranslation({ content, language })
-                  }
-                  onCleared={() => setTranslation(null)}
-                />
-              </div>
-
-              <div className="overflow-y-auto p-2 max-h-44 text-[13px] leading-relaxed whitespace-pre-wrap rounded border border-border bg-muted/30">
-                {translation ? translation.content : draft.text}
-              </div>
-
-              {/*
-                Say it out loud when nothing backed this draft. The two ungrounded modes
-                fail differently and the agent's next move differs with them: a guided
-                draft carries the agent's OWN facts and is ready to send, while a generate
-                draft with an empty KB answers nothing and must not be sent as if it did.
-              */}
-              {draft.groundedInKb === false && (
-                <p className="text-[11px] text-warning">
-                  {draft.mode === 'guided'
-                    ? 'Written from what you said, not from the knowledge base — check the facts before sending.'
-                    : 'Nothing in the knowledge base matched, so this acknowledges the question without answering it. Add the answer before sending.'}
-                </p>
-              )}
-              {/*
-                Say which version the button will insert, and warn when that is not the
-                language the customer wrote in. The old copy said the original "is what gets
-                used" — true then, and the reason it had to be said was that the panel could
-                show something else. Now the two agree, so the note only has to name the
-                language and flag the one case that can go wrong.
-              */}
-              {translation && !appliesForeignLanguage && (
-                <p className="text-[11px] text-muted-foreground">
-                  Translated
-                  {translation.language ? ` to ${translation.language.toUpperCase()}` : ''} — this
-                  is what gets used.
-                </p>
-              )}
-              {appliesForeignLanguage && (
-                <p className="text-[11px] text-warning">
-                  This will reply in {translation?.language?.toUpperCase()}, but the customer wrote
-                  in {draft.language?.toUpperCase()}. Show the original to send{' '}
-                  {draft.language?.toUpperCase()} instead.
-                </p>
-              )}
-
-              {draft.mode !== 'polish' && noteField}
-
-              <div className="flex flex-wrap gap-2 items-center">
-                <Button size="sm" onClick={useDraft}>
-                  Use it
-                  {/*
-                    Name the language ONLY while a translation is on screen. With no
-                    translation there is nothing to choose between and the suffix would be
-                    noise on every draft; with one, it is the clearest statement of what the
-                    button is about to insert.
-                  */}
-                  {translation && applied.language ? ` (${applied.language.toUpperCase()})` : ''}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={retry}>
-                  Try again
-                </Button>
-                <Button variant="ghost" size="sm" onClick={discard}>
-                  Discard
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Your text is already there → offer to clean it up. */}
-          {showOwnTextView && (
-            <div className="space-y-2">
-              <span className="text-[11px] text-muted-foreground">Your text:</span>
-              <div className="p-2 text-[13px] leading-relaxed rounded border text-muted-foreground border-border bg-muted/30">
-                {ownText.slice(0, OWN_TEXT_PREVIEW_CHARS)}
-                {ownText.length > OWN_TEXT_PREVIEW_CHARS ? '…' : ''}
-              </div>
-              <div className="flex flex-wrap gap-2 items-center">
-                <Button size="sm" onClick={() => void run('polish')}>
-                  Make it customer-ready
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setStartFresh(true)}>
-                  Write a new reply instead →
-                </Button>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Rewrites what you typed into something sendable, in the customer&apos;s language.
-                Your facts are kept and nothing is invented.
-              </p>
-            </div>
-          )}
-
-          {/* Nothing to work from → write one. */}
-          {showWriteView && (
-            <div className="space-y-2">
-              {noteField}
-              <div className="flex flex-wrap gap-2 items-center">
-                <Button
-                  size="sm"
-                  onClick={() => void run(instructions.trim() ? 'guided' : 'generate')}
-                >
-                  Write reply
-                </Button>
-                {startFresh && (
-                  <Button variant="ghost" size="sm" onClick={() => setStartFresh(false)}>
-                    ← Back to my text
-                  </Button>
-                )}
-              </div>
-              {startFresh && (
-                <p className="text-[11px] text-muted-foreground">
-                  Your current text is kept until you choose <strong>Use it</strong>.
-                </p>
-              )}
-            </div>
-          )}
-
-          {error && <p className="text-[12px] text-destructive">{error}</p>}
         </div>
+      )}
+
+      {/*
+        Say it out loud when nothing backed this draft. The two ungrounded modes fail differently:
+        a guided draft carries the agent's OWN facts, a generate draft with an empty KB answers
+        nothing and must not be sent as if it did.
+      */}
+      {applied?.groundedInKb === false && !busy && (
+        <p className="basis-full order-last text-[11px] text-warning">
+          {applied.mode === 'guided'
+            ? 'Written from what you said, not from the knowledge base — check the facts before sending.'
+            : 'Nothing in the knowledge base matched, so this acknowledges the question without answering it. Add the answer before sending.'}
+        </p>
+      )}
+      {error && (
+        <p className="basis-full order-last text-[12px] text-destructive" role="alert">
+          {error}
+        </p>
       )}
     </>
   );

@@ -12,7 +12,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { AnswerPreview } from '@/components/messages/AnswerPreview';
-import { answerToEditorHtml } from '@/components/messages/messageDetailConstants';
+import { answerToEditorHtml, renderMarkdown } from '@/components/messages/messageDetailConstants';
 
 const PAST_REPLY = "<p>Hello,</p><p>Here's the full ingredient list for Zetatech:</p>";
 
@@ -30,7 +30,9 @@ describe('AnswerPreview', () => {
   });
 
   it('renders a plain-text AI answer, converting its markdown-ish syntax', () => {
-    const { container } = render(<AnswerPreview answer={'Hello,\n\n- **Myo-Inositol** 2,000 mg'} />);
+    const { container } = render(
+      <AnswerPreview answer={'Hello,\n\n- **Myo-Inositol** 2,000 mg'} />
+    );
 
     expect(container.textContent).toContain('Myo-Inositol');
     expect(container.textContent).not.toContain('**');
@@ -51,5 +53,72 @@ describe('AnswerPreview', () => {
     const { container } = render(<AnswerPreview answer={PAST_REPLY} />);
 
     expect(container.firstElementChild?.innerHTML).toBe(answerToEditorHtml(PAST_REPLY));
+  });
+});
+
+describe('answerToEditorHtml — links survive the markdown rules', () => {
+  it('🔴 an underscore URL stays intact (it used to become "reset<em>password</em>guide")', () => {
+    expect(
+      answerToEditorHtml('Reset here: https://help.example/reset_password_guide now')
+    ).toContain('href="https://help.example/reset_password_guide"');
+  });
+
+  it('🔴 a bare URL — what polish writes for a kept link — becomes a link; trailing punctuation stays out', () => {
+    expect(answerToEditorHtml('See the guide (https://help.example/guide).')).toContain(
+      '(<a href="https://help.example/guide">https://help.example/guide</a>).'
+    );
+  });
+
+  it('CONTROL: markdown links and emphasis still work around it', () => {
+    const html = answerToEditorHtml(
+      '**Note:** see [the guide](https://help.example/a_b) and _this_.'
+    );
+    expect(html).toContain('<strong>Note:</strong>');
+    expect(html).toContain('<a href="https://help.example/a_b">the guide</a>');
+    expect(html).toContain('<em>this</em>');
+  });
+});
+
+describe('renderMarkdown (plain-text mail in the thread) — links survive the emphasis rules', () => {
+  it('🔴 a tracking URL with underscores keeps its target (it pointed at …/order)', () => {
+    const html = renderMarkdown('Track it: https://track.example/order_id_123 thanks');
+    expect(html).toContain('href="https://track.example/order_id_123"');
+    expect(html).not.toContain('<em>');
+  });
+
+  it('CONTROL: emphasis, trailing punctuation and line breaks still work', () => {
+    expect(renderMarkdown('**Hi** _there_,\nsee https://x.example/a.')).toBe(
+      '<strong>Hi</strong> <em>there</em>,<br>see <a href="https://x.example/a" target="_blank" rel="noopener noreferrer">https://x.example/a</a>.'
+    );
+  });
+});
+
+describe('review of #594 — wrappers stay outside the href', () => {
+  it.each([
+    ['<https://x.example/a>', 'https://x.example/a'],
+    ['**https://x.example/a**', 'https://x.example/a'],
+    ['`https://x.example/a`', 'https://x.example/a'],
+  ])('AI draft: %s links to exactly %s', (input, href) => {
+    const html = answerToEditorHtml(`See ${input} now`);
+    expect(html).toContain(`href="${href}"`);
+    expect(html).not.toMatch(/href="[^"]*(?:&gt;|\*|`)"/);
+  });
+
+  it('🔴 [URL](URL) is ONE link, not a link inside a link', () => {
+    const html = answerToEditorHtml('See [https://x.example/a](https://x.example/a) now');
+    expect(html.match(/<a /g)).toHaveLength(1);
+    expect(html).toContain('<a href="https://x.example/a">https://x.example/a</a>');
+  });
+
+  it('🔴 a markdown link label keeps its emphasis', () => {
+    expect(answerToEditorHtml('[**the guide**](https://x.example/g)')).toContain(
+      '<a href="https://x.example/g"><strong>the guide</strong></a>'
+    );
+  });
+
+  it('thread view: **url** is bold around an exact link', () => {
+    expect(renderMarkdown('**https://track.example/1**')).toBe(
+      '<strong><a href="https://track.example/1" target="_blank" rel="noopener noreferrer">https://track.example/1</a></strong>'
+    );
   });
 });

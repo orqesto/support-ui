@@ -19,6 +19,7 @@ import { formatDate } from '@/lib/utils';
 import type { Message } from '@/types';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { showRouteLearningNote } from '@/lib/routingCopy';
 
 const PAGE_SIZE = 50;
 
@@ -67,9 +68,6 @@ export const NeedsRoutingPage = () => {
   const [spamId, setSpamId] = useState<number | null>(null);
   const [selectedDept, setSelectedDept] = useState<Record<number, number>>({});
   const [routeError, setRouteError] = useState<string | null>(null);
-  // Opt-in: also mint a content→department routing rule when routing (learn=true).
-  // Off by default — routing stays a one-off correction unless the agent opts in.
-  const [createRule, setCreateRule] = useState(false);
 
   const activeDepts = departments.filter((dept) => dept.active);
   const deptOptions = activeDepts.map((dept) => ({ value: String(dept.id), label: dept.name }));
@@ -139,7 +137,10 @@ export const NeedsRoutingPage = () => {
     setRoutingId(id);
     setRouteError(null);
     try {
-      await messageService.manualRoute(id, deptId, createRule);
+      // Every route is learning evidence on the backend (spec §4.1); the note only shows when
+      // the backend says it recorded it, so an older backend never claims learning.
+      const result = await messageService.manualRoute(id, deptId);
+      showRouteLearningNote(result);
       // Refresh the sidebar count badge so it doesn't lag behind by up to 60s
       void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
       // Drop the row optimistically; if it was the last row on a page > 1,
@@ -224,18 +225,6 @@ export const NeedsRoutingPage = () => {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <label
-              className="flex items-center gap-2 text-sm cursor-pointer select-none text-muted-foreground"
-              title="When on, routing a message also creates a content→department rule so similar messages route automatically next time"
-            >
-              <input
-                type="checkbox"
-                className="rounded border-border shrink-0"
-                checked={createRule}
-                onChange={(event) => setCreateRule(event.target.checked)}
-              />
-              <span className="whitespace-nowrap">Create routing rule</span>
-            </label>
             <Button variant="outline" onClick={() => void load(page)} disabled={isLoading}>
               <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh

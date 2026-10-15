@@ -15,6 +15,7 @@ import { KBStatusBadge } from './KBStatusBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
+import { kbSourceConversationId } from '@/lib/kbSource';
 import type { KBEntry } from '@/services/kb.service';
 import {
   isCaseRow,
@@ -82,7 +83,7 @@ export const KBTableView = ({
         <col className="hidden w-16 sm:table-column" />
         <col className="hidden w-14 lg:table-column" />
         <col className="w-28" />
-        <col className="w-44" />
+        <col className="w-48" />
       </colgroup>
       <thead className="bg-muted/50">
         <tr className="border-b">
@@ -123,13 +124,13 @@ export const KBTableView = ({
                 <div className="text-sm text-muted-foreground line-clamp-1">{entry.content}</div>
               </td>
               <td className="hidden px-3 py-3 text-center md:table-cell">
-                {entry.metadata && typeof entry.metadata.sourceMessageId === 'number' ? (
+                {kbSourceConversationId(entry) !== null ? (
                   <a
-                    href={`/messages?id=${entry.metadata.sourceMessageId}`}
+                    href={`/messages?id=${kbSourceConversationId(entry)}`}
                     className="font-mono text-sm text-primary hover:text-primary/80 hover:underline"
                     onClick={(event) => event.stopPropagation()}
                   >
-                    #{entry.metadata.sourceMessageId}
+                    #{kbSourceConversationId(entry)}
                   </a>
                 ) : (
                   <span className="text-sm text-muted-foreground">-</span>
@@ -165,7 +166,16 @@ export const KBTableView = ({
                 </div>
               </td>
               <td className="px-2 py-3 text-right">
-                <div className="flex gap-1 justify-end">
+                {/* A Pending entry offers five actions (View, Approve, Reject, Hide, Delete). At
+                    `size="sm"` (42px each) they were wider than this column, and a `justify-end`
+                    row that overflows spills out of its START edge — the View button sat on the
+                    end of the Status column's "Pending" pill (demo, 2026-10-15). Square 32px
+                    icon buttons fit five in the column; `flex-wrap` keeps a sixth (a case row's
+                    Unmerge) inside the cell instead of over its neighbour. */}
+                <div
+                  data-testid="kb-row-actions"
+                  className="flex flex-wrap gap-1 justify-end [&>button]:h-8 [&>button]:w-8 [&>button]:px-0"
+                >
                   <Button
                     size="sm"
                     variant="ghost"

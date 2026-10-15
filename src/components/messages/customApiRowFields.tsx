@@ -6,7 +6,7 @@ import {
   type CustomApiCategory,
 } from '@/components/settings/customApi/categories';
 import { LABEL } from './messageDetailConstants';
-import type { AddOutcome } from './useAiRecordNote';
+import type { AddOutcome } from './recordInsertOutcome';
 import type { CustomApiLookupResult, LookupField } from '@/services/customApiLookup.service';
 
 /**
@@ -229,7 +229,9 @@ const ListGrid = ({
 const FieldGrid = ({ row, fields }: { row: Record<string, unknown>; fields: LookupField[] }) => {
   const seen = new Set<string>();
   return (
-    <div className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-0.5">
+    // `minmax(0,1fr)`, not `1fr`: a plain `1fr` track is at least as wide as its longest unbroken
+    // value, which widened the card past a phone screen (2026-10-14).
+    <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-x-3 gap-y-0.5">
       {fields.map((field) => {
         const list = listOf(field.path);
         if (list === null)
@@ -320,10 +322,10 @@ const RecordCard = ({
       cannot tell where one order ends. `first:` keeps a single record, the common case, exactly as
       it looks today. The plain grid path is untouched: it never gained a heading to be confused by.
     */
-    <div className="grid gap-1 border-t border-hair pt-1.5 first:border-t-0 first:pt-0">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-1 border-t border-hair pt-1.5 first:border-t-0 first:pt-0">
       {/* v4 `.k-rt`: what the record is and its reference, then the status pill `.k-st`. */}
       <div className="flex items-center justify-between gap-1.5">
-        <p className="text-[12px] font-medium text-foreground break-words">
+        <p className="min-w-0 text-[12px] font-medium text-foreground break-words">
           {/* The category names the thing; the reference identifies it. With no reference the
               heading still says WHAT this is, which is more than the generic list ever did. */}
           {CATEGORY_RECORD_LABELS[category]}
@@ -335,8 +337,11 @@ const RecordCard = ({
         </p>
         {status && (
           /* The admin's word when they wrote one, the vendor's own value when they did not —
-             `renderValue` already decides that, and P2's rule is that we never invent one. */
-          <span className="shrink-0 whitespace-nowrap rounded bg-sunken px-1.5 py-px text-[10.5px] text-foreground">
+             `renderValue` already decides that, and P2's rule is that we never invent one.
+             ⛔ 390 px (staging, 2026-10-14): this was `shrink-0 whitespace-nowrap`, so a long
+             vendor status pushed the row past the card and the screen cut it off. A short status
+             still fits on one line; a long one wraps inside its capped width. */
+          <span className="min-w-0 max-w-[60%] break-words text-right rounded bg-sunken px-1.5 py-px text-[10.5px] text-foreground">
             {renderValue(row, status)}
           </span>
         )}
@@ -344,7 +349,7 @@ const RecordCard = ({
 
       {meta.length > 0 && (
         // v4 `.k-meta`: "Placed: 11 Sep 2026 · Total: 106.50 PLN".
-        <p className="text-[11.5px] text-faint-foreground">
+        <p className="text-[11.5px] text-faint-foreground break-words">
           {meta.map((field, index) => (
             /* Keyed on path AND role: the same path can be configured twice under two roles,
                and a duplicate key silently drops a node in React. */

@@ -1,6 +1,14 @@
 import { apiClient } from '@/lib/api-client';
-import { normalizeBedrockDiscovery, type BedrockDiscovery } from '@/services/bedrockDiscovery.service';
+import {
+  normalizeBedrockDiscovery,
+  type BedrockDiscovery,
+} from '@/services/bedrockDiscovery.service';
 import type { AIModel, AIProvider } from '@/types/aiProviders';
+import {
+  normalizeRouting,
+  type PlatformRoutingInput,
+  type RoutingSettings,
+} from '@/services/routingSettings';
 
 /**
  * Platform Defaults console service (Epic #2). Global-admin only — calls hit
@@ -59,6 +67,19 @@ export type PlatformSettings = {
     defaultCostPer1k: ResolvedField<number>;
     strongCostPer1k: ResolvedField<number>;
     visionCostPer1k: ResolvedField<number>;
+    /**
+     * Split operator rates, USD per 1M tokens (input = prompt, output = completion). Present only
+     * when the backend sends them; an older backend does not, and `splitCostsSupported` is then
+     * false/absent so the card keeps the blended per-1k rates.
+     */
+    defaultInputPer1M?: ResolvedField<number>;
+    defaultOutputPer1M?: ResolvedField<number>;
+    strongInputPer1M?: ResolvedField<number>;
+    strongOutputPer1M?: ResolvedField<number>;
+    visionInputPer1M?: ResolvedField<number>;
+    visionOutputPer1M?: ResolvedField<number>;
+    /** True only when the backend sent all six split-rate fields. */
+    splitCostsSupported?: boolean;
     baseUrl: ResolvedField<string>;
     organization: ResolvedField<string>;
     bedrockRegion: ResolvedField<string>;
@@ -113,7 +134,22 @@ export type PlatformSettings = {
    * that predates the setting — the card then says it arrives with the next backend release.
    */
   kb?: { captureAiQuestion: ResolvedField<boolean> };
+  /**
+   * Custom API lookup health thresholds (`custom_api.health`, 2026-10-14). Absent on a backend
+   * that predates the setting — the card then says it arrives with the next backend release.
+   */
+  customApi?: {
+    health: { noMatchStreak: ResolvedField<number>; okWindowDays: ResolvedField<number> };
+  };
+  /**
+   * The seven routing-proposal settings (`routing.*`, 2026-10-14). Absent on a backend that
+   * predates them — the card then says it arrives with the next backend release.
+   */
+  routing?: RoutingSettings;
 };
+
+/** PUT /settings/custom-api — both thresholds, whole numbers ≥ 1 (the whole value is replaced). */
+export type PlatformCustomApiInput = { noMatchStreak: number; okWindowDays: number };
 
 /** PATCH /settings/kb — whether captured questions are rewritten with AI (default on). */
 export type PlatformKbInput = { captureAiQuestion: boolean };
@@ -167,6 +203,12 @@ export type ManagedAiInput = {
   defaultCostPer1k?: number;
   strongCostPer1k?: number;
   visionCostPer1k?: number;
+  defaultInputPer1M?: number;
+  defaultOutputPer1M?: number;
+  strongInputPer1M?: number;
+  strongOutputPer1M?: number;
+  visionInputPer1M?: number;
+  visionOutputPer1M?: number;
   baseUrl?: string;
   organization?: string;
   bedrockRegion?: string;
@@ -205,6 +247,8 @@ type RawPlatformSettings = {
   database?: { freeSharedRetentionDays?: ResolvedField<number> };
   reasoning?: unknown;
   kb?: unknown;
+  customApi?: unknown;
+  routing?: unknown;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -312,10 +356,66 @@ export const normalizeKb = (raw: unknown): PlatformSettings['kb'] => {
   };
 };
 
+const readCount = (raw: unknown): ResolvedField<number> | undefined => {
+  if (!isRecord(raw) || typeof raw.value !== 'number' || !Number.isInteger(raw.value)) {
+    return undefined;
+  }
+  return {
+    value: raw.value,
+    source: FIELD_SOURCES.includes(raw.source as FieldSource)
+      ? (raw.source as FieldSource)
+      : 'default',
+  };
+};
+
+/**
+ * The custom API block, only when both thresholds are whole numbers — any other shape is "this
+ * backend does not have the setting", never guessed at.
+ */
+export const normalizeCustomApi = (raw: unknown): PlatformSettings['customApi'] => {
+  if (!isRecord(raw) || !isRecord(raw.health)) return undefined;
+  const noMatchStreak = readCount(raw.health.noMatchStreak);
+  const okWindowDays = readCount(raw.health.okWindowDays);
+  return noMatchStreak && okWindowDays ? { health: { noMatchStreak, okWindowDays } } : undefined;
+};
+
 const UNSET_SECRET: SecretStatus = { configured: false, source: 'none', last4: null };
 
 const field = <T>(raw: ResolvedField<T> | undefined): ResolvedField<T> =>
   raw ?? { value: null, source: 'default' };
+
+export const SPLIT_COST_KEYS = [
+  'defaultInputPer1M',
+  'defaultOutputPer1M',
+  'strongInputPer1M',
+  'strongOutputPer1M',
+  'visionInputPer1M',
+  'visionOutputPer1M',
+] as const;
+export type SplitCostKey = (typeof SPLIT_COST_KEYS)[number];
+
+/** A split-rate field as the backend sent it, or undefined when it is missing or malformed. */
+const splitField = (raw: unknown): ResolvedField<number> | undefined => {
+  if (!isRecord(raw)) return undefined;
+  const { value, source } = raw;
+  if (value !== null && !isFiniteNumber(value)) return undefined;
+  return {
+    value,
+    source: FIELD_SOURCES.includes(source as FieldSource) ? (source as FieldSource) : 'default',
+  };
+};
+
+/**
+ * The six split rates, only when the backend sent ALL of them. A backend that predates split
+ * rates sends none, and the card must then keep today's blended UI and save payload exactly.
+ */
+export const normalizeSplitCosts = (
+  rawAi: Record<string, unknown>
+): Partial<PlatformSettings['ai']> => {
+  const fields = SPLIT_COST_KEYS.map((key) => [key, splitField(rawAi[key])] as const);
+  if (fields.some(([, value]) => value === undefined)) return {};
+  return { ...Object.fromEntries(fields), splitCostsSupported: true };
+};
 
 const ALL_SECRET_KEYS: PlatformSecretKey[] = [
   'ai.openai_api_key',
@@ -375,6 +475,8 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
 
   const reasoning = normalizeReasoning(raw.reasoning);
   const kb = normalizeKb(raw.kb);
+  const customApi = normalizeCustomApi(raw.customApi);
+  const routing = normalizeRouting(raw.routing);
   const provider = field(raw.ai.provider);
   const effectiveProvider = provider.value ?? 'openai';
   return {
@@ -386,6 +488,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
       defaultCostPer1k: field(raw.ai.defaultCostPer1k),
       strongCostPer1k: field(raw.ai.strongCostPer1k),
       visionCostPer1k: field(raw.ai.visionCostPer1k),
+      ...normalizeSplitCosts(raw.ai as Record<string, unknown>),
       baseUrl: field(raw.ai.baseUrl),
       organization: field(raw.ai.organization),
       bedrockRegion: field(raw.ai.bedrockRegion),
@@ -423,6 +526,8 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
       : {}),
     ...(reasoning ? { reasoning } : {}),
     ...(kb ? { kb } : {}),
+    ...(customApi ? { customApi } : {}),
+    ...(routing ? { routing } : {}),
   };
 };
 
@@ -481,6 +586,16 @@ export const platformSettingsService = {
   /** PATCH the knowledge-base capture settings (`kb.capture_ai_question`). */
   updateKb: async (input: PlatformKbInput): Promise<void> => {
     await apiClient.patch(`${BASE}/kb`, input);
+  },
+
+  /** PUT the custom API health thresholds (`custom_api.health`, 2026-10-14). */
+  updateCustomApiHealth: async (input: PlatformCustomApiInput): Promise<void> => {
+    await apiClient.put(`${BASE}/custom-api`, input);
+  },
+
+  /** PATCH the routing-proposal settings (`routing.*`): any non-empty subset of the seven. */
+  updateRouting: async (input: PlatformRoutingInput): Promise<void> => {
+    await apiClient.patch(`${BASE}/routing`, input);
   },
 
   /**

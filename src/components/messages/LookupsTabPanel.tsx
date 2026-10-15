@@ -1,6 +1,6 @@
 import { CustomApiLookupPanel, NO_EMAIL_IDENTITY_NOTE } from './CustomApiLookupPanel';
 import { PHONE_CONTACT } from './messageDetailConstants';
-import type { AddOutcome } from './useAiRecordNote';
+import type { AddOutcome } from './recordInsertOutcome';
 import type { Message } from '@/types';
 
 /**
@@ -11,9 +11,15 @@ export const LookupsTabPanel = ({
   message,
   hasEmailIdentity,
   onUseInReply,
+  customerEmail,
+  onFoundChange,
 }: {
   message: Message;
   hasEmailIdentity: boolean;
+  /** The address a press looks up, named before the press (2026-10-15). */
+  customerEmail?: string;
+  /** The tab badge: how many lookups found something (2026-10-15). */
+  onFoundChange?: (found: number) => void;
   /** L2 P4: a record joins the agent's note for the AI draft. It answers added / duplicate / full. */
   onUseInReply?: (note: string) => AddOutcome;
 }) => (
@@ -23,6 +29,8 @@ export const LookupsTabPanel = ({
       conversationId={message.id}
       identityNote={hasEmailIdentity ? undefined : NO_EMAIL_IDENTITY_NOTE}
       onUseInReply={onUseInReply}
+      customerEmail={hasEmailIdentity ? customerEmail : undefined}
+      onFoundChange={onFoundChange}
     />
   </div>
 );

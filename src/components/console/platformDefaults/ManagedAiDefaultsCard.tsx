@@ -29,22 +29,13 @@ import {
   type AIModel,
   type AIProvider,
 } from '@/types/aiProviders';
-import {
-  convertCosts,
-  CostUnitPicker,
-  costPlaceholder,
-  fromCostUnit,
-  parseCost,
-  toCostUnit,
-  type CostUnit,
-} from './costUnit';
+import { costsConfigured, storedCostSnapshot, useTierCosts, type TierId } from './TierCostFields';
 import { SecretField } from './SecretField';
 import { useManagedAiTest } from './useManagedAiTest';
 import { SourceBadge } from './SourceBadge';
 
 type Ai = PlatformSettings['ai'];
 type ModelKey = 'defaultModel' | 'strongModel' | 'visionModel';
-type CostKey = 'defaultCostPer1k' | 'strongCostPer1k' | 'visionCostPer1k';
 
 const PROVIDER_LABELS: Record<AIProvider, string> = {
   openai: 'OpenAI',
@@ -57,26 +48,31 @@ const PROVIDER_LABELS: Record<AIProvider, string> = {
   custom: 'Custom (OpenAI-compatible)',
 };
 
-const TIERS: { modelKey: ModelKey; costKey: CostKey; label: string; hint: string }[] = [
+const TIERS: { modelKey: ModelKey; tier: TierId; label: string; hint: string }[] = [
   {
     modelKey: 'defaultModel',
-    costKey: 'defaultCostPer1k',
+    tier: 'default',
     label: 'Default tier',
     hint: 'Serves every routine managed call — the main cost driver.',
   },
   {
     modelKey: 'strongModel',
-    costKey: 'strongCostPer1k',
+    tier: 'strong',
     label: 'Strong tier',
     hint: 'Answers-only escalation, metered as a second call.',
   },
   {
     modelKey: 'visionModel',
-    costKey: 'visionCostPer1k',
+    tier: 'vision',
     label: 'Vision tier',
     hint: 'Image analysis is absorbed by the platform, so the model is the cost lever.',
   },
 ];
+
+const TIER_LABELS = Object.fromEntries(TIERS.map(({ tier, label }) => [tier, label])) as Record<
+  TierId,
+  string
+>;
 
 /** The providers whose endpoint the console sets (hosted providers are pinned server-side). */
 const PROVIDERS_WITH_BASE_URL: AIProvider[] = ['custom', 'ollama'];
@@ -95,16 +91,6 @@ const seedModels = (ai: Ai): Record<ModelKey, string> => ({
   visionModel: prefill(ai.visionModel),
 });
 
-const seedCosts = (ai: Ai, unit: CostUnit = '1k'): Record<CostKey, string> => {
-  const seed = (field: Ai[CostKey]): string =>
-    field.source === 'db' && field.value !== null ? String(toCostUnit(field.value, unit)) : '';
-  return {
-    defaultCostPer1k: seed(ai.defaultCostPer1k),
-    strongCostPer1k: seed(ai.strongCostPer1k),
-    visionCostPer1k: seed(ai.visionCostPer1k),
-  };
-};
-
 const seedBedrock = (ai: Ai) => ({
   region: ai.bedrockRegion.value ?? '',
   roleArn: ai.bedrockRoleArn.value ?? '',
@@ -117,7 +103,7 @@ const storedAiSnapshot = (ai: Ai): string =>
   JSON.stringify([
     ai.provider.value ?? 'openai',
     seedModels(ai),
-    seedCosts(ai),
+    storedCostSnapshot(ai),
     ai.baseUrl.source === 'db' ? (ai.baseUrl.value ?? '') : '',
     ai.organization.value ?? '',
     seedBedrock(ai),
@@ -133,8 +119,7 @@ export const ManagedAiDefaultsCard = ({
 }) => {
   const [provider, setProvider] = useState<AIProvider>(ai.provider.value ?? 'openai');
   const [models, setModels] = useState<Record<ModelKey, string>>(() => seedModels(ai));
-  const [costUnit, setCostUnit] = useState<CostUnit>('1M');
-  const [costs, setCosts] = useState<Record<CostKey, string>>(() => seedCosts(ai, '1M'));
+  const tierCosts = useTierCosts(ai);
   const [baseUrl, setBaseUrl] = useState(
     ai.baseUrl.source === 'db' ? (ai.baseUrl.value ?? '') : ''
   );
@@ -174,7 +159,7 @@ export const ManagedAiDefaultsCard = ({
   const reseed = () => {
     setProvider(ai.provider.value ?? 'openai');
     setModels(seedModels(ai));
-    setCosts(seedCosts(ai, costUnit));
+    tierCosts.reseed();
     setBaseUrl(ai.baseUrl.source === 'db' ? (ai.baseUrl.value ?? '') : '');
     setOrganization(ai.organization.value ?? '');
     setBedrock(seedBedrock(ai));
@@ -202,9 +187,6 @@ export const ManagedAiDefaultsCard = ({
     'defaultModel',
     'strongModel',
     'visionModel',
-    'defaultCostPer1k',
-    'strongCostPer1k',
-    'visionCostPer1k',
     'baseUrl',
     'organization',
     'bedrockRegion',
@@ -213,7 +195,7 @@ export const ManagedAiDefaultsCard = ({
     'bedrockInferenceProfileArn',
     'bedrockUseInstanceProfile',
   ] as const;
-  const configured = OVERRIDABLE.some((key) => ai[key].source === 'db');
+  const configured = OVERRIDABLE.some((key) => ai[key].source === 'db') || costsConfigured(ai);
 
   /**
    * Credential fields that hold text nobody pressed Save on.
@@ -309,7 +291,7 @@ export const ManagedAiDefaultsCard = ({
    */
   const save = (thenTest = false) => {
     // Refuse rather than half-save: the config would persist and the credential would not.
-    if (pendingSecretCount > 0) return;
+    if (pendingSecretCount > 0 || tierCosts.blocked) return;
     // Any save may change what a previous result described (region, profile, credentials),
     // and a green line about the old config reads as a pass for the new one.
     discardTestResult();
@@ -318,10 +300,7 @@ export const ManagedAiDefaultsCard = ({
       const trimmed = models[key].trim();
       if (trimmed) input[key] = trimmed;
     });
-    (Object.keys(costs) as CostKey[]).forEach((key) => {
-      const typed = parseCost(costs[key]);
-      if (typed !== null) input[key] = fromCostUnit(typed, costUnit);
-    });
+    tierCosts.applyTo(input);
     if (baseUrlEditable && baseUrl.trim()) input.baseUrl = baseUrl.trim();
     if (provider === 'openai' && organization.trim()) input.organization = organization.trim();
     if (isBedrock) {
@@ -447,7 +426,7 @@ export const ManagedAiDefaultsCard = ({
       source: ai.provider.source,
     }),
     ...TIERS.map((tier) => row(tier.label, ai[tier.modelKey])),
-    ...TIERS.map((tier) => row(`${tier.label} cost / 1k`, ai[tier.costKey])),
+    ...tierCosts.summaryRows(TIER_LABELS, row),
     ...(PROVIDERS_WITH_BASE_URL.includes(storedProvider) ? [row('Base URL', ai.baseUrl)] : []),
     ...(storedIsBedrock
       ? [
@@ -550,7 +529,7 @@ export const ManagedAiDefaultsCard = ({
             variant="outline"
             onClick={() => save(true)}
             isLoading={testing || update.isPending}
-            disabled={testing || update.isPending || pendingSecretCount > 0}
+            disabled={testing || update.isPending || pendingSecretCount > 0 || tierCosts.blocked}
           >
             <TestTube2 className="mr-2 w-4 h-4" />
             Save and test
@@ -571,7 +550,7 @@ export const ManagedAiDefaultsCard = ({
       onEdit={card.startEditing}
       onCancel={card.cancelEditing}
       onSave={() => save()}
-      saveDisabled={pendingSecretCount > 0}
+      saveDisabled={pendingSecretCount > 0 || tierCosts.blocked}
       saving={update.isPending}
       configureLabel="Configure AI defaults"
       saveLabel="Save AI defaults"
@@ -634,15 +613,9 @@ export const ManagedAiDefaultsCard = ({
           )
         )}
 
-        <CostUnitPicker
-          unit={costUnit}
-          onChange={(next) => {
-            setCosts((prev) => convertCosts(prev, costUnit, next));
-            setCostUnit(next);
-          }}
-        />
+        {tierCosts.unitPicker}
 
-        {TIERS.map(({ modelKey, costKey, label, hint }) => (
+        {TIERS.map(({ modelKey, tier, label, hint }) => (
           <div key={modelKey} className="grid gap-3 sm:grid-cols-2">
             <div>
               <div className="flex gap-2 items-center mb-2">
@@ -655,23 +628,7 @@ export const ManagedAiDefaultsCard = ({
                 <p className="mt-1 text-xs text-muted-foreground">{bedrockSourceLabel}</p>
               )}
             </div>
-            <div>
-              <div className="flex gap-2 items-center mb-2">
-                <Label className="mb-0">Cost / {costUnit} tokens</Label>
-                <SourceBadge source={ai[costKey].source} unsetLabel="Not set" />
-              </div>
-              <Input
-                type="number"
-                min={0}
-                step="any"
-                aria-label={`${label} — cost per ${costUnit} tokens`}
-                value={costs[costKey]}
-                onChange={(event) =>
-                  setCosts((prev) => ({ ...prev, [costKey]: event.target.value }))
-                }
-                placeholder={costPlaceholder(ai[costKey].value, costUnit)}
-              />
-            </div>
+            {tierCosts.renderTier(tier, label)}
           </div>
         ))}
 

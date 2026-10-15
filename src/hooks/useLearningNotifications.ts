@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useDepartmentContextKey } from './useDepartmentContextKey';
 import { useAuthStore } from '@/stores/authStore';
+import { useSuggestionDomainAccess } from './useSuggestionDomainAccess';
 import {
   learningService,
+  isRoutingProposal,
   type LearningNotification,
   type LearningSuggestion,
 } from '@/services/learning.service';
@@ -44,6 +46,14 @@ export const useLearningNotifications = () => {
   const user = useAuthStore((state) => state.user);
   const orgId = useAuthStore((state) => state.selectedOrganizationId) ?? user?.organizationId;
   const isOrgAdmin = user?.role === 'admin' || user?.organizationRole === 'org_admin';
+  // Routing managers (Manage Routing Rules) see ONLY the routing items: the three proposal types
+  // and the routing auto-actions (auto-accept Undo). The server hides the proposal cards from
+  // everyone else (learningController listSuggestions), this filter is defence in depth:
+  // the server also filters GET /api/learning/notifications by the caller's per-domain permission,
+  // so a non-admin only receives rows for domains they may act on.
+  const { canActOn } = useSuggestionDomainAccess();
+  const canSeeRouting = canActOn('routing');
+  const showLearning = isOrgAdmin || canSeeRouting;
   const selectedDeptKey = useDepartmentContextKey();
   const inFlightRef = useRef(false);
 
@@ -56,14 +66,14 @@ export const useLearningNotifications = () => {
   }, [user?.id, orgId]);
 
   const fetchAll = useCallback(async () => {
-    if (!isOrgAdmin || inFlightRef.current) return;
+    if (!showLearning || inFlightRef.current) return;
     inFlightRef.current = true;
     try {
       const [notifs, sugs] = await Promise.all([
         learningService.listNotifications(),
         learningService.listSuggestions(),
       ]);
-      setNotifications(notifs);
+      setNotifications(isOrgAdmin ? notifs : notifs.filter((note) => note.domain === 'routing'));
       // KB capture reviews have their own bell section (useKbReviewAlerts), which also reaches
       // moderators — this section is org-admin only. Listing them here too would show an org
       // admin every review twice.
@@ -75,8 +85,9 @@ export const useLearningNotifications = () => {
         sugs.filter(
           (sug) =>
             sug.status === 'pending' &&
-            sug.domain !== 'kb_review' &&
-            !isKbModeratedSuggestion(sug)
+            (isOrgAdmin
+              ? sug.domain !== 'kb_review' && !isKbModeratedSuggestion(sug)
+              : isRoutingProposal(sug))
         )
       );
       setFetchError(false);
@@ -87,10 +98,10 @@ export const useLearningNotifications = () => {
       inFlightRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOrgAdmin, selectedDeptKey, orgId]);
+  }, [isOrgAdmin, showLearning, selectedDeptKey, orgId]);
 
   useEffect(() => {
-    if (!isOrgAdmin) return;
+    if (!showLearning) return;
     void fetchAll();
 
     // Pause polling when the tab is hidden — modern browsers throttle background
@@ -123,7 +134,7 @@ export const useLearningNotifications = () => {
       stop();
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [fetchAll, isOrgAdmin]);
+  }, [fetchAll, showLearning]);
 
   const markAllRead = useCallback(() => {
     const now = Date.now();
@@ -138,9 +149,11 @@ export const useLearningNotifications = () => {
     void fetchAll();
   }, [fetchAll]);
 
-  const unreadCount =
-    notifications.filter((row) => new Date(row.createdAt).getTime() > acknowledgedAt).length +
-    suggestions.filter((row) => new Date(row.createdAt).getTime() > acknowledgedAt).length;
+  // A viewer who may not see learning items gets no count, whatever an earlier session left in state.
+  const unreadCount = !showLearning
+    ? 0
+    : notifications.filter((row) => new Date(row.createdAt).getTime() > acknowledgedAt).length +
+      suggestions.filter((row) => new Date(row.createdAt).getTime() > acknowledgedAt).length;
 
   return {
     notifications,
@@ -148,6 +161,7 @@ export const useLearningNotifications = () => {
     unreadCount,
     fetchError,
     isOrgAdmin,
+    showLearning,
     markAllRead,
     refresh,
   };

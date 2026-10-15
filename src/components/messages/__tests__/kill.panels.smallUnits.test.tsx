@@ -49,14 +49,12 @@ const renderInsert = (onUseInReply = vi.fn().mockReturnValue('added')) => {
 };
 
 describe('CustomApiRecordInsert — the open panel', () => {
-  it('says the sentence goes into the note for the AI draft (default target)', async () => {
+  it('says the sentence goes into the reply', async () => {
     const user = userEvent.setup();
     renderInsert();
     await user.click(screen.getByRole('button', { name: /Use in reply/i }));
     expect(
-      screen.getByText(
-        'Adds these to your note for the AI draft — you still write and edit the reply.'
-      )
+      screen.getByText('Adds these to your reply as a sentence — edit it before sending.')
     ).toBeTruthy();
   });
 
@@ -79,7 +77,7 @@ describe('CustomApiRecordInsert — the open panel', () => {
       if ((checkbox as HTMLInputElement).checked) await user.click(checkbox);
     }
     expect(container.querySelector('p.border-hair')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Add to my note' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add to my reply' })).toBeDisabled();
   });
 
   it('"Post or clear your internal note first" shows only for that outcome', async () => {
@@ -91,11 +89,11 @@ describe('CustomApiRecordInsert — the open panel', () => {
     renderInsert(onUseInReply);
     await user.click(screen.getByRole('button', { name: /Use in reply/i }));
     expect(screen.queryByText('Post or clear your internal note first')).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Add to my note' }));
-    expect(screen.getByText('Added to your note')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Add to my reply' }));
+    expect(screen.getByText('Added to your reply')).toBeTruthy();
     expect(screen.queryByText('Post or clear your internal note first')).toBeNull();
     // CONTROL: the outcome it is for does show it.
-    await user.click(screen.getByRole('button', { name: 'Add to my note' }));
+    await user.click(screen.getByRole('button', { name: 'Add to my reply' }));
     expect(screen.getByText('Post or clear your internal note first')).toBeTruthy();
   });
 });
@@ -235,5 +233,24 @@ describe('channelInSentence', () => {
   it('Slack is a proper noun in a sentence; email is not', () => {
     expect(channelInSentence('slack')).toBe('Slack');
     expect(channelInSentence('email')).toBe('email');
+  });
+});
+
+describe('ThreadNoteItem — a note stored as editor HTML', () => {
+  it('🔴 shows the words, never the literal <p> tags (demo, 2026-10-14)', () => {
+    render(
+      <ThreadNoteItem
+        note={
+          {
+            id: 4,
+            content: '<p>Dispatch confirms the redirect.</p>',
+            authorName: 'Mia',
+            createdAt: '2026-08-18T17:50:00Z',
+          } as unknown as MessageNote
+        }
+      />
+    );
+    expect(screen.getByText('Dispatch confirms the redirect.')).toBeInTheDocument();
+    expect(screen.queryByText(/<p>/)).toBeNull();
   });
 });

@@ -57,8 +57,7 @@ const MISSING = '—';
  *      of its own instructions inside one that is trusted. The backend strips `<` and `>` too;
  *      it does not touch newlines, and this is the layer that knows the value is a field.
  */
-const flatten = (value: string): string =>
-  value.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim();
+const flatten = (value: string): string => value.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim();
 
 /**
  * Close the sentence — unless the vendor's own value already did. A value ending in a full stop
@@ -92,10 +91,7 @@ export const offerableFields = (
   );
 
 /** The paths selected when the picker first opens. */
-export const defaultSelection = (
-  row: Record<string, unknown>,
-  fields: LookupField[]
-): string[] =>
+export const defaultSelection = (row: Record<string, unknown>, fields: LookupField[]): string[] =>
   offerableFields(row, fields)
     .filter((field) => (DEFAULT_INSERT_ROLES as readonly string[]).includes(roleOf(field) ?? ''))
     .map((field) => field.path);
@@ -124,9 +120,7 @@ export const buildRecordNote = ({
   selectedPaths: string[];
   lookupLabel: string;
 }): string | null => {
-  const chosen = offerableFields(row, fields).filter((field) =>
-    selectedPaths.includes(field.path)
-  );
+  const chosen = offerableFields(row, fields).filter((field) => selectedPaths.includes(field.path));
   if (chosen.length === 0) return null;
 
   /*
@@ -148,48 +142,9 @@ export const buildRecordNote = ({
   return end(`${head} — ${detail}`);
 };
 
-/**
- * Add the note to what the agent has already written.
- *
- * ⛔ APPENDED, NEVER REPLACED. The agent's own sentences are the part of this the model trusts
- * most, and the one failure that makes people stop using a feature is text of theirs vanishing.
- *
- * ⛔ REFUSES RATHER THAN TRUNCATES when it will not fit (scope §P4). The backend caps
- * `agentInstructions` at 2000 characters with a plain `.slice()`, so a note appended past the
- * limit would be cut MID-FACT — "Total: 348" instead of "348.50" — and nothing anywhere would
- * say so. A refusal the agent can see and act on is the only honest end of that road.
- */
-export const appendNote = (
-  current: string,
-  note: string,
-  limit: number
-): { text: string; added: boolean; reason?: 'duplicate' | 'too_long' | 'fact_too_long' } => {
-  const trimmed = current.trim();
-  /*
-    Already there — pressing the same record twice should not say it twice to the model, and the
-    REASON travels back because "you already added this" and "your note is full" ask the agent for
-    two different things. A single `added: false` would have the control tell them to shorten a
-    note that is fine.
-  */
-  if (trimmed.includes(note)) return { text: current, added: false, reason: 'duplicate' };
-  const next = trimmed === '' ? note : `${trimmed} ${note}`;
-  if (next.length > limit) {
-    /*
-      ⛔ WHICH ONE IS TOO BIG. "Your note is full — shorten it" is FALSE when the note is empty
-      and the record itself does not fit: it sends the agent to delete text that is not there,
-      and nothing on screen would ever say what actually happened.
-    */
-    return {
-      text: current,
-      added: false,
-      reason: note.length > limit ? 'fact_too_long' : 'too_long',
-    };
-  }
-  return { text: next, added: true };
-};
-
 /*
-  A record is plain data an agent can state to the customer as it stands. Without a usable AI note (drafts off, no provider) the same sentence goes into the REPLY. The
+  A record is plain data an agent can state to the customer as it stands, so its sentence goes into
+  the REPLY (where AI draft can then read it as the agent's note). The
   composer holds rich-text HTML, so the sentence is escaped — a vendor value carrying `<b>` or `&`
   must arrive as the characters the agent read in the preview, never as markup.
 */

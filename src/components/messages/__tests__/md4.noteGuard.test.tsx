@@ -378,3 +378,25 @@ describe('slide-over: (4) a programmatic insert counts as an edit in the mode it
     expect(toastSpy.info).not.toHaveBeenCalled();
   });
 });
+
+describe('a note posted from the composer is stored as text, not editor HTML', () => {
+  // 🔴 The composer is the rich-text editor; it posted `<p>…</p>` as the note, and the thread and
+  // the Notes tab — both plain-text views — showed the tags (demo, 2026-10-14).
+  beforeEach(() => setViewport(false));
+
+  it('🔴 POST NOTE sends the words, without the paragraph tags', async () => {
+    svc.message.addNote = vi.fn().mockResolvedValue({ success: true });
+    renderDetail();
+    toNote();
+    fireEvent.change(editor(), {
+      target: { value: '<p>Moved to the new site.</p><p>Dispatch confirms.</p>' },
+    });
+    fireEvent.click(within(composer()).getByRole('button', { name: /post note/i }));
+
+    await vi.waitFor(() => expect(svc.message.addNote).toHaveBeenCalled());
+    expect(svc.message.addNote).toHaveBeenCalledWith(
+      101,
+      'Moved to the new site.\n\nDispatch confirms.'
+    );
+  });
+});

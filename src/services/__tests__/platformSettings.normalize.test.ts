@@ -97,4 +97,22 @@ describe('platformSettingsService.get — tolerates an older backend', () => {
     expect(settings.storage.envS3Configured).toBe(true);
     expect(settings.secrets['ai.anthropic_api_key'].last4).toBe('1234');
   });
+
+  it('passes the routing block through when all seven settings are there, omits it otherwise', async () => {
+    const routing = Object.fromEntries(
+      [
+        'proposalMinConversations',
+        'rerouteUndoMinutes',
+        'dormantArchiveDays',
+        'autoacceptMinConversations',
+        'autoacceptMinDays',
+        'autoacceptMinReplayRatio',
+        'replayMinMatches',
+      ].map((name) => [name, { value: 3, source: 'db' }])
+    );
+    get.mockResolvedValueOnce({ data: { data: { ...OLD_PAYLOAD, routing } } });
+    expect((await platformSettingsService.get()).routing).toEqual(routing);
+    get.mockResolvedValueOnce({ data: { data: OLD_PAYLOAD } });
+    expect((await platformSettingsService.get()).routing).toBeUndefined();
+  });
 });

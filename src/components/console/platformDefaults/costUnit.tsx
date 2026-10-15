@@ -17,16 +17,29 @@ export const toCostUnit = (per1k: number, unit: CostUnit): number =>
 export const fromCostUnit = (typed: number, unit: CostUnit): number =>
   tidy(typed / COST_UNIT_FACTOR[unit]);
 
-/** A typed cost, or null when the text is not a cost. Accepts "0,13" as well as "0.13". */
+/**
+ * A typed cost, or null when the field is blank or not a cost. The field is `type="number"`, so
+ * the browser hands over a normalised number ("1e-7" included) or "" for anything it can't read.
+ */
 export const parseCost = (text: string): number | null => {
-  const trimmed = text.trim().replace(',', '.');
-  if (!/^\d*\.?\d+$|^\d+\.$/.test(trimmed)) return null;
-  return Number(trimmed);
+  const trimmed = text.trim();
+  if (trimmed === '') return null;
+  const value = Number(trimmed);
+  return Number.isFinite(value) && value >= 0 ? value : null;
 };
 
 /** The effective cost (env/default included) in the typed unit, shown when nothing is typed. */
 export const costPlaceholder = (value: number | null, unit: CostUnit): string =>
   value !== null ? String(toCostUnit(value, unit)) : 'unset';
+
+/**
+ * A stored (per-1k) cost field in the typed unit, for the card's read-only summary: it said
+ * 0.00013 where the editor said 0.13 for the same cost.
+ */
+export const costInUnit = <Field extends { value: number | null }>(
+  field: Field,
+  unit: CostUnit
+): Field => ({ ...field, value: field.value === null ? null : toCostUnit(field.value, unit) });
 
 /** Re-express typed costs in another unit; text that is not a cost stays as it is. */
 export const convertCosts = <Key extends string>(

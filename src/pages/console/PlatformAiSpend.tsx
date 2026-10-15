@@ -40,6 +40,33 @@ const TIER_LABEL: Record<ManagedAiTier, string> = {
 
 const formatTokens = (tokens: number): string => tokens.toLocaleString();
 
+/** A token count the backend may not have sent: absent is unknown, never 0. */
+const knownTokens = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
+const addKnown = (left: number | null, right: number | null): number | null =>
+  left === null || right === null ? null : left + right;
+
+/** Input (prompt) / output (completion) tokens, or a dash when either is unknown. */
+const formatInOut = (prompt: number | null, completion: number | null): string =>
+  prompt === null || completion === null
+    ? '—'
+    : `${formatTokens(prompt)} / ${formatTokens(completion)}`;
+
+/** A workspace's prompt/completion summed over its tiers; unknown if any tier lacks them. */
+const orgInOut = (org: ManagedAiOrgUsage): string =>
+  org.byTier.length === 0
+    ? '—'
+    : formatInOut(
+        org.byTier.reduce<number | null>(
+          (sum, tier) => addKnown(sum, knownTokens(tier.promptTokens)),
+          0
+        ),
+        org.byTier.reduce<number | null>(
+          (sum, tier) => addKnown(sum, knownTokens(tier.completionTokens)),
+          0
+        )
+      );
+
 /**
  * Cost, or an honest dash. Null is "nobody told us the price", never zero — showing 0.00
  * against an unpriced model reads as "this cost nothing".
@@ -178,6 +205,8 @@ export const PlatformAiSpend = () => {
         {
           model: string;
           totalTokens: number;
+          promptTokens: number | null;
+          completionTokens: number | null;
           requests: number;
           costUsd: number | null;
           priced: boolean;
@@ -190,12 +219,19 @@ export const PlatformAiSpend = () => {
           const entry = (acc[row.model] ??= {
             model: row.model,
             totalTokens: 0,
+            promptTokens: 0,
+            completionTokens: 0,
             requests: 0,
             costUsd: null,
             priced: false,
             unpricedTokens: 0,
           });
           entry.totalTokens += row.totalTokens;
+          entry.promptTokens = addKnown(entry.promptTokens, knownTokens(row.promptTokens));
+          entry.completionTokens = addKnown(
+            entry.completionTokens,
+            knownTokens(row.completionTokens)
+          );
           entry.requests += row.requests;
           entry.unpricedTokens += row.unpricedTokens ?? (row.costUsd === null ? row.totalTokens : 0);
           if (row.costUsd !== null) {
@@ -444,6 +480,7 @@ export const PlatformAiSpend = () => {
                       <th className="px-3 py-2 font-medium">Workspace</th>
                       <th className="px-3 py-2 font-medium text-right">Tokens</th>
                       <th className="px-3 py-2 font-medium text-right">Share</th>
+                      <th className="px-3 py-2 font-medium text-right">In / Out</th>
                       {(['default', 'strong', 'vision', 'other'] as ManagedAiTier[]).map((tier) => (
                         <th key={tier} className="px-3 py-2 font-medium text-right">
                           {TIER_LABEL[tier]}
@@ -499,6 +536,9 @@ export const PlatformAiSpend = () => {
                             ? `${Math.round((org.totalTokens / totalTokens) * 100)}%`
                             : '—'}
                         </td>
+                        <td className="font-mono px-3 py-2 text-right text-muted-foreground">
+                          {orgInOut(org)}
+                        </td>
                         {(['default', 'strong', 'vision', 'other'] as ManagedAiTier[]).map((tier) => (
                           <td
                             key={tier}
@@ -515,6 +555,7 @@ export const PlatformAiSpend = () => {
                                 settingsUnreadable={
                                   usage.totals.tokenBudgets?.settingsLookupFailed === true
                                 }
+                                capsUnreadable={usage.totals.tokenCaps?.lookupFailed === true}
                                 onOpen={() => setLimitsFor(org.organizationId)}
                                 nearShare={usage.totals.tokenLimitRules?.nearLimitShare}
                               />
@@ -554,6 +595,7 @@ export const PlatformAiSpend = () => {
                     <tr className="text-left text-muted-foreground">
                       <th className="px-3 py-2 font-medium">Model</th>
                       <th className="px-3 py-2 font-medium text-right">Tokens</th>
+                      <th className="px-3 py-2 font-medium text-right">In / Out</th>
                       <th className="px-3 py-2 font-medium text-right">Calls</th>
                       {/* Named apart from the tile above it, which carries both
                           currencies: this column is USD only. */}
@@ -583,6 +625,9 @@ export const PlatformAiSpend = () => {
                         </td>
                         <td className="font-mono px-3 py-2 text-right">
                           {formatTokens(row.totalTokens)}
+                        </td>
+                        <td className="font-mono px-3 py-2 text-right text-muted-foreground">
+                          {formatInOut(row.promptTokens, row.completionTokens)}
                         </td>
                         <td className="font-mono px-3 py-2 text-right text-muted-foreground">
                           {formatTokens(row.requests)}

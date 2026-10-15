@@ -1,22 +1,14 @@
 /**
  * A lookup record's "Use in reply" is offered always: a record is plain data an agent can state to
- * the customer as it stands. While the AI note can be used (AI drafts on AND a provider configured
- * — the composer's own two predicates) it adds to that note, unchanged.
- * When it cannot, the exact sentence goes into the REPLY: a new paragraph at its end, the composer
- * switched to Reply, shown (phone: back on the Thread tab) and focused — and not stamped as AI.
+ * the customer as it stands. The exact sentence goes into the REPLY — with or without AI drafting —
+ * as a new paragraph at its end, the composer switched to Reply, shown (phone: back on the Thread
+ * tab) and focused, and not stamped as AI. (AI draft then reads the reply's text as the note.)
  *
  * The real side panel is stubbed: the control's own copy is CustomApiRecordInsert.test.tsx; this
  * file is what the HOST does with the sentence.
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import {
-  forwardRef,
-  useContext,
-  useImperativeHandle,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { forwardRef, useImperativeHandle, useRef, useState, type ReactNode } from 'react';
 import { render, screen, cleanup, fireEvent, act, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -160,14 +152,11 @@ const SECOND_SENTENCE = 'Their records: order 137417, status Delivered.';
 vi.mock('../MessagePanelTabs', () => ({
   MessagePanelTabs: function PanelStub(props: MessagePanelTabsProps) {
     const [outcome, setOutcome] = useState('');
-    // What the real record control reads to word its hint, button and outcome.
-    const target = useContext(RecordInsertTargetContext);
     return (
       <div
         data-testid="panel-tabs"
         data-tab={props.tab}
         data-open={String(props.panelOpen)}
-        data-target={target}
         data-has-insert={String(props.onUseInReply !== undefined)}
         data-has-ghost={String(props.onGhostClick !== undefined)}
       >
@@ -227,7 +216,6 @@ vi.mock('../MessagePanelTabs', () => ({
 import { MessageDetail } from '../MessageDetail';
 import { MessageGhostBubble } from '../MessageGhostBubble';
 import type { MessagePanelTabsProps } from '../MessagePanelTabs';
-import { RecordInsertTargetContext } from '../useAiRecordNote';
 import { PHONE_QUERY } from '../useIsPhone';
 
 const setViewport = (phone: boolean) => {
@@ -300,21 +288,9 @@ afterEach(() => {
   delete (window as { matchMedia?: unknown }).matchMedia;
 });
 
-describe('"Use in reply" when the AI note is usable: the note, unchanged', () => {
-  it('drafts on + a provider: the sentence goes to the AI note, the reply is untouched', async () => {
-    renderDetail();
-    await useRecord();
-    expect(screen.getByTestId('panel-tabs').getAttribute('data-target')).toBe('note');
-    expect(outcome()).toBe('added');
-    expect(editor().value).toBe('');
-    // The AI panel opens on the note holding the sentence (ComposerAiActions' reveal).
-    expect(screen.getByDisplayValue(SENTENCE)).toBeTruthy();
-    expect(focusCalls).toEqual([]);
-  });
-});
-
-describe('No usable AI note: the sentence goes into the REPLY', () => {
+describe('"Use in reply": the sentence goes into the REPLY', () => {
   it.each([
+    ['AI drafts on + a provider', (): void => undefined],
     [
       'AI drafts off',
       () => {
@@ -331,8 +307,6 @@ describe('No usable AI note: the sentence goes into the REPLY', () => {
     setup();
     renderDetail();
     await useRecord();
-    // The record control is told, so its words say "reply".
-    expect(screen.getByTestId('panel-tabs').getAttribute('data-target')).toBe('reply');
     expect(outcome()).toBe('added');
     expect(editor().value).toBe(`<p>${SENTENCE}</p>`);
     expect(modeTab('Reply').getAttribute('aria-pressed')).toBe('true');
@@ -341,7 +315,6 @@ describe('No usable AI note: the sentence goes into the REPLY', () => {
   });
 
   it('a reply already being written: the sentence is a NEW paragraph after it', async () => {
-    aiDrafts.off = true;
     renderDetail();
     fireEvent.change(editor(), { target: { value: '<p>Hi Ada,</p>' } });
     await useRecord();
@@ -349,7 +322,6 @@ describe('No usable AI note: the sentence goes into the REPLY', () => {
   });
 
   it('the exact sentence is already in the reply: not added twice', async () => {
-    aiDrafts.off = true;
     renderDetail();
     await useRecord();
     await useRecord();
@@ -358,7 +330,6 @@ describe('No usable AI note: the sentence goes into the REPLY', () => {
   });
 
   it('two adds in one batch: both sentences land, the second on top of the first', async () => {
-    aiDrafts.off = true;
     renderDetail();
     fireEvent.click(screen.getByRole('button', { name: 'use two records' }));
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
@@ -367,7 +338,6 @@ describe('No usable AI note: the sentence goes into the REPLY', () => {
   });
 
   it('CONTROL: part of the sentence in the reply is not the sentence — still added', async () => {
-    aiDrafts.off = true;
     renderDetail();
     fireEvent.change(editor(), { target: { value: '<p>order 137416</p>' } });
     await useRecord();
@@ -376,7 +346,6 @@ describe('No usable AI note: the sentence goes into the REPLY', () => {
   });
 
   it('from Internal note mode with nothing typed: switches to Reply and inserts', async () => {
-    aiDrafts.off = true;
     renderDetail();
     fireEvent.click(modeTab('Internal note'));
     await useRecord();
@@ -385,7 +354,6 @@ describe('No usable AI note: the sentence goes into the REPLY', () => {
   });
 
   it('an internal note being written is NOT carried into the reply', async () => {
-    aiDrafts.off = true;
     renderDetail();
     fireEvent.click(modeTab('Internal note'));
     fireEvent.change(editor(), { target: { value: '<p>for the team only</p>' } });
@@ -396,7 +364,6 @@ describe('No usable AI note: the sentence goes into the REPLY', () => {
   });
 
   it('a note being written, then a rail tab: still a note, so Use in reply refuses', async () => {
-    aiDrafts.off = true;
     renderDetail();
     fireEvent.click(modeTab('Internal note'));
     fireEvent.change(editor(), { target: { value: '<p>for the team only</p>' } });
@@ -408,7 +375,6 @@ describe('No usable AI note: the sentence goes into the REPLY', () => {
   });
 
   it('the send is the agent’s own text — not stamped as AI-drafted', async () => {
-    aiDrafts.off = true;
     renderDetail();
     await useRecord();
     fireEvent.click(within(composer()).getByRole('button', { name: /SEND/ }));
@@ -421,7 +387,6 @@ describe('No usable AI note: the sentence goes into the REPLY', () => {
   });
 
   it('WhatsApp window shut: inserting still works; Send stays blocked', async () => {
-    aiDrafts.off = true;
     renderDetail({
       channel: 'whatsapp',
       whatsappWindow: { open: false, expiresAt: null, reason: 'expired' },
@@ -432,7 +397,6 @@ describe('No usable AI note: the sentence goes into the REPLY', () => {
   });
 
   it('phone: from the Lookups tab it goes back to Thread with the composer open', async () => {
-    aiDrafts.off = true;
     setViewport(true);
     renderDetail();
     fireEvent.click(screen.getByRole('button', { name: 'open Lookups tab' }));
@@ -638,28 +602,17 @@ describe('"Use in reply" only where the composer exists', () => {
     ['filtered', { status: 'filtered' }],
     ['suspicious', { metadata: { spamCheck: { category: 'suspicious' } } }],
     ['flagged spam outside triage', { metadata: { spamCheck: { isSpam: true } } }],
-  ] as const)(
-    '%s thread: no composer, so no insert control — for the reply AND the AI note',
-    (_name, overrides) => {
-      for (const configured of [true, false]) {
-        aiDrafts.configured = configured;
-        renderDetail(overrides as Partial<Message>);
-        expect(screen.queryByTestId('message-composer')).toBeNull();
-        expect(hasInsert()).toBe('false');
-        cleanup();
-      }
-    }
-  );
+  ] as const)('%s thread: no composer, so no insert control', (_name, overrides) => {
+    renderDetail(overrides as Partial<Message>);
+    expect(screen.queryByTestId('message-composer')).toBeNull();
+    expect(hasInsert()).toBe('false');
+  });
 
-  it.each([true, false])(
-    'CONTROL: an active thread offers it (AI note usable: %s)',
-    (configured) => {
-      aiDrafts.configured = configured;
-      renderDetail();
-      expect(composer()).toBeInTheDocument();
-      expect(hasInsert()).toBe('true');
-    }
-  );
+  it('CONTROL: an active thread offers it', () => {
+    renderDetail();
+    expect(composer()).toBeInTheDocument();
+    expect(hasInsert()).toBe('true');
+  });
 });
 
 describe('Delete message is offered only when the host passes onDelete', () => {

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { AddOutcome } from './useAiRecordNote';
+import type { AddOutcome } from './recordInsertOutcome';
 import { StickyNote, Pencil, Trash2 } from 'lucide-react';
 import { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
 import { Button } from '@/components/ui/Button';
@@ -44,9 +44,12 @@ type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
  * One tab of the strip (v4 `.stabs button` / `.railtabs button`): sentence case, 12.5px / 500, the
  * body face — not the uppercase LABEL style. `flex-shrink-0 grow basis-auto` is `flex: 1 0 auto`:
  * share the spare width, never shrink below the label.
+ * `min-w-[2.75rem]` (44px, a full tap target), not 4.5rem (2026-10-15): at 72px each, "AI" and "KB"
+ * took Customer's width and the nine tabs needed ~657px, so Conflict was cut off in a ~650px rail.
+ * `flex-shrink-0` alone is what stops the squeeze.
  */
 const TAB_BASE =
-  'flex-shrink-0 grow basis-auto min-w-[4.5rem] justify-center items-center gap-[5px] px-[9px] h-[37px] rounded-none hover:bg-transparent font-sans text-[12.5px] font-medium normal-case tracking-normal whitespace-nowrap border-b-2 transition-colors max-sm:h-11 max-sm:px-[11px] max-sm:text-[13.5px]';
+  'flex-shrink-0 grow basis-auto min-w-[2.75rem] justify-center items-center gap-[5px] px-[9px] h-[37px] rounded-none hover:bg-transparent font-sans text-[12.5px] font-medium normal-case tracking-normal whitespace-nowrap border-b-2 transition-colors max-sm:h-11 max-sm:px-[11px] max-sm:text-[13.5px]';
 
 /*
   v4 mobile (M4): the rail on a phone. The wrapper has no box (`contents`) so the strip's parent is
@@ -144,8 +147,14 @@ export function MessagePanelTabs({
     onOptionsLoaded
   );
   const lookups = useLookupsTab('thread');
+  /**
+   * The Lookups badge (owner, 2026-10-15): how many lookups FOUND something, reported by the panel.
+   * It was the number of lookups a press COULD run, which read as "5 results" before any press.
+   * The panel reports 0 when its results go (a new thread, or the tab closing).
+   */
+  const [lookupsFound, setLookupsFound] = useState(0);
   const { stripRef, stripFades, updateStripFade } = useStripFade(
-    `${message.isLead ? 1 : 0}|${kbBadge}|${lookups.available ? lookups.label : ''}|${lookups.count}|${notes.length}|${attachments?.length ?? 0}`
+    `${message.isLead ? 1 : 0}|${kbBadge}|${lookups.available ? lookups.label : ''}|${lookupsFound}|${notes.length}|${attachments?.length ?? 0}`
   );
 
   // Full contact profile for the CUSTOMER tab — the same editable component
@@ -259,7 +268,13 @@ export function MessagePanelTabs({
             { id: 'ai', label: 'AI', badge: 0 },
             { id: 'customer', label: 'Customer', badge: 0 },
             ...(lookups.available
-              ? [{ id: 'lookups', label: lookups.label, badge: hasEmailIdentity ? lookups.count : 0 }]
+              ? [
+                  {
+                    id: 'lookups',
+                    label: lookups.label,
+                    badge: lookupsFound,
+                  },
+                ]
               : []),
             { id: 'kb', label: 'KB', badge: kbBadge },
             { id: 'attachments', label: 'Files', badge: attachments?.length ?? 0 },
@@ -377,6 +392,8 @@ export function MessagePanelTabs({
               message={message}
               hasEmailIdentity={hasEmailIdentity}
               onUseInReply={onUseInReply}
+              customerEmail={contactEmail}
+              onFoundChange={setLookupsFound}
             />
           )}
 
@@ -537,7 +554,7 @@ export function MessagePanelTabs({
                   <span className="font-mono text-[11px] text-muted-foreground w-14 flex-shrink-0 [font-variant-numeric:tabular-nums]">
                     {relativeTime(item.time)}
                   </span>
-                  <span className="flex-1 min-w-0">
+                  <span className="flex-1 min-w-0 break-words [overflow-wrap:anywhere]">
                     {item.who} · {item.label}
                   </span>
                 </li>

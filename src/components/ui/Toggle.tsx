@@ -1,6 +1,6 @@
 /**
- * Small on/off switch. Extracted from AutoReplyConfiguration so re-route "Create rule"
- * and the auto-reply settings share one accessible toggle (role=switch + aria-checked).
+ * Small on/off switch. Extracted from AutoReplyConfiguration so the settings
+ * pages share one accessible toggle (role=switch + aria-checked).
  */
 export const Toggle = ({
   checked,

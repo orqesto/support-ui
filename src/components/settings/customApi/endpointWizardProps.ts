@@ -13,6 +13,8 @@ export interface EndpointInitial {
   resultShape?: 'one' | 'many';
   statusLabels?: Record<string, string>;
   ownershipSourceEndpointId?: number | null;
+  /** D4: the reference name a template pre-fills (typed-value lookups). */
+  referenceLabel?: string;
   /** Sent on CREATE only: the wizard has no UI for these. */
   createExtras?: { surface?: 'thread' | 'contact' | 'both'; templateKey?: string };
 }

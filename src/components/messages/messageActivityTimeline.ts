@@ -60,7 +60,65 @@ const ACTION_KIND: Record<string, ActivityKind> = {
 
 export const activityKindOf = (action: string): ActivityKind => ACTION_KIND[action] ?? 'other';
 
+const SHORT_DATE = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'UTC',
+});
+const shortDate = (iso: unknown): string | null => {
+  if (typeof iso !== 'string') return null;
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? null : SHORT_DATE.format(date);
+};
+
+type RoutingRuleDetail = {
+  value?: string | null;
+  deleted?: boolean;
+  acceptedBy?: { name?: string } | null;
+  acceptedAt?: string | null;
+  autoAccepted?: boolean;
+};
+
+/** Routes a rule's score chose (incl. legacy rows with no rule shares): worded "by a rule". */
+const RULE_REASONS = new Set(['rule_strong', 'rule_ai_agree', 'rule_decisive']);
+/** Routes the embedding similarity chose. */
+const SIMILARITY_REASONS = new Set(['embedding_strong', 'embedding_override']);
+
+/**
+ * The synthetic entry GET /activity appends for an automatic route (spec 2026-10-14 §3.9).
+ * The wording follows the REASON, never whether `rules` is empty: legacy rule rows carry no
+ * shares and must not read as a similarity route. Unknown reasons fall back to "automatically".
+ */
+export function routingDecisionLabel(details: Record<string, unknown> | null): string {
+  const dept =
+    typeof details?.['departmentName'] === 'string' ? details['departmentName'] : 'a department';
+  const reason = details?.['reason'];
+  if (reason === 'sole_department')
+    return `Routed to ${dept} — the only department for this mailbox`;
+  if (reason === 'sender_history')
+    return `Routed to ${dept} — where this sender’s mail usually goes`;
+  if (reason === 'ai_primary') return `Routed to ${dept} by the AI classifier`;
+  if (typeof reason === 'string' && SIMILARITY_REASONS.has(reason))
+    return `Routed to ${dept} by similarity to earlier conversations`;
+  if (typeof reason !== 'string' || !RULE_REASONS.has(reason))
+    return `Routed to ${dept} automatically`;
+  const rules = Array.isArray(details?.['rules']) ? (details['rules'] as RoutingRuleDetail[]) : [];
+  const rule =
+    rules.find((entry) => typeof entry?.value === 'string' && !entry.deleted) ?? rules[0];
+  if (!rule) return `Routed to ${dept} by a rule`;
+  if (rule.deleted || typeof rule.value !== 'string')
+    return `Routed to ${dept} by a rule that has since been deleted`;
+  const when = shortDate(rule.acceptedAt);
+  const by = rule.acceptedBy?.name
+    ? ` (accepted by ${rule.acceptedBy.name}${when ? `, ${when}` : ''})`
+    : rule.autoAccepted
+      ? ` (accepted automatically${when ? `, ${when}` : ''})`
+      : '';
+  return `Routed to ${dept} by rule "${rule.value}"${by}`;
+}
+
 export function auditEntryLabel(action: string, details: Record<string, unknown> | null): string {
+  if (action === 'routing.decision') return routingDecisionLabel(details);
   if (action === 'message.status_change') {
     const from = details?.['from'] as string | undefined;
     const to = details?.['to'] as string | undefined;

@@ -1,46 +1,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
+import { render, cleanup, act } from '@testing-library/react';
 import { useRef } from 'react';
-
-vi.mock('@/services/message.service', () => ({
-  messageService: { composeReply: vi.fn() },
-}));
-vi.mock('@/components/shared/TranslateButton', () => ({ TranslateButton: () => null }));
-vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), info: vi.fn() } }));
-vi.mock('@/hooks/useAiConfigured', () => ({
-  useAiConfigured: () => ({ aiConfigured: true, isLoading: false }),
-}));
-vi.mock('@/hooks/useAiDraftsOff', () => ({
-  useAiDraftsOff: () => ({ off: false, resolved: true }),
-  useRefreshAiDrafts: () => vi.fn(),
-}));
-
-import { ComposerAiActions } from '@/components/messages/ComposerAiActions';
 import { usePhoneDetailScroll } from '@/components/messages/usePhoneDetailScroll';
-
-describe('ComposerAiActions activity ignores a whitespace-only note', () => {
-  afterEach(cleanup);
-
-  it('spaces in the open note are not activity; a real character is', () => {
-    const onActivityChange = vi.fn<(active: boolean) => void>();
-    render(
-      <ComposerAiActions
-        messageId={42}
-        composer=""
-        setComposer={() => undefined}
-        onApplied={() => undefined}
-        onActivityChange={onActivityChange}
-      />
-    );
-    fireEvent.click(screen.getByTitle('Draft this reply with AI'));
-    const note = screen.getByPlaceholderText(/Optional — leave empty/);
-    fireEvent.change(note, { target: { value: '   ' } });
-    expect(onActivityChange).toHaveBeenLastCalledWith(false);
-    expect(onActivityChange).not.toHaveBeenCalledWith(true);
-    fireEvent.change(note, { target: { value: '  x ' } });
-    expect(onActivityChange).toHaveBeenLastCalledWith(true);
-  });
-});
 
 function Harness({
   enabled,

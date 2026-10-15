@@ -100,7 +100,8 @@ describe('MessagePanelTabs — the strip when the tabs do not fit', () => {
     expect(strip.className).not.toContain('flex-wrap');
     // Squeezing is what made the labels unreadable — the tabs must refuse to shrink.
     expect(aiTab.className).toContain('flex-shrink-0');
-    expect(aiTab.className).toContain('min-w-[4.5rem]');
+    // 44px: a full tap target, without making "AI" as wide as "Customer" (2026-10-15).
+    expect(aiTab.className).toContain('min-w-[2.75rem]');
   });
 
   it('sidebar: ONE row that scrolls — never wraps (v4)', () => {

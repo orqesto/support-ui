@@ -26,7 +26,10 @@ type FlexibleEndpointKey =
   | 'paginationParam'
   | 'paginationStart'
   | 'paginationNextPath'
-  | 'paginationMaxPages';
+  | 'paginationMaxPages'
+  // 2026-10-14: absent from a backend before the lookups UX pass.
+  | 'referenceLabel'
+  | 'health';
 type FlexibleConnectionKey = 'failureStatusPath' | 'failureStatusValues' | 'failureMessagePath';
 type GeneratedEndpoint = components['schemas']['CustomApiEndpoint'];
 type GeneratedConnection = components['schemas']['CustomApiConnection'];
@@ -79,6 +82,9 @@ const normaliseEndpoint = (endpoint: CustomApiEndpoint): CustomApiEndpoint => ({
   dataPath: endpoint.dataPath ?? null,
   // Older backend (no field) reads as "not made from a template".
   templateKey: endpoint.templateKey ?? null,
+  // 2026-10-14 (D4). `health` stays as sent: absent means "this backend does not report health",
+  // and the settings row then says nothing rather than a guess.
+  referenceLabel: endpoint.referenceLabel ?? null,
 });
 
 const normalise = (connection: CustomApiConnection): CustomApiConnection => ({

@@ -1,6 +1,6 @@
 /**
  * Message detail v4 — the phone layout: the composer — pill, open, fold, controls that remove
- * themselves, the AI note (M7). Shared mocks and render helpers: md4.mobile.utils.tsx. Every phone
+ * themselves, AI draft (M7). Shared mocks and render helpers: md4.mobile.utils.tsx. Every phone
  * test has a desktop CONTROL.
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
@@ -168,19 +168,11 @@ describe('M7 — the phone composer stays open when a tapped control removes its
     expect(phoneState()).toBe('open');
   };
 
-  it('Write reply: the composer stays open and the draft is shown being written', () => {
+  it('AI draft: the composer stays open and the button says the draft is being written', () => {
     openComposer();
     tap(within(composer()).getByRole('button', { name: /AI draft/ }));
-    tap(within(composer()).getByRole('button', { name: 'Write reply' }));
     expect(phoneState()).toBe('open');
-    expect(within(composer()).getByText(/Writing your draft/)).toBeTruthy();
-  });
-
-  it('Close AI panel keeps it open', () => {
-    openComposer();
-    tap(within(composer()).getByRole('button', { name: /AI draft/ }));
-    tap(within(composer()).getByRole('button', { name: 'Close AI panel' }));
-    expect(phoneState()).toBe('open');
+    expect(within(composer()).getByRole('button', { name: /Drafting/ })).toBeTruthy();
   });
 
   it('Edit recipients keeps it open, with the fields expanded', () => {
@@ -214,35 +206,23 @@ describe('M7 — the phone composer stays open when a tapped control removes its
   it('never folds while an AI request is in flight, even on an outside press', () => {
     openComposer();
     tap(within(composer()).getByRole('button', { name: /AI draft/ }));
-    tap(within(composer()).getByRole('button', { name: 'Write reply' }));
     tap(document.body);
     expect(phoneState()).toBe('open');
-    expect(within(composer()).getByText(/Writing your draft/)).toBeTruthy();
+    expect(within(composer()).getByRole('button', { name: /Drafting/ })).toBeTruthy();
   });
 
   it('switching to Internal note mid-request clears the AI hold: an empty note folds again', () => {
     openComposer();
     tap(within(composer()).getByRole('button', { name: /AI draft/ }));
-    tap(within(composer()).getByRole('button', { name: 'Write reply' }));
     // CONTROL: the request in flight holds the composer open.
     tap(document.body);
     expect(phoneState()).toBe('open');
     // Note mode unmounts the AI controls; what they reported must not outlive them.
     tap(within(composer()).getByRole('button', { name: 'Internal note' }));
-    expect(within(composer()).queryByRole('button', { name: /AI draft/ })).toBeNull();
+    expect(within(composer()).queryByRole('button', { name: /AI draft|Drafting/ })).toBeNull();
     expect(phoneState()).toBe('open');
     tap(document.body);
     expect(phoneState()).toBe('rest');
-  });
-
-  it('never folds while the open AI panel holds a note', () => {
-    openComposer();
-    tap(within(composer()).getByRole('button', { name: /AI draft/ }));
-    fireEvent.change(within(composer()).getByLabelText('Your note for the AI draft'), {
-      target: { value: 'Order #5 shipped Tuesday' },
-    });
-    tap(document.body);
-    expect(phoneState()).toBe('open');
   });
 
   it('a press that began inside the composer is inside, wherever the click lands', () => {
@@ -303,7 +283,7 @@ describe('M7 — the phone composer stays open when a tapped control removes its
   );
 });
 
-describe('M7 — the AI note revealed by a lookup, on a phone', () => {
+describe('M7 — AI draft on a phone', () => {
   const props = () => ({
     message: { ...baseMessage, id: 4242 },
     composer: '',
@@ -317,57 +297,8 @@ describe('M7 — the AI note revealed by a lookup, on a phone', () => {
     onOpenSimilarMessages: vi.fn(),
     selectedFiles: [],
     onFilesChange: vi.fn(),
-    onAiNoteChange: vi.fn(),
   });
   const aiButton = () => within(composer()).getByRole('button', { name: /AI draft/ });
-
-  it('"Add to my note" at rest opens the composer with the note on screen', () => {
-    setViewport(true);
-    const view = render(<MessageComposer {...props()} aiNote="" aiNoteReveal={0} />);
-    expect(phoneState()).toBe('rest');
-    view.rerender(<MessageComposer {...props()} aiNote="Order #5 shipped" aiNoteReveal={1} />);
-    expect(phoneState()).toBe('open');
-    expect(within(composer()).getByRole('button', { name: 'Close AI panel' })).toBeTruthy();
-    expect(aiButton().getAttribute('aria-expanded')).toBe('true');
-  });
-
-  it('under another tab: back on Thread it is already open, the panel showing', () => {
-    setViewport(true);
-    const view = render(<MessageComposer {...props()} hidden aiNote="" aiNoteReveal={0} />);
-    view.rerender(
-      <MessageComposer {...props()} hidden aiNote="Order #5 shipped" aiNoteReveal={1} />
-    );
-    // The tap that goes back to Thread is outside the composer: it must not fold the note away.
-    tap(document.body);
-    view.rerender(<MessageComposer {...props()} aiNote="Order #5 shipped" aiNoteReveal={1} />);
-    expect(classOf(composer())).not.toMatch(/(^|\s)hidden(\s|$)/);
-    expect(phoneState()).toBe('open');
-    expect(within(composer()).getByRole('button', { name: 'Close AI panel' })).toBeTruthy();
-  });
-
-  it('a counter that drops (another thread) opens nothing', () => {
-    setViewport(true);
-    const view = render(<MessageComposer {...props()} aiNote="" aiNoteReveal={3} />);
-    view.rerender(<MessageComposer {...props()} aiNote="" aiNoteReveal={0} />);
-    expect(phoneState()).toBe('rest');
-  });
-
-  it('at rest a mounted panel reads as collapsed, and AI draft opens it — never toggles it shut', () => {
-    setViewport(true);
-    render(<MessageComposer {...props()} aiNote="" />);
-    tap(screen.getByTestId('rich-text-editor'));
-    tap(aiButton());
-    expect(aiButton().getAttribute('aria-expanded')).toBe('true');
-    // An outside press folds the empty composer; the (empty) panel stays mounted, CSS-hidden.
-    tap(document.body);
-    expect(phoneState()).toBe('rest');
-    expect(within(composer()).getByRole('button', { name: 'Close AI panel' })).toBeTruthy();
-    expect(aiButton().getAttribute('aria-expanded')).toBe('false');
-    tap(aiButton());
-    expect(phoneState()).toBe('open');
-    expect(within(composer()).getByRole('button', { name: 'Close AI panel' })).toBeTruthy();
-    expect(aiButton().getAttribute('aria-expanded')).toBe('true');
-  });
 
   it('focus on a button does not open it (Android focuses on the press); focus in the editor does', () => {
     setViewport(true);
@@ -378,42 +309,7 @@ describe('M7 — the AI note revealed by a lookup, on a phone', () => {
     expect(phoneState()).toBe('open');
   });
 
-  /*
-    The panel must not report "a note in the open panel" as activity when it renders NO panel (drafts off, no provider) — the composer then refused every fold while showing
-    nothing AI-related. "Add to my note" is offered there (as on staging), so this is reachable.
-  */
-  it.each([
-    [
-      'AI drafts off',
-      () => {
-        aiDrafts.off = true;
-      },
-      'ai-drafts-off-note',
-    ],
-    [
-      'no AI provider',
-      () => {
-        aiDrafts.configured = false;
-      },
-      null,
-    ],
-  ] as const)(
-    '%s: a note added from a lookup opens the composer, and an outside press still folds it',
-    (_name, setup, shown) => {
-      setViewport(true);
-      setup();
-      const view = render(<MessageComposer {...props()} aiNote="" aiNoteReveal={0} />);
-      view.rerender(<MessageComposer {...props()} aiNote="Order #5 shipped" aiNoteReveal={1} />);
-      expect(phoneState()).toBe('open');
-      expect(within(composer()).queryByRole('button', { name: 'Close AI panel' })).toBeNull();
-      if (shown) expect(within(composer()).getByTestId(shown)).toBeTruthy();
-      else expect(within(composer()).queryByRole('button', { name: /AI draft/ })).toBeNull();
-      tap(document.body);
-      expect(phoneState()).toBe('rest');
-    }
-  );
-
-  it('drafts switched off mid-session (a 409 on Write reply): the composer can fold again', async () => {
+  it('drafts switched off mid-session (a 409 on AI draft): the composer can fold again', async () => {
     setViewport(true);
     aiDrafts.offOnRefresh = true;
     let refuse: (err: unknown) => void = () => {};
@@ -423,18 +319,16 @@ describe('M7 — the AI note revealed by a lookup, on a phone', () => {
           refuse = reject;
         })
     );
-    const view = render(<MessageComposer {...props()} aiNote="" aiNoteReveal={0} />);
-    view.rerender(<MessageComposer {...props()} aiNote="Order #5 shipped" aiNoteReveal={1} />);
-    // CONTROL: while the panel shows the note, an outside press keeps the composer open.
+    render(<MessageComposer {...props()} />);
+    tap(aiButton());
+    // CONTROL: while the request is in flight, an outside press keeps the composer open.
     tap(document.body);
     expect(phoneState()).toBe('open');
-    tap(within(composer()).getByRole('button', { name: 'Write reply' }));
     await act(async () => {
       refuse({ response: { status: 409, data: { code: 'AI_DRAFTS_OFF', error: 'Off.' } } });
       await Promise.resolve();
     });
     expect(within(composer()).getByTestId('ai-drafts-off-note')).toBeTruthy();
-    expect(within(composer()).queryByRole('button', { name: 'Close AI panel' })).toBeNull();
     tap(document.body);
     expect(phoneState()).toBe('rest');
   });
@@ -447,7 +341,7 @@ describe('M7 — the AI note revealed by a lookup, on a phone', () => {
     });
     afterEach(() => stopFlushing());
 
-    it('a generated draft on screen (empty note) is not folded by an outside press', async () => {
+    it('a draft that landed in the editor is not folded by an outside press', async () => {
       svc.message.composeReply = vi
         .fn()
         .mockResolvedValue({ data: { text: 'Your parcel ships today.' } });
@@ -455,25 +349,12 @@ describe('M7 — the AI note revealed by a lookup, on a phone', () => {
       tap(screen.getByTestId('rich-text-editor'));
       expect(phoneState()).toBe('open');
       tap(within(composer()).getByRole('button', { name: /AI draft/ }));
-      tap(within(composer()).getByRole('button', { name: 'Write reply' }));
       await act(async () => {});
-      expect(within(composer()).getByText('Your parcel ships today.')).toBeTruthy();
+      const editor = () => screen.getByTestId<HTMLTextAreaElement>('rich-text-editor');
+      expect(editor().value).toContain('Your parcel ships today.');
       tap(document.body);
       expect(phoneState()).toBe('open');
-      expect(within(composer()).getByText('Your parcel ships today.')).toBeTruthy();
-    });
-
-    it('a note left in a CLOSED AI panel does not hold an empty composer open', () => {
-      renderDetail();
-      tap(screen.getByTestId('rich-text-editor'));
-      tap(within(composer()).getByRole('button', { name: /AI draft/ }));
-      fireEvent.change(within(composer()).getByLabelText('Your note for the AI draft'), {
-        target: { value: 'Order #5 shipped Tuesday' },
-      });
-      tap(within(composer()).getByRole('button', { name: 'Close AI panel' }));
-      expect(phoneState()).toBe('open');
-      tap(document.body);
-      expect(phoneState()).toBe('rest');
+      expect(editor().value).toContain('Your parcel ships today.');
     });
 
     it('after a tap folded it, a KEYBOARD click on the AI draft pill opens the composer', () => {
@@ -488,12 +369,22 @@ describe('M7 — the AI note revealed by a lookup, on a phone', () => {
     });
   });
 
-  it('CONTROL desktop: the AI draft button still toggles, aria-expanded follows it', () => {
+  it('while a draft is being written, Send is off — the editor holds the NOTE, not a reply', () => {
     setViewport(false);
+    svc.message.composeReply = vi.fn(() => new Promise(() => {}));
+    render(<MessageComposer {...props()} composer="<p>refund issued</p>" />);
+    const send = () => within(composer()).getByRole('button', { name: /send/i });
+    expect((send() as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(aiButton());
+    expect((send() as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('CONTROL desktop: AI draft drafts at once — there is no panel to open', () => {
+    setViewport(false);
+    svc.message.composeReply = vi.fn(() => new Promise(() => {}));
     render(<MessageComposer {...props()} />);
     fireEvent.click(aiButton());
-    expect(aiButton().getAttribute('aria-expanded')).toBe('true');
-    fireEvent.click(aiButton());
-    expect(aiButton().getAttribute('aria-expanded')).toBe('false');
+    expect(svc.message.composeReply).toHaveBeenCalledWith(4242, { mode: 'generate' });
+    expect(within(composer()).getByRole('button', { name: /Drafting/ })).toBeTruthy();
   });
 });

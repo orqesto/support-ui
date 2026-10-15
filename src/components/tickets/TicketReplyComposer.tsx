@@ -383,6 +383,7 @@ export const TicketReplyComposer = ({
         minHeight="100px"
         initiallyHidden={false}
         editable={!sending}
+        translatable
       />
       <p className="text-xs text-muted-foreground">
         Greet each customer by name with {'{first_name|there}'} — “there” is used when the name is

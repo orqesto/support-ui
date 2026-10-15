@@ -57,8 +57,11 @@ vi.mock('@/lib/socketManager', () => ({
 vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: () => true, isGlobalAdmin: false }),
 }));
+const depts = vi.hoisted(() => ({
+  list: [] as Array<{ id: number; name: string; active: boolean }>,
+}));
 vi.mock('@/hooks/useDepartments', () => ({
-  useDepartments: () => ({ departments: [] }),
+  useDepartments: () => ({ departments: [], data: depts.list }),
   useDepartmentById: () => null,
 }));
 vi.mock('@/hooks/useAiConfigured', () => ({ useAiConfigured: () => ({ configured: true }) }));
@@ -107,6 +110,9 @@ vi.mock('@/components/contacts/ContactProfilePanel', () => ({ ContactProfilePane
 vi.mock('@/components/modals/SimilarMessagesDialog', () => ({ SimilarMessagesDialog: () => null }));
 vi.mock('../PromoteToKbDialog', () => ({ PromoteToKbDialog: () => null }));
 
+const note = vi.hoisted(() => ({ show: vi.fn() }));
+vi.mock('@/lib/routingCopy', () => ({ showRouteLearningNote: note.show }));
+
 import { MessageDetail } from '../MessageDetail';
 
 const baseMessage = {
@@ -142,6 +148,7 @@ beforeEach(() => {
   svc.message.markAsNotCustomerWork = vi.fn().mockResolvedValue({ success: true });
 });
 afterEach(() => {
+  depts.list = [];
   media.wide = false;
   cleanup();
   vi.clearAllMocks();
@@ -359,6 +366,44 @@ describe('Esc and in-flight guards', () => {
   });
 });
 
+describe('"Resolve & save to KB" shows its progress (demo, 2026-10-15)', () => {
+  it('🔴 after the confirm, the row reads "Saving to KB…" until the save returns', async () => {
+    let finish: (value: unknown) => void = () => {};
+    svc.message.resolve = vi.fn(() => new Promise((resolve) => (finish = resolve)));
+    const onResolve = vi.fn();
+    renderDetail(activeThread, { onResolve });
+    fireEvent.click(within(decisionsRow()!).getByRole('button', { name: 'Resolve & save to KB' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Resolve & Save to KB' })
+    );
+    await waitFor(() => expect(svc.message.resolve).toHaveBeenCalledTimes(1));
+
+    const saving = within(decisionsRow()!).getByRole('button', { name: /Saving to KB…/ });
+    expect(saving.getAttribute('aria-busy')).toBe('true');
+
+    await act(async () => {
+      finish({ success: true });
+      await Promise.resolve();
+    });
+    expect(onResolve).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/Saving to KB…/)).toBeNull();
+  });
+
+  it('control: the plain Resolve never says "Saving to KB"', async () => {
+    let finish: (value: unknown) => void = () => {};
+    svc.message.close = vi.fn(() => new Promise((resolve) => (finish = resolve)));
+    renderDetail(activeThread, { onResolve: vi.fn() });
+    fireEvent.click(within(decisionsRow()!).getByRole('button', { name: 'Resolve' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /Resolve/ }));
+    await waitFor(() => expect(svc.message.close).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(/Saving to KB…/)).toBeNull();
+    await act(async () => {
+      finish({ success: true });
+      await Promise.resolve();
+    });
+  });
+});
+
 describe('Send failed bar (v3)', () => {
   // The thread is already mine, so no "assign on reply?" prompt stands between Send and the call.
   const mine = { ...activeThread, assigneeId: 7 };
@@ -455,6 +500,28 @@ describe('routing hint (v3): dismissable', () => {
   });
 });
 
+describe('routing hint: never the department the thread is already in (demo, 2026-10-14)', () => {
+  it('🔴 a thread in department 3 is not offered "Move to" department 3', () => {
+    renderDetail({
+      ...activeThread,
+      id: 9111,
+      departmentId: 3,
+      nearMissDepts: [3],
+    } as Partial<Message>);
+    expect(screen.queryByText('Also matched')).toBeNull();
+  });
+
+  it('control: the same scores on a thread in another department still show the hint', () => {
+    renderDetail({
+      ...activeThread,
+      id: 9112,
+      departmentId: 5,
+      nearMissDepts: [3],
+    } as Partial<Message>);
+    expect(screen.getByText('Also matched')).toBeTruthy();
+  });
+});
+
 describe('routing hint: switching threads in the SAME panel', () => {
   it('a dismissal on thread A does not hide the hint on thread B shown in its place', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -473,5 +540,18 @@ describe('routing hint: switching threads in the SAME panel', () => {
     expect(screen.queryByText('Also matched')).toBeNull();
     rerender(tree(9202));
     expect(screen.getByText('Also matched')).toBeTruthy();
+  });
+});
+
+describe('routing hint: no "+ rule" (spec 2026-10-14 §4.1)', () => {
+  it('offers Move only, and Move routes with (id, departmentId) then shows the note', async () => {
+    depts.list = [{ id: 3, name: 'Billing', active: true }];
+    svc.message.manualRoute = vi.fn().mockResolvedValue({ learningRecorded: true });
+    renderDetail({ ...activeThread, id: 9301, nearMissDepts: [3] } as Partial<Message>);
+    expect(screen.queryByRole('button', { name: '+ rule' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Move to Billing →' }));
+    await waitFor(() => expect(svc.message.manualRoute).toHaveBeenCalledWith(9301, 3));
+    expect(svc.message.manualRoute.mock.calls[0]).toHaveLength(2);
+    await waitFor(() => expect(note.show).toHaveBeenCalledWith({ learningRecorded: true }));
   });
 });

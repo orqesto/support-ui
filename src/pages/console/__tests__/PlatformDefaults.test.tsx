@@ -77,6 +77,8 @@ vi.mock('@/hooks/usePlatformSettings', () => ({
   useUpdatePlatformReasoning: () => noopMutation,
   useIsSavingPlatformReasoning: () => false,
   useUpdatePlatformKb: () => noopMutation,
+  useUpdatePlatformCustomApi: () => noopMutation,
+  useUpdatePlatformRouting: () => noopMutation,
 }));
 
 const { PlatformDefaults } = await import('../PlatformDefaults');
@@ -91,7 +93,44 @@ describe('PlatformDefaults', () => {
   it('shows the knowledge-base capture setting (absent from this backend: says so)', () => {
     render(<PlatformDefaults />);
     expect(screen.getByText('Rewrite captured questions with AI')).toBeInTheDocument();
-    expect(screen.getByText(/arrives with the next backend release/)).toBeInTheDocument();
+    // Cards that say so on this backend: knowledge base, custom API health, routing proposals.
+    expect(screen.getAllByText(/arrive?s? with the next backend release/)).toHaveLength(3);
+  });
+
+  it('shows the custom API health card (absent from this backend: no inputs)', () => {
+    render(<PlatformDefaults />);
+    expect(screen.getByText('Custom API health')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Nothing found in a row/)).toBeNull();
+  });
+
+  it('shows the routing proposals card, with its seven inputs when the backend has them', () => {
+    const field = (value: number) => ({ value, source: 'default' as const });
+    settings = {
+      ...SAMPLE,
+      routing: {
+        proposalMinConversations: field(3),
+        rerouteUndoMinutes: field(10),
+        dormantArchiveDays: field(90),
+        autoacceptMinConversations: field(5),
+        autoacceptMinDays: field(5),
+        autoacceptMinReplayRatio: field(0.9),
+        replayMinMatches: field(5),
+      },
+    };
+    render(<PlatformDefaults />);
+    expect(screen.getByText('Routing proposals')).toBeInTheDocument();
+    for (const label of [
+      'Conversations before a rule is proposed',
+      'Same-agent re-route window (minutes)',
+      'Archive an idle proposed rule after (days)',
+      'Auto-accept: conversations needed',
+      'Auto-accept: days of support needed',
+      'Auto-accept: share of past mail that must match',
+      'Minimum past-mail matches for an estimate',
+    ]) {
+      expect(screen.getByLabelText(label)).toBeInTheDocument();
+    }
+    expect(screen.getByRole('button', { name: 'Save routing settings' })).toBeInTheDocument();
   });
 
   it('renders both cards with secret status, and says where each value came from', () => {

@@ -1,8 +1,6 @@
 import { useEffect, useImperativeHandle, useRef, forwardRef, useState, useCallback } from 'react';
-import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
 import {
   Bold,
   Italic,
@@ -17,7 +15,11 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { editorHtmlToText, translatedTextToHtml, type SourceLists } from '@/lib/editorText';
+import { editorExtensions } from '@/lib/editorSchema';
+import { shieldPlaceholders } from '@/lib/replyPlaceholders';
 import { cn } from '@/lib/utils';
+import { TranslateButton } from './TranslateButton';
 
 type RichTextEditorProps = {
   content?: string;
@@ -37,6 +39,17 @@ type RichTextEditorProps = {
    * handed off (e.g. attached to the message) instead of being inserted inline.
    */
   onImageFiles?: (files: File[]) => void;
+  /**
+   * Adds a Translate control to the toolbar: the editor's text is translated and REPLACES the
+   * content in place (the toolbar's Undo / Ctrl+Z brings the original back). Plain text goes out;
+   * paragraphs, links and list lines come back — bold/italic/quotes are not kept.
+   */
+  translatable?: boolean;
+  /**
+   * Read-only for now, toolbar kept (no layout jump) — e.g. while an AI draft that will replace
+   * the content is being written. Unlike `editable`, it follows the prop after mount.
+   */
+  locked?: boolean;
 };
 
 // Pull image files out of a clipboard/drag DataTransfer. Covers both dropped/
@@ -92,6 +105,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       maxHeight,
       initiallyHidden = true,
       onImageFiles,
+      translatable = false,
+      locked = false,
     },
     ref
   ) => {
@@ -102,6 +117,11 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
     useEffect(() => {
       onSubmitRef.current = onSubmit;
     }, [onSubmit]);
+    const restorePlaceholders = useRef((translated: string) => translated);
+    // The URLs of the links in the text being translated, by marker number.
+    const linkTargets = useRef<string[]>([]);
+    // Its <ol> items (number + paragraph) and paragraph count: which "n. " lines come back as a list.
+    const sourceLists = useRef<SourceLists>({ blocks: 0, items: [] });
     const onImageFilesRef = useRef(onImageFiles);
     useEffect(() => {
       onImageFilesRef.current = onImageFiles;
@@ -109,20 +129,9 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
 
     const editor = useEditor({
       extensions: [
-        StarterKit.configure({
-          heading: {
-            levels: [1, 2, 3],
-          },
-          link: false,
-        }),
+        ...editorExtensions,
         Placeholder.configure({
           placeholder,
-        }),
-        Link.configure({
-          openOnClick: false,
-          HTMLAttributes: {
-            class: 'text-primary underline hover:text-primary/80',
-          },
         }),
       ],
       content,
@@ -161,6 +170,12 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
         },
       },
     });
+
+    // ⛔ useEditor reads `editable` once. Without this a lock is only a CSS dimming: the keyboard
+    // still types into it, and Cmd+Enter still submits.
+    useEffect(() => {
+      editor?.setEditable(editable && !locked);
+    }, [editor, editable, locked]);
 
     // Update editor content when content prop changes
     useEffect(() => {
@@ -365,6 +380,43 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
             >
               <Redo className="h-4 w-4" />
             </Button>
+
+            {translatable && (
+              <>
+                <div className="w-px h-8 bg-border mx-1" />
+                <TranslateButton
+                  getText={() => {
+                    // Template placeholders and links go out as markers, so the model cannot reword
+                    // a placeholder, and a link is rebuilt around its translated words.
+                    linkTargets.current = [];
+                    sourceLists.current = { blocks: 0, items: [] };
+                    const shielded = shieldPlaceholders(
+                      editorHtmlToText(editor.getHTML(), {
+                        linkTargets: linkTargets.current,
+                        lists: sourceLists.current,
+                      })
+                    );
+                    restorePlaceholders.current = shielded.restore;
+                    return shielded.text;
+                  }}
+                  clearable={false}
+                  onTranslated={(translated) =>
+                    editor
+                      .chain()
+                      .focus()
+                      .setContent(
+                        translatedTextToHtml(
+                          restorePlaceholders.current(translated),
+                          linkTargets.current,
+                          sourceLists.current
+                        )
+                      )
+                      .run()
+                  }
+                  buttonClassName="inline-flex items-center justify-center h-8 w-8 p-0 rounded text-muted-foreground hover:text-foreground"
+                />
+              </>
+            )}
 
             {initiallyHidden && (
               <>

@@ -224,7 +224,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const suspiciousQueueCount = arrivalCounts['suspicious_queue'] ?? 0;
   const hasQueues = arrivalRows.length > 0 || needsRoutingCount > 0 || suspiciousQueueCount > 0;
 
-  const showLearning = learning.isOrgAdmin;
+  const showLearning = learning.showLearning;
   const learningNotes = showLearning ? learning.notifications : [];
   const learningSuggestions = showLearning ? learning.suggestions : [];
   const learningUnread = showLearning ? learning.unreadCount : 0;
@@ -688,7 +688,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                   </>
                 ) : null}
 
-                {/* Learning — auto-actions (admin only) */}
+                {/* Learning — auto-actions (admins and routing managers) */}
                 {learningNotes.length > 0 && (
                   <>
                     <SectionLabel>Auto-actions ({learningNotes.length})</SectionLabel>
@@ -724,7 +724,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                   </>
                 )}
 
-                {/* Learning — pending suggestions (admin only) */}
+                {/* Learning — pending suggestions (admins and routing managers) */}
                 {learningSuggestions.length > 0 && (
                   <>
                     <SectionLabel>Pending suggestions ({learningSuggestions.length})</SectionLabel>
