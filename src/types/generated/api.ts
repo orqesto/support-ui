@@ -609,9 +609,19 @@ export interface components {
                 adminConfirmedBy?: number;
                 autoAcceptedAt?: string;
                 declineReason?: string;
+                siblingRuleId?: number;
                 proposal?: {
+                    /** @enum {string} */
+                    role?: "anchor" | "sibling";
+                    anchorRuleId?: number;
                     suggestionId?: number;
                     groupId?: number;
+                    supportTruncated?: boolean;
+                    warnOverlap?: {
+                        ruleId: number;
+                        departmentId: number;
+                        similarity: number;
+                    };
                 };
             } | null;
         };
