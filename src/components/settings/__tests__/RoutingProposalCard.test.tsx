@@ -355,17 +355,26 @@ describe('propose_rule card', () => {
     expect(calls.update).toEqual([[10, { value: 'pallet labels', type: 'body_contains' }]]);
   });
 
-  it('Edit of a subject/body pair changes both rules’ keyword, never their type', async () => {
+  it('Edit of a subject/body pair sends ONE PATCH (anchor only, no type)', async () => {
     renderCard(suggestion('propose_rule', { ...PROPOSE.payload, siblingRuleId: 12 }));
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     expect(screen.queryByText('Where to look')).toBeNull();
     fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: 'pallet labels' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save and accept' }));
     await waitFor(() => expect(calls.accept).toEqual([[77]]));
-    expect(calls.update).toEqual([
-      [10, { value: 'pallet labels' }],
-      [12, { value: 'pallet labels' }],
-    ]);
+    expect(calls.update).toEqual([[10, { value: 'pallet labels' }]]);
+  });
+
+  it('a 409 on a pair edit shows the message, goes stale and sends no second request', async () => {
+    const err = await real409('Pair keywords changed');
+    impl.update = () => Promise.reject(err as Error);
+    renderCard(suggestion('propose_rule', { ...PROPOSE.payload, siblingRuleId: 12 }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save and accept' }));
+    await waitFor(() => expect(props.onError).toHaveBeenCalledWith('Pair keywords changed'));
+    expect(props.onStale).toHaveBeenCalled();
+    expect(calls.update).toHaveLength(1);
+    expect(calls.accept).toEqual([]);
   });
 
   it('a refused edit does not accept', async () => {

@@ -117,7 +117,7 @@ const Evidence = ({ dept, deptNameById }: { dept: ProposalDepartmentEvidence; de
       {dept.supportCount > 0 && <p>{supportLine(dept)}</p>}
       {dept.replay && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="break-words">{replayLine(dept.replay, name)}</span>
+          <span className="min-w-0 break-words">{replayLine(dept.replay, name)}</span>
           {dept.replay.recommendation && (
             <Badge size="sm" variant={BADGE[dept.replay.recommendation].variant}>
               {BADGE[dept.replay.recommendation].label}
@@ -293,7 +293,7 @@ export const RoutingProposalCard = ({
   }
 
   const dept = evidenceFor(ruleId);
-  // A subject/body pair is one proposal: Edit changes both keywords and leaves each rule's type.
+  // A subject/body pair is one proposal: one PATCH to the anchor moves both keywords (BE, one transaction); no type change.
   const canChooseType =
     siblingRuleId === undefined && (draftType === 'body_contains' || draftType === 'subject_contains');
   const saveAndAccept = () =>
@@ -305,7 +305,6 @@ export const RoutingProposalCard = ({
         ruleId,
         canChooseType ? { value, type: draftType as RoutingRuleType } : { value }
       );
-      if (siblingRuleId !== undefined) await routingRuleService.update(siblingRuleId, { value });
       await learningService.acceptSuggestion(suggestion.id);
     });
 

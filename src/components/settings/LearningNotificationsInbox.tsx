@@ -111,8 +111,11 @@ const evidenceHighlights = (evidence: Record<string, unknown>): string[] => {
   const cluster = formatNumber(evidence.clusterSize);
   if (cluster !== null) out.push(`Cluster ${cluster}`);
   // A routing auto-accept (BE routingProposalPass.ts): the bars it cleared.
-  const conversations = formatNumber(evidence.weightedConversations);
-  if (conversations !== null) out.push(`Conversations ${conversations}`);
+  const weighted = evidence.weightedConversations;
+  if (typeof weighted === 'number' && Number.isFinite(weighted)) {
+    // Weighted counts are fractional: read like the card ("about 5"), whole numbers as they are.
+    out.push(`Conversations ${Number.isInteger(weighted) ? weighted : `about ${Math.max(1, Math.round(weighted))}`}`);
+  }
   const spanDays = formatNumber(evidence.spanDays);
   if (spanDays !== null) out.push(`Over ${spanDays} days`);
   const replay = evidence.replay;
