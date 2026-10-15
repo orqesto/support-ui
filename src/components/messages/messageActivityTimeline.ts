@@ -77,6 +77,8 @@ type RoutingRuleDetail = {
   acceptedBy?: { name?: string } | null;
   acceptedAt?: string | null;
   autoAccepted?: boolean;
+  /** The rule's part of the route. Absent from a BE older than the share field. */
+  share?: number;
 };
 
 /** Routes a rule's score chose (incl. legacy rows with no rule shares): worded "by a rule". */
@@ -84,10 +86,47 @@ const RULE_REASONS = new Set(['rule_strong', 'rule_ai_agree', 'rule_decisive']);
 /** Routes the embedding similarity chose. */
 const SIMILARITY_REASONS = new Set(['embedding_strong', 'embedding_override']);
 
+type LiveRule = RoutingRuleDetail & { value: string };
+const isLive = (rule: RoutingRuleDetail | undefined): rule is LiveRule =>
+  typeof rule?.value === 'string' && !rule.deleted;
+const hasShare = (rule: RoutingRuleDetail): boolean =>
+  typeof rule.share === 'number' && Number.isFinite(rule.share);
+const shareOf = (rule: RoutingRuleDetail): number =>
+  hasShare(rule) ? (rule.share as number) : -Infinity;
+
 /**
- * The synthetic entry GET /activity appends for an automatic route (spec 2026-10-14 §3.9).
+ * The live rule that carried the route: the largest share. With no shares (a BE older than the
+ * field) this is the first live rule, as before — a strict `>` keeps the earlier rule on a tie.
+ */
+const leadingLiveRule = (rules: RoutingRuleDetail[]): LiveRule | undefined => {
+  let leading: LiveRule | undefined;
+  for (const rule of rules.filter(isLive)) {
+    if (!leading || shareOf(rule) > shareOf(leading)) leading = rule;
+  }
+  return leading;
+};
+
+const isAccepted = (rule: RoutingRuleDetail): boolean =>
+  !!rule.acceptedBy || rule.autoAccepted === true;
+
+/** `by rule "<value>" (accepted by <name>, <date>)` — the parenthetical only when accepted. */
+const byRule = (dept: string, rule: LiveRule): string => {
+  const when = shortDate(rule.acceptedAt);
+  const by = rule.acceptedBy?.name
+    ? ` (accepted by ${rule.acceptedBy.name}${when ? `, ${when}` : ''})`
+    : rule.autoAccepted
+      ? ` (accepted automatically${when ? `, ${when}` : ''})`
+      : '';
+  return `Routed to ${dept} by rule "${rule.value}"${by}`;
+};
+
+/**
+ * The synthetic entry GET /activity appends for an automatic route (spec 2026-10-14 §3.9, §9).
  * The wording follows the REASON, never whether `rules` is empty: legacy rule rows carry no
  * shares and must not read as a similarity route. Unknown reasons fall back to "automatically".
+ * A similarity route whose largest-share live rule is an ACCEPTED rule names that rule (§9): the
+ * accepted rule is what carried it. Without shares (older BE) a similarity route keeps the
+ * similarity wording — the stored order cannot say which rule led.
  */
 export function routingDecisionLabel(details: Record<string, unknown> | null): string {
   const dept =
@@ -98,23 +137,19 @@ export function routingDecisionLabel(details: Record<string, unknown> | null): s
   if (reason === 'sender_history')
     return `Routed to ${dept} — where this sender’s mail usually goes`;
   if (reason === 'ai_primary') return `Routed to ${dept} by the AI classifier`;
-  if (typeof reason === 'string' && SIMILARITY_REASONS.has(reason))
-    return `Routed to ${dept} by similarity to earlier conversations`;
+  const rules = Array.isArray(details?.['rules']) ? (details['rules'] as RoutingRuleDetail[]) : [];
+  const leading = leadingLiveRule(rules);
+  if (typeof reason === 'string' && SIMILARITY_REASONS.has(reason)) {
+    return leading && hasShare(leading) && isAccepted(leading)
+      ? byRule(dept, leading)
+      : `Routed to ${dept} by similarity to earlier conversations`;
+  }
   if (typeof reason !== 'string' || !RULE_REASONS.has(reason))
     return `Routed to ${dept} automatically`;
-  const rules = Array.isArray(details?.['rules']) ? (details['rules'] as RoutingRuleDetail[]) : [];
-  const rule =
-    rules.find((entry) => typeof entry?.value === 'string' && !entry.deleted) ?? rules[0];
-  if (!rule) return `Routed to ${dept} by a rule`;
-  if (rule.deleted || typeof rule.value !== 'string')
-    return `Routed to ${dept} by a rule that has since been deleted`;
-  const when = shortDate(rule.acceptedAt);
-  const by = rule.acceptedBy?.name
-    ? ` (accepted by ${rule.acceptedBy.name}${when ? `, ${when}` : ''})`
-    : rule.autoAccepted
-      ? ` (accepted automatically${when ? `, ${when}` : ''})`
-      : '';
-  return `Routed to ${dept} by rule "${rule.value}"${by}`;
+  if (leading) return byRule(dept, leading);
+  return rules.length > 0
+    ? `Routed to ${dept} by a rule that has since been deleted`
+    : `Routed to ${dept} by a rule`;
 }
 
 export function auditEntryLabel(action: string, details: Record<string, unknown> | null): string {
