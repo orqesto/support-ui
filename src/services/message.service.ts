@@ -87,6 +87,7 @@ export type MessageSourceOption = {
   enabled: boolean;
 };
 
+/** `id` is negative for the synthetic `routing.decision` entries the BE appends (no audit row behind them). */
 export type MessageActivityEntry = {
   id: number;
   action: string;
