@@ -5,6 +5,7 @@ import { DefaultStorageCard } from '@/components/console/platformDefaults/Defaul
 import { ReasoningCard } from '@/components/console/platformDefaults/ReasoningCard';
 import { KbCaptureCard } from '@/components/console/platformDefaults/KbCaptureCard';
 import { CustomApiHealthCard } from '@/components/console/platformDefaults/CustomApiHealthCard';
+import { RoutingProposalsCard } from '@/components/console/platformDefaults/RoutingProposalsCard';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { Alert } from '@/components/ui/Alert';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
@@ -22,7 +23,7 @@ export const PlatformDefaults = () => {
     <div className="space-y-6">
       <ConsolePageHeader
         title="Platform Defaults"
-        description="Managed-AI models, cost rates, default storage, knowledge-base capture and custom API health — resolved DB → environment → built-in default."
+        description="Managed-AI models, cost rates, default storage, knowledge-base capture, custom API health and routing proposals — resolved DB → environment → built-in default."
       />
 
       {query.isLoading ? (
@@ -43,6 +44,7 @@ export const PlatformDefaults = () => {
           <ReasoningCard reasoning={query.data.reasoning} />
           <KbCaptureCard kb={query.data.kb} />
           <CustomApiHealthCard customApi={query.data.customApi} />
+          <RoutingProposalsCard routing={query.data.routing} />
         </div>
       )}
     </div>

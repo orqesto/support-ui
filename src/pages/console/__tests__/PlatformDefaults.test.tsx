@@ -78,6 +78,7 @@ vi.mock('@/hooks/usePlatformSettings', () => ({
   useIsSavingPlatformReasoning: () => false,
   useUpdatePlatformKb: () => noopMutation,
   useUpdatePlatformCustomApi: () => noopMutation,
+  useUpdatePlatformRouting: () => noopMutation,
 }));
 
 const { PlatformDefaults } = await import('../PlatformDefaults');
@@ -92,14 +93,34 @@ describe('PlatformDefaults', () => {
   it('shows the knowledge-base capture setting (absent from this backend: says so)', () => {
     render(<PlatformDefaults />);
     expect(screen.getByText('Rewrite captured questions with AI')).toBeInTheDocument();
-    // Two cards say so on this backend: knowledge base and custom API health (2026-10-14).
-    expect(screen.getAllByText(/arrives with the next backend release/)).toHaveLength(2);
+    // Cards that say so on this backend: knowledge base, custom API health, routing proposals.
+    expect(screen.getAllByText(/arrive?s? with the next backend release/)).toHaveLength(3);
   });
 
   it('shows the custom API health card (absent from this backend: no inputs)', () => {
     render(<PlatformDefaults />);
     expect(screen.getByText('Custom API health')).toBeInTheDocument();
     expect(screen.queryByLabelText(/Nothing found in a row/)).toBeNull();
+  });
+
+  it('shows the routing proposals card, with its seven inputs when the backend has them', () => {
+    const field = (value: number) => ({ value, source: 'default' as const });
+    settings = {
+      ...SAMPLE,
+      routing: {
+        proposalMinConversations: field(3),
+        rerouteUndoMinutes: field(10),
+        dormantArchiveDays: field(90),
+        autoacceptMinConversations: field(5),
+        autoacceptMinDays: field(5),
+        autoacceptMinReplayRatio: field(0.9),
+        replayMinMatches: field(5),
+      },
+    };
+    render(<PlatformDefaults />);
+    expect(screen.getByText('Routing proposals')).toBeInTheDocument();
+    expect(screen.getAllByRole('spinbutton').length).toBeGreaterThanOrEqual(7);
+    expect(screen.getByRole('button', { name: 'Save routing settings' })).toBeInTheDocument();
   });
 
   it('renders both cards with secret status, and says where each value came from', () => {
