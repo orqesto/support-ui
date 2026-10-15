@@ -24,6 +24,7 @@ const impl = vi.hoisted(() => ({
   accept: async (): Promise<void> => {},
   update: async (): Promise<void> => {},
   evidence: null as unknown,
+  evidenceCall: null as null | (() => Promise<unknown>),
 }));
 
 vi.mock('@/services/learning.service', async (importOriginal) => {
@@ -32,7 +33,9 @@ vi.mock('@/services/learning.service', async (importOriginal) => {
     ...actual,
     learningService: {
       getSuggestionEvidence: () =>
-        Promise.resolve({ evidence: [], ruleA: null, ruleB: null, proposal: impl.evidence }),
+        impl.evidenceCall
+          ? impl.evidenceCall()
+          : Promise.resolve({ evidence: [], ruleA: null, ruleB: null, proposal: impl.evidence }),
       acceptSuggestion: async (...args: unknown[]) => {
         calls.accept.push(args);
         await impl.accept();
@@ -161,6 +164,7 @@ beforeEach(() => {
   impl.accept = async () => {};
   impl.update = async () => {};
   impl.evidence = evidence();
+  impl.evidenceCall = null;
 });
 afterEach(() => {
   cleanup();
@@ -467,7 +471,7 @@ describe('subject/body pair wording', () => {
     impl.evidence = pairEvidence('propose_rule');
     renderCard(suggestion('propose_rule', PAIR));
     expect(
-      await screen.findByText('Route mail mentioning "pallet label" in the message, and "label missing" in the subject, to Support')
+      await screen.findByText('Route mail mentioning "pallet label" in the message or "label missing" in the subject, to Support')
     ).toBeTruthy();
     expect(screen.getByText('Two rules that switch on together; Accept turns on both.')).toBeTruthy();
   });
@@ -476,7 +480,7 @@ describe('subject/body pair wording', () => {
     impl.evidence = pairEvidence('confirm_learned_rule');
     renderCard(suggestion('confirm_learned_rule', { ...CONFIRM.payload, siblingRuleId: 12 }));
     expect(
-      await screen.findByText(/Mail mentioning "loading dock" in the message, and "label missing" in the subject, routes to Support\..*Keep and Switch off act on both\./)
+      await screen.findByText(/Mail mentioning "loading dock" in the message or "label missing" in the subject, routes to Support\..*Keep and Switch off act on both\./)
     ).toBeTruthy();
   });
 
@@ -487,8 +491,53 @@ describe('subject/body pair wording', () => {
     });
     renderCard(DISAGREE);
     expect(
-      await screen.findAllByText('Two rules switch on together: "label missing" in the subject also goes there.')
+      await screen.findAllByText('Two rules switch on together: mail with "label missing" in the subject also goes there.')
     ).toHaveLength(1);
+  });
+
+  const NOTE = 'This is one of two rules (the other matches the subject); Accept turns on both.';
+  const pending = () => new Promise<unknown>(() => {});
+  const failing = () => Promise.reject(new Error('offline'));
+
+  it.each([
+    ['still loading', pending],
+    ['failed to load', failing],
+  ])('propose card with siblingRuleId and evidence %s: shows the note, Accept stays enabled', async (_label, call) => {
+    impl.evidenceCall = call;
+    renderCard(suggestion('propose_rule', PAIR));
+    expect(await screen.findByText(NOTE)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Accept' })).toHaveProperty('disabled', false);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByLabelText('Keyword in the message')).toBeTruthy();
+  });
+
+  it('confirm card and disagreement option carry the note while evidence is missing', async () => {
+    impl.evidenceCall = failing;
+    renderCard(suggestion('confirm_learned_rule', { ...CONFIRM.payload, siblingRuleId: 12 }));
+    expect(await screen.findByText('Keep and Switch off act on both.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Keep' })).toHaveProperty('disabled', false);
+    cleanup();
+    renderCard(
+      suggestion('resolve_routing_disagreement', {
+        ...DISAGREE.payload,
+        options: [
+          { departmentId: 1, ruleId: 10, siblingRuleId: 12, supportCount: 2 },
+          { departmentId: 2, ruleId: 11, siblingRuleId: null, supportCount: 1 },
+        ],
+      })
+    );
+    expect(
+      await screen.findAllByText('This is one of two rules (the other matches the subject); picking it turns on both.')
+    ).toHaveLength(1);
+  });
+
+  it('control: evidence loaded with sibling null shows no note even though the payload names a sibling', async () => {
+    renderCard(suggestion('propose_rule', PAIR));
+    await evidenceLoaded();
+    expect(screen.queryByText(NOTE)).toBeNull();
+    expect(screen.queryByText(/switch on together/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByLabelText('Keyword')).toBeTruthy();
   });
 
   it('a single rule shows no "and" wording, and an old BE (sibling absent) renders like single', async () => {

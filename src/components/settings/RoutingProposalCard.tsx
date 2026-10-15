@@ -86,7 +86,7 @@ const BADGE: Record<
   not_recommended: { label: 'Not recommended', variant: 'danger' },
 };
 
-type Option = { departmentId: number; ruleId: number; supportCount: number };
+type Option = { departmentId: number; ruleId: number; supportCount: number; siblingRuleId?: number | null };
 type Payload = {
   ruleId?: number;
   siblingRuleId?: number | null;
@@ -108,14 +108,14 @@ const optionsOf = (payload: Payload): Option[] =>
       )
     : [];
 
-/** `"X" in the message`, plus `, and "Y" in the subject` when the rule has a paired sibling rule. */
+/** `"X" in the message`, plus ` or "Y" in the subject` when the rule has a paired sibling rule (each routes alone). */
 const keywordPhrase = (
   value: string | undefined,
   ruleType: string | undefined,
   sibling: ProposalSiblingRule | null | undefined
 ): string => {
   const own = `"${value ?? ''}" ${ruleTypeWords(ruleType)}`;
-  return sibling ? `${own}, and "${sibling.value}" ${ruleTypeWords(sibling.type)},` : own;
+  return sibling ? `${own} or "${sibling.value}" ${ruleTypeWords(sibling.type)},` : own;
 };
 
 type NameOf = (id: number) => string | undefined;
@@ -235,6 +235,9 @@ export const RoutingProposalCard = ({
     run(key, () => learningService.declineSuggestion(suggestion.id, why));
 
   const deptName = (id: number | undefined) => (id === undefined ? 'a department' : labelOf(deptNameById, id));
+  // Until the evidence loads (or when its fetch fails) only the payload says a rule has a sibling; once loaded, trust dept.sibling.
+  const hasSibling = (dept: ProposalDepartmentEvidence | undefined, payloadSiblingId: unknown) =>
+    evidence ? !!dept?.sibling : typeof payloadSiblingId === 'number';
   const evidenceFor = (id: number | undefined) =>
     id === undefined ? undefined : evidence?.departments.find((dept) => dept.ruleId === id);
   const locked = busy !== null || !canAct;
@@ -272,7 +275,12 @@ export const RoutingProposalCard = ({
               </p>
               {dept?.sibling && (
                 <p className="break-words text-xs text-muted-foreground">
-                  {`Two rules switch on together: "${dept.sibling.value}" ${ruleTypeWords(dept.sibling.type)} also goes there.`}
+                  {`Two rules switch on together: mail with "${dept.sibling.value}" ${ruleTypeWords(dept.sibling.type)} also goes there.`}
+                </p>
+              )}
+              {!evidence && hasSibling(dept, option.siblingRuleId) && (
+                <p className="break-words text-xs text-muted-foreground">
+                  This is one of two rules (the other matches the subject); picking it turns on both.
                 </p>
               )}
               {dept && <Evidence dept={dept} deptNameById={deptNameById} />}
@@ -299,6 +307,9 @@ export const RoutingProposalCard = ({
         <p className="break-words text-xs text-muted-foreground">
           {`Mail mentioning ${keywordPhrase(payload.value, payload.ruleType, dept?.sibling)} routes to ${deptName(payload.departmentId)}. It keeps routing until you decide.${dept?.sibling ? ' These are two rules; Keep and Switch off act on both.' : ''}`}
         </p>
+        {!evidence && hasSibling(dept, siblingRuleId) && (
+          <p className="text-xs text-muted-foreground">Keep and Switch off act on both.</p>
+        )}
         {dept && <Evidence dept={dept} deptNameById={deptNameById} />}
         <div className="flex flex-wrap gap-2">
           {actionButton('keep', 'Keep', () => void accept('keep'))}
@@ -310,7 +321,7 @@ export const RoutingProposalCard = ({
 
   const dept = evidenceFor(ruleId);
   // A pair edit changes the anchor's keyword only; the sibling keeps its own keyword (edit it on the Rules page). No type change.
-  const isPair = siblingRuleId !== undefined || !!dept?.sibling;
+  const isPair = hasSibling(dept, siblingRuleId);
   const canChooseType =
     !isPair && (draftType === 'body_contains' || draftType === 'subject_contains');
   const saveAndAccept = () =>
@@ -332,6 +343,11 @@ export const RoutingProposalCard = ({
       </p>
       {dept?.sibling && (
         <p className="text-xs text-muted-foreground">Two rules that switch on together; Accept turns on both.</p>
+      )}
+      {!evidence && hasSibling(dept, siblingRuleId) && (
+        <p className="text-xs text-muted-foreground">
+          This is one of two rules (the other matches the subject); Accept turns on both.
+        </p>
       )}
       {dept && <Evidence dept={dept} deptNameById={deptNameById} />}
       {evidence?.autoAccept.mode === 'manual' && evidence.autoAccept.eligibleInBalanced && (
