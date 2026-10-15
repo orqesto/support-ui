@@ -7,10 +7,10 @@ import { WhyParked } from '@/components/messages/WhyParked';
 import { Select } from '@/components/ui/Select';
 import { labelPickerEmptyText, type LabelsStatus } from '@/components/shared/labelPickerText';
 import { Button } from '@/components/ui/Button';
-import { Toggle } from '@/components/ui/Toggle';
 import { useDepartmentById, useDepartments } from '@/hooks/useDepartments';
 import { usePermissions } from '@/hooks/usePermissions';
 import { messageService } from '@/services/message.service';
+import { showRouteLearningNote } from '@/lib/routingCopy';
 import { useAuthStore } from '@/stores/authStore';
 import { Permission } from '@/types/roles';
 import type { Message, Category } from '@/types';
@@ -95,14 +95,6 @@ export function HeaderMetaStrip({
   const canRoute = hasPermission(Permission.MANAGE_MESSAGES);
   const [editingDept, setEditingDept] = useState(false);
   const [savingDept, setSavingDept] = useState(false);
-  // "Create rule" is a distinct action from routing: routing (dropdown) moves the conv
-  // WITHOUT training; this explicitly mints a rule for the conv's CURRENT department. Kept
-  // separate because react-select won't re-fire onChange for the already-selected dept, so
-  // a toggle-then-reselect flow can't work — an explicit button always can.
-  // When on, routing (picking a department) ALSO mints a content→dept rule so
-  // similar messages route automatically next time. Off by default. Shown next to
-  // the dept picker while it's open — including for needs_routing conversations.
-  const [createRule, setCreateRule] = useState(false);
 
   // Only offer depts the user can actually route to. The BE bypass-list mirrors
   // here so the picker matches what'd actually be accepted:
@@ -120,21 +112,18 @@ export function HeaderMetaStrip({
 
   const handleDeptChange = async (value: string) => {
     const nextId = Number(value);
-    // For a needs_routing message the departmentId is just the first-active
-    // PLACEHOLDER (the column is NOT NULL), so routing it to that same dept is a
-    // real triage action — not a no-op — and must fire. An active-conv re-route to
-    // its current dept is normally a no-op — UNLESS "Create rule" is on, in which
-    // case picking the same dept is a deliberate "train a rule for this dept".
-    const sameDeptNoop = !needsRouting && nextId === message.departmentId && !createRule;
+    // For a needs_routing message the departmentId is only the first-active PLACEHOLDER (the
+    // column is NOT NULL), so routing it to that same department is a real triage; an active
+    // thread's same department is a no-op. Every real route is learning evidence on the backend.
+    const sameDeptNoop = !needsRouting && nextId === message.departmentId;
     if (!Number.isFinite(nextId) || sameDeptNoop) {
       setEditingDept(false);
       return;
     }
     setSavingDept(true);
     try {
-      // `learn` is never sent (routing-proposals spec §4.2): every route is learning
-      // evidence on the BE. The "Create rule" toggle is now inert; Task 20 removes it.
-      await messageService.manualRoute(message.id, nextId);
+      // `learn` is never sent (routing-proposals spec §4.2): every route is learning evidence.
+      showRouteLearningNote(await messageService.manualRoute(message.id, nextId));
       // Routing a needs_routing message removes it from the queue — refresh the
       // sidebar badge immediately instead of waiting for the 60s poll.
       void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
@@ -186,18 +175,6 @@ export function HeaderMetaStrip({
               onBlur={() => setEditingDept(false)}
               className="min-w-[140px]"
             />
-            {/* "Create rule" toggle — appears with the dept picker (incl. needs_routing).
-                When on, picking a department also mints a content→dept routing rule.
-                onMouseDown preventDefault keeps the picker focused so toggling doesn't
-                trip the select's onBlur and close the editor first. */}
-            <span onMouseDown={(event) => event.preventDefault()}>
-              <Toggle
-                checked={createRule}
-                onChange={setCreateRule}
-                disabled={savingDept}
-                label="Create rule"
-              />
-            </span>
           </div>
         ) : (
           <Button
