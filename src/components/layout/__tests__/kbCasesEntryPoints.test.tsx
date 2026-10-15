@@ -37,7 +37,10 @@ vi.mock('@/hooks/useEmailProcessing', () => ({
 vi.mock('@/hooks/useAllianceAdmin', () => ({ useMyAlliances: () => ({ data: [] }) }));
 vi.mock('@/hooks/useFeatures', () => ({ useFeatures: () => ({ hasFeature: () => true }) }));
 vi.mock('@/hooks/useBackendVersion', () => ({ useBackendVersion: () => ({ data: undefined }) }));
-vi.mock('@/hooks/useNotificationCounts', () => ({ useNotificationCounts: () => ({ counts: {} }) }));
+vi.mock('@/hooks/useNotificationCounts', () => ({
+  NOTIFICATION_COUNTS_KEY: ['notification-counts'],
+  useNotificationCounts: () => ({ counts: {} }),
+}));
 vi.mock('@/hooks/useTicketsCount', () => ({ useTicketsCount: () => ({ data: 0 }) }));
 vi.mock('@/hooks/useSLANotifications', () => ({ useSLANotifications: () => ({}) }));
 vi.mock('@/hooks/useLearningNotifications', () => ({ useLearningNotifications: () => ({}) }));

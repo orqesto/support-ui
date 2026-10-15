@@ -80,6 +80,7 @@ import { MOBILE_SHEET, MOBILE_SHEET_ITEM } from './relatedStyles';
 import { useHeaderFocusReturn } from './useHeaderFocusReturn';
 import { asManualMerge, type MergeChange } from './useThreadMergeContext';
 import { useThreadTicketsState } from './useThreadTicketsState';
+import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -867,7 +868,7 @@ export function MessageDetailHeader({
         setRoutingTo(deptId);
         showRouteLearningNote(await messageService.manualRoute(message.id, deptId));
         // Left the needs_routing queue — refresh the sidebar badge immediately.
-        void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
+        void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
         onRefresh?.();
       } catch (err) {
         logger.error('Failed to manually route:', err);

@@ -72,7 +72,7 @@ import { sortingToPreset, presetToSorting } from '@/components/messages/sortPres
 import { scopeJumpUrl } from '@/hooks/scopeJumpUrl';
 import { useMessagesData } from '@/hooks/useMessagesData';
 import { useMessagesUrlSync } from '@/hooks/useMessagesUrlSync';
-import { useNotificationCounts } from '@/hooks/useNotificationCounts';
+import { NOTIFICATION_COUNTS_KEY, useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
@@ -703,7 +703,7 @@ export const MessagesPage = () => {
       setDeleting(false);
     }
     clearCache();
-    void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
+    void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
     setDeleteDialogOpen(false);
     similarResultsCache.delete(target.id);
     setMessageToDelete(null);
@@ -754,7 +754,7 @@ export const MessagesPage = () => {
       bumpKanban();
       // The routed conv left the needs_routing queue — refresh the sidebar badge
       // too (this handler's contract, but it was previously only refreshing list+kanban).
-      void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
+      void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
     };
     subscribeToEvent('conversation:routed', handleConversationRouted);
     return () => unsubscribeFromEvent('conversation:routed', handleConversationRouted);
@@ -912,7 +912,7 @@ export const MessagesPage = () => {
         );
         clearCache();
         bumpKanban();
-        void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
+        void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
         await fetchMessages(messagesPagination.page, true);
         setSelectedMessage(null);
       }}

@@ -149,7 +149,7 @@ describe('MessageDetailPage — More → Delete message', () => {
     expect(api.delete).toHaveBeenCalledTimes(1);
     expect(api.delete).toHaveBeenCalledWith('/api/messages/42');
     expect(useMessagesStore.getState().getCached('stale-page')).toBeFalsy();
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['needs-routing-count'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['notification-counts'] });
     expect(api.toastError).not.toHaveBeenCalled();
   });
 
@@ -222,7 +222,7 @@ describe('MessageDetailPage — More → Delete message', () => {
     finish({ data: { success: true } });
     // The delete's own side effects still happen …
     await waitFor(() =>
-      expect(invalidate).toHaveBeenCalledWith({ queryKey: ['needs-routing-count'] })
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ['notification-counts'] })
     );
     await new Promise((resolve) => setTimeout(resolve, 0));
     // … but the agent stays where they went.

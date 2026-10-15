@@ -62,9 +62,9 @@ vi.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ theme: 'light' })
 import { NeedsRoutingPage } from '../NeedsRoutingPage';
 import { ROUTE_LEARNING_NOTE } from '@/lib/routingCopy';
 
-const renderPage = () =>
+const renderPage = (client = new QueryClient()) =>
   render(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={client}>
       <MemoryRouter>
         <NeedsRoutingPage />
       </MemoryRouter>
@@ -108,5 +108,18 @@ describe('Needs Routing — every route counts', () => {
       expect(screen.queryByRole('button', { name: 'Route to the selected department' })).toBeNull()
     );
     expect(toastInfo.calls).toHaveLength(0);
+  });
+
+  it('refreshes the Needs Routing badge counts after a route (the key the badge reads)', async () => {
+    const client = new QueryClient();
+    const invalidated: unknown[] = [];
+    const original = client.invalidateQueries.bind(client);
+    client.invalidateQueries = ((filters?: { queryKey?: unknown }) => {
+      invalidated.push(filters?.queryKey);
+      return original(filters as never);
+    }) as typeof client.invalidateQueries;
+    renderPage(client);
+    await routeFirst();
+    await waitFor(() => expect(invalidated).toContainEqual(['notification-counts']));
   });
 });

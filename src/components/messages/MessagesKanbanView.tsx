@@ -30,7 +30,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/Badge';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
-import { useNotificationCounts } from '@/hooks/useNotificationCounts';
+import { NOTIFICATION_COUNTS_KEY, useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { messageService, type ListScope, type MessageThread } from '@/services/message.service';
 import { ListScopeNotice } from './ListScopeNotice';
 import { type FilterState, type SortingState } from '@/stores/messagesStore';
@@ -936,7 +936,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
           await messageService.classify(msgId, action, undefined, undefined, dndConfirmsSpam(action));
           // approve/move_to_spam on a needs_routing conv changes the badge — invalidate
           // so the sidebar count doesn't lag behind the 60s auto-refetch interval.
-          void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
+          void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
         }
       } catch (err) {
         logger.error(`Failed to move thread ${threadId} from ${fromColId} to ${toColId}:`, err);

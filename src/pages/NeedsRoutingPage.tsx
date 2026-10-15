@@ -20,6 +20,7 @@ import type { Message } from '@/types';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { showRouteLearningNote } from '@/lib/routingCopy';
+import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
 
 const PAGE_SIZE = 50;
 
@@ -142,7 +143,7 @@ export const NeedsRoutingPage = () => {
       const result = await messageService.manualRoute(id, deptId);
       showRouteLearningNote(result);
       // Refresh the sidebar count badge so it doesn't lag behind by up to 60s
-      void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
+      void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
       // Drop the row optimistically; if it was the last row on a page > 1,
       // step back so the user doesn't sit on an empty page.
       const remaining = messages.filter((msg) => msg.id !== id);
@@ -183,7 +184,7 @@ export const NeedsRoutingPage = () => {
     setRouteError(null);
     try {
       await messageService.classify(id, 'move_to_spam', undefined, undefined, true);
-      void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
+      void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
       const remaining = messages.filter((msg) => msg.id !== id);
       const nextTotal = Math.max(total - 1, 0);
       setSelectedDept((prev) => {

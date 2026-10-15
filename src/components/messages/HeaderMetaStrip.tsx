@@ -18,6 +18,7 @@ import type { Label } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
 import { LABEL } from './messageDetailConstants';
 import { tintedChip } from '@/lib/userColor';
+import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
 
 /** The label picker's drawn width — the ONE number its on-screen clamp also uses. */
 const LABEL_PICKER_WIDTH_PX = 200;
@@ -126,7 +127,7 @@ export function HeaderMetaStrip({
       showRouteLearningNote(await messageService.manualRoute(message.id, nextId));
       // Routing a needs_routing message removes it from the queue — refresh the
       // sidebar badge immediately instead of waiting for the 60s poll.
-      void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
+      void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
       onDepartmentChange?.();
     } catch (err) {
       logger.error('Failed to change department:', err);

@@ -15,6 +15,7 @@ vi.mock('@/services/message.service', () => ({
 }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'dept' }));
 vi.mock('@/hooks/useNotificationCounts', () => ({
+  NOTIFICATION_COUNTS_KEY: ['notification-counts'],
   useNotificationCounts: () => ({ counts: {}, clearKind: vi.fn() }),
 }));
 vi.mock('@/components/ui/Select', () => ({ Select: () => null }));
