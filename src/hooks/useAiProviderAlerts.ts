@@ -96,7 +96,13 @@ export const useAiProviderAlerts = () => {
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
-    const onChange = () => fetchAlerts();
+    // A ping naming another kind (the personal assignment kinds fan out to every tab) is not ours; a
+    // kind-less ping (older backend / other emitters) still refetches.
+    const onChange = (data?: unknown) => {
+      const kind = (data as { kind?: unknown } | null | undefined)?.kind;
+      if (typeof kind === 'string' && kind !== AI_PROVIDER_DOWN_KIND) return;
+      fetchAlerts();
+    };
     subscribeToEvent('notification:new', onChange);
     // The end of an outage is an event too. The backend deletes the row the moment the
     // provider answers again; without listening for that, a fixed provider kept its red card

@@ -74,6 +74,8 @@ vi.mock('@/lib/api-client', () => ({
   apiClient: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
 }));
 vi.mock('@/lib/socketManager', () => ({
+  getSocket: () => ({}),
+  releaseSocket: vi.fn(),
   subscribeToEvent: vi.fn(),
   unsubscribeFromEvent: vi.fn(),
 }));

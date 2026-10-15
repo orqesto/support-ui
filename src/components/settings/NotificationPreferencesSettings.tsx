@@ -8,6 +8,7 @@ type Prefs = {
   notifyMessages: boolean;
   notifyTicketFirstResponse: boolean;
   notifyTicketResolution: boolean;
+  notifyNewUnassigned: boolean;
 };
 
 const defaults: Prefs = {
@@ -15,6 +16,7 @@ const defaults: Prefs = {
   notifyMessages: true,
   notifyTicketFirstResponse: true,
   notifyTicketResolution: true,
+  notifyNewUnassigned: true,
 };
 
 const PreferenceRow = ({
@@ -108,6 +110,20 @@ export const NotificationPreferencesSettings = () => {
             label="Ticket resolution"
             checked={prefs.notifyTicketResolution}
             onChange={(val) => update({ notifyTicketResolution: val })}
+          />
+        </div>
+      </div>
+
+      <div>
+        <h3 className="font-display text-sm font-semibold mb-1">Inbox notifications</h3>
+        <p className="text-xs text-muted-foreground mb-3">
+          Live mail nobody is assigned to yet, in your departments. Assignments to you always notify you.
+        </p>
+        <div className="rounded-lg border border-border bg-card px-4">
+          <PreferenceRow
+            label="New unassigned messages"
+            checked={prefs.notifyNewUnassigned}
+            onChange={(val) => update({ notifyNewUnassigned: val })}
           />
         </div>
       </div>

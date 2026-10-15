@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Bell,
   X,
-  AlertTriangle,
-  Clock,
   ShieldAlert,
   Ban,
   Wand2,
@@ -15,10 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
-import {
-  type SLABreachNotification,
-  type UseSLANotificationsResult,
-} from '@/hooks/useSLANotifications';
+import { type UseSLANotificationsResult } from '@/hooks/useSLANotifications';
 import { type UseLearningNotificationsResult } from '@/hooks/useLearningNotifications';
 import { useNotificationCounts, type ArrivalKind } from '@/hooks/useNotificationCounts';
 import { useAiProviderAlerts } from '@/hooks/useAiProviderAlerts';
@@ -29,12 +24,14 @@ import {
 } from '@/hooks/useUnansweredOutboundAlerts';
 import { useIngestionDarkAlerts } from '@/hooks/useIngestionDarkAlerts';
 import { useIngestionGapAlerts } from '@/hooks/useIngestionGapAlerts';
+import { useWorkAlerts } from '@/hooks/useWorkAlerts';
 import { useKbReviewAlerts } from '@/hooks/useKbReviewAlerts';
 import { formatStaleAge } from '@/lib/kbStaleness';
 import { IngestionDarkSection } from '@/components/layout/IngestionDarkSection';
 import { IngestionGapSection } from '@/components/layout/IngestionGapSection';
 import { TokenLimitSection, useTokenLimitAlerts } from '@/components/layout/TokenLimitSection';
-import { formatBreachAmount } from '@/components/layout/notificationFormat';
+import { SLABreachItem } from '@/components/layout/SLABreachItem';
+import { WorkAlertsSection } from '@/components/layout/WorkAlertsSection';
 import { KbReviewSection } from '@/components/layout/KbReviewSection';
 import { UnansweredOutboundSection } from '@/components/layout/UnansweredOutboundSection';
 import { notificationPanelPosition, type PanelPosition } from './notificationPanelPosition';
@@ -48,27 +45,6 @@ import { notificationPanelPosition, type PanelPosition } from './notificationPan
 // only appear when there's content for them.
 
 const PANEL_PEEK_LIMIT = 5;
-
-/**
- * ⚠️ The default arm is load-bearing, not defensive padding. The bell's kind filter is
- * deliberately fail-OPEN (a real breach must never be hidden by a denylist), so any kind
- * without its own surface lands here — `ai_provider_down` and `mailbox_address_undeclared`
- * do today. With no default this returned `undefined` and the row rendered as an amber
- * breach with a blank label: worse than either showing it properly or not showing it,
- * because a blank row tells the reader nothing AND looks like a bug.
- */
-const typeLabel = (type: SLABreachNotification['type']): string => {
-  switch (type) {
-    case 'message':
-      return 'Message SLA';
-    case 'ticket_first_response':
-      return 'Ticket — First Response';
-    case 'ticket_resolution':
-      return 'Ticket — Resolution';
-    default:
-      return 'Notification';
-  }
-};
 
 const formatRelativeTime = (iso: string): string => {
   const then = new Date(iso).getTime();
@@ -84,85 +60,6 @@ const SectionLabel = ({ children }: { children: React.ReactNode }) => (
     {children}
   </p>
 );
-
-const SLABreachItem = ({
-  notification,
-  onDismiss,
-}: {
-  notification: SLABreachNotification;
-  onDismiss: (id: number) => void;
-}) => {
-  const isCritical = notification.severity === 'critical';
-  const href =
-    notification.type === 'message'
-      ? `/messages/${notification.entityId}`
-      : `/tickets/${notification.entityId}`;
-  return (
-    <div
-      className={cn(
-        'relative flex gap-3 items-start p-3 text-sm rounded-lg border transition-opacity hover:opacity-90',
-        isCritical
-          ? 'bg-destructive-muted border-destructive-line'
-          : 'bg-warning-muted border-warning-line'
-      )}
-    >
-      <AlertTriangle
-        className={cn('mt-0.5 w-4 h-4 shrink-0', isCritical ? 'text-destructive' : 'text-warning')}
-      />
-      <div className="flex-1 min-w-0">
-        <div className="flex gap-2 justify-between items-center">
-          <span className="font-medium text-foreground">{typeLabel(notification.type)}</span>
-          <div className="flex gap-1 items-center shrink-0">
-            <span
-              className={cn(
-                'text-xs font-semibold shrink-0',
-                isCritical ? 'text-destructive' : 'text-warning'
-              )}
-            >
-              {formatBreachAmount(notification.breachAmount)}
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => onDismiss(notification.id)}
-              className="relative z-[2] flex justify-center items-center w-4 h-4 p-0 rounded hover:bg-black/10 dark:hover:bg-white/10 text-muted-foreground"
-              title="Dismiss"
-              aria-label="Dismiss"
-            >
-              <X className="w-3 h-3" />
-            </Button>
-          </div>
-        </div>
-        <p className="mt-0.5 truncate text-muted-foreground">
-          {notification.details.title ??
-            notification.details.subject ??
-            notification.details.sender}
-        </p>
-        <div className="flex gap-2 items-center mt-1 text-xs text-muted-foreground">
-          {notification.details.channel && (
-            <span className="capitalize">{notification.details.channel}</span>
-          )}
-          {notification.details.priority && (
-            <span className="capitalize">{notification.details.priority} priority</span>
-          )}
-          <span className="flex gap-1 items-center ml-auto">
-            <Clock className="w-3 h-3" />
-            {notification.details.targetMinutes !== null &&
-            notification.details.targetMinutes !== undefined
-              ? `SLA: ${notification.details.targetMinutes < 60 ? `${notification.details.targetMinutes}m` : `${Math.round(notification.details.targetMinutes / 60)}h`}`
-              : ''}
-          </span>
-        </div>
-      </div>
-      <Link
-        to={href}
-        className="absolute inset-0 z-[1] rounded-lg"
-        aria-label={typeLabel(notification.type)}
-      />
-    </div>
-  );
-};
 
 // Spam arrival queue → aggregate row that drills into the inbox filter.
 // NOTE: Suspicious is intentionally NOT here — it is rendered below as a LIVE
@@ -194,6 +91,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
+  const work = useWorkAlerts();
   const { counts: arrivalCounts, clearKind } = useNotificationCounts();
   const { alerts: aiAlerts, dismiss: dismissAiAlert } = useAiProviderAlerts();
   const { alerts: staleKbAlerts, dismiss: dismissStaleKbAlert } = useStaleKbAlerts();
@@ -293,7 +191,9 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     // KB merges count once per department row, however many proposals it summarises.
     kbReview.rowCount +
     // A limit reached today and still in force: one since reset, or released in full, is unbadged.
-    tokenLimits.badged;
+    tokenLimits.badged +
+    // #957: both personal kinds are addressed to this reader.
+    work.unread;
   // With multiple content types present, label each section; otherwise stay minimal.
   const sectionCount =
     (hasQueues ? 1 : 0) +
@@ -305,7 +205,8 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     (hasIngestionGap ? 1 : 0) +
     (hasIngestionDark ? 1 : 0) +
     (hasKbReview ? 1 : 0) +
-    Number(tokenLimits.alerts.length > 0);
+    Number(tokenLimits.alerts.length > 0) +
+    Number(work.alerts.length > 0);
   const showSectionLabels = sectionCount > 1;
   const labelProps = { showLabel: showSectionLabels, SectionLabel };
   const isEmpty =
@@ -318,7 +219,8 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     !hasIngestionGap &&
     !hasIngestionDark &&
     !hasKbReview &&
-    tokenLimits.alerts.length === 0;
+    tokenLimits.alerts.length === 0 &&
+    work.alerts.length === 0;
 
   // Close when clicking outside
   useEffect(() => {
@@ -343,6 +245,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     if (!open) return;
     if (sla.unreadCount > 0) sla.markAllRead();
     if (showLearning && learning.unreadCount > 0) learning.markAllRead();
+    if (work.unread > 0) work.markAllRead(); // #957: the unfiltered read-all no longer reaches the personal kinds (BE R18)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -427,15 +330,22 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
               >
                 Only mine
               </Button>
-              {hasSla && (
+              {(hasSla || work.alerts.length > 0) && (
                 <Button
                   variant="ghost"
                   size="sm"
                   // Never hides the limit notices here: a current backend keeps them (R8), an older
                   // one dismissed them too — so they are re-read once dismiss-all answers.
-                  onClick={() => void sla.clearAll().then(tokenLimits.refresh)}
+                  // The unfiltered dismiss-all is shared with the whole team: only sent when there are SLA rows.
+                  // #957: also clears the personal alerts — per user, by kind (BE R18) — and re-reads them.
+                  onClick={() =>
+                    void Promise.all([hasSla ? sla.clearAll() : undefined, work.clearAll()]).then(() => {
+                      tokenLimits.refresh();
+                      work.refresh();
+                    })
+                  }
                   className="px-2 py-0.5 h-auto text-xs text-muted-foreground hover:text-foreground hover:bg-accent"
-                  title="Dismiss all SLA breaches"
+                  title="Dismiss all SLA breaches, and your assignment and new-mail alerts (only for you)"
                 >
                   Clear all
                 </Button>
@@ -522,6 +432,8 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                     ))}
                   </>
                 )}
+
+                <WorkAlertsSection work={work} {...labelProps} setOpen={setOpen} />
 
                 <IngestionGapSection
                   alerts={ingestionGapAlerts}
