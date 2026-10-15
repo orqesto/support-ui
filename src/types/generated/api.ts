@@ -591,6 +591,8 @@ export interface components {
             exampleText: string | null;
             weight: number;
             enabled: boolean;
+            /** @enum {string} */
+            lifecycle?: "proposed" | "active" | "declined" | "archived";
             tier?: string;
             lastMatchedAt: string | null;
             matchCount: number;
@@ -602,6 +604,14 @@ export interface components {
                     corroborations: number;
                     contradictions: number;
                     distinctConvsCount: number;
+                };
+                adminConfirmedAt?: string;
+                adminConfirmedBy?: number;
+                autoAcceptedAt?: string;
+                declineReason?: string;
+                proposal?: {
+                    suggestionId?: number;
+                    groupId?: number;
                 };
             } | null;
         };

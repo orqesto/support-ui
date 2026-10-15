@@ -67,6 +67,11 @@ const ACTION_META: Record<LearningAutoActionType, {
     icon: Trash2,
     className: 'text-destructive',
   },
+  auto_accept: {
+    label: 'Accepted automatically',
+    icon: CheckCircle2,
+    className: 'text-success',
+  },
 };
 
 const PAGE_SIZE = 20;

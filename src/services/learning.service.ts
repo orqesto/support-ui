@@ -88,7 +88,9 @@ export type LearningAutoActionType =
   | 'promote'
   | 'consolidate'
   | 'disable_provisional'
-  | 'delete_provisional';
+  | 'delete_provisional'
+  // A routing proposal the engine accepted on its own (balanced / aggressive trust mode).
+  | 'auto_accept';
 
 export type LearningNotification = {
   id: number;
@@ -125,6 +127,162 @@ export type SuggestionEvidenceResponse = {
    * (scannedCount > 0; often signals a false-positive conflict).
    */
   scannedCount?: number | null;
+  /** Fallback-scan rows on which a rule's pattern could not be checked. null on the stored-id path. */
+  skippedCount?: number | null;
+  /**
+   * Conflict evidence rows withheld from a department-scoped caller (counted, not shown).
+   * null = not counted (the fallback scan reads only the caller's departments); absent on an
+   * older backend and on routing proposal cards (whose counts are per department, below).
+   */
+  redactedCount?: number | null;
+  /** Routing proposal cards only; null for every other card and from an older backend. */
+  proposal?: RoutingProposalEvidence | null;
+};
+
+export const ROUTING_PROPOSAL_TYPES = [
+  'propose_rule',
+  'resolve_routing_disagreement',
+  'confirm_learned_rule',
+] as const;
+export type RoutingProposalType = (typeof ROUTING_PROPOSAL_TYPES)[number];
+export const isRoutingProposal = (suggestion: { domain: string; suggestionType: string }): boolean =>
+  suggestion.domain === 'routing' &&
+  (ROUTING_PROPOSAL_TYPES as readonly string[]).includes(suggestion.suggestionType);
+
+/** Mirrors the BE `ReplaySummary` (learning/engine/types.ts). */
+export type ReplaySummary = {
+  matches: number;
+  inDepartment: number;
+  ratio: number | null;
+  lookbackDays: number;
+  /** null when the backend sent no valid time — never rendered as the epoch. */
+  at: string | null;
+  /** Rows whose pattern test did not run; any skip withholds the recommendation. */
+  skipped: number;
+  /** The replay hit its row cap: `matches` is a lower bound ("at least N"). */
+  truncated: boolean;
+  recommendation: 'recommended' | 'review' | 'not_recommended' | null;
+};
+export type ProposalConversation = {
+  conversationId: number;
+  publicId: string | null;
+  subject: string | null;
+  departmentId: number | null;
+  routedBy: { id: number; name: string } | null;
+  /** null when the support entry carries no valid time (never the epoch). */
+  routedAt: string | null;
+};
+export type ProposalWarnOverlap = { ruleId: number; departmentId: number; similarity: number };
+export type ProposalDepartmentEvidence = {
+  departmentId: number;
+  ruleId: number;
+  /** Weighted conversation count (a bulk route weighs less than 1). */
+  supportCount: number;
+  agents: number;
+  firstAt: string | null;
+  lastAt: string | null;
+  conversations: ProposalConversation[];
+  /** Conversations outside the caller's departments: counted, not shown. */
+  redactedCount: number;
+  contradictions: Array<{ departmentId: number; count: number }>;
+  replay: ReplaySummary | null;
+  /** This department's rule overlaps a live rule of another department (warn band). */
+  warnOverlap: ProposalWarnOverlap | null;
+};
+export type RoutingProposalEvidence = {
+  kind: RoutingProposalType;
+  departments: ProposalDepartmentEvidence[];
+  autoAccept: { mode: TrustMode; eligibleInBalanced: boolean };
+};
+
+const isObj = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === 'object' && !Array.isArray(value);
+const num = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+const strOrNull = (value: unknown): string | null => (typeof value === 'string' ? value : null);
+/** An ISO time the card can render; anything unparsable ⇒ null (never "Invalid Date" / epoch). */
+const timeOrNull = (value: unknown): string | null =>
+  typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : null;
+
+const toConversation = (raw: unknown): ProposalConversation | null => {
+  if (!isObj(raw) || !num(raw.conversationId)) return null;
+  const by =
+    isObj(raw.routedBy) && num(raw.routedBy.id) && typeof raw.routedBy.name === 'string'
+      ? { id: raw.routedBy.id, name: raw.routedBy.name }
+      : null;
+  return {
+    conversationId: raw.conversationId,
+    publicId: strOrNull(raw.publicId),
+    subject: strOrNull(raw.subject),
+    departmentId: num(raw.departmentId) ? raw.departmentId : null,
+    routedBy: by,
+    routedAt: timeOrNull(raw.routedAt),
+  };
+};
+
+const toReplay = (raw: unknown): ReplaySummary | null => {
+  if (!isObj(raw) || !num(raw.matches) || !num(raw.inDepartment) || !num(raw.lookbackDays)) return null;
+  const rec = raw.recommendation;
+  return {
+    matches: raw.matches,
+    inDepartment: raw.inDepartment,
+    ratio: num(raw.ratio) ? raw.ratio : null,
+    lookbackDays: raw.lookbackDays,
+    at: timeOrNull(raw.at),
+    skipped: num(raw.skipped) ? raw.skipped : 0,
+    truncated: raw.truncated === true,
+    recommendation: rec === 'recommended' || rec === 'review' || rec === 'not_recommended' ? rec : null,
+  };
+};
+
+const toWarnOverlap = (raw: unknown): ProposalWarnOverlap | null =>
+  isObj(raw) && num(raw.ruleId) && num(raw.departmentId) && num(raw.similarity)
+    ? { ruleId: raw.ruleId, departmentId: raw.departmentId, similarity: raw.similarity }
+    : null;
+
+/** The `proposal` block of the evidence response; anything else (older backend) ⇒ null. */
+export const normalizeProposalEvidence = (raw: unknown): RoutingProposalEvidence | null => {
+  if (
+    !isObj(raw) ||
+    !(ROUTING_PROPOSAL_TYPES as readonly unknown[]).includes(raw.kind) ||
+    !Array.isArray(raw.departments)
+  ) {
+    return null;
+  }
+  const departments = raw.departments.flatMap((dept): ProposalDepartmentEvidence[] => {
+    if (!isObj(dept) || !num(dept.departmentId) || !num(dept.ruleId)) return [];
+    return [
+      {
+        departmentId: dept.departmentId,
+        ruleId: dept.ruleId,
+        supportCount: num(dept.supportCount) ? dept.supportCount : 0,
+        agents: num(dept.agents) ? dept.agents : 0,
+        firstAt: timeOrNull(dept.firstAt),
+        lastAt: timeOrNull(dept.lastAt),
+        conversations: Array.isArray(dept.conversations)
+          ? dept.conversations
+              .map(toConversation)
+              .filter((row): row is ProposalConversation => row !== null)
+          : [],
+        redactedCount: num(dept.redactedCount) ? dept.redactedCount : 0,
+        contradictions: Array.isArray(dept.contradictions)
+          ? dept.contradictions
+              .filter((entry): entry is { departmentId: number; count: number } =>
+                isObj(entry) && num(entry.departmentId) && num(entry.count)
+              )
+              .map((entry) => ({ departmentId: entry.departmentId, count: entry.count }))
+          : [],
+        replay: toReplay(dept.replay),
+        warnOverlap: toWarnOverlap(dept.warnOverlap),
+      },
+    ];
+  });
+  const auto = isObj(raw.autoAccept) ? raw.autoAccept : {};
+  const mode: TrustMode = auto.mode === 'balanced' || auto.mode === 'aggressive' ? auto.mode : 'manual';
+  return {
+    kind: raw.kind as RoutingProposalType,
+    departments,
+    autoAccept: { mode, eligibleInBalanced: auto.eligibleInBalanced === true },
+  };
 };
 
 export const learningService = {
@@ -164,13 +322,17 @@ export const learningService = {
       success: boolean;
       data: SuggestionEvidenceResponse;
     }>(`/api/learning/suggestions/${id}/evidence`);
-    return (
-      response.data.data ?? { evidence: [], ruleA: null, ruleB: null, scannedCount: null }
-    );
+    const data = response.data.data;
+    if (!data) return { evidence: [], ruleA: null, ruleB: null, scannedCount: null, proposal: null };
+    return { ...data, proposal: normalizeProposalEvidence((data as { proposal?: unknown }).proposal) };
   },
 
-  async acceptSuggestion(id: number): Promise<void> {
-    await apiClient.post(`/api/learning/suggestions/${id}/accept`);
+  /**
+   * `body.departmentId` picks the department a disagreement card is accepted for (BE
+   * acceptSuggestionRoute); every other card is accepted with no department.
+   */
+  async acceptSuggestion(id: number, body?: { departmentId?: number }): Promise<void> {
+    await apiClient.post(`/api/learning/suggestions/${id}/accept`, body ?? {});
   },
 
   async declineSuggestion(id: number, reason?: string): Promise<void> {
