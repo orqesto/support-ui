@@ -117,13 +117,17 @@ export function ComposerAiActions({
     ⛔ This component is REMOUNTED per conversation (see the `key` where it is used). A response
     for the thread the agent just left must not land in the next customer's reply.
   */
+  //
+  // Set true in the effect BODY, not only by `useRef(true)`: React StrictMode (the dev server)
+  // mounts, cleans up and mounts again, and a ref only ever set false by the cleanup stayed false
+  // — every draft was then discarded and the button sat on "Drafting…" (demo, 2026-10-15).
   const mounted = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
       mounted.current = false;
-    },
-    []
-  );
+    };
+  }, []);
 
   const reportBusy = useRef(onBusyChange);
   reportBusy.current = onBusyChange;

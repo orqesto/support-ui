@@ -359,6 +359,44 @@ describe('Esc and in-flight guards', () => {
   });
 });
 
+describe('"Resolve & save to KB" shows its progress (demo, 2026-10-15)', () => {
+  it('🔴 after the confirm, the row reads "Saving to KB…" until the save returns', async () => {
+    let finish: (value: unknown) => void = () => {};
+    svc.message.resolve = vi.fn(() => new Promise((resolve) => (finish = resolve)));
+    const onResolve = vi.fn();
+    renderDetail(activeThread, { onResolve });
+    fireEvent.click(within(decisionsRow()!).getByRole('button', { name: 'Resolve & save to KB' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Resolve & Save to KB' })
+    );
+    await waitFor(() => expect(svc.message.resolve).toHaveBeenCalledTimes(1));
+
+    const saving = within(decisionsRow()!).getByRole('button', { name: /Saving to KB…/ });
+    expect(saving.getAttribute('aria-busy')).toBe('true');
+
+    await act(async () => {
+      finish({ success: true });
+      await Promise.resolve();
+    });
+    expect(onResolve).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/Saving to KB…/)).toBeNull();
+  });
+
+  it('control: the plain Resolve never says "Saving to KB"', async () => {
+    let finish: (value: unknown) => void = () => {};
+    svc.message.close = vi.fn(() => new Promise((resolve) => (finish = resolve)));
+    renderDetail(activeThread, { onResolve: vi.fn() });
+    fireEvent.click(within(decisionsRow()!).getByRole('button', { name: 'Resolve' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /Resolve/ }));
+    await waitFor(() => expect(svc.message.close).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(/Saving to KB…/)).toBeNull();
+    await act(async () => {
+      finish({ success: true });
+      await Promise.resolve();
+    });
+  });
+});
+
 describe('Send failed bar (v3)', () => {
   // The thread is already mine, so no "assign on reply?" prompt stands between Send and the call.
   const mine = { ...activeThread, assigneeId: 7 };

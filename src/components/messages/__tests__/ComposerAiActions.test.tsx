@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { StrictMode, useState } from 'react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-library/react';
 
@@ -415,5 +415,53 @@ describe('ComposerAiActions — the editor is the only input', () => {
       const { container } = render(<Host initial="" />);
       expect(container.innerHTML).toBe('');
     });
+  });
+});
+
+/**
+ * 🔴 Found recording a demo (2026-10-15): on the Vite dev server the AI draft button stayed on
+ * "Drafting…" although the API returned the draft. StrictMode mounts, cleans up and mounts again;
+ * the "still mounted" ref was set false by the cleanup and never back, so the response was
+ * dropped as if the agent had left the thread. Production does not double-mount.
+ */
+describe('ComposerAiActions — under StrictMode (the dev server)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    aiConfigured.value = true;
+    aiDrafts.off = false;
+    composeReply.mockResolvedValue({
+      data: { text: 'Your parcel is at the border.', language: 'en' },
+    });
+  });
+  afterEach(cleanup);
+
+  it('🔴 the draft lands and the button comes back from "Drafting…"', async () => {
+    render(
+      <StrictMode>
+        <Host initial="<p></p>" />
+      </StrictMode>
+    );
+    pressDraft();
+    await waitFor(() => expect(onApplied).toHaveBeenCalledTimes(1));
+    expect(composerNow).toContain('Your parcel is at the border.');
+    await waitFor(() => expect(draftButton().textContent).toContain('AI draft'));
+  });
+
+  it('control: a response that lands after unmount is still dropped', async () => {
+    const pending = deferred();
+    composeReply.mockReturnValue(pending.promise);
+    const { unmount } = render(
+      <StrictMode>
+        <Host initial="<p></p>" />
+      </StrictMode>
+    );
+    pressDraft();
+    await waitFor(() => expect(composeReply).toHaveBeenCalledTimes(1));
+    unmount();
+    await act(async () => {
+      pending.resolve({ data: { text: 'Late answer for another thread.' } });
+      await Promise.resolve();
+    });
+    expect(onApplied).not.toHaveBeenCalled();
   });
 });

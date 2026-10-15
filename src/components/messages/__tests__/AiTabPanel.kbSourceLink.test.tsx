@@ -85,3 +85,114 @@ describe('AiTabPanel — the KB option links to its entry', () => {
     ).toHaveLength(0);
   });
 });
+
+/**
+ * 🔴 Found recording a demo (2026-10-15): the source link cut a long title mid-word with no "…"
+ * ("…already in tr") — a hard `.slice(0, 80)` under a CSS `truncate` that then had nothing left to
+ * truncate. The full title is rendered (CSS adds the ellipsis) and kept in the tooltip.
+ */
+describe('AiTabPanel — a long source title is not cut mid-word', () => {
+  const longTitle =
+    'Q: Can I still change the delivery address for parcel BL-5893 that is already in transit?';
+  const full = longTitle.replace(/^Q:\s*/, '');
+
+  it('🔴 the link carries the whole title, in its text and its tooltip', async () => {
+    similar.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          source: 'documentation',
+          documentationId: 7,
+          documentTitle: longTitle,
+          directReply: 'Yes, until the parcel reaches the local depot.',
+          similarity: 0.91,
+        },
+      ],
+    });
+    renderPanel();
+
+    const link = await screen.findByRole('link', { name: full });
+    expect(link.textContent).toBe(full);
+    expect(link.getAttribute('title')).toBe(full);
+    expect(link.className).toMatch(/(?:^|\s)truncate(?:\s|$)/);
+  });
+
+  it('control: a short title reads as it is, "Q:" and markup removed', async () => {
+    similar.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          source: 'documentation',
+          documentationId: 8,
+          documentTitle: 'Q: <b>Insurance</b> after booking?',
+          directReply: 'Yes, until pickup.',
+          similarity: 0.9,
+        },
+      ],
+    });
+    renderPanel();
+    const link = await screen.findByRole('link', { name: 'Insurance after booking?' });
+    expect(link.getAttribute('title')).toBe('Insurance after booking?');
+  });
+
+  it('🔴 markup built from nested pieces leaves no angle bracket behind', async () => {
+    similar.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          source: 'documentation',
+          documentationId: 8,
+          documentTitle: 'Q: <scr<b>ipt>Insurance</scr<b>ipt> after booking?',
+          directReply: 'Yes, until pickup.',
+          similarity: 0.9,
+        },
+      ],
+    });
+    renderPanel();
+    const link = await screen.findByRole('link', { name: /Insurance/ });
+    expect(link.getAttribute('title')).not.toMatch(/[<>]/);
+    expect(link.textContent).not.toMatch(/[<>]/);
+  });
+});
+
+/**
+ * The DOCS answer's `referencedChunks` are DOCUMENTATION-CHUNK ids (BE messageCompletenessAnalyzer:
+ * `docResults.map((doc) => doc.id)` over `documentation_chunks` rows). The source link passed the
+ * first one as `?docId=` — a document id — so it highlighted another document, or none.
+ */
+describe('AiTabPanel — the DOCS answer links to its document, not a chunk id', () => {
+  const renderWithSuggestion = (suggestedAnswer: Record<string, unknown>) => {
+    similar.mockResolvedValue({ success: true, data: [] });
+    return render(
+      <MemoryRouter>
+        <AiTabPanel
+          message={
+            {
+              id: nextId++,
+              sender: 'a@b.example',
+              channel: 'email',
+              createdAt: '2026-10-15T10:00:00Z',
+              metadata: { suggestedAnswer },
+            } as unknown as Message
+          }
+          onGhostClick={() => {}}
+          section="suggested"
+        />
+      </MemoryRouter>
+    );
+  };
+  const base = { answer: 'Pickups run 08:00–13:00.', confidence: 0.88, source: 'documentation' };
+
+  it('🔴 with the document id from the BE, the link highlights THAT document', async () => {
+    renderWithSuggestion({ ...base, referencedChunks: [501, 502], sourceDocumentId: 7 });
+    const link = await screen.findByRole('link', { name: 'View in Knowledge Base' });
+    expect(link.getAttribute('href')).toBe('/knowledge-base?docId=7#documentation');
+  });
+
+  it('🔴 an older answer with chunk ids only opens Documentation without a wrong highlight', async () => {
+    renderWithSuggestion({ ...base, referencedChunks: [501] });
+    const link = await screen.findByRole('link', { name: 'View in Knowledge Base' });
+    expect(link.getAttribute('href')).toBe('/knowledge-base#documentation');
+    expect(link.getAttribute('href')).not.toContain('501');
+  });
+});
