@@ -101,6 +101,9 @@ const sourceTitle = (raw: string | undefined): string | undefined => {
   const text = raw
     ?.replace(/^Q:\s*/i, '')
     .replace(/<[^>]+>/g, '')
+    // One pass leaves a tag built from nested pieces (`<scr<b>ipt>` → `<script>`); dropping every
+    // remaining angle bracket guarantees no markup survives (CodeQL incomplete-sanitization).
+    .replace(/[<>]/g, '')
     .trim();
   if (!text) return undefined;
   return text;

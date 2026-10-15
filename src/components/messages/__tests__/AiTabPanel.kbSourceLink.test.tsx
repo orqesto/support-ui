@@ -134,6 +134,25 @@ describe('AiTabPanel — a long source title is not cut mid-word', () => {
     const link = await screen.findByRole('link', { name: 'Insurance after booking?' });
     expect(link.getAttribute('title')).toBe('Insurance after booking?');
   });
+
+  it('🔴 markup built from nested pieces leaves no angle bracket behind', async () => {
+    similar.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          source: 'documentation',
+          documentationId: 8,
+          documentTitle: 'Q: <scr<b>ipt>Insurance</scr<b>ipt> after booking?',
+          directReply: 'Yes, until pickup.',
+          similarity: 0.9,
+        },
+      ],
+    });
+    renderPanel();
+    const link = await screen.findByRole('link', { name: /Insurance/ });
+    expect(link.getAttribute('title')).not.toMatch(/[<>]/);
+    expect(link.textContent).not.toMatch(/[<>]/);
+  });
 });
 
 /**
