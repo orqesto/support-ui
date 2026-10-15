@@ -554,7 +554,7 @@ export function MessagePanelTabs({
                   <span className="font-mono text-[11px] text-muted-foreground w-14 flex-shrink-0 [font-variant-numeric:tabular-nums]">
                     {relativeTime(item.time)}
                   </span>
-                  <span className="flex-1 min-w-0">
+                  <span className="flex-1 min-w-0 break-words [overflow-wrap:anywhere]">
                     {item.who} · {item.label}
                   </span>
                 </li>

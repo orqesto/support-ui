@@ -343,7 +343,7 @@ const ConflictDetail = ({
 };
 
 export const LearningSuggestionsSettings = () => {
-  const { canActOnSuggestion, canActOnAnyDomain } = useSuggestionDomainAccess();
+  const { canActOn, canActOnSuggestion, canActOnAnyDomain } = useSuggestionDomainAccess();
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const [suggestions, setSuggestions] = useState<LearningSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -492,7 +492,9 @@ export const LearningSuggestionsSettings = () => {
           <div className="py-8 text-center">
             <Sparkles className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              No proposals yet — they appear after your team routes similar mail a few times.
+              {canActOn('routing')
+                ? 'No proposals yet — they appear after your team routes similar mail a few times.'
+                : 'No suggestions yet — they appear as your team works through mail.'}
             </p>
           </div>
         ) : (
@@ -596,11 +598,13 @@ export const LearningSuggestionsSettings = () => {
                               title={
                                 !canAct
                                   ? whyCannotAct(suggestion)
-                                  : suggestion.domain === 'reply_style'
-                                    ? 'Accept — makes this the house style for AI-drafted replies'
-                                    : suggestion.domain === 'kb_review'
-                                      ? 'Approve — the AI may quote it from now on'
-                                      : 'Accept — disables the weaker rule'
+                                  : suggestion.suggestionType === 'promote'
+                                    ? 'Accept — makes this rule permanent'
+                                    : suggestion.domain === 'reply_style'
+                                      ? 'Accept — makes this the house style for AI-drafted replies'
+                                      : suggestion.domain === 'kb_review'
+                                        ? 'Approve — the AI may quote it from now on'
+                                        : 'Accept — disables the weaker rule'
                               }
                             >
                               <Check className="w-4 h-4" />

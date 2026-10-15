@@ -6,10 +6,10 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import type * as LearningServiceModule from '@/services/learning.service';
 
-const rows = vi.hoisted(() => ({ list: [] as unknown[], loads: 0, canAct: true }));
+const rows = vi.hoisted(() => ({ list: [] as unknown[], loads: 0, canAct: true, canRoute: true }));
 vi.mock('@/services/learning.service', async (importOriginal) => {
   const actual = await importOriginal<typeof LearningServiceModule>();
   return {
@@ -45,7 +45,11 @@ vi.mock('../RoutingProposalCard', () => ({
 }));
 vi.mock('@/hooks/useDepartments', () => ({ useDepartments: () => ({ data: [] }) }));
 vi.mock('@/hooks/useSuggestionDomainAccess', () => ({
-  useSuggestionDomainAccess: () => ({ canActOnSuggestion: () => rows.canAct, canActOnAnyDomain: true }),
+  useSuggestionDomainAccess: () => ({
+    canActOn: (domain: string) => domain === 'routing' && rows.canRoute,
+    canActOnSuggestion: () => rows.canAct,
+    canActOnAnyDomain: true,
+  }),
 }));
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: (select: (s: unknown) => unknown) => select({ selectedOrganizationId: 1 }),
@@ -86,6 +90,7 @@ beforeEach(() => {
   rows.list = [];
   rows.loads = 0;
   rows.canAct = true;
+  rows.canRoute = true;
   scrollIntoView.mockClear();
   Element.prototype.scrollIntoView = scrollIntoView;
 });
@@ -98,6 +103,13 @@ describe('Engine Activity with routing proposals', () => {
       await screen.findByText('No proposals yet — they appear after your team routes similar mail a few times.')
     ).toBeTruthy();
     expect(screen.queryByText('No pending suggestions.')).toBeNull();
+  });
+
+  it('without Manage Routing Rules the empty state does not mention routing', async () => {
+    rows.canRoute = false;
+    renderAt();
+    expect(await screen.findByText('No suggestions yet — they appear as your team works through mail.')).toBeTruthy();
+    expect(screen.queryByText(/routes similar mail/)).toBeNull();
   });
 
   it('each routing proposal type renders as its card; other routing rows do not', async () => {
@@ -165,6 +177,25 @@ describe('Engine Activity with routing proposals', () => {
     expect(screen.queryByText('Promote provisional rule')).toBeNull();
   });
 
+  it('the Accept tooltip on a promote row says the rule becomes permanent; other types keep theirs', async () => {
+    rows.list = [
+      { ...row(6, 'promote', { ruleId: 3, ruleTable: 'routing_rules', summary: 's' }), domain: 'kb_quality' },
+      conflict(9),
+    ];
+    renderAt();
+    await screen.findByText('Promote: s');
+    const titles = screen.getAllByRole('button', { name: 'Accept this suggestion' }).map((btn) => btn.getAttribute('title'));
+    expect(titles).toContain('Accept — makes this rule permanent');
+    expect(titles).toContain('Accept — disables the weaker rule');
+  });
+
+  it('a routing-domain promote row is a normal promote row, not a proposal card', async () => {
+    rows.list = [row(6, 'promote', { ruleId: 3, ruleTable: 'routing_rules', summary: 's' })];
+    renderAt();
+    expect(await screen.findByText('Promote: s')).toBeTruthy();
+    expect(screen.queryByTestId('card-6')).toBeNull();
+  });
+
   it('promote without a summary keeps the old fallback', async () => {
     rows.list = [{ ...row(6, 'promote', { ruleId: 3, ruleTable: 'routing_rules' }), domain: 'kb_quality' }];
     renderAt();
@@ -184,6 +215,28 @@ describe('Engine Activity with routing proposals', () => {
     expect(scrollIntoView).toHaveBeenCalledTimes(1);
     expect(scrollIntoView.mock.contexts[0]).toBe(row8);
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' });
+  });
+
+  it('a new ?focus=<id> while mounted (8 to 9) opens and scrolls row 9', async () => {
+    rows.list = [conflict(8), conflict(9)];
+    let go: (to: string) => void = () => {};
+    const Nav = () => {
+      go = useNavigate();
+      return null;
+    };
+    render(
+      <MemoryRouter initialEntries={['/settings?focus=8']}>
+        <Nav />
+        <LearningSuggestionsSettings />
+      </MemoryRouter>
+    );
+    await screen.findByText('Rule A ID');
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    act(() => go('/settings?focus=9'));
+    await vi.waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(2));
+    expect(scrollIntoView.mock.contexts[1]).toBe(document.querySelector('[data-suggestion-id="9"]'));
+    const row9 = document.querySelector('[data-suggestion-id="9"]') as HTMLElement;
+    expect(within(row9).getByText('Rule A ID')).toBeTruthy();
   });
 
   it('?focus=<id> scrolls to a proposal card row', async () => {
