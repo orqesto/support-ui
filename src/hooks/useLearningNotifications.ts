@@ -48,8 +48,9 @@ export const useLearningNotifications = () => {
   const isOrgAdmin = user?.role === 'admin' || user?.organizationRole === 'org_admin';
   // Routing managers (Manage Routing Rules) see ONLY the routing items: the three proposal types
   // and the routing auto-actions (auto-accept Undo). The server hides the proposal cards from
-  // everyone else (learningController listSuggestions), this filter keeps the other domains'
-  // rows — which the list endpoints do return to any member — out of a non-admin's bell.
+  // everyone else (learningController listSuggestions), this filter is defence in depth:
+  // the server also filters GET /api/learning/notifications by the caller's per-domain permission,
+  // so a non-admin only receives rows for domains they may act on.
   const { canActOn } = useSuggestionDomainAccess();
   const canSeeRouting = canActOn('routing');
   const showLearning = isOrgAdmin || canSeeRouting;
