@@ -30,6 +30,16 @@
   // `escalated` hides the "Connect with our team" button once the session has been
   // handed to a human (via the button OR the bot's own escalate tool).
   var escalated = false;
+  // Email confirmation (one-time code). The email is unverified until the visitor types the code
+  // we sent there; only then do their email replies join this chat for the team. Offered at
+  // "Connect with our team" and after any handoff, never required.
+  var emailVerified = false;
+  var verifyState = null; // null | 'offer' | 'code'
+  var verifyThenEscalate = false;
+  var verifyDismissed = false;
+  var verifyBusy = false;
+  var verifyMasked = '';
+  var verifyError = '';
 
   // ─── Styles ──────────────────────────────────────────────────────────
   var STYLES = document.createElement('style');
@@ -70,6 +80,9 @@
 
     /* Quick-action buttons (Skip / Connect with our team) */
     '#odly-widget-root .odly-actions{display:flex;flex-wrap:wrap;gap:8px;align-self:flex-start;margin-top:-2px}',
+    '#odly-widget-root .odly-verify{align-self:stretch;display:flex;flex-direction:column;gap:8px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;font-size:13px;color:#374151}',
+    '#odly-widget-root .odly-verify-input{font:inherit;font-size:16px;letter-spacing:4px;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;width:100%;box-sizing:border-box}',
+    '#odly-widget-root .odly-verify-error{color:#b91c1c;font-size:12px}',
     '#odly-widget-root .odly-action-btn{cursor:pointer;touch-action:manipulation;border:1px solid var(--odly-primary,#0070F3);background:#fff;color:var(--odly-primary,#0070F3);border-radius:20px;padding:9px 16px;font-size:13px;font-weight:500;line-height:1;transition:background .15s,color .15s}',
     '#odly-widget-root .odly-action-btn:hover{background:var(--odly-primary,#0070F3);color:#fff}',
 
@@ -212,6 +225,8 @@
       area.appendChild(actRow);
     }
 
+    renderVerification(area);
+
     // Typing indicator
     if (isLoading) {
       var typing = document.createElement('div');
@@ -297,6 +312,9 @@
     if (widgetConfig.collectUserInfo && messages.length === 0 && sessionKey) {
       sessionKey = '';
       hasEmail = false;
+      emailVerified = false;
+      verifyState = null;
+      verifyDismissed = false;
       try {
         localStorage.removeItem('odly_session_' + WIDGET_KEY);
       } catch (e) {
@@ -333,9 +351,13 @@
           messages.push({ role: 'assistant', content: data.reply });
           // The server reports contact + handoff state back to us.
           if (typeof data.hasEmail === 'boolean') hasEmail = data.hasEmail;
+          if (typeof data.emailVerified === 'boolean') emailVerified = data.emailVerified;
           // The bot may hand off to a human on its own (escalate_to_human tool);
-          // hide the Connect button when it does.
-          if (data.escalated) escalated = true;
+          // hide the Connect button when it does, and offer the email confirmation.
+          if (data.escalated) {
+            escalated = true;
+            offerVerificationAfterHandoff();
+          }
           if (data.sessionKey) {
             sessionKey = data.sessionKey;
             localStorage.setItem('odly_session_' + WIDGET_KEY, sessionKey);
@@ -359,12 +381,166 @@
       });
   }
 
+  // ─── Email confirmation ──────────────────────────────────────────────
+  var VERIFY_DEFAULTS = {
+    promptText: 'Confirm your email so our replies by email stay in this chat.',
+    sendLabel: 'Send code',
+    codePlaceholder: '6-digit code',
+    verifyLabel: 'Confirm',
+    skipLabel: 'Skip',
+    sentText: 'We sent a code to {email}.',
+    successText: 'Thanks, your email is confirmed.',
+    errorText: 'That did not work. Please check the code and try again.',
+    sendErrorText: 'We could not send a code right now. You can skip and continue.',
+  };
+
+  function verifyText(key) {
+    var ev = widgetConfig && widgetConfig.emailVerification;
+    return (ev && ev.texts && ev.texts[key]) || VERIFY_DEFAULTS[key];
+  }
+
+  function verificationAvailable() {
+    var ev = widgetConfig && widgetConfig.emailVerification;
+    return !!(ev && ev.available) && hasEmail && !emailVerified;
+  }
+
+  // Called after any handoff: offer the confirmation once, unless already declined.
+  function offerVerificationAfterHandoff() {
+    if (verificationAvailable() && !verifyDismissed && !verifyState) {
+      verifyState = 'offer';
+      verifyThenEscalate = false;
+    }
+  }
+
+  function finishVerification() {
+    var thenEscalate = verifyThenEscalate;
+    verifyState = null;
+    verifyThenEscalate = false;
+    verifyError = '';
+    verifyDismissed = true;
+    if (thenEscalate && !escalated) doEscalate();
+    else renderChat();
+  }
+
+  function postVerification(path, body, onDone) {
+    verifyBusy = true;
+    verifyError = '';
+    renderChat();
+    fetch(API_URL + '/api/public/chat/' + WIDGET_KEY + '/email-verification/' + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (data) { verifyBusy = false; onDone(data || {}); })
+      .catch(function () { verifyBusy = false; onDone({}); });
+  }
+
+  function sendVerificationCode() {
+    postVerification('send', { sessionKey: sessionKey }, function (data) {
+      if (data.status === 'sent') {
+        verifyState = 'code';
+        verifyMasked = data.maskedEmail || '';
+        renderChat();
+      } else if (data.status === 'already_verified') {
+        emailVerified = true;
+        finishVerification();
+      } else if (data.status === 'no_email' || data.status === 'unavailable') {
+        finishVerification();
+      } else {
+        // too_soon / limit_reached / send_failed: no code went out; Skip still continues.
+        verifyError = verifyText('sendErrorText');
+        renderChat();
+      }
+    });
+  }
+
+  function confirmVerificationCode(code) {
+    postVerification('confirm', { sessionKey: sessionKey, code: code }, function (data) {
+      if (data.status === 'verified') {
+        emailVerified = true;
+        messages.push({ role: 'assistant', content: verifyText('successText') });
+        finishVerification();
+      } else {
+        verifyError = verifyText('errorText');
+        renderChat();
+      }
+    });
+  }
+
+  // The panel under the messages. All text goes through textContent / attributes set via
+  // the DOM: the admin's texts and the masked address are never written as HTML.
+  function renderVerification(area) {
+    if (!verifyState) return;
+    var box = document.createElement('div');
+    box.className = 'odly-verify';
+    var p = document.createElement('div');
+    p.className = 'odly-verify-text';
+    p.textContent =
+      verifyState === 'code'
+        ? verifyText('sentText').replace('{email}', verifyMasked || 'your email')
+        : verifyText('promptText');
+    box.appendChild(p);
+
+    var row = document.createElement('div');
+    row.className = 'odly-actions';
+    var input = null;
+    if (verifyState === 'code') {
+      input = document.createElement('input');
+      input.className = 'odly-verify-input';
+      input.setAttribute('inputmode', 'numeric');
+      input.setAttribute('autocomplete', 'one-time-code');
+      input.setAttribute('maxlength', '6');
+      input.placeholder = verifyText('codePlaceholder');
+      box.appendChild(input);
+    }
+    var primary = document.createElement('button');
+    primary.className = 'odly-action-btn';
+    primary.textContent = verifyState === 'code' ? verifyText('verifyLabel') : verifyText('sendLabel');
+    primary.disabled = verifyBusy;
+    primary.onclick = function () {
+      if (verifyBusy) return;
+      if (verifyState === 'code') {
+        var code = (input && input.value || '').replace(/\D/g, '');
+        if (code.length !== 6) {
+          verifyError = verifyText('errorText');
+          renderChat();
+          return;
+        }
+        confirmVerificationCode(code);
+      } else {
+        sendVerificationCode();
+      }
+    };
+    var skip = document.createElement('button');
+    skip.className = 'odly-action-btn';
+    skip.textContent = verifyText('skipLabel');
+    skip.disabled = verifyBusy;
+    skip.onclick = function () { if (!verifyBusy) finishVerification(); };
+    row.appendChild(primary);
+    row.appendChild(skip);
+    box.appendChild(row);
+    if (verifyError) {
+      var err = document.createElement('div');
+      err.className = 'odly-verify-error';
+      err.textContent = verifyError;
+      box.appendChild(err);
+    }
+    area.appendChild(box);
+    if (input) {
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); primary.onclick(); }
+      });
+      setTimeout(function () { input.focus(); }, 0);
+    }
+  }
+
   // ─── Human handoff ───────────────────────────────────────────────────
   // The only quick action is "Connect with our team" (org-agnostic label;
   // overridable via widgetConfig.humanHandoffLabel). It needs a live session
   // (created on the first message) and hides once handed off.
   function currentActions() {
-    if (isLoading || escalated || !sessionKey) return [];
+    if (isLoading || escalated || !sessionKey || verifyState) return [];
     var label = (widgetConfig && widgetConfig.humanHandoffLabel) || 'Connect with our team';
     return [{ id: 'connect', label: label }];
   }
@@ -378,7 +554,12 @@
   // it asks for the email in the visitor's language, then escalates.
   function requestConnect() {
     if (!sessionKey || escalated || isLoading) return;
-    if (hasEmail) doEscalate();
+    if (hasEmail && verificationAvailable()) {
+      // Offer the code first; Skip (or a failure) still hands off.
+      verifyState = 'offer';
+      verifyThenEscalate = true;
+      renderChat();
+    } else if (hasEmail) doEscalate();
     else sendConnectRequest();
   }
 
@@ -398,7 +579,11 @@
         if (data.success) {
           messages.push({ role: 'assistant', content: data.reply });
           if (typeof data.hasEmail === 'boolean') hasEmail = data.hasEmail;
-          if (data.escalated) escalated = true;
+          if (typeof data.emailVerified === 'boolean') emailVerified = data.emailVerified;
+          if (data.escalated) {
+            escalated = true;
+            offerVerificationAfterHandoff();
+          }
         } else {
           messages.push({
             role: 'assistant',
@@ -438,6 +623,9 @@
           // The URL renders as a friendly "Track your request" link (see linkify).
           if (data.trackingUrl) msg += '\n' + data.trackingUrl;
           messages.push({ role: 'assistant', content: msg });
+          if (typeof data.hasEmail === 'boolean') hasEmail = data.hasEmail;
+          if (typeof data.emailVerified === 'boolean') emailVerified = data.emailVerified;
+          offerVerificationAfterHandoff();
         } else {
           messages.push({
             role: 'assistant',
