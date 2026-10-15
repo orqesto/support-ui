@@ -17,6 +17,7 @@ import systemService from '@/services/system.service';
 import { BounceRepairSection } from './BounceRepairSection';
 import { KbRepairSection } from './KbRepairSection';
 import { departmentService, type Department } from '@/services/department.service';
+import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
 
 type ConfirmDialog = {
   open: boolean;
@@ -154,7 +155,7 @@ export const SystemManagementSettings = () => {
       async () => {
         const res = await systemService.deleteAllMessages(dept);
         if (!res?.success) throw new Error(res?.message ?? 'Operation failed on server');
-        void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
+        void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
       },
       'DELETE MESSAGES',
       true

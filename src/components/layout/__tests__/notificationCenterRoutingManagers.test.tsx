@@ -10,6 +10,7 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 vi.mock('@/hooks/useNotificationCounts', () => ({
+  NOTIFICATION_COUNTS_KEY: ['notification-counts'],
   useNotificationCounts: () => ({ counts: {}, clearKind: vi.fn(), refresh: vi.fn() }),
 }));
 vi.mock('@/hooks/useAiProviderAlerts', () => ({

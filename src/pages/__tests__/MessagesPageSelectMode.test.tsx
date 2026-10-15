@@ -80,6 +80,7 @@ vi.mock('@/lib/socketManager', () => ({
 vi.mock('@/hooks/usePhoneOpensMessageAsPage', () => ({ usePhoneOpensMessageAsPage: () => false }));
 vi.mock('@/hooks/useMessagesUrlSync', () => ({ useMessagesUrlSync: () => undefined }));
 vi.mock('@/hooks/useNotificationCounts', () => ({
+  NOTIFICATION_COUNTS_KEY: ['notification-counts'],
   useNotificationCounts: () => ({ counts: {}, clearKind: vi.fn() }),
 }));
 vi.mock('@/hooks/useSharedLinkWorkspace', () => ({ useSharedLinkWorkspace: () => undefined }));

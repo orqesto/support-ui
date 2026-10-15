@@ -38,6 +38,7 @@ vi.mock('@/hooks/useUnansweredOutboundAlerts', async () => {
 
 // Everything else the bell pulls in — silenced so this test is about one thing.
 vi.mock('@/hooks/useNotificationCounts', () => ({
+  NOTIFICATION_COUNTS_KEY: ['notification-counts'],
   useNotificationCounts: () => ({ counts: {}, clearKind: vi.fn(), refresh: vi.fn() }),
 }));
 vi.mock('@/hooks/useAiProviderAlerts', () => ({

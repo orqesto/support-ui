@@ -22,6 +22,13 @@ export type ArrivalKind = 'suspicious_arrival' | 'spam_arrival';
  */
 export type QueueDepthKind = 'needs_routing' | 'suspicious_queue';
 
+/**
+ * Prefix of every scope's counts query — the key the Needs Routing badge (sidebar + bell) reads.
+ * An action that can empty a queue (route, spam, delete…) invalidates THIS to refresh the badge at
+ * once instead of at the next 60 s poll.
+ */
+export const NOTIFICATION_COUNTS_KEY = ['notification-counts'] as const;
+
 type CountsMap = Partial<Record<ArrivalKind | QueueDepthKind, number>> & Record<string, number>;
 
 // Kinds whose creation should live-refresh the badge counts. Other kinds (SLA) are
@@ -44,7 +51,7 @@ export const useNotificationCounts = () => {
   );
   const deptKey = useDepartmentContextKey();
   const queryClient = useQueryClient();
-  const queryKey = ['notification-counts', orgId, deptKey] as const;
+  const queryKey = [...NOTIFICATION_COUNTS_KEY, orgId, deptKey] as const;
 
   const query = useQuery<CountsMap>({
     queryKey,
@@ -72,7 +79,7 @@ export const useNotificationCounts = () => {
     getSocket();
     const invalidate = (): void => {
       void queryClient
-        .invalidateQueries({ queryKey: ['notification-counts', orgId, deptKey] })
+        .invalidateQueries({ queryKey: [...NOTIFICATION_COUNTS_KEY, orgId, deptKey] })
         .catch(() => {});
     };
     const handleNew = (data: unknown) => {
@@ -109,7 +116,7 @@ export const useNotificationCounts = () => {
 
   const clearKind = useCallback(
     async (kind: ArrivalKind): Promise<void> => {
-      const key = ['notification-counts', orgId, deptKey];
+      const key = [...NOTIFICATION_COUNTS_KEY, orgId, deptKey];
       // Optimistically zero the pill so it disappears immediately on click.
       queryClient.setQueryData<CountsMap>(key, (prev) => (prev ? { ...prev, [kind]: 0 } : prev));
       try {

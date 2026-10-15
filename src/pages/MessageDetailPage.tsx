@@ -18,6 +18,7 @@ import { similarResultsCache } from '@/components/messages/AiTabPanel';
 import { Permission } from '@/types/roles';
 import { formatConvId } from '@/lib/messageHelpers';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
+import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
 
 export const MessageDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -163,7 +164,7 @@ export const MessageDetailPage = () => {
       thread from its page cache, nor count it in the routing badge.
     */
     clearListCache();
-    void queryClient.invalidateQueries({ queryKey: ['needs-routing-count'] });
+    void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
     similarResultsCache.delete(target.id);
     // Gone from this page, or moved on to another message while it ran: nothing to leave.
     if (!mountedRef.current || routeIdRef.current !== askedFromRoute) return;
