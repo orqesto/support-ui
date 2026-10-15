@@ -144,8 +144,14 @@ export function MessagePanelTabs({
     onOptionsLoaded
   );
   const lookups = useLookupsTab('thread');
+  /**
+   * The Lookups badge (owner, 2026-10-15): how many lookups FOUND something, reported by the panel.
+   * It was the number of lookups a press COULD run, which read as "5 results" before any press.
+   * The panel reports 0 when its results go (a new thread, or the tab closing).
+   */
+  const [lookupsFound, setLookupsFound] = useState(0);
   const { stripRef, stripFades, updateStripFade } = useStripFade(
-    `${message.isLead ? 1 : 0}|${kbBadge}|${lookups.available ? lookups.label : ''}|${lookups.count}|${notes.length}|${attachments?.length ?? 0}`
+    `${message.isLead ? 1 : 0}|${kbBadge}|${lookups.available ? lookups.label : ''}|${lookupsFound}|${notes.length}|${attachments?.length ?? 0}`
   );
 
   // Full contact profile for the CUSTOMER tab — the same editable component
@@ -263,7 +269,7 @@ export function MessagePanelTabs({
                   {
                     id: 'lookups',
                     label: lookups.label,
-                    badge: hasEmailIdentity ? lookups.count : 0,
+                    badge: lookupsFound,
                   },
                 ]
               : []),
@@ -383,6 +389,8 @@ export function MessagePanelTabs({
               message={message}
               hasEmailIdentity={hasEmailIdentity}
               onUseInReply={onUseInReply}
+              customerEmail={contactEmail}
+              onFoundChange={setLookupsFound}
             />
           )}
 

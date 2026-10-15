@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { createRef, useEffect, type ReactNode } from 'react';
+import { createRef, useEffect, useState, type ReactNode } from 'react';
 import { render, screen, within, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { MessagePanelTabs, type MessagePanelTabsProps } from '../MessagePanelTabs';
@@ -37,9 +38,10 @@ vi.mock('@/components/contacts/useContactProfile', () => ({
 }));
 const availability = vi.fn();
 const lookupOptions = vi.fn();
+const runLookup = vi.fn();
 vi.mock('@/services/customApiLookup.service', () => ({
   customApiLookupService: {
-    run: vi.fn(),
+    run: (body: unknown) => runLookup(body) as unknown,
     availability: () => availability() as unknown,
     lookupOptions: (surface: string) => lookupOptions(surface) as unknown,
   },
@@ -91,6 +93,30 @@ const renderTabs = (id: number, sender?: string) => {
   );
   return render(<MessagePanelTabs {...props(id, sender)} />, { wrapper });
 };
+/** The real host owns the tab; a press needs the Lookups tab actually open. */
+const StatefulTabs = ({ id }: { id: number }) => {
+  const [tab, setTab] = useState<MessagePanelTabsProps['tab']>('notes');
+  const [panelOpen, setPanelOpen] = useState(true);
+  return (
+    <MessagePanelTabs
+      {...props(id)}
+      tab={tab}
+      setTab={setTab}
+      panelOpen={panelOpen}
+      setPanelOpen={setPanelOpen}
+    />
+  );
+};
+const renderStatefulTabs = (id: number) => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <MemoryRouter>
+      <QueryClientProvider client={client}>
+        <StatefulTabs id={id} />
+      </QueryClientProvider>
+    </MemoryRouter>
+  );
+};
 const kbTab = () => screen.getByRole('button', { name: /^KB/ });
 const refs = (count: number) => ({
   success: true,
@@ -106,6 +132,7 @@ beforeEach(() => {
   for (const key of Object.keys(suggestedById)) delete suggestedById[Number(key)];
   availability.mockReset().mockResolvedValue(false);
   lookupOptions.mockReset().mockResolvedValue([]);
+  runLookup.mockReset();
   getKBReferences.mockReset();
 });
 
@@ -138,13 +165,40 @@ describe('MessagePanelTabs — Lookups count (moved off Customer, 2026-10-09)', 
   };
   beforeEach(() => availability.mockResolvedValue(true));
 
-  it('shows how many lookups a press could run — on Lookups, not on Customer', async () => {
+  /*
+    Owner, 2026-10-15: the badge was the number of lookups a press COULD run, which read as "4
+    results" before anything had been asked. It now counts lookups that FOUND something.
+  */
+  it('no number before a press; after it, how many lookups found something; gone with the panel', async () => {
     getKBReferences.mockResolvedValue(refs(0));
     lookupOptions.mockResolvedValue(options(4));
-    renderTabs(41);
-    await waitFor(() => expect(within(lookupsTab()).getByText('4')).toBeInTheDocument());
-    expect(within(customerTab()).queryByText(/\d/)).not.toBeInTheDocument();
+    const found = (endpointId: number) => ({
+      endpointId,
+      label: `l${endpointId}`,
+      connectionName: 'Acme',
+      resultShape: 'one',
+      status: 'ok',
+      rows: [{ id: String(endpointId) }],
+      fields: [{ path: 'id', label: 'Id', kind: 'plain' }],
+    });
+    runLookup.mockResolvedValue([
+      found(1),
+      found(2),
+      { ...found(3), status: 'no_match', rows: [] },
+    ]);
+    renderStatefulTabs(41);
+    await settle();
+    expect(within(lookupsTab()).queryByText(/\d/)).not.toBeInTheDocument();
     expect(lookupOptions).toHaveBeenCalledWith('thread');
+
+    await userEvent.click(lookupsTab());
+    await userEvent.click(await screen.findByRole('button', { name: 'Look up' }));
+    await waitFor(() => expect(within(lookupsTab()).getByText('2')).toBeInTheDocument());
+    expect(within(customerTab()).queryByText(/\d/)).not.toBeInTheDocument();
+
+    // The results leave with the panel, so the number does too.
+    await userEvent.click(customerTab());
+    await waitFor(() => expect(within(lookupsTab()).queryByText(/\d/)).not.toBeInTheDocument());
   });
 
   it('shows no number when none are configured', async () => {
