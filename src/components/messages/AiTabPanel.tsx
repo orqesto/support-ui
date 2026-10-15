@@ -98,13 +98,12 @@ const senderAddress = (sender?: string): string => {
  * full title goes in its `title` tooltip.
  */
 const sourceTitle = (raw: string | undefined): string | undefined => {
-  const text = raw
-    ?.replace(/^Q:\s*/i, '')
-    .replace(/<[^>]+>/g, '')
-    // One pass leaves a tag built from nested pieces (`<scr<b>ipt>` → `<script>`); dropping every
-    // remaining angle bracket guarantees no markup survives (CodeQL incomplete-sanitization).
-    .replace(/[<>]/g, '')
-    .trim();
+  if (!raw) return undefined;
+  // The browser's own parser reads the markup (a one-pass tag regex leaves `<scr<b>ipt>` as
+  // `<script>` — CodeQL incomplete-sanitization); its text then loses any stray angle bracket.
+  // A DOMParser document is inert: nothing in it loads or runs.
+  const parsed = new DOMParser().parseFromString(raw.replace(/^Q:\s*/i, ''), 'text/html');
+  const text = (parsed.body.textContent ?? '').replace(/[<>]/g, '').trim();
   if (!text) return undefined;
   return text;
 };
