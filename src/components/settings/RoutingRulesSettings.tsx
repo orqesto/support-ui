@@ -7,7 +7,7 @@ import { Select } from '@/components/ui/Select';
 import { RuleEditor } from '@/components/shared/RuleEditor';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { useRuleManagement } from '@/hooks/useRuleManagement';
-import { getErrorStatus } from '@/lib/errorMessages';
+import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
 import { departmentService, type Department } from '@/services/department.service';
@@ -242,15 +242,25 @@ export const RoutingRulesSettings = () => {
         return adaptRule(response.data);
       } catch (err) {
         // D5: on a dormant rule switched on, the BE saves the field edits first and then Accept
-        // may answer 409 (routingRulesRoutes.ts PATCH). The edits ARE saved: re-read the rule,
-        // say why it stayed off, and let the dialog close on the saved state.
+        // may answer 409 (routingRulesRoutes.ts PATCH). But the field write itself also answers
+        // 409 when the edit would duplicate another rule, and then nothing is saved. Re-read the
+        // rule: only when it holds what was submitted were the edits saved.
         const before = ruleManagement.rules.find((rule) => rule.id === id);
         if (getErrorStatus(err) !== 409 || !data.enabled || !before || !switchOnIsAccept(before)) {
           throw err;
         }
-        toast.failure('switch the rule on', err);
         const saved = (await routingRuleService.list()).data?.find((rule) => rule.id === id);
-        if (!saved) throw err;
+        const editsSaved =
+          saved !== undefined &&
+          saved.type === data.type &&
+          saved.value === normalizedValue &&
+          saved.weight === data.weight &&
+          (data.departmentId === null || saved.departmentId === data.departmentId);
+        if (!editsSaved) {
+          setFormError(getApiErrorMessage(err) ?? 'The rule could not be saved.');
+          throw err;
+        }
+        toast.failure('switch the rule on', err);
         return adaptRule(saved);
       }
     },

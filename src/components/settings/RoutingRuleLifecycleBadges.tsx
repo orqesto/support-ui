@@ -72,6 +72,10 @@ export const RoutingRuleLifecycleBadges = <T extends BadgeRule>({
 
 const describeRule = (rule: BadgeRule): string => `${rule.name} “${rule.pattern}”`;
 
+/** The refusal the BE would give, said first: another department's open card must be decided. */
+export const acceptBlockedBy = <T extends BadgeRule>(rule: T, rules: T[]): T | null =>
+  acceptEffectsOf(rule, rules).blockedBy;
+
 /** What switching this dormant rule on does, in words (D5: it is Accept). */
 export const acceptDescription = <T extends BadgeRule>(
   rule: T,
@@ -113,18 +117,39 @@ export const AcceptFromRulesDialog = <T extends BadgeRule>({
   departmentName: (departmentId: number) => string;
   onCancel: () => void;
   onAccept: (rule: T) => void;
-}) => (
-  <ConfirmDialog
-    open={rule !== null}
-    onOpenChange={(open) => {
-      if (!open) onCancel();
-    }}
-    onConfirm={() => {
-      if (rule) onAccept(rule);
-    }}
-    title={rule ? acceptTitle(rule) : ''}
-    description={rule ? acceptDescription(rule, rules, departmentName) : ''}
-    confirmText="Accept"
-    variant="info"
-  />
-);
+}) => {
+  const blocker = rule ? acceptBlockedBy(rule, rules) : null;
+  const cardId = blocker?.metadata?.proposal?.suggestionId;
+  return (
+    <ConfirmDialog
+      open={rule !== null}
+      onOpenChange={(open) => {
+        if (!open) onCancel();
+      }}
+      onConfirm={() => {
+        if (rule) onAccept(rule);
+      }}
+      title={rule ? acceptTitle(rule) : ''}
+      description={
+        rule && blocker ? (
+          <>
+            {departmentName(blocker.departmentId)} has an open proposal for this pattern — decide
+            that card in Engine Activity first.{' '}
+            {typeof cardId === 'number' && (
+              <Link className="underline" to={`/settings?focus=${cardId}#ai/learning`}>
+                Open the card
+              </Link>
+            )}
+          </>
+        ) : rule ? (
+          acceptDescription(rule, rules, departmentName)
+        ) : (
+          ''
+        )
+      }
+      confirmText="Accept"
+      variant="info"
+      hideConfirm={blocker !== null}
+    />
+  );
+};

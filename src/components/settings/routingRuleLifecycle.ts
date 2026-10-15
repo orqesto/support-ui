@@ -95,6 +95,11 @@ type AcceptEffects<T> = {
   partner: T | null;
   /** Proposed rules of the same pattern in other departments: Accept declines them. */
   declinedElsewhere: T[];
+  /**
+   * Another department's proposed anchor whose card is still open while this rule has no card of
+   * its own: the BE refuses ("Decide that card first"), so the Rules page cannot accept.
+   */
+  blockedBy: T | null;
 };
 
 /**
@@ -108,6 +113,14 @@ export const acceptEffectsOf = <T extends LifecycleRule>(rule: T, rules: T[]): A
   const anchorId = anchorIdOf(rule);
   const anchor = byId.get(anchorId) ?? (anchorId === rule.id ? rule : null);
   const pairIds = [anchorId, partnerIdOf(rule), anchor ? partnerIdOf(anchor) : null];
+  // A rule with its own open card is accepted through that card (optionMembers: only partners that
+  // are still 'proposed'); without one the BE switches on any dormant pair rule.
+  const ownCard = [rule, anchor].some(
+    (candidate) =>
+      candidate !== null &&
+      ruleLifecycle(candidate) === 'proposed' &&
+      typeof candidate.metadata?.proposal?.suggestionId === 'number'
+  );
   const partner =
     pairIds
       .filter((id): id is number => id !== null && id !== rule.id)
@@ -116,7 +129,9 @@ export const acceptEffectsOf = <T extends LifecycleRule>(rule: T, rules: T[]): A
         (candidate): candidate is T =>
           candidate !== undefined &&
           candidate.departmentId === rule.departmentId &&
-          ruleLifecycle(candidate) !== 'active'
+          (ownCard
+            ? ruleLifecycle(candidate) === 'proposed'
+            : ruleLifecycle(candidate) !== 'active')
       ) ?? null;
   const key = anchor ? groupKeyOf(anchor) : anchorId;
   const declinedElsewhere = rules.filter(
@@ -126,5 +141,10 @@ export const acceptEffectsOf = <T extends LifecycleRule>(rule: T, rules: T[]): A
       anchorIdOf(candidate) === candidate.id &&
       (candidate.id === key || candidate.metadata?.proposal?.groupId === key)
   );
-  return { partner, declinedElsewhere };
+  const blockedBy = ownCard
+    ? null
+    : (declinedElsewhere.find(
+        (other) => typeof other.metadata?.proposal?.suggestionId === 'number'
+      ) ?? null);
+  return { partner, declinedElsewhere, blockedBy };
 };

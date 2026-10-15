@@ -109,11 +109,56 @@ const RULES = [
     id: 8,
     departmentId: 3,
     type: 'body_contains',
-    value: 'forklift',
+    value: 'dock door',
     enabled: false,
     provisional: true,
     lifecycle: 'proposed',
     metadata: { provenance: 'fast_path', proposal: { role: 'anchor', groupId: 6 } },
+  },
+  {
+    ...base,
+    id: 11,
+    departmentId: 3,
+    type: 'body_contains',
+    value: 'yard truck',
+    enabled: false,
+    provisional: true,
+    lifecycle: 'proposed',
+    metadata: {
+      provenance: 'fast_path',
+      proposal: { role: 'anchor', groupId: 6, suggestionId: 99 },
+    },
+  },
+  {
+    ...base,
+    id: 9,
+    departmentId: 1,
+    type: 'body_contains',
+    value: 'pallet wrap',
+    enabled: false,
+    provisional: true,
+    lifecycle: 'proposed',
+    metadata: {
+      provenance: 'fast_path',
+      siblingRuleId: 10,
+      proposal: { role: 'anchor', suggestionId: 88 },
+    },
+  },
+  {
+    ...base,
+    id: 10,
+    departmentId: 1,
+    type: 'subject_contains',
+    value: 'wrap film',
+    enabled: false,
+    provisional: true,
+    lifecycle: 'declined',
+    metadata: {
+      provenance: 'fast_path',
+      siblingRuleId: 9,
+      declineReason: 'too broad',
+      proposal: { role: 'sibling', anchorRuleId: 9 },
+    },
   },
 ];
 vi.mock('@/services/routingRule.service', () => ({
@@ -205,11 +250,11 @@ const rowOf = (pattern: string) => {
 describe('Rules page lifecycle', () => {
   it('counts each state; All hides archived; a rule without lifecycle (older backend) is manual', async () => {
     renderPage();
-    expect(await screen.findByRole('button', { name: /All \(7\)/ })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: /All \(10\)/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Manual \(1\)/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Learned \(1\)/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Proposed \(4\)/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Declined \(1\)/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Proposed \(6\)/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Declined \(2\)/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Archived \(1\)/ })).toBeTruthy();
   });
 
@@ -244,7 +289,7 @@ describe('Rules page lifecycle', () => {
 
   it('switching on a proposed rule asks first; confirming sends enabled:true', async () => {
     renderPage();
-    fireEvent.click(await screen.findByRole('button', { name: /Proposed \(4\)/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Proposed \(6\)/ }));
     fireEvent.click(rowOf('pallet label').getByRole('button', { name: /Inactive/ }));
     expect(await screen.findByText(/This accepts the proposal/)).toBeTruthy();
     expect(screen.getByText('Accept this proposal?')).toBeTruthy();
@@ -273,6 +318,28 @@ describe('Rules page lifecycle', () => {
       'Its pair rule, body contains “forklift”, is switched on with it.'
     );
     expect(text.textContent).toContain('The proposal for this pattern in Billing is declined.');
+  });
+
+  it('a carded anchor’s declined partner is not named (the card switches on only proposed rules)', async () => {
+    renderPage();
+    await screen.findAllByText('pallet wrap');
+    fireEvent.click(rowOf('pallet wrap').getByRole('button', { name: /Inactive/ }));
+    const text = await screen.findByText(/This accepts the proposal/);
+    expect(text.textContent).not.toContain('wrap film');
+    expect(text.textContent).not.toContain('pair rule');
+  });
+
+  it('another department’s open card blocks Accept: the confirm says so, links the card, offers no Accept', async () => {
+    renderPage();
+    await screen.findAllByText('dock door');
+    fireEvent.click(rowOf('dock door').getByRole('button', { name: /Inactive/ }));
+    const text = await screen.findByText(/has an open proposal for this pattern/);
+    expect(text.textContent).toContain('Logistics has an open proposal for this pattern');
+    expect(screen.queryByText(/is declined/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Accept' })).toBeNull();
+    const link = screen.getByRole('link', { name: 'Open the card' });
+    expect(link.getAttribute('href')).toBe('/settings?focus=77#ai/learning');
+    expect(state.updates).toHaveLength(0);
   });
 
   it('switching an active rule off does not ask', async () => {
@@ -317,5 +384,24 @@ describe('Rules page lifecycle', () => {
     expect(state.toasts[0]).toContain('Decide that card first.');
     await waitFor(() => expect(state.lists).toBeGreaterThan(listsBefore));
     expect(state.updates[0]?.[1]).toMatchObject({ enabled: true, value: 'pallet label' });
+  });
+
+  it('a 409 that saved nothing (the edit would duplicate another rule) keeps the dialog, the input and shows the error', async () => {
+    renderPage();
+    await screen.findAllByText('pallet label');
+    fireEvent.click(rowOf('pallet label').getByRole('button', { name: 'Edit rule' }));
+    fireEvent.click(await screen.findByLabelText('Enabled'));
+    fireEvent.change(screen.getByDisplayValue('pallet label'), {
+      target: { value: 'loading dock' },
+    });
+    state.failNext = {
+      status: 409,
+      message: 'Editing this rule would duplicate another rule in this department.',
+    };
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+    expect(await screen.findByText(/would duplicate another rule/)).toBeTruthy();
+    expect(screen.getByDisplayValue('loading dock')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Save/ })).toBeTruthy();
+    expect(state.toasts).toEqual([]);
   });
 });
