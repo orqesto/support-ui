@@ -6,6 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import type * as LearningServiceModule from '@/services/learning.service';
 
 const suggestion = (id: number, domain: string, suggestionType: string, payload = {}) => ({
   id,
@@ -22,7 +23,8 @@ const suggestion = (id: number, domain: string, suggestionType: string, payload 
 
 let orgId = 21;
 const listSuggestions = vi.fn<(...args: unknown[]) => unknown>();
-vi.mock('@/services/learning.service', () => ({
+vi.mock('@/services/learning.service', async (importOriginal) => ({
+  ...(await importOriginal<typeof LearningServiceModule>()),
   learningService: {
     listSuggestions: () => listSuggestions(),
     acceptSuggestion: vi.fn(),

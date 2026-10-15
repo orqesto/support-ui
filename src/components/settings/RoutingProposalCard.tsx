@@ -115,7 +115,7 @@ const keywordPhrase = (
   sibling: ProposalSiblingRule | null | undefined
 ): string => {
   const own = `"${value ?? ''}" ${ruleTypeWords(ruleType)}`;
-  return sibling ? `${own} or "${sibling.value}" ${ruleTypeWords(sibling.type)},` : own;
+  return sibling ? `${own} or "${sibling.value}" ${ruleTypeWords(sibling.type)}` : own;
 };
 
 type NameOf = (id: number) => string | undefined;
@@ -308,7 +308,9 @@ export const RoutingProposalCard = ({
           {`Mail mentioning ${keywordPhrase(payload.value, payload.ruleType, dept?.sibling)} routes to ${deptName(payload.departmentId)}. It keeps routing until you decide.${dept?.sibling ? ' These are two rules; Keep and Switch off act on both.' : ''}`}
         </p>
         {!evidence && hasSibling(dept, siblingRuleId) && (
-          <p className="text-xs text-muted-foreground">Keep and Switch off act on both.</p>
+          <p className="text-xs text-muted-foreground">
+            This is one of two rules (the other matches the subject); Keep and Switch off act on both.
+          </p>
         )}
         {dept && <Evidence dept={dept} deptNameById={deptNameById} />}
         <div className="flex flex-wrap gap-2">
@@ -339,7 +341,7 @@ export const RoutingProposalCard = ({
   return (
     <div className="min-w-0 space-y-2 p-3">
       <p className="break-words text-sm font-medium">
-        {`Route mail mentioning ${keywordPhrase(payload.value, payload.ruleType, dept?.sibling)} to ${deptName(payload.departmentId)}`}
+        {`Route mail mentioning ${keywordPhrase(payload.value, payload.ruleType, dept?.sibling)}${dept?.sibling ? ',' : ''} to ${deptName(payload.departmentId)}`}
       </p>
       {dept?.sibling && (
         <p className="text-xs text-muted-foreground">Two rules that switch on together; Accept turns on both.</p>

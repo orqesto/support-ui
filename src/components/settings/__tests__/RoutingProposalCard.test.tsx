@@ -480,7 +480,7 @@ describe('subject/body pair wording', () => {
     impl.evidence = pairEvidence('confirm_learned_rule');
     renderCard(suggestion('confirm_learned_rule', { ...CONFIRM.payload, siblingRuleId: 12 }));
     expect(
-      await screen.findByText(/Mail mentioning "loading dock" in the message or "label missing" in the subject, routes to Support\..*Keep and Switch off act on both\./)
+      await screen.findByText(/Mail mentioning "loading dock" in the message or "label missing" in the subject routes to Support\..*Keep and Switch off act on both\./)
     ).toBeTruthy();
   });
 
@@ -514,7 +514,9 @@ describe('subject/body pair wording', () => {
   it('confirm card and disagreement option carry the note while evidence is missing', async () => {
     impl.evidenceCall = failing;
     renderCard(suggestion('confirm_learned_rule', { ...CONFIRM.payload, siblingRuleId: 12 }));
-    expect(await screen.findByText('Keep and Switch off act on both.')).toBeTruthy();
+    expect(
+      await screen.findByText('This is one of two rules (the other matches the subject); Keep and Switch off act on both.')
+    ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Keep' })).toHaveProperty('disabled', false);
     cleanup();
     renderCard(
