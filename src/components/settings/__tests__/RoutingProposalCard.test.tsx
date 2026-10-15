@@ -81,6 +81,7 @@ const replay = (over: Partial<ReplaySummary> = {}): ReplaySummary => ({
 const dept = (over: Partial<ProposalDepartmentEvidence> = {}): ProposalDepartmentEvidence => ({
   departmentId: 1,
   ruleId: 10,
+  sibling: null,
   supportCount: 3,
   agents: 2,
   firstAt: '2026-10-05T09:00:00Z',
@@ -359,19 +360,33 @@ describe('propose_rule card', () => {
     renderCard(suggestion('propose_rule', { ...PROPOSE.payload, siblingRuleId: 12 }));
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     expect(screen.queryByText('Where to look')).toBeNull();
-    fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: 'pallet labels' } });
+    fireEvent.change(screen.getByLabelText('Keyword in the message'), { target: { value: 'pallet labels' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save and accept' }));
     await waitFor(() => expect(calls.accept).toEqual([[77]]));
     expect(calls.update).toEqual([[10, { value: 'pallet labels' }]]);
   });
 
-  it('a 409 on a pair edit shows the message, goes stale and sends no second request', async () => {
-    const err = await real409('Pair keywords changed');
+  it('a pair edit labels the input with the anchor type and points to the Rules page; single keeps plain label', () => {
+    renderCard(suggestion('propose_rule', { ...PROPOSE.payload, siblingRuleId: 12 }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByLabelText('Keyword in the message')).toBeTruthy();
+    expect(screen.getByText('The other keyword of this pair is edited on the Rules page.')).toBeTruthy();
+    cleanup();
+    renderCard(PROPOSE);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByLabelText('Keyword')).toBeTruthy();
+    expect(screen.queryByText(/edited on the Rules page/)).toBeNull();
+  });
+
+  it('a duplicate-rule 409 on a pair edit shows the message, goes stale and sends no second request', async () => {
+    const err = await real409('Editing this rule would duplicate another rule with the same type and value in this department');
     impl.update = () => Promise.reject(err as Error);
     renderCard(suggestion('propose_rule', { ...PROPOSE.payload, siblingRuleId: 12 }));
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save and accept' }));
-    await waitFor(() => expect(props.onError).toHaveBeenCalledWith('Pair keywords changed'));
+    await waitFor(() => expect(props.onError).toHaveBeenCalledWith(
+        'Editing this rule would duplicate another rule with the same type and value in this department'
+      ));
     expect(props.onStale).toHaveBeenCalled();
     expect(calls.update).toHaveLength(1);
     expect(calls.accept).toEqual([]);
@@ -437,5 +452,55 @@ describe('confirm_learned_rule card', () => {
     await waitFor(() => expect(calls.accept).toEqual([[77]]));
     fireEvent.click(screen.getByRole('button', { name: 'Switch off' }));
     await waitFor(() => expect(calls.decline).toEqual([[77, undefined]]));
+  });
+});
+
+describe('subject/body pair wording', () => {
+  const PAIR = { ...PROPOSE.payload, siblingRuleId: 12 };
+  const pairEvidence = (type: string) =>
+    evidence({
+      kind: type as RoutingProposalEvidence['kind'],
+      departments: [dept({ sibling: { ruleId: 12, type: 'subject_contains', value: 'label missing' } })],
+    });
+
+  it('propose card names both keywords and says the two rules switch on together', async () => {
+    impl.evidence = pairEvidence('propose_rule');
+    renderCard(suggestion('propose_rule', PAIR));
+    expect(
+      await screen.findByText('Route mail mentioning "pallet label" in the message, and "label missing" in the subject, to Support')
+    ).toBeTruthy();
+    expect(screen.getByText('Two rules that switch on together; Accept turns on both.')).toBeTruthy();
+  });
+
+  it('confirm card names both keywords and says Keep / Switch off act on both', async () => {
+    impl.evidence = pairEvidence('confirm_learned_rule');
+    renderCard(suggestion('confirm_learned_rule', { ...CONFIRM.payload, siblingRuleId: 12 }));
+    expect(
+      await screen.findByText(/Mail mentioning "loading dock" in the message, and "label missing" in the subject, routes to Support\..*Keep and Switch off act on both\./)
+    ).toBeTruthy();
+  });
+
+  it('a disagreement option with a sibling names its second keyword', async () => {
+    impl.evidence = evidence({
+      kind: 'resolve_routing_disagreement',
+      departments: [dept({ sibling: { ruleId: 12, type: 'subject_contains', value: 'label missing' } }), dept({ departmentId: 2, ruleId: 11 })],
+    });
+    renderCard(DISAGREE);
+    expect(
+      await screen.findAllByText('Two rules switch on together: "label missing" in the subject also goes there.')
+    ).toHaveLength(1);
+  });
+
+  it('a single rule shows no "and" wording, and an old BE (sibling absent) renders like single', async () => {
+    renderCard(PROPOSE);
+    await evidenceLoaded();
+    expect(screen.getByText('Route mail mentioning "pallet label" in the message to Support')).toBeTruthy();
+    expect(screen.queryByText(/switch on together/)).toBeNull();
+    cleanup();
+    const { sibling: _gone, ...oldDept } = dept();
+    impl.evidence = evidence({ departments: [oldDept as ProposalDepartmentEvidence] });
+    renderCard(PROPOSE);
+    await evidenceLoaded();
+    expect(screen.getByText('Route mail mentioning "pallet label" in the message to Support')).toBeTruthy();
   });
 });

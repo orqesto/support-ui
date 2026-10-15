@@ -21,6 +21,7 @@ import {
   learningService,
   type LearningSuggestion,
   type ProposalDepartmentEvidence,
+  type ProposalSiblingRule,
   type ReplaySummary,
   type RoutingProposalEvidence,
 } from '@/services/learning.service';
@@ -106,6 +107,16 @@ const optionsOf = (payload: Payload): Option[] =>
           typeof option.supportCount === 'number'
       )
     : [];
+
+/** `"X" in the message`, plus `, and "Y" in the subject` when the rule has a paired sibling rule. */
+const keywordPhrase = (
+  value: string | undefined,
+  ruleType: string | undefined,
+  sibling: ProposalSiblingRule | null | undefined
+): string => {
+  const own = `"${value ?? ''}" ${ruleTypeWords(ruleType)}`;
+  return sibling ? `${own}, and "${sibling.value}" ${ruleTypeWords(sibling.type)},` : own;
+};
 
 type NameOf = (id: number) => string | undefined;
 const labelOf = (deptNameById: NameOf, id: number) => deptNameById(id) ?? `department #${id}`;
@@ -259,6 +270,11 @@ export const RoutingProposalCard = ({
               <p className="text-xs font-medium">
                 {`${deptName(option.departmentId)} — ${countText(option.supportCount)} conversation${option.supportCount === 1 ? '' : 's'}`}
               </p>
+              {dept?.sibling && (
+                <p className="break-words text-xs text-muted-foreground">
+                  {`Two rules switch on together: "${dept.sibling.value}" ${ruleTypeWords(dept.sibling.type)} also goes there.`}
+                </p>
+              )}
               {dept && <Evidence dept={dept} deptNameById={deptNameById} />}
             </div>
           );
@@ -281,7 +297,7 @@ export const RoutingProposalCard = ({
       <div className="min-w-0 space-y-2 p-3">
         <p className="text-sm font-medium">Keep this learned rule?</p>
         <p className="break-words text-xs text-muted-foreground">
-          {`Mail mentioning "${payload.value ?? ''}" ${ruleTypeWords(payload.ruleType)} routes to ${deptName(payload.departmentId)}. It keeps routing until you decide.`}
+          {`Mail mentioning ${keywordPhrase(payload.value, payload.ruleType, dept?.sibling)} routes to ${deptName(payload.departmentId)}. It keeps routing until you decide.${dept?.sibling ? ' These are two rules; Keep and Switch off act on both.' : ''}`}
         </p>
         {dept && <Evidence dept={dept} deptNameById={deptNameById} />}
         <div className="flex flex-wrap gap-2">
@@ -293,9 +309,10 @@ export const RoutingProposalCard = ({
   }
 
   const dept = evidenceFor(ruleId);
-  // A subject/body pair is one proposal: one PATCH to the anchor moves both keywords (BE, one transaction); no type change.
+  // A pair edit changes the anchor's keyword only; the sibling keeps its own keyword (edit it on the Rules page). No type change.
+  const isPair = siblingRuleId !== undefined || !!dept?.sibling;
   const canChooseType =
-    siblingRuleId === undefined && (draftType === 'body_contains' || draftType === 'subject_contains');
+    !isPair && (draftType === 'body_contains' || draftType === 'subject_contains');
   const saveAndAccept = () =>
     run('save', async () => {
       if (ruleId === undefined) return;
@@ -311,8 +328,11 @@ export const RoutingProposalCard = ({
   return (
     <div className="min-w-0 space-y-2 p-3">
       <p className="break-words text-sm font-medium">
-        {`Route mail mentioning "${payload.value ?? ''}" ${ruleTypeWords(payload.ruleType)} to ${deptName(payload.departmentId)}`}
+        {`Route mail mentioning ${keywordPhrase(payload.value, payload.ruleType, dept?.sibling)} to ${deptName(payload.departmentId)}`}
       </p>
+      {dept?.sibling && (
+        <p className="text-xs text-muted-foreground">Two rules that switch on together; Accept turns on both.</p>
+      )}
       {dept && <Evidence dept={dept} deptNameById={deptNameById} />}
       {evidence?.autoAccept.mode === 'manual' && evidence.autoAccept.eligibleInBalanced && (
         <p className="text-xs text-muted-foreground">Would be accepted automatically in Balanced mode</p>
@@ -321,11 +341,16 @@ export const RoutingProposalCard = ({
         <div className="space-y-2 rounded-md border border-border/60 p-2">
           <Input
             id={`proposal-keyword-${suggestion.id}`}
-            label="Keyword"
+            label={isPair ? `Keyword ${ruleTypeWords(payload.ruleType)}` : 'Keyword'}
             size="sm"
             value={draftValue}
             onChange={(event) => setDraftValue(event.target.value)}
           />
+          {isPair && (
+            <p className="text-xs text-muted-foreground">
+              The other keyword of this pair is edited on the Rules page.
+            </p>
+          )}
           {canChooseType && (
             <Select
               label="Where to look"

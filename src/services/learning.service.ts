@@ -173,9 +173,12 @@ export type ProposalConversation = {
   routedAt: string | null;
 };
 export type ProposalWarnOverlap = { ruleId: number; departmentId: number; similarity: number };
+export type ProposalSiblingRule = { ruleId: number; type: string; value: string };
 export type ProposalDepartmentEvidence = {
   departmentId: number;
   ruleId: number;
+  /** The paired rule (subject/body) that Accept, Keep and Switch off also act on; null for a single rule. */
+  sibling: ProposalSiblingRule | null;
   /** Weighted conversation count (a bulk route weighs less than 1). */
   supportCount: number;
   agents: number;
@@ -234,6 +237,11 @@ const toReplay = (raw: unknown): ReplaySummary | null => {
   };
 };
 
+const toSibling = (raw: unknown): ProposalSiblingRule | null =>
+  isObj(raw) && num(raw.ruleId) && typeof raw.type === 'string' && typeof raw.value === 'string'
+    ? { ruleId: raw.ruleId, type: raw.type, value: raw.value }
+    : null;
+
 const toWarnOverlap = (raw: unknown): ProposalWarnOverlap | null =>
   isObj(raw) && num(raw.ruleId) && num(raw.departmentId) && num(raw.similarity)
     ? { ruleId: raw.ruleId, departmentId: raw.departmentId, similarity: raw.similarity }
@@ -254,6 +262,7 @@ export const normalizeProposalEvidence = (raw: unknown): RoutingProposalEvidence
       {
         departmentId: dept.departmentId,
         ruleId: dept.ruleId,
+        sibling: toSibling(dept.sibling),
         supportCount: num(dept.supportCount) ? dept.supportCount : 0,
         agents: num(dept.agents) ? dept.agents : 0,
         firstAt: timeOrNull(dept.firstAt),

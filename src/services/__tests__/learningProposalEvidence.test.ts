@@ -18,6 +18,7 @@ const good = {
     {
       departmentId: 1,
       ruleId: 10,
+      sibling: { ruleId: 12, type: 'subject_contains', value: 'label missing' },
       supportCount: 3,
       agents: 2,
       firstAt: '2026-10-05T00:00:00.000Z',
@@ -79,6 +80,20 @@ describe('normalizeProposalEvidence', () => {
       [6, null],
       [7, null],
     ]);
+  });
+
+  it('reads sibling; absent (older backend) or malformed entries become null', () => {
+    const { sibling: _s, ...noSibling } = dept0;
+    const out = normalizeProposalEvidence({
+      ...good,
+      departments: [
+        dept0,
+        { ...noSibling, departmentId: 2, ruleId: 11 },
+        { ...dept0, departmentId: 3, ruleId: 13, sibling: { ruleId: 'x', type: 'subject_contains', value: 'a' } },
+        { ...dept0, departmentId: 4, ruleId: 14, sibling: { ruleId: 5, type: 'subject_contains' } },
+      ],
+    })!;
+    expect(out.departments.map((dept) => dept.sibling)).toEqual([dept0.sibling, null, null, null]);
   });
 
   it('reads warnOverlap per department; a malformed one is null; a top-level one is not carried', () => {
