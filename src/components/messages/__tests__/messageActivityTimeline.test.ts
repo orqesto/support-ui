@@ -194,6 +194,106 @@ describe('routing.decision entries (spec §4.5)', () => {
     expect(auditEntryLabel('routing.decision', null)).toBe('Routed to a department automatically');
   });
 
+  describe('the rule that carried the route (largest share, §9)', () => {
+    // Staging 2026-10-15: embedding_strong with shares {1:.083, 2:.083, 4:.208, 12:.208, 733:.417};
+    // 733 was a just-accepted learned rule. BE lists rules largest share first, but the label
+    // must not depend on that order.
+    const manual = (id: number, value: string, share?: number) => ({
+      id,
+      type: 'body_contains',
+      value,
+      deleted: false,
+      acceptedBy: null,
+      acceptedAt: null,
+      autoAccepted: false,
+      ...(share === undefined ? {} : { share }),
+    });
+    const accepted = (share?: number) => ({
+      ...manual(733, 'pallet label', share),
+      acceptedBy: { userId: 9, name: 'Anna Weber' },
+      acceptedAt: '2026-10-15T08:00:00Z',
+    });
+    const autoAccepted = (share?: number) => ({
+      ...manual(734, 'pallet label', share),
+      acceptedAt: '2026-10-13T02:00:00Z',
+      autoAccepted: true,
+    });
+    const deleted = (share: number) => ({
+      id: 99,
+      type: null,
+      value: null,
+      deleted: true,
+      acceptedBy: null,
+      acceptedAt: null,
+      autoAccepted: false,
+      share,
+    });
+    const label = (reason: string, rules: unknown[]) =>
+      auditEntryLabel('routing.decision', { reason, departmentName: 'Support', rules });
+
+    it('similarity route whose largest share is an accepted rule names it (the staging case)', () => {
+      const rules = [
+        manual(1, 'invoice', 0.083),
+        manual(2, 'freight', 0.083),
+        manual(4, 'customs', 0.208),
+        manual(12, 'delivery', 0.208),
+        accepted(0.417),
+      ];
+      expect(label('embedding_strong', rules)).toBe(
+        'Routed to Support by rule "pallet label" (accepted by Anna Weber, 15 Oct)'
+      );
+      expect(label('embedding_override', [accepted(0.417), manual(1, 'invoice', 0.083)])).toBe(
+        'Routed to Support by rule "pallet label" (accepted by Anna Weber, 15 Oct)'
+      );
+    });
+
+    it('similarity route whose largest share is an auto-accepted rule names it', () => {
+      expect(label('embedding_strong', [manual(1, 'invoice', 0.2), autoAccepted(0.6)])).toBe(
+        'Routed to Support by rule "pallet label" (accepted automatically, 13 Oct)'
+      );
+    });
+
+    it('similarity route whose largest share is a manual (never accepted) rule stays similarity', () => {
+      expect(label('embedding_strong', [accepted(0.2), manual(1, 'invoice', 0.5)])).toBe(
+        'Routed to Support by similarity to earlier conversations'
+      );
+    });
+
+    it('similarity route skips a deleted rule with the largest share and judges the largest live one', () => {
+      expect(
+        label('embedding_strong', [deleted(0.9), manual(1, 'invoice', 0.05), accepted(0.05)])
+      ).toBe('Routed to Support by similarity to earlier conversations');
+      expect(
+        label('embedding_strong', [deleted(0.9), accepted(0.3), manual(1, 'invoice', 0.1)])
+      ).toBe('Routed to Support by rule "pallet label" (accepted by Anna Weber, 15 Oct)');
+    });
+
+    it('rule route names the largest-share live rule, not the first', () => {
+      expect(
+        label('rule_strong', [manual(1, 'invoice', 0.1), deleted(0.8), manual(2, 'freight', 0.6)])
+      ).toBe('Routed to Support by rule "freight"');
+      expect(label('rule_ai_agree', [manual(1, 'invoice', 0.1), accepted(0.9)])).toBe(
+        'Routed to Support by rule "pallet label" (accepted by Anna Weber, 15 Oct)'
+      );
+      expect(label('rule_decisive', [manual(1, 'invoice', 0.1), manual(2, 'freight', 0.9)])).toBe(
+        'Routed to Support by rule "freight"'
+      );
+    });
+
+    it('older BE without share: rule route names the first live rule, similarity stays similarity', () => {
+      expect(
+        label('rule_strong', [
+          { ...deleted(0), share: undefined },
+          manual(1, 'invoice'),
+          accepted(),
+        ])
+      ).toBe('Routed to Support by rule "invoice"');
+      expect(label('embedding_strong', [accepted(), manual(1, 'invoice')])).toBe(
+        'Routed to Support by similarity to earlier conversations'
+      );
+    });
+  });
+
   it('places the routing entry (appended last by the BE) by createdAt, leaving the rest in order', () => {
     const routing = {
       ...entry(
