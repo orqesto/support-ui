@@ -295,4 +295,116 @@ describe('odly widget: replies after a handoff', () => {
     expect(messageCalls()).toHaveLength(3);
     expect(document.body.textContent).not.toContain('Busy');
   });
+
+  // Review of #615: a 404, or a request still in flight, for an OLD session must not keep a new
+  // handoff in the same open panel from polling.
+  it('a new handoff after a 404 for the old session polls without reopening', async () => {
+    storeHandoff();
+    messagesResponder = (call) =>
+      call.body?.sessionKey === 'sess-old'
+        ? reply({ success: false, error: 'Session not found' }, 404)
+        : reply({ success: true, escalated: true, messages: [], cursor: null });
+    chatResponder = () =>
+      reply({ success: true, reply: 'Passing you on.', sessionKey: 'sess-new', escalated: true });
+    bootWidget();
+    await flush();
+    await openChat();
+    expect(messageCalls()).toHaveLength(1);
+
+    const input = document.getElementById('odly-input') as HTMLTextAreaElement;
+    input.value = 'Still need help';
+    (document.getElementById('odly-send') as HTMLButtonElement).click();
+    await flush(20000);
+    expect(messageCalls().map((call) => call.body?.sessionKey)).toEqual(['sess-old', 'sess-new']);
+  });
+
+  it('an answer for the old session arriving after a new handoff restarts polling', async () => {
+    storeHandoff();
+    let release: ((value: FakeResponse) => void) | null = null;
+    messagesResponder = (call) =>
+      call.body?.sessionKey === 'sess-old'
+        ? new Promise<FakeResponse>((resolve) => {
+            release = resolve;
+          })
+        : reply({ success: true, escalated: true, messages: [], cursor: null });
+    chatResponder = () =>
+      reply({ success: true, reply: 'Passing you on.', sessionKey: 'sess-new', escalated: true });
+    bootWidget();
+    await flush();
+    await openChat();
+    const input = document.getElementById('odly-input') as HTMLTextAreaElement;
+    input.value = 'Still need help';
+    (document.getElementById('odly-send') as HTMLButtonElement).click();
+    await flush();
+    (release as unknown as (value: FakeResponse) => void)(
+      reply({
+        success: true,
+        escalated: true,
+        messages: [{ id: 9, role: 'agent', content: 'Old answer', sentAt: '2026-01-02T10:00:00Z' }],
+        cursor: 9,
+      })
+    );
+    await flush(20000);
+    expect(messageCalls().map((call) => call.body?.sessionKey)).toEqual(['sess-old', 'sess-new']);
+    expect(document.body.textContent).not.toContain('Old answer');
+  });
+
+  it('a session that cannot be saved to storage is still handed off and polled', async () => {
+    chatResponder = () =>
+      reply({ success: true, reply: 'Passing you on.', sessionKey: 'sess-new', escalated: true });
+    bootWidget();
+    await flush();
+    await openChat();
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError');
+    });
+    try {
+      const input = document.getElementById('odly-input') as HTMLTextAreaElement;
+      input.value = 'I want a person';
+      (document.getElementById('odly-send') as HTMLButtonElement).click();
+      await flush(20000);
+    } finally {
+      setItem.mockRestore();
+    }
+    expect(messageCalls().map((call) => call.body?.sessionKey)).toEqual(['sess-new']);
+  });
+
+  it('a reply arriving while the visitor types the code keeps the code field focused', async () => {
+    chatResponder = (call) =>
+      call.url.endsWith('/email-verification/send')
+        ? reply({ status: 'sent', maskedEmail: 'v***@example.test' })
+        : reply({
+            success: true,
+            reply: 'Passing you on.',
+            sessionKey: 'sess-new',
+            escalated: true,
+            hasEmail: true,
+            emailVerified: false,
+          });
+    messagesResponder = () =>
+      reply({
+        success: true,
+        escalated: true,
+        messages: [{ id: 4, role: 'agent', content: 'Hello', sentAt: '2026-01-02T10:00:00Z' }],
+        cursor: 4,
+      });
+    bootWidget({ emailVerification: { available: true } });
+    await flush();
+    await openChat();
+    const input = document.getElementById('odly-input') as HTMLTextAreaElement;
+    input.value = 'I want a person';
+    (document.getElementById('odly-send') as HTMLButtonElement).click();
+    await flush();
+    (document.querySelector('.odly-verify .odly-action-btn') as HTMLButtonElement).click();
+    await flush();
+    const code = document.querySelector<HTMLInputElement>('.odly-verify-input');
+    expect(code).not.toBeNull();
+    code?.focus();
+    (code as HTMLInputElement).value = '123';
+    await flush(20000);
+    expect(document.body.textContent).toContain('Hello');
+    const after = document.querySelector<HTMLInputElement>('.odly-verify-input');
+    expect(after?.value).toBe('123');
+    expect(document.activeElement).toBe(after);
+  });
 });

@@ -382,7 +382,11 @@
           if (data.sessionKey) {
             if (data.sessionKey !== sessionKey) clearHandoff();
             sessionKey = data.sessionKey;
-            localStorage.setItem('odly_session_' + WIDGET_KEY, sessionKey);
+            try {
+              localStorage.setItem('odly_session_' + WIDGET_KEY, sessionKey);
+            } catch (e) {
+              /* localStorage unavailable — the handoff below must still happen */
+            }
           }
           if (data.escalated) {
             markEscalated();
@@ -696,6 +700,9 @@
     escalated = false;
     replyCursor = 0;
     seenReplyIds = {};
+    // A 404 or a backoff belonged to the old session.
+    pollDisabled = false;
+    pollDelay = POLL_MS;
     stopPolling();
     try {
       localStorage.removeItem(HANDOFF_KEY);
@@ -735,6 +742,7 @@
     var draft = input ? input.value : '';
     var codeDraft = code ? code.value : '';
     var hadFocus = !!(input && document.activeElement === input);
+    var codeHadFocus = !!(code && document.activeElement === code);
     quietRender = true;
     try {
       renderChat();
@@ -747,7 +755,10 @@
       nextInput.value = draft;
       if (hadFocus) nextInput.focus();
     }
-    if (nextCode) nextCode.value = codeDraft;
+    if (nextCode) {
+      nextCode.value = codeDraft;
+      if (codeHadFocus) nextCode.focus();
+    }
   }
 
   // One request at a time. Any failure is silent for the visitor: a 404 (session gone,
@@ -773,7 +784,9 @@
       })
       .then(function (data) {
         pollInFlight = false;
-        if (askedFor !== sessionKey || !escalated) return; // session changed meanwhile
+        // Session changed meanwhile: drop this answer, and poll for the current session (its
+        // own schedulePoll was skipped while this request was in flight).
+        if (askedFor !== sessionKey || !escalated) return schedulePoll(POLL_MS);
         if (!data || !data.success) throw new Error('unsuccessful');
         pollDelay = POLL_MS;
         if (applyReplies(data) && isOpen) renderKeepingDraft();
@@ -781,6 +794,7 @@
       })
       .catch(function (err) {
         pollInFlight = false;
+        if (askedFor !== sessionKey) return schedulePoll(POLL_MS);
         if (err && err.status === 404) {
           pollDisabled = true;
           return;
