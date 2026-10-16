@@ -12,8 +12,10 @@ import {
 } from '@/components/ui/Dialog';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
+import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
+import { queryClient } from '@/lib/queryClient';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import { conversationMergeService, type ManualMerge } from '@/services/conversationMerge.service';
 import { messageService } from '@/services/message.service';
@@ -278,6 +280,8 @@ export const MergedSection = ({
     setError(null);
     try {
       await conversationMergeService.unmerge(message.id, merge.id);
+      // The restored thread is back in its queue (Needs Routing included): same client as the merge.
+      void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
       toast.success(`${getConvUrlId(merge, orgCode)} unmerged — it is its own thread again`);
       onUnmerged(merge.id);
     } catch (err) {

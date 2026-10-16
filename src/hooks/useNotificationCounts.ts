@@ -39,7 +39,7 @@ const ARRIVAL_KINDS = new Set<string>(['suspicious_arrival', 'spam_arrival']);
  * Per-kind UNREAD notification counts for the current org + department scope, used to
  * badge the Suspicious/Spam Kanban column headers. Backed by `GET /api/notifications/counts`
  * (dept-scoped server-side via the X-Department-Context header). Live-refreshes on the
- * `notification:new` WS ping and polls every 60s as a fallback.
+ * `notification:*` and `conversation:routed` WS pings and polls every 60s as a fallback.
  *
  * `clearKind` marks that kind read (`PATCH /read-all?kind=`) — the "reviewed → badge
  * clears" action. For the two ARRIVAL kinds the server treats that read as shared, so
@@ -101,15 +101,21 @@ export const useNotificationCounts = () => {
     // The mirror image: marking a thread unread restores its arrival notification for
     // the team, so the badge has to come back just as promptly as it went away.
     const handleUnread = () => invalidate();
+    // A colleague routed a conversation out of Needs Routing. The server pings the whole org
+    // room on every manual route, and no notification row changes, so none of the pings above
+    // fire: without this, other agents' Needs Routing badge waited for the 60s poll.
+    const handleRouted = () => invalidate();
     subscribeToEvent('notification:new', handleNew);
     subscribeToEvent('notification:removed', handleRemoved);
     subscribeToEvent('notification:read', handleRead);
     subscribeToEvent('notification:unread', handleUnread);
+    subscribeToEvent('conversation:routed', handleRouted);
     return () => {
       unsubscribeFromEvent('notification:new', handleNew);
       unsubscribeFromEvent('notification:removed', handleRemoved);
       unsubscribeFromEvent('notification:read', handleRead);
       unsubscribeFromEvent('notification:unread', handleUnread);
+      unsubscribeFromEvent('conversation:routed', handleRouted);
       releaseSocket();
     };
   }, [queryClient, orgId, deptKey]);

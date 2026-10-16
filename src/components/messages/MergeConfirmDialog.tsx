@@ -9,8 +9,10 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
+import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
+import { queryClient } from '@/lib/queryClient';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import {
   conversationMergeService,
@@ -104,7 +106,8 @@ export const MergeConfirmDialog = ({
     if (count === 0) return;
     let next: number;
     if (event.key === 'ArrowDown' || event.key === 'ArrowRight') next = (index + 1) % count;
-    else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') next = (index - 1 + count) % count;
+    else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft')
+      next = (index - 1 + count) % count;
     else if (event.key === 'Home') next = 0;
     else if (event.key === 'End') next = count - 1;
     else return;
@@ -127,6 +130,10 @@ export const MergeConfirmDialog = ({
         assigneeId
       );
       setConflictIds(null);
+      // A merged-away thread leaves every queue, Needs Routing included. The app's one client
+      // (the provider's), not useQueryClient: every merge entry point renders this dialog, some
+      // without a provider in their tests.
+      void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
       onMerged(survivor, others);
     } catch (err) {
       if (err instanceof MergeAssigneeConflictError) {

@@ -30,6 +30,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 const { MergeConfirmDialog } = await import('../MergeConfirmDialog');
+const { queryClient } = await import('@/lib/queryClient');
 
 const OLDEST = {
   id: 1,
@@ -229,5 +230,39 @@ describe('MergeConfirmDialog — choosing by click, and the words that follow th
       <MergeConfirmDialog open rows={[OLDEST, MIDDLE]} onOpenChange={vi.fn()} onMerged={vi.fn()} />
     );
     expect(screen.getByText(/it leaves the inbox\. Replies to its thread/)).toBeInTheDocument();
+  });
+});
+
+// A merged-away thread leaves Needs Routing (the server has no status guard on merge), so the
+// badge refreshes on the merge, not at the next 60 s poll.
+describe('MergeConfirmDialog — the Needs Routing badge', () => {
+  it('a merge refreshes the counts, then reports the merge', async () => {
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    const onMerged = vi.fn();
+    render(
+      <MergeConfirmDialog open rows={[OLDEST, NEWEST]} onOpenChange={vi.fn()} onMerged={onMerged} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Merge' }));
+    await waitFor(() => expect(onMerged).toHaveBeenCalled());
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['notification-counts'] });
+    invalidate.mockRestore();
+  });
+
+  it('control: a failed merge does not refresh them', async () => {
+    mergeImpl = () =>
+      Promise.reject(
+        Object.assign(new Error('Request failed'), {
+          isAxiosError: true,
+          response: { status: 500, data: {} },
+        })
+      );
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    render(
+      <MergeConfirmDialog open rows={[OLDEST, NEWEST]} onOpenChange={vi.fn()} onMerged={vi.fn()} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Merge' }));
+    await screen.findByText('These threads could not be merged. Nothing was changed.');
+    expect(invalidate).not.toHaveBeenCalled();
+    invalidate.mockRestore();
   });
 });

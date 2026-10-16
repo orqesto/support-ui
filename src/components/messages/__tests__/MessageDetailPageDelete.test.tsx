@@ -15,6 +15,7 @@ import { ROUTER_FUTURE } from '@/test/routerFuture';
 const api = vi.hoisted(() => ({
   get: vi.fn(),
   delete: vi.fn(),
+  patch: vi.fn(),
   toastError: vi.fn(),
   granted: new Set<string>(['delete_messages']),
   orgCode: 'ACM' as string | undefined,
@@ -29,7 +30,7 @@ vi.mock('@/hooks/usePermissions', () => ({
 }));
 
 vi.mock('@/lib/api-client', () => ({
-  apiClient: { get: api.get, delete: api.delete, post: vi.fn(), patch: vi.fn(), put: vi.fn() },
+  apiClient: { get: api.get, delete: api.delete, post: vi.fn(), patch: api.patch, put: vi.fn() },
 }));
 vi.mock('@/lib/toast', () => ({
   toast: { error: api.toastError, success: vi.fn(), info: vi.fn(), warning: vi.fn() },
@@ -42,9 +43,20 @@ vi.mock('@/components/layout/Layout', () => ({
 }));
 // Stand-in for MessageDetail: its More → Delete message calls the page's onDelete.
 vi.mock('@/components/messages/MessageDetail', () => ({
-  MessageDetail: ({ onDelete }: { onDelete?: () => void }) => (
+  MessageDetail: ({
+    onDelete,
+    onClassify,
+  }: {
+    onDelete?: () => void;
+    onClassify?: (action: 'move_to_spam') => Promise<void>;
+  }) => (
     <div>
       <span>detail</span>
+      {onClassify && (
+        <button type="button" onClick={() => void onClassify('move_to_spam')}>
+          Move to spam
+        </button>
+      )}
       {onDelete && (
         <button type="button" onClick={onDelete}>
           More → Delete message
@@ -104,6 +116,7 @@ beforeEach(() => {
     },
   });
   api.delete.mockResolvedValue({ data: { success: true } });
+  api.patch.mockResolvedValue({ data: { success: true } });
 });
 afterEach(() => {
   cleanup();
@@ -401,5 +414,21 @@ describe('MessageDetailPage — More → Delete message', () => {
     expect(
       await screen.findByRole('button', { name: 'More → Delete message' })
     ).toBeInTheDocument();
+  });
+});
+
+// Needs Routing rows open this page; Move to spam here takes the thread out of the queue, so the
+// badge must refresh at once (the split pane already did; this page did not).
+describe('MessageDetailPage — Move to spam', () => {
+  it('PATCHes the classify and refreshes the Needs Routing badge', async () => {
+    const { invalidate } = renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Move to spam' }));
+    await waitFor(() =>
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ['notification-counts'] })
+    );
+    expect(api.patch).toHaveBeenCalledWith(
+      '/api/messages/42/classify',
+      expect.objectContaining({ action: 'move_to_spam' })
+    );
   });
 });
