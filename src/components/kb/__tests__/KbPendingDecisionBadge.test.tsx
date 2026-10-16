@@ -16,14 +16,16 @@ describe('KbPendingDecisionBadge', () => {
     expect(screen.getByText('+1 more')).toBeInTheDocument();
   });
 
-  it('says only an admin can decide when the viewer cannot', () => {
+  it('says why the viewer cannot decide (departments they do not moderate)', () => {
     render(
       <KbPendingDecisionBadge
         decision={{ suggestionId: 2, kind: 'remove', reasons: [], canDecide: false }}
       />
     );
     expect(screen.getByText('Suggested: remove')).toBeInTheDocument();
-    expect(screen.getByText('Only a workspace admin can decide this')).toBeInTheDocument();
+    expect(
+      screen.getByText("You can't decide this one — it covers departments you don't moderate.")
+    ).toBeInTheDocument();
   });
 
   it('shows the set-aside reason and nothing else for a set-aside entry', () => {

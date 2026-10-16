@@ -5,8 +5,11 @@ import { MemoryRouter } from 'react-router-dom';
 import type * as KbServiceModule from '@/services/kb.service';
 
 const getAllCalls: Array<Record<string, unknown>> = [];
-/** What the mocked list echoes as the applied status: a new BE echoes the request, an old one 'all'. */
-let echo: 'request' | 'all' = 'request';
+/**
+ * Every backend echoes the requested status (an older one returns the UNFILTERED list for a status
+ * it does not know); only a backend that applies the decision statuses sends `decisionStatuses`.
+ */
+let capable = true;
 let failList = false;
 let canReview = true;
 let listEntries: unknown[] = [];
@@ -25,7 +28,10 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
           data: {
             entries: listEntries,
             pagination: { page: 1, limit: 50, total: listEntries.length, totalPages: 1 },
-            filters: { status: echo === 'request' ? (params.status ?? 'all') : 'all' },
+            filters: {
+              status: params.status ?? 'all',
+              ...(capable ? { decisionStatuses: true } : {}),
+            },
           },
         });
       },
@@ -79,11 +85,26 @@ vi.mock('@/hooks/useDepartments', () => ({
 }));
 
 const { KnowledgeBasePage } = await import('../KnowledgeBasePage');
-const NOTICE = 'This server cannot filter by this yet — showing every entry.';
+const { KB_STATUS_IGNORED_NOTICE: NOTICE } = await import('@/components/kb/KbStatusIgnoredNotice');
+const { CANNOT_DECIDE } = await import('@/components/kb/KbPendingDecisionBadge');
+const entry = (over: Record<string, unknown>) => ({
+  id: 10,
+  title: 'Example entry',
+  content: 'Example answer.',
+  type: 'qa_pair',
+  category: 'general',
+  qualityScore: 0.9,
+  usageCount: 0,
+  approved: true,
+  hidden: false,
+  pendingDecision: null,
+  otherPendingDecisions: 0,
+  ...over,
+});
 
 beforeEach(() => {
   getAllCalls.length = 0;
-  echo = 'request';
+  capable = true;
   failList = false;
   canReview = true;
   listEntries = [];
@@ -103,14 +124,45 @@ describe('Knowledge Base decision filters', () => {
     expect(screen.queryByText(NOTICE)).toBeNull();
   });
 
-  it('an older backend echoes "all": say so instead of passing the full list off as filtered', async () => {
-    echo = 'all';
+  it('an older backend (echoes the status, no capability flag): the notice replaces the unfiltered rows', async () => {
+    capable = false;
+    listEntries = [entry({ id: 21, title: 'Unfiltered row from an older server' })];
     render(
-      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
+      <MemoryRouter initialEntries={['/knowledge-base?status=suggested_change']}>
         <KnowledgeBasePage />
       </MemoryRouter>
     );
     expect(await screen.findByText(NOTICE)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open the review page' })).toHaveAttribute(
+      'href',
+      '/knowledge-base/merges'
+    );
+    expect(screen.queryByText('Unfiltered row from an older server')).toBeNull();
+  });
+
+  it('the capability flag present: the rows show and no notice', async () => {
+    listEntries = [entry({ id: 22, title: 'Filtered row from a new server' })];
+    render(
+      <MemoryRouter initialEntries={['/knowledge-base?status=suggested_change']}>
+        <KnowledgeBasePage />
+      </MemoryRouter>
+    );
+    expect((await screen.findAllByText('Filtered row from a new server')).length).toBeGreaterThan(
+      0
+    );
+    expect(screen.queryByText(NOTICE)).toBeNull();
+  });
+
+  it('an older backend on an old status (approved) shows its rows, no notice', async () => {
+    capable = false;
+    listEntries = [entry({ id: 23, title: 'Approved row' })];
+    render(
+      <MemoryRouter initialEntries={['/knowledge-base?status=approved']}>
+        <KnowledgeBasePage />
+      </MemoryRouter>
+    );
+    expect((await screen.findAllByText('Approved row')).length).toBeGreaterThan(0);
+    expect(screen.queryByText(NOTICE)).toBeNull();
   });
 
   it('clicking a filter a new backend applies never flashes the notice', async () => {
@@ -151,7 +203,7 @@ describe('Knowledge Base decision filters', () => {
 
   it('a non-reviewer (server caps to approved) gets no notice', async () => {
     canReview = false;
-    echo = 'all';
+    capable = false;
     render(
       <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
         <KnowledgeBasePage />
@@ -162,7 +214,7 @@ describe('Knowledge Base decision filters', () => {
   });
 
   it('while a KB-cases finding is open the notice stays off', async () => {
-    echo = 'all';
+    capable = false;
     render(
       <MemoryRouter
         initialEntries={[
@@ -206,6 +258,26 @@ describe('Knowledge Base decision filters', () => {
     expect(screen.queryByText(/dialog 77/)).toBeNull();
   });
 
+  it('Suggested change: an entry also under a capture review offers Review for the merge the server leads with', async () => {
+    // The BE leads the row with the filter's kind (the merge), the capture counted in "+1 more".
+    listEntries = [
+      entry({
+        id: 24,
+        approved: false,
+        pendingDecision: { suggestionId: 79, kind: 'merge', reasons: [], canDecide: true },
+        otherPendingDecisions: 1,
+      }),
+    ];
+    render(
+      <MemoryRouter initialEntries={['/knowledge-base?status=suggested_change']}>
+        <KnowledgeBasePage />
+      </MemoryRouter>
+    );
+    const [review] = await screen.findAllByRole('button', { name: 'Review' });
+    fireEvent.click(review);
+    expect(screen.getByText(/dialog 79/)).toBeInTheDocument();
+  });
+
   it('offers no Review when the viewer cannot decide', async () => {
     listEntries = [
       {
@@ -227,9 +299,7 @@ describe('Knowledge Base decision filters', () => {
         <KnowledgeBasePage />
       </MemoryRouter>
     );
-    expect(
-      (await screen.findAllByText('Only a workspace admin can decide this')).length
-    ).toBeGreaterThan(0);
+    expect((await screen.findAllByText(CANNOT_DECIDE)).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'Review' })).toBeNull();
   });
 });

@@ -11,6 +11,9 @@ const LABEL: Record<KbDecisionKind, string> = {
   attach: 'Suggested: add to case',
 };
 
+export const CANNOT_DECIDE =
+  "You can't decide this one — it covers departments you don't moderate.";
+
 /** The decision waiting on a Knowledge Base row (highest priority), how many more, or why it is set aside. */
 export const KbPendingDecisionBadge = ({
   decision,
@@ -31,7 +34,7 @@ export const KbPendingDecisionBadge = ({
       <span className="text-xs text-muted-foreground">+{others} more</span>
     )}
     {decision && !decision.canDecide && (
-      <span className="text-xs text-muted-foreground">Only a workspace admin can decide this</span>
+      <span className="text-xs text-muted-foreground">{CANNOT_DECIDE}</span>
     )}
     {setAsideReason && <Badge variant="secondary">{SET_ASIDE_REASON_LABEL[setAsideReason]}</Badge>}
   </div>

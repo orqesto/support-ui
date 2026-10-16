@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import { isRouteAbsent } from '@/lib/apiError';
-import type { KbSetAsideReason } from '@/services/kbConsolidation.service';
+import { KB_SET_ASIDE_REASONS, type KbSetAsideReason } from '@/services/kbConsolidation.service';
 
 /**
  * What Unhide did. `unsupported`: the backend has no unhide route yet (an older deployment) —
@@ -25,6 +25,14 @@ const DECISION_KINDS: readonly KbDecisionKind[] = [
   'merge',
   'attach',
 ];
+
+/** A row's set-aside reason: absent ⇒ null; a reason this app does not know yet ⇒ 'other'. */
+export const normaliseSetAsideReason = (value: unknown): KbSetAsideReason | null => {
+  if (typeof value !== 'string') return null;
+  return (KB_SET_ASIDE_REASONS as readonly string[]).includes(value)
+    ? (value as KbSetAsideReason)
+    : 'other';
+};
 
 /** BE one-list (proposal §8). Absent on an older backend ⇒ null: show no badge rather than guess. */
 export const normalisePendingDecision = (value: unknown): KbPendingDecision | null => {
@@ -145,8 +153,13 @@ export type PaginatedResponse<T> = {
   data: {
     entries: T[];
     pagination: PaginationMeta;
-    /** What the server applied. An older backend ignores a status it does not know and echoes 'all'. */
-    filters?: { status?: string };
+    /**
+     * What the server applied. `status` is NOT proof: every backend echoes the requested status,
+     * and an older one returns the unfiltered list for a status it does not know.
+     * `decisionStatuses` (normalised to a boolean) is true only on a backend that applies
+     * needs_decision / suggested_change / set_aside.
+     */
+    filters?: { status?: string; decisionStatuses?: boolean };
   };
 };
 
@@ -226,8 +239,12 @@ export const kbService = {
           pendingDecision: normalisePendingDecision(entry.pendingDecision),
           otherPendingDecisions:
             typeof entry.otherPendingDecisions === 'number' ? entry.otherPendingDecisions : 0,
-          setAsideReason: typeof entry.setAsideReason === 'string' ? entry.setAsideReason : null,
+          setAsideReason: normaliseSetAsideReason(entry.setAsideReason),
         })),
+        filters: {
+          ...body.data.filters,
+          decisionStatuses: body.data.filters?.decisionStatuses === true,
+        },
       },
     };
   },

@@ -11,7 +11,6 @@ import { ConfluenceCatalogSection } from '@/components/knowledge-base/Confluence
 import { MessageSourceFilter, ALL_SOURCES } from '@/components/messages/MessageSourceFilter';
 import { DocumentationSettings } from '@/components/settings/DocumentationSettings';
 import { AlertDialog } from '@/components/ui/AlertDialog';
-import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -39,6 +38,7 @@ import { KbStatusFilter, type KbFilterStatus } from '@/components/kb/KbStatusFil
 import { withoutKbFinding } from '@/lib/kbFinding';
 import { useKbStatusParam } from '@/hooks/useKbStatusParam';
 import { KbFindingBanner } from '@/components/kb/KbFindingBanner';
+import { KbStatusIgnoredNotice } from '@/components/kb/KbStatusIgnoredNotice';
 import { useKbUnhide } from '@/components/kb/useKbUnhide';
 import { KBDeleteDialog } from '@/components/kb/KBDeleteDialog';
 import { KbDecisionDialog } from '@/components/kb/KbDecisionDialog';
@@ -90,10 +90,10 @@ export const KnowledgeBasePage = () => {
     totalPages: 0,
   });
   const [loading, setLoading] = useState(true);
-  // The status the server says it applied; used to catch an older backend ignoring a new one.
+  // Whether the server can apply the decision statuses (an older one echoes them, unapplied).
   const [appliedStatus, setAppliedStatus] = useState<{
     requested: KbFilterStatus;
-    echoed: string | null;
+    decisionStatuses: boolean;
   } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
@@ -144,7 +144,7 @@ export const KnowledgeBasePage = () => {
     !finding.filter &&
     NEW_STATUSES.includes(filterStatus) &&
     appliedStatus?.requested === filterStatus &&
-    appliedStatus.echoed !== filterStatus;
+    !appliedStatus.decisionStatuses;
   const fetchEntries = useCallback(
     async (page = 1) => {
       try {
@@ -162,7 +162,7 @@ export const KnowledgeBasePage = () => {
         setPagination(response.data.pagination);
         setAppliedStatus({
           requested: filterStatus,
-          echoed: response.data.filters?.status ?? null,
+          decisionStatuses: response.data.filters?.decisionStatuses === true,
         });
       } catch (error) {
         logger.error('Failed to fetch KB entries:', error);
@@ -598,11 +598,6 @@ export const KnowledgeBasePage = () => {
 
                   {/* Status Filter — reviewers only: the server caps everyone else to approved. */}
                   {canReview && <KbStatusFilter value={filterStatus} onChange={setFilterStatus} />}
-                  {statusIgnored && (
-                    <Alert variant="warning">
-                      This server cannot filter by this yet — showing every entry.
-                    </Alert>
-                  )}
 
                   {/* Source Filter */}
                   <div className="flex flex-col gap-2">
@@ -626,6 +621,9 @@ export const KnowledgeBasePage = () => {
             <ConfluenceCatalogSection refreshSignal={kbVersion} onKbChange={bumpKb} />
             <DocumentationSettings refreshSignal={kbVersion} onKbChange={bumpKb} />
           </>
+        ) : statusIgnored ? (
+          // An older backend returned the unfiltered list: never pass it off as filtered.
+          <KbStatusIgnoredNotice />
         ) : (
           <>
             {/* Mobile Card View */}
