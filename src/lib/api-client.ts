@@ -143,6 +143,31 @@ const isRefreshable = (url: string | undefined): boolean =>
  */
 let refreshInFlight: Promise<void> | null = null;
 
+/**
+ * A renewal the server REFUSED FOR RATE (429), and until when it asked us to stop.
+ *
+ * A 429 says nothing about the session: the refresh token is still good, the server just will not
+ * rotate it yet. Signing the user out for it put them on a login page that the same limit then
+ * refused too ("Too many login attempts"). Until the wait is over, renewal answers with the same
+ * refusal at once — every request that 401s in the meantime would otherwise ask again and keep
+ * the bucket full.
+ */
+let refreshRefused: { until: number; error: Error } | null = null;
+const REFRESH_REFUSED_DEFAULT_WAIT_MS = 60_000;
+
+const isRateLimited = (err: unknown): boolean =>
+  (err as { response?: { status?: number } } | undefined)?.response?.status === 429;
+
+const refusedWaitMs = (err: unknown): number => {
+  const seconds = Number(
+    (err as { response?: { data?: { retryAfter?: unknown } } } | undefined)?.response?.data
+      ?.retryAfter
+  );
+  return Number.isFinite(seconds) && seconds > 0
+    ? seconds * 1000
+    : REFRESH_REFUSED_DEFAULT_WAIT_MS;
+};
+
 const requestRefresh = async (): Promise<void> => {
   try {
     // A bare axios call, not `apiClient` — going through the instance would re-enter this same
@@ -180,9 +205,21 @@ const requestRefresh = async (): Promise<void> => {
  * expired token must join this queue rather than start a second, competing refresh.
  */
 export const ensureFreshSession = (): Promise<void> => {
-  refreshInFlight ??= requestRefresh().finally(() => {
-    refreshInFlight = null;
-  });
+  if (refreshRefused && Date.now() < refreshRefused.until) {
+    return Promise.reject(refreshRefused.error);
+  }
+  refreshInFlight ??= requestRefresh()
+    .then(() => {
+      refreshRefused = null;
+    })
+    .catch((err: unknown) => {
+      const error = err instanceof Error ? err : new Error(String(err));
+      if (isRateLimited(err)) refreshRefused = { until: Date.now() + refusedWaitMs(err), error };
+      throw error;
+    })
+    .finally(() => {
+      refreshInFlight = null;
+    });
   return refreshInFlight;
 };
 
@@ -284,7 +321,10 @@ export const handleResponseError = async (error: unknown): Promise<unknown> => {
       try {
         await ensureFreshSession();
         return await apiClient.request(original);
-      } catch {
+      } catch (refreshError) {
+        // Refused for RATE, not for the session: stay signed in and fail this one request with
+        // the server's own words. The next renewal after the wait succeeds.
+        if (isRateLimited(refreshError)) return handleResponseError(refreshError);
         // The session really is over. Fall through to the sign-out below.
       }
     }

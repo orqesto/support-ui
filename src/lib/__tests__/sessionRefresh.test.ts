@@ -256,3 +256,67 @@ describe('the auth pages keep their old behaviour', () => {
     expect(assignedHref).toBeNull();
   });
 });
+
+describe('a renewal refused for rate (429) is not the end of the session', () => {
+  const refused = (retryAfter: number) =>
+    Object.assign(new Error('Request failed with status code 429'), {
+      isAxiosError: true,
+      response: {
+        status: 429,
+        data: {
+          success: false,
+          code: 'RATE_LIMITED',
+          error: 'Too many session requests',
+          retryAfter,
+        },
+      },
+      config: { url: '/api/auth/refresh', method: 'post', headers: {} },
+    });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('keeps the user signed in, fails only this request, and does not ask again until the wait is over', async () => {
+    vi.useFakeTimers();
+    const refresh = vi.spyOn(axios, 'post').mockRejectedValue(refused(120));
+    const replay = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: 'replayed' });
+    // Earlier tests' sign-outs replace the store state, so this can be a spy that already counted.
+    const logout = vi.spyOn(useAuthStore.getState(), 'logout');
+    logout.mockClear();
+
+    const first = await handleResponseError(failure(401, '/api/messages/threads')).catch(
+      (err: unknown) => err
+    );
+    expect(first).toMatchObject({ message: /Too many session requests/, status: 429 });
+    expect(logout).not.toHaveBeenCalled();
+    expect(assignedHref).toBeNull();
+    expect(replay).not.toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    // Inside the wait: the refusal is answered locally, nothing is sent.
+    await vi.advanceTimersByTimeAsync(60_000);
+    await handleResponseError(failure(401, '/api/messages/threads')).catch(() => undefined);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(logout).not.toHaveBeenCalled();
+
+    // After it: renewal is tried again, and its success replays the request.
+    await vi.advanceTimersByTimeAsync(61_000);
+    refresh.mockResolvedValue({ data: { success: true } });
+    await expect(handleResponseError(failure(401, '/api/messages/threads'))).resolves.toEqual({
+      data: 'replayed',
+    });
+    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(logout).not.toHaveBeenCalled();
+  });
+
+  it('control: a renewal refused because the session is over still signs out', async () => {
+    vi.spyOn(axios, 'post').mockRejectedValue(rejection(401));
+    // Earlier tests' sign-outs replace the store state, so this can be a spy that already counted.
+    const logout = vi.spyOn(useAuthStore.getState(), 'logout');
+    logout.mockClear();
+    await handleResponseError(failure(401, '/api/messages/threads')).catch(() => undefined);
+    expect(logout).toHaveBeenCalled();
+    expect(assignedHref).toBe('/login');
+  });
+});
