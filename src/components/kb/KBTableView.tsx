@@ -16,7 +16,9 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import { kbSourceConversationId } from '@/lib/kbSource';
-import type { KBEntry } from '@/services/kb.service';
+import type { KBEntry, KbPendingDecision } from '@/services/kb.service';
+import { KbPendingDecisionBadge } from './KbPendingDecisionBadge';
+import { reviewableDecision } from './kbWorkRowModel';
 import {
   isCaseRow,
   isMergedOriginal,
@@ -58,6 +60,8 @@ type KBTableViewProps = {
   canReview: boolean;
   /** Undo a merged case (manage_knowledge_base). Shown only on case rows. */
   onUnmerge?: (entry: KBEntry) => void;
+  /** Open the review for a merge / rewrite / removal suggestion waiting on this entry. */
+  onReviewDecision?: (decision: KbPendingDecision) => void;
 };
 
 export const KBTableView = ({
@@ -71,6 +75,7 @@ export const KBTableView = ({
   onDelete,
   canReview,
   onUnmerge,
+  onReviewDecision,
 }: KBTableViewProps) => (
   <div className="hidden rounded-lg border md:block">
     <table className="w-full table-fixed">
@@ -164,6 +169,11 @@ export const KBTableView = ({
                   )}
                   <KBStatusBadge entry={entry} />
                 </div>
+                <KbPendingDecisionBadge
+                  decision={entry.pendingDecision}
+                  others={entry.otherPendingDecisions}
+                  setAsideReason={entry.setAsideReason}
+                />
               </td>
               <td className="px-2 py-3 text-right">
                 {/* A Pending entry offers five actions (View, Approve, Reject, Hide, Delete). At
@@ -185,6 +195,16 @@ export const KBTableView = ({
                   >
                     <Maximize2 className="w-4 h-4" />
                   </Button>
+                  {onReviewDecision && reviewableDecision(entry) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onReviewDecision(reviewableDecision(entry)!)}
+                      className="!w-auto !px-2"
+                    >
+                      Review
+                    </Button>
+                  )}
                   {canReview && offersReviewActions(entry) && !entry.approved && !entry.hidden && (
                     <>
                       <Button

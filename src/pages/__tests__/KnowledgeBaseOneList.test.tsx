@@ -9,6 +9,7 @@ const getAllCalls: Array<Record<string, unknown>> = [];
 let echo: 'request' | 'all' = 'request';
 let failList = false;
 let canReview = true;
+let listEntries: unknown[] = [];
 
 vi.mock('@/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
@@ -22,8 +23,8 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
         return Promise.resolve({
           success: true,
           data: {
-            entries: [],
-            pagination: { page: 1, limit: 50, total: 0, totalPages: 0 },
+            entries: listEntries,
+            pagination: { page: 1, limit: 50, total: listEntries.length, totalPages: 1 },
             filters: { status: echo === 'request' ? (params.status ?? 'all') : 'all' },
           },
         });
@@ -31,6 +32,25 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
     },
   };
 });
+vi.mock('@/components/kb/KbDecisionDialog', () => ({
+  KbDecisionDialog: ({
+    decision,
+    onClose,
+    onDecided,
+  }: {
+    decision: { suggestionId: number } | null;
+    onClose: () => void;
+    onDecided: () => void;
+  }) =>
+    decision ? (
+      <div role="dialog">
+        dialog {decision.suggestionId}
+        <button type="button" onClick={() => (onClose(), onDecided())}>
+          close dialog
+        </button>
+      </div>
+    ) : null,
+}));
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
@@ -66,6 +86,7 @@ beforeEach(() => {
   echo = 'request';
   failList = false;
   canReview = true;
+  listEntries = [];
 });
 afterEach(cleanup);
 
@@ -153,5 +174,62 @@ describe('Knowledge Base decision filters', () => {
     );
     await screen.findAllByText('No entries found');
     expect(screen.queryByText(NOTICE)).toBeNull();
+  });
+
+  it('a removal suggestion offers Review; closing the dialog refetches the list', async () => {
+    listEntries = [
+      {
+        id: 11,
+        title: 'Reset a password',
+        content: 'Use the reset link.',
+        type: 'qa_pair',
+        category: 'general',
+        qualityScore: 0.9,
+        usageCount: 0,
+        approved: true,
+        hidden: false,
+        pendingDecision: { suggestionId: 77, kind: 'remove', reasons: [], canDecide: true },
+        otherPendingDecisions: 0,
+      },
+    ];
+    render(
+      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
+        <KnowledgeBasePage />
+      </MemoryRouter>
+    );
+    const [review] = await screen.findAllByRole('button', { name: 'Review' });
+    const before = getAllCalls.length;
+    fireEvent.click(review);
+    expect(screen.getByText(/dialog 77/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'close dialog' }));
+    await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(before));
+    expect(screen.queryByText(/dialog 77/)).toBeNull();
+  });
+
+  it('offers no Review when the viewer cannot decide', async () => {
+    listEntries = [
+      {
+        id: 12,
+        title: 'Refund window',
+        content: 'Thirty days.',
+        type: 'qa_pair',
+        category: 'general',
+        qualityScore: 0.9,
+        usageCount: 0,
+        approved: true,
+        hidden: false,
+        pendingDecision: { suggestionId: 78, kind: 'merge', reasons: [], canDecide: false },
+        otherPendingDecisions: 0,
+      },
+    ];
+    render(
+      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
+        <KnowledgeBasePage />
+      </MemoryRouter>
+    );
+    expect(
+      (await screen.findAllByText('Only a workspace admin can decide this')).length
+    ).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'Review' })).toBeNull();
   });
 });

@@ -20,7 +20,13 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { usePermissions } from '@/hooks/usePermissions';
 import { logger } from '@/lib/logger';
-import { kbService, kbSourceParam, type KBEntry, type PaginationMeta } from '@/services/kb.service';
+import {
+  kbService,
+  kbSourceParam,
+  type KBEntry,
+  type KbPendingDecision,
+  type PaginationMeta,
+} from '@/services/kb.service';
 import { Permission } from '@/types/roles';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useUiFlags } from '@/hooks/useUiFlags';
@@ -37,6 +43,7 @@ import {
 import { KbFindingBanner } from '@/components/kb/KbFindingBanner';
 import { useKbUnhide } from '@/components/kb/useKbUnhide';
 import { KBDeleteDialog } from '@/components/kb/KBDeleteDialog';
+import { KbDecisionDialog } from '@/components/kb/KbDecisionDialog';
 import { useKbFindingFilter } from '@/hooks/useKbFindingFilter';
 
 /** An action on a merged CASE row — each one unmerges it, so each is confirmed first. */
@@ -113,6 +120,7 @@ export const KnowledgeBasePage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<KBEntry | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [decision, setDecision] = useState<KbPendingDecision | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<KBEntry | null>(null);
   // Shared KB revision: the Confluence catalog and the Documentation list are separate
   // components over an overlapping doc set, so a mutation in one bumps this to make the
@@ -641,6 +649,7 @@ export const KnowledgeBasePage = () => {
                     onDelete={handleDeleteClick}
                     canReview={canReview}
                     onUnmerge={handleUnmerge}
+                    onReviewDecision={setDecision}
                   />
                 ))
               )}
@@ -658,6 +667,7 @@ export const KnowledgeBasePage = () => {
               onDelete={handleDeleteClick}
               canReview={canReview}
               onUnmerge={handleUnmerge}
+              onReviewDecision={setDecision}
             />
 
             {/* Pagination */}
@@ -672,6 +682,11 @@ export const KnowledgeBasePage = () => {
               />
             )}
 
+            <KbDecisionDialog
+              decision={decision}
+              onClose={() => setDecision(null)}
+              onDecided={() => void fetchEntries(pagination.page)}
+            />
             <KBDeleteDialog
               open={deleteDialogOpen}
               onOpenChange={setDeleteDialogOpen}

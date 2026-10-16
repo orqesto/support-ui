@@ -16,7 +16,9 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import { kbSourceConversationId } from '@/lib/kbSource';
-import type { KBEntry } from '@/services/kb.service';
+import type { KBEntry, KbPendingDecision } from '@/services/kb.service';
+import { KbPendingDecisionBadge } from './KbPendingDecisionBadge';
+import { reviewableDecision } from './kbWorkRowModel';
 import {
   isCaseRow,
   isMergedOriginal,
@@ -57,6 +59,8 @@ type KBEntryCardProps = {
   canReview: boolean;
   /** Undo a merged case (manage_knowledge_base). Shown only on case rows. */
   onUnmerge?: (entry: KBEntry) => void;
+  /** Open the review for a merge / rewrite / removal suggestion waiting on this entry. */
+  onReviewDecision?: (decision: KbPendingDecision) => void;
 };
 
 export const KBEntryCard = ({
@@ -69,6 +73,7 @@ export const KBEntryCard = ({
   onDelete,
   canReview,
   onUnmerge,
+  onReviewDecision,
 }: KBEntryCardProps) => (
   <Card className="p-4">
     <div className="flex gap-3">
@@ -94,6 +99,14 @@ export const KBEntryCard = ({
             </Badge>
           )}
           <KBStatusBadge entry={entry} className="shrink-0" />
+        </div>
+
+        <div className="mb-2">
+          <KbPendingDecisionBadge
+            decision={entry.pendingDecision}
+            others={entry.otherPendingDecisions}
+            setAsideReason={entry.setAsideReason}
+          />
         </div>
 
         {/* Preview */}
@@ -132,6 +145,15 @@ export const KBEntryCard = ({
             <Maximize2 className="w-4 h-4 mr-1" />
             View
           </Button>
+          {onReviewDecision && reviewableDecision(entry) && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onReviewDecision(reviewableDecision(entry)!)}
+            >
+              Review
+            </Button>
+          )}
           {canReview && offersReviewActions(entry) && !entry.approved && !entry.hidden && (
             <>
               <Button
