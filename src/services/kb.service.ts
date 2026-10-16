@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import { isRouteAbsent } from '@/lib/apiError';
+import type { KbSetAsideReason } from '@/services/kbConsolidation.service';
 
 /**
  * What Unhide did. `unsupported`: the backend has no unhide route yet (an older deployment) —
@@ -9,6 +10,46 @@ import { isRouteAbsent } from '@/lib/apiError';
 export type KbUnhideResult =
   | { outcome: 'unhidden'; approved: boolean | null }
   | { outcome: 'unsupported' };
+
+export type KbDecisionKind = 'approve_capture' | 'remove' | 'rewrite' | 'merge' | 'attach';
+export type KbPendingDecision = {
+  suggestionId: number;
+  kind: KbDecisionKind;
+  reasons: string[];
+  canDecide: boolean;
+};
+const DECISION_KINDS: readonly KbDecisionKind[] = [
+  'approve_capture',
+  'remove',
+  'rewrite',
+  'merge',
+  'attach',
+];
+
+/** BE one-list (proposal §8). Absent on an older backend ⇒ null: show no badge rather than guess. */
+export const normalisePendingDecision = (value: unknown): KbPendingDecision | null => {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  if (typeof raw.suggestionId !== 'number' || !DECISION_KINDS.includes(raw.kind as KbDecisionKind))
+    return null;
+  return {
+    suggestionId: raw.suggestionId,
+    kind: raw.kind as KbDecisionKind,
+    reasons: Array.isArray(raw.reasons)
+      ? raw.reasons.filter((reason): reason is string => typeof reason === 'string')
+      : [],
+    canDecide: raw.canDecide === true,
+  };
+};
+
+export type KbListStatus =
+  | 'approved'
+  | 'pending'
+  | 'hidden'
+  | 'rejected'
+  | 'needs_decision'
+  | 'suggested_change'
+  | 'set_aside';
 
 export type KBEntry = {
   id: number;
@@ -70,6 +111,12 @@ export type KBEntry = {
     casePublicId: string | null;
     caseExists: boolean;
   } | null;
+  /** The decision waiting on this entry (highest priority first); null/absent = none. */
+  pendingDecision?: KbPendingDecision | null;
+  /** How many further decisions wait on it besides `pendingDecision`. */
+  otherPendingDecisions?: number;
+  /** Why the cases report leaves it out (the Set aside filter); null/absent = not set aside. */
+  setAsideReason?: KbSetAsideReason | null;
   metadata?: Record<string, unknown>;
   typeData?: {
     documentContent?: string;
@@ -98,6 +145,8 @@ export type PaginatedResponse<T> = {
   data: {
     entries: T[];
     pagination: PaginationMeta;
+    /** What the server applied. An older backend ignores a status it does not know and echoes 'all'. */
+    filters?: { status?: string };
   };
 };
 
@@ -143,7 +192,7 @@ export const kbService = {
     page?: number;
     limit?: number;
     search?: string;
-    status?: string;
+    status?: KbListStatus;
     /** A mailbox id, or 'none' for the entries that come from no mailbox. */
     messageSourceId?: number | 'none';
     /** Only the entries behind one finding of the KB cases report (needs `departmentId`). */
@@ -166,7 +215,21 @@ export const kbService = {
     const response = await apiClient.get<PaginatedResponse<KBEntry>>(
       `/api/knowledge-base/entries${queryString ? `?${queryString}` : ''}`
     );
-    return response.data;
+    const body = response.data;
+    if (!Array.isArray(body?.data?.entries)) return body;
+    return {
+      ...body,
+      data: {
+        ...body.data,
+        entries: body.data.entries.map((entry) => ({
+          ...entry,
+          pendingDecision: normalisePendingDecision(entry.pendingDecision),
+          otherPendingDecisions:
+            typeof entry.otherPendingDecisions === 'number' ? entry.otherPendingDecisions : 0,
+          setAsideReason: typeof entry.setAsideReason === 'string' ? entry.setAsideReason : null,
+        })),
+      },
+    };
   },
 
   getById: async (id: number) => {
