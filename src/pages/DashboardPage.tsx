@@ -10,7 +10,6 @@ import { useSystemHealth } from '@/hooks/useSystemHealth';
 import { useTelegramProcessing } from '@/hooks/useTelegramProcessing';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { ingestionService } from '@/services/ingestion.service';
-import { integrationsService } from '@/services/integrations.service';
 import { documentationService } from '@/services/documentation.service';
 import { kbService } from '@/services/kb.service';
 import { messageService } from '@/services/message.service';
@@ -302,12 +301,15 @@ export const DashboardPage = () => {
   useEffect(() => {
     const checkIntegrations = async () => {
       try {
-        const response = await integrationsService.getAll();
-        const active = response.data?.filter((intg) => intg.enabled) ?? [];
-        const emailInt = active.filter((intg) => intg.type === 'email' || intg.type === 'gmail');
-        const telegramInt = active.filter((intg) => intg.type === 'telegram');
-        const msgSrc = active.filter((intg) =>
-          (MESSAGE_SOURCE_TYPES as readonly string[]).includes(intg.type)
+        // /api/messages/sources (VIEW_MESSAGES), not /api/integrations (VIEW_INTEGRATIONS): a
+        // support user may run these checks (PROCESS_MESSAGES) but cannot read integrations,
+        // and that 403 used to read as "No message sources configured".
+        const sources = await messageService.getMessageSourcesForFilter();
+        const active = sources.filter((src) => src.enabled);
+        const emailInt = active.filter((src) => src.type === 'email' || src.type === 'gmail');
+        const telegramInt = active.filter((src) => src.type === 'telegram');
+        const msgSrc = active.filter((src) =>
+          (MESSAGE_SOURCE_TYPES as readonly string[]).includes(src.type)
         );
         setHasIntegrations(active.length > 0);
         setHasMessageSources(msgSrc.length > 0);
