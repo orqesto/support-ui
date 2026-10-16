@@ -35,6 +35,10 @@ const cancelSocketRecovery = () => {
     clearTimeout(recoveryTimer);
     recoveryTimer = null;
   }
+  // The recovery belonged to the socket being torn down. Left spent, the NEXT socket's first
+  // expired-token refusal would skip renewal and sign the user out — the very sign-out a refusal
+  // for rate must not cause.
+  authRecoveryUsed = false;
 };
 
 /** Tear the socket down and send the user to the login screen. The terminal path only. */
@@ -135,8 +139,10 @@ export const getSocket = (): Socket => {
         const failed = socket;
         void ensureFreshSession().then(
           () => {
+            // Torn down or replaced while renewing: the next socket connects on its own.
+            if (!failed || socket !== failed) return;
             logger.info('🔓 Session renewed — reconnecting the WebSocket');
-            socket?.connect();
+            failed.connect();
           },
           (err: unknown) =>
             afterRefusedRenewal(err, {
