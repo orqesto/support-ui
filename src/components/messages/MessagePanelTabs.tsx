@@ -329,7 +329,7 @@ export function MessagePanelTabs({
             <div className={`space-y-2 ${PHONE_CONTACT}`}>
               {/* v4: sender, conversation facts, contact profile. The thread's tickets and
                   merges moved to the header's Related chip (MessageDetailHeader). */}
-              <CustomerSenderBlock message={message} />
+              <CustomerSenderBlock message={message} notes={contactProfile.contact?.notes} />
               <ConversationFacts message={message} sortedThread={sortedThread} />
 
               {/* Full contact profile — assigned manager, labels, channel

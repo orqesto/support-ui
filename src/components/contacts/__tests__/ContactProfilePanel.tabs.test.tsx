@@ -32,7 +32,11 @@ vi.mock('@/components/messages/CustomApiLookupPanel', () => ({
   ),
 }));
 vi.mock('@/components/contacts/ContactProfileDetails', () => ({
-  ContactProfileDetails: () => <div data-testid="contact-details" />,
+  ContactProfileDetails: () => (
+    <div data-testid="contact-details">
+      <div data-testid="notes-section" data-contact-notes="" />
+    </div>
+  ),
 }));
 vi.mock('@/components/contacts/ContactProfileActivity', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -129,5 +133,54 @@ describe('ContactProfilePanel — Lookups tab (spec 2026-10-09)', () => {
     expect(screen.queryByTestId('lookup-panel')).not.toBeInTheDocument();
     expect(screen.getByTestId('contact-activity')).toBeInTheDocument();
     expect(tabNames()).toEqual(['Activity', 'Details']);
+  });
+});
+
+describe('ContactProfilePanel — opened from a note icon (2026-10-16)', () => {
+  it('opens on Details and scrolls the notes into view once', () => {
+    lookupsTab.mockReturnValue({ available: false, count: 0, label: 'Lookups' });
+    const scrollIntoView = vi.fn();
+    const original = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView');
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      value: scrollIntoView,
+      configurable: true,
+    });
+    try {
+      const { rerender } = render(
+        <MemoryRouter>
+          <ContactProfilePanel email="c@d.example" onClose={noop} initialSection="notes" />
+        </MemoryRouter>
+      );
+      expect(screen.getByTestId('contact-details')).toBeInTheDocument();
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+      expect(scrollIntoView.mock.contexts[0]).toBe(screen.getByTestId('notes-section'));
+      rerender(
+        <MemoryRouter>
+          <ContactProfilePanel email="c@d.example" onClose={noop} initialSection="notes" />
+        </MemoryRouter>
+      );
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    } finally {
+      if (original) Object.defineProperty(Element.prototype, 'scrollIntoView', original);
+      else delete (Element.prototype as Partial<Element>).scrollIntoView;
+    }
+  });
+
+  it('[control] opened from the row it stays on Activity and scrolls nothing', () => {
+    lookupsTab.mockReturnValue({ available: false, count: 0, label: 'Lookups' });
+    const scrollIntoView = vi.fn();
+    const original = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView');
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      value: scrollIntoView,
+      configurable: true,
+    });
+    try {
+      render(drawer());
+      expect(screen.getByTestId('contact-activity')).toBeInTheDocument();
+      expect(scrollIntoView).not.toHaveBeenCalled();
+    } finally {
+      if (original) Object.defineProperty(Element.prototype, 'scrollIntoView', original);
+      else delete (Element.prototype as Partial<Element>).scrollIntoView;
+    }
   });
 });

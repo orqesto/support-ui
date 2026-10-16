@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Settings2, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -9,6 +9,7 @@ import {
   type ActivityItem,
 } from '@/components/contacts/ContactProfileActivity';
 import { ContactProfileDetails } from '@/components/contacts/ContactProfileDetails';
+import { CONTACT_NOTES_ATTR } from '@/components/contacts/ContactNotesIndicator';
 import { CustomApiLookupPanel } from '@/components/messages/CustomApiLookupPanel';
 import { useContactProfile } from '@/components/contacts/useContactProfile';
 import { useLookupsTab } from '@/components/messages/lookupsTab';
@@ -21,6 +22,10 @@ type ContactProfilePanelProps = {
   onClose: () => void;
   /** Called after a change that also shows on inbox/kanban cards (e.g. labels). */
   onChanged?: () => void;
+  /** Called after a note is added or deleted. */
+  onNotesChanged?: () => void;
+  /** Open on this section: `notes` = the Details tab, scrolled to the notes. */
+  initialSection?: 'notes';
 };
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
@@ -34,10 +39,18 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfilePanelProps) {
+export function ContactProfilePanel({
+  email,
+  onClose,
+  onChanged,
+  onNotesChanged,
+  initialSection,
+}: ContactProfilePanelProps) {
   const navigate = useNavigate();
   const lookups = useLookupsTab('contact');
-  const [tab, setTab] = useState<'activity' | 'details' | 'lookups'>('activity');
+  const [tab, setTab] = useState<'activity' | 'details' | 'lookups'>(
+    initialSection === 'notes' ? 'details' : 'activity'
+  );
   // The last lookup can go away while the drawer sits on its tab; fall back, never blank.
   useEffect(() => {
     if (tab === 'lookups' && !lookups.available) setTab('activity');
@@ -82,7 +95,19 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
     linkingEmail,
     handleLinkEmail,
     handleUnlink,
-  } = useContactProfile(email, { onChanged });
+  } = useContactProfile(email, { onChanged, onNotesChanged });
+
+  // Opened from a note icon: once the notes are on screen, bring them into view (once).
+  const panelRef = useRef<HTMLDivElement>(null);
+  const scrolledToNotes = useRef(false);
+  useEffect(() => {
+    if (initialSection !== 'notes' || scrolledToNotes.current || !contact || tab !== 'details')
+      return;
+    const section = panelRef.current?.querySelector<HTMLElement>(`[${CONTACT_NOTES_ATTR}]`);
+    if (!section) return;
+    scrolledToNotes.current = true;
+    section.scrollIntoView({ block: 'start' });
+  }, [initialSection, contact, tab]);
 
   // Escape closes the panel.
   useEffect(() => {
@@ -154,7 +179,10 @@ export function ContactProfilePanel({ email, onClose, onChanged }: ContactProfil
   return (
     <>
       <div className="fixed inset-0 z-[75] bg-black/40" onClick={onClose} aria-hidden="true" />
-      <div className="flex fixed top-0 right-0 bottom-0 z-[80] flex-col w-[440px] max-w-[92vw] border-l shadow-2xl bg-card border-border">
+      <div
+        ref={panelRef}
+        className="flex fixed top-0 right-0 bottom-0 z-[80] flex-col w-[440px] max-w-[92vw] border-l shadow-2xl bg-card border-border"
+      >
         {loading ? (
           <div className="p-6 space-y-3">
             {(['a', 'b', 'c'] as const).map((key) => (
