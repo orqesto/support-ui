@@ -128,11 +128,18 @@ const literalTexts = (node: ts.Node): string[] => {
  * - `ensureFreshSession`: single-flight wrapper over `requestRefresh`, which posts only to the
  *   fixed `${API_BASE_URL}/api/auth/refresh`. Takes no argument. Permitted.
  * - `handleResponseError`: replays `error.config` — a CALLER-supplied path — on a 401. Forbidden.
+ * - `isRateLimited`, `refreshRetryInMs`: read an error's status / the renewal cool-down's clock;
+ *   send no request. Permitted for the WebSocket's renewal path (socketManager.ts).
  * - `applyRequestContext`, `noteSessionFromResponse`, `clearDatabasePauseOnSuccess`: send no
  *   request, but nothing outside the module needs them, so they are not listed. Add one only
  *   after re-reading its body.
  */
-const PERMITTED_IMPORTS = new Set(['apiClient', 'ensureFreshSession']);
+const PERMITTED_IMPORTS = new Set([
+  'apiClient',
+  'ensureFreshSession',
+  'isRateLimited',
+  'refreshRetryInMs',
+]);
 
 /**
  * The only runtime way the client module may be named: `import { apiClient, ensureFreshSession }

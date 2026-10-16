@@ -23,7 +23,10 @@ import {
   ensureFreshSession,
   handleResponseError,
   noteSessionFromResponse,
+  refreshRetryInMs,
+  resetRefreshRefusal,
 } from '@/lib/api-client';
+import { afterRefusedRenewal } from '@/lib/socketManager';
 import { useAuthStore } from '@/stores/authStore';
 import {
   clearSessionClock,
@@ -275,6 +278,7 @@ describe('a renewal refused for rate (429) is not the end of the session', () =>
 
   afterEach(() => {
     vi.useRealTimers();
+    resetRefreshRefusal();
   });
 
   it('keeps the user signed in, fails only this request, and does not ask again until the wait is over', async () => {
@@ -295,13 +299,13 @@ describe('a renewal refused for rate (429) is not the end of the session', () =>
     expect(refresh).toHaveBeenCalledTimes(1);
 
     // Inside the wait: the refusal is answered locally, nothing is sent.
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.advanceTimersByTimeAsync(30_000);
     await handleResponseError(failure(401, '/api/messages/threads')).catch(() => undefined);
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(logout).not.toHaveBeenCalled();
 
     // After it: renewal is tried again, and its success replays the request.
-    await vi.advanceTimersByTimeAsync(61_000);
+    await vi.advanceTimersByTimeAsync(30_000);
     refresh.mockResolvedValue({ data: { success: true } });
     await expect(handleResponseError(failure(401, '/api/messages/threads'))).resolves.toEqual({
       data: 'replayed',
@@ -318,5 +322,43 @@ describe('a renewal refused for rate (429) is not the end of the session', () =>
     await handleResponseError(failure(401, '/api/messages/threads')).catch(() => undefined);
     expect(logout).toHaveBeenCalled();
     expect(assignedHref).toBe('/login');
+  });
+
+  it('waits at most a minute, even when the server names its whole window', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(axios, 'post').mockRejectedValue(refused(900));
+    await ensureFreshSession().catch(() => undefined);
+    expect(refreshRetryInMs()).toBe(60_000);
+  });
+
+  it('waits a minute when the server names no wait', async () => {
+    vi.useFakeTimers();
+    const noWait = refused(0);
+    vi.spyOn(axios, 'post').mockRejectedValue(noWait);
+    await ensureFreshSession().catch(() => undefined);
+    expect(refreshRetryInMs()).toBe(60_000);
+  });
+
+  it('the WebSocket reconnects after the wait instead of signing out', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(axios, 'post').mockRejectedValue(refused(30));
+    const error = await ensureFreshSession().catch((err: unknown) => err);
+    const retry = vi.fn();
+    const endSession = vi.fn();
+
+    expect(afterRefusedRenewal(error, { retry, endSession })).toBe('retry');
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(retry).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(endSession).not.toHaveBeenCalled();
+  });
+
+  it('control: the WebSocket still ends a session whose renewal was refused outright', () => {
+    const retry = vi.fn();
+    const endSession = vi.fn();
+    expect(afterRefusedRenewal(rejection(401), { retry, endSession })).toBe('ended');
+    expect(endSession).toHaveBeenCalledTimes(1);
+    expect(retry).not.toHaveBeenCalled();
   });
 });
