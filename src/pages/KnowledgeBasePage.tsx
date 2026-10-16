@@ -27,6 +27,7 @@ import { isCaseRow, unmergeConsequence } from '@/lib/kbConsolidation';
 import { runCaseAction, type CaseActionNow } from '@/components/kb/runCaseAction';
 import { toast } from '@/lib/toast';
 import { KbExportButton } from '@/components/kb/KbExportButton';
+import { KbReviewSuggestionsButton } from '@/components/kb/KbReviewSuggestionsButton';
 import { KbFindingBanner } from '@/components/kb/KbFindingBanner';
 import { useKbUnhide } from '@/components/kb/useKbUnhide';
 import { KBDeleteDialog } from '@/components/kb/KBDeleteDialog';
@@ -454,15 +455,19 @@ export const KnowledgeBasePage = () => {
             title="Knowledge Base"
             description="Review and manage automatically extracted knowledge from your messages"
           />
-          {showCasesLink && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-2"
-              onClick={() => navigate('/knowledge-base/cases')}
-            >
-              Cases report
-            </Button>
+          {canReview && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {showCasesLink && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/knowledge-base/cases')}
+                >
+                  Cases report
+                </Button>
+              )}
+              <KbReviewSuggestionsButton />
+            </div>
           )}
           {filterType !== 'documentation' && (
             <KbExportButton type={filterType} refreshKey={entries} />

@@ -20,6 +20,7 @@ import {
   type KbWorklist,
 } from '@/components/kb/KbCasesReportView';
 import { KbRunNow } from '@/components/kb/KbRunNow';
+import { KbReviewSuggestionsButton } from '@/components/kb/KbReviewSuggestionsButton';
 import { KbDepartmentFilter } from '@/components/kb/KbDepartmentFilter';
 import type { KbWorkNotice } from '@/components/kb/KbWorkRows';
 import { useAuthStore } from '@/stores/authStore';
@@ -251,6 +252,7 @@ export const KbCasesPage = () => {
           actions={
             <div className="flex flex-wrap gap-3 items-start">
               <KbRunNow onRunEnded={handleRunEnded} />
+              <KbReviewSuggestionsButton />
               <Button
                 variant="outline"
                 size="sm"
