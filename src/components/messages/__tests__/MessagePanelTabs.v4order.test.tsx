@@ -15,11 +15,16 @@ import type { Message, User } from '@/types';
 
 vi.mock('../AiTabPanel', () => ({ AiTabPanel: () => null }));
 const lookedUp = vi.fn<(email: string) => void>();
+const profile = vi.hoisted(() => ({ contact: null as unknown }));
 vi.mock('@/components/contacts/useContactProfile', () => ({
   useContactProfile: (email: string) => {
     lookedUp(email);
-    return { loading: false, contact: null };
+    return { loading: false, contact: profile.contact };
   },
+}));
+vi.mock('@/components/contacts/ContactFactRows', () => ({ ContactFactRows: () => null }));
+vi.mock('@/components/contacts/ContactProfileDetails', () => ({
+  ContactProfileDetails: () => null,
 }));
 // The tab badges fetch KB references on mount; every message-service call answers empty here so no
 // real XHR leaks past the test.
@@ -40,7 +45,7 @@ const noop = () => {};
 
 const renderTabs = (
   variant: 'rail' | 'sidebar',
-  { sender = 'a@b.example', isLead = false, tab = 'notes' } = {}
+  { sender = 'a@b.example', isLead = false, tab = 'notes', panelOpen = false } = {}
 ) => {
   const props = {
     message: {
@@ -54,7 +59,7 @@ const renderTabs = (
     variant,
     tab,
     setTab: noop,
-    panelOpen: false,
+    panelOpen,
     setPanelOpen: noop,
     notes: [],
     onNoteUpdated: noop,
@@ -84,6 +89,7 @@ beforeEach(() => {
   availability.mockReset();
   availability.mockResolvedValue(false);
   lookedUp.mockClear();
+  profile.contact = null;
   useAuthStore.setState({ selectedOrganizationId: 1, user: { id: 9 } as User });
 });
 
@@ -155,5 +161,38 @@ describe('MessagePanelTabs — the Customer lookup key matches the sender block'
   it('CONTROL: a bare handle with no brackets is the key', () => {
     renderTabs('sidebar', { sender: 'ada_tg', tab: 'customer' });
     expect(lookedUp).toHaveBeenLastCalledWith('ada_tg');
+  });
+});
+
+describe('MessagePanelTabs — Customer tab note icon (2026-10-16)', () => {
+  it("shows the loaded contact's note count next to the name", () => {
+    profile.contact = {
+      notes: [
+        {
+          id: 2,
+          content: 'newest',
+          createdAt: '2026-10-02T00:00:00Z',
+          authorFirstName: 'Ada',
+          authorLastName: null,
+        },
+        {
+          id: 1,
+          content: 'older',
+          createdAt: '2026-10-01T00:00:00Z',
+          authorFirstName: 'Ada',
+          authorLastName: null,
+        },
+      ],
+    };
+    renderTabs('sidebar', { tab: 'customer', panelOpen: true });
+    const sender = screen.getByTestId('customer-sender');
+    expect(within(sender).getByTestId('contact-notes-indicator')).toHaveTextContent('2');
+  });
+
+  it('[control] no icon when the contact has no notes', () => {
+    profile.contact = { notes: [] };
+    renderTabs('sidebar', { tab: 'customer', panelOpen: true });
+    expect(screen.getByTestId('customer-sender')).toBeInTheDocument();
+    expect(screen.queryByTestId('contact-notes-indicator')).not.toBeInTheDocument();
   });
 });

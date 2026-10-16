@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { ContactAvatar } from '@/components/contacts/ContactAvatar';
 import { ContactNotesPanel } from '@/components/contacts/ContactNotesPanel';
+import { CONTACT_NOTES_ATTR } from '@/components/contacts/ContactNotesIndicator';
 import { safeCssColor } from '@/lib/utils';
 import type { ContactProfile, ContactProfileType } from '@/services/contact.service';
 import { tintedChip } from '@/lib/userColor';
@@ -392,7 +393,7 @@ export function ContactProfileDetails(props: ContactProfileDetailsProps) {
       </div>
 
       {/* Notes */}
-      <div>
+      <div {...{ [CONTACT_NOTES_ATTR]: '' }} className="scroll-mt-3">
         <SectionLabel>Notes</SectionLabel>
         <ContactNotesPanel
           notes={contact.notes}

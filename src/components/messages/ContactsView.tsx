@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { ContactProfilePanel } from '@/components/contacts/ContactProfilePanel';
 import { ContactAvatar } from '@/components/contacts/ContactAvatar';
+import { ContactNotesIndicator } from '@/components/contacts/ContactNotesIndicator';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -68,7 +69,7 @@ function ContactRow({
   apiFilters: Record<string, string>;
   active: boolean;
   onOpenMessage: (message: Message) => void;
-  onViewProfile: (email: string) => void;
+  onViewProfile: (email: string, section?: 'notes') => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [subjectState, setSubjectState] = useState<SubjectState>({ loading: false, data: null });
@@ -149,6 +150,11 @@ function ContactRow({
               >
                 {contact.sender}
               </span>
+              <ContactNotesIndicator
+                count={contact.noteCount}
+                latest={contact.latestNote}
+                onOpen={() => onViewProfile(contact.sender, 'notes')}
+              />
               {contact.isLead && (
                 <span className="inline-flex gap-1 items-center px-1.5 h-[19px] rounded-md text-[10.5px] font-bold tracking-wide bg-primary/10 text-primary shrink-0">
                   <Target className="w-3 h-3" /> LEAD
@@ -347,6 +353,12 @@ export function ContactsView({
   const [, setSearchParams] = useSearchParams();
   const [contacts, setContacts] = useState<MessageContact[]>([]);
   const [profileEmail, setProfileEmail] = useState<string | null>(null);
+  // The note icon opens the drawer on the customer's notes.
+  const [profileSection, setProfileSection] = useState<'notes' | undefined>(undefined);
+  const openProfile = useCallback((email: string, section?: 'notes') => {
+    setProfileEmail(email);
+    setProfileSection(section);
+  }, []);
   const [sort, setSort] = useState<SortKey>('recent');
   const [pagination, setPagination] = useState<PaginationMeta>({
     page: 1,
@@ -362,8 +374,9 @@ export function ContactsView({
   const selectedDeptKey = useDepartmentContextKey();
 
   const fetchContacts = useCallback(
-    async (page: number) => {
-      setLoading(true);
+    // `quiet`: refresh in place (a note count changed) — no skeleton, expanded rows stay open.
+    async (page: number, quiet = false) => {
+      if (!quiet) setLoading(true);
       try {
         const response = await messageService.getContacts(apiFilters, page, 50);
         if (response.success && response.data) {
@@ -457,7 +470,7 @@ export function ContactsView({
               apiFilters={apiFilters}
               active={profileEmail === contact.sender}
               onOpenMessage={onOpenMessage}
-              onViewProfile={setProfileEmail}
+              onViewProfile={openProfile}
             />
           ))}
 
@@ -488,9 +501,12 @@ export function ContactsView({
 
       {profileEmail && (
         <ContactProfilePanel
+          key={`${profileEmail}:${profileSection ?? ''}`}
           email={profileEmail}
+          initialSection={profileSection}
           onClose={() => setProfileEmail(null)}
           onChanged={() => void fetchContacts(pagination.page)}
+          onNotesChanged={() => void fetchContacts(pagination.page, true)}
         />
       )}
     </div>

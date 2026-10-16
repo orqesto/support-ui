@@ -6,6 +6,7 @@
    already. Owed work, deliberately deferred rather than silently ignored; do not add a further
    endpoint here without paying it. */
 import { normaliseReceivedAtOptions, type ReceivedAtOption } from './receivedAtOption';
+import type { LatestNotePreview } from '@/components/contacts/ContactNotesIndicator';
 import { fetchThreads } from './threadsQuery';
 import { normaliseThreadPage, threadPageQuery, type ThreadPageRequest } from './threadPage';
 import { apiClient } from '@/lib/api-client';
@@ -204,6 +205,10 @@ export type MessageContact = {
   hasUnread: boolean;
   hasTicket: boolean;
   isLead: boolean;
+  /** Contact notes about this customer; 0 from a backend that predates the field. */
+  noteCount: number;
+  /** The newest note, cut for a preview; null when there are none. */
+  latestNote: LatestNotePreview | null;
 };
 
 export type MessageContactSubject = {
@@ -972,6 +977,15 @@ export const messageService = {
     const response = await apiClient.get<PaginatedResponse<MessageContact[]>>(
       `/api/messages/contacts?${params.toString()}`
     );
+    // Version skew: a backend without the note summary sends neither field.
+    const rows = response.data.data;
+    if (Array.isArray(rows)) {
+      response.data.data = rows.map((row) => ({
+        ...row,
+        noteCount: row.noteCount ?? 0,
+        latestNote: row.latestNote ?? null,
+      }));
+    }
     return response.data;
   },
 
