@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { kbService, type KBEntry } from '@/services/kb.service';
 import { kbQualityService } from '@/services/kbQuality.service';
 
@@ -10,17 +10,34 @@ const decidable = (entry: KBEntry, kind: string) =>
   entry.pendingDecision?.kind === kind && entry.pendingDecision.canDecide;
 
 /** A row the person can decide AND a bulk action covers — the only rows given a checkbox. */
-export const isBulkSelectable = (entry: KBEntry) =>
-  Boolean(entry.pendingDecision?.canDecide && BULK_KINDS.includes(entry.pendingDecision.kind));
+export const isBulkSelectable = (entry: KBEntry, kind?: string) =>
+  Boolean(
+    entry.pendingDecision?.canDecide &&
+      (kind ? entry.pendingDecision.kind === kind : BULK_KINDS.includes(entry.pendingDecision.kind))
+  );
 
-export const useKbBulkDecisions = (entries: KBEntry[], onDone: () => void) => {
+type BulkMode = 'needs_decision' | 'suggested_change' | null;
+
+/** The one decision kind each filter's bar offers. */
+const kindFor = (mode: BulkMode) => (mode === 'suggested_change' ? 'remove' : 'approve_capture');
+
+export const useKbBulkDecisions = (
+  entries: KBEntry[],
+  onDone: () => void,
+  mode: BulkMode = null
+) => {
+  const kind = mode ? kindFor(mode) : undefined;
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
 
+  const selectable = useCallback((entry: KBEntry) => isBulkSelectable(entry, kind), [kind]);
   const selectableIds = useMemo(
-    () => entries.filter(isBulkSelectable).map((entry) => entry.id),
-    [entries]
+    () => entries.filter(selectable).map((entry) => entry.id),
+    [entries, selectable]
   );
+  // A different filter or page shows different rows: drop ticks that no longer apply.
+  const shownIds = entries.map((entry) => entry.id).join(',');
+  useEffect(() => setSelected(new Set()), [shownIds, mode]);
   const toggle = useCallback(
     (id: number, on: boolean) => {
       if (on && !selectableIds.includes(id)) return;
@@ -88,6 +105,7 @@ export const useKbBulkDecisions = (entries: KBEntry[], onDone: () => void) => {
     clear,
     busy,
     selectableIds,
+    selectable,
     captureCount,
     removeCount,
     approveSelected: () => perEntry((id) => kbService.approve(id)),

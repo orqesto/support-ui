@@ -93,4 +93,46 @@ describe('useKbBulkDecisions', () => {
     act(() => result.current.toggle(2, true));
     expect(result.current.selected.has(2)).toBe(false);
   });
+
+  it('rejects only decidable captures', async () => {
+    calls.length = 0;
+    const { result } = renderHook(() =>
+      useKbBulkDecisions(
+        [row(1, 'approve_capture'), row(2, 'approve_capture', false), row(3, 'remove')],
+        () => {}
+      )
+    );
+    act(() => {
+      for (const id of [1, 2, 3]) result.current.toggle(id, true);
+    });
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.rejectSelected();
+    });
+    expect(calls).toEqual(['reject:1']);
+    expect(outcome).toEqual({ done: 1, skipped: 0, failed: 0 });
+  });
+
+  it('selectable set follows the action kind the bar offers', () => {
+    const entries = [row(1, 'approve_capture'), row(5, 'remove')];
+    const capture = renderHook(() => useKbBulkDecisions(entries, () => {}, 'needs_decision'));
+    expect(capture.result.current.selectableIds).toEqual([1]);
+    const removal = renderHook(() => useKbBulkDecisions(entries, () => {}, 'suggested_change'));
+    expect(removal.result.current.selectableIds).toEqual([5]);
+    act(() => removal.result.current.toggle(1, true));
+    expect(removal.result.current.selected.size).toBe(0);
+  });
+
+  it('clears the selection when the rows shown change (filter or page)', () => {
+    const { result, rerender } = renderHook(
+      ({ rows }) => useKbBulkDecisions(rows, () => {}, 'needs_decision'),
+      { initialProps: { rows: [row(1, 'approve_capture')] } }
+    );
+    act(() => result.current.toggle(1, true));
+    expect(result.current.selected.size).toBe(1);
+    rerender({ rows: [row(1, 'approve_capture')] });
+    expect(result.current.selected.size).toBe(1);
+    rerender({ rows: [row(9, 'approve_capture')] });
+    expect(result.current.selected.size).toBe(0);
+  });
 });

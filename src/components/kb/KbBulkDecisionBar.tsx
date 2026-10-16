@@ -43,7 +43,7 @@ export const KbBulkDecisionBar = ({ bulk, mode }: Props) => {
   if (bulk.selectableIds.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
+    <div className="hidden flex-wrap items-center gap-3 rounded-lg border p-3 md:flex">
       <Checkbox
         label={`Select all (${bulk.selectableIds.length})`}
         checked={allSelected}
