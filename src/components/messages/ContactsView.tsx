@@ -10,7 +10,10 @@ import {
 } from 'lucide-react';
 import { ContactProfilePanel } from '@/components/contacts/ContactProfilePanel';
 import { ContactAvatar } from '@/components/contacts/ContactAvatar';
-import { ContactNotesIndicator } from '@/components/contacts/ContactNotesIndicator';
+import {
+  CONTACT_NOTES_CHANGED,
+  ContactNotesIndicator,
+} from '@/components/contacts/ContactNotesIndicator';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -399,6 +402,14 @@ export function ContactsView({
     void fetchContacts(1);
   }, [fetchContacts]);
 
+  // A note added or deleted anywhere (the drawer, an open message's Customer tab) changes a row's
+  // note count: refresh the current page in place.
+  useEffect(() => {
+    const refresh = () => void fetchContacts(pagination.page, true);
+    window.addEventListener(CONTACT_NOTES_CHANGED, refresh);
+    return () => window.removeEventListener(CONTACT_NOTES_CHANGED, refresh);
+  }, [fetchContacts, pagination.page]);
+
   // Sort reorders the loaded page; org-wide search/filter is handled server-side
   // by MessagesPage's filter bar (so we don't duplicate a search input here).
   const visible = useMemo(() => [...contacts].sort(SORTS[sort].fn), [contacts, sort]);
@@ -506,7 +517,6 @@ export function ContactsView({
           initialSection={profileSection}
           onClose={() => setProfileEmail(null)}
           onChanged={() => void fetchContacts(pagination.page)}
-          onNotesChanged={() => void fetchContacts(pagination.page, true)}
         />
       )}
     </div>

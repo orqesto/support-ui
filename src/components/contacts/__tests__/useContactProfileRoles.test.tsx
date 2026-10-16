@@ -6,14 +6,18 @@
  * notes, labels and profiles the backend had returned to them thrown away.
  */
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 
 const getByEmail = vi.fn();
+const addNote = vi.fn();
+const deleteNote = vi.fn();
 const getAllPages = vi.fn();
 const apiGet = vi.fn();
 let permissions: Record<string, boolean> = {};
 
-vi.mock('@/services/contact.service', () => ({ contactService: { getByEmail } }));
+vi.mock('@/services/contact.service', () => ({
+  contactService: { getByEmail, addNote, deleteNote },
+}));
 vi.mock('@/services/user.service', () => ({ userService: { getAllPages } }));
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: apiGet } }));
 vi.mock('@/services/settings.service', () => ({ labelService: {} }));
@@ -90,5 +94,32 @@ describe('an associate can open a contact', () => {
     expect(result.current.nameInput).toBe('Jane');
     expect(result.current.users).toHaveLength(1);
     expect(result.current.orgLabels).toHaveLength(1);
+  });
+});
+
+describe('a note change is announced (2026-10-17)', () => {
+  beforeEach(() => {
+    getByEmail.mockReset().mockResolvedValue(profile);
+    permissions = {};
+  });
+
+  it('adding and deleting a note each fire the notes-changed signal the list and tab label follow', async () => {
+    const { CONTACT_NOTES_CHANGED } = await import('../ContactNotesIndicator');
+    const heard = vi.fn();
+    window.addEventListener(CONTACT_NOTES_CHANGED, heard);
+    try {
+      addNote.mockResolvedValue({ id: 2, content: 'new', createdAt: '2026-10-02T00:00:00Z' });
+      deleteNote.mockResolvedValue(undefined);
+      const { result } = renderHook(() => useContactProfile('jane@example.com'));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(heard).not.toHaveBeenCalled();
+      act(() => result.current.setNoteInput('new'));
+      await act(() => result.current.handleAddNote());
+      expect(heard).toHaveBeenCalledTimes(1);
+      await act(() => result.current.handleDeleteNote(2));
+      expect(heard).toHaveBeenCalledTimes(2);
+    } finally {
+      window.removeEventListener(CONTACT_NOTES_CHANGED, heard);
+    }
   });
 });

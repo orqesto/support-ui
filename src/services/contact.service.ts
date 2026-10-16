@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import type { ApiResponse } from '@/types';
+import type { LatestNotePreview } from '@/components/contacts/ContactNotesIndicator';
 // Domain shapes are generated from the backend zod contract (../BE-service/openapi.json).
 // Imported for local use (ContactListResponse) and re-exported for existing call sites.
 import type {
@@ -63,6 +64,19 @@ export const contactService = {
       `/api/contacts/by-email?email=${encodeURIComponent(email)}`
     );
     return res.data.data!;
+  },
+
+  /**
+   * Note count + newest note for a customer email, without creating a contact. Version skew: a
+   * backend without the route throws, and the caller shows no icon.
+   */
+  getNoteSummary: async (
+    email: string
+  ): Promise<{ count: number; latest: LatestNotePreview | null }> => {
+    const res = await apiClient.get<
+      ApiResponse<{ noteCount?: number; latestNote?: LatestNotePreview | null }>
+    >(`/api/contacts/note-summary?email=${encodeURIComponent(email)}`);
+    return { count: res.data.data?.noteCount ?? 0, latest: res.data.data?.latestNote ?? null };
   },
 
   update: async (id: number, patch: { displayName?: string | null; assignedUserId?: number | null }): Promise<void> => {

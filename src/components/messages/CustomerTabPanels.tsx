@@ -2,11 +2,6 @@ import { channelName, getInitials, priorityLabel } from './messageDetailConstant
 import { formatDate } from '@/lib/utils';
 import { parseSender } from '@/lib/messageHelpers';
 import type { Message, MessageEvent } from '@/types';
-import {
-  ContactNotesIndicator,
-  scrollToContactNotes,
-} from '@/components/contacts/ContactNotesIndicator';
-import type { ContactNote } from '@/services/contact.service';
 
 /**
  * The CUSTOMER tab's own blocks, extracted so `MessagePanelTabs` stays inside its 650-line cap
@@ -18,14 +13,7 @@ import type { ContactNote } from '@/services/contact.service';
  */
 
 /** v4 `.k-sender`: avatar initials, the bold name, then the address and (non-email) channel. */
-export const CustomerSenderBlock = ({
-  message,
-  notes,
-}: {
-  message: Message;
-  /** The contact's notes, newest first, once the profile has loaded. */
-  notes?: ContactNote[];
-}) => {
+export const CustomerSenderBlock = ({ message }: { message: Message }) => {
   const { name, address } = parseSender(message.sender);
   const second = [
     name ? address : null,
@@ -37,16 +25,9 @@ export const CustomerSenderBlock = ({
         {getInitials(message.sender)}
       </div>
       <div className="min-w-0">
-        <div className="flex gap-1.5 items-center min-w-0">
-          <b className="block text-[12.5px] font-semibold text-foreground truncate">
-            {name ?? address}
-          </b>
-          <ContactNotesIndicator
-            count={notes?.length ?? 0}
-            latest={notes?.[0]}
-            onOpen={scrollToContactNotes}
-          />
-        </div>
+        <b className="block text-[12.5px] font-semibold text-foreground truncate">
+          {name ?? address}
+        </b>
         {second.length > 0 && (
           <span className="block text-[11px] text-faint-foreground truncate">
             {second.join(' · ')}

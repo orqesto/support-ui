@@ -22,8 +22,6 @@ type ContactProfilePanelProps = {
   onClose: () => void;
   /** Called after a change that also shows on inbox/kanban cards (e.g. labels). */
   onChanged?: () => void;
-  /** Called after a note is added or deleted. */
-  onNotesChanged?: () => void;
   /** Open on this section: `notes` = the Details tab, scrolled to the notes. */
   initialSection?: 'notes';
 };
@@ -43,7 +41,6 @@ export function ContactProfilePanel({
   email,
   onClose,
   onChanged,
-  onNotesChanged,
   initialSection,
 }: ContactProfilePanelProps) {
   const navigate = useNavigate();
@@ -95,7 +92,7 @@ export function ContactProfilePanel({
     linkingEmail,
     handleLinkEmail,
     handleUnlink,
-  } = useContactProfile(email, { onChanged, onNotesChanged });
+  } = useContactProfile(email, { onChanged });
 
   // Opened from a note icon: once the notes are on screen, bring them into view (once).
   const panelRef = useRef<HTMLDivElement>(null);

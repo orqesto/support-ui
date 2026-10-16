@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, type ReactNode } from 'react';
 import type { AddOutcome } from './recordInsertOutcome';
 import { StickyNote, Pencil, Trash2 } from 'lucide-react';
 import { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
@@ -36,6 +36,7 @@ import { LABEL, PHONE_CONTACT, relativeTime, type PanelTab } from './messageDeta
 import { hasLookupEmailIdentity } from './CustomApiLookupPanel';
 import { useTabBadges } from './useTabBadges';
 import { TabBadge } from './TabBadge';
+import { useCustomerNotesMark } from '@/components/contacts/useCustomerNoteSummary';
 import { STRIP_FADE, useStripFade } from './useStripFade';
 
 type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
@@ -174,6 +175,8 @@ export function MessagePanelTabs({
     enabled: contactEnabled,
     onChanged: onRefresh,
   });
+  // The customer's notes, marked on the Customer tab label from any tab.
+  const customerNotesMark = useCustomerNotesMark(contactEmail, contactProfile.contact?.notes);
 
   const handleCheckContradiction = useCallback(async () => {
     if (!onCheckContradiction) return;
@@ -266,7 +269,7 @@ export function MessagePanelTabs({
         {(
           [
             { id: 'ai', label: 'AI', badge: 0 },
-            { id: 'customer', label: 'Customer', badge: 0 },
+            { id: 'customer', label: 'Customer', badge: 0, mark: customerNotesMark },
             ...(lookups.available
               ? [
                   {
@@ -282,8 +285,8 @@ export function MessagePanelTabs({
             { id: 'notes', label: 'Notes', badge: notes.length },
             { id: 'contradiction', label: 'Conflict', badge: 0 },
             ...(message.isLead ? [{ id: 'lead', label: 'Lead', badge: 0 }] : []),
-          ] as { id: typeof tab; label: string; badge: number }[]
-        ).map(({ id, label, badge }) => (
+          ] as { id: typeof tab; label: string; badge: number; mark?: ReactNode }[]
+        ).map(({ id, label, badge, mark }) => (
           <Button
             key={id}
             variant="ghost"
@@ -306,6 +309,7 @@ export function MessagePanelTabs({
             }`}
           >
             {label}
+            {mark}
             <TabBadge count={badge} active={tab === id && panelOpen} />
           </Button>
         ))}
@@ -329,7 +333,7 @@ export function MessagePanelTabs({
             <div className={`space-y-2 ${PHONE_CONTACT}`}>
               {/* v4: sender, conversation facts, contact profile. The thread's tickets and
                   merges moved to the header's Related chip (MessageDetailHeader). */}
-              <CustomerSenderBlock message={message} notes={contactProfile.contact?.notes} />
+              <CustomerSenderBlock message={message} />
               <ConversationFacts message={message} sortedThread={sortedThread} />
 
               {/* Full contact profile — assigned manager, labels, channel

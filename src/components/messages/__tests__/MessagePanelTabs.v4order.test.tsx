@@ -16,6 +16,10 @@ import type { Message, User } from '@/types';
 vi.mock('../AiTabPanel', () => ({ AiTabPanel: () => null }));
 const lookedUp = vi.fn<(email: string) => void>();
 const profile = vi.hoisted(() => ({ contact: null as unknown }));
+const noteSummary = vi.hoisted(() => vi.fn());
+vi.mock('@/services/contact.service', () => ({
+  contactService: { getNoteSummary: (email: string) => noteSummary(email) as unknown },
+}));
 vi.mock('@/components/contacts/useContactProfile', () => ({
   useContactProfile: (email: string) => {
     lookedUp(email);
@@ -90,6 +94,8 @@ beforeEach(() => {
   availability.mockResolvedValue(false);
   lookedUp.mockClear();
   profile.contact = null;
+  noteSummary.mockReset();
+  noteSummary.mockResolvedValue({ count: 0, latest: null });
   useAuthStore.setState({ selectedOrganizationId: 1, user: { id: 9 } as User });
 });
 
@@ -164,8 +170,27 @@ describe('MessagePanelTabs — the Customer lookup key matches the sender block'
   });
 });
 
-describe('MessagePanelTabs — Customer tab note icon (2026-10-16)', () => {
-  it("shows the loaded contact's note count next to the name", () => {
+describe('MessagePanelTabs — note mark on the Customer tab label (2026-10-17)', () => {
+  const customerTab = () =>
+    within(screen.getByTestId('panel-tabs-root').firstElementChild as HTMLElement)
+      .getAllByRole('button')
+      .find((button) => button.textContent?.startsWith('Customer'))!;
+
+  it.each(['sidebar', 'rail'] as const)(
+    '%s: shown on the label while another tab is open, from the read-only summary',
+    async (variant) => {
+      noteSummary.mockResolvedValue({ count: 2, latest: null });
+      renderTabs(variant, { tab: 'notes' });
+      await waitFor(() =>
+        expect(within(customerTab()).getByTestId('contact-notes-indicator')).toHaveTextContent('2')
+      );
+      expect(noteSummary).toHaveBeenCalledWith('a@b.example');
+      expect(screen.queryByTestId('customer-sender')).not.toBeInTheDocument();
+    }
+  );
+
+  it('the loaded profile wins once the Customer tab is open', () => {
+    noteSummary.mockResolvedValue({ count: 7, latest: null });
     profile.contact = {
       notes: [
         {
@@ -185,14 +210,17 @@ describe('MessagePanelTabs — Customer tab note icon (2026-10-16)', () => {
       ],
     };
     renderTabs('sidebar', { tab: 'customer', panelOpen: true });
-    const sender = screen.getByTestId('customer-sender');
-    expect(within(sender).getByTestId('contact-notes-indicator')).toHaveTextContent('2');
+    expect(within(customerTab()).getByTestId('contact-notes-indicator')).toHaveTextContent('2');
+    // Not beside the name any more.
+    expect(
+      within(screen.getByTestId('customer-sender')).queryByTestId('contact-notes-indicator')
+    ).not.toBeInTheDocument();
   });
 
-  it('[control] no icon when the contact has no notes', () => {
-    profile.contact = { notes: [] };
-    renderTabs('sidebar', { tab: 'customer', panelOpen: true });
-    expect(screen.getByTestId('customer-sender')).toBeInTheDocument();
+  it('[control] no mark when the customer has no notes', async () => {
+    noteSummary.mockResolvedValue({ count: 0, latest: null });
+    renderTabs('sidebar', { tab: 'notes' });
+    await waitFor(() => expect(noteSummary).toHaveBeenCalled());
     expect(screen.queryByTestId('contact-notes-indicator')).not.toBeInTheDocument();
   });
 });
