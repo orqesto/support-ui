@@ -40,6 +40,19 @@
   var verifyBusy = false;
   var verifyMasked = '';
   var verifyError = '';
+  // After a handoff the team answers by email; their replies (and the visitor's own email
+  // replies) are fetched from the server and shown here. `handoff` is persisted per widget as
+  // { sessionKey, cursor } so a reload keeps the session and the replies come back.
+  var HANDOFF_KEY = 'odly_handoff_' + WIDGET_KEY;
+  var POLL_MS = 20000;
+  var POLL_MAX_MS = 300000;
+  var pollTimer = null;
+  var pollInFlight = false;
+  var pollDelay = POLL_MS;
+  var pollDisabled = false; // set by a 404 (session gone, or a backend without the route) until next open
+  var replyCursor = 0; // last event id rendered in THIS page load (messages are not persisted)
+  var seenReplyIds = {};
+  var quietRender = false; // a render caused by polling must not move focus
 
   // ─── Styles ──────────────────────────────────────────────────────────
   var STYLES = document.createElement('style');
@@ -77,6 +90,7 @@
     '.odly-msg-user{align-self:flex-end;background:var(--odly-primary,#0070F3);color:#fff;border-bottom-right-radius:4px}',
     '.odly-msg-assistant{align-self:flex-start;background:var(--odly-bot-bubble,#fff);color:var(--odly-bot-text,#1f2937);border:1px solid #e5e7eb;border-bottom-left-radius:4px}',
     '#odly-widget-root .odly-msg a{color:inherit;text-decoration:underline;font-weight:500}',
+    '#odly-widget-root .odly-msg-label{font-size:11px;font-weight:600;opacity:.7;margin-bottom:2px}',
 
     /* Quick-action buttons (Skip / Connect with our team) */
     '#odly-widget-root .odly-actions{display:flex;flex-wrap:wrap;gap:8px;align-self:flex-start;margin-top:-2px}',
@@ -204,8 +218,17 @@
 
     messages.forEach(function (msg) {
       var el = document.createElement('div');
-      el.className = 'odly-msg odly-msg-' + msg.role;
-      el.innerHTML = linkify(msg.content);
+      // Fetched replies: 'agent' sits on the assistant side, 'visitor' (their email
+      // replies) on the visitor's side. Content is plain text and goes through linkify,
+      // which escapes everything.
+      var side = msg.role === 'agent' ? 'assistant' : msg.role === 'visitor' ? 'user' : msg.role;
+      el.className = 'odly-msg odly-msg-' + side;
+      var html = linkify(msg.content);
+      if (msg.role === 'agent') {
+        var who = (widgetConfig && widgetConfig.agentLabel) || 'Support team';
+        html = '<div class="odly-msg-label">' + escapeHtml(who) + '</div>' + html;
+      }
+      el.innerHTML = html;
       area.appendChild(el);
     });
 
@@ -274,8 +297,8 @@
 
       sendBtn.onclick = sendMessage;
 
-      // Focus input when chat opens
-      input.focus();
+      // Focus input when chat opens (not when a fetched reply re-renders the panel).
+      if (!quietRender) input.focus();
     }, 0);
   }
 
@@ -309,6 +332,8 @@
   function resetSessionIfCollecting() {
     if (sessionStarted || !widgetConfig) return; // wait until config is loaded
     sessionStarted = true;
+    // A handed-off session is kept: the team's replies arrive in it.
+    if (escalated) return;
     if (widgetConfig.collectUserInfo && messages.length === 0 && sessionKey) {
       sessionKey = '';
       hasEmail = false;
@@ -354,13 +379,14 @@
           if (typeof data.emailVerified === 'boolean') emailVerified = data.emailVerified;
           // The bot may hand off to a human on its own (escalate_to_human tool);
           // hide the Connect button when it does, and offer the email confirmation.
-          if (data.escalated) {
-            escalated = true;
-            offerVerificationAfterHandoff();
-          }
           if (data.sessionKey) {
+            if (data.sessionKey !== sessionKey) clearHandoff();
             sessionKey = data.sessionKey;
             localStorage.setItem('odly_session_' + WIDGET_KEY, sessionKey);
+          }
+          if (data.escalated) {
+            markEscalated();
+            offerVerificationAfterHandoff();
           }
         } else {
           messages.push({
@@ -531,7 +557,7 @@
       input.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') { e.preventDefault(); primary.onclick(); }
       });
-      setTimeout(function () { input.focus(); }, 0);
+      if (!quietRender) setTimeout(function () { input.focus(); }, 0);
     }
   }
 
@@ -581,7 +607,7 @@
           if (typeof data.hasEmail === 'boolean') hasEmail = data.hasEmail;
           if (typeof data.emailVerified === 'boolean') emailVerified = data.emailVerified;
           if (data.escalated) {
-            escalated = true;
+            markEscalated();
             offerVerificationAfterHandoff();
           }
         } else {
@@ -618,8 +644,8 @@
       .then(function (data) {
         isLoading = false;
         if (data.success) {
-          escalated = true;
-          var msg = 'You’re connected — a member of our team will follow up by email.';
+          markEscalated();
+          var msg = HANDOFF_NOTE;
           // The URL renders as a friendly "Track your request" link (see linkify).
           if (data.trackingUrl) msg += '\n' + data.trackingUrl;
           messages.push({ role: 'assistant', content: msg });
@@ -644,6 +670,153 @@
         console.error('[Odly Widget] Escalate error:', err);
       });
   }
+
+  // ─── Replies after handoff ──────────────────────────────────────────
+  var HANDOFF_NOTE = 'You’re connected — a member of our team will follow up by email.';
+
+  function readHandoff() {
+    try {
+      var raw = localStorage.getItem(HANDOFF_KEY);
+      var parsed = raw ? JSON.parse(raw) : null;
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function persistHandoff() {
+    try {
+      localStorage.setItem(HANDOFF_KEY, JSON.stringify({ sessionKey: sessionKey, cursor: replyCursor }));
+    } catch (e) {
+      /* localStorage unavailable — non-fatal */
+    }
+  }
+
+  function clearHandoff() {
+    escalated = false;
+    replyCursor = 0;
+    seenReplyIds = {};
+    stopPolling();
+    try {
+      localStorage.removeItem(HANDOFF_KEY);
+    } catch (e) {
+      /* localStorage unavailable — non-fatal */
+    }
+  }
+
+  // Escalation in this page load (the Connect button OR the bot's own handoff).
+  function markEscalated() {
+    if (!escalated) {
+      escalated = true;
+      persistHandoff();
+    }
+    // Nothing has been answered yet: the first fetch waits one interval.
+    schedulePoll(POLL_MS);
+  }
+
+  function pollingWanted() {
+    return isOpen && escalated && !!sessionKey && !pollDisabled && document.visibilityState !== 'hidden';
+  }
+
+  function stopPolling() {
+    if (pollTimer) clearTimeout(pollTimer);
+    pollTimer = null;
+  }
+
+  function schedulePoll(delay) {
+    stopPolling();
+    if (pollingWanted() && !pollInFlight) pollTimer = setTimeout(fetchReplies, delay);
+  }
+
+  // Re-render for fetched replies without losing what the visitor is typing or moving focus.
+  function renderKeepingDraft() {
+    var input = document.getElementById('odly-input');
+    var code = chat.querySelector('.odly-verify-input');
+    var draft = input ? input.value : '';
+    var codeDraft = code ? code.value : '';
+    var hadFocus = !!(input && document.activeElement === input);
+    quietRender = true;
+    try {
+      renderChat();
+    } finally {
+      quietRender = false;
+    }
+    var nextInput = document.getElementById('odly-input');
+    var nextCode = chat.querySelector('.odly-verify-input');
+    if (nextInput) {
+      nextInput.value = draft;
+      if (hadFocus) nextInput.focus();
+    }
+    if (nextCode) nextCode.value = codeDraft;
+  }
+
+  // One request at a time. Any failure is silent for the visitor: a 404 (session gone,
+  // or a backend that does not have this route yet) stops polling until the next open;
+  // anything else backs off.
+  function fetchReplies() {
+    pollTimer = null;
+    if (pollInFlight || !pollingWanted()) return;
+    pollInFlight = true;
+    var askedFor = sessionKey;
+    fetch(API_URL + '/api/public/chat/' + WIDGET_KEY + '/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionKey: sessionKey, after: replyCursor }),
+    })
+      .then(function (r) {
+        if (!r.ok) {
+          var failure = new Error('HTTP ' + r.status);
+          failure.status = r.status;
+          throw failure;
+        }
+        return r.json();
+      })
+      .then(function (data) {
+        pollInFlight = false;
+        if (askedFor !== sessionKey || !escalated) return; // session changed meanwhile
+        if (!data || !data.success) throw new Error('unsuccessful');
+        pollDelay = POLL_MS;
+        if (applyReplies(data) && isOpen) renderKeepingDraft();
+        schedulePoll(pollDelay);
+      })
+      .catch(function (err) {
+        pollInFlight = false;
+        if (err && err.status === 404) {
+          pollDisabled = true;
+          return;
+        }
+        pollDelay = Math.min(pollDelay * 2, POLL_MAX_MS);
+        schedulePoll(pollDelay);
+      });
+  }
+
+  // Adds unseen replies in id order and advances the cursor. Returns true when any were added.
+  function applyReplies(data) {
+    var list = Array.isArray(data.messages) ? data.messages.slice() : [];
+    list.sort(function (left, right) { return Number(left.id) - Number(right.id); });
+    var added = false;
+    var highest = replyCursor;
+    list.forEach(function (item) {
+      if (!item || typeof item.id !== 'number' || typeof item.content !== 'string') return;
+      if (item.role !== 'agent' && item.role !== 'visitor') return;
+      if (item.id > highest) highest = item.id;
+      if (seenReplyIds[item.id]) return;
+      seenReplyIds[item.id] = true;
+      messages.push({ role: item.role, content: item.content, id: item.id });
+      added = true;
+    });
+    if (typeof data.cursor === 'number' && data.cursor > highest) highest = data.cursor;
+    if (highest !== replyCursor) {
+      replyCursor = highest;
+      persistHandoff();
+    }
+    return added;
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') stopPolling();
+    else if (pollingWanted() && !pollTimer && !pollInFlight) fetchReplies();
+  });
 
   // ─── Toggle ──────────────────────────────────────────────────────────
   // Keep the fullscreen mobile panel sized to the *visible* viewport. When the
@@ -675,7 +848,12 @@
         window.visualViewport.addEventListener('scroll', syncViewport);
         syncViewport();
       }
+      // Replies after a handoff: fetch now, then every POLL_MS while open and visible.
+      pollDisabled = false;
+      pollDelay = POLL_MS;
+      if (pollingWanted() && !pollInFlight) fetchReplies();
     } else {
+      stopPolling();
       chat.classList.remove('odly-open');
       toggle.innerHTML = '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/><path d="M7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/></svg>';
       if (window.visualViewport) {
@@ -722,5 +900,16 @@
   }
 
   // ─── Init ────────────────────────────────────────────────────────────
+  // A handed-off session survives a reload. The bot transcript is not stored, so the
+  // handoff note stands in for it, and the first open fetches every reply again
+  // (after=0 — `replyCursor` deliberately starts at 0 in each page load).
+  var storedHandoff = readHandoff();
+  if (storedHandoff && sessionKey && storedHandoff.sessionKey === sessionKey) {
+    escalated = true;
+    messages.push({ role: 'assistant', content: HANDOFF_NOTE });
+  } else if (storedHandoff) {
+    clearHandoff();
+  }
+
   fetchConfig();
 })();
