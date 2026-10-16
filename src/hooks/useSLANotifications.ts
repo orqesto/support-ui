@@ -97,6 +97,10 @@ const NON_SLA_BELL_KINDS = new Set([
   'kb_consolidation_pending',
   // A daily AI token limit reached: no breach fields, own surface in useTokenLimitAlerts.
   'ai_token_limit_reached',
+  // #957: addressed to one person (an assignment, new unassigned mail) with no breach fields; own
+  // surface in useWorkAlerts + WorkAlertsSection.
+  'conversation_assigned',
+  'new_unassigned_message',
 ]);
 const isNonSlaBellKind = (kind: unknown): boolean =>
   typeof kind === 'string' && NON_SLA_BELL_KINDS.has(kind);
@@ -292,7 +296,9 @@ export const useSLANotifications = () => {
     };
 
     // Mark-all-read from another device/tab for the same user — zero out locally too.
-    const handleNotificationReadAll = () => {
+    // R23: a kind-filtered read-all (the personal work alerts) echoes `{ kind }`; it is not ours.
+    const handleNotificationReadAll = (data?: unknown) => {
+      if (isNonSlaBellKind((data as { kind?: unknown } | undefined)?.kind)) return;
       setNotifications((prev) => prev.map((notif) => ({ ...notif, isRead: true })));
       setUnreadCount(0);
     };

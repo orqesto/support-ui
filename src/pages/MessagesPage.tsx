@@ -74,6 +74,7 @@ import { useMessagesData } from '@/hooks/useMessagesData';
 import { useMessagesUrlSync } from '@/hooks/useMessagesUrlSync';
 import { NOTIFICATION_COUNTS_KEY, useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
+import { useConversationNewRefresh } from '@/hooks/useConversationNewRefresh';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -773,6 +774,14 @@ export const MessagesPage = () => {
     subscribeToEvent('conv:status_changed', handleStatusChanged);
     return () => unsubscribeFromEvent('conv:status_changed', handleStatusChanged);
   }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
+
+  // #957 D1: new inbound mail (any channel) appears without a refresh — the same trio as above.
+  const refreshOnNewMail = useCallback(() => {
+    clearCache();
+    void fetchMessages(messagesPagination.page, true);
+    bumpKanban();
+  }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
+  useConversationNewRefresh(refreshOnNewMail);
 
   // Refresh when a conversation's tab membership changes: approve/mark_suspicious/
   // move_to_spam (immediate, from the agent's own click) and bot_reply (deferred,

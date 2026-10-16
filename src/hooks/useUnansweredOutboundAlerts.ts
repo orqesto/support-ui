@@ -198,7 +198,17 @@ export const useUnansweredOutboundAlerts = () => {
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
-    const onChange = () => fetchAlerts();
+    // A ping naming another kind is not ours; a kind-less ping still refetches.
+    const onChange = (data?: unknown) => {
+      const kind = (data as { kind?: unknown } | null | undefined)?.kind;
+      if (
+        typeof kind === 'string' &&
+        kind !== ONE_SIDED_OUTBOUND_KIND &&
+        kind !== CUSTOMER_REPLY_IN_SPAM_KIND
+      )
+        return;
+      fetchAlerts();
+    };
     subscribeToEvent('notification:new', onChange);
     // ⛔ `resolved` too, not just `new`. The backend RETIRES a one_sided_outbound alert the
     // moment a real inbound arrives (clearOneSidedOutboundMarks), and without this the row

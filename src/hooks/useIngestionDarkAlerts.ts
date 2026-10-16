@@ -128,7 +128,12 @@ export const useIngestionDarkAlerts = () => {
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
-    const onNew = () => fetchAlerts();
+    // A ping naming another kind is not ours; a kind-less ping still refetches.
+    const onNew = (data?: unknown) => {
+      const kind = (data as { kind?: unknown } | null | undefined)?.kind;
+      if (typeof kind === 'string' && kind !== INGESTION_DARK_KIND) return;
+      fetchAlerts();
+    };
     subscribeToEvent('notification:new', onNew);
     return () => {
       unsubscribeFromEvent('notification:new', onNew);
