@@ -24,8 +24,22 @@ const activeOrgRooms: Set<number> = new Set();
  */
 let authRecoveryUsed = false;
 
+/**
+ * The pending "reconnect once renewal may be tried again" after a refusal for rate. Cancelled on
+ * every teardown: it belongs to the socket that failed, and must not fire into a signed-out tab or
+ * nudge the next socket (after an org switch or a new sign-in) mid-way through its own recovery.
+ */
+let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+const cancelSocketRecovery = () => {
+  if (recoveryTimer) {
+    clearTimeout(recoveryTimer);
+    recoveryTimer = null;
+  }
+};
+
 /** Tear the socket down and send the user to the login screen. The terminal path only. */
 const endSessionAndRedirect = () => {
+  cancelSocketRecovery();
   socket?.disconnect();
   socket = null;
   connectionCount = 0;
@@ -118,6 +132,7 @@ export const getSocket = (): Socket => {
         // retry every second and burn the one recovery attempt on a cookie that has not
         // changed yet.
         socket?.disconnect();
+        const failed = socket;
         void ensureFreshSession().then(
           () => {
             logger.info('🔓 Session renewed — reconnecting the WebSocket');
@@ -126,8 +141,10 @@ export const getSocket = (): Socket => {
           (err: unknown) =>
             afterRefusedRenewal(err, {
               retry: () => {
+                // Torn down or replaced while we waited: this recovery is not for that socket.
+                if (!failed || socket !== failed) return;
                 authRecoveryUsed = false;
-                socket?.connect();
+                failed.connect();
               },
               endSession: endSessionAndRedirect,
             })
@@ -158,7 +175,11 @@ export const afterRefusedRenewal = (
 ): 'retry' | 'ended' => {
   if (isRateLimited(err)) {
     logger.info('⏳ Session renewal refused for rate — reconnecting the WebSocket after the wait');
-    setTimeout(actions.retry, Math.max(refreshRetryInMs(), 1_000));
+    cancelSocketRecovery();
+    recoveryTimer = setTimeout(() => {
+      recoveryTimer = null;
+      actions.retry();
+    }, Math.max(refreshRetryInMs(), 1_000));
     return 'retry';
   }
   actions.endSession();
@@ -221,6 +242,7 @@ export const releaseSocket = () => {
     disconnectTimeout = setTimeout(() => {
       if (connectionCount <= 0 && socket) {
         logger.info('🔌 Disconnecting WebSocket (no active users)');
+        cancelSocketRecovery();
         socket.disconnect();
         socket = null;
         connectionCount = 0;
@@ -235,6 +257,7 @@ export const releaseSocket = () => {
 };
 
 export const forceDisconnect = () => {
+  cancelSocketRecovery();
   if (disconnectTimeout) {
     clearTimeout(disconnectTimeout);
     disconnectTimeout = null;
