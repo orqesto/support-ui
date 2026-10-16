@@ -104,7 +104,7 @@ describe('learning inbox — KB merge rows', () => {
       </MemoryRouter>
     );
     await screen.findByText('consolidate of 3');
-    const links = screen.getAllByRole('button', { name: 'Open in Knowledge Base' });
+    const links = screen.getAllByRole('button', { name: /Open suggestion \d+ in Knowledge Base/ });
     expect(links).toHaveLength(2);
     fireEvent.click(links[0]);
     expect(screen.getByTestId('where')).toHaveTextContent(

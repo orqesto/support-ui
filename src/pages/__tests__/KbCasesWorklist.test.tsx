@@ -42,7 +42,6 @@ const LocationProbe = () => {
     <>
       <output data-testid="location">{location.search}</output>
       <output data-testid="pathname">{location.pathname}</output>
-      <output data-testid="search">{location.search}</output>
     </>
   );
 };
@@ -165,9 +164,8 @@ describe('the nightly review is reachable from the page', () => {
   it('"Review suggestions" opens the merges and quality review', async () => {
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Review suggestions' }));
-    expect(screen.getByTestId('pathname')).toHaveTextContent('/knowledge-base');
-    expect(screen.getByTestId('pathname')).not.toHaveTextContent('/knowledge-base/merges');
-    expect(screen.getByTestId('search')).toHaveTextContent('status=suggested_change');
+    expect(screen.getByTestId('pathname').textContent).toBe('/knowledge-base');
+    expect(screen.getByTestId('location').textContent).toBe('?status=suggested_change');
   });
 });
 

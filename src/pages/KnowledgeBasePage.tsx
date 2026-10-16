@@ -35,11 +35,8 @@ import { runCaseAction, type CaseActionNow } from '@/components/kb/runCaseAction
 import { toast } from '@/lib/toast';
 import { KbExportButton } from '@/components/kb/KbExportButton';
 import { KbReviewSuggestionsButton } from '@/components/kb/KbReviewSuggestionsButton';
-import {
-  KbStatusFilter,
-  KB_FILTER_STATUSES,
-  type KbFilterStatus,
-} from '@/components/kb/KbStatusFilter';
+import { KbStatusFilter, type KbFilterStatus } from '@/components/kb/KbStatusFilter';
+import { useKbStatusParam } from '@/hooks/useKbStatusParam';
 import { KbFindingBanner } from '@/components/kb/KbFindingBanner';
 import { useKbUnhide } from '@/components/kb/useKbUnhide';
 import { KBDeleteDialog } from '@/components/kb/KBDeleteDialog';
@@ -100,13 +97,7 @@ export const KnowledgeBasePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
   const filterType = activeTab; // Use hash-based tab as filter type
-  // `?status=pending` is where the review notification's "See all" lands.
-  const [filterStatus, setFilterStatus] = useState<KbFilterStatus>(() => {
-    const requested = searchParams.get('status');
-    return KB_FILTER_STATUSES.includes(requested as KbFilterStatus)
-      ? (requested as KbFilterStatus)
-      : 'all';
-  });
+  const [filterStatus, setFilterStatus] = useKbStatusParam();
   // Approve / reject / hide / edit need manage_knowledge_base (moderator, org admin). Everyone
   // else is capped to approved entries by the server, so the review filters and buttons would
   // only ever fail for them.

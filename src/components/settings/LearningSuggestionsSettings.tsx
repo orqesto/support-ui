@@ -342,6 +342,12 @@ const ConflictDetail = ({
   );
 };
 
+/** Where a KB suggestion is decided in the one list; null for other kinds of suggestion. */
+const kbListPath = (suggestion: { domain: string; suggestionType: string }): string | null => {
+  if (suggestion.domain === 'kb_review') return '/knowledge-base?status=needs_decision';
+  return isKbModeratedSuggestion(suggestion) ? '/knowledge-base?status=suggested_change' : null;
+};
+
 export const LearningSuggestionsSettings = () => {
   const { canActOn, canActOnSuggestion, canActOnAnyDomain } = useSuggestionDomainAccess();
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
@@ -574,7 +580,16 @@ export const LearningSuggestionsSettings = () => {
                                 {whyCannotAct(suggestion)}
                               </span>
                             )}
-                            {(isKbModeratedSuggestion(suggestion) || suggestion.domain === 'kb_review') && <Button size="sm" variant="ghost" onClick={() => navigate(`/knowledge-base?status=${suggestion.domain === 'kb_review' ? 'needs_decision' : 'suggested_change'}`)}>Open in Knowledge Base</Button>}
+                            {kbListPath(suggestion) && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                aria-label={`Open suggestion ${suggestion.id} in Knowledge Base`}
+                                onClick={() => navigate(kbListPath(suggestion) ?? '')}
+                              >
+                                Open in Knowledge Base
+                              </Button>
+                            )}
                             {isKbModeratedSuggestion(suggestion) ? <Button size="sm" variant="outline" onClick={() => setExpandedId(suggestion.id)} disabled={!canAct}>Review</Button> : (<>
                             <Button
                               size="sm"

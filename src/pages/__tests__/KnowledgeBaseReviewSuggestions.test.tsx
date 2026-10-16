@@ -5,7 +5,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import type * as KbServiceModule from '@/services/kb.service';
 
 let canManageKb = true;
@@ -54,11 +54,35 @@ vi.mock('@/hooks/useDepartments', () => ({
 
 const { KnowledgeBasePage } = await import('../KnowledgeBasePage');
 
+const Probe = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  return (
+    <>
+      <output data-testid="search">{location.search}</output>
+      <button
+        type="button"
+        onClick={() => navigate('/knowledge-base?status=needs_decision&keep=1')}
+      >
+        probe: go
+      </button>
+    </>
+  );
+};
+
 const renderPage = () =>
   render(
     <MemoryRouter initialEntries={['/knowledge-base']}>
       <Routes>
-        <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
+        <Route
+          path="/knowledge-base"
+          element={
+            <>
+              <KnowledgeBasePage />
+              <Probe />
+            </>
+          }
+        />
         <Route path="/knowledge-base/merges" element={<p>merges review page</p>} />
       </Routes>
     </MemoryRouter>
@@ -78,6 +102,26 @@ describe('knowledge base → review suggestions', () => {
       expect(getAllCalls.some((call) => call.status === 'suggested_change')).toBe(true)
     );
     expect(screen.queryByText('merges review page')).toBeNull();
+  });
+
+  it('a link to ?status= while the page is open refetches with it and shows it selected', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'probe: go' }));
+    await waitFor(() =>
+      expect(getAllCalls.some((call) => call.status === 'needs_decision')).toBe(true)
+    );
+    expect(screen.getByRole('button', { name: 'Needs your decision' })).toBeInTheDocument();
+  });
+
+  it('picking a filter writes ?status= and keeps the other params', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'probe: go' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Set aside' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('search').textContent).toBe('?status=set_aside&keep=1')
+    );
+    fireEvent.click(screen.getByText('All', { selector: 'button:not([title])' }));
+    await waitFor(() => expect(screen.getByTestId('search').textContent).toBe('?keep=1'));
   });
 
   it('is not offered to someone who may not manage the knowledge base', async () => {
