@@ -35,6 +35,7 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
           },
         });
       },
+      approve: () => Promise.resolve({ success: true }),
     },
   };
 });
@@ -112,6 +113,25 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Knowledge Base decision filters', () => {
+  it('approving a row under Needs your decision re-reads the list, so the decided row leaves it', async () => {
+    listEntries = [
+      entry({
+        approved: false,
+        pendingDecision: { suggestionId: 5, kind: 'approve_capture', reasons: [], canDecide: true },
+      }),
+    ];
+    render(
+      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
+        <KnowledgeBasePage />
+      </MemoryRouter>
+    );
+    const [approve] = await screen.findAllByRole('button', { name: 'Approve' });
+    const before = getAllCalls.length;
+    fireEvent.click(approve);
+    await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(before));
+    expect(getAllCalls.at(-1)?.status).toBe('needs_decision');
+  });
+
   it('asks the server for the status in the URL and shows no notice when it applied it', async () => {
     render(
       <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>

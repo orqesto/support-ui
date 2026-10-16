@@ -258,6 +258,10 @@ export const KnowledgeBasePage = () => {
     (searchQuery?.trim() ? 1 : 0) +
     (finding.filter ? 1 : 0);
 
+  // Under a review filter (a finding, or a decision status) a decided row may leave the list, and
+  // its pending decision changes — re-read the page instead of patching the row in place.
+  const rereadAfterDecision = Boolean(finding.filter) || NEW_STATUSES.includes(filterStatus);
+
   const handleApprove = async (id: number) => {
     try {
       await kbService.approve(id);
@@ -283,7 +287,7 @@ export const KnowledgeBasePage = () => {
       // An approved entry stays listed while its KB review is open. The review closes once none of
       // its entries is undecided; the list drops it then, within the report's one-minute cache.
       // Re-read the same page so the entry's state and the count are current.
-      if (finding.filter) void fetchEntries(pagination.page);
+      if (rereadAfterDecision) void fetchEntries(pagination.page);
     } catch (error) {
       logger.error('Failed to approve entry:', error);
       setAlertDialog({
@@ -298,7 +302,7 @@ export const KnowledgeBasePage = () => {
   const { unhide: handleUnhide, dialog: unhideFallback } = useKbUnhide({
     setEntries,
     reread: (approved) => {
-      if (approved === null || finding.filter) void fetchEntries(pagination.page);
+      if (approved === null || rereadAfterDecision) void fetchEntries(pagination.page);
     },
     onApproveInstead: (id) => void handleApprove(id),
     onFailed: (_id, error) => {
@@ -321,7 +325,8 @@ export const KnowledgeBasePage = () => {
           entry.id === id ? { ...entry, approved: false, hidden: true, rejectedAt } : entry
         )
       );
-      if (finding.filter) void fetchEntries(finding.pageAfter(entries.length, pagination.page));
+      if (rereadAfterDecision)
+        void fetchEntries(finding.pageAfter(entries.length, pagination.page));
     } catch (error) {
       logger.error('Failed to reject entry:', error);
       setAlertDialog({
@@ -340,7 +345,8 @@ export const KnowledgeBasePage = () => {
       setEntries((prev) =>
         prev.map((entry) => (entry.id === id ? { ...entry, hidden: true, approved: false } : entry))
       );
-      if (finding.filter) void fetchEntries(finding.pageAfter(entries.length, pagination.page));
+      if (rereadAfterDecision)
+        void fetchEntries(finding.pageAfter(entries.length, pagination.page));
     } catch (error) {
       logger.error('Failed to hide entry:', error);
       setAlertDialog({
