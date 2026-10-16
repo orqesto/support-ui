@@ -122,4 +122,18 @@ describe('Needs Routing — every route counts', () => {
     await routeFirst();
     await waitFor(() => expect(invalidated).toContainEqual(['notification-counts']));
   });
+
+  it('refreshes the badge counts after "Resolve & move to spam" too', async () => {
+    const client = new QueryClient();
+    const invalidated: unknown[] = [];
+    const original = client.invalidateQueries.bind(client);
+    client.invalidateQueries = ((filters?: { queryKey?: unknown }) => {
+      invalidated.push(filters?.queryKey);
+      return original(filters as never);
+    }) as typeof client.invalidateQueries;
+    renderPage(client);
+    const [spam] = await screen.findAllByRole('button', { name: 'Resolve & move to spam' });
+    fireEvent.click(spam);
+    await waitFor(() => expect(invalidated).toContainEqual(['notification-counts']));
+  });
 });

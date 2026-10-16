@@ -9,12 +9,13 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import type { ReactNode } from 'react';
 import type { MessageThread } from '@/services/message.service';
 
 const mocks = vi.hoisted(() => ({
   del: vi.fn(),
+  classify: vi.fn(() => Promise.resolve()),
   optimisticMove: vi.fn(),
   toastError: vi.fn(),
   setSelected: null as null | ((message: unknown) => void),
@@ -70,6 +71,7 @@ vi.mock('@/services/message.service', () => ({
     markRead: vi.fn(() => Promise.resolve()),
     markUnread: vi.fn(() => Promise.resolve()),
     delete: mocks.del,
+    classify: mocks.classify,
   },
 }));
 vi.mock('@/lib/toast', () => ({
@@ -191,9 +193,11 @@ vi.mock('@/components/messages/MessageDetail', () => ({
     onDelete,
     onNavigate,
     onOptimisticMove,
+    onClassify,
   }: {
     message: { id: number };
     onDelete?: () => void;
+    onClassify?: (action: string) => Promise<void>;
     onNavigate?: (direction: 'next' | 'prev') => void;
     onOptimisticMove?: (columnId: string) => void;
   }) => (
@@ -212,11 +216,17 @@ vi.mock('@/components/messages/MessageDetail', () => ({
       <button type="button" onClick={() => onOptimisticMove?.('awaiting')}>
         Set awaiting
       </button>
+      {onClassify && (
+        <button type="button" onClick={() => void onClassify('move_to_spam')}>
+          Move to spam
+        </button>
+      )}
     </div>
   ),
 }));
 
 import { MessagesPage } from '../MessagesPage';
+import { subscribeToEvent } from '@/lib/socketManager';
 
 beforeEach(() => {
   localStorage.setItem('messages_view_mode', 'threads');
@@ -416,5 +426,58 @@ describe('MessagesPage — slide-over More → Delete message', () => {
     renderPage();
     await openDetail(12);
     expect(screen.getByRole('button', { name: 'More → Delete message' })).toBeInTheDocument();
+  });
+});
+
+// Every action here that can empty a queue refreshes the sidebar badge's own query
+// (useNotificationCounts) at once, instead of leaving the old count up until the 60 s poll.
+describe('MessagesPage — the sidebar badge refreshes', () => {
+  let invalidate: MockInstance<QueryClient['invalidateQueries']>;
+  beforeEach(() => {
+    invalidate = vi.spyOn(QueryClient.prototype, 'invalidateQueries');
+  });
+  afterEach(() => invalidate.mockRestore());
+  const badgeRefreshes = () =>
+    invalidate.mock.calls.filter(
+      ([filters]) => JSON.stringify(filters?.queryKey) === '["notification-counts"]'
+    ).length;
+
+  it('after a delete', async () => {
+    renderPage();
+    await openDetail(12);
+    pressDelete();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(screen.queryByTestId('detail-pane')).toBeNull());
+    expect(badgeRefreshes()).toBe(1);
+  });
+
+  it('control: not after a refused delete', async () => {
+    mocks.del.mockRejectedValueOnce(new Error('refused'));
+    renderPage();
+    await openDetail(12);
+    pressDelete();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalled());
+    expect(badgeRefreshes()).toBe(0);
+  });
+
+  it('after a classification from the open detail (Move to spam)', async () => {
+    renderPage();
+    await openDetail(12);
+    fireEvent.click(screen.getByRole('button', { name: 'Move to spam' }));
+    await waitFor(() => expect(mocks.classify).toHaveBeenCalled());
+    expect(mocks.classify.mock.calls[0]).toEqual(expect.arrayContaining([12, 'move_to_spam']));
+    await waitFor(() => expect(badgeRefreshes()).toBe(1));
+  });
+
+  it('when another agent routes a conversation (the conversation:routed ping)', async () => {
+    renderPage();
+    const routed = vi
+      .mocked(subscribeToEvent)
+      .mock.calls.filter(([event]) => event === 'conversation:routed')
+      .at(-1)?.[1] as (() => void) | undefined;
+    expect(routed).toBeDefined();
+    act(() => routed?.());
+    await waitFor(() => expect(badgeRefreshes()).toBe(1));
   });
 });

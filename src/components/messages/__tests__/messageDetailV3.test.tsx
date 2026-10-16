@@ -547,11 +547,15 @@ describe('routing hint: no "+ rule" (spec 2026-10-14 §4.1)', () => {
   it('offers Move only, and Move routes with (id, departmentId) then shows the note', async () => {
     depts.list = [{ id: 3, name: 'Billing', active: true }];
     svc.message.manualRoute = vi.fn().mockResolvedValue({ learningRecorded: true });
+    const invalidate = vi.spyOn(QueryClient.prototype, 'invalidateQueries');
     renderDetail({ ...activeThread, id: 9301, nearMissDepts: [3] } as Partial<Message>);
     expect(screen.queryByRole('button', { name: '+ rule' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Move to Billing →' }));
     await waitFor(() => expect(svc.message.manualRoute).toHaveBeenCalledWith(9301, 3));
     expect(svc.message.manualRoute.mock.calls[0]).toHaveLength(2);
     await waitFor(() => expect(note.show).toHaveBeenCalledWith({ learningRecorded: true }));
+    // It left its queue: the sidebar badge's own key (useNotificationCounts) refreshes at once.
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['notification-counts'] });
+    invalidate.mockRestore();
   });
 });

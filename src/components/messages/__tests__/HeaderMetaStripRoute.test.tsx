@@ -3,9 +3,17 @@ import { fireEvent, render, screen, cleanup, waitFor } from '@testing-library/re
 import type { Message } from '@/types';
 import { chooseOption } from '@/test/chooseOption';
 
-const route = vi.hoisted(() => ({ calls: [] as unknown[][], notes: [] as unknown[] }));
+const route = vi.hoisted(() => ({
+  calls: [] as unknown[][],
+  notes: [] as unknown[],
+  invalidated: [] as unknown[],
+}));
 vi.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: () => {} }),
+  useQueryClient: () => ({
+    invalidateQueries: (filters: { queryKey?: unknown }) => {
+      route.invalidated.push(filters.queryKey);
+    },
+  }),
 }));
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartmentById: () => null,
@@ -44,6 +52,7 @@ afterEach(() => {
   cleanup();
   route.calls = [];
   route.notes = [];
+  route.invalidated = [];
 });
 
 const base = {
@@ -85,6 +94,8 @@ describe('HeaderMetaStrip — re-route without an opt-in', () => {
     await chooseOption(screen.getByRole('combobox', { name: 'Department' }), 'Sales');
     await waitFor(() => expect(route.calls).toEqual([[41, 3]]));
     await waitFor(() => expect(route.notes).toEqual([{ learningRecorded: true }]));
+    // The sidebar badge's own key (useNotificationCounts), so the count drops at once.
+    expect(route.invalidated).toContainEqual(['notification-counts']);
   });
 
   it('picking the same department on an active conversation does nothing', async () => {
@@ -94,6 +105,7 @@ describe('HeaderMetaStrip — re-route without an opt-in', () => {
     await waitFor(() => expect(screen.queryByRole('combobox', { name: 'Department' })).toBeNull());
     expect(route.calls).toEqual([]);
     expect(route.notes).toEqual([]);
+    expect(route.invalidated).toEqual([]);
   });
 
   it('a needs_routing conversation routes even to its placeholder department', async () => {

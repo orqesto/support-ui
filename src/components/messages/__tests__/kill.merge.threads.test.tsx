@@ -37,6 +37,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 const { MergePickerDialog, MergedSection } = await import('../MergeThreads');
+const { queryClient } = await import('@/lib/queryClient');
 
 const CURRENT = {
   id: 100,
@@ -244,6 +245,7 @@ describe('MergedSection', () => {
 
   it('an unmerge says the thread is its own again', async () => {
     mocks.unmerge.mockResolvedValue(undefined);
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
     const onUnmerged = vi.fn();
     renderSection(onUnmerged);
     fireEvent.click(screen.getByRole('button', { name: 'Unmerge TES-SUP-50' }));
@@ -252,10 +254,13 @@ describe('MergedSection', () => {
     expect(mocks.toastSuccess).toHaveBeenCalledWith(
       'TES-SUP-50 unmerged — it is its own thread again'
     );
+    // The restored thread is back in its queue: the sidebar badge's own key refreshes.
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['notification-counts'] });
   });
 
   it('a failed unmerge with no server reason: the fallback words', async () => {
     mocks.unmerge.mockRejectedValue(new Error('boom'));
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
     const onUnmerged = vi.fn();
     renderSection(onUnmerged);
     fireEvent.click(screen.getByRole('button', { name: 'Unmerge TES-SUP-50' }));
@@ -264,5 +269,6 @@ describe('MergedSection', () => {
     ).toBeInTheDocument();
     expect(onUnmerged).not.toHaveBeenCalled();
     expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(invalidate).not.toHaveBeenCalled();
   });
 });
