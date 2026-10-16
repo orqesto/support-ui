@@ -1,12 +1,18 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
-import { KB_MERGES_REVIEW_PATH } from '@/components/layout/KbReviewSection';
 
-/** The nightly review's merges and quality fixes — otherwise reachable only from a bell row. */
-export const KbReviewSuggestionsButton = () => {
+/**
+ * The nightly review's merges and quality fixes live in the Knowledge Base list under
+ * "Suggested change". On the list itself `onPick` sets the filter; elsewhere it navigates there.
+ */
+export const KbReviewSuggestionsButton = ({ onPick }: { onPick?: () => void }) => {
   const navigate = useNavigate();
   return (
-    <Button variant="outline" size="sm" onClick={() => navigate(KB_MERGES_REVIEW_PATH)}>
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => (onPick ? onPick() : navigate('/knowledge-base?status=suggested_change'))}
+    >
       Review suggestions
     </Button>
   );

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Sparkles, Check, X, RefreshCw, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useDepartments } from '@/hooks/useDepartments';
@@ -385,6 +385,7 @@ export const LearningSuggestionsSettings = () => {
   // Deep link from the bell (NotificationCenter.goToAiSettings → ?focus=<id>): open that suggestion
   // and scroll to it, once per focus id (a later reload must not yank the page back to it).
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const focusId = Number(searchParams.get('focus'));
   const focusedRef = useRef<number | null>(null);
   useEffect(() => {
@@ -573,6 +574,7 @@ export const LearningSuggestionsSettings = () => {
                                 {whyCannotAct(suggestion)}
                               </span>
                             )}
+                            {(isKbModeratedSuggestion(suggestion) || suggestion.domain === 'kb_review') && <Button size="sm" variant="ghost" onClick={() => navigate(`/knowledge-base?status=${suggestion.domain === 'kb_review' ? 'needs_decision' : 'suggested_change'}`)}>Open in Knowledge Base</Button>}
                             {isKbModeratedSuggestion(suggestion) ? <Button size="sm" variant="outline" onClick={() => setExpandedId(suggestion.id)} disabled={!canAct}>Review</Button> : (<>
                             <Button
                               size="sm"

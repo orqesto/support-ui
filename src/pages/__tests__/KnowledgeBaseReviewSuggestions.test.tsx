@@ -4,11 +4,12 @@
  * now links to it for anyone who may review.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type * as KbServiceModule from '@/services/kb.service';
 
 let canManageKb = true;
+const getAllCalls: Array<{ status?: string }> = [];
 
 vi.mock('@/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
@@ -16,10 +17,12 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
     ...actual,
     kbService: {
       ...actual.kbService,
-      getAll: () =>
-        Promise.resolve({
+      getAll: (params: { status?: string }) => {
+        getAllCalls.push(params);
+        return Promise.resolve({
           data: { entries: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 1 } },
-        }),
+        });
+      },
     },
   };
 });
@@ -64,13 +67,17 @@ const renderPage = () =>
 afterEach(() => {
   cleanup();
   canManageKb = true;
+  getAllCalls.length = 0;
 });
 
 describe('knowledge base → review suggestions', () => {
-  it('"Review suggestions" opens the merges and quality review', async () => {
+  it('"Review suggestions" filters this list to suggested changes instead of leaving the page', async () => {
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Review suggestions' }));
-    expect(await screen.findByText('merges review page')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(getAllCalls.some((call) => call.status === 'suggested_change')).toBe(true)
+    );
+    expect(screen.queryByText('merges review page')).toBeNull();
   });
 
   it('is not offered to someone who may not manage the knowledge base', async () => {

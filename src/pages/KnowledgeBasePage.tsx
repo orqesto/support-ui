@@ -503,7 +503,7 @@ export const KnowledgeBasePage = () => {
                   Cases report
                 </Button>
               )}
-              <KbReviewSuggestionsButton />
+              <KbReviewSuggestionsButton onPick={() => setFilterStatus('suggested_change')} />
             </div>
           )}
           {filterType !== 'documentation' && (

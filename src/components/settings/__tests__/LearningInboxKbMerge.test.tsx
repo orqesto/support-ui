@@ -5,7 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type * as LearningServiceModule from '@/services/learning.service';
 
 const suggestion = (id: number, domain: string, suggestionType: string, payload = {}) => ({
@@ -77,7 +77,41 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+const Where = () => {
+  const location = useLocation();
+  return <p data-testid="where">{location.pathname + location.search}</p>;
+};
+
 describe('learning inbox — KB merge rows', () => {
+  it('links a merge or fix row to its filter in the Knowledge Base list', async () => {
+    listSuggestions.mockResolvedValue([
+      suggestion(1, 'kb_quality', 'consolidate', { label: 'refund', memberIds: [4, 5, 6] }),
+      suggestion(3, 'kb_review', 'approve', {}),
+    ]);
+    render(
+      <MemoryRouter initialEntries={['/settings']}>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <>
+                <LearningSuggestionsSettings />
+                <Where />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+    await screen.findByText('consolidate of 3');
+    const links = screen.getAllByRole('button', { name: 'Open in Knowledge Base' });
+    expect(links).toHaveLength(2);
+    fireEvent.click(links[0]);
+    expect(screen.getByTestId('where')).toHaveTextContent(
+      '/knowledge-base?status=suggested_change'
+    );
+  });
+
   it('offers Review, not Accept, for a merge; other rows keep Accept', async () => {
     render(
       <MemoryRouter>

@@ -118,7 +118,7 @@ describe('KB merge bell row (F3)', () => {
     await waitFor(() => expect(result.current.consolidations).toHaveLength(1));
   });
 
-  it('the section shows the count and department, and Review goes to the merges page', () => {
+  it('the section shows the count and department, and Review opens the suggested changes', () => {
     const onNavigate = vi.fn();
     render(
       <KbReviewSection
@@ -141,7 +141,7 @@ describe('KB merge bell row (F3)', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Support EU')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Review knowledge base suggestions' }));
-    expect(onNavigate).toHaveBeenCalledWith(KB_MERGES_REVIEW_PATH);
+    expect(onNavigate).toHaveBeenCalledWith('/knowledge-base?status=suggested_change');
     expect(KB_MERGES_REVIEW_PATH).toBe('/knowledge-base/merges');
   });
 });

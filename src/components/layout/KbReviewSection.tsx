@@ -58,7 +58,7 @@ const MergeReviewRow = ({
         <div className="flex flex-wrap gap-x-3 gap-y-1 items-center mt-2">
           <Button
             size="sm"
-            onClick={() => onNavigate(KB_MERGES_REVIEW_PATH)}
+            onClick={() => onNavigate('/knowledge-base?status=suggested_change')}
             aria-label="Review knowledge base suggestions"
           >
             Review
@@ -138,7 +138,7 @@ export const KbReviewSection = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => onNavigate('/knowledge-base?status=pending')}
+                  onClick={() => onNavigate('/knowledge-base?status=needs_decision')}
                   className="px-0 h-auto text-xs text-primary hover:bg-transparent hover:underline"
                 >
                   Read or edit first
