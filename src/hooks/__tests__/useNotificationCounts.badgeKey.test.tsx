@@ -10,6 +10,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const server = vi.hoisted(() => ({ needsRouting: 3 }));
+const socket = vi.hoisted(() => ({ handlers: new Map<string, (data?: unknown) => void>() }));
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
     get: () => Promise.resolve({ data: { data: { needs_routing: server.needsRouting } } }),
@@ -17,8 +18,12 @@ vi.mock('@/lib/api-client', () => ({
 }));
 vi.mock('@/lib/socketManager', () => ({
   getSocket: () => undefined,
-  subscribeToEvent: () => undefined,
-  unsubscribeFromEvent: () => undefined,
+  subscribeToEvent: (event: string, handler: (data?: unknown) => void) => {
+    socket.handlers.set(event, handler);
+  },
+  unsubscribeFromEvent: (event: string) => {
+    socket.handlers.delete(event);
+  },
   releaseSocket: () => undefined,
 }));
 vi.mock('@/stores/authStore', () => ({
@@ -56,5 +61,33 @@ describe('the Needs Routing badge refresh key', () => {
     server.needsRouting = 0;
     await act(() => client.invalidateQueries({ queryKey: ['needs-routing-count'] }));
     expect(hook.result.current.counts.needs_routing).toBe(3);
+  });
+});
+
+// A colleague's route reaches this tab only as the org-room `conversation:routed` ping; no
+// notification row changes, so the notification:* pings never fire for it.
+describe("a colleague's route", () => {
+  it('conversation:routed refetches the badge count at once', async () => {
+    const { hook } = setup();
+    await waitFor(() => expect(hook.result.current.counts.needs_routing).toBe(3));
+    server.needsRouting = 2;
+    act(() => socket.handlers.get('conversation:routed')?.({ conversationId: 7, departmentId: 2 }));
+    await waitFor(() => expect(hook.result.current.counts.needs_routing).toBe(2));
+  });
+
+  it('control: an event the hook does not handle leaves the old number', async () => {
+    const { hook } = setup();
+    await waitFor(() => expect(hook.result.current.counts.needs_routing).toBe(3));
+    server.needsRouting = 2;
+    act(() => socket.handlers.get('conversation:assigned')?.({ conversationId: 7 }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(hook.result.current.counts.needs_routing).toBe(3);
+  });
+
+  it('unmount unsubscribes the route ping', () => {
+    const { hook } = setup();
+    expect(socket.handlers.has('conversation:routed')).toBe(true);
+    hook.unmount();
+    expect(socket.handlers.has('conversation:routed')).toBe(false);
   });
 });

@@ -115,8 +115,11 @@ export const MessageDetailPage = () => {
       // (filtered → new) and the action strip renders off that status, so a stale
       // copy would keep offering the action that has already been taken.
       await fetchMessage(message.id);
+      // Spam / approve can take the thread out of Needs Routing: refresh the badge now, like the
+      // split pane does, not at the next 60 s poll.
+      void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
     },
-    [message]
+    [message, queryClient]
   );
 
   const fetchMessage = async (messageId: number | string, fullLoad = false) => {
