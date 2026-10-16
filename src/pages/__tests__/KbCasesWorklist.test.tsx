@@ -38,7 +38,12 @@ let wire: ReturnType<typeof installTransport>;
 
 const LocationProbe = () => {
   const location = useLocation();
-  return <output data-testid="location">{location.search}</output>;
+  return (
+    <>
+      <output data-testid="location">{location.search}</output>
+      <output data-testid="pathname">{location.pathname}</output>
+    </>
+  );
 };
 
 const renderPage = (url = '/knowledge-base/cases') =>
@@ -152,6 +157,14 @@ describe('F1 departments', () => {
     expect(screen.getByLabelText('Billing')).toBeChecked();
     expect(screen.getByLabelText('Support EU')).not.toBeChecked();
     expect(reportReads().every((read) => read.params.departmentIds === '7')).toBe(true);
+  });
+});
+
+describe('the nightly review is reachable from the page', () => {
+  it('"Review suggestions" opens the merges and quality review', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Review suggestions' }));
+    expect(screen.getByTestId('pathname')).toHaveTextContent('/knowledge-base/merges');
   });
 });
 
