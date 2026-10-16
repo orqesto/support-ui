@@ -48,6 +48,7 @@ export const KbStatusFilter = ({
           size="sm"
           className="h-8 text-xs"
           title={TITLE[status]}
+          aria-pressed={value === status}
           onClick={() => onChange(status)}
         >
           {LABEL[status]}

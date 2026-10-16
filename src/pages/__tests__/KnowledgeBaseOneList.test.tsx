@@ -13,6 +13,8 @@ let capable = true;
 let failList = false;
 let canReview = true;
 let listEntries: unknown[] = [];
+/** The rows of page 2 (none by default ⇒ one page); page 1 always lists `listEntries`. */
+let secondPage: unknown[] | null = null;
 
 vi.mock('@/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
@@ -23,11 +25,14 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
       getAll: (params: Record<string, unknown>) => {
         getAllCalls.push(params);
         if (failList) return Promise.reject(new Error('boom'));
+        const page = Number(params.page ?? 1);
+        const rows = page === 2 && secondPage ? secondPage : listEntries;
+        const total = listEntries.length + (secondPage?.length ?? 0);
         return Promise.resolve({
           success: true,
           data: {
-            entries: listEntries,
-            pagination: { page: 1, limit: 50, total: listEntries.length, totalPages: 1 },
+            entries: rows,
+            pagination: { page, limit: 50, total, totalPages: secondPage ? 2 : 1 },
             filters: {
               status: params.status ?? 'all',
               ...(capable ? { decisionStatuses: true } : {}),
@@ -46,14 +51,17 @@ vi.mock('@/components/kb/KbDecisionDialog', () => ({
     onDecided,
   }: {
     decision: { suggestionId: number } | null;
-    onClose: () => void;
+    onClose: (decided: boolean) => void;
     onDecided: () => void;
   }) =>
     decision ? (
       <div role="dialog">
         dialog {decision.suggestionId}
-        <button type="button" onClick={() => (onClose(), onDecided())}>
+        <button type="button" onClick={() => onClose(false)}>
           close dialog
+        </button>
+        <button type="button" onClick={onDecided}>
+          decide in dialog
         </button>
       </div>
     ) : null,
@@ -109,8 +117,13 @@ beforeEach(() => {
   failList = false;
   canReview = true;
   listEntries = [];
+  secondPage = null;
+  vi.spyOn(window, 'scrollTo').mockImplementation(() => {}); // Pagination scrolls to the top
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe('Knowledge Base decision filters', () => {
   it('approving a row under Needs your decision re-reads the list, so the decided row leaves it', async () => {
@@ -160,6 +173,25 @@ describe('Knowledge Base decision filters', () => {
     expect(screen.queryByText('Unfiltered row from an older server')).toBeNull();
   });
 
+  it.each([
+    // The review page lists no capture approvals: an older backend lists them as Pending entries.
+    ['needs_decision', 'Show Pending entries', '/knowledge-base?status=pending'],
+    ['set_aside', 'Open the cases report', '/knowledge-base/cases'],
+  ])(
+    'an older backend under %s links to where it still lists those rows',
+    async (status, linkName, href) => {
+      capable = false;
+      render(
+        <MemoryRouter initialEntries={[`/knowledge-base?status=${status}`]}>
+          <KnowledgeBasePage />
+        </MemoryRouter>
+      );
+      expect(await screen.findByText(NOTICE)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: linkName })).toHaveAttribute('href', href);
+      expect(screen.queryByRole('link', { name: 'Open the review page' })).toBeNull();
+    }
+  );
+
   it('the capability flag present: the rows show and no notice', async () => {
     listEntries = [entry({ id: 22, title: 'Filtered row from a new server' })];
     render(
@@ -185,18 +217,22 @@ describe('Knowledge Base decision filters', () => {
     expect(screen.queryByText(NOTICE)).toBeNull();
   });
 
-  it('clicking a filter a new backend applies never flashes the notice', async () => {
+  it('opening and clicking filters a new backend applies never flashes the notice', async () => {
+    // Watched from the FIRST render: before any answer there is no capability flag to read, and
+    // that is the moment a notice keyed on the flag alone would flash. (A later click cannot catch
+    // it: a new backend's previous answer already carries the flag.)
     const seen: boolean[] = [];
     const { container } = render(
-      <MemoryRouter initialEntries={['/knowledge-base?status=approved']}>
+      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
         <KnowledgeBasePage />
       </MemoryRouter>
     );
-    await screen.findAllByText('No entries found');
+    seen.push(container.textContent?.includes(NOTICE) ?? false);
     const observer = new MutationObserver(() =>
       seen.push(container.textContent?.includes(NOTICE) ?? false)
     );
     observer.observe(container, { childList: true, subtree: true, characterData: true });
+    await screen.findAllByText('No entries found');
     const before = getAllCalls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Set aside' }));
     await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(before));
@@ -321,5 +357,57 @@ describe('Knowledge Base decision filters', () => {
     );
     expect((await screen.findAllByText(CANNOT_DECIDE)).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'Review' })).toBeNull();
+  });
+
+  it('deciding the only row of the last page re-reads the page before it, not an empty page', async () => {
+    listEntries = [entry({ id: 30, title: 'First page row' })];
+    secondPage = [
+      entry({
+        id: 31,
+        title: 'Last page row',
+        pendingDecision: { suggestionId: 81, kind: 'rewrite', reasons: [], canDecide: true },
+      }),
+    ];
+    render(
+      <MemoryRouter initialEntries={['/knowledge-base?status=suggested_change']}>
+        <KnowledgeBasePage />
+      </MemoryRouter>
+    );
+    await screen.findAllByText('First page row');
+    fireEvent.click(screen.getByRole('button', { name: /Next/ }));
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Review' }))[0]);
+    const before = getAllCalls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'decide in dialog' }));
+    await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(before));
+    expect(getAllCalls.at(-1)).toMatchObject({ page: 1, status: 'suggested_change' });
+  });
+
+  it('bulk-approving every row of the last page re-reads the page before it', async () => {
+    const capture = (id: number) =>
+      entry({
+        id,
+        title: `Saved answer ${id}`,
+        approved: false,
+        pendingDecision: {
+          suggestionId: id + 100,
+          kind: 'approve_capture',
+          reasons: [],
+          canDecide: true,
+        },
+      });
+    listEntries = [capture(40)];
+    secondPage = [capture(41), capture(42)];
+    render(
+      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
+        <KnowledgeBasePage />
+      </MemoryRouter>
+    );
+    await screen.findAllByText('Saved answer 40');
+    fireEvent.click(screen.getByRole('button', { name: /Next/ }));
+    fireEvent.click(await screen.findByLabelText('Select all (2)'));
+    const before = getAllCalls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Approve selected (2)' }));
+    await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(before));
+    expect(getAllCalls.at(-1)).toMatchObject({ page: 1, status: 'needs_decision' });
   });
 });

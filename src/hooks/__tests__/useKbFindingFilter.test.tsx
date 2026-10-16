@@ -73,5 +73,9 @@ describe('useKbFindingFilter.fetchList', () => {
     expect(result.current.pageAfter(1, 3)).toBe(2);
     expect(result.current.pageAfter(5, 3)).toBe(3);
     expect(result.current.pageAfter(1, 1)).toBe(1);
+    // Several rows left at once (a bulk decision): only emptying the page steps back.
+    expect(result.current.pageAfter(3, 3, 3)).toBe(2);
+    expect(result.current.pageAfter(3, 3, 2)).toBe(3);
+    expect(result.current.pageAfter(1, 3, 0)).toBe(3);
   });
 });

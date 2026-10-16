@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { KbConsolidationReview } from '@/components/kb/KbConsolidationReview';
 import { KbQualityReview } from '@/components/kb/KbQualityReview';
 import {
@@ -25,17 +26,29 @@ export const KbDecisionDialog = ({
   onDecided,
 }: {
   decision: KbPendingDecision | null;
-  onClose: () => void;
+  /** `decided`: the review decided, and `onDecided` already re-read the list. */
+  onClose: (decided: boolean) => void;
   onDecided: () => void;
 }) => {
+  // Per opening: whether the review decided, and whether this opening was closed already (the X
+  // and the dialog's own close must not close — and so re-read the list — twice).
+  const decidedHere = useRef(false);
+  const closed = useRef(false);
+  useEffect(() => {
+    decidedHere.current = false;
+    closed.current = false;
+  }, [decision]);
   const decided = () => {
     announceKbConsolidationDecided(); // the bell recounts
+    decidedHere.current = true;
     onDecided();
   };
-  // Closing refreshes too: the suggestion may have been decided elsewhere meanwhile.
+  // Closing without a decision refreshes too: the suggestion may have been decided elsewhere
+  // meanwhile (the review shows a 409 as "no longer pending" without reporting a decision).
   const close = () => {
-    onClose();
-    onDecided();
+    if (closed.current) return;
+    closed.current = true;
+    onClose(decidedHere.current);
   };
   return (
     <Dialog

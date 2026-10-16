@@ -23,7 +23,8 @@ const kindFor = (mode: BulkMode) => (mode === 'suggested_change' ? 'remove' : 'a
 
 export const useKbBulkDecisions = (
   entries: KBEntry[],
-  onDone: () => void,
+  /** `left`: how many decided rows left the decision filter's list (failed ones stay). */
+  onDone: (left: number) => void,
   mode: BulkMode = null
 ) => {
   const kind = mode ? kindFor(mode) : undefined;
@@ -73,19 +74,21 @@ export const useKbBulkDecisions = (
     } finally {
       setBusy(false);
       clear();
-      onDone();
+      onDone(outcome.done);
     }
     return outcome;
   };
 
   const removeSelected = async (): Promise<BulkOutcome> => {
     setBusy(true);
+    let left = 0;
     const ids = chosen
       .filter((row) => decidable(row, 'remove'))
       .map((row) => row.pendingDecision!.suggestionId);
     try {
       if (ids.length === 0) return { done: 0, skipped: 0, failed: 0 };
       const result = await kbQualityService.bulkReject(ids);
+      left = result.rejected + result.expired;
       // `expired` = decided elsewhere meanwhile; `forbidden` = not this person's to decide.
       return {
         done: result.rejected,
@@ -95,7 +98,7 @@ export const useKbBulkDecisions = (
     } finally {
       setBusy(false);
       clear();
-      onDone();
+      onDone(left);
     }
   };
 

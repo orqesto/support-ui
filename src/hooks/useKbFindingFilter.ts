@@ -79,12 +79,12 @@ export const useKbFindingFilter = (departmentKey: string) => {
   const overtaken = () => settled.current !== latest.current;
 
   /**
-   * The page to re-read after an entry left the finding's list (hide / reject): the list shrank
-   * on the server, so the last row of a page past the first leaves that page empty — read the
-   * one before it instead.
+   * The page to re-read after `left` entries left the list (hide / reject / a decision; one by
+   * default): the list shrank on the server, so the last rows of a page past the first leave that
+   * page empty — read the one before it instead.
    */
-  const pageAfter = (rowsOnPage: number, page: number) =>
-    rowsOnPage <= 1 && page > 1 ? page - 1 : page;
+  const pageAfter = (rowsOnPage: number, page: number, left = 1) =>
+    left > 0 && rowsOnPage <= left && page > 1 ? page - 1 : page;
 
   const banner: KbFindingBannerProps = { filter, ...result, onShowAll: showAllEntries };
   return {
