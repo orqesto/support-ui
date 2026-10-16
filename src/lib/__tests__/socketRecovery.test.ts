@@ -59,6 +59,7 @@ const sessionOver = () =>
 
 let assignedHref: string | null = null;
 let manager: typeof SocketManagerModule;
+const realLocation = Object.getOwnPropertyDescriptor(window, 'location');
 
 beforeEach(async () => {
   vi.useFakeTimers();
@@ -83,6 +84,7 @@ beforeEach(async () => {
 afterEach(() => {
   manager.forceDisconnect();
   vi.useRealTimers();
+  if (realLocation) Object.defineProperty(window, 'location', realLocation);
 });
 
 const expiredHandshake = () => ({ message: 'Invalid or expired token' });
@@ -131,5 +133,52 @@ describe('the WebSocket handshake refused for an expired token', () => {
     expect(first.connect).not.toHaveBeenCalled();
     expect(second.connect).not.toHaveBeenCalled();
     expect(assignedHref).toBeNull();
+  });
+
+  it('a socket replaced while its renewal is in flight is not reconnected by it', async () => {
+    let settle: () => void = () => undefined;
+    renewal = () =>
+      new Promise<void>((resolve) => {
+        settle = resolve;
+      });
+    manager.getSocket();
+    const [first] = created;
+
+    first.fire('connect_error', expiredHandshake());
+    manager.forceDisconnect();
+    manager.getSocket();
+    const second = created[1];
+    settle();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(first.connect).not.toHaveBeenCalled();
+    expect(second.connect).not.toHaveBeenCalled();
+  });
+
+  it('after a teardown mid-wait, the next socket still gets its own renewal, not a sign-out', async () => {
+    renewal = () => Promise.reject(rateLimited());
+    manager.getSocket();
+    const [first] = created;
+    first.fire('connect_error', expiredHandshake());
+    await vi.advanceTimersByTimeAsync(0);
+
+    // The idle release: no subscribers for the debounce window.
+    manager.releaseSocket();
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(vi.getTimerCount()).toBe(0);
+
+    let renewed = false;
+    renewal = () => {
+      renewed = true;
+      return Promise.resolve();
+    };
+    manager.getSocket();
+    const second = created[1];
+    second.fire('connect_error', expiredHandshake());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(renewed).toBe(true);
+    expect(assignedHref).toBeNull();
+    expect(second.connect).toHaveBeenCalledTimes(1);
   });
 });
