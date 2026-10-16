@@ -44,6 +44,8 @@ import { KbFindingBanner } from '@/components/kb/KbFindingBanner';
 import { useKbUnhide } from '@/components/kb/useKbUnhide';
 import { KBDeleteDialog } from '@/components/kb/KBDeleteDialog';
 import { KbDecisionDialog } from '@/components/kb/KbDecisionDialog';
+import { KbBulkDecisionBar, bulkModeFor } from '@/components/kb/KbBulkDecisionBar';
+import { isBulkSelectable, useKbBulkDecisions } from '@/hooks/useKbBulkDecisions';
 import { useKbFindingFilter } from '@/hooks/useKbFindingFilter';
 
 /** An action on a merged CASE row — each one unmerges it, so each is confirmed first. */
@@ -195,6 +197,9 @@ export const KnowledgeBasePage = () => {
       void fetchEntries(1); // Reset to page 1 when filters change
     }
   }, [filterType, filterStatus, searchQuery, fetchEntries]);
+
+  const bulk = useKbBulkDecisions(entries, () => void fetchEntries(pagination.page));
+  const bulkMode = canReview ? bulkModeFor(filterStatus) : null;
 
   // Handle ID URL parameter (e.g., /knowledge-base?id=123)
   // Similar to Messages and Tickets pages - keeps ID in URL for sharing and refresh
@@ -655,6 +660,8 @@ export const KnowledgeBasePage = () => {
               )}
             </div>
 
+            {bulkMode && <KbBulkDecisionBar bulk={bulk} mode={bulkMode} />}
+
             {/* Desktop Table View */}
             <KBTableView
               entries={entries}
@@ -668,6 +675,7 @@ export const KnowledgeBasePage = () => {
               canReview={canReview}
               onUnmerge={handleUnmerge}
               onReviewDecision={setDecision}
+              selection={bulkMode ? { ...bulk, selectable: isBulkSelectable } : undefined}
             />
 
             {/* Pagination */}
