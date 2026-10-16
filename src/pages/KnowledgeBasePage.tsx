@@ -146,17 +146,24 @@ export const KnowledgeBasePage = () => {
       ? filterStatus
       : null;
   const fetchEntries = useCallback(
-    async (page = 1) => {
+    async (requestedPage = 1) => {
       try {
         setLoading(true);
-        const response = await finding.fetchList({
-          type: filterType === 'all' ? undefined : filterType,
-          page,
-          limit: pagination.limit,
-          search: searchQuery || undefined,
-          status: filterStatus === 'all' ? undefined : filterStatus,
-          messageSourceId: kbSourceParam(filterSource),
-        });
+        const read = (page: number) =>
+          finding.fetchList({
+            type: filterType === 'all' ? undefined : filterType,
+            page,
+            limit: pagination.limit,
+            search: searchQuery || undefined,
+            status: filterStatus === 'all' ? undefined : filterStatus,
+            messageSourceId: kbSourceParam(filterSource),
+          });
+        let response = await read(requestedPage);
+        // Decided rows left the list and took this page with them: show the last page left.
+        const lastPage = response?.data.pagination.totalPages ?? requestedPage;
+        if (response && !response.data.entries.length && requestedPage > Math.max(1, lastPage)) {
+          response = await read(Math.max(1, lastPage));
+        }
         if (!response) return; // overtaken by a newer request
         setEntries(response.data.entries);
         setPagination(response.data.pagination);
@@ -191,9 +198,8 @@ export const KnowledgeBasePage = () => {
   }, [filterType, filterStatus, searchQuery, fetchEntries]);
 
   const bulkMode = canReview ? bulkModeFor(filterStatus) : null;
-  // Re-read once `left` rows left the list: emptying a later page reads the one before it.
-  const rereadPage = (left: number) =>
-    void fetchEntries(finding.pageAfter(entries.length, pagination.page, left));
+  // Re-read the page after a decision; a page the decided rows emptied falls back in fetchEntries.
+  const rereadPage = () => void fetchEntries(pagination.page);
   const bulk = useKbBulkDecisions(entries, rereadPage, bulkMode);
 
   // Handle ID URL parameter (e.g., /knowledge-base?id=123)
@@ -290,7 +296,7 @@ export const KnowledgeBasePage = () => {
       // An approved entry stays listed while its KB review is open. The review closes once none of
       // its entries is undecided; the list drops it then, within the report's one-minute cache.
       // Re-read the same page so the entry's state and the count are current.
-      if (rereadAfterDecision) void fetchEntries(pagination.page);
+      if (rereadAfterDecision) rereadPage();
     } catch (error) {
       logger.error('Failed to approve entry:', error);
       setAlertDialog({
@@ -305,7 +311,7 @@ export const KnowledgeBasePage = () => {
   const { unhide: handleUnhide, dialog: unhideFallback } = useKbUnhide({
     setEntries,
     reread: (approved) => {
-      if (approved === null || rereadAfterDecision) void fetchEntries(pagination.page);
+      if (approved === null || rereadAfterDecision) rereadPage();
     },
     onApproveInstead: (id) => void handleApprove(id),
     onFailed: (_id, error) => {
@@ -328,8 +334,7 @@ export const KnowledgeBasePage = () => {
           entry.id === id ? { ...entry, approved: false, hidden: true, rejectedAt } : entry
         )
       );
-      if (rereadAfterDecision)
-        void fetchEntries(finding.pageAfter(entries.length, pagination.page));
+      if (rereadAfterDecision) rereadPage();
     } catch (error) {
       logger.error('Failed to reject entry:', error);
       setAlertDialog({
@@ -348,8 +353,7 @@ export const KnowledgeBasePage = () => {
       setEntries((prev) =>
         prev.map((entry) => (entry.id === id ? { ...entry, hidden: true, approved: false } : entry))
       );
-      if (rereadAfterDecision)
-        void fetchEntries(finding.pageAfter(entries.length, pagination.page));
+      if (rereadAfterDecision) rereadPage();
     } catch (error) {
       logger.error('Failed to hide entry:', error);
       setAlertDialog({
@@ -694,9 +698,9 @@ export const KnowledgeBasePage = () => {
               decision={decision}
               onClose={(decided) => {
                 setDecision(null);
-                if (!decided) rereadPage(0);
+                if (!decided) rereadPage();
               }}
-              onDecided={() => rereadPage(rereadAfterDecision ? 1 : 0)}
+              onDecided={rereadPage}
             />
             <KBDeleteDialog
               open={deleteDialogOpen}

@@ -13,7 +13,7 @@ let capable = true;
 let failList = false;
 let canReview = true;
 let listEntries: unknown[] = [];
-/** The rows of page 2 (none by default ⇒ one page); page 1 always lists `listEntries`. */
+/** The rows of page 2 (null or empty ⇒ one page); page 1 always lists `listEntries`. */
 let secondPage: unknown[] | null = null;
 
 vi.mock('@/services/kb.service', async (importOriginal) => {
@@ -26,13 +26,14 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
         getAllCalls.push(params);
         if (failList) return Promise.reject(new Error('boom'));
         const page = Number(params.page ?? 1);
-        const rows = page === 2 && secondPage ? secondPage : listEntries;
+        const pages = secondPage?.length ? 2 : 1;
+        const rows = page === 1 ? listEntries : page === 2 ? (secondPage ?? []) : [];
         const total = listEntries.length + (secondPage?.length ?? 0);
         return Promise.resolve({
           success: true,
           data: {
             entries: rows,
-            pagination: { page, limit: 50, total, totalPages: secondPage ? 2 : 1 },
+            pagination: { page, limit: 50, total, totalPages: pages },
             filters: {
               status: params.status ?? 'all',
               ...(capable ? { decisionStatuses: true } : {}),
@@ -376,6 +377,7 @@ describe('Knowledge Base decision filters', () => {
     await screen.findAllByText('First page row');
     fireEvent.click(screen.getByRole('button', { name: /Next/ }));
     fireEvent.click((await screen.findAllByRole('button', { name: 'Review' }))[0]);
+    secondPage = []; // the decision empties the last page
     const before = getAllCalls.length;
     fireEvent.click(screen.getByRole('button', { name: 'decide in dialog' }));
     await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(before));
@@ -405,9 +407,66 @@ describe('Knowledge Base decision filters', () => {
     await screen.findAllByText('Saved answer 40');
     fireEvent.click(screen.getByRole('button', { name: /Next/ }));
     fireEvent.click(await screen.findByLabelText('Select all (2)'));
+    secondPage = [];
     const before = getAllCalls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Approve selected (2)' }));
     await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(before));
     expect(getAllCalls.at(-1)).toMatchObject({ page: 1, status: 'needs_decision' });
+  });
+
+  it('a decided row that stays listed keeps the page (no jump back)', async () => {
+    listEntries = [entry({ id: 32, title: 'First page row' })];
+    secondPage = [
+      entry({
+        id: 33,
+        title: 'Still listed row',
+        pendingDecision: { suggestionId: 82, kind: 'rewrite', reasons: [], canDecide: true },
+        otherPendingDecisions: 1,
+      }),
+    ];
+    render(
+      <MemoryRouter initialEntries={['/knowledge-base?status=suggested_change']}>
+        <KnowledgeBasePage />
+      </MemoryRouter>
+    );
+    await screen.findAllByText('First page row');
+    fireEvent.click(screen.getByRole('button', { name: /Next/ }));
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Review' }))[0]);
+    const before = getAllCalls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'decide in dialog' }));
+    await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(before));
+    expect(getAllCalls.slice(before).map((call) => call.page)).toEqual([2]);
+    expect(await screen.findAllByText('Still listed row')).not.toHaveLength(0);
+  });
+
+  it('approving the only row of the last page from its row button shows the page before it', async () => {
+    listEntries = [entry({ id: 34, title: 'First page answer', approved: false })];
+    secondPage = [
+      entry({
+        id: 35,
+        title: 'Last page answer',
+        approved: false,
+        pendingDecision: {
+          suggestionId: 83,
+          kind: 'approve_capture',
+          reasons: [],
+          canDecide: true,
+        },
+      }),
+    ];
+    render(
+      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
+        <KnowledgeBasePage />
+      </MemoryRouter>
+    );
+    await screen.findAllByText('First page answer');
+    fireEvent.click(screen.getByRole('button', { name: /Next/ }));
+    await screen.findAllByText('Last page answer');
+    const before = getAllCalls.length;
+    secondPage = [];
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Approve' }))[0]);
+    await waitFor(() => expect(getAllCalls.at(-1)?.page).toBe(1));
+    expect(getAllCalls.slice(before).map((call) => call.page)).toEqual([2, 1]);
+    expect(await screen.findAllByText('First page answer')).not.toHaveLength(0);
   });
 });

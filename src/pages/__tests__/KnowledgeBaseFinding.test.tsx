@@ -33,6 +33,8 @@ let entries: KbServiceModule.KBEntry[] = [];
 let held: Array<() => void> | null = null;
 /** The page the list answers with (the page it was asked for when null). */
 let answerPage: number | null = null;
+/** Pages past this one are empty (the decided rows took them). */
+let lastPage = Number.POSITIVE_INFINITY;
 const hidden: number[] = [];
 
 vi.mock('@/services/kb.service', async (importOriginal) => {
@@ -60,7 +62,10 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
           });
         }
         const page = answerPage ?? (params.page as number | undefined) ?? 1;
-        const data = { entries, pagination: { page, limit: 50, total, totalPages: page } };
+        const data = {
+          entries: page > lastPage ? [] : entries,
+          pagination: { page, limit: 50, total, totalPages: Math.min(page, lastPage) },
+        };
         return Promise.resolve({
           data:
             backend === 'new' ? { ...data, filters: { finding: params.finding ?? null } } : data,
@@ -149,6 +154,7 @@ beforeEach(() => {
   backend = 'new';
   entries = [];
   answerPage = null;
+  lastPage = Number.POSITIVE_INFINITY;
   held = null;
   hidden.length = 0;
 });
@@ -344,6 +350,7 @@ describe('Knowledge base list narrowed to a finding', () => {
     renderAt('/knowledge-base?finding=raw_email&departmentId=3#qa_pair');
     const row = await rowOf('Raw one');
     answerPage = null;
+    lastPage = 1;
     fireEvent.click(within(row).getByRole('button', { name: 'Hide' }));
     await waitFor(() => expect(hidden).toEqual([41]));
     await waitFor(() => expect(lastCall()).toMatchObject({ finding: 'raw_email', page: 1 }));
