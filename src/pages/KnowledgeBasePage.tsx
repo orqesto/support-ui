@@ -19,7 +19,13 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { usePermissions } from '@/hooks/usePermissions';
 import { logger } from '@/lib/logger';
-import { kbService, kbSourceParam, type KBEntry, type PaginationMeta } from '@/services/kb.service';
+import {
+  kbService,
+  kbSourceParam,
+  type KBEntry,
+  type KbPendingDecision,
+  type PaginationMeta,
+} from '@/services/kb.service';
 import { Permission } from '@/types/roles';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useUiFlags } from '@/hooks/useUiFlags';
@@ -28,9 +34,16 @@ import { runCaseAction, type CaseActionNow } from '@/components/kb/runCaseAction
 import { toast } from '@/lib/toast';
 import { KbExportButton } from '@/components/kb/KbExportButton';
 import { KbReviewSuggestionsButton } from '@/components/kb/KbReviewSuggestionsButton';
+import { KbStatusFilter, type KbFilterStatus } from '@/components/kb/KbStatusFilter';
+import { withoutKbFinding } from '@/lib/kbFinding';
+import { useKbStatusParam } from '@/hooks/useKbStatusParam';
 import { KbFindingBanner } from '@/components/kb/KbFindingBanner';
+import { KbStatusIgnoredNotice } from '@/components/kb/KbStatusIgnoredNotice';
 import { useKbUnhide } from '@/components/kb/useKbUnhide';
 import { KBDeleteDialog } from '@/components/kb/KBDeleteDialog';
+import { KbDecisionDialog } from '@/components/kb/KbDecisionDialog';
+import { KbBulkDecisionBar, bulkModeFor } from '@/components/kb/KbBulkDecisionBar';
+import { useKbBulkDecisions } from '@/hooks/useKbBulkDecisions';
 import { useKbFindingFilter } from '@/hooks/useKbFindingFilter';
 
 /** An action on a merged CASE row — each one unmerges it, so each is confirmed first. */
@@ -56,10 +69,10 @@ const CASE_ACTION_TITLES: Record<CaseAction['action'], string> = {
 };
 
 type FilterType = 'all' | 'qa_pair' | 'document' | 'documentation';
-type FilterStatus = 'all' | 'approved' | 'pending' | 'hidden' | 'rejected';
 
 const VALID_FILTER_TYPES: FilterType[] = ['all', 'qa_pair', 'document', 'documentation'];
-const VALID_FILTER_STATUSES: FilterStatus[] = ['all', 'approved', 'pending', 'hidden', 'rejected'];
+/** The statuses an older backend does not know: it ignores them and returns the unfiltered list. */
+const NEW_STATUSES: readonly KbFilterStatus[] = ['needs_decision', 'suggested_change', 'set_aside'];
 
 export const KnowledgeBasePage = () => {
   const location = useLocation();
@@ -77,16 +90,15 @@ export const KnowledgeBasePage = () => {
     totalPages: 0,
   });
   const [loading, setLoading] = useState(true);
+  // Whether the server can apply the decision statuses (an older one echoes them, unapplied).
+  const [appliedStatus, setAppliedStatus] = useState<{
+    requested: KbFilterStatus;
+    decisionStatuses: boolean;
+  } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
   const filterType = activeTab; // Use hash-based tab as filter type
-  // `?status=pending` is where the review notification's "See all" lands.
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>(() => {
-    const requested = searchParams.get('status');
-    return VALID_FILTER_STATUSES.includes(requested as FilterStatus)
-      ? (requested as FilterStatus)
-      : 'all';
-  });
+  const [filterStatus, setFilterStatus] = useKbStatusParam();
   // Approve / reject / hide / edit need manage_knowledge_base (moderator, org admin). Everyone
   // else is capped to approved entries by the server, so the review filters and buttons would
   // only ever fail for them.
@@ -97,11 +109,12 @@ export const KnowledgeBasePage = () => {
 
   // Handle tab change by updating URL hash via React Router
   const handleTabChange = (tabId: FilterType) => {
-    navigate('#' + tabId, { replace: true });
+    navigate({ search: location.search, hash: tabId }, { replace: true });
   };
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<KBEntry | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [decision, setDecision] = useState<KbPendingDecision | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<KBEntry | null>(null);
   // Shared KB revision: the Confluence catalog and the Documentation list are separate
   // components over an overlapping doc set, so a mutation in one bumps this to make the
@@ -123,6 +136,15 @@ export const KnowledgeBasePage = () => {
   const selectedDeptKey = useDepartmentContextKey();
   // A KB cases finding ("48 learned entries are raw emails") opens exactly its entries.
   const finding = useKbFindingFilter(selectedDeptKey);
+  // Only a successful answer to THIS filter can show the notice (not the previous one's, not a
+  // failed fetch's); a non-reviewer is capped to approved by the server, and a finding list has
+  // its own banner.
+  const statusIgnored =
+    canReview &&
+    !finding.filter &&
+    NEW_STATUSES.includes(filterStatus) &&
+    appliedStatus?.requested === filterStatus &&
+    !appliedStatus.decisionStatuses;
   const fetchEntries = useCallback(
     async (page = 1) => {
       try {
@@ -138,6 +160,10 @@ export const KnowledgeBasePage = () => {
         if (!response) return; // overtaken by a newer request
         setEntries(response.data.entries);
         setPagination(response.data.pagination);
+        setAppliedStatus({
+          requested: filterStatus,
+          decisionStatuses: response.data.filters?.decisionStatuses === true,
+        });
       } catch (error) {
         logger.error('Failed to fetch KB entries:', error);
         if (finding.filter) setEntries([]); // never the previous rows under the finding's title
@@ -163,6 +189,9 @@ export const KnowledgeBasePage = () => {
       void fetchEntries(1); // Reset to page 1 when filters change
     }
   }, [filterType, filterStatus, searchQuery, fetchEntries]);
+
+  const bulkMode = canReview ? bulkModeFor(filterStatus) : null;
+  const bulk = useKbBulkDecisions(entries, () => void fetchEntries(pagination.page), bulkMode);
 
   // Handle ID URL parameter (e.g., /knowledge-base?id=123)
   // Similar to Messages and Tickets pages - keeps ID in URL for sharing and refresh
@@ -213,12 +242,13 @@ export const KnowledgeBasePage = () => {
   };
 
   const clearFilters = () => {
-    handleTabChange('all');
-    setFilterStatus('all');
+    // ONE navigation to the final URL: several in a tick each read the same stale params.
+    const params = new URLSearchParams(withoutKbFinding(searchParams));
+    params.delete('status');
+    navigate({ search: params.toString(), hash: '#all' }, { replace: !finding.filter });
     setFilterSource(ALL_SOURCES);
     setSearchQuery('');
     setPendingSearch('');
-    if (finding.filter) finding.showAllEntries('#all');
   };
 
   const activeFilterCount =
@@ -466,7 +496,7 @@ export const KnowledgeBasePage = () => {
                   Cases report
                 </Button>
               )}
-              <KbReviewSuggestionsButton />
+              <KbReviewSuggestionsButton onPick={() => setFilterStatus('suggested_change')} />
             </div>
           )}
           {filterType !== 'documentation' && (
@@ -567,54 +597,7 @@ export const KnowledgeBasePage = () => {
                   />
 
                   {/* Status Filter — reviewers only: the server caps everyone else to approved. */}
-                  {canReview && (
-                    <div className="flex flex-col gap-2">
-                      <span className="text-xs font-semibold text-muted-foreground">Status:</span>
-                      <div className="flex rounded-md shadow-sm w-fit">
-                        <Button
-                          variant={filterStatus === 'approved' ? 'primary' : 'outline'}
-                          size="sm"
-                          onClick={() => setFilterStatus('approved')}
-                          className="h-8 text-xs rounded-r-none rounded-l-md border-r-0"
-                        >
-                          Approved
-                        </Button>
-                        <Button
-                          variant={filterStatus === 'pending' ? 'primary' : 'outline'}
-                          size="sm"
-                          onClick={() => setFilterStatus('pending')}
-                          className="h-8 text-xs rounded-none border-r-0"
-                        >
-                          Pending
-                        </Button>
-                        <Button
-                          variant={filterStatus === 'hidden' ? 'primary' : 'outline'}
-                          size="sm"
-                          onClick={() => setFilterStatus('hidden')}
-                          className="h-8 text-xs rounded-none border-r-0"
-                        >
-                          Hidden
-                        </Button>
-                        <Button
-                          variant={filterStatus === 'rejected' ? 'primary' : 'outline'}
-                          size="sm"
-                          onClick={() => setFilterStatus('rejected')}
-                          className="h-8 text-xs rounded-none border-r-0"
-                          title="Rejected by a reviewer or automatically — deleted 90 days after the reject; Approve restores one before then."
-                        >
-                          Rejected
-                        </Button>
-                        <Button
-                          variant={filterStatus === 'all' ? 'primary' : 'outline'}
-                          size="sm"
-                          onClick={() => setFilterStatus('all')}
-                          className="h-8 text-xs rounded-r-md rounded-l-none"
-                        >
-                          All
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                  {canReview && <KbStatusFilter value={filterStatus} onChange={setFilterStatus} />}
 
                   {/* Source Filter */}
                   <div className="flex flex-col gap-2">
@@ -638,6 +621,9 @@ export const KnowledgeBasePage = () => {
             <ConfluenceCatalogSection refreshSignal={kbVersion} onKbChange={bumpKb} />
             <DocumentationSettings refreshSignal={kbVersion} onKbChange={bumpKb} />
           </>
+        ) : statusIgnored ? (
+          // An older backend returned the unfiltered list: never pass it off as filtered.
+          <KbStatusIgnoredNotice />
         ) : (
           <>
             {/* Mobile Card View */}
@@ -659,10 +645,13 @@ export const KnowledgeBasePage = () => {
                     onDelete={handleDeleteClick}
                     canReview={canReview}
                     onUnmerge={handleUnmerge}
+                    onReviewDecision={setDecision}
                   />
                 ))
               )}
             </div>
+
+            {bulkMode && <KbBulkDecisionBar bulk={bulk} mode={bulkMode} />}
 
             {/* Desktop Table View */}
             <KBTableView
@@ -676,6 +665,8 @@ export const KnowledgeBasePage = () => {
               onDelete={handleDeleteClick}
               canReview={canReview}
               onUnmerge={handleUnmerge}
+              onReviewDecision={setDecision}
+              selection={bulkMode ? bulk : undefined}
             />
 
             {/* Pagination */}
@@ -690,6 +681,11 @@ export const KnowledgeBasePage = () => {
               />
             )}
 
+            <KbDecisionDialog
+              decision={decision}
+              onClose={() => setDecision(null)}
+              onDecided={() => void fetchEntries(pagination.page)}
+            />
             <KBDeleteDialog
               open={deleteDialogOpen}
               onOpenChange={setDeleteDialogOpen}

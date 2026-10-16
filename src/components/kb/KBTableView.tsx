@@ -14,9 +14,12 @@ import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { KBStatusBadge } from './KBStatusBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import { kbSourceConversationId } from '@/lib/kbSource';
-import type { KBEntry } from '@/services/kb.service';
+import type { KBEntry, KbPendingDecision } from '@/services/kb.service';
+import { KbPendingDecisionBadge } from './KbPendingDecisionBadge';
+import { reviewableDecision } from './kbWorkRowModel';
 import {
   isCaseRow,
   isMergedOriginal,
@@ -58,6 +61,14 @@ type KBTableViewProps = {
   canReview: boolean;
   /** Undo a merged case (manage_knowledge_base). Shown only on case rows. */
   onUnmerge?: (entry: KBEntry) => void;
+  /** Open the review for a merge / rewrite / removal suggestion waiting on this entry. */
+  onReviewDecision?: (decision: KbPendingDecision) => void;
+  /** Bulk selection: a leading checkbox column, only on rows `selectable` accepts. */
+  selection?: {
+    selected: ReadonlySet<number>;
+    toggle: (id: number, on: boolean) => void;
+    selectable: (entry: KBEntry) => boolean;
+  };
 };
 
 export const KBTableView = ({
@@ -71,10 +82,13 @@ export const KBTableView = ({
   onDelete,
   canReview,
   onUnmerge,
+  onReviewDecision,
+  selection,
 }: KBTableViewProps) => (
   <div className="hidden rounded-lg border md:block">
     <table className="w-full table-fixed">
       <colgroup>
+        {selection && <col className="w-8" />}
         <col className="w-10" />
         <col />
         <col className="hidden w-16 md:table-column" />
@@ -87,6 +101,7 @@ export const KBTableView = ({
       </colgroup>
       <thead className="bg-muted/50">
         <tr className="border-b">
+          {selection && <th className="w-8 px-2 py-3" aria-label="Select" />}
           <th className="px-2 py-3 text-sm font-medium text-left">Type</th>
           <th className="px-3 py-3 text-sm font-medium text-left">Title</th>
           <th className="hidden px-3 py-3 text-sm font-medium text-center md:table-cell">Source</th>
@@ -105,19 +120,33 @@ export const KBTableView = ({
       <tbody>
         {loading ? (
           <tr>
-            <td colSpan={9} className="px-4 py-8 text-center">
+            <td colSpan={selection ? 10 : 9} className="px-4 py-8 text-center">
               Loading...
             </td>
           </tr>
         ) : entries.length === 0 ? (
           <tr>
-            <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
+            <td
+              colSpan={selection ? 10 : 9}
+              className="px-4 py-8 text-center text-muted-foreground"
+            >
               No entries found
             </td>
           </tr>
         ) : (
           entries.map((entry) => (
             <tr key={entry.id} className="border-b hover:bg-muted/50">
+              {selection && (
+                <td className="px-2 py-3">
+                  {selection.selectable(entry) && (
+                    <Checkbox
+                      aria-label={`Select ${entry.title}`}
+                      checked={selection.selected.has(entry.id)}
+                      onChange={(event) => selection.toggle(entry.id, event.target.checked)}
+                    />
+                  )}
+                </td>
+              )}
               <td className="px-2 py-3">{getTypeIcon(entry.type)}</td>
               <td className="px-3 py-3">
                 <div className="font-medium truncate">{entry.title}</div>
@@ -164,6 +193,11 @@ export const KBTableView = ({
                   )}
                   <KBStatusBadge entry={entry} />
                 </div>
+                <KbPendingDecisionBadge
+                  decision={entry.pendingDecision}
+                  others={entry.otherPendingDecisions}
+                  setAsideReason={entry.setAsideReason}
+                />
               </td>
               <td className="px-2 py-3 text-right">
                 {/* A Pending entry offers five actions (View, Approve, Reject, Hide, Delete). At
@@ -185,6 +219,16 @@ export const KBTableView = ({
                   >
                     <Maximize2 className="w-4 h-4" />
                   </Button>
+                  {onReviewDecision && reviewableDecision(entry) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onReviewDecision(reviewableDecision(entry)!)}
+                      className="!w-auto !px-2"
+                    >
+                      Review
+                    </Button>
+                  )}
                   {canReview && offersReviewActions(entry) && !entry.approved && !entry.hidden && (
                     <>
                       <Button

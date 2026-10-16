@@ -2,7 +2,7 @@
  * The KB cases worklist's row model: labels, the KB list's shape for one row (so its status
  * badge and action rules apply unchanged), who may do what, and the refusal sentences.
  */
-import type { KBEntry } from '@/services/kb.service';
+import type { KBEntry, KbPendingDecision } from '@/services/kb.service';
 import {
   WORK_ROWS_MAX_IDS,
   type KbSetAsideReason,
@@ -192,4 +192,10 @@ export const chunk = (ids: number[]): number[][] => {
   for (let at = 0; at < ids.length; at += WORK_ROWS_MAX_IDS)
     out.push(ids.slice(at, at + WORK_ROWS_MAX_IDS));
   return out;
+};
+
+/** The decision a row's Review button opens: a suggestion the viewer may decide (captures use Approve / Reject). */
+export const reviewableDecision = (entry: KBEntry): KbPendingDecision | null => {
+  const decision = entry.pendingDecision;
+  return decision && decision.kind !== 'approve_capture' && decision.canDecide ? decision : null;
 };

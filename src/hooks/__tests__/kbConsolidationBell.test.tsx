@@ -118,7 +118,7 @@ describe('KB merge bell row (F3)', () => {
     await waitFor(() => expect(result.current.consolidations).toHaveLength(1));
   });
 
-  it('the section shows the count and department, and Review goes to the merges page', () => {
+  it('the section shows the count and department, and Review opens the suggested changes', () => {
     const onNavigate = vi.fn();
     render(
       <KbReviewSection
@@ -137,11 +137,13 @@ describe('KB merge bell row (F3)', () => {
       />
     );
     expect(
-      screen.getByText('3 knowledge base suggestions (merges and fixes to entries) are waiting for review')
+      screen.getByText(
+        '3 knowledge base suggestions (merges and fixes to entries) are waiting for review'
+      )
     ).toBeInTheDocument();
     expect(screen.getByText('Support EU')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Review knowledge base suggestions' }));
-    expect(onNavigate).toHaveBeenCalledWith(KB_MERGES_REVIEW_PATH);
+    expect(onNavigate).toHaveBeenCalledWith('/knowledge-base?status=suggested_change');
     expect(KB_MERGES_REVIEW_PATH).toBe('/knowledge-base/merges');
   });
 });
@@ -248,5 +250,39 @@ describe('KB merge bell — one proposal, one row; one workspace at a time', () 
     act(() => lateReply({ data: { data: { notifications: [mergeRow()], total: 1 } } }));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(result.current.consolidations).toHaveLength(0);
+  });
+});
+
+describe('KB review alert row', () => {
+  it('"Read or edit first" opens the list filtered to needs_decision', () => {
+    const onNavigate = vi.fn();
+    render(
+      <KbReviewSection
+        review={{
+          alerts: [
+            {
+              id: 5,
+              suggestionId: 9,
+              conversationId: null,
+              conversationPublicId: null,
+              subject: 'Refunds',
+              entryCount: 2,
+              capturedVia: 'resolve',
+            },
+          ],
+          consolidations: [],
+          rowCount: 1,
+          decide: vi.fn(),
+          actingId: null,
+          error: null,
+          refresh: vi.fn(),
+        }}
+        showLabel
+        SectionLabel={({ children }) => <p>{children}</p>}
+        onNavigate={onNavigate}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Read or edit first' }));
+    expect(onNavigate).toHaveBeenCalledWith('/knowledge-base?status=needs_decision');
   });
 });
