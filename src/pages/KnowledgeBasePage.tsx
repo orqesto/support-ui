@@ -84,7 +84,10 @@ export const KnowledgeBasePage = () => {
   });
   const [loading, setLoading] = useState(true);
   // The status the server says it applied; used to catch an older backend ignoring a new one.
-  const [appliedStatus, setAppliedStatus] = useState<string | null>(null);
+  const [appliedStatus, setAppliedStatus] = useState<{
+    requested: KbFilterStatus;
+    echoed: string | null;
+  } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
   const filterType = activeTab; // Use hash-based tab as filter type
@@ -95,8 +98,6 @@ export const KnowledgeBasePage = () => {
       ? (requested as KbFilterStatus)
       : 'all';
   });
-  const statusIgnored =
-    NEW_STATUSES.includes(filterStatus) && !loading && appliedStatus !== filterStatus;
   // Approve / reject / hide / edit need manage_knowledge_base (moderator, org admin). Everyone
   // else is capped to approved entries by the server, so the review filters and buttons would
   // only ever fail for them.
@@ -133,6 +134,15 @@ export const KnowledgeBasePage = () => {
   const selectedDeptKey = useDepartmentContextKey();
   // A KB cases finding ("48 learned entries are raw emails") opens exactly its entries.
   const finding = useKbFindingFilter(selectedDeptKey);
+  // Only a successful answer to THIS filter can show the notice (not the previous one's, not a
+  // failed fetch's); a non-reviewer is capped to approved by the server, and a finding list has
+  // its own banner.
+  const statusIgnored =
+    canReview &&
+    !finding.filter &&
+    NEW_STATUSES.includes(filterStatus) &&
+    appliedStatus?.requested === filterStatus &&
+    appliedStatus.echoed !== filterStatus;
   const fetchEntries = useCallback(
     async (page = 1) => {
       try {
@@ -148,7 +158,10 @@ export const KnowledgeBasePage = () => {
         if (!response) return; // overtaken by a newer request
         setEntries(response.data.entries);
         setPagination(response.data.pagination);
-        setAppliedStatus(response.data.filters?.status ?? null);
+        setAppliedStatus({
+          requested: filterStatus,
+          echoed: response.data.filters?.status ?? null,
+        });
       } catch (error) {
         logger.error('Failed to fetch KB entries:', error);
         if (finding.filter) setEntries([]); // never the previous rows under the finding's title

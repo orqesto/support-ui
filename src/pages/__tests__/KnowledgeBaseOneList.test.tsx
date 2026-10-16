@@ -1,12 +1,14 @@
 /** One Knowledge Base list, phase 1: the decision filters and the older-backend notice. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type * as KbServiceModule from '@/services/kb.service';
 
 const getAllCalls: Array<Record<string, unknown>> = [];
 /** What the mocked list echoes as the applied status: a new BE echoes the request, an old one 'all'. */
 let echo: 'request' | 'all' = 'request';
+let failList = false;
+let canReview = true;
 
 vi.mock('@/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
@@ -16,6 +18,7 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
       ...actual.kbService,
       getAll: (params: Record<string, unknown>) => {
         getAllCalls.push(params);
+        if (failList) return Promise.reject(new Error('boom'));
         return Promise.resolve({
           success: true,
           data: {
@@ -45,7 +48,7 @@ vi.mock('@/components/messages/MessageSourceFilter', () => ({
 vi.mock('@/components/admin/DepartmentBadge', () => ({ default: () => null }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => '' }));
 vi.mock('@/hooks/usePermissions', () => ({
-  usePermissions: () => ({ hasPermission: () => true, isOrgAdmin: true }),
+  usePermissions: () => ({ hasPermission: () => canReview, isOrgAdmin: true }),
 }));
 vi.mock('@/hooks/useUiFlags', () => ({ useUiFlags: () => ({ isSurfaceVisibleToMe: () => true }) }));
 vi.mock('@/components/kb/KbRunNow', () => ({ KbRunNow: () => null }));
@@ -61,6 +64,8 @@ const NOTICE = 'This server cannot filter by this yet — showing every entry.';
 beforeEach(() => {
   getAllCalls.length = 0;
   echo = 'request';
+  failList = false;
+  canReview = true;
 });
 afterEach(cleanup);
 
@@ -85,5 +90,68 @@ describe('Knowledge Base decision filters', () => {
       </MemoryRouter>
     );
     expect(await screen.findByText(NOTICE)).toBeInTheDocument();
+  });
+
+  it('clicking a filter a new backend applies never flashes the notice', async () => {
+    const seen: boolean[] = [];
+    const { container } = render(
+      <MemoryRouter initialEntries={['/knowledge-base?status=approved']}>
+        <KnowledgeBasePage />
+      </MemoryRouter>
+    );
+    await screen.findAllByText('No entries found');
+    const observer = new MutationObserver(() =>
+      seen.push(container.textContent?.includes(NOTICE) ?? false)
+    );
+    observer.observe(container, { childList: true, subtree: true, characterData: true });
+    const before = getAllCalls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Set aside' }));
+    await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(before));
+    await screen.findAllByText('No entries found');
+    await waitFor(() =>
+      expect(getAllCalls[getAllCalls.length - 1]).toMatchObject({ status: 'set_aside' })
+    );
+    observer.disconnect();
+    expect(seen).not.toContain(true);
+    expect(screen.queryByText(NOTICE)).toBeNull();
+  });
+
+  it('a failed fetch does not blame the server', async () => {
+    failList = true;
+    render(
+      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
+        <KnowledgeBasePage />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(0));
+    expect(await screen.findByText('Failed to Load')).toBeInTheDocument();
+    expect(screen.queryByText(NOTICE)).toBeNull();
+  });
+
+  it('a non-reviewer (server caps to approved) gets no notice', async () => {
+    canReview = false;
+    echo = 'all';
+    render(
+      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
+        <KnowledgeBasePage />
+      </MemoryRouter>
+    );
+    await screen.findAllByText('No entries found');
+    expect(screen.queryByText(NOTICE)).toBeNull();
+  });
+
+  it('while a KB-cases finding is open the notice stays off', async () => {
+    echo = 'all';
+    render(
+      <MemoryRouter
+        initialEntries={[
+          '/knowledge-base?status=needs_decision&finding=raw_email&departmentId=3#qa_pair',
+        ]}
+      >
+        <KnowledgeBasePage />
+      </MemoryRouter>
+    );
+    await screen.findAllByText('No entries found');
+    expect(screen.queryByText(NOTICE)).toBeNull();
   });
 });
