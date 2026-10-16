@@ -60,6 +60,7 @@ const Probe = () => {
   return (
     <>
       <output data-testid="search">{location.search}</output>
+      <output data-testid="hash">{location.hash}</output>
       <button
         type="button"
         onClick={() => navigate('/knowledge-base?status=needs_decision&keep=1')}
@@ -70,9 +71,9 @@ const Probe = () => {
   );
 };
 
-const renderPage = () =>
+const renderPage = (url = '/knowledge-base') =>
   render(
-    <MemoryRouter initialEntries={['/knowledge-base']}>
+    <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route
           path="/knowledge-base"
@@ -122,6 +123,27 @@ describe('knowledge base → review suggestions', () => {
     );
     fireEvent.click(screen.getByText('All', { selector: 'button:not([title])' }));
     await waitFor(() => expect(screen.getByTestId('search').textContent).toBe('?keep=1'));
+  });
+
+  it('changing the tab keeps ?status=', async () => {
+    renderPage('/knowledge-base?status=needs_decision#all');
+    fireEvent.click(await screen.findByRole('button', { name: /Documents/ }));
+    await waitFor(() => expect(screen.getByTestId('hash').textContent).toBe('#document'));
+    expect(screen.getByTestId('search').textContent).toBe('?status=needs_decision');
+  });
+
+  it('Clear All lands on the All tab without status', async () => {
+    renderPage('/knowledge-base?status=set_aside&keep=1#document');
+    fireEvent.click(await screen.findByRole('button', { name: /Clear All/ }));
+    await waitFor(() => expect(screen.getByTestId('hash').textContent).toBe('#all'));
+    expect(screen.getByTestId('search').textContent).toBe('?keep=1');
+  });
+
+  it('Clear All also drops a finding and its department', async () => {
+    renderPage('/knowledge-base?finding=raw_email&departmentId=3&status=set_aside&keep=1#qa_pair');
+    fireEvent.click(await screen.findByRole('button', { name: /Clear All/ }));
+    await waitFor(() => expect(screen.getByTestId('hash').textContent).toBe('#all'));
+    expect(screen.getByTestId('search').textContent).toBe('?keep=1');
   });
 
   it('is not offered to someone who may not manage the knowledge base', async () => {

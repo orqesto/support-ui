@@ -36,6 +36,7 @@ import { toast } from '@/lib/toast';
 import { KbExportButton } from '@/components/kb/KbExportButton';
 import { KbReviewSuggestionsButton } from '@/components/kb/KbReviewSuggestionsButton';
 import { KbStatusFilter, type KbFilterStatus } from '@/components/kb/KbStatusFilter';
+import { withoutKbFinding } from '@/lib/kbFinding';
 import { useKbStatusParam } from '@/hooks/useKbStatusParam';
 import { KbFindingBanner } from '@/components/kb/KbFindingBanner';
 import { useKbUnhide } from '@/components/kb/useKbUnhide';
@@ -108,7 +109,7 @@ export const KnowledgeBasePage = () => {
 
   // Handle tab change by updating URL hash via React Router
   const handleTabChange = (tabId: FilterType) => {
-    navigate('#' + tabId, { replace: true });
+    navigate({ search: location.search, hash: tabId }, { replace: true });
   };
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<KBEntry | null>(null);
@@ -241,12 +242,13 @@ export const KnowledgeBasePage = () => {
   };
 
   const clearFilters = () => {
-    handleTabChange('all');
-    setFilterStatus('all');
+    // ONE navigation to the final URL: several in a tick each read the same stale params.
+    const params = new URLSearchParams(withoutKbFinding(searchParams));
+    params.delete('status');
+    navigate({ search: params.toString(), hash: '#all' }, { replace: !finding.filter });
     setFilterSource(ALL_SOURCES);
     setSearchQuery('');
     setPendingSearch('');
-    if (finding.filter) finding.showAllEntries('#all');
   };
 
   const activeFilterCount =
