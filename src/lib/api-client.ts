@@ -150,12 +150,15 @@ let refreshInFlight: Promise<void> | null = null;
  * rotate it yet. Signing the user out for it put them on a login page that the same limit then
  * refused too ("Too many login attempts"). Until the wait is over, renewal answers with the same
  * refusal at once — every request that 401s in the meantime would otherwise ask again and keep
- * the bucket full.
+ * the bucket full. The wait is capped at a minute: the server may name its whole window (up to
+ * fifteen), and every request that 401s fails until renewal is tried again — one more refused
+ * attempt a minute per tab costs the server little and gives the user their app back sooner.
  */
 let refreshRefused: { until: number; error: Error } | null = null;
 const REFRESH_REFUSED_DEFAULT_WAIT_MS = 60_000;
+const REFRESH_REFUSED_MAX_WAIT_MS = 60_000;
 
-const isRateLimited = (err: unknown): boolean =>
+export const isRateLimited = (err: unknown): boolean =>
   (err as { response?: { status?: number } } | undefined)?.response?.status === 429;
 
 const refusedWaitMs = (err: unknown): number => {
@@ -164,8 +167,17 @@ const refusedWaitMs = (err: unknown): number => {
       ?.retryAfter
   );
   return Number.isFinite(seconds) && seconds > 0
-    ? seconds * 1000
+    ? Math.min(seconds * 1000, REFRESH_REFUSED_MAX_WAIT_MS)
     : REFRESH_REFUSED_DEFAULT_WAIT_MS;
+};
+
+/** How long until renewal will be tried again after a refusal for rate; 0 when it is not held. */
+export const refreshRetryInMs = (): number =>
+  refreshRefused ? Math.max(0, refreshRefused.until - Date.now()) : 0;
+
+/** Test seam: forget a refusal, so one test's cool-down cannot leak into the next. */
+export const resetRefreshRefusal = (): void => {
+  refreshRefused = null;
 };
 
 const requestRefresh = async (): Promise<void> => {

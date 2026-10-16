@@ -1,6 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
 import { API_BASE_URL } from './config';
-import { ensureFreshSession } from '@/lib/api-client';
+import { ensureFreshSession, isRateLimited, refreshRetryInMs } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 import { writeTabWorkspace } from '@/lib/tabWorkspace';
 
@@ -123,7 +123,14 @@ export const getSocket = (): Socket => {
             logger.info('🔓 Session renewed — reconnecting the WebSocket');
             socket?.connect();
           },
-          () => endSessionAndRedirect()
+          (err: unknown) =>
+            afterRefusedRenewal(err, {
+              retry: () => {
+                authRecoveryUsed = false;
+                socket?.connect();
+              },
+              endSession: endSessionAndRedirect,
+            })
         );
         return;
       }
@@ -138,6 +145,24 @@ export const getSocket = (): Socket => {
   logger.info(`📊 Active connections: ${connectionCount}`);
 
   return socket;
+};
+
+/**
+ * The socket's renewal was refused. Refused for RATE (429, or this tab's cool-down after one) says
+ * nothing about the session — signing out there sent people to a login page the same limit then
+ * refused. Reconnect once renewal may be tried again; any other refusal ends the session.
+ */
+export const afterRefusedRenewal = (
+  err: unknown,
+  actions: { retry: () => void; endSession: () => void }
+): 'retry' | 'ended' => {
+  if (isRateLimited(err)) {
+    logger.info('⏳ Session renewal refused for rate — reconnecting the WebSocket after the wait');
+    setTimeout(actions.retry, Math.max(refreshRetryInMs(), 1_000));
+    return 'retry';
+  }
+  actions.endSession();
+  return 'ended';
 };
 
 // Subscribe to events (with automatic deduplication)
