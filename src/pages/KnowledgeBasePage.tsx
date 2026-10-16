@@ -11,6 +11,7 @@ import { ConfluenceCatalogSection } from '@/components/knowledge-base/Confluence
 import { MessageSourceFilter, ALL_SOURCES } from '@/components/messages/MessageSourceFilter';
 import { DocumentationSettings } from '@/components/settings/DocumentationSettings';
 import { AlertDialog } from '@/components/ui/AlertDialog';
+import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -28,6 +29,11 @@ import { runCaseAction, type CaseActionNow } from '@/components/kb/runCaseAction
 import { toast } from '@/lib/toast';
 import { KbExportButton } from '@/components/kb/KbExportButton';
 import { KbReviewSuggestionsButton } from '@/components/kb/KbReviewSuggestionsButton';
+import {
+  KbStatusFilter,
+  KB_FILTER_STATUSES,
+  type KbFilterStatus,
+} from '@/components/kb/KbStatusFilter';
 import { KbFindingBanner } from '@/components/kb/KbFindingBanner';
 import { useKbUnhide } from '@/components/kb/useKbUnhide';
 import { KBDeleteDialog } from '@/components/kb/KBDeleteDialog';
@@ -56,10 +62,10 @@ const CASE_ACTION_TITLES: Record<CaseAction['action'], string> = {
 };
 
 type FilterType = 'all' | 'qa_pair' | 'document' | 'documentation';
-type FilterStatus = 'all' | 'approved' | 'pending' | 'hidden' | 'rejected';
 
 const VALID_FILTER_TYPES: FilterType[] = ['all', 'qa_pair', 'document', 'documentation'];
-const VALID_FILTER_STATUSES: FilterStatus[] = ['all', 'approved', 'pending', 'hidden', 'rejected'];
+/** The statuses an older backend does not know: it ignores them and returns the unfiltered list. */
+const NEW_STATUSES: readonly KbFilterStatus[] = ['needs_decision', 'suggested_change', 'set_aside'];
 
 export const KnowledgeBasePage = () => {
   const location = useLocation();
@@ -77,16 +83,20 @@ export const KnowledgeBasePage = () => {
     totalPages: 0,
   });
   const [loading, setLoading] = useState(true);
+  // The status the server says it applied; used to catch an older backend ignoring a new one.
+  const [appliedStatus, setAppliedStatus] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
   const filterType = activeTab; // Use hash-based tab as filter type
   // `?status=pending` is where the review notification's "See all" lands.
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>(() => {
+  const [filterStatus, setFilterStatus] = useState<KbFilterStatus>(() => {
     const requested = searchParams.get('status');
-    return VALID_FILTER_STATUSES.includes(requested as FilterStatus)
-      ? (requested as FilterStatus)
+    return KB_FILTER_STATUSES.includes(requested as KbFilterStatus)
+      ? (requested as KbFilterStatus)
       : 'all';
   });
+  const statusIgnored =
+    NEW_STATUSES.includes(filterStatus) && !loading && appliedStatus !== filterStatus;
   // Approve / reject / hide / edit need manage_knowledge_base (moderator, org admin). Everyone
   // else is capped to approved entries by the server, so the review filters and buttons would
   // only ever fail for them.
@@ -138,6 +148,7 @@ export const KnowledgeBasePage = () => {
         if (!response) return; // overtaken by a newer request
         setEntries(response.data.entries);
         setPagination(response.data.pagination);
+        setAppliedStatus(response.data.filters?.status ?? null);
       } catch (error) {
         logger.error('Failed to fetch KB entries:', error);
         if (finding.filter) setEntries([]); // never the previous rows under the finding's title
@@ -567,53 +578,11 @@ export const KnowledgeBasePage = () => {
                   />
 
                   {/* Status Filter — reviewers only: the server caps everyone else to approved. */}
-                  {canReview && (
-                    <div className="flex flex-col gap-2">
-                      <span className="text-xs font-semibold text-muted-foreground">Status:</span>
-                      <div className="flex rounded-md shadow-sm w-fit">
-                        <Button
-                          variant={filterStatus === 'approved' ? 'primary' : 'outline'}
-                          size="sm"
-                          onClick={() => setFilterStatus('approved')}
-                          className="h-8 text-xs rounded-r-none rounded-l-md border-r-0"
-                        >
-                          Approved
-                        </Button>
-                        <Button
-                          variant={filterStatus === 'pending' ? 'primary' : 'outline'}
-                          size="sm"
-                          onClick={() => setFilterStatus('pending')}
-                          className="h-8 text-xs rounded-none border-r-0"
-                        >
-                          Pending
-                        </Button>
-                        <Button
-                          variant={filterStatus === 'hidden' ? 'primary' : 'outline'}
-                          size="sm"
-                          onClick={() => setFilterStatus('hidden')}
-                          className="h-8 text-xs rounded-none border-r-0"
-                        >
-                          Hidden
-                        </Button>
-                        <Button
-                          variant={filterStatus === 'rejected' ? 'primary' : 'outline'}
-                          size="sm"
-                          onClick={() => setFilterStatus('rejected')}
-                          className="h-8 text-xs rounded-none border-r-0"
-                          title="Rejected by a reviewer or automatically — deleted 90 days after the reject; Approve restores one before then."
-                        >
-                          Rejected
-                        </Button>
-                        <Button
-                          variant={filterStatus === 'all' ? 'primary' : 'outline'}
-                          size="sm"
-                          onClick={() => setFilterStatus('all')}
-                          className="h-8 text-xs rounded-r-md rounded-l-none"
-                        >
-                          All
-                        </Button>
-                      </div>
-                    </div>
+                  {canReview && <KbStatusFilter value={filterStatus} onChange={setFilterStatus} />}
+                  {statusIgnored && (
+                    <Alert variant="warning">
+                      This server cannot filter by this yet — showing every entry.
+                    </Alert>
                   )}
 
                   {/* Source Filter */}
