@@ -20,4 +20,17 @@ describe('KbStatusFilter', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Suggested change' }));
     expect(onChange).toHaveBeenCalledWith('suggested_change');
   });
+
+  it('marks only the chosen filter as pressed, for screen readers', () => {
+    render(<KbStatusFilter value="set_aside" onChange={() => {}} />);
+    expect(screen.getByRole('button', { name: 'Set aside' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(screen.getByRole('button', { name: 'Approved' })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
+    expect(screen.getAllByRole('button', { pressed: true })).toHaveLength(1);
+  });
 });

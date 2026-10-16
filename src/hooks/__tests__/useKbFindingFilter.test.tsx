@@ -67,11 +67,4 @@ describe('useKbFindingFilter.fetchList', () => {
       expect(result.current.overtaken()).toBe(false);
     });
   });
-
-  it('pageAfter: the last row of a later page re-reads the page before it', () => {
-    const { result } = renderHook(() => useKbFindingFilter(''), { wrapper });
-    expect(result.current.pageAfter(1, 3)).toBe(2);
-    expect(result.current.pageAfter(5, 3)).toBe(3);
-    expect(result.current.pageAfter(1, 1)).toBe(1);
-  });
 });

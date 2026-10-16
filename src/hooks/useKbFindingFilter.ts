@@ -78,21 +78,12 @@ export const useKbFindingFilter = (departmentKey: string) => {
    */
   const overtaken = () => settled.current !== latest.current;
 
-  /**
-   * The page to re-read after an entry left the finding's list (hide / reject): the list shrank
-   * on the server, so the last row of a page past the first leaves that page empty — read the
-   * one before it instead.
-   */
-  const pageAfter = (rowsOnPage: number, page: number) =>
-    rowsOnPage <= 1 && page > 1 ? page - 1 : page;
-
   const banner: KbFindingBannerProps = { filter, ...result, onShowAll: showAllEntries };
   return {
     filter,
     listScopeKey: `${departmentKey}|${filter ? `${filter.finding}:${filter.departmentId}` : ''}`,
     fetchList,
     overtaken,
-    pageAfter,
     banner,
     showAllEntries,
   };

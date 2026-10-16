@@ -38,7 +38,7 @@ import { KbStatusFilter, type KbFilterStatus } from '@/components/kb/KbStatusFil
 import { withoutKbFinding } from '@/lib/kbFinding';
 import { useKbStatusParam } from '@/hooks/useKbStatusParam';
 import { KbFindingBanner } from '@/components/kb/KbFindingBanner';
-import { KbStatusIgnoredNotice } from '@/components/kb/KbStatusIgnoredNotice';
+import { KbStatusIgnoredNotice, isNewStatus } from '@/components/kb/KbStatusIgnoredNotice';
 import { useKbUnhide } from '@/components/kb/useKbUnhide';
 import { KBDeleteDialog } from '@/components/kb/KBDeleteDialog';
 import { KbDecisionDialog } from '@/components/kb/KbDecisionDialog';
@@ -71,8 +71,6 @@ const CASE_ACTION_TITLES: Record<CaseAction['action'], string> = {
 type FilterType = 'all' | 'qa_pair' | 'document' | 'documentation';
 
 const VALID_FILTER_TYPES: FilterType[] = ['all', 'qa_pair', 'document', 'documentation'];
-/** The statuses an older backend does not know: it ignores them and returns the unfiltered list. */
-const NEW_STATUSES: readonly KbFilterStatus[] = ['needs_decision', 'suggested_change', 'set_aside'];
 
 export const KnowledgeBasePage = () => {
   const location = useLocation();
@@ -142,21 +140,30 @@ export const KnowledgeBasePage = () => {
   const statusIgnored =
     canReview &&
     !finding.filter &&
-    NEW_STATUSES.includes(filterStatus) &&
+    isNewStatus(filterStatus) &&
     appliedStatus?.requested === filterStatus &&
-    !appliedStatus.decisionStatuses;
+    !appliedStatus.decisionStatuses
+      ? filterStatus
+      : null;
   const fetchEntries = useCallback(
-    async (page = 1) => {
+    async (requestedPage = 1) => {
       try {
         setLoading(true);
-        const response = await finding.fetchList({
-          type: filterType === 'all' ? undefined : filterType,
-          page,
-          limit: pagination.limit,
-          search: searchQuery || undefined,
-          status: filterStatus === 'all' ? undefined : filterStatus,
-          messageSourceId: kbSourceParam(filterSource),
-        });
+        const read = (page: number) =>
+          finding.fetchList({
+            type: filterType === 'all' ? undefined : filterType,
+            page,
+            limit: pagination.limit,
+            search: searchQuery || undefined,
+            status: filterStatus === 'all' ? undefined : filterStatus,
+            messageSourceId: kbSourceParam(filterSource),
+          });
+        let response = await read(requestedPage);
+        // Decided rows left the list and took this page with them: show the last page left.
+        const lastPage = response?.data.pagination.totalPages ?? requestedPage;
+        if (response && !response.data.entries.length && requestedPage > Math.max(1, lastPage)) {
+          response = await read(Math.max(1, lastPage));
+        }
         if (!response) return; // overtaken by a newer request
         setEntries(response.data.entries);
         setPagination(response.data.pagination);
@@ -191,7 +198,9 @@ export const KnowledgeBasePage = () => {
   }, [filterType, filterStatus, searchQuery, fetchEntries]);
 
   const bulkMode = canReview ? bulkModeFor(filterStatus) : null;
-  const bulk = useKbBulkDecisions(entries, () => void fetchEntries(pagination.page), bulkMode);
+  // Re-read the page after a decision; a page the decided rows emptied falls back in fetchEntries.
+  const rereadPage = () => void fetchEntries(pagination.page);
+  const bulk = useKbBulkDecisions(entries, rereadPage, bulkMode);
 
   // Handle ID URL parameter (e.g., /knowledge-base?id=123)
   // Similar to Messages and Tickets pages - keeps ID in URL for sharing and refresh
@@ -260,7 +269,7 @@ export const KnowledgeBasePage = () => {
 
   // Under a review filter (a finding, or a decision status) a decided row may leave the list, and
   // its pending decision changes — re-read the page instead of patching the row in place.
-  const rereadAfterDecision = Boolean(finding.filter) || NEW_STATUSES.includes(filterStatus);
+  const rereadAfterDecision = Boolean(finding.filter) || isNewStatus(filterStatus);
 
   const handleApprove = async (id: number) => {
     try {
@@ -287,7 +296,7 @@ export const KnowledgeBasePage = () => {
       // An approved entry stays listed while its KB review is open. The review closes once none of
       // its entries is undecided; the list drops it then, within the report's one-minute cache.
       // Re-read the same page so the entry's state and the count are current.
-      if (rereadAfterDecision) void fetchEntries(pagination.page);
+      if (rereadAfterDecision) rereadPage();
     } catch (error) {
       logger.error('Failed to approve entry:', error);
       setAlertDialog({
@@ -302,7 +311,7 @@ export const KnowledgeBasePage = () => {
   const { unhide: handleUnhide, dialog: unhideFallback } = useKbUnhide({
     setEntries,
     reread: (approved) => {
-      if (approved === null || rereadAfterDecision) void fetchEntries(pagination.page);
+      if (approved === null || rereadAfterDecision) rereadPage();
     },
     onApproveInstead: (id) => void handleApprove(id),
     onFailed: (_id, error) => {
@@ -325,8 +334,7 @@ export const KnowledgeBasePage = () => {
           entry.id === id ? { ...entry, approved: false, hidden: true, rejectedAt } : entry
         )
       );
-      if (rereadAfterDecision)
-        void fetchEntries(finding.pageAfter(entries.length, pagination.page));
+      if (rereadAfterDecision) rereadPage();
     } catch (error) {
       logger.error('Failed to reject entry:', error);
       setAlertDialog({
@@ -345,8 +353,7 @@ export const KnowledgeBasePage = () => {
       setEntries((prev) =>
         prev.map((entry) => (entry.id === id ? { ...entry, hidden: true, approved: false } : entry))
       );
-      if (rereadAfterDecision)
-        void fetchEntries(finding.pageAfter(entries.length, pagination.page));
+      if (rereadAfterDecision) rereadPage();
     } catch (error) {
       logger.error('Failed to hide entry:', error);
       setAlertDialog({
@@ -629,7 +636,7 @@ export const KnowledgeBasePage = () => {
           </>
         ) : statusIgnored ? (
           // An older backend returned the unfiltered list: never pass it off as filtered.
-          <KbStatusIgnoredNotice />
+          <KbStatusIgnoredNotice status={statusIgnored} />
         ) : (
           <>
             {/* Mobile Card View */}
@@ -689,8 +696,11 @@ export const KnowledgeBasePage = () => {
 
             <KbDecisionDialog
               decision={decision}
-              onClose={() => setDecision(null)}
-              onDecided={() => void fetchEntries(pagination.page)}
+              onClose={(decided) => {
+                setDecision(null);
+                if (!decided) rereadPage();
+              }}
+              onDecided={rereadPage}
             />
             <KBDeleteDialog
               open={deleteDialogOpen}

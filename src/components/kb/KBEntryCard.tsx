@@ -18,7 +18,7 @@ import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import { kbSourceConversationId } from '@/lib/kbSource';
 import type { KBEntry, KbPendingDecision } from '@/services/kb.service';
 import { KbPendingDecisionBadge } from './KbPendingDecisionBadge';
-import { reviewableDecision } from './kbWorkRowModel';
+import { KbReviewDecisionButton } from './KbReviewDecisionButton';
 import {
   isCaseRow,
   isMergedOriginal,
@@ -145,15 +145,7 @@ export const KBEntryCard = ({
             <Maximize2 className="w-4 h-4 mr-1" />
             View
           </Button>
-          {onReviewDecision && reviewableDecision(entry) && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onReviewDecision(reviewableDecision(entry)!)}
-            >
-              Review
-            </Button>
-          )}
+          <KbReviewDecisionButton entry={entry} onReview={onReviewDecision} />
           {canReview && offersReviewActions(entry) && !entry.approved && !entry.hidden && (
             <>
               <Button
