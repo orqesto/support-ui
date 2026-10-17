@@ -16,29 +16,22 @@ export type LatestNotePreview = {
 /** Longest preview shown on hover, whatever the source sends (a loaded profile sends whole notes). */
 export const NOTE_PREVIEW_CHARS = 280;
 
-/** Marks the contact-notes section, so an indicator can scroll it into view. */
+/** Marks the contact-notes section, so the contact drawer can scroll it into view. */
 export const CONTACT_NOTES_ATTR = 'data-contact-notes';
 
-/**
- * Scroll the contact-notes section nearest to `from` into view: the closest ancestor that holds
- * one, so a Customer tab and a contact drawer open at the same time never scroll each other.
- */
-export const scrollToContactNotes = (from: HTMLElement | null): void => {
-  for (let node = from; node; node = node.parentElement) {
-    const section = node.querySelector<HTMLElement>(`[${CONTACT_NOTES_ATTR}]`);
-    if (section) {
-      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      return;
-    }
-  }
+/** Fired after a contact note is added or deleted, so every view showing note counts refreshes. */
+export const CONTACT_NOTES_CHANGED = 'odly:contact-notes-changed';
+export const notifyContactNotesChanged = (): void => {
+  window.dispatchEvent(new Event(CONTACT_NOTES_CHANGED));
 };
 
 const authorName = (note: LatestNotePreview): string =>
   [note.authorFirstName, note.authorLastName].filter(Boolean).join(' ') || 'Unknown';
 
 /**
- * "This customer has notes": a note icon with the count, the newest note on hover, and a click
- * that opens the notes. Renders nothing when there are none.
+ * "This customer has notes": a note icon with the count and the newest note on hover. Renders
+ * nothing when there are none. With `onOpen` it is its own button (a click opens the notes);
+ * without it, a plain mark for use inside another control, such as a tab label.
  */
 export function ContactNotesIndicator({
   count,
@@ -47,7 +40,7 @@ export function ContactNotesIndicator({
 }: {
   count: number;
   latest: LatestNotePreview | null | undefined;
-  onOpen: (target: HTMLElement) => void;
+  onOpen?: () => void;
 }) {
   if (count <= 0) return null;
   const cut = latest
@@ -69,9 +62,7 @@ export function ContactNotesIndicator({
               {cut ? '…' : ''}
             </span>
             {count > 1 && (
-              <span className="block mt-1 text-[10.5px] opacity-75">
-                +{count - 1} more · click to open notes
-              </span>
+              <span className="block mt-1 text-[10.5px] opacity-75">+{count - 1} more</span>
             )}
           </span>
         ) : (
@@ -79,28 +70,39 @@ export function ContactNotesIndicator({
         )
       }
     >
-      <Button
-        type="button"
-        variant="ghost"
-        aria-label={label}
-        data-testid="contact-notes-indicator"
-        onClick={(event) => {
-          // Inside a clickable row: open the notes, not whatever the row opens.
-          event.stopPropagation();
-          // Drop focus so the hover preview does not stay over what the click opens.
-          event.currentTarget.blur();
-          onOpen(event.currentTarget);
-        }}
-        onKeyDown={(event) => {
-          // Only the keys that press the button: a row's own Enter/Space handler must not take
-          // them; every other key (Escape, shortcuts) still bubbles.
-          if (event.key === 'Enter' || event.key === ' ') event.stopPropagation();
-        }}
-        className="gap-0.5 px-1.5 py-0 h-[19px] rounded-md text-[10.5px] font-bold tabular-nums bg-note-muted text-foreground border border-note-line hover:bg-note-muted/70"
-      >
-        <StickyNote className="w-3 h-3" aria-hidden="true" />
-        {count}
-      </Button>
+      {onOpen ? (
+        <Button
+          type="button"
+          variant="ghost"
+          aria-label={label}
+          data-testid="contact-notes-indicator"
+          onClick={(event) => {
+            // Inside a clickable row: open the notes, not whatever the row opens.
+            event.stopPropagation();
+            // Drop focus so the hover preview does not stay over what the click opens.
+            event.currentTarget.blur();
+            onOpen();
+          }}
+          onKeyDown={(event) => {
+            // Only the keys that press the button: a row's own Enter/Space handler must not take
+            // them; every other key (Escape, shortcuts) still bubbles.
+            if (event.key === 'Enter' || event.key === ' ') event.stopPropagation();
+          }}
+          className="gap-0.5 px-1.5 py-0 h-[19px] rounded-md text-[10.5px] font-bold tabular-nums bg-note-muted text-foreground border border-note-line hover:bg-note-muted/70"
+        >
+          <StickyNote className="w-3 h-3" aria-hidden="true" />
+          {count}
+        </Button>
+      ) : (
+        <span
+          aria-label={label}
+          data-testid="contact-notes-indicator"
+          className="inline-flex gap-0.5 items-center px-1 h-[15px] rounded-[5px] font-sans text-[9.5px] font-bold tabular-nums tracking-normal bg-note-muted text-foreground border border-note-line"
+        >
+          <StickyNote className="w-2.5 h-2.5" aria-hidden="true" />
+          {count}
+        </span>
+      )}
     </Tooltip>
   );
 }

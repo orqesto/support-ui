@@ -6,6 +6,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/types/roles';
 import { hashNameToLabelColor } from '@/components/messages/inboxCardHelpers';
 import { labelService } from '@/services/settings.service';
+import { notifyContactNotesChanged } from '@/components/contacts/ContactNotesIndicator';
 import type { OrgLabel, OrgUser } from '@/components/contacts/ContactProfileDetails';
 import type { ApiResponse } from '@/types';
 import {
@@ -24,15 +25,13 @@ import {
  */
 export function useContactProfile(
   email: string,
-  options?: { enabled?: boolean; onChanged?: () => void; onNotesChanged?: () => void }
+  options?: { enabled?: boolean; onChanged?: () => void }
 ) {
   const enabled = options?.enabled ?? true;
   // Fired after a mutation that also surfaces on the inbox/kanban cards or the
   // open thread — e.g. labels, which are rendered on cards as source:'contact'
   // via message.labels. Lets the caller refetch that list/thread so it re-renders.
   const onChanged = options?.onChanged;
-  // Fired after a note is added or deleted — a list showing note counts refetches.
-  const onNotesChanged = options?.onNotesChanged;
 
   const [contact, setContact] = useState<ContactProfile | null>(null);
   const [loading, setLoading] = useState(enabled);
@@ -146,7 +145,7 @@ export function useContactProfile(
       const note = await contactService.addNote(contact.id, noteInput.trim());
       setContact((prev) => (prev ? { ...prev, notes: [note, ...prev.notes] } : prev));
       setNoteInput('');
-      onNotesChanged?.();
+      notifyContactNotesChanged();
     } finally {
       setAddingNote(false);
     }
@@ -156,7 +155,7 @@ export function useContactProfile(
     if (!contact) return;
     await contactService.deleteNote(contact.id, noteId);
     setContact((prev) => (prev ? { ...prev, notes: prev.notes.filter((note) => note.id !== noteId) } : prev));
-    onNotesChanged?.();
+    notifyContactNotesChanged();
   };
 
   const handleAddLabel = async (labelId: number) => {

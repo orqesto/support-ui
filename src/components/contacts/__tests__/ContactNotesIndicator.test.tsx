@@ -4,20 +4,23 @@ import { MemoryRouter } from 'react-router-dom';
 import {
   ContactNotesIndicator,
   NOTE_PREVIEW_CHARS,
+  notifyContactNotesChanged,
   type LatestNotePreview,
 } from '../ContactNotesIndicator';
-import { CustomerSenderBlock } from '@/components/messages/CustomerTabPanels';
+import { useCustomerNotesMark } from '../useCustomerNoteSummary';
 import { ContactsView } from '@/components/messages/ContactsView';
-import type { Message } from '@/types';
 
 /**
- * The "this customer has notes" icon (2026-10-16): a count, the newest note on hover, a click that
- * opens the notes — in the contacts list and next to the name on the message's Customer tab.
+ * The "this customer has notes" icon (2026-10-16): a count and the newest note on hover — a button
+ * that opens the notes in the contacts list, a plain mark on the message's Customer tab label
+ * (owner, 2026-10-17: on the tab, visible from any tab; a click is the tab's own).
  */
-const { getContacts, panelProps } = vi.hoisted(() => ({
+const { getContacts, panelProps, getNoteSummary } = vi.hoisted(() => ({
   getContacts: vi.fn(),
   panelProps: vi.fn(),
+  getNoteSummary: vi.fn(),
 }));
+vi.mock('@/services/contact.service', () => ({ contactService: { getNoteSummary } }));
 vi.mock('@/services/message.service', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   messageService: { getContacts, getContactSubjects: vi.fn(), getById: vi.fn() },
@@ -128,49 +131,71 @@ describe('ContactNotesIndicator', () => {
   });
 });
 
-describe('Customer tab — next to the name', () => {
-  const message = { sender: 'Ann Example <ann@example.com>', channel: 'email' } as Message;
+describe('Customer tab label mark', () => {
+  const NOTES = [
+    {
+      id: 2,
+      contactId: 1,
+      userId: 1,
+      content: 'newest',
+      createdAt: '2026-10-02T00:00:00Z',
+      authorFirstName: 'Ada',
+      authorLastName: null,
+    },
+    {
+      id: 1,
+      contactId: 1,
+      userId: 1,
+      content: 'older',
+      createdAt: '2026-10-01T00:00:00Z',
+      authorFirstName: 'Ada',
+      authorLastName: null,
+    },
+  ];
+  const Mark = ({ email, notes }: { email: string; notes?: typeof NOTES }) => (
+    <>{useCustomerNotesMark(email, notes)}</>
+  );
 
-  it('shows the icon once the profile has notes, newest first, and a click scrolls to them', () => {
-    const scrollIntoView = vi.fn();
-    render(
-      <div>
-        <CustomerSenderBlock
-          message={message}
-          notes={[
-            {
-              id: 2,
-              contactId: 1,
-              userId: 1,
-              content: 'newest',
-              createdAt: '2026-10-02T00:00:00Z',
-              authorFirstName: 'Ada',
-              authorLastName: null,
-            },
-            {
-              id: 1,
-              contactId: 1,
-              userId: 1,
-              content: 'older',
-              createdAt: '2026-10-01T00:00:00Z',
-              authorFirstName: 'Ada',
-              authorLastName: null,
-            },
-          ]}
-        />
-        <div data-contact-notes="" ref={(el) => el && (el.scrollIntoView = scrollIntoView)} />
-      </div>
-    );
-    expect(screen.getByRole('button', { name: '2 notes about this customer' })).toBeInTheDocument();
-    expect(hover()).toHaveTextContent('newest');
-    fireEvent.click(screen.getByTestId('contact-notes-indicator'));
-    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+  it('without onOpen it is a plain mark, no button of its own (it sits inside the tab button)', () => {
+    render(<ContactNotesIndicator count={2} latest={NOTE} />);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.getByTestId('contact-notes-indicator')).toHaveTextContent('2');
+    expect(hover()).toHaveTextContent('Prefers a call before noon');
   });
 
-  it('[control] no icon while the profile is not loaded or has no notes', () => {
-    const { rerender } = render(<CustomerSenderBlock message={message} />);
-    expect(screen.queryByTestId('contact-notes-indicator')).not.toBeInTheDocument();
-    rerender(<CustomerSenderBlock message={message} notes={[]} />);
+  it('before the profile loads it shows the read-only summary for the sender', async () => {
+    getNoteSummary.mockResolvedValue({ count: 3, latest: NOTE });
+    render(<Mark email="ann@example.com" />);
+    await waitFor(() =>
+      expect(screen.getByTestId('contact-notes-indicator')).toHaveTextContent('3')
+    );
+    expect(getNoteSummary).toHaveBeenCalledWith('ann@example.com');
+  });
+
+  it('once the profile is loaded its notes win: count and newest', () => {
+    getNoteSummary.mockResolvedValue({ count: 9, latest: NOTE });
+    render(<Mark email="ann@example.com" notes={NOTES} />);
+    expect(screen.getByTestId('contact-notes-indicator')).toHaveTextContent('2');
+    expect(hover()).toHaveTextContent('newest');
+  });
+
+  it('a note changed elsewhere refetches the summary', async () => {
+    getNoteSummary.mockResolvedValue({ count: 1, latest: NOTE });
+    render(<Mark email="ann@example.com" />);
+    await waitFor(() =>
+      expect(screen.getByTestId('contact-notes-indicator')).toHaveTextContent('1')
+    );
+    getNoteSummary.mockResolvedValue({ count: 0, latest: null });
+    act(() => notifyContactNotesChanged());
+    await waitFor(() =>
+      expect(screen.queryByTestId('contact-notes-indicator')).not.toBeInTheDocument()
+    );
+  });
+
+  it('[control] a backend without the route (or no access) shows no mark and no error', async () => {
+    getNoteSummary.mockRejectedValue(new Error('404'));
+    render(<Mark email="ann@example.com" />);
+    await waitFor(() => expect(getNoteSummary).toHaveBeenCalled());
     expect(screen.queryByTestId('contact-notes-indicator')).not.toBeInTheDocument();
   });
 });
@@ -212,7 +237,7 @@ describe('Contacts list', () => {
     expect(screen.getByTestId('profile-drawer').textContent).not.toContain('notes');
   });
 
-  it('a note added in the drawer refreshes the list in place: rows stay, no skeleton', async () => {
+  it('a note changed anywhere refreshes the list in place: rows stay, no skeleton', async () => {
     getContacts.mockResolvedValue({
       success: true,
       data: [row('noted@example.com', { noteCount: 1, latestNote: NOTE })],
@@ -232,8 +257,8 @@ describe('Contacts list', () => {
       data: [row('noted@example.com', { noteCount: 2, latestNote: NOTE })],
       pagination: { page: 1, limit: 50, total: 1, totalPages: 1, hasMore: false },
     });
-    const { onNotesChanged } = panelProps.mock.lastCall![0] as { onNotesChanged: () => void };
-    act(() => onNotesChanged());
+    // A note added anywhere (here: the drawer) announces itself.
+    act(() => notifyContactNotesChanged());
     // Synchronously after the call: a loud refresh would already show the skeleton.
     expect(screen.getByText('noted@example.com')).toBeInTheDocument();
     await waitFor(() =>
