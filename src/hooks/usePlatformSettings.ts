@@ -7,6 +7,7 @@ import {
   type ManagedAiInput,
   type PlatformDatabaseInput,
   type PlatformCustomApiInput,
+  type PlatformIngestionInput,
   type PlatformKbInput,
   type PlatformSecretKey,
   type ReasoningInput,
@@ -94,6 +95,15 @@ export const useUpdatePlatformCustomApi = () => {
       platformSettingsService.updateCustomApiHealth(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
     onError: (error: unknown) => toast.failure('save the custom API health setting', error),
+  });
+};
+
+export const useUpdatePlatformIngestion = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PlatformIngestionInput) => platformSettingsService.updateIngestion(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onError: (error: unknown) => toast.failure('save the import limits', error),
   });
 };
 

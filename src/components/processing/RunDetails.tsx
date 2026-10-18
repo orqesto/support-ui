@@ -4,6 +4,7 @@ import type { ResumeWay } from '@/lib/utcClock';
 import type { RunStageCount, RunView } from '@/services/importProgress.service';
 import {
   describePause,
+  isExpectedStop,
   isKbLimitPause,
   isOverdueKbPause,
   kbStateUnknownSentence,
@@ -311,7 +312,16 @@ const MailRunDetails = ({
             {run.failed === 1 ? 'it' : 'them'} again.
           </li>
         )}
-        {pause && <li className="text-warning">{pause}</li>}
+        {pause && (
+          // An expected stop the backend does not count as a problem is a calm line, not a warning.
+          <li
+            className={
+              isExpectedStop(run) && run.problems.length === 0 ? undefined : 'text-warning'
+            }
+          >
+            {pause}
+          </li>
+        )}
         {status === 'error' && (
           <li className="text-destructive">
             The check stopped on an error. The next check tries again.

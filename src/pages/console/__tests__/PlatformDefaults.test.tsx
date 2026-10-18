@@ -78,6 +78,7 @@ vi.mock('@/hooks/usePlatformSettings', () => ({
   useIsSavingPlatformReasoning: () => false,
   useUpdatePlatformKb: () => noopMutation,
   useUpdatePlatformCustomApi: () => noopMutation,
+  useUpdatePlatformIngestion: () => noopMutation,
   useUpdatePlatformRouting: () => noopMutation,
 }));
 
@@ -93,8 +94,14 @@ describe('PlatformDefaults', () => {
   it('shows the knowledge-base capture setting (absent from this backend: says so)', () => {
     render(<PlatformDefaults />);
     expect(screen.getByText('Rewrite captured questions with AI')).toBeInTheDocument();
-    // Cards that say so on this backend: knowledge base, custom API health, routing proposals.
-    expect(screen.getAllByText(/arrive?s? with the next backend release/)).toHaveLength(3);
+    // Cards that say so on this backend: knowledge base, custom API health, mail import, routing proposals.
+    expect(screen.getAllByText(/arrive?s? with the next backend release/)).toHaveLength(4);
+  });
+
+  it('shows the mail import card (absent from this backend: no inputs)', () => {
+    render(<PlatformDefaults />);
+    expect(screen.getByText('Mail import')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Attachments per minute/)).toBeNull();
   });
 
   it('shows the custom API health card (absent from this backend: no inputs)', () => {

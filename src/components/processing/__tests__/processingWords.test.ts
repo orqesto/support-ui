@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { describePause, describeRunProblems, notReachedCount } from '../processingWords';
+import {
+  describePause,
+  describeRunProblems,
+  isExpectedStop,
+  notReachedCount,
+  runStatus,
+  runStatusLabel,
+  runStatusVariant,
+} from '../processingWords';
 import { makeKbRun, makeRun } from './fixtures';
 
 /**
@@ -139,16 +147,16 @@ describe('a paused Gmail check says how many it did not reach', () => {
     expect(notReachedCount(rateLimited())).toBe(84);
     expect(notReachedCount(rateLimited({ failed: 4 }))).toBe(80);
     expect(describePause(rateLimited())).toBe(
-      'Paused because the mail provider limited the rate of requests. 84 messages were left for the next check.'
+      'Continues on the next check: Gmail asked us to slow down. 84 messages were left for the next check.'
     );
     expect(describePause(rateLimited({ found: 2387 }))).toBe(
-      'Paused because the mail provider limited the rate of requests. 1 message was left for the next check.'
+      'Continues on the next check: Gmail asked us to slow down. 1 message was left for the next check.'
     );
   });
 
   it('the server-busy and the plain stop say it too', () => {
     expect(describePause(rateLimited({ stoppedBy: null, deferred: true }))).toBe(
-      'Paused because the server was busy. 84 messages were left for the next check.'
+      'Continues on the next check: our processing queue was full, so it waited for it to catch up. 84 messages were left for the next check.'
     );
     expect(describePause(rateLimited({ stoppedBy: null, deferred: false }))).toBe(
       'Stopped before it had looked at everything. 84 messages were left for the next check.'
@@ -162,7 +170,86 @@ describe('a paused Gmail check says how many it did not reach', () => {
     expect(notReachedCount(rateLimited({ channel: 'imap', duplicates: 5 }))).toBeNull();
     expect(notReachedCount(makeKbRun({ found: 50, saved: 0, duplicates: 0 }))).toBeNull();
     expect(describePause(rateLimited({ found: 2386 }))).toBe(
-      'Paused because the mail provider limited the rate of requests. The rest follow on the next check.'
+      'Continues on the next check: Gmail asked us to slow down. The rest follow on the next check.'
     );
+  });
+});
+
+describe('stop reasons: expected stops continue on the next check', () => {
+  const stop = (stoppedBy: string | null, over: Parameters<typeof makeRun>[0] = {}) =>
+    makeRun({
+      outcome: 'paused',
+      stoppedBy,
+      found: 100,
+      saved: 60,
+      duplicates: 30,
+      failed: 0,
+      ...over,
+    });
+  const REST = '10 messages were left for the next check.';
+
+  it.each([
+    ['run_budget', 'it reached the time limit for one check and handed the mailbox to new mail'],
+    ['deferred_under_load', 'our processing queue was full, so it waited for it to catch up'],
+    ['rate_limited', 'Gmail asked us to slow down'],
+    ['transient_error', 'the mail provider answered with a temporary error'],
+  ])('%s reads "Continues on the next check: ..."', (code, words) => {
+    expect(describePause(stop(code))).toBe(`Continues on the next check: ${words}. ${REST}`);
+    expect(isExpectedStop(stop(code))).toBe(true);
+  });
+
+  it.each([
+    ['daily_limit', "Gmail's daily limit was reached"],
+    ['run_futile', 'it stopped making progress'],
+    ['lock_lost', 'another check took over the mailbox'],
+  ])('CONTROL: %s stays "Paused because ..." and is not expected', (code, words) => {
+    expect(describePause(stop(code))).toBe(`Paused because ${words}. ${REST}`);
+    expect(isExpectedStop(stop(code))).toBe(false);
+  });
+
+  it('an unknown code keeps the generic line and is not expected', () => {
+    expect(describePause(stop('something_new'))).toBe(
+      `Stopped before it had looked at everything. ${REST}`
+    );
+    expect(isExpectedStop(stop('something_new'))).toBe(false);
+  });
+
+  it('a code wins over the deferred flag; the flag alone is expected', () => {
+    expect(isExpectedStop(stop('daily_limit', { deferred: true }))).toBe(false);
+    expect(isExpectedStop(stop(null, { deferred: true }))).toBe(true);
+    expect(isExpectedStop(stop(null, { deferred: false }))).toBe(false);
+  });
+});
+
+describe('the badge of a stopped run', () => {
+  const badge = (stoppedBy: string | null, over: Parameters<typeof makeRun>[0] = {}) => {
+    const run = makeRun({ outcome: 'paused', stoppedBy, problems: [], ...over });
+    return { label: runStatusLabel(run), variant: runStatusVariant(run, runStatus(run)) };
+  };
+
+  it.each(['run_budget', 'deferred_under_load', 'rate_limited', 'transient_error'])(
+    '%s reads "Continues", in a calm colour',
+    (code) => {
+      expect(badge(code)).toEqual({ label: 'Continues', variant: 'secondary' });
+    }
+  );
+
+  it('a deferred run with no code reads "Continues"', () => {
+    expect(badge(null, { deferred: true })).toEqual({ label: 'Continues', variant: 'secondary' });
+  });
+
+  it('an expected stop the backend still counts as a problem warns', () => {
+    expect(badge('run_budget', { problems: ['paused'] }).variant).toBe('warning');
+  });
+
+  it.each(['daily_limit', 'run_futile', 'something_new'])(
+    'CONTROL: %s stays "Paused" and warns',
+    (code) => {
+      expect(badge(code)).toEqual({ label: 'Paused', variant: 'warning' });
+    }
+  );
+
+  it('CONTROL: a paused run with no code and no deferral stays "Paused"', () => {
+    expect(badge(null).label).toBe('Paused');
   });
 });
