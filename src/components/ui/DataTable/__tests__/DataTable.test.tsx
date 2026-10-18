@@ -127,6 +127,27 @@ describe('DataTable', () => {
     expect(screen.getByText('act-1')).toBeInTheDocument();
   });
 
+  it('the hidden actions header is anchored inside the table box, not the page (2026-10-18)', () => {
+    // An sr-only label is `position: absolute`; with no positioned ancestor it anchored to the page
+    // and, on a long scrolled console page, made the document taller than the window (a second
+    // page scrollbar, the whole layout sliding up). jsdom has no layout, so pin the anchor itself.
+    render(
+      <DataTable
+        rows={rows.slice(0, 1)}
+        rowKey={(row) => row.id}
+        columns={columns}
+        actions={(row) => <button>act-{row.id}</button>}
+        actionsLabel="Details"
+        pagination={{ mode: 'client', pageSize: 10 }}
+      />
+    );
+    const label = screen.getByText('Details');
+    expect(label).toHaveClass('sr-only');
+    const anchor = label.closest('table')!.parentElement!;
+    expect(anchor).toHaveClass('relative');
+    expect(anchor).toHaveClass('overflow-auto');
+  });
+
   it('renderEditRow replaces a row with a full-width edit cell (inline edit)', () => {
     render(
       <DataTable
