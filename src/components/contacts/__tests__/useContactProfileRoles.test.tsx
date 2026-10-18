@@ -31,6 +31,7 @@ vi.mock('@/hooks/usePermissions', () => ({
 }));
 
 const { useContactProfile } = await import('../useContactProfile');
+const { useAuthStore } = await import('@/stores/authStore');
 
 const profile = {
   id: 9,
@@ -120,6 +121,48 @@ describe('a note change is announced (2026-10-17)', () => {
       expect(heard).toHaveBeenCalledTimes(2);
     } finally {
       window.removeEventListener(CONTACT_NOTES_CHANGED, heard);
+    }
+  });
+});
+
+describe('a note just added shows its author (2026-10-18)', () => {
+  beforeEach(() => {
+    getByEmail.mockReset().mockResolvedValue(profile);
+    permissions = {};
+  });
+
+  const addAs = async (saved: object) => {
+    addNote.mockResolvedValue(saved);
+    const { result } = renderHook(() => useContactProfile('jane@example.com'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => result.current.setNoteInput('new'));
+    await act(() => result.current.handleAddNote());
+    return result.current.contact!.notes[0];
+  };
+
+  it('the add answers with the bare row: the signed-in user is the author, not "Unknown"', async () => {
+    useAuthStore.setState({ user: { firstName: 'Ada', lastName: 'Agent' } as never });
+    try {
+      const note = await addAs({ id: 2, content: 'new', createdAt: '2026-10-02T00:00:00Z' });
+      expect(note).toMatchObject({ id: 2, authorFirstName: 'Ada', authorLastName: 'Agent' });
+    } finally {
+      useAuthStore.setState({ user: null });
+    }
+  });
+
+  it('[control] author names the server sends win', async () => {
+    useAuthStore.setState({ user: { firstName: 'Ada', lastName: 'Agent' } as never });
+    try {
+      const note = await addAs({
+        id: 3,
+        content: 'new',
+        createdAt: '2026-10-02T00:00:00Z',
+        authorFirstName: 'Nora',
+        authorLastName: 'Notes',
+      });
+      expect(note).toMatchObject({ authorFirstName: 'Nora', authorLastName: 'Notes' });
+    } finally {
+      useAuthStore.setState({ user: null });
     }
   });
 });

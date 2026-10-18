@@ -7,6 +7,7 @@ import { Permission } from '@/types/roles';
 import { hashNameToLabelColor } from '@/components/messages/inboxCardHelpers';
 import { labelService } from '@/services/settings.service';
 import { notifyContactNotesChanged } from '@/components/contacts/ContactNotesIndicator';
+import { useAuthStore } from '@/stores/authStore';
 import type { OrgLabel, OrgUser } from '@/components/contacts/ContactProfileDetails';
 import type { ApiResponse } from '@/types';
 import {
@@ -142,7 +143,15 @@ export function useContactProfile(
     if (!contact || !noteInput.trim()) return;
     setAddingNote(true);
     try {
-      const note = await contactService.addNote(contact.id, noteInput.trim());
+      const saved = await contactService.addNote(contact.id, noteInput.trim());
+      // The add answers with the bare row (no author names); the author is the signed-in user,
+      // so the new note does not read "Unknown" until the next reload.
+      const me = useAuthStore.getState().user;
+      const note = {
+        ...saved,
+        authorFirstName: saved.authorFirstName ?? me?.firstName ?? null,
+        authorLastName: saved.authorLastName ?? me?.lastName ?? null,
+      };
       setContact((prev) => (prev ? { ...prev, notes: [note, ...prev.notes] } : prev));
       setNoteInput('');
       notifyContactNotesChanged();

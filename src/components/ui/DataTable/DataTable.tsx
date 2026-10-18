@@ -127,7 +127,10 @@ export function DataTable<Row>({
           </div>
         </div>
       ) : (
-        <div className="overflow-auto flex-1 min-h-0">
+        <div className="overflow-auto relative flex-1 min-h-0">
+          {/* `relative`: the actions header's sr-only label is absolutely positioned. Without a
+              positioned box here it anchors to the page, and on a long scrolled page it pushes the
+              document past the window: a second scrollbar, and the whole layout slides up. */}
           {renderCard && (
             <div className="divide-y xl:hidden divide-border">
               {pageRows.map((row) => (
