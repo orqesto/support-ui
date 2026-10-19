@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Paperclip, Send, X } from 'lucide-react';
 import {
@@ -15,13 +15,15 @@ import { Input } from '@/components/ui/Input';
 import { parseTypedAddresses } from './RecipientFields';
 import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { messageService } from '@/services/message.service';
-import { integrationsService, type Integration } from '@/services/integrations.service';
+import { integrationsService } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
 import { isBlankRichText } from '@/lib/stripHtml';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import { ComposeNewAiDraft } from './ComposeNewAiDraft';
+
+type ComposeSource = { id: number; name: string; type: string };
 
 type Props = {
   open: boolean;
@@ -39,7 +41,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
   const editorRef = useRef<RichTextEditorHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [sources, setSources] = useState<Integration[]>([]);
+  const [sources, setSources] = useState<ComposeSource[]>([]);
   const [sourcesLoading, setSourcesLoading] = useState(false);
   const [sourcesError, setSourcesError] = useState<string | null>(null);
 
@@ -66,10 +68,8 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
       ? 'Write your message… Or jot down what to say and press AI draft to turn it into a ready-to-send email.'
       : 'Write your message…';
 
-  const emailSources = useMemo(
-    () => sources.filter((src) => src.enabled && (src.type === 'email' || src.type === 'gmail')),
-    [sources]
-  );
+  // Already only enabled email sources the agent may send from (see the loader below).
+  const emailSources = sources;
 
   // Reset form whenever the modal opens. Avoids stale state on second open.
   useEffect(() => {
@@ -82,27 +82,35 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
     setContent('');
     setFiles([]);
     setError(null);
+    setAiBusy(false);
   }, [open]);
 
   // Lazy-load sources on open. Cached at the component level — re-opens within
   // the same session reuse the previously fetched list.
+  //
+  // Only the sources this agent may send from (a mailbox whose department they cannot reach was
+  // offered and then refused on Send). A backend without that list (404) answers null: fall back
+  // to every enabled email source, as before.
   useEffect(() => {
     if (!open) return;
     if (sources.length > 0) return;
     setSourcesLoading(true);
     setSourcesError(null);
-    integrationsService
-      .getAll()
-      .then((response) => {
-        if (response.success && response.data) {
-          setSources(response.data);
-          const firstEmail = response.data.find(
-            (src) => src.enabled && (src.type === 'email' || src.type === 'gmail')
-          );
-          if (firstEmail) setMessageSourceId(firstEmail.id);
-        } else {
-          setSourcesError(response.error ?? 'Failed to load sources');
-        }
+    const load = async (): Promise<ComposeSource[]> => {
+      const sendable = await messageService.getComposeSources();
+      if (sendable) return sendable;
+      const response = await integrationsService.getAll();
+      if (!response.success || !response.data) {
+        throw new Error(response.error ?? 'Failed to load sources');
+      }
+      return response.data
+        .filter((src) => src.enabled && (src.type === 'email' || src.type === 'gmail'))
+        .map(({ id, name, type }) => ({ id, name, type }));
+    };
+    load()
+      .then((loaded) => {
+        setSources(loaded);
+        if (loaded[0]) setMessageSourceId(loaded[0].id);
       })
       .catch((err: unknown) => {
         logger.error('[ComposeNewModal] failed to load sources', err);
@@ -197,7 +205,8 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
               <div className="text-sm text-destructive">{sourcesError}</div>
             ) : emailSources.length === 0 ? (
               <div className="text-sm text-muted-foreground">
-                No email sources configured. Add one in Settings → Connected Services first.
+                No email source you can send from. An admin can add one in Settings → Connected
+                Services, or give you access to its department.
               </div>
             ) : (
               <Select
@@ -344,6 +353,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
               getText={() => editorRef.current?.getTranslationText() ?? ''}
               onTranslated={(translated) => editorRef.current?.applyTranslation(translated)}
               clearable={false}
+              disabled={submitting || aiBusy}
               label="Translate"
               buttonClassName="inline-flex items-center gap-2 !w-auto !h-auto px-4 py-2 rounded-md border border-border bg-transparent text-sm text-foreground hover:bg-accent"
             />

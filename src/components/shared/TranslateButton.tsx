@@ -37,6 +37,8 @@ type TranslateButtonProps = {
   clearClassName?: string;
   /** Text after the icon, for a labelled toolbar button. Icon only when omitted. */
   label?: string;
+  /** Held shut by the host (e.g. while an AI draft is replacing the text). */
+  disabled?: boolean;
 };
 
 export const TranslateButton = ({
@@ -51,6 +53,7 @@ export const TranslateButton = ({
   spinnerClassName,
   clearClassName,
   label,
+  disabled = false,
 }: TranslateButtonProps) => {
   const [selectedLanguage, setSelectedLanguage] = useState('');
   const [hasTranslation, setHasTranslation] = useState(false);
@@ -122,7 +125,7 @@ export const TranslateButton = ({
         options={languageOptions}
         value={selectedLanguage}
         onChange={(language) => void handleSelect(language)}
-        disabled={!aiConfigured || isTranslating}
+        disabled={disabled || !aiConfigured || isTranslating}
         trigger={({ open, toggle }) => (
           <Tooltip
             content={
@@ -138,7 +141,7 @@ export const TranslateButton = ({
                 if (!open) void fetchLanguages();
                 toggle();
               }}
-              disabled={!aiConfigured || isTranslating}
+              disabled={disabled || !aiConfigured || isTranslating}
               title={aiConfigured ? 'Translate' : 'AI translation needs a provider'}
               aria-label="Translate"
               className={`${

@@ -798,6 +798,26 @@ export const messageService = {
   },
 
   /**
+   * The From list of "Compose new message": only sources the caller may send from. `null` from a
+   * backend without the route (404) — the caller then falls back to every email source.
+   */
+  getComposeSources: async (): Promise<Array<{
+    id: number;
+    name: string;
+    type: string;
+  }> | null> => {
+    try {
+      const response = await apiClient.get<
+        ApiResponse<Array<{ id: number; name: string; type: string }>>
+      >('/api/messages/compose/sources');
+      return Array.isArray(response.data.data) ? response.data.data : [];
+    } catch (err) {
+      if (getErrorStatus(err) === 404) return null;
+      throw err;
+    }
+  },
+
+  /**
    * AI draft in "Compose new message": the agent's own text rewritten into a sendable email.
    * There is no thread, so no knowledge-base answer — only polish. A backend without the route
    * answers 404 (the caller then hides the button).

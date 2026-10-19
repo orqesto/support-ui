@@ -11,12 +11,17 @@ import { MemoryRouter } from 'react-router-dom';
 const svc = vi.hoisted(() => ({
   composeNew: vi.fn(),
   composePolish: vi.fn(),
+  getComposeSources: vi.fn(),
   getAll: vi.fn(),
 }));
 const ai = vi.hoisted(() => ({ configured: true, draftsOff: false }));
 
 vi.mock('@/services/message.service', () => ({
-  messageService: { composeNew: svc.composeNew, composePolish: svc.composePolish },
+  messageService: {
+    composeNew: svc.composeNew,
+    composePolish: svc.composePolish,
+    getComposeSources: svc.getComposeSources,
+  },
 }));
 vi.mock('@/services/integrations.service', () => ({
   integrationsService: { getAll: svc.getAll },
@@ -30,8 +35,8 @@ vi.mock('@/hooks/useAiDraftsOff', () => ({
 }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 vi.mock('@/components/shared/TranslateButton', () => ({
-  TranslateButton: ({ label }: { label?: string }) => (
-    <button type="button" aria-label="Translate">
+  TranslateButton: ({ label, disabled }: { label?: string; disabled?: boolean }) => (
+    <button type="button" aria-label="Translate" disabled={disabled}>
       {label}
     </button>
   ),
@@ -39,12 +44,21 @@ vi.mock('@/components/shared/TranslateButton', () => ({
 // The editor as a controlled textarea: what the agent types is the modal's content.
 vi.mock('@/components/shared/RichTextEditor', () => ({
   default: forwardRef(
-    (props: { content?: string; onChange?: (html: string) => void; placeholder?: string }, ref) => {
+    (
+      props: {
+        content?: string;
+        onChange?: (html: string) => void;
+        placeholder?: string;
+        editable?: boolean;
+      },
+      ref
+    ) => {
       useImperativeHandle(ref, () => ({ focus: () => undefined }));
       return (
         <textarea
           aria-label="Message"
           placeholder={props.placeholder}
+          readOnly={props.editable === false}
           value={props.content ?? ''}
           onChange={(event) => props.onChange?.(event.target.value)}
         />
@@ -69,6 +83,8 @@ const type = (label: string, value: string) =>
 const aiDraft = () => screen.getByRole('button', { name: /AI draft/ });
 
 beforeEach(() => {
+  // A backend without the sendable-sources list (null) — the fallback; the From block overrides.
+  svc.getComposeSources.mockResolvedValue(null);
   svc.getAll.mockResolvedValue({
     success: true,
     data: [{ id: 3, name: 'Support', type: 'email', enabled: true }],
@@ -150,5 +166,75 @@ describe('Compose new — Translate', () => {
     expect(translate.closest('[data-dialog-footer]')).toContainElement(
       screen.getByRole('button', { name: /Attach/ })
     );
+  });
+});
+
+describe('Compose new — From', () => {
+  it('lists only the sources this agent may send from', async () => {
+    svc.getComposeSources.mockResolvedValue([{ id: 4, name: 'Billing', type: 'gmail' }]);
+    await renderModal();
+    expect(await screen.findByText('Billing (gmail)')).toBeInTheDocument();
+    expect(svc.getAll).not.toHaveBeenCalled();
+  });
+
+  it('an older backend (null): every enabled email source, disabled and non-email ones left out', async () => {
+    svc.getAll.mockResolvedValue({
+      success: true,
+      data: [
+        { id: 3, name: 'Support', type: 'email', enabled: true },
+        { id: 5, name: 'Old box', type: 'email', enabled: false },
+        { id: 6, name: 'Chat', type: 'telegram', enabled: true },
+      ],
+    });
+    await renderModal();
+    expect(await screen.findByText('Support (email)')).toBeInTheDocument();
+    expect(screen.queryByText('Old box (email)')).toBeNull();
+    expect(svc.getAll).toHaveBeenCalled();
+  });
+
+  it('nothing to send from: says why, and Send stays off', async () => {
+    svc.getComposeSources.mockResolvedValue([]);
+    render(
+      <MemoryRouter>
+        <ComposeNewModal open onClose={vi.fn()} />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText(/No email source you can send from/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Send/ })).toBeDisabled();
+  });
+});
+
+describe('Compose new — an AI draft in flight', () => {
+  it('🔴 closing mid-draft and reopening leaves the editor editable (busy flag cleared)', async () => {
+    svc.composePolish.mockReturnValue(new Promise(() => undefined)); // never lands
+    const { rerender } = render(
+      <MemoryRouter>
+        <ComposeNewModal open onClose={vi.fn()} />
+      </MemoryRouter>
+    );
+    await screen.findByLabelText('From');
+    type('Message', '<p>hello</p>');
+    fireEvent.click(aiDraft());
+    await waitFor(() => expect(screen.getByLabelText('Message')).toHaveAttribute('readonly'));
+    rerender(
+      <MemoryRouter>
+        <ComposeNewModal open={false} onClose={vi.fn()} />
+      </MemoryRouter>
+    );
+    rerender(
+      <MemoryRouter>
+        <ComposeNewModal open onClose={vi.fn()} />
+      </MemoryRouter>
+    );
+    expect(screen.getByLabelText('Message')).not.toHaveAttribute('readonly');
+  });
+
+  it('Translate is held while the draft is being written', async () => {
+    svc.composePolish.mockReturnValue(new Promise(() => undefined));
+    await renderModal();
+    expect(screen.getByRole('button', { name: 'Translate' })).toBeEnabled();
+    type('Message', '<p>hello</p>');
+    fireEvent.click(aiDraft());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Translate' })).toBeDisabled());
   });
 });

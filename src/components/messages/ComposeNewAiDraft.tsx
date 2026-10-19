@@ -45,10 +45,15 @@ export function ComposeNewAiDraft({ content, setContent, disabled, onBusyChange 
   const latest = useRef(content);
   latest.current = content;
   const mounted = useRef(true);
+  const reportBusy = useRef(onBusyChange);
+  reportBusy.current = onBusyChange;
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      // Closing the dialog unmounts this while a request may be in flight; the modal outlives it,
+      // and a busy flag never cleared kept its editor and Send locked until a page reload.
+      reportBusy.current?.(false);
     };
   }, []);
 

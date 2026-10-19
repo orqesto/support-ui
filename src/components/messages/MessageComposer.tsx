@@ -539,6 +539,9 @@ export function MessageComposer({
               getText={() => richEditorRef.current?.getTranslationText() ?? ''}
               onTranslated={(translated) => richEditorRef.current?.applyTranslation(translated)}
               clearable={false}
+              // While an AI draft is being written the editor holds the agent's note: translating
+              // it then made the draft land on changed text and be refused.
+              disabled={submitting || aiBusy}
               label={isPhone ? undefined : 'Translate'}
               buttonClassName={`${IBTN} !w-auto !h-auto max-sm:!w-9 max-sm:justify-center max-sm:!px-0`}
             />
