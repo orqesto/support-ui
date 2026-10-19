@@ -299,7 +299,7 @@ describe('F8: a calm KB pause sentence is not a warning', () => {
 
   it('CONTROL: a mail run paused by the provider keeps the warning', () => {
     render(
-      <RunDetails run={makeRun({ outcome: 'paused', stoppedBy: 'rate_limited', problems: [] })} />
+      <RunDetails run={makeRun({ outcome: 'paused', stoppedBy: 'daily_limit', problems: [] })} />
     );
     expect(pauseLine().className).toMatch(/text-warning/);
   });

@@ -252,7 +252,7 @@ describe('F4: a calm KB-limit "Paused" badge is not a warning', () => {
   it('CONTROL: a mail run paused by the provider keeps the warning badge', () => {
     render(
       <RunDetails
-        run={makeRun({ outcome: 'paused', stoppedBy: 'rate_limited', problems: ['paused'] })}
+        run={makeRun({ outcome: 'paused', stoppedBy: 'daily_limit', problems: ['paused'] })}
       />
     );
     expect(badge('Paused')).toMatch(/text-warning/);

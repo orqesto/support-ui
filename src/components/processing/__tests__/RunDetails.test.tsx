@@ -42,11 +42,16 @@ describe('RunDetails', () => {
     expect(screen.getByText('Paused')).toBeTruthy();
   });
 
-  it('a pause under load without a code says the server was busy', () => {
+  it('a pause under load without a code says the queue was full and the next check continues', () => {
     render(
       <RunDetails run={makeRun({ outcome: 'paused', deferred: true, problems: ['paused'] })} />
     );
-    expect(screen.getByText(/Paused because the server was busy/)).toBeTruthy();
+    expect(
+      screen.getByText(
+        /Continues on the next check: our processing queue was full, so it waited for it to catch up\./
+      )
+    ).toBeTruthy();
+    expect(screen.queryByText(/Paused because/)).toBeNull();
   });
 
   it('an unknown stop code gets the generic line, not a guessed cause', () => {

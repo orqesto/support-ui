@@ -146,7 +146,24 @@ export type PlatformSettings = {
    * predates them — the card then says it arrives with the next backend release.
    */
   routing?: RoutingSettings;
+  /**
+   * Mail-import limits (`ingestion.*`, 2026-10-18): how long one import run may hold its mailbox
+   * and the per-minute rate of the attachment and KB-message queues. Each field is present only
+   * when this backend reports it (an older one has the budget but not the rates, an oldest none);
+   * the card shows what is there and says so about the rest.
+   */
+  ingestion?: IngestionSettings;
 };
+
+/** A setting with its bounds, as `describeImportRunBudget` / `describeIngestionQueueRates` answer. */
+export type BoundedField = { value: number; source: FieldSource; min: number; max: number };
+export type IngestionSettings = {
+  importRunBudgetMinutes?: BoundedField;
+  attachmentsPerMinute?: BoundedField;
+  kbMessagesPerMinute?: BoundedField;
+};
+/** PUT /settings/ingestion — a PARTIAL body: only the fields sent are saved (at least one). */
+export type PlatformIngestionInput = Partial<Record<keyof IngestionSettings, number>>;
 
 /** PUT /settings/custom-api — both thresholds, whole numbers ≥ 1 (the whole value is replaced). */
 export type PlatformCustomApiInput = { noMatchStreak: number; okWindowDays: number };
@@ -249,6 +266,7 @@ type RawPlatformSettings = {
   kb?: unknown;
   customApi?: unknown;
   routing?: unknown;
+  ingestion?: unknown;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -379,6 +397,34 @@ export const normalizeCustomApi = (raw: unknown): PlatformSettings['customApi'] 
   return noMatchStreak && okWindowDays ? { health: { noMatchStreak, okWindowDays } } : undefined;
 };
 
+const readBounded = (raw: unknown): BoundedField | undefined => {
+  const count = readCount(raw);
+  if (!count || !isRecord(raw) || count.value === null) return undefined;
+  const { min, max } = raw;
+  if (!Number.isInteger(min) || !Number.isInteger(max)) return undefined;
+  return { value: count.value, source: count.source, min: min as number, max: max as number };
+};
+
+export const INGESTION_FIELDS = [
+  'importRunBudgetMinutes',
+  'attachmentsPerMinute',
+  'kbMessagesPerMinute',
+] as const;
+
+/**
+ * The ingestion block: every field that is a whole number with whole-number bounds is kept, any
+ * other is left out; undefined when none is left ("this backend does not have the setting").
+ */
+export const normalizeIngestion = (raw: unknown): IngestionSettings | undefined => {
+  if (!isRecord(raw)) return undefined;
+  const kept: IngestionSettings = {};
+  for (const key of INGESTION_FIELDS) {
+    const bounded = readBounded(raw[key]);
+    if (bounded) kept[key] = bounded;
+  }
+  return Object.keys(kept).length > 0 ? kept : undefined;
+};
+
 const UNSET_SECRET: SecretStatus = { configured: false, source: 'none', last4: null };
 
 const field = <T>(raw: ResolvedField<T> | undefined): ResolvedField<T> =>
@@ -477,6 +523,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
   const kb = normalizeKb(raw.kb);
   const customApi = normalizeCustomApi(raw.customApi);
   const routing = normalizeRouting(raw.routing);
+  const ingestion = normalizeIngestion(raw.ingestion);
   const provider = field(raw.ai.provider);
   const effectiveProvider = provider.value ?? 'openai';
   return {
@@ -528,6 +575,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
     ...(kb ? { kb } : {}),
     ...(customApi ? { customApi } : {}),
     ...(routing ? { routing } : {}),
+    ...(ingestion ? { ingestion } : {}),
   };
 };
 
@@ -591,6 +639,11 @@ export const platformSettingsService = {
   /** PUT the custom API health thresholds (`custom_api.health`, 2026-10-14). */
   updateCustomApiHealth: async (input: PlatformCustomApiInput): Promise<void> => {
     await apiClient.put(`${BASE}/custom-api`, input);
+  },
+
+  /** PUT the mail-import limits (`ingestion.*`): a partial body, only the fields sent are saved. */
+  updateIngestion: async (input: PlatformIngestionInput): Promise<void> => {
+    await apiClient.put(`${BASE}/ingestion`, input);
   },
 
   /** PATCH the routing-proposal settings (`routing.*`): any non-empty subset of the seven. */

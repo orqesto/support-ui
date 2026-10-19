@@ -17,14 +17,32 @@ import { kbFullHoldLine, runStoppedLine } from '@/components/settings/integratio
  */
 const STOP_REASON: Record<string, string> = {
   source_deleted: 'the mailbox was removed from Odly',
-  deferred_under_load: 'the server was busy',
+  deferred_under_load: 'our processing queue was full, so it waited for it to catch up',
+  run_budget: 'it reached the time limit for one check and handed the mailbox to new mail',
   run_futile: 'it stopped making progress',
   lock_lost: 'another check took over the mailbox',
   stopped_early: 'it was stopped early',
-  rate_limited: 'the mail provider limited the rate of requests',
+  rate_limited: 'Gmail asked us to slow down',
   transient_error: 'the mail provider answered with a temporary error',
   daily_limit: "Gmail's daily limit was reached",
 };
+
+/**
+ * Stops that are the system working as designed: the next check carries on from the held
+ * checkpoint, so nobody has anything to do (backend runsView EXPECTED_STOPS). They read "Continues
+ * on the next check", not "Paused because". A run is a problem only when the backend says so (its
+ * `problems`); the wording never turns one into the other.
+ */
+const EXPECTED_STOPS: ReadonlySet<string> = new Set([
+  'run_budget',
+  'deferred_under_load',
+  'rate_limited',
+  'transient_error',
+]);
+
+/** Did this run stop for a reason that resolves by itself on the next check? */
+export const isExpectedStop = (run: RunView): boolean =>
+  run.stoppedBy ? EXPECTED_STOPS.has(run.stoppedBy) : run.deferred === true;
 
 /**
  * A KB mine the daily KB token limit stopped. Keyed on `stoppedBy` alone, NOT the outcome: the
@@ -207,9 +225,14 @@ export const describePause = (
     return `Paused: today’s AI limit for KB processing was reached. Mining resumes by itself ${when}.`;
   }
   const rest = leftForNextCheck(run);
-  if (reason) return `Paused because ${reason}. ${rest}`;
+  if (reason) {
+    return isExpectedStop(run)
+      ? `Continues on the next check: ${reason}. ${rest}`
+      : `Paused because ${reason}. ${rest}`;
+  }
   // `deferred` without a code: the run yielded to live mail under load (runLedger `deferred`).
-  if (run.deferred) return `Paused because the server was busy. ${rest}`;
+  if (run.deferred)
+    return `Continues on the next check: ${STOP_REASON.deferred_under_load}. ${rest}`;
   return `Stopped before it had looked at everything. ${rest}`;
 };
 
@@ -351,6 +374,7 @@ export type RunStatus =
   | 'stalled'
   | 'failed'
   | 'paused'
+  | 'continues'
   | 'error'
   | 'interrupted'
   | 'not_continued'
@@ -383,6 +407,9 @@ export const runStatus = (run: RunView, kbParked = false): RunStatus => {
   if (run.outcome === 'done' && run.problems.includes('stalled')) return 'stalled';
   // "Done" over a paused mine that was never continued would read as a clean empty mine.
   if (notContinued(run)) return 'not_continued';
+  // An expected stop (run budget, queue full, provider slow-down) carries on at the next check:
+  // not "Paused".
+  if (run.outcome === 'paused' && isExpectedStop(run)) return 'continues';
   return run.outcome;
 };
 
@@ -392,6 +419,7 @@ export const RUN_STATUS_LABEL: Record<RunStatus, string> = {
   stalled: 'Work left',
   failed: 'Not all saved',
   paused: 'Paused',
+  continues: 'Continues',
   error: 'Error',
   interrupted: 'Did not finish',
   not_continued: 'Stopped',
@@ -407,6 +435,7 @@ export const RUN_STATUS_VARIANT: Record<RunStatus, 'secondary' | 'success' | 'wa
     stalled: 'warning',
     failed: 'danger',
     paused: 'warning',
+    continues: 'secondary',
     error: 'danger',
     interrupted: 'warning',
     not_continued: 'warning',
@@ -427,9 +456,12 @@ export const runStatusVariant = (
   laterKbRun = false,
   way?: ResumeWay | null
 ): (typeof RUN_STATUS_VARIANT)[RunStatus] =>
-  status === 'paused' && isKbLimitPause(run) && !isOverdueKbPause(run, laterKbRun, way)
-    ? 'secondary'
-    : RUN_STATUS_VARIANT[status];
+  // Calm unless the backend still counts the stop as a problem (nothing picked it up).
+  status === 'continues' && run.problems.length > 0
+    ? 'warning'
+    : status === 'paused' && isKbLimitPause(run) && !isOverdueKbPause(run, laterKbRun, way)
+      ? 'secondary'
+      : RUN_STATUS_VARIANT[status];
 
 /** The badge for a run: a KB mine that failed some conversations saved no mail — "Not all mined". */
 export const runStatusLabel = (run: RunView, kbParked = false): string => {
