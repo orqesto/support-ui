@@ -117,7 +117,7 @@ afterEach(() => {
 });
 
 describe('KB list rows show their own number', () => {
-  it('a row with a public id shows "#KB-134" in the table and the card; one without shows none', async () => {
+  it('a row shows "#KB-134" in the table and the card; one without a public id shows "#77"', async () => {
     listEntries = [
       entry({ id: 10, publicId: 'KB-134', title: 'Numbered entry' }),
       entry({ id: 77, publicId: null, title: 'Unnumbered entry' }),
@@ -125,7 +125,8 @@ describe('KB list rows show their own number', () => {
     renderAt('/knowledge-base');
     expect(await screen.findAllByText('#KB-134')).toHaveLength(2); // table row + mobile card
     expect(screen.getAllByText('Numbered entry').length).toBeGreaterThan(0);
-    expect(screen.queryByText('#77')).toBeNull();
+    // Review of #628: the number a bare "77" search finds it by, not nothing.
+    expect(screen.getAllByText('#77')).toHaveLength(2);
   });
 });
 

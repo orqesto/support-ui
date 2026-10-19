@@ -115,13 +115,10 @@ export const KBEntryCard = ({
 
         {/* Metadata */}
         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mb-3">
-          {/* The entry's own number — what the search box finds it by. */}
-          {entry.publicId && (
-            <>
-              <span className="font-mono">{kbRef(entry.publicId, entry.id)}</span>
-              <span>•</span>
-            </>
-          )}
+          {/* The entry's own number — what the search box finds it by ("#KB-134"; an entry
+              without a public id is "#77", which a bare "77" finds). */}
+          <span className="font-mono">{kbRef(entry.publicId, entry.id)}</span>
+          <span>•</span>
           <div className="flex items-center gap-1">
             <span className={`font-medium ${getQualityColor(entry.qualityScore)}`}>
               {(entry.qualityScore * 100).toFixed(0)}%
