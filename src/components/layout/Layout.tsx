@@ -346,8 +346,10 @@ export const Layout = ({ children }: LayoutProps) => {
   useEffect(() => {
     if (sessionStates) setSummaryRefreshKey((key) => key + 1);
   }, [sessionStates]);
+  // The summary needs PROCESS_MESSAGES: a role without it is not asked on every page (staging
+  // 2026-10-19: an associate's console filled with its 403s, one per page change).
   const { entries: processingSummary } = useProcessingSummary(
-    organizationFilter ?? undefined,
+    hasPermission(Permission.PROCESS_MESSAGES) ? (organizationFilter ?? undefined) : undefined,
     summaryRefreshKey
   );
   const openProcessingPanel = useProcessingPanelStore((state) => state.open);

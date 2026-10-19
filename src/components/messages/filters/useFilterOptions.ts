@@ -7,13 +7,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useDepartments } from '@/hooks/useDepartments';
+import { usePermissions } from '@/hooks/usePermissions';
 import { assignmentService } from '@/services/assignment.service';
-import { integrationsService } from '@/services/integrations.service';
+import { getMessageSourceOptions } from '@/services/messageSourceOptions.service';
 import { labelService, type Label } from '@/services/settings.service';
 import { describeReceivedAt } from '@/services/receivedAtOption';
 import { messageService } from '@/services/message.service';
 import { logger } from '@/lib/logger';
 import { safeCssColor } from '@/lib/utils';
+import { Permission } from '@/types/roles';
 import { EMPTY_DYNAMIC_OPTIONS, type DynamicOptions, type FilterOption } from './filterSchema';
 
 /** Channel headings for the source list — a bare list of mailbox names is unreadable. */
@@ -46,6 +48,8 @@ export const useFilterOptions = (): DynamicOptions => {
   // The backend scopes both the source list and the alias list by department, so a
   // department switch has to refetch or the picker offers rows this scope cannot see.
   const departmentKey = useDepartmentContextKey();
+  const { hasPermission } = usePermissions();
+  const canViewLabels = hasPermission(Permission.VIEW_LABELS);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,12 +68,11 @@ export const useFilterOptions = (): DynamicOptions => {
       })
       .catch((err: unknown) => logger.error('Filter options: assignees failed', err));
 
-    integrationsService
-      .getAll()
-      .then((res) => {
-        if (cancelled || !res.success || !res.data) return;
+    getMessageSourceOptions()
+      .then((rows) => {
+        if (cancelled) return;
         setSources(
-          res.data
+          rows
             .filter((row) => MESSAGE_SOURCE_TYPES.includes(row.type))
             .map((row) => ({
               value: String(row.id),
@@ -80,19 +83,22 @@ export const useFilterOptions = (): DynamicOptions => {
       })
       .catch((err: unknown) => logger.error('Filter options: sources failed', err));
 
-    labelService
-      .getLabels()
-      .then((rows: Label[]) => {
-        if (cancelled) return;
-        setLabels(
-          rows.map((row) => ({
-            value: String(row.id),
-            label: row.name,
-            dot: safeCssColor(row.color),
-          }))
-        );
-      })
-      .catch((err: unknown) => logger.error('Filter options: labels failed', err));
+    // Labels need VIEW_LABELS (an associate has none): no filter rather than a refused request.
+    if (!canViewLabels) setLabels([]);
+    else
+      labelService
+        .getLabels()
+        .then((rows: Label[]) => {
+          if (cancelled) return;
+          setLabels(
+            rows.map((row) => ({
+              value: String(row.id),
+              label: row.name,
+              dot: safeCssColor(row.color),
+            }))
+          );
+        })
+        .catch((err: unknown) => logger.error('Filter options: labels failed', err));
 
     // Addresses mail actually arrived at — derived from traffic, not configuration,
     // because configuration does not know: a source stores one address and nobody
@@ -126,7 +132,7 @@ export const useFilterOptions = (): DynamicOptions => {
     return () => {
       cancelled = true;
     };
-  }, [departmentKey]);
+  }, [departmentKey, canViewLabels]);
 
   const departmentOptions = useMemo<FilterOption[]>(
     () => [

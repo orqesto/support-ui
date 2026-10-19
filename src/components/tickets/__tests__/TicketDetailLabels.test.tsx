@@ -26,6 +26,7 @@ const getLabels = vi.fn<() => Promise<Label[]>>();
 const assignLabelToTicket = vi.fn<(ticketId: number, labelId: number) => Promise<void>>();
 const removeLabelFromTicket = vi.fn<(ticketId: number, labelId: number) => Promise<void>>();
 const createLabel = vi.fn<(body: { name: string; color: string }) => Promise<Label>>();
+const getCategories = vi.fn(() => Promise.resolve({ success: true, data: [] }));
 
 vi.mock('@/services/settings.service', () => ({
   labelService: {
@@ -38,13 +39,16 @@ vi.mock('@/services/settings.service', () => ({
   },
 }));
 vi.mock('@/services/category.service', () => ({
-  categoryService: { getAll: () => Promise.resolve({ success: true, data: [] }) },
+  categoryService: { getAll: () => getCategories() },
 }));
 vi.mock('@/services/message.service', () => ({
   messageService: { getAll: () => Promise.resolve({ data: [] }) },
 }));
 vi.mock('@/services/ticket.service', () => ({ ticketService: { update: () => Promise.resolve() } }));
-vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => ({ hasPermission: () => true }) }));
+const perms = { all: true };
+vi.mock('@/hooks/usePermissions', () => ({
+  usePermissions: () => ({ hasPermission: () => perms.all }),
+}));
 vi.mock('@/lib/logger', () => ({ logger: { error: () => {}, info: () => {} } }));
 vi.mock('@/components/admin/AssignmentSelect', () => ({ AssignmentSelect: () => null }));
 vi.mock('@/components/shared/RichTextEditor', () => ({ default: () => null }));
@@ -91,6 +95,24 @@ describe('TicketDetail — label picker', () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+    perms.all = true;
+  });
+
+  it('a role that may see no labels and change nothing asks for neither labels nor categories', async () => {
+    perms.all = false;
+    renderDetail();
+    expect(await screen.findByRole('heading', { name: 'Parcel stuck' })).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(getTicketLabels).not.toHaveBeenCalled();
+    expect(getLabels).not.toHaveBeenCalled();
+    expect(getCategories).not.toHaveBeenCalled();
+  });
+
+  it('CONTROL: a support role asks for both', async () => {
+    renderDetail();
+    await waitFor(() => expect(getLabels).toHaveBeenCalled());
+    expect(getTicketLabels).toHaveBeenCalledWith(42);
+    expect(getCategories).toHaveBeenCalled();
   });
 
   it('ticking an unassigned label assigns THAT label (and only it); the panel stays open', async () => {

@@ -88,6 +88,7 @@ export const TicketDetail = ({
   const isFullPage = location.pathname.startsWith('/tickets/');
   const { hasPermission } = usePermissions();
   const hasManageLabels = hasPermission(Permission.MANAGE_LABELS);
+  const canViewLabels = hasPermission(Permission.VIEW_LABELS);
   const hasManageTickets = hasPermission(Permission.MANAGE_TICKETS);
   const [categories, setCategories] = useState<Category[]>([]);
   const [localStatus, setLocalStatus] = useState<TicketStatus>(ticket.status);
@@ -178,11 +179,15 @@ export const TicketDetail = ({
     }
   };
 
+  // The list feeds the category picker only; without it the badge shows the ticket's own
+  // category, so a role that cannot change it is not refused a request (staging 2026-10-19).
+  const showCategoryPicker = hasManageTickets && !ticket.externalId;
   useEffect(() => {
+    if (!showCategoryPicker) return;
     categoryService.getAll()
       .then((res) => { if (res.data) setCategories(res.data); })
       .catch((err) => { logger.error('Failed to load categories:', err); });
-  }, []);
+  }, [showCategoryPicker]);
 
   const handleFieldUpdate = async (field: string, value: string) => {
     try {
@@ -199,6 +204,13 @@ export const TicketDetail = ({
      * by id), so a reply for another ticket cannot arrive here — but a retry (labelsAttempt)
      * re-runs this effect, and a superseded attempt's late reply must not overwrite a newer one.
      */
+    // Labels need VIEW_LABELS (an associate has none): none shown, nothing asked.
+    if (!canViewLabels) {
+      setTicketLabels([]);
+      setAllLabels([]);
+      setLabelsStatus('ready');
+      return;
+    }
     let live = true;
     setLabelsStatus('loading');
     Promise.all([
@@ -219,7 +231,7 @@ export const TicketDetail = ({
     return () => {
       live = false;
     };
-  }, [ticket.id, labelsAttempt]);
+  }, [ticket.id, labelsAttempt, canViewLabels]);
 
   const handleToggleLabel = async (label: Label) => {
     const assigned = ticketLabels.some((lbl) => lbl.id === label.id);
@@ -369,7 +381,7 @@ export const TicketDetail = ({
             </div>
             <div className="flex gap-2 items-center">
               <span className="text-sm font-medium text-muted-foreground">Category:</span>
-              {hasManageTickets && !ticket.externalId ? (
+              {showCategoryPicker ? (
                 <Select
                   value={localCategoryId}
                   onChange={(val) => { setLocalCategoryId(val); void handleFieldUpdate('categoryId', val); }}
