@@ -14,9 +14,11 @@ interface Props {
 const SEGMENTS: Segment<MessagesDisplayMode>[] = [
   {
     value: 'threads',
-    label: 'Threads',
+    // "List", not "Threads": the page itself is Threads since the rename (#632), and a switcher
+    // reading Threads / Threads / Contacts / Kanban under that title named the page twice.
+    label: 'List',
     icon: MessageSquare,
-    title: 'Thread view — grouped by reply chain',
+    title: 'List view — one row per thread',
   },
   {
     value: 'contacts',
@@ -33,7 +35,7 @@ const SEGMENTS: Segment<MessagesDisplayMode>[] = [
 ];
 
 /**
- * Threads / Contacts / Kanban.
+ * List / Contacts / Kanban.
  *
  * Messages list v2 (2026-10-02): it now sits in the page header beside the title and the
  * surface count — the view is the first thing the header says, the filters are below it.
