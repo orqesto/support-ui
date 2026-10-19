@@ -8,11 +8,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
 const puts: { url: string; body: unknown }[] = [];
+let putError: Error | null = null;
 const toastFailure = vi.fn<(scope: string, error: unknown) => void>();
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
     put: (url: string, body: unknown) => {
       puts.push({ url, body });
+      if (putError) return Promise.reject(putError);
       return Promise.resolve({ data: { success: true } });
     },
     get: () => new Promise(() => undefined),
@@ -42,6 +44,15 @@ const SETTING = {
   attachmentsPerMinute: { value: 30, source: 'db' as const, min: 5, max: 600 },
   kbMessagesPerMinute: { value: 40, source: 'default' as const, min: 5, max: 300 },
 };
+const GATE = {
+  livePollCeilingUnits: { value: 6000, source: 'default' as const, min: 1500, max: 50000 },
+  importPauseAtUnits: { value: 1500, source: 'default' as const, min: 300, max: 50000 },
+  importResumeAtUnits: { value: 450, source: 'db' as const, min: 50, max: 49000 },
+};
+const ALL = { ...SETTING, ...GATE };
+const pauseAt = () => screen.getByLabelText(/Pause imports at/);
+const resumeAt = () => screen.getByLabelText(/Resume imports at/);
+const ceiling = () => screen.getByLabelText(/New-mail checks pause at/);
 const budget = () => screen.getByLabelText(/Import run budget/);
 const attachments = () => screen.getByLabelText(/Attachments per minute/);
 const kb = () => screen.getByLabelText(/Knowledge-base messages per minute/);
@@ -49,6 +60,7 @@ const save = () => screen.getByRole('button', { name: 'Save' });
 
 beforeEach(() => {
   puts.length = 0;
+  putError = null;
   toastFailure.mockReset();
 });
 afterEach(cleanup);
@@ -112,6 +124,82 @@ describe('IngestionCard', () => {
   });
 });
 
+describe('IngestionCard — when imports pause', () => {
+  it('shows all six fields under a sub-heading, with their values', () => {
+    wrap(<IngestionCard ingestion={ALL} />);
+    expect(screen.getByText('When imports pause')).toBeInTheDocument();
+    expect(pauseAt()).toHaveValue(1500);
+    expect(resumeAt()).toHaveValue(450);
+    expect(ceiling()).toHaveValue(6000);
+    expect(screen.getAllByRole('spinbutton')).toHaveLength(6);
+  });
+
+  it.each([
+    ['pause', pauseAt, '2000', { importPauseAtUnits: 2000 }],
+    ['resume', resumeAt, '400', { importResumeAtUnits: 400 }],
+    ['ceiling', ceiling, '9000', { livePollCeilingUnits: 9000 }],
+  ])('changing only %s sends only that field', async (_name, input, value, body) => {
+    wrap(<IngestionCard ingestion={ALL} />);
+    fireEvent.change(input(), { target: { value } });
+    fireEvent.click(save());
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toEqual({ url: '/api/admin/platform/settings/ingestion', body });
+  });
+
+  it('resume at or above pause is said and blocked', () => {
+    wrap(<IngestionCard ingestion={ALL} />);
+    fireEvent.change(resumeAt(), { target: { value: '1500' } });
+    expect(screen.getByText('Must be lower than the pause value.')).toBeInTheDocument();
+    expect(save()).toBeDisabled();
+    fireEvent.change(pauseAt(), { target: { value: '1600' } });
+    expect(screen.queryByText('Must be lower than the pause value.')).toBeNull();
+    expect(save()).toBeEnabled();
+    expect(puts).toHaveLength(0);
+  });
+
+  it('ceiling below pause is said and blocked', () => {
+    wrap(<IngestionCard ingestion={ALL} />);
+    fireEvent.change(pauseAt(), { target: { value: '7000' } });
+    expect(screen.getByText('Must not be lower than the pause value.')).toBeInTheDocument();
+    expect(save()).toBeDisabled();
+    fireEvent.change(ceiling(), { target: { value: '7000' } });
+    expect(screen.queryByText(/Must not be lower/)).toBeNull();
+    expect(save()).toBeEnabled();
+  });
+
+  it("the server's 400 sentence is shown, and clears on the next edit", async () => {
+    putError = Object.assign(new Error('Request failed'), {
+      status: 400,
+      data: { success: false, error: 'Resume must stay below the saved pause value.' },
+    });
+    wrap(<IngestionCard ingestion={ALL} />);
+    fireEvent.change(ceiling(), { target: { value: '9000' } });
+    fireEvent.click(save());
+    expect(
+      await screen.findByText('Resume must stay below the saved pause value.')
+    ).toBeInTheDocument();
+    fireEvent.change(ceiling(), { target: { value: '9500' } });
+    expect(screen.queryByText('Resume must stay below the saved pause value.')).toBeNull();
+  });
+
+  it('a backend without the new fields: only the old three, no heading, no crash', () => {
+    wrap(<IngestionCard ingestion={SETTING} />);
+    expect(screen.getAllByRole('spinbutton')).toHaveLength(3);
+    expect(screen.queryByText('When imports pause')).toBeNull();
+    expect(screen.queryByLabelText(/Pause imports at/)).toBeNull();
+  });
+
+  it('a backend with only the ceiling (live on staging first): it is offered alone', () => {
+    wrap(
+      <IngestionCard ingestion={{ ...SETTING, livePollCeilingUnits: GATE.livePollCeilingUnits }} />
+    );
+    expect(ceiling()).toHaveValue(6000);
+    expect(screen.queryByLabelText(/Resume imports at/)).toBeNull();
+    fireEvent.change(ceiling(), { target: { value: '8000' } });
+    expect(save()).toBeEnabled();
+  });
+});
+
 describe('normalizeIngestion', () => {
   it('keeps the fields that are whole numbers with whole bounds', () => {
     expect(normalizeIngestion(SETTING)).toEqual(SETTING);
@@ -130,6 +218,10 @@ describe('normalizeIngestion', () => {
     expect(normalizeIngestion({})).toBeUndefined();
     expect(normalizeIngestion(undefined)).toBeUndefined();
     expect(normalizeIngestion([])).toBeUndefined();
+  });
+
+  it('keeps the three pause fields when present', () => {
+    expect(normalizeIngestion(ALL)).toEqual(ALL);
   });
 
   it('an unknown source reads as the default', () => {
