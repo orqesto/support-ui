@@ -141,13 +141,48 @@ describe('Compose new — AI draft', () => {
     expect(screen.getByLabelText('Message')).toHaveValue('<p>invoice 12 paid</p>');
   });
 
-  it('a backend without the route (404) hides the button; the text is untouched', async () => {
-    svc.composePolish.mockRejectedValue({ response: { status: 404 } });
+  it('🔴 a backend without the route (404): the button STAYS, says why, and can be pressed again', async () => {
+    svc.composePolish.mockRejectedValueOnce({ response: { status: 404 } });
     await renderModal();
     type('Message', '<p>hello</p>');
     fireEvent.click(aiDraft());
-    await waitFor(() => expect(screen.queryByRole('button', { name: /AI draft/ })).toBeNull());
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'isn’t available on this server yet'
+    );
+    expect(aiDraft()).toBeEnabled();
     expect(screen.getByLabelText('Message')).toHaveValue('<p>hello</p>');
+    // Once the backend has the route, the same button works.
+    svc.composePolish.mockResolvedValueOnce({ success: true, data: { text: 'Hello.' } });
+    fireEvent.click(aiDraft());
+    await waitFor(() => expect(screen.getByLabelText('Message')).toHaveValue('<p>Hello.</p>'));
+  });
+
+  it('after a draft: edit it by hand, press again — the edited text is rewritten; Undo is still the original', async () => {
+    svc.composePolish
+      .mockResolvedValueOnce({ success: true, data: { text: 'Invoice 12 is paid.' } })
+      .mockResolvedValueOnce({
+        success: true,
+        data: { text: 'Invoice 12 is paid. Receipt attached.' },
+      });
+    await renderModal();
+    type('Message', '<p>invoice 12 paid</p>');
+    fireEvent.click(aiDraft());
+    await waitFor(() =>
+      expect(screen.getByLabelText('Message')).toHaveValue('<p>Invoice 12 is paid.</p>')
+    );
+    type('Message', '<p>Invoice 12 is paid. receipt attached</p>');
+    expect(aiDraft()).toBeEnabled();
+    fireEvent.click(aiDraft());
+    await waitFor(() =>
+      expect(screen.getByLabelText('Message')).toHaveValue(
+        '<p>Invoice 12 is paid. Receipt attached.</p>'
+      )
+    );
+    expect(svc.composePolish).toHaveBeenLastCalledWith(
+      '<p>Invoice 12 is paid. receipt attached</p>'
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Undo/ }));
+    expect(screen.getByLabelText('Message')).toHaveValue('<p>invoice 12 paid</p>');
   });
 
   it('AI drafts off: no button, and the placeholder does not mention it', async () => {
