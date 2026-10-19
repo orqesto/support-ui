@@ -15,6 +15,7 @@ import {
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { nextUtcMidnight } from '@/lib/utcClock';
 import { AlliancePoolsCard } from './AlliancePoolsCard';
+import { BudgetModelDemoSection } from './BudgetModelDemoSection';
 import { MonthlyLimitsCard } from './MonthlyLimitsCard';
 import { TokenLimitRulesCard } from './TokenLimitRulesCard';
 import { TokenLimitsCard } from './TokenLimitsCard';
@@ -660,6 +661,8 @@ export const PlatformAiSpend = () => {
           }
         />
       )}
+      {/* A clickable demo of a PROPOSED budget model: static numbers, no calls, nothing saved. */}
+      <BudgetModelDemoSection />
     </div>
   );
 };
