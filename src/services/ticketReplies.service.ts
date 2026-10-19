@@ -27,7 +27,29 @@ export type TicketReplyDelivery = {
   updatedAt: string;
   /** This thread was sent its own reviewed draft, not the reply's text (reply templates P2). */
   hasOwnText: boolean;
+  /** Asked to resolve the thread, or to put it On-hold until this date, once sent. */
+  resolve: boolean;
+  holdUntil: string | null;
 };
+
+/** "Send & put on hold": each thread reached goes On-hold with this reason until this date. */
+export type Hold = { reason: string; until: Date };
+
+/** What one recipient would receive (POST …/replies/preview). */
+export type ReplyPreview =
+  | { conversationId: number; ok: true; text: string }
+  | { conversationId: number; ok: false; reason: string };
+
+/** "Generate with AI" on the ticket page (POST …/compose-update). */
+export type ComposedUpdate = {
+  text: string | null;
+  sources: Array<{ id: number; title?: string }>;
+  /** Why there is no text (e.g. a token limit), when the server says. */
+  reason?: string;
+};
+
+/** The preview shows at most this many recipients. */
+export const PREVIEW_COUNT = 3;
 
 export type TicketReply = {
   id: number;
@@ -89,15 +111,11 @@ export const PLACEHOLDERS = [
 
 /**
  * Name tokens used WITHOUT a fallback — the server refuses those threads whose customer has no
- * name, so the page can say so before Send. Same token shape as the server's.
+ * name, so the page can say so before Send. Same token shape as the server's. `{first_name}` is
+ * not one: with no name it greets "there" (owner, 2026-10-19).
  */
-export const nameTokensWithoutFallback = (text: string): Array<'first_name' | 'customer_name'> => {
-  const found = new Set<'first_name' | 'customer_name'>();
-  for (const match of text.matchAll(/\{(first_name|customer_name)\}/g)) {
-    found.add(match[1] as 'first_name' | 'customer_name');
-  }
-  return [...found];
-};
+export const nameTokensWithoutFallback = (text: string): Array<'customer_name'> =>
+  /\{\{?customer_name\}\}?/.test(text) ? ['customer_name'] : [];
 
 /**
  * What makes two replies "the same" — the server's rule (whitespace runs collapsed, ends
@@ -116,6 +134,8 @@ const toDelivery = (raw: Partial<TicketReplyDelivery>): TicketReplyDelivery => (
   updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : '',
   // An older backend does not send it: no delivery had its own text there.
   hasOwnText: raw.hasOwnText === true,
+  resolve: raw.resolve === true,
+  holdUntil: typeof raw.holdUntil === 'string' ? raw.holdUntil : null,
 });
 
 const toReply = (raw: Partial<TicketReply>): TicketReply => ({
@@ -171,9 +191,16 @@ export const ticketRepliesService = {
     /** Omitted on a re-send: each thread keeps the choice it was first sent with. */
     resolve: boolean | undefined,
     /** Files for a NEW reply — sent once, attached in every thread. */
-    files: File[] = []
+    files: File[] = [],
+    /** "Send & put on hold" — never together with resolve. */
+    hold?: Hold
   ): Promise<SendResult> {
-    const fields = { ...body, conversationIds, ...(resolve === undefined ? {} : { resolve }) };
+    const fields = {
+      ...body,
+      conversationIds,
+      ...(resolve === undefined ? {} : { resolve }),
+      ...(hold ? { holdUntil: hold.until.toISOString(), holdReason: hold.reason } : {}),
+    };
     let payload: FormData | typeof fields = fields;
     if (files.length > 0) {
       // Multipart: every field as a string (JSON for the list and booleans), files as `attachments`.
@@ -194,6 +221,38 @@ export const ticketRepliesService = {
       existing: data?.existing === true,
       queued: data?.queued ?? [],
       skipped: data?.skipped ?? [],
+    };
+  },
+
+  /** What these recipients (the first few ticked) would receive for `content`. Nothing is sent. */
+  async preview(
+    ticketId: number,
+    content: string,
+    conversationIds: number[]
+  ): Promise<ReplyPreview[]> {
+    const res = await apiClient.post<ApiResponse<{ previews?: ReplyPreview[] }>>(
+      `/api/tickets/${ticketId}/replies/preview`,
+      { content, conversationIds }
+    );
+    return res.data.data?.previews ?? [];
+  },
+
+  /**
+   * One update for every thread, drafted from the ticket's title and cause with the knowledge
+   * base. `instructions` (the agent's own facts) makes it a guided draft.
+   */
+  async composeUpdate(ticketId: number, instructions?: string): Promise<ComposedUpdate> {
+    const res = await apiClient.post<
+      ApiResponse<{ text?: string | null; sources?: ComposedUpdate['sources']; reason?: string }>
+    >(`/api/tickets/${ticketId}/compose-update`, {
+      mode: instructions ? 'guided' : 'generate',
+      ...(instructions ? { instructions } : {}),
+    });
+    const data = res.data.data;
+    return {
+      text: typeof data?.text === 'string' ? data.text : null,
+      sources: data?.sources ?? [],
+      ...(data?.reason ? { reason: data.reason } : {}),
     };
   },
 };

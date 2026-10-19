@@ -179,6 +179,8 @@ export type IngestionSettings = {
   importRunBudgetMinutes?: BoundedField;
   attachmentsPerMinute?: BoundedField;
   kbMessagesPerMinute?: BoundedField;
+  /** Seconds between two emails of one ticket reply (`tickets.reply_send_gap`, 2026-10-19). */
+  ticketReplyGapSeconds?: BoundedField;
 };
 /** PUT /settings/ingestion — a PARTIAL body: only the fields sent are saved (at least one). */
 export type PlatformIngestionInput = Partial<Record<keyof IngestionSettings, number>>;
@@ -428,6 +430,7 @@ export const INGESTION_FIELDS = [
   'importRunBudgetMinutes',
   'attachmentsPerMinute',
   'kbMessagesPerMinute',
+  'ticketReplyGapSeconds',
 ] as const;
 
 /**

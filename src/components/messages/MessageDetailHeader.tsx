@@ -71,6 +71,7 @@ import {
 import { HeaderMetaStrip } from './HeaderMetaStrip';
 import { ReceivedAtAddresses } from './ReceivedAtAddresses';
 import { AddToTicketDialog } from './AddToTicketDialog';
+import { HoldDialog } from '@/components/shared/HoldDialog';
 import { MergedSection, MergePickerDialog } from './MergeThreads';
 import { RelatedPopover, TicketsSection, owesReplySentence } from './RelatedPopover';
 import { useIsPhone } from './useIsPhone';
@@ -267,6 +268,8 @@ export function MessageDetailHeader({
   useEffect(() => setNearMissDismissed(isNearMissDismissed(message.id)), [message.id]);
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  // On-hold asks why and until when first (holdDialog); the other statuses apply at once.
+  const [holdOpen, setHoldOpen] = useState(false);
   const [updatingPriority, setUpdatingPriority] = useState(false);
   const [updatingCategory, setUpdatingCategory] = useState(false);
   const [messageLabels, setMessageLabels] = useState<Label[]>([]);
@@ -694,10 +697,11 @@ export function MessageDetailHeader({
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleSetStatus = useCallback(
-    async (status: ThreadStatus) => {
+    async (status: ThreadStatus, hold?: { reason: string; until: Date }) => {
       try {
         setUpdatingStatus(true);
-        await messageService.setStatus(message.id, status);
+        await messageService.setStatus(message.id, status, hold);
+        setHoldOpen(false);
         // Move the board card optimistically before the heavier onRefresh reconcile.
         const column = BE_STATUS_TO_COLUMN[status];
         if (column) onOptimisticMove?.(column);
@@ -1339,11 +1343,31 @@ export function MessageDetailHeader({
             mobileSheet
             onChange={(val) => {
               const beStatus = workflowToBeStatus[val as WorkflowStatus];
-              if (beStatus) void handleSetStatus(beStatus);
+              if (beStatus === 'pending') setHoldOpen(true);
+              else if (beStatus) void handleSetStatus(beStatus);
             }}
             isDisabled={updatingStatus}
           />
         )}
+        {!isFiltered && message.parkedAt && message.parkedUntil && (
+          <Tooltip
+            content={message.parkedReason ? `On hold: ${message.parkedReason}` : 'On hold'}
+            size="sm"
+          >
+            <span className="text-xs text-muted-foreground" data-testid="hold-until">
+              until {new Date(message.parkedUntil).toLocaleDateString()}
+            </span>
+          </Tooltip>
+        )}
+        <HoldDialog
+          open={holdOpen}
+          onOpenChange={setHoldOpen}
+          title="Put this thread on hold"
+          description="It leaves the active list until the recheck date. Say why, so whoever picks it up knows what it is waiting for."
+          confirmText="Put on hold"
+          busy={updatingStatus}
+          onConfirm={(hold) => void handleSetStatus('pending', hold)}
+        />
         {slaInfo?.record && (
           <Tooltip
             content={`First reply took ${fmtMin(slaInfo.elapsed)} against a ${fmtMin(slaInfo.target)} target`}

@@ -913,10 +913,14 @@ export const messageService = {
     return response.data;
   },
 
-  setStatus: async (id: number, status: ThreadStatus) => {
+  /** `hold`: On-hold's reason and recheck date (only with status `pending`). */
+  setStatus: async (id: number, status: ThreadStatus, hold?: { reason: string; until: Date }) => {
     const response = await apiClient.patch<ApiResponse<{ id: number; status: ThreadStatus }>>(
       `/api/messages/${id}/status`,
-      { status }
+      {
+        status,
+        ...(hold ? { holdReason: hold.reason, holdUntil: hold.until.toISOString() } : {}),
+      }
     );
     return response.data;
   },

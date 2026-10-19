@@ -24,6 +24,7 @@ import { TranslateButton } from '@/components/shared/TranslateButton';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ExternalLink } from '@/components/ui/ExternalLink';
+import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { labelPickerEmptyText, type LabelsStatus } from '@/components/shared/labelPickerText';
 import { formatDate } from '@/lib/utils';
@@ -103,6 +104,9 @@ export const TicketDetail = ({
   // Bumped after a label is created: remounting the picker closes it, as the old panel did.
   const [labelPickerKey, setLabelPickerKey] = useState(0);
   const [editingDescription, setEditingDescription] = useState(false);
+  // Rename in place (contingency page, 2026-10-19) — the edit page is no longer the only way.
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [localTitle, setLocalTitle] = useState(ticket.title);
   const [localDescription, setLocalDescription] = useState(ticket.description ?? '');
   const [translatedDescription, setTranslatedDescription] = useState<string | null>(null);
   const [moveDeptOpen, setMoveDeptOpen] = useState(false);
@@ -147,7 +151,18 @@ export const TicketDetail = ({
     if (!editingDescription) {
       setLocalDescription(ticket.description ?? '');
     }
-  }, [ticket.id, ticket.status, ticket.priority, ticket.categoryId, ticket.description, editingDescription]);
+    if (!editingTitle) setLocalTitle(ticket.title);
+  }, [ticket.id, ticket.status, ticket.priority, ticket.categoryId, ticket.description, ticket.title, editingDescription, editingTitle]);
+
+  const saveTitle = () => {
+    const next = localTitle.trim();
+    setEditingTitle(false);
+    if (!next || next === ticket.title) {
+      setLocalTitle(ticket.title);
+      return;
+    }
+    void handleFieldUpdate('title', next);
+  };
 
   useEffect(() => {
     categoryService.getAll()
@@ -235,7 +250,50 @@ export const TicketDetail = ({
       <div className="space-y-4">
         <div>
           <div className="flex gap-3 items-center mb-2">
-            <h2 className="font-display flex-1 text-2xl font-bold">{ticket.title}</h2>
+            {editingTitle ? (
+              <div className="flex flex-1 gap-2 items-center">
+                <Input
+                  aria-label="Ticket title"
+                  value={localTitle}
+                  maxLength={500}
+                  autoFocus
+                  onChange={(event) => setLocalTitle(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') saveTitle();
+                    if (event.key === 'Escape') {
+                      setLocalTitle(ticket.title);
+                      setEditingTitle(false);
+                    }
+                  }}
+                />
+                <Button size="sm" onClick={saveTitle} disabled={!localTitle.trim()}>
+                  Save
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setLocalTitle(ticket.title);
+                    setEditingTitle(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <h2 className="font-display flex-1 text-2xl font-bold">{localTitle}</h2>
+            )}
+            {hasManageTickets && !ticket.externalId && !editingTitle && (
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Rename ticket"
+                aria-label="Rename ticket"
+                onClick={() => setEditingTitle(true)}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </Button>
+            )}
             <span className="px-2 py-1 font-mono text-xs rounded bg-muted text-muted-foreground">
               #{ticket.id}
             </span>

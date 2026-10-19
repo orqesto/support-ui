@@ -32,6 +32,11 @@ const FIELDS: { key: FieldKey; label: string; hint: string }[] = [
     label: 'Knowledge-base messages per minute',
     hint: 'How many messages are read into the knowledge base per minute. Takes effect within about a minute, no restart.',
   },
+  {
+    key: 'ticketReplyGapSeconds',
+    label: 'Gap between ticket-reply emails (seconds)',
+    hint: 'A reply sent from a ticket to many threads goes out one email at a time, this many seconds apart, so a mailbox never sends a burst. 0 = no gap.',
+  },
 ];
 
 /** The text as a whole number inside the field's bounds, or null. */
@@ -87,9 +92,10 @@ export const IngestionCard = ({ ingestion }: { ingestion: IngestionSettings | un
         ) : (
           <>
             <p className="text-sm text-muted-foreground">
-              How fast a large mailbox import is processed. Only the values you change are saved.
+              How fast a large mailbox import is processed, and how fast a ticket reply goes out to
+              its threads. Only the values you change are saved.
             </p>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {shown.map((field) => {
                 const saved = ingestion?.[field.key];
                 if (!saved) return null;

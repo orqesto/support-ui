@@ -11,6 +11,11 @@ const addThreads = vi.fn();
 const removeThread = vi.fn();
 const getThreads = vi.fn();
 
+// MANAGE_TICKETS (support and above) by default; a test flips it to see the view-only page.
+const perms = vi.hoisted(() => ({ manage: true }));
+vi.mock('@/hooks/usePermissions', () => ({
+  usePermissions: () => ({ hasPermission: () => perms.manage }),
+}));
 vi.mock('@/services/ticketThreads.service', () => ({
   ticketThreadsService: { threadsOfTicket, addThreads, removeThread },
 }));

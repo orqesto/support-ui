@@ -44,7 +44,31 @@ export type TicketThread = {
   isPrimary: boolean;
   addedAt: string;
   owesReply: boolean | null;
+  /** On-hold since / why / until when (null when not on hold). Contingency page, 2026-10-19. */
+  parkedAt: string | null;
+  parkedReason: string | null;
+  parkedUntil: string | null;
+  /** A reply from this ticket reached the thread — it can no longer be removed from the ticket. */
+  receivedUpdate: boolean;
 };
+
+/** What a status action did to each thread (resolve / reopen). */
+export type ThreadStatusResult = {
+  done: number[];
+  skipped: Array<{ conversationId: number; reason: 'already_resolved' | 'already_open' }>;
+  failed: Array<{ conversationId: number; error: string }>;
+};
+
+const str = (value: unknown): string | null => (typeof value === 'string' ? value : null);
+
+/** An older backend sends none of the hold fields: not on hold, never updated (removable). */
+export const toTicketThread = (raw: TicketThread): TicketThread => ({
+  ...raw,
+  parkedAt: str(raw.parkedAt),
+  parkedReason: str(raw.parkedReason),
+  parkedUntil: str(raw.parkedUntil),
+  receivedUpdate: raw.receivedUpdate === true,
+});
 
 /** A list the caller may see only part of: `hiddenCount` rows are in departments they cannot open. */
 export type Scoped<T> =
@@ -64,6 +88,20 @@ const scoped = async <T>(load: () => Promise<{ rows: T[] | undefined; hiddenCoun
   }
 };
 
+const statusAction = async (
+  ticketId: number,
+  action: 'resolve' | 'reopen',
+  conversationIds: number[]
+): Promise<ThreadStatusResult> => {
+  const res = await apiClient.post<ApiResponse<Partial<ThreadStatusResult>>>(
+    `/api/tickets/${ticketId}/conversations/${action}`,
+    { conversationIds }
+  );
+  announce(conversationIds);
+  const data = res.data.data;
+  return { done: data?.done ?? [], skipped: data?.skipped ?? [], failed: data?.failed ?? [] };
+};
+
 export const ticketThreadsService = {
   /** Every ticket this thread belongs to, newest first. */
   async ticketsOfThread(conversationId: number): Promise<Scoped<ThreadTicket>> {
@@ -81,8 +119,21 @@ export const ticketThreadsService = {
       const res = await apiClient.get<
         ApiResponse<{ threads?: TicketThread[]; hiddenCount?: number }>
       >(`/api/tickets/${ticketId}/conversations`);
-      return { rows: res.data.data?.threads, hiddenCount: res.data.data?.hiddenCount };
+      return {
+        rows: res.data.data?.threads?.map(toTicketThread),
+        hiddenCount: res.data.data?.hiddenCount,
+      };
     });
+  },
+
+  /** Resolve these threads WITHOUT sending anything. */
+  async resolveThreads(ticketId: number, conversationIds: number[]): Promise<ThreadStatusResult> {
+    return statusAction(ticketId, 'resolve', conversationIds);
+  },
+
+  /** Undo a send or a resolve: reopen these threads. Emails already sent stay sent. */
+  async reopenThreads(ticketId: number, conversationIds: number[]): Promise<ThreadStatusResult> {
+    return statusAction(ticketId, 'reopen', conversationIds);
   },
 
   /** Add threads (any customer's) to a ticket. Adding one already there is not an error. */

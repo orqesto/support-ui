@@ -20,6 +20,11 @@ const discard = vi.fn();
 const adapt = vi.fn();
 const list = vi.fn();
 
+// MANAGE_TICKETS (support and above) by default; a test flips it to see the view-only page.
+const perms = vi.hoisted(() => ({ manage: true }));
+vi.mock('@/hooks/usePermissions', () => ({
+  usePermissions: () => ({ hasPermission: () => perms.manage }),
+}));
 vi.mock('@/services/ticketThreads.service', () => ({
   ticketThreadsService: { threadsOfTicket, addThreads: vi.fn(), removeThread: vi.fn() },
 }));
@@ -58,7 +63,7 @@ vi.mock('@/components/shared/RichTextEditor', () => ({
 
 const { TicketThreads } = await import('@/components/tickets/TicketThreads');
 
-const BOX = 'Write one reply for every ticked thread…';
+const BOX = 'Write one update for every ticked thread — or Generate with AI…';
 
 const thread = (id: number, over: Record<string, unknown> = {}) => ({
   conversationId: id,

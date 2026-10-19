@@ -98,6 +98,9 @@ beforeEach(() => {
   dept.key = '';
 });
 
+/** Each kind is asked for by name: one request per kind (assigned, unassigned, recheck). */
+const KIND_COUNT = 3;
+
 describe('work alert text (#957 §3.7, verbatim copy)', () => {
   it('assigned', () => {
     expect(workAlertText(toWorkAlert(assigned as never))).toBe(
@@ -124,6 +127,22 @@ describe('work alert text (#957 §3.7, verbatim copy)', () => {
   it('type labels', () => {
     expect(workAlertTypeLabel('conversation_assigned')).toBe('Assigned to you');
     expect(workAlertTypeLabel('new_unassigned_message')).toBe('New unassigned');
+    expect(workAlertTypeLabel('hold_recheck_due')).toBe('Recheck');
+  });
+  it('a recheck reads "Recheck: <reason> — <subject>"; with no reason it says the hold ended', () => {
+    const recheck = {
+      id: 7,
+      kind: 'hold_recheck_due',
+      entityType: 'conversation',
+      entityId: 5,
+      details: { subject: 'Parcel late', holdReason: 'Waiting for the carrier' },
+    };
+    expect(workAlertText(toWorkAlert(recheck as never))).toBe(
+      'Recheck: Waiting for the carrier — Parcel late'
+    );
+    expect(
+      workAlertText(toWorkAlert({ ...recheck, details: { subject: 'Parcel late' } } as never))
+    ).toBe('Recheck — its hold ended — Parcel late');
   });
 });
 
@@ -134,6 +153,7 @@ describe('useWorkAlerts', () => {
     await waitFor(() => expect(result.current.alerts).toHaveLength(2));
     expect(get.mock.calls.map(([, config]) => config?.params?.kind).sort()).toEqual([
       'conversation_assigned',
+      'hold_recheck_due',
       'new_unassigned_message',
     ]);
     expect(result.current.unread).toBe(1);
@@ -150,40 +170,40 @@ describe('useWorkAlerts', () => {
   ])('refetches on %s', async (event) => {
     byKind([]);
     renderHook(() => useWorkAlerts());
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(KIND_COUNT));
     act(() => handlers.get(event)?.());
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2 * KIND_COUNT));
   });
 
   it('R15: a burst of pings (a bulk assignment) costs ONE refetch, not one per ping', async () => {
     byKind([]);
     renderHook(() => useWorkAlerts());
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(KIND_COUNT));
     act(() => {
       for (let index = 0; index < 5; index += 1) handlers.get('notification:new')?.();
     });
     await sleep(WORK_ALERTS_REFRESH_MS + 300);
-    expect(get).toHaveBeenCalledTimes(4);
+    expect(get).toHaveBeenCalledTimes(2 * KIND_COUNT);
   });
 
   it('a ping that names another kind is not ours (no refetch); one naming ours is', async () => {
     byKind([]);
     renderHook(() => useWorkAlerts());
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(KIND_COUNT));
     act(() => handlers.get('notification:new')?.({ kind: 'sla_message_breach', id: 9 }));
     await sleep(WORK_ALERTS_REFRESH_MS + 300);
-    expect(get).toHaveBeenCalledTimes(2);
+    expect(get).toHaveBeenCalledTimes(KIND_COUNT);
     act(() => handlers.get('notification:read-all')?.({ kind: 'new_unassigned_message' }));
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2 * KIND_COUNT));
   });
 
   it('a department-context switch refetches in the new scope (as the SLA bell does)', async () => {
     byKind([]);
     const { rerender } = renderHook(() => useWorkAlerts());
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(KIND_COUNT));
     dept.key = '7';
     rerender();
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2 * KIND_COUNT));
   });
 
   it('dismiss removes the row at once and PATCHes the personal dismiss', async () => {
@@ -205,6 +225,7 @@ describe('useWorkAlerts', () => {
     expect(result.current.alerts).toEqual([]);
     expect(patch.mock.calls.map(([url, , config]) => [url, config?.params?.kind]).sort()).toEqual([
       ['/api/notifications/dismiss-all', 'conversation_assigned'],
+      ['/api/notifications/dismiss-all', 'hold_recheck_due'],
       ['/api/notifications/dismiss-all', 'new_unassigned_message'],
     ]);
   });
@@ -217,6 +238,7 @@ describe('useWorkAlerts', () => {
     expect(result.current.unread).toBe(0);
     expect(patch.mock.calls.map(([url, , config]) => [url, config?.params?.kind]).sort()).toEqual([
       ['/api/notifications/read-all', 'conversation_assigned'],
+      ['/api/notifications/read-all', 'hold_recheck_due'],
       ['/api/notifications/read-all', 'new_unassigned_message'],
     ]);
   });
@@ -314,7 +336,7 @@ describe('final review fixes (#957)', () => {
   it('out-of-order responses: the later request wins, an earlier answer arriving late is dropped', async () => {
     byKind([]);
     const { result } = renderHook(() => useWorkAlerts());
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(KIND_COUNT));
     get.mockReset();
     const first = deferred<unknown>();
     const second = deferred<unknown>();
@@ -357,7 +379,8 @@ describe('final review fixes (#957)', () => {
     );
     const { result } = renderHook(() => useWorkAlerts());
     await waitFor(() => expect(result.current.alerts).toHaveLength(1));
-    expect(result.current.total).toBe(41);
+    // 37 assigned + 4 unassigned + 4 rechecks.
+    expect(result.current.total).toBe(45);
   });
 
   it('CONTROL: a total below the loaded rows (older backend) never undercounts', async () => {

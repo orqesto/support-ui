@@ -1,9 +1,10 @@
 import type React from 'react';
-import { UserCheck, Inbox, X } from 'lucide-react';
+import { AlarmClock, UserCheck, Inbox, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import {
   CONVERSATION_ASSIGNED_KIND,
+  HOLD_RECHECK_KIND,
   type UseWorkAlertsResult,
   workAlertHref,
   workAlertText,
@@ -33,7 +34,12 @@ export const WorkAlertsSection = ({
     <>
       {showLabel && <SectionLabel>For you</SectionLabel>}
       {visible.map((alert) => {
-        const Icon = alert.kind === CONVERSATION_ASSIGNED_KIND ? UserCheck : Inbox;
+        const Icon =
+          alert.kind === CONVERSATION_ASSIGNED_KIND
+            ? UserCheck
+            : alert.kind === HOLD_RECHECK_KIND
+              ? AlarmClock
+              : Inbox;
         return (
           <div
             key={alert.id}
