@@ -40,8 +40,6 @@ export function ComposeNewAiDraft({ content, setContent, disabled, onBusyChange 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previous, setPrevious] = useState<string | null>(null);
-  // A backend from before the route answers 404: hide the button rather than offer a dead end.
-  const [unavailable, setUnavailable] = useState(false);
   const latest = useRef(content);
   latest.current = content;
   const mounted = useRef(true);
@@ -95,8 +93,12 @@ export function ComposeNewAiDraft({ content, setContent, disabled, onBusyChange 
     } catch (err) {
       if (!mounted.current) return;
       logger.error('[ComposeNewAiDraft] polish failed', err);
+      // A backend from before the route answers 404. The button stays (a control that vanishes
+      // reads as broken) and says why; pressing again works once the backend has the route.
       if (getErrorStatus(err) === 404) {
-        setUnavailable(true);
+        setError(
+          'AI draft for new emails isn’t available on this server yet. Your text has not been changed.'
+        );
         return;
       }
       if (isAiDraftsOffError(err)) {
@@ -122,7 +124,7 @@ export function ComposeNewAiDraft({ content, setContent, disabled, onBusyChange 
   };
 
   // Hidden where it cannot work; Undo stays while text a draft replaced is still to restore.
-  if ((unavailable || aiDraftsOff || !aiConfigured) && previous === null) return null;
+  if ((aiDraftsOff || !aiConfigured) && previous === null) return null;
 
   return (
     <>
@@ -130,7 +132,7 @@ export function ComposeNewAiDraft({ content, setContent, disabled, onBusyChange 
         type="button"
         variant="outline"
         onClick={() => void draft()}
-        disabled={disabled || busy || empty || unavailable || aiDraftsOff || !aiConfigured}
+        disabled={disabled || busy || empty || aiDraftsOff || !aiConfigured}
         isLoading={busy}
         title={empty ? EMPTY_DRAFT_HINT : 'Rewrite what you typed into a ready-to-send email'}
       >
