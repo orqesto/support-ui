@@ -15,6 +15,7 @@ import type { AiDraft } from '@/services/message.service';
 import type { Message } from '@/types';
 import { LABEL } from './messageDetailConstants';
 import { useIsPhone } from './useIsPhone';
+import { TranslateButton } from '@/components/shared/TranslateButton';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 
@@ -464,7 +465,6 @@ export function MessageComposer({
             minHeight={editorMinHeight}
             maxHeight="180px"
             transparent
-            translatable
             locked={aiBusy}
             className={`rounded-none border-0 shadow-none ${restEditorClass} ${
               aiBusy ? 'pointer-events-none opacity-60' : ''
@@ -531,6 +531,17 @@ export function MessageComposer({
                 }}
               />
             </span>
+          )}
+          {/* Translate sits with the other reply tools, labelled — as an icon at the end of the
+              formatting row it went unnoticed. It replaces the reply in place; Undo restores it. */}
+          {composerMode === 'reply' && !atRest && (
+            <TranslateButton
+              getText={() => richEditorRef.current?.getTranslationText() ?? ''}
+              onTranslated={(translated) => richEditorRef.current?.applyTranslation(translated)}
+              clearable={false}
+              label={isPhone ? undefined : 'Translate'}
+              buttonClassName={`${IBTN} !w-auto !h-auto max-sm:!w-9 max-sm:justify-center max-sm:!px-0`}
+            />
           )}
           {composerMode === 'reply' && !atRest && (
             <TemplatePicker

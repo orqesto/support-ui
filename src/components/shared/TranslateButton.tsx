@@ -35,6 +35,8 @@ type TranslateButtonProps = {
   buttonClassName?: string;
   spinnerClassName?: string;
   clearClassName?: string;
+  /** Text after the icon, for a labelled toolbar button. Icon only when omitted. */
+  label?: string;
 };
 
 export const TranslateButton = ({
@@ -48,6 +50,7 @@ export const TranslateButton = ({
   buttonClassName,
   spinnerClassName,
   clearClassName,
+  label,
 }: TranslateButtonProps) => {
   const [selectedLanguage, setSelectedLanguage] = useState('');
   const [hasTranslation, setHasTranslation] = useState(false);
@@ -148,6 +151,7 @@ export const TranslateButton = ({
               } ${!aiConfigured ? 'opacity-40 cursor-not-allowed' : ''}`}
             >
               <Languages className="w-3 h-3" />
+              {label}
             </Button>
           </Tooltip>
         )}

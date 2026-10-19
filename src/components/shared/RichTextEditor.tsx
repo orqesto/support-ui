@@ -89,6 +89,13 @@ export type RichTextEditorHandle = {
    * template" buttons. Pass plain text and tiptap will wrap it.
    */
   setContent: (html: string) => void;
+  /**
+   * The editor's text as Translate sends it: template placeholders and links shielded as markers.
+   * Pair with `applyTranslation` — it rebuilds links and lists from what this call recorded.
+   */
+  getTranslationText: () => string;
+  /** Replace the content with a translation of the text `getTranslationText` returned. */
+  applyTranslation: (translated: string) => void;
 };
 
 const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
@@ -194,6 +201,35 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       }
     }, [editor, content]);
 
+    // Template placeholders and links go out as markers, so the model cannot reword a placeholder,
+    // and a link is rebuilt around its translated words.
+    const translationText = () => {
+      if (!editor) return '';
+      linkTargets.current = [];
+      sourceLists.current = { blocks: 0, items: [] };
+      const shielded = shieldPlaceholders(
+        editorHtmlToText(editor.getHTML(), {
+          linkTargets: linkTargets.current,
+          lists: sourceLists.current,
+        })
+      );
+      restorePlaceholders.current = shielded.restore;
+      return shielded.text;
+    };
+    const applyTranslation = (translated: string) => {
+      editor
+        ?.chain()
+        .focus()
+        .setContent(
+          translatedTextToHtml(
+            restorePlaceholders.current(translated),
+            linkTargets.current,
+            sourceLists.current
+          )
+        )
+        .run();
+    };
+
     // Expose imperative handles to parent (focus + token/template insertion)
     useImperativeHandle(ref, () => ({
       focus: (position?: 'end') => {
@@ -208,6 +244,11 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       setContent: (html: string) => {
         setIsExpanded(true);
         editor?.commands.setContent(html);
+      },
+      getTranslationText: translationText,
+      applyTranslation: (translated: string) => {
+        setIsExpanded(true);
+        applyTranslation(translated);
       },
     }));
 
@@ -395,34 +436,9 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
               <>
                 <div className="w-px h-8 bg-border mx-1" />
                 <TranslateButton
-                  getText={() => {
-                    // Template placeholders and links go out as markers, so the model cannot reword
-                    // a placeholder, and a link is rebuilt around its translated words.
-                    linkTargets.current = [];
-                    sourceLists.current = { blocks: 0, items: [] };
-                    const shielded = shieldPlaceholders(
-                      editorHtmlToText(editor.getHTML(), {
-                        linkTargets: linkTargets.current,
-                        lists: sourceLists.current,
-                      })
-                    );
-                    restorePlaceholders.current = shielded.restore;
-                    return shielded.text;
-                  }}
+                  getText={translationText}
                   clearable={false}
-                  onTranslated={(translated) =>
-                    editor
-                      .chain()
-                      .focus()
-                      .setContent(
-                        translatedTextToHtml(
-                          restorePlaceholders.current(translated),
-                          linkTargets.current,
-                          sourceLists.current
-                        )
-                      )
-                      .run()
-                  }
+                  onTranslated={applyTranslation}
                   buttonClassName="inline-flex items-center justify-center h-8 w-8 p-0 rounded text-muted-foreground hover:text-foreground"
                 />
               </>
