@@ -10,10 +10,12 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { stripHtml } from '@/lib/stripHtml';
 import {
+  isInFlight,
   PREVIEW_COUNT,
   ticketRepliesService,
   type Hold,
   type ReplyPreview,
+  type TicketReply,
 } from '@/services/ticketReplies.service';
 
 /**
@@ -22,6 +24,33 @@ import {
  */
 
 const plural = (count: number, one: string, many: string) => (count === 1 ? one : many);
+
+/**
+ * "Sending to N threads…" is said once, when a send is queued; the replies then show each
+ * delivery. Once the deliveries it started have all finished it is no longer true, so it goes
+ * (staging 2026-10-19: it stayed up after every thread had its mail) — that notice only, never
+ * another said since. Returns what the composer calls when it says it (`true`) or not (`false`).
+ */
+export const useSendingNotice = (
+  replies: TicketReply[],
+  setNotice: (update: (prev: string | null) => string | null) => void
+) => {
+  const anyInFlight = replies.some((reply) =>
+    reply.deliveries.some((row) => isInFlight(row.outcome))
+  );
+  const state = useRef<'off' | 'queued' | 'live'>('off');
+  useEffect(() => {
+    if (state.current === 'off') return;
+    if (anyInFlight) state.current = 'live';
+    else if (state.current === 'live') {
+      state.current = 'off';
+      setNotice((prev) => (prev?.startsWith('Sending to') ? null : prev));
+    }
+  }, [anyInFlight, setNotice]);
+  return (queued: boolean) => {
+    state.current = queued ? 'queued' : 'off';
+  };
+};
 
 /**
  * "Generate with AI": one update for everyone, from the ticket and the knowledge base; text already

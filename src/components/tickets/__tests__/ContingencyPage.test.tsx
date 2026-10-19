@@ -329,6 +329,42 @@ describe('contingency page', () => {
     expect(await screen.findByText(/Every linked thread is resolved/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Send update to/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Generate with AI/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Attach' })).toBeDisabled();
+  });
+
+  it('"Sending to N threads…" goes once the deliveries it started have finished', async () => {
+    const user = userEvent.setup();
+    const reply = (outcome: string) => ({
+      id: 9,
+      content: '<p>Fixed.</p>',
+      attachments: [],
+      createdAt: '2026-10-19T10:00:00Z',
+      createdBy: null,
+      hiddenCount: 0,
+      deliveries: [11, 12].map((conversationId) => ({
+        conversationId,
+        outcome,
+        reason: null,
+        updatedAt: '',
+        hasOwnText: false,
+        resolve: false,
+        holdUntil: null,
+      })),
+    });
+    renderTicket();
+    await waitFor(() => expect(box(11)).toBeChecked());
+    await user.type(screen.getByLabelText('Reply text'), 'Fixed.');
+    replies({ replies: [reply('pending')] });
+    await user.click(screen.getByRole('button', { name: /Send update to 2/ }));
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: /Send/ })
+    );
+    expect(await screen.findByText('Sending to 2 threads…')).toBeInTheDocument();
+
+    replies({ replies: [reply('sent')] });
+    await waitFor(() => expect(screen.queryByText('Sending to 2 threads…')).toBeNull(), {
+      timeout: 4000,
+    });
   });
 
   it('a role without MANAGE_TICKETS sees the list but no Add, Remove, Resolve or composer', async () => {
