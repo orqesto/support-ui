@@ -22,6 +22,8 @@ import { answerToEditorHtml, COMPOSER_AI_TOOL, COMPOSER_TOOL } from './messageDe
 /** The backend's MAX_DRAFT_CHARS for polish. */
 const MAX_DRAFT = 8000;
 
+export type ComposeAiNote = { text: string; tone: 'error' | 'info' };
+
 export const EMPTY_DRAFT_HINT = 'Type what you want to say, then press AI draft';
 
 type Props = {
@@ -31,7 +33,7 @@ type Props = {
   /** Reports a request in flight, so the host can lock the editor the draft is about to replace. */
   onBusyChange?: (busy: boolean) => void;
   /** What to tell the agent (an error, "not available yet"), shown on the host's note line. */
-  onNoteChange?: (note: string | null) => void;
+  onNoteChange?: (note: ComposeAiNote | null) => void;
   /** Where Undo renders, when not right after AI draft (the host's tool row decides). */
   undoSlot?: HTMLElement | null;
 };
@@ -51,13 +53,15 @@ export function ComposeNewAiDraft({
   undoSlot,
 }: Props) {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // What to tell the agent. `info` (grey) for a state, not a failure: the server lacks the route.
+  const [note, setNote] = useState<ComposeAiNote | null>(null);
+  const setError = (text: string | null) => setNote(text ? { text, tone: 'error' } : null);
   const [previous, setPrevious] = useState<string | null>(null);
   const reportNote = useRef(onNoteChange);
   reportNote.current = onNoteChange;
   useEffect(() => {
-    reportNote.current?.(error);
-  }, [error]);
+    reportNote.current?.(note);
+  }, [note]);
   useEffect(() => () => reportNote.current?.(null), []);
   const latest = useRef(content);
   latest.current = content;
@@ -115,9 +119,10 @@ export function ComposeNewAiDraft({
       // A backend from before the route answers 404. The button stays (a control that vanishes
       // reads as broken) and says why; pressing again works once the backend has the route.
       if (getErrorStatus(err) === 404) {
-        setError(
-          'AI draft for new emails isn’t available on this server yet. Your text has not been changed.'
-        );
+        setNote({
+          text: 'AI draft for new emails isn’t available on this server yet. Your text has not been changed.',
+          tone: 'info',
+        });
         return;
       }
       if (isAiDraftsOffError(err)) {

@@ -20,8 +20,8 @@ import { isBlankRichText } from '@/lib/stripHtml';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
-import { ComposeNewAiDraft } from './ComposeNewAiDraft';
-import { COMPOSER_SEND, COMPOSER_TOOL } from './messageDetailConstants';
+import { ComposeNewAiDraft, type ComposeAiNote } from './ComposeNewAiDraft';
+import { COMPOSER_SEND, COMPOSER_TOOL, SEND_SHORTCUT } from './messageDetailConstants';
 
 // The addressing rows' names, as in a mail client: small, muted, one column wide.
 const ROW_LABEL = 'w-14 shrink-0 text-xs text-muted-foreground';
@@ -67,7 +67,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
   const [error, setError] = useState<string | null>(null);
   // An AI draft is about to replace the editor: lock it, and Send, until it lands.
   const [aiBusy, setAiBusy] = useState(false);
-  const [aiNote, setAiNote] = useState<string | null>(null);
+  const [aiNote, setAiNote] = useState<ComposeAiNote | null>(null);
   const { aiConfigured } = useAiConfigured();
   const { off: aiDraftsOff } = useAiDraftsOff();
   // A disabled button shows no hover title, so the editor itself says how AI draft works here.
@@ -199,7 +199,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
   return (
     // `size="lg"` is the window's own width (672px). A max-w class on DialogContent only sized an
     // inner box: the window stayed 512px and the composer's rows wrapped (staging, 2026-10-19).
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()} size="lg">
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()} size="lg" sheetOnPhone>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Compose new message</DialogTitle>
@@ -363,7 +363,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
               <span ref={setUndoSlot} className="inline-flex self-stretch" />
               <span className="flex-1" />
               <span className="font-mono text-[10.5px] text-muted-foreground hidden sm:inline">
-                ⌘↵ send
+                {SEND_SHORTCUT} send
               </span>
               <Button
                 type="submit"
@@ -386,8 +386,13 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
           </div>
 
           {/* One reserved line for AI draft's messages, so one appearing never moves the field. */}
-          <p role="alert" className="min-h-4 text-xs leading-4 text-destructive">
-            {aiNote}
+          <p
+            role="alert"
+            className={`min-h-4 text-xs leading-4 ${
+              aiNote?.tone === 'info' ? 'text-muted-foreground' : 'text-destructive'
+            }`}
+          >
+            {aiNote?.text}
           </p>
 
           {files.length > 0 && (

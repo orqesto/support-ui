@@ -13,7 +13,7 @@ import { replyTemplatesService, type ReplyTemplate } from '@/services/replyTempl
 import { RecipientFields, replyToLabel, type RecipientDraft } from './RecipientFields';
 import type { AiDraft } from '@/services/message.service';
 import type { Message } from '@/types';
-import { COMPOSER_TOOL, LABEL } from './messageDetailConstants';
+import { COMPOSER_TOOL, LABEL, SEND_SHORTCUT } from './messageDetailConstants';
 import { useIsPhone } from './useIsPhone';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
@@ -577,7 +577,7 @@ export function MessageComposer({
           )}
           <span className={`flex-1 ${atRest ? 'hidden' : ''}`} />
           <span className="font-mono text-[10.5px] text-muted-foreground hidden sm:inline">
-            ⌘↵ {composerMode === 'note' ? 'post' : 'send'}
+            {SEND_SHORTCUT} {composerMode === 'note' ? 'post' : 'send'}
           </span>
           <Button
             variant="ghost"
