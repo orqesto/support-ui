@@ -200,8 +200,8 @@ export const ScimEventLedgerCard = ({
             <div className="flex gap-2 items-start">
               <ShieldAlert className="mt-0.5 w-4 h-4 shrink-0" />
               <span className="text-sm">
-                <strong>No active alliance admin.</strong> The identity provider deprovisioned the
-                last admin, so no one can administer this alliance until an admin is restored — add
+                <strong>No active organisation admin.</strong> The identity provider deprovisioned the
+                last admin, so no one can administer this organisation until an admin is restored — add
                 one to the mapped admin group in your IdP, or promote a member here.
               </span>
             </div>

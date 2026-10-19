@@ -526,7 +526,7 @@ export const capWarnings = (
   }
   if (poolMonthly !== undefined && poolMonthly > 0 && value > poolMonthly) {
     warnings.push(
-      `This is higher than its alliance pool's monthly limit (${poolMonthly.toLocaleString('en-US')}): the pool stops work first.`
+      `This is higher than its organisation pool's monthly limit (${poolMonthly.toLocaleString('en-US')}): the pool stops work first.`
     );
   }
   return warnings;

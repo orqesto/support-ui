@@ -227,7 +227,7 @@ describe('save warnings (spec §3): said, never blocking', () => {
   it('a workspace limit above its alliance pool is warned about', () => {
     section();
     type(/Regular work this workspace/, '40000000');
-    expect(text()).toContain("higher than its alliance pool's monthly limit (30,000,000)");
+    expect(text()).toContain("higher than its organisation pool's monthly limit (30,000,000)");
   });
 
   it('CONTROL: a limit between the two warns nothing; 0 (off) warns nothing', () => {

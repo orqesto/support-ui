@@ -47,7 +47,7 @@ const RULES: RuleSpec[] = [
   },
   {
     key: 'periodRecheckMinutes',
-    label: 'Re-check a monthly or alliance pause every',
+    label: 'Re-check a monthly or organisation pause every',
     unit: 'minutes',
     min: 5,
     max: 1440,

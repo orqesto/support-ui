@@ -15,6 +15,7 @@ import { NavTip, SidebarCollapseToggle, useSidebarShell } from '@/components/lay
 import { ConsoleLoading } from './ConsoleLoading';
 import { CONSOLE_SECTIONS, PLATFORM_SECTIONS, type ConsoleScopeCtx } from './consoleSections';
 import { AllianceSwitcher } from './AllianceSwitcher';
+import { organisationConsolePath } from '@/pages/organisationConsoleRoutes';
 
 type AdminShellProps = { scope?: AdminScope };
 
@@ -82,14 +83,14 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
               <p className="font-medium text-foreground">
                 {isPlatform
                   ? "You don't have platform access"
-                  : "You don't administer this alliance"}
+                  : "You don't administer this organisation"}
               </p>
               <p className="text-sm text-muted-foreground">
                 {isPlatform
                   ? 'The platform console requires a global administrator account.'
                   : invalidId
-                    ? 'This alliance link is invalid.'
-                    : 'Your account has no alliance-admin access to this alliance.'}
+                    ? 'This organisation link is invalid.'
+                    : 'Your account has no organisation-admin access to this organisation.'}
               </p>
             </div>
             <NavLink to="/dashboard">
@@ -104,7 +105,7 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
     );
   }
 
-  const basePath = isPlatform ? '/console/platform' : `/console/alliance/${allianceId}`;
+  const basePath = isPlatform ? '/console/platform' : organisationConsolePath(allianceId);
 
   return (
     <div className="flex overflow-hidden h-screen bg-background">
@@ -126,7 +127,7 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
                 <Network className="w-5 h-5 text-muted-foreground" />
               )}
               <span className="flex-1 font-semibold truncate text-foreground">
-                {isPlatform ? 'Platform Admin' : 'Alliance Admin'}
+                {isPlatform ? 'Platform Admin' : 'Organisation Admin'}
               </span>
             </>
           )}

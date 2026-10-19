@@ -97,7 +97,7 @@ export const AlliancePoolsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMi
   const save = useMutation({
     mutationFn: (allianceId: number) => managedAiUsageService.updateAlliancePool(allianceId, edit),
     onSuccess: async (outcome) => {
-      toastLimitSaved('Alliance pool saved', outcome);
+      toastLimitSaved('Organisation pool saved', outcome);
       await queryClient.invalidateQueries({ queryKey: ['platform-managed-ai-usage'] });
       close();
     },
@@ -113,7 +113,7 @@ export const AlliancePoolsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMi
     <div className="flex flex-col gap-2">
       {adding && (
         <Select
-          label="Alliance"
+          label="Organisation"
           options={withoutPool.map((alliance) => ({
             value: String(alliance.id),
             label: alliance.name,
@@ -159,7 +159,7 @@ export const AlliancePoolsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMi
       <CardContent className="flex flex-col gap-2 p-4">
         <div className="flex justify-between items-center">
           <span className="text-xs text-muted-foreground">
-            Alliance pools · the members’ spend summed, per day and per calendar month (UTC)
+            Organisation pools · the members’ spend summed, per day and per calendar month (UTC)
           </span>
           {!unreadable && !adding && editingId === null && withoutPool.length > 0 && (
             <Button
@@ -178,11 +178,13 @@ export const AlliancePoolsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMi
         </div>
         {unreadable ? (
           <span className="text-xs text-warning">
-            The stored alliance pools could not be read; which pools exist is unknown.
+            The stored organisation pools could not be read; which pools exist is unknown.
           </span>
         ) : (
           caps.alliances.length === 0 &&
-          !adding && <span className="text-sm text-muted-foreground">No alliance has a pool.</span>
+          !adding && (
+            <span className="text-sm text-muted-foreground">No organisation has a pool.</span>
+          )
         )}
         <ul className="flex flex-col gap-2">
           {caps.alliances.map((pool) => (
@@ -212,7 +214,8 @@ export const AlliancePoolsCard = ({ caps, kbMin }: { caps: TokenCapsTotals; kbMi
         {adding && editor}
         {/* Spec §4: membership is read live, so the spend moves with the workspace. */}
         <span className="text-xs text-muted-foreground">
-          A workspace that moves to another alliance mid-month takes its spend this month with it.
+          A workspace that moves to another organisation mid-month takes its spend this month with
+          it.
         </span>
       </CardContent>
     </Card>

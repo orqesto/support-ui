@@ -198,7 +198,7 @@ export const ConsoleAudit = () => {
     <div className="flex flex-col gap-6 h-full min-h-0">
       <ConsolePageHeader
         title="Audit log"
-        description="Every change across the workspaces in this alliance, newest first."
+        description="Every change across the workspaces in this organisation, newest first."
       />
 
       <Card className="flex overflow-hidden flex-col flex-1 min-h-0">
@@ -208,7 +208,7 @@ export const ConsoleAudit = () => {
             Events
           </CardTitle>
           <CardDescription>
-            Read-only. Events are scoped to the workspaces that belong to this alliance.
+            Read-only. Events are scoped to the workspaces that belong to this organisation.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col flex-1 gap-4 min-h-0">

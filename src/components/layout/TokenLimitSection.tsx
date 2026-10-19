@@ -28,7 +28,7 @@ export const describeReset = (
 const limitName = (alert: TokenLimitAlert, words: string): string => {
   const period = alert.period === 'month' ? 'monthly' : 'daily';
   return alert.scope === 'alliance'
-    ? `Alliance's shared ${period} AI pool for ${words}`
+    ? `Organisation's shared ${period} AI pool for ${words}`
     : `${period === 'monthly' ? 'Monthly' : 'Daily'} AI limit for ${words}`;
 };
 
@@ -123,7 +123,7 @@ export const TokenLimitSection = ({
         // Whose spend and over which period the figures are (wave 2b).
         const usedIn =
           alert.scope === 'alliance'
-            ? `used by the alliance ${alert.period === 'month' ? 'this month' : 'today'}`
+            ? `used by the organisation ${alert.period === 'month' ? 'this month' : 'today'}`
             : `used ${alert.period === 'month' ? 'this month' : 'today'}`;
         return (
           <div

@@ -18,7 +18,7 @@ type Override = { kbTokensPerMonth?: number; regularTokensPerMonth?: number };
 const SOURCE: Record<'workspace' | 'platform' | 'alliance', string> = {
   workspace: 'set for this workspace',
   platform: 'platform setting',
-  alliance: 'alliance pool',
+  alliance: 'organisation pool',
 };
 
 /**

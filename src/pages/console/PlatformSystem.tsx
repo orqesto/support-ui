@@ -108,7 +108,7 @@ const GlobalAdminMembershipsCard = () => {
         </CardTitle>
         <CardDescription>
           A platform administrator should belong only to the internal system workspace. A membership
-          in a customer workspace is invisible to the alliance admin derivation and to the seat
+          in a customer workspace is invisible to the organisation admin derivation and to the seat
           maths, and the same account cannot be provisioned by SCIM at all.
         </CardDescription>
       </CardHeader>

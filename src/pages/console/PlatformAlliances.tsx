@@ -20,6 +20,7 @@ import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsoleEmpty } from '@/components/console/ConsoleEmpty';
 import { useMyAlliances } from '@/hooks/useAllianceAdmin';
 import { useCreateAlliance } from '@/hooks/usePlatformAdmin';
+import { organisationConsolePath } from '@/pages/organisationConsoleRoutes';
 
 /**
  * Platform console → Alliances. Lists every alliance (for a global admin the
@@ -69,7 +70,7 @@ export const PlatformAlliances = () => {
       setCreateOpen(false);
       resetForm();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not create alliance');
+      toast.error(error instanceof Error ? error.message : 'Could not create organisation');
     }
   };
 
@@ -81,7 +82,7 @@ export const PlatformAlliances = () => {
     return (
       <Alert variant="danger">
         <div className="flex gap-3 justify-between items-center">
-          <span>Couldn&apos;t load alliances.</span>
+          <span>Couldn&apos;t load organisations.</span>
           <Button variant="secondary" onClick={() => void alliancesQuery.refetch()}>
             Retry
           </Button>
@@ -95,12 +96,12 @@ export const PlatformAlliances = () => {
   return (
     <div className="flex flex-col gap-4 h-full min-h-0">
       <ConsolePageHeader
-        title="Alliances"
-        description="Every alliance on the platform. Open one to manage its members, identity and workspaces."
+        title="Organisations"
+        description="Every organisation on the platform. Open one to manage its members, identity and workspaces."
         actions={
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="mr-2 w-4 h-4" />
-            Create alliance
+            Create organisation
           </Button>
         }
       />
@@ -109,7 +110,7 @@ export const PlatformAlliances = () => {
         <Card className="flex flex-col flex-1 min-h-0">
           <ConsoleEmpty
             icon={Network}
-            message="No alliances yet. Create one to group multiple workspaces under a single identity."
+            message="No organisations yet. Create one to group multiple workspaces under a single identity."
           />
         </Card>
       ) : (
@@ -131,7 +132,7 @@ export const PlatformAlliances = () => {
                   <td className="px-3 py-2 text-muted-foreground">{alliance.slug}</td>
                   <td className="px-3 py-2 text-muted-foreground">{alliance.orgCount}</td>
                   <td className="px-3 py-2 text-right">
-                    <Link to={`/console/alliance/${alliance.id}`}>
+                    <Link to={organisationConsolePath(alliance.id)}>
                       <Button variant="ghost" size="sm">
                         Manage
                         <ArrowRight className="ml-1 w-4 h-4" />
@@ -156,7 +157,7 @@ export const PlatformAlliances = () => {
         }}
       >
         <DialogHeader>
-          <DialogTitle>Create alliance</DialogTitle>
+          <DialogTitle>Create organisation</DialogTitle>
           <DialogClose onClose={() => setCreateOpen(false)} />
         </DialogHeader>
         <DialogContent>

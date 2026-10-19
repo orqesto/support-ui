@@ -2,6 +2,7 @@ import { Navigate } from 'react-router-dom';
 import { Spinner } from '@/components/ui/Spinner';
 import { Alert } from '@/components/ui/Alert';
 import { useMyAlliances } from '@/hooks/useAllianceAdmin';
+import { organisationConsolePath } from '@/pages/organisationConsoleRoutes';
 
 /**
  * `/console` entry resolver. The "Manage" nav link points here (the target
@@ -23,7 +24,7 @@ export const ConsolePage = () => {
   if (isError) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-background">
-        <Alert variant="danger">Couldn&apos;t load your alliances. Please try again.</Alert>
+        <Alert variant="danger">Couldn&apos;t load your organisations. Please try again.</Alert>
       </div>
     );
   }
@@ -32,5 +33,5 @@ export const ConsolePage = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  return <Navigate to={`/console/alliance/${alliances[0].id}`} replace />;
+  return <Navigate to={organisationConsolePath(alliances[0].id)} replace />;
 };

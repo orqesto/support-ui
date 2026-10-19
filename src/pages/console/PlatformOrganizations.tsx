@@ -143,7 +143,7 @@ export const PlatformOrganizations = () => {
 
   const allianceLabel = (org: OrgRow) =>
     typeof org.allianceId === 'number'
-      ? (allianceNameById.get(org.allianceId) ?? `Alliance #${org.allianceId}`)
+      ? (allianceNameById.get(org.allianceId) ?? `Organisation #${org.allianceId}`)
       : null;
 
   if (loading) {

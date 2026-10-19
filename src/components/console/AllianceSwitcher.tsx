@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { useMyAlliances } from '@/hooks/useAllianceAdmin';
+import { organisationConsolePath } from '@/pages/organisationConsoleRoutes';
 
 /**
  * Scope chip for the Alliance console (mirrors OrganizationSwitcher): a static
@@ -42,11 +43,11 @@ export const AllianceSwitcher = () => {
 
   return (
     <Select
-      aria-label="Alliance"
-      placeholder="Select alliance"
+      aria-label="Organisation"
+      placeholder="Select organisation"
       className="w-72"
       value={current ? String(current.id) : undefined}
-      onChange={(value) => navigate(`/console/alliance/${value}`)}
+      onChange={(value) => navigate(organisationConsolePath(value))}
       options={alliances.map((alliance) => ({
         value: String(alliance.id),
         // The control shows the name, as the old button did; the menu adds the workspace count the

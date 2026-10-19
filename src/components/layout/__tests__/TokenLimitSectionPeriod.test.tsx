@@ -57,9 +57,9 @@ describe('TokenLimitSection — per period and scope (wave 2b)', () => {
   it("an alliance pool's notice says the shared pool", () => {
     show(alert({ scope: 'alliance', period: 'day', resetsAt: '2026-10-13T00:00:00.000Z' }));
     expect(
-      screen.getByText("Alliance's shared daily AI pool for regular work reached")
+      screen.getByText("Organisation's shared daily AI pool for regular work reached")
     ).toBeTruthy();
-    expect(text()).toContain('used by the alliance today');
+    expect(text()).toContain('used by the organisation today');
   });
 
   it('a monthly notice from an earlier month is a record of that month', () => {

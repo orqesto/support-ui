@@ -152,7 +152,7 @@ export const organizationService = {
 
   getById: async (id: number) => {
     const response = await apiClient.get<ApiResponse<Organization>>(`/api/organizations/${id}`);
-    if (!response.data.data) throw new Error('Organization not found');
+    if (!response.data.data) throw new Error('Workspace not found');
     return response.data.data;
   },
 
@@ -182,7 +182,7 @@ export const organizationService = {
   getCurrent: async () => {
     const response = await apiClient.get<ApiResponse<Organization>>('/api/organizations/current');
     if (!response.data.data) {
-      throw new Error('Organization data not found');
+      throw new Error('Workspace data not found');
     }
     return response.data.data;
   },
@@ -217,7 +217,7 @@ export const organizationService = {
       data
     );
     if (!response.data.data) {
-      throw new Error('Organization data not found');
+      throw new Error('Workspace data not found');
     }
     return response.data.data;
   },
@@ -251,7 +251,7 @@ export const organizationService = {
       data
     );
     if (!response.data.data) {
-      throw new Error('Organization data not found');
+      throw new Error('Workspace data not found');
     }
     return response.data.data;
   },

@@ -73,7 +73,7 @@ export const ConsoleSettings = () => {
     return (
       <Alert variant="danger">
         <div className="flex gap-3 justify-between items-center">
-          <span>Couldn&apos;t load alliance settings.</span>
+          <span>Couldn&apos;t load organisation settings.</span>
           <Button variant="secondary" onClick={() => void settingsQuery.refetch()}>
             Retry
           </Button>
@@ -146,7 +146,7 @@ export const ConsoleSettings = () => {
     <div className="space-y-6">
       <ConsolePageHeader
         title="Settings"
-        description="Edit your alliance's name and URL slug, and manage destructive actions."
+        description="Edit your organisation's name and URL slug, and manage destructive actions."
       />
 
       {/* ─── General ─────────────────────────────────────────────────────── */}
@@ -157,13 +157,13 @@ export const ConsoleSettings = () => {
             General
           </CardTitle>
           <CardDescription>
-            The alliance name is shown across the console. The slug is unique and used in URLs.
+            The organisation name is shown across the console. The slug is unique and used in URLs.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1">
             <Input
-              label="Alliance name"
+              label="Organisation name"
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
@@ -214,8 +214,8 @@ export const ConsoleSettings = () => {
             Danger zone
           </CardTitle>
           <CardDescription>
-            Detach every workspace from this alliance. Each workspace keeps its own data and users, but
-            loses alliance-wide identity, groups and provisioning. This cannot be undone.
+            Detach every workspace from this organisation. Each workspace keeps its own data and users, but
+            loses organisation-wide identity, groups and provisioning. This cannot be undone.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -238,7 +238,7 @@ export const ConsoleSettings = () => {
             <div className="flex flex-wrap gap-3 justify-between items-center pt-4 mt-4 border-t border-destructive-line">
               <p className="text-sm text-muted-foreground">
                 Delete <strong>{settings.name}</strong> entirely. All workspaces are detached first
-                (they survive), then the alliance and its shared identity, groups and provisioning
+                (they survive), then the organisation and its shared identity, groups and provisioning
                 are removed.
               </p>
               <Button
@@ -248,7 +248,7 @@ export const ConsoleSettings = () => {
                 disabled={deleteAlliance.isPending}
               >
                 <Trash2 className="mr-2 w-4 h-4" />
-                Delete alliance
+                Delete organisation
               </Button>
             </div>
           )}
@@ -265,13 +265,13 @@ export const ConsoleSettings = () => {
             <span className="text-sm">
               This detaches <strong>every</strong> workspace from <strong>{settings.name}</strong> and
               cannot be undone. Members without a direct grant lose access across all of them — their open
-              tickets are reassigned and their sessions revoked. Type the alliance slug{' '}
+              tickets are reassigned and their sessions revoked. Type the organisation slug{' '}
               <code className="px-1 font-mono rounded bg-muted">{settings.slug}</code> to confirm.
             </span>
           </Alert>
           <div className="space-y-1">
             <Label htmlFor="detach-confirm-slug" className="mb-1">
-              Alliance slug
+              Organisation slug
             </Label>
             <Input
               id="detach-confirm-slug"
@@ -304,21 +304,21 @@ export const ConsoleSettings = () => {
           typed name matches the alliance name exactly. */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogHeader>
-          <DialogTitle>Delete this alliance?</DialogTitle>
+          <DialogTitle>Delete this organisation?</DialogTitle>
         </DialogHeader>
         <DialogContent className="space-y-3">
           <Alert variant="danger">
             <span className="text-sm">
               This permanently deletes <strong>{settings.name}</strong>. Every workspace is detached
               first — the workspaces, their data and their users all <strong>survive</strong> as
-              standalone workspaces — but the alliance and its shared identity (SSO), groups and
-              provisioning are removed. This cannot be undone. Type the alliance name{' '}
+              standalone workspaces — but the organisation and its shared identity (SSO), groups and
+              provisioning are removed. This cannot be undone. Type the organisation name{' '}
               <code className="px-1 font-mono rounded bg-muted">{settings.name}</code> to confirm.
             </span>
           </Alert>
           <div className="space-y-1">
             <Label htmlFor="delete-confirm-name" className="mb-1">
-              Alliance name
+              Organisation name
             </Label>
             <Input
               id="delete-confirm-name"
@@ -341,7 +341,7 @@ export const ConsoleSettings = () => {
             isLoading={deleteAlliance.isPending}
             disabled={!deleteNameMatches || deleteAlliance.isPending}
           >
-            Delete alliance
+            Delete organisation
           </Button>
         </DialogFooter>
       </Dialog>

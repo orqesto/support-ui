@@ -26,7 +26,7 @@ export const PERMISSION_CATALOG: PermissionGroup[] = [
     ],
   },
   {
-    category: 'Organization & Settings',
+    category: 'Workspace & Settings',
     permissions: [
       { permission: Permission.MANAGE_ORGANIZATION, label: 'Manage workspace settings' },
       { permission: Permission.VIEW_ORGANIZATION_SETTINGS, label: 'View workspace settings' },

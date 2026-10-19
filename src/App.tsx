@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AllianceConsoleRoute } from './components/auth/AllianceConsoleRoute';
 import { GlobalAdminRedirect } from './components/auth/GlobalAdminRedirect';
+import * as OrgConsole from './pages/organisationConsoleRoutes';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { FeatureGate } from './components/common/FeatureGate';
 import { useRolePermissionMatrix } from '@/hooks/useRolePermissionMatrix';
@@ -416,8 +417,12 @@ const AppRoutes = () => {
           MANAGE_INTEGRATIONS gate (src/pages/customApiRoutes.tsx). */}
       <Route path={CUSTOM_API_LOOKUP_ROUTE} element={<CustomApiLookupRoute />} />
       <Route path={CUSTOM_API_TEMPLATE_ROUTE} element={<CustomApiTemplateRoute />} />
+      <Route
+        path={OrgConsole.LEGACY_ROUTE}
+        element={<OrgConsole.LegacyAllianceConsoleRedirect />}
+      />
       {/* Alliance admin console (Phase 5). `/console` resolves the caller's first
-          administered alliance; `/console/alliance/:id` mounts the AdminShell
+          administered alliance; `/console/organisation/:id` mounts the AdminShell
           (own chrome) behind the alliance-admin route guard, with one child route
           per console section (sections drive both nav + routes). */}
       <Route
@@ -433,7 +438,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/console/alliance/:allianceId"
+        path={OrgConsole.ROUTE}
         element={
           <PrivateRoute>
             <AllianceConsoleRoute>

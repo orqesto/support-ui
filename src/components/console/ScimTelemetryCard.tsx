@@ -17,7 +17,7 @@ import { formatDate } from '@/lib/utils';
  * that mean "provisioning has stopped and nothing else on this page would tell you".
  */
 const CONNECTOR_COPY: Record<string, { label: string; warn: boolean; detail: string }> = {
-  disabled: { label: 'SCIM disabled', warn: false, detail: 'SCIM is off for this alliance.' },
+  disabled: { label: 'SCIM disabled', warn: false, detail: 'SCIM is off for this organisation.' },
   no_token: {
     label: 'No active token',
     warn: true,
@@ -53,7 +53,7 @@ export const ScimTelemetryCard = ({ telemetry }: { telemetry: AllianceScimTeleme
           Provisioning status
         </CardTitle>
         <CardDescription>
-          A read-only snapshot of this alliance&apos;s SCIM tokens, group mappings and last
+          A read-only snapshot of this organisation&apos;s SCIM tokens, group mappings and last
           activity.
         </CardDescription>
       </CardHeader>
@@ -130,8 +130,8 @@ export const ScimTelemetryCard = ({ telemetry }: { telemetry: AllianceScimTeleme
                   : ''}
                 .
               </strong>{' '}
-              Your IdP put them in a group here, but they had no membership in this alliance at the
-              time, so that group granted them nothing.
+              Your IdP put them in a group here, but they had no membership in this organisation at
+              the time, so that group granted them nothing.
             </p>
             {telemetry.skippedMembers?.emails.length ? (
               <p className="mt-1 text-sm break-words">
@@ -140,9 +140,9 @@ export const ScimTelemetryCard = ({ telemetry }: { telemetry: AllianceScimTeleme
             ) : null}
             <p className="mt-1 text-sm">
               <strong>Push the group again to fix it.</strong> Anyone who already belongs to one of
-              this alliance&apos;s workspaces is adopted automatically — they keep the roles they
-              hold. Only an account that belongs nowhere here has to be created by your IdP first,
-              which shows as &quot;Provisioning rejected&quot; in Activity.
+              this organisation&apos;s workspaces is adopted automatically — they keep the roles
+              they hold. Only an account that belongs nowhere here has to be created by your IdP
+              first, which shows as &quot;Provisioning rejected&quot; in Activity.
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               &quot;Re-apply mappings&quot; will not do this: it re-reads what is already stored and
@@ -171,8 +171,8 @@ export const ScimTelemetryCard = ({ telemetry }: { telemetry: AllianceScimTeleme
                 {telemetry.strandedMembers?.total} provisioned member
                 {telemetry.strandedMembers?.total === 1 ? '' : 's'} can reach nothing.
               </strong>{' '}
-              They exist here, but hold no access to any workspace in this alliance — they cannot
-              sign in, by SSO or otherwise.
+              They exist here, but hold no access to any workspace in this organisation — they
+              cannot sign in, by SSO or otherwise.
             </p>
             {telemetry.strandedMembers?.members.length ? (
               <ul className="mt-1 space-y-0.5 text-sm">

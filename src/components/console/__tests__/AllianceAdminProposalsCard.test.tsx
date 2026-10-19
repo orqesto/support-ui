@@ -69,15 +69,15 @@ describe('AllianceAdminProposalsCard', () => {
   it('does not grant on the first click either — it asks first', () => {
     proposals = [proposal()];
     renderCard();
-    fireEvent.click(screen.getByRole('button', { name: 'Make alliance admin' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Make organisation admin' }));
     expect(changeRoleMutate).not.toHaveBeenCalled();
-    expect(screen.getByText(/Make Mike Petro an alliance admin\?/)).toBeInTheDocument();
+    expect(screen.getByText(/Make Mike Petro an organisation admin\?/)).toBeInTheDocument();
   });
 
   it('spells out what the power carries before anyone confirms', () => {
     proposals = [proposal()];
     renderCard();
-    fireEvent.click(screen.getByRole('button', { name: 'Make alliance admin' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Make organisation admin' }));
     // The card's standing warning and the dialog both say it — the point is that the dialog
     // does, so the person clicking sees the scope at the moment of deciding.
     expect(screen.getAllByText(/SSO and SCIM configuration/).length).toBeGreaterThanOrEqual(2);
@@ -113,9 +113,9 @@ describe('AllianceAdminProposalsCard', () => {
   it('reports a refused promotion instead of closing the dialog in silence', () => {
     proposals = [proposal()];
     renderCard();
-    fireEvent.click(screen.getByRole('button', { name: 'Make alliance admin' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Make organisation admin' }));
     // The card's own button and the dialog's confirm carry the same label — confirm is last.
-    const buttons = screen.getAllByRole('button', { name: 'Make alliance admin' });
+    const buttons = screen.getAllByRole('button', { name: 'Make organisation admin' });
     fireEvent.click(buttons[buttons.length - 1]);
 
     const options = changeRoleMutate.mock.calls.at(-1)?.[1] as

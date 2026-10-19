@@ -248,7 +248,9 @@ export const GroupEditor = ({
         <div className="space-y-2">
           <Label htmlFor="group-workspace">Applies to workspace</Label>
           {orgs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">This alliance has no workspaces yet.</p>
+            <p className="text-sm text-muted-foreground">
+              This organisation has no workspaces yet.
+            </p>
           ) : (
             <div className="space-y-2.5">
               {/* One workspace per group — see `selectOrg`. Presentation only: the payload
@@ -291,9 +293,9 @@ export const GroupEditor = ({
           </Label>
           {members.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No alliance members yet — add them in the Members tab or let SCIM provision them. You
-              can still create this group now (name + role) and map an identity-provider group to
-              it; members are filled in automatically as they&apos;re provisioned.
+              No organisation members yet — add them in the Members tab or let SCIM provision them.
+              You can still create this group now (name + role) and map an identity-provider group
+              to it; members are filled in automatically as they&apos;re provisioned.
             </p>
           ) : (
             <>

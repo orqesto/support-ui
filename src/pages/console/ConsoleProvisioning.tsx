@@ -201,7 +201,7 @@ export const ConsoleProvisioning = () => {
     <div className="space-y-6">
       <ConsolePageHeader
         title="Provisioning"
-        description="Connect SCIM once for the whole alliance, then map your identity provider's groups to alliance groups and roles."
+        description="Connect SCIM once for the whole organisation, then map your identity provider's groups to organisation groups and roles."
       />
 
       {/* ─── SCIM connector ──────────────────────────────────────────────── */}
@@ -213,7 +213,7 @@ export const ConsoleProvisioning = () => {
           </CardTitle>
           <CardDescription>
             Point your identity provider (Okta, Entra, JumpCloud) at the SCIM Base URL below and
-            authenticate with a bearer token. The token scopes every push to this alliance.
+            authenticate with a bearer token. The token scopes every push to this organisation.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -223,7 +223,7 @@ export const ConsoleProvisioning = () => {
             checked={config?.enabled ?? false}
             disabled={saveConfig.isPending}
             onChange={(next) => saveConfig.mutate({ enabled: next })}
-            label="Enable SCIM provisioning for this alliance"
+            label="Enable SCIM provisioning for this organisation"
           />
 
           <div className="space-y-1">
@@ -347,11 +347,11 @@ export const ConsoleProvisioning = () => {
           <CardHeader>
             <CardTitle className="flex gap-2 items-center">
               <UserCog className="w-5 h-5 text-muted-foreground" />
-              IdP group → alliance role
+              IdP group → organisation role
             </CardTitle>
             <CardDescription>
-              Legacy mappings that still grant an alliance role to members of an IdP group. New ones
-              are no longer created here — the alliance power now follows from the workspaces a
+              Legacy mappings that still grant an organisation role to members of an IdP group. New ones
+              are no longer created here — the organisation power now follows from the workspaces a
               member administers, proposed above. Remove a mapping to retire it.
             </CardDescription>
           </CardHeader>
@@ -361,8 +361,8 @@ export const ConsoleProvisioning = () => {
                 <div className="flex gap-2 items-start">
                   <AlertTriangle className="mt-0.5 w-4 h-4 shrink-0" />
                   <span className="text-sm">
-                    A mapping below still grants <strong>alliance admin</strong> across{' '}
-                    <strong>all workspaces in this alliance</strong> on every SCIM sync. Nothing
+                    A mapping below still grants <strong>organisation admin</strong> across{' '}
+                    <strong>all workspaces in this organisation</strong> on every SCIM sync. Nothing
                     creates these any more — remove it once its members are confirmed from the
                     proposals above.
                   </span>
@@ -384,13 +384,13 @@ export const ConsoleProvisioning = () => {
                       <Input readOnly value={mapping.idpGroupExternalId} className="font-mono text-xs" />
                     </div>
                     <div className="flex-1 min-w-[12rem]">
-                      <Label className="mb-1">Alliance role</Label>
+                      <Label className="mb-1">Organisation role</Label>
                       {/* Read-out, not a control. The alliance power is derived from workspace
                           grants and confirmed in "Suggested alliance admins" — wiring an IdP group
                           straight to an alliance role is the layer that collapsed. Existing
                           mappings stay visible and removable so nothing grants invisibly. */}
                       <p className="py-2 text-sm font-medium text-foreground">
-                        {mapping.mappedRole === 'alliance_admin' ? 'Alliance admin' : 'Member'}
+                        {mapping.mappedRole === 'alliance_admin' ? 'Organisation admin' : 'Member'}
                       </p>
                     </div>
                     <Tooltip content={`Remove role mapping for ${mapping.idpGroupExternalId}`}>
@@ -415,8 +415,8 @@ export const ConsoleProvisioning = () => {
 
             {roleMaps.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                No IdP group is mapped to an alliance role. Nothing to retire here — alliance
-                admin now comes from <strong>Suggested alliance admins</strong> above.
+                No IdP group is mapped to an organisation role. Nothing to retire here — organisation
+                admin now comes from <strong>Suggested organisation admins</strong> above.
               </p>
             )}
           </CardContent>
@@ -471,8 +471,8 @@ export const ConsoleProvisioning = () => {
           confirm?.kind === 'token'
             ? 'Any IdP connection using this token will stop syncing immediately. This cannot be undone.'
             : confirm?.kind === 'rolemap'
-              ? 'Members of this IdP group will no longer be granted this alliance role on future syncs. Already-elevated members keep their role until deprovisioned or manually changed.'
-              : 'Members of this IdP group will no longer be added to the alliance group on future syncs.'
+              ? 'Members of this IdP group will no longer be granted this organisation role on future syncs. Already-elevated members keep their role until deprovisioned or manually changed.'
+              : 'Members of this IdP group will no longer be added to the organisation group on future syncs.'
         }
       />
     </div>

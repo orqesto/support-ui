@@ -192,7 +192,7 @@ export const CustomApiSettings = ({
             </Button>
           ) : (
             <p className="text-xs text-muted-foreground">
-              An organisation admin can connect one for your workspace.
+              A workspace admin can connect one for your workspace.
             </p>
           )}
         </Card>
