@@ -50,6 +50,7 @@ vi.mock('@/components/shared/RichTextEditor', () => ({
         onChange?: (html: string) => void;
         placeholder?: string;
         editable?: boolean;
+        locked?: boolean;
       },
       ref
     ) => {
@@ -58,7 +59,9 @@ vi.mock('@/components/shared/RichTextEditor', () => ({
         <textarea
           aria-label="Message"
           placeholder={props.placeholder}
-          readOnly={props.editable === false}
+          readOnly={props.editable === false || props.locked === true}
+          // A non-editable RichTextEditor drops its formatting row (the field shrinks); locked does not.
+          data-editable={String(props.editable !== false)}
           value={props.content ?? ''}
           onChange={(event) => props.onChange?.(event.target.value)}
         />
@@ -289,5 +292,16 @@ describe('Compose new — an AI draft in flight', () => {
     type('Message', '<p>hello</p>');
     fireEvent.click(aiDraft());
     await waitFor(() => expect(screen.getByRole('button', { name: 'Translate' })).toBeDisabled());
+  });
+});
+
+describe('Compose new — the field keeps its size while drafting', () => {
+  it('🔴 the editor is LOCKED, never made non-editable (that dropped its formatting row and the tools jumped)', async () => {
+    svc.composePolish.mockReturnValue(new Promise(() => undefined));
+    await renderModal();
+    type('Message', '<p>hello</p>');
+    fireEvent.click(aiDraft());
+    await waitFor(() => expect(screen.getByLabelText('Message')).toHaveAttribute('readonly'));
+    expect(screen.getByLabelText('Message')).toHaveAttribute('data-editable', 'true');
   });
 });
