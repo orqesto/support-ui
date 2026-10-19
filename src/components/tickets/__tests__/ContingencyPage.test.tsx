@@ -323,6 +323,14 @@ describe('contingency page', () => {
     expect(preview).toHaveBeenLastCalledWith(4, 'Hi {first_name}, held.', [11, 12]);
   });
 
+  it('an empty contingency (no threads yet) says how to start: no composer, Add threads', async () => {
+    ready([]);
+    renderTicket();
+    expect(await screen.findByText(/Add threads to link the reports/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Add threads/ })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Reply text')).toBeNull();
+  });
+
   it('every thread resolved: nothing to update, sending is off and the page says how to fix it', async () => {
     ready([thread(11, { status: 'resolved' }), thread(12, { status: 'closed' })]);
     renderTicket();

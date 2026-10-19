@@ -341,7 +341,10 @@ export type LoginResponse = {
 export type CreateTicketRequest = {
   title: string;
   description: string;
-  messageId: number;
+  /** The thread it is created from; omitted for a ticket with no thread yet (an empty contingency). */
+  messageId?: number;
+  /** Required without messageId: the department the ticket is filed in. */
+  departmentId?: number;
   priority?: TicketPriority;
   categoryId?: number;
   assigneeId?: number;

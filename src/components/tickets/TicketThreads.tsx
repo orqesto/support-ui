@@ -468,7 +468,10 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
           We could not read this ticket’s threads just now, so this list is not complete.
         </p>
       ) : threads.length === 0 && hiddenCount === 0 ? (
-        <p className="py-4 text-sm text-center text-muted-foreground">No linked threads.</p>
+        <p className="py-4 text-sm text-center text-muted-foreground">
+          No linked threads
+          {canManage ? ' yet — Add threads to link the reports this ticket explains.' : '.'}
+        </p>
       ) : (
         <ul className="space-y-2">
           {threads.map((row) => (

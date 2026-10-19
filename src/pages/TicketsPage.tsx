@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { TicketDetail } from '@/components/tickets/TicketDetail';
 import { TicketFilters } from '@/components/tickets/TicketFilters';
 import { TicketListItem } from '@/components/tickets/TicketListItem';
+import { NewTicketButton } from '@/components/tickets/NewTicketButton';
 import { TicketsKanbanView } from '@/components/tickets/TicketsKanbanView';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
@@ -472,6 +473,7 @@ export const TicketsPage = () => {
                     Sync to Jira
                   </Button>
                 )}
+                <NewTicketButton variant="outline" />
                 <Button onClick={handleRefresh} disabled={refreshing}>
                   <RefreshCw className={`mr-2 w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                   Refresh
@@ -526,7 +528,10 @@ export const TicketsPage = () => {
             <CardContent className="p-12 text-center">
               <Ticket className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
               <h3 className="font-display mb-2 text-lg font-semibold">No tickets found</h3>
-              <p className="text-muted-foreground">Create a ticket from unprocessed threads</p>
+              <p className="mb-4 text-muted-foreground">
+                Create one for a cause, or from a thread — and link the threads it explains.
+              </p>
+              <NewTicketButton />
             </CardContent>
           </Card>
         ) : (
