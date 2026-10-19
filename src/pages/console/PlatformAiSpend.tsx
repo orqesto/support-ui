@@ -459,8 +459,8 @@ export const PlatformAiSpend = () => {
             </div>
           )}
 
-          <Card className="flex overflow-hidden flex-col flex-1 min-h-0">
-            <CardContent padding="none" className="flex overflow-auto flex-col flex-1 min-h-0">
+          <Card className="flex overflow-hidden flex-col shrink-0">
+            <CardContent padding="none" className="flex overflow-x-auto flex-col">
               {orgCount === 0 ? (
                 <p className="flex flex-1 gap-2 justify-center items-center py-8 text-sm text-center text-muted-foreground">
                   <Coins className="w-4 h-4" />
