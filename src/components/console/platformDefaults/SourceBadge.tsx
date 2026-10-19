@@ -6,7 +6,11 @@ import type { FieldSource } from '@/services/platformSettings.service';
  * `db` = a console override, `env` = the droplet environment, `default` = the
  * built-in code fallback. UX signal only — the BE is authoritative.
  */
-const LABELS: Record<FieldSource, string> = { db: 'Console', env: 'Environment', default: 'Default' };
+const LABELS: Record<FieldSource, string> = {
+  db: 'Console',
+  env: 'Environment',
+  default: 'Default',
+};
 const VARIANTS: Record<FieldSource, 'success' | 'secondary'> = {
   db: 'success',
   env: 'secondary',
@@ -21,11 +25,18 @@ const VARIANTS: Record<FieldSource, 'success' | 'secondary'> = {
 export const SourceBadge = ({
   source,
   unsetLabel,
+  envLabel,
 }: {
   source: FieldSource;
   unsetLabel?: string;
+  /** Overrides "Environment" for settings whose env value is simply the server's own setting. */
+  envLabel?: string;
 }) => (
   <Badge variant={VARIANTS[source] ?? 'secondary'} size="sm">
-    {source === 'default' && unsetLabel ? unsetLabel : (LABELS[source] ?? source)}
+    {source === 'default' && unsetLabel
+      ? unsetLabel
+      : source === 'env' && envLabel
+        ? envLabel
+        : (LABELS[source] ?? source)}
   </Badge>
 );

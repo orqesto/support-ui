@@ -5,6 +5,7 @@ import { DefaultStorageCard } from '@/components/console/platformDefaults/Defaul
 import { ReasoningCard } from '@/components/console/platformDefaults/ReasoningCard';
 import { KbCaptureCard } from '@/components/console/platformDefaults/KbCaptureCard';
 import { CustomApiHealthCard } from '@/components/console/platformDefaults/CustomApiHealthCard';
+import { AnalysisHourlyCard } from '@/components/console/platformDefaults/AnalysisHourlyCard';
 import { IngestionCard } from '@/components/console/platformDefaults/IngestionCard';
 import { RoutingProposalsCard } from '@/components/console/platformDefaults/RoutingProposalsCard';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
@@ -45,6 +46,7 @@ export const PlatformDefaults = () => {
           <ReasoningCard reasoning={query.data.reasoning} />
           <KbCaptureCard kb={query.data.kb} />
           <CustomApiHealthCard customApi={query.data.customApi} />
+          <AnalysisHourlyCard analysisHourly={query.data.analysisHourly} />
           <IngestionCard ingestion={query.data.ingestion} />
           <RoutingProposalsCard routing={query.data.routing} />
         </div>
