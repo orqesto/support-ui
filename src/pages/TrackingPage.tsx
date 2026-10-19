@@ -931,7 +931,7 @@ export const TrackingPage = () => {
 
             {/* Conversation */}
             <section className="bg-card border border-border rounded-xl p-6">
-              <h2 className="font-display text-sm font-semibold mb-4">Conversation</h2>
+              <h2 className="font-display text-sm font-semibold mb-4">Thread</h2>
               <div className="space-y-4">
                 {events.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No messages yet.</p>
