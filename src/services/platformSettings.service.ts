@@ -179,6 +179,12 @@ export type IngestionSettings = {
   importRunBudgetMinutes?: BoundedField;
   attachmentsPerMinute?: BoundedField;
   kbMessagesPerMinute?: BoundedField;
+  /** Queue size (work units) at which new-mail checks pause — must stay >= importPauseAtUnits. */
+  livePollCeilingUnits?: BoundedField;
+  /** Queue size at which imports stop adding work. */
+  importPauseAtUnits?: BoundedField;
+  /** Queue size below which paused imports resume — must stay < importPauseAtUnits. */
+  importResumeAtUnits?: BoundedField;
 };
 /** PUT /settings/ingestion — a PARTIAL body: only the fields sent are saved (at least one). */
 export type PlatformIngestionInput = Partial<Record<keyof IngestionSettings, number>>;
@@ -428,6 +434,9 @@ export const INGESTION_FIELDS = [
   'importRunBudgetMinutes',
   'attachmentsPerMinute',
   'kbMessagesPerMinute',
+  'livePollCeilingUnits',
+  'importPauseAtUnits',
+  'importResumeAtUnits',
 ] as const;
 
 /**
