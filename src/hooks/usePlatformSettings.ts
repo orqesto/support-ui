@@ -7,6 +7,7 @@ import {
   type ManagedAiInput,
   type PlatformDatabaseInput,
   type PlatformCustomApiInput,
+  type PlatformAnalysisHourlyInput,
   type PlatformIngestionInput,
   type PlatformKbInput,
   type PlatformSecretKey,
@@ -95,6 +96,16 @@ export const useUpdatePlatformCustomApi = () => {
       platformSettingsService.updateCustomApiHealth(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
     onError: (error: unknown) => toast.failure('save the custom API health setting', error),
+  });
+};
+
+export const useUpdatePlatformAnalysisHourly = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PlatformAnalysisHourlyInput) =>
+      platformSettingsService.updateAnalysisHourly(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onError: (error: unknown) => toast.failure('save the hourly AI call limit', error),
   });
 };
 

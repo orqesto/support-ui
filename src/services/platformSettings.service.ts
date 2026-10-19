@@ -153,6 +153,24 @@ export type PlatformSettings = {
    * the card shows what is there and says so about the rest.
    */
   ingestion?: IngestionSettings;
+  /**
+   * Hourly AI call limit of managed workspaces and the share kept for live mail
+   * (`analysisHourly`, 2026-10-19). Absent on a backend that predates it — the card then says so.
+   */
+  analysisHourly?: AnalysisHourlySettings;
+};
+
+export type AnalysisHourlySettings = {
+  callsPerHour: BoundedField;
+  /** `saved`: present only when the stored value was clamped to fit — the value the console saved. */
+  liveReserveCallsPerHour: BoundedField & { saved?: number };
+  /** limit − reserve, as the server computes it (the card recomputes it from its inputs). */
+  kbCallsPerHour?: number;
+};
+/** PUT /settings/analysis-hourly — a non-empty subset; the server refuses reserve ≥ limit. */
+export type PlatformAnalysisHourlyInput = {
+  callsPerHour?: number;
+  liveReserveCallsPerHour?: number;
 };
 
 /** A setting with its bounds, as `describeImportRunBudget` / `describeIngestionQueueRates` answer. */
@@ -267,6 +285,7 @@ type RawPlatformSettings = {
   customApi?: unknown;
   routing?: unknown;
   ingestion?: unknown;
+  analysisHourly?: unknown;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -425,6 +444,25 @@ export const normalizeIngestion = (raw: unknown): IngestionSettings | undefined 
   return Object.keys(kept).length > 0 ? kept : undefined;
 };
 
+/** Both fields as whole numbers with whole bounds, or undefined ("this backend lacks it"). */
+export const normalizeAnalysisHourly = (raw: unknown): AnalysisHourlySettings | undefined => {
+  if (!isRecord(raw)) return undefined;
+  const callsPerHour = readBounded(raw.callsPerHour);
+  const reserve = readBounded(raw.liveReserveCallsPerHour);
+  if (!callsPerHour || !reserve) return undefined;
+  const saved = isRecord(raw.liveReserveCallsPerHour)
+    ? raw.liveReserveCallsPerHour.saved
+    : undefined;
+  return {
+    callsPerHour,
+    liveReserveCallsPerHour: {
+      ...reserve,
+      ...(typeof saved === 'number' && Number.isInteger(saved) ? { saved } : {}),
+    },
+    ...(typeof raw.kbCallsPerHour === 'number' ? { kbCallsPerHour: raw.kbCallsPerHour } : {}),
+  };
+};
+
 const UNSET_SECRET: SecretStatus = { configured: false, source: 'none', last4: null };
 
 const field = <T>(raw: ResolvedField<T> | undefined): ResolvedField<T> =>
@@ -524,6 +562,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
   const customApi = normalizeCustomApi(raw.customApi);
   const routing = normalizeRouting(raw.routing);
   const ingestion = normalizeIngestion(raw.ingestion);
+  const analysisHourly = normalizeAnalysisHourly(raw.analysisHourly);
   const provider = field(raw.ai.provider);
   const effectiveProvider = provider.value ?? 'openai';
   return {
@@ -576,6 +615,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
     ...(customApi ? { customApi } : {}),
     ...(routing ? { routing } : {}),
     ...(ingestion ? { ingestion } : {}),
+    ...(analysisHourly ? { analysisHourly } : {}),
   };
 };
 
@@ -639,6 +679,11 @@ export const platformSettingsService = {
   /** PUT the custom API health thresholds (`custom_api.health`, 2026-10-14). */
   updateCustomApiHealth: async (input: PlatformCustomApiInput): Promise<void> => {
     await apiClient.put(`${BASE}/custom-api`, input);
+  },
+
+  /** PUT the hourly AI call limit / live reserve: a non-empty subset (`analysis-hourly`). */
+  updateAnalysisHourly: async (input: PlatformAnalysisHourlyInput): Promise<void> => {
+    await apiClient.put(`${BASE}/analysis-hourly`, input);
   },
 
   /** PUT the mail-import limits (`ingestion.*`): a partial body, only the fields sent are saved. */
