@@ -13,14 +13,17 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/Dialog';
+import { usePermissions } from '@/hooks/usePermissions';
 import { ticketService } from '@/services/ticket.service';
 import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Ticket } from '@/types';
+import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
 
 export const TicketDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const clearCache = useTicketsStore((state) => state.clearCache);
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
@@ -130,7 +133,8 @@ export const TicketDetailPage = () => {
             <TicketDetail
               key={ticket.id}
               ticket={ticket}
-              onDelete={handleDeleteClick}
+              // Deleting needs MANAGE_TICKETS (the route refuses others): an associate gets no button.
+              onDelete={hasPermission(Permission.MANAGE_TICKETS) ? handleDeleteClick : undefined}
               onRefresh={refreshTicket}
             />
           </div>

@@ -45,8 +45,9 @@ vi.mock('@/services/category.service', () => ({
 vi.mock('@/services/message.service', () => ({
   messageService: { getAll: () => Promise.resolve({ data: [] }) },
 }));
+const perms = { manage: true };
 vi.mock('@/hooks/usePermissions', () => ({
-  usePermissions: () => ({ hasPermission: () => true }),
+  usePermissions: () => ({ hasPermission: () => perms.manage }),
 }));
 vi.mock('@/lib/logger', () => ({ logger: { error: () => {}, info: () => {} } }));
 vi.mock('@/components/layout/Layout', () => ({
@@ -79,6 +80,7 @@ const rename = async (title: string) => {
 
 describe('TicketDetailPage — rename', () => {
   beforeEach(() => {
+    perms.manage = true;
     server.ticket = { ...server.ticket, title: 'Parcel stuck' };
     update.mockImplementation((_id, patch) => {
       server.ticket = { ...server.ticket, ...patch };
@@ -121,5 +123,17 @@ describe('TicketDetailPage — rename', () => {
       expect(screen.getByRole('heading', { name: 'Parcel stuck' })).toBeInTheDocument()
     );
     expect(screen.queryByRole('heading', { name: 'Parcel stuck — carrier delay' })).toBeNull();
+  });
+
+  it('Delete is offered only to a role that may delete (MANAGE_TICKETS)', async () => {
+    renderPage();
+    expect(await screen.findByRole('button', { name: 'Delete' })).toBeInTheDocument();
+    cleanup();
+
+    // An associate (staging 2026-10-19: saw Delete, which the server refuses).
+    perms.manage = false;
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Parcel stuck' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
   });
 });
