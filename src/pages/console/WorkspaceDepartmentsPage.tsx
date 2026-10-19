@@ -99,7 +99,7 @@ export const WorkspaceDepartmentsPage = () => {
         const moved = next.result.counts;
         toast.success(
           `Merged “${deactivateFor.name}” — moved ${moved.messageSources} source(s), ` +
-            `${moved.userMemberships} member(s), ${moved.conversations} conversation(s)${kbTail}`
+            `${moved.userMemberships} member(s), ${moved.conversations} thread(s)${kbTail}`
         );
       } else {
         toast.success(`Deactivated “${deactivateFor.name}”${kbTail}`);
