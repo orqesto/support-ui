@@ -333,7 +333,7 @@ export const SystemManagementSettings = () => {
             </div>
             <Button variant="destructive" size="sm" onClick={handleDeleteMessages} className="ml-4">
               <Trash2 className="mr-1 w-4 h-4" />
-              Delete Messages
+              Delete Threads
             </Button>
           </div>
 

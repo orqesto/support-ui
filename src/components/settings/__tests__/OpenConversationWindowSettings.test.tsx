@@ -59,7 +59,7 @@ import { apiError } from '@/test/apiError';
 
 const daysInput = () => screen.getByLabelText('Days');
 const presetSelect = () => screen.getByLabelText('Window');
-const offSwitch = () => screen.getByRole('switch', { name: 'Use an open-conversation window' });
+const offSwitch = () => screen.getByRole('switch', { name: 'Use an open-thread window' });
 const saveButton = () => screen.getByRole('button', { name: /save/i });
 const chooseCustom = () => chooseOption(presetSelect(), 'Custom');
 /** The option the Window select shows as chosen (its visible value, menu closed). */
@@ -227,7 +227,7 @@ describe('OpenConversationWindowSettings', () => {
     render(<OpenConversationWindowSettings />);
 
     expect(
-      await screen.findByText(/Couldn't load the open-conversation window/)
+      await screen.findByText(/Couldn't load the open-thread window/)
     ).toBeInTheDocument();
     expect(screen.queryByLabelText('Window')).not.toBeInTheDocument();
   });

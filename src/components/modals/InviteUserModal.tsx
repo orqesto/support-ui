@@ -275,7 +275,7 @@ export const InviteUserModal = ({
           <p className="-mt-2 text-sm text-muted-foreground">
             {isAdmin
               ? 'Select the role for this user in the workspace'
-              : 'Org admins cannot invite other org admins'}
+              : 'Workspace admins cannot invite other workspace admins'}
           </p>
 
           {/* Departments. org_admin is auto-linked to every department (BE fans out),

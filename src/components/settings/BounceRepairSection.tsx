@@ -222,7 +222,7 @@ const FusedRow = ({ row }: { row: BounceRepairResult['fused']['conversations'][n
         open={confirming}
         onOpenChange={setConfirming}
         title={`Split ${label(row)}?`}
-        description="Each customer's messages, and the replies addressed only to them, move to a thread of their own. Labels, tickets, the assignee and the number stay with the original. The split runs its own check when it starts, so if the conversation changed since this check the numbers can differ."
+        description="Each customer's messages, and the replies addressed only to them, move to a thread of their own. Labels, tickets, the assignee and the number stay with the original. The split runs its own check when it starts, so if the thread changed since this check the numbers can differ."
         confirmText="Split"
         onConfirm={() => {
           if (busy === null) void apply();

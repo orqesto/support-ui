@@ -106,7 +106,7 @@ export const OpenConversationWindowSettings = () => {
         if (isRouteMissing(err)) setUnavailable(true);
         else {
           logger.error('Failed to load the open-conversation window', err);
-          setLoadError(formatError('load the open-conversation window', err));
+          setLoadError(formatError('load the open-thread window', err));
         }
       })
       .finally(() => setLoading(false));
@@ -150,7 +150,7 @@ export const OpenConversationWindowSettings = () => {
           'This server does not accept turning the window off. Nothing was changed — reload the page to see what it supports.'
         );
       } else {
-        setError(formatError('save the open-conversation window', err));
+        setError(formatError('save the open-thread window', err));
       }
     } finally {
       setSaving(false);
@@ -163,8 +163,8 @@ export const OpenConversationWindowSettings = () => {
   if (unavailable) {
     return (
       <Alert variant="info">
-        The open-conversation window is not available on this deployment yet. It arrives with the
-        next backend release.
+        The open-thread window is not available on this deployment yet. It arrives with the next
+        backend release.
       </Alert>
     );
   }
@@ -203,16 +203,16 @@ export const OpenConversationWindowSettings = () => {
             <li>a new thread started by it arrives resolved, not open;</li>
             <li>a customer message does not reopen a resolved thread;</li>
             <li>
-              a reply of yours imported from the Sent folder does not reopen a thread or mark
-              it as waiting on the customer;
+              a reply of yours imported from the Sent folder does not reopen a thread or mark it as
+              waiting on the customer;
             </li>
             <li>no acknowledgment email is sent for it.</li>
           </ul>
           <p>
             A customer message dated {enabled ? 'inside the window' : `in the last ${liveSpan}`}{' '}
-            reopens a resolved thread as usual, unless the thread&apos;s latest message
-            was judged spam. Changing this applies to email that arrives from now on; threads
-            already in your inbox keep their status.
+            reopens a resolved thread as usual, unless the thread&apos;s latest message was judged
+            spam. Changing this applies to email that arrives from now on; threads already in your
+            inbox keep their status.
           </p>
         </div>
 
@@ -221,7 +221,7 @@ export const OpenConversationWindowSettings = () => {
             {/* The switch's accessible name is its label, so it names the setting, not "On". */}
             <Toggle
               checked={enabled}
-              label="Use an open-conversation window"
+              label="Use an open-thread window"
               disabled={saving}
               onChange={(next) => {
                 setEnabled(next);
