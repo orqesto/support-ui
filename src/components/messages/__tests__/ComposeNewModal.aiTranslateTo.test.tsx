@@ -50,6 +50,7 @@ vi.mock('@/components/shared/RichTextEditor', () => ({
         onChange?: (html: string) => void;
         placeholder?: string;
         editable?: boolean;
+        onSubmit?: () => void;
         locked?: boolean;
       },
       ref
@@ -64,6 +65,10 @@ vi.mock('@/components/shared/RichTextEditor', () => ({
           data-editable={String(props.editable !== false)}
           value={props.content ?? ''}
           onChange={(event) => props.onChange?.(event.target.value)}
+          // ⌘↵ / Ctrl+↵, as RichTextEditor's keydown handler does.
+          onKeyDown={(event) => {
+            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') props.onSubmit?.();
+          }}
         />
       );
     }
@@ -149,9 +154,12 @@ describe('Compose new — AI draft', () => {
     await renderModal();
     type('Message', '<p>hello</p>');
     fireEvent.click(aiDraft());
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'isn’t available on this server yet'
+    // The note line is always present (empty): wait for its TEXT, not for the element.
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('isn’t available on this server yet')
     );
+    // A state, not a failure: grey, not red.
+    expect(screen.getByRole('alert')).toHaveClass('text-muted-foreground');
     expect(aiDraft()).toBeEnabled();
     expect(screen.getByLabelText('Message')).toHaveValue('<p>hello</p>');
     // Once the backend has the route, the same button works.
@@ -209,7 +217,8 @@ describe('Compose new — Translate', () => {
   });
 
   it('🔴 no jumping: Undo keeps its slot while there is nothing to undo', async () => {
-    svc.composePolish.mockResolvedValue({ success: true, data: { text: 'Hello.' } });
+    let land: (value: unknown) => void = () => undefined;
+    svc.composePolish.mockReturnValue(new Promise((resolve) => (land = resolve)));
     await renderModal();
     const tools = screen.getByTestId('compose-tools');
     const before = tools.querySelectorAll('button').length;
@@ -217,11 +226,18 @@ describe('Compose new — Translate', () => {
     expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
     type('Message', '<p>hello</p>');
     fireEvent.click(aiDraft());
+    // The label does not change WHILE drafting (it used to become "Loading…").
+    await waitFor(() => expect(aiDraft()).toHaveAttribute('aria-busy', 'true'));
+    expect(aiDraft()).toHaveTextContent('AI draft');
+    land({ success: true, data: { text: 'Hello.' } });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Undo' })).toBeEnabled());
     // …and taking a draft adds no element to the row, so nothing beside it moves.
     expect(tools.querySelectorAll('button').length).toBe(before);
-    // The label does not change while drafting either.
-    expect(aiDraft()).toHaveTextContent('AI draft');
+    // Undo renders in its slot right after Translate, not inline beside AI draft.
+    const undo = screen.getByRole('button', { name: 'Undo' });
+    expect(undo.parentElement?.previousElementSibling).toBe(
+      screen.getByRole('button', { name: 'Translate' })
+    );
   });
 });
 
@@ -303,5 +319,42 @@ describe('Compose new — the field keeps its size while drafting', () => {
     fireEvent.click(aiDraft());
     await waitFor(() => expect(screen.getByLabelText('Message')).toHaveAttribute('readonly'));
     expect(screen.getByLabelText('Message')).toHaveAttribute('data-editable', 'true');
+  });
+});
+
+describe('Compose new — ⌘↵ / Ctrl+↵', () => {
+  const fill = () => {
+    type('To', 'one@example.com');
+    type('Subject', 'Hello');
+    type('Message', '<p>Hi</p>');
+  };
+  const pressSend = () =>
+    fireEvent.keyDown(screen.getByLabelText('Message'), { key: 'Enter', ctrlKey: true });
+
+  it('sends from the editor', async () => {
+    await renderModal();
+    fill();
+    pressSend();
+    await waitFor(() => expect(svc.composeNew).toHaveBeenCalledTimes(1));
+  });
+
+  it('does nothing while an AI draft is being written', async () => {
+    svc.composePolish.mockReturnValue(new Promise(() => undefined));
+    await renderModal();
+    fill();
+    fireEvent.click(aiDraft());
+    await waitFor(() => expect(aiDraft()).toHaveAttribute('aria-busy', 'true'));
+    pressSend();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(svc.composeNew).not.toHaveBeenCalled();
+  });
+
+  it('a real failure stays red', async () => {
+    svc.composePolish.mockRejectedValue({ response: { status: 500, data: { error: 'boom' } } });
+    await renderModal();
+    type('Message', '<p>hello</p>');
+    fireEvent.click(aiDraft());
+    await waitFor(() => expect(screen.getByRole('alert')).not.toBeEmptyDOMElement());
+    expect(screen.getByRole('alert')).toHaveClass('text-destructive');
   });
 });

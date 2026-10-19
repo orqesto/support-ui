@@ -315,7 +315,13 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
         )}
       >
         {editable && (
-          <div className="border-b bg-muted/50 p-2 flex flex-wrap gap-1">
+          // A fieldset so `locked` disables every button in the row: setEditable(false) stops
+          // typing but not TipTap commands, so Bold or a list still changed the text while an AI
+          // draft or a send was in flight (review of #641) — and the draft was then thrown away.
+          <fieldset
+            disabled={locked}
+            className="m-0 min-w-0 border-0 border-b bg-muted/50 p-2 flex flex-wrap gap-1"
+          >
             <Button
               type="button"
               variant="ghost"
@@ -459,7 +465,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
                 </Button>
               </>
             )}
-          </div>
+          </fieldset>
         )}
 
         {linkInputOpen && (

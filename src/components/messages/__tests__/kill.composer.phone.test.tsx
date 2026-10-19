@@ -49,7 +49,7 @@ const openIt = () => {
   expect(phoneState()).toBe('open');
 };
 /** The flex spacer: the span right before the "⌘↵ send" hint. */
-const spacer = () => within(tools()).getByText(/⌘↵/).previousElementSibling as HTMLElement;
+const spacer = () => within(tools()).getByText(/(⌘|Ctrl\+)↵/).previousElementSibling as HTMLElement;
 
 describe('phone toolbar and Send classes', () => {
   it('open: tool buttons are 36px, tools wrap 6px apart, Send is tool-sized', () => {
