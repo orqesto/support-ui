@@ -26,7 +26,7 @@ const messageOf = (error: unknown, fallback: string): string =>
 const countsSummary = (row: WorkspaceDepartmentRow): string =>
   `${row.counts.messageSources} source${row.counts.messageSources === 1 ? '' : 's'} · ` +
   `${row.counts.users} member${row.counts.users === 1 ? '' : 's'} · ` +
-  `${row.counts.totalConversations} conversation${row.counts.totalConversations === 1 ? '' : 's'}`;
+  `${row.counts.totalConversations} thread${row.counts.totalConversations === 1 ? '' : 's'}`;
 
 /**
  * Platform-console (global-admin) view for a workspace's plan-budgeted departments

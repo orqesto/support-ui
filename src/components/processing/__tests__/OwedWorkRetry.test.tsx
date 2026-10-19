@@ -68,7 +68,7 @@ describe('Retry', () => {
     const plan = await startRetry();
     expect(calls).toEqual(['owed:7:run-1', 'retry:true']);
     expect(within(plan).getByTestId('retry-embedding')).toHaveTextContent(
-      /^Search index: 1 conversation will be retried$/
+      /^Search index: 1 thread will be retried$/
     );
     expect(within(plan).queryByText(/late automatic reply/)).toBeNull();
     owedAnswer = () =>
@@ -76,7 +76,7 @@ describe('Retry', () => {
     fireEvent.click(screen.getByRole('button', { name: /Confirm retry/ }));
     const done = await screen.findByTestId('retry-done');
     expect(within(done).getByTestId('retry-embedding')).toHaveTextContent(
-      /^Search index: 1 conversation retried$/
+      /^Search index: 1 thread retried$/
     );
     await waitFor(() =>
       expect(calls).toEqual(['owed:7:run-1', 'retry:true', 'retry:false', 'owed:7:run-1'])
@@ -98,7 +98,7 @@ describe('Retry', () => {
       /^Checked: 4 messages will be handled \(moved, restored or queued to be checked\)$/
     );
     expect(within(plan).getByTestId('retry-kb')).toHaveTextContent(
-      /^Knowledge base: 2 conversations will be retried$/
+      /^Knowledge base: 2 threads will be retried$/
     );
     expect(within(plan).getByText(/a customer may get a late automatic reply/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Confirm retry/ }));
@@ -318,7 +318,7 @@ describe('Retry', () => {
     await startRetry();
     fireEvent.click(await screen.findByRole('button', { name: /Confirm retry/ }));
     const done = await screen.findByTestId('retry-done');
-    expect(within(done).getByTestId('retry-embedding')).toHaveTextContent('1 conversation retried');
+    expect(within(done).getByTestId('retry-embedding')).toHaveTextContent('1 thread retried');
     expect(within(done).getByTestId('retry-failed')).toHaveTextContent(
       'Retry stopped: queue full. What finished before the error was kept.'
     );

@@ -482,7 +482,7 @@ export const KnowledgeBasePage = () => {
         <div className="mb-6">
           <PageHeader
             title="Knowledge Base"
-            description="Review and manage automatically extracted knowledge from your messages"
+            description="Review and manage automatically extracted knowledge from your threads"
           />
           {canReview && (
             <div className="flex flex-wrap gap-2 mt-2">
@@ -517,7 +517,7 @@ export const KnowledgeBasePage = () => {
                 id: 'qa_pair' as const,
                 label: 'Q&A Pairs',
                 icon: MessageSquare,
-                description: 'Questions and answers extracted from messages',
+                description: 'Questions and answers extracted from threads',
               },
               {
                 id: 'document' as const,

@@ -151,14 +151,14 @@ describe('the bell renders work alerts (#957 §3.7)', () => {
     workAlerts = [assigned, unassigned];
     open();
     expect(screen.getByText('Assigned to you by Anna Agent — Refund')).toBeTruthy();
-    expect(screen.getByText('New unassigned message in Support — Order')).toBeTruthy();
+    expect(screen.getByText('New unassigned thread in Support — Order')).toBeTruthy();
   });
 
-  it('clicking an entry opens the conversation and marks it read', () => {
+  it('clicking an entry opens the thread and marks it read', () => {
     workAlerts = [assigned];
     open();
     fireEvent.click(screen.getByText('Assigned to you by Anna Agent — Refund'));
-    expect(screen.getByTestId('loc').textContent).toBe('/messages/50');
+    expect(screen.getByTestId('loc').textContent).toBe('/threads/50');
     expect(openAlert).toHaveBeenCalledWith(assigned);
   });
 

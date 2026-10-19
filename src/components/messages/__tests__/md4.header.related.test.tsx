@@ -82,9 +82,9 @@ describe('H2 — the ticket chip and its Related popover', () => {
     expect(within(nine).getByText(/1 in departments you cannot open/)).toBeInTheDocument();
     // A link (staging's was): Cmd/Ctrl-click and "Open in new tab" work.
     const openThread = within(nine).getByRole('link', { name: 'Open TES-SUP-44' });
-    expect(openThread).toHaveAttribute('href', '/messages?id=TES-SUP-44');
+    expect(openThread).toHaveAttribute('href', '/threads?id=TES-SUP-44');
     fireEvent.click(openThread);
-    expect(screen.getByTestId('where').textContent).toBe('/messages?id=TES-SUP-44');
+    expect(screen.getByTestId('where').textContent).toBe('/threads?id=TES-SUP-44');
   });
 
   it('Open ticket goes where the bar’s View went', async () => {
@@ -218,7 +218,7 @@ describe('H2 — the ticket chip and its Related popover', () => {
       await screen.findByRole('button', { name: /Create a new ticket from this thread/ })
     );
     expect(onApprove).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('where').textContent).toBe('/messages/1');
+    expect(screen.getByTestId('where').textContent).toBe('/threads/1');
     expect(screen.queryByRole('button', { name: /Create a new/ })).toBeNull();
   });
 

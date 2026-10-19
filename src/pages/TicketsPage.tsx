@@ -526,7 +526,7 @@ export const TicketsPage = () => {
             <CardContent className="p-12 text-center">
               <Ticket className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
               <h3 className="font-display mb-2 text-lg font-semibold">No tickets found</h3>
-              <p className="text-muted-foreground">Create a ticket from unprocessed messages</p>
+              <p className="text-muted-foreground">Create a ticket from unprocessed threads</p>
             </CardContent>
           </Card>
         ) : (

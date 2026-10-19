@@ -25,7 +25,7 @@ export const WhyParked = ({ conversationId }: { conversationId: number | string 
   if (data.verdict === 'nothing_scored') {
     return (
       <p data-testid="why-parked" className="min-w-0 text-xs text-muted-foreground">
-        No routing rule came close to this message — routing it by hand will not help the next one.
+        No routing rule came close to this thread — routing it by hand will not help the next one.
         Consider creating a rule from it.
       </p>
     );

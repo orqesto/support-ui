@@ -19,7 +19,7 @@ import { BulkConfirmDialog } from '../BulkConfirmDialog';
 import { networkError } from '@/test/apiError';
 import { listOptions } from '@/test/chooseOption';
 
-const EMPTY = /No one in this workspace can be assigned conversations/;
+const EMPTY = /No one in this workspace can be assigned threads/;
 const FAILED = /Could not load the people you can assign/;
 
 const renderAssign = () =>

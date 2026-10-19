@@ -237,7 +237,7 @@ export const MessageListItem = ({
       <Checkbox
         checked={selected === true}
         // The address is on the THREAD row (what the row shows); latestMessage has no sender.
-        aria-label={`Select message from ${thread.sender || msg.sender}`}
+        aria-label={`Select thread from ${thread.sender || msg.sender}`}
         onChange={(event) =>
           isRangeClick(event.nativeEvent)
             ? onToggleSelected(selectableId, { range: true })
@@ -431,11 +431,11 @@ export const MessageListItem = ({
       type="button"
       variant="ghost"
       className="font-mono shrink-0 inline-flex items-center gap-1 p-0 h-auto text-[11px] text-muted-foreground/70 cursor-pointer hover:text-foreground hover:bg-transparent"
-      title={copied ? 'Copied!' : 'Copy link to this conversation'}
+      title={copied ? 'Copied!' : 'Copy link to this thread'}
       onClick={(event) => {
         event.stopPropagation();
         void navigator.clipboard
-          .writeText(`${window.location.origin}/messages?id=${getConvUrlId(msg, orgCode)}`)
+          .writeText(`${window.location.origin}/threads?id=${getConvUrlId(msg, orgCode)}`)
           .then(() => {
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);

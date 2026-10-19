@@ -236,7 +236,7 @@ export const KanbanCard = ({
       }}
       {...longPress}
       {...(selectableId !== null ? { [SELECT_ID_ATTRIBUTE]: selectableId } : {})}
-      aria-label={`Open message from ${customer}${msg.subject ? `: ${msg.subject}` : ''}`}
+      aria-label={`Open thread from ${customer}${msg.subject ? `: ${msg.subject}` : ''}`}
       className={cn(
         'relative w-full text-left rounded-md border bg-card pl-3.5 pr-3 py-2 shadow-sm hover:shadow-md hover:border-primary/40 transition-all space-y-1 overflow-hidden cursor-pointer',
         SELECT_GROUP_CLASS,
@@ -275,7 +275,7 @@ export const KanbanCard = ({
         >
           <Checkbox
             checked={selected === true}
-            aria-label={`Select message from ${customer}`}
+            aria-label={`Select thread from ${customer}`}
             onChange={(event) =>
               isRangeClick(event.nativeEvent)
                 ? onToggleSelected(selectableId, { range: true })
@@ -410,11 +410,11 @@ export const KanbanCard = ({
           type="button"
           variant="ghost"
           className="font-mono shrink-0 inline-flex items-center gap-1 p-0 h-auto text-[11px] text-muted-foreground/70 cursor-pointer hover:text-foreground"
-          title={copied ? 'Copied!' : 'Copy link to this conversation'}
+          title={copied ? 'Copied!' : 'Copy link to this thread'}
           onClick={(event) => {
             event.stopPropagation();
             void navigator.clipboard
-              .writeText(`${window.location.origin}/messages?id=${getConvUrlId(msg, orgCode)}`)
+              .writeText(`${window.location.origin}/threads?id=${getConvUrlId(msg, orgCode)}`)
               .then(() => {
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1500);

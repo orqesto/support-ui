@@ -57,7 +57,7 @@ describe('a paused KB mine closed without continuing', () => {
     expect(runStatus(run)).toBe('done');
   });
 
-  it('the run list says the mining did not continue, not "0 of 0 conversations"', () => {
+  it('the run list says the mining did not continue, not "0 of 0 threads"', () => {
     render(
       <MemoryRouter>
         <RecentRuns runs={[closing('kb_off')]} />
@@ -73,7 +73,7 @@ describe('a paused KB mine closed without continuing', () => {
     expect(list.textContent).not.toContain('Done');
   });
 
-  it('the run details say why, not "Read 0 of 0 conversations"', () => {
+  it('the run details say why, not "Read 0 of 0 threads"', () => {
     render(<RunDetails run={closing('no_kb_cutoff')} />);
     const details = screen.getByTestId('run-details');
     expect(details.textContent).toContain(
@@ -119,7 +119,7 @@ describe('a paused KB mine closed without continuing', () => {
     expect(screen.getByTestId('run-details').textContent).not.toMatch(/Took/);
   });
 
-  it('CONTROL: a real mine that read conversations IS timed', () => {
+  it('CONTROL: a real mine that read threads IS timed', () => {
     const mine = makeKbRun({
       ...closing(null),
       id: 'real-mine',
@@ -156,13 +156,13 @@ describe('a KB mine that ended on an error before reading anything', () => {
     );
     fireEvent.click(screen.getByText(/Recent checks/));
     const list = screen.getByTestId('recent-runs').textContent ?? '';
-    expect(list).toContain('KB mining · stopped on an error before reading any conversation');
+    expect(list).toContain('KB mining · stopped on an error before reading any thread');
     expect(list).not.toContain('0 of 0');
     expect(list).toContain('Error');
     cleanup();
     render(<RunDetails run={errored()} />);
     const details = screen.getByTestId('run-details').textContent ?? '';
-    expect(details).toContain('The mine stopped on an error before it read any conversation.');
+    expect(details).toContain('The mine stopped on an error before it read any thread.');
     expect(details).not.toMatch(/Read 0 of|Took|Paused|resume/);
   });
 
@@ -172,9 +172,9 @@ describe('a KB mine that ended on an error before reading anything', () => {
   });
 
   // Pass 17 follow-up, LOW: listed as an older problem it is worded as the list and details do.
-  it('as an older problem it also says "before it read any conversation"', () => {
+  it('as an older problem it also says "before it read any thread"', () => {
     expect(describeRunProblems(errored())).toBe(
-      'The mine stopped on an error before it read any conversation. Re-mine the mailbox to try again.'
+      'The mine stopped on an error before it read any thread. Re-mine the mailbox to try again.'
     );
   });
 
@@ -187,7 +187,7 @@ describe('a KB mine that ended on an error before reading anything', () => {
     });
     render(<RunDetails run={run} />);
     const details = screen.getByTestId('run-details').textContent ?? '';
-    expect(details).toContain('Read 12 of 40 conversations');
+    expect(details).toContain('Read 12 of 40 threads');
     expect(details).toContain('The mine stopped on an error.');
     expect(details).toMatch(/Took 2\.0 s/);
   });

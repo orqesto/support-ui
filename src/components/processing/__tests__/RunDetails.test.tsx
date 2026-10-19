@@ -160,7 +160,7 @@ describe('RunDetails', () => {
       render(<RunDetails run={kbRun()} />);
       expect(screen.getByText(/Knowledge-base mining/)).toBeTruthy();
       expect(
-        screen.getByText(/Read 30 of 30 conversations \(120 messages\); 7 new Q&A pairs saved/)
+        screen.getByText(/Read 30 of 30 threads \(120 messages\); 7 new Q&A pairs saved/)
       ).toBeTruthy();
       expect(screen.queryByText(/new messages found/)).toBeNull();
       expect(screen.queryByText(/entries from these messages/)).toBeNull();
@@ -193,17 +193,17 @@ describe('RunDetails', () => {
         />
       );
       expect(
-        screen.getByText(/Reading 30 conversations \(120 messages\) for Q&A pairs/)
+        screen.getByText(/Reading 30 threads \(120 messages\) for Q&A pairs/)
       ).toBeTruthy();
       expect(screen.queryByText(/Going through/)).toBeNull();
     });
 
-    it('failed conversations are named as not mined, with the way to read them again', () => {
+    it('failed threads are named as not mined, with the way to read them again', () => {
       render(<RunDetails run={kbRun({ outcome: 'failed', failed: 3, problems: ['failed'] })} />);
-      expect(screen.getByText(/Went through 30 of 30 conversations/)).toBeTruthy();
+      expect(screen.getByText(/Went through 30 of 30 threads/)).toBeTruthy();
       expect(
         screen.getByText(
-          /3 conversations could not be mined\. Re-mine the mailbox to read them again/
+          /3 threads could not be mined\. Re-mine the mailbox to read them again/
         )
       ).toBeTruthy();
       expect(screen.getByText('Not all mined')).toBeTruthy();

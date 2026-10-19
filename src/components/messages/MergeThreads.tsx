@@ -172,7 +172,7 @@ export const MergePickerDialog = ({
       // This thread was merged away — show the one that now holds its messages. Navigate FIRST:
       // refreshing here would reload a thread that no longer exists and flash an error.
       navigate(
-        `/messages?id=${getConvUrlId({ id: survivor.id, publicId: survivor.publicId }, orgCode)}`
+        `/threads?id=${getConvUrlId({ id: survivor.id, publicId: survivor.publicId }, orgCode)}`
       );
     }
     onMerged?.(survivor, mergedIn);

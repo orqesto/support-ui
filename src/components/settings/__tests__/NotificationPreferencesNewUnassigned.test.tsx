@@ -10,7 +10,7 @@ vi.mock('@/lib/api-client', () => ({
 const { NotificationPreferencesSettings } = await import('../NotificationPreferencesSettings');
 
 const toggle = () => {
-  const row = screen.getByText('New unassigned messages').closest('div');
+  const row = screen.getByText('New unassigned threads').closest('div');
   if (!row) throw new Error('row missing');
   return within(row).getByRole('switch');
 };
@@ -19,7 +19,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('New unassigned messages setting (#957 §3.6)', () => {
+describe('New unassigned threads setting (#957 §3.6)', () => {
   // This case cannot prove the field is READ — ON is also the default before the GET resolves.
   // It pins only that the row renders against an old backend; "reads a stored OFF" is the reading test.
   it('an old backend (no field) still renders the row, ON', async () => {

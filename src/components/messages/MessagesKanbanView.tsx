@@ -942,7 +942,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
         logger.error(`Failed to move thread ${threadId} from ${fromColId} to ${toColId}:`, err);
         // Surface the server reason (e.g. a 409 "cannot be reopened") — the optimistic
         // move is about to roll back, so without this the card silently snaps back.
-        toast.failure(action === 'reopen' ? 'reopen message' : 'move message', err);
+        toast.failure(action === 'reopen' ? 'reopen thread' : 'move thread', err);
         // Rollback: restore card at its original position
         setColStates((prev) => {
           const restored = [...prev[fromColId].threads];

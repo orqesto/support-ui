@@ -51,14 +51,14 @@ export const KbMiningFailures = ({
   return (
     <div className="pt-2 space-y-1.5 border-t" data-testid="kb-failures">
       <p className="text-xs font-medium text-warning">
-        The knowledge base could not read {plural(shown.length, 'conversation', 'conversations')}
+        The knowledge base could not read {plural(shown.length, 'thread', 'threads')}
         {truncated ? ' (the newest are shown; older ones were not kept)' : ''}
       </p>
       <ul className="space-y-1">
         {shown.map((failure) => (
           <li key={keyOf(failure)} className="flex gap-2 items-center text-[11px]">
             <Link
-              to={`/messages/${failure.conversationId}`}
+              to={`/threads/${failure.conversationId}`}
               className="font-mono underline underline-offset-2 hover:text-foreground"
             >
               #{failure.conversationId}

@@ -77,7 +77,7 @@ export const EvidenceSection = ({ suggestionId }: { suggestionId: number }) => {
                 >
                   <div className="flex flex-wrap items-center gap-1.5 mb-1">
                     <Link
-                      to={`/messages/${item.conversationId}`}
+                      to={`/threads/${item.conversationId}`}
                       className="text-xs font-medium text-primary hover:underline truncate max-w-[280px]"
                       title={item.subject ?? '(no subject)'}
                     >

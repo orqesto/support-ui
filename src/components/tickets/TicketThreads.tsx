@@ -328,13 +328,13 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
       </div>
 
       {state === 'loading' ? (
-        <p className="py-4 text-sm text-center text-muted-foreground">Loading messages…</p>
+        <p className="py-4 text-sm text-center text-muted-foreground">Loading threads…</p>
       ) : state === 'failed' ? (
         <p className="py-4 text-sm text-center text-muted-foreground">
           We could not read this ticket’s threads just now, so this list is not complete.
         </p>
       ) : threads.length === 0 && hiddenCount === 0 ? (
-        <p className="py-4 text-sm text-center text-muted-foreground">No linked messages.</p>
+        <p className="py-4 text-sm text-center text-muted-foreground">No linked threads.</p>
       ) : (
         <ul className="space-y-2">
           {threads.map((row) => (
@@ -371,7 +371,7 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
                   )}
                 </div>
                 <Link
-                  to={`/messages?id=${getConvUrlId({ id: row.conversationId, publicId: row.publicId }, orgCode)}`}
+                  to={`/threads?id=${getConvUrlId({ id: row.conversationId, publicId: row.publicId }, orgCode)}`}
                   className="block group"
                 >
                   <p className="text-sm font-medium truncate">{row.requesterEmail}</p>
@@ -408,7 +408,7 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
                 )}
                 {/* The icon opens the thread too, as the whole card did in the old list. */}
                 <Link
-                  to={`/messages?id=${getConvUrlId({ id: row.conversationId, publicId: row.publicId }, orgCode)}`}
+                  to={`/threads?id=${getConvUrlId({ id: row.conversationId, publicId: row.publicId }, orgCode)}`}
                   // A second way to the same thread for the mouse; keyboard and screen readers
                   // already have the email/subject link beside it.
                   tabIndex={-1}

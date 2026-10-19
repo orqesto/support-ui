@@ -51,7 +51,7 @@ const NotFoundPage = () => {
       </div>
 
       <Link
-        to="/messages"
+        to="/threads"
         className="inline-flex gap-1.5 items-center mt-8 text-sm text-muted-foreground hover:text-foreground"
       >
         <LifeBuoy className="w-4 h-4" />

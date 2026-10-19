@@ -143,7 +143,7 @@ export function ContactProfilePanel({
         status: msg.status,
         onClick: () => {
           onClose();
-          navigate(`/messages?id=${msg.id}`);
+          navigate(`/threads?id=${msg.id}`);
         },
       });
     }
@@ -290,7 +290,7 @@ export function ContactProfilePanel({
                   <span className="font-normal text-muted-foreground">Unassigned</span>
                 )}
               </Fact>
-              <Fact label="Messages">
+              <Fact label="Threads">
                 {contact.stats?.messageCount ?? 0}
                 {openTickets > 0 && (
                   <span className="font-normal text-muted-foreground">

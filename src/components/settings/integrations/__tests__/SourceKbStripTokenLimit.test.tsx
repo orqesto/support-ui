@@ -183,7 +183,7 @@ describe('Re-mine held back by the daily KB limit', () => {
       });
     reprocess = () => Promise.resolve({ data: { messageSourceId: 9 } });
     const onShowAlert = openConfirm();
-    await waitFor(() => expect(dialog().textContent).toContain('No imported conversation'));
+    await waitFor(() => expect(dialog().textContent).toContain('No imported thread'));
     fireEvent.click(confirmButton());
     await waitFor(() => expect(onShowAlert).toHaveBeenCalled());
     const alert = onShowAlert.mock.calls[0][0] as { title: string; description: string };
@@ -200,7 +200,7 @@ describe('Re-mine held back by the daily KB limit', () => {
     await waitFor(() => expect(onShowAlert).toHaveBeenCalled());
     const alert = onShowAlert.mock.calls[0][0] as { title: string; description: string };
     expect(alert.title).toBe('Re-mining requested');
-    expect(alert.description).toMatch(/^Any conversations in scope that are not mined yet/);
+    expect(alert.description).toMatch(/^Any threads in scope that are not mined yet/);
   });
 
   it('everything in scope already mined: the toast agrees with the dialog — never "started … being re-read" (pass 12)', async () => {
@@ -223,14 +223,14 @@ describe('Re-mine held back by the daily KB limit', () => {
       const alert = onShowAlert.mock.calls[0][0] as { title: string; description: string };
       expect(alert.title).toBe('Re-mining requested');
       expect(alert.description).toMatch(
-        /^Conversations already mined are skipped unless they changed since/
+        /^Threads already mined are skipped unless they changed since/
       );
       expect(alert.description).not.toContain('being re-read');
       cleanup();
     }
   });
 
-  it('CONTROL: an unpaused re-mine with conversations in scope reports that it started', async () => {
+  it('CONTROL: an unpaused re-mine with threads in scope reports that it started', async () => {
     forecast = () => Promise.resolve(base);
     reprocess = () => Promise.resolve({ data: { messageSourceId: 9 } });
     const onShowAlert = openConfirm();

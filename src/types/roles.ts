@@ -386,7 +386,7 @@ export const roleDescriptions: Record<UserRole, string> = {
   user: 'Basic user access',
   org_admin: 'Full control within workspace, can manage users and settings',
   moderator: 'Can manage integrations, categories, AI settings, and handle tickets/messages',
-  support: 'Can manage tickets and messages, view statistics',
+  support: 'Can manage tickets and threads, view statistics',
   associate: 'View-only access with ability to request changes',
 };
 

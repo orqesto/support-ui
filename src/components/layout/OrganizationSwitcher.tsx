@@ -94,7 +94,7 @@ export const OrganizationSwitcher = ({ compact = false }: OrganizationSwitcherPr
     setSelectedOrganization(orgId);
 
     // Clear URL parameters (closes any open message/ticket) and reload
-    const baseUrl = window.location.pathname; // e.g., /messages or /tickets
+    const baseUrl = window.location.pathname; // e.g., /threads or /tickets
     window.location.href = baseUrl; // Navigate to base URL without params, triggering reload
   };
 

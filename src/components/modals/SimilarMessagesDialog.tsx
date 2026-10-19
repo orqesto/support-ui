@@ -529,7 +529,7 @@ export const SimilarMessagesDialog = ({
                           <Badge
                             variant="warning"
                             className="text-xs"
-                            title="No knowledge in this conversation's department — found elsewhere in the workspace"
+                            title="No knowledge in this thread's department — found elsewhere in the workspace"
                           >
                             Other department
                           </Badge>
@@ -746,7 +746,7 @@ export const SimilarMessagesDialog = ({
                     ) : (
                       msg.messageId && (
                         <Link
-                          to={`/messages?id=${msg.messageId}`}
+                          to={`/threads?id=${msg.messageId}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex gap-1 items-center transition-colors hover:text-primary"

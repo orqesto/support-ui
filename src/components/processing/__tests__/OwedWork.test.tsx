@@ -116,17 +116,17 @@ describe('What is holding this check', () => {
       /^AI analysis: 2 messages — SUP-2$/
     );
     expect(screen.getByTestId('owed-embedding')).toHaveTextContent(
-      /^Search index: 1 conversation — SUP-4401$/
+      /^Search index: 1 thread — SUP-4401$/
     );
     expect(screen.getByTestId('owed-kb')).toHaveTextContent(
-      /^Knowledge base: 1 conversation — #55$/
+      /^Knowledge base: 1 thread — #55$/
     );
     expect(
       within(screen.getByTestId('owed-embedding')).getByRole('link', { name: 'SUP-4401' })
-    ).toHaveAttribute('href', '/messages?id=SUP-4401');
+    ).toHaveAttribute('href', '/threads?id=SUP-4401');
     expect(
       within(screen.getByTestId('owed-kb')).getByRole('link', { name: '#55' })
-    ).toHaveAttribute('href', '/messages?id=55');
+    ).toHaveAttribute('href', '/threads?id=55');
   });
 
   it('says "and more" by the stage ticket count, never at exactly the listed number', async () => {
@@ -146,14 +146,14 @@ describe('What is holding this check', () => {
     // Exactly 20 tickets, all listed: no "and more".
     expect(screen.getByTestId('owed-analysis')).toHaveTextContent(/SUP-119$/);
     expect(screen.getByTestId('owed-embedding')).toHaveTextContent(
-      /^Search index: 6 conversations — SUP-5 and more · some in departments you can't see$/
+      /^Search index: 6 threads — SUP-5 and more · some in departments you can't see$/
     );
     expect(screen.getByTestId('owed-kb')).toHaveTextContent(
-      /^Knowledge base: 3 conversations — SUP-6 · some in departments you can't see$/
+      /^Knowledge base: 3 threads — SUP-6 · some in departments you can't see$/
     );
   });
 
-  it('the #924 shape (no ticket count): a message stage never says "and more"; a conversation stage does by its count', async () => {
+  it('the #924 shape (no ticket count): a message stage never says "and more"; a thread stage does by its count', async () => {
     const twenty = Array.from({ length: 20 }, (_, index) => conv(100 + index));
     owedAnswer = () =>
       Promise.resolve(
@@ -173,7 +173,7 @@ describe('What is holding this check', () => {
     render(draw());
     await openHolding();
     expect(screen.getByTestId('owed-embedding')).toHaveTextContent(
-      /^Search index: 1 conversation — SUP-4401$/
+      /^Search index: 1 thread — SUP-4401$/
     );
     expect(screen.queryByRole('button', { name: /^Retry$/ })).toBeNull();
   });
@@ -225,7 +225,7 @@ describe('What is holding this check', () => {
     expect(within(line).getAllByRole('link')).toHaveLength(1);
     expect(within(line).getByRole('link', { name: 'SUP-90' })).toHaveAttribute(
       'href',
-      '/messages?id=SUP-90'
+      '/threads?id=SUP-90'
     );
     expect(line).not.toHaveTextContent(/Retry/);
   });

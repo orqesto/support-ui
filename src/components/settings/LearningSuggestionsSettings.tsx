@@ -125,7 +125,7 @@ const summarizeSuggestion = (
     const agents = typeof signals.distinctAgents === 'number' ? signals.distinctAgents : null;
     const from =
       convs !== null && agents !== null
-        ? ` — from ${suggestion.evidenceCount} edited drafts across ${convs} conversation${convs === 1 ? '' : 's'}, ${agents} agent${agents === 1 ? '' : 's'}`
+        ? ` — from ${suggestion.evidenceCount} edited drafts across ${convs} thread${convs === 1 ? '' : 's'}, ${agents} agent${agents === 1 ? '' : 's'}`
         : '';
     return `Update the house reply style${from}`;
   }

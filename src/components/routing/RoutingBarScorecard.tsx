@@ -77,7 +77,7 @@ export const RoutingBarScorecard = () => {
         {data && sweep && (
           <>
             <p className="text-xs text-muted-foreground">
-              {data.corpus.replayable} of {data.corpus.conversations} conversations replayable
+              {data.corpus.replayable} of {data.corpus.conversations} threads replayable
               {coverage
                 ? ` · ${coverage.withNearMissBand} carry a near-miss band, so only those can move`
                 : ''}
@@ -86,7 +86,7 @@ export const RoutingBarScorecard = () => {
 
             {coverage?.withNearMissBand === 0 ? (
               <Alert variant="info">
-                No conversation in this window recorded a near-miss, so the bar could not have
+                No thread in this window recorded a near-miss, so the bar could not have
                 changed any of them. Mail is parking for another reason — most often that no rule
                 came close at all.
               </Alert>

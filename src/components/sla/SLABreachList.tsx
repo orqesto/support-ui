@@ -96,7 +96,7 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS }: SLABreachListProps) =
 
   const handleBreachClick = (breach: SLABreach) => {
     if (breach.type === 'message') {
-      navigate(`/messages/${breach.id}`);
+      navigate(`/threads/${breach.id}`);
     } else {
       navigate(`/tickets/${breach.id}`);
     }

@@ -315,14 +315,14 @@ const PROBLEM_SENTENCE: Record<
       run.failed === 0
         ? null
         : kb
-          ? `${plural(run.failed, 'conversation', 'conversations')} could not be mined. Re-mine the mailbox to read ${them} again.`
+          ? `${plural(run.failed, 'thread', 'threads')} could not be mined. Re-mine the mailbox to read ${them} again.`
           : `${plural(run.failed, 'message', 'messages')} could not be saved; the next check fetches ${them} again.`;
     // Said as the run details and the run list say it (pass 17 follow-up, LOW).
     const errored =
       run.outcome !== 'error'
         ? null
         : isKbErrorBeforeReading(run)
-          ? 'The mine stopped on an error before it read any conversation. Re-mine the mailbox to try again.'
+          ? 'The mine stopped on an error before it read any thread. Re-mine the mailbox to try again.'
           : kb
             ? 'The mine stopped on an error. Re-mine the mailbox to try again.'
             : 'The check stopped on an error. The next check tries again.';

@@ -203,7 +203,7 @@ export const KbQualityReview = ({ suggestionId, onDecided }: Props) => {
             </div>
             {entry.conversationId !== null && (
               <Link
-                to={`/messages?id=${entry.conversationId}`}
+                to={`/threads?id=${entry.conversationId}`}
                 className="text-xs text-primary hover:underline"
               >
                 Thread {entry.conversationPublicId ?? `#${entry.conversationId}`}

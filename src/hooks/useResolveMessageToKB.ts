@@ -26,7 +26,7 @@ export const useResolveMessageToKB = () => {
   const buildFeedbackMessage = (
     details?: KBProcessingDetails
   ): { description: string; hasIssues: boolean } => {
-    let description = '✅ Message marked as resolved\n\n';
+    let description = '✅ Thread marked as resolved\n\n';
     let hasIssues = false;
 
     if (!details) {
@@ -98,7 +98,7 @@ export const useResolveMessageToKB = () => {
       const kbFailed = !data.kbSuccess && data.documentationIds?.length === 0;
       const { description, hasIssues } = buildFeedbackMessage(data.details);
       const finalDescription = kbFailed
-        ? `✅ Message marked as resolved\n\n⚠️ KB capture failed — content was not saved to knowledge base.`
+        ? `✅ Thread marked as resolved\n\n⚠️ KB capture failed — content was not saved to knowledge base.`
         : description;
 
       return {
@@ -107,8 +107,8 @@ export const useResolveMessageToKB = () => {
           title: kbFailed
             ? 'Resolved (KB capture failed)'
             : hasIssues
-              ? 'Message Resolved (with issues)'
-              : 'Message Resolved Successfully',
+              ? 'Thread Resolved (with issues)'
+              : 'Thread Resolved Successfully',
           description: finalDescription,
           variant: kbFailed ? 'warning' : hasIssues ? 'warning' : 'success',
         },
@@ -123,7 +123,7 @@ export const useResolveMessageToKB = () => {
           open: true,
           title: 'Failed to Resolve',
           description:
-            error instanceof Error ? error.message : 'Failed to resolve message and save to KB',
+            error instanceof Error ? error.message : 'Failed to resolve thread and save to KB',
           variant: 'error',
         },
         refresh: async () => {

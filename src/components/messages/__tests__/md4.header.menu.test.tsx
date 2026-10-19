@@ -30,7 +30,7 @@ describe('H5 — More menu', () => {
     const menu = await openMenu();
     expect(within(menu).getByText('Add to ticket…')).toBeInTheDocument();
     expect(within(menu).getByText('Merge with another thread…')).toBeInTheDocument();
-    expect(within(menu).getByText('Conversation history')).toBeInTheDocument();
+    expect(within(menu).getByText('Thread history')).toBeInTheDocument();
     expect(within(menu).queryByText(/move to spam/i)).toBeNull();
   });
 
@@ -51,7 +51,7 @@ describe('H5 — More menu', () => {
       'Unmark as lead',
       'Not a lead — close',
       'Mark as suspicious',
-      'Delete message',
+      'Delete thread',
     ])
       expect(labels).toContain(label);
     // No capital after the first word, anywhere in the menu.
@@ -72,9 +72,9 @@ describe('H5 — More menu', () => {
     const after = separators[0].nextElementSibling;
     expect(after?.textContent?.trim()).toBe('Mark as suspicious');
     const item = (name: string) => within(menu).getByRole('menuitem', { name });
-    for (const danger of ['Mark as suspicious', 'Delete message'])
+    for (const danger of ['Mark as suspicious', 'Delete thread'])
       expect(item(danger).className).toContain('text-destructive');
-    for (const plain of ['Conversation history', 'Reanalyse', 'Unmark as lead'])
+    for (const plain of ['Thread history', 'Reanalyse', 'Unmark as lead'])
       expect(item(plain).className).not.toContain('text-destructive');
   });
 
@@ -90,7 +90,7 @@ describe('H5 — More menu', () => {
     expect(within(menu).queryByText('Mark as suspicious')).toBeNull();
     const separators = within(menu).getAllByRole('separator');
     expect(separators).toHaveLength(1);
-    expect(separators[0].nextElementSibling?.textContent?.trim()).toBe('Delete message');
+    expect(separators[0].nextElementSibling?.textContent?.trim()).toBe('Delete thread');
   });
 
   it('CONTROL: no destructive item, no rule', async () => {
@@ -196,7 +196,7 @@ describe('H5 — More menu', () => {
       renderHeader();
       fireEvent.click(within(await openMenu()).getByText('Copy link'));
       await waitFor(() => expect(success).toHaveBeenCalledWith('Link copied'));
-      expect(writeText).toHaveBeenCalledWith(expect.stringContaining('/messages?id='));
+      expect(writeText).toHaveBeenCalledWith(expect.stringContaining('/threads?id='));
       expect(screen.queryByRole('menu')).toBeNull();
       success.mockRestore();
     });

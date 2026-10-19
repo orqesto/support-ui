@@ -6,7 +6,7 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 
 const navigate = vi.fn();
-let pathname = '/messages';
+let pathname = '/threads';
 vi.mock('react-router-dom', () => ({
   useNavigate: () => navigate,
   useLocation: () => ({ pathname }),
@@ -25,7 +25,7 @@ const { SubscriptionGateOverlay } = await import('@/components/subscription/Subs
 describe('SubscriptionGateOverlay — the way back for a lapsed workspace', () => {
   beforeEach(() => {
     navigate.mockReset();
-    pathname = '/messages';
+    pathname = '/threads';
     gate = { gated: true, message: 'Your free trial has expired.', code: null, canChoosePlan: null };
   });
   afterEach(cleanup);

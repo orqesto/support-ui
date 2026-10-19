@@ -77,9 +77,9 @@ import { MessageDetailPage } from '@/pages/MessageDetailPage';
 const renderPage = () =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
+      <MemoryRouter initialEntries={['/threads/42']} future={ROUTER_FUTURE}>
         <Routes>
-          <Route path="/messages/:id" element={<MessageDetailPage />} />
+          <Route path="/threads/:id" element={<MessageDetailPage />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>

@@ -22,7 +22,7 @@ const SEGMENTS: Segment<MessagesDisplayMode>[] = [
     value: 'contacts',
     label: 'Contacts',
     icon: Users,
-    title: 'Contacts view — grouped by sender with conversations by subject',
+    title: 'Contacts view — grouped by sender with threads by subject',
   },
   {
     value: 'kanban',

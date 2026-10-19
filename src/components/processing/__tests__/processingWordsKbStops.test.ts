@@ -7,7 +7,7 @@ import { describePause, describeRunProblems, isKbLimitPause, runStatus } from '.
 import { makeKbRun } from './fixtures';
 
 const KB_FULL =
-  'Stopped: the knowledge base is full (plan limit). The remaining conversations are mined when there is room — remove KB items or raise the plan, then press Re-mine.';
+  'Stopped: the knowledge base is full (plan limit). The remaining threads are mined when there is room — remove KB items or raise the plan, then press Re-mine.';
 
 const kbFull = () =>
   makeKbRun({ outcome: 'paused', problems: ['paused'], stoppedBy: 'kb_full', resumesAt: null });
@@ -42,9 +42,9 @@ describe('kb_full', () => {
 describe('ai_unavailable', () => {
   it('re_mine and absent retry both say the next Re-mine; automatic says retried automatically', () => {
     const reMine =
-      "Stopped: AI was unavailable (this workspace's hourly AI allowance is used up). Conversations not yet mined stay unmined and will be mined by the next Re-mine.";
+      "Stopped: AI was unavailable (this workspace's hourly AI allowance is used up). Threads not yet mined stay unmined and will be mined by the next Re-mine.";
     const auto =
-      "Stopped: AI was unavailable (this workspace's hourly AI allowance is used up). Conversations not yet mined stay unmined and will be retried automatically.";
+      "Stopped: AI was unavailable (this workspace's hourly AI allowance is used up). Threads not yet mined stay unmined and will be retried automatically.";
     expect(describePause(aiDown({ retry: 're_mine' }))).toBe(reMine);
     expect(describePause(aiDown())).toBe(reMine);
     expect(describePause(aiDown({ retry: 'automatic' }))).toBe(auto);

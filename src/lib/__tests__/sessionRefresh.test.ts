@@ -62,7 +62,7 @@ beforeEach(() => {
   Object.defineProperty(window, 'location', {
     configurable: true,
     value: {
-      pathname: '/messages',
+      pathname: '/threads',
       set href(value: string) {
         assignedHref = value;
       },

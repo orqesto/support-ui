@@ -220,7 +220,7 @@ describe('Merges — one read per open', () => {
     render(
       <ThemeProvider>
         <QueryClientProvider client={new QueryClient()}>
-          <MemoryRouter initialEntries={['/messages/1']}>
+          <MemoryRouter initialEntries={['/threads/1']}>
             <MessageDetailLikeHost />
           </MemoryRouter>
         </QueryClientProvider>
@@ -288,7 +288,7 @@ describe('Merges — a failed refresh', () => {
   const wrap = (node: React.ReactNode) => (
     <ThemeProvider>
       <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter initialEntries={['/messages/1']}>{node}</MemoryRouter>
+        <MemoryRouter initialEntries={['/threads/1']}>{node}</MemoryRouter>
       </QueryClientProvider>
     </ThemeProvider>
   );

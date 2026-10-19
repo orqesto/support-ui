@@ -25,7 +25,7 @@ type Props = Partial<Parameters<typeof MessageDetailHeader>[0]>;
 const tree = (over: Props = {}) => (
   <ThemeProvider>
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={['/messages/1']}>
+      <MemoryRouter initialEntries={['/threads/1']}>
         <Routes>
           <Route
             path="*"
@@ -130,7 +130,7 @@ describe('Copy link — desktop icon', () => {
     rerender(tree({ message: { ...message, id: 2, publicId: 'SUP-2' } as Message }));
     fireEvent.click(copyButton());
     await act(() => new Promise((resolve) => setTimeout(resolve, 10)));
-    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/messages?id=TES-SUP-2`);
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/threads?id=TES-SUP-2`);
   });
 });
 

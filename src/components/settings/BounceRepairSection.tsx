@@ -148,7 +148,7 @@ const FusedRow = ({ row }: { row: BounceRepairResult['fused']['conversations'][n
           <p className="font-medium">{label(row)}</p>
           <p className="text-xs text-muted-foreground">
             {plural(row.correspondents, 'customer')} and {plural(row.bounces, 'bounce')} in one
-            conversation
+            thread
           </p>
         </div>
         {!done && (
@@ -176,14 +176,14 @@ const FusedRow = ({ row }: { row: BounceRepairResult['fused']['conversations'][n
       {plan?.splittable && (
         <div className="space-y-2">
           <p className="text-xs">
-            {plan.keeps ? `${plan.keeps.correspondent} keeps this conversation. ` : ''}
-            {plural(moves.length, 'customer')} move to a conversation of their own
+            {plan.keeps ? `${plan.keeps.correspondent} keeps this thread. ` : ''}
+            {plural(moves.length, 'customer')} move to a thread of their own
             {plan.unattributedMessages > 0
               ? `; ${plural(plan.unattributedMessages, 'message')} (bounces, and anything nothing identifies) stay here`
               : ''}
             .
           </p>
-          {startsAs && <p className="text-xs">The new conversations start {startsAs}.</p>}
+          {startsAs && <p className="text-xs">The new threads start {startsAs}.</p>}
           {retyped > 0 && (
             <p className="text-xs">
               {plural(retyped, 'message')} stored as our own reply {retyped === 1 ? 'names' : 'name'}{' '}
@@ -207,14 +207,14 @@ const FusedRow = ({ row }: { row: BounceRepairResult['fused']['conversations'][n
             isLoading={busy === 'apply'}
             disabled={busy !== null}
           >
-            Split into {plural(moves.length + 1, 'conversation')}
+            Split into {plural(moves.length + 1, 'thread')}
           </Button>
         </div>
       )}
       {done && (
         <Alert variant="success">
           <span className="text-sm">
-            Separated — {plural(done.createdConversationIds?.length ?? done.moves.length, 'new conversation')}.
+            Separated — {plural(done.createdConversationIds?.length ?? done.moves.length, 'new thread')}.
           </span>
         </Alert>
       )}
@@ -222,7 +222,7 @@ const FusedRow = ({ row }: { row: BounceRepairResult['fused']['conversations'][n
         open={confirming}
         onOpenChange={setConfirming}
         title={`Split ${label(row)}?`}
-        description="Each customer's messages, and the replies addressed only to them, move to a conversation of their own. Labels, tickets, the assignee and the number stay with the original. The split runs its own check when it starts, so if the conversation changed since this check the numbers can differ."
+        description="Each customer's messages, and the replies addressed only to them, move to a thread of their own. Labels, tickets, the assignee and the number stay with the original. The split runs its own check when it starts, so if the conversation changed since this check the numbers can differ."
         confirmText="Split"
         onConfirm={() => {
           if (busy === null) void apply();
@@ -284,8 +284,8 @@ const BounceRepair = () => {
         <div>
           <p className="font-medium">Threads changed by bounces</p>
           <p className="text-sm text-muted-foreground">
-            Lists messages left where nobody can see them, open conversations that only a mail
-            system ever wrote to, and conversations that hold several customers because bounces
+            Lists messages left where nobody can see them, open threads that only a mail
+            system ever wrote to, and threads that hold several customers because bounces
             joined them. Checking changes nothing.
           </p>
         </div>
@@ -320,10 +320,10 @@ const BounceRepair = () => {
               <li data-testid="stranded-line">
                 {truncated ? 'At least ' : ''}
                 <strong>{plural(check.stranded.found, 'message')}</strong> left on a merged-away
-                conversation{landedText(check.stranded, 'would land')} —{' '}
+                thread{landedText(check.stranded, 'would land')} —{' '}
                 {strandedCheck
                   ? `would be: ${countsText(strandedCheck)}.`
-                  : 'moved to the conversation it belongs to; any not yet processed are processed then.'}
+                  : 'moved to the thread it belongs to; any not yet processed are processed then.'}
               </li>
             )}
             {marks > 0 && (
@@ -334,7 +334,7 @@ const BounceRepair = () => {
             )}
             {check.bounceOnly.found > 0 && (
               <li>
-                <strong>{plural(check.bounceOnly.found, 'open conversation')}</strong> that only a
+                <strong>{plural(check.bounceOnly.found, 'open thread')}</strong> that only a
                 mail system wrote to — filed away (no SLA, out of the inbox).
               </li>
             )}
@@ -370,7 +370,7 @@ const BounceRepair = () => {
       {check && check.fused.found > 0 && (
         <div className="space-y-2">
           <p className="text-sm">
-            <strong>{plural(check.fused.found, 'conversation')}</strong> hold several customers.
+            <strong>{plural(check.fused.found, 'thread')}</strong> hold several customers.
             Separate each one on its own — check first to see who moves where.
           </p>
           {check.fused.truncated && (
@@ -390,9 +390,9 @@ const BounceRepair = () => {
         title="Repair this workspace?"
         description={`${
           strandedCheck
-            ? 'Moves or restores messages left on merged-away tickets, following the same rules as new mail. Conversations'
-            : 'Stranded messages move to the conversation they belong to, and conversations'
-        } only a mail system wrote to are filed away. Conversations that hold several customers are not changed here. The repair runs its own check when it starts, so the numbers can differ from this check; the result says what it actually did.`}
+            ? 'Moves or restores messages left on merged-away tickets, following the same rules as new mail. Threads'
+            : 'Stranded messages move to the thread they belong to, and threads'
+        } only a mail system wrote to are filed away. Threads that hold several customers are not changed here. The repair runs its own check when it starts, so the numbers can differ from this check; the result says what it actually did.`}
         confirmText="Repair"
         onConfirm={() => {
           if (busy === null) void runApply();
@@ -403,7 +403,7 @@ const BounceRepair = () => {
 };
 
 const RepairOutcome = ({ outcome }: { outcome: BounceRepairResult }) => {
-  const rest = `marked ${plural(outcome.marked?.marked ?? 0, 'bounce')} and filed away ${plural(outcome.bounceOnly.refiled, 'conversation')}.`;
+  const rest = `marked ${plural(outcome.marked?.marked ?? 0, 'bounce')} and filed away ${plural(outcome.bounceOnly.refiled, 'thread')}.`;
   const counts = strandedCounts(outcome.stranded);
   // An older backend (no `restored`) only moved: its words stay.
   const text = counts

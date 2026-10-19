@@ -226,9 +226,9 @@ const describeKbDays = (
 export const describeImageCheckGap = (firstRecordedAt: string | null): string => {
   const since = firstRecordedAt ? new Date(firstRecordedAt) : null;
   if (since && !Number.isNaN(since.getTime())) {
-    return `Image checks during mining are counted from when they were first recorded for this workspace (${since.toISOString().slice(0, 10)} UTC); any made before then are not in this figure, so the real cost per conversation may be higher than shown.`;
+    return `Image checks during mining are counted from when they were first recorded for this workspace (${since.toISOString().slice(0, 10)} UTC); any made before then are not in this figure, so the real cost per thread may be higher than shown.`;
   }
-  return 'Image checks during mining are counted from when they were first recorded, and none has been recorded for this workspace yet; if mining reads images, the real cost per conversation may be higher than shown.';
+  return 'Image checks during mining are counted from when they were first recorded, and none has been recorded for this workspace yet; if mining reads images, the real cost per thread may be higher than shown.';
 };
 
 /** "the last 12 days", "the last day". */
@@ -243,7 +243,7 @@ const describeKbBasis = (perThread: NonNullable<KbForecast['tokensPerThread']>):
     typeof callsPerThread === 'number' &&
     typeof callsMeasured === 'number'
   ) {
-    return `${tokensPerCall.toLocaleString()} per KB call, measured over ${callsMeasured.toLocaleString()} KB calls in ${window}; a conversation is assumed to take ${callsPerThread.toLocaleString()} calls`;
+    return `${tokensPerCall.toLocaleString()} per KB call, measured over ${callsMeasured.toLocaleString()} KB calls in ${window}; a thread is assumed to take ${callsPerThread.toLocaleString()} calls`;
   }
   if (typeof threadsMeasured === 'number') {
     return `measured on ${threadsMeasured.toLocaleString()} mined in ${window}`;
@@ -278,7 +278,7 @@ const ForecastView = ({ forecast }: { forecast: TokenForecast }) => {
             <p className="text-muted-foreground">
               {nothingToMine
                 ? 'Nothing to mine'
-                : `${kb.threadsToMine.toLocaleString()} conversation${
+                : `${kb.threadsToMine.toLocaleString()} thread${
                     kb.threadsToMine === 1 ? '' : 's'
                   } still to mine`}
               {kb.sources.some((source) => source.noCutoff) &&
@@ -289,12 +289,12 @@ const ForecastView = ({ forecast }: { forecast: TokenForecast }) => {
             {nothingToMine ? null : perThread && kb.estimatedTokens !== null ? (
               <p className="text-muted-foreground">
                 ≈ {kb.estimatedTokens.toLocaleString()} tokens at {perThread.value.toLocaleString()}{' '}
-                per conversation{basis ? ` (${basis})` : ''}
+                per thread{basis ? ` (${basis})` : ''}
                 {days}.
               </p>
             ) : (
               <p className="text-muted-foreground">
-                Tokens per conversation are not measured yet — too few conversations of this
+                Tokens per thread are not measured yet — too few threads of this
                 workspace were mined recently to say.
               </p>
             )}

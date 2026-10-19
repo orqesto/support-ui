@@ -168,10 +168,10 @@ describe('the AI catch-up backlog', () => {
       />
     );
 
-  it('waiting conversations are said with what happens to them', () => {
+  it('waiting threads are said with what happens to them', () => {
     section(412);
     expect(text()).toContain(
-      '412 conversations sorted without AI wait for the AI catch-up: they are analysed again with AI after a raise or the reset.'
+      '412 threads sorted without AI wait for the AI catch-up: they are analysed again with AI after a raise or the reset.'
     );
   });
 
@@ -188,10 +188,10 @@ describe('the AI catch-up backlog', () => {
 
   it('the forecast adds the cost when tokens per message are measured', () => {
     expect(describeCatchup({ messages: 412, estimatedTokens: 370_800 })).toBe(
-      '412 conversations wait for the AI catch-up (≈ 370,800 tokens), re-analysed after a raise or the reset.'
+      '412 threads wait for the AI catch-up (≈ 370,800 tokens), re-analysed after a raise or the reset.'
     );
     expect(describeCatchup({ messages: 3, estimatedTokens: null })).toBe(
-      '3 conversations wait for the AI catch-up, re-analysed after a raise or the reset.'
+      '3 threads wait for the AI catch-up, re-analysed after a raise or the reset.'
     );
     expect(describeCatchup({ messages: 0, estimatedTokens: 0 })).toBeNull();
     expect(describeCatchup(undefined)).toBeNull();

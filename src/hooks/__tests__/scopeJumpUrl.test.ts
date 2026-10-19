@@ -19,12 +19,12 @@ describe('scopeJumpUrl', () => {
     // when there is no `mode` AND a list-only filter param is present; writing a mode
     // here would satisfy the first branch of that effect instead and never reach it.
     const url = scopeJumpUrl({ queue: 'outbound_echo', lifecycle: 'all' });
-    expect(url).toBe('/messages?queue=outbound_echo');
+    expect(url).toBe('/threads?queue=outbound_echo');
     expect(url).not.toContain('mode');
   });
 
   it('drops "all", which is the absence of a filter rather than a value', () => {
-    expect(scopeJumpUrl({ queue: 'all', lifecycle: 'all' })).toBe('/messages');
+    expect(scopeJumpUrl({ queue: 'all', lifecycle: 'all' })).toBe('/threads');
   });
 
   it('keeps a real lifecycle alongside the queue', () => {
@@ -38,7 +38,7 @@ describe('scopeJumpUrl', () => {
     // emit `columnId=` — a parameter nothing reads — and the jump would look applied and
     // do nothing. Silence is the failure mode being excluded here.
     const url = scopeJumpUrl({ columnId: 'spam' } as Parameters<typeof scopeJumpUrl>[0]);
-    expect(url).toBe('/messages');
+    expect(url).toBe('/threads');
     expect(url).not.toContain('columnId');
   });
 });

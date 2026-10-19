@@ -44,7 +44,7 @@ vi.mock('@/components/messages/MessageDetail', () => ({
       <span>detail</span>
       {onDelete && (
         <button type="button" onClick={onDelete}>
-          More → Delete message
+          More → Delete thread
         </button>
       )}
     </div>
@@ -58,7 +58,7 @@ const GoTo = () => {
   const navigate = useNavigate();
   return (
     <>
-      <button type="button" onClick={() => navigate('/messages/43')}>
+      <button type="button" onClick={() => navigate('/threads/43')}>
         go to message 43
       </button>
       <button type="button" onClick={() => navigate('/elsewhere')}>
@@ -76,12 +76,12 @@ const renderPage = () => {
   const invalidate = vi.spyOn(client, 'invalidateQueries');
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
+      <MemoryRouter initialEntries={['/threads/42']} future={ROUTER_FUTURE}>
         <GoTo />
         <Routes>
           <Route path="/elsewhere" element={<div data-testid="elsewhere">elsewhere</div>} />
-          <Route path="/messages/:id" element={<MessageDetailPage />} />
-          <Route path="/messages" element={<div data-testid="inbox">inbox</div>} />
+          <Route path="/threads/:id" element={<MessageDetailPage />} />
+          <Route path="/threads" element={<div data-testid="inbox">inbox</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>
@@ -90,7 +90,7 @@ const renderPage = () => {
 };
 
 const pressDelete = async () =>
-  fireEvent.click(await screen.findByRole('button', { name: 'More → Delete message' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'More → Delete thread' }));
 
 beforeEach(() => {
   api.get.mockResolvedValue({
@@ -146,7 +146,7 @@ describe('MessageDetailPage — delete, beyond the existing suite', () => {
     await pressDelete();
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(api.toastError).toHaveBeenCalledTimes(1));
-    expect(api.toastError).toHaveBeenCalledWith('Failed to delete message');
+    expect(api.toastError).toHaveBeenCalledWith('Failed to delete thread');
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });

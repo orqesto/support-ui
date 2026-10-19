@@ -70,7 +70,7 @@ describe('H2 — the Related popover’s rows', () => {
     expect(within(self).queryByRole('link')).toBeNull();
     expect(within(popover).queryByRole('link', { name: 'Open TES-SUP-1' })).toBeNull();
     const other = within(popover).getByRole('link', { name: 'Open TES-SUP-44' });
-    expect(other).toHaveAttribute('href', '/messages?id=TES-SUP-44');
+    expect(other).toHaveAttribute('href', '/threads?id=TES-SUP-44');
   });
 
   it('a thread with no subject (empty or blank) reads "(no subject)"', async () => {

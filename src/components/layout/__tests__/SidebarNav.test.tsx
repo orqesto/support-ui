@@ -10,7 +10,7 @@ const renderNav = () =>
     <MemoryRouter future={ROUTER_FUTURE}>
       <SidebarCollapseToggle />
       <NavTip label="Messages">
-        <NavLink to="/messages" data-testid="link">
+        <NavLink to="/threads" data-testid="link">
           icon
         </NavLink>
       </NavTip>

@@ -328,7 +328,7 @@ describe('a problem', () => {
     );
     render(ui([summaryEntry({ problems: 1 })]));
     await settle();
-    expect(screen.getByText('#77').closest('a')?.getAttribute('href')).toBe('/messages/77');
+    expect(screen.getByText('#77').closest('a')?.getAttribute('href')).toBe('/threads/77');
   });
 });
 

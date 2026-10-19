@@ -168,7 +168,7 @@ export const PromoteToKbDialog = ({ messageId, isOpen, onClose, onPromoted }: Pr
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogHeader>
-        <DialogTitle>Add this conversation to the knowledge base</DialogTitle>
+        <DialogTitle>Add this thread to the knowledge base</DialogTitle>
         <DialogClose onClose={onClose} />
       </DialogHeader>
       <DialogContent>

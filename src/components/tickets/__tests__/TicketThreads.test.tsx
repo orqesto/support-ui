@@ -80,7 +80,7 @@ describe('TicketThreads', () => {
     expect(screen.getAllByText('email')).toHaveLength(2);
     // A RESOLVED thread is listed — the inbox-based list hid exactly these.
     expect(screen.getByText('resolved')).toBeInTheDocument();
-    expect(screen.getAllByRole('link')[0]).toHaveAttribute('href', '/messages?id=ACME-SUP-11');
+    expect(screen.getAllByRole('link')[0]).toHaveAttribute('href', '/threads?id=ACME-SUP-11');
     expect(onCountChange).toHaveBeenCalledWith(2);
   });
 

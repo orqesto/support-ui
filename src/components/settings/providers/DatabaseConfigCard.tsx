@@ -248,7 +248,7 @@ export const DatabaseConfigCard = ({
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Where this workspace's conversations, contacts, tickets and knowledge live. Bring your own
+          Where this workspace's threads, contacts, tickets and knowledge live. Bring your own
           Postgres (16+, with the pgvector extension available) and your data is read and written
           there; Odly keeps only sign-in, billing and platform audit metadata. Encrypted at rest,
           the connection string is never shown again.

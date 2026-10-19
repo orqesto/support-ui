@@ -135,7 +135,7 @@ const contact = (over: { createdAt?: string | null; stats?: Record<string, unkno
   }) as unknown as ContactProfile;
 
 describe('contact facts — Since / Lifetime', () => {
-  it('since = the earliest conversation, not the contact row (created on first VIEW)', () => {
+  it('since = the earliest thread, not the contact row (created on first VIEW)', () => {
     const facts = contact({ stats: { messageCount: 14, firstMessageAt: '2024-03-01T10:00:00Z' } });
     expect(customerSince(facts)).toBe('2024-03-01T10:00:00Z');
   });
@@ -150,9 +150,9 @@ describe('contact facts — Since / Lifetime', () => {
 
   it('lifetime names the open count only when the backend sends it', () => {
     expect(lifetimeLabel({ messageCount: 14, openCount: 1 } as never)).toBe(
-      '14 conversations · 1 open'
+      '14 threads · 1 open'
     );
-    expect(lifetimeLabel({ messageCount: 1 } as never)).toBe('1 conversation');
+    expect(lifetimeLabel({ messageCount: 1 } as never)).toBe('1 thread');
     expect(lifetimeLabel(undefined)).toBeNull();
   });
 
@@ -175,7 +175,7 @@ describe('contact facts — Since / Lifetime', () => {
       )
     ).toBeTruthy();
     expect(screen.queryByText(/\d{1,2}:\d{2}/)).toBeNull();
-    expect(screen.getByText('14 conversations · 1 open')).toBeTruthy();
+    expect(screen.getByText('14 threads · 1 open')).toBeTruthy();
     rerender(
       <ContactFactRows
         contact={{ createdAt: null, stats: undefined } as unknown as ContactProfile}

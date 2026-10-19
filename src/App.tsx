@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AllianceConsoleRoute } from './components/auth/AllianceConsoleRoute';
 import { GlobalAdminRedirect } from './components/auth/GlobalAdminRedirect';
+import { LegacyMessagesRedirect } from './components/routing/LegacyMessagesRedirect';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { FeatureGate } from './components/common/FeatureGate';
 import { useRolePermissionMatrix } from '@/hooks/useRolePermissionMatrix';
@@ -293,8 +294,11 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
+      {/* The inbox moved from /messages to /threads (2026-10-19). Old links keep working:
+          the id, query string and hash carry over. */}
+      <Route path="/messages/*" element={<LegacyMessagesRedirect />} />
       <Route
-        path="/messages"
+        path="/threads"
         element={
           <PrivateRoute>
             <Suspense fallback={<LoadingFallback />}>
@@ -304,7 +308,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/messages/:id"
+        path="/threads/:id"
         element={
           <PrivateRoute>
             <Suspense fallback={<LoadingFallback />}>

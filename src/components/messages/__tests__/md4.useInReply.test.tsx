@@ -615,7 +615,7 @@ describe('"Use in reply" only where the composer exists', () => {
   });
 });
 
-describe('Delete message is offered only when the host passes onDelete', () => {
+describe('Delete thread is offered only when the host passes onDelete', () => {
   const renderWith = (onDelete?: () => void) => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -629,13 +629,13 @@ describe('Delete message is offered only when the host passes onDelete', () => {
     return screen.getByRole('menu');
   };
 
-  it('no onDelete (a viewer the backend would refuse): no Delete message item', () => {
-    expect(within(renderWith()).queryByText('Delete message')).toBeNull();
+  it('no onDelete (a viewer the backend would refuse): no Delete thread item', () => {
+    expect(within(renderWith()).queryByText('Delete thread')).toBeNull();
   });
 
   it('CONTROL: with onDelete the item is there and calls it', () => {
     const onDelete = vi.fn();
-    fireEvent.click(within(renderWith(onDelete)).getByText('Delete message'));
+    fireEvent.click(within(renderWith(onDelete)).getByText('Delete thread'));
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 });

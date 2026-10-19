@@ -128,10 +128,10 @@ describe('PlatformDefaults', () => {
     render(<PlatformDefaults />);
     expect(screen.getByText('Routing proposals')).toBeInTheDocument();
     for (const label of [
-      'Conversations before a rule is proposed',
+      'Threads before a rule is proposed',
       'Same-agent re-route window (minutes)',
       'Archive an idle proposed rule after (days)',
-      'Auto-accept: conversations needed',
+      'Auto-accept: threads needed',
       'Auto-accept: days of support needed',
       'Auto-accept: share of past mail that must match',
       'Minimum past-mail matches for an estimate',

@@ -160,7 +160,7 @@ describe('console forecast — saved limit unreadable (BE R17 settingsLookupFail
         regular: { ...failed().regular, ...regular },
       });
     renderDialog();
-    return (await screen.findByText(/per conversation \(2,500 per KB call/)).textContent ?? '';
+    return (await screen.findByText(/per thread \(2,500 per KB call/)).textContent ?? '';
   };
   it('the "counted against" clause follows the days', async () => {
     expect(await kbLineOf()).toMatch(
@@ -221,7 +221,7 @@ describe('console forecast — saved limit unreadable (BE R17 settingsLookupFail
       );
     renderDialog();
     const line =
-      (await screen.findByText(/per conversation \(2,500 per KB call/)).textContent ?? '';
+      (await screen.findByText(/per thread \(2,500 per KB call/)).textContent ?? '';
     expect(line).not.toMatch(/could not be read|no KB limit under/);
   });
 

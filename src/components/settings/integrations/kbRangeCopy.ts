@@ -79,7 +79,7 @@ export const rangeLabel = (days: number, _cutoff?: string | null): string =>
   days <= 0 ? 'all history' : days === 1 ? 'the last day' : `the last ${num(days)} days`;
 
 export const introLine = (name: string, cutoff: string | null, currentDays: number): string =>
-  `${name} · mining conversations received before ${date(cutoff) ?? 'the cutoff'}. ` +
+  `${name} · mining threads received before ${date(cutoff) ?? 'the cutoff'}. ` +
   `It now reads ${rangeLabel(currentDays)} before the cutoff.`;
 
 // ---- Counts -----------------------------------------------------------------------------------
@@ -187,7 +187,7 @@ export const costLine = (
     return 'Token cost: cannot be estimated — the count stopped before it found which messages are missing.';
   }
   const isMessages = est.threadsBasis === 'upper_bound_messages';
-  const unit = isMessages ? 'message' : 'conversation';
+  const unit = isMessages ? 'message' : 'thread';
   const cappedHistory = history !== null && incomplete(history);
   const lead = cappedHistory
     ? 'At least '
@@ -205,7 +205,7 @@ export const costLine = (
         : 'up to ';
   const incompleteNote = cappedHistory ? ' (the mailbox count is incomplete)' : '';
   const fetched = isMessages
-    ? `${num(est.newThreads)} newly fetched ${est.newThreads === 1 ? 'message' : 'messages'} + ${num(est.backlogThreads)} already-imported conversations not yet mined`
+    ? `${num(est.newThreads)} newly fetched ${est.newThreads === 1 ? 'message' : 'messages'} + ${num(est.backlogThreads)} already-imported threads not yet mined`
     : `${num(est.newThreads)} with newly fetched mail + ${num(est.backlogThreads)} already imported and not yet mined`;
   let line =
     `${lead}≈${num(est.estimatedTokens)} tokens${incompleteNote} for ${bound}${plural(est.threadsToMine, unit, `${unit}s`)} ` +
@@ -246,7 +246,7 @@ export const allowanceLine = (
   }
   if (aiMode !== 'none') {
     parts.push(
-      'If AI is unavailable during the read, the affected conversations stay unmined and are retried automatically.'
+      'If AI is unavailable during the read, the affected threads stay unmined and are retried automatically.'
     );
   }
   return parts.length > 0 ? parts.join(' ') : null;
@@ -363,19 +363,19 @@ export const lastSweepLine = (sweep: KbLastSweep): string | null => {
     case 'kb_full':
       return `The last read is waiting: the knowledge base is full — ${
         sweep.threadsWaiting !== null
-          ? plural(sweep.threadsWaiting, 'conversation waits', 'conversations wait')
-          : 'some conversations wait'
+          ? plural(sweep.threadsWaiting, 'thread waits', 'threads wait')
+          : 'some threads wait'
       } to be mined.`;
     case 'paused':
       return "Mining is paused by today's KB limit and resumes after the reset.";
     case 'ai_incomplete':
       return `${
         sweep.aiSkipped !== null && sweep.aiSkipped > 0
-          ? `${plural(sweep.aiSkipped, 'conversation was', 'conversations were')}`
-          : 'Some conversations were'
+          ? `${plural(sweep.aiSkipped, 'thread was', 'threads were')}`
+          : 'Some threads were'
       } not mined because AI was unavailable${becauseAi(sweep.aiReason)}. They will be retried automatically.`;
     case 'failed':
-      return 'The last mining run hit errors; it retries on the next check. The affected conversations are listed under KB mining failures.';
+      return 'The last mining run hit errors; it retries on the next check. The affected threads are listed under KB mining failures.';
     case 'running':
       return 'A history read is running.';
     default:
@@ -457,24 +457,24 @@ export const runStoppedLine = (
     return `Stopped: ${what}; a later KB run of this mailbox has been recorded since.`;
   }
   if (run.stoppedBy === 'kb_full') {
-    return 'Stopped: the knowledge base is full (plan limit). The remaining conversations are mined when there is room — remove KB items or raise the plan, then press Re-mine.';
+    return 'Stopped: the knowledge base is full (plan limit). The remaining threads are mined when there is room — remove KB items or raise the plan, then press Re-mine.';
   }
   if (run.stoppedBy === 'ai_unavailable') {
     const skipped =
       typeof run.aiSkipped === 'number' && run.aiSkipped > 0
-        ? ` ${plural(run.aiSkipped, 'conversation was', 'conversations were')} not reached.`
+        ? ` ${plural(run.aiSkipped, 'thread was', 'threads were')} not reached.`
         : '';
     const tail =
       run.retry === 'automatic'
         ? 'will be retried automatically.'
         : 'will be mined by the next Re-mine.';
-    return `Stopped: AI was unavailable${becauseAi(run.aiReason)}.${skipped} Conversations not yet mined stay unmined and ${tail}`;
+    return `Stopped: AI was unavailable${becauseAi(run.aiReason)}.${skipped} Threads not yet mined stay unmined and ${tail}`;
   }
   return null;
 };
 
 export const kbFullHoldLine = (owedThreads: number): string =>
-  `Waiting for room: the knowledge base is full — ${plural(owedThreads, 'conversation waits', 'conversations wait')} to be mined.`;
+  `Waiting for room: the knowledge base is full — ${plural(owedThreads, 'thread waits', 'threads wait')} to be mined.`;
 
 export const kbFullHeldLine = (runs: number): string =>
   `${plural(runs, 'run is', 'runs are')} waiting for room in the knowledge base.`;

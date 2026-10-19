@@ -181,7 +181,7 @@ export const OpenConversationWindowSettings = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Inbox className="h-5 w-5" />
-          Open conversations
+          Open threads
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -200,18 +200,18 @@ export const OpenConversationWindowSettings = () => {
             </p>
           )}
           <ul className="list-disc space-y-1 pl-5">
-            <li>a new conversation started by it arrives resolved, not open;</li>
-            <li>a customer message does not reopen a resolved conversation;</li>
+            <li>a new thread started by it arrives resolved, not open;</li>
+            <li>a customer message does not reopen a resolved thread;</li>
             <li>
-              a reply of yours imported from the Sent folder does not reopen a conversation or mark
+              a reply of yours imported from the Sent folder does not reopen a thread or mark
               it as waiting on the customer;
             </li>
             <li>no acknowledgment email is sent for it.</li>
           </ul>
           <p>
             A customer message dated {enabled ? 'inside the window' : `in the last ${liveSpan}`}{' '}
-            reopens a resolved conversation as usual, unless the conversation&apos;s latest message
-            was judged spam. Changing this applies to email that arrives from now on; conversations
+            reopens a resolved thread as usual, unless the thread&apos;s latest message
+            was judged spam. Changing this applies to email that arrives from now on; threads
             already in your inbox keep their status.
           </p>
         </div>

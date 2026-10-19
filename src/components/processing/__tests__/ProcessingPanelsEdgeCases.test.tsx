@@ -483,7 +483,7 @@ describe('a knowledge-base mine run', () => {
     await settle();
     await advance(15_000);
     expect(screen.getByTestId('processing-panel')).toBeTruthy();
-    expect(screen.getByText(/Reading 300 conversations/)).toBeTruthy();
+    expect(screen.getByText(/Reading 300 threads/)).toBeTruthy();
     expect(asked).not.toContainEqual([5, true]);
   });
 
@@ -504,7 +504,7 @@ describe('a knowledge-base mine run', () => {
     );
     await settle();
     // The KB run's own line is there (an empty render passed this too — pass 18).
-    expect(screen.getByText(/Reading 300 conversations/)).toBeTruthy();
+    expect(screen.getByText(/Reading 300 threads/)).toBeTruthy();
     expect(screen.queryByText(/Knowledge-base mining on this mailbox/)).toBeNull();
   });
 
@@ -685,7 +685,7 @@ describe('pass 7', () => {
     await settle();
     await nextPoll(importing([activeKb('k1'), running({ id: 'c2', found: 500 })]));
     expect(screen.getByTestId('processing-panel')).toBeTruthy();
-    expect(screen.getByText(/Reading 300 conversations/)).toBeTruthy();
+    expect(screen.getByText(/Reading 300 threads/)).toBeTruthy();
   });
 });
 

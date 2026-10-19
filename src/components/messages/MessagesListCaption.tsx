@@ -102,8 +102,8 @@ export const MessagesListCaption = ({
         if (node) node.indeterminate = selectedCount > 0 && selectedCount < selectableCount;
       }}
       disabled={selectableCount === 0}
-      aria-label="Select every message on this page"
-      title={selectedCount > 0 ? 'Clear this page' : 'Select every message on this page'}
+      aria-label="Select every thread on this page"
+      title={selectedCount > 0 ? 'Clear this page' : 'Select every thread on this page'}
       onChange={onSelectPage}
       className="shrink-0 [&_label]:items-center [&_label]:text-[12.5px] [&_label]:text-muted-foreground [&_input]:mt-0"
       label={

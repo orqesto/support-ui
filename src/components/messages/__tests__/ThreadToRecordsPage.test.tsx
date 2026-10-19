@@ -27,9 +27,9 @@ const { CustomApiLookupPanel } = await import('@/components/messages/CustomApiLo
 
 const renderPanel = () =>
   render(
-    <MemoryRouter initialEntries={['/messages/88']}>
+    <MemoryRouter initialEntries={['/threads/88']}>
       <Routes>
-        <Route path="/messages/:id" element={<CustomApiLookupPanel conversationId={88} />} />
+        <Route path="/threads/:id" element={<CustomApiLookupPanel conversationId={88} />} />
         <Route path="/contacts/:id/records" element={<p>RECORDS PAGE FOR CUSTOMER</p>} />
       </Routes>
     </MemoryRouter>

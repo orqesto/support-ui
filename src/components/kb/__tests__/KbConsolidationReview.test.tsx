@@ -106,7 +106,7 @@ describe('KbConsolidationReview (F1)', () => {
     expect(screen.getByText('Answer 2.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Thread SUP-3' })).toHaveAttribute(
       'href',
-      '/messages?id=503'
+      '/threads?id=503'
     );
     expect(screen.getByDisplayValue('How do refunds work?')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Refunds take 5 days.')).toBeInTheDocument();
@@ -124,13 +124,13 @@ describe('KbConsolidationReview (F1)', () => {
     expect(screen.getByText(/a raw email/)).toHaveTextContent('#10 — a raw email');
   });
 
-  it('the real same-thread state: one conversation saved more than once (LOW-5)', async () => {
+  it('the real same-thread state: one thread saved more than once (LOW-5)', async () => {
     getMembers.mockResolvedValue(
       detail({ metrics: { conversations: 1, customers: 1, sameThread: true } })
     );
     renderReview();
     expect(await screen.findByText('same thread')).toBeInTheDocument();
-    expect(screen.getByText('1 conversation')).toBeInTheDocument();
+    expect(screen.getByText('1 thread')).toBeInTheDocument();
     expect(screen.getByText(/All of these come from the same thread/)).toBeInTheDocument();
   });
 
@@ -173,7 +173,7 @@ describe('KbConsolidationReview (F1)', () => {
     renderReview();
     // `covered` matches by conversation too, and a consolidate's target is its group (key).
     const marked = within(await screen.findByTestId('member-2'));
-    const mark = marked.getByText('declined before (this entry or its conversation)');
+    const mark = marked.getByText('declined before (this entry or its thread)');
     expect(mark).toHaveAttribute('title', expect.stringContaining('for this group'));
     expect(mark.getAttribute('title')).not.toMatch(/for this case/);
     expect(
@@ -201,7 +201,7 @@ describe('KbConsolidationReview (F1)', () => {
     );
     renderReview();
     expect(
-      await screen.findByText('declined before (this entry or its conversation)')
+      await screen.findByText('declined before (this entry or its thread)')
     ).toHaveAttribute('title', expect.stringContaining('for this case'));
   });
 

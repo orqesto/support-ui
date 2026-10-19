@@ -45,14 +45,14 @@ const STAGES: { key: StageKey; label: string; unit: [string, string]; hint: stri
   {
     key: 'embedding',
     label: RUN_STAGE_LABELS.embedding,
-    unit: ['conversation', 'conversations'],
-    hint: 'Each conversation indexed for similar-message search',
+    unit: ['thread', 'threads'],
+    hint: 'Each thread indexed for similar-message search',
   },
   {
     key: 'kb',
     label: RUN_STAGE_LABELS.kb,
-    unit: ['conversation', 'conversations'],
-    hint: 'Each conversation mined for knowledge-base answers',
+    unit: ['thread', 'threads'],
+    hint: 'Each thread mined for knowledge-base answers',
   },
 ];
 
@@ -124,14 +124,14 @@ const KbRunDetails = ({
         </Badge>
       </div>
       {count && count.queued > 0 && (
-        <StageRow label="Conversations read" hint={STAGES[3].hint} count={count} />
+        <StageRow label="Threads read" hint={STAGES[3].hint} count={count} />
       )}
       <ul className="space-y-0.5 text-[11px] text-muted-foreground">
         {status === 'not_continued' ? (
           <li className="text-warning">{describeNotContinued(run)}</li>
         ) : status === 'running' ? (
           <li>
-            Reading {plural(threads, 'conversation', 'conversations')} (
+            Reading {plural(threads, 'thread', 'threads')} (
             {plural(run.found, 'message', 'messages')}) for Q&A pairs.
             {pairs > 0 ? ` ${plural(pairs, 'new Q&A pair', 'new Q&A pairs')} saved so far.` : ''}
             {documents > 0 ? ` ${plural(documents, 'document', 'documents')} saved so far.` : ''}
@@ -139,7 +139,7 @@ const KbRunDetails = ({
         ) : beforeReading ? null : (
           <li>
             {run.failed > 0 ? 'Went through' : 'Read'} {threadsDone.toLocaleString()} of{' '}
-            {plural(threads, 'conversation', 'conversations')} (
+            {plural(threads, 'thread', 'threads')} (
             {plural(run.found, 'message', 'messages')});{' '}
             {plural(pairs, 'new Q&A pair', 'new Q&A pairs')}
             {documents > 0 ? ` and ${plural(documents, 'document', 'documents')}` : ''} saved.
@@ -163,13 +163,13 @@ const KbRunDetails = ({
           // Automatic only while the history sweep is still owed — so the words name the way that
           // always works (FE audit pass 6, L5).
           <li className="text-destructive">
-            {plural(run.failed, 'conversation', 'conversations')} could not be mined. Re-mine the
+            {plural(run.failed, 'thread', 'threads')} could not be mined. Re-mine the
             mailbox to read {run.failed === 1 ? 'it' : 'them'} again.
           </li>
         )}
         {status === 'error' && (
           <li className="text-destructive">
-            The mine stopped on an error{beforeReading ? ' before it read any conversation' : ''}.
+            The mine stopped on an error{beforeReading ? ' before it read any thread' : ''}.
             Re-mine the mailbox to try again.
           </li>
         )}

@@ -17,7 +17,7 @@ type GmailConfig = {
 export const searchQueryOptions = [
   { value: '', label: 'Everything (all folders)' },
   { value: 'is:unread in:inbox', label: 'Unread inbox (ongoing polling)' },
-  { value: 'in:inbox OR in:sent', label: 'Inbox + Sent (full conversations)' },
+  { value: 'in:inbox OR in:sent', label: 'Inbox + Sent (full threads)' },
   { value: 'in:inbox', label: 'All inbox messages' },
 ];
 

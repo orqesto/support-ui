@@ -233,7 +233,7 @@ export const SimilarTickets = ({ messageId, onUseResponse, defaultExpanded = fal
                     </Link>
                   ) : ticket.messageId > 0 ? (
                     <Link
-                      to={`/messages/${ticket.messageId}`}
+                      to={`/threads/${ticket.messageId}`}
                       className="flex gap-1 items-center group min-w-0"
                     >
                       <span className="text-sm font-medium truncate text-foreground group-hover:text-muted-foreground transition-colors">

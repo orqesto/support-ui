@@ -84,7 +84,7 @@ const SURFACES: [string, ComponentType<RowProps>][] = [
 
 /** The box's positioned wrapper — the element whose classes hide and reveal it. */
 const boxWrapper = () =>
-  screen.getByRole('checkbox', { name: /select message/i }).closest('[class*="absolute"]')!;
+  screen.getByRole('checkbox', { name: /select thread/i }).closest('[class*="absolute"]')!;
 /** The row / card root: the element carrying the id `x` reads. */
 const rowRoot = (container: HTMLElement) =>
   container.querySelector('[data-select-id]') as HTMLElement;
@@ -93,7 +93,7 @@ describe.each(SURFACES)('%s — select mode', (_name, Row) => {
   describe('visibility (S1–S4)', () => {
     it('S1: nothing selected ⇒ box in the DOM, visually hidden, still keyboard-reachable', async () => {
       render(<Row thread={thread()} onOpen={vi.fn()} onToggleSelected={vi.fn()} />);
-      const box = screen.getByRole('checkbox', { name: /select message/i });
+      const box = screen.getByRole('checkbox', { name: /select thread/i });
       expect(boxWrapper().className).toContain('opacity-0');
       // Never removed from layout or from assistive tech.
       expect(boxWrapper().className).not.toMatch(/(^|\s)(hidden|sr-only|invisible)(\s|$)/);
@@ -170,7 +170,7 @@ describe.each(SURFACES)('%s — select mode', (_name, Row) => {
       const onOpen = vi.fn();
       render(<Row thread={thread()} onOpen={onOpen} onToggleSelected={onToggle} selectMode />);
       const user = userEvent.setup();
-      const box = screen.getByRole('checkbox', { name: /select message/i });
+      const box = screen.getByRole('checkbox', { name: /select thread/i });
 
       await user.click(box);
       expect(onToggle).toHaveBeenLastCalledWith(361);
@@ -189,7 +189,7 @@ describe.each(SURFACES)('%s — select mode', (_name, Row) => {
       window.addEventListener('keydown', heard);
       try {
         render(<Row thread={thread()} onOpen={onOpen} onToggleSelected={vi.fn()} />);
-        const box = screen.getByRole('checkbox', { name: /select message/i });
+        const box = screen.getByRole('checkbox', { name: /select thread/i });
         fireEvent.keyDown(box, { key: 'x' });
         expect(heard).toHaveBeenCalledTimes(1);
         fireEvent.keyDown(box, { key: 'Enter' });
@@ -200,7 +200,7 @@ describe.each(SURFACES)('%s — select mode', (_name, Row) => {
       }
     });
 
-    it('carries the conversation id `x` needs, and no id on a spam-log row', () => {
+    it('carries the thread id `x` needs, and no id on a spam-log row', () => {
       const { container, unmount } = render(
         <Row thread={thread()} onOpen={vi.fn()} onToggleSelected={vi.fn()} />
       );
@@ -281,7 +281,7 @@ describe.each(SURFACES)('%s — select mode', (_name, Row) => {
       const onToggle = vi.fn();
       const onOpen = vi.fn();
       render(<Row thread={thread()} onOpen={onOpen} onToggleSelected={onToggle} selectMode />);
-      const box = screen.getByRole('checkbox', { name: /select message/i });
+      const box = screen.getByRole('checkbox', { name: /select thread/i });
       press(box);
       act(() => {
         vi.advanceTimersByTime(LONG_PRESS_MS);

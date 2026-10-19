@@ -36,7 +36,7 @@ const Probe = ({ selected, onClear }: { selected: { id: number } | null; onClear
 
 const renderAt = (selected: { id: number } | null, onClear: () => void) =>
   render(
-    <MemoryRouter initialEntries={['/messages?id=ADM-SUP-42']} future={ROUTER_FUTURE}>
+    <MemoryRouter initialEntries={['/threads?id=ADM-SUP-42']} future={ROUTER_FUTURE}>
       <Routes>
         <Route path="*" element={<Probe selected={selected} onClear={onClear} />} />
       </Routes>
@@ -55,7 +55,7 @@ describe('usePhoneOpensMessageAsPage', () => {
     const onClear = vi.fn();
     renderAt({ id: 42 }, onClear);
 
-    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/messages/42'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/threads/42'));
     expect(onClear).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('phone').textContent).toBe('true');
   });
@@ -67,7 +67,7 @@ describe('usePhoneOpensMessageAsPage', () => {
 
     // Give an (incorrect) effect every chance to fire before asserting it did not.
     await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(screen.getByTestId('where').textContent).toBe('/messages?id=ADM-SUP-42');
+    expect(screen.getByTestId('where').textContent).toBe('/threads?id=ADM-SUP-42');
     expect(onClear).not.toHaveBeenCalled();
     expect(screen.getByTestId('phone').textContent).toBe('false');
   });
@@ -78,7 +78,7 @@ describe('usePhoneOpensMessageAsPage', () => {
     renderAt(null, onClear);
 
     await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(screen.getByTestId('where').textContent).toBe('/messages?id=ADM-SUP-42');
+    expect(screen.getByTestId('where').textContent).toBe('/threads?id=ADM-SUP-42');
     expect(onClear).not.toHaveBeenCalled();
   });
 });

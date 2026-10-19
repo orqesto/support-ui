@@ -203,7 +203,7 @@ vi.mock('@/components/messages/MessageDetail', () => ({
       {message.id}
       {onDelete && (
         <button type="button" onClick={onDelete}>
-          More → Delete message
+          More → Delete thread
         </button>
       )}
       {onNavigate && (
@@ -232,7 +232,7 @@ afterEach(() => {
 const renderPage = () =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={['/messages']}>
+      <MemoryRouter initialEntries={['/threads']}>
         <MessagesPage />
       </MemoryRouter>
     </QueryClientProvider>
@@ -244,7 +244,7 @@ const openDetail = async (id: number) => {
   await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent(String(id)));
 };
 const pressDelete = () =>
-  fireEvent.click(screen.getByRole('button', { name: 'More → Delete message' }));
+  fireEvent.click(screen.getByRole('button', { name: 'More → Delete thread' }));
 
 const confirmButton = () => screen.getByRole('button', { name: 'Delete' });
 const hangingDelete = () => {
@@ -284,7 +284,7 @@ describe('MessagesPage — slide-over delete, around the confirm', () => {
     pressDelete();
     act(() => mocks.setSelected?.(null));
     await waitFor(() => expect(screen.queryByTestId('detail-pane')).toBeNull());
-    expect(screen.getByRole('dialog')).toHaveTextContent('Delete message');
+    expect(screen.getByRole('dialog')).toHaveTextContent('Delete thread');
     fireEvent.click(confirmButton());
     await waitFor(() => expect(mocks.del).toHaveBeenCalledWith(12));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());

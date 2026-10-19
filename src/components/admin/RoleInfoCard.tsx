@@ -94,13 +94,13 @@ export const PERMISSION_CATALOG: PermissionGroup[] = [
     ],
   },
   {
-    category: 'Messages',
+    category: 'Threads',
     permissions: [
-      { permission: Permission.VIEW_MESSAGES, label: 'View messages' },
-      { permission: Permission.MANAGE_MESSAGES, label: 'Manage messages' },
-      { permission: Permission.PROCESS_MESSAGES, label: 'Process & assign messages' },
-      { permission: Permission.DELETE_MESSAGES, label: 'Delete messages' },
-      { permission: Permission.REQUEST_MESSAGE_CHANGE, label: 'Request message changes' },
+      { permission: Permission.VIEW_MESSAGES, label: 'View threads' },
+      { permission: Permission.MANAGE_MESSAGES, label: 'Manage threads' },
+      { permission: Permission.PROCESS_MESSAGES, label: 'Process & assign threads' },
+      { permission: Permission.DELETE_MESSAGES, label: 'Delete threads' },
+      { permission: Permission.REQUEST_MESSAGE_CHANGE, label: 'Request thread changes' },
     ],
   },
   {
@@ -130,7 +130,7 @@ const roleDescriptions: Record<OrganizationRole, string> = {
   moderator:
     'Operational manager with control over integrations, AI configuration, and ticket management. Cannot manage users or billing.',
   support:
-    'Handles tickets and messages. Can process and resolve customer inquiries but cannot access settings or user management.',
+    'Handles tickets and threads. Can process and resolve customer inquiries but cannot access settings or user management.',
   associate:
     'Read-only access with ability to request changes. Ideal for trainees or external consultants who need visibility without direct control.',
 };
