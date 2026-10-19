@@ -27,6 +27,7 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { organisationConsolePath } from '@/pages/organisationConsoleRoutes';
 
 /**
  * org_admin SCIM 2.0 provisioning card.
@@ -274,14 +275,14 @@ export const SCIMConfigSettings = () => {
           <Alert variant="info">
             <div className="space-y-2">
               <p className="text-sm">
-                Identity for this workspace is managed by your alliance. Configure it in the Alliance
+                Identity for this workspace is managed by your organisation. Configure it in the Organisation
                 console.
               </p>
               <Link
-                to={`/console/alliance/${allianceId}/provisioning`}
+                to={`${organisationConsolePath(allianceId)}/provisioning`}
                 className="inline-flex gap-1 items-center text-sm font-medium underline text-primary hover:no-underline"
               >
-                Open the Alliance console
+                Open the Organisation console
               </Link>
             </div>
           </Alert>

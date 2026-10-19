@@ -182,7 +182,7 @@ describe('the vendor list', () => {
     list.mockResolvedValue([]);
     const { rerender } = render(<CustomApiSettings canManageVendors={false} />);
 
-    expect(await screen.findByText(/an organisation admin can connect one/i)).toBeTruthy();
+    expect(await screen.findByText(/a workspace admin can connect one/i)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /connect a system/i })).toBeNull();
 
     list.mockResolvedValue([]);

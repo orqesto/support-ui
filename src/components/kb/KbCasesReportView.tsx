@@ -481,7 +481,7 @@ export const KbCasesReportView = ({
                   {header.rows.length === 1 && memberCount(header.rows[0]) > header.conversations
                     ? // More answers than conversations: name both, as the row does.
                       conversationsText(memberCount(header.rows[0]), header.conversations)
-                    : `${plural(header.conversations, 'conversation', 'conversations')} ${
+                    : `${plural(header.conversations, 'thread', 'threads')} ${
                         header.rows.length === 1
                           ? 'in this case'
                           : 'across these cases, each counted once'

@@ -23,9 +23,9 @@ import { AllianceSwitcher } from '@/components/console/AllianceSwitcher';
 
 const renderAt = (allianceId: number) =>
   render(
-    <MemoryRouter initialEntries={[`/console/alliance/${allianceId}`]}>
+    <MemoryRouter initialEntries={[`/console/organisation/${allianceId}`]}>
       <Routes>
-        <Route path="/console/alliance/:allianceId" element={<AllianceSwitcher />} />
+        <Route path="/console/organisation/:allianceId" element={<AllianceSwitcher />} />
       </Routes>
     </MemoryRouter>
   );
@@ -42,12 +42,12 @@ describe('AllianceSwitcher', () => {
       { id: 2, name: 'South', orgCount: 3 },
     ];
     renderAt(1);
-    const control = screen.getByRole('combobox', { name: 'Alliance' });
+    const control = screen.getByRole('combobox', { name: 'Organisation' });
     // The control shows the name alone, as the old button did; the count is in the menu.
     expect(control.closest('.select__control')?.textContent).toBe('North');
     expect(await listOptions(control)).toEqual(['North — 1 workspace', 'South — 3 workspaces']);
     await chooseOption(control, 'South — 3 workspaces');
-    expect(navigate).toHaveBeenCalledWith('/console/alliance/2');
+    expect(navigate).toHaveBeenCalledWith('/console/organisation/2');
   });
 
   it('does not label an id outside the list as the current alliance', () => {
@@ -56,7 +56,7 @@ describe('AllianceSwitcher', () => {
       { id: 2, name: 'South', orgCount: 3 },
     ];
     renderAt(9);
-    expect(screen.getByText('Select alliance')).toBeInTheDocument();
+    expect(screen.getByText('Select organisation')).toBeInTheDocument();
     expect(screen.queryByText(/North/)).toBeNull();
   });
 

@@ -29,8 +29,8 @@ export type RoutingSettingSpec = {
 
 export const ROUTING_SETTING_SPECS: Record<RoutingSettingField, RoutingSettingSpec> = {
   proposalMinConversations: {
-    label: 'Conversations before a rule is proposed',
-    help: 'How many different conversations must be routed the same way before Engine Activity shows one proposal.',
+    label: 'Threads before a rule is proposed',
+    help: 'How many different threads must be routed the same way before Engine Activity shows one proposal.',
     defaultValue: 3,
     min: 1,
     max: 50,
@@ -38,7 +38,7 @@ export const ROUTING_SETTING_SPECS: Record<RoutingSettingField, RoutingSettingSp
   },
   rerouteUndoMinutes: {
     label: 'Same-agent re-route window (minutes)',
-    help: 'If the agent who routed a conversation re-routes it within this many minutes, it counts as correcting a slip: the first department quietly loses it instead of recording a disagreement. 0 turns the window off.',
+    help: 'If the agent who routed a thread re-routes it within this many minutes, it counts as correcting a slip: the first department quietly loses it instead of recording a disagreement. 0 turns the window off.',
     defaultValue: 10,
     min: 0,
     max: 240,
@@ -53,8 +53,8 @@ export const ROUTING_SETTING_SPECS: Record<RoutingSettingField, RoutingSettingSp
     integer: true,
   },
   autoacceptMinConversations: {
-    label: 'Auto-accept: conversations needed',
-    help: 'Balanced mode accepts a single-department proposal overnight only with at least this many conversations. Aggressive mode uses 0.8 of it, rounded up.',
+    label: 'Auto-accept: threads needed',
+    help: 'Balanced mode accepts a single-department proposal overnight only with at least this many threads. Aggressive mode uses 0.8 of it, rounded up.',
     defaultValue: 5,
     min: 1,
     max: 100,

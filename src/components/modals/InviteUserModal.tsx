@@ -264,7 +264,7 @@ export const InviteUserModal = ({
             onChange={(value) => setRole(value as OrganizationRole)}
             options={[
               { value: 'associate', label: 'Associate - Read-only with request permissions' },
-              { value: 'support', label: 'Support - Manage tickets and messages' },
+              { value: 'support', label: 'Support - Manage tickets and threads' },
               { value: 'moderator', label: 'Moderator - Manage integrations, categories, AI' },
               ...(isAdmin
                 ? [{ value: 'org_admin', label: 'Workspace Admin - Full control' }]
@@ -275,7 +275,7 @@ export const InviteUserModal = ({
           <p className="-mt-2 text-sm text-muted-foreground">
             {isAdmin
               ? 'Select the role for this user in the workspace'
-              : 'Org admins cannot invite other org admins'}
+              : 'Workspace admins cannot invite other workspace admins'}
           </p>
 
           {/* Departments. org_admin is auto-linked to every department (BE fans out),

@@ -205,7 +205,7 @@ vi.mock('@/components/messages/MessageDetail', () => ({
       {message.id}
       {onDelete && (
         <button type="button" onClick={onDelete}>
-          More → Delete message
+          More → Delete thread
         </button>
       )}
       {onNavigate && (
@@ -240,7 +240,7 @@ afterEach(() => {
 const renderPage = () =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={['/messages']}>
+      <MemoryRouter initialEntries={['/threads']}>
         <MessagesPage />
       </MemoryRouter>
     </QueryClientProvider>
@@ -252,14 +252,14 @@ const openDetail = async (id: number) => {
   await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent(String(id)));
 };
 const pressDelete = () =>
-  fireEvent.click(screen.getByRole('button', { name: 'More → Delete message' }));
+  fireEvent.click(screen.getByRole('button', { name: 'More → Delete thread' }));
 
-describe('MessagesPage — slide-over More → Delete message', () => {
+describe('MessagesPage — slide-over More → Delete thread', () => {
   it('the detail stays open behind the question; Cancel leaves it open, nothing deleted', async () => {
     renderPage();
     await openDetail(12);
     pressDelete();
-    expect(screen.getByRole('dialog')).toHaveTextContent('Delete message');
+    expect(screen.getByRole('dialog')).toHaveTextContent('Delete thread');
     expect(screen.getByTestId('detail-pane')).toHaveTextContent('12');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -291,7 +291,7 @@ describe('MessagesPage — slide-over More → Delete message', () => {
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledTimes(1));
     expect(mocks.toastError).toHaveBeenCalledWith('You cannot delete messages in this department');
     expect(screen.queryByText('Delete Failed')).toBeNull();
-    expect(screen.getByRole('dialog')).toHaveTextContent('Delete message');
+    expect(screen.getByRole('dialog')).toHaveTextContent('Delete thread');
     expect(screen.getByRole('button', { name: 'Delete' })).not.toBeDisabled();
     expect(screen.getByTestId('detail-pane')).toHaveTextContent('12');
   });
@@ -324,14 +324,14 @@ describe('MessagesPage — slide-over More → Delete message', () => {
     pressDelete();
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledTimes(1));
-    expect(mocks.toastError).toHaveBeenCalledWith('Failed to delete message');
+    expect(mocks.toastError).toHaveBeenCalledWith('Failed to delete thread');
   });
 
   it('a viewer without DELETE_MESSAGES or MANAGE_ORGANIZATION is not offered Delete', async () => {
     mocks.granted = new Set(['view_messages']);
     renderPage();
     await openDetail(12);
-    expect(screen.queryByRole('button', { name: 'More → Delete message' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'More → Delete thread' })).toBeNull();
   });
 
   it('board: the deleted thread’s card leaves the board (no delete socket event would move it)', async () => {
@@ -425,7 +425,7 @@ describe('MessagesPage — slide-over More → Delete message', () => {
     mocks.granted = new Set(['manage_organization']);
     renderPage();
     await openDetail(12);
-    expect(screen.getByRole('button', { name: 'More → Delete message' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More → Delete thread' })).toBeInTheDocument();
   });
 });
 
@@ -470,7 +470,7 @@ describe('MessagesPage — the sidebar badge refreshes', () => {
     await waitFor(() => expect(badgeRefreshes()).toBe(1));
   });
 
-  it('when another agent routes a conversation (the conversation:routed ping)', async () => {
+  it('when another agent routes a thread (the conversation:routed ping)', async () => {
     renderPage();
     const routed = vi
       .mocked(subscribeToEvent)

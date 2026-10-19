@@ -112,7 +112,7 @@ export const SLAConfigSettings = () => {
           SLA Thresholds
         </h3>
         <p className="text-xs text-muted-foreground mb-4">
-          Configure response and resolution time targets per priority and channel. Changes take effect for new tickets and messages.
+          Configure response and resolution time targets per priority and channel. Changes take effect for new tickets and threads.
         </p>
       </div>
 
@@ -168,7 +168,7 @@ export const SLAConfigSettings = () => {
 
       {/* Message SLA */}
       <div>
-        <p className="font-display text-xs font-medium text-muted-foreground uppercase tracking-[0.09em] mb-2">Message SLA</p>
+        <p className="font-display text-xs font-medium text-muted-foreground uppercase tracking-[0.09em] mb-2">Thread SLA</p>
         <div className="rounded-lg border border-border bg-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

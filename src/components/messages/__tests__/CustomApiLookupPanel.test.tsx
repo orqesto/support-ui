@@ -401,7 +401,7 @@ describe('an empty panel never reads as a failure', () => {
 });
 
 describe('SC5 — the same panel outside a thread', () => {
-  it('keys on the CONTACT when given one, not a conversation', async () => {
+  it('keys on the CONTACT when given one, not a thread', async () => {
     // RED: leave it thread-only ⇒ an agent working from the contact list has to open an arbitrary
     // thread to see what we know about that customer.
     run.mockResolvedValue([card()]);
@@ -458,11 +458,11 @@ describe('FE/BE skew — this frontend can reach production first', () => {
     expect(screen.getByText(LOOKUPS_NOT_ON_SERVER)).toBeInTheDocument();
   });
 
-  it('a PRESS that 404s says the conversation is not visible — not "not on this server"', async () => {
+  it('a PRESS that 404s says the thread is not visible — not "not on this server"', async () => {
     run.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
     render(<CustomApiLookupPanel conversationId={1} />);
     await press();
-    expect(await screen.findByText('This conversation isn’t visible to you.')).toBeInTheDocument();
+    expect(await screen.findByText('This thread isn’t visible to you.')).toBeInTheDocument();
     expect(screen.queryByText(LOOKUPS_NOT_ON_SERVER)).toBeNull();
   });
 
@@ -599,7 +599,7 @@ describe('results are announced, not just rendered', () => {
 });
 
 describe('one customer’s records never appear under another', () => {
-  it('⛔ clears results when the panel moves to a different conversation', async () => {
+  it('⛔ clears results when the panel moves to a different thread', async () => {
     // RED: keep the results in state ⇒ an agent moving to the next thread sees the PREVIOUS
     // customer's order numbers, statuses and totals presented as this customer's. That is the
     // D35 failure — a record shown as someone's when it is not — arriving through the UI.
@@ -613,7 +613,7 @@ describe('one customer’s records never appear under another', () => {
     await waitFor(() => expect(screen.queryByText('137416')).toBeNull());
   });
 
-  it('does NOT fetch for the new conversation by itself', async () => {
+  it('does NOT fetch for the new thread by itself', async () => {
     // The clear must not become a fetch: SC1 says N endpoints must not become N outbound calls
     // every time an agent opens a thread.
     run.mockResolvedValue([card()]);
@@ -654,7 +654,7 @@ describe('a press in flight answers only for the customer it was made on', () =>
     });
   };
 
-  it('⛔ drops a SUCCESS for conversation 1 that lands after the switch to 2', async () => {
+  it('⛔ drops a SUCCESS for thread 1 that lands after the switch to 2', async () => {
     // RED: apply it ⇒ conversation 1's order sits in conversation 2's panel, labelled as 2's.
     const pending = deferred();
     run.mockReturnValue(pending.promise);
@@ -673,7 +673,7 @@ describe('a press in flight answers only for the customer it was made on', () =>
     expect(result.current.loading).toBe(false);
   });
 
-  it('⛔ drops an ERROR for conversation 1 that lands after the switch to 2', async () => {
+  it('⛔ drops an ERROR for thread 1 that lands after the switch to 2', async () => {
     // RED: apply it ⇒ conversation 2 shows a failure nobody asked about.
     const pending = deferred();
     run.mockReturnValue(pending.promise);
@@ -704,7 +704,7 @@ describe('a press in flight answers only for the customer it was made on', () =>
     expect(result.current.loading).toBe(false);
   });
 
-  it('a press on the CURRENT conversation still lands', async () => {
+  it('a press on the CURRENT thread still lands', async () => {
     // Control: the guard must not drop every response.
     run.mockResolvedValue([card()]);
     const { result } = mountHook();
@@ -783,7 +783,7 @@ describe('the panel renders ONLY when this caller has a lookup to run', () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it('asks about the SURFACE it is on: thread for a conversation, contact otherwise', async () => {
+  it('asks about the SURFACE it is on: thread for a thread, contact otherwise', async () => {
     const thread = render(<CustomApiLookupPanel conversationId={1} />);
     await waitFor(() => expect(availability).toHaveBeenCalledWith('thread'));
     thread.unmount();

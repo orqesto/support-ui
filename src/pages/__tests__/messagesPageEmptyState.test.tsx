@@ -138,7 +138,7 @@ const { useMessagesStore } = await import('@/stores/messagesStore');
 const renderPage = () =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={['/messages']}>
+      <MemoryRouter initialEntries={['/threads']}>
         <MessagesPage />
       </MemoryRouter>
     </QueryClientProvider>
@@ -157,8 +157,8 @@ describe('MessagesPage — the empty list says what it is', () => {
       listScope: { withoutLens: 1203, hidden: 1200 } as never,
     });
     renderPage();
-    expect(screen.getByText('No messages found')).toBeInTheDocument();
-    expect(screen.getByText('No messages available')).toBeInTheDocument();
+    expect(screen.getByText('No threads found')).toBeInTheDocument();
+    expect(screen.getByText('No threads available')).toBeInTheDocument();
     expect(screen.getByText(/are outside this view/)).toHaveTextContent(
       /^1,200 are outside this view — use Not shown above to jump to them\.$/
     );
@@ -170,13 +170,13 @@ describe('MessagesPage — the empty list says what it is', () => {
       filters: { ...defaults.filters, priority: 'high' },
     });
     renderPage();
-    expect(screen.getByText('No messages match your filters')).toBeInTheDocument();
+    expect(screen.getByText('No threads match your filters')).toBeInTheDocument();
     expect(screen.queryByText(/are outside this view/)).toBeNull();
   });
 
   it('CONTROL: with no scope answer at all, no line either', () => {
     renderPage();
-    expect(screen.getByText('No messages available')).toBeInTheDocument();
+    expect(screen.getByText('No threads available')).toBeInTheDocument();
     expect(screen.queryByText(/are outside this view/)).toBeNull();
   });
 });

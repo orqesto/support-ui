@@ -293,7 +293,7 @@ describe('WorkspaceTokenLimitsDialog', () => {
   it('new shape: states the per-call basis', async () => {
     renderDialog();
     await screen.findByText(
-      /2,500 per KB call, measured over 200 KB calls in the last 30 days; a conversation is assumed to take 4 calls/
+      /2,500 per KB call, measured over 200 KB calls in the last 30 days; a thread is assumed to take 4 calls/
     );
   });
 
@@ -312,7 +312,7 @@ describe('WorkspaceTokenLimitsDialog', () => {
     forecast = () =>
       Promise.resolve(makeForecast({ tokensPerThread: { value: 10_000, windowDays: 30 } }));
     renderDialog();
-    await screen.findByText(/at 10,000 per conversation/);
+    await screen.findByText(/at 10,000 per thread/);
     expect(screen.queryByText(/KB call|mined in/)).toBeNull();
   });
 
@@ -325,7 +325,7 @@ describe('WorkspaceTokenLimitsDialog', () => {
       );
     renderDialog();
     await screen.findByText(
-      /Image checks during mining are counted from when they were first recorded for this workspace \(2026-09-30 UTC\); any made before then are not in this figure, so the real cost per conversation may be higher/
+      /Image checks during mining are counted from when they were first recorded for this workspace \(2026-09-30 UTC\); any made before then are not in this figure, so the real cost per thread may be higher/
     );
   });
 
@@ -336,7 +336,7 @@ describe('WorkspaceTokenLimitsDialog', () => {
       );
     renderDialog();
     await screen.findByText(
-      /counted from when they were first recorded, and none has been recorded for this workspace yet; if mining reads images, the real cost per conversation may be higher/
+      /counted from when they were first recorded, and none has been recorded for this workspace yet; if mining reads images, the real cost per thread may be higher/
     );
     expect(screen.queryByText(/release/)).toBeNull();
   });
@@ -603,7 +603,7 @@ describe('R8 forecast captions', () => {
         kb: { ...nothingToMine().kb, threadsToMine: 5, estimatedTokens: 50_000 },
       });
     renderDialog();
-    await screen.findByText(/5 conversations still to mine/);
+    await screen.findByText(/5 threads still to mine/);
     expect(screen.getByText(/≈ 50,000 tokens/)).toBeTruthy();
     expect(screen.getByText(/first recorded for this workspace \(2026-09-30 UTC\)/)).toBeTruthy();
   });
@@ -614,7 +614,7 @@ describe('R8 forecast captions', () => {
         makeForecast({ tokensPerThread: null, estimatedTokens: null, daysAtLimit: null })
       );
     renderDialog();
-    await screen.findByText(/900 conversations still to mine/);
+    await screen.findByText(/900 threads still to mine/);
     expect(screen.getByText(/not measured yet/)).toBeTruthy();
   });
 });
@@ -704,7 +704,7 @@ describe('WorkspaceTokenLimitsDialog — the regular release in the save toast (
     await waitFor(() => expect(toasts).toHaveLength(1));
     expect(toasts[0].kind).toBe('warning');
     expect(toasts[0].description).toMatch(
-      /^The KB limit no longer pauses 1 workspace\. 3 parked conversations queued to continue\. The regular-limit notices could not be updated now; they clear at 00:00 UTC\. New AI work follows the saved limit; only the regular-limit notice may keep saying AI work is stopped/
+      /^The KB limit no longer pauses 1 workspace\. 3 parked threads queued to continue\. The regular-limit notices could not be updated now; they clear at 00:00 UTC\. New AI work follows the saved limit; only the regular-limit notice may keep saying AI work is stopped/
     );
   });
 });

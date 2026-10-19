@@ -133,20 +133,20 @@ describe('M1 — the full page has one Back on a phone', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     return render(
       <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={['/messages/101']}>
+        <MemoryRouter initialEntries={['/threads/101']}>
           <Routes>
-            <Route path="/messages/:id" element={<MessageDetailPage />} />
+            <Route path="/threads/:id" element={<MessageDetailPage />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>
     );
   };
 
-  it('phone: the "Back · Message Details" bar is gone; the header row carries Back', async () => {
+  it('phone: the "Back · Thread Details" bar is gone; the header row carries Back', async () => {
     setViewport(true);
     renderPage();
     expect(await screen.findByRole('button', { name: 'Back to inbox' })).toBeTruthy();
-    expect(screen.queryByText('Message Details')).toBeNull();
+    expect(screen.queryByText('Thread Details')).toBeNull();
     // Nothing on the way down clips (the document scrolls) and the detail runs edge to edge.
     const frame = screen.getByTestId('detail-page-frame');
     expect(classOf(frame)).toContain('max-sm:h-auto');
@@ -158,7 +158,7 @@ describe('M1 — the full page has one Back on a phone', () => {
   it('CONTROL desktop: the bar stays, and there is no header Back', async () => {
     setViewport(false);
     renderPage();
-    expect(await screen.findByText('Message Details')).toBeTruthy();
+    expect(await screen.findByText('Thread Details')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Back to inbox' })).toBeNull();
   });
 });

@@ -338,7 +338,7 @@ export const CreateTicketPage = () => {
       <div className="px-4 mx-auto space-y-4 w-full">
         <div>
           <h1 className="font-display text-3xl font-bold">Create Ticket</h1>
-          <p className="mt-2 text-muted-foreground">Convert message into a support ticket</p>
+          <p className="mt-2 text-muted-foreground">Convert thread into a support ticket</p>
         </div>
 
         {message && (
@@ -579,7 +579,7 @@ export const CreateTicketPage = () => {
                   <Button type="submit" isLoading={loading} disabled={loading || created}>
                     Create Ticket
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => navigate('/messages')}>
+                  <Button type="button" variant="outline" onClick={() => navigate('/threads')}>
                     Cancel
                   </Button>
                 </div>

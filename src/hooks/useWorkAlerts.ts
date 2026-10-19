@@ -58,10 +58,10 @@ export const toWorkAlert = (row: Notification): WorkAlert => {
 export const workAlertText = (alert: WorkAlert): string =>
   alert.kind === CONVERSATION_ASSIGNED_KIND
     ? `Assigned to you by ${alert.actorLabel ?? 'a colleague'} — ${alert.subject}`
-    : `New unassigned message in ${alert.departmentName ?? 'Needs routing'} — ${alert.subject}`;
+    : `New unassigned thread in ${alert.departmentName ?? 'Needs routing'} — ${alert.subject}`;
 
 export const workAlertHref = (alert: WorkAlert): string =>
-  alert.entityType === 'ticket' ? `/tickets/${alert.entityId}` : `/messages/${alert.entityId}`;
+  alert.entityType === 'ticket' ? `/tickets/${alert.entityId}` : `/threads/${alert.entityId}`;
 
 export const workAlertTypeLabel = (kind: WorkAlertKind): string =>
   kind === CONVERSATION_ASSIGNED_KIND ? 'Assigned to you' : 'New unassigned';

@@ -5,8 +5,8 @@ describe('showsWorkspaceBanner', () => {
   it.each([
     '/',
     '/dashboard',
-    '/messages',
-    '/messages/42',
+    '/threads',
+    '/threads/42',
     '/tickets',
     '/tickets/edit/7',
     '/needs-routing',

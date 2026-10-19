@@ -57,12 +57,12 @@ const sourceCell = (entry: KBEntry) => {
 describe('Knowledge Base list — Source', () => {
   it('🔴 an automatic capture on Resolve links to its conversation', () => {
     const link = sourceCell(automatic).getByRole('link', { name: '#18' });
-    expect(link.getAttribute('href')).toBe('/messages?id=18');
+    expect(link.getAttribute('href')).toBe('/threads?id=18');
   });
 
   it('a Save-to-KB entry still links to its conversation', () => {
     expect(sourceCell(savedToKb).getByRole('link', { name: '#4' }).getAttribute('href')).toBe(
-      '/messages?id=4'
+      '/threads?id=4'
     );
   });
 

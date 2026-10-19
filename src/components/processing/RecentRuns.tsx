@@ -58,9 +58,9 @@ export const RecentRuns = ({
                   {run.channel === 'kb' && notContinuedReason(run)
                     ? `KB mining · paused mining not continued: ${notContinuedReason(run)}`
                     : isKbErrorBeforeReading(run)
-                      ? 'KB mining · stopped on an error before reading any conversation'
+                      ? 'KB mining · stopped on an error before reading any thread'
                       : run.channel === 'kb'
-                        ? `KB mining · ${(run.kbThreadsDone ?? 0).toLocaleString()} of ${(run.kbThreads ?? 0).toLocaleString()} conversations · ${(run.kbPairsSaved ?? 0).toLocaleString()} Q&A${(run.kbDocumentsSaved ?? 0) > 0 ? ` · ${plural(run.kbDocumentsSaved ?? 0, 'document', 'documents')}` : ''}`
+                        ? `KB mining · ${(run.kbThreadsDone ?? 0).toLocaleString()} of ${(run.kbThreads ?? 0).toLocaleString()} threads · ${(run.kbPairsSaved ?? 0).toLocaleString()} Q&A${(run.kbDocumentsSaved ?? 0) > 0 ? ` · ${plural(run.kbDocumentsSaved ?? 0, 'document', 'documents')}` : ''}`
                         : status === 'running'
                           ? `going through ${run.found.toLocaleString()}`
                           : run.outcome === 'running'

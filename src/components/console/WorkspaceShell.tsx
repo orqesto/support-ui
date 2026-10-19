@@ -14,6 +14,7 @@ import { organizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useScopeStore } from '@/stores/scopeStore';
 import { logger } from '@/lib/logger';
+import { isOrganisationConsolePath } from '@/pages/organisationConsoleRoutes';
 
 /**
  * Per-workspace management shell for a global admin OR an alliance_admin managing one of
@@ -41,9 +42,7 @@ export const WorkspaceShell = () => {
   const [searchParams] = useSearchParams();
   const fromParam = searchParams.get('from');
   const backTo = fromParam?.startsWith('/console/') ? fromParam : '/console/platform/organizations';
-  const backLabel = backTo.startsWith('/console/alliance/')
-    ? 'Alliance console'
-    : 'Platform console';
+  const backLabel = isOrganisationConsolePath(backTo) ? 'Organisation console' : 'Platform console';
   // A non-numeric param (Number(...) === NaN) is invalid — never point the org
   // context at NaN. Treat non-finite as null and render an explicit error state.
   const parsedId = orgId ? Number(orgId) : NaN;

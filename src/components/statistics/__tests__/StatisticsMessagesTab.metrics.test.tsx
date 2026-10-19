@@ -97,7 +97,7 @@ describe('StatisticsMessagesTab — response metrics', () => {
       meta: { businessHoursTruncated: true },
     });
 
-    expect(screen.getByText(/first 5,000 conversations/)).toBeInTheDocument();
+    expect(screen.getByText(/first 5,000 threads/)).toBeInTheDocument();
   });
 });
 
@@ -113,14 +113,14 @@ describe('StatisticsMessagesTab — response metrics', () => {
  * feature rather than an honest gap.
  */
 describe('StatisticsMessagesTab — an empty panel says why it is empty', () => {
-  it('accounts for resolved conversations that carry no close time', () => {
+  it('accounts for resolved threads that carry no close time', () => {
     renderTab({
       ...base,
       resolutionTime: { avgHours: null, p50Hours: null, p90Hours: null, totalClosed: 0, excludedNoCloseStamp: 2936 },
     });
 
     // The count is the point: "0 closed" beside a silent 2,936 is the misleading state.
-    expect(screen.getByText(/2,936 resolved conversations have/)).toBeInTheDocument();
+    expect(screen.getByText(/2,936 resolved threads have/)).toBeInTheDocument();
     expect(screen.getByText(/no recorded close time/)).toBeInTheDocument();
   });
 

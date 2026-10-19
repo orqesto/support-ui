@@ -207,13 +207,13 @@ describe('F2 the list', () => {
     await waitFor(() =>
       expect(within(named).getByRole('link', { name: /Open thread C-77/ })).toHaveAttribute(
         'href',
-        '/messages?id=ACM-C-77'
+        '/threads?id=ACM-C-77'
       )
     );
     const unnamed = await workRowEl(12);
     expect(within(unnamed).getByRole('link', { name: /Open thread #5002/ })).toHaveAttribute(
       'href',
-      '/messages?id=5002'
+      '/threads?id=5002'
     );
     // No conversation resolved ⇒ no link, never a guessed one.
     expect(

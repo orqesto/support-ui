@@ -275,7 +275,7 @@ describe('v3 header keeps every action it moved', () => {
     renderDetail({ status: 'in_progress' as Message['status'] });
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
-    expect(within(screen.getByRole('menu')).getByText('Conversation history')).toBeTruthy();
+    expect(within(screen.getByRole('menu')).getByText('Thread history')).toBeTruthy();
     // Owner, 2026-09-22: no "Move to Spam" in this menu — the caret's confirmed path is the one.
     expect(within(screen.getByRole('menu')).queryByText(/move to spam/i)).toBeNull();
   });

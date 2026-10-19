@@ -28,7 +28,7 @@ export const describeReset = (
 const limitName = (alert: TokenLimitAlert, words: string): string => {
   const period = alert.period === 'month' ? 'monthly' : 'daily';
   return alert.scope === 'alliance'
-    ? `Alliance's shared ${period} AI pool for ${words}`
+    ? `Organisation's shared ${period} AI pool for ${words}`
     : `${period === 'monthly' ? 'Monthly' : 'Daily'} AI limit for ${words}`;
 };
 
@@ -49,7 +49,7 @@ export const describeRelease = (alert: TokenLimitAlert): string => {
   // partial flag (not expected for regular) is still said (FE audit pass 13, MED).
   if (alert.bucket === 'regular') {
     if (onCatchup(alert)) {
-      return `AI drafts, auto-replies and widget answers run again for new mail. Open conversations the local model sorted while the limit was reached are analysed again with AI, in batches that leave room for new mail.${
+      return `AI drafts, auto-replies and widget answers run again for new mail. Open threads the local model sorted while the limit was reached are analysed again with AI, in batches that leave room for new mail.${
         alert.releasePartial === true ? ' Some work may still wait for the reset.' : ''
       }`;
     }
@@ -123,7 +123,7 @@ export const TokenLimitSection = ({
         // Whose spend and over which period the figures are (wave 2b).
         const usedIn =
           alert.scope === 'alliance'
-            ? `used by the alliance ${alert.period === 'month' ? 'this month' : 'today'}`
+            ? `used by the organisation ${alert.period === 'month' ? 'this month' : 'today'}`
             : `used ${alert.period === 'month' ? 'this month' : 'today'}`;
         return (
           <div

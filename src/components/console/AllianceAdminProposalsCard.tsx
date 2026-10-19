@@ -41,11 +41,11 @@ export const AllianceAdminProposalsCard = ({ allianceId }: { allianceId: number 
       <CardHeader>
         <CardTitle className="flex gap-2 items-center">
           <ShieldAlert className="w-5 h-5 text-muted-foreground" />
-          Suggested alliance admins
+          Suggested organisation admins
         </CardTitle>
         <CardDescription>
-          These members already administer more than one workspace of this alliance, which is what
-          being an alliance admin means. Granting it is a decision, not a calculation — nothing
+          These members already administer more than one workspace of this organisation, which is what
+          being an organisation admin means. Granting it is a decision, not a calculation — nothing
           changes until you confirm.
         </CardDescription>
       </CardHeader>
@@ -65,14 +65,14 @@ export const AllianceAdminProposalsCard = ({ allianceId }: { allianceId: number 
               onClick={() => setConfirming(proposal)}
               disabled={changeRole.isPending}
             >
-              Make alliance admin
+              Make organisation admin
             </Button>
           </Card>
         ))}
 
         <Alert variant="info">
           <span className="text-sm">
-            Alliance admin is alliance-wide: SSO and SCIM configuration, bearer tokens, domains,
+            Organisation admin is organisation-wide: SSO and SCIM configuration, bearer tokens, domains,
             group authoring and the audit log — across every workspace, including ones attached
             later.
           </span>
@@ -95,15 +95,15 @@ export const AllianceAdminProposalsCard = ({ allianceId }: { allianceId: number 
               // moment and then proposes again after the next refetch. Every other caller of
               // `useChangeMemberRole` (ConsoleMembers) reports its own failure; this one did
               // not, which is why the hook cannot carry it instead.
-              onError: (error: unknown) => toast.failure('grant alliance admin', error),
+              onError: (error: unknown) => toast.failure('grant organisation admin', error),
             }
           );
           setConfirming(null);
         }}
         variant="danger"
-        confirmText="Make alliance admin"
-        title={`Make ${confirming ? displayName(confirming) : 'this member'} an alliance admin?`}
-        description="They gain alliance-wide control: SSO and SCIM configuration, bearer tokens, domains, group authoring and the audit log, across every workspace in this alliance including ones attached later. You can change it back from the Members tab."
+        confirmText="Make organisation admin"
+        title={`Make ${confirming ? displayName(confirming) : 'this member'} an organisation admin?`}
+        description="They gain organisation-wide control: SSO and SCIM configuration, bearer tokens, domains, group authoring and the audit log, across every workspace in this organisation including ones attached later. You can change it back from the Members tab."
       />
     </Card>
   );

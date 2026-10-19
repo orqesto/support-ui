@@ -114,7 +114,7 @@ const evidenceHighlights = (evidence: Record<string, unknown>): string[] => {
   const weighted = evidence.weightedConversations;
   if (typeof weighted === 'number' && Number.isFinite(weighted)) {
     // Weighted counts are fractional: read like the card ("about 5"), whole numbers as they are.
-    out.push(`Conversations ${Number.isInteger(weighted) ? weighted : `about ${Math.max(1, Math.round(weighted))}`}`);
+    out.push(`Threads ${Number.isInteger(weighted) ? weighted : `about ${Math.max(1, Math.round(weighted))}`}`);
   }
   const spanDays = formatNumber(evidence.spanDays);
   if (spanDays !== null) out.push(`Over ${spanDays} days`);

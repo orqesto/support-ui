@@ -97,7 +97,7 @@ export const NotificationPreferencesSettings = () => {
         <p className="text-xs text-muted-foreground mb-3">Choose which breach types appear in the alert center.</p>
         <div className="rounded-lg border border-border bg-card px-4">
           <PreferenceRow
-            label="Message SLA"
+            label="Thread SLA"
             checked={prefs.notifyMessages}
             onChange={(val) => update({ notifyMessages: val })}
           />
@@ -121,7 +121,7 @@ export const NotificationPreferencesSettings = () => {
         </p>
         <div className="rounded-lg border border-border bg-card px-4">
           <PreferenceRow
-            label="New unassigned messages"
+            label="New unassigned threads"
             checked={prefs.notifyNewUnassigned}
             onChange={(val) => update({ notifyNewUnassigned: val })}
           />

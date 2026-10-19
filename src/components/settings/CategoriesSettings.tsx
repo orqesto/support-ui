@@ -72,8 +72,8 @@ export const CategoriesSettings = () => {
       </div>
       <p className="text-[11px] text-muted-foreground">
         {formData.departmentId === null
-          ? 'Applies everywhere — messages in any department can be given this category.'
-          : 'Only messages in this department can be given this category.'}
+          ? 'Applies everywhere — threads in any department can be given this category.'
+          : 'Only threads in this department can be given this category.'}
       </p>
     </div>
   );

@@ -94,7 +94,7 @@ export const MonthlyLimitsCard = ({
           <>
             {unreadable && (
               <span className="text-xs text-warning">
-                The stored monthly and alliance limits could not be read; they cannot be edited
+                The stored monthly and organisation limits could not be read; they cannot be edited
                 until they can.
               </span>
             )}

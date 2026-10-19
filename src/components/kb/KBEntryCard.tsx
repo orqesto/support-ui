@@ -132,7 +132,7 @@ export const KBEntryCard = ({
             <>
               <span>•</span>
               <a
-                href={`/messages?id=${kbSourceConversationId(entry)}`}
+                href={`/threads?id=${kbSourceConversationId(entry)}`}
                 className="font-mono text-primary hover:text-primary hover:underline"
                 onClick={(event) => event.stopPropagation()}
               >

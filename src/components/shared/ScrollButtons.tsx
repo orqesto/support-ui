@@ -19,7 +19,7 @@ export const ScrollButtons = ({
 }: ScrollButtonsProps) => {
   const location = useLocation();
   const isFullPage =
-    location.pathname.includes('/messages/') || location.pathname.includes('/tickets/');
+    location.pathname.includes('/threads/') || location.pathname.includes('/tickets/');
 
   const [showScrollButtons, setShowScrollButtons] = useState(isFullPage);
   const [showTopButton, setShowTopButton] = useState(false);

@@ -137,7 +137,7 @@ export const AckReplyEditor = ({
         <div>
           <h4 className="font-display text-sm font-semibold">Acknowledgment auto-reply</h4>
           <p className="text-xs text-muted-foreground">
-            Sends once per conversation, on the first inbound message. Includes a public tracking
+            Sends once per thread, on the first inbound message. Includes a public tracking
             link.
           </p>
         </div>

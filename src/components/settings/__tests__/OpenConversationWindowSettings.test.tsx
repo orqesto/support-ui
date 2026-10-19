@@ -59,7 +59,7 @@ import { apiError } from '@/test/apiError';
 
 const daysInput = () => screen.getByLabelText('Days');
 const presetSelect = () => screen.getByLabelText('Window');
-const offSwitch = () => screen.getByRole('switch', { name: 'Use an open-conversation window' });
+const offSwitch = () => screen.getByRole('switch', { name: 'Use an open-thread window' });
 const saveButton = () => screen.getByRole('button', { name: /save/i });
 const chooseCustom = () => chooseOption(presetSelect(), 'Custom');
 /** The option the Window select shows as chosen (its visible value, menu closed). */
@@ -227,7 +227,7 @@ describe('OpenConversationWindowSettings', () => {
     render(<OpenConversationWindowSettings />);
 
     expect(
-      await screen.findByText(/Couldn't load the open-conversation window/)
+      await screen.findByText(/Couldn't load the open-thread window/)
     ).toBeInTheDocument();
     expect(screen.queryByLabelText('Window')).not.toBeInTheDocument();
   });
@@ -344,7 +344,7 @@ describe('OpenConversationWindowSettings — Off', () => {
   });
 });
 
-describe('Workspace → Open Conversations tab', () => {
+describe('Workspace → Open Threads tab', () => {
   it('an org admin can open it by deep link', async () => {
     getOpenConversationWindow.mockResolvedValue(supported(14));
     render(
@@ -352,7 +352,7 @@ describe('Workspace → Open Conversations tab', () => {
         <OrganizationSettings section="open-conversations" />
       </MemoryRouter>
     );
-    expect(screen.getByText('Open Conversations')).toBeInTheDocument();
+    expect(screen.getByText('Open Threads')).toBeInTheDocument();
     expect(await screen.findByText(/Currently 14 days/)).toBeInTheDocument();
   });
 
@@ -363,7 +363,7 @@ describe('Workspace → Open Conversations tab', () => {
         <OrganizationSettings section="open-conversations" />
       </MemoryRouter>
     );
-    expect(screen.queryByText('Open Conversations')).not.toBeInTheDocument();
+    expect(screen.queryByText('Open Threads')).not.toBeInTheDocument();
     expect(screen.getByText('categories')).toBeInTheDocument();
     expect(getOpenConversationWindow).not.toHaveBeenCalled();
   });

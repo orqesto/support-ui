@@ -103,7 +103,7 @@ describe('Bounce repair', () => {
     render(<BounceRepairSection />);
     await runCheck();
     expect(await screen.findByText(/12 messages/)).toBeInTheDocument();
-    expect(screen.getByText(/28 open conversations/)).toBeInTheDocument();
+    expect(screen.getByText(/28 open threads/)).toBeInTheDocument();
     expect(screen.getByText(/stored before bounces were recognised/)).toBeInTheDocument();
     expect(screen.getByText(/SUP-15597 — Militech - Ordine 402538/)).toBeInTheDocument();
     expect(screen.getByText(/237 customers and 391 bounces/)).toBeInTheDocument();
@@ -118,7 +118,7 @@ describe('Bounce repair', () => {
     const dialogRepair = await screen.findAllByRole('button', { name: /^Repair$/ });
     fireEvent.click(dialogRepair[dialogRepair.length - 1]);
     await waitFor(() => expect(calls).toEqual(['check', 'apply']));
-    expect(await screen.findByText(/Moved 12 messages \(5 queued for processing\), marked 0 bounces and filed away 28 conversations\./)).toBeInTheDocument();
+    expect(await screen.findByText(/Moved 12 messages \(5 queued for processing\), marked 0 bounces and filed away 28 threads\./)).toBeInTheDocument();
   });
 
   it('says so when there is nothing to repair', async () => {
@@ -163,20 +163,20 @@ describe('Bounce repair', () => {
     expect(await screen.findByText(/3 messages/)).toBeInTheDocument();
   });
 
-  it('splits a fused conversation only after its own check and confirm', async () => {
+  it('splits a fused thread only after its own check and confirm', async () => {
     render(<BounceRepairSection />);
     await runCheck();
     fireEvent.click(await screen.findByRole('button', { name: /Check split/ }));
-    expect(await screen.findByText(/first@buyer\.example keeps this conversation/)).toBeInTheDocument();
+    expect(await screen.findByText(/first@buyer\.example keeps this thread/)).toBeInTheDocument();
     expect(screen.getByText(/391 messages \(bounces/)).toBeInTheDocument();
     // In the board's own words: an open move starts as "Open" — and every one lands in the inbox.
-    expect(screen.getByText(/The new conversations start 2 as “Open”\./)).toBeInTheDocument();
+    expect(screen.getByText(/The new threads start 2 as “Open”\./)).toBeInTheDocument();
     expect(screen.getByText(/1 message stored as our own reply names a customer/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Split into 3 conversations/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Split into 3 threads/ }));
     expect(calls).toEqual(['check', 'split-check:38522']);
     fireEvent.click(await screen.findByRole('button', { name: /^Split$/ }));
     await waitFor(() => expect(calls).toEqual(['check', 'split-check:38522', 'split-apply:38522']));
-    expect(await screen.findByText(/Separated — 2 new conversations/)).toBeInTheDocument();
+    expect(await screen.findByText(/Separated — 2 new threads/)).toBeInTheDocument();
   });
 
   it('forgets a check when the workspace changes', async () => {
@@ -198,11 +198,11 @@ describe('Bounce repair', () => {
     const stranded = (over: Record<string, unknown>) =>
       ({ found: 4, moved: 0, restored: 0, skipped: 0, queued: 0, truncated: false, samples: [], ...over }) as BounceRepairResult['stranded'];
 
-    it('an older backend (no restored) keeps "moved to the conversation it belongs to"', async () => {
+    it('an older backend (no restored) keeps "moved to the thread it belongs to"', async () => {
       render(<BounceRepairSection />);
       await runCheck();
       expect(await screen.findByTestId('stranded-line')).toHaveTextContent(
-        '12 messages left on a merged-away conversation — moved to the conversation it belongs to; any not yet processed are processed then.'
+        '12 messages left on a merged-away thread — moved to the thread it belongs to; any not yet processed are processed then.'
       );
     });
 
@@ -211,7 +211,7 @@ describe('Bounce repair', () => {
       render(<BounceRepairSection />);
       await runCheck();
       expect(await screen.findByTestId('stranded-line')).toHaveTextContent(
-        '4 messages left on a merged-away conversation — would be: 2 moved, 1 restored, 1 skipped.'
+        '4 messages left on a merged-away thread — would be: 2 moved, 1 restored, 1 skipped.'
       );
       // A decision is queued only where the rules allow (not on a ticket waiting for routing):
       // the check makes no promise that every one is processed.
@@ -228,7 +228,7 @@ describe('Bounce repair', () => {
       // 4 found + 1 landed = 2 moved + 2 restored + 1 skipped.
       expect(
         await screen.findByText(
-          '4 messages left on merged-away tickets (1 more landed with restored tickets): 2 moved, 2 restored, 1 skipped (3 queued for processing); marked 0 bounces and filed away 28 conversations.'
+          '4 messages left on merged-away tickets (1 more landed with restored tickets): 2 moved, 2 restored, 1 skipped (3 queued for processing); marked 0 bounces and filed away 28 threads.'
         )
       ).toBeInTheDocument();
     });
@@ -239,7 +239,7 @@ describe('Bounce repair', () => {
       render(<BounceRepairSection />);
       await runCheck();
       expect(await screen.findByTestId('stranded-line')).toHaveTextContent(
-        '2 messages left on a merged-away conversation (3 more would land with restored tickets) — would be: 1 moved, 4 restored, 0 skipped.'
+        '2 messages left on a merged-away thread (3 more would land with restored tickets) — would be: 1 moved, 4 restored, 0 skipped.'
       );
     });
 
@@ -256,7 +256,7 @@ describe('Bounce repair', () => {
       render(<BounceRepairSection />);
       await runCheck();
       fireEvent.click(await screen.findByRole('button', { name: /^Repair$/ }));
-      expect(await screen.findByText(/^Stranded messages move to the conversation they belong to, and conversations/)).toBeInTheDocument();
+      expect(await screen.findByText(/^Stranded messages move to the thread they belong to, and threads/)).toBeInTheDocument();
     });
   });
 });

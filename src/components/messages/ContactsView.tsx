@@ -51,7 +51,7 @@ const SORTS: Record<
     label: 'Recent',
     fn: (lhs, rhs) => new Date(rhs.lastMessageAt).getTime() - new Date(lhs.lastMessageAt).getTime(),
   },
-  messages: { label: 'Most messages', fn: (lhs, rhs) => rhs.messageCount - lhs.messageCount },
+  messages: { label: 'Most threads', fn: (lhs, rhs) => rhs.messageCount - lhs.messageCount },
   name: { label: 'Name', fn: (lhs, rhs) => lhs.sender.localeCompare(rhs.sender) },
   unread: {
     label: 'Unread first',
@@ -166,7 +166,7 @@ function ContactRow({
               {contact.hasUnread && (
                 <span
                   className="w-[7px] h-[7px] rounded-full bg-warning shrink-0"
-                  title="Unread messages"
+                  title="Unread threads"
                 />
               )}
             </div>
@@ -181,7 +181,7 @@ function ContactRow({
             )}
             <span
               className="inline-flex gap-1 items-center text-xs tabular-nums"
-              title={`${contact.messageCount} messages`}
+              title={`${contact.messageCount} threads`}
             >
               <MessageSquare className="w-3.5 h-3.5" />
               {contact.messageCount}
@@ -219,7 +219,7 @@ function ContactRow({
               </div>
             )}
             {!subjectState.loading && subjectState.data?.length === 0 && (
-              <p className="px-2 py-2.5 text-xs text-muted-foreground">No conversations found.</p>
+              <p className="px-2 py-2.5 text-xs text-muted-foreground">No threads found.</p>
             )}
             {!subjectState.loading &&
               subjectState.data?.map((subject) => (
@@ -304,7 +304,7 @@ function SenderFocusView({
       {!loading && subjects?.length === 0 && (
         <Card>
           <CardContent className="p-8 text-center text-muted-foreground">
-            No conversations found.
+            No threads found.
           </CardContent>
         </Card>
       )}
@@ -331,7 +331,7 @@ function SenderFocusView({
                 <div className="min-w-0">
                   <p className="font-medium truncate">{subject.displaySubject ?? '(no subject)'}</p>
                   <p className="text-xs text-muted-foreground">
-                    {subject.messageCount} message{subject.messageCount !== 1 ? 's' : ''} ·{' '}
+                    {subject.messageCount} thread{subject.messageCount !== 1 ? 's' : ''} ·{' '}
                     {formatDate(subject.lastMessageAt)}
                   </p>
                 </div>

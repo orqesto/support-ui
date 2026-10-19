@@ -25,5 +25,5 @@ export const scopeJumpUrl = (next: Partial<FilterState>): string => {
   if (next.queue && next.queue !== 'all') params.set('queue', next.queue);
   if (next.lifecycle && next.lifecycle !== 'all') params.set('lifecycle', next.lifecycle);
   const query = params.toString();
-  return query ? `/messages?${query}` : '/messages';
+  return query ? `/threads?${query}` : '/threads';
 };

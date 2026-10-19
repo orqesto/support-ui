@@ -70,7 +70,7 @@ export const MessageDetailConfirmDialogs = ({
             <DialogClose onClose={() => setRejectDialogOpen(false)} />
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Closes this conversation without sending a reply. You can reopen it later.
+            Closes this thread without sending a reply. You can reopen it later.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
@@ -91,11 +91,11 @@ export const MessageDetailConfirmDialogs = ({
       <Dialog open={reopenDialogOpen} onOpenChange={setReopenDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reopen Message?</DialogTitle>
+            <DialogTitle>Reopen Thread?</DialogTitle>
             <DialogClose onClose={() => setReopenDialogOpen(false)} />
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This reopens the message and removes any KB entries created from it. It returns to its
+            This reopens the thread and removes any KB entries created from it. It returns to its
             previous column (Active / Awaiting / Replied) based on the last message.
           </p>
           <DialogFooter>
@@ -122,7 +122,7 @@ export const MessageDetailConfirmDialogs = ({
             <DialogClose onClose={() => setResolveConfirmOpen(false)} />
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This marks the conversation as resolved and saves it to the knowledge base. You can
+            This marks the thread as resolved and saves it to the knowledge base. You can
             reopen it later if needed.
           </p>
           <DialogFooter>
@@ -148,7 +148,7 @@ export const MessageDetailConfirmDialogs = ({
             <DialogClose onClose={() => setCloseConfirmOpen(false)} />
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This resolves the conversation without saving it to the knowledge base. It will move to
+            This resolves the thread without saving it to the knowledge base. It will move to
             the Resolved view; you can reopen it later.
           </p>
           <DialogFooter>
@@ -175,7 +175,7 @@ export const MessageDetailConfirmDialogs = ({
             <DialogClose onClose={() => setMarkReadPromptOpen(false)} />
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            You&apos;re closing this conversation while it&apos;s still marked unread. Mark it as
+            You&apos;re closing this thread while it&apos;s still marked unread. Mark it as
             read so it no longer shows the unread indicator, or keep it unread to review later.
           </p>
           <DialogFooter>

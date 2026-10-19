@@ -22,6 +22,6 @@ export const customerSince = (contact: Facts): string | null => {
  */
 export const lifetimeLabel = (stats: Partial<Facts['stats']> | undefined): string | null => {
   if (typeof stats?.messageCount !== 'number') return null;
-  const total = `${stats.messageCount} conversation${stats.messageCount === 1 ? '' : 's'}`;
+  const total = `${stats.messageCount} thread${stats.messageCount === 1 ? '' : 's'}`;
   return typeof stats.openCount === 'number' ? `${total} · ${stats.openCount} open` : total;
 };

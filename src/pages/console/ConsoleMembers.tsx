@@ -44,16 +44,16 @@ type AlliancePowerValue = typeof NO_POWER | 'alliance_admin';
 
 const ROLE_HELP: Record<AlliancePowerValue, string> = {
   alliance_admin:
-    'Alliance admin — manages the alliance and gets workspace-admin access in every workspace.',
+    'Organisation admin — manages the organisation and gets workspace-admin access in every workspace.',
   [NO_POWER]:
-    'Member — belongs to the alliance with no alliance powers. Workspace access comes from the groups they are in.',
+    'Member — belongs to the organisation with no organisation powers. Workspace access comes from the groups they are in.',
 };
 
 /** Friendly label for an org-role enum surfaced in the effective-roles chips. */
 const orgRoleLabel = (role: string): string => roleDisplayNames[role as UserRole] ?? role;
 
 const ROLE_LABEL: Record<AlliancePowerValue, string> = {
-  alliance_admin: 'Alliance admin',
+  alliance_admin: 'Organisation admin',
   [NO_POWER]: 'Member',
 };
 
@@ -299,12 +299,12 @@ export const ConsoleMembers = () => {
     },
     {
       id: 'allianceRole',
-      header: 'Alliance role',
+      header: 'Organisation role',
       cell: (member) => (
         <Select
           value={toValue(member.allianceRole)}
           disabled={changeRole.isPending && changeRole.variables?.userId === member.userId}
-          aria-label={`Alliance role for ${member.name || member.email || `user #${member.userId}`}`}
+          aria-label={`Organisation role for ${member.name || member.email || `user #${member.userId}`}`}
           // sm: one per table row — a full 40px field in every row read heavier than the table.
           size="sm"
           onChange={(value) => {
@@ -425,7 +425,7 @@ export const ConsoleMembers = () => {
             <RotateCcw className="w-4 h-4" />
           </Button>
         </Tooltip>
-        <Tooltip content={`Remove ${label} from the alliance`}>
+        <Tooltip content={`Remove ${label} from the organisation`}>
           <Button
             variant="ghost"
             onClick={() => setRemoveTarget(member)}
@@ -452,7 +452,7 @@ export const ConsoleMembers = () => {
     <div className="flex flex-col gap-4 h-full min-h-0">
       <ConsolePageHeader
         title="Members"
-        description="People granted a role across every workspace in this alliance. With an IdP, members sync automatically via Provisioning (SCIM) + Groups — add here to seed an admin or when there's no IdP."
+        description="People granted a role across every workspace in this organisation. With an IdP, members sync automatically via Provisioning (SCIM) + Groups — add here to seed an admin or when there's no IdP."
         actions={
           <Button onClick={() => setAddOpen(true)}>
             <Plus className="mr-2 w-4 h-4" />
@@ -482,7 +482,7 @@ export const ConsoleMembers = () => {
             pagination={{ mode: 'client', pageSize: PAGE_SIZE }}
             empty={{
               icon: Users,
-              message: 'No members in this alliance yet.',
+              message: 'No members in this organisation yet.',
               filteredMessage: 'No members match your search.',
             }}
           />
@@ -521,12 +521,12 @@ export const ConsoleMembers = () => {
                 }
               />
               <p className="text-xs text-muted-foreground">
-                Adding a member grants the alliance role below across every workspace in the
-                alliance. People already in the alliance are hidden.
+                Adding a member grants the organisation role below across every workspace in the
+                organisation. People already in the organisation are hidden.
               </p>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="alliance-add-role">Alliance role</Label>
+              <Label htmlFor="alliance-add-role">Organisation role</Label>
               <Select
                 id="alliance-add-role"
                 value={toValue(newRole)}
@@ -570,7 +570,7 @@ export const ConsoleMembers = () => {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              They will be blocked from logging in to every workspace in this alliance — their
+              They will be blocked from logging in to every workspace in this organisation — their
               sessions are revoked. This stays in effect even if your identity provider still lists
               them as active, until you reactivate them here. Full removal is done in your IdP.
             </p>
@@ -631,7 +631,7 @@ export const ConsoleMembers = () => {
         variant="warning"
         confirmText="Reactivate member"
         title={`Reactivate ${reactivateTarget?.name || 'this member'}?`}
-        description="This lifts the hold and restores the member's access from their current identity-provider groups and alliance role, on the next reconcile."
+        description="This lifts the hold and restores the member's access from their current identity-provider groups and organisation role, on the next reconcile."
       />
 
       <ConfirmDialog
@@ -644,8 +644,8 @@ export const ConsoleMembers = () => {
         onConfirm={handleRemove}
         variant="danger"
         confirmText="Remove member"
-        title={`Remove ${removeTarget?.name || 'this member'} from the alliance?`}
-        description="They disappear from this list and lose their alliance groups and workspace access. This is not a ban: if your identity provider activates them again, they come back automatically."
+        title={`Remove ${removeTarget?.name || 'this member'} from the organisation?`}
+        description="They disappear from this list and lose their organisation groups and workspace access. This is not a ban: if your identity provider activates them again, they come back automatically."
       />
 
       <ConfirmDialog
@@ -658,17 +658,17 @@ export const ConsoleMembers = () => {
         onConfirm={handleChangeRole}
         variant={roleChange?.newRole === 'alliance_admin' ? 'danger' : 'warning'}
         confirmText={
-          roleChange?.newRole === 'alliance_admin' ? 'Grant alliance admin' : 'Change to agent'
+          roleChange?.newRole === 'alliance_admin' ? 'Grant organisation admin' : 'Change to agent'
         }
         title={
           roleChange?.newRole === 'alliance_admin'
-            ? `Make ${roleChange?.member.name || 'this member'} an alliance admin?`
-            : `Change ${roleChange?.member.name || 'this member'} to alliance agent?`
+            ? `Make ${roleChange?.member.name || 'this member'} an organisation admin?`
+            : `Change ${roleChange?.member.name || 'this member'} to organisation agent?`
         }
         description={
           (roleChange?.newRole === 'alliance_admin'
-            ? 'Alliance admins manage identity, provisioning, groups, members and workspaces — this grants workspace-admin access across every workspace in the alliance. Applied on the next reconcile.'
-            : 'This lowers the member to alliance agent (associate) across every workspace in the alliance and may reduce their department visibility. Applied on the next reconcile.') +
+            ? 'Organisation admins manage identity, provisioning, groups, members and workspaces — this grants workspace-admin access across every workspace in the organisation. Applied on the next reconcile.'
+            : 'This lowers the member to organisation agent (associate) across every workspace in the organisation and may reduce their department visibility. Applied on the next reconcile.') +
           // Setting the role by hand marks it 'manual', and a manual role is never lowered by
           // the IdP again. That is a permanent detachment from directory control and nothing
           // used to say so.

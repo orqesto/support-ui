@@ -174,19 +174,19 @@ afterEach(() => {
 describe('helpers', () => {
   it('replayLine: estimate with share, no share without a ratio, "at least" when capped, skipped rows named', () => {
     expect(replayLine(replay(), 'Support')).toBe(
-      'Would have matched 14 conversations in the last 30 days; 13 went to Support (93 %)'
+      'Would have matched 14 threads in the last 30 days; 13 went to Support (93 %)'
     );
     expect(replayLine(replay({ ratio: null, matches: 0, inDepartment: 0 }), 'Support')).toBe(
-      'Would have matched no conversations in the last 30 days'
+      'Would have matched no threads in the last 30 days'
     );
     expect(replayLine(replay({ truncated: true, matches: 2000, inDepartment: 1900, ratio: 0.95 }), 'Support')).toBe(
-      'Would have matched at least 2000 conversations in the last 30 days; 1900 went to Support (95 %)'
+      'Would have matched at least 2000 threads in the last 30 days; 1900 went to Support (95 %)'
     );
     expect(replayLine(replay({ skipped: 2 }), 'Support')).toBe(
-      'Would have matched 14 conversations in the last 30 days; 13 went to Support (93 %); 2 could not be checked'
+      'Would have matched 14 threads in the last 30 days; 13 went to Support (93 %); 2 could not be checked'
     );
     expect(replayLine(replay({ ratio: null }), 'Support')).toBe(
-      'Would have matched 14 conversations in the last 30 days; 13 went to Support'
+      'Would have matched 14 threads in the last 30 days; 13 went to Support'
     );
   });
 
@@ -209,12 +209,12 @@ describe('propose_rule card', () => {
     expect(screen.getByText('Route mail mentioning "pallet label" in the message to Support')).toBeTruthy();
     expect(await screen.findByText('Routed there by your team 3 times — 2 agents over 9 days')).toBeTruthy();
     expect(
-      screen.getByText('Would have matched 14 conversations in the last 30 days; 13 went to Support (93 %)')
+      screen.getByText('Would have matched 14 threads in the last 30 days; 13 went to Support (93 %)')
     ).toBeTruthy();
     expect(screen.getByText('Recommended')).toBeTruthy();
     expect(screen.getByText('also routed to Sales ×2')).toBeTruthy();
     expect(screen.getByText('Would be accepted automatically in Balanced mode')).toBeTruthy();
-    expect(screen.getByRole('link', { name: /SUP-5 · Pallet label missing/ }).getAttribute('href')).toBe('/messages/5');
+    expect(screen.getByRole('link', { name: /SUP-5 · Pallet label missing/ }).getAttribute('href')).toBe('/threads/5');
     const day = new Date('2026-10-14T09:00:00Z').toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
     expect(screen.getByText(`— Anna Weber, ${day}`)).toBeTruthy();
     expect(screen.getByText('+1 in departments you can’t see')).toBeTruthy();
@@ -248,7 +248,7 @@ describe('propose_rule card', () => {
     });
     renderCard(PROPOSE);
     expect(
-      await screen.findByText('Would have matched at least 14 conversations in the last 30 days; 13 went to Support (93 %)')
+      await screen.findByText('Would have matched at least 14 threads in the last 30 days; 13 went to Support (93 %)')
     ).toBeTruthy();
     expect(screen.queryByText('Recommended')).toBeNull();
     expect(screen.queryByText('Review')).toBeNull();
@@ -428,8 +428,8 @@ describe('disagreement card', () => {
     });
     renderCard(DISAGREE);
     expect(screen.getByText('Agents disagree where "crate" mail goes')).toBeTruthy();
-    expect(screen.getByText('Support — 2 conversations')).toBeTruthy();
-    expect(screen.getByText('Sales — 1 conversation')).toBeTruthy();
+    expect(screen.getByText('Support — 2 threads')).toBeTruthy();
+    expect(screen.getByText('Sales — 1 thread')).toBeTruthy();
     expect(await screen.findByText('Routed there by your team 1 time — 1 agent over 9 days')).toBeTruthy();
     // A disagreement is never auto-accepted, whatever the evidence says.
     expect(screen.queryByText('Would be accepted automatically in Balanced mode')).toBeNull();

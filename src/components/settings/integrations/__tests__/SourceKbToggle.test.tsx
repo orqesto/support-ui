@@ -30,17 +30,17 @@ const gmailProps = {
 describe('SourceKbToggle', () => {
   it('renders an accessible switch reflecting the current state', () => {
     render(<SourceKbToggle checked={false} onChange={vi.fn()} />);
-    const sw = screen.getByRole('switch', { name: /mine past conversations/i });
+    const sw = screen.getByRole('switch', { name: /mine past threads/i });
     expect(sw).toHaveAttribute('aria-checked', 'false');
   });
 
   it('reports the NEW value when switched on — after the paid-work confirmation', () => {
     const onChange = vi.fn();
     render(<SourceKbToggle checked={false} onChange={onChange} />);
-    fireEvent.click(screen.getByRole('switch', { name: /mine past conversations/i }));
+    fireEvent.click(screen.getByRole('switch', { name: /mine past threads/i }));
     // Mining is billed AI work over the whole mailbox; one click must not commit to it.
     expect(onChange).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Mine past conversations' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mine past threads' }));
     expect(onChange).toHaveBeenCalledWith(true);
   });
 });
@@ -51,7 +51,7 @@ describe('GmailForm — KB source can actually be enabled (regression)', () => {
     // "Knowledge Base Sources" section that the C-lite IA had already deleted, so a Gmail
     // source could not be made a KB source through the UI at all.
     render(<GmailForm {...gmailProps} />);
-    expect(screen.getByRole('switch', { name: /mine past conversations/i })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: /mine past threads/i })).toBeInTheDocument();
   });
 
   it('no longer points at the deleted "Knowledge Base Sources" section', () => {
@@ -62,8 +62,8 @@ describe('GmailForm — KB source can actually be enabled (regression)', () => {
   it('promotes the source to KB via onConfigChange once confirmed', () => {
     const onConfigChange = vi.fn();
     render(<GmailForm {...gmailProps} onConfigChange={onConfigChange} />);
-    fireEvent.click(screen.getByRole('switch', { name: /mine past conversations/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Mine past conversations' }));
+    fireEvent.click(screen.getByRole('switch', { name: /mine past threads/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mine past threads' }));
     expect(onConfigChange).toHaveBeenCalledWith(expect.objectContaining({ isKnowledgeBase: true }));
   });
 });

@@ -107,7 +107,7 @@ export const DeactivateDepartmentDialog = ({
         <div className="p-4 space-y-4">
           {empty ? (
             <p className="text-sm text-foreground">
-              This department has no message sources, members, or conversations. It will be turned
+              This department has no message sources, members, or threads. It will be turned
               off and can be re-activated later.
             </p>
           ) : (
@@ -119,7 +119,7 @@ export const DeactivateDepartmentDialog = ({
                 <span className="font-medium">{department.counts.users}</span> member
                 {department.counts.users === 1 ? '' : 's'} and{' '}
                 <span className="font-medium">{department.counts.totalConversations}</span>{' '}
-                conversation{department.counts.totalConversations === 1 ? '' : 's'}. Choose a
+                thread{department.counts.totalConversations === 1 ? '' : 's'}. Choose a
                 department to move them into before it is turned off — nothing is deleted.
               </p>
               <div className="space-y-1.5">

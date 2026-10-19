@@ -109,7 +109,7 @@ export const UnansweredOutboundSection = ({
                   size="sm"
                   onClick={() => {
                     setOpen(false);
-                    navigate(`/messages/${alert.entityId}`);
+                    navigate(`/threads/${alert.entityId}`);
                   }}
                   className="px-0 mt-1 h-auto text-xs text-primary hover:bg-transparent hover:underline"
                 >

@@ -542,9 +542,9 @@ describe('L1 — full-page layout', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={['/messages/101']}>
+        <MemoryRouter initialEntries={['/threads/101']}>
           <Routes>
-            <Route path="/messages/:id" element={<MessageDetailPage />} />
+            <Route path="/threads/:id" element={<MessageDetailPage />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>

@@ -216,7 +216,7 @@ const DomainRow = ({
           title={`Remove ${domain.domain}?`}
           description={
             verified
-              ? 'This domain is verified and governs which alliance its users resolve to at SSO login. Removing it can break SSO routing for those users. This cannot be undone.'
+              ? 'This domain is verified and governs which organisation its users resolve to at SSO login. Removing it can break SSO routing for those users. This cannot be undone.'
               : 'This removes the pending domain and its DNS-TXT challenge. You can add it again later.'
           }
         />
@@ -379,7 +379,7 @@ export const ConsoleIdentity = () => {
     <div className="space-y-6">
       <ConsolePageHeader
         title="Identity"
-        description="Connect your identity provider once for the whole alliance, and verify the email domains it governs."
+        description="Connect your identity provider once for the whole organisation, and verify the email domains it governs."
       />
 
       {/* ─── OIDC connection ─────────────────────────────────────────────── */}
@@ -390,14 +390,14 @@ export const ConsoleIdentity = () => {
             OIDC connection
           </CardTitle>
           <CardDescription>
-            Connect an OIDC identity provider once. Members across all workspaces in this alliance
+            Connect an OIDC identity provider once. Members across all workspaces in this organisation
             whose email domain matches sign in through your provider. The client secret is stored
             encrypted and is never shown again.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Toggle checked={enabled} onChange={setEnabled} label="Enable SSO for this alliance" />
+            <Toggle checked={enabled} onChange={setEnabled} label="Enable SSO for this organisation" />
 
             {enabled && !hasVerifiedDomain && (
               <Alert variant="warning">
@@ -606,8 +606,8 @@ export const ConsoleIdentity = () => {
             Verified domains
           </CardTitle>
           <CardDescription>
-            Prove the alliance owns an email domain via a DNS-TXT record so that domain safely
-            governs which alliance a user&apos;s email resolves to at SSO login.
+            Prove the organisation owns an email domain via a DNS-TXT record so that domain safely
+            governs which organisation a user&apos;s email resolves to at SSO login.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

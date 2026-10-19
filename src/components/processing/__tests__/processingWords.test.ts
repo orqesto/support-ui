@@ -36,7 +36,7 @@ describe('describeRunProblems', () => {
   it('a knowledge-base failure is about mining', () => {
     const run = makeKbRun({ outcome: 'failed', failed: 1, problems: ['failed'] });
     expect(describeRunProblems(run)).toBe(
-      '1 conversation could not be mined. Re-mine the mailbox to read it again.'
+      '1 thread could not be mined. Re-mine the mailbox to read it again.'
     );
   });
 

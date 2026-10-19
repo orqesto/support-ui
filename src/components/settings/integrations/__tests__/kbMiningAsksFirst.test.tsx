@@ -23,7 +23,7 @@ const { SourceKbToggle, KB_MINING_CONFIRM_DESCRIPTION } = await import(
 const { SourceKbStrip } = await import('@/components/settings/integrations/SourceKbStrip');
 
 const render = (ui: ReactElement) => rtlRender(<ThemeProvider>{ui}</ThemeProvider>);
-const theSwitch = () => screen.getByRole('switch', { name: /mine past conversations/i });
+const theSwitch = () => screen.getByRole('switch', { name: /mine past threads/i });
 
 beforeEach(() => {
   reprocessSource.mockReset();
@@ -41,7 +41,7 @@ describe('SourceKbToggle — switching ON asks first', () => {
     // Names the range as the bound — "every past conversation" was untrue once the sweep
     // honoured the import range (2026-09-16).
     expect(KB_MINING_CONFIRM_DESCRIPTION).toMatch(/within its import range/i);
-    expect(KB_MINING_CONFIRM_DESCRIPTION).not.toMatch(/every past conversation in this mailbox/i);
+    expect(KB_MINING_CONFIRM_DESCRIPTION).not.toMatch(/every past thread in this mailbox/i);
     expect(KB_MINING_CONFIRM_DESCRIPTION).toMatch(/billed/i);
   });
 
@@ -49,7 +49,7 @@ describe('SourceKbToggle — switching ON asks first', () => {
     const onChange = vi.fn();
     render(<SourceKbToggle checked={false} onChange={onChange} />);
     fireEvent.click(theSwitch());
-    fireEvent.click(screen.getByRole('button', { name: 'Mine past conversations' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mine past threads' }));
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith(true);
   });

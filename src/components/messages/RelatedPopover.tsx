@@ -583,7 +583,7 @@ export const TicketsSection = ({
                         </span>
                         {!self && (
                           <Link
-                            to={`/messages?id=${getConvUrlId({ id: thread.conversationId, publicId: thread.publicId }, orgCode)}`}
+                            to={`/threads?id=${getConvUrlId({ id: thread.conversationId, publicId: thread.publicId }, orgCode)}`}
                             className={REL_LINK}
                             aria-label={`Open ${id}`}
                           >

@@ -154,11 +154,11 @@ describe('routing.decision entries (spec §4.5)', () => {
     [{ reason: 'rule_strong', departmentName: dept }, 'Routed to Support by a rule'],
     [
       { reason: 'embedding_strong', departmentName: dept, rules: [] },
-      'Routed to Support by similarity to earlier conversations',
+      'Routed to Support by similarity to earlier threads',
     ],
     [
       { reason: 'embedding_override', departmentName: dept, rules: [] },
-      'Routed to Support by similarity to earlier conversations',
+      'Routed to Support by similarity to earlier threads',
     ],
     [
       { reason: 'ai_primary', departmentName: dept, rules: [] },
@@ -255,14 +255,14 @@ describe('routing.decision entries (spec §4.5)', () => {
 
     it('similarity route whose largest share is a manual (never accepted) rule stays similarity', () => {
       expect(label('embedding_strong', [accepted(0.2), manual(1, 'invoice', 0.5)])).toBe(
-        'Routed to Support by similarity to earlier conversations'
+        'Routed to Support by similarity to earlier threads'
       );
     });
 
     it('similarity route skips a deleted rule with the largest share and judges the largest live one', () => {
       expect(
         label('embedding_strong', [deleted(0.9), manual(1, 'invoice', 0.05), accepted(0.05)])
-      ).toBe('Routed to Support by similarity to earlier conversations');
+      ).toBe('Routed to Support by similarity to earlier threads');
       expect(
         label('embedding_strong', [deleted(0.9), accepted(0.3), manual(1, 'invoice', 0.1)])
       ).toBe('Routed to Support by rule "pallet label" (accepted by Anna Weber, 15 Oct)');
@@ -289,7 +289,7 @@ describe('routing.decision entries (spec §4.5)', () => {
         ])
       ).toBe('Routed to Support by rule "invoice"');
       expect(label('embedding_strong', [accepted(), manual(1, 'invoice')])).toBe(
-        'Routed to Support by similarity to earlier conversations'
+        'Routed to Support by similarity to earlier threads'
       );
     });
   });

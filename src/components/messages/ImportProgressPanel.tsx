@@ -30,8 +30,8 @@ const STAGE_HINT: Record<ImportStage, string> = {
   decided:
     'Each incoming message checked: spam check and routing, or set aside for the knowledge base',
   analysis: 'AI analysis of each incoming message',
-  embedding: 'Each conversation indexed for similar-message search',
-  kb: 'Each conversation mined for knowledge-base answers',
+  embedding: 'Each thread indexed for similar-message search',
+  kb: 'Each thread mined for knowledge-base answers',
 };
 
 /** "45 min", "3 h 20 min", "2 d 4 h". */
@@ -56,8 +56,8 @@ const STAGE_UNIT: Record<ImportStage, [one: string, many: string]> = {
   imported: ['message', 'messages'],
   decided: ['message', 'messages'],
   analysis: ['message', 'messages'],
-  embedding: ['conversation', 'conversations'],
-  kb: ['conversation', 'conversations'],
+  embedding: ['thread', 'threads'],
+  kb: ['thread', 'threads'],
 };
 
 /** How a stage's unfinished work is named in the "did not complete" note. */

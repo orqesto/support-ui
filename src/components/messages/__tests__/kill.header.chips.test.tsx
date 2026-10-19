@@ -24,7 +24,7 @@ const client = new QueryClient();
 const tree = (over: Props = {}) => (
   <ThemeProvider>
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/messages/1']}>
+      <MemoryRouter initialEntries={['/threads/1']}>
         <Routes>
           <Route
             path="*"

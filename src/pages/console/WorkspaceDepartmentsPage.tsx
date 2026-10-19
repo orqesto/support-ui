@@ -26,7 +26,7 @@ const messageOf = (error: unknown, fallback: string): string =>
 const countsSummary = (row: WorkspaceDepartmentRow): string =>
   `${row.counts.messageSources} source${row.counts.messageSources === 1 ? '' : 's'} · ` +
   `${row.counts.users} member${row.counts.users === 1 ? '' : 's'} · ` +
-  `${row.counts.totalConversations} conversation${row.counts.totalConversations === 1 ? '' : 's'}`;
+  `${row.counts.totalConversations} thread${row.counts.totalConversations === 1 ? '' : 's'}`;
 
 /**
  * Platform-console (global-admin) view for a workspace's plan-budgeted departments
@@ -99,7 +99,7 @@ export const WorkspaceDepartmentsPage = () => {
         const moved = next.result.counts;
         toast.success(
           `Merged “${deactivateFor.name}” — moved ${moved.messageSources} source(s), ` +
-            `${moved.userMemberships} member(s), ${moved.conversations} conversation(s)${kbTail}`
+            `${moved.userMemberships} member(s), ${moved.conversations} thread(s)${kbTail}`
         );
       } else {
         toast.success(`Deactivated “${deactivateFor.name}”${kbTail}`);

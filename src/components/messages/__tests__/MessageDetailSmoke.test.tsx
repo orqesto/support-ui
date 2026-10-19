@@ -91,9 +91,9 @@ describe('MessageDetailSmoke', () => {
   it('renders loading state initially', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
+        <MemoryRouter initialEntries={['/threads/42']} future={ROUTER_FUTURE}>
           <Routes>
-            <Route path="/messages/:id" element={<MessageDetailPage />} />
+            <Route path="/threads/:id" element={<MessageDetailPage />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>
@@ -105,9 +105,9 @@ describe('MessageDetailSmoke', () => {
   it('renders the page without crashing for a valid message id', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
+        <MemoryRouter initialEntries={['/threads/42']} future={ROUTER_FUTURE}>
           <Routes>
-            <Route path="/messages/:id" element={<MessageDetailPage />} />
+            <Route path="/threads/:id" element={<MessageDetailPage />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>
@@ -119,14 +119,14 @@ describe('MessageDetailSmoke', () => {
   it('shows loading text while fetching message', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
+        <MemoryRouter initialEntries={['/threads/42']} future={ROUTER_FUTURE}>
           <Routes>
-            <Route path="/messages/:id" element={<MessageDetailPage />} />
+            <Route path="/threads/:id" element={<MessageDetailPage />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>
     );
     // The page starts in loading state — shows loader text
-    expect(screen.getByText(/Loading message/i)).toBeTruthy();
+    expect(screen.getByText(/Loading thread/i)).toBeTruthy();
   });
 });

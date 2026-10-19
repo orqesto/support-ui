@@ -138,7 +138,7 @@ describe('TokenLimitRulesCard', () => {
     wrap(<TokenLimitRulesCard rules={RULES} />);
     expect(screen.getByText(/60 minutes/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    type(/Re-check a monthly or alliance pause/, '30');
+    type(/Re-check a monthly or organisation pause/, '30');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(rulesSent).toEqual([{ periodRecheckMinutes: 30 }]));
   });
@@ -154,7 +154,7 @@ describe('TokenLimitRulesCard', () => {
   it('an out-of-range value blocks Save (re-check between 5 and 1,440 minutes)', () => {
     wrap(<TokenLimitRulesCard rules={RULES} />);
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    type(/Re-check a monthly or alliance pause/, '2');
+    type(/Re-check a monthly or organisation pause/, '2');
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(true);
     expect(screen.getByText(/between 5 and 1,440/)).toBeTruthy();
   });
@@ -189,7 +189,7 @@ describe('AlliancePoolsCard', () => {
   it('adds a pool for an alliance without one, sending only the filled limits', async () => {
     wrap(<AlliancePoolsCard caps={{ alliances: [pool] }} kbMin={1_000_000} />);
     fireEvent.click(screen.getByRole('button', { name: 'Add pool' }));
-    await chooseOption(screen.getByLabelText(/Alliance/), 'South Group');
+    await chooseOption(screen.getByLabelText(/Organisation/), 'South Group');
     type(/KB processing per day/, '9000000');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() =>
@@ -276,7 +276,7 @@ describe('review M2: the daily forms use the console KB minimum (rules), not the
 describe('review M4: an unreadable pool list is unknown, not empty', () => {
   it('says the pools could not be read instead of "No alliance has a pool"', () => {
     wrap(<AlliancePoolsCard caps={{ alliances: [], lookupFailed: true }} kbMin={1_000_000} />);
-    expect(screen.queryByText(/No alliance has a pool/)).toBeNull();
+    expect(screen.queryByText(/No organisation has a pool/)).toBeNull();
     expect(screen.getByText(/could not be read/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Add pool' })).toBeNull();
   });

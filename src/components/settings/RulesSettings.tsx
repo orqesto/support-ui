@@ -83,12 +83,12 @@ export const RulesSettings = ({ section }: RulesSettingsProps = {}) => {
     {
       id: 'routing' as RuleType,
       label: 'Routing Rules',
-      description: 'Route messages to departments by subject, sender, or header',
+      description: 'Route threads to departments by subject, sender, or header',
     },
     {
       id: 'priority' as RuleType,
       label: 'Priority Rules',
-      description: 'Decide which messages are critical, high, medium, or low',
+      description: 'Decide which threads are critical, high, medium, or low',
     },
     {
       id: 'templates' as RuleType,
@@ -111,7 +111,7 @@ export const RulesSettings = ({ section }: RulesSettingsProps = {}) => {
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Configure spam filtering, message detection, knowledge extraction, department
-            routing, and message priority
+            routing, and thread priority
           </p>
         </div>
       </div>

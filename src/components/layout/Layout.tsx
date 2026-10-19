@@ -116,8 +116,8 @@ const allNavigation: Array<{
   { group: 'work', name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   {
     group: 'work',
-    name: 'Messages',
-    href: '/messages',
+    name: 'Threads',
+    href: '/threads',
     icon: Mail,
     permission: Permission.VIEW_MESSAGES,
   },
@@ -181,7 +181,7 @@ const allNavigation: Array<{
 
   // ─── Consoles — scope-aware admin shells (own group; labels match the shell
   //     headers so the audience is obvious). Alliance = customer IT; Platform = Odly staff.
-  { group: 'consoles', name: 'Alliance Console', href: '/console', icon: Network, allianceAdmin: true },
+  { group: 'consoles', name: 'Organisation Console', href: '/console', icon: Network, allianceAdmin: true },
   { group: 'consoles', name: 'Platform Console', href: '/console/platform', icon: ShieldAlert, adminOnly: true },
 
   // ─── Admin — org-scoped configuration & rare-use ────────────────────────────

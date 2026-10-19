@@ -11,7 +11,7 @@
  * shown separately, by the spam badge driven from `metadata.spamCheck.isSpam`.
  */
 const LEAD =
-  "A spam rule recorded this message. It isn't attached to a conversation in this view — if the message is in a thread, it is linked automatically when spam is viewed in its workspace.";
+  "A spam rule recorded this message. It isn't attached to a thread in this view — if the message is in a thread, it is linked automatically when spam is viewed in its workspace.";
 
 export const SPAM_LOG_CARD_COPY = {
   badge: 'Spam-rule record',
@@ -21,7 +21,7 @@ export const SPAM_LOG_CARD_COPY = {
   emptyBody: 'No message body was kept for this record.',
   chip: 'rule record · no thread',
   chipTitle:
-    "A spam rule recorded this message; it isn't attached to a conversation here, so there is no thread to open",
+    "A spam rule recorded this message; it isn't attached to a thread here, so there is no thread to open",
 } as const;
 
 /**

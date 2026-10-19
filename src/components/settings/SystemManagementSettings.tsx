@@ -150,14 +150,14 @@ export const SystemManagementSettings = () => {
     const dept = selectedDepartment === 'all' ? undefined : selectedDepartment;
     const scope = dept ? `${dept} department` : 'your workspace';
     handleAction(
-      `Delete ${dept ? dept.charAt(0).toUpperCase() + dept.slice(1) : 'All'} Messages`,
-      `This will permanently delete all messages for ${scope}. This action cannot be undone.`,
+      `Delete ${dept ? dept.charAt(0).toUpperCase() + dept.slice(1) : 'All'} Threads`,
+      `This will permanently delete all threads for ${scope}. This action cannot be undone.`,
       async () => {
         const res = await systemService.deleteAllMessages(dept);
         if (!res?.success) throw new Error(res?.message ?? 'Operation failed on server');
         void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
       },
-      'DELETE MESSAGES',
+      'DELETE THREADS',
       true
     );
   };
@@ -207,7 +207,7 @@ export const SystemManagementSettings = () => {
   const handleNuclear = () => {
     handleAction(
       'Nuclear Cleanup',
-      'This will permanently delete EVERYTHING for your workspace: all messages, tickets, KB entries, attachments, and clear all queues. This action cannot be undone and will reset your workspace to a clean state.',
+      'This will permanently delete EVERYTHING for your workspace: all threads, tickets, KB entries, attachments, and clear all queues. This action cannot be undone and will reset your workspace to a clean state.',
       async () => {
         const res = await systemService.nuclearCleanup('DELETE EVERYTHING');
         if (!res?.success) throw new Error(res?.message ?? 'Operation failed on server');
@@ -326,14 +326,14 @@ export const SystemManagementSettings = () => {
         <div className="space-y-3">
           <div className="flex justify-between items-start">
             <div>
-              <p className="font-medium text-destructive">Delete All Messages</p>
+              <p className="font-medium text-destructive">Delete All Threads</p>
               <p className="text-sm text-muted-foreground">
-                Permanently delete all messages for your workspace
+                Permanently delete all threads for your workspace
               </p>
             </div>
             <Button variant="destructive" size="sm" onClick={handleDeleteMessages} className="ml-4">
               <Trash2 className="mr-1 w-4 h-4" />
-              Delete Messages
+              Delete Threads
             </Button>
           </div>
 
@@ -407,7 +407,7 @@ export const SystemManagementSettings = () => {
             This will delete <strong>EVERYTHING</strong> for your workspace:
           </p>
           <ul className="space-y-1 text-sm list-disc list-inside text-muted-foreground">
-            <li>All messages and responses</li>
+            <li>All threads and responses</li>
             <li>All tickets and comments</li>
             <li>All knowledge base entries</li>
             <li>All attachments and files</li>

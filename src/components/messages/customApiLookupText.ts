@@ -15,7 +15,7 @@ export const GENERIC_FAILURE = 'This lookup could not be completed.';
 export const ADMIN_CAN_SEE_DETAILS = 'An admin can see the details.';
 export const SHAPE_CHANGED_FOR_AGENTS = 'This lookup needs attention from an admin.';
 export const DEFAULT_REFERENCE_NAME = 'Reference';
-export const CONVERSATION_NOT_VISIBLE = 'This conversation isn’t visible to you.';
+export const CONVERSATION_NOT_VISIBLE = 'This thread isn’t visible to you.';
 export const CONTACT_NOT_VISIBLE = 'This customer isn’t visible to you.';
 /** A deployment without the lookup routes (FE/BE skew): said in one line, never a failing button. */
 export const LOOKUPS_NOT_ON_SERVER = 'Lookups are not available on this server yet.';

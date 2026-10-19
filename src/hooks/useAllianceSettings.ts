@@ -53,9 +53,9 @@ export const useDeleteAlliance = (allianceId: number | null) => {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['alliance', 'mine'] });
       void queryClient.invalidateQueries({ queryKey: ['platform', 'overview'] });
-      toast.success('Alliance deleted');
+      toast.success('Organisation deleted');
     },
-    onError: (error: unknown) => toast.error(errorMessage(error, 'Could not delete alliance')),
+    onError: (error: unknown) => toast.error(errorMessage(error, 'Could not delete organisation')),
   });
 };
 
@@ -71,10 +71,10 @@ export const useDetachAllOrgs = (allianceId: number | null) => {
       void queryClient.invalidateQueries({ queryKey: ['alliance', 'mine'] });
       toast.success(
         result.detachedCount === 1
-          ? 'Detached 1 organization from the alliance'
-          : `Detached ${result.detachedCount} organizations from the alliance`
+          ? 'Detached 1 workspace from the organisation'
+          : `Detached ${result.detachedCount} workspaces from the organisation`
       );
     },
-    onError: (error: unknown) => toast.error(errorMessage(error, 'Could not detach organizations')),
+    onError: (error: unknown) => toast.error(errorMessage(error, 'Could not detach workspaces')),
   });
 };

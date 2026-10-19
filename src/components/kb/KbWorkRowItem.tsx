@@ -235,7 +235,7 @@ export const KbWorkRowItem = ({
       <div className="flex flex-wrap gap-2 items-center">
         {row.conversationId !== null && (
           <Link
-            to={`/messages?id=${getConvUrlId(
+            to={`/threads?id=${getConvUrlId(
               { id: row.conversationId, publicId: row.conversationPublicId },
               orgCode
             )}`}

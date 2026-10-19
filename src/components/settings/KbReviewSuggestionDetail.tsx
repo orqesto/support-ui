@@ -88,7 +88,7 @@ export const KbReviewSuggestionDetail = ({ suggestion }: { suggestion: LearningS
         ))
       )}
       {typeof conversationId === 'number' && (
-        <Link to={`/messages?id=${conversationId}`} className="text-primary hover:underline">
+        <Link to={`/threads?id=${conversationId}`} className="text-primary hover:underline">
           Open the thread it came from
         </Link>
       )}

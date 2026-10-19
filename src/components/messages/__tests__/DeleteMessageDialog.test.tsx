@@ -21,7 +21,7 @@ const renderDialog = (over: Partial<Parameters<typeof DeleteMessageDialog>[0]> =
 describe('DeleteMessageDialog', () => {
   it('asks the question, names the message, and confirms on Delete', () => {
     const props = renderDialog();
-    expect(screen.getByRole('dialog')).toHaveTextContent('Delete message');
+    expect(screen.getByRole('dialog')).toHaveTextContent('Delete thread');
     expect(screen.getByText('From: Ada <ada@example.com>')).toBeInTheDocument();
     expect(screen.getByText('Subject: Order 5')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));

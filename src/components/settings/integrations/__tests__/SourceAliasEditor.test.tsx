@@ -211,7 +211,7 @@ describe('SourceAliasEditor', () => {
     renderPanel([]);
 
     expect(
-      await screen.findByText(/known for 46 of 976 conversations/i)
+      await screen.findByText(/known for 46 of 976 threads/i)
     ).toBeInTheDocument();
   });
 

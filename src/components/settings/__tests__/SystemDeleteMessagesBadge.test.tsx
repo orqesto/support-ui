@@ -44,9 +44,9 @@ afterEach(cleanup);
 
 const deleteAll = () => {
   render(<SystemManagementSettings />);
-  fireEvent.click(screen.getByRole('button', { name: /Delete Messages/i }));
-  fireEvent.change(screen.getByPlaceholderText('DELETE MESSAGES'), {
-    target: { value: 'DELETE MESSAGES' },
+  fireEvent.click(screen.getByRole('button', { name: /Delete Threads/i }));
+  fireEvent.change(screen.getByPlaceholderText('DELETE THREADS'), {
+    target: { value: 'DELETE THREADS' },
   });
   fireEvent.click(screen.getByRole('button', { name: /^Confirm$/i }));
 };

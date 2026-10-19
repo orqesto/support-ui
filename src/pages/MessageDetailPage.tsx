@@ -137,7 +137,7 @@ export const MessageDetailPage = () => {
   };
 
   const goBack = useCallback(() => {
-    navigate('/messages');
+    navigate('/threads');
   }, [navigate]);
 
   const confirmDelete = async (target: Message) => {
@@ -151,7 +151,7 @@ export const MessageDetailPage = () => {
       logger.error('Failed to delete message:', error);
       // Stay on the page with the dialog up: the reason says whether a retry can work. Moved on
       // to another message meanwhile: name the one that failed, or it reads as this one's.
-      const reason = getApiErrorMessage(error) ?? 'Failed to delete message';
+      const reason = getApiErrorMessage(error) ?? 'Failed to delete thread';
       toast.error(
         routeIdRef.current === askedFromRoute
           ? reason
@@ -190,7 +190,7 @@ export const MessageDetailPage = () => {
       <Layout>
         <div className="flex gap-2 justify-center items-center h-64 text-muted-foreground">
           <Loader2 className="w-5 h-5 animate-spin" />
-          Loading message...
+          Loading thread...
         </div>
       </Layout>
     );
@@ -200,10 +200,10 @@ export const MessageDetailPage = () => {
     return (
       <Layout>
         <div className="flex flex-col gap-4 justify-center items-center h-64">
-          <div className="text-muted-foreground">Message not found</div>
+          <div className="text-muted-foreground">Thread not found</div>
           <Button onClick={handleBack} variant="outline">
             <ArrowLeft className="mr-2 w-4 h-4" />
-            Back to Messages
+            Back to Threads
           </Button>
         </div>
       </Layout>
@@ -226,7 +226,7 @@ export const MessageDetailPage = () => {
                 <ArrowLeft className="mr-2 w-4 h-4" />
                 Back
               </Button>
-              <h1 className="font-display text-base font-semibold">Message Details</h1>
+              <h1 className="font-display text-base font-semibold">Thread Details</h1>
             </div>
           </div>
         )}

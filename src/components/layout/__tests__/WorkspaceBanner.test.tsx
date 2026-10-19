@@ -87,7 +87,7 @@ describe('the workspace banner', () => {
   });
 
   // Owner, 2026-09-22: settings screens only. The work surfaces show whose data they are.
-  it.each(['/messages/42', '/dashboard', '/needs-routing'])('is hidden on %s', async (path) => {
+  it.each(['/threads/42', '/dashboard', '/needs-routing'])('is hidden on %s', async (path) => {
     renderBanner(path);
     await waitFor(() => expect(getCurrent).toHaveBeenCalled());
     expect(screen.queryByTestId('workspace-banner')).not.toBeInTheDocument();

@@ -41,7 +41,7 @@ export const COLUMNS: KanbanColumnDef[] = [
     fixedFilters: { lifecycle: 'open' },
     accentColor: '#3b82f6',
     iconClass: 'text-muted-foreground',
-    emptyText: 'No open messages',
+    emptyText: 'No open threads',
   },
   {
     id: 'in_progress',
@@ -84,7 +84,7 @@ export const COLUMNS: KanbanColumnDef[] = [
     fixedFilters: { lifecycle: 'resolved' },
     accentColor: '#10b981',
     iconClass: 'text-success',
-    emptyText: 'No resolved messages',
+    emptyText: 'No resolved threads',
   },
   // --- Triage axis (pre-lifecycle classification) ---
   {
@@ -95,7 +95,7 @@ export const COLUMNS: KanbanColumnDef[] = [
     fixedFilters: { view: 'not_analysed' },
     accentColor: '#6b7280',
     iconClass: 'text-muted-foreground',
-    emptyText: 'No unanalysed messages',
+    emptyText: 'No unanalysed threads',
   },
   // Needs Routing intentionally NOT a Triage column. `needs_routing` is a MARK on an
   // ordinary thread, not a lane: the thread sits in Open / In Progress / Pending with a
@@ -133,7 +133,7 @@ export const COLUMNS: KanbanColumnDef[] = [
     fixedFilters: { showSpam: 'true' },
     accentColor: '#ef4444',
     iconClass: 'text-destructive',
-    emptyText: 'No spam messages',
+    emptyText: 'No spam threads',
   },
   {
     /**
@@ -174,7 +174,7 @@ export const COLUMNS: KanbanColumnDef[] = [
     fixedFilters: { view: 'no_lane' },
     accentColor: '#94a3b8',
     iconClass: 'text-faint-foreground',
-    emptyText: 'Every conversation has a lane',
+    emptyText: 'Every thread has a lane',
   },
 ];
 

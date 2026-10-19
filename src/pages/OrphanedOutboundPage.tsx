@@ -113,7 +113,7 @@ export const OrphanedOutbound = () => {
             These are your own outbound emails that couldn&apos;t be threaded to any inbound
             message (e.g. compose-new, or a reply whose original was never ingested). They&apos;re
             hidden from the inbox on purpose. If the matching inbound is ever received, the message
-            re-surfaces automatically as a normal conversation — nothing here is deleted.
+            re-surfaces automatically as a normal thread — nothing here is deleted.
           </span>
         </div>
 
@@ -143,7 +143,7 @@ export const OrphanedOutbound = () => {
               <MailWarning className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
               <p className="text-muted-foreground font-medium">No orphaned outbound messages</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Every sent message is threaded to a conversation
+                Every sent message belongs to a thread
               </p>
             </CardContent>
           </Card>
@@ -177,7 +177,7 @@ export const OrphanedOutbound = () => {
                     <tr
                       key={msg.id}
                       className="hover:bg-muted/50 cursor-pointer"
-                      onClick={() => navigate(`/messages/${msg.id}`)}
+                      onClick={() => navigate(`/threads/${msg.id}`)}
                     >
                       <td className="px-4 py-3">
                         <p className="text-sm font-medium truncate max-w-[240px]">{msg.sender}</p>
@@ -223,7 +223,7 @@ export const OrphanedOutbound = () => {
                 <Card
                   key={msg.id}
                   className="cursor-pointer"
-                  onClick={() => navigate(`/messages/${msg.id}`)}
+                  onClick={() => navigate(`/threads/${msg.id}`)}
                 >
                   <CardContent className="p-4 space-y-3">
                     <div>

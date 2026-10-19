@@ -123,7 +123,7 @@ const nothingInScope = (forecast: KbMiningForecast | undefined): boolean => {
 export const describeMiningCost = (forecast: KbMiningForecast | undefined): string => {
   if (!forecast) return 'That is billed AI usage; no estimate could be loaded.';
   const count = forecast.threadsToMine.toLocaleString();
-  const convs = forecast.threadsToMine === 1 ? 'conversation' : 'conversations';
+  const convs = forecast.threadsToMine === 1 ? 'thread' : 'threads';
   // The source's own row (the per-source endpoint returns just this mailbox). Absent from an
   // older backend: then nothing is said about a cutoff or scope it did not report.
   const own = forecast.sources?.[0];
@@ -132,17 +132,17 @@ export const describeMiningCost = (forecast: KbMiningForecast | undefined): stri
   }
   if (forecast.threadsToMine === 0) {
     if (own?.threadsInScope === 0) {
-      return 'No imported conversation is in scope yet (none received before the cutoff), so a re-mine has nothing to read.';
+      return 'No imported thread is in scope yet (none received before the cutoff), so a re-mine has nothing to read.';
     }
     return own
-      ? 'Every conversation in scope is already mined — a re-mine skips them unless they changed.'
-      : 'No conversation is waiting to be mined — a re-mine skips mined ones unless they changed.';
+      ? 'Every thread in scope is already mined — a re-mine skips them unless they changed.'
+      : 'No thread is waiting to be mined — a re-mine skips mined ones unless they changed.';
   }
   if (forecast.estimatedTokens === null || !forecast.tokensPerThread) {
-    return `${count} ${convs} will be sent to your AI provider. The cost per conversation is not measured yet on this workspace.`;
+    return `${count} ${convs} will be sent to your AI provider. The cost per thread is not measured yet on this workspace.`;
   }
   const days = describeMiningDays(forecast);
-  return `${count} ${convs} will be sent to your AI provider — about ${forecast.estimatedTokens.toLocaleString()} tokens (${forecast.tokensPerThread.value.toLocaleString()} per conversation, measured on this workspace).${days}${describeImageCheckGap(forecast)}`;
+  return `${count} ${convs} will be sent to your AI provider — about ${forecast.estimatedTokens.toLocaleString()} tokens (${forecast.tokensPerThread.value.toLocaleString()} per thread, measured on this workspace).${days}${describeImageCheckGap(forecast)}`;
 };
 
 /**
@@ -255,7 +255,7 @@ export const SourceKbStrip = ({
           open: true,
           title: 'Re-mining requested',
           description:
-            'Any conversations in scope that are not mined yet are re-read for Q&A pairs in the background. New entries appear in the Knowledge Base as they are extracted.',
+            'Any threads in scope that are not mined yet are re-read for Q&A pairs in the background. New entries appear in the Knowledge Base as they are extracted.',
           variant: 'info',
         });
         return;
@@ -267,7 +267,7 @@ export const SourceKbStrip = ({
           open: true,
           title: 'Re-mining requested',
           description:
-            'Conversations already mined are skipped unless they changed since; any that changed are re-read for Q&A pairs in the background, and new entries appear in the Knowledge Base as they are extracted.',
+            'Threads already mined are skipped unless they changed since; any that changed are re-read for Q&A pairs in the background, and new entries appear in the Knowledge Base as they are extracted.',
           variant: 'info',
         });
         return;
@@ -278,7 +278,7 @@ export const SourceKbStrip = ({
         // Worded as "started" on purpose: the endpoint is fire-and-forget and returns
         // before any work happens, so promising a result here would be a lie.
         description:
-          'Existing conversations are being re-read for Q&A pairs in the background. New entries appear in the Knowledge Base as they are extracted.',
+          'Existing threads are being re-read for Q&A pairs in the background. New entries appear in the Knowledge Base as they are extracted.',
         variant: 'info',
       });
     } catch (error) {
@@ -301,7 +301,7 @@ export const SourceKbStrip = ({
         <span className="font-medium text-foreground">Knowledge Base</span>
         {cutoffValid ? (
           <span className="truncate">
-            · mining conversations received before{' '}
+            · mining threads received before{' '}
             {cutoff.toLocaleDateString(undefined, {
               year: 'numeric',
               month: 'short',
@@ -357,7 +357,7 @@ export const SourceKbStrip = ({
         onOpenChange={setConfirmOpen}
         onConfirm={() => void handleRemine()}
         title="Re-mine this mailbox's history?"
-        description={`Conversations already imported from this mailbox${cutoffLabel ? ` and received before ${cutoffLabel}` : ''} that are not mined yet will be sent to your AI provider to extract Q&A pairs — billed AI usage. ${
+        description={`Threads already imported from this mailbox${cutoffLabel ? ` and received before ${cutoffLabel}` : ''} that are not mined yet will be sent to your AI provider to extract Q&A pairs — billed AI usage. ${
           forecast.loading ? 'Working out how many…' : describeMiningCost(forecast.data)
         }`}
         confirmText="Re-mine"

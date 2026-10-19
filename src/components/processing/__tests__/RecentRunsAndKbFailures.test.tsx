@@ -65,7 +65,7 @@ describe('RecentRuns', () => {
     expect(row).not.toMatch(/0 saved/);
   });
 
-  it('a knowledge-base mine reads as mining, with conversations and Q&A pairs', () => {
+  it('a knowledge-base mine reads as mining, with threads and Q&A pairs', () => {
     render(
       <RecentRuns
         runs={[
@@ -81,7 +81,7 @@ describe('RecentRuns', () => {
     );
     fireEvent.click(screen.getByText(/Recent checks/));
     const row = screen.getByTestId('recent-runs').textContent ?? '';
-    expect(row).toMatch(/KB mining · 30 of 30 conversations · 7 Q&A · 2 documents/);
+    expect(row).toMatch(/KB mining · 30 of 30 threads · 7 Q&A · 2 documents/);
     expect(row).not.toMatch(/found/);
   });
 
@@ -114,10 +114,10 @@ describe('KbMiningFailures', () => {
       </MemoryRouter>
     );
 
-  it('links each failed thread to its conversation', () => {
+  it('links each failed thread to its thread', () => {
     renderIt();
-    expect(screen.getByText('#41').closest('a')?.getAttribute('href')).toBe('/messages/41');
-    expect(screen.getByText(/could not read 2 conversations/)).toBeTruthy();
+    expect(screen.getByText('#41').closest('a')?.getAttribute('href')).toBe('/threads/41');
+    expect(screen.getByText(/could not read 2 threads/)).toBeTruthy();
   });
 
   it('Dismiss calls the backend, removes the row and asks the panel to refresh', async () => {

@@ -181,7 +181,7 @@ describe('KbHistoryRangeDialog', () => {
     mount();
     expect(screen.getByText(copy.KB_RANGE_LOADING)).toBeTruthy();
     await ready();
-    expect(screen.getByText(/mining conversations received before/)).toBeTruthy();
+    expect(screen.getByText(/mining threads received before/)).toBeTruthy();
   });
 
   it('options limited to the plan; IMAP no All time, <= 365', async () => {
@@ -246,7 +246,7 @@ describe('KbHistoryRangeDialog', () => {
     );
     mount();
     await screen.findByText('Mining is off for this mailbox: verbatim.');
-    expect(screen.queryByText(/mining conversations received before/)).toBeNull();
+    expect(screen.queryByText(/mining threads received before/)).toBeNull();
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Check' }).disabled).toBe(true);
   });
 
@@ -261,7 +261,7 @@ describe('KbHistoryRangeDialog', () => {
     );
     mount();
     await screen.findByText('Gmail and IMAP only.');
-    expect(screen.queryByText(/mining conversations received before/)).toBeNull();
+    expect(screen.queryByText(/mining threads received before/)).toBeNull();
   });
 
   it('renders the staging-proof result and the recent line', async () => {
@@ -273,7 +273,7 @@ describe('KbHistoryRangeDialog', () => {
     expect(screen.getByText(/67 already in Odly/)).toBeTruthy();
     expect(screen.getByText(/382 to fetch/)).toBeTruthy();
     expect(screen.getByText(/327,000 tokens/)).toBeTruthy();
-    expect(screen.getByText(/1,000 per conversation/)).toBeTruthy();
+    expect(screen.getByText(/1,000 per thread/)).toBeTruthy();
     expect(screen.getByText(/287 with newly fetched mail \+ 40 already imported/)).toBeTruthy();
     expect(screen.getByText(/Recent re-check \(last 90 days\)/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Read 385 messages' })).toBeTruthy();

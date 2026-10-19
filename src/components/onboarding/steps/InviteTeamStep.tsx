@@ -84,7 +84,7 @@ export const InviteTeamStep = () => {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Add the people who&apos;ll handle conversations. Invite them by email (they get a signup
+        Add the people who&apos;ll handle threads. Invite them by email (they get a signup
         link) or create an account directly with a password. You can add more anytime from the Users
         page.
       </p>

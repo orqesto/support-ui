@@ -20,7 +20,7 @@ type PermissionCheckboxGridProps = {
 // commonly tuned categories first.
 const GROUPS: { label: string; permissions: Permission[] }[] = [
   {
-    label: 'Messages',
+    label: 'Threads',
     permissions: [
       Permission.VIEW_MESSAGES,
       Permission.MANAGE_MESSAGES,

@@ -198,7 +198,7 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
         </Tooltip>
       )}
       {(message.metadata as { isFromKBSource?: boolean })?.isFromKBSource && (
-        <Tooltip content="Message from Knowledge Base source" size="sm">
+        <Tooltip content="Thread from Knowledge Base source" size="sm">
           <Badge
             variant="default"
             className={`text-muted-foreground bg-muted ${bc} hover:bg-muted`}
@@ -209,7 +209,7 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
         </Tooltip>
       )}
       {message.status === 'resolved' && (
-        <Tooltip content="Message resolved" size="sm">
+        <Tooltip content="Thread resolved" size="sm">
           <Badge className="text-success-foreground bg-success hover:bg-success/90">✓ Resolved</Badge>
         </Tooltip>
       )}

@@ -35,7 +35,7 @@ export const SLADashboardPage = () => {
           <div>
             <h1 className="font-display text-3xl font-bold text-foreground">SLA Performance</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Monitor service level agreement metrics and performance across messages and tickets
+              Monitor service level agreement metrics and performance across threads and tickets
             </p>
           </div>
           <div className="flex items-center gap-2">

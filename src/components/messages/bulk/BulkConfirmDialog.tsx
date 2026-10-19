@@ -183,7 +183,7 @@ export const BulkConfirmDialog = ({
               />
               {assignableState === 'loaded' && assignable.length === 0 && (
                 <p className="text-xs text-muted-foreground">
-                  No one in this workspace can be assigned conversations.
+                  No one in this workspace can be assigned threads.
                 </p>
               )}
               {assignableState === 'failed' && (

@@ -79,7 +79,7 @@ describe('ConsoleMembers — removing a deactivated member', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Remove Jack' }));
 
-    expect(screen.getByText('Remove Jack from the alliance?')).toBeInTheDocument();
+    expect(screen.getByText('Remove Jack from the organisation?')).toBeInTheDocument();
     expect(screen.getByText(/if your identity provider activates them again, they come back/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove member' }));

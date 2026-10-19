@@ -274,7 +274,7 @@ export const KBEntryDetail = ({
                             {/* Question Message — id is a message_events.id, so include
                               kind=event so getById skips its conv-first fallback. */}
                             <a
-                              href={`/messages?id=${typeData.questionMessageId}&kind=event`}
+                              href={`/threads?id=${typeData.questionMessageId}&kind=event`}
                               className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-primary bg-primary-muted rounded hover:bg-primary-muted/70"
                               title="Question Message"
                             >
@@ -283,7 +283,7 @@ export const KBEntryDetail = ({
 
                             {/* Answer Message - always show even if same as question */}
                             <a
-                              href={`/messages?id=${typeData.answerMessageId}&kind=event`}
+                              href={`/threads?id=${typeData.answerMessageId}&kind=event`}
                               className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-success bg-success-muted rounded hover:bg-success-muted"
                               title="Answer Message"
                             >
@@ -308,7 +308,7 @@ export const KBEntryDetail = ({
                             return (
                               <a
                                 key={msgId}
-                                href={`/messages?id=${msgId}&kind=event`}
+                                href={`/threads?id=${msgId}&kind=event`}
                                 className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-muted-foreground bg-muted rounded hover:bg-muted"
                                 title="Other Thread Message"
                               >
@@ -329,7 +329,7 @@ export const KBEntryDetail = ({
                     <span className="text-muted-foreground">Source Message:</span>
                     <div className="font-medium">
                       <a
-                        href={`/messages?id=${displayEntry.metadata.sourceMessageId}`}
+                        href={`/threads?id=${displayEntry.metadata.sourceMessageId}`}
                         className="text-primary hover:text-primary/80 hover:underline"
                       >
                         #{displayEntry.metadata.sourceMessageId}

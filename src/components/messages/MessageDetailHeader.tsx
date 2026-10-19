@@ -816,7 +816,7 @@ export function MessageDetailHeader({
   */
   const handleCopyLink = useCallback(
     (announce = false) => {
-      const url = `${window.location.origin}/messages?id=${getConvUrlId(message, orgCode)}`;
+      const url = `${window.location.origin}/threads?id=${getConvUrlId(message, orgCode)}`;
       Promise.resolve()
         .then(() => {
           // Absent outside a secure context (plain http); say that, not "undefined".
@@ -964,10 +964,10 @@ export function MessageDetailHeader({
     // Was the "History" link beside the sender; v3 has no room for it there, and dropping it
     // would remove the only path from a message to the customer's other conversations.
     {
-      label: 'Conversation history',
+      label: 'Thread history',
       icon: <HistoryIcon className="w-3 h-3" />,
       action: () => {
-        navigate(`/messages?mode=contacts&sender=${encodeURIComponent(message.sender)}`);
+        navigate(`/threads?mode=contacts&sender=${encodeURIComponent(message.sender)}`);
         setMoreOpen(false);
       },
     },
@@ -1026,7 +1026,7 @@ export function MessageDetailHeader({
     // No "Move to Spam" here (owner, 2026-09-22): the caret's "Resolve & move to spam" is the
     // one agent path, and it records CONFIRMED spam.
     onDelete && {
-      label: 'Delete message',
+      label: 'Delete thread',
       icon: <Trash2 className="w-3 h-3" />,
       action: () => {
         onDelete();
@@ -1198,7 +1198,7 @@ export function MessageDetailHeader({
         )}
         {!isPhone && showFullPageButton && !isFullPage && (
           <Tooltip content="Open full page" side="bottom" size="sm">
-            <Link to={`/messages/${message.id}`} aria-label="Open full page" className={ICON_BTN}>
+            <Link to={`/threads/${message.id}`} aria-label="Open full page" className={ICON_BTN}>
               <Maximize2 className="w-[15px] h-[15px]" />
             </Link>
           </Tooltip>
@@ -1532,7 +1532,7 @@ export function MessageDetailHeader({
                     size="sm"
                     onClick={() => void handleManualRoute(deptId)}
                     disabled={busy}
-                    title={`Move this conversation to ${dept.name}`}
+                    title={`Move this thread to ${dept.name}`}
                     className="h-[27px] px-[11px] rounded-[7px] border border-border bg-card text-[12px] font-normal text-foreground hover:border-border-strong hover:bg-card disabled:opacity-50"
                   >
                     {busy ? `Moving to ${dept.name}…` : `Move to ${dept.name} →`}

@@ -182,11 +182,11 @@ describe('ScimEventLedgerCard', () => {
 
     // Must show when orphaned.
     const orphaned = render(<ScimEventLedgerCard allianceId={1} telemetry={telemetry(false)} />);
-    expect(screen.getByText(/No active alliance admin/i)).toBeInTheDocument();
+    expect(screen.getByText(/No active organisation admin/i)).toBeInTheDocument();
     orphaned.unmount();
 
     // CONTROL: must NOT show when an admin remains.
     render(<ScimEventLedgerCard allianceId={1} telemetry={telemetry(true)} />);
-    expect(screen.queryByText(/No active alliance admin/i)).toBeNull();
+    expect(screen.queryByText(/No active organisation admin/i)).toBeNull();
   });
 });

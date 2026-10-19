@@ -44,14 +44,14 @@ export function DiagnosticsTab({ stats }: Props) {
           </CardHeader>
           <CardContent>
             <div className="p-4 mb-6 rounded-lg bg-muted/50">
-              <h3 className="font-display mb-3 text-sm font-semibold">Message Processing Breakdown</h3>
+              <h3 className="font-display mb-3 text-sm font-semibold">Thread Processing Breakdown</h3>
               <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
-                <div><div className="text-2xl font-bold">{stats.aiModels.totalMessages}</div><div className="text-xs text-muted-foreground">Total Messages</div></div>
+                <div><div className="text-2xl font-bold">{stats.aiModels.totalMessages}</div><div className="text-xs text-muted-foreground">Total Threads</div></div>
                 <div><div className="text-2xl font-bold text-destructive">{stats.aiModels.totalSpam}</div><div className="text-xs text-muted-foreground">Spam Filtered ({stats.aiModels.totalMessages > 0 ? Math.round((stats.aiModels.totalSpam / stats.aiModels.totalMessages) * 100) : 0}%)</div></div>
                 <div><div className="text-2xl font-bold text-warning">{stats.aiModels.totalUnprocessed}</div><div className="text-xs text-muted-foreground">Unprocessed ({stats.aiModels.totalMessages > 0 ? Math.round((stats.aiModels.totalUnprocessed / stats.aiModels.totalMessages) * 100) : 0}%)</div></div>
                 <div><div className="text-2xl font-bold text-success">{stats.aiModels.totalAnalyzed}</div><div className="text-xs text-muted-foreground">AI Analyzed ({stats.aiModels.totalMessages > 0 ? Math.round((stats.aiModels.totalAnalyzed / stats.aiModels.totalMessages) * 100) : 0}%)</div></div>
               </div>
-              <div className="mt-3 text-xs text-muted-foreground"><Lightbulb className="inline h-4 w-4 text-muted-foreground mr-1" />Only messages that pass spam filtering and are marked as processed go through AI analysis</div>
+              <div className="mt-3 text-xs text-muted-foreground"><Lightbulb className="inline h-4 w-4 text-muted-foreground mr-1" />Only threads that pass spam filtering and are marked as processed go through AI analysis</div>
             </div>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {stats.aiModels.analysisProviders.length > 0 && (

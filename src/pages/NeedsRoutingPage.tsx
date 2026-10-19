@@ -169,7 +169,7 @@ export const NeedsRoutingPage = () => {
       }
     } catch (err) {
       logger.error('Failed to manually route message:', err);
-      setRouteError('Failed to route the message. Please try again.');
+      setRouteError('Failed to route the thread. Please try again.');
     } finally {
       setRoutingId(null);
     }
@@ -204,7 +204,7 @@ export const NeedsRoutingPage = () => {
       }
     } catch (err) {
       logger.error('Failed to mark message as spam:', err);
-      setRouteError('Failed to move the message to spam. Please try again.');
+      setRouteError('Failed to move the thread to spam. Please try again.');
     } finally {
       setSpamId(null);
     }
@@ -222,7 +222,7 @@ export const NeedsRoutingPage = () => {
               Needs Routing
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Messages the routing engine couldn't assign to a department
+              Threads the routing engine couldn't assign to a department
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -261,7 +261,7 @@ export const NeedsRoutingPage = () => {
               value={sortValue}
               onChange={handleSortChange}
               options={SORT_OPTIONS}
-              aria-label="Sort messages"
+              aria-label="Sort threads"
             />
           </div>
           <div className="flex-1 min-w-[200px]">
@@ -294,7 +294,7 @@ export const NeedsRoutingPage = () => {
               {hasActiveFilters ? (
                 <>
                   <p className="text-muted-foreground font-medium">
-                    No messages match your filters
+                    No threads match your filters
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
                     Try a different source or search term.
@@ -305,9 +305,9 @@ export const NeedsRoutingPage = () => {
                 </>
               ) : (
                 <>
-                  <p className="text-muted-foreground font-medium">No messages need routing</p>
+                  <p className="text-muted-foreground font-medium">No threads need routing</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    All incoming messages have been assigned to a department
+                    All incoming threads have been assigned to a department
                   </p>
                 </>
               )}
@@ -316,7 +316,7 @@ export const NeedsRoutingPage = () => {
         ) : (
           <>
             <p className="text-sm text-muted-foreground">
-              {total} message{total === 1 ? '' : 's'} awaiting assignment
+              {total} thread{total === 1 ? '' : 's'} awaiting assignment
             </p>
 
             {/* Desktop table */}
@@ -349,7 +349,7 @@ export const NeedsRoutingPage = () => {
                     <tr
                       key={msg.id}
                       className="hover:bg-muted/50 cursor-pointer"
-                      onClick={() => navigate(`/messages/${msg.id}`)}
+                      onClick={() => navigate(`/threads/${msg.id}`)}
                     >
                       <td className="px-4 py-3">
                         <p className="text-sm font-medium truncate max-w-[200px]">{msg.sender}</p>
@@ -432,7 +432,7 @@ export const NeedsRoutingPage = () => {
                 <Card
                   key={msg.id}
                   className="cursor-pointer"
-                  onClick={() => navigate(`/messages/${msg.id}`)}
+                  onClick={() => navigate(`/threads/${msg.id}`)}
                 >
                   <CardContent className="p-4 space-y-3">
                     <div>

@@ -210,7 +210,7 @@ export const describeRelease = (
   if (conversations > 0) {
     const inFailed = release.promotedKbJobsInFailedOrganizations;
     queued.push(
-      plural(conversations, 'parked conversation', 'parked conversations') +
+      plural(conversations, 'parked thread', 'parked threads') +
         (inFailed > 0
           ? ` (${
               // All of them in such workspaces: never left to read as the released ones' work
@@ -502,7 +502,7 @@ export const describeCatchup = (
     backlog.estimatedTokens !== null
       ? ` (≈ ${backlog.estimatedTokens.toLocaleString('en-US')} tokens)`
       : '';
-  return `${backlog.messages.toLocaleString('en-US')} conversation${
+  return `${backlog.messages.toLocaleString('en-US')} thread${
     backlog.messages === 1 ? '' : 's'
   } wait${backlog.messages === 1 ? 's' : ''} for the AI catch-up${cost}, re-analysed after a raise or the reset.`;
 };
@@ -526,7 +526,7 @@ export const capWarnings = (
   }
   if (poolMonthly !== undefined && poolMonthly > 0 && value > poolMonthly) {
     warnings.push(
-      `This is higher than its alliance pool's monthly limit (${poolMonthly.toLocaleString('en-US')}): the pool stops work first.`
+      `This is higher than its organisation pool's monthly limit (${poolMonthly.toLocaleString('en-US')}): the pool stops work first.`
     );
   }
   return warnings;

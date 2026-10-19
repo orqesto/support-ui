@@ -90,7 +90,7 @@ describe('describeMiningCost — the Re-mine confirmation', () => {
 
   it('older backend without `sources`: claims neither "already mined" nor a cutoff', () => {
     const line = describeMiningCost({ ...base, threadsToMine: 0 });
-    expect(line).toContain('No conversation is waiting');
+    expect(line).toContain('No thread is waiting');
     expect(line).not.toContain('already mined');
   });
 

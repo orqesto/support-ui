@@ -254,7 +254,7 @@ export const FilterTokenBar = ({
             setPanelKey(null);
           }}
           onKeyDown={onInputKeyDown}
-          aria-label="Filter or search messages"
+          aria-label="Filter or search threads"
           placeholder={
             tokens.length
               ? 'Add filter or search…'

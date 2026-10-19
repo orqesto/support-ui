@@ -409,7 +409,7 @@ export const FilterMenu = ({
               >
                 <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 <span className="flex-1 min-w-0 truncate">
-                  Search messages for <b className="font-semibold">{suggestion.query}</b>
+                  Search threads for <b className="font-semibold">{suggestion.query}</b>
                 </span>
               </Button>
             );

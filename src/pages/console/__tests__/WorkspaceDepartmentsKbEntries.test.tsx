@@ -200,7 +200,7 @@ describe('Deactivate department — KB entries said after the action', () => {
       expect(toasts).toEqual([
         [
           'success',
-          'Merged “Sales” — moved 1 source(s), 1 member(s), 4 conversation(s)' +
+          'Merged “Sales” — moved 1 source(s), 1 member(s), 4 thread(s)' +
             ' · 1 knowledge-base entry moved to Billing',
         ],
       ])

@@ -235,7 +235,7 @@ export const FilterSheet = ({
       title="Filters"
       footer={
         <Button onClick={close} className="w-full h-12 text-[15px] font-semibold">
-          Show {resultCount} {resultCount === 1 ? 'message' : 'messages'}
+          Show {resultCount} {resultCount === 1 ? 'thread' : 'threads'}
         </Button>
       }
     >
@@ -294,7 +294,7 @@ export const FilterSheet = ({
                     >
                       <Search className="w-4 h-4 text-muted-foreground shrink-0" />
                       <span className="min-w-0 text-[14px] truncate">
-                        Search messages for <b className="font-semibold">{suggestion.query}</b>
+                        Search threads for <b className="font-semibold">{suggestion.query}</b>
                       </span>
                     </Button>
                   );

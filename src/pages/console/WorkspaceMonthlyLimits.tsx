@@ -18,7 +18,7 @@ type Override = { kbTokensPerMonth?: number; regularTokensPerMonth?: number };
 const SOURCE: Record<'workspace' | 'platform' | 'alliance', string> = {
   workspace: 'set for this workspace',
   platform: 'platform setting',
-  alliance: 'alliance pool',
+  alliance: 'organisation pool',
 };
 
 /**
@@ -101,11 +101,11 @@ export const WorkspaceMonthlyLimits = ({
       {inForce('regular', 'Regular work')}
       {backlog === null ? (
         <span className="text-xs text-muted-foreground">
-          The conversations waiting for the AI catch-up could not be counted.
+          The threads waiting for the AI catch-up could not be counted.
         </span>
       ) : backlog !== undefined && backlog > 0 ? (
         <span className="text-xs text-muted-foreground">
-          {backlog.toLocaleString('en-US')} conversation{backlog === 1 ? '' : 's'} sorted without AI
+          {backlog.toLocaleString('en-US')} thread{backlog === 1 ? '' : 's'} sorted without AI
           wait{backlog === 1 ? 's' : ''} for the AI catch-up: they are analysed again with AI after
           a raise or the reset.
         </span>

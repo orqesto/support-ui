@@ -67,10 +67,10 @@ describe('the header count', () => {
     const { unmount } = withClient(
       <MessageFilterBar {...props} pagination={{ page: 1, limit: 50, total: 0 }} isKanban={false} />
     );
-    expect(screen.getByText('No messages')).toBeTruthy();
+    expect(screen.getByText('No threads')).toBeTruthy();
     unmount();
 
     withClient(<MessageFilterBar {...props} pagination={{ page: 1, limit: 0, total: 0 }} isKanban />);
-    expect(screen.getByText('No messages')).toBeTruthy();
+    expect(screen.getByText('No threads')).toBeTruthy();
   });
 });

@@ -103,14 +103,14 @@ export const SLATrendChart = ({ days = SLA_DEFAULT_DAYS }: SLATrendChartProps) =
               type="monotone"
               dataKey="messageResponseTime"
               stroke="hsl(var(--chart-1, var(--primary)))"
-              name="Message Response (min)"
+              name="Thread Response (min)"
               strokeWidth={2}
             />
             <Line
               type="monotone"
               dataKey="messageBreaches"
               stroke="hsl(var(--destructive))"
-              name="Message Breaches"
+              name="Thread Breaches"
               strokeWidth={2}
             />
             <Line

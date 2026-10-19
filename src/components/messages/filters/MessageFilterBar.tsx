@@ -198,7 +198,7 @@ export const MessageFilterBar = ({
           >
             <Search className="w-4 h-4 text-muted-foreground" />
             <span className="text-[14.5px] text-muted-foreground/70 truncate">
-              {filters.search?.trim() ? filters.search.trim() : 'Search messages'}
+              {filters.search?.trim() ? filters.search.trim() : 'Search threads'}
             </span>
           </Button>
           <Button

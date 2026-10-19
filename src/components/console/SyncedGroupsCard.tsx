@@ -119,7 +119,7 @@ const wiredLabel = (group: SyncedGroup, grants: Map<number, string | null> = new
   // can't be created. Labelled as legacy so an admin knows to move it onto a group.
   if (group.wiredRole) {
     const role =
-      group.wiredRole.mappedRole === 'alliance_admin' ? 'Alliance admin' : 'Alliance agent';
+      group.wiredRole.mappedRole === 'alliance_admin' ? 'Organisation admin' : 'Organisation agent';
     return `Wired → ${role} (legacy)`;
   }
   if (group.wiredGroup) {
@@ -244,11 +244,12 @@ const SyncedGroupRow = ({
                 This group currently grants{' '}
                 <strong>
                   {group.wiredRole.mappedRole === 'alliance_admin'
-                    ? 'Alliance admin'
-                    : 'Alliance agent'}
+                    ? 'Organisation admin'
+                    : 'Organisation agent'}
                 </strong>{' '}
-                through a legacy alliance-role wire. Mapping it to a workspace role replaces that
-                wire — members keep arriving, but their access comes from the group you choose here.
+                through a legacy organisation-role wire. Mapping it to a workspace role replaces
+                that wire — members keep arriving, but their access comes from the group you choose
+                here.
               </span>
             </Alert>
           )}
@@ -259,7 +260,7 @@ const SyncedGroupRow = ({
               </Label>
               {activeOrgs.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  This alliance has no active workspaces yet.
+                  This organisation has no active workspaces yet.
                 </p>
               ) : (
                 <>
@@ -292,7 +293,7 @@ const SyncedGroupRow = ({
                   <p className="mt-1 text-xs text-muted-foreground">
                     Members get this role in this workspace.
                     {selectedOrgRole === 'org_admin'
-                      ? ' Org admins get every department.'
+                      ? ' Workspace admins get every department.'
                       : ' Leave departments empty for the role default.'}
                     {noWorkspaceSelected ? ' Choose one to map.' : ''}
                   </p>
@@ -498,7 +499,7 @@ export const SyncedGroupsCard = ({ allianceId }: { allianceId: number }) => {
             </CardTitle>
             <CardDescription>
               Groups your identity provider has pushed. Map one to an org role in specific
-              workspaces, or to an authored alliance group — its already-synced members update
+              workspaces, or to an authored organisation group — its already-synced members update
               immediately, no re-push needed. Only groups the IdP has pushed appear: a group missing
               from this list is not assigned to the SCIM application in your identity provider.
             </CardDescription>

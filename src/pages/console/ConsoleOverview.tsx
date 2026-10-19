@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { useAllianceOverview } from '@/hooks/useAllianceAdmin';
+import { organisationConsolePath } from '@/pages/organisationConsoleRoutes';
 
 /**
  * Console landing page — real orgs/members/groups counts and SSO/SCIM connection
@@ -25,7 +26,7 @@ export const ConsoleOverview = () => {
     return (
       <Alert variant="danger">
         <div className="flex gap-3 justify-between items-center">
-          <span>Couldn&apos;t load this alliance&apos;s overview.</span>
+          <span>Couldn&apos;t load this organisation&apos;s overview.</span>
           <Button variant="secondary" onClick={() => void refetch()}>
             Retry
           </Button>
@@ -34,7 +35,7 @@ export const ConsoleOverview = () => {
     );
   }
 
-  const base = `/console/alliance/${allianceId}`;
+  const base = organisationConsolePath(allianceId);
   const stats = [
     { label: 'Workspaces', value: data.counts.orgs, icon: Building2, to: `${base}/organizations` },
     { label: 'Members', value: data.counts.members, icon: Users, to: `${base}/members` },

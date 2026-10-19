@@ -71,8 +71,8 @@ export const supportLine = (dept: ProposalDepartmentEvidence): string => {
 export const replayLine = (replay: ReplaySummary, deptName: string): string => {
   const lookback = `in the last ${plural(replay.lookbackDays, 'day')}`;
   const skipped = replay.skipped > 0 ? `; ${replay.skipped} could not be checked` : '';
-  if (replay.matches === 0) return `Would have matched no conversations ${lookback}${skipped}`;
-  const matched = `${replay.truncated ? 'at least ' : ''}${plural(replay.matches, 'conversation')}`;
+  if (replay.matches === 0) return `Would have matched no threads ${lookback}${skipped}`;
+  const matched = `${replay.truncated ? 'at least ' : ''}${plural(replay.matches, 'thread')}`;
   const share = replay.ratio === null ? '' : ` (${Math.round(replay.ratio * 100)} %)`;
   return `Would have matched ${matched} ${lookback}; ${replay.inDepartment} went to ${deptName}${share}${skipped}`;
 };
@@ -152,7 +152,7 @@ const Evidence = ({ dept, deptNameById }: { dept: ProposalDepartmentEvidence; de
             const meta = [conv.routedBy?.name, shortDate(conv.routedAt)].filter(Boolean).join(', ');
             return (
               <li key={conv.conversationId} className="break-words">
-                <Link to={`/messages/${conv.conversationId}`} className="text-primary hover:underline">
+                <Link to={`/threads/${conv.conversationId}`} className="text-primary hover:underline">
                   {`${conv.publicId ?? `#${conv.conversationId}`} · ${conv.subject ?? '(no subject)'}`}
                 </Link>
                 {meta && <span>{` — ${meta}`}</span>}
@@ -271,7 +271,7 @@ export const RoutingProposalCard = ({
           return (
             <div key={option.ruleId} className="min-w-0 rounded-md border border-border/60 p-2">
               <p className="text-xs font-medium">
-                {`${deptName(option.departmentId)} — ${countText(option.supportCount)} conversation${option.supportCount === 1 ? '' : 's'}`}
+                {`${deptName(option.departmentId)} — ${countText(option.supportCount)} thread${option.supportCount === 1 ? '' : 's'}`}
               </p>
               {dept?.sibling && (
                 <p className="break-words text-xs text-muted-foreground">

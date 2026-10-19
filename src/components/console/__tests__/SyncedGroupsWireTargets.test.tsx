@@ -83,7 +83,9 @@ describe('SyncedGroupsCard wire targets', () => {
     renderCard();
 
     const options = await listOptions(screen.getByLabelText('Map to'));
-    expect(options.some((label) => /Alliance admin|Alliance agent/.test(label))).toBe(false);
+    expect(options.some((label) => /(Organisation|Alliance) (admin|agent)/.test(label))).toBe(
+      false
+    );
   });
 
   // CONTROL: the picker must still offer something, or the assertion above would pass
@@ -102,7 +104,7 @@ describe('SyncedGroupsCard wire targets', () => {
     syncedGroups.push(baseGroup({ wiredRole: { mappingId: 4, mappedRole: 'alliance_admin' } }));
     renderCard();
 
-    expect(screen.getByText(/Wired → Alliance admin \(legacy\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Wired → Organisation admin \(legacy\)/)).toBeInTheDocument();
   });
 
   // A wired group used to render nothing at all, so the mapping was one-shot: the only
@@ -249,7 +251,7 @@ describe('a group wired only to a legacy alliance role', () => {
     );
     renderCard();
 
-    expect(screen.getByText(/legacy alliance-role wire/)).toBeInTheDocument();
+    expect(screen.getByText(/legacy organisation-role wire/)).toBeInTheDocument();
   });
 
   it('CONTROL: a group wired to a real group shows edit + unwire, not the mapping form', () => {

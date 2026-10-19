@@ -20,6 +20,7 @@ import { organizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { organisationConsolePath } from '@/pages/organisationConsoleRoutes';
 
 /**
  * org_admin SSO (OIDC) config card.
@@ -288,14 +289,14 @@ export const SSOConfigSettings = () => {
           <Alert variant="info">
             <div className="space-y-2">
               <p className="text-sm">
-                Identity for this workspace is managed by your alliance. Configure it in the
-                Alliance console.
+                Identity for this workspace is managed by your organisation. Configure it in the
+                Organisation console.
               </p>
               <Link
-                to={`/console/alliance/${allianceId}/identity`}
+                to={`${organisationConsolePath(allianceId)}/identity`}
                 className="inline-flex gap-1 items-center text-sm font-medium underline text-primary hover:no-underline"
               >
-                Open the Alliance console
+                Open the Organisation console
               </Link>
             </div>
           </Alert>
@@ -481,7 +482,7 @@ export const SSOConfigSettings = () => {
               />
               <p className="pl-7 text-xs text-muted-foreground">
                 Members your identity provider manages — provisioned through SCIM or one of its groups, or
-                managed by an alliance — can only sign in through it, so its MFA and access policies cannot be bypassed with a
+                managed by an organisation — can only sign in through it, so its MFA and access policies cannot be bypassed with a
                 password. Everyone else keeps their password. Turning SSO off turns this off too.
               </p>
               {enabled && enforceSsoOnly && (

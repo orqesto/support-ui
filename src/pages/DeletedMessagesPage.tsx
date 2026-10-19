@@ -63,7 +63,7 @@ export const DeletedMessages = () => {
       setTotal(response.data.data.count);
     } catch (err) {
       logger.error('Error fetching deleted messages:', err);
-      setError(getApiErrorMessage(err) ?? 'Failed to load deleted messages.');
+      setError(getApiErrorMessage(err) ?? 'Failed to load deleted threads.');
     } finally {
       setIsLoading(false);
     }
@@ -86,7 +86,7 @@ export const DeletedMessages = () => {
       setTotal((prev) => Math.max(0, prev - 1));
     } catch (err) {
       logger.error('Error restoring message:', err);
-      setRestoreError(`Failed to restore message #${messageId}.`);
+      setRestoreError(`Failed to restore thread #${messageId}.`);
     } finally {
       setRestoringId(null);
     }
@@ -102,13 +102,13 @@ export const DeletedMessages = () => {
       }>(`/api/messages/deleted/permanent?olderThanDays=${olderThanDays}`);
       const { deletedCount } = response.data.data;
       setPermanentDeleteResult(
-        `Permanently deleted ${deletedCount} message${deletedCount !== 1 ? 's' : ''} older than ${olderThanDays} days.`
+        `Permanently deleted ${deletedCount} thread${deletedCount !== 1 ? 's' : ''} older than ${olderThanDays} days.`
       );
       await fetchMessages(1);
       setCurrentPage(1);
     } catch (err) {
       logger.error('Error permanently deleting messages:', err);
-      setPermanentDeleteResult('Failed to permanently delete messages.');
+      setPermanentDeleteResult('Failed to permanently delete threads.');
     } finally {
       setIsPermanentDeleting(false);
     }
@@ -123,10 +123,10 @@ export const DeletedMessages = () => {
           <div>
             <h2 className="font-display flex gap-2 items-center text-2xl font-bold">
               <Trash2 className="w-7 h-7" />
-              Deleted Messages
+              Deleted Threads
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Soft-deleted messages that can be restored
+              Soft-deleted threads that can be restored
             </p>
           </div>
           <Button
@@ -159,12 +159,12 @@ export const DeletedMessages = () => {
             {isLoading ? (
               <div className="py-12 text-center">
                 <div className="mx-auto mb-4 w-10 h-10 rounded-full border-b-2 animate-spin border-primary" />
-                <p className="text-sm text-muted-foreground">Loading deleted messages...</p>
+                <p className="text-sm text-muted-foreground">Loading deleted threads...</p>
               </div>
             ) : messages.length === 0 ? (
               <div className="py-12 text-center">
                 <Trash2 className="mx-auto mb-4 w-12 h-12 text-muted-foreground/30" />
-                <p className="text-muted-foreground">No deleted messages found</p>
+                <p className="text-muted-foreground">No deleted threads found</p>
               </div>
             ) : (
               <>
@@ -254,7 +254,7 @@ export const DeletedMessages = () => {
                 Permanent Deletion (Admin)
               </h3>
               <p className="mb-4 text-xs text-muted-foreground">
-                Permanently removes soft-deleted messages older than the specified number of days.
+                Permanently removes soft-deleted threads older than the specified number of days.
                 This action cannot be undone.
               </p>
               <div className="flex gap-3 items-center">
@@ -298,8 +298,8 @@ export const DeletedMessages = () => {
         open={confirmPermanentDeleteOpen}
         onOpenChange={setConfirmPermanentDeleteOpen}
         onConfirm={() => void handlePermanentDelete()}
-        title="Permanently delete messages?"
-        description={`This will permanently delete all soft-deleted messages older than ${olderThanDays} days. This action cannot be undone.`}
+        title="Permanently delete threads?"
+        description={`This will permanently delete all soft-deleted threads older than ${olderThanDays} days. This action cannot be undone.`}
         confirmText="Permanently delete"
         variant="danger"
       />

@@ -106,17 +106,17 @@ describe('work alert text (#957 §3.7, verbatim copy)', () => {
   });
   it('new unassigned', () => {
     expect(workAlertText(toWorkAlert(unassigned as never))).toBe(
-      'New unassigned message in Support — Where is my order'
+      'New unassigned thread in Support — Where is my order'
     );
   });
   it('needs routing (no department) and no subject', () => {
     const row = { ...unassigned, details: { eventId: 1 } };
     expect(workAlertText(toWorkAlert(row as never))).toBe(
-      'New unassigned message in Needs routing — (no subject)'
+      'New unassigned thread in Needs routing — (no subject)'
     );
   });
-  it('opens the conversation, or the ticket', () => {
-    expect(workAlertHref(toWorkAlert(assigned as never))).toBe('/messages/50');
+  it('opens the thread, or the ticket', () => {
+    expect(workAlertHref(toWorkAlert(assigned as never))).toBe('/threads/50');
     expect(
       workAlertHref(toWorkAlert({ ...assigned, entityType: 'ticket', entityId: 9 } as never))
     ).toBe('/tickets/9');

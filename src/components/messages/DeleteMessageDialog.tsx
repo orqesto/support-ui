@@ -37,11 +37,11 @@ export const DeleteMessageDialog = ({
   return (
     <Dialog open={open} onOpenChange={(next) => !next && cancel()}>
       <DialogHeader>
-        <DialogTitle>Delete message</DialogTitle>
+        <DialogTitle>Delete thread</DialogTitle>
         <DialogClose onClose={cancel} />
       </DialogHeader>
       <DialogContent>
-        <p>Are you sure you want to delete this message? This action cannot be undone.</p>
+        <p>Are you sure you want to delete this thread? This action cannot be undone.</p>
         {message && (
           <div className="p-4 mt-4 rounded bg-muted">
             <p className="text-sm font-medium">From: {message.sender}</p>

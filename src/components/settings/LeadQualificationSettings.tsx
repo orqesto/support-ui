@@ -276,7 +276,7 @@ export const LeadQualificationSettings = () => {
           <p className="text-xs text-muted-foreground">
             Fields the qualification flow must collect before a lead is considered fully contacted.
             Email is auto-derived from the sender address on email / Gmail sources, so the
-            requirement only kicks in on chat-widget and Telegram conversations where the visitor
+            requirement only kicks in on chat-widget and Telegram threads where the visitor
             hasn&apos;t shared one yet — the AI will ask for it as part of qualification.
           </p>
         </div>
@@ -309,7 +309,7 @@ export const LeadQualificationSettings = () => {
           <div>
             <span className="text-sm">Auto-mark first-time senders as leads</span>
             <p className="text-xs text-muted-foreground">
-              Immediately tags the message as a lead when the sender has never written before —
+              Immediately tags the thread as a lead when the sender has never written before —
               before any AI processing.
             </p>
           </div>

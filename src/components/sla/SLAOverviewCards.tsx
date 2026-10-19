@@ -81,7 +81,7 @@ export const SLAOverviewCards = ({ days = SLA_DEFAULT_DAYS }: SLAOverviewCardsPr
       <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-success">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Message SLA Rate
+            Thread SLA Rate
           </CardTitle>
           <div className="p-2 bg-success-muted rounded-lg">
             <CheckCircle2 className="h-5 w-5 text-success" />

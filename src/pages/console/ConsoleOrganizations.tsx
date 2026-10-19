@@ -24,6 +24,7 @@ import {
 } from '@/hooks/useAllianceAdmin';
 import { useAuthStore } from '@/stores/authStore';
 import type { AllianceOrg } from '@/services/alliance-admin.service';
+import { organisationConsolePath } from '@/pages/organisationConsoleRoutes';
 
 /**
  * Organizations screen (SPEC §8.3): list the alliance's workspaces, Manage one (per-workspace
@@ -90,7 +91,7 @@ export const ConsoleOrganizations = () => {
   // shell's "back" affordance returns to THIS alliance console, not the platform console
   // (which an alliance admin may not even be able to access).
   const handleManage = (org: AllianceOrg) => {
-    const from = `/console/alliance/${allianceId}/organizations`;
+    const from = `${organisationConsolePath(allianceId)}/organizations`;
     navigate(`/console/workspace/${org.id}?from=${encodeURIComponent(from)}`);
   };
 
@@ -100,7 +101,7 @@ export const ConsoleOrganizations = () => {
     }
     attachMutation.mutate(selectedOrgId, {
       onSuccess: () => {
-        toast.success('Workspace attached to the alliance');
+        toast.success('Workspace attached to the organisation');
         setAttachOpen(false);
         setSelectedOrgId(null);
       },
@@ -175,7 +176,7 @@ export const ConsoleOrganizations = () => {
         </Button>
       </Tooltip>
       {isGlobalAdmin && (
-        <Tooltip content={`Detach ${org.name} from this alliance`}>
+        <Tooltip content={`Detach ${org.name} from this organisation`}>
           <Button variant="ghost" onClick={() => setDetachTarget(org)} aria-label={`Detach ${org.name}`}>
             <Unlink className="w-4 h-4" />
           </Button>
@@ -188,7 +189,7 @@ export const ConsoleOrganizations = () => {
     <div className="flex flex-col gap-4 h-full min-h-0">
       <ConsolePageHeader
         title="Workspaces"
-        description="Every workspace attached to this alliance."
+        description="Every workspace attached to this organisation."
         actions={
           isGlobalAdmin ? (
             <Button onClick={() => setAttachOpen(true)}>
@@ -205,8 +206,8 @@ export const ConsoleOrganizations = () => {
             icon={Building2}
             message={
               isGlobalAdmin
-                ? 'No workspaces in this alliance yet. Attach a standalone workspace to get started.'
-                : 'No workspaces in this alliance yet. A global admin attaches workspaces to an alliance.'
+                ? 'No workspaces in this organisation yet. Attach a standalone workspace to get started.'
+                : 'No workspaces in this organisation yet. A global admin attaches workspaces to an organisation.'
             }
           />
         </Card>
@@ -252,7 +253,7 @@ export const ConsoleOrganizations = () => {
 
       <Dialog open={attachOpen} onOpenChange={setAttachOpen}>
         <DialogHeader>
-          <DialogTitle>Attach a workspace to this alliance</DialogTitle>
+          <DialogTitle>Attach a workspace to this organisation</DialogTitle>
         </DialogHeader>
         <DialogContent>
           {attachableLoading ? (
@@ -261,7 +262,7 @@ export const ConsoleOrganizations = () => {
             </div>
           ) : attachableOptions.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No standalone workspaces are available to attach to this alliance.
+              No standalone workspaces are available to attach to this organisation.
             </p>
           ) : (
             <div className="space-y-4">
@@ -300,7 +301,7 @@ export const ConsoleOrganizations = () => {
         variant="danger"
         confirmText="Detach"
         title={`Detach ${detachTarget?.name ?? ''}?`}
-        description="Alliance-managed roles in this workspace are unwound. Any member without a direct grant here loses access — their open tickets in this workspace are reassigned and their sessions are revoked. Members with a direct grant keep it. This does not delete the workspace."
+        description="Organisation-managed roles in this workspace are unwound. Any member without a direct grant here loses access — their open tickets in this workspace are reassigned and their sessions are revoked. Members with a direct grant keep it. This does not delete the workspace."
       />
     </div>
   );

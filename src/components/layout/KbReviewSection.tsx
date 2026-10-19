@@ -147,7 +147,7 @@ export const KbReviewSection = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => onNavigate(`/messages?id=${alert.conversationId}`)}
+                    onClick={() => onNavigate(`/threads?id=${alert.conversationId}`)}
                     className="px-0 h-auto text-xs text-primary hover:bg-transparent hover:underline"
                   >
                     Open thread
