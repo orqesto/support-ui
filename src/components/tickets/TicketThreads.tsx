@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ExternalLink as ExternalLinkIcon, Mail, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Tooltip } from '@/components/ui/Tooltip';
 import {
   Dialog,
   DialogContent,
@@ -13,6 +16,7 @@ import {
 } from '@/components/ui/Dialog';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
+import { usePermissions } from '@/hooks/usePermissions';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
@@ -21,6 +25,7 @@ import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
 import { ticketThreadsService, type TicketThread } from '@/services/ticketThreads.service';
 import type { Message } from '@/types';
+import { Permission } from '@/types/roles';
 import { TicketReplyComposer, useTicketReplies } from './TicketReplyComposer';
 
 /**
@@ -54,9 +59,20 @@ type Candidate = { id: number; publicId: string | null; subject: string | null; 
 const PICKER_LIMIT = 25;
 
 const words = (status: string) => status.replace('_', ' ');
+const isDone = (status: string) => status === 'resolved' || status === 'closed';
+const plural = (count: number, one: string, many: string) => (count === 1 ? one : many);
+
+/** The last send or resolve the page can undo — reopen only, never unsend. */
+type Undoable = { ids: number[]; outcome: 'resolved' | 'on_hold' };
 
 export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus }: Props) => {
   const orgCode = useCurrentOrgCode();
+  // Adding, removing, sending and resolving are support and above (MANAGE_TICKETS); viewing is not.
+  const { hasPermission } = usePermissions();
+  const canManage = hasPermission(Permission.MANAGE_TICKETS);
+  const [confirmResolve, setConfirmResolve] = useState(false);
+  const [undoable, setUndoable] = useState<Undoable | null>(null);
+  const [statusNotice, setStatusNotice] = useState<string | null>(null);
   const [threads, setThreads] = useState<TicketThread[]>([]);
   const [hiddenCount, setHiddenCount] = useState(0);
   const [state, setState] = useState<'loading' | 'ready' | 'failed' | 'unavailable'>('loading');
@@ -144,6 +160,8 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
     setThreads([]);
     setHiddenCount(0);
     setError(null);
+    setUndoable(null);
+    setStatusNotice(null);
     // The picker was filtered against the previous ticket's list: close it, drop its results.
     cancelPendingSearch();
     setPickerOpen(false);
@@ -286,7 +304,9 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
       new Set(
         threads
           .filter((row) => !blocked.has(row.conversationId))
-          .filter((row) => !ticketDone || row.owesReply === true)
+          // An update goes to the OPEN threads (contingency page, 2026-10-19); on a resolved
+          // ticket, to the customers not yet told it is fixed (Q2).
+          .filter((row) => (ticketDone ? row.owesReply === true : !isDone(row.status)))
           .map((row) => row.conversationId)
       )
     );
@@ -302,10 +322,69 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
     });
   };
 
+  /** Resolve the ticked threads without sending anything, or reopen (the undo). */
+  const setThreadsStatus = async (action: 'resolve' | 'reopen', ids: number[]) => {
+    setBusy(true);
+    setError(null);
+    setStatusNotice(null);
+    const startedOn = ticketId;
+    try {
+      const result =
+        action === 'resolve'
+          ? await ticketThreadsService.resolveThreads(startedOn, ids)
+          : await ticketThreadsService.reopenThreads(startedOn, ids);
+      if (currentTicket.current !== startedOn) return;
+      setUndoable(
+        action === 'resolve' && result.done.length > 0
+          ? { ids: result.done, outcome: 'resolved' }
+          : null
+      );
+      const done = result.done.length;
+      setStatusNotice(
+        [
+          action === 'resolve'
+            ? `${done} ${plural(done, 'thread', 'threads')} resolved — nothing was sent.`
+            : `${done} ${plural(done, 'thread', 'threads')} reopened. Emails already sent stay sent.`,
+          result.skipped.length > 0
+            ? `${result.skipped.length} ${plural(result.skipped.length, 'was', 'were')} already ${action === 'resolve' ? 'resolved' : 'open'}.`
+            : '',
+          result.failed.length > 0
+            ? `${result.failed.length} could not be ${action === 'resolve' ? 'resolved' : 'reopened'}: ${result.failed.map((row) => row.error).join('; ')}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
+      );
+      await loadNow.current(true);
+    } catch (err) {
+      logger.error(`Failed to ${action} the ticket’s threads`, err);
+      if (currentTicket.current !== startedOn) return;
+      setError(
+        getApiErrorMessage(err) ??
+          `The threads could not be ${action === 'resolve' ? 'resolved' : 'reopened'}.`
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (state === 'unavailable') return <>{fallback}</>;
 
   // Only from a list that was actually read — never a count left over from before a failed reload.
   const owing = state === 'ready' ? threads.filter((row) => row.owesReply === true).length : 0;
+  const nameOf = new Map(
+    (replyData?.names ?? []).map((row) => [row.conversationId, row.customerName])
+  );
+  const selectedIds = threads.map((row) => row.conversationId).filter((id) => selected.has(id));
+  const resolvable = selectedIds.filter(
+    (id) => !isDone(threads.find((row) => row.conversationId === id)?.status ?? '')
+  );
+  // Nothing open to update: every thread is finished and no customer is still owed the fix.
+  const allDone =
+    state === 'ready' &&
+    threads.length > 0 &&
+    threads.every((row) => isDone(row.status)) &&
+    owing === 0;
 
   return (
     <div className="space-y-2">
@@ -321,11 +400,42 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
         ) : (
           <span />
         )}
-        <Button variant="outline" size="sm" onClick={openPicker} disabled={busy}>
-          <Plus className="h-3 w-3 mr-1" aria-hidden />
-          Add threads
-        </Button>
+        {canManage && (
+          <div className="flex items-center gap-2">
+            {replyData && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmResolve(true)}
+                disabled={busy || resolvable.length === 0}
+              >
+                Resolve {resolvable.length} {plural(resolvable.length, 'thread', 'threads')}
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={openPicker} disabled={busy}>
+              <Plus className="h-3 w-3 mr-1" aria-hidden />
+              Add threads
+            </Button>
+          </div>
+        )}
       </div>
+      {undoable && canManage && (
+        <Alert variant="info" className="flex flex-wrap gap-2 justify-between items-center">
+          <span className="text-sm">
+            {undoable.ids.length} {plural(undoable.ids.length, 'thread was', 'threads were')}{' '}
+            {undoable.outcome === 'resolved' ? 'resolved' : 'put on hold'}.
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void setThreadsStatus('reopen', undoable.ids)}
+            disabled={busy}
+          >
+            Undo — reopen only (emails already sent stay sent)
+          </Button>
+        </Alert>
+      )}
+      {statusNotice && <p className="text-sm text-muted-foreground">{statusNotice}</p>}
 
       {state === 'loading' ? (
         <p className="py-4 text-sm text-center text-muted-foreground">Loading threads…</p>
@@ -343,7 +453,7 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
               className="flex gap-3 items-start p-3 rounded-lg border transition-colors bg-muted border-border hover:bg-accent"
             >
               {/* A backend without ticket replies offers no reply box, so no boxes to tick. */}
-              {replyData && (
+              {replyData && canManage && (
                 <Checkbox
                   className="pt-1.5"
                   checked={selected.has(row.conversationId)}
@@ -363,9 +473,29 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
                   <span className="font-mono text-xs text-muted-foreground">
                     {formatDate(row.createdAt)}
                   </span>
-                  <Badge variant="secondary" size="sm">
+                  <span className="font-mono text-xs font-medium" aria-label="Case number">
+                    {row.publicId ?? `#${row.conversationId}`}
+                  </span>
+                  <Badge variant={isDone(row.status) ? 'success' : 'secondary'} size="sm">
                     {words(row.status)}
                   </Badge>
+                  {row.parkedAt && (
+                    <Tooltip
+                      content={row.parkedReason ? `On hold: ${row.parkedReason}` : 'On hold'}
+                      size="sm"
+                    >
+                      <Badge variant="warning" size="sm">
+                        on hold
+                        {row.parkedUntil &&
+                          ` until ${new Date(row.parkedUntil).toLocaleDateString()}`}
+                      </Badge>
+                    </Tooltip>
+                  )}
+                  {row.receivedUpdate && (
+                    <Badge variant="secondary" size="sm">
+                      updated
+                    </Badge>
+                  )}
                   {row.isPrimary && (
                     <span className="text-xs text-muted-foreground">ticket created from this</span>
                   )}
@@ -374,7 +504,18 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
                   to={`/threads?id=${getConvUrlId({ id: row.conversationId, publicId: row.publicId }, orgCode)}`}
                   className="block group"
                 >
-                  <p className="text-sm font-medium truncate">{row.requesterEmail}</p>
+                  <p className="text-sm font-medium truncate">
+                    {nameOf.get(row.conversationId) ? (
+                      <>
+                        {nameOf.get(row.conversationId)}{' '}
+                        <span className="font-normal text-muted-foreground">
+                          {row.requesterEmail}
+                        </span>
+                      </>
+                    ) : (
+                      row.requesterEmail
+                    )}
+                  </p>
                   {row.subject && (
                     <p className="text-sm truncate text-muted-foreground group-hover:text-primary transition-colors">
                       {row.subject}
@@ -395,7 +536,7 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
                 )}
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
-                {!row.isPrimary && (
+                {canManage && !row.isPrimary && !row.receivedUpdate && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -405,6 +546,23 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
                   >
                     Remove
                   </Button>
+                )}
+                {canManage && !row.isPrimary && row.receivedUpdate && (
+                  <Tooltip
+                    content="This customer already received an update from this ticket, so the thread stays on it."
+                    size="sm"
+                  >
+                    <span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled
+                        aria-label={`${row.requesterEmail}’s thread received an update and cannot be removed`}
+                      >
+                        Remove
+                      </Button>
+                    </span>
+                  </Tooltip>
                 )}
                 {/* The icon opens the thread too, as the whole card did in the old list. */}
                 <Link
@@ -433,14 +591,20 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      {state === 'ready' && threads.length > 0 && replyData && (
+      {state === 'ready' && threads.length > 0 && replyData && canManage && (
         <TicketReplyComposer
           ticketId={ticketId}
           threads={threads}
-          selected={threads.map((row) => row.conversationId).filter((id) => selected.has(id))}
+          selected={selectedIds}
           replies={replyData}
           unreachable={unreachable}
           onSent={() => void replies.refresh()}
+          onQueued={(ids, outcome) => setUndoable(outcome === 'pending' ? null : { ids, outcome })}
+          disabledReason={
+            allDone
+              ? 'Every linked thread is resolved, so there is nobody to update. Add an open thread (Add threads) or reopen one to send an update.'
+              : null
+          }
         />
       )}
       {state === 'ready' && threads.length > 0 && replies.failed && (
@@ -448,6 +612,19 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
           We could not read the replies sent from this ticket just now, so replying is unavailable.
         </p>
       )}
+
+      <ConfirmDialog
+        open={confirmResolve}
+        onOpenChange={setConfirmResolve}
+        onConfirm={() => {
+          setConfirmResolve(false);
+          void setThreadsStatus('resolve', resolvable);
+        }}
+        variant="info"
+        title={`Resolve ${resolvable.length} ${plural(resolvable.length, 'thread', 'threads')}?`}
+        description="Each ticked open thread is resolved. Nothing is sent to anyone — write an update first if the customers should hear about it."
+        confirmText="Resolve"
+      />
 
       <Dialog
         open={pickerOpen}

@@ -160,6 +160,9 @@ export type Message = {
   // other status change. When present, the FE shows the Pending badge regardless
   // of status. Parking does not pause SLA.
   parkedAt?: string | null;
+  /** On-hold's reason and recheck date (2026-10-19) — meaningful only while `parkedAt` is set. */
+  parkedReason?: string | null;
+  parkedUntil?: string | null;
   attachmentCount?: number;
   slaResponseMinutes?: number | null;
   slaResponseBreached?: boolean | null;

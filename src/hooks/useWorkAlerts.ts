@@ -19,10 +19,19 @@ import type { Notification } from '@/types/api';
  */
 export const CONVERSATION_ASSIGNED_KIND = 'conversation_assigned';
 export const NEW_UNASSIGNED_MESSAGE_KIND = 'new_unassigned_message';
+/** An On-hold thread reached its recheck date — to its owner (contingency page, 2026-10-19). */
+export const HOLD_RECHECK_KIND = 'hold_recheck_due';
 /** Socket-driven refetches inside this window join one request (a bulk assignment sends N pings — R15). */
 export const WORK_ALERTS_REFRESH_MS = 500;
-export type WorkAlertKind = typeof CONVERSATION_ASSIGNED_KIND | typeof NEW_UNASSIGNED_MESSAGE_KIND;
-const KINDS: WorkAlertKind[] = [CONVERSATION_ASSIGNED_KIND, NEW_UNASSIGNED_MESSAGE_KIND];
+export type WorkAlertKind =
+  | typeof CONVERSATION_ASSIGNED_KIND
+  | typeof NEW_UNASSIGNED_MESSAGE_KIND
+  | typeof HOLD_RECHECK_KIND;
+const KINDS: WorkAlertKind[] = [
+  CONVERSATION_ASSIGNED_KIND,
+  NEW_UNASSIGNED_MESSAGE_KIND,
+  HOLD_RECHECK_KIND,
+];
 
 export type WorkAlert = {
   id: number;
@@ -32,11 +41,18 @@ export type WorkAlert = {
   subject: string;
   actorLabel: string | null;
   departmentName: string | null;
+  /** hold_recheck_due: why it was on hold. */
+  holdReason: string | null;
   isRead: boolean;
   createdAt: string;
 };
 
-type WorkDetails = { subject?: string; actor?: { label?: string }; departmentName?: string | null };
+type WorkDetails = {
+  subject?: string;
+  actor?: { label?: string };
+  departmentName?: string | null;
+  holdReason?: string | null;
+};
 
 export const toWorkAlert = (row: Notification): WorkAlert => {
   const details = (row.details ?? {}) as WorkDetails;
@@ -50,21 +66,32 @@ export const toWorkAlert = (row: Notification): WorkAlert => {
     subject: details.subject && details.subject.trim() !== '' ? details.subject : '(no subject)',
     actorLabel: details.actor?.label ?? null,
     departmentName: details.departmentName ?? null,
+    holdReason:
+      typeof details.holdReason === 'string' && details.holdReason.trim() !== ''
+        ? details.holdReason
+        : null,
     isRead: row.isRead ?? false,
     createdAt: (row as { createdAt?: string }).createdAt ?? '',
   };
 };
 
-export const workAlertText = (alert: WorkAlert): string =>
-  alert.kind === CONVERSATION_ASSIGNED_KIND
-    ? `Assigned to you by ${alert.actorLabel ?? 'a colleague'} — ${alert.subject}`
-    : `New unassigned thread in ${alert.departmentName ?? 'Needs routing'} — ${alert.subject}`;
+export const workAlertText = (alert: WorkAlert): string => {
+  if (alert.kind === CONVERSATION_ASSIGNED_KIND)
+    return `Assigned to you by ${alert.actorLabel ?? 'a colleague'} — ${alert.subject}`;
+  if (alert.kind === HOLD_RECHECK_KIND)
+    return `Recheck${alert.holdReason ? `: ${alert.holdReason}` : ' — its hold ended'} — ${alert.subject}`;
+  return `New unassigned thread in ${alert.departmentName ?? 'Needs routing'} — ${alert.subject}`;
+};
 
 export const workAlertHref = (alert: WorkAlert): string =>
   alert.entityType === 'ticket' ? `/tickets/${alert.entityId}` : `/threads/${alert.entityId}`;
 
 export const workAlertTypeLabel = (kind: WorkAlertKind): string =>
-  kind === CONVERSATION_ASSIGNED_KIND ? 'Assigned to you' : 'New unassigned';
+  kind === CONVERSATION_ASSIGNED_KIND
+    ? 'Assigned to you'
+    : kind === HOLD_RECHECK_KIND
+      ? 'Recheck'
+      : 'New unassigned';
 
 export type UseWorkAlertsResult = ReturnType<typeof useWorkAlerts>;
 

@@ -101,6 +101,7 @@ const NON_SLA_BELL_KINDS = new Set([
   // surface in useWorkAlerts + WorkAlertsSection.
   'conversation_assigned',
   'new_unassigned_message',
+  'hold_recheck_due',
 ]);
 const isNonSlaBellKind = (kind: unknown): boolean =>
   typeof kind === 'string' && NON_SLA_BELL_KINDS.has(kind);

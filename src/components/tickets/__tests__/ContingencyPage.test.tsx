@@ -1,0 +1,280 @@
+/**
+ * The ticket page as the client's "contingency page" (owner, 2026-10-19; plan
+ * `CONTINGENCY-PAGE-PLAN-2026-10-19.md`): case number + sender on each row, open threads ticked by
+ * default, a thread that received an update cannot be removed, Resolve without sending and its
+ * reopen-only Undo, Send & put on hold, AI draft, per-recipient preview, everything resolved ⇒
+ * nothing to send, and the view-only page for a role without MANAGE_TICKETS.
+ */
+import { forwardRef, useImperativeHandle } from 'react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+
+const threadsOfTicket = vi.fn();
+const resolveThreads = vi.fn();
+const reopenThreads = vi.fn();
+const repliesOfTicket = vi.fn();
+const send = vi.fn();
+const preview = vi.fn();
+const composeUpdate = vi.fn();
+
+const perms = vi.hoisted(() => ({ manage: true }));
+vi.mock('@/hooks/usePermissions', () => ({
+  usePermissions: () => ({ hasPermission: () => perms.manage }),
+}));
+vi.mock('@/services/ticketThreads.service', () => ({
+  ticketThreadsService: {
+    threadsOfTicket,
+    addThreads: vi.fn(),
+    removeThread: vi.fn(),
+    resolveThreads,
+    reopenThreads,
+  },
+}));
+vi.mock('@/services/ticketReplies.service', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  ticketRepliesService: { repliesOfTicket, send, preview, composeUpdate },
+}));
+vi.mock('@/services/message.service', () => ({ messageService: { getThreads: vi.fn() } }));
+vi.mock('@/services/ticketDrafts.service', () => ({
+  ticketDraftsService: { draftsOfTicket: vi.fn().mockResolvedValue({ unavailable: true }) },
+}));
+vi.mock('@/services/replyTemplates.service', () => ({
+  replyTemplatesService: { list: vi.fn().mockResolvedValue({ unavailable: true }) },
+}));
+vi.mock('@/hooks/useAiDraftsOff', () => ({ useAiDraftsOff: () => ({ off: false }) }));
+vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACME' }));
+vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
+vi.mock('@/lib/socketManager', () => ({
+  subscribeToEvent: vi.fn(),
+  unsubscribeFromEvent: vi.fn(),
+}));
+vi.mock('@/components/shared/RichTextEditor', () => ({
+  default: forwardRef(
+    (props: { content?: string; onChange?: (html: string) => void; placeholder?: string }, ref) => {
+      useImperativeHandle(ref, () => ({ setContent: (html: string) => props.onChange?.(html) }));
+      return (
+        <textarea
+          aria-label="Reply text"
+          placeholder={props.placeholder}
+          value={props.content ?? ''}
+          onChange={(event) => props.onChange?.(event.target.value)}
+        />
+      );
+    }
+  ),
+}));
+
+const { TicketThreads } = await import('@/components/tickets/TicketThreads');
+
+const thread = (id: number, over: Record<string, unknown> = {}) => ({
+  conversationId: id,
+  publicId: `SUP-${id}`,
+  subject: 'Parcel held at the border',
+  requesterEmail: `customer-${id}@example.com`,
+  status: 'open',
+  channel: 'email',
+  createdAt: '2026-10-01T10:00:00Z',
+  isPrimary: id === 11,
+  addedAt: '2026-10-01T10:00:00Z',
+  owesReply: false,
+  parkedAt: null,
+  parkedReason: null,
+  parkedUntil: null,
+  receivedUpdate: false,
+  ...over,
+});
+
+const ready = (rows: ReturnType<typeof thread>[]) =>
+  threadsOfTicket.mockResolvedValue({ unavailable: false, rows, hiddenCount: 0 });
+const replies = (over: Record<string, unknown> = {}) =>
+  repliesOfTicket.mockResolvedValue({
+    unavailable: false,
+    replies: [],
+    unreachable: [],
+    names: [],
+    maxThreads: 100,
+    ...over,
+  });
+
+const renderTicket = (ticketStatus = 'open') =>
+  render(
+    <MemoryRouter>
+      <TicketThreads ticketId={4} fallback={<p>legacy list</p>} ticketStatus={ticketStatus} />
+    </MemoryRouter>
+  );
+
+const box = (id: number) =>
+  screen.getByRole('checkbox', { name: `Reply to customer-${id}@example.com` });
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  perms.manage = true;
+  ready([thread(11), thread(12), thread(13, { status: 'resolved' })]);
+  replies({
+    names: [
+      { conversationId: 11, firstName: 'Ada', customerName: 'Ada Lovelace' },
+      { conversationId: 12, firstName: null, customerName: null },
+      { conversationId: 13, firstName: 'Grace', customerName: 'Grace Hopper' },
+    ],
+  });
+  send.mockResolvedValue({ replyId: 9, existing: false, queued: [11, 12], skipped: [] });
+  resolveThreads.mockResolvedValue({ done: [11, 12], skipped: [], failed: [] });
+  reopenThreads.mockResolvedValue({ done: [11, 12], skipped: [], failed: [] });
+});
+
+describe('contingency page', () => {
+  it('each row shows its case number, the sender’s name and address, and open/resolved', async () => {
+    renderTicket();
+    expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
+    expect(screen.getByText('SUP-12')).toBeInTheDocument();
+    // No name on record: the address alone, never a made-up name.
+    expect(screen.getByText('customer-12@example.com')).toBeInTheDocument();
+    expect(screen.getByText('resolved')).toBeInTheDocument();
+  });
+
+  it('an update goes to the OPEN threads by default; a resolved one is not ticked', async () => {
+    renderTicket();
+    await waitFor(() => expect(box(11)).toBeChecked());
+    expect(box(12)).toBeChecked();
+    expect(box(13)).not.toBeChecked();
+  });
+
+  it('a thread that already received an update cannot be removed — and says why', async () => {
+    ready([thread(11), thread(12, { receivedUpdate: true }), thread(14)]);
+    renderTicket();
+    await screen.findByText('SUP-12');
+    expect(
+      screen.getByRole('button', {
+        name: 'customer-12@example.com’s thread received an update and cannot be removed',
+      })
+    ).toBeDisabled();
+    // ⛔ and no working Remove for it anywhere on the row.
+    expect(
+      screen.queryByRole('button', {
+        name: 'Remove customer-12@example.com’s thread from this ticket',
+      })
+    ).toBeNull();
+    // CONTROL: one that did not can still be removed.
+    expect(
+      screen.getByRole('button', {
+        name: 'Remove customer-14@example.com’s thread from this ticket',
+      })
+    ).toBeEnabled();
+    expect(screen.getByText('updated')).toBeInTheDocument();
+  });
+
+  it('an On-hold thread shows until when', async () => {
+    ready([
+      thread(11),
+      thread(12, {
+        parkedAt: '2026-10-19T10:00:00Z',
+        parkedReason: 'Awaiting customs',
+        parkedUntil: '2026-10-22T10:00:00Z',
+      }),
+    ]);
+    renderTicket();
+    expect(await screen.findByText(/on hold until/)).toBeInTheDocument();
+  });
+
+  it('Resolve resolves the ticked open threads without sending; Undo only reopens', async () => {
+    const user = userEvent.setup();
+    renderTicket();
+    await waitFor(() => expect(box(11)).toBeChecked());
+    await user.click(screen.getByRole('button', { name: 'Resolve 2 threads' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/Nothing is sent to anyone/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Resolve' }));
+    await waitFor(() => expect(resolveThreads).toHaveBeenCalledWith(4, [11, 12]));
+    expect(send).not.toHaveBeenCalled();
+    expect(await screen.findByText(/resolved — nothing was sent/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Undo — reopen only/ }));
+    await waitFor(() => expect(reopenThreads).toHaveBeenCalledWith(4, [11, 12]));
+    expect(await screen.findByText(/Emails already sent stay sent/)).toBeInTheDocument();
+  });
+
+  it('Send & put on hold asks why and until when, then sends with the hold', async () => {
+    const user = userEvent.setup();
+    renderTicket();
+    await waitFor(() => expect(box(11)).toBeChecked());
+    await user.type(screen.getByLabelText('Reply text'), 'Hi {{first_name}, still at customs.');
+    await user.click(screen.getByRole('button', { name: 'Send & put on hold' }));
+    const dialog = await screen.findByRole('dialog');
+    const confirm = within(dialog).getByRole('button', { name: 'Send & put on hold' });
+    // No reason yet: nothing can be sent.
+    expect(confirm).toBeDisabled();
+    await user.type(within(dialog).getByLabelText('Reason'), 'Awaiting customs');
+    await user.click(confirm);
+    await waitFor(() => expect(send).toHaveBeenCalled());
+    const [ticketId, body, ids, resolve, , hold] = send.mock.calls[0] as [
+      number,
+      unknown,
+      number[],
+      boolean,
+      unknown,
+      { reason: string; until: Date },
+    ];
+    expect([ticketId, body, ids, resolve]).toEqual([
+      4,
+      { content: 'Hi {first_name}, still at customs.' },
+      [11, 12],
+      false,
+    ]);
+    expect(hold.reason).toBe('Awaiting customs');
+    // Default preset: 3 days from now.
+    expect(hold.until.getTime() - Date.now()).toBeGreaterThan(2.9 * 24 * 3600 * 1000);
+    // A hold can be undone too (reopen only).
+    expect(await screen.findByRole('button', { name: /Undo — reopen only/ })).toBeInTheDocument();
+  });
+
+  it('Generate with AI fills the box from the ticket; typed text goes as the agent’s notes', async () => {
+    const user = userEvent.setup();
+    composeUpdate.mockResolvedValue({ text: 'Hi {first_name}, an update.', sources: [] });
+    renderTicket();
+    await waitFor(() => expect(box(11)).toBeChecked());
+    await user.click(screen.getByRole('button', { name: /Generate with AI/ }));
+    await waitFor(() => expect(composeUpdate).toHaveBeenCalledWith(4, undefined));
+    await waitFor(() =>
+      expect(screen.getByLabelText<HTMLTextAreaElement>('Reply text').value).toContain('an update.')
+    );
+    await user.click(screen.getByRole('button', { name: /Generate with AI/ }));
+    await waitFor(() => expect(composeUpdate).toHaveBeenLastCalledWith(4, expect.any(String)));
+  });
+
+  it('the preview shows what the first ticked customers receive, filled for each', async () => {
+    const user = userEvent.setup();
+    preview.mockResolvedValue([
+      { conversationId: 11, ok: true, text: '<p>Hi Ada, held.</p>' },
+      { conversationId: 12, ok: true, text: '<p>Hi there, held.</p>' },
+    ]);
+    renderTicket();
+    await waitFor(() => expect(box(11)).toBeChecked());
+    await user.type(screen.getByLabelText('Reply text'), 'Hi {{first_name}, held.');
+    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    expect(await screen.findByText('Hi Ada, held.')).toBeInTheDocument();
+    expect(screen.getByText('Hi there, held.')).toBeInTheDocument();
+    expect(preview).toHaveBeenLastCalledWith(4, 'Hi {first_name}, held.', [11, 12]);
+  });
+
+  it('every thread resolved: nothing to update, sending is off and the page says how to fix it', async () => {
+    ready([thread(11, { status: 'resolved' }), thread(12, { status: 'closed' })]);
+    renderTicket();
+    expect(await screen.findByText(/Every linked thread is resolved/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Send update to/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Generate with AI/ })).toBeDisabled();
+  });
+
+  it('a role without MANAGE_TICKETS sees the list but no Add, Remove, Resolve or composer', async () => {
+    perms.manage = false;
+    ready([thread(11), thread(12)]);
+    renderTicket();
+    expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Add threads/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Remove/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Resolve/ })).toBeNull();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.queryByLabelText('Reply text')).toBeNull();
+  });
+});

@@ -99,6 +99,10 @@ const thread = (conversationId: number, over: Partial<TicketThread> = {}): Ticke
   isPrimary: false,
   addedAt: '2026-01-01T00:00:00Z',
   owesReply: null,
+  parkedAt: null,
+  parkedReason: null,
+  parkedUntil: null,
+  receivedUpdate: false,
   ...over,
 });
 

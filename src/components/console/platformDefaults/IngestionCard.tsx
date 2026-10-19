@@ -54,7 +54,15 @@ const PAUSE_FIELDS: FieldDef[] = [
     hint: 'A safety limit: new mail for other workspaces keeps flowing until the queue reaches this size. Must not be below the pause value.',
   },
 ];
-const FIELDS: FieldDef[] = [...RATE_FIELDS, ...PAUSE_FIELDS];
+/** Outgoing: a ticket reply to many threads (contingency page, 2026-10-19). */
+const SEND_FIELDS: FieldDef[] = [
+  {
+    key: 'ticketReplyGapSeconds',
+    label: 'Gap between ticket-reply emails (seconds)',
+    hint: 'A reply sent from a ticket to many threads goes out one email at a time, this many seconds apart, so a mailbox never sends a burst. 0 = no gap.',
+  },
+];
+const FIELDS: FieldDef[] = [...RATE_FIELDS, ...PAUSE_FIELDS, ...SEND_FIELDS];
 
 /** The text as a whole number inside the field's bounds, or null. */
 const asBounded = (text: string, field: BoundedField): number | null => {
@@ -169,6 +177,12 @@ export const IngestionCard = ({ ingestion }: { ingestion: IngestionSettings | un
                   behind them.
                 </p>
                 {renderGrid(PAUSE_FIELDS)}
+              </>
+            )}
+            {SEND_FIELDS.some((field) => ingestion?.[field.key] !== undefined) && (
+              <>
+                <h3 className="text-sm font-medium pt-2">Ticket replies</h3>
+                {renderGrid(SEND_FIELDS)}
               </>
             )}
             {serverError && (

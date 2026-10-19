@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Paperclip, X } from 'lucide-react';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/RichTextEditor';
@@ -14,12 +15,19 @@ import {
   sameReplyText,
   ticketRepliesService,
   type DeliveryOutcome,
+  type Hold,
   type TicketReplies,
   type TicketReply,
 } from '@/services/ticketReplies.service';
 import { ticketDraftsService } from '@/services/ticketDrafts.service';
 import type { TicketThread } from '@/services/ticketThreads.service';
 import { TicketDraftsReview, useDraftsWorkflow } from './TicketDraftsReview';
+import {
+  PlaceholderHints,
+  TicketUpdateActions,
+  TicketUpdatePreview,
+  useGenerateTicketUpdate,
+} from './TicketUpdateAssist';
 
 /**
  * Reply to a ticket's threads from the ticket page (owner, 2026-09-23): one text, a SEPARATE
@@ -87,7 +95,7 @@ const OUTCOME_WORDS: Record<DeliveryOutcome, string> = {
 };
 
 type Confirm =
-  | { kind: 'new'; resolve: boolean; ids: number[]; description: string }
+  | { kind: 'new'; resolve: boolean; ids: number[]; description: string; hold?: Hold }
   | { kind: 'again'; reply: TicketReply; ids: number[]; description: string }
   /** "Send here": an earlier reply into ONE thread it has not reached. */
   | { kind: 'here'; reply: TicketReply; ids: number[]; description: string }
@@ -130,6 +138,13 @@ type Props = {
   /** Threads a reply cannot reach right now. */
   unreachable: Map<number, string>;
   onSent: () => void;
+  /**
+   * The threads a NEW reply was just queued for and how they end up — the page offers "Reopen"
+   * (the undo, which cannot unsend) for a send that resolved them or put them on hold.
+   */
+  onQueued?: (ids: number[], outcome: 'pending' | 'resolved' | 'on_hold') => void;
+  /** Why nothing can be sent right now (e.g. every thread is resolved); shown, and sending is off. */
+  disabledReason?: string | null;
 };
 
 export const TicketReplyComposer = ({
@@ -139,8 +154,12 @@ export const TicketReplyComposer = ({
   replies,
   unreachable,
   onSent,
+  onQueued,
+  disabledReason = null,
 }: Props) => {
   const editorRef = useRef<RichTextEditorHandle>(null);
+  const [composing, setComposing] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -159,6 +178,7 @@ export const TicketReplyComposer = ({
     setConfirm(null);
     setNotice(null);
     setError(null);
+    setPreviewOpen(false);
   }, [ticketId]);
 
   // Drafts (reply templates P2): made per ticked thread, reviewed, then sent.
@@ -185,7 +205,8 @@ export const TicketReplyComposer = ({
   const reviewIds = draftRows
     .map((row) => row.conversationId)
     .filter((id) => selected.includes(id) && !unreachable.has(id));
-  const busy = sending || draftBusy;
+  const busy = sending || draftBusy || composing;
+  const locked = disabledReason !== null;
 
   const emailOf = new Map(threads.map((row) => [row.conversationId, row.requesterEmail]));
   const sentTo = (reply: TicketReply) =>
@@ -202,11 +223,23 @@ export const TicketReplyComposer = ({
           const known = replies.names.find((row) => row.conversationId === id);
           // A thread the backend gave no name row for is unknown, not nameless: no warning.
           if (!known) return false;
-          return nameTokens.some((token) =>
-            token === 'first_name' ? !known.firstName : !known.customerName
-          );
+          return nameTokens.length > 0 && !known.customerName;
         });
   const blank = isBlankRichText(draft);
+
+  const generate = useGenerateTicketUpdate({
+    ticketId,
+    currentTicket,
+    draft,
+    blank,
+    setComposing,
+    setError,
+    setNotice,
+    apply: (html) => {
+      setDraft(html);
+      editorRef.current?.setContent(html);
+    },
+  });
 
   const askNew = (resolve: boolean) => {
     setError(null);
@@ -316,27 +349,34 @@ export const TicketReplyComposer = ({
 
   const send = async (request: Exclude<Confirm, { kind: 'discard' }>) => {
     setConfirm(null);
+    setError(null);
+    setNotice(null);
     setSending(true);
     const startedOn = ticketId;
     const fresh = request.kind === 'new' || request.kind === 'reviewed';
     try {
-      const result = await ticketRepliesService.send(
-        startedOn,
+      const body =
         request.kind === 'new'
           ? { content: draft.trim() }
           : request.kind === 'reviewed'
-            ? { fromDrafts: true }
-            : { replyId: request.reply.id },
-        request.ids,
-        // A re-send leaves it to each thread's first choice (the server keeps it).
-        fresh ? request.resolve : undefined,
-        fresh ? files : []
-      );
+            ? ({ fromDrafts: true } as const)
+            : { replyId: request.reply.id };
+      // A re-send leaves it to each thread's first choice (the server keeps it).
+      const resolveChoice = fresh ? request.resolve : undefined;
+      const sendFiles = fresh ? files : [];
+      const hold = request.kind === 'new' ? request.hold : undefined;
+      const result = hold
+        ? await ticketRepliesService.send(startedOn, body, request.ids, false, sendFiles, hold)
+        : await ticketRepliesService.send(startedOn, body, request.ids, resolveChoice, sendFiles);
       if (currentTicket.current !== startedOn) return;
       if (request.kind === 'new') {
         setDraft('');
         setFiles([]);
         editorRef.current?.setContent('');
+        setPreviewOpen(false);
+      }
+      if (fresh && result.queued.length > 0) {
+        onQueued?.(result.queued, request.resolve ? 'resolved' : hold ? 'on_hold' : 'pending');
       }
       if (request.kind === 'reviewed') {
         setFiles([]);
@@ -370,31 +410,31 @@ export const TicketReplyComposer = ({
   return (
     <section className="space-y-3 pt-3 border-t border-border" aria-label="Reply to these threads">
       <div>
-        <h4 className="text-sm font-medium">Reply to the ticked threads</h4>
+        <h4 className="text-sm font-medium">Send an update to the ticked threads</h4>
         <p className="text-xs text-muted-foreground">
-          One reply, sent to each customer separately in their own email thread.
+          One update, sent to each customer separately in their own email thread.
         </p>
       </div>
+      {locked && <Alert variant="info">{disabledReason}</Alert>}
       <RichTextEditor
         ref={editorRef}
         content={draft}
         onChange={setDraft}
-        placeholder="Write one reply for every ticked thread…"
+        placeholder="Write one update for every ticked thread — or Generate with AI…"
         minHeight="100px"
         initiallyHidden={false}
-        editable={!sending}
+        editable={!sending && !composing && !locked}
         translatable
       />
-      <p className="text-xs text-muted-foreground">
-        Greet each customer by name with {'{first_name|there}'} — “there” is used when the name is
-        unknown. Also: {'{customer_name}'}, {'{ticket_id}'}, {'{thread_id}'}, {'{agent_name}'}.
-      </p>
-      {unnamed.length > 0 && (
-        <p className="text-xs text-destructive">
-          {unnamed.length} ticked {plural(unnamed.length, 'customer has', 'customers have')} no name
-          on record — {plural(unnamed.length, 'that thread', 'those threads')} will not be sent
-          unless you add a fallback, e.g. {'{first_name|there}'}.
-        </p>
+      <PlaceholderHints unnamed={unnamed.length} />
+      {previewOpen && (
+        <TicketUpdatePreview
+          ticketId={ticketId}
+          draft={draft}
+          blank={blank}
+          selected={selected}
+          emailOf={emailOf}
+        />
       )}
       {files.length > 0 && (
         <ul className="space-y-1">
@@ -449,22 +489,22 @@ export const TicketReplyComposer = ({
           <Paperclip className="w-4 h-4 mr-1" aria-hidden />
           Attach
         </Button>
-        <Button
-          size="sm"
-          onClick={() => askNew(false)}
-          isLoading={sending}
-          disabled={sending || blank || selected.length === 0 || tooMany}
-        >
-          Send to {selected.length} {plural(selected.length, 'thread', 'threads')}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => askNew(true)}
-          disabled={sending || blank || selected.length === 0 || tooMany}
-        >
-          Send &amp; resolve all
-        </Button>
+        <TicketUpdateActions
+          count={selected.length}
+          composing={composing}
+          sending={sending}
+          aiDisabled={busy || locked}
+          previewDisabled={locked}
+          sendDisabled={busy || locked || blank || selected.length === 0 || tooMany}
+          previewOpen={previewOpen}
+          onGenerate={() => void generate()}
+          onTogglePreview={() => setPreviewOpen((open) => !open)}
+          onSend={() => askNew(false)}
+          onResolve={() => askNew(true)}
+          onHold={(hold) =>
+            void send({ kind: 'new', resolve: false, ids: selected, hold, description: '' })
+          }
+        />
         {draftsUsable && (
           <>
             <Button

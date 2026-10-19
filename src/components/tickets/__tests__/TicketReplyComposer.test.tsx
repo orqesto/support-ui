@@ -13,6 +13,11 @@ const threadsOfTicket = vi.fn();
 const repliesOfTicket = vi.fn();
 const send = vi.fn();
 
+// MANAGE_TICKETS (support and above) by default; a test flips it to see the view-only page.
+const perms = vi.hoisted(() => ({ manage: true }));
+vi.mock('@/hooks/usePermissions', () => ({
+  usePermissions: () => ({ hasPermission: () => perms.manage }),
+}));
 vi.mock('@/services/ticketThreads.service', () => ({
   ticketThreadsService: { threadsOfTicket, addThreads: vi.fn(), removeThread: vi.fn() },
 }));
@@ -117,7 +122,7 @@ describe('TicketReplyComposer', () => {
     expect(
       screen.getByText('A reply cannot reach this thread: WhatsApp 24-hour window is closed')
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Send to 2 threads' })).toBeDisabled(); // no text yet
+    expect(screen.getByRole('button', { name: 'Send update to 2 threads' })).toBeDisabled(); // no text yet
   });
 
   it('Q2: on a RESOLVED ticket only the customers still owed a reply are ticked', async () => {
@@ -138,7 +143,7 @@ describe('TicketReplyComposer', () => {
     await waitFor(() => expect(box(12)).toBeChecked());
     await user.click(box(12));
     await user.type(screen.getByLabelText('Reply text'), 'We fixed it.');
-    await user.click(screen.getByRole('button', { name: 'Send to 2 threads' }));
+    await user.click(screen.getByRole('button', { name: 'Send update to 2 threads' }));
 
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Send this reply to 2 threads?')).toBeInTheDocument();
@@ -187,7 +192,7 @@ describe('TicketReplyComposer', () => {
     renderTicket();
     await waitFor(() => expect(box(11)).toBeChecked());
     await user.type(screen.getByLabelText('Reply text'), '  We fixed   it. ');
-    await user.click(screen.getByRole('button', { name: 'Send to 3 threads' }));
+    await user.click(screen.getByRole('button', { name: 'Send update to 3 threads' }));
     const dialog = await screen.findByRole('dialog');
     expect(
       within(dialog).getByText(/already sent to 1 of them — only the 2 that have not had it/)
@@ -290,7 +295,7 @@ describe('TicketReplyComposer', () => {
     await user.upload(screen.getByLabelText('Attach files'), report);
     expect(screen.getByText('report.txt')).toBeInTheDocument();
     await user.type(screen.getByLabelText('Reply text'), 'Report attached.');
-    await user.click(screen.getByRole('button', { name: 'Send to 3 threads' }));
+    await user.click(screen.getByRole('button', { name: 'Send update to 3 threads' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).queryByText(/already sent/)).toBeNull();
     await user.click(within(dialog).getByRole('button', { name: 'Send' }));
@@ -326,7 +331,7 @@ describe('TicketReplyComposer', () => {
     expect(screen.queryByRole('button', { name: /not had it/ })).toBeNull();
   });
 
-  it('T-4: {first_name} with no fallback warns how many ticked customers have no name; a fallback clears it', async () => {
+  it('T-4: {customer_name} with no fallback warns how many ticked customers have no name; {first_name} does not (it greets "there")', async () => {
     const user = userEvent.setup();
     replies({
       names: [
@@ -338,14 +343,15 @@ describe('TicketReplyComposer', () => {
     renderTicket();
     await waitFor(() => expect(box(11)).toBeChecked());
     const editor = screen.getByLabelText('Reply text');
-    await user.type(editor, 'Hi {{first_name},');
+    await user.type(editor, 'Dear {{customer_name},');
     expect(screen.getByText(/1 ticked customer has no name on record/)).toBeInTheDocument();
     // Unticking that customer clears it — the warning counts TICKED threads.
     await user.click(box(12));
     expect(screen.queryByText(/no name on record/)).toBeNull();
     await user.click(box(12));
     await user.clear(editor);
-    await user.type(editor, 'Hi {{first_name|there},');
+    // A bare {first_name} is filled with "there" for a customer with no name: nothing to warn.
+    await user.type(editor, 'Hi {{first_name},');
     expect(screen.queryByText(/no name on record/)).toBeNull();
   });
 
@@ -355,7 +361,7 @@ describe('TicketReplyComposer', () => {
     renderTicket();
     await waitFor(() => expect(box(13)).toBeChecked());
     await user.type(screen.getByLabelText('Reply text'), 'Hello');
-    expect(screen.getByRole('button', { name: 'Send to 3 threads' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send update to 3 threads' })).toBeDisabled();
     expect(
       screen.getByText('One reply can go to at most 2 threads — untick 1.')
     ).toBeInTheDocument();
@@ -404,7 +410,7 @@ describe('TicketReplyComposer', () => {
     renderTicket();
     await waitFor(() => expect(box(11)).toBeChecked());
     await user.type(screen.getByLabelText('Reply text'), 'We fixed it.');
-    await user.click(screen.getByRole('button', { name: 'Send to 3 threads' }));
+    await user.click(screen.getByRole('button', { name: 'Send update to 3 threads' }));
     await user.click(
       within(await screen.findByRole('dialog')).getByRole('button', { name: 'Send' })
     );
