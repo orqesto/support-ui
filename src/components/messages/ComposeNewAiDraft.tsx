@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Sparkles, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Spinner } from '@/components/ui/Spinner';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff, useRefreshAiDrafts } from '@/hooks/useAiDraftsOff';
 import { normalizeEditorHtml } from '@/lib/editorSchema';
@@ -15,7 +16,7 @@ import {
   isAiNotConfiguredError,
 } from '@/lib/errorMessages';
 import { messageService } from '@/services/message.service';
-import { answerToEditorHtml } from './messageDetailConstants';
+import { answerToEditorHtml, COMPOSER_AI_TOOL, COMPOSER_TOOL } from './messageDetailConstants';
 
 /** The backend's MAX_DRAFT_CHARS for polish. */
 const MAX_DRAFT = 8000;
@@ -28,6 +29,8 @@ type Props = {
   disabled?: boolean;
   /** Reports a request in flight, so the host can lock the editor the draft is about to replace. */
   onBusyChange?: (busy: boolean) => void;
+  /** What to tell the agent (an error, "not available yet"), shown on the host's note line. */
+  onNoteChange?: (note: string | null) => void;
 };
 
 /**
@@ -36,10 +39,22 @@ type Props = {
  * typed into a sendable email (polish), and stays disabled while the editor is empty. Undo puts
  * the agent's text back.
  */
-export function ComposeNewAiDraft({ content, setContent, disabled, onBusyChange }: Props) {
+export function ComposeNewAiDraft({
+  content,
+  setContent,
+  disabled,
+  onBusyChange,
+  onNoteChange,
+}: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previous, setPrevious] = useState<string | null>(null);
+  const reportNote = useRef(onNoteChange);
+  reportNote.current = onNoteChange;
+  useEffect(() => {
+    reportNote.current?.(error);
+  }, [error]);
+  useEffect(() => () => reportNote.current?.(null), []);
   const latest = useRef(content);
   latest.current = content;
   const mounted = useRef(true);
@@ -126,36 +141,38 @@ export function ComposeNewAiDraft({ content, setContent, disabled, onBusyChange 
   // Hidden where it cannot work; Undo stays while text a draft replaced is still to restore.
   if ((aiDraftsOff || !aiConfigured) && previous === null) return null;
 
+  // Fixed footprint (owner, 2026-10-19: "buttons are jumping"): the label never changes while
+  // drafting (a spinner takes the icon's place), Undo keeps its slot while there is nothing to
+  // undo, and messages go to the host's note line instead of a row inside the footer.
+  const canUndo = previous !== null && !busy;
   return (
     <>
       <Button
         type="button"
-        variant="outline"
+        variant="ghost"
         onClick={() => void draft()}
         disabled={disabled || busy || empty || aiDraftsOff || !aiConfigured}
-        isLoading={busy}
+        aria-busy={busy}
+        data-ai-draft
         title={empty ? EMPTY_DRAFT_HINT : 'Rewrite what you typed into a ready-to-send email'}
+        className={`${COMPOSER_AI_TOOL} disabled:opacity-50`}
       >
-        <Sparkles className="w-4 h-4 mr-2" />
-        {busy ? 'Drafting…' : 'AI draft'}
+        {busy ? <Spinner size={12} className="text-ai" /> : <Sparkles className="w-3 h-3" />}
+        AI draft
       </Button>
-      {previous !== null && !busy && (
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={undo}
-          title="Restore what you had written"
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <Undo2 className="w-4 h-4 mr-1" />
-          Undo
-        </Button>
-      )}
-      {error && (
-        <span role="alert" className="order-last basis-full text-xs text-destructive">
-          {error}
-        </span>
-      )}
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={undo}
+        disabled={!canUndo}
+        aria-hidden={!canUndo}
+        tabIndex={canUndo ? 0 : -1}
+        title="Restore what you had written"
+        aria-label="Undo"
+        className={`${COMPOSER_TOOL} h-auto !px-[7px] ${canUndo ? '' : 'invisible'}`}
+      >
+        <Undo2 className="w-3 h-3" />
+      </Button>
     </>
   );
 }

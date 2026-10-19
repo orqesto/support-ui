@@ -107,7 +107,7 @@ describe('Compose new — To', () => {
     type('To', 'one@example.com, two@example.com');
     type('Subject', 'Hello');
     type('Message', '<p>Hi both</p>');
-    fireEvent.click(screen.getByRole('button', { name: /Send/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
     await waitFor(() => expect(svc.composeNew).toHaveBeenCalled());
     expect((svc.composeNew.mock.calls[0][0] as { to: string[] }).to).toEqual([
       'one@example.com',
@@ -194,13 +194,31 @@ describe('Compose new — AI draft', () => {
 });
 
 describe('Compose new — Translate', () => {
-  it('a labelled Translate sits in the footer with Attach', async () => {
+  it('the reply-box layout: Attach, AI draft, Translate and SEND in one tool row of the framed field', async () => {
     await renderModal();
-    const translate = screen.getByRole('button', { name: 'Translate' });
-    expect(translate).toHaveTextContent('Translate');
-    expect(translate.closest('[data-dialog-footer]')).toContainElement(
-      screen.getByRole('button', { name: /Attach/ })
-    );
+    const tools = screen.getByTestId('compose-tools');
+    expect(screen.getByTestId('compose-field')).toContainElement(tools);
+    expect(tools).toContainElement(screen.getByRole('button', { name: /Attach/ }));
+    expect(tools).toContainElement(aiDraft());
+    expect(tools).toContainElement(screen.getByRole('button', { name: 'Translate' }));
+    expect(tools).toContainElement(screen.getByRole('button', { name: /^send$/i }));
+    expect(screen.getByRole('button', { name: 'Translate' })).toHaveTextContent('Translate');
+  });
+
+  it('🔴 no jumping: Undo keeps its slot while there is nothing to undo', async () => {
+    svc.composePolish.mockResolvedValue({ success: true, data: { text: 'Hello.' } });
+    await renderModal();
+    const tools = screen.getByTestId('compose-tools');
+    const before = tools.querySelectorAll('button').length;
+    // The slot is there, hidden from assistive tech and the tab order, before any draft…
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+    type('Message', '<p>hello</p>');
+    fireEvent.click(aiDraft());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Undo' })).toBeEnabled());
+    // …and taking a draft adds no element to the row, so nothing beside it moves.
+    expect(tools.querySelectorAll('button').length).toBe(before);
+    // The label does not change while drafting either.
+    expect(aiDraft()).toHaveTextContent('AI draft');
   });
 });
 
@@ -235,7 +253,7 @@ describe('Compose new — From', () => {
       </MemoryRouter>
     );
     expect(await screen.findByText(/No email source you can send from/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Send/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^send$/i })).toBeDisabled();
   });
 });
 

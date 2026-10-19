@@ -5,7 +5,6 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
@@ -22,6 +21,10 @@ import { TranslateButton } from '@/components/shared/TranslateButton';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import { ComposeNewAiDraft } from './ComposeNewAiDraft';
+import { COMPOSER_SEND, COMPOSER_TOOL } from './messageDetailConstants';
+
+// The addressing rows' names, as in a mail client: small, muted, one column wide.
+const ROW_LABEL = 'w-14 shrink-0 text-xs text-muted-foreground';
 
 type ComposeSource = { id: number; name: string; type: string };
 
@@ -39,6 +42,7 @@ type Props = {
 export const ComposeNewModal = ({ open, onClose }: Props) => {
   const navigate = useNavigate();
   const editorRef = useRef<RichTextEditorHandle>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [sources, setSources] = useState<ComposeSource[]>([]);
@@ -60,6 +64,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
   const [error, setError] = useState<string | null>(null);
   // An AI draft is about to replace the editor: lock it, and Send, until it lands.
   const [aiBusy, setAiBusy] = useState(false);
+  const [aiNote, setAiNote] = useState<string | null>(null);
   const { aiConfigured } = useAiConfigured();
   const { off: aiDraftsOff } = useAiDraftsOff();
   // A disabled button shows no hover title, so the editor itself says how AI draft works here.
@@ -196,100 +201,184 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
           <DialogClose onClose={onClose} />
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">From</label>
-            {sourcesLoading ? (
-              <div className="text-sm text-muted-foreground">Loading sources…</div>
-            ) : sourcesError ? (
-              <div className="text-sm text-destructive">{sourcesError}</div>
-            ) : emailSources.length === 0 ? (
-              <div className="text-sm text-muted-foreground">
-                No email source you can send from. An admin can add one in Settings → Connected
-                Services, or give you access to its department.
+        {/*
+          The same composer as a thread's reply box (owner, 2026-10-19): addressing rows, the
+          editor and one row of tool chips with SEND at its end, all in one framed field — not a
+          form of labelled inputs with a button footer that wrapped and jumped.
+        */}
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-2">
+          <div
+            data-testid="compose-field"
+            className="relative rounded-[10px] border border-border bg-raised transition-[border-color,box-shadow] focus-within:border-primary focus-within:ring-[3px] focus-within:ring-primary-muted"
+          >
+            <div className="space-y-1 px-2 pt-2 pb-1">
+              <div className="flex items-center gap-1.5">
+                <span className={ROW_LABEL}>From</span>
+                {sourcesLoading ? (
+                  <span className="text-xs text-muted-foreground">Loading sources…</span>
+                ) : sourcesError ? (
+                  <span className="text-xs text-destructive">{sourcesError}</span>
+                ) : emailSources.length === 0 ? (
+                  <span className="text-xs text-muted-foreground">
+                    No email source you can send from. An admin can add one in Settings → Connected
+                    Services, or give you access to its department.
+                  </span>
+                ) : (
+                  <Select
+                    aria-label="From"
+                    size="sm"
+                    className="flex-1"
+                    value={String(messageSourceId ?? '')}
+                    onChange={(value) => setMessageSourceId(Number(value) || null)}
+                    disabled={submitting}
+                    required
+                    placeholder="Pick a source"
+                    options={emailSources.map((src) => ({
+                      value: String(src.id),
+                      label: `${src.name} (${src.type})`,
+                    }))}
+                  />
+                )}
               </div>
-            ) : (
-              <Select
-                aria-label="From"
-                value={String(messageSourceId ?? '')}
-                onChange={(value) => setMessageSourceId(Number(value) || null)}
-                disabled={submitting}
-                required
-                placeholder="Pick a source"
-                options={emailSources.map((src) => ({
-                  value: String(src.id),
-                  label: `${src.name} (${src.type})`,
-                }))}
-              />
-            )}
-          </div>
+              <div className="flex items-center gap-1.5">
+                <span className={ROW_LABEL}>To</span>
+                <Input
+                  aria-label="To"
+                  type="text"
+                  placeholder="one@example.com, two@example.com"
+                  value={to}
+                  onChange={(event) => setTo(event.target.value)}
+                  disabled={submitting}
+                  className="h-7 flex-1 text-xs"
+                />
+                {!showCcBcc && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowCcBcc(true)}
+                    disabled={submitting}
+                    className="h-auto px-1 py-0 text-xs"
+                  >
+                    Cc / Bcc
+                  </Button>
+                )}
+              </div>
+              {showCcBcc && (
+                <>
+                  <div className="flex items-center gap-1.5">
+                    <span className={ROW_LABEL}>Cc</span>
+                    <Input
+                      aria-label="Cc"
+                      type="text"
+                      placeholder="one@example.com, two@example.com"
+                      value={cc}
+                      onChange={(event) => setCc(event.target.value)}
+                      disabled={submitting}
+                      className="h-7 flex-1 text-xs"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className={ROW_LABEL}>Bcc</span>
+                    <Input
+                      aria-label="Bcc"
+                      type="text"
+                      placeholder="Hidden from the other recipients"
+                      value={bcc}
+                      onChange={(event) => setBcc(event.target.value)}
+                      disabled={submitting}
+                      className="h-7 flex-1 text-xs"
+                    />
+                  </div>
+                </>
+              )}
+              <div className="flex items-center gap-1.5">
+                <span className={ROW_LABEL}>Subject</span>
+                <Input
+                  aria-label="Subject"
+                  type="text"
+                  placeholder="Subject"
+                  value={subject}
+                  onChange={(event) => setSubject(event.target.value)}
+                  disabled={submitting}
+                  className="h-7 flex-1 text-xs"
+                />
+              </div>
+            </div>
 
-          <Input
-            label="To"
-            type="text"
-            placeholder="one@example.com, two@example.com"
-            value={to}
-            onChange={(event) => setTo(event.target.value)}
-            disabled={submitting}
-            required
-          />
-
-          {!showCcBcc && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowCcBcc(true)}
-              disabled={submitting}
-              className="h-auto self-start px-1 py-0 text-xs"
-            >
-              Add Cc / Bcc
-            </Button>
-          )}
-
-          {showCcBcc && (
-            <>
-              <Input
-                label="Cc"
-                type="text"
-                placeholder="one@example.com, two@example.com"
-                value={cc}
-                onChange={(event) => setCc(event.target.value)}
-                disabled={submitting}
-              />
-              <Input
-                label="Bcc"
-                type="text"
-                placeholder="Hidden from the other recipients"
-                value={bcc}
-                onChange={(event) => setBcc(event.target.value)}
-                disabled={submitting}
-              />
-            </>
-          )}
-
-          <Input
-            label="Subject"
-            type="text"
-            placeholder="Subject"
-            value={subject}
-            onChange={(event) => setSubject(event.target.value)}
-            disabled={submitting}
-            required
-          />
-
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">Message</label>
             <RichTextEditor
               ref={editorRef}
               content={content}
               onChange={setContent}
+              // ⌘↵ sends, as in the reply box — except while an AI draft is replacing the text.
+              onSubmit={aiBusy ? undefined : () => formRef.current?.requestSubmit()}
               placeholder={messagePlaceholder}
               minHeight="180px"
+              maxHeight="320px"
               initiallyHidden={false}
+              transparent
               editable={!submitting && !aiBusy}
+              className="rounded-none border-0 border-t border-hair shadow-none"
             />
+
+            <div
+              data-testid="compose-tools"
+              className="flex flex-wrap items-center gap-[7px] px-[9px] py-1.5 border-t border-hair"
+            >
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={submitting}
+                title="Attach files"
+                className={`${COMPOSER_TOOL} h-auto`}
+              >
+                <Paperclip className="w-3 h-3" />
+                Attach
+              </Button>
+              <ComposeNewAiDraft
+                content={content}
+                setContent={setContent}
+                disabled={submitting}
+                onBusyChange={setAiBusy}
+                onNoteChange={setAiNote}
+              />
+              <TranslateButton
+                getText={() => editorRef.current?.getTranslationText() ?? ''}
+                onTranslated={(translated) => editorRef.current?.applyTranslation(translated)}
+                clearable={false}
+                disabled={submitting || aiBusy}
+                label="Translate"
+                buttonClassName={`${COMPOSER_TOOL} !w-auto !h-auto`}
+              />
+              <span className="flex-1" />
+              <span className="font-mono text-[10.5px] text-muted-foreground hidden sm:inline">
+                ⌘↵ send
+              </span>
+              <Button
+                type="submit"
+                variant="ghost"
+                disabled={
+                  submitting ||
+                  aiBusy ||
+                  emailSources.length === 0 ||
+                  !messageSourceId ||
+                  parseTypedAddresses(to).length === 0 ||
+                  !subject.trim() ||
+                  isBlankRichText(content)
+                }
+                className={COMPOSER_SEND}
+              >
+                <Send className="w-2.5 h-2.5" />
+                {submitting ? 'SENDING…' : 'SEND'}
+              </Button>
+            </div>
           </div>
+
+          {/* One reserved line for AI draft's messages, so one appearing never moves the field. */}
+          <p role="alert" className="min-h-4 text-xs leading-4 text-destructive">
+            {aiNote}
+          </p>
 
           {files.length > 0 && (
             <ul className="space-y-1">
@@ -332,52 +421,6 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
           {error && (
             <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">{error}</div>
           )}
-
-          <DialogFooter className="gap-2 flex-wrap">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={submitting}
-            >
-              <Paperclip className="w-4 h-4 mr-2" />
-              Attach
-            </Button>
-            <ComposeNewAiDraft
-              content={content}
-              setContent={setContent}
-              disabled={submitting}
-              onBusyChange={setAiBusy}
-            />
-            <TranslateButton
-              getText={() => editorRef.current?.getTranslationText() ?? ''}
-              onTranslated={(translated) => editorRef.current?.applyTranslation(translated)}
-              clearable={false}
-              disabled={submitting || aiBusy}
-              label="Translate"
-              buttonClassName="inline-flex items-center gap-2 !w-auto !h-auto px-4 py-2 rounded-md border border-border bg-transparent text-sm text-foreground hover:bg-accent"
-            />
-            <div className="flex-1" />
-            <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                submitting ||
-                aiBusy ||
-                emailSources.length === 0 ||
-                !messageSourceId ||
-                parseTypedAddresses(to).length === 0 ||
-                !subject.trim() ||
-                isBlankRichText(content)
-              }
-              isLoading={submitting}
-            >
-              <Send className="w-4 h-4 mr-2" />
-              Send
-            </Button>
-          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

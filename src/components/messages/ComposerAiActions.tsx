@@ -18,7 +18,7 @@ import {
   isAiNotConfiguredError,
 } from '@/lib/errorMessages';
 import { messageService, type AiDraft } from '@/services/message.service';
-import { answerToEditorHtml, LABEL } from './messageDetailConstants';
+import { answerToEditorHtml, COMPOSER_AI_TOOL, LABEL } from './messageDetailConstants';
 
 /**
  * AI drafting for the reply composer — ONE input: the reply editor itself.
@@ -315,8 +315,7 @@ export function ComposerAiActions({
             : 'Turn what you typed into a reply'
         }
         aria-busy={busy}
-        // v3 ".ibtn.aib": the AI role, soft — the draft is a suggestion, not an action.
-        className="inline-flex items-center gap-[5px] h-auto px-[9px] py-1 rounded-[7px] border border-ai-line bg-ai-muted text-ai text-[11.5px] hover:bg-ai-muted hover:brightness-95 transition-colors"
+        className={COMPOSER_AI_TOOL}
       >
         {busy ? <Spinner size={12} /> : <Sparkles className="w-3 h-3" />}
         {busy ? 'Drafting…' : 'AI draft'}

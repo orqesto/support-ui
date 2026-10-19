@@ -13,7 +13,7 @@ import { replyTemplatesService, type ReplyTemplate } from '@/services/replyTempl
 import { RecipientFields, replyToLabel, type RecipientDraft } from './RecipientFields';
 import type { AiDraft } from '@/services/message.service';
 import type { Message } from '@/types';
-import { LABEL } from './messageDetailConstants';
+import { COMPOSER_TOOL, LABEL } from './messageDetailConstants';
 import { useIsPhone } from './useIsPhone';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
@@ -112,9 +112,8 @@ const isTextEntry = (target: EventTarget): boolean => {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-// v3 ".ibtn": a quiet bordered tool button. Phones: 36px tall, 12.5px (v4 mobile `.m-open .tools`).
-const IBTN =
-  'inline-flex items-center gap-[5px] px-[9px] py-1 rounded-[7px] border border-border bg-card text-muted-foreground text-[11.5px] hover:border-border-strong hover:text-foreground transition-colors max-sm:h-9 max-sm:text-[12.5px]';
+// v3 ".ibtn" — shared with Compose new message (messageDetailConstants).
+const IBTN = COMPOSER_TOOL;
 // The open toolbar on a phone: tools wrap, 6px apart; the AI draft button is tool-sized too.
 const PHONE_TOOLS = 'max-sm:gap-1.5 max-sm:[&_button]:min-h-9';
 // At rest on a phone: only the AI draft button — the off note, undo and messages wait for open.

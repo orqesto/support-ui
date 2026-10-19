@@ -10,6 +10,18 @@ import type { ThreadStatus, TicketPriority } from '@/types';
 // LABEL and never set a face at all, so every one of these rendered in body Sans — and a grep
 // for `font-mono` or `font-display` could not find them. Identifiers take `font-mono`.
 export const LABEL = 'font-display text-[10px] font-medium uppercase tracking-[0.09em]';
+/**
+ * The composer's tool chips and Send — shared by the thread reply box and "Compose new message",
+ * so the two composers look and behave as one (owner, 2026-10-19).
+ */
+// v3 ".ibtn": a quiet bordered tool button. Phones: 36px tall, 12.5px (v4 mobile `.m-open .tools`).
+export const COMPOSER_TOOL =
+  'inline-flex items-center gap-[5px] px-[9px] py-1 rounded-[7px] border border-border bg-card text-muted-foreground text-[11.5px] hover:border-border-strong hover:text-foreground transition-colors max-sm:h-9 max-sm:text-[12.5px]';
+// v3 ".ibtn.aib": the AI role, soft — the draft is a suggestion, not an action.
+export const COMPOSER_AI_TOOL =
+  'inline-flex items-center gap-[5px] h-auto px-[9px] py-1 rounded-[7px] border border-ai-line bg-ai-muted text-ai text-[11.5px] hover:bg-ai-muted hover:brightness-95 transition-colors';
+export const COMPOSER_SEND =
+  'flex items-center gap-1 px-[13px] py-[5px] h-auto rounded-[7px] font-display text-[10.5px] font-semibold uppercase tracking-[0.07em] transition-colors disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90';
 export const CHIP_BASE = `inline-flex items-center gap-1 px-2 py-0.5 rounded border ${LABEL} transition-colors`;
 /**
  * v4 header chip (`.arow .chip .lab`): the same chip, read in sentence case — 12px / 500, no
