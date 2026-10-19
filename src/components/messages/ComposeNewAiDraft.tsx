@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Sparkles, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
@@ -31,6 +32,8 @@ type Props = {
   onBusyChange?: (busy: boolean) => void;
   /** What to tell the agent (an error, "not available yet"), shown on the host's note line. */
   onNoteChange?: (note: string | null) => void;
+  /** Where Undo renders, when not right after AI draft (the host's tool row decides). */
+  undoSlot?: HTMLElement | null;
 };
 
 /**
@@ -45,6 +48,7 @@ export function ComposeNewAiDraft({
   disabled,
   onBusyChange,
   onNoteChange,
+  undoSlot,
 }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -145,6 +149,23 @@ export function ComposeNewAiDraft({
   // drafting (a spinner takes the icon's place), Undo keeps its slot while there is nothing to
   // undo, and messages go to the host's note line instead of a row inside the footer.
   const canUndo = previous !== null && !busy;
+  const undoButton = (
+    <Button
+      type="button"
+      variant="ghost"
+      onClick={undo}
+      disabled={!canUndo}
+      aria-hidden={!canUndo}
+      tabIndex={canUndo ? 0 : -1}
+      title="Restore what you had written"
+      aria-label="Undo"
+      // Icon only, so it has no text line to size it: stretch to the row like the labelled chips
+      // (it sat a few px shorter than AI draft and Translate on staging).
+      className={`${COMPOSER_TOOL} h-auto self-stretch !px-[7px] ${canUndo ? '' : 'invisible'}`}
+    >
+      <Undo2 className="w-3 h-3" />
+    </Button>
+  );
   return (
     <>
       <Button
@@ -160,19 +181,7 @@ export function ComposeNewAiDraft({
         {busy ? <Spinner size={12} className="text-ai" /> : <Sparkles className="w-3 h-3" />}
         AI draft
       </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={undo}
-        disabled={!canUndo}
-        aria-hidden={!canUndo}
-        tabIndex={canUndo ? 0 : -1}
-        title="Restore what you had written"
-        aria-label="Undo"
-        className={`${COMPOSER_TOOL} h-auto !px-[7px] ${canUndo ? '' : 'invisible'}`}
-      >
-        <Undo2 className="w-3 h-3" />
-      </Button>
+      {undoSlot ? createPortal(undoButton, undoSlot) : undoButton}
     </>
   );
 }
