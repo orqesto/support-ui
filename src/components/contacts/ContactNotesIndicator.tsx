@@ -21,8 +21,10 @@ export const CONTACT_NOTES_ATTR = 'data-contact-notes';
 
 /** Fired after a contact note is added or deleted, so every view showing note counts refreshes. */
 export const CONTACT_NOTES_CHANGED = 'odly:contact-notes-changed';
-export const notifyContactNotesChanged = (): void => {
-  window.dispatchEvent(new Event(CONTACT_NOTES_CHANGED));
+/** Which contact changed, and who changed it — so a profile view skips its own change. */
+export type ContactNotesChange = { contactId: number; source: object };
+export const notifyContactNotesChanged = (change?: ContactNotesChange): void => {
+  window.dispatchEvent(new CustomEvent(CONTACT_NOTES_CHANGED, { detail: change }));
 };
 
 const authorName = (note: LatestNotePreview): string =>
@@ -94,13 +96,15 @@ export function ContactNotesIndicator({
           {count}
         </Button>
       ) : (
+        // Inside the tab's own button: an aria-label on a role-less span may be ignored, so the
+        // tab is named by text — the bare number hidden, the full count read out.
         <span
-          aria-label={label}
           data-testid="contact-notes-indicator"
           className="inline-flex gap-0.5 items-center px-1 h-[15px] rounded-[5px] font-sans text-[9.5px] font-bold tabular-nums tracking-normal bg-note-muted text-foreground border border-note-line"
         >
           <StickyNote className="w-2.5 h-2.5" aria-hidden="true" />
-          {count}
+          <span aria-hidden="true">{count}</span>
+          <span className="sr-only">, {label}</span>
         </span>
       )}
     </Tooltip>

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { createRef, type ReactNode } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { MessagePanelTabs, type MessagePanelTabsProps } from '../MessagePanelTabs';
@@ -37,6 +37,10 @@ vi.mock('@/services/message.service', async () => {
 vi.mock('@/components/contacts/useContactProfile', () => ({
   useContactProfile: () => ({ loading: false, contact: null }),
 }));
+const { getNoteSummary } = vi.hoisted(() => ({
+  getNoteSummary: vi.fn(() => Promise.resolve({ count: 0, latest: null as unknown })),
+}));
+vi.mock('@/services/contact.service', () => ({ contactService: { getNoteSummary } }));
 vi.mock('@/services/customApiLookup.service', () => ({
   customApiLookupService: { run: vi.fn(), availability: vi.fn().mockResolvedValue(false) },
 }));
@@ -159,5 +163,22 @@ describe('MessagePanelTabs — the strip when the tabs do not fit', () => {
     });
     expect(strip.dataset.fade).toBe('true');
     expect(strip.className).toContain('mask-image');
+  });
+
+  it('the Customer tab note mark arriving after mount re-measures too (review 2026-10-19)', async () => {
+    let answer: (summary: { count: number; latest: unknown }) => void = noop;
+    getNoteSummary.mockImplementationOnce(
+      () => new Promise((resolve) => (answer = resolve))
+    );
+    const { strip } = renderTabs('rail', { tab: 'ai' });
+    Object.defineProperty(strip, 'scrollWidth', { configurable: true, value: 600 });
+    Object.defineProperty(strip, 'clientWidth', { configurable: true, value: 380 });
+    expect(strip.dataset.fade).toBe('false');
+    await act(async () => {
+      answer({ count: 2, latest: null });
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('contact-notes-indicator')).toBeInTheDocument();
+    expect(strip.dataset.fade).toBe('true');
   });
 });
