@@ -91,9 +91,10 @@ describe('AI Spend — all spend, split by key', () => {
       ])
     );
     renderPage();
-    expect(await screen.findByText('Workspaces')).toBeInTheDocument();
+    // Wait for the loaded summary itself: "Workspaces" is also a heading in the budget model demo
+    // further down the page, which renders before the data arrives.
     expect(
-      screen.getByText(/1 managed · 1 platform key via settings · 1 own key/)
+      await screen.findByText(/1 managed · 1 platform key via settings · 1 own key/)
     ).toBeInTheDocument();
     const rowOf = (name: string) => screen.getByText(name).closest('tr') as HTMLElement;
     expect(within(rowOf('Petro WS')).getByText('own key')).toBeInTheDocument();
