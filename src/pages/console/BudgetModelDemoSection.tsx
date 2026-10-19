@@ -81,7 +81,7 @@ const WorkspacePanel = ({
   const sliderValue = ws.limit ?? defaultLimitFor(ws, budget);
   const help =
     ws.limit === null
-      ? 'The blue part is what it used this month; the grey tick is where the alliance knowledge base stops.'
+      ? 'The blue part is what it used this month; the grey tick is where the organisation knowledge base stops.'
       : ws.used >= ws.limit
         ? 'Below what it already used: its knowledge base stops now; live mail continues.'
         : `${fmt(ws.limit - ws.used)} left for this workspace.`;
@@ -116,7 +116,7 @@ const WorkspacePanel = ({
               <BarMarker
                 at={totals.kbPct}
                 variant="tick"
-                title="Alliance: knowledge base stops here"
+                title="Organisation: knowledge base stops here"
               />
             }
           >
@@ -266,7 +266,7 @@ const OrganisationView = () => {
           </div>
           <p className="text-sm text-muted-foreground">
             Bars compare workspaces with each other (the biggest one is full); the % is each
-            one&apos;s share of what the alliance used.
+            one&apos;s share of what the organisation used.
           </p>
           <ul className="flex flex-col gap-0.5">
             {rows.length === 0 && <li className="text-muted-foreground">No workspace matches.</li>}
