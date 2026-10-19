@@ -54,7 +54,7 @@ export const SurfaceCount = ({
           </>
         )
       ) : (
-        `No ${noun ?? 'messages'}`
+        `No ${noun ?? 'threads'}`
       )}
     </span>
   );

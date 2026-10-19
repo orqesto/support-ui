@@ -325,7 +325,7 @@ export const RoutingRulesSettings = () => {
       <div className="rounded-lg border border-border bg-card p-4">
         <h3 className="font-display text-sm font-semibold text-foreground">Default department</h3>
         <p className="mt-1 mb-3 text-xs text-muted-foreground">
-          The fallback department for incoming messages when no source binding or routing rule
+          The fallback department for incoming threads when no source binding or routing rule
           resolves one. Exactly one per workspace.
         </p>
         <div className="max-w-xs">
@@ -362,9 +362,9 @@ export const RoutingRulesSettings = () => {
           </div>
         )}
         title="Routing Rules"
-        description="Department-scoped rules that decide which department incoming messages route to. Rules apply to all channels serving the department. Highest score wins; if nothing matches, the source default is used."
+        description="Department-scoped rules that decide which department incoming threads route to. Rules apply to all channels serving the department. Highest score wins; if nothing matches, the source default is used."
         dialogTitle="Routing Rule"
-        emptyMessage="No routing rules yet. Add one to route messages by subject, sender, or header."
+        emptyMessage="No routing rules yet. Add one to route threads by subject, sender, or header."
         prefixColumns={[
           {
             header: 'Department',

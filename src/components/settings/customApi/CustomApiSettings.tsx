@@ -184,7 +184,7 @@ export const CustomApiSettings = ({
           <p className="text-sm text-foreground">Nothing connected yet</p>
           <p className="text-xs text-muted-foreground max-w-md mx-auto">
             When a customer asks “where is my order?”, an agent has to go and look it up somewhere
-            else. Connect that system here and the answer appears in the conversation.
+            else. Connect that system here and the answer appears in the thread.
           </p>
           {canManageVendors ? (
             <Button size="sm" onClick={onAddVendor}>

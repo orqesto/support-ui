@@ -28,7 +28,7 @@ const ACTION_LABEL: Record<string, string> = {
   'message.reply': 'Reply sent',
   'message.assign': 'Assigned',
   'message.create': 'Message received',
-  'message.delete': 'Message deleted',
+  'message.delete': 'Thread deleted',
   'message.compose_new': 'New message composed',
   'message.manual_route': 'Manually routed',
   'ticket.create': 'Ticket created',
@@ -142,7 +142,7 @@ export function routingDecisionLabel(details: Record<string, unknown> | null): s
   if (typeof reason === 'string' && SIMILARITY_REASONS.has(reason)) {
     return leading && hasShare(leading) && isAccepted(leading)
       ? byRule(dept, leading)
-      : `Routed to ${dept} by similarity to earlier conversations`;
+      : `Routed to ${dept} by similarity to earlier threads`;
   }
   if (typeof reason !== 'string' || !RULE_REASONS.has(reason))
     return `Routed to ${dept} automatically`;
@@ -189,7 +189,7 @@ export function auditEntryLabel(action: string, details: Record<string, unknown>
     if (detail === 'move_to_spam') return 'Moved to spam';
     if (detail === 'mark_unprocessed') return 'Marked as unprocessed';
     if (detail === 'approve') return 'Approved';
-    return 'Message updated';
+    return 'Thread updated';
   }
   return ACTION_LABEL[action] ?? action;
 }

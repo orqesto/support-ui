@@ -163,7 +163,7 @@ export const KBTableView = ({
               <td className="hidden px-3 py-3 text-center md:table-cell">
                 {kbSourceConversationId(entry) !== null ? (
                   <a
-                    href={`/messages?id=${kbSourceConversationId(entry)}`}
+                    href={`/threads?id=${kbSourceConversationId(entry)}`}
                     className="font-mono text-sm text-primary hover:text-primary/80 hover:underline"
                     onClick={(event) => event.stopPropagation()}
                   >

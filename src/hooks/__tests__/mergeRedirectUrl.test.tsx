@@ -49,7 +49,7 @@ describe('merged-away link — the URL names the survivor with the workspace cod
   });
 
   it('waits for the workspace code instead of writing the bare id', async () => {
-    const view = mount('/messages?id=ADM-SUP-7');
+    const view = mount('/threads?id=ADM-SUP-7');
     await waitFor(() => expect(getById).toHaveBeenCalledWith('ADM-SUP-7', undefined));
     // The survivor is on screen, the code has not loaded: nothing bare may be written.
     await act(async () => {
@@ -59,7 +59,7 @@ describe('merged-away link — the URL names the survivor with the workspace cod
 
     orgCode.value = 'ADM';
     view.rerender(
-      <MemoryRouter initialEntries={['/messages?id=ADM-SUP-7']}>
+      <MemoryRouter initialEntries={['/threads?id=ADM-SUP-7']}>
         <Probe />
       </MemoryRouter>
     );
@@ -68,16 +68,16 @@ describe('merged-away link — the URL names the survivor with the workspace cod
 
   it('rewrites at once when the code is already there (warm load)', async () => {
     orgCode.value = 'ADM';
-    mount('/messages?id=ADM-SUP-7');
+    mount('/threads?id=ADM-SUP-7');
     await waitFor(() => expect(new URLSearchParams(search).get('id')).toBe('ADM-INF-25'));
   });
 
   it('never rewrites an ordinary open, before or after the code loads', async () => {
-    const view = mount('/messages?id=ADM-INF-25');
+    const view = mount('/threads?id=ADM-INF-25');
     await waitFor(() => expect(getById).toHaveBeenCalled());
     orgCode.value = 'ADM';
     view.rerender(
-      <MemoryRouter initialEntries={['/messages?id=ADM-INF-25']}>
+      <MemoryRouter initialEntries={['/threads?id=ADM-INF-25']}>
         <Probe />
       </MemoryRouter>
     );

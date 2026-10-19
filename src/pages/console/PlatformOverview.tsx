@@ -56,7 +56,7 @@ export const PlatformOverview = () => {
   const workspacesWithoutPlan = Math.max(0, counts.organizations - workspacesOnAPlan);
 
   const stats = [
-    { label: 'Organisations', value: counts.alliances, icon: Network, to: '/console/platform/alliances' },
+    { label: 'Organisations', value: counts.alliances, icon: Network, to: '/console/platform/organisations' },
     {
       label: 'Workspaces',
       value: counts.organizations,

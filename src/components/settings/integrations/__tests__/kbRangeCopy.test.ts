@@ -92,9 +92,9 @@ describe('kbRangeCopy', () => {
 
   it('cost sentence names the backlog, the per-thread figure and the limit days', () => {
     const cost = costLine(estimate(), 'own_key', 0, count());
-    expect(cost).toContain('≈300,000 tokens for up to 120 conversations');
+    expect(cost).toContain('≈300,000 tokens for up to 120 threads');
     expect(cost).toContain('100 with newly fetched mail + 20 already imported and not yet mined');
-    expect(cost).toContain('2,500 per conversation, measured on this workspace');
+    expect(cost).toContain('2,500 per thread, measured on this workspace');
     expect(cost).toContain("It fits in today's KB limit.");
     expect(costLine(estimate({ daysAtLimit: 4 }), 'own_key', 0, count())).toContain(
       'At your daily KB limit that is about 4 days; it pauses each day at the limit and resumes after the reset.'
@@ -133,7 +133,7 @@ describe('kbRangeCopy', () => {
       'This read needs about 130 AI calls; your plan has 40 left this month. When they run out, mining continues without AI (rule-based).'
     );
     expect(allowance).toContain(
-      'If AI is unavailable during the read, the affected conversations stay unmined and are retried automatically.'
+      'If AI is unavailable during the read, the affected threads stay unmined and are retried automatically.'
     );
     expect(
       allowanceLine({ callsLeftThisMonth: 400, estimatedCalls: 130, short: false }, true, 'none')
@@ -191,7 +191,7 @@ describe('kbRangeCopy', () => {
     expect(f4Caveat('gmail', 0, 7)).not.toMatch(/last 0|0 days/);
     expect(f4Caveat('gmail', 0, 7)).toContain('since the cutoff');
     expect(introLine('Support', CUTOFF, 0)).toBe(
-      `Support · mining conversations received before ${day(CUTOFF)}. It now reads all history before the cutoff.`
+      `Support · mining threads received before ${day(CUTOFF)}. It now reads all history before the cutoff.`
     );
     expect(introLine('Support', CUTOFF, 90)).toContain('reads the last 90 days before the cutoff');
   });
@@ -290,7 +290,7 @@ describe('kbRangeCopy', () => {
     );
     expect(unknown).not.toMatch(/complete/i);
     expect(lastSweepLine(sweep({ state: 'kb_full', threadsWaiting: 14 }))).toBe(
-      'The last read is waiting: the knowledge base is full — 14 conversations wait to be mined.'
+      'The last read is waiting: the knowledge base is full — 14 threads wait to be mined.'
     );
     expect(lastSweepLine(sweep({ state: 'paused' }))).toBe(
       "Mining is paused by today's KB limit and resumes after the reset."
@@ -298,18 +298,18 @@ describe('kbRangeCopy', () => {
     expect(
       lastSweepLine(sweep({ state: 'ai_incomplete', aiSkipped: 9, aiReason: 'rate_limited' }))
     ).toBe(
-      "9 conversations were not mined because AI was unavailable (this workspace's hourly AI allowance is used up). They will be retried automatically."
+      "9 threads were not mined because AI was unavailable (this workspace's hourly AI allowance is used up). They will be retried automatically."
     );
     const noNumber = lastSweepLine(
       sweep({ state: 'ai_incomplete', aiReason: 'provider_quota' })
     ) as string;
-    expect(noNumber).toMatch(/^Some conversations were not mined because AI was unavailable/);
+    expect(noNumber).toMatch(/^Some threads were not mined because AI was unavailable/);
     expect(noNumber).not.toMatch(/provider_quota|null|undefined|\bNaN\b/);
     expect(lastSweepLine(sweep({ state: 'ai_incomplete' }))).toBe(
-      'Some conversations were not mined because AI was unavailable. They will be retried automatically.'
+      'Some threads were not mined because AI was unavailable. They will be retried automatically.'
     );
     expect(lastSweepLine(sweep({ state: 'failed' }))).toBe(
-      'The last mining run hit errors; it retries on the next check. The affected conversations are listed under KB mining failures.'
+      'The last mining run hit errors; it retries on the next check. The affected threads are listed under KB mining failures.'
     );
     expect(lastSweepLine(sweep({ state: 'running' }))).toBe('A history read is running.');
   });
@@ -403,12 +403,12 @@ describe('kbRangeCopy', () => {
     expect(aiReasonWords('something_new')).toBeNull();
     expect(aiReasonWords(undefined)).toBeNull();
     expect(runStoppedLine({ stoppedBy: 'kb_full' })).toBe(
-      'Stopped: the knowledge base is full (plan limit). The remaining conversations are mined when there is room — remove KB items or raise the plan, then press Re-mine.'
+      'Stopped: the knowledge base is full (plan limit). The remaining threads are mined when there is room — remove KB items or raise the plan, then press Re-mine.'
     );
     expect(
       runStoppedLine({ stoppedBy: 'ai_unavailable', aiReason: 'rate_limited', retry: 're_mine' })
     ).toBe(
-      "Stopped: AI was unavailable (this workspace's hourly AI allowance is used up). Conversations not yet mined stay unmined and will be mined by the next Re-mine."
+      "Stopped: AI was unavailable (this workspace's hourly AI allowance is used up). Threads not yet mined stay unmined and will be mined by the next Re-mine."
     );
     expect(runStoppedLine({ stoppedBy: 'ai_unavailable', aiReason: 'rate_limited' })).toMatch(
       /next Re-mine\.$/
@@ -423,14 +423,14 @@ describe('kbRangeCopy', () => {
     expect(
       runStoppedLine({ stoppedBy: 'ai_unavailable', aiReason: 'weird_code', retry: 'automatic' })
     ).toBe(
-      'Stopped: AI was unavailable. Conversations not yet mined stay unmined and will be retried automatically.'
+      'Stopped: AI was unavailable. Threads not yet mined stay unmined and will be retried automatically.'
     );
     expect(
       runStoppedLine({ stoppedBy: 'ai_unavailable', aiSkipped: 4, retry: 'automatic' })
-    ).toContain('4 conversations');
+    ).toContain('4 threads');
     expect(runStoppedLine({ stoppedBy: 'quota' })).toBeNull();
     expect(kbFullHoldLine(12)).toBe(
-      'Waiting for room: the knowledge base is full — 12 conversations wait to be mined.'
+      'Waiting for room: the knowledge base is full — 12 threads wait to be mined.'
     );
     expect(kbFullHeldLine(1)).toBe('1 run is waiting for room in the knowledge base.');
     expect(kbFullHeldLine(3)).toBe('3 runs are waiting for room in the knowledge base.');
@@ -452,7 +452,7 @@ describe('kbRangeCopy', () => {
     expect(costCapped).toMatch(/^At least ≈300,000 tokens \(the mailbox count is incomplete\)/);
     expect(costLine(estimate(), 'own_key', 0, count({ timedOut: true }))).toMatch(/^At least ≈/);
     expect(costLine(estimate(), 'own_key', 0, count({ approximate: true }))).toMatch(
-      /^About ≈300,000 tokens for about 120 conversations/
+      /^About ≈300,000 tokens for about 120 threads/
     );
     const uncounted = count({ capped: true, cappedBy: 'time', inRange: 0, inOdly: 0, toFetch: 0 });
     expect(costLine(estimate(), 'own_key', 0, uncounted)).toBe(
@@ -465,7 +465,7 @@ describe('kbRangeCopy', () => {
       count({ approximate: true })
     );
     expect(imap).toMatch(/^Up to ≈300,000 tokens for up to 920 messages/);
-    expect(imap).not.toMatch(/920 conversations/);
+    expect(imap).not.toMatch(/920 threads/);
     expect(costLine(null, 'unknown', 0, count())).toBe(
       'AI setup could not be read, so the token cost cannot be confirmed.'
     );
@@ -523,7 +523,7 @@ describe('kbRangeCopy', () => {
       )
     ).toMatch(/^The last read finished partially: 1 message was not stored/);
     expect(lastSweepLine(sweep({ state: 'ai_incomplete', aiSkipped: 0 }))).toBe(
-      'Some conversations were not mined because AI was unavailable. They will be retried automatically.'
+      'Some threads were not mined because AI was unavailable. They will be retried automatically.'
     );
   });
 
@@ -607,8 +607,8 @@ describe('kbRangeCopy', () => {
       count({ approximate: true })
     );
     expect(imap).toContain('2,500 per message');
-    expect(imap).not.toContain('per conversation');
-    expect(costLine(estimate(), 'own_key', 0, count())).toContain('2,500 per conversation');
+    expect(imap).not.toContain('per thread');
+    expect(costLine(estimate(), 'own_key', 0, count())).toContain('2,500 per thread');
   });
 
   it('fix round 2: 5xx masks unless the code is one of ours', () => {

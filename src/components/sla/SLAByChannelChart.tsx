@@ -29,7 +29,7 @@ export const SLAByChannelChart = ({ days = SLA_DEFAULT_DAYS }: SLAByChannelChart
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Message SLA by Channel</CardTitle>
+          <CardTitle>Thread SLA by Channel</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-[300px]">
@@ -99,15 +99,15 @@ export const SLAByChannelChart = ({ days = SLA_DEFAULT_DAYS }: SLAByChannelChart
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Inbox className="h-5 w-5" />
-            Message SLA by Channel
+            Thread SLA by Channel
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center h-[300px] text-center">
             <Inbox className="h-16 w-16 text-muted-foreground/30 mb-4" />
-            <p className="text-muted-foreground font-medium mb-1">No Message Data</p>
+            <p className="text-muted-foreground font-medium mb-1">No Thread Data</p>
             <p className="text-sm text-muted-foreground/70">
-              Channel statistics will appear here once messages are processed
+              Channel statistics will appear here once threads are processed
             </p>
           </div>
         </CardContent>
@@ -120,7 +120,7 @@ export const SLAByChannelChart = ({ days = SLA_DEFAULT_DAYS }: SLAByChannelChart
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Inbox className="h-5 w-5 text-muted-foreground" />
-          Message SLA by Channel
+          Thread SLA by Channel
         </CardTitle>
       </CardHeader>
       <CardContent>

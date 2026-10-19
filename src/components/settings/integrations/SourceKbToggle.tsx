@@ -31,7 +31,7 @@ type SourceKbToggleProps = {
 };
 
 export const KB_MINING_CONFIRM_DESCRIPTION =
-  'Every conversation imported from this mailbox within its import range (Historical Import Range for Gmail, Time Range for IMAP) will be sent to your AI provider to extract Q&A pairs. That is billed AI usage — the range decides how much history is mined, and "All Time" mines all of it.';
+  'Every thread imported from this mailbox within its import range (Historical Import Range for Gmail, Time Range for IMAP) will be sent to your AI provider to extract Q&A pairs. That is billed AI usage — the range decides how much history is mined, and "All Time" mines all of it.';
 
 export const SourceKbToggle = ({ checked, onChange, disabled }: SourceKbToggleProps) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -50,7 +50,7 @@ export const SourceKbToggle = ({ checked, onChange, disabled }: SourceKbTogglePr
         checked={checked}
         onChange={handleChange}
         disabled={disabled}
-        label="Mine past conversations for the Knowledge Base"
+        label="Mine past threads for the Knowledge Base"
       />
       <p className="pl-11 text-xs text-muted-foreground">
         Extracts Q&amp;A pairs from mail received before this is switched on, so AI replies can
@@ -62,7 +62,7 @@ export const SourceKbToggle = ({ checked, onChange, disabled }: SourceKbTogglePr
         onConfirm={() => onChange(true)}
         title="Mine this mailbox's history?"
         description={KB_MINING_CONFIRM_DESCRIPTION}
-        confirmText="Mine past conversations"
+        confirmText="Mine past threads"
         variant="warning"
       />
     </div>

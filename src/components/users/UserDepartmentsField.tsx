@@ -109,7 +109,7 @@ export const UserDepartmentsField = ({
         {hasDirectoryGrants && <Lock className="w-3 h-3 shrink-0" />}
         {hasDirectoryGrants
           ? 'You can add departments here; the ones marked “from directory” come from your identity provider and have to be changed there.'
-          : 'User can access tickets and messages from selected departments'}
+          : 'User can access tickets and threads from selected departments'}
       </p>
     </div>
   );

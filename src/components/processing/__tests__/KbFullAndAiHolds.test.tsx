@@ -38,7 +38,7 @@ const { RunDetails } = await import('../RunDetails');
 const { normaliseSummary, normaliseRetryOwed } = await import('@/services/importProgress.service');
 
 const FULL_HOLD =
-  'Waiting for room: the knowledge base is full — 12 conversations wait to be mined.';
+  'Waiting for room: the knowledge base is full — 12 threads wait to be mined.';
 
 /** A mail run whose only owed work is KB work a full KB holds (no `stalled` problem). */
 const heldRun = (over: Partial<ServiceModule.RunView> = {}) =>
@@ -230,11 +230,11 @@ describe('retry-owed kbFull / aiUnavailable', () => {
       );
     const dryPlan = within(await plan());
     expect(dryPlan.getByTestId('retry-embedding')).toHaveTextContent(
-      '5 conversations will be retried'
+      '5 threads will be retried'
     );
     fireEvent.click(screen.getByRole('button', { name: /Confirm retry/ }));
     const done = within(await screen.findByTestId('retry-done'));
-    expect(done.getByTestId('retry-embedding')).toHaveTextContent('5 conversations retried');
+    expect(done.getByTestId('retry-embedding')).toHaveTextContent('5 threads retried');
     const line = done.getByTestId('retry-kb-withheld');
     expect(line.textContent).toContain('No knowledge-base work was queued');
     expect(line.textContent).not.toMatch(/^Nothing/);

@@ -178,7 +178,7 @@ describe('the socket KB paused line beside run records', () => {
     await renderPanel();
     expect(screen.getAllByText(/AI limit for KB processing/)).toHaveLength(1);
     expect(screen.getByText(/Mining resumes by itself after 00:00 UTC on 2026-10-01/)).toBeTruthy();
-    expect(screen.getByText(/2 conversations could not be mined/)).toBeTruthy();
+    expect(screen.getByText(/2 threads could not be mined/)).toBeTruthy();
     expect(screen.queryByText(/Paused — resumes from/)).toBeNull();
   });
 
@@ -231,7 +231,7 @@ describe('the socket KB paused line beside run records', () => {
     // a mine runs now, so "Paused — resumes from" must not be said beside it.
     await renderPanel({ ...runningSession, kbPausedUntil: '2026-10-01T00:00:00.000Z' });
     expect(screen.getByText('Running')).toBeTruthy();
-    expect(screen.getByText(/Reading 300 conversations/)).toBeTruthy();
+    expect(screen.getByText(/Reading 300 threads/)).toBeTruthy();
     expect(screen.queryByText(/resumes? by itself/)).toBeNull();
     expect(screen.queryByText(/due to resume/)).toBeNull();
     expect(screen.queryByText('Needs attention')).toBeNull();
@@ -241,7 +241,7 @@ describe('the socket KB paused line beside run records', () => {
   it('a running resumed mine over an older FAILED + limit record: failed said, pause said as resumed', async () => {
     view = untracked({ runs: [running(), { ...failedPause('kb0'), resumed: true }] });
     await renderPanel(runningSession);
-    expect(screen.getByText(/2 conversations could not be mined/)).toBeTruthy();
+    expect(screen.getByText(/2 threads could not be mined/)).toBeTruthy();
     expect(screen.getByText(/mining has resumed and is running now/)).toBeTruthy();
     expect(screen.queryByText(/resumes? by itself/)).toBeNull();
     expect(screen.queryByText(/due to resume/)).toBeNull();

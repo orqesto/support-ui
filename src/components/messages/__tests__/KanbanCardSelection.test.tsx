@@ -53,7 +53,7 @@ describe('KanbanCard — bulk selection', () => {
       <KanbanCard thread={thread()} onOpen={onOpen} onToggleSelected={onToggleSelected} />
     );
 
-    fireEvent.click(screen.getByRole('checkbox', { name: /select message/i }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /select thread/i }));
 
     // ⛔ Exactly ONCE. `toHaveBeenCalledWith` alone passed while the wrapper and the input each
     // fired it — one click toggled on and back off, so no box could ever be ticked. Only the

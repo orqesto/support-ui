@@ -45,7 +45,7 @@ export const DatabaseStep = ({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Choose the database your conversations, contacts, tickets and knowledge are stored in.
+        Choose the database your threads, contacts, tickets and knowledge are stored in.
         Connect it before your channels, so mail lands in the database you keep.
       </p>
 

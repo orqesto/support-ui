@@ -57,8 +57,8 @@ export const memberCount = (row: KbCaseRow): number => {
  */
 export const conversationsText = (answers: number, conversations: number): string =>
   answers > conversations
-    ? `${plural(answers, 'answer', 'answers')} from ${plural(conversations, 'conversation', 'conversations')}`
-    : plural(conversations, 'conversation', 'conversations');
+    ? `${plural(answers, 'answer', 'answers')} from ${plural(conversations, 'thread', 'threads')}`
+    : plural(conversations, 'thread', 'threads');
 
 export type KbRowExpansion = {
   open: boolean;

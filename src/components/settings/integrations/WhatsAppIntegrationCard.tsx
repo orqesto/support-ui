@@ -373,7 +373,7 @@ export const WhatsAppIntegrationCard = ({
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
                     WhatsApp &rarr; API Setup, next to the phone number id. Without it, approved
-                    templates cannot be synced &mdash; so a conversation whose 24-hour reply window
+                    templates cannot be synced &mdash; so a thread whose 24-hour reply window
                     has closed cannot be continued at all.
                   </p>
                 </div>
@@ -457,7 +457,7 @@ export const WhatsAppIntegrationCard = ({
 
               <p className="text-xs text-muted-foreground">
                 WhatsApp only allows free-form replies within 24 hours of a customer’s last message.
-                Outside that window a conversation can only be continued with a Meta-approved
+                Outside that window a thread can only be continued with a Meta-approved
                 template, which isn’t supported yet.
               </p>
 

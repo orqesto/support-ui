@@ -1086,7 +1086,7 @@ export function MessageDetail({
       logger.error('Failed to reopen:', err);
       // Surface the server reason (e.g. a 409 from a non-reopenable state) instead of
       // failing silently — formatError pulls the BE `error` string out of the response.
-      toast.failure('reopen message', err);
+      toast.failure('reopen thread', err);
     }
   }, [message.id, onReopen]);
 

@@ -48,7 +48,7 @@ function Unmeasurable({ count }: { count?: number }) {
     <>
       {' '}
       <span className="font-medium text-foreground">
-        {count.toLocaleString()} resolved {count === 1 ? 'conversation has' : 'conversations have'}{' '}
+        {count.toLocaleString()} resolved {count === 1 ? 'thread has' : 'threads have'}{' '}
         no recorded close time
       </span>{' '}
       and cannot be measured — most were resolved before we started recording one.
@@ -89,14 +89,14 @@ export function StatisticsMessagesTab({ msgStats, msgLoading, labelStats, labelL
               <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Avg Resolution</p><p className="font-mono mt-2 text-3xl font-bold">{formatAvgReply(msgStats.resolutionTime.avgHours)}</p></div><Timer className="w-10 h-10 text-muted-foreground" /></div></CardContent></Card>
               <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">P50 Resolution</p><p className="font-mono mt-2 text-3xl font-bold">{formatAvgReply(msgStats.resolutionTime.p50Hours)}</p></div><Activity className="w-10 h-10 text-success" /></div></CardContent></Card>
               <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">P90 Resolution</p><p className="font-mono mt-2 text-3xl font-bold">{formatAvgReply(msgStats.resolutionTime.p90Hours)}</p></div><TrendingUp className="w-10 h-10 text-warning" /></div></CardContent></Card>
-              <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Closed Messages</p><p className="mt-2 text-3xl font-bold">{msgStats.resolutionTime.totalClosed}</p></div><CheckCircle className="w-10 h-10 text-faint-foreground" /></div></CardContent></Card>
+              <Card><CardContent className="p-6"><div className="flex justify-between items-center"><div><p className="text-sm font-medium text-muted-foreground">Closed Threads</p><p className="mt-2 text-3xl font-bold">{msgStats.resolutionTime.totalClosed}</p></div><CheckCircle className="w-10 h-10 text-faint-foreground" /></div></CardContent></Card>
               </div>
               {/* ⚠️ "Closed Messages: 0" is the most misleading thing on this page — a COUNT reads
                 * as a fact about the team rather than a gap in the data, and this row carried no
                 * footnote at all to say otherwise. */}
               {msgStats.resolutionTime.excludedNoCloseStamp ? (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Counts conversations with a recorded close time.
+                  Counts threads with a recorded close time.
                   <Unmeasurable count={msgStats.resolutionTime.excludedNoCloseStamp} />
                 </p>
               ) : null}
@@ -118,7 +118,7 @@ export function StatisticsMessagesTab({ msgStats, msgLoading, labelStats, labelL
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
                   Measured from when the message arrived, not when it was ingested, and counting
-                  only conversations a person resolved.
+                  only threads a person resolved.
                   {msgStats.receiveToResolve.totalResolved === 0
                     ? ' Nothing in this window qualifies yet, so the figures are blank rather than zero.'
                     : ''}
@@ -133,7 +133,7 @@ export function StatisticsMessagesTab({ msgStats, msgLoading, labelStats, labelL
                     ? ` ${msgStats.firstResponseTime.estimatedRows} response times are estimated from ingestion time, having no recorded arrival time.`
                     : ''}
                   {msgStats.meta?.businessHoursTruncated
-                    ? ' Open-hours figures cover the first 5,000 conversations in this window only.'
+                    ? ' Open-hours figures cover the first 5,000 threads in this window only.'
                     : ''}
                 </p>
               </div>
@@ -185,7 +185,7 @@ export function StatisticsMessagesTab({ msgStats, msgLoading, labelStats, labelL
                         <tr className="border-b border-border bg-muted/50">
                           <th className="px-4 py-2 text-left font-medium text-muted-foreground">Category</th>
                           <th className="px-4 py-2 text-left font-medium text-muted-foreground">Week</th>
-                          <th className="px-4 py-2 text-right font-medium text-muted-foreground">Messages</th>
+                          <th className="px-4 py-2 text-right font-medium text-muted-foreground">Threads</th>
                         </tr>
                       </thead>
                       <tbody>

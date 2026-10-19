@@ -439,7 +439,7 @@ export const DashboardPage = () => {
       bg: 'bg-destructive-muted',
       tone: 'destructive' as const,
       hint: 'Active breaches',
-      onClick: () => navigate('/messages?slaBreached=true'),
+      onClick: () => navigate('/threads?slaBreached=true'),
       isClickable: true,
     },
     {
@@ -450,7 +450,7 @@ export const DashboardPage = () => {
       bg: 'bg-warning-muted',
       tone: 'warning' as const,
       hint: '>80% of deadline',
-      onClick: () => navigate('/messages?slaAtRisk=true'),
+      onClick: () => navigate('/threads?slaAtRisk=true'),
       isClickable: true,
     },
     {
@@ -488,7 +488,7 @@ export const DashboardPage = () => {
       bg: 'bg-success-muted',
       tone: 'success' as const,
       hint: 'Excl. KB processing',
-      onClick: () => navigate('/messages?status=resolved'),
+      onClick: () => navigate('/threads?status=resolved'),
       isClickable: true,
     },
     {
@@ -499,7 +499,7 @@ export const DashboardPage = () => {
       bg: 'bg-muted',
       tone: 'neutral' as const,
       hint: 'Excl. KB processing',
-      onClick: () => navigate('/messages?threadStatus=closed'),
+      onClick: () => navigate('/threads?threadStatus=closed'),
       isClickable: true,
     },
   ];
@@ -509,37 +509,37 @@ export const DashboardPage = () => {
       title: 'Active',
       value: stats.activeMessages,
       tone: 'primary' as const,
-      onClick: () => navigate('/messages?status=active'),
+      onClick: () => navigate('/threads?status=active'),
     },
     {
       title: 'Client Replied',
       value: stats.clientReplied,
       tone: 'attention' as const,
-      onClick: () => navigate('/messages?status=client_replied'),
+      onClick: () => navigate('/threads?status=client_replied'),
     },
     {
       title: 'Awaiting Response',
       value: stats.awaitingResponse,
       tone: 'caution' as const,
-      onClick: () => navigate('/messages?status=awaiting_response'),
+      onClick: () => navigate('/threads?status=awaiting_response'),
     },
     {
       title: 'Suspicious',
       value: stats.suspiciousMessages,
       tone: 'warning' as const,
-      onClick: () => navigate('/messages?status=suspicious'),
+      onClick: () => navigate('/threads?status=suspicious'),
     },
     {
       title: 'Not Analysed',
       value: stats.notAnalysed,
       tone: 'destructive' as const,
-      onClick: () => navigate('/messages?status=not_analysed'),
+      onClick: () => navigate('/threads?status=not_analysed'),
     },
     {
       title: 'Resolved',
       value: stats.resolvedMessages,
       tone: 'success' as const,
-      onClick: () => navigate('/messages?status=resolved'),
+      onClick: () => navigate('/threads?status=resolved'),
     },
   ];
 
@@ -605,7 +605,7 @@ export const DashboardPage = () => {
             </div>
 
             <div className={cn("grid gap-4", hasTickets ? "lg:grid-cols-2" : "lg:grid-cols-1")}>
-              <DashboardStatusBarSection label="Messages by Status" cards={messageCards} />
+              <DashboardStatusBarSection label="Threads by Status" cards={messageCards} />
               {hasTickets && (
                 <DashboardStatusBarSection label="Tickets by Status" cards={ticketCards} />
               )}

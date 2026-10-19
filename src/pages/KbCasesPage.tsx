@@ -43,11 +43,11 @@ export { KbCaseRowView, KbCasesFindingsPanel, KbCasesReportView };
  * approved CASE has a standard answer — every other row says it has none, never shows one.
  */
 export const KB_CASES_CAPTION =
-  'Counts are conversations whose answers were learned into the knowledge base — not all conversations. ' +
-  'Cases are grouped automatically, so one real case can appear twice, and one conversation can appear under several cases.';
+  'Counts are threads whose answers were learned into the knowledge base — not all threads. ' +
+  'Cases are grouped automatically, so one real case can appear twice, and one thread can appear under several cases.';
 
 const SORT_OPTIONS = [
-  { value: 'conversations', label: 'Most conversations' },
+  { value: 'conversations', label: 'Most threads' },
   { value: 'lastSeen', label: 'Most recently seen' },
 ];
 

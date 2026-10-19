@@ -201,7 +201,7 @@ export const LabelsSettings = () => {
             <p className="text-[11px] text-muted-foreground">
               {formData.departmentIds.length === 0
                 ? 'No departments selected — this label applies to all departments (org-wide).'
-                : 'The label can be applied only to messages in the selected department(s).'}
+                : 'The label can be applied only to threads in the selected department(s).'}
             </p>
           </div>
           <div className="flex gap-2">

@@ -59,7 +59,7 @@ describe('LearningNotificationsInbox auto_accept', () => {
     expect(
       screen.getByText('Accepted automatically: Route mail mentioning "pallet label" in the message to Logistics')
     ).toBeTruthy();
-    expect(screen.getByText(/Conversations 6/)).toBeTruthy();
+    expect(screen.getByText(/Threads 6/)).toBeTruthy();
     expect(screen.getByText(/Over 7 days/)).toBeTruthy();
     expect(screen.getByText(/Replay 92%/)).toBeTruthy();
     expect(screen.queryByText('auto_accept')).toBeNull();
@@ -103,7 +103,7 @@ describe('LearningNotificationsInbox auto_accept', () => {
     expect(
       screen.getByText('Accepted automatically: Route mail mentioning "pallet label" in the message to Logistics')
     ).toBeTruthy();
-    expect(screen.getByText(/Conversations about 5/)).toBeTruthy();
+    expect(screen.getByText(/Threads about 5/)).toBeTruthy();
     expect(screen.getByText(/Over 7 days/)).toBeTruthy();
     expect(screen.getByText(/Replay 92%/)).toBeTruthy();
     expect(screen.queryByText('auto_accept')).toBeNull();

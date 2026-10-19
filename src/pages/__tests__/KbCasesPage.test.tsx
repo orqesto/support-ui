@@ -105,20 +105,20 @@ describe('KB Cases report (F2)', () => {
     expect(screen.queryByText('AI DRAFT TEXT')).not.toBeInTheDocument();
   });
 
-  it('never totals anything as "conversations" and never says "unique cases"', () => {
+  it('one noun for one thing: never "conversations", never a total, never "unique cases"', () => {
     const { container } = view(report());
-    // One noun for one thing: rows, caption and header all say "conversations"; the header is a
+    // One noun for one thing: rows, caption and header all say "threads"; the header is a
     // union ("each counted once"), never worded as a total.
     expect(
-      screen.getByText('7 conversations across these cases, each counted once')
+      screen.getByText('7 threads across these cases, each counted once')
     ).toBeInTheDocument();
-    expect(container.textContent).not.toMatch(/\d+\s+threads?\b/i);
+    expect(container.textContent).not.toMatch(/\d+\s+conversations?\b/i);
     expect(container.textContent).not.toMatch(/unique cases/i);
-    expect(container.textContent).not.toMatch(/\d+ conversations in total/i);
-    expect(container.textContent).not.toMatch(/total conversations/i);
+    expect(container.textContent).not.toMatch(/\d+ threads in total/i);
+    expect(container.textContent).not.toMatch(/total threads/i);
   });
 
-  it('more answers than conversations: "2 answers from 1 conversation" in the header and the row', () => {
+  it('more answers than threads: "2 answers from 1 thread" in the header and the row', () => {
     view(
       report({
         headers: [
@@ -145,11 +145,11 @@ describe('KB Cases report (F2)', () => {
         ],
       })
     );
-    expect(screen.getAllByText(/^2 answers from 1 conversation/)).toHaveLength(2);
-    expect(screen.queryByText('1 conversation in this case')).toBeNull();
+    expect(screen.getAllByText(/^2 answers from 1 thread/)).toHaveLength(2);
+    expect(screen.queryByText('1 thread in this case')).toBeNull();
   });
 
-  it('as many answers as conversations: the count names conversations only', () => {
+  it('as many answers as threads: the count names threads only', () => {
     view(
       report({
         headers: [
@@ -162,7 +162,7 @@ describe('KB Cases report (F2)', () => {
         ],
       })
     );
-    expect(screen.getByText('2 conversations in this case')).toBeInTheDocument();
+    expect(screen.getByText('2 threads in this case')).toBeInTheDocument();
     expect(screen.queryByText(/answers from/)).toBeNull();
   });
 
@@ -174,7 +174,7 @@ describe('KB Cases report (F2)', () => {
         ],
       })
     );
-    expect(screen.getByText('2 conversations in this case')).toBeInTheDocument();
+    expect(screen.getByText('2 threads in this case')).toBeInTheDocument();
     expect(screen.queryByText(/across these cases/)).not.toBeInTheDocument();
   });
 
@@ -223,7 +223,7 @@ describe('KB Cases report (F2)', () => {
     view(report({ miningOff: true, headers: [], classifying: allSettled }));
     const notice = screen.getByText(MINING_OFF);
     expect(notice).not.toHaveTextContent(/no learned answers/i);
-    expect(notice).not.toHaveTextContent(/before|learning from conversations is off/i);
+    expect(notice).not.toHaveTextContent(/before|learning from threads is off/i);
     expect(screen.getByText('12 more learned answers below the quality bar')).toBeInTheDocument();
     expect(screen.getByRole('list', { name: 'Findings' })).toHaveTextContent(
       /3 awaiting KB review/
@@ -684,7 +684,7 @@ describe('KB Cases report (F2)', () => {
     );
     expect(screen.getByTestId('cases-caption')).toHaveTextContent(KB_CASES_CAPTION);
     expect(KB_CASES_CAPTION).toMatch(
-      /conversations whose answers were learned into the knowledge base/
+      /threads whose answers were learned into the knowledge base/
     );
     expect(KB_CASES_CAPTION).toMatch(/one real case can appear twice/);
     await waitFor(() =>

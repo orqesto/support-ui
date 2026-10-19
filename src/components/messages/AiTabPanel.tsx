@@ -620,7 +620,7 @@ export function AiTabPanel({
                       </Button>
                     ) : (
                       <Link
-                        to={`/messages/${activeOption.messageId}`}
+                        to={`/threads/${activeOption.messageId}`}
                         onClick={(event) => event.stopPropagation()}
                         className="text-[12px] text-warning hover:text-warning"
                       >

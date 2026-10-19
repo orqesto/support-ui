@@ -9,7 +9,7 @@ type SystemSection = 'cleanup' | 'deleted' | 'orphaned';
 
 const SECTIONS: { id: SystemSection; label: string; description: string; globalOnly: boolean }[] = [
   { id: 'cleanup', label: 'Cleanup', description: 'Queues, data cleanup, and nuclear options', globalOnly: true },
-  { id: 'deleted', label: 'Deleted Messages', description: 'Recover soft-deleted messages', globalOnly: true },
+  { id: 'deleted', label: 'Deleted Threads', description: 'Recover soft-deleted threads', globalOnly: true },
   { id: 'orphaned', label: 'Orphaned Outbound', description: 'Outbound messages with no threaded parent', globalOnly: true },
 ];
 

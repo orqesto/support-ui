@@ -46,7 +46,7 @@ export const usePhoneOpensMessageAsPage = (
     if (redirectedFor.current === selectedMessage.id) return;
     redirectedFor.current = selectedMessage.id;
     clearRef.current();
-    navigate(`/messages/${selectedMessage.id}`);
+    navigate(`/threads/${selectedMessage.id}`);
   }, [isPhone, selectedMessage, navigate]);
 
   return isPhone;

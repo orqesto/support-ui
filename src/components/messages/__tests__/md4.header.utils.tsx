@@ -125,7 +125,7 @@ const renderHeader = (over: Partial<Parameters<typeof MessageDetailHeader>[0]> =
   render(
     <ThemeProvider>
       <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter initialEntries={['/messages/1']}>
+        <MemoryRouter initialEntries={['/threads/1']}>
           <Routes>
             <Route
               path="*"

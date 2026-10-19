@@ -155,7 +155,7 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
             {!isPlatform && isAdmin && (
               <NavTip label="Platform console">
                 <NavLink
-                  to="/console/platform/alliances"
+                  to="/console/platform/organisations"
                   aria-label={collapsed ? 'Platform console' : undefined}
                   className={cn(
                     'flex gap-2 items-center px-3 py-2 w-full text-sm rounded-md text-muted-foreground hover:bg-accent hover:text-foreground',

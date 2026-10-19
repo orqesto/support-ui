@@ -52,7 +52,7 @@ const TicketName = ({ row }: { row: OwedConversation }) => {
   if (!row.deleted)
     return (
       <Link
-        to={`/messages?id=${getConvUrlId({ id: row.conversationId, publicId: row.publicId })}`}
+        to={`/threads?id=${getConvUrlId({ id: row.conversationId, publicId: row.publicId })}`}
         className={linkClass}
       >
         {row.publicId ?? `#${row.conversationId}`}
@@ -74,7 +74,7 @@ const TicketName = ({ row }: { row: OwedConversation }) => {
         <>
           {' '}
           (merged into{' '}
-          <Link to={`/messages?id=${getConvUrlId(linkTarget)}`} className={linkClass}>
+          <Link to={`/threads?id=${getConvUrlId(linkTarget)}`} className={linkClass}>
             {linkTarget.publicId}
           </Link>
           )
@@ -100,7 +100,7 @@ const OwedStageLine = ({ stage, list }: { stage: OwedStageKey; list: OwedList })
       <span className="text-foreground">{RUN_STAGE_LABELS[stage]}:</span>{' '}
       {messages
         ? plural(list.count, 'message', 'messages')
-        : plural(list.count, 'conversation', 'conversations')}
+        : plural(list.count, 'thread', 'threads')}
       {listed > 0 && ' — '}
       {list.conversations.map((row, index) => (
         <Fragment key={row.conversationId}>
@@ -167,7 +167,7 @@ const RetryLines = ({ result }: { result: RetryOwedResult }) => {
         .map((line) => (
           <li key={line.stage} data-testid={`retry-${line.stage}`}>
             <span className="text-foreground">{RUN_STAGE_LABELS[line.stage]}:</span>{' '}
-            {plural(line.count, 'conversation', 'conversations')}{' '}
+            {plural(line.count, 'thread', 'threads')}{' '}
             {dry ? 'will be retried' : 'retried'}
           </li>
         ))}

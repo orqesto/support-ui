@@ -66,9 +66,9 @@ export const PriorityRulesSettings = () => {
     <RuleEditor<PriorityRuleView, PriorityRuleFormData>
       {...ruleManagement}
       title="Priority Rules"
-      description="Decide which messages are critical, high, medium, or low"
+      description="Decide which threads are critical, high, medium, or low"
       dialogTitle="Priority Rule"
-      emptyMessage="No priority rules configured. Every message will be treated as medium priority until one exists."
+      emptyMessage="No priority rules configured. Every thread will be treated as medium priority until one exists."
       placeholder={
         unavailable ? (
           <Alert variant="info">

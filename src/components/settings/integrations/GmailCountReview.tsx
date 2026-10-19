@@ -261,7 +261,7 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
               {(result.unverifiable ?? 0) > 0 && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   Can&apos;t verify = messages sent from this mailbox that could not be matched
-                  themselves, but Odly holds a reply in the same conversation sent within minutes of
+                  themselves, but Odly holds a reply in the same thread sent within minutes of
                   them — most likely the same message. They are not counted as missing.
                 </p>
               )}

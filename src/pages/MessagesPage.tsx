@@ -439,8 +439,8 @@ export const MessagesPage = () => {
     onFetchError: () =>
       setAlertDialog({
         open: true,
-        title: 'Failed to load messages',
-        description: 'Could not fetch messages. Please refresh the page.',
+        title: 'Failed to load threads',
+        description: 'Could not fetch threads. Please refresh the page.',
         variant: 'error',
       }),
   });
@@ -602,7 +602,7 @@ export const MessagesPage = () => {
       }
     } catch (error: unknown) {
       logger.error('Failed to reopen message:', error);
-      const errorMsg = getApiErrorMessage(error) ?? 'Failed to reopen message';
+      const errorMsg = getApiErrorMessage(error) ?? 'Failed to reopen thread';
       setAlertDialog({
         open: true,
         title: 'Reopen Failed',
@@ -697,7 +697,7 @@ export const MessagesPage = () => {
       logger.error('Failed to delete message:', error);
       // The full page's wording: the server's reason when it gave one (a 4xx), else generic.
       // The dialog stays up, so a retry is one press away.
-      toast.error(getApiErrorMessage(error) ?? 'Failed to delete message');
+      toast.error(getApiErrorMessage(error) ?? 'Failed to delete thread');
       return;
     } finally {
       deletingRef.current = false;
@@ -965,7 +965,7 @@ export const MessagesPage = () => {
                 the right. The view switch used to ride the saved-views row of the filter
                 card, and the count its right end; both describe the surface, not a filter. */}
             <PageHeader
-              title={<span className="text-xl max-sm:sr-only">Messages</span>}
+              title={<span className="text-xl max-sm:sr-only">Threads</span>}
               className="sm:items-center"
               meta={
                 <>
@@ -1187,11 +1187,11 @@ export const MessagesPage = () => {
                   <Card>
                     <CardContent className="p-12 text-center">
                       <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
-                      <h3 className="font-display mb-2 text-lg font-semibold">No messages found</h3>
+                      <h3 className="font-display mb-2 text-lg font-semibold">No threads found</h3>
                       <p className="text-muted-foreground">
                         {activeFilterCount > 0
-                          ? 'No messages match your filters'
-                          : 'No messages available'}
+                          ? 'No threads match your filters'
+                          : 'No threads available'}
                       </p>
                       {(listScope?.hidden ?? 0) > 0 && (
                         <p className="mt-2 text-[12.5px] text-muted-foreground">
@@ -1285,13 +1285,13 @@ export const MessagesPage = () => {
             J/K walk it from the pane. An empty pane says what it is for. */}
         {split && (
           <aside
-            aria-label="Message detail"
+            aria-label="Thread detail"
             className="flex flex-col flex-[0_0_58%] min-w-0 overflow-hidden border-l border-border bg-card"
           >
             {detail ?? (
               <div className="grid flex-1 place-items-center p-5 text-center text-[13px] text-muted-foreground">
                 <p>
-                  Select a conversation to read it here.
+                  Select a thread to read it here.
                   <br />
                   <span className="text-xs">J / K move between threads.</span>
                 </p>

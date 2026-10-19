@@ -267,7 +267,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
 
   const openQueue = (kind: ArrivalKind, queue: string) => {
     clearKind(kind).catch(() => {}); // per-user "reviewed" clear (fire-and-forget)
-    navigate(`/messages?queue=${queue}`);
+    navigate(`/threads?queue=${queue}`);
     setOpen(false);
   };
 
@@ -546,7 +546,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          navigate('/messages?queue=suspicious');
+                          navigate('/threads?queue=suspicious');
                           setOpen(false);
                         }}
                         className="flex gap-3 items-center p-3 w-full h-auto text-sm text-left rounded-lg border bg-background hover:bg-accent border-border"

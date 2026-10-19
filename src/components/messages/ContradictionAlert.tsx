@@ -127,7 +127,7 @@ const ContradictionRow = ({ item }: { item: ContradictionItem }) => (
         <p className="font-semibold text-sm">Source:</p>
         <div className="flex gap-2 items-center">
           <Link
-            to={`/messages/${item.contradictingMessageId}`}
+            to={`/threads/${item.contradictingMessageId}`}
             className="text-sm text-primary hover:underline"
           >
             Message #{item.contradictingMessageId}

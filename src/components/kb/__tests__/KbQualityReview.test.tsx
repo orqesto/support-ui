@@ -83,7 +83,7 @@ describe('KbQualityReview — improve', () => {
     expect(screen.getByText(/where is my parcel\?\s*Best regards/)).toBeInTheDocument();
     expect(screen.getByLabelText('Question')).toHaveValue('Where is my parcel?');
     expect(screen.getByLabelText('Answer')).toHaveValue('Use the tracking link.');
-    expect(screen.getByRole('link', { name: 'Thread SUP-900' })).toHaveAttribute('href', '/messages?id=900');
+    expect(screen.getByRole('link', { name: 'Thread SUP-900' })).toHaveAttribute('href', '/threads?id=900');
   });
 
   it('saves the text the moderator EDITED, not the AI proposal', async () => {

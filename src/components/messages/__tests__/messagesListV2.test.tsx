@@ -84,9 +84,9 @@ describe('compact rows', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
-  it('CONTROL: the comfortable card is still the default, with the conversation id on it', () => {
+  it('CONTROL: the comfortable card is still the default, with the thread id on it', () => {
     renderRow();
-    expect(screen.getByTitle('Copy link to this conversation')).toBeTruthy();
+    expect(screen.getByTitle('Copy link to this thread')).toBeTruthy();
   });
 
   it('mark the thread the split pane is reading', () => {

@@ -265,8 +265,8 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
         {typeof metrics.conversations === 'number' && (
           <Badge variant="secondary">
             {metrics.conversations === 1
-              ? '1 conversation'
-              : `${metrics.conversations} conversations`}
+              ? '1 thread'
+              : `${metrics.conversations} threads`}
           </Badge>
         )}
       </div>
@@ -328,15 +328,15 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
                   // (label + language), an attach's the case. Shown, not enforced.
                   <Badge
                     variant="warning"
-                    title={`A moderator declined or unmerged this entry, or another entry from its conversation, ${isConsolidate ? 'for this group' : 'for this case'} before — ticking it overrides that.`}
+                    title={`A moderator declined or unmerged this entry, or another entry from its thread, ${isConsolidate ? 'for this group' : 'for this case'} before — ticking it overrides that.`}
                   >
-                    declined before (this entry or its conversation)
+                    declined before (this entry or its thread)
                   </Badge>
                 )}
                 {!member.gone && member.alreadyCounted && (
                   <Badge
                     variant="secondary"
-                    title="Its conversation is already counted in this case — adding it changes no count."
+                    title="Its thread is already counted in this case — adding it changes no count."
                   >
                     already counted
                   </Badge>
@@ -361,7 +361,7 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
                     <span>{formatDate(member.date)}</span>
                     {member.conversationId !== null && (
                       <Link
-                        to={`/messages?id=${member.conversationId}`}
+                        to={`/threads?id=${member.conversationId}`}
                         className="text-primary hover:underline"
                       >
                         Thread {member.conversationPublicId ?? `#${member.conversationId}`}

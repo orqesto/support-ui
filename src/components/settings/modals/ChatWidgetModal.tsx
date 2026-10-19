@@ -533,7 +533,7 @@ export const ChatWidgetModal = ({
               <p className="text-xs text-muted-foreground">
                 When a visitor is handed to your team, the widget offers to email them a 6-digit
                 code. Once they enter it, their email replies to your team stay in the same
-                conversation. Without it, each email reply opens a separate conversation: anyone can
+                thread. Without it, each email reply opens a separate thread: anyone can
                 type any address into the widget. Needs the email account above. Leave a box empty
                 to use the default. {'{email}'} is the visitor&apos;s address (partly hidden),{' '}
                 {'{code}'} the code.

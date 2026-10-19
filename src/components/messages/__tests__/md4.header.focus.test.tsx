@@ -174,7 +174,7 @@ describe('Focus — a popover, a picker or More hands focus back to what opened 
     renderHeader();
     const more = await screen.findByRole('button', { name: 'More actions' });
     fireEvent.click(more);
-    within(screen.getByRole('menu')).getByText('Conversation history').closest('button')!.focus();
+    within(screen.getByRole('menu')).getByText('Thread history').closest('button')!.focus();
     esc();
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(more));
@@ -349,8 +349,8 @@ describe('Focus residuals — Remove inside the popover, the host Delete modal, 
   const openDeleteFromMore = async () => {
     const more = await screen.findByRole('button', { name: 'More actions' });
     fireEvent.click(more);
-    fireEvent.click(within(screen.getByRole('menu')).getByText('Delete message'));
-    expect(await screen.findByRole('dialog')).toHaveTextContent('Delete message');
+    fireEvent.click(within(screen.getByRole('menu')).getByText('Delete thread'));
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Delete thread');
     return more;
   };
 

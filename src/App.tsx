@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 import { AllianceConsoleRoute } from './components/auth/AllianceConsoleRoute';
 import { GlobalAdminRedirect } from './components/auth/GlobalAdminRedirect';
 import * as OrgConsole from './pages/organisationConsoleRoutes';
+import { legacyRedirectRoutes } from './routes/legacyRedirects';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { FeatureGate } from './components/common/FeatureGate';
 import { useRolePermissionMatrix } from '@/hooks/useRolePermissionMatrix';
@@ -294,8 +295,9 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
+      {legacyRedirectRoutes()}
       <Route
-        path="/messages"
+        path="/threads"
         element={
           <PrivateRoute>
             <Suspense fallback={<LoadingFallback />}>
@@ -305,7 +307,7 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/messages/:id"
+        path="/threads/:id"
         element={
           <PrivateRoute>
             <Suspense fallback={<LoadingFallback />}>
@@ -417,10 +419,6 @@ const AppRoutes = () => {
           MANAGE_INTEGRATIONS gate (src/pages/customApiRoutes.tsx). */}
       <Route path={CUSTOM_API_LOOKUP_ROUTE} element={<CustomApiLookupRoute />} />
       <Route path={CUSTOM_API_TEMPLATE_ROUTE} element={<CustomApiTemplateRoute />} />
-      <Route
-        path={OrgConsole.LEGACY_ROUTE}
-        element={<OrgConsole.LegacyAllianceConsoleRedirect />}
-      />
       {/* Alliance admin console (Phase 5). `/console` resolves the caller's first
           administered alliance; `/console/organisation/:id` mounts the AdminShell
           (own chrome) behind the alliance-admin route guard, with one child route

@@ -49,7 +49,7 @@ export const describeRelease = (alert: TokenLimitAlert): string => {
   // partial flag (not expected for regular) is still said (FE audit pass 13, MED).
   if (alert.bucket === 'regular') {
     if (onCatchup(alert)) {
-      return `AI drafts, auto-replies and widget answers run again for new mail. Open conversations the local model sorted while the limit was reached are analysed again with AI, in batches that leave room for new mail.${
+      return `AI drafts, auto-replies and widget answers run again for new mail. Open threads the local model sorted while the limit was reached are analysed again with AI, in batches that leave room for new mail.${
         alert.releasePartial === true ? ' Some work may still wait for the reset.' : ''
       }`;
     }

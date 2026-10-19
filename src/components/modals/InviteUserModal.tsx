@@ -264,7 +264,7 @@ export const InviteUserModal = ({
             onChange={(value) => setRole(value as OrganizationRole)}
             options={[
               { value: 'associate', label: 'Associate - Read-only with request permissions' },
-              { value: 'support', label: 'Support - Manage tickets and messages' },
+              { value: 'support', label: 'Support - Manage tickets and threads' },
               { value: 'moderator', label: 'Moderator - Manage integrations, categories, AI' },
               ...(isAdmin
                 ? [{ value: 'org_admin', label: 'Workspace Admin - Full control' }]

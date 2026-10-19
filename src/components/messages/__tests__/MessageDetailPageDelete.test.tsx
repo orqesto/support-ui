@@ -59,7 +59,7 @@ vi.mock('@/components/messages/MessageDetail', () => ({
       )}
       {onDelete && (
         <button type="button" onClick={onDelete}>
-          More → Delete message
+          More → Delete thread
         </button>
       )}
     </div>
@@ -74,7 +74,7 @@ const GoTo = () => {
   const navigate = useNavigate();
   return (
     <>
-      <button type="button" onClick={() => navigate('/messages/43')}>
+      <button type="button" onClick={() => navigate('/threads/43')}>
         go to message 43
       </button>
       <button type="button" onClick={() => navigate('/elsewhere')}>
@@ -92,12 +92,12 @@ const renderPage = () => {
   const invalidate = vi.spyOn(client, 'invalidateQueries');
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/messages/42']} future={ROUTER_FUTURE}>
+      <MemoryRouter initialEntries={['/threads/42']} future={ROUTER_FUTURE}>
         <GoTo />
         <Routes>
           <Route path="/elsewhere" element={<div data-testid="elsewhere">elsewhere</div>} />
-          <Route path="/messages/:id" element={<MessageDetailPage />} />
-          <Route path="/messages" element={<div data-testid="inbox">inbox</div>} />
+          <Route path="/threads/:id" element={<MessageDetailPage />} />
+          <Route path="/threads" element={<div data-testid="inbox">inbox</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>
@@ -106,7 +106,7 @@ const renderPage = () => {
 };
 
 const pressDelete = async () =>
-  fireEvent.click(await screen.findByRole('button', { name: 'More → Delete message' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'More → Delete thread' }));
 
 beforeEach(() => {
   api.get.mockResolvedValue({
@@ -125,12 +125,12 @@ afterEach(() => {
   api.orgCode = 'ACM';
 });
 
-describe('MessageDetailPage — More → Delete message', () => {
+describe('MessageDetailPage — More → Delete thread', () => {
   it('asks first: the confirm opens, nothing is deleted, the page stays', async () => {
     renderPage();
     await pressDelete();
     const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveTextContent('Delete message');
+    expect(dialog).toHaveTextContent('Delete thread');
     expect(dialog).toHaveTextContent('From: ada@example.com');
     expect(api.delete).not.toHaveBeenCalled();
     expect(screen.queryByTestId('inbox')).toBeNull();
@@ -142,7 +142,7 @@ describe('MessageDetailPage — More → Delete message', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(api.delete).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'More → Delete message' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More → Delete thread' })).toBeInTheDocument();
   });
 
   it('Delete: DELETE /api/messages/42, the inbox cache cleared, back to the inbox', async () => {
@@ -231,7 +231,7 @@ describe('MessageDetailPage — More → Delete message', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(api.delete).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole('button', { name: 'go to message 43' }));
-    await screen.findByText('Loading message...');
+    await screen.findByText('Loading thread...');
     finish({ data: { success: true } });
     // The delete's own side effects still happen …
     await waitFor(() =>
@@ -240,7 +240,7 @@ describe('MessageDetailPage — More → Delete message', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     // … but the agent stays where they went.
     expect(screen.queryByTestId('inbox')).toBeNull();
-    expect(screen.getByText('Loading message...')).toBeInTheDocument();
+    expect(screen.getByText('Loading thread...')).toBeInTheDocument();
   });
 
   it('left the page mid-delete: the delete landing does not navigate them to the inbox', async () => {
@@ -394,9 +394,9 @@ describe('MessageDetailPage — More → Delete message', () => {
     expect(screen.getByRole('dialog')).toHaveTextContent('From: ada@example.com');
     fireEvent.click(screen.getByRole('button', { name: 'go to message 43' }));
     await waitFor(() => expect(api.get).toHaveBeenCalledWith(expect.stringMatching(/\/43$/)));
-    await waitFor(() => expect(screen.queryByText('Loading message...')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Loading thread...')).toBeNull());
     // CONTROL for the absence below: message 43's page is up.
-    expect(screen.getByRole('button', { name: 'More → Delete message' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More → Delete thread' })).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(api.delete).not.toHaveBeenCalled();
   });
@@ -405,14 +405,14 @@ describe('MessageDetailPage — More → Delete message', () => {
     api.granted = new Set(['view_messages']);
     renderPage();
     await screen.findByText('detail');
-    expect(screen.queryByRole('button', { name: 'More → Delete message' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'More → Delete thread' })).toBeNull();
   });
 
   it('MANAGE_ORGANIZATION alone is enough (an org admin)', async () => {
     api.granted = new Set(['manage_organization']);
     renderPage();
     expect(
-      await screen.findByRole('button', { name: 'More → Delete message' })
+      await screen.findByRole('button', { name: 'More → Delete thread' })
     ).toBeInTheDocument();
   });
 });

@@ -79,7 +79,7 @@ describe('what a limit save released (A1)', () => {
       release({ releasedOrganizations: [3], promotedKbJobs: 2, minesAlreadyQueued: 2 })
     );
     expect(both?.text).toBe(
-      'The KB limit no longer pauses 1 workspace. 2 parked conversations queued to continue; 2 paused mines already queued to continue.'
+      'The KB limit no longer pauses 1 workspace. 2 parked threads queued to continue; 2 paused mines already queued to continue.'
     );
   });
 
@@ -92,7 +92,7 @@ describe('what a limit save released (A1)', () => {
     expect(said?.text).not.toContain('no parked KB work');
   });
 
-  it('conversations queued for a workspace whose mine failed are said, not dropped or credited to released ones', () => {
+  it('threads queued for a workspace whose mine failed are said, not dropped or credited to released ones', () => {
     // Only failed workspaces: the BE still queued their parked conversations — and counts them in
     // promotedKbJobsInFailedOrganizations, NOT promotedKbJobs (BE tokenLimitRelease round 5).
     const onlyFailed = describeRelease(
@@ -104,7 +104,7 @@ describe('what a limit save released (A1)', () => {
     );
     expect(onlyFailed?.tone).toBe('warning');
     expect(onlyFailed?.text).toMatch(
-      /^3 parked conversations \(all in the workspace whose mine could not be queued\) queued to continue\. Could not queue 1 paused mine in 1 workspace — it resumes after the reset at 00:00 UTC/
+      /^3 parked threads \(all in the workspace whose mine could not be queued\) queued to continue\. Could not queue 1 paused mine in 1 workspace — it resumes after the reset at 00:00 UTC/
     );
     expect(onlyFailed?.text).not.toContain('no longer pauses');
     // Audit pass 8: a released workspace with NOTHING queued beside a failed one — the failed
@@ -118,7 +118,7 @@ describe('what a limit save released (A1)', () => {
       })
     );
     expect(releasedEmpty?.text).toMatch(
-      /^The KB limit no longer pauses 1 workspace\. 1 parked conversation \(in the workspace whose mine could not be queued\) queued to continue\./
+      /^The KB limit no longer pauses 1 workspace\. 1 parked thread \(in the workspace whose mine could not be queued\) queued to continue\./
     );
     // Mixed: the total is never stated as the released workspace's work.
     const mixed = describeRelease(
@@ -131,7 +131,7 @@ describe('what a limit save released (A1)', () => {
       })
     );
     expect(mixed?.text).toMatch(
-      /^The KB limit no longer pauses 1 workspace\. 4 parked conversations \(3 of them in workspaces whose mines could not be queued\) queued to continue\. Could not queue 2 paused mines in 2 workspaces — they resume/
+      /^The KB limit no longer pauses 1 workspace\. 4 parked threads \(3 of them in workspaces whose mines could not be queued\) queued to continue\. Could not queue 2 paused mines in 2 workspaces — they resume/
     );
     expect(mixed?.text).not.toMatch(/pauses 1 workspace:/);
     expect(mixed?.text).not.toContain('KB job');
@@ -167,19 +167,19 @@ describe('what a limit save released (A1)', () => {
     truncated: false,
   };
 
-  it('round 6: conversations queued in a FAILED workspace are read and said (BE response shape)', () => {
+  it('round 6: threads queued in a FAILED workspace are read and said (BE response shape)', () => {
     expect(normaliseRelease(beFailedOrg)).toEqual(beFailedOrg);
     const said = describeRelease(normaliseRelease(beFailedOrg));
     expect(said?.tone).toBe('warning');
     expect(said?.text).toMatch(
-      /^The KB limit no longer pauses 1 workspace\. 3 parked conversations \(2 of them in the workspace whose mine could not be queued\) queued to continue\. Could not queue 1 paused mine in 1 workspace — it resumes/
+      /^The KB limit no longer pauses 1 workspace\. 3 parked threads \(2 of them in the workspace whose mine could not be queued\) queued to continue\. Could not queue 1 paused mine in 1 workspace — it resumes/
     );
     // Only the failed workspace had parked conversations: all of them are said.
     const onlyFailed = describeRelease(
       normaliseRelease({ ...beFailedOrg, releasedOrganizations: [], promotedKbJobs: 0 })
     );
     expect(onlyFailed?.text).toMatch(
-      /^2 parked conversations \(all in the workspace whose mine could not be queued\) queued to continue\. Could not queue/
+      /^2 parked threads \(all in the workspace whose mine could not be queued\) queued to continue\. Could not queue/
     );
   });
 
@@ -198,7 +198,7 @@ describe('what a limit save released (A1)', () => {
         release({ releasedOrganizations: [5], promotedKbJobs: 2, noticeOnlyOrganizations: [3] })
       )?.text
     ).toBe(
-      'The KB limit no longer pauses 1 workspace. 2 parked conversations queued to continue. The KB limit no longer pauses 1 workspace with no parked KB work; its notice was updated.'
+      'The KB limit no longer pauses 1 workspace. 2 parked threads queued to continue. The KB limit no longer pauses 1 workspace with no parked KB work; its notice was updated.'
     );
   });
 
@@ -225,14 +225,14 @@ describe('what a limit save released (A1)', () => {
       )
     ).toEqual({
       tone: 'success',
-      text: 'The KB limit no longer pauses 2 workspaces. 12 parked conversations and 1 paused mine queued to continue.',
+      text: 'The KB limit no longer pauses 2 workspaces. 12 parked threads and 1 paused mine queued to continue.',
     });
   });
 
   it('released work is queued, never promised to "run now"', () => {
     const said = describeRelease(release({ releasedOrganizations: [3], promotedKbJobs: 2 }));
     expect(said?.text).not.toMatch(/run now/);
-    expect(said?.text).toContain('2 parked conversations queued to continue');
+    expect(said?.text).toContain('2 parked threads queued to continue');
     expect(said?.text).not.toContain('paused mine');
   });
 
@@ -302,7 +302,7 @@ describe('R8: a workspace whose database could not be reached', () => {
     const said = describeRelease(normaliseRelease(beUnreachable), 7_000_000);
     expect(said?.tone).toBe('warning');
     expect(said?.text).toContain('The KB limit no longer pauses 2 workspaces.');
-    expect(said?.text).toContain('2 parked conversations queued to continue.');
+    expect(said?.text).toContain('2 parked threads queued to continue.');
     expect(said?.text).toContain(
       // BE round 13: also a workspace with nothing parked whose notice could not be updated.
       '1 workspace (#36) could not be reached or checked, or its notice could not be updated, so nothing was released there — any KB work paused there waits for the reset at'
@@ -466,7 +466,7 @@ describe('C1: a release the backend marked partial', () => {
       describeRelease(normaliseRelease(be({ releasedOrganizations: [35], promotedKbJobs: 2 })))
     ).toEqual({
       tone: 'success',
-      text: 'The KB limit no longer pauses 1 workspace. 2 parked conversations queued to continue.',
+      text: 'The KB limit no longer pauses 1 workspace. 2 parked threads queued to continue.',
     });
   });
 

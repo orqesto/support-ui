@@ -215,7 +215,7 @@ describe('NotificationCenter — unanswered outbound', () => {
     outboundAlerts = [{ id: 1, kind: 'one_sided_outbound', entityId: 11822, recovered: null }];
     open();
     fireEvent.click(screen.getByText('Open thread'));
-    expect(screen.getByTestId('loc').textContent).toBe('/messages/11822');
+    expect(screen.getByTestId('loc').textContent).toBe('/threads/11822');
   });
 
   it('counts the alerts in the bell badge, so it is not a panel nobody opens', () => {

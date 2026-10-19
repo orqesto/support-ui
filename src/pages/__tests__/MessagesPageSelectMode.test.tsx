@@ -153,7 +153,7 @@ beforeEach(() => {
 const renderPage = () =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={['/messages']}>
+      <MemoryRouter initialEntries={['/threads']}>
         <MessagesPage />
       </MemoryRouter>
     </QueryClientProvider>
@@ -161,7 +161,7 @@ const renderPage = () =>
 
 const row = (id: number) => document.querySelector(`[data-select-id="${id}"]`) as HTMLElement;
 const box = (id: number) =>
-  within(row(id)).getByRole<HTMLInputElement>('checkbox', { name: /select message/i });
+  within(row(id)).getByRole<HTMLInputElement>('checkbox', { name: /select thread/i });
 const boxWrapper = (id: number) => box(id).closest('[class*="absolute"]') as HTMLElement;
 const checkedIds = () => IDS.filter((id) => box(id).checked);
 const bar = () => screen.queryByText(/^\d+ selected$/);

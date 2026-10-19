@@ -93,12 +93,12 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
               <p className="text-lg font-medium">No leads in this period</p>
               {speedData.leadQualConfigured ? (
                 <p className="text-sm text-muted-foreground">
-                  No conversations were flagged as leads in the selected window. Try a longer period.
+                  No threads were flagged as leads in the selected window. Try a longer period.
                 </p>
               ) : (
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
                   Lead qualification isn&apos;t enabled yet. Turn it on for your sales department (or
-                  flag conversations as leads manually) to start measuring how fast leads get a first
+                  flag threads as leads manually) to start measuring how fast leads get a first
                   response.
                 </p>
               )}

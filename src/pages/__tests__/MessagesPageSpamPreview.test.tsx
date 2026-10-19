@@ -89,7 +89,7 @@ vi.mock('@/hooks/useMessagesData', () => ({
 vi.mock('@/services/message.service', () => ({
   messageService: {
     // A spam-log card never fetches a conversation; failing loudly here would mean it tried.
-    getById: vi.fn(() => Promise.reject(new Error('a spamlog_ card must not load a conversation'))),
+    getById: vi.fn(() => Promise.reject(new Error('a spamlog_ card must not load a thread'))),
     markRead: vi.fn(() => Promise.resolve()),
     markUnread: vi.fn(() => Promise.resolve()),
   },
@@ -179,7 +179,7 @@ import { MessagesPage } from '../MessagesPage';
 const renderPage = () =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={['/messages']}>
+      <MemoryRouter initialEntries={['/threads']}>
         <MessagesPage />
       </MemoryRouter>
     </QueryClientProvider>
@@ -199,7 +199,7 @@ describe('MessagesPage — spam-rule-record dialog', () => {
     expect(within(dialog).getByText('hide quoted')).toBeInTheDocument();
   });
 
-  it('the dialog says what is known — a rule recorded it, no conversation — never "blocked" or "rejected"', async () => {
+  it('the dialog says what is known — a rule recorded it, no thread — never "blocked" or "rejected"', async () => {
     localStorage.setItem('messages_view_mode', 'threads');
     renderPage();
     fireEvent.click(screen.getByText('Re: lost reply'));
@@ -207,13 +207,13 @@ describe('MessagesPage — spam-rule-record dialog', () => {
     expect(within(dialog).getByText('Spam-rule record')).toBeInTheDocument();
     expect(
       within(dialog).getByText(
-        /A spam rule recorded this message\. It isn't attached to a conversation in this view — if the message is in a thread, it is linked automatically when spam is viewed in its workspace\./
+        /A spam rule recorded this message\. It isn't attached to a thread in this view — if the message is in a thread, it is linked automatically when spam is viewed in its workspace\./
       )
     ).toBeInTheDocument();
     // Never asserts the conversation is gone: a linkable record beyond the 25-per-load bound, or a
     // view with no workspace selected, still has its message in a thread (audit pass 11).
     expect(
-      within(dialog).queryByText(/no longer here|no conversation for this message/)
+      within(dialog).queryByText(/no longer here|no thread for this message/)
     ).toBeNull();
     expect(within(dialog).queryByText(/Blocked spam/)).toBeNull();
     expect(within(dialog).queryByText(/rejected by a spam rule/)).toBeNull();

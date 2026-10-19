@@ -461,7 +461,7 @@ export const SourceAliasEditor = ({
                     {entry.conversations > 0 && (
                       <>
                         {' · '}
-                        {entry.conversations} conversation
+                        {entry.conversations} thread
                         {entry.conversations === 1 ? '' : 's'} · last{' '}
                         {formatLastSeen(entry.lastSeenAt)}
                       </>
@@ -517,7 +517,7 @@ export const SourceAliasEditor = ({
           {thinCoverage && (
             <p className="mt-2 text-[11px] text-muted-foreground">
               Delivery addresses are known for {coverage.withDeliveryAddress} of{' '}
-              {coverage.conversations} conversations — older mail was stored before they were
+              {coverage.conversations} threads — older mail was stored before they were
               recorded, so this list is drawn mostly from who sent to you.
             </p>
           )}

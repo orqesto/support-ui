@@ -579,7 +579,7 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
           setSelectedDepartmentIds(selectedDepartmentIds.filter((deptItemId) => deptItemId !== deptId));
         }}
         title="Remove catch-all department?"
-        description="The Info department handles general information requests. Removing it means this user won't see Info messages. Are you sure?"
+        description="The Info department handles general information requests. Removing it means this user won't see Info threads. Are you sure?"
         confirmText="Remove"
         cancelText="Keep"
         variant="warning"

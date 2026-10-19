@@ -197,7 +197,7 @@ export const FailureAnalysisCard = () => {
         description={
           pending?.action === 'retry'
             ? 'The jobs go back to waiting and run again with the current code. Retry only once the cause is fixed, or they will fail the same way.'
-            : 'The jobs are deleted from their queues. The conversations keep whatever the failed attempt stored.'
+            : 'The jobs are deleted from their queues. The threads keep whatever the failed attempt stored.'
         }
         confirmText={pending?.action === 'retry' ? 'Retry' : 'Remove'}
         variant={pending?.action === 'remove' ? 'danger' : 'warning'}

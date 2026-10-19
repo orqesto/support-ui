@@ -64,7 +64,7 @@ export const resolveComposerWindow = (
     return {
       blocked: true,
       notice:
-        'WhatsApp only allows a free-form message after the customer has written to you. This conversation has no message from them yet.',
+        'WhatsApp only allows a free-form message after the customer has written to you. This thread has no message from them yet.',
       remaining: null,
       tone: 'blocked',
     };

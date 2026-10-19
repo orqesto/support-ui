@@ -116,8 +116,8 @@ const allNavigation: Array<{
   { group: 'work', name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   {
     group: 'work',
-    name: 'Messages',
-    href: '/messages',
+    name: 'Threads',
+    href: '/threads',
     icon: Mail,
     permission: Permission.VIEW_MESSAGES,
   },

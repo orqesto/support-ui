@@ -10,7 +10,7 @@
  */
 const HIDDEN_PREFIXES = [
   '/dashboard',
-  '/messages',
+  '/threads',
   '/tickets',
   '/needs-routing',
   '/statistics',

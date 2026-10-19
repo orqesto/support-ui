@@ -140,7 +140,7 @@ const PlatformEmailTemplates = lazy(() =>
  */
 export const PLATFORM_SECTIONS: ConsoleSection[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '', index: true, element: PlatformOverview },
-  { id: 'alliances', label: 'Organisations', icon: Network, path: 'alliances', element: PlatformAlliances },
+  { id: 'alliances', label: 'Organisations', icon: Network, path: 'organisations', element: PlatformAlliances },
   { id: 'organizations', label: 'Workspaces', icon: Building2, path: 'organizations', element: PlatformOrganizations },
   { id: 'users', label: 'Users', icon: Users, path: 'users', element: PlatformUsers },
   {

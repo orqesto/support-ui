@@ -58,6 +58,6 @@ describe('MessageListItem — select box name', () => {
         />
       </MemoryRouter>
     );
-    expect(screen.getByRole('checkbox', { name: 'Select message from a@b.example' })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Select thread from a@b.example' })).toBeTruthy();
   });
 });

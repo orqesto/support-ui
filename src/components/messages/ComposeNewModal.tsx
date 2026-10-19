@@ -153,7 +153,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
         onClose();
         // Take the agent to the conversation they just created so they can
         // verify and follow up.
-        navigate(`/messages?messageId=${response.data.conversationId}`);
+        navigate(`/threads?messageId=${response.data.conversationId}`);
       } else {
         setError(response.error ?? response.message ?? 'Failed to send');
       }

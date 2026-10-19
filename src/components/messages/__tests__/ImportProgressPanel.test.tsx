@@ -235,7 +235,7 @@ describe('ImportProgressPanel — what finished and what did not', () => {
     ).toBeInTheDocument();
   });
 
-  it('an index / knowledge-base leftover is counted in CONVERSATIONS and says so', () => {
+  it('an index / knowledge-base leftover is counted in THREADS and says so', () => {
     render(
       <ImportProgressPanel
         data={tracked({
@@ -247,7 +247,7 @@ describe('ImportProgressPanel — what finished and what did not', () => {
       />
     );
     expect(
-      screen.getByText(/3 conversations were not mined for the knowledge base/)
+      screen.getByText(/3 threads were not mined for the knowledge base/)
     ).toBeInTheDocument();
   });
 

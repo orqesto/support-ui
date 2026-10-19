@@ -42,7 +42,7 @@ export function TicketPanelTabs({
     { id: 'attachments', label: 'Attachments' },
     {
       id: 'messages',
-      label: 'Messages',
+      label: 'Threads',
       // A thread count either way: the ticket's own list when the backend has it, else the
       // older inbox-based list grouped by thread.
       badge:
@@ -110,9 +110,9 @@ export function TicketPanelTabs({
           fallback={
             <>
               {loadingMessages ? (
-                <p className="py-4 text-sm text-center text-muted-foreground">Loading messages…</p>
+                <p className="py-4 text-sm text-center text-muted-foreground">Loading threads…</p>
               ) : linkedMessages.length === 0 ? (
-                <p className="py-4 text-sm text-center text-muted-foreground">No linked messages.</p>
+                <p className="py-4 text-sm text-center text-muted-foreground">No linked threads.</p>
               ) : (
                 <div className="space-y-2">
                   {(() => {
@@ -133,7 +133,7 @@ export function TicketPanelTabs({
                       return (
                         <Link
                           key={root.id}
-                          to={`/messages?id=${getConvUrlId(root, orgCode)}`}
+                          to={`/threads?id=${getConvUrlId(root, orgCode)}`}
                           className="flex gap-3 items-start p-3 rounded-lg border transition-colors bg-muted border-border hover:bg-accent group"
                         >
                           <div className="p-2 rounded bg-muted flex-shrink-0">

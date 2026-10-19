@@ -71,7 +71,7 @@ describe('Needs Routing — selects match the controls beside them', () => {
     );
     await screen.findAllByRole('button', { name: 'Resolve & move to spam' });
     expect(sourceFilterSize.value).toBe('md');
-    expect(heightOf(screen.getByRole('combobox', { name: 'Sort messages' }))).toBe('2.5rem');
+    expect(heightOf(screen.getByRole('combobox', { name: 'Sort threads' }))).toBe('2.5rem');
     const inTableRow = screen
       .getAllByRole('combobox', { name: 'Department to route to' })
       .filter((box) => box.closest('td'));
