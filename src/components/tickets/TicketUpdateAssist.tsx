@@ -35,11 +35,18 @@ export const draftTicketUpdate = async (
   const notes = blank ? undefined : editorHtmlToText(draft).trim() || undefined;
   const result = await ticketRepliesService.composeUpdate(ticketId, notes);
   if (!result.text) {
+    // An incident is usually new to the knowledge base: with the facts typed in the box, the
+    // update is written from them alone, so a blank box asks for them.
+    if (result.sources.length > 0) {
+      return {
+        notice:
+          'The knowledge base had related material but no draft could be written — write the update yourself.',
+      };
+    }
     return {
-      notice:
-        result.sources.length > 0
-          ? 'The knowledge base had related material but no draft could be written — write the update yourself.'
-          : 'Nothing in the knowledge base fits this ticket yet — write the update yourself.',
+      notice: notes
+        ? 'No draft could be written just now — write the update yourself.'
+        : 'Nothing in the knowledge base covers this yet. Type the key facts in the box — what happened, what you are doing, when to expect it — and Generate again.',
     };
   }
   return { html: normalizeEditorHtml(answerToEditorHtml(result.text)) };

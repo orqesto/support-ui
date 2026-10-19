@@ -282,7 +282,7 @@ export const TicketReplyComposer = ({
       kind: 'again',
       reply,
       ids,
-      description: `Send this earlier reply to the ${ids.length} ${plural(ids.length, 'thread', 'threads')} that ${plural(ids.length, 'has', 'have')} not had it. Threads that already have it get nothing. A thread sent again after a failure keeps the choice it was first sent with (Pending or resolved); a thread new to this reply becomes Pending.${originalOnly(reply)}`,
+      description: `Send this earlier reply to the ${ids.length} ${plural(ids.length, 'thread', 'threads')} that ${plural(ids.length, 'has', 'have')} not had it. Threads that already have it get nothing. A thread sent again after a failure keeps the choice it was first sent with (Pending, On-hold or resolved); a thread new to this reply becomes Pending.${originalOnly(reply)}`,
     });
   };
 
