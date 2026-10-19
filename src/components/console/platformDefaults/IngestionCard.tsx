@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 import { Inbox } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -16,7 +17,9 @@ export const INGESTION_NOT_DEPLOYED =
 
 type FieldKey = keyof IngestionSettings;
 
-const FIELDS: { key: FieldKey; label: string; hint: string }[] = [
+type FieldDef = { key: FieldKey; label: string; hint: string };
+
+const RATE_FIELDS: FieldDef[] = [
   {
     key: 'importRunBudgetMinutes',
     label: 'Import run budget (minutes)',
@@ -32,12 +35,34 @@ const FIELDS: { key: FieldKey; label: string; hint: string }[] = [
     label: 'Knowledge-base messages per minute',
     hint: 'How many messages are read into the knowledge base per minute. Takes effect within about a minute, no restart.',
   },
+];
+
+const PAUSE_FIELDS: FieldDef[] = [
+  {
+    key: 'importPauseAtUnits',
+    label: 'Pause imports at (queued work units)',
+    hint: 'Imports stop adding work to the queue above this size. They resume once it falls below the next value.',
+  },
+  {
+    key: 'importResumeAtUnits',
+    label: 'Resume imports at',
+    hint: 'Paused imports start again when the queue is below this size. Must be lower than the pause value.',
+  },
+  {
+    key: 'livePollCeilingUnits',
+    label: 'New-mail checks pause at',
+    hint: 'A safety limit: new mail for other workspaces keeps flowing until the queue reaches this size. Must not be below the pause value.',
+  },
+];
+/** Outgoing: a ticket reply to many threads (contingency page, 2026-10-19). */
+const SEND_FIELDS: FieldDef[] = [
   {
     key: 'ticketReplyGapSeconds',
     label: 'Gap between ticket-reply emails (seconds)',
     hint: 'A reply sent from a ticket to many threads goes out one email at a time, this many seconds apart, so a mailbox never sends a burst. 0 = no gap.',
   },
 ];
+const FIELDS: FieldDef[] = [...RATE_FIELDS, ...PAUSE_FIELDS, ...SEND_FIELDS];
 
 /** The text as a whole number inside the field's bounds, or null. */
 const asBounded = (text: string, field: BoundedField): number | null => {
@@ -76,7 +101,56 @@ export const IngestionCard = ({ ingestion }: { ingestion: IngestionSettings | un
     if (value === null) invalid = true;
     else if (value !== saved.value) changed[field.key] = value;
   }
+  // The pause rules the server enforces, read from what is typed (a blank or bad number is
+  // already flagged by its own bounds message).
+  const typed = (key: FieldKey): number | null => {
+    const saved = ingestion?.[key];
+    return saved ? asBounded(texts[key] ?? String(saved.value), saved) : null;
+  };
+  const pauseAt = typed('importPauseAtUnits');
+  const resumeAt = typed('importResumeAtUnits');
+  const ceiling = typed('livePollCeilingUnits');
+  const crossErrors: Partial<Record<FieldKey, string>> = {};
+  if (pauseAt !== null && resumeAt !== null && resumeAt >= pauseAt)
+    crossErrors.importResumeAtUnits = 'Must be lower than the pause value.';
+  if (pauseAt !== null && ceiling !== null && ceiling < pauseAt)
+    crossErrors.livePollCeilingUnits = 'Must not be lower than the pause value.';
+  if (Object.keys(crossErrors).length > 0) invalid = true;
+  const serverError = save.isError ? getApiErrorMessage(save.error) : undefined;
   const nothingChanged = Object.keys(changed).length === 0;
+
+  const renderGrid = (list: FieldDef[]) => (
+    <div className="grid gap-3 sm:grid-cols-3">
+      {list
+        .filter((field) => ingestion?.[field.key] !== undefined)
+        .map((field) => {
+          const saved = ingestion?.[field.key];
+          if (!saved) return null;
+          const text = texts[field.key] ?? String(saved.value);
+          const bad = asBounded(text, saved) === null;
+          const cross = crossErrors[field.key];
+          return (
+            <div key={field.key} className="space-y-1">
+              <Input
+                type="number"
+                min={saved.min}
+                max={saved.max}
+                step={1}
+                label={field.label}
+                value={text}
+                error={bad ? `Enter a whole number from ${saved.min} to ${saved.max}.` : cross}
+                onChange={(event) => {
+                  save.reset();
+                  setTexts((current) => ({ ...current, [field.key]: event.target.value }));
+                }}
+              />
+              <p className="text-xs text-muted-foreground">{field.hint}</p>
+              <SourceBadge source={saved.source} />
+            </div>
+          );
+        })}
+    </div>
+  );
 
   return (
     <Card data-config-card="Mail import">
@@ -92,37 +166,30 @@ export const IngestionCard = ({ ingestion }: { ingestion: IngestionSettings | un
         ) : (
           <>
             <p className="text-sm text-muted-foreground">
-              How fast a large mailbox import is processed, and how fast a ticket reply goes out to
-              its threads. Only the values you change are saved.
+              How fast a large mailbox import is processed. Only the values you change are saved.
             </p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {shown.map((field) => {
-                const saved = ingestion?.[field.key];
-                if (!saved) return null;
-                const text = texts[field.key] ?? String(saved.value);
-                const bad = asBounded(text, saved) === null;
-                return (
-                  <div key={field.key} className="space-y-1">
-                    <Input
-                      type="number"
-                      min={saved.min}
-                      max={saved.max}
-                      step={1}
-                      label={field.label}
-                      value={text}
-                      error={
-                        bad ? `Enter a whole number from ${saved.min} to ${saved.max}.` : undefined
-                      }
-                      onChange={(event) =>
-                        setTexts((current) => ({ ...current, [field.key]: event.target.value }))
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground">{field.hint}</p>
-                    <SourceBadge source={saved.source} />
-                  </div>
-                );
-              })}
-            </div>
+            {renderGrid(RATE_FIELDS)}
+            {PAUSE_FIELDS.some((field) => ingestion?.[field.key] !== undefined) && (
+              <>
+                <h3 className="text-sm font-medium pt-2">When imports pause</h3>
+                <p className="text-sm text-muted-foreground">
+                  Big imports are held back while the work queue is long, so new mail is never stuck
+                  behind them.
+                </p>
+                {renderGrid(PAUSE_FIELDS)}
+              </>
+            )}
+            {SEND_FIELDS.some((field) => ingestion?.[field.key] !== undefined) && (
+              <>
+                <h3 className="text-sm font-medium pt-2">Ticket replies</h3>
+                {renderGrid(SEND_FIELDS)}
+              </>
+            )}
+            {serverError && (
+              <p role="alert" className="text-sm text-destructive">
+                {serverError}
+              </p>
+            )}
             <Button
               disabled={save.isPending || invalid || nothingChanged}
               onClick={() => save.mutate(changed)}

@@ -179,6 +179,12 @@ export type IngestionSettings = {
   importRunBudgetMinutes?: BoundedField;
   attachmentsPerMinute?: BoundedField;
   kbMessagesPerMinute?: BoundedField;
+  /** Queue size (work units) at which new-mail checks pause — must stay >= importPauseAtUnits. */
+  livePollCeilingUnits?: BoundedField;
+  /** Queue size at which imports stop adding work. */
+  importPauseAtUnits?: BoundedField;
+  /** Queue size below which paused imports resume — must stay < importPauseAtUnits. */
+  importResumeAtUnits?: BoundedField;
   /** Seconds between two emails of one ticket reply (`tickets.reply_send_gap`, 2026-10-19). */
   ticketReplyGapSeconds?: BoundedField;
 };
@@ -430,6 +436,9 @@ export const INGESTION_FIELDS = [
   'importRunBudgetMinutes',
   'attachmentsPerMinute',
   'kbMessagesPerMinute',
+  'livePollCeilingUnits',
+  'importPauseAtUnits',
+  'importResumeAtUnits',
   'ticketReplyGapSeconds',
 ] as const;
 
