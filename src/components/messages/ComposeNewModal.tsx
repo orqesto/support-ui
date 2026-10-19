@@ -82,6 +82,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
     setContent('');
     setFiles([]);
     setError(null);
+    setAiBusy(false);
   }, [open]);
 
   // Lazy-load sources on open. Cached at the component level — re-opens within
@@ -352,6 +353,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
               getText={() => editorRef.current?.getTranslationText() ?? ''}
               onTranslated={(translated) => editorRef.current?.applyTranslation(translated)}
               clearable={false}
+              disabled={submitting || aiBusy}
               label="Translate"
               buttonClassName="inline-flex items-center gap-2 !w-auto !h-auto px-4 py-2 rounded-md border border-border bg-transparent text-sm text-foreground hover:bg-accent"
             />
