@@ -7,6 +7,7 @@
 import { apiErrorStatus } from '@/lib/apiError';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
+import { toast } from '@/lib/toast';
 import { kbService, type KBEntry } from '@/services/kb.service';
 import { kbConsolidationService } from '@/services/kbConsolidation.service';
 
@@ -23,6 +24,14 @@ export type CaseActionNow = {
   close: () => void;
   /** Re-read the list with the filters as they are now. Never throws. */
   refetch: () => Promise<void>;
+};
+
+/** The confirm dialog's title for each action on a CASE row (each one unmerges it). */
+export const CASE_ACTION_TITLES: Record<CaseActionKind, string> = {
+  hide: 'Hide this case?',
+  reject: 'Reject this case?',
+  delete: 'Delete this case?',
+  unmerge: 'Unmerge this case?',
 };
 
 export type CaseActionOutcome = {
@@ -88,4 +97,16 @@ export const runCaseAction = async (
           variant: 'error',
         };
   }
+};
+
+/**
+ * What a case action sees once the page is gone: no drawer to close, nothing to re-read — and
+ * the outcome goes to a toast, since the page's dialog went with it (FE pass 18 LOW-1).
+ */
+export const LEFT_PAGE: CaseActionNow = {
+  selectedId: null,
+  selectedCaseId: null,
+  say: ({ title, description, variant }) => toast[variant](title, { description }),
+  close: () => {},
+  refetch: () => Promise.resolve(),
 };
