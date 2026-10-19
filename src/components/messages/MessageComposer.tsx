@@ -15,6 +15,9 @@ import type { AiDraft } from '@/services/message.service';
 import type { Message } from '@/types';
 import { LABEL } from './messageDetailConstants';
 import { useIsPhone } from './useIsPhone';
+import { TranslateButton } from '@/components/shared/TranslateButton';
+import { useAiConfigured } from '@/hooks/useAiConfigured';
+import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -167,6 +170,16 @@ export function MessageComposer({
     !recipientDraft?.cc.trim() &&
     !recipientDraft?.bcc.trim();
   const atRest = isPhone && !phoneOpen;
+  // Says what AI draft does with what is typed — before, only the button's hover title did, and a
+  // phone has no hover. Only where the button is offered (the same conditions ComposerAiActions
+  // uses), and not in the one-line pill at rest on a phone, where it would be cut off.
+  const { aiConfigured } = useAiConfigured();
+  const { off: aiDraftsOff } = useAiDraftsOff();
+  const replyAs = `Reply as ${user?.firstName ?? 'you'}…`;
+  const replyPlaceholder =
+    aiConfigured && !aiDraftsOff && !atRest
+      ? `${replyAs} Or type the facts (order number, what you decided) and press AI draft. Leave it empty to draft from the knowledge base.`
+      : replyAs;
   const openOnPhone = () => {
     if (isPhone && !phoneOpen) setPhoneOpen(true);
   };
@@ -448,11 +461,10 @@ export function MessageComposer({
             // While an AI draft is being written the editor holds the agent's NOTE, not a reply.
             onSubmit={aiBusy ? undefined : onSend}
             onImageFiles={addImageFiles}
-            placeholder={`Reply as ${user?.firstName ?? 'you'}…`}
+            placeholder={replyPlaceholder}
             minHeight={editorMinHeight}
             maxHeight="180px"
             transparent
-            translatable
             locked={aiBusy}
             className={`rounded-none border-0 shadow-none ${restEditorClass} ${
               aiBusy ? 'pointer-events-none opacity-60' : ''
@@ -519,6 +531,17 @@ export function MessageComposer({
                 }}
               />
             </span>
+          )}
+          {/* Translate sits with the other reply tools, labelled — as an icon at the end of the
+              formatting row it went unnoticed. It replaces the reply in place; Undo restores it. */}
+          {composerMode === 'reply' && !atRest && (
+            <TranslateButton
+              getText={() => richEditorRef.current?.getTranslationText() ?? ''}
+              onTranslated={(translated) => richEditorRef.current?.applyTranslation(translated)}
+              clearable={false}
+              label={isPhone ? undefined : 'Translate'}
+              buttonClassName={`${IBTN} !w-auto !h-auto max-sm:!w-9 max-sm:justify-center max-sm:!px-0`}
+            />
           )}
           {composerMode === 'reply' && !atRest && (
             <TemplatePicker

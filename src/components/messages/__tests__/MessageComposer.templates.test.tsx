@@ -19,6 +19,8 @@ vi.mock('@/services/replyTemplates.service', () => ({
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 vi.mock('../ComposerAiActions', () => ({ ComposerAiActions: () => null }));
 vi.mock('../useIsPhone', () => ({ useIsPhone: () => false }));
+vi.mock('@/hooks/useAiConfigured', () => ({ useAiConfigured: () => ({ aiConfigured: true }) }));
+vi.mock('@/hooks/useAiDraftsOff', () => ({ useAiDraftsOff: () => ({ off: false }) }));
 vi.mock('@/components/shared/RichTextEditor', () => ({
   default: forwardRef((props: { content?: string; onChange?: (html: string) => void }, ref) => {
     useImperativeHandle(ref, () => ({ focus: () => undefined }));
