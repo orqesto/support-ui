@@ -18,6 +18,10 @@ import { messageService } from '@/services/message.service';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
 import { isBlankRichText } from '@/lib/stripHtml';
+import { TranslateButton } from '@/components/shared/TranslateButton';
+import { useAiConfigured } from '@/hooks/useAiConfigured';
+import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
+import { ComposeNewAiDraft } from './ComposeNewAiDraft';
 
 type Props = {
   open: boolean;
@@ -52,6 +56,15 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // An AI draft is about to replace the editor: lock it, and Send, until it lands.
+  const [aiBusy, setAiBusy] = useState(false);
+  const { aiConfigured } = useAiConfigured();
+  const { off: aiDraftsOff } = useAiDraftsOff();
+  // A disabled button shows no hover title, so the editor itself says how AI draft works here.
+  const messagePlaceholder =
+    aiConfigured && !aiDraftsOff
+      ? 'Write your message… Or jot down what to say and press AI draft to turn it into a ready-to-send email.'
+      : 'Write your message…';
 
   const emailSources = useMemo(
     () => sources.filter((src) => src.enabled && (src.type === 'email' || src.type === 'gmail')),
@@ -119,7 +132,8 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
       setError('Pick a source to send from');
       return;
     }
-    if (!to.trim()) {
+    const toList = parseTypedAddresses(to);
+    if (toList.length === 0) {
       setError('Recipient email is required');
       return;
     }
@@ -138,7 +152,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
     try {
       const response = await messageService.composeNew({
         messageSourceId,
-        to: to.trim(),
+        to: toList,
         cc: parseTypedAddresses(cc),
         bcc: parseTypedAddresses(bcc),
         subject: subject.trim(),
@@ -203,8 +217,8 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
 
           <Input
             label="To"
-            type="email"
-            placeholder="recipient@example.com"
+            type="text"
+            placeholder="one@example.com, two@example.com"
             value={to}
             onChange={(event) => setTo(event.target.value)}
             disabled={submitting}
@@ -261,10 +275,10 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
               ref={editorRef}
               content={content}
               onChange={setContent}
-              placeholder="Write your message…"
+              placeholder={messagePlaceholder}
               minHeight="180px"
               initiallyHidden={false}
-              editable={!submitting}
+              editable={!submitting && !aiBusy}
             />
           </div>
 
@@ -310,7 +324,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
             <div className="p-3 text-sm rounded-md text-destructive bg-destructive/10">{error}</div>
           )}
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 flex-wrap">
             <Button
               type="button"
               variant="outline"
@@ -320,6 +334,19 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
               <Paperclip className="w-4 h-4 mr-2" />
               Attach
             </Button>
+            <ComposeNewAiDraft
+              content={content}
+              setContent={setContent}
+              disabled={submitting}
+              onBusyChange={setAiBusy}
+            />
+            <TranslateButton
+              getText={() => editorRef.current?.getTranslationText() ?? ''}
+              onTranslated={(translated) => editorRef.current?.applyTranslation(translated)}
+              clearable={false}
+              label="Translate"
+              buttonClassName="inline-flex items-center gap-2 !w-auto !h-auto px-4 py-2 rounded-md border border-border bg-transparent text-sm text-foreground hover:bg-accent"
+            />
             <div className="flex-1" />
             <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
               Cancel
@@ -328,9 +355,10 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
               type="submit"
               disabled={
                 submitting ||
+                aiBusy ||
                 emailSources.length === 0 ||
                 !messageSourceId ||
-                !to.trim() ||
+                parseTypedAddresses(to).length === 0 ||
                 !subject.trim() ||
                 isBlankRichText(content)
               }

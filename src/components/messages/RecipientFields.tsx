@@ -67,7 +67,9 @@ export const replyAllDraft = (
   defaultTo: string,
   participants: string[]
 ): RecipientDraft => {
-  const toList = parseTypedAddresses(draft.to.trim() || defaultTo).map((addr) => addr.toLowerCase());
+  const toList = parseTypedAddresses(draft.to.trim() || defaultTo).map((addr) =>
+    addr.toLowerCase()
+  );
   const already = new Set([
     ...toList,
     ...parseTypedAddresses(draft.cc).map((addr) => addr.toLowerCase()),
@@ -117,11 +119,13 @@ export const RecipientFields = ({
   const invalid = invalidAddresses(draft);
   // Offered only when it would add someone: a thread with one correspondent has no "all".
   const replyAll = replyAllDraft(draft, defaultTo, participants);
-  const replyAllAdds = parseTypedAddresses(replyAll.cc).length - parseTypedAddresses(draft.cc).length;
+  const replyAllAdds =
+    parseTypedAddresses(replyAll.cc).length - parseTypedAddresses(draft.cc).length;
   // Chips only for people not yet addressed — a chip for someone already in To or Cc would do
   // nothing when pressed.
   const addable = parseTypedAddresses(replyAll.cc).filter(
-    (addr) => !parseTypedAddresses(draft.cc).some((have) => have.toLowerCase() === addr.toLowerCase())
+    (addr) =>
+      !parseTypedAddresses(draft.cc).some((have) => have.toLowerCase() === addr.toLowerCase())
   );
   const applyReplyAll = () => {
     onChange(replyAll);
@@ -195,7 +199,12 @@ export const RecipientFields = ({
         <Input
           value={draft.to}
           onChange={(event) => onChange({ ...draft, to: event.target.value })}
-          placeholder={defaultTo}
+          // Several addresses work (split on commas/spaces) — say so where the address is typed.
+          placeholder={
+            defaultTo
+              ? `${defaultTo} — separate several with commas`
+              : 'Separate several with commas'
+          }
           disabled={disabled}
           aria-label="To"
           className="h-7 flex-1 text-xs"
