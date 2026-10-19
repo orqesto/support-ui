@@ -593,7 +593,8 @@ export const messageService = {
   // are optional.
   composeNew: async (input: {
     messageSourceId: number;
-    to: string;
+    /** Several since 2026-10-19; the first is the thread's customer. */
+    to: string[];
     cc?: string[];
     bcc?: string[];
     subject: string;
@@ -602,7 +603,10 @@ export const messageService = {
   }) => {
     const formData = new FormData();
     formData.append('messageSourceId', String(input.messageSourceId));
-    formData.append('to', input.to);
+    // One address goes as a plain string — the only shape a backend from before the list change
+    // accepts, so the common case keeps working whichever backend is deployed. Several go JSON-
+    // encoded like cc/bcc.
+    formData.append('to', input.to.length === 1 ? input.to[0] : JSON.stringify(input.to));
     // JSON-encoded, like aiDraft on the reply path: multipart has no array type,
     // and multer would hand the BE a bare string for one address and an array for
     // two — a shape that changes with the input is a validation bug waiting to
@@ -790,6 +794,18 @@ export const messageService = {
         aiConfigured?: boolean;
       }>
     >(`/api/messages/${id}/compose-reply`, payload);
+    return response.data;
+  },
+
+  /**
+   * AI draft in "Compose new message": the agent's own text rewritten into a sendable email.
+   * There is no thread, so no knowledge-base answer — only polish. A backend without the route
+   * answers 404 (the caller then hides the button).
+   */
+  composePolish: async (draft: string) => {
+    const response = await apiClient.post<
+      ApiResponse<{ mode: 'polish'; text: string | null; language?: string; provider?: string }>
+    >('/api/messages/compose-polish', { draft });
     return response.data;
   },
 
