@@ -43,6 +43,9 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
   const navigate = useNavigate();
   const editorRef = useRef<RichTextEditorHandle>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  // Where AI draft's Undo renders: after Translate, beside the spacer, so its reserved (empty)
+  // slot is not a hole between two chips.
+  const [undoSlot, setUndoSlot] = useState<HTMLSpanElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [sources, setSources] = useState<ComposeSource[]>([]);
@@ -194,8 +197,10 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="max-w-2xl">
+    // `size="lg"` is the window's own width (672px). A max-w class on DialogContent only sized an
+    // inner box: the window stayed 512px and the composer's rows wrapped (staging, 2026-10-19).
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()} size="lg">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Compose new message</DialogTitle>
           <DialogClose onClose={onClose} />
@@ -258,7 +263,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
                     size="sm"
                     onClick={() => setShowCcBcc(true)}
                     disabled={submitting}
-                    className="h-auto px-1 py-0 text-xs"
+                    className="h-auto shrink-0 whitespace-nowrap px-1 py-0 text-xs"
                   >
                     Cc / Bcc
                   </Button>
@@ -342,6 +347,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
                 disabled={submitting}
                 onBusyChange={setAiBusy}
                 onNoteChange={setAiNote}
+                undoSlot={undoSlot}
               />
               <TranslateButton
                 getText={() => editorRef.current?.getTranslationText() ?? ''}
@@ -351,6 +357,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
                 label="Translate"
                 buttonClassName={`${COMPOSER_TOOL} !w-auto !h-auto`}
               />
+              <span ref={setUndoSlot} className="inline-flex self-stretch" />
               <span className="flex-1" />
               <span className="font-mono text-[10.5px] text-muted-foreground hidden sm:inline">
                 ⌘↵ send
