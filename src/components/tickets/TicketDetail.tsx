@@ -45,7 +45,7 @@ type TicketDetailProps = {
   ticket: Ticket;
   onPushToJira?: () => void;
   onDelete?: () => void;
-  onRefresh?: () => void;
+  onRefresh?: () => void | Promise<void>;
   isPushingToJira?: boolean;
   showFullPageButton?: boolean;
 };
@@ -154,14 +154,28 @@ export const TicketDetail = ({
     if (!editingTitle) setLocalTitle(ticket.title);
   }, [ticket.id, ticket.status, ticket.priority, ticket.categoryId, ticket.description, ticket.title, editingDescription, editingTitle]);
 
-  const saveTitle = () => {
+  // The editor closes only once the save and the reload are done: closing it re-syncs the title
+  // from `ticket`, which until then still holds the old one (staging 2026-10-19: the page kept
+  // showing the old title after a save that had gone through).
+  const [savingTitle, setSavingTitle] = useState(false);
+  const saveTitle = async () => {
     const next = localTitle.trim();
-    setEditingTitle(false);
     if (!next || next === ticket.title) {
       setLocalTitle(ticket.title);
+      setEditingTitle(false);
       return;
     }
-    void handleFieldUpdate('title', next);
+    setSavingTitle(true);
+    try {
+      await ticketService.update(ticket.id, ticketFieldPatch('title', next));
+      await onRefresh?.();
+    } catch (err) {
+      logger.error('Failed to rename ticket:', err);
+      setLocalTitle(ticket.title);
+    } finally {
+      setSavingTitle(false);
+      setEditingTitle(false);
+    }
   };
 
   useEffect(() => {
@@ -173,7 +187,7 @@ export const TicketDetail = ({
   const handleFieldUpdate = async (field: string, value: string) => {
     try {
       await ticketService.update(ticket.id, ticketFieldPatch(field, value));
-      onRefresh?.();
+      await onRefresh?.();
     } catch (err) {
       logger.error('Failed to update ticket field:', err);
     }
@@ -259,14 +273,19 @@ export const TicketDetail = ({
                   autoFocus
                   onChange={(event) => setLocalTitle(event.target.value)}
                   onKeyDown={(event) => {
-                    if (event.key === 'Enter') saveTitle();
+                    if (event.key === 'Enter') void saveTitle();
                     if (event.key === 'Escape') {
                       setLocalTitle(ticket.title);
                       setEditingTitle(false);
                     }
                   }}
                 />
-                <Button size="sm" onClick={saveTitle} disabled={!localTitle.trim()}>
+                <Button
+                  size="sm"
+                  onClick={() => void saveTitle()}
+                  disabled={!localTitle.trim() || savingTitle}
+                  isLoading={savingTitle}
+                >
                   Save
                 </Button>
                 <Button

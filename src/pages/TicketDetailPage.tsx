@@ -56,6 +56,13 @@ export const TicketDetailPage = () => {
     }
   };
 
+  // A quiet reload after an edit (title, description): no loading screen, so the open tab stays.
+  const refreshTicket = async () => {
+    if (!ticket) return;
+    const response = await ticketService.getById(ticket.id);
+    if (response.success && response.data) setTicket(response.data);
+  };
+
   const handleBack = () => {
     navigate('/tickets');
   };
@@ -120,7 +127,12 @@ export const TicketDetailPage = () => {
           </div>
 
           <div className="p-6 rounded-lg border bg-card">
-            <TicketDetail key={ticket.id} ticket={ticket} onDelete={handleDeleteClick} />
+            <TicketDetail
+              key={ticket.id}
+              ticket={ticket}
+              onDelete={handleDeleteClick}
+              onRefresh={refreshTicket}
+            />
           </div>
         </div>
       </Layout>

@@ -243,6 +243,71 @@ describe('contingency page', () => {
     await waitFor(() => expect(composeUpdate).toHaveBeenLastCalledWith(4, expect.any(String)));
   });
 
+  it('Generate with nothing in the KB asks for the facts; with facts typed, they are sent', async () => {
+    const user = userEvent.setup();
+    composeUpdate.mockResolvedValue({ text: null, sources: [], reason: 'no-sources' });
+    renderTicket();
+    await waitFor(() => expect(box(11)).toBeChecked());
+    await user.click(screen.getByRole('button', { name: /Generate with AI/ }));
+    expect(await screen.findByText(/Type the key facts in the box/)).toBeInTheDocument();
+
+    composeUpdate.mockResolvedValue({
+      text: 'Hi {first_name}, the papers were re-sent.',
+      sources: [],
+    });
+    await user.type(screen.getByLabelText('Reply text'), 'papers re-sent, ETA Friday');
+    await user.click(screen.getByRole('button', { name: /Generate with AI/ }));
+    await waitFor(() =>
+      expect(composeUpdate).toHaveBeenLastCalledWith(4, expect.stringContaining('ETA Friday'))
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText<HTMLTextAreaElement>('Reply text').value).toContain('re-sent.')
+    );
+  });
+
+  it('a delivery that finishes reloads the threads: the last one sent shows its hold too', async () => {
+    const reply = (outcome: string) => ({
+      id: 9,
+      content: '<p>Held.</p>',
+      attachments: [],
+      createdAt: '2026-10-19T10:00:00Z',
+      createdBy: null,
+      hiddenCount: 0,
+      deliveries: [
+        {
+          conversationId: 11,
+          outcome,
+          reason: null,
+          updatedAt: '',
+          hasOwnText: false,
+          resolve: false,
+          holdUntil: '2026-10-22T10:00:00Z',
+        },
+      ],
+    });
+    replies({ replies: [reply('sending')] });
+    renderTicket();
+    await waitFor(() => expect(box(11)).toBeChecked());
+    expect(screen.queryByText(/on hold until/)).toBeNull();
+    const loadsBefore = threadsOfTicket.mock.calls.length;
+
+    // The mail has left, the thread is on hold and the delivery is marked sent; no socket event.
+    ready([
+      thread(11, {
+        parkedAt: '2026-10-19T10:00:00Z',
+        parkedReason: 'Awaiting customs',
+        parkedUntil: '2026-10-22T10:00:00Z',
+        receivedUpdate: true,
+      }),
+      thread(12),
+      thread(13, { status: 'resolved' }),
+    ]);
+    replies({ replies: [reply('sent')] });
+
+    expect(await screen.findByText(/on hold until/, {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(threadsOfTicket.mock.calls.length).toBe(loadsBefore + 1);
+  });
+
   it('the preview shows what the first ticked customers receive, filled for each', async () => {
     const user = userEvent.setup();
     preview.mockResolvedValue([

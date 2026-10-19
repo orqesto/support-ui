@@ -23,6 +23,7 @@ import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
+import { isInFlight } from '@/services/ticketReplies.service';
 import { ticketThreadsService, type TicketThread } from '@/services/ticketThreads.service';
 import type { Message } from '@/types';
 import { Permission } from '@/types/roles';
@@ -172,6 +173,29 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
   useEffect(() => {
     void load();
   }, [load]);
+
+  /*
+    Each delivery that finishes changes its thread: "updated", On-hold until …, Remove refused.
+    The socket's message:replied fires when the mail leaves — BEFORE the thread is put on hold and
+    the delivery marked sent — so the last thread of a send stayed as it was (staging 2026-10-19).
+    The replies poll runs until every delivery is done; reload whenever one more has finished.
+  */
+  const finishedDeliveries = replyData
+    ? replyData.replies.reduce(
+        (sum, reply) => sum + reply.deliveries.filter((row) => !isInFlight(row.outcome)).length,
+        0
+      )
+    : null;
+  const seenFinished = useRef<number | null>(null);
+  useEffect(() => {
+    if (finishedDeliveries === null) return;
+    const before = seenFinished.current;
+    seenFinished.current = finishedDeliveries;
+    if (before !== null && finishedDeliveries > before) void load(true);
+  }, [finishedDeliveries, load]);
+  useEffect(() => {
+    seenFinished.current = null;
+  }, [ticketId]);
 
   // Who is still owed a reply changes without this list doing anything: the ticket is resolved or
   // reopened (the ticket page updates its status in place), or an agent's reply on one of these
