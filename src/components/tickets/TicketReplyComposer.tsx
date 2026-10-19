@@ -27,6 +27,7 @@ import {
   TicketUpdateActions,
   TicketUpdatePreview,
   useGenerateTicketUpdate,
+  useSendingNotice,
 } from './TicketUpdateAssist';
 
 /**
@@ -208,6 +209,8 @@ export const TicketReplyComposer = ({
   const busy = sending || draftBusy || composing;
   const locked = disabledReason !== null;
 
+  const sendingNotice = useSendingNotice(replies.replies, setNotice);
+
   const emailOf = new Map(threads.map((row) => [row.conversationId, row.requesterEmail]));
   const sentTo = (reply: TicketReply) =>
     new Set(
@@ -384,6 +387,7 @@ export const TicketReplyComposer = ({
         setRefused([]);
         void drafts.refresh();
       }
+      sendingNotice(result.queued.length > 0);
       const had = result.skipped.filter((row) => row.reason === 'already_sent').length;
       const busy = result.skipped.length - had;
       setNotice(
@@ -484,7 +488,7 @@ export const TicketReplyComposer = ({
           variant="outline"
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          disabled={sending || files.length >= MAX_FILES}
+          disabled={sending || locked || files.length >= MAX_FILES}
         >
           <Paperclip className="w-4 h-4 mr-1" aria-hidden />
           Attach
