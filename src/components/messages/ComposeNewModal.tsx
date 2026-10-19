@@ -322,7 +322,10 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
               maxHeight="320px"
               initiallyHidden={false}
               transparent
-              editable={!submitting && !aiBusy}
+              // `locked`, not `editable={false}`: a non-editable editor drops its formatting row, so
+              // the field shrank ~50px and the tool row jumped up while drafting or sending
+              // (measured on staging, 2026-10-19). Locked blocks typing and keeps the row.
+              locked={submitting || aiBusy}
               className="rounded-none border-0 border-t border-hair shadow-none"
             />
 
