@@ -11,12 +11,17 @@ import { MemoryRouter } from 'react-router-dom';
 const svc = vi.hoisted(() => ({
   composeNew: vi.fn(),
   composePolish: vi.fn(),
+  getComposeSources: vi.fn(),
   getAll: vi.fn(),
 }));
 const ai = vi.hoisted(() => ({ configured: true, draftsOff: false }));
 
 vi.mock('@/services/message.service', () => ({
-  messageService: { composeNew: svc.composeNew, composePolish: svc.composePolish },
+  messageService: {
+    composeNew: svc.composeNew,
+    composePolish: svc.composePolish,
+    getComposeSources: svc.getComposeSources,
+  },
 }));
 vi.mock('@/services/integrations.service', () => ({
   integrationsService: { getAll: svc.getAll },
@@ -69,6 +74,8 @@ const type = (label: string, value: string) =>
 const aiDraft = () => screen.getByRole('button', { name: /AI draft/ });
 
 beforeEach(() => {
+  // A backend without the sendable-sources list (null) — the fallback; the From block overrides.
+  svc.getComposeSources.mockResolvedValue(null);
   svc.getAll.mockResolvedValue({
     success: true,
     data: [{ id: 3, name: 'Support', type: 'email', enabled: true }],
@@ -150,5 +157,40 @@ describe('Compose new — Translate', () => {
     expect(translate.closest('[data-dialog-footer]')).toContainElement(
       screen.getByRole('button', { name: /Attach/ })
     );
+  });
+});
+
+describe('Compose new — From', () => {
+  it('lists only the sources this agent may send from', async () => {
+    svc.getComposeSources.mockResolvedValue([{ id: 4, name: 'Billing', type: 'gmail' }]);
+    await renderModal();
+    expect(await screen.findByText('Billing (gmail)')).toBeInTheDocument();
+    expect(svc.getAll).not.toHaveBeenCalled();
+  });
+
+  it('an older backend (null): every enabled email source, disabled and non-email ones left out', async () => {
+    svc.getAll.mockResolvedValue({
+      success: true,
+      data: [
+        { id: 3, name: 'Support', type: 'email', enabled: true },
+        { id: 5, name: 'Old box', type: 'email', enabled: false },
+        { id: 6, name: 'Chat', type: 'telegram', enabled: true },
+      ],
+    });
+    await renderModal();
+    expect(await screen.findByText('Support (email)')).toBeInTheDocument();
+    expect(screen.queryByText('Old box (email)')).toBeNull();
+    expect(svc.getAll).toHaveBeenCalled();
+  });
+
+  it('nothing to send from: says why, and Send stays off', async () => {
+    svc.getComposeSources.mockResolvedValue([]);
+    render(
+      <MemoryRouter>
+        <ComposeNewModal open onClose={vi.fn()} />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText(/No email source you can send from/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Send/ })).toBeDisabled();
   });
 });
