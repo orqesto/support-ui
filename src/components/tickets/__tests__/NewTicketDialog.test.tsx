@@ -23,14 +23,11 @@ vi.mock('@/services/ticketThreads.service', () => ({
 vi.mock('@/services/message.service', () => ({
   messageService: { getThreads: (...args: unknown[]) => getThreads(...args) },
 }));
+const assignable = vi.fn<() => Promise<unknown[]>>();
 vi.mock('@/services/assignment.service', () => ({
-  assignmentService: {
-    getAssignableUsers: () =>
-      Promise.resolve([
-        { id: 7, firstName: 'Sam', lastName: 'Agent', email: 'sam@example.com', role: 'user' },
-      ]),
-  },
+  assignmentService: { getAssignableUsers: () => assignable() },
 }));
+
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({
     data: [
@@ -66,6 +63,9 @@ describe('New ticket', () => {
       ],
     });
     create.mockResolvedValue({ success: true, data: { id: 42 } });
+    assignable.mockResolvedValue([
+      { id: 7, firstName: 'Sam', lastName: 'Agent', email: 'sam@example.com', role: 'user' },
+    ]);
     addThreads.mockResolvedValue({ added: [12], alreadyAttached: [] });
   });
   afterEach(() => {
@@ -109,6 +109,20 @@ describe('New ticket', () => {
     await user.click(screen.getByRole('button', { name: 'Create' }));
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(42));
     expect(addThreads).not.toHaveBeenCalled();
+  });
+
+  it('a creator who cannot own a ticket here (not listed) leaves it unassigned', async () => {
+    const user = userEvent.setup();
+    assignable.mockResolvedValue([
+      { id: 8, firstName: 'Bo', lastName: 'Agent', email: 'bo@example.com', role: 'user' },
+    ]);
+    const onCreated = renderDialog();
+    await user.type(screen.getByLabelText('Title'), 'Carrier outage');
+    await user.type(screen.getByLabelText('Cause'), 'Expected delays.');
+    await waitFor(() => expect(assignable).toHaveBeenCalled());
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(42));
+    expect(create.mock.calls[0][0]).not.toHaveProperty('assigneeId');
   });
 
   it('only the creator’s departments are offered', async () => {

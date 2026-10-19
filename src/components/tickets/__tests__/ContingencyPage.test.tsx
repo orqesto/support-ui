@@ -263,6 +263,26 @@ describe('contingency page', () => {
     await waitFor(() =>
       expect(screen.getByLabelText<HTMLTextAreaElement>('Reply text').value).toContain('re-sent.')
     );
+    // Written from the notes, not the KB (staging 2026-10-19 said "and the knowledge base").
+    expect(
+      screen.getByText('Draft written from your notes — check it before sending.')
+    ).toBeInTheDocument();
+  });
+
+  it('CONTROL: a draft from the knowledge base says so', async () => {
+    const user = userEvent.setup();
+    composeUpdate.mockResolvedValue({
+      text: 'Hi {first_name}, the papers were re-sent.',
+      sources: [{ type: 'knowledge_base', id: 1, title: 'Customs' }],
+    });
+    renderTicket();
+    await waitFor(() => expect(box(11)).toBeChecked());
+    await user.click(screen.getByRole('button', { name: /Generate with AI/ }));
+    expect(
+      await screen.findByText(
+        'Draft written from the ticket and the knowledge base — check it before sending.'
+      )
+    ).toBeInTheDocument();
   });
 
   it('a delivery that finishes reloads the threads: the last one sent shows its hold too', async () => {

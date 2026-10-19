@@ -94,11 +94,15 @@ export const NewTicketDialog = ({ open, onOpenChange, onCreated }: Props) => {
       .getAssignableUsers(undefined, Number(departmentId))
       .then((rows) => {
         if (!live) return;
-        setOwners(
-          rows.map((row) => ({
-            value: String(row.id),
-            label: `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim() || row.email,
-          }))
+        const options = rows.map((row) => ({
+          value: String(row.id),
+          label: `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim() || row.email,
+        }));
+        setOwners(options);
+        // The creator by default — only when they can own a ticket here (a global admin is not
+        // listed: the picker showed "Select…" while the ticket went to them, staging 2026-10-19).
+        setOwnerId((current) =>
+          current && !options.some((option) => option.value === current) ? '' : current
         );
       })
       .catch((err: unknown) => logger.error('New ticket: owners failed', err));

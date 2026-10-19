@@ -60,7 +60,7 @@ export const draftTicketUpdate = async (
   ticketId: number,
   draft: string,
   blank: boolean
-): Promise<{ html: string } | { notice: string }> => {
+): Promise<{ html: string; fromKnowledgeBase: boolean } | { notice: string }> => {
   const notes = blank ? undefined : editorHtmlToText(draft).trim() || undefined;
   const result = await ticketRepliesService.composeUpdate(ticketId, notes);
   if (!result.text) {
@@ -78,7 +78,11 @@ export const draftTicketUpdate = async (
         : 'Nothing in the knowledge base covers this yet. Type the key facts in the box — what happened, what you are doing, when to expect it — and Generate again.',
     };
   }
-  return { html: normalizeEditorHtml(answerToEditorHtml(result.text)) };
+  return {
+    html: normalizeEditorHtml(answerToEditorHtml(result.text)),
+    // With nothing in the KB the update is written from the agent's notes alone.
+    fromKnowledgeBase: result.sources.length > 0,
+  };
 };
 
 /** The composer's "Generate with AI" handler: the box gets the draft, or the page says why not. */
@@ -107,7 +111,11 @@ export const useGenerateTicketUpdate = (input: {
         return;
       }
       apply(result.html);
-      setNotice('Draft written from the ticket and the knowledge base — check it before sending.');
+      setNotice(
+        result.fromKnowledgeBase
+          ? 'Draft written from the ticket and the knowledge base — check it before sending.'
+          : 'Draft written from your notes — check it before sending.'
+      );
     } catch (err) {
       logger.error('Failed to draft the ticket update', err);
       if (currentTicket.current !== startedOn) return;
