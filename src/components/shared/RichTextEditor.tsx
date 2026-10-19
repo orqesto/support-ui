@@ -127,11 +127,16 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       onImageFilesRef.current = onImageFiles;
     }, [onImageFiles]);
 
+    // useEditor reads its options once; the extension reads the CURRENT text through this ref, so
+    // a placeholder that changes after mount (e.g. once the AI settings load) is shown.
+    const placeholderRef = useRef(placeholder);
+    placeholderRef.current = placeholder;
+
     const editor = useEditor({
       extensions: [
         ...editorExtensions,
         Placeholder.configure({
-          placeholder,
+          placeholder: () => placeholderRef.current,
         }),
       ],
       content,
@@ -176,6 +181,11 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
     useEffect(() => {
       editor?.setEditable(editable && !locked);
     }, [editor, editable, locked]);
+
+    // An empty transaction redraws the placeholder decoration with the new text.
+    useEffect(() => {
+      if (editor && !editor.isDestroyed) editor.view.dispatch(editor.state.tr);
+    }, [editor, placeholder]);
 
     // Update editor content when content prop changes
     useEffect(() => {

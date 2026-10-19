@@ -444,7 +444,7 @@ describe('R and N on a phone, with another tab open', () => {
     expect(panel()).toHaveAttribute('data-open', 'false');
     expect(composerHidden()).toBe(false);
     await waitFor(() =>
-      expect(document.activeElement).toBe(screen.getByPlaceholderText('Reply as Dana…'))
+      expect(document.activeElement).toBe(screen.getByPlaceholderText(/^Reply as Dana…/))
     );
   });
 
@@ -470,8 +470,37 @@ describe('R and N on a phone, with another tab open', () => {
     expect(panel()).toHaveAttribute('data-open', 'true');
     expect(panel()).toHaveAttribute('data-tab', 'lookups');
     await waitFor(() =>
-      expect(document.activeElement).toBe(screen.getByPlaceholderText('Reply as Dana…'))
+      expect(document.activeElement).toBe(screen.getByPlaceholderText(/^Reply as Dana…/))
     );
+  });
+});
+
+// ─── The reply editor's AI draft hint ──────────────────────────────────────────
+
+describe('the reply editor says what AI draft does with what is typed', () => {
+  const HINT =
+    'Reply as Dana… Or type the facts (order number, what you decided) and press AI draft. Leave it empty to draft from the knowledge base.';
+
+  it('desktop, AI drafts on: the placeholder explains typed facts vs an empty editor', () => {
+    renderDetail();
+    expect(screen.getByPlaceholderText(HINT)).toBeInTheDocument();
+  });
+
+  it('AI drafts off: no hint about a button that is not there', () => {
+    aiDrafts.off = true;
+    renderDetail();
+    expect(screen.getByPlaceholderText('Reply as Dana…')).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(HINT)).not.toBeInTheDocument();
+  });
+
+  it('phone at rest: the one-line pill keeps the short text', () => {
+    setPhone();
+    const { container } = renderDetail();
+    expect(container.querySelector('[data-phone-state]')).toHaveAttribute(
+      'data-phone-state',
+      'rest'
+    );
+    expect(screen.getByPlaceholderText('Reply as Dana…')).toBeInTheDocument();
   });
 });
 
