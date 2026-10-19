@@ -299,7 +299,7 @@ export const simulateOrgDay = (state: OrgDemoState): OrgDemoState => {
   const after = orgTotals(next);
   if (!before.kbPaused && after.kbPaused)
     notes.push(
-      'the alliance passed the knowledge base line: KB imports without extra paused, live mail continues'
+      'the organisation passed the knowledge base line: KB imports without extra paused, live mail continues'
     );
   if (!before.allStopped && after.allStopped) notes.push('the monthly budget is used up');
   next.log = `${next.day} Oct: ` + (notes.length ? notes.join('; ') + '.' : 'normal day.');
@@ -344,7 +344,7 @@ export const addWorkspace = (state: OrgDemoState): { state: OrgDemoState; id: st
       ...state,
       newCount: count,
       workspaces: [...state.workspaces, ws],
-      log: `${ws.name} joined with no own limit: it shares the alliance budget and starts a 30M import.`,
+      log: `${ws.name} joined with no own limit: it shares the organisation budget and starts a 30M import.`,
     },
   };
 };
