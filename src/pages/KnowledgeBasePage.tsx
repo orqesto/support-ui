@@ -23,6 +23,7 @@ import {
   kbService,
   kbSourceParam,
   type KBEntry,
+  type KbIdMatch,
   type KbPendingDecision,
   type PaginationMeta,
 } from '@/services/kb.service';
@@ -30,14 +31,14 @@ import { Permission } from '@/types/roles';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useUiFlags } from '@/hooks/useUiFlags';
 import { isCaseRow, unmergeConsequence } from '@/lib/kbConsolidation';
-import { runCaseAction, type CaseActionNow } from '@/components/kb/runCaseAction';
-import { toast } from '@/lib/toast';
+import { CASE_ACTION_TITLES, LEFT_PAGE, runCaseAction } from '@/components/kb/runCaseAction';
 import { KbExportButton } from '@/components/kb/KbExportButton';
 import { KbReviewSuggestionsButton } from '@/components/kb/KbReviewSuggestionsButton';
 import { KbStatusFilter, type KbFilterStatus } from '@/components/kb/KbStatusFilter';
 import { withoutKbFinding } from '@/lib/kbFinding';
 import { useKbStatusParam } from '@/hooks/useKbStatusParam';
 import { KbFindingBanner } from '@/components/kb/KbFindingBanner';
+import { KbIdMatchHint } from '@/components/kb/KbIdMatchHint';
 import { KbStatusIgnoredNotice, isNewStatus } from '@/components/kb/KbStatusIgnoredNotice';
 import { useKbUnhide } from '@/components/kb/useKbUnhide';
 import { KBDeleteDialog } from '@/components/kb/KBDeleteDialog';
@@ -47,26 +48,7 @@ import { useKbBulkDecisions } from '@/hooks/useKbBulkDecisions';
 import { useKbFindingFilter } from '@/hooks/useKbFindingFilter';
 
 /** An action on a merged CASE row — each one unmerges it, so each is confirmed first. */
-/**
- * What a case action sees once the page is gone: no drawer to close, nothing to re-read — and
- * the outcome goes to a toast, since the page's dialog went with it (FE pass 18 LOW-1).
- */
-const LEFT_PAGE: CaseActionNow = {
-  selectedId: null,
-  selectedCaseId: null,
-  say: ({ title, description, variant }) => toast[variant](title, { description }),
-  close: () => {},
-  refetch: () => Promise.resolve(),
-};
-
-type CaseAction = { entry: KBEntry; action: 'hide' | 'reject' | 'delete' | 'unmerge' };
-
-const CASE_ACTION_TITLES: Record<CaseAction['action'], string> = {
-  hide: 'Hide this case?',
-  reject: 'Reject this case?',
-  delete: 'Delete this case?',
-  unmerge: 'Unmerge this case?',
-};
+type CaseAction = { entry: KBEntry; action: keyof typeof CASE_ACTION_TITLES };
 
 type FilterType = 'all' | 'qa_pair' | 'document' | 'documentation';
 
@@ -88,6 +70,8 @@ export const KnowledgeBasePage = () => {
     totalPages: 0,
   });
   const [loading, setLoading] = useState(true);
+  // The entry the search names by number ("KB-134"), for the hint when this view's filters hide it.
+  const [idMatch, setIdMatch] = useState<KbIdMatch | null>(null);
   // Whether the server can apply the decision statuses (an older one echoes them, unapplied).
   const [appliedStatus, setAppliedStatus] = useState<{
     requested: KbFilterStatus;
@@ -149,6 +133,7 @@ export const KnowledgeBasePage = () => {
     async (requestedPage = 1) => {
       try {
         setLoading(true);
+        setIdMatch(null); // hidden while loading; a failed read must not keep the previous one
         const read = (page: number) =>
           finding.fetchList({
             type: filterType === 'all' ? undefined : filterType,
@@ -166,6 +151,7 @@ export const KnowledgeBasePage = () => {
         }
         if (!response) return; // overtaken by a newer request
         setEntries(response.data.entries);
+        setIdMatch(response.data.idMatch ?? null);
         setPagination(response.data.pagination);
         setAppliedStatus({
           requested: filterStatus,
@@ -439,7 +425,7 @@ export const KnowledgeBasePage = () => {
   };
 
   // What a case action reads when its request ANSWERS, not when its confirm was clicked.
-  const latest = useRef<CaseActionNow>(LEFT_PAGE);
+  const latest = useRef(LEFT_PAGE);
   useEffect(() => {
     latest.current = {
       selectedId: selectedEntry?.id ?? null,
@@ -639,6 +625,13 @@ export const KnowledgeBasePage = () => {
           <KbStatusIgnoredNotice status={statusIgnored} />
         ) : (
           <>
+            <KbIdMatchHint
+              match={loading ? null : idMatch}
+              tab={filterType}
+              source={filterSource}
+              onClearSource={() => setFilterSource(ALL_SOURCES)}
+            />
+
             {/* Mobile Card View */}
             <div className="space-y-3 md:hidden">
               {loading ? (

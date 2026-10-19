@@ -23,6 +23,7 @@ import { KbReviewDecisionButton } from './KbReviewDecisionButton';
 import {
   isCaseRow,
   isMergedOriginal,
+  kbRef,
   mayRemoveCase,
   offersReviewActions,
 } from '@/lib/kbConsolidation';
@@ -149,7 +150,15 @@ export const KBTableView = ({
               )}
               <td className="px-2 py-3">{getTypeIcon(entry.type)}</td>
               <td className="px-3 py-3">
-                <div className="font-medium truncate">{entry.title}</div>
+                <div className="font-medium truncate">
+                  {/* The entry's own number — what the search box finds it by. */}
+                  {entry.publicId && (
+                    <span className="mr-2 font-mono text-xs text-muted-foreground">
+                      {kbRef(entry.publicId, entry.id)}
+                    </span>
+                  )}
+                  {entry.title}
+                </div>
                 <div className="text-sm text-muted-foreground line-clamp-1">{entry.content}</div>
               </td>
               <td className="hidden px-3 py-3 text-center md:table-cell">

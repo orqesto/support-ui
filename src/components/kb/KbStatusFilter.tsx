@@ -12,7 +12,8 @@ export const KB_FILTER_STATUSES: readonly KbFilterStatus[] = [
   'rejected',
   'all',
 ];
-const LABEL: Record<KbFilterStatus, string> = {
+/** What the Status filter calls each status — anything naming a status on this page uses these. */
+export const KB_FILTER_STATUS_LABEL: Record<KbFilterStatus, string> = {
   needs_decision: 'Needs your decision',
   suggested_change: 'Suggested change',
   set_aside: 'Set aside',
@@ -51,7 +52,7 @@ export const KbStatusFilter = ({
           aria-pressed={value === status}
           onClick={() => onChange(status)}
         >
-          {LABEL[status]}
+          {KB_FILTER_STATUS_LABEL[status]}
         </Button>
       ))}
     </div>

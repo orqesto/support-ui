@@ -148,11 +148,56 @@ export type ApiResponse<T> = {
   data: T;
 };
 
+/**
+ * The entry a search names by NUMBER ("KB-134", "#134", "134"), found by the server without the
+ * view's status / type / source / finding filters but with the list's own visibility (department
+ * scope; approved only for a non-reviewer). `inResults`: this view lists it (as its first row).
+ * `status` is one of the four statuses every entry has exactly one of.
+ */
+export type KbIdMatch = {
+  id: number;
+  publicId: string | null;
+  type: KBEntry['type'];
+  status: 'approved' | 'pending' | 'hidden' | 'rejected';
+  messageSourceId: number | null;
+  inResults: boolean;
+};
+const ID_MATCH_TYPES: readonly KbIdMatch['type'][] = ['qa_pair', 'document', 'manual_entry'];
+const ID_MATCH_STATUSES: readonly KbIdMatch['status'][] = [
+  'approved',
+  'pending',
+  'hidden',
+  'rejected',
+];
+
+/** A backend without the field (or with a value this app cannot read) ⇒ null: show no hint. */
+export const normaliseIdMatch = (value: unknown): KbIdMatch | null => {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  if (
+    typeof raw.id !== 'number' ||
+    !ID_MATCH_TYPES.includes(raw.type as KbIdMatch['type']) ||
+    !ID_MATCH_STATUSES.includes(raw.status as KbIdMatch['status']) ||
+    typeof raw.inResults !== 'boolean'
+  )
+    return null;
+  return {
+    id: raw.id,
+    publicId: typeof raw.publicId === 'string' ? raw.publicId : null,
+    type: raw.type as KbIdMatch['type'],
+    status: raw.status as KbIdMatch['status'],
+    messageSourceId: typeof raw.messageSourceId === 'number' ? raw.messageSourceId : null,
+    inResults: raw.inResults,
+  };
+};
+
 export type PaginatedResponse<T> = {
   success: boolean;
   data: {
     entries: T[];
     pagination: PaginationMeta;
+    /** Absent on a backend that predates it; normalised to null by `kbService.getAll`. */
+    idMatch?: KbIdMatch | null;
     /**
      * What the server applied. `status` is NOT proof: every backend echoes the requested status,
      * and an older one returns the unfiltered list for a status it does not know.
@@ -241,6 +286,7 @@ export const kbService = {
             typeof entry.otherPendingDecisions === 'number' ? entry.otherPendingDecisions : 0,
           setAsideReason: normaliseSetAsideReason(entry.setAsideReason),
         })),
+        idMatch: normaliseIdMatch(body.data.idMatch),
         filters: {
           ...body.data.filters,
           decisionStatuses: body.data.filters?.decisionStatuses === true,
