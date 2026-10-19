@@ -153,7 +153,7 @@ describe('Customer tab label mark', () => {
     },
   ];
   const Mark = ({ email, notes }: { email: string; notes?: typeof NOTES }) => (
-    <>{useCustomerNotesMark(email, notes)}</>
+    <>{useCustomerNotesMark(email, notes).mark}</>
   );
 
   it('without onOpen it is a plain mark, no button of its own (it sits inside the tab button)', () => {
@@ -190,6 +190,35 @@ describe('Customer tab label mark', () => {
     await waitFor(() =>
       expect(screen.queryByTestId('contact-notes-indicator')).not.toBeInTheDocument()
     );
+  });
+
+  it('two quick changes: the older answer landing last does not win (review 2026-10-19)', async () => {
+    getNoteSummary.mockResolvedValueOnce({ count: 1, latest: NOTE });
+    render(<Mark email="ann@example.com" />);
+    await waitFor(() =>
+      expect(screen.getByTestId('contact-notes-indicator')).toHaveTextContent('1')
+    );
+    const answers: Array<(summary: { count: number; latest: LatestNotePreview }) => void> = [];
+    getNoteSummary.mockImplementation(() => new Promise((resolve) => answers.push(resolve)));
+    act(() => notifyContactNotesChanged());
+    act(() => notifyContactNotesChanged());
+    await act(async () => {
+      answers[1]({ count: 3, latest: NOTE });
+      await Promise.resolve();
+    });
+    await act(async () => {
+      answers[0]({ count: 2, latest: NOTE });
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('contact-notes-indicator')).toHaveTextContent('3');
+  });
+
+  it('screen readers hear the full count inside the tab, not a bare number', () => {
+    render(<ContactNotesIndicator count={2} latest={NOTE} />);
+    const mark = screen.getByTestId('contact-notes-indicator');
+    expect(mark).not.toHaveAttribute('aria-label');
+    expect(mark.querySelector('.sr-only')).toHaveTextContent('2 notes about this customer');
+    expect(screen.getByText('2')).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('[control] a backend without the route (or no access) shows no mark and no error', async () => {

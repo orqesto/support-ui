@@ -166,3 +166,40 @@ describe('a note just added shows its author (2026-10-18)', () => {
     }
   });
 });
+
+describe('a note changed in another view reloads this one (review 2026-10-19)', () => {
+  beforeEach(() => {
+    getByEmail.mockReset().mockResolvedValue(profile);
+    permissions = {};
+  });
+
+  const loaded = async () => {
+    const { result } = renderHook(() => useContactProfile('jane@example.com'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    return result;
+  };
+
+  it('the drawer adds a note for the same contact: this view shows it', async () => {
+    const { notifyContactNotesChanged } = await import('../ContactNotesIndicator');
+    const result = await loaded();
+    const added = { id: 7, content: 'from the drawer', createdAt: '2026-10-03T00:00:00Z' };
+    getByEmail.mockResolvedValue({ ...profile, notes: [added, ...profile.notes] });
+    act(() => notifyContactNotesChanged({ contactId: 9, source: {} }));
+    await waitFor(() => expect(result.current.contact?.notes).toHaveLength(2));
+    expect(result.current.contact?.notes[0]).toMatchObject({ id: 7 });
+  });
+
+  it('[control] its own add does not reload; another contact or no detail is ignored', async () => {
+    const { notifyContactNotesChanged } = await import('../ContactNotesIndicator');
+    const result = await loaded();
+    expect(getByEmail).toHaveBeenCalledTimes(1);
+    addNote.mockResolvedValue({ id: 8, content: 'mine', createdAt: '2026-10-04T00:00:00Z' });
+    act(() => result.current.setNoteInput('mine'));
+    await act(() => result.current.handleAddNote());
+    act(() => notifyContactNotesChanged({ contactId: 10, source: {} }));
+    act(() => notifyContactNotesChanged());
+    await act(() => Promise.resolve());
+    expect(getByEmail).toHaveBeenCalledTimes(1);
+    expect(result.current.contact?.notes).toHaveLength(2);
+  });
+});

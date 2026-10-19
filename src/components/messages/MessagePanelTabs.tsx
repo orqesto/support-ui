@@ -154,9 +154,6 @@ export function MessagePanelTabs({
    * The panel reports 0 when its results go (a new thread, or the tab closing).
    */
   const [lookupsFound, setLookupsFound] = useState(0);
-  const { stripRef, stripFades, updateStripFade } = useStripFade(
-    `${message.isLead ? 1 : 0}|${kbBadge}|${lookups.available ? lookups.label : ''}|${lookupsFound}|${notes.length}|${attachments?.length ?? 0}`
-  );
 
   // Full contact profile for the CUSTOMER tab — the same editable component
   // (assigned manager, labels, channel profiles, linked contacts, notes) used by
@@ -176,7 +173,10 @@ export function MessagePanelTabs({
     onChanged: onRefresh,
   });
   // The customer's notes, marked on the Customer tab label from any tab.
-  const customerNotesMark = useCustomerNotesMark(contactEmail, contactProfile.contact?.notes);
+  const customerNotes = useCustomerNotesMark(contactEmail, contactProfile.contact?.notes);
+  const { stripRef, stripFades, updateStripFade } = useStripFade(
+    `${message.isLead ? 1 : 0}|${kbBadge}|${lookups.available ? lookups.label : ''}|${lookupsFound}|${notes.length}|${attachments?.length ?? 0}|${customerNotes.count}`
+  );
 
   const handleCheckContradiction = useCallback(async () => {
     if (!onCheckContradiction) return;
@@ -269,7 +269,7 @@ export function MessagePanelTabs({
         {(
           [
             { id: 'ai', label: 'AI', badge: 0 },
-            { id: 'customer', label: 'Customer', badge: 0, mark: customerNotesMark },
+            { id: 'customer', label: 'Customer', badge: 0, mark: customerNotes.mark },
             ...(lookups.available
               ? [
                   {

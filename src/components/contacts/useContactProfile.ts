@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { userService } from '@/services/user.service';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
@@ -6,7 +6,11 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/types/roles';
 import { hashNameToLabelColor } from '@/components/messages/inboxCardHelpers';
 import { labelService } from '@/services/settings.service';
-import { notifyContactNotesChanged } from '@/components/contacts/ContactNotesIndicator';
+import {
+  CONTACT_NOTES_CHANGED,
+  type ContactNotesChange,
+  notifyContactNotesChanged,
+} from '@/components/contacts/ContactNotesIndicator';
 import { useAuthStore } from '@/stores/authStore';
 import type { OrgLabel, OrgUser } from '@/components/contacts/ContactProfileDetails';
 import type { ApiResponse } from '@/types';
@@ -110,6 +114,32 @@ export function useContactProfile(
     void load();
   }, [enabled, load]);
 
+  // The same customer's notes changed in another view (the header's contact drawer beside the
+  // Customer tab): reload the notes, or this view — and the tab label it feeds — stays stale.
+  const self = useRef({});
+  const contactId = contact?.id;
+  useEffect(() => {
+    if (!enabled || contactId === undefined) return;
+    let latestRequest = 0;
+    const reloadNotes = (event: Event) => {
+      const change = (event as CustomEvent<ContactNotesChange | undefined>).detail;
+      if (!change || change.source === self.current || change.contactId !== contactId) return;
+      const request = ++latestRequest;
+      contactService.getByEmail(email).then(
+        (fresh) => {
+          if (request !== latestRequest) return;
+          setContact((prev) => (prev?.id === fresh.id ? { ...prev, notes: fresh.notes } : prev));
+        },
+        (error: unknown) => logger.warn('Contact profile: the notes could not be reloaded', error)
+      );
+    };
+    window.addEventListener(CONTACT_NOTES_CHANGED, reloadNotes);
+    return () => {
+      latestRequest = -1;
+      window.removeEventListener(CONTACT_NOTES_CHANGED, reloadNotes);
+    };
+  }, [enabled, contactId, email]);
+
   const handleSaveName = async () => {
     if (!contact) return;
     setSavingName(true);
@@ -154,7 +184,7 @@ export function useContactProfile(
       };
       setContact((prev) => (prev ? { ...prev, notes: [note, ...prev.notes] } : prev));
       setNoteInput('');
-      notifyContactNotesChanged();
+      notifyContactNotesChanged({ contactId: contact.id, source: self.current });
     } finally {
       setAddingNote(false);
     }
@@ -164,7 +194,7 @@ export function useContactProfile(
     if (!contact) return;
     await contactService.deleteNote(contact.id, noteId);
     setContact((prev) => (prev ? { ...prev, notes: prev.notes.filter((note) => note.id !== noteId) } : prev));
-    notifyContactNotesChanged();
+    notifyContactNotesChanged({ contactId: contact.id, source: self.current });
   };
 
   const handleAddLabel = async (labelId: number) => {
