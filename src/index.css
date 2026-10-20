@@ -517,21 +517,10 @@
   padding-inline-start: 1.5em;
   margin: 0 0 0.75em;
 }
-/* A sender's `type` loses to any stylesheet rule, so it is restated: "see (b)" must stay (b). */
+/* A sender's `<ol type>` is carried as an inline style by the sanitizer (emailHtml.ts): CSS cannot
+   tell type="a" from "A" in Chrome. */
 .email-body ol {
   list-style-type: decimal;
-}
-.email-body ol[type='a' s] {
-  list-style-type: lower-alpha;
-}
-.email-body ol[type='A' s] {
-  list-style-type: upper-alpha;
-}
-.email-body ol[type='i' s] {
-  list-style-type: lower-roman;
-}
-.email-body ol[type='I' s] {
-  list-style-type: upper-roman;
 }
 .email-body ul {
   list-style-type: disc;
@@ -544,7 +533,7 @@
 }
 /* Our own editor writes <li><p>…</p></li>: no gap between items, and none under the last block
    (the bubble keeps it inside its padding instead of letting it collapse away). */
-.email-body li > p {
+.email-body li > p:not([class*='Mso']) {
   margin: 0;
 }
 .email-body :is(p, ol, ul):last-child {
