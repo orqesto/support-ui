@@ -69,6 +69,9 @@ const ConsoleProvisioning = lazy(() =>
 const ConsoleAudit = lazy(() =>
   import('@/pages/console/ConsoleAudit').then((mod) => ({ default: mod.ConsoleAudit }))
 );
+const ConsoleAiBudget = lazy(() =>
+  import('@/pages/console/ConsoleAiBudget').then((mod) => ({ default: mod.ConsoleAiBudget }))
+);
 const ConsoleSettings = lazy(() =>
   import('@/pages/console/ConsoleSettings').then((mod) => ({ default: mod.ConsoleSettings }))
 );
@@ -76,6 +79,7 @@ const ConsoleSettings = lazy(() =>
 export const CONSOLE_SECTIONS: ConsoleSection[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '', index: true, element: ConsoleOverview },
   { id: 'organizations', label: 'Workspaces', icon: Building2, path: 'organizations', element: ConsoleOrganizations },
+  { id: 'ai-budget', label: 'AI budget', icon: Coins, path: 'ai-budget', element: ConsoleAiBudget },
   { id: 'members', label: 'Members', icon: Users, path: 'members', element: ConsoleMembers },
   { id: 'groups', label: 'Groups', icon: UsersRound, path: 'groups', element: ConsoleGroups },
   { id: 'identity', label: 'Identity', icon: KeyRound, path: 'identity', element: ConsoleIdentity },

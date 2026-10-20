@@ -17,6 +17,7 @@ import { BudgetBar } from './BudgetBar';
 import { BulkBar } from './BulkBar';
 import { BulkLimitField, FieldLabel } from './BulkLimitField';
 import { ExtraBox } from './ExtraBox';
+import { RequestExtraBox, type RequestTarget } from './RequestExtraBox';
 import { StatusText } from './StatusText';
 import { WorkspaceRows, panelIdFor } from './WorkspaceRows';
 import {
@@ -53,6 +54,16 @@ export type BudgetGroupViewProps = {
   onSetLimits?: (organizationIds: number[], limit: number | null) => void;
   onGiveExtra?: (targets: ExtraTarget[], tokens: number | 'suggested', end: ExtraEndChoice) => void;
   onEndExtra?: (grantIds: number[]) => void;
+  /**
+   * Organisation mode: ask the platform admin for extra (null = the whole organisation). Answers
+   * whether it was sent. Nobody but the platform admin gives extra, so there is no Give / End
+   * control in this mode.
+   */
+  onRequestExtra?: (
+    organizationId: number | null,
+    tokens: number,
+    reason: string | undefined
+  ) => void | Promise<boolean>;
 };
 
 /** Million tokens typed by a person → tokens; '' = no budget; NaN = not a number. */
@@ -66,18 +77,18 @@ const parseMillions = (text: string): number | null => {
 const millionsText = (tokens: number | null) =>
   tokens === null ? '' : String(Math.round((tokens / MILLION) * 10) / 10);
 
-const BudgetField = ({
+export const BudgetField = ({
   detail,
   canEdit,
   plansAvailable,
   busy,
   onUpdate,
 }: {
-  detail: GroupDetail;
+  detail: Pick<GroupDetail, 'key' | 'budget' | 'budgetSource'>;
   canEdit: boolean;
   plansAvailable: boolean;
   busy?: boolean;
-  onUpdate?: BudgetGroupViewProps['onUpdate'];
+  onUpdate?: (body: GroupUpdate) => void | Promise<boolean>;
 }) => {
   const inputId = `budget-${detail.key}`;
   const [draft, setDraft] = useState(() => millionsText(detail.budget));
@@ -297,7 +308,7 @@ const WorkspacePanel = ({
 
 export const BudgetGroupView = ({
   detail,
-  canEdit,
+  canEdit: apiCanEdit,
   mode,
   plansAvailable = false,
   busy,
@@ -305,7 +316,11 @@ export const BudgetGroupView = ({
   onSetLimits,
   onGiveExtra,
   onEndExtra,
+  onRequestExtra,
 }: BudgetGroupViewProps) => {
+  // Only the platform admin gives extra: the organisation console never offers Give / End.
+  const canEdit: CanEdit = mode === 'organisation' ? { ...apiCanEdit, grant: false } : apiCanEdit;
+  const [requestOpen, setRequestOpen] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
   const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
   const [query, setQuery] = useState('');
@@ -330,6 +345,15 @@ export const BudgetGroupView = ({
     5 * MILLION,
     rows.filter((row) => row.bulkRunning).reduce((sum, row) => sum + row.suggestedExtra, 0)
   );
+
+  const requestTargets: RequestTarget[] = [
+    { organizationId: null, label: 'Whole organisation', suggestion: suggestedForGroup },
+    ...rows.map((row) => ({
+      organizationId: row.organizationId,
+      label: row.name,
+      suggestion: row.suggestedExtra,
+    })),
+  ];
 
   return (
     <div className="flex flex-col gap-4">
@@ -404,6 +428,24 @@ export const BudgetGroupView = ({
                   {extraEndsText(detail.groupExtra.endsAt)}
                 </p>
               )
+            ))}
+          {mode === 'organisation' &&
+            onRequestExtra &&
+            (requestOpen ? (
+              <RequestExtraBox
+                targets={requestTargets}
+                initialAmount={suggestedForGroup}
+                busy={busy}
+                onRequest={(tokens, reason, organizationId) =>
+                  onRequestExtra(organizationId, tokens, reason)
+                }
+              />
+            ) : (
+              <div>
+                <Button variant="outline" size="sm" onClick={() => setRequestOpen(true)}>
+                  Request extra
+                </Button>
+              </div>
             ))}
         </CardContent>
       </Card>
