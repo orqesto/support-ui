@@ -18,6 +18,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { usePermissions } from '@/hooks/usePermissions';
+import { KbAutoActionsButton } from '@/components/kb/autoActions/KbAutoActionsButton';
 import { logger } from '@/lib/logger';
 import {
   kbService,
@@ -495,6 +496,7 @@ export const KnowledgeBasePage = () => {
                   Cases report
                 </Button>
               )}
+              <KbAutoActionsButton />
               <KbReviewSuggestionsButton onPick={() => setFilterStatus('suggested_change')} />
             </div>
           )}

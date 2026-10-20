@@ -27,7 +27,7 @@ import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { userService } from './services/user.service';
 import { useAuthStore } from './stores/authStore';
 import { Permission } from './types/roles';
-import { KbCasesRoute, KbMergesReviewRoute } from './pages/kbConsolidationRoutes';
+import { kbSubRoutes } from './pages/kbConsolidationRoutes';
 import {
   CUSTOM_API_LOOKUP_ROUTE,
   CUSTOM_API_TEMPLATE_ROUTE,
@@ -326,23 +326,10 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
-      {/* KB consolidation (#873) — Cases is behind ui.kb_cases; see kbConsolidationRoutes. */}
-      <Route
-        path="/knowledge-base/cases"
-        element={
-          <PrivateRoute>
-            <KbCasesRoute />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/knowledge-base/merges"
-        element={
-          <PrivateRoute>
-            <KbMergesReviewRoute />
-          </PrivateRoute>
-        }
-      />
+      {/* KB sub-pages: consolidation (#873) cases + merges, and automatic actions. */}
+      {kbSubRoutes((page) => (
+        <PrivateRoute>{page}</PrivateRoute>
+      ))}
       <Route
         path="/tickets"
         element={
