@@ -210,11 +210,10 @@ describe('Budget model demo', () => {
     });
     fireEvent.click(orgView().getByRole('switch', { name: 'Limit it · drag the line on the bar' }));
     expect(slider).toBeDisabled();
-    expect(
-      orgView().getByText(
-        'No limit: bulk work shares the whole budget, so a big import can stop live mail.'
-      )
-    ).toBeInTheDocument();
+    expect(orgView().getByText('No limit')).toBeInTheDocument();
+    expect(orgView().getByTestId('budget-demo-org-status')).toHaveTextContent(
+      /^No bulk limit: bulk work shares the whole budget, so a big import can stop live mail\./
+    );
   });
 
   it('granting extra changes the workspace status', () => {

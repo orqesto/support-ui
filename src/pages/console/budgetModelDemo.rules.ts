@@ -273,8 +273,8 @@ export const orgStatusLine = (tot: OrgTotals): StatusLine => {
     };
   if (!tot.kbLimitOn)
     return {
-      tone: 'ok',
-      text: `All running. Bulk processing has no limit and shares the budget with live mail: ${fmt(tot.budget - tot.total)} left.`,
+      tone: 'warn',
+      text: `No bulk limit: bulk work shares the whole budget, so a big import can stop live mail. ${fmt(tot.budget - tot.total)} left.`,
     };
   return {
     tone: 'ok',
@@ -626,9 +626,9 @@ export const singleStatusLine = (st: SingleDemoState): StatusLine => {
     };
   if (!tot.kbLimitOn)
     return {
-      tone: 'ok',
+      tone: 'warn',
       text:
-        `All running. Bulk processing has no limit and shares the budget with live mail: ${fmt(tot.budget - tot.used)} left.` +
+        `No bulk limit: bulk work shares the whole budget, so a big import can stop live mail. ${fmt(tot.budget - tot.used)} left.` +
         (st.importing ? ` KB import: ${fmt(st.importLeft)} to go.` : ''),
     };
   return {

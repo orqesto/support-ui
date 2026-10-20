@@ -111,8 +111,8 @@ describe('organisation status rules', () => {
     expect(tot.kbCap).toBe(100);
     expect(tot.kbPaused).toBe(false);
     expect(orgStatusLine(tot)).toEqual({
-      tone: 'ok',
-      text: 'All running. Bulk processing has no limit and shares the budget with live mail: 5.0M left.',
+      tone: 'warn',
+      text: 'No bulk limit: bulk work shares the whole budget, so a big import can stop live mail. 5.0M left.',
     });
     // Past the old 80% line its import keeps moving (12M a day).
     const next = simulateOrgDay(

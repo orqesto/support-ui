@@ -224,15 +224,11 @@ export const BulkLimitField = ({
   <div className="flex flex-col gap-1.5">
     <FieldLabel>Bulk processing (knowledge base, imports, re-mines)</FieldLabel>
     <Toggle checked={on} onChange={onToggle} label="Limit it · drag the line on the bar" />
-    {on ? (
-      <span className="font-mono text-lg">
-        At most {pct}% · {fmt(cap)} · counts bulk spend only
-      </span>
-    ) : (
-      <span className="text-sm text-warning">
-        No limit: bulk work shares the whole budget, so a big import can stop live mail.
-      </span>
-    )}
+    {/* Same size either way, so switching never moves the layout; the warning for "off" is
+        in the status line under the bar. */}
+    <span className="font-mono text-lg">
+      {on ? `At most ${pct}% · ${fmt(cap)} · counts bulk spend only` : 'No limit'}
+    </span>
   </div>
 );
 
