@@ -9,6 +9,7 @@ type Prefs = {
   notifyTicketFirstResponse: boolean;
   notifyTicketResolution: boolean;
   notifyNewUnassigned: boolean;
+  notifyHoldRecheckEmail: boolean;
 };
 
 const defaults: Prefs = {
@@ -17,19 +18,26 @@ const defaults: Prefs = {
   notifyTicketFirstResponse: true,
   notifyTicketResolution: true,
   notifyNewUnassigned: true,
+  // ON when the server leaves it out: an older backend has no such setting, and the email is on by default.
+  notifyHoldRecheckEmail: true,
 };
 
 const PreferenceRow = ({
   label,
+  description,
   checked,
   onChange,
 }: {
   label: string;
+  description?: string;
   checked: boolean;
   onChange: (v: boolean) => void;
 }) => (
-  <div className="flex justify-between items-center py-3 border-b border-border last:border-0">
-    <p className="text-sm font-medium">{label}</p>
+  <div className="flex justify-between items-center gap-4 py-3 border-b border-border last:border-0">
+    <div>
+      <p className="text-sm font-medium">{label}</p>
+      {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
+    </div>
     <Toggle checked={checked} onChange={onChange} />
   </div>
 );
@@ -124,6 +132,19 @@ export const NotificationPreferencesSettings = () => {
             label="New unassigned threads"
             checked={prefs.notifyNewUnassigned}
             onChange={(val) => update({ notifyNewUnassigned: val })}
+          />
+        </div>
+      </div>
+
+      <div>
+        <h3 className="font-display text-sm font-semibold mb-1">Email</h3>
+        <p className="text-xs text-muted-foreground mb-3">Messages sent to your own email address.</p>
+        <div className="rounded-lg border border-border bg-card px-4">
+          <PreferenceRow
+            label="Email me when a hold is due"
+            description="When a thread you own comes back from On-hold, you get an email as well as the bell."
+            checked={prefs.notifyHoldRecheckEmail}
+            onChange={(val) => update({ notifyHoldRecheckEmail: val })}
           />
         </div>
       </div>

@@ -10,7 +10,7 @@ vi.mock('@/lib/api-client', () => ({
 const { NotificationPreferencesSettings } = await import('../NotificationPreferencesSettings');
 
 const toggle = () => {
-  const row = screen.getByText('New unassigned threads').closest('div');
+  const row = screen.getByText('New unassigned threads').closest('div')?.parentElement;
   if (!row) throw new Error('row missing');
   return within(row).getByRole('switch');
 };
