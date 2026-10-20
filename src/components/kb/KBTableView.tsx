@@ -205,6 +205,7 @@ export const KBTableView = ({
                   decision={entry.pendingDecision}
                   others={entry.otherPendingDecisions}
                   setAsideReason={entry.setAsideReason}
+                  compact
                 />
               </td>
               <td className="px-2 py-3 text-right">

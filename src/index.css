@@ -507,18 +507,48 @@
 /* Tailwind's reset takes paragraph gaps and list markers away, so a reply sent with paragraphs
    and a numbered list showed as bare lines in the thread (prod 2026-10-20) — the email itself
    kept them. Plain element rules: an email's own inline styles still win. */
-.email-body p {
+/* Outlook writes every line (blank ones too) as <p class="MsoNormal">, its margin:0 in a <style>
+   block the sanitizer drops — a gap there double-spaces every Outlook mail and signature. */
+.email-body p:not([class*='Mso']) {
   margin: 0 0 0.75em;
 }
-.email-body ol {
-  list-style: decimal;
-  padding-left: 1.5em;
+.email-body ol,
+.email-body ul {
+  padding-inline-start: 1.5em;
   margin: 0 0 0.75em;
+}
+/* A sender's `type` loses to any stylesheet rule, so it is restated: "see (b)" must stay (b). */
+.email-body ol {
+  list-style-type: decimal;
+}
+.email-body ol[type='a' s] {
+  list-style-type: lower-alpha;
+}
+.email-body ol[type='A' s] {
+  list-style-type: upper-alpha;
+}
+.email-body ol[type='i' s] {
+  list-style-type: lower-roman;
+}
+.email-body ol[type='I' s] {
+  list-style-type: upper-roman;
 }
 .email-body ul {
-  list-style: disc;
-  padding-left: 1.5em;
-  margin: 0 0 0.75em;
+  list-style-type: disc;
+}
+.email-body ul ul {
+  list-style-type: circle;
+}
+.email-body ul ul ul {
+  list-style-type: square;
+}
+/* Our own editor writes <li><p>…</p></li>: no gap between items, and none under the last block
+   (the bubble keeps it inside its padding instead of letting it collapse away). */
+.email-body li > p {
+  margin: 0;
+}
+.email-body :is(p, ol, ul):last-child {
+  margin-bottom: 0;
 }
 
 /* The one thing that cannot be neutralised is pixels. A white-ground logo keeps

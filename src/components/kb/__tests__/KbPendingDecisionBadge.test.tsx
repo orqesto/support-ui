@@ -38,4 +38,26 @@ describe('KbPendingDecisionBadge', () => {
     const { container } = render(<KbPendingDecisionBadge decision={null} />);
     expect(container.textContent).toBe('');
   });
+
+  it('compact (the KB table): the action on one line, the full label as its tooltip — no two-line pill', () => {
+    render(
+      <KbPendingDecisionBadge
+        decision={{ suggestionId: 3, kind: 'merge', reasons: [], canDecide: false }}
+        compact
+      />
+    );
+    const badge = screen.getByText('Merge?').parentElement!;
+    expect(badge).toHaveAttribute('title', 'Suggested: merge');
+    expect(badge.className).toContain('whitespace-nowrap');
+    // Seen short; the full wording is what a screen reader reads.
+    expect(screen.getByText('Merge?')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByText('Suggested: merge')).toHaveClass('sr-only');
+    expect(screen.getByText('Not yours to decide').parentElement).toHaveAttribute(
+      'title',
+      "You can't decide this one — it covers departments you don't moderate."
+    );
+    expect(
+      screen.getByText("You can't decide this one — it covers departments you don't moderate.")
+    ).toHaveClass('sr-only');
+  });
 });
