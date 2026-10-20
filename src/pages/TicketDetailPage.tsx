@@ -25,9 +25,18 @@ export const TicketDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { hasAnyPermission } = usePermissions();
-  // New ticket opens it with this when its threads could not be linked (NewTicketButton).
-  const threadsNotLinked =
-    (useLocation().state as { threadsNotLinked?: boolean } | null)?.threadsNotLinked === true;
+  // New ticket opens it with this when its threads could not be linked (NewTicketButton). Read
+  // once for this ticket, then dropped from the history entry: it lived there, so it came back on
+  // every reload and Back long after the threads were added.
+  const location = useLocation();
+  const [threadsNotLinkedFor] = useState(() =>
+    (location.state as { threadsNotLinked?: boolean } | null)?.threadsNotLinked === true ? id : null
+  );
+  const threadsNotLinked = threadsNotLinkedFor !== null && threadsNotLinkedFor === id;
+  useEffect(() => {
+    if ((location.state as { threadsNotLinked?: boolean } | null)?.threadsNotLinked)
+      navigate(location.pathname, { replace: true, state: null });
+  }, [location.state, location.pathname, navigate]);
   const clearCache = useTicketsStore((state) => state.clearCache);
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
