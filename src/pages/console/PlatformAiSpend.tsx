@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Coins } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
@@ -14,13 +14,7 @@ import {
 } from '@/services/managedAiUsage.service';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { nextUtcMidnight } from '@/lib/utcClock';
-import { AlliancePoolsCard } from './AlliancePoolsCard';
-import { BudgetModelDemoSection } from './BudgetModelDemoSection';
-import { MonthlyLimitsCard } from './MonthlyLimitsCard';
-import { TokenLimitRulesCard } from './TokenLimitRulesCard';
-import { TokenLimitsCard } from './TokenLimitsCard';
-import { KB_MIN_TOKENS_PER_DAY } from './tokenLimits.helpers';
-import { WorkspaceLimitCell, WorkspaceTokenLimitsDialog } from './WorkspaceTokenLimits';
+import { PlatformBudgets } from './PlatformBudgets';
 
 const RANGES = [7, 30, 90] as const;
 
@@ -146,7 +140,6 @@ const CallCap = ({ calls, via }: { calls: ManagedAiOrgUsage['calls']; via?: Mana
  */
 export const PlatformAiSpend = () => {
   const [days, setDays] = useState<number>(30);
-  const [limitsFor, setLimitsFor] = useState<number | null>(null);
 
   const { data, isLoading, isPlaceholderData, error } = useQuery({
     queryKey: ['platform-managed-ai-usage', days],
@@ -164,18 +157,6 @@ export const PlatformAiSpend = () => {
   });
 
   const usage = data?.usage;
-  // The split limits arrive with a newer backend; an older one keeps the single-ceiling tile.
-  // The console's KB minimum (`tokenLimitRules`), the built-in one from an older backend.
-  const kbMin = usage?.totals.tokenLimitRules?.kbMinTokensPerDay ?? KB_MIN_TOKENS_PER_DAY;
-  const hasBudgets = Boolean(usage?.totals.tokenBudgets);
-  const limitsOrg = usage?.orgs.find((org) => org.organizationId === limitsFor);
-  // The open dialog's workspace dropped out of the answer (e.g. listed only for its override while
-  // the stored limits are unreadable): the dialog unmounted without onClose, and came back by
-  // itself once the workspace was listed again (FE audit pass 19, NIT). It is closed instead.
-  const limitsShown = Boolean(limitsOrg?.tokenBudget && usage?.totals.tokenBudgets);
-  useEffect(() => {
-    if (limitsFor !== null && usage && !limitsShown) setLimitsFor(null);
-  }, [limitsFor, usage, limitsShown]);
   const totalTokens = usage?.totals.byTier.reduce((sum, tier) => sum + tier.totalTokens, 0) ?? 0;
   // The all-spend split. `split` is false on an older backend (managed mode only) — every label
   // below keeps that backend's wording then, because it genuinely could not see the rest.
@@ -332,7 +313,7 @@ export const PlatformAiSpend = () => {
 
       {usage && (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardContent className="flex flex-col gap-1 p-4">
                 <span className="text-xs text-muted-foreground">Tokens</span>
@@ -407,58 +388,7 @@ export const PlatformAiSpend = () => {
                 )}
               </CardContent>
             </Card>
-            {usage.totals.tokenBudgets ? (
-              <TokenLimitsCard budgets={usage.totals.tokenBudgets} kbMin={kbMin} />
-            ) : (
-            <Card>
-              <CardContent className="flex flex-col gap-1 p-4">
-                <span className="text-xs text-muted-foreground">Daily token ceiling</span>
-                {/* A cap nobody can see is not meaningfully different from no cap: the
-                    2026-08-28 burn spent 20.8M tokens while the CALL ceiling read 8% used. */}
-                <span className="text-2xl font-semibold">
-                  {usage.totals.tokenCeilingPerOrgPerDay === undefined
-                    ? '—'
-                    : usage.totals.tokenCeilingPerOrgPerDay === 0
-                      ? 'none'
-                      : formatTokens(usage.totals.tokenCeilingPerOrgPerDay)}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {usage.totals.tokenCeilingPerOrgPerDay === undefined
-                    ? 'this backend does not report one'
-                    : usage.totals.tokenCeilingPerOrgPerDay === 0
-                      ? 'the budget is switched off, per workspace per day'
-                      : usage.totals.tokenCeilingIsDefault
-                        ? 'per workspace per day — platform default, not configured'
-                        : 'per workspace per day — configured'}
-                </span>
-              </CardContent>
-            </Card>
-            )}
           </div>
-          {/* Wave 2: monthly + alliance limits and the thresholds — only from a backend that sends
-              them (an older one omits both blocks). */}
-          {(usage.totals.tokenCaps || usage.totals.tokenLimitRules) && (
-            <div className="grid gap-4 lg:grid-cols-3">
-              {usage.totals.tokenCaps && (
-                <>
-                  <MonthlyLimitsCard
-                    caps={usage.totals.tokenCaps}
-                    kbMin={kbMin}
-                    dailyLimits={
-                      usage.totals.tokenBudgets && {
-                        kb: usage.totals.tokenBudgets.kb.limit,
-                        regular: usage.totals.tokenBudgets.regular.limit,
-                      }
-                    }
-                  />
-                  <AlliancePoolsCard caps={usage.totals.tokenCaps} kbMin={kbMin} />
-                </>
-              )}
-              {usage.totals.tokenLimitRules && (
-                <TokenLimitRulesCard rules={usage.totals.tokenLimitRules} />
-              )}
-            </div>
-          )}
 
           <Card className="flex overflow-hidden flex-col shrink-0">
             <CardContent padding="none" className="flex overflow-x-auto flex-col">
@@ -487,9 +417,6 @@ export const PlatformAiSpend = () => {
                           {TIER_LABEL[tier]}
                         </th>
                       ))}
-                      {hasBudgets && (
-                        <th className="px-3 py-2 font-medium">Token limits · today / month</th>
-                      )}
                       <th className="px-3 py-2 font-medium">
                         AI calls / month (plan)
                         {capMonth && (
@@ -548,21 +475,6 @@ export const PlatformAiSpend = () => {
                             {formatTokens(tokensFor(org, tier))}
                           </td>
                         ))}
-                        {hasBudgets && (
-                          <td className="px-3 py-2">
-                            {org.tokenBudget && (
-                              <WorkspaceLimitCell
-                                budget={org.tokenBudget}
-                                settingsUnreadable={
-                                  usage.totals.tokenBudgets?.settingsLookupFailed === true
-                                }
-                                capsUnreadable={usage.totals.tokenCaps?.lookupFailed === true}
-                                onOpen={() => setLimitsFor(org.organizationId)}
-                                nearShare={usage.totals.tokenLimitRules?.nearLimitShare}
-                              />
-                            )}
-                          </td>
-                        )}
                         <td className="px-3 py-2">
                           <CallCap calls={org.calls} via={org.via} />
                         </td>
@@ -645,24 +557,8 @@ export const PlatformAiSpend = () => {
           )}
         </>
       )}
-      {limitsOrg?.tokenBudget && usage?.totals.tokenBudgets && (
-        <WorkspaceTokenLimitsDialog
-          key={limitsOrg.organizationId}
-          organizationId={limitsOrg.organizationId}
-          name={limitsOrg.name}
-          budget={limitsOrg.tokenBudget}
-          caps={usage.totals.tokenCaps}
-          kbMin={kbMin}
-          budgets={usage.totals.tokenBudgets}
-          // Only THIS workspace's dialog: a save that finishes after it was closed must not close
-          // another workspace's dialog opened since (FE audit pass 8, LOW).
-          onClose={() =>
-            setLimitsFor((current) => (current === limitsOrg.organizationId ? null : current))
-          }
-        />
-      )}
-      {/* A clickable demo of a PROPOSED budget model: static numbers, no calls, nothing saved. */}
-      <BudgetModelDemoSection />
+      {/* The monthly AI budgets: groups, the switch-over, requests, settings. */}
+      <PlatformBudgets />
     </div>
   );
 };

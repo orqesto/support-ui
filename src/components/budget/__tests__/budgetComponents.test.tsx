@@ -28,6 +28,7 @@ const row = (id: number, over: Partial<WorkspaceRow> = {}): WorkspaceRow => ({
   bulkLimit: null,
   extra: null,
   bulkRunning: false,
+  bulkPaused: false,
   suggestedExtra: 25 * MILLION,
   status: { tone: 'ok', text: 'All running' },
   liveSpike: null,
@@ -222,14 +223,19 @@ describe('BudgetBar', () => {
 
 describe('WorkspaceRows', () => {
   const rows = [
-    row(1, { bulkRunning: true, status: { tone: 'warn', text: 'Bulk import paused' } }),
+    row(1, {
+      bulkRunning: true,
+      bulkPaused: true,
+      status: { tone: 'warn', text: 'Bulk import paused' },
+    }),
     row(2, { extra: extraView(), bulkRunning: true, status: { tone: 'warn', text: 'Paused' } }),
     row(3),
+    // Running, warn tone, but the API says its bulk work is NOT paused (e.g. a live-spike warning).
+    row(4, { bulkRunning: true, status: { tone: 'warn', text: 'Live mail spike' } }),
   ];
   const base = {
     rows,
     groupTotal: 120 * MILLION,
-    groupExtraLeft: 0,
     openId: null,
     onToggleOpen: vi.fn(),
   };
@@ -267,7 +273,7 @@ describe('WorkspaceRows', () => {
     expect(screen.getByText('panel of Shop 3')).toBeInTheDocument();
   });
 
-  it('one-click extra only on a paused bulk run with no extra left, when the viewer can grant', () => {
+  it('one-click extra only on a row the API marks bulkPaused, when the viewer can grant', () => {
     const onGive = vi.fn();
     const { rerender } = render(<WorkspaceRows {...base} onGiveSuggested={onGive} />);
     const buttons = screen.getAllByRole('button', { name: 'Give +25.0M extra · 3 days' });
@@ -279,7 +285,9 @@ describe('WorkspaceRows', () => {
     expect(onGive).toHaveBeenCalledWith(rows[0]);
     rerender(<WorkspaceRows {...base} />);
     expect(screen.queryByRole('button', { name: /Give \+/ })).toBeNull();
-    rerender(<WorkspaceRows {...base} groupExtraLeft={5 * MILLION} onGiveSuggested={onGive} />);
+    rerender(
+      <WorkspaceRows {...base} rows={[rows[1], rows[2], rows[3]]} onGiveSuggested={onGive} />
+    );
     expect(screen.queryByRole('button', { name: /Give \+/ })).toBeNull();
   });
 

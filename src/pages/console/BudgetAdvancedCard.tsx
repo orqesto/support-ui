@@ -1,0 +1,162 @@
+import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { MILLION } from '@/components/budget/budget.rules';
+import { useUpdateBudgetSettings } from '@/hooks/useBudgets';
+import { getApiErrorMessage } from '@/lib/errorMessages';
+import type { BudgetSettingsView, SettingsUpdate } from '@/services/budgets.service';
+
+export const ADVANCED_ANCHOR = 'budget-advanced';
+
+type Field = {
+  key: keyof SettingsUpdate;
+  label: string;
+  hint: string;
+  /** Shown in millions of tokens (serverCeiling) instead of the raw number. */
+  millions?: boolean;
+  /** Blank is allowed and means "none" (serverCeiling). */
+  nullable?: boolean;
+  integer?: boolean;
+};
+
+const FIELDS: Field[] = [
+  {
+    key: 'bulkPctMin',
+    label: 'Bulk limit, lowest %',
+    hint: 'The bulk line cannot go below it.',
+    integer: true,
+  },
+  {
+    key: 'bulkPctMax',
+    label: 'Bulk limit, highest %',
+    hint: 'The bulk line cannot go above it.',
+    integer: true,
+  },
+  {
+    key: 'defaultBulkPct',
+    label: 'Bulk limit, default %',
+    hint: 'Where a new group starts.',
+    integer: true,
+  },
+  {
+    key: 'tokensPerCall',
+    label: 'Tokens per AI call',
+    hint: "A plan's AI calls × this = its share of the budget.",
+    integer: true,
+  },
+  {
+    key: 'serverCeiling',
+    label: 'Server ceiling, million tokens / month',
+    hint: 'Everything on this server stops at it. Empty = none.',
+    millions: true,
+    nullable: true,
+  },
+  {
+    key: 'liveSpikeFactor',
+    label: 'Live spike warning, × a usual day',
+    hint: 'A workspace whose live mail today is this many times its usual day gets a warning.',
+  },
+];
+
+const shown = (field: Field, settings: BudgetSettingsView): string => {
+  const value = settings[field.key];
+  if (value === null || value === undefined) return '';
+  return field.millions ? String(Math.round((value / MILLION) * 10) / 10) : String(value);
+};
+
+/** The platform-wide budget settings, collapsed under "Advanced" on AI Spend. */
+export const BudgetAdvancedCard = ({
+  settings,
+  selfHosted,
+}: {
+  settings: BudgetSettingsView;
+  selfHosted: boolean;
+}) => {
+  const location = useLocation();
+  const [open, setOpen] = useState(() => location.hash === `#${ADVANCED_ANCHOR}`);
+  const [drafts, setDrafts] = useState<Partial<Record<keyof SettingsUpdate, string>>>({});
+  const [error, setError] = useState<string | null>(null);
+  const save = useUpdateBudgetSettings();
+  // Hosted: tokens per call turns plans into budgets. Self-hosted: the server ceiling.
+  const fields = FIELDS.filter((field) =>
+    field.key === 'tokensPerCall' ? !selfHosted : field.key === 'serverCeiling' ? selfHosted : true
+  );
+
+  const onSave = () => {
+    const body: SettingsUpdate = {};
+    for (const field of fields) {
+      const draft = drafts[field.key];
+      if (draft === undefined || draft.trim() === shown(field, settings)) continue;
+      const trimmed = draft.trim();
+      if (trimmed === '' && field.nullable) {
+        Object.assign(body, { [field.key]: null });
+        continue;
+      }
+      const value = Number(trimmed);
+      if (!Number.isFinite(value) || value <= 0 || (field.integer && !Number.isInteger(value))) {
+        setError(`${field.label}: type a ${field.integer ? 'whole ' : ''}number above 0.`);
+        return;
+      }
+      Object.assign(body, { [field.key]: field.millions ? Math.round(value * MILLION) : value });
+    }
+    setError(null);
+    if (Object.keys(body).length === 0) return;
+    save.mutate(body, {
+      onSuccess: () => {
+        setDrafts({});
+        toast.success('Budget settings saved');
+      },
+      onError: (saveError) =>
+        setError(getApiErrorMessage(saveError) ?? 'Could not save the budget settings.'),
+    });
+  };
+
+  return (
+    <Card id={ADVANCED_ANCHOR}>
+      <CardContent className="flex flex-col gap-4 p-5 sm:p-6">
+        <div className="flex justify-between items-center">
+          <h3 className="font-display text-base font-semibold">Advanced</h3>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-expanded={open}
+            aria-controls={`${ADVANCED_ANCHOR}-body`}
+            onClick={() => setOpen((current) => !current)}
+          >
+            {open ? 'Hide' : 'Show'}
+          </Button>
+        </div>
+        {open && (
+          <div id={`${ADVANCED_ANCHOR}-body`} className="flex flex-col gap-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {fields.map((field) => (
+                <div key={field.key} className="flex flex-col gap-1">
+                  <Input
+                    label={field.label}
+                    type="number"
+                    value={drafts[field.key] ?? shown(field, settings)}
+                    placeholder={field.nullable ? 'None' : undefined}
+                    onChange={(event) =>
+                      setDrafts((current) => ({ ...current, [field.key]: event.target.value }))
+                    }
+                    size="sm"
+                  />
+                  <span className="text-xs text-muted-foreground">{field.hint}</span>
+                </div>
+              ))}
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <div>
+              <Button size="sm" isLoading={save.isPending} onClick={onSave}>
+                Save settings
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};

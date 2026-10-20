@@ -134,6 +134,9 @@ const PlatformCustomApiTemplates = lazy(() =>
 const PlatformAiSpend = lazy(() =>
   import('@/pages/console/PlatformAiSpend').then((mod) => ({ default: mod.PlatformAiSpend }))
 );
+const PlatformBudgetGroup = lazy(() =>
+  import('@/pages/console/PlatformBudgetGroup').then((mod) => ({ default: mod.PlatformBudgetGroup }))
+);
 const PlatformEmailTemplates = lazy(() =>
   import('@/pages/EmailTemplatesPage').then((mod) => ({ default: mod.EmailTemplates }))
 );
@@ -160,6 +163,15 @@ export const PLATFORM_SECTIONS: ConsoleSection[] = [
   },
   { id: 'usage', label: 'Subscriptions', icon: CreditCard, path: 'usage', element: PlatformUsage },
   { id: 'ai-spend', label: 'AI Spend', icon: Coins, path: 'ai-spend', element: PlatformAiSpend },
+  {
+    // One organisation's or standalone workspace's monthly budget, opened from AI Spend.
+    id: 'ai-spend-group',
+    label: 'AI Spend group',
+    icon: Coins,
+    path: 'ai-spend/groups/:key',
+    element: PlatformBudgetGroup,
+    visible: () => false,
+  },
   {
     id: 'billing',
     label: 'Plans & Pricing',

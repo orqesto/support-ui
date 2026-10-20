@@ -54,6 +54,8 @@ export type WorkspaceRow = {
   extra: ExtraView | null;
   /** The workspace still has knowledge-base threads to mine (a mine / import is running or parked). */
   bulkRunning: boolean;
+  /** Its bulk (KB) work is stopped right now: refused by the budget or a bulk limit, no extra left. */
+  bulkPaused: boolean;
   /** What its knowledge-base backlog would cost, rounded up to 5M, at least 5M. */
   suggestedExtra: number;
   status: StatusLine;
@@ -141,6 +143,8 @@ export type WorkspaceUsage = {
   extra: ExtraView | null;
   /** This workspace's line. */
   status: StatusLine;
+  /** This workspace's bulk (KB) work is stopped right now: refused, and no extra left to carry it. */
+  bulkPaused: boolean;
   /** The group's line. */
   groupStatus: StatusLine;
   /** This workspace's own bulk limit and its bulk spend this month in this group. */

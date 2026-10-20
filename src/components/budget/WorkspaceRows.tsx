@@ -3,15 +3,13 @@ import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { cn } from '@/lib/utils';
 import type { WorkspaceRow } from '@/services/budgets.service';
-import { extraLeft, fmtTokens } from './budget.rules';
+import { END_CHOICES, QUICK_EXTRA_END, fmtTokens } from './budget.rules';
 import { TONE_CLASS } from './StatusText';
 
 export type WorkspaceRowsProps = {
   rows: WorkspaceRow[];
   /** The group's month spend, tokens: the "% of used" share is taken from it. */
   groupTotal: number;
-  /** Tokens of organisation-wide extra still unused (0 when none). */
-  groupExtraLeft: number;
   /** Id of the one expanded row. */
   openId: number | null;
   onToggleOpen: (organizationId: number) => void;
@@ -20,20 +18,22 @@ export type WorkspaceRowsProps = {
   onTogglePick?: (organizationId: number, on: boolean) => void;
   /** The panel shown directly under the open row. */
   renderPanel?: (row: WorkspaceRow) => ReactNode;
-  /** Give the row's suggested extra for 3 days; omit when the viewer cannot grant. */
+  /**
+   * Give the row's suggested extra (for QUICK_EXTRA_END); omit when the viewer cannot grant. Shown
+   * only on a row the API marks `bulkPaused` (its bulk work is stopped and no extra is left).
+   */
   onGiveSuggested?: (row: WorkspaceRow) => void;
 };
 
 export const panelIdFor = (organizationId: number) => `budget-panel-${organizationId}`;
 
-/** A paused bulk run with no extra left gets a one-click "Give extra" on its row. */
-const needsExtra = (row: WorkspaceRow, groupExtraLeft: number) =>
-  row.bulkRunning && extraLeft(row.extra) <= 0 && groupExtraLeft <= 0 && row.status.tone !== 'ok';
+/** "3 days": the label of the row shortcut's end choice. */
+const QUICK_EXTRA_LABEL =
+  END_CHOICES.find((choice) => choice.value === QUICK_EXTRA_END)?.label ?? '3 days';
 
 export const WorkspaceRows = ({
   rows,
   groupTotal,
-  groupExtraLeft,
   openId,
   onToggleOpen,
   picked,
@@ -125,10 +125,10 @@ export const WorkspaceRows = ({
                 </div>
               </div>
             </div>
-            {onGiveSuggested && needsExtra(row, groupExtraLeft) && (
+            {onGiveSuggested && row.bulkPaused && (
               <div className="flex justify-end px-3 pb-2">
                 <Button variant="outline" size="sm" onClick={() => onGiveSuggested(row)}>
-                  Give +{fmtTokens(row.suggestedExtra)} extra · 3 days
+                  Give +{fmtTokens(row.suggestedExtra)} extra · {QUICK_EXTRA_LABEL}
                 </Button>
               </div>
             )}
