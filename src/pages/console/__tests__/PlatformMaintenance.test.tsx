@@ -20,6 +20,8 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock('@/lib/api-client', () => ({ apiClient: api }));
 vi.mock('@/hooks/usePlatformAdmin', () => ({
+  usePlatformSyncCheckpoints: () => ({ isLoading: false, data: [{ id: 1 }, { id: 2 }] }),
+  useClearSyncCheckpoints: () => ({ mutateAsync: vi.fn() }),
   usePlatformWorkspaces: () => ({
     isLoading: false,
     data: {
@@ -324,5 +326,14 @@ describe('PlatformMaintenance — repairs', () => {
     const row = screen.getByTestId('repair-relayed-fusion-report');
     const check = within(row).getByRole('button', { name: 'Check' });
     expect(check).not.toBeDisabled();
+  });
+});
+
+describe('PlatformMaintenance — tools moved from Console → System', () => {
+  it('shows the sync checkpoints and the global-admin memberships cards', async () => {
+    renderPage();
+    expect(await screen.findByText('Sync checkpoints')).toBeTruthy();
+    expect(screen.getByText(/2 checkpoints stored/)).toBeTruthy();
+    expect(screen.getByText('Global-admin memberships')).toBeTruthy();
   });
 });
