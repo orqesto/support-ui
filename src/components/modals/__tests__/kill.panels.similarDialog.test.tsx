@@ -82,7 +82,7 @@ describe('SimilarMessagesDialog — the AI card with an answer handler', () => {
     await waitFor(() => expect(onSelectAnswer).toHaveBeenCalledWith(AI_TEXT, 'ai-generated'));
   });
 
-  it('with a translation shown, "Use original instead" puts the untranslated answer in', async () => {
+  it('with a translation shown, the untranslated answer is still what goes in by default', async () => {
     respondAi();
     const onSelectAnswer = vi.fn();
     renderDialog(onSelectAnswer);
@@ -90,17 +90,19 @@ describe('SimilarMessagesDialog — the AI card with an answer handler', () => {
     fireEvent.click(card);
     fireEvent.click(screen.getByRole('button', { name: 'Translate' }));
     expect(await screen.findByText(TRANSLATED)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Use original instead' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Use Original Response$/ }));
     await waitFor(() => expect(onSelectAnswer).toHaveBeenCalledWith(AI_TEXT, 'ai-generated'));
   });
 
-  it('read-only (no handler): the translation shows but no "Use original instead"', async () => {
+  it('read-only (no handler): both versions show, but neither is offered as a choice', async () => {
     respondAi();
     renderDialog(undefined);
     await aiCard();
     fireEvent.click(screen.getByRole('button', { name: 'Translate' }));
     expect(await screen.findByText(TRANSLATED)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Use original instead' })).toBeNull();
+    expect(screen.getByText(AI_TEXT)).toBeInTheDocument();
+    expect(screen.queryByRole('radio')).toBeNull();
+    expect(screen.queryByText(/Will be used|Click to use this version/)).toBeNull();
   });
 });
 

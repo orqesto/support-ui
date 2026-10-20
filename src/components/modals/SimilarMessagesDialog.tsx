@@ -2,7 +2,7 @@
 // no-AI-provider note + failure toast tipped it over; splitting the source-card
 // renderer out is the natural follow-up refactor.
 /* eslint-disable max-lines */
-import { useState, useEffect, type KeyboardEvent } from 'react';
+import { useState, useEffect, type KeyboardEvent, type MouseEvent } from 'react';
 import { AlertTriangle, BookOpen, Check, ChevronDown, ChevronUp, Clock, ExternalLink, FileText, Globe, Languages, Loader2, MessageCircle, Quote, Search, Sparkles, TrendingUp, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
@@ -121,9 +121,16 @@ export const SimilarMessagesDialog = ({
   const [aiConfidence, setAiConfidence] = useState<number>(0);
   const [useAiResponse, setUseAiResponse] = useState(false);
   const [translatedAiResponse, setTranslatedAiResponse] = useState<string | null>(null);
+  /** The language the shown translation is IN — the picker may have moved on since. */
+  const [translatedLanguageName, setTranslatedLanguageName] = useState<string | null>(null);
+  /**
+   * Which version of the AI reply goes into the reply: the original (the customer's language) unless
+   * the agent picks the translation. A translation is for checking the meaning; replacing the
+   * original with it made the agent translate the English back (support request 2026-10-20).
+   */
+  const [useTranslatedVersion, setUseTranslatedVersion] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('en');
   const [isTranslating, setIsTranslating] = useState(false);
-  const [showTranslation, setShowTranslation] = useState(false);
   const { languages, fetchLanguages } = useSupportedLanguages();
 
   useEffect(() => {
@@ -195,14 +202,13 @@ export const SimilarMessagesDialog = ({
     selectedIndex !== null &&
     similarMessages[selectedIndex]?.isRawSourceText === true;
 
-  const handleUseAnswer = async (forceText?: string) => {
+  const handleUseAnswer = async () => {
     // Its controls only render with a handler; this keeps the type honest.
     if (!onSelectAnswer) return;
     // If AI response is selected
     if (useAiResponse && aiResponse) {
-      // Use translated text if available and no override provided
       const textToUse =
-        forceText ?? (showTranslation && translatedAiResponse ? translatedAiResponse : aiResponse);
+        useTranslatedVersion && translatedAiResponse ? translatedAiResponse : aiResponse;
       // Save to message metadata for persistence
       try {
         await messageService.saveSuggestedAnswer(messageId, {
@@ -259,7 +265,13 @@ export const SimilarMessagesDialog = ({
 
       if (response.data.success) {
         setTranslatedAiResponse(response.data.data.translated.content);
-        setShowTranslation(true);
+        setTranslatedLanguageName(
+          languages?.find((lang) => lang.code === selectedLanguage)?.name ?? selectedLanguage
+        );
+        // Every translation leaves the original selected: the customer's language is what is sent
+        // unless the agent chooses otherwise. A source the agent already picked stays picked.
+        setUseTranslatedVersion(false);
+        if (selectable && selectedIndex === null) setUseAiResponse(true);
       }
     } catch (error) {
       logger.error('Translation failed:', error);
@@ -397,42 +409,95 @@ export const SimilarMessagesDialog = ({
                   </Button>
                 </div>
 
-                {/* Original Response */}
-                <div className="p-3 bg-gradient-to-br rounded border from-primary/5 to-primary/10 border-primary/20">
-                  <p className="mb-2 text-sm font-medium text-muted-foreground">
-                    {showTranslation && translatedAiResponse ? 'Original:' : 'Suggested Answer:'}
-                  </p>
-                  <div className="overflow-y-auto max-h-[200px]">
-                    <AnswerPreview answer={aiResponse} className="text-sm leading-relaxed" />
-                  </div>
-                </div>
-
-                {/* Translated Response */}
-                {showTranslation && translatedAiResponse && (
-                  <div className="p-3 mt-3 bg-muted rounded border border-border">
-                    <div className="flex justify-between items-center mb-2">
-                      <p className="text-sm font-medium text-primary">
-                        Translated to {languages?.find((lang) => lang.code === selectedLanguage)?.name}:
-                      </p>
-                      {onSelectAnswer && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-auto px-2 py-0.5 text-xs text-primary hover:bg-primary-muted"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void handleUseAnswer(aiResponse);
-                          }}
+                {translatedAiResponse ? (
+                  /* Two versions, both kept: the original is never replaced by a translation. */
+                  <div
+                    role={selectable ? 'radiogroup' : undefined}
+                    aria-label={selectable ? 'Version to use' : undefined}
+                    className="flex flex-col gap-3"
+                  >
+                    {(
+                      [
+                        { translated: false, label: 'Original', text: aiResponse },
+                        {
+                          translated: true,
+                          label: `Translated to ${translatedLanguageName ?? ''}`,
+                          text: translatedAiResponse,
+                        },
+                      ] as const
+                    ).map((version) => {
+                      const chosen =
+                        selectable && useAiResponse && useTranslatedVersion === version.translated;
+                      const choose = () => {
+                        setUseAiResponse(true);
+                        setSelectedIndex(null);
+                        setUseTranslatedVersion(version.translated);
+                      };
+                      return (
+                        <div
+                          key={version.label}
+                          {...(selectable
+                            ? {
+                                role: 'radio' as const,
+                                'aria-checked': chosen,
+                                'aria-label': `Use ${version.translated ? 'translated' : 'original'} response`,
+                                tabIndex: 0,
+                                // Inside the AI card: the card's own handler would only re-select the card.
+                                onClick: (event: MouseEvent) => {
+                                  event.stopPropagation();
+                                  choose();
+                                },
+                                onKeyDown: (event: KeyboardEvent) => {
+                                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  choose();
+                                },
+                              }
+                            : {})}
+                          className={`p-3 rounded border-2 ${selectable ? 'cursor-pointer' : ''} ${
+                            chosen
+                              ? 'border-primary bg-primary/10'
+                              : 'border-border bg-muted hover:border-primary/50'
+                          }`}
                         >
-                          Use original instead
-                        </Button>
-                      )}
-                    </div>
+                          <div className="flex justify-between items-center mb-2">
+                            <p
+                              className={`text-sm font-medium ${
+                                version.translated ? 'text-primary' : 'text-muted-foreground'
+                              }`}
+                            >
+                              {version.label}:
+                            </p>
+                            {selectable &&
+                              (chosen ? (
+                                <Badge variant="success" className="text-xs">
+                                  <Check className="mr-1 w-3 h-3" />
+                                  Will be used
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="text-xs">
+                                  Click to use this version
+                                </Badge>
+                              ))}
+                          </div>
+                          <div className="overflow-y-auto max-h-[200px]">
+                            <AnswerPreview
+                              answer={version.text}
+                              className={`text-sm leading-relaxed ${version.translated ? 'text-primary' : ''}`}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-gradient-to-br rounded border from-primary/5 to-primary/10 border-primary/20">
+                    <p className="mb-2 text-sm font-medium text-muted-foreground">
+                      Suggested Answer:
+                    </p>
                     <div className="overflow-y-auto max-h-[200px]">
-                      <AnswerPreview
-                        answer={translatedAiResponse}
-                        className="text-sm leading-relaxed text-primary"
-                      />
+                      <AnswerPreview answer={aiResponse} className="text-sm leading-relaxed" />
                     </div>
                   </div>
                 )}
@@ -799,8 +864,10 @@ export const SimilarMessagesDialog = ({
             >
               <Check className="mr-2 w-4 h-4" />
               {useAiResponse
-                ? showTranslation && translatedAiResponse
-                  ? 'Use Translated Response'
+                ? translatedAiResponse
+                  ? useTranslatedVersion
+                    ? 'Use Translated Response'
+                    : 'Use Original Response'
                   : 'Use AI Response'
                 : selectedIsRawSource
                   ? 'Insert source text'
