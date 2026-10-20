@@ -18,6 +18,9 @@ import {
 } from './budgetModelDemo.rules';
 import {
   BudgetInput,
+  BulkLegend,
+  BulkLimitField,
+  BulkLimitLegend,
   ExtraBox,
   FieldLabel,
   Log,
@@ -64,12 +67,12 @@ export const SingleWorkspaceView = () => {
                 onChange={(budget) => setState((prev) => ({ ...prev, budget }))}
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <FieldLabel>Knowledge base may use at most · drag the line on the bar</FieldLabel>
-              <span className="font-mono text-lg">
-                {totals.kbPct}% · {fmt(totals.kbCap)} · counts knowledge base spend only
-              </span>
-            </div>
+            <BulkLimitField
+              on={totals.kbLimitOn}
+              pct={totals.kbPct}
+              cap={totals.kbCap}
+              onToggle={(kbLimitOn) => setState((prev) => ({ ...prev, kbLimitOn }))}
+            />
           </div>
           <BarSlider
             value={state.kbPct}
@@ -77,21 +80,18 @@ export const SingleWorkspaceView = () => {
             max={100}
             step={5}
             onChange={(value) => setState((prev) => ({ ...prev, kbPct: clampKbPct(value) }))}
-            ariaLabel="Knowledge base may use at most, percent of the budget"
+            disabled={!totals.kbLimitOn}
+            ariaLabel="Bulk processing may use at most, percent of the budget"
             ariaValueText={`${totals.kbPct}% of the budget`}
-            markers={<BarMarker at={totals.kbPct} />}
+            markers={totals.kbLimitOn ? <BarMarker at={totals.kbPct} /> : undefined}
           >
-            {/* The knowledge base first, from 0: the end of the purple part is what the line is
-                compared with. Live mail follows and may run past the line. */}
+            {/* Bulk work first, from 0: the end of the purple part is what the line is compared
+                with. Live mail follows and may run past the line. */}
             <BarSegment width={kbWidth} className="bg-pending" />
             <BarSegment left={kbWidth} width={liveWidth} className="bg-primary" />
           </BarSlider>
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
-            <span>
-              <Swatch className="bg-pending" />
-              Knowledge base <span className="font-mono">{fmt(state.kbUsed)}</span> of{' '}
-              <span className="font-mono">{fmt(totals.kbCap)}</span>
-            </span>
+            <BulkLegend on={totals.kbLimitOn} used={state.kbUsed} cap={totals.kbCap} />
             <span>
               <Swatch className="bg-primary" />
               Live mail <span className="font-mono">{fmt(state.liveUsed)}</span>
@@ -100,10 +100,7 @@ export const SingleWorkspaceView = () => {
               <Swatch className="bg-muted border border-border" />
               Free <span className="font-mono">{fmt(totals.budget - totals.used)}</span>
             </span>
-            <span>
-              <Swatch className="!w-0.5 bg-foreground" />
-              Knowledge base limit (compared with the purple part only)
-            </span>
+            <BulkLimitLegend on={totals.kbLimitOn} />
             {state.extraUsed > 0 && (
               <span>
                 <Swatch className="bg-warning" />

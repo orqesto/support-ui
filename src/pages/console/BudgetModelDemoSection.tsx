@@ -13,8 +13,10 @@ import {
   clampKbPct,
   defaultLimitFor,
   endOrgExtra,
+  endOrgWideExtra,
   fmt,
   grantOrgExtra,
+  grantOrgWideExtra,
   initialOrgState,
   orgStatusLine,
   orgTotals,
@@ -23,6 +25,7 @@ import {
   simulateOrgDay,
   sortByUse,
   suggestedExtra,
+  suggestedOrgExtra,
   usd,
   workspaceStatus,
   type DemoWorkspace,
@@ -31,6 +34,9 @@ import {
 } from './budgetModelDemo.rules';
 import {
   BudgetInput,
+  BulkLegend,
+  BulkLimitField,
+  BulkLimitLegend,
   ExtraBox,
   FieldLabel,
   Log,
@@ -80,10 +86,10 @@ const WorkspacePanel = ({
   const sliderValue = ws.limit ?? defaultLimitFor(ws, budget);
   const help =
     ws.limit === null
-      ? 'The purple part is its knowledge base spend this month; the grey tick is the organisation knowledge base limit.'
+      ? 'The purple part is its bulk spend this month; the grey tick is the organisation bulk limit.'
       : ws.kbUsed >= ws.limit
-        ? 'Below what its knowledge base already used: its knowledge base stops now; live mail continues.'
-        : `${fmt(ws.limit - ws.kbUsed)} left for its knowledge base.`;
+        ? 'Below what its bulk work already used: its bulk work stops now; live mail continues.'
+        : `${fmt(ws.limit - ws.kbUsed)} left for its bulk work.`;
   return (
     <div
       id={`budget-demo-panel-${ws.id}`}
@@ -91,7 +97,7 @@ const WorkspacePanel = ({
     >
       <div className="grid gap-6 grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
         <div className="flex flex-col gap-1.5">
-          <FieldLabel>Limit this workspace's knowledge base</FieldLabel>
+          <FieldLabel>Limit this workspace's bulk processing</FieldLabel>
           <Toggle
             checked={ws.limit !== null}
             onChange={(on) => onLimit(on ? sliderValue : null)}
@@ -100,7 +106,7 @@ const WorkspacePanel = ({
           <span className="font-mono text-lg">
             {ws.limit !== null
               ? `${fmt(ws.limit)} · ${Math.round((ws.limit / budget) * 100)}% of the budget`
-              : 'No own limit · only the organisation knowledge base limit applies'}
+              : 'No own limit · only the organisation bulk limit applies'}
           </span>
           <BarSlider
             value={Math.min(sliderValue, Math.round(budget))}
@@ -112,18 +118,16 @@ const WorkspacePanel = ({
             ariaLabel={`Limit for ${ws.name}`}
             ariaValueText={`${fmt(sliderValue)} tokens`}
             markers={
-              <BarMarker
-                at={totals.kbPct}
-                variant="tick"
-                title="Organisation: knowledge base limit"
-              />
+              totals.kbLimitOn ? (
+                <BarMarker at={totals.kbPct} variant="tick" title="Organisation: bulk limit" />
+              ) : undefined
             }
           >
             <BarSegment width={(ws.kbUsed / budget) * 100} className="bg-pending" />
           </BarSlider>
           <span className="text-sm text-muted-foreground">{help}</span>
           <span className="text-sm text-muted-foreground">
-            The limit caps its knowledge base only; its live mail continues.
+            The limit caps its bulk work only; its live mail continues.
           </span>
         </div>
         <ExtraBox
@@ -147,6 +151,9 @@ const WorkspacePanel = ({
     </div>
   );
 };
+
+/** The row shortcut gives the suggested extra for 3 days. */
+const QUICK_EXTRA_END: ExtraEnd = 1;
 
 const OrganisationView = () => {
   const [state, setState] = useState(initialOrgState);
@@ -172,9 +179,19 @@ const OrganisationView = () => {
   // Row bars are relative: the biggest workspace fills its bar.
   const biggest = Math.max(0.001, ...state.workspaces.map((ws) => ws.used + ws.extraUsed));
 
+  /** A paused import with no extra left gets a one-click "Give extra" on its row. */
+  const needsExtra = (ws: DemoWorkspace) =>
+    ws.importing &&
+    ws.extra - ws.extraUsed <= 0 &&
+    totals.orgExtraLeft <= 0 &&
+    (totals.kbPaused || totals.allStopped || (ws.limit !== null && ws.kbUsed >= ws.limit));
+
   const update = (id: string, change: (prev: typeof state) => typeof state) =>
     setState((prev) => (prev.workspaces.some((ws) => ws.id === id) ? change(prev) : prev));
 
+  /** Bumped on Reset so the organisation extra box starts from its draft again. */
+  const [generation, setGeneration] = useState(0);
+  const [orgExtraOpen, setOrgExtraOpen] = useState(false);
   const toggleRow = (id: string) => setSelected((current) => (current === id ? null : id));
   const onRowKey = (event: KeyboardEvent<HTMLDivElement>, id: string) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -201,12 +218,12 @@ const OrganisationView = () => {
                 onChange={(budget) => setState((prev) => ({ ...prev, budget }))}
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <FieldLabel>Knowledge base may use at most · drag the line on the bar</FieldLabel>
-              <span className="font-mono text-lg">
-                {totals.kbPct}% · {fmt(totals.kbCap)} · counts knowledge base spend only
-              </span>
-            </div>
+            <BulkLimitField
+              on={totals.kbLimitOn}
+              pct={totals.kbPct}
+              cap={totals.kbCap}
+              onToggle={(kbLimitOn) => setState((prev) => ({ ...prev, kbLimitOn }))}
+            />
           </div>
           <BarSlider
             value={state.kbPct}
@@ -214,12 +231,13 @@ const OrganisationView = () => {
             max={100}
             step={5}
             onChange={(value) => setState((prev) => ({ ...prev, kbPct: clampKbPct(value) }))}
-            ariaLabel="Knowledge base may use at most, percent of the budget"
+            disabled={!totals.kbLimitOn}
+            ariaLabel="Bulk processing may use at most, percent of the budget"
             ariaValueText={`${totals.kbPct}% of the budget`}
-            markers={<BarMarker at={totals.kbPct} />}
+            markers={totals.kbLimitOn ? <BarMarker at={totals.kbPct} /> : undefined}
           >
-            {/* The knowledge base first, from 0: the end of the purple part is what the line is
-                compared with. Live mail follows and may run past the line. */}
+            {/* Bulk work first, from 0: the end of the purple part is what the line is compared
+                with. Live mail follows and may run past the line. */}
             <BarSegment width={kbWidth} className="bg-pending" />
             <BarSegment left={kbWidth} width={liveWidth} className="bg-primary" />
           </BarSlider>
@@ -227,11 +245,7 @@ const OrganisationView = () => {
             <span>
               Used <span className="font-mono">{fmt(totals.total)}</span> ({usd(totals.total)}):
             </span>
-            <span>
-              <Swatch className="bg-pending" />
-              Knowledge base <span className="font-mono">{fmt(totals.kbTotal)}</span> of{' '}
-              <span className="font-mono">{fmt(totals.kbCap)}</span>
-            </span>
+            <BulkLegend on={totals.kbLimitOn} used={totals.kbTotal} cap={totals.kbCap} />
             <span>
               <Swatch className="bg-primary" />
               Live mail <span className="font-mono">{fmt(totals.total - totals.kbTotal)}</span>
@@ -240,14 +254,11 @@ const OrganisationView = () => {
               <Swatch className="bg-muted border border-border" />
               Free <span className="font-mono">{fmt(totals.budget - totals.total)}</span>
             </span>
-            <span>
-              <Swatch className="!w-0.5 bg-foreground" />
-              Knowledge base limit (compared with the purple part only)
-            </span>
+            <BulkLimitLegend on={totals.kbLimitOn} />
             {extraSpent > 0 && (
               <span>
                 <Swatch className="bg-warning" />
-                Extra for the knowledge base, outside the budget{' '}
+                Extra for bulk work, outside the budget{' '}
                 <span className="font-mono">{fmt(extraSpent)}</span>
               </span>
             )}
@@ -259,6 +270,31 @@ const OrganisationView = () => {
             )}
           </div>
           <StatusText tone={status.tone} text={status.text} testId="budget-demo-org-status" />
+          {state.orgExtra > 0 || orgExtraOpen ? (
+            <div className="flex flex-col gap-1.5 max-w-md">
+              <ExtraBox
+                key={generation}
+                title="Extra for the whole organisation (bulk work)"
+                extra={state.orgExtra}
+                extraUsed={state.orgExtraUsed}
+                extraDays={state.orgExtraDays}
+                suggestion={suggestedOrgExtra(state)}
+                initialAmount={suggestedOrgExtra(state)}
+                onGrant={(amount, end) => setState((prev) => grantOrgWideExtra(prev, amount, end))}
+                onEnd={() => setState((prev) => endOrgWideExtra(prev))}
+              />
+              <span className="text-sm text-muted-foreground">
+                Any workspace&apos;s paused import uses it, after its own extra. No need to open a
+                workspace.
+              </span>
+            </div>
+          ) : (
+            <div>
+              <Button variant="outline" size="sm" onClick={() => setOrgExtraOpen(true)}>
+                Give extra to the whole organisation
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -332,6 +368,21 @@ const OrganisationView = () => {
                       {row.text}
                     </div>
                   </div>
+                  {needsExtra(ws) && (
+                    <div className="flex justify-end px-3 pb-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          update(ws.id, (prev) =>
+                            grantOrgExtra(prev, ws.id, suggestedExtra(ws), QUICK_EXTRA_END)
+                          )
+                        }
+                      >
+                        Give +{fmt(suggestedExtra(ws))} extra · 3 days
+                      </Button>
+                    </div>
+                  )}
                   {open && (
                     <WorkspacePanel
                       key={ws.id}
@@ -385,6 +436,8 @@ const OrganisationView = () => {
                   setState(initialOrgState());
                   setSelected(null);
                   setShowAll(false);
+                  setGeneration((current) => current + 1);
+                  setOrgExtraOpen(false);
                 }}
               >
                 Reset
@@ -418,8 +471,9 @@ export const BudgetModelDemoSection = () => {
           Budget model (demo)
         </h2>
         <p className="text-sm text-muted-foreground">
-          A proposed way to budget AI per month: live mail first, the knowledge base up to a line,
-          extra for big imports outside the budget.
+          A proposed way to budget AI per month: one budget, live mail takes what it needs, bulk
+          processing (knowledge base) up to an optional limit, extra for big imports outside the
+          budget.
         </p>
       </div>
       <Alert variant="warning" className="py-2.5 text-sm font-medium">

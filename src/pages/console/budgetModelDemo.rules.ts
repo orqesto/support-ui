@@ -7,11 +7,13 @@
  * The rules being demonstrated:
  * - one monthly budget (the pool); live mail (all regular work) takes what it needs from it and
  *   stops only when the WHOLE budget is used;
- * - the knowledge base (KB) has its own limit, "KB may use at most X % of the budget", counted on
- *   KB spend ONLY; reaching it pauses KB work, never live mail;
- * - a workspace's own limit caps its knowledge base only, also counted on its KB spend;
- * - extra for the KB is outside the budget, is consumed only while the KB is paused, and unused
- *   extra expires;
+ * - bulk processing (the knowledge base: imports, re-mines, quality, consolidation; "KB" below)
+ *   has an optional limit, "may use at most X % of the budget", counted on bulk spend ONLY;
+ *   reaching it pauses bulk work, never live mail. Switched off, bulk work shares the whole budget;
+ * - a workspace's own limit caps its bulk work only, also counted on its bulk spend;
+ * - extra for bulk work is outside the budget, is consumed only while the KB is paused, and unused
+ *   extra expires. It is given to one workspace, or to the whole organisation (any workspace's
+ *   paused import uses it, after its own extra);
  * - what is spent stays spent: a removed workspace's spend still counts, settings change only what
  *   is left.
  */
@@ -82,8 +84,14 @@ export type OrgDemoState = {
   day: number;
   /** Monthly budget, million tokens. */
   budget: number;
-  /** The knowledge base may use at most this % of the budget, counted on KB spend only. */
+  /** Bulk processing may use at most this % of the budget, counted on bulk spend only. */
   kbPct: number;
+  /** The bulk limit is on; off = bulk work shares the whole budget with live mail. */
+  kbLimitOn: boolean;
+  /** Extra for bulk work given to the whole organisation, its used part and the days it has left. */
+  orgExtra: number;
+  orgExtraUsed: number;
+  orgExtraDays: number;
   /** Spent this month by workspaces that were removed: it still counts. */
   spentRemoved: number;
   /** The knowledge-base part of `spentRemoved`. */
@@ -95,7 +103,8 @@ export type OrgDemoState = {
 export type OrgTotals = {
   budget: number;
   kbPct: number;
-  /** The knowledge base limit, million tokens. */
+  kbLimitOn: boolean;
+  /** The bulk limit, million tokens; the whole budget while the limit is off. */
   kbCap: number;
   /** Everything used this month: knowledge base + live mail. */
   total: number;
@@ -103,6 +112,8 @@ export type OrgTotals = {
   kbTotal: number;
   kbPaused: boolean;
   allStopped: boolean;
+  /** Organisation-wide extra still unused. */
+  orgExtraLeft: number;
 };
 
 const EXAMPLE_NAMES = [
@@ -169,6 +180,10 @@ export const initialOrgState = (): OrgDemoState => {
     day: 19,
     budget: 400,
     kbPct: 60,
+    kbLimitOn: true,
+    orgExtra: 0,
+    orgExtraUsed: 0,
+    orgExtraDays: 0,
     spentRemoved: 0,
     spentRemovedKb: 0,
     newCount: 0,
@@ -180,26 +195,40 @@ export const initialOrgState = (): OrgDemoState => {
 export const clampKbPct = (pct: number): number => Math.min(KB_MAX_PCT, Math.max(KB_MIN_PCT, pct));
 
 export const orgTotals = (
-  state: Pick<OrgDemoState, 'workspaces' | 'budget' | 'kbPct' | 'spentRemoved' | 'spentRemovedKb'>
+  state: Pick<
+    OrgDemoState,
+    | 'workspaces'
+    | 'budget'
+    | 'kbPct'
+    | 'kbLimitOn'
+    | 'orgExtra'
+    | 'orgExtraUsed'
+    | 'spentRemoved'
+    | 'spentRemovedKb'
+  >
 ): OrgTotals => {
   const budget = Math.max(1, state.budget || 1);
-  const kbCap = (budget * state.kbPct) / 100;
+  const kbCap = state.kbLimitOn ? (budget * state.kbPct) / 100 : budget;
   const total = state.workspaces.reduce((sum, ws) => sum + ws.used, 0) + state.spentRemoved;
   const kbTotal = state.workspaces.reduce((sum, ws) => sum + ws.kbUsed, 0) + state.spentRemovedKb;
   return {
     budget,
     kbPct: state.kbPct,
+    kbLimitOn: state.kbLimitOn,
     kbCap,
     total,
     kbTotal,
-    kbPaused: kbTotal >= kbCap,
+    kbPaused: state.kbLimitOn && kbTotal >= kbCap,
     allStopped: total >= budget,
+    orgExtraLeft: state.orgExtra - state.orgExtraUsed,
   };
 };
 
 export const workspaceStatus = (ws: DemoWorkspace, tot: OrgTotals): StatusLine => {
   const limitHit = ws.limit !== null && ws.kbUsed >= ws.limit;
-  const extraLeft = ws.extra - ws.extraUsed;
+  const ownLeft = ws.extra - ws.extraUsed;
+  // A paused import uses its own extra first, then the organisation's.
+  const extraLeft = ownLeft + tot.orgExtraLeft;
   if (tot.allStopped && !(ws.importing && extraLeft > 0))
     return { tone: 'bad', text: 'Stopped: monthly budget used up' };
   if (limitHit)
@@ -210,14 +239,17 @@ export const workspaceStatus = (ws: DemoWorkspace, tot: OrgTotals): StatusLine =
   if (ws.importing && extraLeft > 0 && (tot.kbPaused || tot.allStopped))
     return {
       tone: 'warn',
-      text: `KB import on extra · ${fmt(extraLeft)} left · ends ${endsText(ws.extraDays)}`,
+      text:
+        ownLeft > 0
+          ? `KB import on extra · ${fmt(ownLeft)} left · ends ${endsText(ws.extraDays)}`
+          : `KB import on organisation extra · ${fmt(tot.orgExtraLeft)} left`,
     };
   if (ws.importing && tot.kbPaused)
     return { tone: 'warn', text: 'KB import paused · live mail continues' };
-  if (extraLeft > 0)
+  if (ownLeft > 0)
     return {
       tone: 'ok',
-      text: `KB import running · extra ready (${fmt(extraLeft)}, ends ${endsText(ws.extraDays)})`,
+      text: `KB import running · extra ready (${fmt(ownLeft)}, ends ${endsText(ws.extraDays)})`,
     };
   if (ws.limit !== null && ws.kbUsed >= ws.limit * 0.8)
     return {
@@ -232,16 +264,21 @@ export const orgStatusLine = (tot: OrgTotals): StatusLine => {
   if (tot.allStopped)
     return {
       tone: 'bad',
-      text: 'Monthly budget used up: live mail stops too. Raise the budget, or AI resumes on 1 Nov. Knowledge base work with extra continues.',
+      text: 'Monthly budget used up: live mail stops too. Raise the budget, or AI resumes on 1 Nov. Bulk work with extra continues.',
     };
   if (tot.kbPaused)
     return {
       tone: 'warn',
-      text: `Knowledge base paused: it used its ${fmt(tot.kbCap)}. Live mail continues and can use the last ${fmt(tot.budget - tot.total)}. Workspaces with extra keep importing.`,
+      text: `Bulk processing paused: it used its ${fmt(tot.kbCap)}. Live mail continues and can use the last ${fmt(tot.budget - tot.total)}. Workspaces with extra keep importing.`,
+    };
+  if (!tot.kbLimitOn)
+    return {
+      tone: 'ok',
+      text: `All running. Bulk processing has no limit and shares the budget with live mail: ${fmt(tot.budget - tot.total)} left.`,
     };
   return {
     tone: 'ok',
-    text: `All running. Knowledge base can use ${fmt(Math.min(tot.kbCap - tot.kbTotal, tot.budget - tot.total))} more. Live mail can use ${fmt(tot.budget - tot.total)}.`,
+    text: `All running. Bulk processing can use ${fmt(Math.min(tot.kbCap - tot.kbTotal, tot.budget - tot.total))} more. Live mail can use ${fmt(tot.budget - tot.total)}.`,
   };
 };
 
@@ -306,6 +343,14 @@ export const simulateOrgDay = (state: OrgDemoState): OrgDemoState => {
         const done = Math.min(todo, extraLeft);
         ws.extraUsed += done;
         ws.importLeft -= done;
+        todo -= done;
+      }
+      // Then the organisation's extra.
+      const orgLeft = next.orgExtra - next.orgExtraUsed;
+      if (todo > 0 && orgLeft > 0) {
+        const done = Math.min(todo, orgLeft);
+        next.orgExtraUsed += done;
+        ws.importLeft -= done;
       }
       if (ws.importLeft <= 0) {
         ws.importing = false;
@@ -320,10 +365,19 @@ export const simulateOrgDay = (state: OrgDemoState): OrgDemoState => {
       } else ws.extraDays--;
     }
   }
+  if (next.orgExtra > 0) {
+    if (next.orgExtraDays <= 0) {
+      notes.push(
+        `the organisation extra ended (${fmt(next.orgExtra - next.orgExtraUsed)} unused, expired)`
+      );
+      next.orgExtra = 0;
+      next.orgExtraUsed = 0;
+    } else next.orgExtraDays--;
+  }
   const after = orgTotals(next);
   if (!before.kbPaused && after.kbPaused)
     notes.push(
-      'the knowledge base used its limit: KB imports without extra paused, live mail continues'
+      'bulk processing used its limit: KB imports without extra paused, live mail continues'
     );
   if (!before.allStopped && after.allStopped) notes.push('the monthly budget is used up');
   next.log = `${next.day} Oct: ` + (notes.length ? notes.join('; ') + '.' : 'normal day.');
@@ -350,6 +404,33 @@ export const grantOrgExtra = (state: OrgDemoState, id: string, amount: number, e
     extraDays: EXTRA_END_DAYS[end],
     ...(ws.importing ? {} : { importing: true, importLeft: Math.max(ws.importLeft, amount) }),
   }));
+
+/** Give extra for bulk work to the whole organisation: any workspace's paused import uses it. */
+export const grantOrgWideExtra = (
+  state: OrgDemoState,
+  amount: number,
+  end: ExtraEnd
+): OrgDemoState => ({
+  ...state,
+  orgExtra: amount,
+  orgExtraUsed: 0,
+  orgExtraDays: EXTRA_END_DAYS[end],
+});
+
+export const endOrgWideExtra = (state: OrgDemoState): OrgDemoState => ({
+  ...state,
+  orgExtra: 0,
+  orgExtraUsed: 0,
+});
+
+/** Organisation-wide extra suggestion: what the running imports still need, rounded to 5M. */
+export const suggestedOrgExtra = (state: OrgDemoState): number =>
+  Math.max(
+    EXTRA_MIN,
+    Math.round(
+      state.workspaces.reduce((sum, ws) => sum + (ws.importing ? ws.importLeft : 0), 0) / 5
+    ) * 5
+  );
 
 export const endOrgExtra = (state: OrgDemoState, id: string) =>
   updateWorkspace(state, id, () => ({ extra: 0, extraUsed: 0 }));
@@ -393,8 +474,10 @@ export const removeWorkspace = (state: OrgDemoState, id: string): OrgDemoState =
 export type SingleDemoState = {
   day: number;
   budget: number;
-  /** The knowledge base may use at most this % of the budget, counted on KB spend only. */
+  /** Bulk processing may use at most this % of the budget, counted on bulk spend only. */
   kbPct: number;
+  /** The bulk limit is on; off = bulk work shares the whole budget with live mail. */
+  kbLimitOn: boolean;
   kbUsed: number;
   liveUsed: number;
   importing: boolean;
@@ -408,7 +491,8 @@ export type SingleDemoState = {
 export type SingleTotals = {
   budget: number;
   kbPct: number;
-  /** The knowledge base limit, million tokens. */
+  kbLimitOn: boolean;
+  /** The bulk limit, million tokens; the whole budget while the limit is off. */
   kbCap: number;
   used: number;
   kbPaused: boolean;
@@ -425,6 +509,7 @@ export const initialSingleState = (): SingleDemoState => ({
   day: 19,
   budget: 60,
   kbPct: 80,
+  kbLimitOn: true,
   kbUsed: 28,
   liveUsed: 9,
   importing: false,
@@ -437,14 +522,15 @@ export const initialSingleState = (): SingleDemoState => ({
 
 export const singleTotals = (st: SingleDemoState): SingleTotals => {
   const budget = Math.max(1, st.budget || 1);
-  const kbCap = (budget * st.kbPct) / 100;
+  const kbCap = st.kbLimitOn ? (budget * st.kbPct) / 100 : budget;
   const used = st.kbUsed + st.liveUsed;
   return {
     budget,
     kbPct: st.kbPct,
+    kbLimitOn: st.kbLimitOn,
     kbCap,
     used,
-    kbPaused: st.kbUsed >= kbCap,
+    kbPaused: st.kbLimitOn && st.kbUsed >= kbCap,
     stopped: used >= budget,
   };
 };
@@ -462,17 +548,24 @@ export const singleStatusLine = (st: SingleDemoState): StatusLine => {
   if (tot.kbPaused && st.importing && extraLeft > 0)
     return {
       tone: 'warn',
-      text: `Knowledge base used its ${fmt(tot.kbCap)}; the import continues on its extra (${fmt(extraLeft)} left). Live mail continues.`,
+      text: `Bulk processing used its ${fmt(tot.kbCap)}; the import continues on its extra (${fmt(extraLeft)} left). Live mail continues.`,
     };
   if (tot.kbPaused)
     return {
       tone: 'warn',
-      text: `Knowledge base paused: it used its ${fmt(tot.kbCap)}. Live mail continues and can use the last ${fmt(tot.budget - tot.used)}. Give extra to continue an import.`,
+      text: `Bulk processing paused: it used its ${fmt(tot.kbCap)}. Live mail continues and can use the last ${fmt(tot.budget - tot.used)}. Give extra to continue an import.`,
+    };
+  if (!tot.kbLimitOn)
+    return {
+      tone: 'ok',
+      text:
+        `All running. Bulk processing has no limit and shares the budget with live mail: ${fmt(tot.budget - tot.used)} left.` +
+        (st.importing ? ` KB import: ${fmt(st.importLeft)} to go.` : ''),
     };
   return {
     tone: 'ok',
     text:
-      `All running. Knowledge base can use ${fmt(Math.min(tot.kbCap - st.kbUsed, tot.budget - tot.used))} more. Live mail can use ${fmt(tot.budget - tot.used)}.` +
+      `All running. Bulk processing can use ${fmt(Math.min(tot.kbCap - st.kbUsed, tot.budget - tot.used))} more. Live mail can use ${fmt(tot.budget - tot.used)}.` +
       (st.importing ? ` KB import: ${fmt(st.importLeft)} to go.` : ''),
   };
 };
@@ -521,7 +614,7 @@ export const simulateSingleDay = (state: SingleDemoState): SingleDemoState => {
   }
   const after = singleTotals(st);
   if (!tot.kbPaused && after.kbPaused)
-    notes.push('the knowledge base used its limit and paused; live mail continues');
+    notes.push('bulk processing used its limit and paused; live mail continues');
   st.log = `${st.day} Oct: ` + (notes.length ? notes.join('; ') + '.' : 'normal day.');
   return st;
 };

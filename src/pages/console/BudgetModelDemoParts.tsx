@@ -3,6 +3,7 @@ import { BarSegment, BarSlider } from '@/components/ui/BarSlider';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { Toggle } from '@/components/ui/Toggle';
 import { cn } from '@/lib/utils';
 import {
   EXTRA_END_LABELS,
@@ -112,10 +113,12 @@ export const Log = ({ text, testId }: { text: string; testId: string }) => (
 );
 
 // ---------------------------------------------------------------------------------------------
-// Extra for the knowledge base (shared by both views)
+// Extra for bulk work (shared by both views)
 // ---------------------------------------------------------------------------------------------
 
 export type ExtraBoxProps = {
+  /** Defaults to "Extra for bulk work". */
+  title?: string;
   extra: number;
   extraUsed: number;
   extraDays: number;
@@ -127,6 +130,7 @@ export type ExtraBoxProps = {
 };
 
 export const ExtraBox = ({
+  title = 'Extra for bulk work',
   extra,
   extraUsed,
   extraDays,
@@ -141,7 +145,7 @@ export const ExtraBox = ({
   if (extra > 0)
     return (
       <div className="flex flex-col gap-1.5">
-        <FieldLabel>Extra for the knowledge base</FieldLabel>
+        <FieldLabel>{title}</FieldLabel>
         <div className="flex flex-wrap gap-2.5 items-baseline">
           <span className="font-mono text-lg">+{fmt(extra)}</span>
           <span className="text-sm text-muted-foreground">
@@ -168,7 +172,7 @@ export const ExtraBox = ({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <FieldLabel>Extra for the knowledge base</FieldLabel>
+      <FieldLabel>{title}</FieldLabel>
       <span className="font-mono text-lg">
         +{fmt(amount)} {usd(amount)}
       </span>
@@ -204,3 +208,55 @@ export const ExtraBox = ({
     </div>
   );
 };
+
+/** The bulk limit header, both views: on/off, its value, and the warning while it is off. */
+export const BulkLimitField = ({
+  on,
+  pct,
+  cap,
+  onToggle,
+}: {
+  on: boolean;
+  pct: number;
+  cap: number;
+  onToggle: (on: boolean) => void;
+}) => (
+  <div className="flex flex-col gap-1.5">
+    <FieldLabel>Bulk processing (knowledge base, imports, re-mines)</FieldLabel>
+    <Toggle checked={on} onChange={onToggle} label="Limit it · drag the line on the bar" />
+    {on ? (
+      <span className="font-mono text-lg">
+        At most {pct}% · {fmt(cap)} · counts bulk spend only
+      </span>
+    ) : (
+      <span className="text-sm text-warning">
+        No limit: bulk work shares the whole budget, so a big import can stop live mail.
+      </span>
+    )}
+  </div>
+);
+
+/** The bulk part of the legend, both views. */
+export const BulkLegend = ({ on, used, cap }: { on: boolean; used: number; cap: number }) => (
+  <>
+    <span>
+      <Swatch className="bg-pending" />
+      Bulk processing <span className="font-mono">{fmt(used)}</span>
+      {on && (
+        <>
+          {' '}
+          of <span className="font-mono">{fmt(cap)}</span>
+        </>
+      )}
+    </span>
+  </>
+);
+
+/** The limit line in the legend, shown only while the bulk limit is on. */
+export const BulkLimitLegend = ({ on }: { on: boolean }) =>
+  on ? (
+    <span>
+      <Swatch className="!w-0.5 bg-foreground" />
+      Bulk limit (compared with the purple part only)
+    </span>
+  ) : null;

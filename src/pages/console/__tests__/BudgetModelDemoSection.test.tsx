@@ -65,14 +65,14 @@ describe('Budget model demo', () => {
       orgView().getByText(/Example organisation · 24 workspaces · 19 Oct 2026/)
     ).toBeInTheDocument();
     expect(orgView().getByTestId('budget-demo-org-status')).toHaveTextContent(
-      'All running. Knowledge base can use'
+      'All running. Bulk processing can use'
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Single workspace' }));
     expect(screen.getByTestId('budget-demo-view-single')).toBeVisible();
     expect(singleView().getByText('Lakeside Dental')).toBeInTheDocument();
     expect(singleView().getByTestId('budget-demo-single-status')).toHaveTextContent(
-      'All running. Knowledge base can use 20.0M more. Live mail can use 23.0M.'
+      'All running. Bulk processing can use 20.0M more. Live mail can use 23.0M.'
     );
   });
 
@@ -104,10 +104,10 @@ describe('Budget model demo', () => {
     // The panel is the row's next sibling inside the same list item.
     expect(row.nextElementSibling).toBe(panel);
     expect(
-      within(panel as HTMLElement).getByText("Limit this workspace's knowledge base")
+      within(panel as HTMLElement).getByText("Limit this workspace's bulk processing")
     ).toBeInTheDocument();
     expect(
-      within(panel as HTMLElement).getByText('Extra for the knowledge base')
+      within(panel as HTMLElement).getByText('Extra for bulk work')
     ).toBeInTheDocument();
     expect(
       within(panel as HTMLElement).getByRole('slider', { name: 'Limit for Atlas Labs' })
@@ -132,7 +132,7 @@ describe('Budget model demo', () => {
     // 21M of its 28M is knowledge base; limit 20: its KB stops, live mail continues.
     expect(
       orgView().getByText(
-        'Below what its knowledge base already used: its knowledge base stops now; live mail continues.'
+        'Below what its bulk work already used: its bulk work stops now; live mail continues.'
       )
     ).toBeInTheDocument();
     expect(orgView().getByTestId('budget-demo-row-status-w1')).toHaveTextContent(
@@ -140,12 +140,44 @@ describe('Budget model demo', () => {
     );
   });
 
+  it('a paused import gets a one-click extra on its row, without opening it', () => {
+    render(<BudgetModelDemoSection />);
+    fireEvent.change(orgView().getByLabelText('Monthly budget'), { target: { value: '300' } });
+    const status = orgView().getByTestId('budget-demo-row-status-w4');
+    expect(status).toHaveTextContent('KB import paused · live mail continues');
+    fireEvent.click(orgView().getByRole('button', { name: 'Give +25.0M extra · 3 days' }));
+    expect(status).toHaveTextContent('KB import on extra · 25.0M left · ends in 3 d');
+    expect(orgView().queryByRole('region', { name: /Delta Logistics/ })).toBeNull();
+  });
+
+  it('extra for the whole organisation opens from the budget card', () => {
+    render(<BudgetModelDemoSection />);
+    fireEvent.click(
+      orgView().getByRole('button', { name: 'Give extra to the whole organisation' })
+    );
+    expect(orgView().getByText('Extra for the whole organisation (bulk work)')).toBeInTheDocument();
+  });
+
+  it('switching the bulk limit off disables its slider and warns', () => {
+    render(<BudgetModelDemoSection />);
+    const [slider] = orgView().getAllByRole('slider', {
+      name: 'Bulk processing may use at most, percent of the budget',
+    });
+    fireEvent.click(orgView().getByRole('switch', { name: 'Limit it · drag the line on the bar' }));
+    expect(slider).toBeDisabled();
+    expect(
+      orgView().getByText(
+        'No limit: bulk work shares the whole budget, so a big import can stop live mail.'
+      )
+    ).toBeInTheDocument();
+  });
+
   it('granting extra changes the workspace status', () => {
     render(<BudgetModelDemoSection />);
     // Push the organisation past its KB line so the import on Delta Logistics pauses.
     fireEvent.change(orgView().getByLabelText('Monthly budget'), { target: { value: '300' } });
     expect(orgView().getByTestId('budget-demo-org-status')).toHaveTextContent(
-      /^Knowledge base paused/
+      /^Bulk processing paused/
     );
     const status = orgView().getByTestId('budget-demo-row-status-w4');
     expect(status).toHaveTextContent('KB import paused · live mail continues');
@@ -162,14 +194,14 @@ describe('Budget model demo', () => {
   it('the knowledge base limit stays between 50% and 90%, in both views', () => {
     render(<BudgetModelDemoSection />);
     const [orgSlider] = orgView().getAllByRole('slider', {
-      name: 'Knowledge base may use at most, percent of the budget',
+      name: 'Bulk processing may use at most, percent of the budget',
     });
     fireEvent.change(orgSlider, { target: { value: '20' } });
     expect(orgSlider).toHaveValue('50');
 
     fireEvent.click(screen.getByRole('button', { name: 'Single workspace' }));
     const singleSlider = singleView().getByRole('slider', {
-      name: 'Knowledge base may use at most, percent of the budget',
+      name: 'Bulk processing may use at most, percent of the budget',
     });
     fireEvent.change(singleSlider, { target: { value: '10' } });
     expect(singleSlider).toHaveValue('50');
@@ -209,7 +241,7 @@ describe('Budget model demo', () => {
     fireEvent.click(singleView().getByRole('button', { name: '+1 day' }));
     fireEvent.click(singleView().getByRole('button', { name: '+1 day' }));
     expect(singleView().getByTestId('budget-demo-single-status')).toHaveTextContent(
-      /^Knowledge base paused: it used its 48.0M\./
+      /^Bulk processing paused: it used its 48.0M\./
     );
     fireEvent.click(singleView().getByRole('button', { name: /^Give \+20\.0M/ }));
     expect(singleView().getByTestId('budget-demo-single-status')).toHaveTextContent(
