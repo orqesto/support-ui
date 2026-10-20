@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { AlertState } from '@/components/settings/integrations/types';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
+import { Spinner } from '@/components/ui/Spinner';
 import { apiErrorMessage } from '@/lib/apiError';
+import { CountPollStopped, countProgressText, type CountProgress } from '@/services/countJobApi';
 import {
   integrationsService,
   type ImapCountResult,
@@ -284,13 +286,28 @@ export const ImapCompareReview = ({
 }) => {
   const [result, setResult] = useState<ImapCountResult | null>(null);
   const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<CountProgress | null>(null);
+  /** The count being followed. Closing the block stops following it, not the count. */
+  const following = useRef<AbortController | null>(null);
+
+  useEffect(() => () => following.current?.abort(), []);
 
   const run = async () => {
+    const follow = new AbortController();
+    following.current = follow;
     setRunning(true);
+    setProgress(null);
     setResult(null);
     try {
-      setResult(await integrationsService.countImapMessages(sourceId));
+      setResult(
+        await integrationsService.countImapMessages(
+          sourceId,
+          {},
+          { onProgress: setProgress, signal: follow.signal }
+        )
+      );
     } catch (err) {
+      if (err instanceof CountPollStopped) return;
       onShowAlert({
         open: true,
         title: 'Could not compare with Odly',
@@ -314,10 +331,17 @@ export const ImapCompareReview = ({
       <div>
         <h4 className="font-display font-medium">Compare with Odly</h4>
         <p className="text-xs text-muted-foreground">
-          Counts the messages in this mailbox&apos;s sync window and checks which are already in
-          Odly, by Message-ID. A big mailbox can take up to a minute.
+          Counts every message in this mailbox&apos;s sync window and checks which are already in
+          Odly, by Message-ID. A big mailbox takes a few minutes; you can close this and compare
+          again to pick the count back up.
         </p>
       </div>
+      {running && (
+        <p className="flex gap-2 items-center text-sm" role="status">
+          <Spinner />
+          <span>{countProgressText(progress)}</span>
+        </p>
+      )}
       {result && (
         <Alert variant="success" className="p-3">
           <ImapReconciliationResult result={result} />

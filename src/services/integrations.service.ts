@@ -3,6 +3,7 @@ import { logger } from '@/lib/logger';
 
 export * from './kbRangeTypes';
 import { kbHistoryRange } from './kbRangeApi';
+import { countGmailMessages, countImapMessages } from './mailboxCountApi';
 
 // Integration-specific config types
 export type EmailConfig = {
@@ -690,35 +691,8 @@ export const integrationsService = {
     return { success: response.data.success, data: response.data };
   },
 
-  /**
-   * "Check Messages Count" for a Gmail source — the messages its FIRST sync will import, counted
-   * with the same query the sync issues. Works on a paused source; the overrides recount a
-   * changed setting without saving it. `capped` means AT LEAST `count` (counting stopped).
-   */
-  countGmailMessages: async (
-    id: number,
-    overrides: { searchQuery?: string; bulkImportDays?: number; isKnowledgeBase?: boolean } = {}
-  ): Promise<GmailCountResult> => {
-    const response = await apiClient.post<{ success: boolean; data: GmailCountResult }>(
-      `/api/integrations/${id}/gmail-count`,
-      overrides
-    );
-    return response.data.data;
-  },
-
-  /**
-   * Reconcile a SAVED IMAP source against Odly: how many messages the mailbox holds in the
-   * sync window, how many of them are already in Odly (matched by Message-ID) and how many are
-   * missing. `unverifiable` = no Message-ID header — never counted as missing.
-   */
-  countImapMessages: async (id: number, opts: { days?: number } = {}): Promise<ImapCountResult> => {
-    const response = await apiClient.post<{ success: boolean; data: ImapCountResult }>(
-      `/api/integrations/${id}/imap-count`,
-      opts.days === undefined ? undefined : { days: opts.days }
-    );
-    return response.data.data;
-  },
-
+  countGmailMessages,
+  countImapMessages,
   kbHistoryRange,
 
   upsert: async (data: {
