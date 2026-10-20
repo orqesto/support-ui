@@ -34,8 +34,14 @@ describe('the contacts view and the symbolic assignee values', () => {
 });
 
 describe('the extraction changed nothing else', () => {
-  it('defaults to the work_queue lens', () => {
-    expect(buildContactsApiFilters({ ...defaultFilters }).view).toBe('work_queue');
+  it('"All" sends no view, so resolved customers are listed too', () => {
+    expect(buildContactsApiFilters({ ...defaultFilters }).view).toBeUndefined();
+  });
+
+  it('CONTROL: "Resolved" still narrows to the resolved lens', () => {
+    expect(buildContactsApiFilters({ ...defaultFilters, status: 'resolved' }).view).toBe(
+      'resolved'
+    );
   });
 
   it('keeps the needs_routing sentinel as a view, not a department', () => {

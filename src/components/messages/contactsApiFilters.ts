@@ -15,8 +15,13 @@ import type { FilterState } from '@/stores/messagesStore';
 export function buildContactsApiFilters(filters: FilterState): Record<string, string> {
   const filterObj: Record<string, string> = {};
   const status = filters.status ?? 'all';
-  if (status === 'all') filterObj.view = 'work_queue';
-  else if (status === 'active') filterObj.view = 'active';
+  /**
+   * "All" sends NO view: the API then lists everyone who has written in, resolved and closed
+   * customers included, minus spam and filtered mail. It used to send `work_queue` (live
+   * statuses only) — taco DeusPower showed 567 contacts out of 20,225 senders (2026-10-20).
+   * An API without that default falls back to `work_queue` itself, so either deploy order is safe.
+   */
+  if (status === 'active') filterObj.view = 'active';
   else if (status === 'awaiting_response') filterObj.awaitingCustomerResponse = 'true';
   else if (status === 'client_replied') filterObj.customerResponded = 'true';
   else if (status === 'suspicious') filterObj.view = 'suspicious';
@@ -26,8 +31,7 @@ export function buildContactsApiFilters(filters: FilterState): Record<string, st
     filterObj.processed = filters.threadStatus as string;
   if (filters.messageSourceId && filters.messageSourceId !== 'all')
     filterObj.messageSourceId = filters.messageSourceId;
-  if (filters.receivedAt && filters.receivedAt !== 'all')
-    filterObj.receivedAt = filters.receivedAt;
+  if (filters.receivedAt && filters.receivedAt !== 'all') filterObj.receivedAt = filters.receivedAt;
   if (filters.departmentId && filters.departmentId !== 'all') {
     if (filters.departmentId === 'needs_routing') {
       filterObj.view = 'needs_routing';
