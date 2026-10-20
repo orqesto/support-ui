@@ -6,6 +6,8 @@ const deletes: string[] = [];
 /** What each GET answers, in turn (the last one repeats). */
 let polls: unknown[] = [];
 let startAnswer: () => Promise<unknown> = () => Promise.resolve({});
+/** When set, the next GET rejects with it (once). */
+let getFails: Error | null = null;
 
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
@@ -15,6 +17,12 @@ vi.mock('@/lib/api-client', () => ({
     },
     get: (url: string) => {
       gets.push(url);
+      if (getFails) {
+        const failure = getFails;
+        getFails = null;
+        // In flight for a moment, then fails — long enough to stop following meanwhile.
+        return new Promise((_resolve, reject) => setTimeout(() => reject(failure), 10));
+      }
       const next = polls.length > 1 ? polls.shift() : polls[0];
       return Promise.resolve({ data: { success: true, data: next } });
     },
@@ -163,6 +171,75 @@ describe('runCountJob', () => {
     changed.abort(CANCEL_COUNT);
     expect(await cancelling).toEqual({ error: expect.any(CountPollStopped) as CountPollStopped });
     expect(deletes).toEqual([`/api/integrations/3/count-jobs/${JOB}`]);
+  });
+
+  it('a start refused because the just-cancelled count is still unwinding is retried', async () => {
+    let refusals = 2;
+    startAnswer = () =>
+      refusals-- > 0
+        ? Promise.reject(
+            Object.assign(new Error('busy'), {
+              status: 409,
+              data: { success: false, code: 'COUNT_IN_PROGRESS', error: 'Still running.' },
+            })
+          )
+        : Promise.resolve({ data: { success: true, data: running(0) } });
+    polls = [done(200, { success: true, data: { count: 3 } })];
+    const outcome = await follow(
+      runCountJob({ sourceId: 68, kind: 'gmail-count', params: {}, fallback: vi.fn() })
+    );
+    expect(outcome).toEqual({ value: { count: 3 } });
+    expect(posts).toHaveLength(3);
+  });
+
+  it('control: any other refusal of the start is shown at once, not retried', async () => {
+    startAnswer = () =>
+      Promise.reject(
+        Object.assign(new Error('busy'), {
+          status: 429,
+          data: { success: false, code: 'COUNT_BUSY', error: 'Other counts are running.' },
+        })
+      );
+    const outcome = await follow(
+      runCountJob({ sourceId: 68, kind: 'gmail-count', params: {}, fallback: vi.fn() })
+    );
+    expect('error' in outcome && outcome.error).toMatchObject({ status: 429 });
+    expect(posts).toHaveLength(1);
+  });
+
+  it('a poll that fails after the panel stopped following is not an error', async () => {
+    polls = [running(10)];
+    getFails = new Error('Network Error');
+    const closed = new AbortController();
+    const closing = runCountJob({
+      sourceId: 3,
+      kind: 'imap-count',
+      params: {},
+      signal: closed.signal,
+      fallback: vi.fn(),
+    }).catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(755); // the first poll is now in flight
+    expect(gets).toHaveLength(1);
+    closed.abort();
+    await vi.advanceTimersByTimeAsync(20); // ...and fails
+    expect(await closing).toBeInstanceOf(CountPollStopped);
+  });
+
+  it('a cancel is sent at once, while the wait between polls is still running', async () => {
+    polls = [running(10)];
+    const changed = new AbortController();
+    const cancelling = runCountJob({
+      sourceId: 3,
+      kind: 'imap-count',
+      params: {},
+      signal: changed.signal,
+      fallback: vi.fn(),
+    }).catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(1); // started, now waiting before the first poll
+    changed.abort(CANCEL_COUNT);
+    expect(deletes).toEqual([`/api/integrations/3/count-jobs/${JOB}`]);
+    expect(await cancelling).toBeInstanceOf(CountPollStopped);
+    expect(gets).toEqual([]);
   });
 });
 

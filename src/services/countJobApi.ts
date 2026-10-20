@@ -60,6 +60,18 @@ const wait = (ms: number, signal?: AbortSignal) =>
     );
   });
 
+/**
+ * A count just cancelled (a setting changed) holds its mailbox until it has unwound — usually
+ * well under a second. A start refused for that is retried this often before it is shown.
+ */
+export const COUNT_START_RETRIES = 4;
+export const COUNT_START_RETRY_MS = 750;
+
+const isCountInProgress = (error: unknown): boolean => {
+  const failed = error as { status?: number; data?: { code?: unknown } } | null;
+  return failed?.status === 409 && failed.data?.code === 'COUNT_IN_PROGRESS';
+};
+
 /** A refusal shaped like the api-client's (`status` + `data`), so the panels word it as before. */
 const refusal = (status: number, body: { error?: string; code?: string }) =>
   Object.assign(new Error(body.error ?? 'The count failed.'), { status, data: body });
@@ -80,36 +92,59 @@ export const runCountJob = async <T>({
   /** The request route, for a backend without the job route. */
   fallback: () => Promise<T>;
 }): Promise<T> => {
-  let job: CountJob;
-  try {
-    const started = await apiClient.post<{ success: boolean; data: CountJob }>(
-      `/api/integrations/${sourceId}/count-jobs`,
-      { kind, params }
-    );
-    job = started.data.data;
-  } catch (error) {
-    if (isRouteAbsent(error)) return fallback();
-    throw error;
+  let job: CountJob | null = null;
+  for (let attempt = 0; job === null; attempt++) {
+    try {
+      const started = await apiClient.post<{ success: boolean; data: CountJob }>(
+        `/api/integrations/${sourceId}/count-jobs`,
+        { kind, params }
+      );
+      job = started.data.data;
+    } catch (error) {
+      if (isRouteAbsent(error)) return fallback();
+      if (!isCountInProgress(error) || attempt >= COUNT_START_RETRIES) throw error;
+      try {
+        await wait(COUNT_START_RETRY_MS, signal);
+      } catch {
+        throw new CountPollStopped();
+      }
+    }
   }
 
   const jobUrl = `/api/integrations/${sourceId}/count-jobs/${job.jobId}`;
-  const stopped = () => {
-    // Best effort: a cancel that fails leaves a count that ends by itself.
+  // A cancel is sent the moment it is asked for, not after the poll in flight returns, so the
+  // mailbox is free sooner. Best effort: a cancel that fails leaves a count that ends by itself.
+  const cancel = () => {
     if (signal?.reason === CANCEL_COUNT) void apiClient.delete(jobUrl).catch(() => undefined);
-    return new CountPollStopped();
   };
-  let delay = COUNT_POLL_FIRST_MS;
-  while (job.state !== 'done') {
-    onProgress?.({ listed: job.listed, startedAt: job.startedAt });
-    try {
-      await wait(delay, signal);
-    } catch {
-      throw stopped();
+  if (signal?.aborted) {
+    cancel();
+    throw new CountPollStopped();
+  }
+  signal?.addEventListener('abort', cancel, { once: true });
+  try {
+    let delay = COUNT_POLL_FIRST_MS;
+    while (job.state !== 'done') {
+      onProgress?.({ listed: job.listed, startedAt: job.startedAt });
+      try {
+        await wait(delay, signal);
+      } catch {
+        throw new CountPollStopped();
+      }
+      delay = COUNT_POLL_MS;
+      let polled: { data: { data: CountJob } };
+      try {
+        polled = await apiClient.get<{ success: boolean; data: CountJob }>(jobUrl);
+      } catch (error) {
+        // Stopped while the poll was in flight: a failed poll is not news to anyone.
+        if (signal?.aborted) throw new CountPollStopped();
+        throw error;
+      }
+      if (signal?.aborted) throw new CountPollStopped();
+      job = polled.data.data;
     }
-    delay = COUNT_POLL_MS;
-    const polled = await apiClient.get<{ success: boolean; data: CountJob }>(jobUrl);
-    if (signal?.aborted) throw stopped();
-    job = polled.data.data;
+  } finally {
+    signal?.removeEventListener('abort', cancel);
   }
 
   const result = job.result;
