@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, Cpu, KeyRound } from 'lucide-react';
+import { Activity, KeyRound } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -16,20 +16,18 @@ import { Spinner } from '@/components/ui/Spinner';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { FailureAnalysisCard } from '@/components/console/FailureAnalysisCard';
 import { WorkspaceHealthCard } from '@/components/console/WorkspaceHealthCard';
-import { ProcessCpuTable } from '@/components/console/ProcessCpuTable';
+import { DatabaseStatusPanel } from '@/components/console/DatabaseStatusPanel';
+import { ResourceSummary } from '@/components/console/ResourceSummary';
 import { QueueHistoryPanel } from '@/components/console/QueueHistoryPanel';
 import {
   estimateClearTime,
-  formatCpuBreakdown,
-  formatCpuFigures,
   formatDuration,
-  formatMemoryBreakdown,
-  formatMemoryFigures,
   formatOldestWaiting,
   queuedJobs,
 } from '@/components/console/failureAnalysis.format';
 import { licenseService } from '@/services/license.service';
 import { platformService } from '@/services/platform.service';
+import { workerResources, type WorkerSnapshot } from '@/services/systemStatus';
 import { usePlatformQueueStatus } from '@/hooks/usePlatformAdmin';
 
 /**
@@ -45,12 +43,9 @@ import { usePlatformQueueStatus } from '@/hooks/usePlatformAdmin';
  * needs a target-backend picker before it comes back.
  */
 
-const RESOURCE_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'secondary'> = {
-  healthy: 'success',
-  ok: 'success',
-  warning: 'warning',
-  critical: 'danger',
-  degraded: 'warning',
+const runningWorkers = (worker: WorkerSnapshot): string => {
+  const list = worker.workers ?? [];
+  return `${list.filter((entry) => entry.isRunning).length} of ${list.length} workers running`;
 };
 
 const formatDate = (iso: string): string => {
@@ -69,7 +64,6 @@ export const PlatformSystem = () => {
   });
   const queueQuery = usePlatformQueueStatus();
 
-
   // Failed-jobs drill-down: clicking a queue's failed count loads the actual errors.
   const [failedQueue, setFailedQueue] = useState<string | null>(null);
   const failedJobsQuery = useQuery({
@@ -80,6 +74,8 @@ export const PlatformSystem = () => {
   });
 
   const resources = queueQuery.data?.resources;
+  const split = queueQuery.data?.role === 'api';
+  const worker = queueQuery.data?.worker ?? null;
   const queues = queueQuery.data?.queues ?? [];
 
   return (
@@ -150,44 +146,28 @@ export const PlatformSystem = () => {
             </Alert>
           ) : (
             <>
-              {resources && (
-                <div className="flex flex-wrap gap-6 text-sm">
-                  <div className="flex gap-2 items-center">
-                    <Cpu className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">CPU</span>
-                    <span className="font-medium text-foreground">{resources.cpu}</span>
-                    {formatCpuFigures(resources) ? (
-                      <span className="text-xs text-muted-foreground">{formatCpuFigures(resources)}</span>
-                    ) : null}
-                  </div>
-                  <div className="flex gap-2 items-center">
-                    <span className="text-muted-foreground">Memory</span>
-                    <span className="font-medium text-foreground">{resources.memory}</span>
-                    {formatMemoryFigures(resources.memoryMB) ? (
-                      <span className="text-xs text-muted-foreground">
-                        {formatMemoryFigures(resources.memoryMB)}
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="flex gap-2 items-center">
-                    <span className="text-muted-foreground">Status</span>
-                    <Badge variant={RESOURCE_VARIANT[resources.status] ?? 'secondary'}>
-                      {resources.status}
-                    </Badge>
-                  </div>
-                  {resources.throttling && <Badge variant="warning">throttling</Badge>}
-                </div>
-              )}
-              {resources && formatCpuBreakdown(resources) ? (
-                <p className="text-xs text-muted-foreground">CPU in cores: {formatCpuBreakdown(resources)}.</p>
-              ) : null}
-              {resources && formatMemoryBreakdown(resources.process) ? (
-                <p className="text-xs text-muted-foreground">
-                  Resident memory: {formatMemoryBreakdown(resources.process)}. Native memory is what
-                  a locally loaded embedding model occupies; it does not shrink when the queues are idle.
+              {split ? (
+                <p className="text-sm font-medium text-foreground">
+                  App container (serves the web app)
                 </p>
               ) : null}
-              <ProcessCpuTable report={resources?.processes} />
+              {resources ? <ResourceSummary resources={resources} /> : null}
+              {split && worker ? (
+                <>
+                  <p className="text-sm font-medium text-foreground">
+                    Worker container (runs the queues) · {runningWorkers(worker)} · measured{' '}
+                    {formatDate(worker.sampledAt)}
+                  </p>
+                  <ResourceSummary resources={workerResources(worker)} />
+                </>
+              ) : null}
+              {split && !worker ? (
+                <Alert variant="danger">
+                  No worker container is reporting. In this setup the queues run in a separate
+                  worker container, so without it nothing is processing mail or background jobs.
+                </Alert>
+              ) : null}
+              <DatabaseStatusPanel database={queueQuery.data?.database} />
 
               <Card padding="none" className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -239,8 +219,12 @@ export const PlatformSystem = () => {
                         <td className="px-3 py-2 text-muted-foreground">
                           {formatDuration(queue.timing?.medianWaitMs)}
                         </td>
-                        <td className="px-3 py-2 text-muted-foreground">{formatOldestWaiting(queue)}</td>
-                        <td className="px-3 py-2 text-muted-foreground">{estimateClearTime(queue) ?? '—'}</td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {formatOldestWaiting(queue)}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {estimateClearTime(queue) ?? '—'}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -248,12 +232,13 @@ export const PlatformSystem = () => {
               </Card>
               {queues.some((queue) => queue.timing) ? (
                 <p className="text-xs text-muted-foreground">
-                  Typical job and Waited are the median of each queue&apos;s most recent finished jobs
-                  (up to 20; finished jobs are kept for about an hour); a CPU-heavy job&apos;s time
-                  includes waiting for a free core. Oldest waiting is measured. Clears in is the waiting
-                  jobs at the pace the queue finished jobs over the last hour (up to its last 100),
-                  measured up to now — an estimate that names the history it rests on; quiet spells
-                  make it read long, and one burst on little history can make it read short.
+                  Typical job and Waited are the median of each queue&apos;s most recent finished
+                  jobs (up to 20; finished jobs are kept for about an hour); a CPU-heavy job&apos;s
+                  time includes waiting for a free core. Oldest waiting is measured. Clears in is
+                  the waiting jobs at the pace the queue finished jobs over the last hour (up to its
+                  last 100), measured up to now — an estimate that names the history it rests on;
+                  quiet spells make it read long, and one burst on little history can make it read
+                  short.
                 </p>
               ) : null}
               {queues.length > 0 ? <QueueHistoryPanel queues={queues} /> : null}
@@ -261,7 +246,6 @@ export const PlatformSystem = () => {
           )}
         </CardContent>
       </Card>
-
 
       <WorkspaceHealthCard />
       <FailureAnalysisCard />
@@ -298,7 +282,9 @@ export const PlatformSystem = () => {
                       {job.organizationId ? ` · org ${job.organizationId}` : ''}
                     </span>
                     {job.failedAt ? (
-                      <span className="font-mono">{formatDate(new Date(job.failedAt).toISOString())}</span>
+                      <span className="font-mono">
+                        {formatDate(new Date(job.failedAt).toISOString())}
+                      </span>
                     ) : null}
                   </div>
                   <p className="mt-1 text-sm font-medium text-destructive break-words">
@@ -320,7 +306,6 @@ export const PlatformSystem = () => {
           )}
         </DialogContent>
       </Dialog>
-
     </div>
   );
 };

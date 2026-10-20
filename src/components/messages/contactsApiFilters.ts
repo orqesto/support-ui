@@ -18,7 +18,7 @@ export function buildContactsApiFilters(filters: FilterState): Record<string, st
   /**
    * "All" sends NO view: the API then lists everyone who has written in, resolved and closed
    * customers included, minus spam and filtered mail. It used to send `work_queue` (live
-   * statuses only) — taco DeusPower showed 567 contacts out of 20,225 senders (2026-10-20).
+   * statuses only) — a client's workspace listed under 3% of its senders (2026-10-20).
    * An API without that default falls back to `work_queue` itself, so either deploy order is safe.
    */
   if (status === 'active') filterObj.view = 'active';
