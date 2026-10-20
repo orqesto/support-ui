@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addWorkspace,
+  barParts,
   clampReservePct,
   reserveFromEdge,
   endOrgExtra,
@@ -86,7 +87,7 @@ describe('organisation status rules', () => {
     expect(tot.kbPaused).toBe(false);
     expect(orgStatusLine(tot)).toEqual({
       tone: 'ok',
-      text: 'All running. Knowledge base can use 30.0M more; live mail has 50.0M.',
+      text: 'All running. Knowledge base can use 30.0M more. Live mail can use 50.0M.',
     });
   });
 
@@ -96,7 +97,7 @@ describe('organisation status rules', () => {
     expect(tot.allStopped).toBe(false);
     expect(orgStatusLine(tot).tone).toBe('warn');
     expect(orgStatusLine(tot).text).toMatch(
-      /^Knowledge base paused: the 15.0M left is kept for live mail\./
+      /^Knowledge base paused: it stops at 80.0M and 85.0M is used\. Live mail can use the last 15.0M\./
     );
   });
 
@@ -140,6 +141,26 @@ describe('organisation status rules', () => {
       tone: 'warn',
       text: 'KB stopped: reached its own limit (10.0M) · live mail continues',
     });
+  });
+});
+
+describe('budget bar parts', () => {
+  it('used, free for both, free for live mail only: never overlapping, always the whole bar', () => {
+    // 400 budget, KB stops at 320: 270 used ⇒ 50 free for both, 80 live mail only.
+    expect(barParts(400, 270, 320)).toEqual({
+      freeBothPct: 12.5,
+      liveOnlyPct: 20,
+      freeBoth: 50,
+      liveOnly: 80,
+    });
+    // Reserve 45% (KB stops at 220), 270 used: nothing free for both; the last 130 is live mail only.
+    expect(barParts(400, 270, 220)).toEqual({
+      freeBothPct: 0,
+      liveOnlyPct: 32.5,
+      freeBoth: 0,
+      liveOnly: 130,
+    });
+    expect(barParts(400, 400, 220).liveOnly).toBe(0);
   });
 });
 
@@ -293,7 +314,7 @@ describe('single workspace', () => {
     expect(singleTotals(state)).toMatchObject({ budget: 60, reserve: 12, kbLine: 48, used: 37 });
     expect(singleStatusLine(state)).toEqual({
       tone: 'ok',
-      text: 'All running. Knowledge base can use 11.0M more; live mail has 23.0M.',
+      text: 'All running. Knowledge base can use 11.0M more. Live mail can use 23.0M.',
     });
   });
 
@@ -305,7 +326,7 @@ describe('single workspace', () => {
     expect(singleTotals(state).used).toBeCloseTo(48.2, 6);
     expect(singleTotals(state).kbPaused).toBe(true);
     expect(singleStatusLine(state).text).toMatch(
-      /^Knowledge base paused: the 11.8M left is kept for live mail\./
+      /^Knowledge base paused: it stops at 48.0M and 48.2M is used\./
     );
     const leftAtPause = state.importLeft;
 

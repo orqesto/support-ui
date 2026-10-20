@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import {
   LAST_DAY,
   SINGLE_WORKSPACE_NAME,
+  barParts,
   reserveEdge,
   reserveFromEdge,
   endSingleExtra,
@@ -40,6 +41,7 @@ export const SingleWorkspaceView = () => {
   const totals = singleTotals(state);
   const status = singleStatusLine(state);
   const kbWidth = Math.min(100, (state.kbUsed / totals.budget) * 100);
+  const parts = barParts(totals.budget, totals.used, totals.kbLine);
   const liveWidth = Math.min(100 - kbWidth, (state.liveUsed / totals.budget) * 100);
 
   return (
@@ -69,8 +71,8 @@ export const SingleWorkspaceView = () => {
             <div className="flex flex-col gap-1.5">
               <FieldLabel>Kept free for live mail · drag the edge of the striped part</FieldLabel>
               <span className="font-mono text-lg">
-                {totals.reservePct}% · {fmt(totals.reserve)} · the knowledge base stops when only
-                this is left
+                {totals.reservePct}% · {fmt(totals.reserve)} · knowledge base stops at{' '}
+                {fmt(totals.kbLine)}
               </span>
             </div>
           </div>
@@ -88,7 +90,7 @@ export const SingleWorkspaceView = () => {
           >
             <BarSegment width={kbWidth} className="bg-pending" />
             <BarSegment left={kbWidth} width={liveWidth} className="bg-primary" />
-            <BarSegment width={totals.reservePct} fromRight style={STRIPES} />
+            <BarSegment width={parts.liveOnlyPct} fromRight style={STRIPES} />
           </BarSlider>
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
             <span>
@@ -99,13 +101,19 @@ export const SingleWorkspaceView = () => {
               <Swatch className="bg-primary" />
               Live mail <span className="font-mono">{fmt(state.liveUsed)}</span>
             </span>
+            {parts.freeBoth > 0 && (
+              <span>
+                <Swatch className="bg-muted border border-border" />
+                Free for both <span className="font-mono">{fmt(parts.freeBoth)}</span>
+              </span>
+            )}
             <span>
               <Swatch className="!w-0.5 bg-foreground" />
               Knowledge base stops here
             </span>
             <span>
               <Swatch className="bg-success" />
-              Kept free for live mail
+              Free, live mail only <span className="font-mono">{fmt(parts.liveOnly)}</span>
             </span>
             {state.extraUsed > 0 && (
               <span>

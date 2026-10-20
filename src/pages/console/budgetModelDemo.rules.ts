@@ -179,6 +179,21 @@ export const initialOrgState = (): OrgDemoState => {
 /** The part kept for live mail, 0–50% of the budget — the same range in both views. */
 export const clampReservePct = (pct: number): number => Math.min(RESERVE_MAX_PCT, Math.max(0, pct));
 
+/**
+ * The budget bar in three parts that never overlap, in % of the bar: what is used, what is free for
+ * both (until the knowledge base stops), and what is free for live mail only.
+ */
+export const barParts = (budget: number, used: number, kbLine: number) => {
+  const usedPct = Math.min(100, (used / budget) * 100);
+  const stopPct = (kbLine / budget) * 100;
+  return {
+    freeBothPct: Math.max(0, stopPct - usedPct),
+    liveOnlyPct: 100 - Math.max(usedPct, stopPct),
+    freeBoth: Math.max(0, kbLine - used),
+    liveOnly: Math.max(0, budget - Math.max(used, kbLine)),
+  };
+};
+
 /** The reserve as the bar slider sees it: the position of its left edge, in % of the bar. */
 export const reserveEdge = (reservePct: number): number => 100 - reservePct;
 export const reserveFromEdge = (edge: number): number => clampReservePct(100 - edge);
@@ -243,11 +258,11 @@ export const orgStatusLine = (tot: OrgTotals): StatusLine => {
   if (tot.kbPaused)
     return {
       tone: 'warn',
-      text: `Knowledge base paused: the ${fmt(tot.budget - tot.total)} left is kept for live mail. Live mail continues up to ${fmt(tot.budget)}. Workspaces with extra keep importing.`,
+      text: `Knowledge base paused: it stops at ${fmt(tot.kbLine)} and ${fmt(tot.total)} is used. Live mail can use the last ${fmt(tot.budget - tot.total)}. Workspaces with extra keep importing.`,
     };
   return {
     tone: 'ok',
-    text: `All running. Knowledge base can use ${fmt(tot.kbLine - tot.total)} more; live mail has ${fmt(tot.budget - tot.total)}.`,
+    text: `All running. Knowledge base can use ${fmt(tot.kbLine - tot.total)} more. Live mail can use ${fmt(tot.budget - tot.total)}.`,
   };
 };
 
@@ -475,12 +490,12 @@ export const singleStatusLine = (st: SingleDemoState): StatusLine => {
   if (tot.kbPaused)
     return {
       tone: 'warn',
-      text: `Knowledge base paused: the ${fmt(tot.budget - tot.used)} left is kept for live mail. Live mail continues up to ${fmt(tot.budget)}. Give extra to continue an import.`,
+      text: `Knowledge base paused: it stops at ${fmt(tot.kbLine)} and ${fmt(tot.used)} is used. Live mail can use the last ${fmt(tot.budget - tot.used)}. Give extra to continue an import.`,
     };
   return {
     tone: 'ok',
     text:
-      `All running. Knowledge base can use ${fmt(tot.kbLine - tot.used)} more; live mail has ${fmt(tot.budget - tot.used)}.` +
+      `All running. Knowledge base can use ${fmt(tot.kbLine - tot.used)} more. Live mail can use ${fmt(tot.budget - tot.used)}.` +
       (st.importing ? ` KB import: ${fmt(st.importLeft)} to go.` : ''),
   };
 };

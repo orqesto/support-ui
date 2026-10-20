@@ -72,7 +72,7 @@ describe('Budget model demo', () => {
     expect(screen.getByTestId('budget-demo-view-single')).toBeVisible();
     expect(singleView().getByText('Lakeside Dental')).toBeInTheDocument();
     expect(singleView().getByTestId('budget-demo-single-status')).toHaveTextContent(
-      'All running. Knowledge base can use 11.0M more; live mail has 23.0M.'
+      'All running. Knowledge base can use 11.0M more. Live mail can use 23.0M.'
     );
   });
 
@@ -207,7 +207,7 @@ describe('Budget model demo', () => {
     fireEvent.click(singleView().getByRole('button', { name: '+1 day' }));
     fireEvent.click(singleView().getByRole('button', { name: '+1 day' }));
     expect(singleView().getByTestId('budget-demo-single-status')).toHaveTextContent(
-      /^Knowledge base paused: the 11.8M left is kept for live mail\./
+      /^Knowledge base paused: it stops at 48.0M and 48.2M is used\./
     );
     fireEvent.click(singleView().getByRole('button', { name: /^Give \+20\.0M/ }));
     expect(singleView().getByTestId('budget-demo-single-status')).toHaveTextContent(
