@@ -3,14 +3,19 @@ import {
   addWorkspace,
   clampKbPct,
   endOrgExtra,
+  endExtraMany,
+  endOrgWideExtra,
   fmt,
+  grantExtraMany,
   grantOrgExtra,
+  grantOrgWideExtra,
   grantSingleExtra,
   initialOrgState,
   initialSingleState,
   orgStatusLine,
   orgTotals,
   removeWorkspace,
+  setLimitMany,
   setWorkspaceLimit,
   simulateOrgDay,
   simulateSingleDay,
@@ -18,16 +23,19 @@ import {
   singleTotals,
   startSingleImport,
   suggestedExtra,
+  suggestedOrgExtra,
   usd,
   workspaceStatus,
   type DemoWorkspace,
   type OrgDemoState,
 } from '../budgetModelDemo.rules';
 
+// By default everything a test workspace used was knowledge base work (kbUsed = used).
 const ws = (over: Partial<DemoWorkspace> = {}): DemoWorkspace => ({
   id: 'x1',
   name: 'Example A',
   used: 10,
+  kbUsed: over.used ?? 10,
   limit: null,
   extra: 0,
   extraUsed: 0,
@@ -42,7 +50,12 @@ const org = (workspaces: DemoWorkspace[], over: Partial<OrgDemoState> = {}): Org
   day: 10,
   budget: 100,
   kbPct: 80,
+  kbLimitOn: true,
+  orgExtra: 0,
+  orgExtraUsed: 0,
+  orgExtraDays: 0,
   spentRemoved: 0,
+  spentRemovedKb: 0,
   newCount: 0,
   log: '',
   ...over,
@@ -67,9 +80,9 @@ describe('formatting', () => {
 describe('KB line floor', () => {
   it('clamps at 50% (same floor in both views) and at 100%', () => {
     expect(clampKbPct(20)).toBe(50);
-    expect(clampKbPct(0)).toBe(50);
     expect(clampKbPct(75)).toBe(75);
-    expect(clampKbPct(120)).toBe(100);
+    expect(clampKbPct(95)).toBe(90);
+    expect(clampKbPct(120)).toBe(90);
   });
 });
 
@@ -79,7 +92,7 @@ describe('organisation status rules', () => {
     expect(tot.kbPaused).toBe(false);
     expect(orgStatusLine(tot)).toEqual({
       tone: 'ok',
-      text: 'All running. Knowledge base has 30.0M left; live mail has 50.0M.',
+      text: 'All running. Bulk processing can use 30.0M more. Live mail can use 50.0M.',
     });
   });
 
@@ -88,7 +101,24 @@ describe('organisation status rules', () => {
     expect(tot.kbPaused).toBe(true);
     expect(tot.allStopped).toBe(false);
     expect(orgStatusLine(tot).tone).toBe('warn');
-    expect(orgStatusLine(tot).text).toMatch(/^Knowledge base paused: 85.0M used, past its 80.0M/);
+    expect(orgStatusLine(tot).text).toMatch(
+      /^Bulk processing paused: it used its 80.0M\. Live mail continues and can use the last 15.0M\./
+    );
+  });
+
+  it('bulk limit off: bulk work shares the whole budget and never pauses on its own', () => {
+    const tot = orgTotals(org([ws({ used: 95 })], { kbLimitOn: false }));
+    expect(tot.kbCap).toBe(100);
+    expect(tot.kbPaused).toBe(false);
+    expect(orgStatusLine(tot)).toEqual({
+      tone: 'warn',
+      text: 'No bulk limit: bulk work shares the whole budget, so a big import can stop live mail. 5.0M left.',
+    });
+    // Past the old 80% line its import keeps moving (12M a day).
+    const next = simulateOrgDay(
+      org([ws({ id: 'a1', used: 85, importing: true, importLeft: 50 })], { kbLimitOn: false })
+    );
+    expect(find(next, 'a1').importLeft).toBe(38);
   });
 
   it('whole budget used: live mail stops too', () => {
@@ -121,7 +151,7 @@ describe('organisation status rules', () => {
       'warn'
     );
     expect(workspaceStatus(ws({ used: 9, limit: 10 }), below).text).toBe(
-      'Near its own limit (9.0M of 10.0M)'
+      'KB near its own limit (9.0M of 10.0M)'
     );
   });
 
@@ -135,14 +165,16 @@ describe('organisation status rules', () => {
 });
 
 describe('organisation +1 day', () => {
-  it('KB import pauses at the line; live mail continues', () => {
-    // 78 used, line at 80: the import moves only 2M (minus live mail first), never past the line.
+  it('KB import pauses at the KB limit; live mail does not count against it', () => {
+    // 78M of KB, limit 80: the import moves exactly 2M. Live mail adds to used, not to the KB.
     const start = org([ws({ id: 'big', used: 78, importing: true, importLeft: 50 })]);
     const next = simulateOrgDay(start);
     const tot = orgTotals(next);
-    expect(tot.total).toBeCloseTo(80, 6);
-    expect(find(next, 'big').importLeft).toBeGreaterThan(40);
-    expect(next.log).toMatch(/passed the knowledge base line/);
+    expect(tot.kbTotal).toBeCloseTo(80, 6);
+    expect(tot.total).toBeCloseTo(80 + 78 * 0.012, 6);
+    expect(tot.kbPaused).toBe(true);
+    expect(find(next, 'big').importLeft).toBe(48);
+    expect(next.log).toMatch(/bulk processing used its limit/);
 
     const after = simulateOrgDay(next);
     const big = find(after, 'big');
@@ -183,6 +215,7 @@ describe('organisation +1 day', () => {
     const removed = removeWorkspace(start, 'b1');
     expect(removed.workspaces).toHaveLength(1);
     expect(removed.spentRemoved).toBe(30);
+    expect(removed.spentRemovedKb).toBe(30);
     expect(orgTotals(removed).total).toBe(orgTotals(start).total);
     expect(removed.log).toBe(
       'Example B removed. Its 30.0M spent this month still counts; its limit and extra end.'
@@ -212,7 +245,8 @@ describe('organisation +1 day', () => {
   it('a workspace limit caps the import at the limit', () => {
     const start = org([ws({ id: 'a1', used: 10, limit: 14, importing: true, importLeft: 30 })]);
     const after = find(simulateOrgDay(start), 'a1');
-    expect(after.used).toBeCloseTo(14, 6);
+    expect(after.kbUsed).toBeCloseTo(14, 6);
+    expect(after.used).toBeCloseTo(14 + 10 * 0.012, 6); // plus its live mail
   });
 
   it('stops at the last day of the month', () => {
@@ -226,6 +260,63 @@ describe('organisation +1 day', () => {
     const snapshot = JSON.stringify(start);
     simulateOrgDay(start);
     expect(JSON.stringify(start)).toBe(snapshot);
+  });
+});
+
+describe('organisation-wide extra', () => {
+  it('a paused import uses its own extra first, then the organisation extra; it expires', () => {
+    const start = grantOrgWideExtra(
+      org([ws({ id: 'a1', used: 85, importing: true, importLeft: 30, extra: 5, extraDays: 3 })]),
+      20,
+      1
+    );
+    expect(workspaceStatus(find(start, 'a1'), orgTotals(start)).text).toBe(
+      'KB import on extra · 5.0M left · ends in 3 d'
+    );
+    const day1 = simulateOrgDay(start); // 12 to do: 5 own extra, then 7 organisation extra
+    expect(find(day1, 'a1').extraUsed).toBe(5);
+    expect(day1.orgExtraUsed).toBe(7);
+    expect(workspaceStatus(find(day1, 'a1'), orgTotals(day1)).text).toBe(
+      'KB import on organisation extra · 13.0M left'
+    );
+    expect(suggestedOrgExtra(day1)).toBe(20); // 18M of the import still to go
+    expect(endOrgWideExtra(day1).orgExtra).toBe(0);
+
+    let state = day1;
+    for (let day = 0; day < 4; day++) state = simulateOrgDay(state);
+    expect(state.orgExtra).toBe(0);
+  });
+});
+
+describe('bulk actions on selected workspaces', () => {
+  const three = () =>
+    org([
+      ws({ id: 'a1', name: 'Example A', importLeft: 23, importing: true }),
+      ws({ id: 'b1', name: 'Example B', used: 40 }),
+      ws({ id: 'c1', name: 'Example C', limit: 9 }),
+    ]);
+
+  it('sets and removes the same own limit on the selected only', () => {
+    const limited = setLimitMany(three(), ['a1', 'b1'], 30);
+    expect(limited.workspaces.map((item) => item.limit)).toEqual([30, 30, 9]);
+    expect(limited.log).toBe('2 workspaces: bulk limit 30.0M each.');
+    const removed = setLimitMany(limited, ['a1', 'c1'], null);
+    expect(removed.workspaces.map((item) => item.limit)).toEqual([null, 30, null]);
+    expect(removed.log).toBe('Own limit removed from 2 workspaces.');
+  });
+
+  it('gives extra: each its suggested amount, or the same amount; never starts an import', () => {
+    const suggested = grantExtraMany(three(), ['a1', 'b1'], null, 1);
+    expect(find(suggested, 'a1')).toMatchObject({ extra: 25, extraDays: 3, importing: true });
+    expect(find(suggested, 'b1')).toMatchObject({ extra: 20, extraDays: 3, importing: false });
+    expect(find(suggested, 'c1').extra).toBe(0);
+    expect(suggested.log).toBe('2 workspaces: extra given, 45.0M in all, ends in 3 days.');
+    const same = grantExtraMany(three(), ['a1', 'b1', 'c1'], 10, 0);
+    expect(same.workspaces.map((item) => item.extra)).toEqual([10, 10, 10]);
+    expect(same.log).toBe('3 workspaces: extra given, 30.0M in all, ends today.');
+    const ended = endExtraMany(same, ['a1', 'b1']);
+    expect(ended.workspaces.map((item) => item.extra)).toEqual([0, 0, 10]);
+    expect(ended.log).toBe('Extra ended for 2 workspaces (20.0M unused).');
   });
 });
 
@@ -268,11 +359,10 @@ describe('organisation actions', () => {
     expect(suggestedExtra(ws({ used: 1 }))).toBe(5);
   });
 
-  it('example data: 24 workspaces, 400M budget, KB line 80%', () => {
+  it('example data: 24 workspaces, 400M budget, knowledge base at most 60%', () => {
     const state = initialOrgState();
     expect(state.workspaces).toHaveLength(24);
-    expect(orgTotals(state).budget).toBe(400);
-    expect(orgTotals(state).kbLine).toBe(320);
+    expect(orgTotals(state)).toMatchObject({ budget: 400, kbCap: 240, kbPaused: false });
   });
 });
 
@@ -282,18 +372,21 @@ describe('single workspace', () => {
     expect(singleTotals(state)).toMatchObject({ budget: 60, kbCap: 48, used: 37 });
     expect(singleStatusLine(state)).toEqual({
       tone: 'ok',
-      text: 'All running. Knowledge base has 11.0M left; live mail has 23.0M.',
+      text: 'All running. Bulk processing can use 20.0M more. Live mail can use 23.0M.',
     });
   });
 
   it('a KB import pauses at the KB cap, then continues on extra only', () => {
     let state = startSingleImport(initialSingleState());
     expect(state.log).toBe('A 30M KB import started.');
-    state = simulateSingleDay(state); // live 0.6, then KB 10 → 47.6
-    state = simulateSingleDay(state); // live mail first: 48.2 ≥ the 48 cap, so the KB pauses
-    expect(singleTotals(state).used).toBeCloseTo(48.2, 6);
+    state = simulateSingleDay(state); // live 0.6, KB 28 → 38
+    state = simulateSingleDay(state); // KB 38 → 48 = its limit: paused; live mail does not count
+    expect(state.kbUsed).toBeCloseTo(48, 6);
+    expect(singleTotals(state).used).toBeCloseTo(58.2, 6);
     expect(singleTotals(state).kbPaused).toBe(true);
-    expect(singleStatusLine(state).text).toMatch(/^Knowledge base paused at 48.0M/);
+    expect(singleStatusLine(state).text).toMatch(
+      /^Bulk processing paused: it used its 48.0M\. Live mail continues and can use the last 1.8M\./
+    );
     const leftAtPause = state.importLeft;
 
     state = simulateSingleDay(state);
@@ -307,7 +400,7 @@ describe('single workspace', () => {
     state = simulateSingleDay(state);
     expect(state.extraUsed).toBe(10);
     // Extra is outside the budget: the KB's in-budget spend did not move.
-    expect(state.kbUsed).toBeCloseTo(38, 6);
+    expect(state.kbUsed).toBeCloseTo(48, 6);
     expect(state.importLeft).toBe(leftAtPause - 10);
   });
 
