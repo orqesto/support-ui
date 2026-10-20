@@ -192,6 +192,12 @@ describe('Budget model demo', () => {
       '24 workspaces: extra given, 120M in all, ends in 3 days.'
     );
 
+    fireEvent.click(bar.getByRole('button', { name: 'End extra (24)' }));
+    expect(orgView().getByTestId('budget-demo-org-log')).toHaveTextContent(
+      'Extra ended for 24 workspaces'
+    );
+    expect(bar.queryByRole('button', { name: /^End extra/ })).toBeNull();
+
     fireEvent.click(bar.getByRole('button', { name: 'Unselect all' }));
     expect(bar.getByText('Select workspaces to change them together')).toBeInTheDocument();
     expect(orgView().getByRole('checkbox', { name: 'Select Atlas Labs' })).not.toBeChecked();

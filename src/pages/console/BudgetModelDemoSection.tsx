@@ -16,6 +16,7 @@ import {
   endOrgExtra,
   endOrgWideExtra,
   fmt,
+  endExtraMany,
   grantExtraMany,
   grantOrgExtra,
   grantOrgWideExtra,
@@ -342,6 +343,8 @@ const OrganisationView = () => {
             onGiveExtra={(amount, end) =>
               setState((prev) => grantExtraMany(prev, pickedIds, amount, end))
             }
+            withExtra={state.workspaces.filter((ws) => picked.has(ws.id) && ws.extra > 0).length}
+            onEndExtra={() => setState((prev) => endExtraMany(prev, pickedIds))}
           />
           <ul className="flex flex-col gap-0.5">
             {rows.length === 0 && <li className="text-muted-foreground">No workspace matches.</li>}

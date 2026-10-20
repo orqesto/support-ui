@@ -486,6 +486,24 @@ export const grantExtraMany = (
   };
 };
 
+/** End the extra on every selected workspace that has one; unused tokens are dropped. */
+export const endExtraMany = (state: OrgDemoState, ids: readonly string[]): OrgDemoState => {
+  const picked = new Set(ids);
+  let count = 0;
+  let unused = 0;
+  const workspaces = state.workspaces.map((ws) => {
+    if (!picked.has(ws.id) || ws.extra <= 0) return ws;
+    count++;
+    unused += ws.extra - ws.extraUsed;
+    return { ...ws, extra: 0, extraUsed: 0, extraDays: 0 };
+  });
+  return {
+    ...state,
+    workspaces,
+    log: `Extra ended for ${plural(count)} (${fmt(unused)} unused).`,
+  };
+};
+
 /** A new workspace joins with no own limit and starts a 30M import. Returns the state and its id. */
 export const addWorkspace = (state: OrgDemoState): { state: OrgDemoState; id: string } => {
   const count = state.newCount + 1;

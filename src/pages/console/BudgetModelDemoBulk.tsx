@@ -23,6 +23,9 @@ type BulkBarProps = {
   onRemoveLimit: () => void;
   /** null = each workspace gets its own suggested amount. */
   onGiveExtra: (amount: number | null, end: ExtraEnd) => void;
+  /** How many of the selected have extra running: "End extra" shows only then. */
+  withExtra: number;
+  onEndExtra: () => void;
 };
 
 export const BulkBar = ({
@@ -34,6 +37,8 @@ export const BulkBar = ({
   onSetLimit,
   onRemoveLimit,
   onGiveExtra,
+  withExtra,
+  onEndExtra,
 }: BulkBarProps) => {
   const top = Math.max(1, Math.round(budget));
   const [limitDraft, setLimitDraft] = useState(30);
@@ -109,7 +114,10 @@ export const BulkBar = ({
               ariaLabel="Extra for each selected workspace, million tokens"
               ariaValueText={`${fmt(extra)} tokens`}
             >
-              <BarSegment width={(extra / EXTRA_MAX) * 100} className="bg-warning" />
+              <BarSegment
+                width={(extra / EXTRA_MAX) * 100}
+                className={eachSuggested ? 'bg-border' : 'bg-warning'}
+              />
             </BarSlider>
             <div className="flex flex-wrap gap-2 items-center">
               <SegmentedControl
@@ -121,6 +129,11 @@ export const BulkBar = ({
               <Button size="sm" onClick={() => onGiveExtra(eachSuggested ? null : extra, end)}>
                 Give extra
               </Button>
+              {withExtra > 0 && (
+                <Button variant="outline" size="sm" onClick={onEndExtra}>
+                  End extra ({withExtra})
+                </Button>
+              )}
             </div>
             <span className="text-sm text-muted-foreground">
               Outside the budget; unused extra expires.

@@ -3,6 +3,7 @@ import {
   addWorkspace,
   clampKbPct,
   endOrgExtra,
+  endExtraMany,
   endOrgWideExtra,
   fmt,
   grantExtraMany,
@@ -313,6 +314,9 @@ describe('bulk actions on selected workspaces', () => {
     const same = grantExtraMany(three(), ['a1', 'b1', 'c1'], 10, 0);
     expect(same.workspaces.map((item) => item.extra)).toEqual([10, 10, 10]);
     expect(same.log).toBe('3 workspaces: extra given, 30.0M in all, ends today.');
+    const ended = endExtraMany(same, ['a1', 'b1']);
+    expect(ended.workspaces.map((item) => item.extra)).toEqual([0, 0, 10]);
+    expect(ended.log).toBe('Extra ended for 2 workspaces (20.0M unused).');
   });
 });
 
