@@ -23,11 +23,6 @@ export const TONE_CLASS: Record<Tone, string> = {
   warn: 'text-warning',
   bad: 'text-destructive',
 };
-/** The "kept free for live mail" zone: success stripes over the track. */
-export const STRIPES = {
-  backgroundImage:
-    'repeating-linear-gradient(45deg, transparent 0 6px, hsl(var(--success)) 6px 8px)',
-};
 export const END_SEGMENTS = EXTRA_END_LABELS.map((label, index) => ({
   value: String(index),
   label,

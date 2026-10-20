@@ -72,7 +72,7 @@ describe('Budget model demo', () => {
     expect(screen.getByTestId('budget-demo-view-single')).toBeVisible();
     expect(singleView().getByText('Lakeside Dental')).toBeInTheDocument();
     expect(singleView().getByTestId('budget-demo-single-status')).toHaveTextContent(
-      'All running. Knowledge base can use 11.0M more. Live mail can use 23.0M.'
+      'All running. Knowledge base can use 20.0M more. Live mail can use 23.0M.'
     );
   });
 
@@ -103,7 +103,9 @@ describe('Budget model demo', () => {
     expect(panel).not.toBeNull();
     // The panel is the row's next sibling inside the same list item.
     expect(row.nextElementSibling).toBe(panel);
-    expect(within(panel as HTMLElement).getByText('Limit this workspace')).toBeInTheDocument();
+    expect(
+      within(panel as HTMLElement).getByText("Limit this workspace's knowledge base")
+    ).toBeInTheDocument();
     expect(
       within(panel as HTMLElement).getByText('Extra for the knowledge base')
     ).toBeInTheDocument();
@@ -123,18 +125,18 @@ describe('Budget model demo', () => {
     if (!row) throw new Error('row missing');
     fireEvent.click(row);
     const slider = orgView().getByRole('slider', { name: 'Limit for Atlas Labs' });
+    fireEvent.change(slider, { target: { value: '15' } });
     fireEvent.change(slider, { target: { value: '20' } });
-    fireEvent.change(slider, { target: { value: '25' } });
     expect(orgView().getByRole('slider', { name: 'Limit for Atlas Labs' })).toBe(slider);
-    expect(slider).toHaveValue('25');
-    // 28M used, limit 25: its KB stops, live mail continues.
+    expect(slider).toHaveValue('20');
+    // 21M of its 28M is knowledge base; limit 20: its KB stops, live mail continues.
     expect(
       orgView().getByText(
-        'Below what it already used: its knowledge base stops now; live mail continues.'
+        'Below what its knowledge base already used: its knowledge base stops now; live mail continues.'
       )
     ).toBeInTheDocument();
     expect(orgView().getByTestId('budget-demo-row-status-w1')).toHaveTextContent(
-      'KB stopped: reached its own limit (25.0M) · live mail continues'
+      'KB stopped: reached its own limit (20.0M) · live mail continues'
     );
   });
 
@@ -157,17 +159,17 @@ describe('Budget model demo', () => {
     expect(orgView().getByRole('button', { name: 'End now' })).toBeInTheDocument();
   });
 
-  it('at most half the budget is kept for live mail, in both views', () => {
+  it('the knowledge base limit stays between 50% and 90%, in both views', () => {
     render(<BudgetModelDemoSection />);
     const [orgSlider] = orgView().getAllByRole('slider', {
-      name: 'Kept free for live mail: where it starts on the budget bar',
+      name: 'Knowledge base may use at most, percent of the budget',
     });
     fireEvent.change(orgSlider, { target: { value: '20' } });
     expect(orgSlider).toHaveValue('50');
 
     fireEvent.click(screen.getByRole('button', { name: 'Single workspace' }));
     const singleSlider = singleView().getByRole('slider', {
-      name: 'Kept free for live mail: where it starts on the budget bar',
+      name: 'Knowledge base may use at most, percent of the budget',
     });
     fireEvent.change(singleSlider, { target: { value: '10' } });
     expect(singleSlider).toHaveValue('50');
@@ -207,7 +209,7 @@ describe('Budget model demo', () => {
     fireEvent.click(singleView().getByRole('button', { name: '+1 day' }));
     fireEvent.click(singleView().getByRole('button', { name: '+1 day' }));
     expect(singleView().getByTestId('budget-demo-single-status')).toHaveTextContent(
-      /^Knowledge base paused: it stops at 48.0M and 48.2M is used\./
+      /^Knowledge base paused: it used its 48.0M\./
     );
     fireEvent.click(singleView().getByRole('button', { name: /^Give \+20\.0M/ }));
     expect(singleView().getByTestId('budget-demo-single-status')).toHaveTextContent(

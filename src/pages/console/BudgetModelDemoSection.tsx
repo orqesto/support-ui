@@ -10,9 +10,7 @@ import { cn } from '@/lib/utils';
 import {
   LAST_DAY,
   addWorkspace,
-  barParts,
-  reserveEdge,
-  reserveFromEdge,
+  clampKbPct,
   defaultLimitFor,
   endOrgExtra,
   fmt,
@@ -36,7 +34,6 @@ import {
   ExtraBox,
   FieldLabel,
   Log,
-  STRIPES,
   StatusText,
   Swatch,
   TONE_CLASS,
@@ -83,10 +80,10 @@ const WorkspacePanel = ({
   const sliderValue = ws.limit ?? defaultLimitFor(ws, budget);
   const help =
     ws.limit === null
-      ? 'The blue part is what it used this month; the grey tick is where the organisation knowledge base stops.'
-      : ws.used >= ws.limit
-        ? 'Below what it already used: its knowledge base stops now; live mail continues.'
-        : `${fmt(ws.limit - ws.used)} left for this workspace.`;
+      ? 'The purple part is its knowledge base spend this month; the grey tick is the organisation knowledge base limit.'
+      : ws.kbUsed >= ws.limit
+        ? 'Below what its knowledge base already used: its knowledge base stops now; live mail continues.'
+        : `${fmt(ws.limit - ws.kbUsed)} left for its knowledge base.`;
   return (
     <div
       id={`budget-demo-panel-${ws.id}`}
@@ -94,7 +91,7 @@ const WorkspacePanel = ({
     >
       <div className="grid gap-6 grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
         <div className="flex flex-col gap-1.5">
-          <FieldLabel>Limit this workspace</FieldLabel>
+          <FieldLabel>Limit this workspace's knowledge base</FieldLabel>
           <Toggle
             checked={ws.limit !== null}
             onChange={(on) => onLimit(on ? sliderValue : null)}
@@ -103,7 +100,7 @@ const WorkspacePanel = ({
           <span className="font-mono text-lg">
             {ws.limit !== null
               ? `${fmt(ws.limit)} · ${Math.round((ws.limit / budget) * 100)}% of the budget`
-              : 'No own limit · shares the whole budget'}
+              : 'No own limit · only the organisation knowledge base limit applies'}
           </span>
           <BarSlider
             value={Math.min(sliderValue, Math.round(budget))}
@@ -116,13 +113,13 @@ const WorkspacePanel = ({
             ariaValueText={`${fmt(sliderValue)} tokens`}
             markers={
               <BarMarker
-                at={reserveEdge(totals.reservePct)}
+                at={totals.kbPct}
                 variant="tick"
-                title="Organisation: knowledge base stops here"
+                title="Organisation: knowledge base limit"
               />
             }
           >
-            <BarSegment width={(ws.used / budget) * 100} className="bg-primary" />
+            <BarSegment width={(ws.kbUsed / budget) * 100} className="bg-pending" />
           </BarSlider>
           <span className="text-sm text-muted-foreground">{help}</span>
           <span className="text-sm text-muted-foreground">
@@ -160,7 +157,6 @@ const OrganisationView = () => {
   const totals = orgTotals(state);
   const status = orgStatusLine(totals);
   const kbWidth = Math.min(100, (totals.kbTotal / totals.budget) * 100);
-  const parts = barParts(totals.budget, totals.total, totals.kbLine);
   const liveWidth = Math.min(
     100 - kbWidth,
     ((totals.total - totals.kbTotal) / totals.budget) * 100
@@ -206,28 +202,26 @@ const OrganisationView = () => {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <FieldLabel>Kept free for live mail · drag the edge of the striped part</FieldLabel>
+              <FieldLabel>Knowledge base may use at most · drag the line on the bar</FieldLabel>
               <span className="font-mono text-lg">
-                {totals.reservePct}% · {fmt(totals.reserve)} · knowledge base stops at{' '}
-                {fmt(totals.kbLine)}
+                {totals.kbPct}% · {fmt(totals.kbCap)} · counts knowledge base spend only
               </span>
             </div>
           </div>
           <BarSlider
-            value={reserveEdge(state.reservePct)}
+            value={state.kbPct}
             min={0}
             max={100}
             step={5}
-            onChange={(value) =>
-              setState((prev) => ({ ...prev, reservePct: reserveFromEdge(value) }))
-            }
-            ariaLabel="Kept free for live mail: where it starts on the budget bar"
-            ariaValueText={`${totals.reservePct}% of the budget kept free for live mail`}
-            markers={<BarMarker at={reserveEdge(totals.reservePct)} />}
+            onChange={(value) => setState((prev) => ({ ...prev, kbPct: clampKbPct(value) }))}
+            ariaLabel="Knowledge base may use at most, percent of the budget"
+            ariaValueText={`${totals.kbPct}% of the budget`}
+            markers={<BarMarker at={totals.kbPct} />}
           >
+            {/* The knowledge base first, from 0: the end of the purple part is what the line is
+                compared with. Live mail follows and may run past the line. */}
             <BarSegment width={kbWidth} className="bg-pending" />
             <BarSegment left={kbWidth} width={liveWidth} className="bg-primary" />
-            <BarSegment width={parts.liveOnlyPct} fromRight style={STRIPES} />
           </BarSlider>
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
             <span>
@@ -235,25 +229,20 @@ const OrganisationView = () => {
             </span>
             <span>
               <Swatch className="bg-pending" />
-              Knowledge base <span className="font-mono">{fmt(totals.kbTotal)}</span>
+              Knowledge base <span className="font-mono">{fmt(totals.kbTotal)}</span> of{' '}
+              <span className="font-mono">{fmt(totals.kbCap)}</span>
             </span>
             <span>
               <Swatch className="bg-primary" />
               Live mail <span className="font-mono">{fmt(totals.total - totals.kbTotal)}</span>
             </span>
-            {parts.freeBoth > 0 && (
-              <span>
-                <Swatch className="bg-muted border border-border" />
-                Free for both <span className="font-mono">{fmt(parts.freeBoth)}</span>
-              </span>
-            )}
             <span>
-              <Swatch className="!w-0.5 bg-foreground" />
-              Knowledge base stops here
+              <Swatch className="bg-muted border border-border" />
+              Free <span className="font-mono">{fmt(totals.budget - totals.total)}</span>
             </span>
             <span>
-              <Swatch className="bg-success" />
-              Free, live mail only <span className="font-mono">{fmt(parts.liveOnly)}</span>
+              <Swatch className="!w-0.5 bg-foreground" />
+              Knowledge base limit (compared with the purple part only)
             </span>
             {extraSpent > 0 && (
               <span>
