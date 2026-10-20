@@ -45,9 +45,9 @@ vi.mock('@/services/message.service', () => ({
   messageService: { getAll: () => Promise.resolve({ data: [] }) },
 }));
 vi.mock('@/services/ticket.service', () => ({ ticketService: { update: () => Promise.resolve() } }));
-const perms = { all: true };
+const perms = { all: true, denied: new Set<string>() };
 vi.mock('@/hooks/usePermissions', () => ({
-  usePermissions: () => ({ hasPermission: () => perms.all }),
+  usePermissions: () => ({ hasPermission: (permission: string) => perms.all && !perms.denied.has(permission) }),
 }));
 vi.mock('@/lib/logger', () => ({ logger: { error: () => {}, info: () => {} } }));
 vi.mock('@/components/admin/AssignmentSelect', () => ({ AssignmentSelect: () => null }));
@@ -73,10 +73,10 @@ const ticket: Ticket = {
   updatedAt: '2026-01-01T00:00:00Z',
 };
 
-const renderDetail = () =>
+const renderDetail = (shown: Ticket = ticket) =>
   render(
     <MemoryRouter>
-      <TicketDetail ticket={ticket} showFullPageButton={false} />
+      <TicketDetail ticket={shown} showFullPageButton={false} />
     </MemoryRouter>
   );
 
@@ -96,6 +96,7 @@ describe('TicketDetail — label picker', () => {
     cleanup();
     vi.clearAllMocks();
     perms.all = true;
+    perms.denied.clear();
   });
 
   it('a role that may see no labels and change nothing asks for neither labels nor categories', async () => {
@@ -108,7 +109,16 @@ describe('TicketDetail — label picker', () => {
     expect(getCategories).not.toHaveBeenCalled();
   });
 
-  it('CONTROL: a support role asks for both', async () => {
+  it('support manages tickets but may not read categories: no picker, no request, the ticket’s own category shown', async () => {
+    perms.denied.add('view_categories');
+    renderDetail({ ...ticket, categoryId: 5, categoryName: 'Customs' });
+    expect(await screen.findByText('Customs')).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(screen.queryByRole('combobox', { name: 'Category' })).toBeNull();
+    expect(getCategories).not.toHaveBeenCalled();
+  });
+
+  it('CONTROL: a role that may read categories asks for labels and categories', async () => {
     renderDetail();
     await waitFor(() => expect(getLabels).toHaveBeenCalled());
     expect(getTicketLabels).toHaveBeenCalledWith(42);

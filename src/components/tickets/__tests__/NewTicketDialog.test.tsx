@@ -267,6 +267,26 @@ describe('New ticket', () => {
     );
   });
 
+  it('an owner list that never answers: after a while Create goes ahead unassigned, and says it is loading meanwhile', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      assignable.mockReturnValue(new Promise(() => {}));
+      const onCreated = renderDialog();
+      await fill(user);
+      expect(screen.getByText('Loading who can own it…')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+      vi.advanceTimersByTime(10_000);
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled());
+      expect(screen.queryByText('Loading who can own it…')).toBeNull();
+      await user.click(screen.getByRole('button', { name: 'Create' }));
+      await waitFor(() => expect(onCreated).toHaveBeenCalled());
+      expect(create.mock.calls[0][0]).not.toHaveProperty('assigneeId');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('an owner list that fails to load: created unassigned, not for an unchecked owner', async () => {
     const user = userEvent.setup();
     assignable.mockRejectedValue(new Error('500'));

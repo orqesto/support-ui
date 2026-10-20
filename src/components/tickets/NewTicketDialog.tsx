@@ -37,6 +37,9 @@ type Candidate = { id: number; publicId: string | null; subject: string | null; 
 /** Search results shown at once; a full page says so. */
 const PICKER_LIMIT = 25;
 
+/** How long Create waits for the owner list before going ahead unassigned. */
+const OWNERS_WAIT_MS = 10_000;
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -101,10 +104,23 @@ export const NewTicketDialog = ({ open, onOpenChange, onCreated }: Props) => {
   useEffect(() => {
     if (!open || !departmentId) return;
     let live = true;
+    // Nobody can be checked as an owner: it goes unassigned rather than to an unchecked one.
+    const unassigned = () => {
+      setOwnerList({ departmentId, options: [] });
+      setOwnerId('');
+    };
+    // Create waits for this list; a request that never answers (no client timeout) must not
+    // leave it disabled for good.
+    const timer = setTimeout(() => {
+      if (!live) return;
+      logger.error('New ticket: owners did not load in time');
+      unassigned();
+    }, OWNERS_WAIT_MS);
     assignmentService
       .getAssignableUsers(undefined, Number(departmentId))
       .then((rows) => {
         if (!live) return;
+        clearTimeout(timer);
         // The roster comes back whole, flagged: `eligible: false` is someone outside this
         // department (another department's people were offered for HR, staging 2026-10-20).
         // Unflagged = an older backend that sent only assignable people.
@@ -123,13 +139,13 @@ export const NewTicketDialog = ({ open, onOpenChange, onCreated }: Props) => {
       })
       .catch((err: unknown) => {
         if (!live) return;
+        clearTimeout(timer);
         logger.error('New ticket: owners failed', err);
-        // Nobody can be checked as an owner: it goes unassigned rather than to an unchecked one.
-        setOwnerList({ departmentId, options: [] });
-        setOwnerId('');
+        unassigned();
       });
     return () => {
       live = false;
+      clearTimeout(timer);
     };
   }, [open, departmentId]);
 
@@ -251,13 +267,18 @@ export const NewTicketDialog = ({ open, onOpenChange, onCreated }: Props) => {
                 setOwnerId('');
               }}
             />
-            <Select
-              label="Owner"
-              aria-label="Owner"
-              value={ownerId}
-              options={[{ value: '', label: 'Unassigned' }, ...owners]}
-              onChange={setOwnerId}
-            />
+            <div className="space-y-1">
+              <Select
+                label="Owner"
+                aria-label="Owner"
+                value={ownerId}
+                options={[{ value: '', label: 'Unassigned' }, ...owners]}
+                onChange={setOwnerId}
+              />
+              {departmentId !== '' && !ownersLoaded && (
+                <p className="text-xs text-muted-foreground">Loading who can own it…</p>
+              )}
+            </div>
           </div>
           <div className="space-y-2">
             <Input

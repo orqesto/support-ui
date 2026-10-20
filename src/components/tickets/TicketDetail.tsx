@@ -90,6 +90,7 @@ export const TicketDetail = ({
   const hasManageLabels = hasPermission(Permission.MANAGE_LABELS);
   const canViewLabels = hasPermission(Permission.VIEW_LABELS);
   const hasManageTickets = hasPermission(Permission.MANAGE_TICKETS);
+  const canViewCategories = hasPermission(Permission.VIEW_CATEGORIES);
   const [categories, setCategories] = useState<Category[]>([]);
   const [localStatus, setLocalStatus] = useState<TicketStatus>(ticket.status);
   const [localPriority, setLocalPriority] = useState<TicketPriority>(ticket.priority);
@@ -181,7 +182,9 @@ export const TicketDetail = ({
 
   // The list feeds the category picker only; without it the badge shows the ticket's own
   // category, so a role that cannot change it is not refused a request (staging 2026-10-19).
-  const showCategoryPicker = hasManageTickets && !ticket.externalId;
+  // Changing it also needs the list: support manages tickets but may not read categories, so its
+  // picker sat on "Select…" over the ticket's own category, and the list was refused (2026-10-20).
+  const showCategoryPicker = hasManageTickets && canViewCategories && !ticket.externalId;
   useEffect(() => {
     if (!showCategoryPicker) return;
     categoryService.getAll()

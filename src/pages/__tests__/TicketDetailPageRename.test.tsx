@@ -6,7 +6,7 @@
  */
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type { Ticket } from '@/types';
 
 const server: { ticket: Ticket } = {
@@ -161,5 +161,36 @@ describe('TicketDetailPage — rename', () => {
     renderPage();
     expect(await screen.findByRole('heading', { name: 'Parcel stuck' })).toBeInTheDocument();
     expect(screen.queryByText(/its threads could not be linked/)).toBeNull();
+  });
+
+  it('the notice is dropped from the history entry once read, so a reload or Back does not bring it back', async () => {
+    let seen: unknown = 'unread';
+    const Probe = () => {
+      seen = useLocation().state;
+      return null;
+    };
+    render(
+      <MemoryRouter
+        initialEntries={[{ pathname: '/tickets/42', state: { threadsNotLinked: true } }]}
+      >
+        <Routes>
+          <Route
+            path="/tickets/:id"
+            element={
+              <>
+                <TicketDetailPage />
+                <Probe />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+    expect(
+      await screen.findByText(/The ticket was created, but its threads could not be linked/)
+    ).toBeInTheDocument();
+    await waitFor(() => expect(seen).toBeNull());
+    // Still shown for this visit.
+    expect(screen.getByText(/its threads could not be linked/)).toBeInTheDocument();
   });
 });
