@@ -2,6 +2,7 @@
  * Renaming a ticket on its full page shows the new title once saved (staging 2026-10-19: the save
  * went through but the page kept the old title — the page passed no `onRefresh`, and closing the
  * editor re-synced the title from the ticket it still held). A failed save shows the old title.
+ * Delete follows the route's permission; a new ticket whose threads failed to link says so.
  */
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
@@ -45,9 +46,15 @@ vi.mock('@/services/category.service', () => ({
 vi.mock('@/services/message.service', () => ({
   messageService: { getAll: () => Promise.resolve({ data: [] }) },
 }));
-const perms = { manage: true };
+// The permissions the signed-in role holds — answered per permission, as the real hook does.
+const perms: { held: string[] } = { held: [] };
+const ADMIN = ['manage_tickets', 'delete_tickets', 'manage_organization'];
 vi.mock('@/hooks/usePermissions', () => ({
-  usePermissions: () => ({ hasPermission: () => perms.manage }),
+  usePermissions: () => ({
+    hasPermission: (permission: string) => perms.held.includes(permission),
+    hasAnyPermission: (permissions: string[]) =>
+      permissions.some((permission) => perms.held.includes(permission)),
+  }),
 }));
 vi.mock('@/lib/logger', () => ({ logger: { error: () => {}, info: () => {} } }));
 vi.mock('@/components/layout/Layout', () => ({
@@ -62,9 +69,9 @@ vi.mock('@/components/tickets/TicketPanelTabs', () => ({ TicketPanelTabs: () => 
 
 import { TicketDetailPage } from '../TicketDetailPage';
 
-const renderPage = () =>
+const renderPage = (state?: unknown) =>
   render(
-    <MemoryRouter initialEntries={['/tickets/42']}>
+    <MemoryRouter initialEntries={[{ pathname: '/tickets/42', state }]}>
       <Routes>
         <Route path="/tickets/:id" element={<TicketDetailPage />} />
       </Routes>
@@ -80,7 +87,7 @@ const rename = async (title: string) => {
 
 describe('TicketDetailPage — rename', () => {
   beforeEach(() => {
-    perms.manage = true;
+    perms.held = ADMIN;
     server.ticket = { ...server.ticket, title: 'Parcel stuck' };
     update.mockImplementation((_id, patch) => {
       server.ticket = { ...server.ticket, ...patch };
@@ -125,15 +132,34 @@ describe('TicketDetailPage — rename', () => {
     expect(screen.queryByRole('heading', { name: 'Parcel stuck — carrier delay' })).toBeNull();
   });
 
-  it('Delete is offered only to a role that may delete (MANAGE_TICKETS)', async () => {
+  it('Delete is offered only to a role the route lets delete (DELETE_TICKETS or MANAGE_ORGANIZATION)', async () => {
     renderPage();
     expect(await screen.findByRole('button', { name: 'Delete' })).toBeInTheDocument();
     cleanup();
 
-    // An associate (staging 2026-10-19: saw Delete, which the server refuses).
-    perms.manage = false;
+    // Support and moderators manage tickets but may not delete them (the server answers 403).
+    perms.held = ['manage_tickets'];
     renderPage();
     expect(await screen.findByRole('heading', { name: 'Parcel stuck' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    cleanup();
+
+    // An associate (staging 2026-10-19: saw Delete, which the server refuses).
+    perms.held = [];
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Parcel stuck' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+  });
+
+  it('opened by New ticket after its threads failed to link: says so, and only then', async () => {
+    renderPage({ threadsNotLinked: true });
+    expect(
+      await screen.findByText(/The ticket was created, but its threads could not be linked/)
+    ).toBeInTheDocument();
+    cleanup();
+
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Parcel stuck' })).toBeInTheDocument();
+    expect(screen.queryByText(/its threads could not be linked/)).toBeNull();
   });
 });

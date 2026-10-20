@@ -9,8 +9,12 @@ export type MessageSourceOption = { id: number; name: string; type: string; acti
  * The workspace's mailboxes and channels for a picker — readable by every role
  * (VIEW_MESSAGE_SOURCES), unlike getAll (VIEW_INTEGRATIONS): the threads filter's Source list
  * read getAll, so support's stayed empty (staging 2026-10-19). An older backend without the
- * route answers 404: the full list is read instead, for the roles that may.
+ * route matches it as `GET /:id` instead: 404, 400 (not an id) or 403 (VIEW_INTEGRATIONS, prod
+ * v1.1.297 for support). The full list is read then, for the roles that may; a role refused that
+ * too gets no options.
  */
+const OLDER_BACKEND = [404, 400, 403];
+
 export const getMessageSourceOptions = async (): Promise<MessageSourceOption[]> => {
   try {
     const response = await apiClient.get<{ success: boolean; data: MessageSourceOption[] }>(
@@ -18,8 +22,14 @@ export const getMessageSourceOptions = async (): Promise<MessageSourceOption[]> 
     );
     return response.data.data ?? [];
   } catch (error) {
-    if (getErrorStatus(error) !== 404) throw error;
-    const all = await integrationsService.getAll();
+    if (!OLDER_BACKEND.includes(getErrorStatus(error) ?? 0)) throw error;
+    let all: Awaited<ReturnType<typeof integrationsService.getAll>>;
+    try {
+      all = await integrationsService.getAll();
+    } catch (fallbackError) {
+      if (getErrorStatus(fallbackError) === 403) return [];
+      throw fallbackError;
+    }
     return (all.data ?? []).map((row) => ({
       id: row.id,
       name: row.name,

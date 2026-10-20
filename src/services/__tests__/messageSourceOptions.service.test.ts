@@ -1,7 +1,8 @@
 /**
  * The threads filter's Source list for every role (staging 2026-10-19: support's was empty — the
  * filter read GET /api/integrations, which needs VIEW_INTEGRATIONS). An older backend without the
- * new route answers 404, and the full list is read instead.
+ * new route matches it as `GET /:id` — 404, 400, or 403 for support (prod v1.1.297) — and the full
+ * list is read instead; a role refused that too gets no options rather than an error.
  */
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
@@ -28,20 +29,35 @@ describe('getMessageSourceOptions', () => {
     expect(getAll).not.toHaveBeenCalled();
   });
 
-  it('an older backend (404): the full list, reduced to the same shape', async () => {
-    get.mockRejectedValue({ response: { status: 404 } });
-    getAll.mockResolvedValue({
-      success: true,
-      data: [{ id: 2, name: 'Desk', type: 'email', enabled: false, config: { password: 'x' } }],
-    });
-    expect(await getMessageSourceOptions()).toEqual([
-      { id: 2, name: 'Desk', type: 'email', active: false },
-    ]);
+  it.each([404, 400, 403])(
+    'an older backend (%i): the full list, reduced to the same shape',
+    async (status) => {
+      get.mockRejectedValue({ response: { status } });
+      getAll.mockResolvedValue({
+        success: true,
+        data: [{ id: 2, name: 'Desk', type: 'email', enabled: false, config: { password: 'x' } }],
+      });
+      expect(await getMessageSourceOptions()).toEqual([
+        { id: 2, name: 'Desk', type: 'email', active: false },
+      ]);
+    }
+  );
+
+  it('an older backend and a role that may not read the full list either: no options', async () => {
+    get.mockRejectedValue({ response: { status: 403 } });
+    getAll.mockRejectedValue({ response: { status: 403 } });
+    expect(await getMessageSourceOptions()).toEqual([]);
   });
 
-  it('any other refusal is not hidden behind the full list', async () => {
-    get.mockRejectedValue({ response: { status: 403 } });
-    await expect(getMessageSourceOptions()).rejects.toEqual({ response: { status: 403 } });
+  it('a failing full list is not hidden', async () => {
+    get.mockRejectedValue({ response: { status: 404 } });
+    getAll.mockRejectedValue({ response: { status: 500 } });
+    await expect(getMessageSourceOptions()).rejects.toEqual({ response: { status: 500 } });
+  });
+
+  it('a failing options route is not hidden behind the full list', async () => {
+    get.mockRejectedValue({ response: { status: 500 } });
+    await expect(getMessageSourceOptions()).rejects.toEqual({ response: { status: 500 } });
     expect(getAll).not.toHaveBeenCalled();
   });
 });

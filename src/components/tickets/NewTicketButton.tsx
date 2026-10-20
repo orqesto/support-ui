@@ -21,9 +21,13 @@ export const NewTicketButton = ({ variant = 'primary' }: { variant?: 'primary' |
       <NewTicketDialog
         open={open}
         onOpenChange={setOpen}
-        onCreated={(ticketId) => {
+        onCreated={(ticketId, { threadsFailed }) => {
           setOpen(false);
-          navigate(`/tickets/${ticketId}`);
+          // The ticket page says the threads were not linked (TicketDetailPage).
+          navigate(
+            `/tickets/${ticketId}`,
+            threadsFailed ? { state: { threadsNotLinked: true } } : {}
+          );
         }}
       />
     </>
