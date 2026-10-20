@@ -11,6 +11,7 @@ import { OpenConversationWindowSettings } from './OpenConversationWindowSettings
 import { SLAConfigSettings } from './SLAConfigSettings';
 import { SecuritySettings } from './SecuritySettings';
 import { WorkspaceDetailsSettings } from './WorkspaceDetailsSettings';
+import { WorkspaceAiUsage } from './WorkspaceAiUsage';
 
 type OrgSection =
   | 'details'
@@ -20,7 +21,8 @@ type OrgSection =
   | 'sla-config'
   | 'business-hours'
   | 'open-conversations'
-  | 'security';
+  | 'security'
+  | 'ai-usage';
 
 const sections = [
   { id: 'details' as OrgSection, label: 'Details', description: 'Workspace name and description' },
@@ -31,6 +33,7 @@ const sections = [
   { id: 'business-hours' as OrgSection, label: 'Business Hours', description: 'Working calendar used for open-hours response times' },
   { id: 'open-conversations' as OrgSection, label: 'Open Threads', description: 'How old an email may be and still count as open work' },
   { id: 'security' as OrgSection, label: 'Authentication', description: 'Workspace two-factor authentication policy' },
+  { id: 'ai-usage' as OrgSection, label: 'AI usage', description: 'Monthly AI budget and bulk processing' },
 ];
 
 // Workspace-wide policy sub-sections — admin-only (org_admin+/global), hidden from
@@ -111,6 +114,7 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
         {active === 'business-hours' && canManageOrgPolicy && <BusinessHoursSettings />}
         {active === 'open-conversations' && canManageOrgPolicy && <OpenConversationWindowSettings />}
         {active === 'security' && canManageOrgPolicy && <SecuritySettings />}
+        {active === 'ai-usage' && <WorkspaceAiUsage />}
       </Tabs>
     </div>
   );
