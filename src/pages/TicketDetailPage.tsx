@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Loader2 } from 'lucide-react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { ScrollButtons } from '@/components/shared/ScrollButtons';
 import { TicketDetail } from '@/components/tickets/TicketDetail';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,
@@ -23,7 +24,10 @@ import { logger } from '@/lib/logger';
 export const TicketDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { hasPermission } = usePermissions();
+  const { hasAnyPermission } = usePermissions();
+  // New ticket opens it with this when its threads could not be linked (NewTicketButton).
+  const threadsNotLinked =
+    (useLocation().state as { threadsNotLinked?: boolean } | null)?.threadsNotLinked === true;
   const clearCache = useTicketsStore((state) => state.clearCache);
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,12 +133,23 @@ export const TicketDetailPage = () => {
             <h1 className="font-display text-2xl font-bold">Ticket Details</h1>
           </div>
 
+          {threadsNotLinked && (
+            <Alert variant="warning">
+              The ticket was created, but its threads could not be linked — add them here.
+            </Alert>
+          )}
+
           <div className="p-6 rounded-lg border bg-card">
             <TicketDetail
               key={ticket.id}
               ticket={ticket}
-              // Deleting needs MANAGE_TICKETS (the route refuses others): an associate gets no button.
-              onDelete={hasPermission(Permission.MANAGE_TICKETS) ? handleDeleteClick : undefined}
+              // Deleting needs DELETE_TICKETS or MANAGE_ORGANIZATION, as the route (and the list's
+              // Delete): support and moderators manage tickets but were offered a Delete it refused.
+              onDelete={
+                hasAnyPermission([Permission.DELETE_TICKETS, Permission.MANAGE_ORGANIZATION])
+                  ? handleDeleteClick
+                  : undefined
+              }
               onRefresh={refreshTicket}
             />
           </div>

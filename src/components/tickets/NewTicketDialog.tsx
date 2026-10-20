@@ -40,8 +40,11 @@ const PICKER_LIMIT = 25;
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreated: (ticketId: number) => void;
+  /** `threadsFailed`: the ticket exists but its chosen threads could not be linked. */
+  onCreated: (ticketId: number, outcome: { threadsFailed: boolean }) => void;
 };
+
+type Option = { value: string; label: string };
 
 export const NewTicketDialog = ({ open, onOpenChange, onCreated }: Props) => {
   const user = useAuthStore((state) => state.user);
@@ -58,7 +61,14 @@ export const NewTicketDialog = ({ open, onOpenChange, onCreated }: Props) => {
   const [cause, setCause] = useState('');
   const [departmentId, setDepartmentId] = useState('');
   const [ownerId, setOwnerId] = useState('');
-  const [owners, setOwners] = useState<Array<{ value: string; label: string }>>([]);
+  // The people who can own it, for the department they were read for: another department's are
+  // never offered or sent, and Create waits for the current one's (else the creator went as owner
+  // before the list could show they are not assignable — a global admin, #648).
+  const [ownerList, setOwnerList] = useState<{ departmentId: string; options: Option[] } | null>(
+    null
+  );
+  const ownersLoaded = ownerList !== null && ownerList.departmentId === departmentId;
+  const owners = ownersLoaded ? ownerList.options : [];
   const [query, setQuery] = useState('');
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
   const [capped, setCapped] = useState(false);
@@ -73,6 +83,7 @@ export const NewTicketDialog = ({ open, onOpenChange, onCreated }: Props) => {
     setTitle('');
     setCause('');
     setOwnerId(userId === undefined ? '' : String(userId));
+    setOwnerList(null);
     setQuery('');
     setCandidates(null);
     setChosen([]);
@@ -98,14 +109,20 @@ export const NewTicketDialog = ({ open, onOpenChange, onCreated }: Props) => {
           value: String(row.id),
           label: `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim() || row.email,
         }));
-        setOwners(options);
+        setOwnerList({ departmentId, options });
         // The creator by default — only when they can own a ticket here (a global admin is not
         // listed: the picker showed "Select…" while the ticket went to them, staging 2026-10-19).
         setOwnerId((current) =>
           current && !options.some((option) => option.value === current) ? '' : current
         );
       })
-      .catch((err: unknown) => logger.error('New ticket: owners failed', err));
+      .catch((err: unknown) => {
+        if (!live) return;
+        logger.error('New ticket: owners failed', err);
+        // Nobody can be checked as an owner: it goes unassigned rather than to an unchecked one.
+        setOwnerList({ departmentId, options: [] });
+        setOwnerId('');
+      });
     return () => {
       live = false;
     };
@@ -156,7 +173,8 @@ export const NewTicketDialog = ({ open, onOpenChange, onCreated }: Props) => {
 
   const chosenIds = new Set(chosen.map((row) => row.id));
   const offered = (candidates ?? []).filter((row) => !chosenIds.has(row.id));
-  const ready = title.trim() !== '' && cause.trim() !== '' && departmentId !== '' && !busy;
+  const ready =
+    title.trim() !== '' && cause.trim() !== '' && departmentId !== '' && ownersLoaded && !busy;
 
   const create = async () => {
     if (!ready) return;
@@ -171,6 +189,7 @@ export const NewTicketDialog = ({ open, onOpenChange, onCreated }: Props) => {
       });
       const ticketId = response.data?.id;
       if (!ticketId) throw new Error('The ticket was not created');
+      let threadsFailed = false;
       if (chosen.length > 0) {
         try {
           await ticketThreadsService.addThreads(
@@ -178,11 +197,13 @@ export const NewTicketDialog = ({ open, onOpenChange, onCreated }: Props) => {
             chosen.map((row) => row.id)
           );
         } catch (err) {
-          // The ticket exists: open it — its page adds threads — rather than fail the whole step.
+          // The ticket exists: open it — its page adds threads, and says so — rather than fail the
+          // whole step.
           logger.error('New ticket: linking its threads failed', err);
+          threadsFailed = true;
         }
       }
-      onCreated(ticketId);
+      onCreated(ticketId, { threadsFailed });
     } catch (err) {
       logger.error('New ticket: create failed', err);
       setError(getApiErrorMessage(err) ?? 'The ticket could not be created. Try again.');

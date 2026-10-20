@@ -98,6 +98,25 @@ const replies = (over: Record<string, unknown> = {}) =>
     ...over,
   });
 
+/** A reply sent from the ticket to threads 11 and 12, each delivery at `outcome`. */
+const sentReply = (id: number, outcome: string) => ({
+  id,
+  content: '<p>Fixed.</p>',
+  attachments: [],
+  createdAt: '2026-10-19T10:00:00Z',
+  createdBy: null,
+  hiddenCount: 0,
+  deliveries: [11, 12].map((conversationId) => ({
+    conversationId,
+    outcome,
+    reason: null,
+    updatedAt: '',
+    hasOwnText: false,
+    resolve: false,
+    holdUntil: null,
+  })),
+});
+
 const renderTicket = (ticketStatus = 'open') =>
   render(
     <MemoryRouter>
@@ -322,7 +341,7 @@ describe('contingency page', () => {
       thread(12),
       thread(13, { status: 'resolved' }),
     ]);
-    replies({ replies: [reply('sent')] });
+    replies({ replies: [sentReply(9, 'sent')] });
 
     expect(await screen.findByText(/on hold until/, {}, { timeout: 4000 })).toBeInTheDocument();
     expect(threadsOfTicket.mock.calls.length).toBe(loadsBefore + 1);
@@ -362,34 +381,58 @@ describe('contingency page', () => {
 
   it('"Sending to N threads…" goes once the deliveries it started have finished', async () => {
     const user = userEvent.setup();
-    const reply = (outcome: string) => ({
-      id: 9,
-      content: '<p>Fixed.</p>',
-      attachments: [],
-      createdAt: '2026-10-19T10:00:00Z',
-      createdBy: null,
-      hiddenCount: 0,
-      deliveries: [11, 12].map((conversationId) => ({
-        conversationId,
-        outcome,
-        reason: null,
-        updatedAt: '',
-        hasOwnText: false,
-        resolve: false,
-        holdUntil: null,
-      })),
-    });
     renderTicket();
     await waitFor(() => expect(box(11)).toBeChecked());
     await user.type(screen.getByLabelText('Reply text'), 'Fixed.');
-    replies({ replies: [reply('pending')] });
+    replies({ replies: [sentReply(9, 'pending')] });
     await user.click(screen.getByRole('button', { name: /Send update to 2/ }));
     await user.click(
       within(await screen.findByRole('dialog')).getByRole('button', { name: /Send/ })
     );
     expect(await screen.findByText('Sending to 2 threads…')).toBeInTheDocument();
 
-    replies({ replies: [reply('sent')] });
+    replies({ replies: [sentReply(9, 'sent')] });
+    await waitFor(() => expect(screen.queryByText('Sending to 2 threads…')).toBeNull(), {
+      timeout: 4000,
+    });
+  });
+
+  const sendFixed = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.type(screen.getByLabelText('Reply text'), 'Fixed.');
+    await user.click(screen.getByRole('button', { name: /Send update to 2/ }));
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: /Send/ })
+    );
+    expect(await screen.findByText('Sending to 2 threads…')).toBeInTheDocument();
+  };
+
+  it('"Sending to N threads…" goes when they finished before any read showed them sending', async () => {
+    const user = userEvent.setup();
+    renderTicket();
+    await waitFor(() => expect(box(11)).toBeChecked());
+    // The read after the send (held until the notice is up) already has every delivery done.
+    let answer: (value: unknown) => void = () => {};
+    repliesOfTicket.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    await sendFixed(user);
+    answer({
+      unavailable: false,
+      replies: [sentReply(9, 'sent')],
+      unreachable: [],
+      names: [],
+      maxThreads: 100,
+    });
+    await waitFor(() => expect(screen.queryByText('Sending to 2 threads…')).toBeNull());
+  });
+
+  it('"Sending to N threads…" goes for a send made while earlier deliveries were still going', async () => {
+    const user = userEvent.setup();
+    replies({ replies: [sentReply(8, 'pending')] });
+    renderTicket();
+    await waitFor(() => expect(box(11)).toBeChecked());
+    replies({ replies: [sentReply(9, 'pending'), sentReply(8, 'sent')] });
+    await sendFixed(user);
+
+    replies({ replies: [sentReply(9, 'sent'), sentReply(8, 'sent')] });
     await waitFor(() => expect(screen.queryByText('Sending to 2 threads…')).toBeNull(), {
       timeout: 4000,
     });

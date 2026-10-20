@@ -30,6 +30,11 @@ const plural = (count: number, one: string, many: string) => (count === 1 ? one 
  * delivery. Once the deliveries it started have all finished it is no longer true, so it goes
  * (staging 2026-10-19: it stayed up after every thread had its mail) — that notice only, never
  * another said since. Returns what the composer calls when it says it (`true`) or not (`false`).
+ *
+ * Settled by the first read made after the send (a new replies list) that has nothing in flight —
+ * not by watching "in flight" turn on and off: a send while earlier deliveries were still going
+ * never turned it on, and deliveries that finished before any read saw them never did either
+ * (both left the notice up for good). The list on screen when it was queued predates the send.
  */
 export const useSendingNotice = (
   replies: TicketReply[],
@@ -38,17 +43,15 @@ export const useSendingNotice = (
   const anyInFlight = replies.some((reply) =>
     reply.deliveries.some((row) => isInFlight(row.outcome))
   );
-  const state = useRef<'off' | 'queued' | 'live'>('off');
+  // The list on screen when the send was queued; null = no notice of ours is up.
+  const queuedOn = useRef<TicketReply[] | null>(null);
   useEffect(() => {
-    if (state.current === 'off') return;
-    if (anyInFlight) state.current = 'live';
-    else if (state.current === 'live') {
-      state.current = 'off';
-      setNotice((prev) => (prev?.startsWith('Sending to') ? null : prev));
-    }
-  }, [anyInFlight, setNotice]);
+    if (queuedOn.current === null || replies === queuedOn.current || anyInFlight) return;
+    queuedOn.current = null;
+    setNotice((prev) => (prev?.startsWith('Sending to') ? null : prev));
+  }, [replies, anyInFlight, setNotice]);
   return (queued: boolean) => {
-    state.current = queued ? 'queued' : 'off';
+    queuedOn.current = queued ? replies : null;
   };
 };
 
