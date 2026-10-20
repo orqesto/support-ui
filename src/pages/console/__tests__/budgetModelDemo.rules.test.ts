@@ -5,6 +5,7 @@ import {
   endOrgExtra,
   endOrgWideExtra,
   fmt,
+  grantExtraMany,
   grantOrgExtra,
   grantOrgWideExtra,
   grantSingleExtra,
@@ -13,6 +14,7 @@ import {
   orgStatusLine,
   orgTotals,
   removeWorkspace,
+  setLimitMany,
   setWorkspaceLimit,
   simulateOrgDay,
   simulateSingleDay,
@@ -282,6 +284,35 @@ describe('organisation-wide extra', () => {
     let state = day1;
     for (let day = 0; day < 4; day++) state = simulateOrgDay(state);
     expect(state.orgExtra).toBe(0);
+  });
+});
+
+describe('bulk actions on selected workspaces', () => {
+  const three = () =>
+    org([
+      ws({ id: 'a1', name: 'Example A', importLeft: 23, importing: true }),
+      ws({ id: 'b1', name: 'Example B', used: 40 }),
+      ws({ id: 'c1', name: 'Example C', limit: 9 }),
+    ]);
+
+  it('sets and removes the same own limit on the selected only', () => {
+    const limited = setLimitMany(three(), ['a1', 'b1'], 30);
+    expect(limited.workspaces.map((item) => item.limit)).toEqual([30, 30, 9]);
+    expect(limited.log).toBe('2 workspaces: bulk limit 30.0M each.');
+    const removed = setLimitMany(limited, ['a1', 'c1'], null);
+    expect(removed.workspaces.map((item) => item.limit)).toEqual([null, 30, null]);
+    expect(removed.log).toBe('Own limit removed from 2 workspaces.');
+  });
+
+  it('gives extra: each its suggested amount, or the same amount; never starts an import', () => {
+    const suggested = grantExtraMany(three(), ['a1', 'b1'], null, 1);
+    expect(find(suggested, 'a1')).toMatchObject({ extra: 25, extraDays: 3, importing: true });
+    expect(find(suggested, 'b1')).toMatchObject({ extra: 20, extraDays: 3, importing: false });
+    expect(find(suggested, 'c1').extra).toBe(0);
+    expect(suggested.log).toBe('2 workspaces: extra given, 45.0M in all, ends in 3 days.');
+    const same = grantExtraMany(three(), ['a1', 'b1', 'c1'], 10, 0);
+    expect(same.workspaces.map((item) => item.extra)).toEqual([10, 10, 10]);
+    expect(same.log).toBe('3 workspaces: extra given, 30.0M in all, ends today.');
   });
 });
 

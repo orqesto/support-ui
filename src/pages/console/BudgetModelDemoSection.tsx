@@ -3,6 +3,7 @@ import { Alert } from '@/components/ui/Alert';
 import { BarMarker, BarSegment, BarSlider } from '@/components/ui/BarSlider';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { Input } from '@/components/ui/Input';
 import { Tabs } from '@/components/ui/Tabs';
 import { Toggle } from '@/components/ui/Toggle';
@@ -15,12 +16,14 @@ import {
   endOrgExtra,
   endOrgWideExtra,
   fmt,
+  grantExtraMany,
   grantOrgExtra,
   grantOrgWideExtra,
   initialOrgState,
   orgStatusLine,
   orgTotals,
   removeWorkspace,
+  setLimitMany,
   setWorkspaceLimit,
   simulateOrgDay,
   sortByUse,
@@ -45,6 +48,7 @@ import {
   TONE_CLASS,
   TryItButtons,
 } from './BudgetModelDemoParts';
+import { BulkBar } from './BudgetModelDemoBulk';
 import { SingleWorkspaceView } from './BudgetModelDemoSingle';
 
 /**
@@ -158,6 +162,8 @@ const QUICK_EXTRA_END: ExtraEnd = 1;
 const OrganisationView = () => {
   const [state, setState] = useState(initialOrgState);
   const [selected, setSelected] = useState<string | null>(null);
+  /** Rows ticked for a bulk action (a separate thing from the one expanded row). */
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [query, setQuery] = useState('');
   const [showAll, setShowAll] = useState(false);
 
@@ -192,6 +198,15 @@ const OrganisationView = () => {
   /** Bumped on Reset so the organisation extra box starts from its draft again. */
   const [generation, setGeneration] = useState(0);
   const [orgExtraOpen, setOrgExtraOpen] = useState(false);
+  // A removed workspace drops out of the selection.
+  const pickedIds = state.workspaces.filter((ws) => picked.has(ws.id)).map((ws) => ws.id);
+  const togglePick = (id: string, on: boolean) =>
+    setPicked((current) => {
+      const next = new Set(current);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   const toggleRow = (id: string) => setSelected((current) => (current === id ? null : id));
   const onRowKey = (event: KeyboardEvent<HTMLDivElement>, id: string) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -316,6 +331,17 @@ const OrganisationView = () => {
             Bars compare workspaces with each other (the biggest one is full); the % is each
             one&apos;s share of what the organisation used.
           </p>
+          <BulkBar
+            selected={pickedIds.length}
+            selectable={list.length}
+            onSelectAll={() => setPicked(new Set(list.map((ws) => ws.id)))}
+            onUnselectAll={() => setPicked(new Set())}
+            onSetLimit={(limit) => setState((prev) => setLimitMany(prev, pickedIds, limit))}
+            onRemoveLimit={() => setState((prev) => setLimitMany(prev, pickedIds, null))}
+            onGiveExtra={(amount, end) =>
+              setState((prev) => grantExtraMany(prev, pickedIds, amount, end))
+            }
+          />
           <ul className="flex flex-col gap-0.5">
             {rows.length === 0 && <li className="text-muted-foreground">No workspace matches.</li>}
             {rows.map((ws) => {
@@ -324,48 +350,57 @@ const OrganisationView = () => {
               const share = totals.total > 0 ? Math.round((ws.used / totals.total) * 100) : 0;
               return (
                 <li key={ws.id} data-testid={`budget-demo-row-${ws.id}`}>
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    aria-expanded={open}
-                    aria-controls={open ? `budget-demo-panel-${ws.id}` : undefined}
-                    onClick={() => toggleRow(ws.id)}
-                    onKeyDown={(event) => onRowKey(event, ws.id)}
-                    className={cn(
-                      'grid grid-cols-1 sm:grid-cols-[minmax(0,1.3fr)_11em_minmax(0,1.6fr)] gap-3.5 items-center p-3 rounded-lg cursor-pointer hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      open && 'bg-accent rounded-b-none'
-                    )}
-                  >
-                    <div className="min-w-0">
-                      <div className="font-semibold truncate">{ws.name}</div>
-                      <div
-                        className="flex overflow-hidden mt-1 h-1.5 rounded-full bg-muted"
-                        title="Relative to the biggest workspace"
-                      >
-                        <span
-                          className="h-full bg-primary"
-                          style={{ width: `${(ws.used / biggest) * 100}%` }}
-                        />
-                        {ws.extraUsed > 0 && (
-                          <span
-                            className="h-full bg-warning"
-                            style={{ width: `${(ws.extraUsed / biggest) * 100}%` }}
-                          />
-                        )}
-                      </div>
-                    </div>
-                    <div className="font-mono text-sm">
-                      {fmt(ws.used)}{' '}
-                      <span className="text-muted-foreground">· {share}% of used</span>
-                      {ws.limit !== null && (
-                        <div className="text-muted-foreground">limit {fmt(ws.limit)}</div>
-                      )}
+                  <div className="flex gap-1 items-center">
+                    <div className="pl-2">
+                      <Checkbox
+                        aria-label={`Select ${ws.name}`}
+                        checked={picked.has(ws.id)}
+                        onChange={(event) => togglePick(ws.id, event.target.checked)}
+                      />
                     </div>
                     <div
-                      className={cn('text-sm', TONE_CLASS[row.tone])}
-                      data-testid={`budget-demo-row-status-${ws.id}`}
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={open}
+                      aria-controls={open ? `budget-demo-panel-${ws.id}` : undefined}
+                      onClick={() => toggleRow(ws.id)}
+                      onKeyDown={(event) => onRowKey(event, ws.id)}
+                      className={cn(
+                        'flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-[minmax(0,1.3fr)_11em_minmax(0,1.6fr)] gap-3.5 items-center p-3 rounded-lg cursor-pointer hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        open && 'bg-accent rounded-b-none'
+                      )}
                     >
-                      {row.text}
+                      <div className="min-w-0">
+                        <div className="font-semibold truncate">{ws.name}</div>
+                        <div
+                          className="flex overflow-hidden mt-1 h-1.5 rounded-full bg-muted"
+                          title="Relative to the biggest workspace"
+                        >
+                          <span
+                            className="h-full bg-primary"
+                            style={{ width: `${(ws.used / biggest) * 100}%` }}
+                          />
+                          {ws.extraUsed > 0 && (
+                            <span
+                              className="h-full bg-warning"
+                              style={{ width: `${(ws.extraUsed / biggest) * 100}%` }}
+                            />
+                          )}
+                        </div>
+                      </div>
+                      <div className="font-mono text-sm">
+                        {fmt(ws.used)}{' '}
+                        <span className="text-muted-foreground">· {share}% of used</span>
+                        {ws.limit !== null && (
+                          <div className="text-muted-foreground">limit {fmt(ws.limit)}</div>
+                        )}
+                      </div>
+                      <div
+                        className={cn('text-sm', TONE_CLASS[row.tone])}
+                        data-testid={`budget-demo-row-status-${ws.id}`}
+                      >
+                        {row.text}
+                      </div>
                     </div>
                   </div>
                   {needsExtra(ws) && (
@@ -434,6 +469,7 @@ const OrganisationView = () => {
                 size="sm"
                 onClick={() => {
                   setState(initialOrgState());
+                  setPicked(new Set());
                   setSelected(null);
                   setShowAll(false);
                   setGeneration((current) => current + 1);

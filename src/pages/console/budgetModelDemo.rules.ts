@@ -435,6 +435,57 @@ export const suggestedOrgExtra = (state: OrgDemoState): number =>
 export const endOrgExtra = (state: OrgDemoState, id: string) =>
   updateWorkspace(state, id, () => ({ extra: 0, extraUsed: 0 }));
 
+// ---------------------------------------------------------------------------------------------
+// Bulk actions on selected workspaces
+// ---------------------------------------------------------------------------------------------
+
+const plural = (count: number) => (count === 1 ? '1 workspace' : `${count} workspaces`);
+
+/** Set (or, with null, remove) the same own bulk limit on every selected workspace. */
+export const setLimitMany = (
+  state: OrgDemoState,
+  ids: readonly string[],
+  limit: number | null
+): OrgDemoState => {
+  const picked = new Set(ids);
+  const count = state.workspaces.filter((ws) => picked.has(ws.id)).length;
+  return {
+    ...state,
+    workspaces: state.workspaces.map((ws) => (picked.has(ws.id) ? { ...ws, limit } : ws)),
+    log:
+      limit === null
+        ? `Own limit removed from ${plural(count)}.`
+        : `${plural(count)}: bulk limit ${fmt(limit)} each.`,
+  };
+};
+
+/**
+ * Give extra to every selected workspace: the same amount, or (null) each its suggested amount.
+ * Unlike the single grant it never starts an import: unused extra simply expires.
+ */
+export const grantExtraMany = (
+  state: OrgDemoState,
+  ids: readonly string[],
+  amount: number | null,
+  end: ExtraEnd
+): OrgDemoState => {
+  const picked = new Set(ids);
+  let given = 0;
+  let count = 0;
+  const workspaces = state.workspaces.map((ws) => {
+    if (!picked.has(ws.id)) return ws;
+    const extra = amount ?? suggestedExtra(ws);
+    given += extra;
+    count++;
+    return { ...ws, extra, extraUsed: 0, extraDays: EXTRA_END_DAYS[end] };
+  });
+  return {
+    ...state,
+    workspaces,
+    log: `${plural(count)}: extra given, ${fmt(given)} in all, ends ${grantEndsText(end)}.`,
+  };
+};
+
 /** A new workspace joins with no own limit and starts a 30M import. Returns the state and its id. */
 export const addWorkspace = (state: OrgDemoState): { state: OrgDemoState; id: string } => {
   const count = state.newCount + 1;

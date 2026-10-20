@@ -101,14 +101,12 @@ describe('Budget model demo', () => {
 
     const panel = document.getElementById(row.getAttribute('aria-controls') ?? '');
     expect(panel).not.toBeNull();
-    // The panel is the row's next sibling inside the same list item.
-    expect(row.nextElementSibling).toBe(panel);
+    // The panel follows the row (with its select box) inside the same list item.
+    expect(row.parentElement?.nextElementSibling).toBe(panel);
     expect(
       within(panel as HTMLElement).getByText("Limit this workspace's bulk processing")
     ).toBeInTheDocument();
-    expect(
-      within(panel as HTMLElement).getByText('Extra for bulk work')
-    ).toBeInTheDocument();
+    expect(within(panel as HTMLElement).getByText('Extra for bulk work')).toBeInTheDocument();
     expect(
       within(panel as HTMLElement).getByRole('slider', { name: 'Limit for Atlas Labs' })
     ).toHaveValue('30');
@@ -156,6 +154,44 @@ describe('Budget model demo', () => {
       orgView().getByRole('button', { name: 'Give extra to the whole organisation' })
     );
     expect(orgView().getByText('Extra for the whole organisation (bulk work)')).toBeInTheDocument();
+  });
+
+  it('select, select all and unselect all; bulk limit, remove limit and extra', () => {
+    render(<BudgetModelDemoSection />);
+    const bar = within(orgView().getByTestId('budget-demo-bulk'));
+    expect(bar.getByText('Select workspaces to change them together')).toBeInTheDocument();
+
+    fireEvent.click(orgView().getByRole('checkbox', { name: 'Select Atlas Labs' }));
+    fireEvent.click(orgView().getByRole('checkbox', { name: 'Select Zenith Motors' }));
+    expect(bar.getByText('2 selected')).toBeInTheDocument();
+    fireEvent.change(bar.getByLabelText('Own bulk limit, million tokens'), {
+      target: { value: '12' },
+    });
+    fireEvent.click(bar.getByRole('button', { name: 'Set limit' }));
+    expect(orgView().getByTestId('budget-demo-org-log')).toHaveTextContent(
+      '2 workspaces: bulk limit 12.0M each.'
+    );
+    expect(orgView().getByTestId('budget-demo-row-status-w2')).toHaveTextContent(
+      'KB stopped: reached its own limit (12.0M) · live mail continues'
+    );
+
+    fireEvent.click(bar.getByRole('button', { name: 'Select all 24' }));
+    expect(bar.getByText('24 selected')).toBeInTheDocument();
+    fireEvent.click(bar.getByRole('button', { name: 'Remove limit' }));
+    expect(orgView().getByTestId('budget-demo-org-log')).toHaveTextContent(
+      'Own limit removed from 24 workspaces.'
+    );
+    fireEvent.change(bar.getByLabelText('Extra for bulk work, million tokens'), {
+      target: { value: '5' },
+    });
+    fireEvent.click(bar.getByRole('button', { name: 'Give extra' }));
+    expect(orgView().getByTestId('budget-demo-org-log')).toHaveTextContent(
+      '24 workspaces: extra given, 120M in all, ends in 3 days.'
+    );
+
+    fireEvent.click(bar.getByRole('button', { name: 'Unselect all' }));
+    expect(bar.getByText('Select workspaces to change them together')).toBeInTheDocument();
+    expect(orgView().getByRole('checkbox', { name: 'Select Atlas Labs' })).not.toBeChecked();
   });
 
   it('switching the bulk limit off disables its slider and warns', () => {
