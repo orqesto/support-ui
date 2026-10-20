@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import { User } from 'lucide-react';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { envelopeBadge, eventEnvelope } from '@/lib/messageEnvelope';
 import { relayedFromLabel } from '@/lib/relayedFrom';
 import { isOutgoingEvent } from '@/lib/messageHelpers';
 import { formatDate, formatWhen } from '@/lib/utils';
@@ -111,6 +113,8 @@ export function ThreadMessageItem({
    * would otherwise render as "someone · via someone".
    */
   const relayedFrom = relayedFromLabel(msg);
+  // Only copied / not a recipient / a colleague's mail (metadata.envelope, from 2026-10-20).
+  const envelope = msg.type === 'inbound' ? envelopeBadge(eventEnvelope(msg.metadata)) : null;
   // v3 thread row: a 21px avatar, a Grotesk meta line ("Name · via address · when") above the
   // bubble, the bubble itself, and attachments INSIDE it under a hairline. An incoming bubble
   // is a card above the canvas; a reply WE wrote sits on the soft --agent ground (it used to be
@@ -254,6 +258,16 @@ export function ThreadMessageItem({
           )}
           {when}
           {mergedFrom && <span className="text-muted-foreground">· {mergedFrom}</span>}
+          {envelope && (
+            <Badge
+              variant="secondary"
+              size="sm"
+              title={envelope.title}
+              data-testid="envelope-badge"
+            >
+              {envelope.label}
+            </Badge>
+          )}
           {onReplyTo && msg.replyTarget && msg.replyTarget.length > 0 && (
             <Button
               variant="ghost"

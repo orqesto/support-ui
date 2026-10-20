@@ -7,6 +7,7 @@ import { useAiDraftsOff, useRefreshAiDrafts } from '@/hooks/useAiDraftsOff';
 import { editorHtmlToText } from '@/lib/editorText';
 import { normalizeEditorHtml } from '@/lib/editorSchema';
 import { isBlankRichText } from '@/lib/stripHtml';
+import { envelopeDraftHint, readEnvelope, type EnvelopeSummary } from '@/lib/messageEnvelope';
 import { logger } from '@/lib/logger';
 import { hasTemplatePlaceholders } from '@/lib/replyPlaceholders';
 import {
@@ -92,6 +93,8 @@ type Applied = {
   html: string;
   language?: string;
   groundedInKb?: boolean;
+  /** Where the team stands on the email answered — only copied, not listed, a colleague's. */
+  envelope?: EnvelopeSummary | null;
 };
 
 export function ComposerAiActions({
@@ -212,6 +215,7 @@ export function ComposerAiActions({
         html,
         language: response.data?.language,
         groundedInKb: response.data?.groundedInKb,
+        envelope: readEnvelope(response.data?.envelope),
       });
       onApplied?.(composerAiSource(mode), {
         text: html,
@@ -364,6 +368,15 @@ export function ComposerAiActions({
           {applied.mode === 'guided'
             ? 'Written from what you said, not from the knowledge base — check the facts before sending.'
             : 'Nothing in the knowledge base matched, so this acknowledges the question without answering it. Add the answer before sending.'}
+        </p>
+      )}
+      {/* Copied / not listed / a colleague's mail: the draft was written for that, say so. */}
+      {applied && envelopeDraftHint(applied.envelope ?? null) && !busy && (
+        <p
+          className="basis-full order-last text-[11px] text-muted-foreground"
+          data-testid="ai-draft-envelope-hint"
+        >
+          {envelopeDraftHint(applied.envelope ?? null)}
         </p>
       )}
       {error && (
