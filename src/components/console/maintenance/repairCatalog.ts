@@ -73,7 +73,7 @@ export const REPAIRS: RepairEntry[] = [
   {
     id: 'backfill-recipients',
     label: 'Fill recipients on old mail',
-    does: 'Fills which of our addresses received each message, for mail stored before recipients were kept.',
+    does: 'Fills which of our addresses received each message, for mail stored before recipients were kept, then marks mail the team was only copied on or not addressed in — so it stops running an SLA clock and ringing the new-mail bell.',
     path: 'backfill-recipients',
     scope: 'workspace',
   },
