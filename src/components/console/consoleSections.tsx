@@ -18,6 +18,7 @@ import {
   ToggleLeft,
   MailOpen,
   Blocks,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -110,6 +111,9 @@ const PlatformUsage = lazy(() =>
 const PlatformSystem = lazy(() =>
   import('@/pages/console/PlatformSystem').then((mod) => ({ default: mod.PlatformSystem }))
 );
+const PlatformMaintenance = lazy(() =>
+  import('@/pages/console/PlatformMaintenance').then((mod) => ({ default: mod.PlatformMaintenance }))
+);
 const PlatformDatabases = lazy(() =>
   import('@/pages/console/PlatformDatabases').then((mod) => ({ default: mod.PlatformDatabases }))
 );
@@ -167,6 +171,8 @@ export const PLATFORM_SECTIONS: ConsoleSection[] = [
     visible: (ctx) => !ctx.selfHostedDeployment,
   },
   { id: 'system', label: 'System', icon: ServerCog, path: 'system', element: PlatformSystem },
+  // Background jobs (on/off, last run) and one-off repairs (Check → Apply), 2026-10-20.
+  { id: 'maintenance', label: 'Maintenance', icon: Wrench, path: 'maintenance', element: PlatformMaintenance },
   // Where each workspace's data lives (BYODB): retention window, Free-on-managed deadlines,
   // own databases that stopped answering. Next to System because it is an operator's page.
   { id: 'databases', label: 'Databases', icon: Database, path: 'databases', element: PlatformDatabases },

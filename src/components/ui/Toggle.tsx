@@ -7,17 +7,21 @@ export const Toggle = ({
   onChange,
   disabled,
   label,
+  ariaLabel,
 }: {
   checked: boolean;
   onChange: (next: boolean) => void;
   disabled?: boolean;
   label?: string;
+  /** The switch's own name, when the visible `label` is only its state ("On" / "Off"). */
+  ariaLabel?: string;
 }) => (
   <label className="inline-flex gap-2 items-center text-sm cursor-pointer">
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={ariaLabel}
       onClick={() => onChange(!checked)}
       disabled={disabled}
       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 disabled:opacity-50 ${
