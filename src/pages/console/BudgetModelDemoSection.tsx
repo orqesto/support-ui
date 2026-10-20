@@ -333,6 +333,7 @@ const OrganisationView = () => {
           </p>
           <BulkBar
             selected={pickedIds.length}
+            budget={totals.budget}
             selectable={list.length}
             onSelectAll={() => setPicked(new Set(list.map((ws) => ws.id)))}
             onUnselectAll={() => setPicked(new Set())}
@@ -350,8 +351,10 @@ const OrganisationView = () => {
               const share = totals.total > 0 ? Math.round((ws.used / totals.total) * 100) : 0;
               return (
                 <li key={ws.id} data-testid={`budget-demo-row-${ws.id}`}>
-                  <div className="flex gap-1 items-center">
-                    <div className="pl-2">
+                  <div className="flex gap-2 items-stretch">
+                    {/* Its own column with a divider, away from the row's click area: a missed
+                        click on the box must not open the workspace. */}
+                    <div className="flex items-center px-3 border-r border-border">
                       <Checkbox
                         aria-label={`Select ${ws.name}`}
                         checked={picked.has(ws.id)}

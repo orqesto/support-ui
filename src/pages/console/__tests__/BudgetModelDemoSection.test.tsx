@@ -164,9 +164,10 @@ describe('Budget model demo', () => {
     fireEvent.click(orgView().getByRole('checkbox', { name: 'Select Atlas Labs' }));
     fireEvent.click(orgView().getByRole('checkbox', { name: 'Select Zenith Motors' }));
     expect(bar.getByText('2 selected')).toBeInTheDocument();
-    fireEvent.change(bar.getByLabelText('Own bulk limit, million tokens'), {
-      target: { value: '12' },
-    });
+    fireEvent.change(
+      bar.getByRole('slider', { name: 'Own bulk limit for each selected workspace' }),
+      { target: { value: '12' } }
+    );
     fireEvent.click(bar.getByRole('button', { name: 'Set limit' }));
     expect(orgView().getByTestId('budget-demo-org-log')).toHaveTextContent(
       '2 workspaces: bulk limit 12.0M each.'
@@ -181,9 +182,11 @@ describe('Budget model demo', () => {
     expect(orgView().getByTestId('budget-demo-org-log')).toHaveTextContent(
       'Own limit removed from 24 workspaces.'
     );
-    fireEvent.change(bar.getByLabelText('Extra for bulk work, million tokens'), {
-      target: { value: '5' },
-    });
+    fireEvent.click(bar.getByRole('checkbox', { name: 'Each gets what its import still needs' }));
+    fireEvent.change(
+      bar.getByRole('slider', { name: 'Extra for each selected workspace, million tokens' }),
+      { target: { value: '5' } }
+    );
     fireEvent.click(bar.getByRole('button', { name: 'Give extra' }));
     expect(orgView().getByTestId('budget-demo-org-log')).toHaveTextContent(
       '24 workspaces: extra given, 120M in all, ends in 3 days.'
