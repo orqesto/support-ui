@@ -35,15 +35,9 @@ describe('.email-body keeps an email’s structure', () => {
     expect(ruleFor('.email-body ol,\n.email-body ul')).toMatch(/padding-inline-start:/);
   });
 
-  it('a sender’s lettered or Roman list keeps its letters', () => {
-    expect(ruleFor(".email-body ol[type='a' s]")).toMatch(/lower-alpha/);
-    expect(ruleFor(".email-body ol[type='A' s]")).toMatch(/upper-alpha/);
-    expect(ruleFor(".email-body ol[type='i' s]")).toMatch(/lower-roman/);
-    expect(ruleFor(".email-body ol[type='I' s]")).toMatch(/upper-roman/);
-  });
-
   it('no gap between list items of our own editor, and none under the last block', () => {
-    expect(ruleFor('.email-body li > p')).toMatch(/margin:\s*0;/);
+    // As specific as the paragraph rule (`:not([class*='Mso'])`), or the paragraph gap wins.
+    expect(ruleFor(".email-body li > p:not([class*='Mso'])")).toMatch(/margin:\s*0;/);
     expect(ruleFor('.email-body :is(p, ol, ul):last-child')).toMatch(/margin-bottom:\s*0/);
   });
 

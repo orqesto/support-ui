@@ -187,6 +187,15 @@ export function imageProxyBase(context: EmailRenderContext): string {
  *
  * 🪤 If this ever becomes async, this breaks silently and cross-wires messages' image URLs.
  */
+/** HTML's `<ol type>` values, case-sensitive, as the list-style they mean. */
+const OL_TYPE_STYLE: Record<string, string> = {
+  '1': 'decimal',
+  a: 'lower-alpha',
+  A: 'upper-alpha',
+  i: 'lower-roman',
+  I: 'upper-roman',
+};
+
 let activeContext: { proxyBase: string; eventId: number } | null = null;
 
 let purifier: ReturnType<typeof createDOMPurify> | null = null;
@@ -222,6 +231,20 @@ function emailPurifier(): ReturnType<typeof createDOMPurify> {
       // fact everything they set was refused. Remove the attribute instead.
       if (filtered.length > 0) node.setAttribute('style', filtered);
       else node.removeAttribute('style');
+    }
+
+    // A sender's `<ol type="a">` loses to any stylesheet rule (`.email-body ol` sets decimal), and
+    // CSS cannot tell `type="a"` from `type="A"` in Chrome (attribute values of `type` match
+    // case-insensitively; the `s` flag is not supported). Carried as an inline style, which wins,
+    // unless the sender set a list style of their own.
+    const listType =
+      node.tagName === 'OL' ? OL_TYPE_STYLE[node.getAttribute('type') ?? ''] : undefined;
+    if (listType && !/list-style/i.test(node.getAttribute('style') ?? '')) {
+      const style = node.getAttribute('style');
+      node.setAttribute(
+        'style',
+        `${style ? `${style.replace(/;\s*$/, '')}; ` : ''}list-style-type: ${listType}`
+      );
     }
 
     /**
