@@ -5,7 +5,8 @@ import { Card, CardContent } from '@/components/ui/Card';
 import {
   LAST_DAY,
   SINGLE_WORKSPACE_NAME,
-  clampKbPct,
+  reserveEdge,
+  reserveFromEdge,
   endSingleExtra,
   fmt,
   grantSingleExtra,
@@ -66,26 +67,28 @@ export const SingleWorkspaceView = () => {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <FieldLabel>Knowledge base may use at most · drag the line</FieldLabel>
+              <FieldLabel>Kept free for live mail · drag the edge of the striped part</FieldLabel>
               <span className="font-mono text-lg">
-                {totals.kbPct}% · {fmt(totals.kbCap)} · live mail can always use all{' '}
-                {fmt(totals.budget)}
+                {totals.reservePct}% · {fmt(totals.reserve)} · the knowledge base stops when only
+                this is left
               </span>
             </div>
           </div>
           <BarSlider
-            value={state.kbPct}
+            value={reserveEdge(state.reservePct)}
             min={0}
             max={100}
             step={5}
-            onChange={(value) => setState((prev) => ({ ...prev, kbPct: clampKbPct(value) }))}
-            ariaLabel="Knowledge base may use at most, percent of the budget"
-            ariaValueText={`${totals.kbPct}% of the budget`}
-            markers={<BarMarker at={totals.kbPct} />}
+            onChange={(value) =>
+              setState((prev) => ({ ...prev, reservePct: reserveFromEdge(value) }))
+            }
+            ariaLabel="Kept free for live mail: where it starts on the budget bar"
+            ariaValueText={`${totals.reservePct}% of the budget kept free for live mail`}
+            markers={<BarMarker at={reserveEdge(totals.reservePct)} />}
           >
             <BarSegment width={kbWidth} className="bg-pending" />
             <BarSegment left={kbWidth} width={liveWidth} className="bg-primary" />
-            <BarSegment width={100 - totals.kbPct} fromRight style={STRIPES} />
+            <BarSegment width={totals.reservePct} fromRight style={STRIPES} />
           </BarSlider>
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
             <span>

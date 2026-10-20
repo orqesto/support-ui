@@ -10,7 +10,8 @@ import { cn } from '@/lib/utils';
 import {
   LAST_DAY,
   addWorkspace,
-  clampKbPct,
+  reserveEdge,
+  reserveFromEdge,
   defaultLimitFor,
   endOrgExtra,
   fmt,
@@ -114,7 +115,7 @@ const WorkspacePanel = ({
             ariaValueText={`${fmt(sliderValue)} tokens`}
             markers={
               <BarMarker
-                at={totals.kbPct}
+                at={reserveEdge(totals.reservePct)}
                 variant="tick"
                 title="Organisation: knowledge base stops here"
               />
@@ -157,7 +158,11 @@ const OrganisationView = () => {
 
   const totals = orgTotals(state);
   const status = orgStatusLine(totals);
-  const usedPct = Math.min(100, (totals.total / totals.budget) * 100);
+  const kbWidth = Math.min(100, (totals.kbTotal / totals.budget) * 100);
+  const liveWidth = Math.min(
+    100 - kbWidth,
+    ((totals.total - totals.kbTotal) / totals.budget) * 100
+  );
   const extraSpent = state.workspaces.reduce((sum, ws) => sum + ws.extraUsed, 0);
 
   const needle = query.trim().toLowerCase();
@@ -199,30 +204,40 @@ const OrganisationView = () => {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <FieldLabel>Knowledge base may use at most · drag the line on the bar</FieldLabel>
+              <FieldLabel>Kept free for live mail · drag the edge of the striped part</FieldLabel>
               <span className="font-mono text-lg">
-                {totals.kbPct}% · {fmt(totals.kbLine)} · live mail can always use all{' '}
-                {fmt(totals.budget)}
+                {totals.reservePct}% · {fmt(totals.reserve)} · the knowledge base stops when only
+                this is left
               </span>
             </div>
           </div>
           <BarSlider
-            value={state.kbPct}
+            value={reserveEdge(state.reservePct)}
             min={0}
             max={100}
             step={5}
-            onChange={(value) => setState((prev) => ({ ...prev, kbPct: clampKbPct(value) }))}
-            ariaLabel="Knowledge base may use at most, percent of the budget"
-            ariaValueText={`${totals.kbPct}% of the budget`}
-            markers={<BarMarker at={totals.kbPct} />}
+            onChange={(value) =>
+              setState((prev) => ({ ...prev, reservePct: reserveFromEdge(value) }))
+            }
+            ariaLabel="Kept free for live mail: where it starts on the budget bar"
+            ariaValueText={`${totals.reservePct}% of the budget kept free for live mail`}
+            markers={<BarMarker at={reserveEdge(totals.reservePct)} />}
           >
-            <BarSegment width={usedPct} className="bg-primary" />
-            <BarSegment width={100 - totals.kbPct} fromRight style={STRIPES} />
+            <BarSegment width={kbWidth} className="bg-pending" />
+            <BarSegment left={kbWidth} width={liveWidth} className="bg-primary" />
+            <BarSegment width={totals.reservePct} fromRight style={STRIPES} />
           </BarSlider>
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
             <span>
+              Used <span className="font-mono">{fmt(totals.total)}</span> ({usd(totals.total)}):
+            </span>
+            <span>
+              <Swatch className="bg-pending" />
+              Knowledge base <span className="font-mono">{fmt(totals.kbTotal)}</span>
+            </span>
+            <span>
               <Swatch className="bg-primary" />
-              Used <span className="font-mono">{fmt(totals.total)}</span> ({usd(totals.total)})
+              Live mail <span className="font-mono">{fmt(totals.total - totals.kbTotal)}</span>
             </span>
             <span>
               <Swatch className="!w-0.5 bg-foreground" />

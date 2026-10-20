@@ -65,14 +65,14 @@ describe('Budget model demo', () => {
       orgView().getByText(/Example organisation · 24 workspaces · 19 Oct 2026/)
     ).toBeInTheDocument();
     expect(orgView().getByTestId('budget-demo-org-status')).toHaveTextContent(
-      'All running. Knowledge base has'
+      'All running. Knowledge base can use'
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Single workspace' }));
     expect(screen.getByTestId('budget-demo-view-single')).toBeVisible();
     expect(singleView().getByText('Lakeside Dental')).toBeInTheDocument();
     expect(singleView().getByTestId('budget-demo-single-status')).toHaveTextContent(
-      'All running. Knowledge base has 11.0M left; live mail has 23.0M.'
+      'All running. Knowledge base can use 11.0M more; live mail has 23.0M.'
     );
   });
 
@@ -157,17 +157,17 @@ describe('Budget model demo', () => {
     expect(orgView().getByRole('button', { name: 'End now' })).toBeInTheDocument();
   });
 
-  it('the KB line on the bar never goes below 50%, in both views', () => {
+  it('at most half the budget is kept for live mail, in both views', () => {
     render(<BudgetModelDemoSection />);
     const [orgSlider] = orgView().getAllByRole('slider', {
-      name: 'Knowledge base may use at most, percent of the budget',
+      name: 'Kept free for live mail: where it starts on the budget bar',
     });
     fireEvent.change(orgSlider, { target: { value: '20' } });
     expect(orgSlider).toHaveValue('50');
 
     fireEvent.click(screen.getByRole('button', { name: 'Single workspace' }));
     const singleSlider = singleView().getByRole('slider', {
-      name: 'Knowledge base may use at most, percent of the budget',
+      name: 'Kept free for live mail: where it starts on the budget bar',
     });
     fireEvent.change(singleSlider, { target: { value: '10' } });
     expect(singleSlider).toHaveValue('50');
@@ -207,7 +207,7 @@ describe('Budget model demo', () => {
     fireEvent.click(singleView().getByRole('button', { name: '+1 day' }));
     fireEvent.click(singleView().getByRole('button', { name: '+1 day' }));
     expect(singleView().getByTestId('budget-demo-single-status')).toHaveTextContent(
-      /^Knowledge base paused at 48.0M/
+      /^Knowledge base paused: the 11.8M left is kept for live mail\./
     );
     fireEvent.click(singleView().getByRole('button', { name: /^Give \+20\.0M/ }));
     expect(singleView().getByTestId('budget-demo-single-status')).toHaveTextContent(

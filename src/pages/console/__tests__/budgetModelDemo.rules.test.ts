@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   addWorkspace,
-  clampKbPct,
+  clampReservePct,
+  reserveFromEdge,
   endOrgExtra,
   fmt,
   grantOrgExtra,
@@ -28,6 +29,7 @@ const ws = (over: Partial<DemoWorkspace> = {}): DemoWorkspace => ({
   id: 'x1',
   name: 'Example A',
   used: 10,
+  kbUsed: 0,
   limit: null,
   extra: 0,
   extraUsed: 0,
@@ -41,8 +43,9 @@ const org = (workspaces: DemoWorkspace[], over: Partial<OrgDemoState> = {}): Org
   workspaces,
   day: 10,
   budget: 100,
-  kbPct: 80,
+  reservePct: 20,
   spentRemoved: 0,
+  spentRemovedKb: 0,
   newCount: 0,
   log: '',
   ...over,
@@ -66,10 +69,14 @@ describe('formatting', () => {
 
 describe('KB line floor', () => {
   it('clamps at 50% (same floor in both views) and at 100%', () => {
-    expect(clampKbPct(20)).toBe(50);
-    expect(clampKbPct(0)).toBe(50);
-    expect(clampKbPct(75)).toBe(75);
-    expect(clampKbPct(120)).toBe(100);
+    expect(clampReservePct(80)).toBe(50);
+    expect(clampReservePct(50)).toBe(50);
+    expect(clampReservePct(25)).toBe(25);
+    expect(clampReservePct(-20)).toBe(0);
+    // The slider reports where the striped part starts on the bar.
+    expect(reserveFromEdge(20)).toBe(50);
+    expect(reserveFromEdge(75)).toBe(25);
+    expect(reserveFromEdge(120)).toBe(0);
   });
 });
 
@@ -79,7 +86,7 @@ describe('organisation status rules', () => {
     expect(tot.kbPaused).toBe(false);
     expect(orgStatusLine(tot)).toEqual({
       tone: 'ok',
-      text: 'All running. Knowledge base has 30.0M left; live mail has 50.0M.',
+      text: 'All running. Knowledge base can use 30.0M more; live mail has 50.0M.',
     });
   });
 
@@ -88,7 +95,9 @@ describe('organisation status rules', () => {
     expect(tot.kbPaused).toBe(true);
     expect(tot.allStopped).toBe(false);
     expect(orgStatusLine(tot).tone).toBe('warn');
-    expect(orgStatusLine(tot).text).toMatch(/^Knowledge base paused: 85.0M used, past its 80.0M/);
+    expect(orgStatusLine(tot).text).toMatch(
+      /^Knowledge base paused: the 15.0M left is kept for live mail\./
+    );
   });
 
   it('whole budget used: live mail stops too', () => {
@@ -141,8 +150,10 @@ describe('organisation +1 day', () => {
     const next = simulateOrgDay(start);
     const tot = orgTotals(next);
     expect(tot.total).toBeCloseTo(80, 6);
+    // Only the import counts as knowledge base: 80 − 78 − 0.936 of live mail.
+    expect(tot.kbTotal).toBeCloseTo(80 - 78 - 78 * 0.012, 6);
     expect(find(next, 'big').importLeft).toBeGreaterThan(40);
-    expect(next.log).toMatch(/passed the knowledge base line/);
+    expect(next.log).toMatch(/only the part kept for live mail is left/);
 
     const after = simulateOrgDay(next);
     const big = find(after, 'big');
@@ -183,6 +194,7 @@ describe('organisation +1 day', () => {
     const removed = removeWorkspace(start, 'b1');
     expect(removed.workspaces).toHaveLength(1);
     expect(removed.spentRemoved).toBe(30);
+    expect(removed.spentRemovedKb).toBe(0);
     expect(orgTotals(removed).total).toBe(orgTotals(start).total);
     expect(removed.log).toBe(
       'Example B removed. Its 30.0M spent this month still counts; its limit and extra end.'
@@ -268,21 +280,20 @@ describe('organisation actions', () => {
     expect(suggestedExtra(ws({ used: 1 }))).toBe(5);
   });
 
-  it('example data: 24 workspaces, 400M budget, KB line 80%', () => {
+  it('example data: 24 workspaces, 400M budget, 20% kept for live mail', () => {
     const state = initialOrgState();
     expect(state.workspaces).toHaveLength(24);
-    expect(orgTotals(state).budget).toBe(400);
-    expect(orgTotals(state).kbLine).toBe(320);
+    expect(orgTotals(state)).toMatchObject({ budget: 400, reserve: 80, kbLine: 320 });
   });
 });
 
 describe('single workspace', () => {
   it('starts all running', () => {
     const state = initialSingleState();
-    expect(singleTotals(state)).toMatchObject({ budget: 60, kbCap: 48, used: 37 });
+    expect(singleTotals(state)).toMatchObject({ budget: 60, reserve: 12, kbLine: 48, used: 37 });
     expect(singleStatusLine(state)).toEqual({
       tone: 'ok',
-      text: 'All running. Knowledge base has 11.0M left; live mail has 23.0M.',
+      text: 'All running. Knowledge base can use 11.0M more; live mail has 23.0M.',
     });
   });
 
@@ -293,7 +304,9 @@ describe('single workspace', () => {
     state = simulateSingleDay(state); // live mail first: 48.2 ≥ the 48 cap, so the KB pauses
     expect(singleTotals(state).used).toBeCloseTo(48.2, 6);
     expect(singleTotals(state).kbPaused).toBe(true);
-    expect(singleStatusLine(state).text).toMatch(/^Knowledge base paused at 48.0M/);
+    expect(singleStatusLine(state).text).toMatch(
+      /^Knowledge base paused: the 11.8M left is kept for live mail\./
+    );
     const leftAtPause = state.importLeft;
 
     state = simulateSingleDay(state);

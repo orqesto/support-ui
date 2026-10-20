@@ -6,7 +6,8 @@
  *
  * The rules being demonstrated:
  * - live mail has priority and stops only when the WHOLE monthly budget is used;
- * - the knowledge base (KB) pauses at the "KB may use at most X%" line;
+ * - part of the budget is kept free for live mail: the knowledge base (KB) pauses once everything
+ *   used this month (KB + live mail) leaves only that part;
  * - a workspace's own limit caps its knowledge base only; its live mail continues;
  * - extra for the KB is outside the budget, is consumed only while the KB is paused, and unused
  *   extra expires;
@@ -25,8 +26,8 @@ export type ExtraEnd = 0 | 1 | 2;
 /** Extra amount slider range, million tokens. */
 export const EXTRA_MIN = 5;
 export const EXTRA_MAX = 200;
-/** The KB line never goes below half the budget (keeps room for imports), in both views. */
-export const KB_MIN_PCT = 50;
+/** At most half the budget is kept for live mail (keeps room for imports), in both views. */
+export const RESERVE_MAX_PCT = 50;
 /** The month the demo plays in: October 2026 (31 days). */
 export const LAST_DAY = 31;
 
@@ -54,8 +55,10 @@ export const grantEndsText = (end: ExtraEnd): string =>
 export type DemoWorkspace = {
   id: string;
   name: string;
-  /** Spent this month inside the budget, million tokens. */
+  /** Spent this month inside the budget (knowledge base + live mail), million tokens. */
   used: number;
+  /** The knowledge-base part of `used`. */
+  kbUsed: number;
   /**
    * Its own monthly limit for the KNOWLEDGE BASE, or null = shares the whole budget. Measured
    * against everything it used; reaching it stops only its KB, never its live mail.
@@ -74,19 +77,30 @@ export type OrgDemoState = {
   day: number;
   /** Monthly budget, million tokens. */
   budget: number;
-  /** KB may use at most this % of the budget. */
-  kbPct: number;
+  /**
+   * This % of the budget is kept free for live mail: the knowledge base stops once only this much
+   * is left. Live mail can use the whole budget.
+   */
+  reservePct: number;
   /** Spent this month by workspaces that were removed: it still counts. */
   spentRemoved: number;
+  /** The knowledge-base part of `spentRemoved`. */
+  spentRemovedKb: number;
   newCount: number;
   log: string;
 };
 
 export type OrgTotals = {
   budget: number;
-  kbPct: number;
+  reservePct: number;
+  /** Kept free for live mail, million tokens. */
+  reserve: number;
+  /** Where the knowledge base stops: budget − reserve. */
   kbLine: number;
+  /** Everything used this month: knowledge base + live mail. */
   total: number;
+  /** The knowledge-base part of `total`. */
+  kbTotal: number;
   kbPaused: boolean;
   allStopped: boolean;
 };
@@ -126,6 +140,8 @@ const blankWorkspace = (id: string, name: string, used: number): DemoWorkspace =
   id,
   name,
   used,
+  // The example's knowledge base made about three quarters of each workspace's use.
+  kbUsed: used * 0.75,
   limit: null,
   extra: 0,
   extraUsed: 0,
@@ -152,27 +168,39 @@ export const initialOrgState = (): OrgDemoState => {
     workspaces,
     day: 19,
     budget: 400,
-    kbPct: 80,
+    reservePct: 20,
     spentRemoved: 0,
+    spentRemovedKb: 0,
     newCount: 0,
     log: '',
   };
 };
 
-/** The KB line, clamped to at least half the budget — the same floor in both views. */
-export const clampKbPct = (pct: number): number => Math.min(100, Math.max(KB_MIN_PCT, pct));
+/** The part kept for live mail, 0–50% of the budget — the same range in both views. */
+export const clampReservePct = (pct: number): number => Math.min(RESERVE_MAX_PCT, Math.max(0, pct));
+
+/** The reserve as the bar slider sees it: the position of its left edge, in % of the bar. */
+export const reserveEdge = (reservePct: number): number => 100 - reservePct;
+export const reserveFromEdge = (edge: number): number => clampReservePct(100 - edge);
 
 export const orgTotals = (
-  state: Pick<OrgDemoState, 'workspaces' | 'budget' | 'kbPct' | 'spentRemoved'>
+  state: Pick<
+    OrgDemoState,
+    'workspaces' | 'budget' | 'reservePct' | 'spentRemoved' | 'spentRemovedKb'
+  >
 ): OrgTotals => {
   const budget = Math.max(1, state.budget || 1);
-  const kbLine = (budget * state.kbPct) / 100;
+  const reserve = (budget * state.reservePct) / 100;
+  const kbLine = budget - reserve;
   const total = state.workspaces.reduce((sum, ws) => sum + ws.used, 0) + state.spentRemoved;
+  const kbTotal = state.workspaces.reduce((sum, ws) => sum + ws.kbUsed, 0) + state.spentRemovedKb;
   return {
     budget,
-    kbPct: state.kbPct,
+    reservePct: state.reservePct,
+    reserve,
     kbLine,
     total,
+    kbTotal,
     kbPaused: total >= kbLine,
     allStopped: total >= budget,
   };
@@ -215,11 +243,11 @@ export const orgStatusLine = (tot: OrgTotals): StatusLine => {
   if (tot.kbPaused)
     return {
       tone: 'warn',
-      text: `Knowledge base paused: ${fmt(tot.total)} used, past its ${fmt(tot.kbLine)}. Live mail continues up to ${fmt(tot.budget)}. Workspaces with extra keep importing.`,
+      text: `Knowledge base paused: the ${fmt(tot.budget - tot.total)} left is kept for live mail. Live mail continues up to ${fmt(tot.budget)}. Workspaces with extra keep importing.`,
     };
   return {
     tone: 'ok',
-    text: `All running. Knowledge base has ${fmt(tot.kbLine - tot.total)} left; live mail has ${fmt(tot.budget - tot.total)}.`,
+    text: `All running. Knowledge base can use ${fmt(tot.kbLine - tot.total)} more; live mail has ${fmt(tot.budget - tot.total)}.`,
   };
 };
 
@@ -240,7 +268,7 @@ const cloneWorkspaces = (workspaces: DemoWorkspace[]) => workspaces.map((ws) => 
 /**
  * One simulated day. Per workspace (biggest first): live mail ~1.2% of its use (≥0.05M) unless the
  * whole budget is used (a workspace limit never stops live mail); an import moves up to 12M, inside
- * the budget only until the KB line and the workspace's own limit, then on its extra; an extra with
+ * the budget only until the reserve and the workspace's own limit, then on its extra; an extra with
  * no days left expires.
  */
 export const simulateOrgDay = (state: OrgDemoState): OrgDemoState => {
@@ -274,6 +302,7 @@ export const simulateOrgDay = (state: OrgDemoState): OrgDemoState => {
         );
         const done = Math.max(0, Math.min(todo, room));
         ws.used += done;
+        ws.kbUsed += done;
         ws.importLeft -= done;
         todo -= done;
       }
@@ -299,7 +328,7 @@ export const simulateOrgDay = (state: OrgDemoState): OrgDemoState => {
   const after = orgTotals(next);
   if (!before.kbPaused && after.kbPaused)
     notes.push(
-      'the organisation passed the knowledge base line: KB imports without extra paused, live mail continues'
+      'only the part kept for live mail is left: KB imports without extra paused, live mail continues'
     );
   if (!before.allStopped && after.allStopped) notes.push('the monthly budget is used up');
   next.log = `${next.day} Oct: ` + (notes.length ? notes.join('; ') + '.' : 'normal day.');
@@ -356,6 +385,7 @@ export const removeWorkspace = (state: OrgDemoState, id: string): OrgDemoState =
   return {
     ...state,
     spentRemoved: state.spentRemoved + ws.used,
+    spentRemovedKb: state.spentRemovedKb + ws.kbUsed,
     workspaces: state.workspaces.filter((other) => other.id !== id),
     log: `${ws.name} removed. Its ${fmt(ws.used)} spent this month still counts; its limit and extra end.`,
   };
@@ -368,7 +398,8 @@ export const removeWorkspace = (state: OrgDemoState, id: string): OrgDemoState =
 export type SingleDemoState = {
   day: number;
   budget: number;
-  kbPct: number;
+  /** % of the budget kept free for live mail; the knowledge base stops once only this is left. */
+  reservePct: number;
   kbUsed: number;
   liveUsed: number;
   importing: boolean;
@@ -381,8 +412,10 @@ export type SingleDemoState = {
 
 export type SingleTotals = {
   budget: number;
-  kbPct: number;
-  kbCap: number;
+  reservePct: number;
+  reserve: number;
+  /** Where the knowledge base stops: budget − reserve. */
+  kbLine: number;
   used: number;
   kbPaused: boolean;
   stopped: boolean;
@@ -397,7 +430,7 @@ export const SINGLE_IMPORT_PER_DAY = 10;
 export const initialSingleState = (): SingleDemoState => ({
   day: 19,
   budget: 60,
-  kbPct: 80,
+  reservePct: 20,
   kbUsed: 28,
   liveUsed: 9,
   importing: false,
@@ -410,9 +443,18 @@ export const initialSingleState = (): SingleDemoState => ({
 
 export const singleTotals = (st: SingleDemoState): SingleTotals => {
   const budget = Math.max(1, st.budget || 1);
-  const kbCap = (budget * st.kbPct) / 100;
+  const reserve = (budget * st.reservePct) / 100;
+  const kbLine = budget - reserve;
   const used = st.kbUsed + st.liveUsed;
-  return { budget, kbPct: st.kbPct, kbCap, used, kbPaused: used >= kbCap, stopped: used >= budget };
+  return {
+    budget,
+    reservePct: st.reservePct,
+    reserve,
+    kbLine,
+    used,
+    kbPaused: used >= kbLine,
+    stopped: used >= budget,
+  };
 };
 
 export const singleStatusLine = (st: SingleDemoState): StatusLine => {
@@ -428,17 +470,17 @@ export const singleStatusLine = (st: SingleDemoState): StatusLine => {
   if (tot.kbPaused && st.importing && extraLeft > 0)
     return {
       tone: 'warn',
-      text: `Knowledge base reached its ${fmt(tot.kbCap)}; the import continues on its extra (${fmt(extraLeft)} left). Live mail continues.`,
+      text: `Only the part kept for live mail is left; the import continues on its extra (${fmt(extraLeft)} left). Live mail continues.`,
     };
   if (tot.kbPaused)
     return {
       tone: 'warn',
-      text: `Knowledge base paused at ${fmt(tot.kbCap)}. Live mail continues up to ${fmt(tot.budget)}. Give extra to continue an import.`,
+      text: `Knowledge base paused: the ${fmt(tot.budget - tot.used)} left is kept for live mail. Live mail continues up to ${fmt(tot.budget)}. Give extra to continue an import.`,
     };
   return {
     tone: 'ok',
     text:
-      `All running. Knowledge base has ${fmt(tot.kbCap - tot.used)} left; live mail has ${fmt(tot.budget - tot.used)}.` +
+      `All running. Knowledge base can use ${fmt(tot.kbLine - tot.used)} more; live mail has ${fmt(tot.budget - tot.used)}.` +
       (st.importing ? ` KB import: ${fmt(st.importLeft)} to go.` : ''),
   };
 };
@@ -462,7 +504,7 @@ export const simulateSingleDay = (state: SingleDemoState): SingleDemoState => {
   if (st.importing && st.importLeft > 0) {
     let todo = Math.min(SINGLE_IMPORT_PER_DAY, st.importLeft);
     if (!tot.kbPaused) {
-      const done = Math.min(todo, tot.kbCap - tot.used);
+      const done = Math.min(todo, tot.kbLine - tot.used);
       st.kbUsed += done;
       st.importLeft -= done;
       todo -= done;
@@ -487,7 +529,9 @@ export const simulateSingleDay = (state: SingleDemoState): SingleDemoState => {
   }
   const after = singleTotals(st);
   if (!tot.kbPaused && after.kbPaused)
-    notes.push('knowledge base reached its cap and paused; live mail continues');
+    notes.push(
+      'only the part kept for live mail is left: knowledge base paused, live mail continues'
+    );
   st.log = `${st.day} Oct: ` + (notes.length ? notes.join('; ') + '.' : 'normal day.');
   return st;
 };
