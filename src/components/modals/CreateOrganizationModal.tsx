@@ -3,6 +3,8 @@ import { X, Building2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
+import { Select } from '@/components/ui/Select';
 
 /**
  * The workspace's database is NOT chosen here (BYODB §4). Like AI and storage, it is picked in
@@ -15,24 +17,40 @@ type CreateOrganizationData = {
   name: string;
   slug: string;
   description?: string;
+  /** Self-hosted only. Absent = the default (implicit) organisation, null = standalone, number = that organisation. */
+  allianceId?: number | null;
 };
+
+/** An organisation the new workspace can be placed in. */
+type OrganisationChoice = { id: number; name: string; slug: string };
+
+/** The implicit organisation of a self-hosted server (BE slug). */
+const IMPLICIT_SLUG = '__self_hosted__';
+const DEFAULT_CHOICE = 'default';
+const NONE_CHOICE = 'none';
 
 type CreateOrganizationModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onCreate: (data: CreateOrganizationData) => Promise<void>;
+  /** Self-hosted deployment: the Organisation select is shown. Hosted: omitted, as before. */
+  selfHostedDeployment?: boolean;
+  organisations?: OrganisationChoice[];
 };
 
 export const CreateOrganizationModal = ({
   isOpen,
   onClose,
   onCreate,
+  selfHostedDeployment = false,
+  organisations = [],
 }: CreateOrganizationModalProps) => {
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
     description: '',
   });
+  const [choice, setChoice] = useState(DEFAULT_CHOICE);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -68,8 +86,13 @@ export const CreateOrganizationModal = ({
         name: formData.name,
         slug: formData.slug,
         description: formData.description || undefined,
+        ...(selfHostedDeployment && choice === NONE_CHOICE ? { allianceId: null } : {}),
+        ...(selfHostedDeployment && choice !== NONE_CHOICE && choice !== DEFAULT_CHOICE
+          ? { allianceId: Number(choice) }
+          : {}),
       });
       setFormData({ name: '', slug: '', description: '' });
+      setChoice(DEFAULT_CHOICE);
       onClose();
     } catch (err) {
       if (err instanceof Error) {
@@ -95,6 +118,15 @@ export const CreateOrganizationModal = ({
   if (!isOpen) {
     return null;
   }
+
+  const implicit = organisations.find((organisation) => organisation.slug === IMPLICIT_SLUG);
+  const organisationOptions = [
+    { value: DEFAULT_CHOICE, label: implicit?.name ?? 'Organisation' },
+    ...organisations
+      .filter((organisation) => organisation.slug !== IMPLICIT_SLUG)
+      .map((organisation) => ({ value: String(organisation.id), label: organisation.name })),
+    { value: NONE_CHOICE, label: 'None (standalone)' },
+  ];
 
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
@@ -168,6 +200,23 @@ export const CreateOrganizationModal = ({
               placeholder="Brief description of the workspace"
             />
           </div>
+
+          {selfHostedDeployment && (
+            <div>
+              <Label htmlFor="create-workspace-organisation" className="mb-1">
+                Organisation
+              </Label>
+              <Select
+                id="create-workspace-organisation"
+                value={choice}
+                options={organisationOptions}
+                onChange={(value) => setChoice(value)}
+              />
+              <p className="mt-1 text-sm text-muted-foreground">
+                Workspaces in an organisation share its AI budget.
+              </p>
+            </div>
+          )}
 
           <p className="text-xs text-muted-foreground">
             The workspace starts on the managed database. Its own Postgres is connected in the setup
