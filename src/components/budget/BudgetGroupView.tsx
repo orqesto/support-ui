@@ -47,7 +47,8 @@ export type BudgetGroupViewProps = {
   plansAvailable?: boolean;
   /** A write is on its way: buttons that start another one are disabled. */
   busy?: boolean;
-  onUpdate?: (body: GroupUpdate) => void;
+  /** May answer whether the save went through (the bulk line goes back on `false`). */
+  onUpdate?: (body: GroupUpdate) => void | Promise<boolean>;
   /** `limit` null removes the workspaces' own bulk limit. Tokens. */
   onSetLimits?: (organizationIds: number[], limit: number | null) => void;
   onGiveExtra?: (targets: ExtraTarget[], tokens: number | 'suggested', end: ExtraEndChoice) => void;
@@ -76,7 +77,7 @@ const BudgetField = ({
   canEdit: boolean;
   plansAvailable: boolean;
   busy?: boolean;
-  onUpdate?: (body: GroupUpdate) => void;
+  onUpdate?: BudgetGroupViewProps['onUpdate'];
 }) => {
   const inputId = `budget-${detail.key}`;
   const [draft, setDraft] = useState(() => millionsText(detail.budget));
@@ -117,7 +118,7 @@ const BudgetField = ({
       return;
     }
     setError(null);
-    onUpdate?.({ budget });
+    void onUpdate?.({ budget });
   };
   const saved = millionsText(detail.budget);
   const changed = draft.trim() !== saved || (detail.budgetSource === 'plans' && overriding);
@@ -151,7 +152,7 @@ const BudgetField = ({
             disabled={busy}
             onClick={() => {
               setOverriding(false);
-              if (detail.budgetSource === 'override') onUpdate?.({ budget: null });
+              if (detail.budgetSource === 'override') void onUpdate?.({ budget: null });
             }}
           >
             Use the plans

@@ -73,6 +73,22 @@ describe('BulkLimitField', () => {
 });
 
 describe('ExtraBox', () => {
+  it('Suggested above the usual slider top is given exactly (no 200M cap)', () => {
+    const onGive = vi.fn();
+    render(
+      <ExtraBox
+        extra={null}
+        suggestion={350 * MILLION}
+        initialAmount={20 * MILLION}
+        onGive={onGive}
+        onEnd={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Suggested 350M' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Give \+350M/ }));
+    expect(onGive).toHaveBeenCalledWith(350 * MILLION, 3);
+  });
+
   it('End now shows only when an extra exists', () => {
     const onEnd = vi.fn();
     const { rerender } = render(

@@ -18,8 +18,12 @@ export type BudgetBarProps = {
   bulkPctMax: number;
   /** The caller's canEdit.bulk: only then the line can be dragged. */
   canEdit: boolean;
-  /** Called 400 ms after the last drag step, with the value clamped to [bulkPctMin, bulkPctMax]. */
-  onBulkPctChange?: (pct: number) => void;
+  /**
+   * Called 400 ms after the last drag step, with the value clamped to [bulkPctMin, bulkPctMax].
+   * May answer whether the save went through: on `false` the line goes back to the saved value
+   * (a rejected value must not stay on screen as if it were saved).
+   */
+  onBulkPctChange?: (pct: number) => void | Promise<boolean>;
   /** Accessible name of the slider. */
   ariaLabel?: string;
 };
@@ -42,6 +46,8 @@ export const BudgetBar = ({
 }: BudgetBarProps) => {
   const [draft, setDraft] = useState(() => clampPct(bulkPct, bulkPctMin, bulkPctMax));
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saved = useRef(clampPct(bulkPct, bulkPctMin, bulkPctMax));
+  saved.current = clampPct(bulkPct, bulkPctMin, bulkPctMax);
   const editable = canEdit && bulkLimitOn && budget !== null && budget > 0;
 
   // The saved value changed (saved, or reloaded): show it.
@@ -62,7 +68,11 @@ export const BudgetBar = ({
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       timer.current = null;
-      onBulkPctChange?.(next);
+      const result = onBulkPctChange?.(next);
+      if (result)
+        void result.then((ok) => {
+          if (!ok) setDraft(saved.current);
+        });
     }, BULK_PCT_DEBOUNCE_MS);
   };
 

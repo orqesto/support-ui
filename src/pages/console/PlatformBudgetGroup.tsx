@@ -65,7 +65,15 @@ export const PlatformBudgetGroup = () => {
           mode="platform"
           plansAvailable={state ? !state.selfHosted : false}
           busy={busy}
-          onUpdate={(body) => update.mutate(body, { onError: failed('Could not save.') })}
+          onUpdate={(body) =>
+            update.mutateAsync(body).then(
+              () => true,
+              (saveError: unknown) => {
+                failed('Could not save.')(saveError);
+                return false;
+              }
+            )
+          }
           onSetLimits={(organizationIds, limit) =>
             setLimits.mutate(
               { organizationIds, limit },

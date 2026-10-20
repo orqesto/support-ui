@@ -25,6 +25,8 @@ let stateResult: BudgetStateResult;
 let detail: GroupDetail;
 /** What the next read of the group returns after a write (the server's answer). */
 let afterWrite: ((current: GroupDetail) => GroupDetail) | null = null;
+/** Set ⇒ updateGroup is refused with this API error. */
+let updateRefusal: Error | null = null;
 
 vi.mock('@/services/budgets.service', () => ({
   budgetsService: {
@@ -36,6 +38,7 @@ vi.mock('@/services/budgets.service', () => ({
     listGroups: () => Promise.resolve({ items: [], total: 0 }),
     updateGroup: (key: string, body: unknown) => {
       record('updateGroup', [key, body]);
+      if (updateRefusal) return Promise.reject(updateRefusal);
       if (afterWrite) detail = afterWrite(detail);
       return Promise.resolve(detail);
     },
@@ -53,7 +56,13 @@ vi.mock('@/services/budgets.service', () => ({
     },
   },
 }));
-vi.mock('sonner', () => ({ toast: { success: () => {}, warning: () => {}, error: () => {} } }));
+vi.mock('sonner', () => ({
+  toast: {
+    success: () => {},
+    warning: () => {},
+    error: (message: string) => record('toast.error', message),
+  },
+}));
 
 const { PlatformBudgetGroup } = await import('../PlatformBudgetGroup');
 const { BudgetGroupView } = await import('@/components/budget/BudgetGroupView');
@@ -153,6 +162,7 @@ const renderGroup = () => {
 beforeEach(() => {
   calls = {};
   afterWrite = null;
+  updateRefusal = null;
   stateResult = { available: true, state: state() };
   detail = groupDetail();
 });
@@ -193,6 +203,27 @@ describe('the group page', () => {
     expect(screen.getByTestId('budget-group-status')).toHaveAttribute('data-tone', 'warn');
     // Same element, same reserved height: switching never moves the layout.
     expect(screen.getByText('No limit')).toHaveClass('min-h-[1.75rem]');
+  });
+
+  it('a refused bulk % save puts the line back at the saved value and says why', async () => {
+    updateRefusal = Object.assign(new Error('refused'), {
+      status: 400,
+      data: { error: 'Bulk limit must be between 50 and 80 %' },
+    });
+    renderGroup();
+    const slider = await screen.findByRole('slider', {
+      name: 'Bulk processing may use at most, percent of the budget',
+    });
+    expect(slider).toHaveValue('60');
+    fireEvent.change(slider, { target: { value: '85' } });
+    expect(slider).toHaveValue('85');
+    await waitFor(() => expect(calls.updateGroup).toEqual([['a:7', { bulkPct: 85 }]]), {
+      timeout: 2000,
+    });
+    await waitFor(() =>
+      expect(calls['toast.error']).toEqual(['Bulk limit must be between 50 and 80 %'])
+    );
+    await waitFor(() => expect(slider).toHaveValue('60'));
   });
 
   it('select two rows ⇒ "2 selected"; Set limit sends both ids and the limit in tokens', async () => {

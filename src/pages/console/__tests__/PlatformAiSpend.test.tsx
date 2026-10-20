@@ -16,6 +16,12 @@ import type {
   ManagedAiTierStat,
   ManagedAiUsageResult,
 } from '@/services/managedAiUsage.service';
+// The old limits UI shows only while the monthly budgets are not switched on: a backend without
+// the budget API here.
+vi.mock('@/services/budgets.service', () => ({
+  budgetsService: { getState: () => Promise.resolve({ available: false }) },
+}));
+
 import { PlatformAiSpend } from '../PlatformAiSpend';
 
 const get = vi.fn();
@@ -219,5 +225,35 @@ describe('Platform → AI Spend', () => {
     renderPage();
 
     expect(await screen.findByText('Global admin required')).toBeInTheDocument();
+  });
+  it('says whether the token ceiling is a decision or a default', async () => {
+    get.mockResolvedValue(result());
+    renderPage();
+    expect(await screen.findByText('2,000,000')).toBeInTheDocument();
+    expect(screen.getByText(/platform default, not configured/)).toBeInTheDocument();
+  });
+
+  it('an explicit zero is the budget switched OFF, not an unset one', async () => {
+    get.mockResolvedValue(
+      result({
+        totals: {
+          byTier: [tier('default', 5_000, 3)],
+          managedOrgCount: 1,
+          tokenCeilingPerOrgPerDay: 0,
+          tokenCeilingIsDefault: false,
+        },
+      })
+    );
+    renderPage();
+    expect(await screen.findByText('none')).toBeInTheDocument();
+    expect(screen.getByText(/budget is switched off/)).toBeInTheDocument();
+  });
+
+  it('an older backend that reports no ceiling says so, rather than showing zero', async () => {
+    get.mockResolvedValue(
+      result({ totals: { byTier: [tier('default', 5_000, 3)], managedOrgCount: 1 } })
+    );
+    renderPage();
+    expect(await screen.findByText(/does not report one/)).toBeInTheDocument();
   });
 });

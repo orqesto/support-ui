@@ -49,9 +49,14 @@ export const ExtraBox = ({
   onEnd,
   busy,
 }: ExtraBoxProps) => {
-  const clampM = (tokens: number) =>
-    Math.min(EXTRA_MAX, Math.max(EXTRA_MIN, Math.round(tokens / MILLION)));
-  const [amount, setAmount] = useState(() => clampM(initialAmount));
+  // The slider reaches at least the requested / suggested amount, so it is given exactly (the
+  // backend has no upper bound; EXTRA_MAX is only the usual top of the slider).
+  const ceil5 = (tokens: number) => Math.ceil(tokens / MILLION / 5) * 5;
+  const top = Math.max(EXTRA_MAX, ceil5(initialAmount), ceil5(suggestion ?? 0));
+  const atLeastMin = (tokens: number) => Math.max(EXTRA_MIN * MILLION, tokens);
+  /** Tokens: kept exact when seeded from a request or a suggestion. */
+  const [amountTokens, setAmountTokens] = useState(() => atLeastMin(initialAmount));
+  const amount = amountTokens / MILLION;
   const [end, setEnd] = useState<ExtraEndChoice>(3);
 
   if (extra)
@@ -84,13 +89,13 @@ export const ExtraBox = ({
       <BarSlider
         value={amount}
         min={EXTRA_MIN}
-        max={EXTRA_MAX}
+        max={top}
         step={5}
-        onChange={setAmount}
+        onChange={(millions) => setAmountTokens(millions * MILLION)}
         ariaLabel="Extra amount, million tokens"
         ariaValueText={`${fmt(amount)} tokens`}
       >
-        <BarSegment width={(amount / EXTRA_MAX) * 100} className="bg-warning" />
+        <BarSegment width={(amount / top) * 100} className="bg-warning" />
       </BarSlider>
       <div className="flex flex-wrap gap-2.5 justify-between items-center">
         <SegmentedControl
@@ -100,13 +105,13 @@ export const ExtraBox = ({
           segments={END_SEGMENTS}
         />
         {suggestion !== undefined && (
-          <Button variant="ghost" size="sm" onClick={() => setAmount(clampM(suggestion))}>
+          <Button variant="ghost" size="sm" onClick={() => setAmountTokens(atLeastMin(suggestion))}>
             Suggested {fmtTokens(suggestion)}
           </Button>
         )}
       </div>
       <div>
-        <Button size="sm" disabled={busy} onClick={() => onGive(amount * MILLION, end)}>
+        <Button size="sm" disabled={busy} onClick={() => onGive(amountTokens, end)}>
           Give +{fmt(amount)} · ends {grantEndsText(end)}
         </Button>
       </div>

@@ -16,6 +16,12 @@ vi.mock('@/services/managedAiUsage.service', () => ({
   managedAiUsageService: { get: (days: number) => get(days) as unknown },
 }));
 
+// The old limits UI shows only while the monthly budgets are not switched on: a backend without
+// the budget API here.
+vi.mock('@/services/budgets.service', () => ({
+  budgetsService: { getState: () => Promise.resolve({ available: false }) },
+}));
+
 const { PlatformAiSpend } = await import('../PlatformAiSpend');
 
 const tier = (totalTokens: number): ManagedAiTierStat => ({

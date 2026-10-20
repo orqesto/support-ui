@@ -301,6 +301,27 @@ describe('requests card', () => {
     );
   });
 
+  it('a request above the usual slider top (500M) is given exactly', async () => {
+    stateResult = {
+      available: true,
+      state: baseState({ requests: 1, requestList: [request({ tokens: 500 * MLN })] }),
+    };
+    renderPage();
+    expect(await screen.findByText('Northwind Shop asks for +500M')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Give' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Give +500M · ends in 3 days' }));
+    await waitFor(() =>
+      expect(calls.giveExtra).toEqual([
+        {
+          targets: [{ allianceId: 7, organizationId: 12 }],
+          tokens: 500 * MLN,
+          end: 3,
+          requestId: 41,
+        },
+      ])
+    );
+  });
+
   it('Decline asks first', async () => {
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Decline' }));
