@@ -104,11 +104,13 @@ describe('KBStatusBadge — compact (the table) never makes a circle', () => {
 
   it('automatic duplicate: short label on a rounded-md tag, full sentence in the title', () => {
     render(<KBStatusBadge entry={autoRejected} compact />);
-    const pill = screen.getByText('Auto duplicate');
+    const pill = screen.getByText('Auto duplicate').parentElement!;
     expect(pill).toHaveClass('rounded-md');
     expect(pill).not.toHaveClass('rounded-full');
     expect(pill).toHaveAttribute('title', AUTO_SUPERSEDED_NOTE);
-    expect(screen.queryByText(AUTO_SUPERSEDED_NOTE)).toBeNull();
+    // Seen short; the full sentence is read out (a tooltip alone reaches no screen reader).
+    expect(screen.getByText('Auto duplicate')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByText(AUTO_SUPERSEDED_NOTE)).toHaveClass('sr-only');
   });
 
   it('"merged into #KB-208" and detached wrap, if at all, on a rounded-md tag', () => {
@@ -144,7 +146,10 @@ describe('KBStatusBadge — compact (the table) never makes a circle', () => {
         />
       </MemoryRouter>
     );
-    expect(screen.getByText('Auto duplicate')).toHaveAttribute('title', AUTO_SUPERSEDED_NOTE);
+    expect(screen.getByText('Auto duplicate').parentElement).toHaveAttribute(
+      'title',
+      AUTO_SUPERSEDED_NOTE
+    );
     expect(screen.getByText('Rejected')).toHaveClass('whitespace-nowrap');
   });
 
@@ -170,7 +175,7 @@ describe('KBStatusBadge — compact (the table) never makes a circle', () => {
         />
       </MemoryRouter>
     );
-    expect(screen.getByText('Merge?')).toHaveAttribute('title', 'Suggested: merge');
+    expect(screen.getByText('Merge?').parentElement).toHaveAttribute('title', 'Suggested: merge');
   });
 
   it('control: without compact (card, detail) the full wording stays, pill shapes unchanged', () => {

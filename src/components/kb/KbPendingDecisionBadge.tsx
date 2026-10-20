@@ -24,6 +24,15 @@ const SHORT_LABEL: Record<KbDecisionKind, string> = {
 export const CANNOT_DECIDE =
   "You can't decide this one — it covers departments you don't moderate.";
 
+/** A short visible label; the full one is read out instead (a tooltip alone reaches no keyboard
+ *  or screen-reader user). */
+export const Short = ({ short, full }: { short: string; full: string }) => (
+  <>
+    <span aria-hidden="true">{short}</span>
+    <span className="sr-only">{full}</span>
+  </>
+);
+
 /** The decision waiting on a Knowledge Base row (highest priority), how many more, or why it is set aside. */
 export const KbPendingDecisionBadge = ({
   decision,
@@ -44,7 +53,11 @@ export const KbPendingDecisionBadge = ({
         className={compact ? 'whitespace-nowrap' : undefined}
         title={compact ? LABEL[decision.kind] : undefined}
       >
-        {compact ? SHORT_LABEL[decision.kind] : LABEL[decision.kind]}
+        {compact ? (
+          <Short short={SHORT_LABEL[decision.kind]} full={LABEL[decision.kind]} />
+        ) : (
+          LABEL[decision.kind]
+        )}
       </Badge>
     )}
     {decision && others > 0 && (
@@ -52,7 +65,7 @@ export const KbPendingDecisionBadge = ({
     )}
     {decision && !decision.canDecide && (
       <span className="text-xs text-muted-foreground" title={compact ? CANNOT_DECIDE : undefined}>
-        {compact ? 'Not yours to decide' : CANNOT_DECIDE}
+        {compact ? <Short short="Not yours to decide" full={CANNOT_DECIDE} /> : CANNOT_DECIDE}
       </span>
     )}
     {setAsideReason && (

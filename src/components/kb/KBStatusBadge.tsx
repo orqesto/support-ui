@@ -8,6 +8,7 @@ import {
   isSourceRemoved,
 } from '@/lib/kbConsolidation';
 import { KBApprovalBadge } from './KBApprovalProvenance';
+import { Short } from '@/components/kb/KbPendingDecisionBadge';
 import { AUTO_SUPERSEDED_NOTE, formatPurgeDate, isAutoSupersededReject } from '@/lib/kbRejection';
 import type { KBEntry } from '@/services/kb.service';
 
@@ -87,7 +88,11 @@ export const KBStatusBadge = ({
             className={`rounded-md ${className}`}
             title={AUTO_SUPERSEDED_NOTE}
           >
-            {compact ? 'Auto duplicate' : AUTO_SUPERSEDED_NOTE}
+            {compact ? (
+              <Short short="Auto duplicate" full={AUTO_SUPERSEDED_NOTE} />
+            ) : (
+              AUTO_SUPERSEDED_NOTE
+            )}
           </Badge>
         )}
       </>

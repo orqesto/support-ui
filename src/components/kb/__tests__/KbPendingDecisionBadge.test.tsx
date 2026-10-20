@@ -46,13 +46,18 @@ describe('KbPendingDecisionBadge', () => {
         compact
       />
     );
-    const badge = screen.getByText('Merge?');
+    const badge = screen.getByText('Merge?').parentElement!;
     expect(badge).toHaveAttribute('title', 'Suggested: merge');
     expect(badge.className).toContain('whitespace-nowrap');
-    expect(screen.queryByText('Suggested: merge')).toBeNull();
-    expect(screen.getByText('Not yours to decide')).toHaveAttribute(
+    // Seen short; the full wording is what a screen reader reads.
+    expect(screen.getByText('Merge?')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByText('Suggested: merge')).toHaveClass('sr-only');
+    expect(screen.getByText('Not yours to decide').parentElement).toHaveAttribute(
       'title',
       "You can't decide this one — it covers departments you don't moderate."
     );
+    expect(
+      screen.getByText("You can't decide this one — it covers departments you don't moderate.")
+    ).toHaveClass('sr-only');
   });
 });
