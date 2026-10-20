@@ -148,6 +148,31 @@ describe('KBStatusBadge — compact (the table) never makes a circle', () => {
     expect(screen.getByText('Rejected')).toHaveClass('whitespace-nowrap');
   });
 
+  it('the KB table renders a waiting decision compact too ("Merge?", not a two-line pill)', () => {
+    const noop = () => undefined;
+    render(
+      <MemoryRouter>
+        <KBTableView
+          entries={[
+            {
+              ...autoRejected,
+              pendingDecision: { suggestionId: 9, kind: 'merge', reasons: [], canDecide: true },
+            },
+          ]}
+          loading={false}
+          canReview
+          onView={noop}
+          onApprove={noop}
+          onHide={noop}
+          onUnhide={noop}
+          onReject={noop}
+          onDelete={noop}
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Merge?')).toHaveAttribute('title', 'Suggested: merge');
+  });
+
   it('control: without compact (card, detail) the full wording stays, pill shapes unchanged', () => {
     render(
       <MemoryRouter>

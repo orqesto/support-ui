@@ -38,4 +38,21 @@ describe('KbPendingDecisionBadge', () => {
     const { container } = render(<KbPendingDecisionBadge decision={null} />);
     expect(container.textContent).toBe('');
   });
+
+  it('compact (the KB table): the action on one line, the full label as its tooltip — no two-line pill', () => {
+    render(
+      <KbPendingDecisionBadge
+        decision={{ suggestionId: 3, kind: 'merge', reasons: [], canDecide: false }}
+        compact
+      />
+    );
+    const badge = screen.getByText('Merge?');
+    expect(badge).toHaveAttribute('title', 'Suggested: merge');
+    expect(badge.className).toContain('whitespace-nowrap');
+    expect(screen.queryByText('Suggested: merge')).toBeNull();
+    expect(screen.getByText('Not yours to decide')).toHaveAttribute(
+      'title',
+      "You can't decide this one — it covers departments you don't moderate."
+    );
+  });
 });
