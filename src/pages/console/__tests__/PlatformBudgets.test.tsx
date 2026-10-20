@@ -27,6 +27,8 @@ const record = (name: string, args: unknown) => {
 let stateResult: BudgetStateResult;
 let migration: BudgetMigration;
 let groupPage: GroupPage;
+/** Set ⇒ declineRequest answers only when this promise settles (a write in flight). */
+let declineHold: Promise<void> | null = null;
 
 vi.mock('@/services/budgets.service', () => ({
   budgetsService: {
@@ -46,7 +48,7 @@ vi.mock('@/services/budgets.service', () => ({
     },
     declineRequest: (id: number) => {
       record('declineRequest', id);
-      return Promise.resolve();
+      return declineHold ?? Promise.resolve();
     },
     updateSettings: (body: unknown) => {
       record('updateSettings', body);
@@ -111,11 +113,11 @@ const GroupStub = () => {
   return <div>group page {key}</div>;
 };
 
-const renderPage = () => {
+const renderPage = (entry = '/console/platform/ai-spend') => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter future={ROUTER_FUTURE} initialEntries={['/console/platform/ai-spend']}>
+      <MemoryRouter future={ROUTER_FUTURE} initialEntries={[entry]}>
         <Routes>
           <Route path="/console/platform/ai-spend" element={<PlatformBudgets />} />
           <Route path="/console/platform/ai-spend/groups/:key" element={<GroupStub />} />
@@ -126,6 +128,7 @@ const renderPage = () => {
 };
 
 beforeEach(() => {
+  declineHold = null;
   calls = {};
   stateResult = { available: true, state: baseState() };
   groupPage = {
@@ -194,6 +197,15 @@ describe('before Apply: the migration panel', () => {
       screen.getByRole('spinbutton', { name: 'Monthly budget for Northwind, million tokens' })
     ).toHaveValue(120);
     expect(calls.listGroups).toBeUndefined();
+  });
+
+  it('the Advanced settings are there before Apply too (they feed the dry run)', async () => {
+    renderPage();
+    await screen.findByText(/Current limits stay in force until you switch/);
+    fireEvent.click(screen.getByRole('button', { name: 'Show' }));
+    fireEvent.change(screen.getByLabelText('Tokens per AI call'), { target: { value: '1600' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+    await waitFor(() => expect(calls.updateSettings).toEqual([{ tokensPerCall: 1600 }]));
   });
 
   it('Apply asks first, then switches on with no overrides', async () => {
@@ -330,9 +342,42 @@ describe('requests card', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Decline' }));
     await waitFor(() => expect(calls.declineRequest).toEqual([41]));
   });
+
+  it('while a decline is on its way, Give and Decline are disabled (no second write)', async () => {
+    declineHold = new Promise<void>(() => {});
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Decline' }));
+    fireEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Decline' })
+    );
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Decline' })).toBeDisabled());
+    expect(screen.getByRole('button', { name: 'Give' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(calls.declineRequest).toEqual([41]);
+  });
 });
 
 describe('advanced settings', () => {
+  it('the Advanced link (#budget-advanced) opens the card and scrolls to it once it mounts', async () => {
+    const scrolled: Element[] = [];
+    const original = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView');
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: function scrollIntoView(this: Element) {
+        scrolled.push(this);
+      },
+    });
+    try {
+      renderPage('/console/platform/ai-spend#budget-advanced');
+      expect(await screen.findByLabelText('Tokens per AI call')).toBeInTheDocument();
+      expect(scrolled.map((element) => element.id)).toEqual(['budget-advanced']);
+    } finally {
+      if (original) Object.defineProperty(Element.prototype, 'scrollIntoView', original);
+      else Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+    }
+  });
+
   it('collapsed; sends only the changed setting', async () => {
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Show' }));

@@ -23,6 +23,8 @@ export type WorkspaceRowsProps = {
    * only on a row the API marks `bulkPaused` (its bulk work is stopped and no extra is left).
    */
   onGiveSuggested?: (row: WorkspaceRow) => void;
+  /** A write is on its way: the one-click give is disabled (no double give on a double click). */
+  busy?: boolean;
 };
 
 export const panelIdFor = (organizationId: number) => `budget-panel-${organizationId}`;
@@ -40,6 +42,7 @@ export const WorkspaceRows = ({
   onTogglePick,
   renderPanel,
   onGiveSuggested,
+  busy = false,
 }: WorkspaceRowsProps) => {
   // Row bars are relative: the biggest workspace fills its bar.
   const biggest = Math.max(1, ...rows.map((row) => row.spend.total + (row.extra?.used ?? 0)));
@@ -127,7 +130,12 @@ export const WorkspaceRows = ({
             </div>
             {onGiveSuggested && row.bulkPaused && (
               <div className="flex justify-end px-3 pb-2">
-                <Button variant="outline" size="sm" onClick={() => onGiveSuggested(row)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => onGiveSuggested(row)}
+                >
                   Give +{fmtTokens(row.suggestedExtra)} extra · {QUICK_EXTRA_LABEL}
                 </Button>
               </div>

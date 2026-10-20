@@ -146,4 +146,56 @@ describe('budgetsService - organisation and workspace', () => {
       body: { tokens: 100 },
     });
   });
+
+  /*
+   * Before the BE is tagged, GET /api/organizations/ai-usage falls through to the OLD server's
+   * `GET /api/organizations/:id` (requireGlobalAdmin, then getById). Its exact answers:
+   */
+  const oldMember = {
+    status: 403,
+    data: { success: false, error: 'Global admin access required', code: 'ROLE_REQUIRED' },
+  };
+  const oldGlobalAdmin = {
+    status: 400,
+    data: { success: false, error: 'Invalid organization ID' },
+  };
+
+  it('old server, a member (403 ROLE_REQUIRED): budgets not available, not an error', async () => {
+    handler = () => oldMember;
+    expect(await budgetsService.getMyAiUsage()).toEqual({ active: false });
+  });
+
+  it('old server, the platform admin (400 Invalid organization ID): not available', async () => {
+    handler = () => oldGlobalAdmin;
+    expect(await budgetsService.getMyAiUsage()).toEqual({ active: false });
+  });
+
+  it('a server without the route (404): not available', async () => {
+    handler = routeAbsent;
+    expect(await budgetsService.getMyAiUsage()).toEqual({ active: false });
+  });
+
+  it("the NEW server's own 403 / 400 stay errors", async () => {
+    handler = () => ({
+      status: 403,
+      data: {
+        success: false,
+        error: 'Insufficient permissions. Required: view_messages',
+        code: 'PERMISSION_DENIED',
+      },
+    });
+    await expect(budgetsService.getMyAiUsage()).rejects.toBeTruthy();
+    handler = () => ({
+      status: 403,
+      data: { success: false, error: 'You do not have access to this workspace' },
+    });
+    await expect(budgetsService.getMyAiUsage()).rejects.toBeTruthy();
+    handler = () => ({
+      status: 400,
+      data: { success: false, error: 'Workspace context required. Please select a workspace.' },
+    });
+    await expect(budgetsService.getMyAiUsage()).rejects.toBeTruthy();
+    handler = () => ({ status: 500, data: { success: false, error: 'boom' } });
+    await expect(budgetsService.getMyAiUsage()).rejects.toBeTruthy();
+  });
 });

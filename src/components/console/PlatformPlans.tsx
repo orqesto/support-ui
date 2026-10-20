@@ -38,7 +38,14 @@ import {
 } from '@/components/console/platformPlanCreate';
 import type { AdminPlan } from '@/services/platform.service';
 import { LimitInputsGrid } from './LimitInputsGrid';
-import { draftFromLimits, formatLimit, LIMIT_FIELDS, UNLIMITED, parseLimitDraft, type LimitDraft } from './limitFields';
+import {
+  draftFromLimits,
+  formatLimit,
+  LIMIT_FIELDS,
+  UNLIMITED,
+  parseLimitDraft,
+  type LimitDraft,
+} from './limitFields';
 
 /**
  * Platform console → plan catalog manager. Unlike the org-scoped AdminPlansTab this is a
@@ -306,7 +313,8 @@ export const PlatformPlans = () => {
                 {tokensPerCall !== null && plan.limits.maxAICallsPerMonth < UNLIMITED && (
                   <span>
                     {' '}
-                    (≈ {formatTokens(plan.limits.maxAICallsPerMonth * tokensPerCall)} tokens / month)
+                    (≈ {formatTokens(plan.limits.maxAICallsPerMonth * tokensPerCall)} tokens /
+                    month)
                   </span>
                 )}
               </p>

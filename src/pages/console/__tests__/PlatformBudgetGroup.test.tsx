@@ -27,6 +27,8 @@ let detail: GroupDetail;
 let afterWrite: ((current: GroupDetail) => GroupDetail) | null = null;
 /** Set ⇒ updateGroup is refused with this API error. */
 let updateRefusal: Error | null = null;
+/** Set ⇒ giveExtra answers only when this promise settles (a write in flight). */
+let giveHold: Promise<{ grants: [] }> | null = null;
 
 vi.mock('@/services/budgets.service', () => ({
   budgetsService: {
@@ -48,7 +50,7 @@ vi.mock('@/services/budgets.service', () => ({
     },
     giveExtra: (body: unknown) => {
       record('giveExtra', body);
-      return Promise.resolve({ grants: [] });
+      return giveHold ?? Promise.resolve({ grants: [] });
     },
     endExtra: (grantIds: number[]) => {
       record('endExtra', grantIds);
@@ -163,6 +165,7 @@ beforeEach(() => {
   calls = {};
   afterWrite = null;
   updateRefusal = null;
+  giveHold = null;
   stateResult = { available: true, state: state() };
   detail = groupDetail();
 });
@@ -287,6 +290,56 @@ describe('the group page', () => {
     );
   });
 
+  it('one-click give: a second click while the first is on its way sends nothing', async () => {
+    giveHold = new Promise(() => {});
+    renderGroup();
+    const give = await screen.findByRole('button', { name: 'Give +15.0M extra · 3 days' });
+    fireEvent.click(give);
+    await waitFor(() => expect(give).toBeDisabled());
+    fireEvent.click(give);
+    expect(calls.giveExtra).toHaveLength(1);
+  });
+
+  it('bulk bar: Give extra, Set limit, Remove limit and End extra wait for a write in flight', async () => {
+    giveHold = new Promise(() => {});
+    detail = groupDetail({ rows: [row(1, 30 * MLN, { extra: extra(81) }), row(2, 20 * MLN)] });
+    renderGroup();
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select Shop 1' }));
+    const bar = within(screen.getByTestId('budget-bulk'));
+    fireEvent.click(bar.getByRole('button', { name: 'Give extra' }));
+    await waitFor(() => expect(bar.getByRole('button', { name: 'Give extra' })).toBeDisabled());
+    fireEvent.click(bar.getByRole('button', { name: 'Give extra' }));
+    expect(calls.giveExtra).toHaveLength(1);
+    for (const name of ['Set limit', 'Remove limit', 'End extra (1)'])
+      expect(bar.getByRole('button', { name })).toBeDisabled();
+  });
+
+  it('no budget: the own-limit slider is not capped at 1M and Set limit sends the value', async () => {
+    detail = groupDetail({ budget: null, budgetSource: 'none' });
+    renderGroup();
+    fireEvent.click(await screen.findByText('Shop 1'));
+    const slider = screen.getByRole('slider', { name: 'Limit for Shop 1' });
+    expect(Number(slider.getAttribute('max'))).toBeGreaterThanOrEqual(50);
+    fireEvent.click(screen.getByRole('switch', { name: 'At most per month' }));
+    fireEvent.change(slider, { target: { value: '40' } });
+    expect(screen.queryByText(/% of the budget/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Set limit' }));
+    await waitFor(() => expect(calls.setWorkspaceLimits).toEqual([[[1], 40 * MLN]]));
+  });
+
+  it('no budget: the bulk bar slider is not capped at 1M either', async () => {
+    detail = groupDetail({ budget: null, budgetSource: 'none' });
+    renderGroup();
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select Shop 1' }));
+    const slider = screen.getByRole('slider', {
+      name: 'Own bulk limit for each selected workspace',
+    });
+    expect(Number(slider.getAttribute('max'))).toBeGreaterThanOrEqual(50);
+    fireEvent.change(slider, { target: { value: '45' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Set limit' }));
+    await waitFor(() => expect(calls.setWorkspaceLimits).toEqual([[[1], 45 * MLN]]));
+  });
+
   it('a typed budget is saved in tokens', async () => {
     renderGroup();
     fireEvent.change(await screen.findByLabelText('Monthly budget'), { target: { value: '120' } });
@@ -337,5 +390,19 @@ describe('BudgetGroupView, organisation mode', () => {
     expect(screen.queryByRole('link', { name: 'Advanced' })).toBeNull();
     // The bulk limit is still theirs to change.
     expect(screen.getByRole('switch', { name: /Limit it/ })).not.toBeDisabled();
+  });
+
+  it('the platform admin in the organisation console gets no editable budget (its PUT has none)', () => {
+    const view = groupDetail({
+      canEdit: { budget: true, bulk: true, workspaceLimits: true, grant: true },
+    });
+    render(
+      <MemoryRouter future={ROUTER_FUTURE}>
+        <BudgetGroupView detail={view} canEdit={view.canEdit} mode="organisation" />
+      </MemoryRouter>
+    );
+    expect(screen.queryByLabelText('Monthly budget')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save budget' })).toBeNull();
+    expect(screen.getByTestId('budget-readonly')).toHaveTextContent('100M');
   });
 });

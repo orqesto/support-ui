@@ -3,7 +3,15 @@ import { BarSegment, BarSlider } from '@/components/ui/BarSlider';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
-import { EXTRA_MAX, EXTRA_MIN, MILLION, fmt, usd, type ExtraEndChoice } from './budget.rules';
+import {
+  EXTRA_MAX,
+  EXTRA_MIN,
+  MILLION,
+  fmt,
+  limitSliderTop,
+  usd,
+  type ExtraEndChoice,
+} from './budget.rules';
 import { END_SEGMENTS, parseEnd } from './ExtraBox';
 import { FieldLabel } from './BulkLimitField';
 
@@ -14,8 +22,10 @@ import { FieldLabel } from './BulkLimitField';
 
 export type BulkBarProps = {
   selected: number;
-  /** The group budget, tokens: the top of the limit slider. */
-  budget: number;
+  /** The group budget, tokens (null = none): the "% of the budget" text. */
+  budget: number | null;
+  /** The limit slider's top, million tokens. Default: limitSliderTop of the budget alone. */
+  top?: number;
   /** How many "Select all" would pick: every workspace matching the search, not only those shown. */
   selectable: number;
   onSelectAll: () => void;
@@ -32,11 +42,14 @@ export type BulkBarProps = {
   canLimit?: boolean;
   /** Show the extra actions (the caller's canEdit.grant). Default true. */
   canGrant?: boolean;
+  /** A write is on its way: the action buttons are disabled (no double give on a double click). */
+  busy?: boolean;
 };
 
 export const BulkBar = ({
   selected,
   budget,
+  top = limitSliderTop({ budget }),
   selectable,
   onSelectAll,
   onUnselectAll,
@@ -47,8 +60,8 @@ export const BulkBar = ({
   onEndExtra,
   canLimit = true,
   canGrant = true,
+  busy = false,
 }: BulkBarProps) => {
-  const top = Math.max(1, Math.round(budget / MILLION));
   const [limitDraft, setLimitDraft] = useState(30);
   const limit = Math.min(limitDraft, top);
   const [eachSuggested, setEachSuggested] = useState(true);
@@ -78,7 +91,10 @@ export const BulkBar = ({
             <div className="flex flex-col gap-1.5">
               <FieldLabel>Own bulk limit for each</FieldLabel>
               <span className="font-mono text-lg">
-                {fmt(limit)} · {Math.round((limit / top) * 100)}% of the budget
+                {fmt(limit)}
+                {budget
+                  ? ` · ${Math.round(((limit * MILLION) / budget) * 100)}% of the budget`
+                  : ''}
               </span>
               <BarSlider
                 value={limit}
@@ -92,10 +108,10 @@ export const BulkBar = ({
                 <BarSegment width={(limit / top) * 100} className="bg-pending" />
               </BarSlider>
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => onSetLimit(limit * MILLION)}>
+                <Button size="sm" disabled={busy} onClick={() => onSetLimit(limit * MILLION)}>
                   Set limit
                 </Button>
-                <Button variant="outline" size="sm" onClick={onRemoveLimit}>
+                <Button variant="outline" size="sm" disabled={busy} onClick={onRemoveLimit}>
                   Remove limit
                 </Button>
               </div>
@@ -139,12 +155,13 @@ export const BulkBar = ({
                 />
                 <Button
                   size="sm"
+                  disabled={busy}
                   onClick={() => onGiveExtra(eachSuggested ? 'suggested' : extra * MILLION, end)}
                 >
                   Give extra
                 </Button>
                 {withExtra > 0 && (
-                  <Button variant="outline" size="sm" onClick={onEndExtra}>
+                  <Button variant="outline" size="sm" disabled={busy} onClick={onEndExtra}>
                     End extra ({withExtra})
                   </Button>
                 )}

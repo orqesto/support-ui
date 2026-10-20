@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import { getErrorStatus } from '@/lib/errorMessages';
+import { getErrorBody, getErrorStatus } from '@/lib/errorMessages';
 
 /*
  * The monthly AI budgets API. The types below are copied VERBATIM from the backend contract
@@ -248,6 +248,28 @@ const alliancePath = (allianceId: number) =>
   `/api/alliances/${encodeURIComponent(String(allianceId))}/budget`;
 const usagePath = '/api/organizations/ai-usage';
 
+/**
+ * Did an OLD backend (no budget routes, FE deployed first) answer GET /api/organizations/ai-usage?
+ * There the path falls through to `GET /api/organizations/:id` (organizationRoutes.ts), which
+ * answers:
+ *   - a non-global-admin: 403 `{ error: 'Global admin access required', code: 'ROLE_REQUIRED' }`
+ *     (requireGlobalAdmin);
+ *   - a global admin: 400 `{ error: 'Invalid organization ID' }` ("ai-usage" is not a number);
+ *   - and a server without the route at all: 404.
+ * The NEW route's own refusals stay errors: its GET guard is requirePermission (403 code
+ * PERMISSION_DENIED, never ROLE_REQUIRED), the workspace context answers 403 "You do not have
+ * access to this workspace" / "Workspace is inactive" and 400 "Workspace context required…". So
+ * a 403 or 400 counts as "old server" only by the exact old body, never by the status alone.
+ */
+const isOldServerUsageAnswer = (error: unknown): boolean => {
+  const status = getErrorStatus(error);
+  if (status === 404) return true;
+  const body = getErrorBody(error);
+  if (status === 403) return body?.code === 'ROLE_REQUIRED';
+  if (status === 400) return body?.error === 'Invalid organization ID';
+  return false;
+};
+
 export const budgetsService = {
   // ---- platform admin ----
   getState: async (): Promise<BudgetStateResult> => {
@@ -337,8 +359,15 @@ export const budgetsService = {
     ),
 
   // ---- workspace (the workspace is the X-Organization-Context) ----
-  getMyAiUsage: async (): Promise<WorkspaceUsage | BudgetsInactive> =>
-    unwrap(await apiClient.get<Envelope<WorkspaceUsage | BudgetsInactive>>(usagePath)),
+  /** An old backend's answer (see isOldServerUsageAnswer) is `{ active: false }`, not an error. */
+  getMyAiUsage: async (): Promise<WorkspaceUsage | BudgetsInactive> => {
+    try {
+      return unwrap(await apiClient.get<Envelope<WorkspaceUsage | BudgetsInactive>>(usagePath));
+    } catch (error) {
+      if (isOldServerUsageAnswer(error)) return { active: false };
+      throw error;
+    }
+  },
 
   updateMyBudget: async (body: WorkspaceBudgetUpdate): Promise<WorkspaceUsage> =>
     unwrap(await apiClient.put<Envelope<WorkspaceUsage>>(usagePath, body)),

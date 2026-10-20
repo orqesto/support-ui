@@ -64,7 +64,11 @@ export const RequestExtraBox = ({
 
   const send = () => {
     const trimmed = reason.trim();
-    const result = onRequest(amountTokens, trimmed === '' ? undefined : trimmed, target?.organizationId ?? null);
+    const result = onRequest(
+      amountTokens,
+      trimmed === '' ? undefined : trimmed,
+      target?.organizationId ?? null
+    );
     if (result)
       void result.then((ok) => {
         if (ok) setReason('');

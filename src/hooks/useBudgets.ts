@@ -116,7 +116,11 @@ export const useUpdateBudgetSettings = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: SettingsUpdate) => budgetsService.updateSettings(body),
-    onSuccess: () => invalidatePlatform(queryClient),
+    onSuccess: () => {
+      invalidatePlatform(queryClient);
+      // Before Apply the dry run is computed from these settings.
+      void queryClient.invalidateQueries({ queryKey: budgetKeys.migration });
+    },
   });
 };
 

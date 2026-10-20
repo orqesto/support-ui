@@ -37,7 +37,13 @@ const ORGS = [
 const submit = async (props: { selfHostedDeployment: boolean }, pick?: string) => {
   const onCreate = vi.fn<(data: Record<string, unknown>) => Promise<void>>().mockResolvedValue();
   render(
-    <CreateOrganizationModal isOpen onClose={() => {}} onCreate={onCreate} organisations={ORGS} {...props} />
+    <CreateOrganizationModal
+      isOpen
+      onClose={() => {}}
+      onCreate={onCreate}
+      organisations={ORGS}
+      {...props}
+    />
   );
   fireEvent.change(screen.getByLabelText('Workspace Name'), { target: { value: 'Arasaka' } });
   if (pick) fireEvent.click(screen.getByRole('button', { name: pick }));
@@ -66,7 +72,13 @@ describe('CreateOrganizationModal organisation choice', () => {
 
   it('the implicit organisation is offered once, by its stored name', () => {
     render(
-      <CreateOrganizationModal isOpen onClose={() => {}} onCreate={vi.fn()} organisations={ORGS} selfHostedDeployment />
+      <CreateOrganizationModal
+        isOpen
+        onClose={() => {}}
+        onCreate={vi.fn()}
+        organisations={ORGS}
+        selfHostedDeployment
+      />
     );
     expect(screen.getAllByRole('button', { name: 'Organisation' })).toHaveLength(1);
   });

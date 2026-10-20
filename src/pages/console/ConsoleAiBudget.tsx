@@ -53,15 +53,13 @@ export const ConsoleAiBudget = () => {
         mode="organisation"
         busy={busy}
         onUpdate={(changes) =>
-          update
-            .mutateAsync({ bulkLimitOn: changes.bulkLimitOn, bulkPct: changes.bulkPct })
-            .then(
-              () => true,
-              (error: unknown) => {
-                failed('Could not save.')(error);
-                return false;
-              }
-            )
+          update.mutateAsync({ bulkLimitOn: changes.bulkLimitOn, bulkPct: changes.bulkPct }).then(
+            () => true,
+            (error: unknown) => {
+              failed('Could not save.')(error);
+              return false;
+            }
+          )
         }
         onSetLimits={(organizationIds, limit) =>
           setLimits.mutate(

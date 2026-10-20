@@ -28,7 +28,12 @@ vi.mock('@/hooks/usePlatformAdmin', () => {
           billingInterval: 'month',
           isActive: true,
           stripePriceId: 'price_1',
-          limits: { maxUsers: 3, maxIntegrations: 2, maxMessagesPerMonth: 500, maxAICallsPerMonth: 10000 },
+          limits: {
+            maxUsers: 3,
+            maxIntegrations: 2,
+            maxMessagesPerMonth: 500,
+            maxAICallsPerMonth: 10000,
+          },
         },
       ],
     }),
@@ -45,7 +50,9 @@ const { PlatformPlans } = await import('../PlatformPlans');
 
 const renderPlans = () =>
   render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
       <PlatformPlans />
     </QueryClientProvider>
   );

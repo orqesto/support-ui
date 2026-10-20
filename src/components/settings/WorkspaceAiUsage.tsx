@@ -96,7 +96,11 @@ export const WorkspaceAiUsage = () => {
             canEdit={canEdit.bulk}
             onBulkPctChange={(bulkPct) => save({ bulkPct })}
           />
-          <StatusText tone={data.groupStatus.tone} text={data.groupStatus.text} testId="group-status" />
+          <StatusText
+            tone={data.groupStatus.tone}
+            text={data.groupStatus.text}
+            testId="group-status"
+          />
         </CardContent>
       </Card>
 
@@ -107,7 +111,9 @@ export const WorkspaceAiUsage = () => {
             <div className="flex flex-col gap-1.5">
               <FieldLabel>Its bulk limit</FieldLabel>
               <span className="font-mono text-lg" data-testid="my-bulk-limit">
-                {data.myBulkLimit === null ? 'No own limit' : `At most ${fmtTokens(data.myBulkLimit)}`}
+                {data.myBulkLimit === null
+                  ? 'No own limit'
+                  : `At most ${fmtTokens(data.myBulkLimit)}`}
               </span>
             </div>
             <div className="flex flex-col gap-1.5">

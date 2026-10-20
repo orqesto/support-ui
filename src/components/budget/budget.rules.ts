@@ -10,6 +10,9 @@ export const PRICE_PER_MILLION = 0.925 * 0.1 + 0.075 * 0.5;
 
 export const MILLION = 1_000_000;
 
+/** Id of the Advanced card on Platform → AI Spend; the group page links to it. */
+export const ADVANCED_ANCHOR = 'budget-advanced';
+
 /** Extra amount slider range, million tokens. */
 export const EXTRA_MIN = 5;
 export const EXTRA_MAX = 200;
@@ -23,6 +26,36 @@ export const END_CHOICES: ReadonlyArray<{ value: ExtraEndChoice; label: string }
 ];
 /** The row shortcut gives the suggested extra for 3 days. */
 export const QUICK_EXTRA_END: ExtraEndChoice = 3;
+
+/** An own-bulk-limit slider never tops out below this, million tokens (a group may have no budget). */
+export const LIMIT_SLIDER_FLOOR = 50;
+
+/**
+ * Top of an own-bulk-limit slider, million tokens: the biggest of the budget, the group's month
+ * spend, the workspaces' current limits, twice their month spend and LIMIT_SLIDER_FLOOR, rounded
+ * up to 5M. So a group with no budget is not capped at 1M, an existing limit always fits, and a
+ * workspace's spend is visible on the bar before a limit below it is saved. Takes tokens.
+ */
+export const limitSliderTop = ({
+  budget,
+  groupSpend = 0,
+  limits = [],
+  spends = [],
+}: {
+  budget: number | null;
+  groupSpend?: number;
+  limits?: ReadonlyArray<number | null>;
+  spends?: ReadonlyArray<number>;
+}): number => {
+  const tokens = Math.max(
+    budget ?? 0,
+    groupSpend,
+    ...limits.map((limit) => limit ?? 0),
+    ...spends.map((spend) => 2 * spend),
+    LIMIT_SLIDER_FLOOR * MILLION
+  );
+  return Math.ceil(tokens / MILLION / 5) * 5;
+};
 
 /** Million tokens: "106M", "28.0M". */
 export const fmt = (millions: number): string =>

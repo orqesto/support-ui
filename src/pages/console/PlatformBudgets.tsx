@@ -225,7 +225,11 @@ export const PlatformBudgets = () => {
       ) : data.state.active ? (
         <GroupList state={data.state} />
       ) : (
-        <BudgetMigrationPanel />
+        <>
+          <BudgetMigrationPanel />
+          {/* Before Apply too: the settings (tokens per call, default %) feed the dry run. */}
+          <BudgetAdvancedCard settings={data.state.settings} selfHosted={data.state.selfHosted} />
+        </>
       )}
     </section>
   );

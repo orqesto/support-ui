@@ -1,15 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { MILLION } from '@/components/budget/budget.rules';
+import { ADVANCED_ANCHOR, MILLION } from '@/components/budget/budget.rules';
 import { useUpdateBudgetSettings } from '@/hooks/useBudgets';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import type { BudgetSettingsView, SettingsUpdate } from '@/services/budgets.service';
 
-export const ADVANCED_ANCHOR = 'budget-advanced';
+export { ADVANCED_ANCHOR };
 
 type Field = {
   key: keyof SettingsUpdate;
@@ -76,7 +76,16 @@ export const BudgetAdvancedCard = ({
   selfHosted: boolean;
 }) => {
   const location = useLocation();
-  const [open, setOpen] = useState(() => location.hash === `#${ADVANCED_ANCHOR}`);
+  const linkedHere = location.hash === `#${ADVANCED_ANCHOR}`;
+  const [open, setOpen] = useState(linkedHere);
+  // The card mounts only once the budget state has loaded (it sits at the bottom of a long page),
+  // so the browser's own jump to the hash has already missed it: scroll to it here.
+  useEffect(() => {
+    if (linkedHere)
+      document
+        .getElementById(ADVANCED_ANCHOR)
+        ?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }, [linkedHere]);
   const [drafts, setDrafts] = useState<Partial<Record<keyof SettingsUpdate, string>>>({});
   const [error, setError] = useState<string | null>(null);
   const save = useUpdateBudgetSettings();

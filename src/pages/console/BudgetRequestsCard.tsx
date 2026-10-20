@@ -28,6 +28,7 @@ export const BudgetRequestsCard = ({
   const [declining, setDeclining] = useState<RequestRow | null>(null);
   const give = useGiveExtra(groupKey);
   const decline = useDeclineRequest(groupKey);
+  const busy = give.isPending || decline.isPending;
 
   if (count === 0) return null;
 
@@ -56,13 +57,19 @@ export const BudgetRequestsCard = ({
                   <Button
                     size="sm"
                     variant={giving === request.id ? 'outline' : 'primary'}
+                    disabled={busy}
                     onClick={() =>
                       setGiving((current) => (current === request.id ? null : request.id))
                     }
                   >
                     {giving === request.id ? 'Cancel' : 'Give'}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setDeclining(request)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy}
+                    onClick={() => setDeclining(request)}
+                  >
                     Decline
                   </Button>
                 </div>
@@ -73,7 +80,7 @@ export const BudgetRequestsCard = ({
                     key={`request-${request.id}`}
                     extra={null}
                     initialAmount={request.tokens}
-                    busy={give.isPending}
+                    busy={busy}
                     onGive={(tokens, end) =>
                       give.mutate(
                         {

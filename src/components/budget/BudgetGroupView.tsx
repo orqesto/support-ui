@@ -21,12 +21,14 @@ import { RequestExtraBox, type RequestTarget } from './RequestExtraBox';
 import { StatusText } from './StatusText';
 import { WorkspaceRows, panelIdFor } from './WorkspaceRows';
 import {
+  ADVANCED_ANCHOR,
   MILLION,
   QUICK_EXTRA_END,
   extraEndsText,
   extraLeft,
   fmt,
   fmtTokens,
+  limitSliderTop,
   usdTokens,
   type ExtraEndChoice,
 } from './budget.rules';
@@ -196,7 +198,12 @@ const WorkspacePanel = ({
   onEndExtra?: BudgetGroupViewProps['onEndExtra'];
   onClose: () => void;
 }) => {
-  const top = Math.max(1, Math.round((detail.budget ?? 0) / MILLION));
+  const top = limitSliderTop({
+    budget: detail.budget,
+    groupSpend: detail.spend.total,
+    limits: [row.bulkLimit],
+    spends: [row.spend.total],
+  });
   const [limitOn, setLimitOn] = useState(row.bulkLimit !== null);
   const [draft, setDraft] = useState(() =>
     Math.min(
@@ -226,9 +233,11 @@ const WorkspacePanel = ({
                 label="At most per month"
               />
               <span className="font-mono text-lg">
-                {limitOn
-                  ? `${fmt(draft)} · ${Math.round((draft / top) * 100)}% of the budget`
-                  : 'No own limit · only the organisation bulk limit applies'}
+                {!limitOn
+                  ? 'No own limit · only the organisation bulk limit applies'
+                  : detail.budget
+                    ? `${fmt(draft)} · ${Math.round(((draft * MILLION) / detail.budget) * 100)}% of the budget`
+                    : fmt(draft)}
               </span>
               <BarSlider
                 value={draft}
@@ -240,9 +249,9 @@ const WorkspacePanel = ({
                 ariaLabel={`Limit for ${row.name}`}
                 ariaValueText={`${fmt(draft)} tokens`}
                 markers={
-                  detail.bulkLimitOn ? (
+                  detail.bulkLimitOn && detail.budget ? (
                     <BarMarker
-                      at={detail.bulkPct}
+                      at={Math.min(100, (detail.budget * detail.bulkPct) / (top * MILLION))}
                       variant="tick"
                       title="Organisation: bulk limit"
                     />
@@ -318,8 +327,10 @@ export const BudgetGroupView = ({
   onEndExtra,
   onRequestExtra,
 }: BudgetGroupViewProps) => {
-  // Only the platform admin gives extra: the organisation console never offers Give / End.
-  const canEdit: CanEdit = mode === 'organisation' ? { ...apiCanEdit, grant: false } : apiCanEdit;
+  // Only the platform admin gives extra, and the budget is never set from the organisation console
+  // (its PUT takes no budget): there the platform admin, too, gets neither control.
+  const canEdit: CanEdit =
+    mode === 'organisation' ? { ...apiCanEdit, grant: false, budget: false } : apiCanEdit;
   const [requestOpen, setRequestOpen] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
   const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
@@ -468,7 +479,14 @@ export const BudgetGroupView = ({
           {canPick && (
             <BulkBar
               selected={pickedIds.length}
-              budget={detail.budget ?? 0}
+              budget={detail.budget}
+              top={limitSliderTop({
+                budget: detail.budget,
+                groupSpend: detail.spend.total,
+                limits: pickedRows.map((row) => row.bulkLimit),
+                spends: pickedRows.map((row) => row.spend.total),
+              })}
+              busy={busy}
               selectable={list.length}
               onSelectAll={() => setPicked(new Set(list.map((row) => row.organizationId)))}
               onUnselectAll={() => setPicked(new Set())}
@@ -494,6 +512,7 @@ export const BudgetGroupView = ({
             groupTotal={detail.spend.total}
             openId={openId}
             onToggleOpen={(id) => setOpenId((current) => (current === id ? null : id))}
+            busy={busy}
             picked={canPick ? picked : undefined}
             onTogglePick={
               canPick
@@ -541,7 +560,7 @@ export const BudgetGroupView = ({
             )}
             {mode === 'platform' && (
               <Link
-                to="/console/platform/ai-spend#budget-advanced"
+                to={`/console/platform/ai-spend#${ADVANCED_ANCHOR}`}
                 className="text-sm text-primary hover:underline"
               >
                 Advanced
