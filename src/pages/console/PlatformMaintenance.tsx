@@ -11,6 +11,8 @@ import { Select, type Option } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Toggle } from '@/components/ui/Toggle';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
+import { GlobalAdminMembershipsCard } from '@/components/console/maintenance/GlobalAdminMembershipsCard';
+import { SyncCheckpointsCard } from '@/components/console/maintenance/SyncCheckpointsCard';
 import {
   REPAIRS,
   REPAIRS_ELSEWHERE,
@@ -468,6 +470,10 @@ export const PlatformMaintenance = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Platform-wide tools moved here from Console → System (2026-10-20). */}
+      <SyncCheckpointsCard />
+      <GlobalAdminMembershipsCard />
     </div>
   );
 };

@@ -60,3 +60,16 @@ describe('PlatformSystem — CPU in cores', () => {
     ).toBeTruthy();
   });
 });
+
+describe('PlatformSystem — health only', () => {
+  it('no longer carries the run-something cards (they live on Console → Maintenance)', () => {
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <PlatformSystem />
+      </QueryClientProvider>
+    );
+    expect(screen.queryByText('Sync checkpoints')).toBeNull();
+    expect(screen.queryByText('Global-admin memberships')).toBeNull();
+    expect(screen.queryByText('Maintenance')).toBeNull();
+  });
+});

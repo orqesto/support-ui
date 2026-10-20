@@ -156,7 +156,6 @@ export const REPAIRS_ELSEWHERE: Array<{ label: string; where: string }> = [
     label: 'Re-read a KB mailbox’s history',
     where: 'Workspace Settings → System → Cleanup (Knowledge base repair)',
   },
-  { label: 'Global-admin memberships', where: 'Console → System' },
 ];
 
 /** The flags a repair sets when it stopped at its limit and should be run again. */
