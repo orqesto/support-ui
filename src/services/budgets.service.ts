@@ -29,7 +29,7 @@ export type GroupSummary = {
   name: string;
   /** In force this month: the override, else (hosted, our key) the plans' sum, else null. */
   budget: number | null;
-  budgetSource: 'override' | 'plans' | 'none';
+  budgetSource: 'override' | 'plans' | 'default' | 'none';
   bulkLimitOn: boolean;
   bulkPct: number;
   /** extra = tokens charged to extra this month (outside the budget). live = total − bulk. */
@@ -102,6 +102,8 @@ export type BudgetSettingsView = {
   defaultBulkPct: number;
   tokensPerCall: number;
   serverCeiling: number | null;
+  /** Self-hosted: the budget of a standalone workspace with none of its own; null = none. */
+  defaultStandaloneBudget: number | null;
   liveSpikeFactor: number;
   workspaceBulkLimits: Record<string, number>;
 };
@@ -130,7 +132,7 @@ export type WorkspaceUsage = {
   active: true;
   group: { key: string; kind: 'alliance' | 'workspace'; name: string };
   budget: number | null;
-  budgetSource: 'override' | 'plans' | 'none';
+  budgetSource: 'override' | 'plans' | 'default' | 'none';
   bulkLimitOn: boolean;
   bulkPct: number;
   bulkPctMin: number;
@@ -224,6 +226,7 @@ export type SettingsUpdate = Partial<
     | 'defaultBulkPct'
     | 'tokensPerCall'
     | 'serverCeiling'
+    | 'defaultStandaloneBudget'
     | 'liveSpikeFactor'
   >
 >;

@@ -79,6 +79,7 @@ const state = (over: Partial<BudgetState> = {}): BudgetState => ({
     defaultBulkPct: 60,
     tokensPerCall: 1490,
     serverCeiling: null,
+    defaultStandaloneBudget: null,
     liveSpikeFactor: 3,
     workspaceBulkLimits: {},
   },
@@ -355,6 +356,23 @@ describe('the group page', () => {
     expect(screen.queryByLabelText('Monthly budget')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Override' }));
     expect(screen.getByLabelText('Monthly budget')).toHaveValue(14.9);
+  });
+
+  it('self-hosted standalone on the default budget: says so, and Override opens the field', async () => {
+    detail = groupDetail({
+      key: 'w:5',
+      kind: 'workspace',
+      id: 5,
+      budget: 40 * MLN,
+      budgetSource: 'default',
+    });
+    renderGroup();
+    expect(await screen.findByText('Default for standalone workspaces: 40.0M')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Monthly budget')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Override' }));
+    fireEvent.change(screen.getByLabelText('Monthly budget'), { target: { value: '55' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save budget' }));
+    await waitFor(() => expect(calls.updateGroup).toEqual([['a:7', { budget: 55 * MLN }]]));
   });
 
   it('organisation-wide extra goes to the organisation, not a workspace', async () => {

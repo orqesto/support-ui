@@ -81,6 +81,7 @@ function baseState(over: Partial<BudgetState> = {}): BudgetState {
       defaultBulkPct: 60,
       tokensPerCall: 1490,
       serverCeiling: null,
+      defaultStandaloneBudget: null,
       liveSpikeFactor: 3,
       workspaceBulkLimits: {},
     },
@@ -402,5 +403,25 @@ describe('advanced settings', () => {
     fireEvent.change(screen.getByLabelText(/Server ceiling/), { target: { value: '600' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
     await waitFor(() => expect(calls.updateSettings).toEqual([{ serverCeiling: 600 * MLN }]));
+  });
+
+  it('self-hosted: the default standalone budget is sent only when changed', async () => {
+    stateResult = { available: true, state: baseState({ selfHosted: true }) };
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Show' }));
+    const field = screen.getByLabelText(/Default budget for new standalone workspaces/);
+    expect(field).toHaveValue(null);
+    fireEvent.change(field, { target: { value: '40' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+    await waitFor(() =>
+      expect(calls.updateSettings).toEqual([{ defaultStandaloneBudget: 40 * MLN }])
+    );
+  });
+
+  it('hosted: no default standalone budget field', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Show' }));
+    expect(screen.getByLabelText('Tokens per AI call')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Default budget for new standalone workspaces/)).toBeNull();
   });
 });

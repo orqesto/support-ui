@@ -55,6 +55,13 @@ const FIELDS: Field[] = [
     nullable: true,
   },
   {
+    key: 'defaultStandaloneBudget',
+    label: 'Default budget for new standalone workspaces, million tokens / month',
+    hint: 'A standalone workspace with no budget of its own gets this. Empty = none.',
+    millions: true,
+    nullable: true,
+  },
+  {
     key: 'liveSpikeFactor',
     label: 'Live spike warning, × a usual day',
     hint: 'A workspace whose live mail today is this many times its usual day gets a warning.',
@@ -89,9 +96,14 @@ export const BudgetAdvancedCard = ({
   const [drafts, setDrafts] = useState<Partial<Record<keyof SettingsUpdate, string>>>({});
   const [error, setError] = useState<string | null>(null);
   const save = useUpdateBudgetSettings();
-  // Hosted: tokens per call turns plans into budgets. Self-hosted: the server ceiling.
+  // Hosted: tokens per call turns plans into budgets. Self-hosted only (the API refuses them on
+  // hosted): the server ceiling and the default standalone budget.
   const fields = FIELDS.filter((field) =>
-    field.key === 'tokensPerCall' ? !selfHosted : field.key === 'serverCeiling' ? selfHosted : true
+    field.key === 'tokensPerCall'
+      ? !selfHosted
+      : field.key === 'serverCeiling' || field.key === 'defaultStandaloneBudget'
+        ? selfHosted
+        : true
   );
 
   const onSave = () => {

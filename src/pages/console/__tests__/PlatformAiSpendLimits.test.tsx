@@ -122,6 +122,7 @@ const budgetSettings = {
   defaultBulkPct: 60,
   tokensPerCall: 1490,
   serverCeiling: null,
+  defaultStandaloneBudget: null,
   liveSpikeFactor: 3,
   workspaceBulkLimits: {},
 };

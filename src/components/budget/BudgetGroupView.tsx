@@ -109,13 +109,17 @@ export const BudgetField = ({
       </div>
     );
 
-  if (detail.budgetSource === 'plans' && !overriding)
+  // The budget is not the group's own: hosted plans' sum, or the self-hosted standalone default.
+  const inherited = detail.budgetSource === 'plans' || detail.budgetSource === 'default';
+  if (inherited && !overriding)
     return (
       <div className="flex flex-col gap-1.5">
         <FieldLabel>Monthly budget</FieldLabel>
         <div className="flex flex-wrap gap-2.5 items-center">
           <span className="font-mono text-lg">
-            From plans: {detail.budget === null ? '—' : fmtTokens(detail.budget)}
+            {`${detail.budgetSource === 'plans' ? 'From plans' : 'Default for standalone workspaces'}: ${
+              detail.budget === null ? '—' : fmtTokens(detail.budget)
+            }`}
           </span>
           <Button variant="outline" size="sm" onClick={() => setOverriding(true)}>
             Override
@@ -134,7 +138,7 @@ export const BudgetField = ({
     void onUpdate?.({ budget });
   };
   const saved = millionsText(detail.budget);
-  const changed = draft.trim() !== saved || (detail.budgetSource === 'plans' && overriding);
+  const changed = draft.trim() !== saved || (inherited && overriding);
 
   return (
     <div className="flex flex-col gap-1.5">
