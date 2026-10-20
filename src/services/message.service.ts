@@ -792,6 +792,12 @@ export const messageService = {
         /** false when a guided draft came from the agent's own facts, not the KB. */
         groundedInKb?: boolean;
         aiConfigured?: boolean;
+        /**
+         * Where the team stands on the email being answered (only copied, not listed, a colleague's).
+         * Absent for mail written to us and from a backend that predates it — read it with
+         * `readEnvelope` from `@/lib/messageEnvelope`, never directly.
+         */
+        envelope?: unknown;
       }>
     >(`/api/messages/${id}/compose-reply`, payload);
     return response.data;

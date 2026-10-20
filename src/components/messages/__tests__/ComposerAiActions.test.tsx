@@ -6,7 +6,12 @@ import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-libra
 // @typescript-eslint/no-unsafe-return rejects an untyped vi.fn() passthrough.
 const composeReply = vi.fn<
   (...args: unknown[]) => Promise<{
-    data: { text: string | null; language?: string; groundedInKb?: boolean };
+    data: {
+      text: string | null;
+      language?: string;
+      groundedInKb?: boolean;
+      envelope?: unknown;
+    };
   }>
 >();
 
@@ -375,6 +380,31 @@ describe('ComposerAiActions — the editor is the only input', () => {
       pressDraft();
       expect((await screen.findByRole('alert')).textContent).toMatch(/Nothing could be drafted/);
       expect(composerNow).toBe('<p>mine</p>');
+    });
+  });
+
+  describe('says when the email was not written to the team', () => {
+    it.each([
+      [{ position: 'cc', senderIsColleague: false }, /only on Cc/],
+      [{ position: 'not_listed', senderIsColleague: false }, /isn't among the recipients/],
+      [{ position: 'cc', senderIsColleague: true }, /A colleague wrote this to the customer/],
+    ])('%o → explains the draft', async (envelope, expected) => {
+      composeReply.mockResolvedValue({ data: { text: 'Noted, thank you.', envelope } });
+      render(<Host initial="" />);
+      pressDraft();
+      expect(await screen.findByText(expected)).toBeTruthy();
+    });
+
+    it.each([
+      ['addressed to the team', { position: 'to', senderIsColleague: false }],
+      ['an older backend (no envelope)', undefined],
+      ['a malformed envelope', { position: 'bcc' }],
+    ])('CONTROL: %s → no hint', async (_name, envelope) => {
+      composeReply.mockResolvedValue({ data: { text: 'Answer.', envelope } });
+      render(<Host initial="" />);
+      pressDraft();
+      await waitFor(() => expect(composerNow).toContain('Answer.'));
+      expect(screen.queryByTestId('ai-draft-envelope-hint')).toBeNull();
     });
   });
 
