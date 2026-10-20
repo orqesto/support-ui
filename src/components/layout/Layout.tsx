@@ -56,7 +56,6 @@ import { OrganizationSwitcher } from './OrganizationSwitcher';
 import { WorkspaceBanner } from './WorkspaceBanner';
 import { DepartmentSwitcher } from './DepartmentSwitcher';
 import { useNotificationCounts } from '@/hooks/useNotificationCounts';
-import { useTicketsCount } from '@/hooks/useTicketsCount';
 import { VersionStatus } from './VersionStatus';
 import { ThemeToggle } from './ThemeToggle';
 import { NotificationCenter } from './NotificationCenter';
@@ -361,19 +360,6 @@ export const Layout = ({ children }: LayoutProps) => {
   // the sidebar and the Notification Center bell share one number.
   const { counts: notificationCounts } = useNotificationCounts();
   const needsRoutingCount = notificationCounts['needs_routing'] ?? 0;
-  // Tickets nav stays hidden until the org has its first ticket.
-  //
-  // This used to treat `undefined` (loading) as "show", to avoid a flash that hid the
-  // link from users who do have tickets. That traded one visible glitch for a worse one:
-  // orgs with NO tickets watched the item appear and then vanish on every cold load —
-  // and, because the count's queryKey carries org + dept, on every org/department switch
-  // too. `useTicketsCount` now seeds from the last known count for that exact scope, so
-  // the answer is normally already known at first render and neither flash occurs.
-  // `undefined` therefore means "never fetched for this scope on this device", where
-  // staying hidden is the honest default — it matches the feature's intent, and the link
-  // appears as soon as the count confirms it.
-  const { data: ticketsCount } = useTicketsCount();
-  const hasTickets = (ticketsCount ?? 0) > 0;
   const hasRoutingItems = needsRoutingCount > 0;
 
   // Join/leave organization-specific WebSocket rooms for targeted event delivery
@@ -456,11 +442,8 @@ export const Layout = ({ children }: LayoutProps) => {
         if (item.flagRequired && !isSurfaceVisibleToMe(item.flagRequired)) {
           return false;
         }
-        // Hide Tickets until the org actually has one. Cuts noise for inbox-only
-        // teams; the link reappears the moment a ticket is created (60s polling).
-        if (item.href === '/tickets' && !hasTickets) {
-          return false;
-        }
+        // Tickets is shown even before the first ticket (it used to wait for one): New ticket
+        // lives on that page, so a workspace with none could never make one (prod 2026-10-20).
         if (item.href === '/needs-routing' && !hasRoutingItems) {
           return false;
         }
@@ -475,7 +458,6 @@ export const Layout = ({ children }: LayoutProps) => {
       hasFeature,
       isSurfaceVisibleToMe,
       user?.role,
-      hasTickets,
       hasRoutingItems,
       billingEnabled,
       showAllianceConsole,
