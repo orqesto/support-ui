@@ -3,7 +3,7 @@
 // renderer out is the natural follow-up refactor.
 /* eslint-disable max-lines */
 import { useState, useEffect, type KeyboardEvent, type MouseEvent } from 'react';
-import { AlertTriangle, BookOpen, Check, ChevronDown, ChevronUp, Clock, ExternalLink, FileText, Globe, Languages, Loader2, MessageCircle, Quote, Search, Sparkles, TrendingUp, User } from 'lucide-react';
+import { BookOpen, Check, ChevronDown, ChevronUp, Clock, ExternalLink, FileText, Globe, Languages, Loader2, MessageCircle, Quote, Search, Sparkles, TrendingUp, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -72,22 +72,6 @@ const NO_ANSWER_COPY: Record<string, string> = {
   default: 'No reply was drafted for this message.',
 };
 
-/** A choosable card's click + keyboard props — none at all when the dialog is read-only. */
-const selectableProps = (selectable: boolean, onSelect: () => void) =>
-  selectable
-    ? {
-        onClick: onSelect,
-        onKeyDown: (event: KeyboardEvent) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            onSelect();
-          }
-        },
-        role: 'button' as const,
-        tabIndex: 0,
-      }
-    : {};
-
 export const SimilarMessagesDialog = ({
   messageId,
   open,
@@ -97,14 +81,15 @@ export const SimilarMessagesDialog = ({
   preloadedTitle,
 }: SimilarMessagesDialogProps) => {
   /*
-    Read-only without a handler (an inactive thread's AI/KB tab): nothing here can be put into a
-    reply, so nothing is offered as a choice either — no selectable rows, no "Selected" badge or
-    ring, no "read it before sending" caution, and the footer just closes.
+    Only the AI-generated reply can be put into a reply. Sources are internal material — notes,
+    internal rules, other customers' messages — shown for reference only, never as a choice
+    (support request 2026-10-20: a source could be sent to a customer by accident).
+    Read-only without a handler (an inactive thread's AI/KB tab): no "Selected" badge or ring,
+    and the footer just closes.
   */
   const selectable = Boolean(onSelectAnswer);
   const [loading, setLoading] = useState(false);
   const [similarMessages, setSimilarMessages] = useState<SimilarMessage[]>(preloadedSources ?? []);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [expandedQuotes, setExpandedQuotes] = useState<Set<number>>(new Set());
   const [showEnglish, setShowEnglish] = useState<Record<number, boolean>>({});
   const [aiMode, setAiMode] = useState<'ai-generated' | 'search-results' | null>(null);
@@ -119,7 +104,6 @@ export const SimilarMessagesDialog = ({
   const [noAnswerReason, setNoAnswerReason] = useState<string | null>(null);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [aiConfidence, setAiConfidence] = useState<number>(0);
-  const [useAiResponse, setUseAiResponse] = useState(false);
   const [translatedAiResponse, setTranslatedAiResponse] = useState<string | null>(null);
   /** The language the shown translation is IN — the picker may have moved on since. */
   const [translatedLanguageName, setTranslatedLanguageName] = useState<string | null>(null);
@@ -191,22 +175,14 @@ export const SimilarMessagesDialog = ({
     return undefined;
   }, [open, messageId, preloadedSources]);
 
-  /**
-   * Is the highlighted row raw source text rather than an authored reply? Drives both the
-   * caution and the button wording — a documentation chunk and a reply an agent actually
-   * sent are not the same artefact and must not be offered as though they were.
-   */
-  const selectedIsRawSource =
-    selectable &&
-    !useAiResponse &&
-    selectedIndex !== null &&
-    similarMessages[selectedIndex]?.isRawSourceText === true;
+  /** The only thing this window can put into a reply. Without it the window is for reading. */
+  const canUseAiResponse = selectable && aiMode === 'ai-generated' && Boolean(aiResponse);
 
   const handleUseAnswer = async () => {
     // Its controls only render with a handler; this keeps the type honest.
     if (!onSelectAnswer) return;
     // If AI response is selected
-    if (useAiResponse && aiResponse) {
+    if (canUseAiResponse && aiResponse) {
       const textToUse =
         useTranslatedVersion && translatedAiResponse ? translatedAiResponse : aiResponse;
       // Save to message metadata for persistence
@@ -220,32 +196,6 @@ export const SimilarMessagesDialog = ({
         logger.error('Failed to save suggested answer:', error);
       }
       onSelectAnswer(textToUse, 'ai-generated');
-      onClose();
-      return;
-    }
-
-    // Otherwise use selected source
-    if (selectedIndex !== null && similarMessages[selectedIndex]) {
-      const msg = similarMessages[selectedIndex];
-      // Use the version the user is currently viewing (English or native)
-      const answer =
-        showEnglish[selectedIndex] && msg.directReplyEnglish
-          ? msg.directReplyEnglish
-          : msg.directReply;
-
-      // Save to message metadata for persistence
-      try {
-        await messageService.saveSuggestedAnswer(messageId, {
-          answer,
-          similarity: msg.similarity,
-          source: msg.source,
-          documentTitle: msg.documentTitle,
-        });
-      } catch (error) {
-        logger.error('Failed to save suggested answer:', error);
-      }
-
-      onSelectAnswer(answer, msg.source);
       onClose();
     }
   };
@@ -269,9 +219,8 @@ export const SimilarMessagesDialog = ({
           languages?.find((lang) => lang.code === selectedLanguage)?.name ?? selectedLanguage
         );
         // Every translation leaves the original selected: the customer's language is what is sent
-        // unless the agent chooses otherwise. A source the agent already picked stays picked.
+        // unless the agent chooses otherwise.
         setUseTranslatedVersion(false);
-        if (selectable && selectedIndex === null) setUseAiResponse(true);
       }
     } catch (error) {
       logger.error('Translation failed:', error);
@@ -336,16 +285,10 @@ export const SimilarMessagesDialog = ({
           {!loading && aiMode === 'ai-generated' && aiResponse && (
             <div className="mb-4">
               <div
-                {...selectableProps(selectable, () => {
-                  setUseAiResponse(true);
-                  setSelectedIndex(null);
-                })}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  !selectable
-                    ? 'border-dashed border-muted-foreground/30'
-                    : useAiResponse
-                      ? 'cursor-pointer ring-2 border-primary bg-primary/10 ring-primary'
-                      : 'cursor-pointer border-dashed border-muted-foreground/30 hover:border-primary hover:bg-accent/20'
+                className={`p-4 rounded-lg border-2 ${
+                  canUseAiResponse
+                    ? 'ring-2 border-primary bg-primary/10 ring-primary'
+                    : 'border-dashed border-muted-foreground/30'
                 }`}
               >
                 <div className="flex justify-between items-start mb-3">
@@ -427,12 +370,8 @@ export const SimilarMessagesDialog = ({
                       ] as const
                     ).map((version) => {
                       const chosen =
-                        selectable && useAiResponse && useTranslatedVersion === version.translated;
-                      const choose = () => {
-                        setUseAiResponse(true);
-                        setSelectedIndex(null);
-                        setUseTranslatedVersion(version.translated);
-                      };
+                        canUseAiResponse && useTranslatedVersion === version.translated;
+                      const choose = () => setUseTranslatedVersion(version.translated);
                       return (
                         <div
                           key={version.label}
@@ -509,7 +448,7 @@ export const SimilarMessagesDialog = ({
                   </div>
                 )}
 
-                {selectable && useAiResponse && (
+                {canUseAiResponse && (
                   <div className="flex justify-center items-center mt-3">
                     <Badge variant="success" className="text-xs">
                       <Check className="mr-1 w-3 h-3" />
@@ -525,7 +464,7 @@ export const SimilarMessagesDialog = ({
           {!loading && aiMode === 'ai-generated' && similarMessages.length > 0 && (
             <div className="mb-2">
               <h4 className="font-display text-xs font-medium tracking-[0.09em] uppercase text-muted-foreground">
-                {selectable ? 'Or choose from sources:' : 'Sources:'}
+                {selectable ? 'Sources (for reference, not for sending):' : 'Sources:'}
               </h4>
             </div>
           )}
@@ -555,14 +494,7 @@ export const SimilarMessagesDialog = ({
                       ? `doc-${msg.documentationId}-${index}`
                       : `msg-${msg.messageId}-${index}`
                   }
-                  {...selectableProps(selectable, () => setSelectedIndex(index))}
-                  className={`p-4 rounded-lg border transition-all ${
-                    !selectable
-                      ? ''
-                      : selectedIndex === index
-                        ? 'cursor-pointer ring-2 ring-primary bg-accent/50'
-                        : 'cursor-pointer hover:border-primary hover:bg-accent/20'
-                  }`}
+                  className="p-4 rounded-lg border"
                 >
                   {/* Header */}
                   <div className="flex justify-between items-start mb-3">
@@ -824,54 +756,24 @@ export const SimilarMessagesDialog = ({
                     )}
                   </div>
 
-                  {selectable && selectedIndex === index && (
-                    <div className="flex justify-center items-center mt-3">
-                      <Badge variant="success" className="text-xs">
-                        <Check className="mr-1 w-3 h-3" />
-                        Selected
-                      </Badge>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* ⛔ The selected row is documentation, not a reply somebody sent a customer.
-            Inserting it verbatim is a real path for internal content to reach a customer —
-            a customer's top-ranked chunk on prod was an internal hand-off note for agents.
-            The insert is still allowed (agents legitimately paste a passage
-            and edit it); what is removed is the false equivalence with a written answer. */}
-        {selectedIsRawSource && (
-          <div className="flex gap-2 items-start px-6 pt-3 text-[13px] text-warning">
-            <AlertTriangle className="flex-shrink-0 mt-0.5 w-4 h-4" />
-            <span>
-              This is raw documentation written for agents, not a reply to a customer. It may
-              contain internal notes — read it before sending.
-            </span>
-          </div>
-        )}
-
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            {selectable ? 'Cancel' : 'Close'}
+            {canUseAiResponse ? 'Cancel' : 'Close'}
           </Button>
-          {onSelectAnswer && (
-            <Button
-              onClick={() => void handleUseAnswer()}
-              disabled={!useAiResponse && selectedIndex === null}
-            >
+          {canUseAiResponse && (
+            <Button onClick={() => void handleUseAnswer()}>
               <Check className="mr-2 w-4 h-4" />
-              {useAiResponse
-                ? translatedAiResponse
-                  ? useTranslatedVersion
-                    ? 'Use Translated Response'
-                    : 'Use Original Response'
-                  : 'Use AI Response'
-                : selectedIsRawSource
-                  ? 'Insert source text'
-                  : 'Use This Answer'}
+              {translatedAiResponse
+                ? useTranslatedVersion
+                  ? 'Use Translated Response'
+                  : 'Use Original Response'
+                : 'Use AI Response'}
             </Button>
           )}
         </DialogFooter>

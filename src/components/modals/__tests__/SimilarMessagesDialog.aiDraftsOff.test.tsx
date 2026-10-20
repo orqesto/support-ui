@@ -91,11 +91,13 @@ describe('SimilarMessagesDialog — read-only without an answer handler', () => 
     expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
   });
 
-  it('CONTROL: with onSelectAnswer the "use" button is there', async () => {
+  it('with onSelectAnswer but no AI reply, there is still nothing to use: matches are reference only', async () => {
     respond({ reason: 'no-sources' });
     renderDialog();
     expect(await screen.findByText(/Nothing in the knowledge base matched/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Use |Insert source text/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/reset your password/i).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /^Use |Insert source text/i })).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(2);
   });
 });
 
@@ -189,20 +191,20 @@ describe('SimilarMessagesDialog — read-only offers nothing to choose', () => {
     }
   );
 
-  it('CONTROL: with a handler the cards are choosable, Selected + caution show, footer says Cancel', async () => {
+  it('CONTROL: with a handler only the AI card is the choice; the source stays plain reference', async () => {
     respondAi();
     renderWith(() => {});
     await screen.findByRole('heading', { name: 'Internal runbook' });
     const source = card('Internal runbook');
-    expect(source).toHaveAttribute('role', 'button');
-    expect(source).toHaveAttribute('tabindex', '0');
-    expect(card('AI-Generated Response')).toHaveAttribute('role', 'button');
-    expect(screen.getByText('Or choose from sources:')).toBeInTheDocument();
+    expect(source.closest('[role="button"]')).toBeNull();
+    expect(source.closest('[tabindex]:not([tabindex="-1"])')).toBeNull();
+    expect(screen.getByText('Sources (for reference, not for sending):')).toBeInTheDocument();
     fireEvent.click(source);
+    expect(source.className).not.toMatch(/ring-2/);
+    expect(card('AI-Generated Response').className).toMatch(/ring-2/);
     expect(screen.getByText('Selected')).toBeInTheDocument();
-    expect(card('Internal runbook').className).toMatch(/ring-2/);
-    expect(screen.getByText(/read it before sending/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Insert source text' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Use AI Response' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Use This Answer|Insert source text/ })).toBeNull();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
     expect(closeButtons()).toBe(1);
   });
