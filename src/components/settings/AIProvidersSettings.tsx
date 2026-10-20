@@ -163,7 +163,7 @@ export const AIProvidersSettings = ({
         code === 'managed_ai_not_entitled'
           ? 'Managed AI is not available on your current plan. Upgrade your plan, or connect your own provider.'
           : code === 'managed_ai_requires_verified_admin'
-            ? 'A verified-email admin is required before enabling managed AI. Verify an admin email, then try again.'
+            ? 'This workspace has no admin with a verified email. One of its admins must verify their email before managed AI can be enabled.'
             : (err.data?.message ?? err.message ?? 'Failed to change AI mode.');
       setAlertDialog({ open: true, title: 'Could not switch AI mode', description, variant: 'error' });
     } finally {
