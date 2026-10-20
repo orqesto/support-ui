@@ -112,4 +112,26 @@ describe('scopeStore', () => {
     expect(useScopeStore.getState().allianceId).toBeNull();
     expect(useScopeStore.getState().scope).toBeNull();
   });
+
+  describe('an explicit organizationContext on the request (Console → Maintenance)', () => {
+    const withOrg = (url: string, organizationContext: number) =>
+      ({ ...makeConfig(url), organizationContext }) as InternalAxiosRequestConfig;
+
+    it('platform scope: the named workspace is sent', () => {
+      useScopeStore.getState().setScope({ scope: 'platform', allianceId: null });
+      const config = applyRequestContext(withOrg('/api/system/repair-swept-reopens', 12));
+      expect(config.headers['X-Organization-Context']).toBe('12');
+    });
+
+    it('it wins over the selected workspace in the app scope', () => {
+      const config = applyRequestContext(withOrg('/api/system/repair-swept-reopens', 12));
+      expect(config.headers['X-Organization-Context']).toBe('12');
+    });
+
+    it('CONTROL: an alliance call never carries an org context, named or not', () => {
+      useScopeStore.getState().setScope({ scope: 'alliance', allianceId: 9 });
+      const config = applyRequestContext(withOrg('/api/alliances/9/overview', 12));
+      expect(config.headers['X-Organization-Context']).toBeUndefined();
+    });
+  });
 });

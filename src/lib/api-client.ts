@@ -15,6 +15,18 @@ import { useDepartmentContextStore } from '@/stores/departmentContextStore';
 import { useSubscriptionGateStore } from '@/stores/subscriptionGateStore';
 import { isDatabasePauseCode, useDatabaseStatusStore } from '@/stores/databaseStatusStore';
 
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    /**
+     * The workspace THIS request is for, named by the caller — sent as `X-Organization-Context`
+     * in every scope, the platform console included (Console → Maintenance runs a repair in the
+     * workspace picked on the page). Explicit per call, never a default: a request without it
+     * keeps the scope rules below.
+     */
+    organizationContext?: number;
+  }
+}
+
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -48,6 +60,8 @@ export const applyRequestContext = (
     if (allianceId !== null) {
       config.headers['X-Alliance-Context'] = String(allianceId);
     }
+  } else if (config.organizationContext) {
+    config.headers['X-Organization-Context'] = String(config.organizationContext);
   } else if (scope === 'platform') {
     // Platform (global-admin) console: cross-org by definition (D-ADM-1) — never attach
     // an org context onto a platform call. The BE authorizes the global admin from the
