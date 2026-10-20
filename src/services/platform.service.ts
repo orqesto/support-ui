@@ -3,6 +3,7 @@ import { apiErrorStatus } from '@/lib/apiError';
 import { normalizeSyncHold, type SyncHold } from '@/services/integrations.service';
 import { buildAuditQueryParams, type AuditQueryFilters } from '@/services/auditQueryParams';
 import type { LimitKey } from '@/components/console/limitFields';
+import type { DatabaseStatus, WorkerSnapshot } from '@/services/systemStatus';
 
 /**
  * Platform (global-admin) console service. Calls hit `/api/admin/platform/*` (the new
@@ -232,6 +233,14 @@ export type QueueStatus = {
   scaling: unknown;
   workers: unknown;
   queues: QueueRow[];
+  /**
+   * `api` = this process serves HTTP only and the queues run in a separate worker container,
+   * whose numbers are in `worker` (null = no worker is reporting). Absent on an older backend.
+   */
+  role?: 'all' | 'api' | 'worker';
+  worker?: WorkerSnapshot | null;
+  /** Load on the shared database, sampled with the request. Absent on an older backend. */
+  database?: DatabaseStatus | null;
 };
 
 export type QueueFailedJob = {
