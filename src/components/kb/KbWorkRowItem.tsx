@@ -159,7 +159,7 @@ export const KbWorkRowItem = ({
         </Link>
         {detachedHidden ? (
           <Badge
-            className="text-muted-foreground"
+            variant="secondary"
             title="Its thread moved to another mailbox, so it left the case. It stays hidden."
           >
             detached from a case

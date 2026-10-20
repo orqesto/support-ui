@@ -199,7 +199,7 @@ export const KBTableView = ({
                       AI
                     </Badge>
                   )}
-                  <KBStatusBadge entry={entry} />
+                  <KBStatusBadge entry={entry} compact />
                 </div>
                 <KbPendingDecisionBadge
                   decision={entry.pendingDecision}
