@@ -39,6 +39,7 @@ import {
 import {
   BudgetInput,
   BulkLegend,
+  BulkBar,
   BulkLimitField,
   BulkLimitLegend,
   ExtraBox,
@@ -49,7 +50,6 @@ import {
   TONE_CLASS,
   TryItButtons,
 } from './BudgetModelDemoParts';
-import { BulkBar } from './BudgetModelDemoBulk';
 import { SingleWorkspaceView } from './BudgetModelDemoSingle';
 
 /**

@@ -1,68 +1,35 @@
-import { useState, type CSSProperties, type ReactNode } from 'react';
-import { BarSegment, BarSlider } from '@/components/ui/BarSlider';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { SegmentedControl } from '@/components/ui/SegmentedControl';
-import { Toggle } from '@/components/ui/Toggle';
-import { cn } from '@/lib/utils';
+import { type ReactNode } from 'react';
+import { BulkBar as RealBulkBar } from '@/components/budget/BulkBar';
 import {
-  EXTRA_END_LABELS,
-  EXTRA_MAX,
-  EXTRA_MIN,
-  extraEndsText,
-  fmt,
-  grantEndsText,
-  usd,
-  type ExtraEnd,
-  type Tone,
-} from './budgetModelDemo.rules';
+  BulkLegend as RealBulkLegend,
+  BulkLimitField as RealBulkLimitField,
+} from '@/components/budget/BulkLimitField';
+import { ExtraBox as RealExtraBox } from '@/components/budget/ExtraBox';
+import { MILLION, type ExtraEndChoice } from '@/components/budget/budget.rules';
+import { Input } from '@/components/ui/Input';
+import { usd, type ExtraEnd } from './budgetModelDemo.rules';
 
-/** Small shared pieces of the budget model demo (both views). Demo only: no calls, no saving. */
+/**
+ * Small shared pieces of the budget model demo (both views). Demo only: no calls, no saving.
+ * The reusable parts live in `components/budget/`; the thin wrappers below keep the demo's
+ * million-token units and its 0/1/2 "ends" choice.
+ */
 
-export const TONE_CLASS: Record<Tone, string> = {
-  ok: 'text-success',
-  warn: 'text-warning',
-  bad: 'text-destructive',
-};
-export const END_SEGMENTS = EXTRA_END_LABELS.map((label, index) => ({
-  value: String(index),
-  label,
-}));
+export { BulkLimitLegend, FieldLabel, Swatch } from '@/components/budget/BulkLimitField';
+export { StatusText, TONE_CLASS } from '@/components/budget/StatusText';
 
-export const FieldLabel = ({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) =>
-  htmlFor ? (
-    <label
-      htmlFor={htmlFor}
-      className="font-display text-xs tracking-wider uppercase text-muted-foreground"
-    >
-      {children}
-    </label>
-  ) : (
-    <span className="font-display text-xs tracking-wider uppercase text-muted-foreground">
-      {children}
-    </span>
-  );
+const END_CHOICES: ExtraEndChoice[] = ['today', 3, 7];
+const toEnd = (choice: ExtraEndChoice): ExtraEnd => END_CHOICES.indexOf(choice) as ExtraEnd;
 
-export const Swatch = ({ className, style }: { className: string; style?: CSSProperties }) => (
-  <span
-    aria-hidden="true"
-    className={cn('inline-block mr-1.5 w-2.5 h-2.5 rounded-sm align-[-1px]', className)}
-    style={style}
-  />
-);
+export const BulkLimitField = (props: {
+  on: boolean;
+  pct: number;
+  cap: number;
+  onToggle: (on: boolean) => void;
+}) => <RealBulkLimitField {...props} cap={props.cap * MILLION} />;
 
-export const StatusText = ({
-  tone,
-  text,
-  testId,
-}: {
-  tone: Tone;
-  text: string;
-  testId?: string;
-}) => (
-  <p data-testid={testId} data-tone={tone} className={cn('text-sm font-medium', TONE_CLASS[tone])}>
-    {text}
-  </p>
+export const BulkLegend = (props: { on: boolean; used: number; cap: number }) => (
+  <RealBulkLegend on={props.on} used={props.used * MILLION} cap={props.cap * MILLION} />
 );
 
 export const BudgetInput = ({
@@ -112,147 +79,64 @@ export const Log = ({ text, testId }: { text: string; testId: string }) => (
   </p>
 );
 
-// ---------------------------------------------------------------------------------------------
-// Extra for bulk work (shared by both views)
-// ---------------------------------------------------------------------------------------------
-
 export type ExtraBoxProps = {
-  /** Defaults to "Extra for bulk work". */
   title?: string;
   extra: number;
   extraUsed: number;
   extraDays: number;
-  /** Shown as a "Suggested" button in the organisation view. */
   suggestion?: number;
   initialAmount: number;
   onGrant: (amount: number, end: ExtraEnd) => void;
   onEnd: () => void;
 };
 
+/** Demo wrapper: million tokens in, million tokens out. */
 export const ExtraBox = ({
-  title = 'Extra for bulk work',
   extra,
   extraUsed,
   extraDays,
   suggestion,
   initialAmount,
   onGrant,
-  onEnd,
-}: ExtraBoxProps) => {
-  const [amount, setAmount] = useState(initialAmount);
-  const [end, setEnd] = useState<ExtraEnd>(1);
+  ...rest
+}: ExtraBoxProps) => (
+  <RealExtraBox
+    {...rest}
+    extra={
+      extra > 0
+        ? {
+            id: 0,
+            grantIds: [],
+            tokens: extra * MILLION,
+            used: extraUsed * MILLION,
+            endsAt: new Date(Date.now() + extraDays * 86_400_000).toISOString(),
+          }
+        : null
+    }
+    suggestion={suggestion === undefined ? undefined : suggestion * MILLION}
+    initialAmount={initialAmount * MILLION}
+    onGive={(tokens, end) => onGrant(Number(tokens) / MILLION, toEnd(end))}
+  />
+);
 
-  if (extra > 0)
-    return (
-      <div className="flex flex-col gap-1.5">
-        <FieldLabel>{title}</FieldLabel>
-        <div className="flex flex-wrap gap-2.5 items-baseline">
-          <span className="font-mono text-lg">+{fmt(extra)}</span>
-          <span className="text-sm text-muted-foreground">
-            {fmt(extraUsed)} used · {extraEndsText(extraDays)}
-          </span>
-        </div>
-        <span className="text-sm text-muted-foreground">
-          Outside the monthly budget. Unused tokens expire.
-        </span>
-        <div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (suggestion !== undefined) setAmount(suggestion);
-              onEnd();
-            }}
-          >
-            End now
-          </Button>
-        </div>
-      </div>
-    );
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <FieldLabel>{title}</FieldLabel>
-      <span className="font-mono text-lg">
-        +{fmt(amount)} {usd(amount)}
-      </span>
-      <BarSlider
-        value={amount}
-        min={EXTRA_MIN}
-        max={EXTRA_MAX}
-        step={5}
-        onChange={setAmount}
-        ariaLabel="Extra amount, million tokens"
-        ariaValueText={`${fmt(amount)} tokens`}
-      >
-        <BarSegment width={(amount / EXTRA_MAX) * 100} className="bg-warning" />
-      </BarSlider>
-      <div className="flex flex-wrap gap-2.5 justify-between items-center">
-        <SegmentedControl
-          ariaLabel="Extra ends"
-          value={String(end)}
-          onChange={(next) => setEnd(Number(next) as ExtraEnd)}
-          segments={END_SEGMENTS}
-        />
-        {suggestion !== undefined && (
-          <Button variant="ghost" size="sm" onClick={() => setAmount(suggestion)}>
-            Suggested {fmt(suggestion)}
-          </Button>
-        )}
-      </div>
-      <div>
-        <Button size="sm" onClick={() => onGrant(amount, end)}>
-          Give +{fmt(amount)} · ends {grantEndsText(end)}
-        </Button>
-      </div>
-    </div>
-  );
+type DemoBulkBarProps = Omit<
+  React.ComponentProps<typeof RealBulkBar>,
+  'budget' | 'onSetLimit' | 'onGiveExtra'
+> & {
+  /** Million tokens. */
+  budget: number;
+  onSetLimit: (limit: number) => void;
+  /** null = each workspace gets its own suggested amount. */
+  onGiveExtra: (amount: number | null, end: ExtraEnd) => void;
 };
 
-/** The bulk limit header, both views: on/off, its value, and the warning while it is off. */
-export const BulkLimitField = ({
-  on,
-  pct,
-  cap,
-  onToggle,
-}: {
-  on: boolean;
-  pct: number;
-  cap: number;
-  onToggle: (on: boolean) => void;
-}) => (
-  <div className="flex flex-col gap-1.5">
-    <FieldLabel>Bulk processing (knowledge base, imports, re-mines)</FieldLabel>
-    <Toggle checked={on} onChange={onToggle} label="Limit it · drag the line on the bar" />
-    {/* Same size either way, so switching never moves the layout; the warning for "off" is
-        in the status line under the bar. */}
-    <span className="font-mono text-lg">
-      {on ? `At most ${pct}% · ${fmt(cap)} · counts bulk spend only` : 'No limit'}
-    </span>
-  </div>
+export const BulkBar = ({ budget, onSetLimit, onGiveExtra, ...rest }: DemoBulkBarProps) => (
+  <RealBulkBar
+    {...rest}
+    budget={budget * MILLION}
+    onSetLimit={(tokens) => onSetLimit(tokens / MILLION)}
+    onGiveExtra={(tokens, end) =>
+      onGiveExtra(tokens === 'suggested' ? null : tokens / MILLION, toEnd(end))
+    }
+  />
 );
-
-/** The bulk part of the legend, both views. */
-export const BulkLegend = ({ on, used, cap }: { on: boolean; used: number; cap: number }) => (
-  <>
-    <span>
-      <Swatch className="bg-pending" />
-      Bulk processing <span className="font-mono">{fmt(used)}</span>
-      {on && (
-        <>
-          {' '}
-          of <span className="font-mono">{fmt(cap)}</span>
-        </>
-      )}
-    </span>
-  </>
-);
-
-/** The limit line in the legend, shown only while the bulk limit is on. */
-export const BulkLimitLegend = ({ on }: { on: boolean }) =>
-  on ? (
-    <span>
-      <Swatch className="!w-0.5 bg-foreground" />
-      Bulk limit (compared with the purple part only)
-    </span>
-  ) : null;

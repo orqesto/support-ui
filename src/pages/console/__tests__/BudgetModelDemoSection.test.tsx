@@ -158,7 +158,7 @@ describe('Budget model demo', () => {
 
   it('select, select all and unselect all; bulk limit, remove limit and extra', () => {
     render(<BudgetModelDemoSection />);
-    const bar = within(orgView().getByTestId('budget-demo-bulk'));
+    const bar = within(orgView().getByTestId('budget-bulk'));
     expect(bar.getByText('Select workspaces to change them together')).toBeInTheDocument();
 
     fireEvent.click(orgView().getByRole('checkbox', { name: 'Select Atlas Labs' }));

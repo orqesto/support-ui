@@ -18,17 +18,21 @@
  *   is left.
  */
 
-/** $ per 1M tokens: Haiku 5.5 list price ($0.10 in / $0.50 out per 1M) at a 92.5% input mix. */
-export const PRICE_PER_MILLION = 0.925 * 0.1 + 0.075 * 0.5;
+import {
+  EXTRA_MAX,
+  EXTRA_MIN,
+  PRICE_PER_MILLION,
+  fmt,
+  usd,
+} from '@/components/budget/budget.rules';
+
+export { EXTRA_MAX, EXTRA_MIN, PRICE_PER_MILLION, fmt, usd };
 
 /** Days an extra lasts, by the "Today / 3 days / 7 days" choice. */
 export const EXTRA_END_DAYS = [0, 3, 7] as const;
 export const EXTRA_END_LABELS = ['Today', '3 days', '7 days'] as const;
 export type ExtraEnd = 0 | 1 | 2;
 
-/** Extra amount slider range, million tokens. */
-export const EXTRA_MIN = 5;
-export const EXTRA_MAX = 200;
 /**
  * The KB limit range, % of the budget: at least half (room for imports), at most 90% (live mail
  * always keeps at least a tenth of the budget). The same range in both views.
@@ -40,16 +44,6 @@ export const LAST_DAY = 31;
 
 export type Tone = 'ok' | 'warn' | 'bad';
 export type StatusLine = { tone: Tone; text: string };
-
-/** Million tokens: "106M", "28.0M". */
-export const fmt = (millions: number): string =>
-  (Math.abs(millions) >= 100 ? millions.toFixed(0) : millions.toFixed(1)) + 'M';
-
-/** "≈ $0.48" / "≈ $40". */
-export const usd = (millions: number): string => {
-  const dollars = millions * PRICE_PER_MILLION;
-  return '≈ $' + (dollars >= 10 ? dollars.toFixed(0) : dollars.toFixed(2));
-};
 
 const endsText = (days: number): string => (days ? `in ${days} d` : 'today');
 export const grantEndsText = (end: ExtraEnd): string =>
