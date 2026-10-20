@@ -413,7 +413,13 @@ describe('IMAP "Compare with Odly" on a saved source', () => {
     countImapMessages.mockResolvedValue(imapResult());
     renderCard();
     fireEvent.click(screen.getByLabelText('Compare with Odly'));
-    await waitFor(() => expect(countImapMessages).toHaveBeenCalledWith(12));
+    await waitFor(() =>
+      expect(countImapMessages).toHaveBeenCalledWith(
+        12,
+        {},
+        expect.objectContaining({ signal: expect.any(AbortSignal) as AbortSignal })
+      )
+    );
     expect(
       await screen.findByText('Mailbox (last 30 days): 154 messages (INBOX 114 · Sent 40)')
     ).toBeInTheDocument();

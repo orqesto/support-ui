@@ -69,7 +69,7 @@ export const KB_RANGE_CURRENT_SUFFIX = ' (current setting)';
 export const currentSettingLabel = (label: string): string => `${label}${KB_RANGE_CURRENT_SUFFIX}`;
 export const KB_RANGE_COUNTING = 'Counting the mailbox — this can take up to a minute.';
 export const KB_RANGE_STILL_COUNTING =
-  'Still counting — large mailboxes take longer. Keep this window open.';
+  'Still counting — every message in the range is listed, so a large mailbox takes a few minutes. Closing this window does not stop it: choose the same range again to pick it back up.';
 
 export const planCaption = (planMaxHistoryDays: number): string =>
   `Your plan reads at most ${num(planMaxHistoryDays)} days of history.`;

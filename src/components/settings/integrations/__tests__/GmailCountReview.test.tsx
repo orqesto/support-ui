@@ -77,20 +77,30 @@ describe('GmailCountReview', () => {
 
   it('a just-connected PAUSED source is counted at once, with its KB flag and range', async () => {
     render(
-      <GmailCountReview source={paused} onStarted={vi.fn()} onClose={vi.fn()} onShowAlert={vi.fn()} />
+      <GmailCountReview
+        source={paused}
+        onStarted={vi.fn()}
+        onClose={vi.fn()}
+        onShowAlert={vi.fn()}
+      />
     );
     expect(await screen.findByText(/Found 1,200 messages/)).toBeInTheDocument();
-    expect(countGmailMessages).toHaveBeenCalledWith(68, {
-      searchQuery: '',
-      bulkImportDays: 7,
-      isKnowledgeBase: true,
-    });
+    expect(countGmailMessages).toHaveBeenCalledWith(
+      68,
+      { searchQuery: '', bulkImportDays: 7, isKnowledgeBase: true },
+      expect.objectContaining({ signal: expect.any(AbortSignal) as AbortSignal })
+    );
     expect(screen.getByText(/NOT syncing yet/)).toBeInTheDocument();
   });
 
   it('a count is cleared when a setting changes — it described a different query', async () => {
     render(
-      <GmailCountReview source={paused} onStarted={vi.fn()} onClose={vi.fn()} onShowAlert={vi.fn()} />
+      <GmailCountReview
+        source={paused}
+        onStarted={vi.fn()}
+        onClose={vi.fn()}
+        onShowAlert={vi.fn()}
+      />
     );
     await screen.findByText(/Found 1,200 messages/);
     fireEvent.change(screen.getByLabelText('Historical Import Range'), { target: { value: '30' } });
@@ -100,7 +110,12 @@ describe('GmailCountReview', () => {
   it('Start sync enables the source with the settings on screen', async () => {
     const onStarted = vi.fn();
     render(
-      <GmailCountReview source={paused} onStarted={onStarted} onClose={vi.fn()} onShowAlert={vi.fn()} />
+      <GmailCountReview
+        source={paused}
+        onStarted={onStarted}
+        onClose={vi.fn()}
+        onShowAlert={vi.fn()}
+      />
     );
     await screen.findByText(/Found 1,200 messages/);
     fireEvent.click(screen.getByRole('button', { name: 'Start sync' }));
@@ -132,7 +147,12 @@ describe('GmailCountReview', () => {
       Object.assign(new Error('x'), { data: { error: 'This Gmail source has no stored sign-in.' } })
     );
     render(
-      <GmailCountReview source={paused} onStarted={vi.fn()} onClose={vi.fn()} onShowAlert={vi.fn()} />
+      <GmailCountReview
+        source={paused}
+        onStarted={vi.fn()}
+        onClose={vi.fn()}
+        onShowAlert={vi.fn()}
+      />
     );
     expect(await screen.findByRole('alert')).toHaveTextContent('no stored sign-in');
   });

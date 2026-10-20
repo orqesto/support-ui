@@ -51,7 +51,10 @@ const pausedRow = {
 describe('Gmail connect — saved paused, count first', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    connectWithPopup.mockResolvedValue({ success: true, data: { id: 68, email: 'orders@militech.info' } });
+    connectWithPopup.mockResolvedValue({
+      success: true,
+      data: { id: 68, email: 'orders@militech.info' },
+    });
     countGmailMessages.mockResolvedValue({ count: 1200, capped: false, query: 'after:2026/09/09' });
   });
 
@@ -74,11 +77,11 @@ describe('Gmail connect — saved paused, count first', () => {
     expect(screen.getByText('Paused — not syncing.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Check count and start' }));
     expect(await screen.findByText(/Found 1,200 messages/)).toBeInTheDocument();
-    expect(countGmailMessages).toHaveBeenCalledWith(68, {
-      searchQuery: '',
-      bulkImportDays: 7,
-      isKnowledgeBase: true,
-    });
+    expect(countGmailMessages).toHaveBeenCalledWith(
+      68,
+      { searchQuery: '', bulkImportDays: 7, isKnowledgeBase: true },
+      expect.objectContaining({ signal: expect.any(AbortSignal) as AbortSignal })
+    );
   });
 
   it('after connecting, the new source opens its count without another click', async () => {

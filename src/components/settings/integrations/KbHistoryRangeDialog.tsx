@@ -10,6 +10,12 @@ import {
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { logger } from '@/lib/logger';
+import {
+  CANCEL_COUNT,
+  CountPollStopped,
+  countProgressText,
+  type CountProgress,
+} from '@/services/countJobApi';
 import { integrationsService } from '@/services/integrations.service';
 import type { KbRangeApplied, KbRangeDryRun, KbRangePolicy } from '@/services/kbRangeTypes';
 import { useProcessingPanelStore } from '@/stores/processingPanelStore';
@@ -92,6 +98,9 @@ export const KbHistoryRangeDialog = ({ source, onClose, onShowAlert, onApplied }
   const [result, setResult] = useState<KbRangeDryRun | null>(null);
   const [counting, setCounting] = useState(false);
   const [stillCounting, setStillCounting] = useState(false);
+  const [progress, setProgress] = useState<CountProgress | null>(null);
+  /** The count being followed. Closing stops following it; another range cancels it. */
+  const following = useRef<AbortController | null>(null);
   const [applying, setApplying] = useState(false);
   const [error, setFailure] = useState<string | null>(null);
   /** Bumped by every selection change and on unmount: an older response compares and is dropped. */
@@ -111,6 +120,7 @@ export const KbHistoryRangeDialog = ({ source, onClose, onShowAlert, onApplied }
       mounted.current = false;
       generation.current += 1;
       stopTimer();
+      following.current?.abort();
     };
   }, []);
 
@@ -134,6 +144,15 @@ export const KbHistoryRangeDialog = ({ source, onClose, onShowAlert, onApplied }
 
   const choose = (value: string) => {
     generation.current += 1;
+    if (following.current) {
+      // A different range is a different question: cancel the count, free the button now.
+      following.current.abort(CANCEL_COUNT);
+      following.current = null;
+      inFlight.current = false;
+      stopTimer();
+      setCounting(false);
+      setStillCounting(false);
+    }
     setDays(Number(value));
     setResult(null);
     setFailure(null);
@@ -143,23 +162,39 @@ export const KbHistoryRangeDialog = ({ source, onClose, onShowAlert, onApplied }
     if (days === null || inFlight.current) return;
     inFlight.current = true;
     const mine = generation.current;
+    const follow = new AbortController();
+    following.current = follow;
     setCounting(true);
     setStillCounting(false);
+    setProgress(null);
     setFailure(null);
     timer.current = setTimeout(() => setStillCounting(true), STILL_COUNTING_MS);
     try {
-      const answer = (await integrationsService.kbHistoryRange(source.id, {
-        days,
-      })) as KbRangeDryRun;
+      const answer = (await integrationsService.kbHistoryRange(
+        source.id,
+        { days },
+        {
+          onProgress: (next) => {
+            if (mounted.current && generation.current === mine) setProgress(next);
+          },
+          signal: follow.signal,
+        }
+      )) as KbRangeDryRun;
       if (mounted.current && generation.current === mine) setResult(answer);
     } catch (failure) {
+      if (failure instanceof CountPollStopped) return;
       if (mounted.current && generation.current === mine) setFailure(errorText(failure));
     } finally {
-      inFlight.current = false;
-      stopTimer();
-      if (mounted.current) {
-        setCounting(false);
-        setStillCounting(false);
+      // Only the count still followed may clear the state: a cancelled one already did, and a
+      // newer count may be running by now.
+      if (following.current === follow) {
+        following.current = null;
+        inFlight.current = false;
+        stopTimer();
+        if (mounted.current) {
+          setCounting(false);
+          setStillCounting(false);
+        }
       }
     }
   }, [days, source.id]);
@@ -277,7 +312,7 @@ export const KbHistoryRangeDialog = ({ source, onClose, onShowAlert, onApplied }
         {counting && (
           <p className="flex gap-2 items-center text-sm" role="status">
             <Spinner />
-            <span>{KB_RANGE_COUNTING}</span>
+            <span>{progress?.listed ? countProgressText(progress) : KB_RANGE_COUNTING}</span>
           </p>
         )}
         {counting && stillCounting && <p className="text-sm">{KB_RANGE_STILL_COUNTING}</p>}

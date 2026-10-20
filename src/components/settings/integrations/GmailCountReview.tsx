@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   historicalRangeOptions,
   searchQueryOptions,
@@ -7,12 +7,19 @@ import type { AlertState } from '@/components/settings/integrations/types';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
+import { Spinner } from '@/components/ui/Spinner';
 import {
   formatInOdly,
   kbHistoryNote,
   MissingSamples,
 } from '@/components/settings/integrations/MailboxReconciliation';
 import { apiErrorMessage } from '@/lib/apiError';
+import {
+  CANCEL_COUNT,
+  CountPollStopped,
+  countProgressText,
+  type CountProgress,
+} from '@/services/countJobApi';
 import {
   integrationsService,
   type GmailCountResult,
@@ -90,7 +97,7 @@ export const cappedReason = (cappedBy: GmailCountResult['cappedBy'], count: numb
     case 'error':
       return `Gmail failed on a later page after ${shown} messages; the mailbox may hold more.`;
     default:
-      return `Counting stops at ${shown}. Narrow the range if that is more than you meant to import.`;
+      return `Counting stops at ${shown} messages, the most one count lists. Narrow the range to count the rest.`;
   }
 };
 
@@ -129,23 +136,44 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
   const [result, setResult] = useState<GmailCountResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [progress, setProgress] = useState<CountProgress | null>(null);
   const [starting, setStarting] = useState(false);
+  /** The count being followed. Closing the panel stops following it, not the count. */
+  const following = useRef<AbortController | null>(null);
+
+  useEffect(() => () => following.current?.abort(), []);
 
   const check = async (settings: { searchQuery: string; bulkImportDays: number }) => {
+    const follow = new AbortController();
+    following.current = follow;
     setChecking(true);
+    setProgress(null);
     setError(null);
     setResult(null);
     try {
-      const data = await integrationsService.countGmailMessages(source.id, {
-        ...settings,
-        isKnowledgeBase: source.isKnowledgeBase,
-      });
+      const data = await integrationsService.countGmailMessages(
+        source.id,
+        { ...settings, isKnowledgeBase: source.isKnowledgeBase },
+        { onProgress: setProgress, signal: follow.signal }
+      );
       setResult(data);
     } catch (err) {
+      if (err instanceof CountPollStopped) return;
       setError(apiErrorMessage(err, 'Could not count messages in this mailbox'));
     } finally {
-      setChecking(false);
+      if (following.current === follow) {
+        following.current = null;
+        setChecking(false);
+      }
     }
+  };
+
+  /** A changed setting asks a different question: the running count is cancelled. */
+  const dropCount = () => {
+    following.current?.abort(CANCEL_COUNT);
+    following.current = null;
+    setChecking(false);
+    setResult(null);
   };
 
   // A paused source was just connected to be counted — do it without a second click.
@@ -157,11 +185,11 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
 
   const changeQuery = (value: string) => {
     setSearchQuery(value);
-    setResult(null);
+    dropCount();
   };
   const changeDays = (value: string) => {
     setBulkImportDays(parseInt(value, 10) || 0);
-    setResult(null);
+    dropCount();
   };
 
   const startSync = async () => {
@@ -228,6 +256,19 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
         )}
       </div>
 
+      {checking && (
+        <div className="space-y-1" role="status">
+          <p className="flex gap-2 items-center text-sm">
+            <Spinner />
+            <span>{countProgressText(progress)}</span>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Every message in the range is listed and checked against Odly — a big mailbox takes a
+            few minutes. You can close this panel: checking the same settings again picks the count
+            back up.
+          </p>
+        </div>
+      )}
       {result && (
         <Alert variant="success" className="p-3">
           <p className="text-sm">✅ {formatGmailCount(result)}</p>
@@ -261,8 +302,8 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
               {(result.unverifiable ?? 0) > 0 && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   Can&apos;t verify = messages sent from this mailbox that could not be matched
-                  themselves, but Odly holds a reply in the same thread sent within minutes of
-                  them — most likely the same message. They are not counted as missing.
+                  themselves, but Odly holds a reply in the same thread sent within minutes of them
+                  — most likely the same message. They are not counted as missing.
                 </p>
               )}
               {result.quotaHit && result.quotaHitIn && (

@@ -25,9 +25,24 @@ describe('kb history range service calls', () => {
     expect(result).toEqual({ echoed: '/api/integrations/7/kb-history-range' });
   });
 
-  it('countImapMessages sends days only when given', async () => {
-    await integrationsService.countImapMessages(3);
-    await integrationsService.countImapMessages(3, { days: 0 });
-    expect(calls.map((call) => call.body)).toEqual([undefined, { days: 0 }]);
+  it('countImapMessages starts a background count, with days only when given', async () => {
+    await integrationsService.countImapMessages(3).catch(() => undefined);
+    await integrationsService.countImapMessages(3, { days: 0 }).catch(() => undefined);
+    expect(calls).toEqual([
+      { url: '/api/integrations/3/count-jobs', body: { kind: 'imap-count', params: {} } },
+      { url: '/api/integrations/3/count-jobs', body: { kind: 'imap-count', params: { days: 0 } } },
+    ]);
+  });
+
+  it('the dry run (days, no apply) is a background count; the policy read is a plain request', async () => {
+    await integrationsService.kbHistoryRange(7, { days: 90 }).catch(() => undefined);
+    await integrationsService.kbHistoryRange(7, {});
+    expect(calls).toEqual([
+      {
+        url: '/api/integrations/7/count-jobs',
+        body: { kind: 'kb-history-range', params: { days: 90 } },
+      },
+      { url: '/api/integrations/7/kb-history-range', body: {} },
+    ]);
   });
 });
