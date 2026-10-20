@@ -105,10 +105,15 @@ export const NewTicketDialog = ({ open, onOpenChange, onCreated }: Props) => {
       .getAssignableUsers(undefined, Number(departmentId))
       .then((rows) => {
         if (!live) return;
-        const options = rows.map((row) => ({
-          value: String(row.id),
-          label: `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim() || row.email,
-        }));
+        // The roster comes back whole, flagged: `eligible: false` is someone outside this
+        // department (another department's people were offered for HR, staging 2026-10-20).
+        // Unflagged = an older backend that sent only assignable people.
+        const options = rows
+          .filter((row) => row.eligible !== false)
+          .map((row) => ({
+            value: String(row.id),
+            label: `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim() || row.email,
+          }));
         setOwnerList({ departmentId, options });
         // The creator by default — only when they can own a ticket here (a global admin is not
         // listed: the picker showed "Select…" while the ticket went to them, staging 2026-10-19).

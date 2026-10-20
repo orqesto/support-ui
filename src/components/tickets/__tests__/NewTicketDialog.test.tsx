@@ -131,6 +131,35 @@ describe('New ticket', () => {
     expect(create.mock.calls[0][0]).not.toHaveProperty('assigneeId');
   });
 
+  it('only people in the department are offered as owner (the roster flags the others)', async () => {
+    assignable.mockResolvedValue([
+      { id: 7, firstName: 'Sam', lastName: 'Agent', email: 'sam@example.com', eligible: true },
+      { id: 8, firstName: 'Bo', lastName: 'Other', email: 'bo@example.com', eligible: false },
+    ]);
+    renderDialog();
+    await waitFor(() => expect(assignable).toHaveBeenCalledWith(3));
+    await waitFor(async () =>
+      expect(await listOptions(screen.getByRole('combobox', { name: 'Owner' }))).toEqual([
+        'Unassigned',
+        'Sam Agent',
+      ])
+    );
+  });
+
+  it('a creator outside the department (listed, not eligible) leaves it unassigned', async () => {
+    const user = userEvent.setup();
+    assignable.mockResolvedValue([
+      { id: 7, firstName: 'Sam', lastName: 'Agent', email: 'sam@example.com', eligible: false },
+      { id: 8, firstName: 'Bo', lastName: 'Agent', email: 'bo@example.com', eligible: true },
+    ]);
+    const onCreated = renderDialog();
+    await fill(user);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled());
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(42, { threadsFailed: false }));
+    expect(create.mock.calls[0][0]).not.toHaveProperty('assigneeId');
+  });
+
   it('only the creator’s departments are offered', async () => {
     renderDialog();
     expect(await listOptions(screen.getByRole('combobox', { name: 'Department' }))).toEqual([
