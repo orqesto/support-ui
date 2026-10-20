@@ -73,6 +73,21 @@ describe('useUiFlags', () => {
     expect(result.current.isPreviewing('ui.billing_intelligence')).toBe(false);
   });
 
+  it('marks nothing as a preview while the flags are still loading (no WIP flash on reload)', async () => {
+    asRole('admin');
+    let answer: (flags: Record<string, boolean>) => void = () => {};
+    getUiFlags.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    const { result } = renderHook(() => useUiFlags());
+
+    expect(result.current.loading).toBe(true);
+    expect(result.current.isPreviewing('ui.billing_intelligence')).toBe(false);
+
+    // CONTROL: once the flags say it is off, the staff preview is marked as before.
+    answer({ 'ui.billing_intelligence': false });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.isPreviewing('ui.billing_intelligence')).toBe(true);
+  });
+
   it('keeps a surface hidden for a normal user when the request fails', async () => {
     getUiFlags.mockResolvedValue({}); // the service itself fails closed
     const { result } = renderHook(() => useUiFlags());
