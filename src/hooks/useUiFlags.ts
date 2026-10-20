@@ -75,7 +75,9 @@ export const useUiFlags = () => {
     isSurfaceEnabled,
     canPreviewUnfinished,
     isSurfaceVisibleToMe: (key: string) => isSurfaceEnabled(key) || canPreviewUnfinished,
-    isPreviewing: (key: string) => !isSurfaceEnabled(key) && canPreviewUnfinished,
+    // Not while the flags are loading: every flag reads off until they arrive, so the "WIP" marker
+    // flashed on a launched surface on every reload (prod 2026-10-20, ui.kb_cases switched on).
+    isPreviewing: (key: string) => !state.loading && !isSurfaceEnabled(key) && canPreviewUnfinished,
     loading: state.loading,
   };
 };
