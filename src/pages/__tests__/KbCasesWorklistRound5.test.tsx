@@ -112,16 +112,16 @@ describe('audit round 5', () => {
     ).toBeInTheDocument();
   });
 
-  it('an entry PROPOSED for a case is labelled, links to Merges, offers nothing else, and is counted apart', async () => {
+  it('an entry PROPOSED for a case is labelled, links to its decision in the Knowledge Base, offers nothing else, and is counted apart', async () => {
     server.pendingAttach = new Map([[22, 7001]]);
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Show entries (2, 1 proposed)' }));
     const row22 = await workRowEl(22);
     expect(within(row22).getByText('Proposed to join')).toBeInTheDocument();
     expect(within(row22).getByText(/merge suggestion #7001/)).toBeInTheDocument();
-    expect(within(row22).getByRole('link', { name: 'review it in Merges' })).toHaveAttribute(
+    expect(within(row22).getByRole('link', { name: 'review it in the Knowledge Base' })).toHaveAttribute(
       'href',
-      '/knowledge-base/merges?tab=merges&suggestion=7001'
+      '/knowledge-base?status=suggested_change&id=22'
     );
     expect(within(row22).queryAllByRole('button')).toHaveLength(0);
     // Not a member: the members are still the case's own two.

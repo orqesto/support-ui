@@ -88,6 +88,11 @@ export type Server = {
   originals?: Map<number, { question: string; answer: string }>;
   /** How the undo route answers: 'conflict' = 409 (the entry changed since). */
   undo?: 'ok' | 'conflict';
+  /**
+   * Does the backend know "Changed automatically" (`filters.autoChangedStatus` on the KB list)?
+   * false = an older one: the cases view keeps its own Undo / Keep using / Reject.
+   */
+  autoChangedStatus: boolean;
   /** Hold the answer of a request until released (in-flight tests). */
   hold?: (request: WireRequest) => Promise<void> | null;
 };
@@ -95,6 +100,7 @@ export type Server = {
 export let server: Server;
 
 const freshServer = (): Server => ({
+  autoChangedStatus: true,
   entries: new Map(
     [
       workRow({
@@ -528,6 +534,13 @@ export const handle = async (request: WireRequest) => {
     return server.orgCode
       ? ok({ id: 42, name: 'Acme', code: server.orgCode })
       : routeAbsent(request);
+  }
+  if (method === 'GET' && path === '/api/knowledge-base/entries') {
+    return ok({
+      entries: [],
+      pagination: { page: 1, limit: 1, total: 0, totalPages: 0 },
+      filters: server.autoChangedStatus ? { autoChangedStatus: true } : {},
+    });
   }
   // KB quality review (G2–G4): undo an automatic clean-up; Keep using / Reject a held entry.
   const findBy = (key: 'autoCleaned' | 'heldForReview', suggestionId: number) =>

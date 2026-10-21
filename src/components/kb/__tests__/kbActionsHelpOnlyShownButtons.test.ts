@@ -1,5 +1,6 @@
 /**
- * The help line above a KB entry list explains only the buttons that list shows (2026-10-13).
+ * The help line above a KB cases list explains only what the list offers (2026-10-13), and since
+ * 2026-10-21 deciding is done in the Knowledge Base list, not here.
  *
  * Under a list of approved answers it used to explain Approve, Reject and "Pending answers are never
  * used" — no such button was on screen — and a moderator read it as a decision waiting to be made.
@@ -11,33 +12,23 @@ import type { KbWorkRowStatus } from '@/services/kbConsolidation.service';
 const only = (...statuses: KbWorkRowStatus[]) => new Set<KbWorkRowStatus>(statuses);
 
 describe('the KB actions help line', () => {
-  it('⛔ names no Approve or Reject under a list of approved answers', () => {
-    // RED before: the line ignored what was listed and always explained Approve and Reject.
+  it('⛔ explains no decision button under a list of approved answers, and points to the list', () => {
     const line = actionsHelp(false, only('approved'));
 
-    expect(line).not.toMatch(/Approve:|Reject:|Pending answers/);
-    expect(line).toMatch(/Hide: out of use until Unhide/);
+    expect(line).not.toMatch(/Approve:|Reject:|Hide:|Unhide:|Pending answers/);
     expect(line).toMatch(/Edit: change the text/);
+    expect(line).toMatch(/in the Knowledge Base list/);
   });
 
-  it('explains Approve, Reject and pending where a pending answer is listed (control)', () => {
-    // Without this, a line that dropped Approve everywhere would pass the case above.
-    const line = actionsHelp(false, only('approved', 'pending'));
-
-    expect(line).toMatch(/Approve: it may use the answer/);
-    expect(line).toMatch(/Reject: never used/);
-    expect(line).toMatch(/Pending answers are never used/);
+  it('still says pending answers are never used where one is listed (control)', () => {
+    expect(actionsHelp(false, only('approved', 'pending'))).toMatch(
+      /Pending answers are never used/
+    );
+    expect(actionsHelp(false, only('hidden'))).not.toMatch(/Unhide:|Hide:/);
   });
 
-  it('a list of only hidden answers explains Unhide, not Hide', () => {
-    const line = actionsHelp(false, only('hidden'));
-
-    expect(line).toMatch(/Unhide: back in use/);
-    expect(line).not.toMatch(/Hide: out of use/);
-    expect(line).not.toMatch(/Approve:/);
-  });
-
-  it('keeps the full line when the caller does not say what is listed', () => {
-    expect(actionsHelp(true)).toMatch(/Approve:.*Reject:.*Hide:.*Edit:.*Move into case:.*Pending/);
+  it('explains Move into case only where it is offered', () => {
+    expect(actionsHelp(true)).toMatch(/Edit:.*Move into case:.*Pending/);
+    expect(actionsHelp(false)).not.toMatch(/Move into case/);
   });
 });

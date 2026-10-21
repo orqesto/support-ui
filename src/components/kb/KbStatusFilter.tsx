@@ -7,6 +7,7 @@ export const KB_FILTER_STATUSES: readonly KbFilterStatus[] = [
   'suggested_change',
   'set_aside',
   'auto_removed',
+  'auto_changed',
   'approved',
   'pending',
   'hidden',
@@ -19,6 +20,7 @@ export const KB_FILTER_STATUS_LABEL: Record<KbFilterStatus, string> = {
   suggested_change: 'Suggested change',
   set_aside: 'Set aside',
   auto_removed: 'Removed automatically',
+  auto_changed: 'Changed automatically',
   approved: 'Approved',
   pending: 'Pending',
   hidden: 'Hidden',
@@ -34,21 +36,37 @@ const TITLE: Partial<Record<KbFilterStatus, string>> = {
   set_aside: 'Entries the cases report leaves out, with the reason.',
   auto_removed:
     'Entries the nightly automatic removal took out — Restore puts one back as it was, for 90 days.',
+  auto_changed:
+    'Everything the system did by itself in the last 90 days — removed, held, cleaned of customer details or approved. Each row has its own undo.',
   rejected:
     'Rejected by a reviewer or automatically — deleted 90 days after the reject; Approve restores one before then.',
 };
 
+/**
+ * The filter shows ONE of the two automatic-change statuses: "Changed automatically" where the
+ * backend knows it (`autoChanged` true or not yet known), today's "Removed automatically" on an
+ * older backend that answered without `filters.autoChangedStatus`. null: the backend has not
+ * answered yet — NEITHER is offered (no flash of one that then turns into the other).
+ */
 export const KbStatusFilter = ({
   value,
   onChange,
+  autoChanged = true,
 }: {
   value: KbFilterStatus;
   onChange: (next: KbFilterStatus) => void;
+  autoChanged?: boolean | null;
 }) => (
   <div className="flex flex-col gap-2">
     <span className="text-xs font-semibold text-muted-foreground">Status:</span>
     <div className="flex flex-wrap gap-1 w-fit">
-      {KB_FILTER_STATUSES.map((status) => (
+      {KB_FILTER_STATUSES.filter((status) => {
+        if (autoChanged === null && (status === 'auto_changed' || status === 'auto_removed'))
+          return false;
+        return (
+          status !== (autoChanged && value !== 'auto_removed' ? 'auto_removed' : 'auto_changed')
+        );
+      }).map((status) => (
         <Button
           key={status}
           variant={value === status ? 'primary' : 'outline'}

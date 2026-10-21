@@ -1,7 +1,7 @@
 /**
  * F4 / D5: the eye on a hidden entry UNHIDES it (PATCH /unhide) at every site that used to approve
  * it — the KB table, the mobile card and the detail drawer. Only a REJECTED entry's eye still
- * approves ("Restore"), as it always said. The service runs through the REAL api-client.
+ * approves ("Approve again"), as it always said. The service runs through the REAL api-client.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -85,11 +85,11 @@ describe('Unhide is wired to unhide at every site (F4)', () => {
       expect(props.onApprove).not.toHaveBeenCalled();
     });
 
-    it(`${site}: a REJECTED entry's eye is Restore, and still approves`, async () => {
+    it(`${site}: a REJECTED entry's eye is Approve again, and still approves`, async () => {
       current = rejectedEntry;
       const props = handlers();
       mount(rejectedEntry, props);
-      fireEvent.click(await screen.findByRole('button', { name: 'Restore' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Approve again' }));
       expect(props.onApprove).toHaveBeenCalledWith(7);
       expect(props.onUnhide).not.toHaveBeenCalled();
     });

@@ -47,3 +47,13 @@ describe('useKbAutoRestore', () => {
     expect(off(false, 'auto_removed', applied, vi.fn())).toBeUndefined();
   });
 });
+
+describe('Un-approve wording', () => {
+  it('says what a reject does, as every other reject button does', async () => {
+    const { AUTO_UNDO_TITLE } = await import('../useKbAutoRestore');
+    const { REJECTED_RETENTION_DAYS } = await import('@/lib/kbRejection');
+    expect(AUTO_UNDO_TITLE.unapprove).toBe(
+      `Un-approve — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days unless approved again`
+    );
+  });
+});

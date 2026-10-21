@@ -113,11 +113,14 @@ afterEach(() => {
 });
 
 describe('knowledge base → Removed automatically', () => {
-  it('is offered next to the review filters and asks the list for status=auto_removed', async () => {
-    renderPage();
-    fireEvent.click(await screen.findByRole('button', { name: 'Removed automatically' }));
+  it('an old link (?status=auto_removed) still asks the list for it and shows it pressed', async () => {
+    renderPage('/knowledge-base?status=auto_removed');
     await waitFor(() =>
       expect(state.getAllCalls.some((call) => call.status === 'auto_removed')).toBe(true)
+    );
+    expect(await screen.findByRole('button', { name: 'Removed automatically' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
     );
   });
 
@@ -169,13 +172,14 @@ describe('knowledge base → Removed automatically', () => {
     expect(state.restore).toHaveBeenCalledTimes(1);
   });
 
-  it('rows of a response that ignored the status keep the plain Restore (Approve)', async () => {
+  it('rows of a response that ignored the status say Approve again (Approve), never Restore', async () => {
     // A finding list shows its rows even when the status was not applied: the row must not offer
     // an automatic-removal restore the server never vouched for.
     state.autoRemovedStatus = false;
     renderPage('/knowledge-base?status=auto_removed&finding=raw_email&departmentId=3');
     await screen.findAllByText('Where do I send a return to Example Shop?');
-    fireEvent.click(screen.getAllByRole('button', { name: 'Restore' })[0]);
+    expect(screen.queryByRole('button', { name: 'Restore' })).toBeNull();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Approve again' })[0]);
     await waitFor(() => expect(state.approve).toHaveBeenCalledWith(314));
     expect(state.restore).not.toHaveBeenCalled();
   });

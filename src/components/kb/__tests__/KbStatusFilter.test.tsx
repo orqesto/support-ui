@@ -10,7 +10,7 @@ describe('KbStatusFilter', () => {
       'Needs your decision',
       'Suggested change',
       'Set aside',
-      'Removed automatically',
+      'Changed automatically',
       'Approved',
       'Pending',
       'Hidden',
@@ -20,6 +20,19 @@ describe('KbStatusFilter', () => {
       expect(screen.getByRole('button', { name })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Suggested change' }));
     expect(onChange).toHaveBeenCalledWith('suggested_change');
+  });
+
+  it('on an older backend it offers "Removed automatically" instead', () => {
+    render(<KbStatusFilter value="approved" onChange={() => {}} autoChanged={false} />);
+    expect(screen.getByRole('button', { name: 'Removed automatically' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Changed automatically' })).toBeNull();
+  });
+
+  it('before the backend has answered it offers NEITHER automatic status', () => {
+    render(<KbStatusFilter value="approved" onChange={() => {}} autoChanged={null} />);
+    expect(screen.queryByRole('button', { name: 'Removed automatically' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Changed automatically' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Approved' })).toBeInTheDocument();
   });
 
   it('marks only the chosen filter as pressed, for screen readers', () => {

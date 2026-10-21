@@ -1,10 +1,9 @@
 /**
- * F1 (KB consolidation #873): the learning inbox must not offer its generic one-click Accept for
- * a KB merge — the backend refuses a body-less accept (400), and a merge must be READ first. It
- * offers "Review", which opens the side-by-side review in the row.
+ * KB merges and fixes are decided in the one Knowledge Base list (F2): Learning activity only shows
+ * them and links there — no one-click Accept (the backend refuses a body-less accept), no Review.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type * as LearningServiceModule from '@/services/learning.service';
 
@@ -83,7 +82,7 @@ const Where = () => {
 };
 
 describe('learning inbox — KB merge rows', () => {
-  it('links a merge or fix row to its filter in the Knowledge Base list', async () => {
+  it('links a merge, a fix and a capture to the Knowledge Base list', async () => {
     listSuggestions.mockResolvedValue([
       suggestion(1, 'kb_quality', 'consolidate', { label: 'refund', memberIds: [4, 5, 6] }),
       suggestion(3, 'kb_review', 'approve', {}),
@@ -104,7 +103,7 @@ describe('learning inbox — KB merge rows', () => {
       </MemoryRouter>
     );
     await screen.findByText('consolidate of 3');
-    const links = screen.getAllByRole('button', { name: /Open suggestion \d+ in Knowledge Base/ });
+    const links = screen.getAllByRole('button', { name: /Decide in Knowledge Base/ });
     expect(links).toHaveLength(2);
     fireEvent.click(links[0]);
     expect(screen.getByTestId('where')).toHaveTextContent(
@@ -112,51 +111,15 @@ describe('learning inbox — KB merge rows', () => {
     );
   });
 
-  it('offers Review, not Accept, for a merge; other rows keep Accept', async () => {
+  it('decides nothing here: no Review, no Accept for a merge; the routing row links to its page', async () => {
     render(
       <MemoryRouter>
         <LearningSuggestionsSettings />
       </MemoryRouter>
     );
     expect(await screen.findByText('consolidate of 3')).toBeInTheDocument();
-    // Exactly one Accept — the routing row's.
-    expect(screen.getAllByRole('button', { name: 'Accept this suggestion' })).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
-    expect(screen.getByText('REVIEW OF 1')).toBeInTheDocument();
-  });
-
-  it('reloads the list after a decision and keeps saying what happened (L4)', async () => {
-    render(
-      <MemoryRouter>
-        <LearningSuggestionsSettings />
-      </MemoryRouter>
-    );
-    await screen.findByText('consolidate of 3');
-    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
-    listSuggestions.mockResolvedValue([rows[1]]);
-    fireEvent.click(screen.getByRole('button', { name: 'FAKE DECIDE' }));
-    await waitFor(() => expect(listSuggestions).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(screen.queryByText('consolidate of 3')).not.toBeInTheDocument());
-    // The decided row left the list; what came of it did not vanish with it.
-    expect(screen.getByText('OUTCOME declined')).toBeInTheDocument();
-  });
-
-  it("a workspace switch drops the last merge's outcome — it belongs to the other workspace", async () => {
-    const { rerender } = render(
-      <MemoryRouter>
-        <LearningSuggestionsSettings />
-      </MemoryRouter>
-    );
-    await screen.findByText('consolidate of 3');
-    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
-    fireEvent.click(screen.getByRole('button', { name: 'FAKE DECIDE' }));
-    expect(await screen.findByText('OUTCOME declined')).toBeInTheDocument();
-    orgId = 22;
-    rerender(
-      <MemoryRouter>
-        <LearningSuggestionsSettings />
-      </MemoryRouter>
-    );
-    await waitFor(() => expect(screen.queryByText('OUTCOME declined')).not.toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: 'Review' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Accept this suggestion' })).toBeNull();
+    expect(screen.getByRole('button', { name: /Decide in Routing Rules/ })).toBeInTheDocument();
   });
 });

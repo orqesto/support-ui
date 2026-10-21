@@ -1,6 +1,6 @@
 /**
- * Engine Activity with routing proposals (T24): proposal rows render as RoutingProposalCard (wired
- * to remove on decision and quietly reload on a stale 409), promote rows show the engine's summary,
+ * Learning activity (was Engine Activity; routing cards now live in Routing Rules, see
+ * FeatureSuggestions.test): promote rows show the engine's summary,
  * the empty state says when proposals appear, and `?focus=<id>` (the bell's deep link) opens and
  * scrolls to that suggestion. All data invented.
  */
@@ -55,12 +55,8 @@ vi.mock('@/stores/authStore', () => ({
   useAuthStore: (select: (s: unknown) => unknown) => select({ selectedOrganizationId: 1 }),
 }));
 vi.mock('../KbMergeInboxParts', () => ({
-  KbMergeInboxReview: () => null,
-  KbMergeOutcomeBanner: () => null,
-  KbQualityInboxReview: () => null,
   summarizeKbMerge: () => '',
   summarizeKbQuality: () => '',
-  useKbMergeOutcome: () => ({ outcome: null, onDecided: () => {} }),
 }));
 
 const { LearningSuggestionsSettings } = await import('../LearningSuggestionsSettings');
@@ -76,8 +72,9 @@ const row = (id: number, suggestionType: string, payload: Record<string, unknown
   expiresAt: '9999-12-31T00:00:00Z',
   createdAt: '2026-10-14T09:00:00Z',
 });
+// A domain with no feature page yet (so it is decided in Learning activity).
 const conflict = (id: number) =>
-  row(id, 'resolve_conflict', { ruleAId: 41, ruleBId: 42, conflictType: 'some_other_conflict', evidence: {} });
+  ({ ...row(id, 'resolve_conflict', { ruleAId: 41, ruleBId: 42, conflictType: 'some_other_conflict', evidence: {} }), domain: 'categorization' });
 const renderAt = (url = '/settings') =>
   render(
     <MemoryRouter initialEntries={[url]}>
@@ -96,7 +93,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe('Engine Activity with routing proposals', () => {
+describe('Learning activity', () => {
   it('empty state says when proposals appear', async () => {
     renderAt();
     expect(
@@ -110,62 +107,6 @@ describe('Engine Activity with routing proposals', () => {
     renderAt();
     expect(await screen.findByText('No suggestions yet — they appear as your team works through mail.')).toBeTruthy();
     expect(screen.queryByText(/routes similar mail/)).toBeNull();
-  });
-
-  it('each routing proposal type renders as its card; other routing rows do not', async () => {
-    rows.list = [
-      row(5, 'propose_rule', { ruleId: 1, value: 'pallet label', ruleType: 'body_contains', departmentId: 1 }),
-      row(6, 'resolve_routing_disagreement', { options: [] }),
-      row(7, 'confirm_learned_rule', { ruleId: 2, value: 'loading dock', ruleType: 'body_contains', departmentId: 1 }),
-      conflict(9),
-    ];
-    renderAt();
-    expect(await screen.findByTestId('card-5')).toBeTruthy();
-    expect(screen.getByTestId('card-6')).toBeTruthy();
-    expect(screen.getByTestId('card-7')).toBeTruthy();
-    expect(screen.queryByTestId('card-9')).toBeNull();
-    // The card is passed canAct; it sits in a row that carries its id (the focus target).
-    expect(screen.getByTestId('card-5').getAttribute('data-can-act')).toBe('true');
-    expect(screen.getByTestId('card-5').closest('[data-suggestion-id="5"]')).toBeTruthy();
-  });
-
-  it('without the permission the card gets canAct=false and the reason is shown', async () => {
-    rows.canAct = false;
-    rows.list = [row(5, 'propose_rule', { ruleId: 1, value: 'pallet label', ruleType: 'body_contains', departmentId: 1 })];
-    renderAt();
-    expect((await screen.findByTestId('card-5')).getAttribute('data-can-act')).toBe('false');
-    expect(screen.getByText('You do not have permission to change this kind of rule. Ask an admin.')).toBeTruthy();
-  });
-
-  it('a decided card leaves the list; a stale card reloads the list without the spinner; errors show', async () => {
-    rows.list = [
-      row(5, 'propose_rule', { ruleId: 1, value: 'pallet label', ruleType: 'body_contains', departmentId: 1 }),
-      row(7, 'confirm_learned_rule', { ruleId: 2, value: 'loading dock', ruleType: 'body_contains', departmentId: 1 }),
-    ];
-    renderAt();
-    await screen.findByTestId('card-5');
-    fireEvent.click(screen.getByText('DONE 5'));
-    expect(screen.queryByTestId('card-5')).toBeNull();
-    expect(screen.getByTestId('card-7')).toBeTruthy();
-
-    expect(rows.loads).toBe(1);
-    rows.list = [];
-    await act(async () => {
-      fireEvent.click(screen.getByText('STALE 7'));
-      await Promise.resolve();
-    });
-    expect(rows.loads).toBe(2);
-    expect(screen.queryByText('Loading suggestions…')).toBeNull();
-    expect(
-      await screen.findByText('No proposals yet — they appear after your team routes similar mail a few times.')
-    ).toBeTruthy();
-  });
-
-  it('a card error is shown above the list', async () => {
-    rows.list = [row(5, 'propose_rule', { ruleId: 1, value: 'pallet label', ruleType: 'body_contains', departmentId: 1 })];
-    renderAt();
-    fireEvent.click(await screen.findByText('FAIL 5'));
-    expect(screen.getByText('This suggestion was already decided.')).toBeTruthy();
   });
 
   it('promote shows the engine summary, not "Promote provisional rule"', async () => {
@@ -186,14 +127,15 @@ describe('Engine Activity with routing proposals', () => {
     await screen.findByText('Promote: s');
     const titles = screen.getAllByRole('button', { name: 'Accept this suggestion' }).map((btn) => btn.getAttribute('title'));
     expect(titles).toContain('Accept — makes this rule permanent');
-    expect(titles).toContain('Accept — disables the weaker rule');
+    expect(titles).toContain('Accept');
   });
 
-  it('a routing-domain promote row is a normal promote row, not a proposal card', async () => {
+  it('a routing-domain promote row is shown with a link to Routing Rules, not a proposal card', async () => {
     rows.list = [row(6, 'promote', { ruleId: 3, ruleTable: 'routing_rules', summary: 's' })];
     renderAt();
     expect(await screen.findByText('Promote: s')).toBeTruthy();
     expect(screen.queryByTestId('card-6')).toBeNull();
+    expect(screen.getByRole('button', { name: /Decide in Routing Rules/ })).toBeTruthy();
   });
 
   it('promote without a summary keeps the old fallback', async () => {
@@ -239,10 +181,10 @@ describe('Engine Activity with routing proposals', () => {
     expect(within(row9).getByText('Rule A ID')).toBeTruthy();
   });
 
-  it('?focus=<id> scrolls to a proposal card row', async () => {
+  it('?focus=<id> scrolls to a row that is decided elsewhere too', async () => {
     rows.list = [conflict(9), row(5, 'propose_rule', { ruleId: 1, value: 'pallet label', ruleType: 'body_contains', departmentId: 1 })];
     renderAt('/settings?focus=5');
-    await screen.findByTestId('card-5');
+    await screen.findByRole('button', { name: /Decide in Routing Rules/ });
     expect(scrollIntoView).toHaveBeenCalledTimes(1);
     expect(scrollIntoView.mock.contexts[0]).toBe(document.querySelector('[data-suggestion-id="5"]'));
   });
@@ -262,11 +204,10 @@ describe('Engine Activity with routing proposals', () => {
     expect(scrollIntoView).toHaveBeenCalledTimes(1);
     rows.list = [conflict(8)];
     await act(async () => {
-      fireEvent.click(screen.getByText('STALE 7'));
+      fireEvent.click(screen.getByRole('button', { name: /Refresh/ }));
       await Promise.resolve();
     });
     expect(rows.loads).toBe(2);
-    expect(screen.queryByTestId('card-7')).toBeNull();
     expect(scrollIntoView).toHaveBeenCalledTimes(1);
   });
 });

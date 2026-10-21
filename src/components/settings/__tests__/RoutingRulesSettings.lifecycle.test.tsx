@@ -268,11 +268,12 @@ describe('Rules page lifecycle', () => {
     expect(screen.queryAllByText('old idea')).toHaveLength(0);
   });
 
-  it('badges: Proposed links to its card, Declined shows the reason, accepted is Learned · Approved', async () => {
+  it('badges: Proposed is plain text with a hint, Declined shows the reason, accepted is Learned · Approved', async () => {
     renderPage();
     await screen.findAllByText('pallet label');
-    const proposed = rowOf('pallet label').getByRole('link', { name: 'Proposed' });
-    expect(proposed.getAttribute('href')).toBe('/settings?focus=55#ai/learning');
+    const proposed = rowOf('pallet label').getByText('Proposed');
+    expect(proposed.closest('a')).toBeNull();
+    expect(proposed.getAttribute('title')).toBe('Switch this rule on to accept it');
     expect(rowOf('crate').getByText('Declined')).toBeTruthy();
     expect(screen.getAllByTitle('too broad').length).toBeGreaterThan(0);
     expect(rowOf('loading dock').getByText('Learned · Approved')).toBeTruthy();
@@ -280,11 +281,12 @@ describe('Rules page lifecycle', () => {
     expect(rowOf('invoice').queryByText(/Learned/)).toBeNull();
   });
 
-  it('a sibling (no suggestionId of its own) links to its anchor’s card', async () => {
+  it('a sibling is a Proposed badge too: switching it on is its decision', async () => {
     renderPage();
     await screen.findAllByText('warehouse');
-    const proposed = rowOf('warehouse').getByRole('link', { name: 'Proposed' });
-    expect(proposed.getAttribute('href')).toBe('/settings?focus=77#ai/learning');
+    const proposed = rowOf('warehouse').getByText('Proposed');
+    expect(proposed.closest('a')).toBeNull();
+    expect(proposed.getAttribute('title')).toBe('Switch this rule on to accept it');
   });
 
   it('switching on a proposed rule asks first; confirming sends enabled:true', async () => {
@@ -293,7 +295,7 @@ describe('Rules page lifecycle', () => {
     fireEvent.click(rowOf('pallet label').getByRole('button', { name: /Inactive/ }));
     expect(await screen.findByText(/This accepts the proposal/)).toBeTruthy();
     expect(screen.getByText('Accept this proposal?')).toBeTruthy();
-    expect(screen.getByText(/Its card in Engine Activity is closed/)).toBeTruthy();
+    expect(screen.queryByText(/Engine Activity/)).toBeNull();
     expect(state.updates).toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
     await waitFor(() => expect(state.updates).toEqual([[1, { enabled: true }]]));
@@ -329,7 +331,7 @@ describe('Rules page lifecycle', () => {
     expect(text.textContent).not.toContain('pair rule');
   });
 
-  it('another department’s open card blocks Accept: the confirm says so, links the card, offers no Accept', async () => {
+  it('another department’s open card blocks Accept: the confirm says so, offers no Accept', async () => {
     renderPage();
     await screen.findAllByText('dock door');
     fireEvent.click(rowOf('dock door').getByRole('button', { name: /Inactive/ }));
@@ -337,8 +339,8 @@ describe('Rules page lifecycle', () => {
     expect(text.textContent).toContain('Logistics has an open proposal for this pattern');
     expect(screen.queryByText(/is declined/)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Accept' })).toBeNull();
-    const link = screen.getByRole('link', { name: 'Open the card' });
-    expect(link.getAttribute('href')).toBe('/settings?focus=77#ai/learning');
+    expect(screen.queryByRole('link', { name: 'Open the card' })).toBeNull();
+    expect(screen.queryByText(/Engine Activity/)).toBeNull();
     expect(state.updates).toHaveLength(0);
   });
 

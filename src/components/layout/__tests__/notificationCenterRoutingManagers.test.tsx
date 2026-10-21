@@ -1,6 +1,6 @@
 /**
  * Bell rows for a routing manager (spec 4.6): a proposal row shows the BE summary and opens
- * Engine Activity on THAT card (/settings?focus=<id>#ai/learning); an auto-accept row shows the BE
+ * the feature page that decides it (Routing Rules: /settings#rules/routing; no home yet: /settings?focus=<id>#ai/learning); an auto-accept row shows the BE
  * summary and opens the learning page where its Undo lives. A viewer without the permission
  * (showLearning false) sees no learning section even if rows were left in state.
  */
@@ -104,8 +104,19 @@ const open = (learning: CenterProps['learning']) => {
 afterEach(() => cleanup());
 
 describe('NotificationCenter for routing managers', () => {
-  it('a proposal row shows the BE summary and opens that card in Engine Activity', () => {
+  it('a proposal row shows the BE summary and opens Routing Rules, where it is decided', () => {
     open(learningProp({ suggestions: [proposal], unreadCount: 1 }));
+    fireEvent.click(screen.getByText('Route "invoice overdue" in the subject to Billing'));
+    expect(screen.getByTestId('loc').textContent).toBe('/settings#rules/routing');
+  });
+
+  it('a suggestion with no feature page yet still opens its row in Learning activity', () => {
+    open(
+      learningProp({
+        suggestions: [{ ...proposal, domain: 'contradiction', suggestionType: 'adjust_threshold' }],
+        unreadCount: 1,
+      })
+    );
     fireEvent.click(screen.getByText('Route "invoice overdue" in the subject to Billing'));
     expect(screen.getByTestId('loc').textContent).toBe('/settings?focus=77#ai/learning');
   });

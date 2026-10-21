@@ -4,349 +4,26 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useDepartments } from '@/hooks/useDepartments';
-import {
-  isRoutingProposal,
-  learningService,
-  type LearningSuggestion,
-} from '@/services/learning.service';
+import { learningService, type LearningSuggestion } from '@/services/learning.service';
 import { logger } from '@/lib/logger';
-import {
-  KbReviewSuggestionDetail,
-  SuggestionMeta,
-  summarizeKbReview,
-} from './KbReviewSuggestionDetail';
-import { ReplyStyleSuggestionDetail } from './ReplyStyleSuggestionDetail';
+import { SuggestionMeta } from './KbReviewSuggestionDetail';
 import { useAuthStore } from '@/stores/authStore';
 import { getApiErrorMessage } from '@/lib/errorMessages';
-import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
-import { isKbConsolidationSuggestion, isKbModeratedSuggestion, isKbQualitySuggestion, whyCannotAct } from '@/lib/learningSuggestionPermissions';
-import { KbMergeInboxReview, KbMergeOutcomeBanner, KbQualityInboxReview, summarizeKbMerge, summarizeKbQuality, useKbMergeOutcome } from './KbMergeInboxParts';
+import { whyCannotAct } from '@/lib/learningSuggestionPermissions';
+import { suggestionHome, suggestionHomeName } from '@/lib/suggestionHome';
 import { useSuggestionDomainAccess } from '@/hooks/useSuggestionDomainAccess';
-import { EvidenceSection } from './ConflictEvidenceSection';
-import { RoutingProposalCard } from './RoutingProposalCard';
+import {
+  DOMAIN_LABELS,
+  SeverityBadge,
+  summarizeSuggestion,
+  ConflictDetail,
+} from './LearningSuggestionParts';
 
-const DOMAIN_LABELS: Record<string, string> = {
-  routing: 'Routing',
-  spam: 'Spam',
-  category: 'Category',
-  suggested_reply: 'Suggested Reply',
-  auto_reply: 'Auto-Reply',
-  auto_reply_block: 'Auto-Reply Block',
-  kb_extraction: 'KB Extraction',
-  kb_scope: 'KB Scope',
-  kb_quality: 'KB Quality',
-  kb_review: 'Knowledge base review',
-  reply_style: 'Reply Style',
-  sentiment: 'Sentiment',
-  lead: 'Lead',
-  multi_topic: 'Multi-Topic',
-  sla: 'SLA',
-  resolution_quality: 'Resolution Quality',
-};
-
-// Severity pill — only meaningful for resolve_conflict rows. cross_dept_overlap
-// is the hard conflict (centroid cosine >= 0.92 detected at cron time);
-// cross_dept_warn_overlap is the borderline overlap (0.85-0.92 detected at
-// materialize time, emitted by L2). Amber vs red signals the disposition gap:
-// hard conflicts need real action (one rule is wrong); soft overlaps are an
-// invitation to consolidate. Other suggestion types render no pill.
-const SeverityBadge = ({ suggestion }: { suggestion: LearningSuggestion }) => {
-  if (suggestion.suggestionType !== 'resolve_conflict') return null;
-  const payload = suggestion.payload ?? {};
-  const conflictType = typeof payload.conflictType === 'string' ? payload.conflictType : '';
-  if (conflictType === 'cross_dept_warn_overlap') {
-    return (
-      <span
-        className="font-display inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold uppercase tracking-[0.09em] bg-warning/15 text-warning"
-        title="Borderline cross-dept overlap (cosine 0.85-0.92). Soft signal — these rules may converge over time. Not blocking."
-      >
-        Soft
-      </span>
-    );
-  }
-  if (conflictType === 'cross_dept_overlap' || conflictType === 'category_mismatch') {
-    return (
-      <span
-        className="font-display inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold uppercase tracking-[0.09em] bg-destructive/15 text-destructive"
-        title="Hard conflict — two rules disagree at high similarity. Admin action needed."
-      >
-        Hard
-      </span>
-    );
-  }
-  return null;
-};
-
-// Best-effort one-liner summary of a suggestion. The payload shape varies by
-// (domain, suggestionType) — fall back to a generic line if we don't recognize.
-// Reference payload shapes (BE source of truth):
-//   routingAnalyzer add_rule → { ruleType, value, targetDeptId, sourceDeptId, proposedWeight, sampleSubjects }
-//   spamAnalyzer add_pattern / remove_pattern → { phrase, direction }
-const summarizeSuggestion = (
-  suggestion: LearningSuggestion,
-  deptNameById: (id: number) => string | undefined
-): string => {
-  const payload = suggestion.payload ?? {};
-  if (isKbConsolidationSuggestion(suggestion)) return summarizeKbMerge(payload, suggestion.suggestionType);
-  if (isKbQualitySuggestion(suggestion)) return summarizeKbQuality(payload);
-  if (suggestion.suggestionType === 'add_rule') {
-    const value = typeof payload.value === 'string' ? payload.value : '';
-    const ruleType = typeof payload.ruleType === 'string' ? payload.ruleType : 'pattern';
-    const targetDeptId =
-      typeof payload.targetDeptId === 'number' ? payload.targetDeptId : null;
-    const targetName = targetDeptId !== null ? deptNameById(targetDeptId) : null;
-    const targetClause = targetName
-      ? ` → ${targetName}`
-      : targetDeptId !== null
-        ? ` → dept #${targetDeptId}`
-        : '';
-    return `Add ${ruleType} rule${value ? `: "${value}"` : ''}${targetClause}`;
-  }
-  if (suggestion.suggestionType === 'add_pattern' || suggestion.suggestionType === 'remove_pattern') {
-    const phrase = typeof payload.phrase === 'string' ? payload.phrase : '';
-    const verb = suggestion.suggestionType === 'add_pattern' ? 'Add spam pattern' : 'Remove spam pattern';
-    return phrase ? `${verb}: "${phrase}"` : verb;
-  }
-  if (suggestion.suggestionType === 'adjust_threshold') {
-    const fromValue = payload.from;
-    const toValue = payload.to;
-    if (typeof fromValue === 'number' && typeof toValue === 'number') {
-      return `Adjust threshold ${Math.round(fromValue * 100)}% → ${Math.round(toValue * 100)}%`;
-    }
-    return 'Adjust threshold';
-  }
-  if (suggestion.suggestionType === 'kb_review.capture') return summarizeKbReview(suggestion);
-  if (suggestion.suggestionType === 'reply_style.update') {
-    const signals =
-      typeof payload.signals === 'object' && payload.signals !== null
-        ? (payload.signals as Record<string, unknown>)
-        : {};
-    const convs = typeof signals.distinctConvs === 'number' ? signals.distinctConvs : null;
-    const agents = typeof signals.distinctAgents === 'number' ? signals.distinctAgents : null;
-    const from =
-      convs !== null && agents !== null
-        ? ` — from ${suggestion.evidenceCount} edited drafts across ${convs} thread${convs === 1 ? '' : 's'}, ${agents} agent${agents === 1 ? '' : 's'}`
-        : '';
-    return `Update the house reply style${from}`;
-  }
-  if (suggestion.suggestionType === 'flag_low_quality') {
-    return 'Flag low-quality output for review';
-  }
-  if (suggestion.suggestionType === 'promote') {
-    // BE payload: { ruleId, ruleTable, summary, counterfactualRatio, recommendation } (learningEngine.ts).
-    if (typeof payload.summary === 'string' && payload.summary) return `Promote: ${payload.summary}`;
-    const value = typeof payload.value === 'string' ? payload.value : '';
-    const ruleType = typeof payload.ruleType === 'string' ? payload.ruleType : 'rule';
-    return value ? `Promote ${ruleType}: "${value}"` : 'Promote provisional rule';
-  }
-  if (suggestion.suggestionType === 'resolve_conflict') {
-    const evidence =
-      typeof payload.evidence === 'object' && payload.evidence !== null
-        ? (payload.evidence as Record<string, unknown>)
-        : {};
-    const conflictType = typeof payload.conflictType === 'string' ? payload.conflictType : '';
-    // spam category_mismatch: show rule names + categories
-    if (conflictType === 'category_mismatch') {
-      const nameA = typeof evidence.ruleAName === 'string' ? evidence.ruleAName : null;
-      const nameB = typeof evidence.ruleBName === 'string' ? evidence.ruleBName : null;
-      const catA = typeof evidence.ruleACategory === 'string' ? evidence.ruleACategory : null;
-      const catB = typeof evidence.ruleBCategory === 'string' ? evidence.ruleBCategory : null;
-      if (nameA && nameB) {
-        const catClause = catA && catB ? ` (${catA} vs ${catB})` : '';
-        return `Resolve conflict: "${nameA}" ↔ "${nameB}"${catClause}`;
-      }
-    }
-    // routing cross_dept_overlap: show rule values + dept names
-    if (conflictType === 'cross_dept_overlap') {
-      const deptIdA = typeof evidence.deptIdA === 'number' ? evidence.deptIdA : null;
-      const deptIdB = typeof evidence.deptIdB === 'number' ? evidence.deptIdB : null;
-      const deptA = deptIdA !== null ? (deptNameById(deptIdA) ?? `dept #${deptIdA}`) : null;
-      const deptB = deptIdB !== null ? (deptNameById(deptIdB) ?? `dept #${deptIdB}`) : null;
-      const valA = typeof evidence.ruleAValue === 'string' ? evidence.ruleAValue : null;
-      const valB = typeof evidence.ruleBValue === 'string' ? evidence.ruleBValue : null;
-      if (deptA && deptB && valA && valB) return `Resolve conflict: "${valA}" (${deptA}) ↔ "${valB}" (${deptB})`;
-      if (deptA && deptB) return `Resolve conflict: ${deptA} ↔ ${deptB}`;
-    }
-    // routing cross_dept_warn_overlap (L2 warn-band): emitted at materialize
-    // time so the payload shape differs from cron-time conflicts — only
-    // ruleAId/ruleBId, deptIdA/deptIdB, similarity, and attemptedSubject are
-    // populated. No ruleAValue/ruleBValue. Surface dept names + similarity
-    // pct as the headline; the trigger subject lands in the detail panel.
-    if (conflictType === 'cross_dept_warn_overlap') {
-      const deptIdA = typeof evidence.deptIdA === 'number' ? evidence.deptIdA : null;
-      const deptIdB = typeof evidence.deptIdB === 'number' ? evidence.deptIdB : null;
-      const deptA = deptIdA !== null ? (deptNameById(deptIdA) ?? `dept #${deptIdA}`) : null;
-      const deptB = deptIdB !== null ? (deptNameById(deptIdB) ?? `dept #${deptIdB}`) : null;
-      const similarity = typeof evidence.similarity === 'number' ? evidence.similarity : null;
-      const simClause = similarity !== null ? ` (${(similarity * 100).toFixed(0)}% similar)` : '';
-      if (deptA && deptB) return `Soft overlap: ${deptA} ↔ ${deptB}${simClause}`;
-      return `Soft overlap${simClause}`;
-    }
-    return conflictType ? `Resolve conflict (${conflictType.replace(/_/g, ' ')})` : 'Resolve conflict';
-  }
-  return suggestion.suggestionType.replace(/_/g, ' ');
-};
-
-type Refinement = {
-  target: 'A' | 'B';
-  targetRuleId: number;
-  token: string;
-  oldValue: string;
-  proposedValue: string;
-  rationale: string;
-};
-
-// Read the BE-computed refinement (proposed tightened pattern for the weaker /
-// over-reaching rule) off a conflict suggestion's evidence, if present.
-const readRefinement = (suggestion: LearningSuggestion): Refinement | null => {
-  const payload = suggestion.payload ?? {};
-  const evidence =
-    typeof payload.evidence === 'object' && payload.evidence !== null
-      ? (payload.evidence as Record<string, unknown>)
-      : {};
-  const raw = evidence.refinement;
-  if (!raw || typeof raw !== 'object') return null;
-  const obj = raw as Record<string, unknown>;
-  if (
-    (obj.target !== 'A' && obj.target !== 'B') ||
-    typeof obj.targetRuleId !== 'number' ||
-    typeof obj.oldValue !== 'string' ||
-    typeof obj.proposedValue !== 'string'
-  ) {
-    return null;
-  }
-  return {
-    target: obj.target,
-    targetRuleId: obj.targetRuleId,
-    token: typeof obj.token === 'string' ? obj.token : '',
-    oldValue: obj.oldValue,
-    proposedValue: obj.proposedValue,
-    rationale: typeof obj.rationale === 'string' ? obj.rationale : '',
-  };
-};
-
-const ConflictDetail = ({
-  suggestion,
-  deptNameById,
-}: {
-  suggestion: LearningSuggestion;
-  deptNameById: (id: number) => string | undefined;
-}) => {
-  const payload = suggestion.payload ?? {};
-  const evidence =
-    typeof payload.evidence === 'object' && payload.evidence !== null
-      ? (payload.evidence as Record<string, unknown>)
-      : {};
-  const conflictType = typeof payload.conflictType === 'string' ? payload.conflictType : '';
-  // Block-band conflicts (cron) carry `centroidCosine`; warn-band (L2 at
-  // materialize) carries `similarity`; older shapes used `cosine`. Treat all
-  // three as the same admin-facing number.
-  const cosine =
-    typeof evidence.centroidCosine === 'number'
-      ? evidence.centroidCosine
-      : typeof evidence.cosine === 'number'
-        ? evidence.cosine
-        : typeof evidence.similarity === 'number'
-          ? evidence.similarity
-          : null;
-
-  const rows: { label: string; value: string }[] = [];
-
-  if (conflictType === 'category_mismatch') {
-    if (typeof evidence.ruleAName === 'string') rows.push({ label: 'Rule A', value: evidence.ruleAName });
-    if (typeof evidence.ruleACategory === 'string') rows.push({ label: 'Category A', value: evidence.ruleACategory });
-    if (typeof evidence.ruleBName === 'string') rows.push({ label: 'Rule B', value: evidence.ruleBName });
-    if (typeof evidence.ruleBCategory === 'string') rows.push({ label: 'Category B', value: evidence.ruleBCategory });
-    rows.push({ label: 'Problem', value: 'Two spam rules with similar content disagree on category. Accepting lets the engine disable the lower-confidence one.' });
-  } else if (conflictType === 'cross_dept_overlap') {
-    const deptIdA = typeof evidence.deptIdA === 'number' ? evidence.deptIdA : null;
-    const deptIdB = typeof evidence.deptIdB === 'number' ? evidence.deptIdB : null;
-    if (typeof evidence.ruleAValue === 'string') rows.push({ label: 'Rule A', value: `"${evidence.ruleAValue}" (${typeof evidence.ruleAType === 'string' ? evidence.ruleAType : 'rule'})` });
-    if (deptIdA !== null) rows.push({ label: 'Dept A', value: deptNameById(deptIdA) ?? `#${deptIdA}` });
-    if (typeof evidence.ruleBValue === 'string') rows.push({ label: 'Rule B', value: `"${evidence.ruleBValue}" (${typeof evidence.ruleBType === 'string' ? evidence.ruleBType : 'rule'})` });
-    if (deptIdB !== null) rows.push({ label: 'Dept B', value: deptNameById(deptIdB) ?? `#${deptIdB}` });
-    rows.push({ label: 'Problem', value: 'Two routing rules in different departments match very similar messages. Accepting merges or removes the weaker one.' });
-  } else if (conflictType === 'cross_dept_warn_overlap') {
-    // Warn-band payload (emitted by L2 at materialize) doesn't include rule
-    // values or types — only the pair ids, dept ids, similarity, and the
-    // subject that triggered it. Show what we have, surface the trigger
-    // subject so admins can sanity-check whether the overlap is meaningful.
-    const deptIdA = typeof evidence.deptIdA === 'number' ? evidence.deptIdA : null;
-    const deptIdB = typeof evidence.deptIdB === 'number' ? evidence.deptIdB : null;
-    if (typeof payload.ruleAId === 'number') rows.push({ label: 'Rule A', value: `#${payload.ruleAId}` });
-    if (deptIdA !== null) rows.push({ label: 'Dept A', value: deptNameById(deptIdA) ?? `#${deptIdA}` });
-    if (typeof payload.ruleBId === 'number') rows.push({ label: 'Rule B', value: `#${payload.ruleBId}` });
-    if (deptIdB !== null) rows.push({ label: 'Dept B', value: deptNameById(deptIdB) ?? `#${deptIdB}` });
-    if (typeof evidence.attemptedSubject === 'string' && evidence.attemptedSubject.length > 0) {
-      rows.push({ label: 'Trigger', value: `"${evidence.attemptedSubject}"` });
-    }
-    rows.push({
-      label: 'Problem',
-      value:
-        'Borderline cross-dept overlap (similarity 85–92%). Not a hard conflict — both rules can coexist — but they may converge over time. Accepting consolidates them; declining records that they should stay distinct.',
-    });
-  } else {
-    const idA = typeof payload.ruleAId === 'number' ? String(payload.ruleAId) : '—';
-    const idB = typeof payload.ruleBId === 'number' ? String(payload.ruleBId) : '—';
-    rows.push({ label: 'Rule A ID', value: idA });
-    rows.push({ label: 'Rule B ID', value: idB });
-  }
-
-  // Which rule Accept keeps vs disables (resolved by the BE from the same
-  // strength ranking Accept uses). Shown for any conflict whose pair is still
-  // live; dept suffix only when the payload carries dept ids (routing).
-  const winnerRuleId = typeof evidence.winnerRuleId === 'number' ? evidence.winnerRuleId : null;
-  const loserRuleId = typeof evidence.loserRuleId === 'number' ? evidence.loserRuleId : null;
-  if (winnerRuleId !== null && loserRuleId !== null) {
-    const ruleAId = typeof payload.ruleAId === 'number' ? payload.ruleAId : null;
-    const deptIdA = typeof evidence.deptIdA === 'number' ? evidence.deptIdA : null;
-    const deptIdB = typeof evidence.deptIdB === 'number' ? evidence.deptIdB : null;
-    const deptSuffix = (ruleId: number): string => {
-      if (ruleAId === null || deptIdA === null || deptIdB === null) return '';
-      const deptId = ruleId === ruleAId ? deptIdA : deptIdB;
-      return ` (${deptNameById(deptId) ?? `#${deptId}`})`;
-    };
-    rows.push({ label: 'Keeps', value: `rule #${winnerRuleId}${deptSuffix(winnerRuleId)}` });
-    rows.push({ label: 'Disables', value: `rule #${loserRuleId}${deptSuffix(loserRuleId)}` });
-  }
-
-  if (cosine !== null) rows.push({ label: 'Similarity', value: `${(cosine * 100).toFixed(1)}%` });
-
-  // Only routing conflicts have ruleAId/ruleBId in payload → evidence endpoint
-  // returns useful data. Skip the Evidence affordance for non-routing shapes
-  // (category_mismatch, etc.) to keep the UI honest.
-  const hasRulePair =
-    typeof payload.ruleAId === 'number' && typeof payload.ruleBId === 'number';
-
-  return (
-    <div className="px-3 pb-3 ml-5">
-      <dl className="mt-1 space-y-1 text-xs">
-        {rows.map(({ label, value }) => (
-          <div key={label} className="flex gap-2">
-            <dt className="shrink-0 w-24 text-muted-foreground">{label}</dt>
-            <dd className="min-w-0 flex-1 text-foreground break-words">{value}</dd>
-          </div>
-        ))}
-      </dl>
-      <p className="mt-2 text-xs text-muted-foreground">
-        {readRefinement(suggestion) && (
-          <>
-            <strong>Refine</strong> = tighten the over-reaching rule so both survive (preferred).{' '}
-          </>
-        )}
-        <strong>Accept</strong> = disables the weaker rule (see Keeps/Disables above).{' '}
-        <strong>Decline</strong> = not a real conflict, stop surfacing it.
-      </p>
-      {hasRulePair && <EvidenceSection suggestionId={suggestion.id} />}
-    </div>
-  );
-};
-
-/** Where a KB suggestion is decided in the one list; null for other kinds of suggestion. */
-const kbListPath = (suggestion: { domain: string; suggestionType: string }): string | null => {
-  if (suggestion.domain === 'kb_review') return '/knowledge-base?status=needs_decision';
-  return isKbModeratedSuggestion(suggestion) ? '/knowledge-base?status=suggested_change' : null;
-};
+/**
+ * Settings › AI › Learning activity. It SHOWS what the engine found: a suggestion that belongs to a
+ * feature is decided there ("Decide in <feature>"); only one with no feature page yet is decided
+ * here, under "Not yet in a feature page" (owner rule 2026-10-21).
+ */
 
 export const LearningSuggestionsSettings = () => {
   const { canActOn, canActOnSuggestion, canActOnAnyDomain } = useSuggestionDomainAccess();
@@ -386,7 +63,6 @@ export const LearningSuggestionsSettings = () => {
     setSuggestions([]);
     void load();
   }, [load, selectedOrganizationId]);
-  const merge = useKbMergeOutcome(useCallback(() => void load(true), [load]), selectedOrganizationId);
 
   // Deep link from the bell (NotificationCenter.goToAiSettings → ?focus=<id>): open that suggestion
   // and scroll to it, once per focus id (a later reload must not yank the page back to it).
@@ -428,33 +104,21 @@ export const LearningSuggestionsSettings = () => {
     }
   };
 
-  // Refine = tighten the over-reaching rule in place (edit-rule) instead of
-  // disabling it, so both rules survive. Applies the proposed pattern the BE
-  // baked into the suggestion's evidence.
-  const handleRefine = async (suggestion: LearningSuggestion) => {
-    const refinement = readRefinement(suggestion);
-    if (!refinement) return;
-    setActingId(suggestion.id);
-    try {
-      await learningService.editRule(suggestion.id, refinement.target, refinement.proposedValue);
-      setSuggestions((prev) => prev.filter((row) => row.id !== suggestion.id));
-    } catch (err) {
-      logger.error('Failed to refine rule:', err);
-      setError(getApiErrorMessage(err) ?? 'Failed to refine the rule. Please try again.');
-    } finally {
-      setActingId(null);
-    }
-  };
-
-  // Group by domain so admins can scan one bucket at a time.
-  const byDomain = useMemo(() => {
-    const map = new Map<string, LearningSuggestion[]>();
-    for (const row of suggestions) {
-      const list = map.get(row.domain) ?? [];
-      list.push(row);
-      map.set(row.domain, list);
-    }
-    return map;
+  // Rows with a home are only shown (and linked); the rest stay decidable here.
+  const { homed, unhomed } = useMemo(() => {
+    const group = (list: LearningSuggestion[]) => {
+      const map = new Map<string, LearningSuggestion[]>();
+      for (const row of list) {
+        const bucket = map.get(row.domain) ?? [];
+        bucket.push(row);
+        map.set(row.domain, bucket);
+      }
+      return Array.from(map.entries());
+    };
+    return {
+      homed: group(suggestions.filter((row) => suggestionHome(row) !== null)),
+      unhomed: group(suggestions.filter((row) => suggestionHome(row) === null)),
+    };
   }, [suggestions]);
 
   // Visible to anyone who can act on at least one domain. Hiding the whole panel from moderators
@@ -469,7 +133,7 @@ export const LearningSuggestionsSettings = () => {
         <div className="flex justify-between items-center">
           <CardTitle className="flex gap-2 items-center">
             <Sparkles className="w-5 h-5" />
-            Learning Suggestions
+            Suggestions found
           </CardTitle>
           <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
             <RefreshCw className={`w-3.5 h-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />
@@ -479,9 +143,8 @@ export const LearningSuggestionsSettings = () => {
       </CardHeader>
       <CardContent>
         <p className="mb-4 text-sm text-muted-foreground">
-          The nightly learning analyzer clusters agent overrides into actionable suggestions.
-          Accepting applies the change immediately; declining records the rejection so the analyzer
-          can learn what not to surface.
+          What the learning engine found and changed. Each suggestion is decided where it applies —
+          follow its link to the feature page.
         </p>
 
         {error && (
@@ -490,8 +153,6 @@ export const LearningSuggestionsSettings = () => {
             <span>{error}</span>
           </div>
         )}
-
-        <KbMergeOutcomeBanner outcome={merge.outcome} />
 
         {loading ? (
           <p className="py-8 text-center text-sm text-muted-foreground">Loading suggestions…</p>
@@ -506,172 +167,41 @@ export const LearningSuggestionsSettings = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            {Array.from(byDomain.entries()).map(([domain, rows]) => (
+            {homed.map(([domain, rows]) => (
               <div key={domain}>
                 <h4 className="font-display mb-2 text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground">
                   {DOMAIN_LABELS[domain] ?? domain} ({rows.length})
                 </h4>
                 <div className="space-y-2">
                   {rows.map((suggestion) => {
-                    const confidence = suggestion.confidence
-                      ? Math.round(Number(suggestion.confidence) * 100)
-                      : null;
-                    const isActing = actingId === suggestion.id;
-                    const canAct = canActOnSuggestion(suggestion);
-                    // Routing proposals (propose / disagreement / keep-this-rule) are their own card,
-                    // always open: the evidence IS the decision. 409 = stale → quiet reload.
-                    if (isRoutingProposal(suggestion)) {
-                      return (
-                        <div
-                          key={suggestion.id}
-                          data-suggestion-id={suggestion.id}
-                          className="rounded-lg border border-border bg-background"
-                        >
-                          {!canAct && (
-                            <p className="px-3 pt-3 text-xs text-muted-foreground">{whyCannotAct(suggestion)}</p>
-                          )}
-                          <RoutingProposalCard
-                            suggestion={suggestion}
-                            deptNameById={deptNameById}
-                            canAct={canAct}
-                            onDone={(id) => setSuggestions((prev) => prev.filter((row) => row.id !== id))}
-                            onError={setError}
-                            onStale={() => void load(true)}
-                          />
-                        </div>
-                      );
-                    }
-                    // A KB merge is decided only after reading the entries side by side, with a
-                    // body saying which ones and what text — a bare Accept is refused (400).
+                    const home = suggestionHome(suggestion);
+                    const confidence = suggestion.confidence ? Math.round(Number(suggestion.confidence) * 100) : null;
                     return (
                       <div
                         key={suggestion.id}
                         data-suggestion-id={suggestion.id}
-                        className="rounded-lg border border-border bg-background"
+                        className="flex justify-between gap-3 items-start p-3 rounded-lg border border-border bg-background"
                       >
-                        <div className="flex justify-between gap-3 items-start p-3">
-                          <div className="flex-1 min-w-0">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              className="flex items-start justify-start gap-1 p-0 h-auto text-left w-full min-w-0 group hover:bg-transparent"
-                              onClick={() => setExpandedId((prev) => prev === suggestion.id ? null : suggestion.id)}
-                            >
-                              {expandedId === suggestion.id
-                                ? <ChevronDown className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                                : <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                              }
-                              <p className="min-w-0 break-words text-sm font-medium group-hover:underline">
-                                <span className="mr-1.5 inline-flex align-middle"><SeverityBadge suggestion={suggestion} /></span>
-                                {summarizeSuggestion(suggestion, deptNameById)}
-                              </p>
-                            </Button>
-                            <div className="flex flex-wrap gap-3 mt-1 ml-5 text-xs text-muted-foreground">
-                              <SuggestionMeta suggestion={suggestion} confidence={confidence} />
-                            </div>
-                          </div>
-                          <div className="flex gap-1 items-center shrink-0">
-                            {!canAct && (
-                              // VISIBLE, not a tooltip: a disabled button fires no hover events, so
-                              // a `title` on it is unreachable in most browsers — and an action that
-                              // is greyed out for no stated reason is what the old hide-everything
-                              // behaviour felt like.
-                              <span className="text-xs text-muted-foreground mr-1">
-                                {whyCannotAct(suggestion)}
-                              </span>
-                            )}
-                            {kbListPath(suggestion) && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                aria-label={`Open suggestion ${suggestion.id} in Knowledge Base`}
-                                onClick={() => navigate(kbListPath(suggestion) ?? '')}
-                              >
-                                Open in Knowledge Base
-                              </Button>
-                            )}
-                            {isKbModeratedSuggestion(suggestion) ? <Button size="sm" variant="outline" onClick={() => setExpandedId(suggestion.id)} disabled={!canAct}>Review</Button> : (<>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void handleDecline(suggestion.id)}
-                              disabled={isActing || !canAct}
-                              title={
-                                !canAct
-                                  ? whyCannotAct(suggestion)
-                                  : suggestion.domain === 'kb_review'
-                                    ? `Reject — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days`
-                                    : 'Decline'
-                              }
-                              aria-label={suggestion.domain === 'kb_review' ? 'Reject' : 'Decline'}
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              aria-label="Accept this suggestion"
-                              size="sm"
-                              onClick={() => void handleAccept(suggestion.id)}
-                              disabled={isActing || !canAct}
-                              title={
-                                !canAct
-                                  ? whyCannotAct(suggestion)
-                                  : suggestion.suggestionType === 'promote'
-                                    ? 'Accept — makes this rule permanent'
-                                    : suggestion.domain === 'reply_style'
-                                      ? 'Accept — makes this the house style for AI-drafted replies'
-                                      : suggestion.domain === 'kb_review'
-                                        ? 'Approve — the AI may quote it from now on'
-                                        : 'Accept — disables the weaker rule'
-                              }
-                            >
-                              <Check className="w-4 h-4" />
-                            </Button>
-                            </>)}
+                        <div className="flex-1 min-w-0">
+                          <p className="min-w-0 break-words text-sm font-medium">
+                            <span className="mr-1.5 inline-flex align-middle"><SeverityBadge suggestion={suggestion} /></span>
+                            {summarizeSuggestion(suggestion, deptNameById)}
+                          </p>
+                          <div className="flex flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
+                            <SuggestionMeta suggestion={suggestion} confidence={confidence} />
                           </div>
                         </div>
-                        {expandedId === suggestion.id && (
-                          <>
-                            {isKbConsolidationSuggestion(suggestion) ? <KbMergeInboxReview suggestionId={suggestion.id} canAct={canAct} onDecided={merge.onDecided} /> : isKbQualitySuggestion(suggestion) ? <KbQualityInboxReview suggestionId={suggestion.id} canAct={canAct} /> : suggestion.domain === 'reply_style' ? (
-                              <ReplyStyleSuggestionDetail suggestion={suggestion} />
-                            ) : suggestion.domain === 'kb_review' ? (
-                              <KbReviewSuggestionDetail suggestion={suggestion} />
-                            ) : (
-                              <ConflictDetail suggestion={suggestion} deptNameById={deptNameById} />
-                            )}
-                            {(() => {
-                              const refinement = readRefinement(suggestion);
-                              if (!refinement) return null;
-                              return (
-                                <div className="px-3 pb-3 ml-5">
-                                  <div className="rounded-md border border-border bg-success/5 p-2.5 space-y-1.5 text-xs">
-                                    <div className="font-medium text-foreground">
-                                      Refine — tighten the over-reaching rule, keep both live
-                                    </div>
-                                    {refinement.rationale && (
-                                      <p className="text-muted-foreground">{refinement.rationale}</p>
-                                    )}
-                                    <div className="flex flex-wrap items-center gap-1.5">
-                                      <span className="text-muted-foreground">Rule #{refinement.targetRuleId}:</span>
-                                      <code className="px-1 py-0.5 rounded bg-destructive/10 text-destructive line-through break-all">
-                                        {refinement.oldValue}
-                                      </code>
-                                      <span className="text-muted-foreground">→</span>
-                                      <code className="px-1 py-0.5 rounded bg-success/10 text-success break-all">
-                                        {refinement.proposedValue}
-                                      </code>
-                                    </div>
-                                    <Button
-                                      size="sm"
-                                      onClick={() => void handleRefine(suggestion)}
-                                      disabled={isActing}
-                                    >
-                                      Refine rule #{refinement.targetRuleId}
-                                    </Button>
-                                  </div>
-                                </div>
-                              );
-                            })()}
-                          </>
+                        {home && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0"
+                            aria-label={`Decide in ${suggestionHomeName(home)}: suggestion ${suggestion.id}`}
+                            title={home.label}
+                            onClick={() => navigate(home.href)}
+                          >
+                            Decide in {suggestionHomeName(home)}
+                          </Button>
                         )}
                       </div>
                     );
@@ -679,6 +209,90 @@ export const LearningSuggestionsSettings = () => {
                 </div>
               </div>
             ))}
+            {unhomed.length > 0 && (
+              <div>
+                <h4 className="font-display mb-1 text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground">
+                  Not yet in a feature page
+                </h4>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  These have no feature page of their own yet, so you can decide them here.
+                </p>
+                <div className="space-y-4">
+                  {unhomed.map(([domain, rows]) => (
+                    <div key={domain} className="space-y-2">
+                      <h5 className="text-xs font-medium text-muted-foreground">
+                        {DOMAIN_LABELS[domain] ?? domain} ({rows.length})
+                      </h5>
+                      {rows.map((suggestion) => {
+                        const confidence = suggestion.confidence ? Math.round(Number(suggestion.confidence) * 100) : null;
+                        const isActing = actingId === suggestion.id;
+                        const canAct = canActOnSuggestion(suggestion);
+                        return (
+                          <div key={suggestion.id} data-suggestion-id={suggestion.id} className="rounded-lg border border-border bg-background">
+                            <div className="flex justify-between gap-3 items-start p-3">
+                              <div className="flex-1 min-w-0">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="flex items-start justify-start gap-1 p-0 h-auto text-left w-full min-w-0 group hover:bg-transparent"
+                                  onClick={() => setExpandedId((prev) => (prev === suggestion.id ? null : suggestion.id))}
+                                >
+                                  {expandedId === suggestion.id ? (
+                                    <ChevronDown className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                                  ) : (
+                                    <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                                  )}
+                                  <p className="min-w-0 break-words text-sm font-medium group-hover:underline">
+                                    {summarizeSuggestion(suggestion, deptNameById)}
+                                  </p>
+                                </Button>
+                                <div className="flex flex-wrap gap-3 mt-1 ml-5 text-xs text-muted-foreground">
+                                  <SuggestionMeta suggestion={suggestion} confidence={confidence} />
+                                </div>
+                              </div>
+                              <div className="flex gap-1 items-center shrink-0">
+                                {!canAct && (
+                                  // VISIBLE, not a tooltip: a disabled button fires no hover events.
+                                  <span className="text-xs text-muted-foreground mr-1">{whyCannotAct(suggestion)}</span>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => void handleDecline(suggestion.id)}
+                                  disabled={isActing || !canAct}
+                                  title={!canAct ? whyCannotAct(suggestion) : 'Decline'}
+                                  aria-label="Decline"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  aria-label="Accept this suggestion"
+                                  size="sm"
+                                  onClick={() => void handleAccept(suggestion.id)}
+                                  disabled={isActing || !canAct}
+                                  title={
+                                    !canAct
+                                      ? whyCannotAct(suggestion)
+                                      : suggestion.suggestionType === 'promote'
+                                        ? 'Accept — makes this rule permanent'
+                                        : 'Accept'
+                                  }
+                                >
+                                  <Check className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            {expandedId === suggestion.id && (
+                              <ConflictDetail suggestion={suggestion} deptNameById={deptNameById} />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

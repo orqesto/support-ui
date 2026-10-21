@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '@/lib/api-client';
-import { getApiErrorMessage } from '@/lib/errorMessages';
 import { KB_CONSOLIDATION_DECIDED_EVENT } from '@/lib/kbConsolidation';
 import {
   getSocket,
@@ -8,7 +7,6 @@ import {
   subscribeToEvent,
   unsubscribeFromEvent,
 } from '@/lib/socketManager';
-import { learningService } from '@/services/learning.service';
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/types/api';
 
@@ -115,8 +113,6 @@ export type UseKbReviewAlertsResult = ReturnType<typeof useKbReviewAlerts>;
 export const useKbReviewAlerts = () => {
   const [alerts, setAlerts] = useState<KbReviewAlert[]>([]);
   const [consolidations, setConsolidations] = useState<KbConsolidationAlert[]>([]);
-  const [actingId, setActingId] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const orgKey = useAuthStore(
     (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
   );
@@ -204,32 +200,8 @@ export const useKbReviewAlerts = () => {
     return () => window.removeEventListener(KB_CONSOLIDATION_DECIDED_EVENT, fetchConsolidations);
   }, [fetchConsolidations]);
 
-  /**
-   * Approve = the AI may quote these entries. Reject = hidden now, deleted after 90 days. The
-   * row leaves the list only once the server has taken the decision; on a failure it stays,
-   * with the reason, rather than vanishing as if it had worked.
-   */
-  const decide = useCallback(async (alert: KbReviewAlert, decision: 'approve' | 'reject') => {
-    setActingId(alert.id);
-    setError(null);
-    try {
-      if (decision === 'approve') await learningService.acceptSuggestion(alert.suggestionId);
-      else await learningService.declineSuggestion(alert.suggestionId);
-      setAlerts((current) => current.filter((row) => row.id !== alert.id));
-    } catch (err) {
-      setError(
-        getApiErrorMessage(err) ??
-          (decision === 'approve'
-            ? 'Could not approve — try again.'
-            : 'Could not reject — try again.')
-      );
-    } finally {
-      setActingId(null);
-    }
-  }, []);
-
   // What the bell counts: one per capture review, one per department's merge summary row.
   const rowCount = alerts.length + consolidations.length;
 
-  return { alerts, consolidations, rowCount, decide, actingId, error, refresh: fetchAlerts };
+  return { alerts, consolidations, rowCount, refresh: fetchAlerts };
 };

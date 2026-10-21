@@ -42,7 +42,7 @@ const ALL_SECTIONS: SectionDef[] = [
   // section because it's set-and-forget configuration, not daily activity.
   // Not adminOnly: a moderator may act on suggestions in the domains they already manage
   // (see lib/learningSuggestionPermissions.ts). Gated below on holding ANY of those permissions.
-  { id: 'learning', label: 'Engine Activity', description: 'Review pending suggestions + recent auto-actions', needsAnyLearningPermission: true },
+  { id: 'learning', label: 'Learning activity', description: 'What the learning engine found and changed. Each suggestion is decided where it applies.', needsAnyLearningPermission: true },
   { id: 'learning-trust', label: 'Learning Trust', description: 'Control how aggressively the engine auto-acts', adminOnly: true },
 ];
 
@@ -50,7 +50,7 @@ type AIConfigSettingsProps = {
   /** Sub-section id parsed from the parent's hash (already query-stripped by
    *  SettingsPage). When matches a section the current user is allowed to see,
    *  it becomes the initial tab — closes the deep-link loop
-   *  (e.g. `/settings#ai/learning` opens straight on Engine Activity). */
+   *  (e.g. `/settings#ai/learning` opens straight on Learning activity). */
   section?: string;
 };
 
@@ -68,7 +68,7 @@ export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
     () =>
       ALL_SECTIONS.filter((sect) => {
         if (sect.adminOnly) return isOrgAdmin;
-        // Engine Activity: visible to anyone who can act on at least one domain. An admin always
+        // Learning activity: visible to anyone who can act on at least one domain. An admin always
         // qualifies (they hold every permission); a moderator qualifies through routing/spam/etc.
         if (sect.needsAnyLearningPermission) return isOrgAdmin || canReviewSuggestions;
         return true;

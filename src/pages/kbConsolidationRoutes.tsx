@@ -2,12 +2,11 @@
  * Route elements for KB consolidation (#873), kept out of App.tsx (its max-lines budget).
  *
  * ⛔ The Cases page hides behind `ui.kb_cases`: the FE reaches production on merge while the
- * backend only ships on a tag, so the page must not appear before its routes exist. The merges
- * review is NOT flag-gated — it is only reached from a bell row or a suggestion that the new
- * backend alone produces.
+ * backend only ships on a tag, so the page must not appear before its routes exist. The old merges
+ * review page is retired: `/knowledge-base/merges` sends old links to the list, which decides.
  */
 import { lazy, Suspense, type ReactElement } from 'react';
-import { Route } from 'react-router-dom';
+import { Navigate, Route } from 'react-router-dom';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { FeatureGate } from '@/components/common/FeatureGate';
 import { Spinner } from '@/components/ui/Spinner';
@@ -15,9 +14,6 @@ import { Permission } from '@/types/roles';
 
 const KbCasesPage = lazy(() =>
   import('./KbCasesPage').then((mod) => ({ default: mod.KbCasesPage }))
-);
-const KbMergesReviewPage = lazy(() =>
-  import('./KbMergesReviewPage').then((mod) => ({ default: mod.KbMergesReviewPage }))
 );
 
 const KbAutoActionsPage = lazy(() =>
@@ -42,14 +38,6 @@ export const KbCasesRoute = () => (
   </ProtectedRoute>
 );
 
-export const KbMergesReviewRoute = () => (
-  <ProtectedRoute requiredPermission={Permission.MANAGE_KNOWLEDGE_BASE}>
-    <Suspense fallback={<Fallback />}>
-      <KbMergesReviewPage />
-    </Suspense>
-  </ProtectedRoute>
-);
-
 export const KB_AUTO_ACTIONS_PATH = '/knowledge-base/automatic';
 
 /** Automatic removal (step 1). Not flag-gated: on an older backend the page says so itself. */
@@ -67,6 +55,11 @@ export const KbAutoActionsRoute = () => (
  */
 export const kbSubRoutes = (wrap: (page: JSX.Element) => ReactElement) => [
   <Route key="kb-cases" path="/knowledge-base/cases" element={wrap(<KbCasesRoute />)} />,
-  <Route key="kb-merges" path="/knowledge-base/merges" element={wrap(<KbMergesReviewRoute />)} />,
+  // Retired: the Knowledge Base list is the one place to decide (old links and bookmarks land there).
+  <Route
+    key="kb-merges"
+    path="/knowledge-base/merges"
+    element={<Navigate to="/knowledge-base?status=suggested_change" replace />}
+  />,
   <Route key="kb-auto" path={KB_AUTO_ACTIONS_PATH} element={wrap(<KbAutoActionsRoute />)} />,
 ];

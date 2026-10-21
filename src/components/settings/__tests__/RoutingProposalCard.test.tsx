@@ -1,5 +1,5 @@
 /**
- * Engine Activity routing proposal cards (spec 2026-10-14 §4.3): propose_rule, the disagreement
+ * Routing proposal cards (spec 2026-10-14 §4.3): propose_rule, the disagreement
  * pick and the one-time "Keep this learned rule?" review. Fixtures are invented (Northwind-style
  * names, no real workspace data).
  */

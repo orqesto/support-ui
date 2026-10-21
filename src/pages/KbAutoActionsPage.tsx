@@ -11,7 +11,10 @@
  * per whole percent (`removableByPercent`, `agreement.byPercent`).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { KbQualityCoverage } from '@/components/kb/KbQualityCoverage';
+import { KbAutoActionRow } from '@/components/kb/autoActions/KbAutoActionRow';
+import { ACTION_LABELS, WAITING_LABELS } from '@/components/kb/autoActions/kbAutoActionCopy';
 import { KbAutoRemovedList } from '@/components/kb/autoActions/KbAutoRemovedList';
 import { KbAutoSampleReview } from '@/components/kb/autoActions/KbAutoSampleReview';
 import { formatWhen } from '@/components/kb/autoActions/kbAutoFormat';
@@ -32,11 +35,13 @@ import { toast } from '@/lib/toast';
 import {
   agreementAt,
   candidateBands,
+  KB_AUTO_ACTION_KEYS,
   kbAutoActionsService,
   wouldRemoveAt,
   type KbAutoActionsOverview,
   type KbAutoRemoveMode,
 } from '@/services/kbAutoActions.service';
+import { useAuthStore } from '@/stores/authStore';
 import { Permission } from '@/types/roles';
 
 /** Below this many decisions at the bar, the agreement rate is not worth reading yet. */
@@ -70,6 +75,7 @@ export const KbAutoActionsPage = () => {
   const navigate = useNavigate();
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission(Permission.MANAGE_ORGANIZATION);
+  const isPlatformAdmin = useAuthStore((state) => state.user?.role === 'admin');
 
   const [overview, setOverview] = useState<KbAutoActionsOverview | null>(null);
   const [loadError, setLoadError] = useState<unknown>(null);
@@ -121,6 +127,100 @@ export const KbAutoActionsPage = () => {
               Automatic actions for the knowledge base arrive with the next backend release.
             </AlertDescription>
           </Alert>
+        </div>
+      </Layout>
+    );
+  }
+
+  const actions = overview?.actions ?? null;
+  if (overview && actions) {
+    const lastRunNew = overview.autoRemoved.lastRun;
+    const changedTotal = KB_AUTO_ACTION_KEYS.reduce(
+      (sum, key) => sum + (actions[key]?.actedLast90d ?? 0),
+      0
+    );
+    return (
+      <Layout>
+        <div className="px-4 mx-auto w-full max-w-4xl space-y-4">
+          <PageHeader
+            title="Automatic actions"
+            description="Choose what the knowledge base may do on its own, and rate a sample before you trust it."
+            actions={
+              <Button variant="outline" size="sm" onClick={() => navigate('/knowledge-base')}>
+                Back to knowledge base
+              </Button>
+            }
+          />
+          {loadError !== null && (
+            <Alert variant="danger">
+              <AlertDescription>
+                {apiErrorMessage(loadError, 'Could not load automatic actions.')}
+              </AlertDescription>
+            </Alert>
+          )}
+          <p className="text-sm text-muted-foreground" data-testid="kb-auto-status">
+            {lastRunNew
+              ? `Last automatic removal run: ${formatWhen(lastRunNew.at)} — removed ${plural(lastRunNew.removed, 'entry', 'entries')}${lastRunNew.capped ? ' (stopped at the per-night limit; the rest go next night)' : ''}.`
+              : 'No automatic run yet.'}
+          </p>
+          {overview.transientSkips > 0 && (
+            <Alert variant="warning">
+              <AlertDescription>
+                {overview.transientSkips === 1
+                  ? '1 batch was skipped because the AI did not answer in time; it is retried next run.'
+                  : `${overview.transientSkips} batches were skipped because the AI did not answer in time; they are retried next run.`}
+              </AlertDescription>
+            </Alert>
+          )}
+          <KbQualityCoverage reloadKey={refreshKey} />
+          <ul className="space-y-3" aria-label="Automatic actions">
+            {KB_AUTO_ACTION_KEYS.map((key) => {
+              const state = actions[key];
+              return state ? (
+                <KbAutoActionRow
+                  key={key}
+                  action={key}
+                  state={state}
+                  canEdit={canEdit}
+                  canOverrideGate={isPlatformAdmin}
+                  wouldActAt={
+                    key === 'remove'
+                      ? (at) => wouldRemoveAt(overview.candidates.removableByPercent, at)
+                      : undefined
+                  }
+                  onChanged={refresh}
+                />
+              ) : null;
+            })}
+            {WAITING_LABELS.map((label) => (
+              <li key={label}>
+                <Card>
+                  <CardContent className="pt-4 space-y-1 text-sm">
+                    <p className="font-medium">{label}</p>
+                    <p className="text-muted-foreground">
+                      Always waits for a person (coming later)
+                    </p>
+                  </CardContent>
+                </Card>
+              </li>
+            ))}
+          </ul>
+          <Section title="Changed automatically">
+            <p>
+              {plural(changedTotal, 'change', 'changes')} made on their own in the last 90 days.
+            </p>
+            <ul className="list-disc pl-5 text-muted-foreground">
+              {KB_AUTO_ACTION_KEYS.map((key) => (
+                <li key={key}>
+                  {ACTION_LABELS[key]}: {actions[key]?.actedLast90d ?? 0}
+                </li>
+              ))}
+            </ul>
+            <Link className="underline text-primary" to="/knowledge-base?status=auto_changed">
+              Review them in the Knowledge Base
+            </Link>
+            <p className="text-xs text-muted-foreground">You can undo each one there, per entry.</p>
+          </Section>
         </div>
       </Layout>
     );
@@ -206,6 +306,8 @@ export const KbAutoActionsPage = () => {
               {plural(overview.autoRemoved.last90Days, 'entry', 'entries')} removed automatically in
               the last 90 days.
             </p>
+
+            <KbQualityCoverage reloadKey={refreshKey} />
 
             <Section title="Setting">
               <SegmentedControl

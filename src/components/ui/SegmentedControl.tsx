@@ -7,6 +7,8 @@ export type Segment<T extends string> = {
   icon?: ComponentType<{ className?: string }>;
   /** Tooltip — say what the view shows, not what the button does. */
   title?: string;
+  /** Not selectable (shown dimmed). */
+  disabled?: boolean;
 };
 
 /**
@@ -65,9 +67,10 @@ export const SegmentedControl = <T extends string>({
           aria-pressed={active}
           aria-label={iconOnly ? segment.label : undefined}
           title={segment.title ?? (iconOnly ? segment.label : undefined)}
+          disabled={segment.disabled}
           onClick={() => onChange(segment.value)}
           className={cn(
-            'inline-flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'inline-flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed',
             iconOnly
               ? 'w-7 h-6 rounded-md'
               : size === 'md'

@@ -33,6 +33,21 @@ export const Short = ({ short, full }: { short: string; full: string }) => (
   </>
 );
 
+const DAY_MS = 86_400_000;
+/** A suggestion lapses 14 days after it is made: say so only when that is close. */
+const EXPIRY_NOTICE_DAYS = 14;
+
+/** "Expires in 3 days" / "Expired — still waiting"; null when nothing is worth saying. */
+export const expiryText = (decision: KbPendingDecision, now = Date.now()): string | null => {
+  if (decision.expired) return 'Expired — still waiting';
+  if (!decision.expiresAt) return null;
+  const left = new Date(decision.expiresAt).getTime() - now;
+  if (Number.isNaN(left) || left > EXPIRY_NOTICE_DAYS * DAY_MS) return null;
+  if (left <= 0) return 'Expires today';
+  const days = Math.ceil(left / DAY_MS);
+  return `Expires in ${days} ${days === 1 ? 'day' : 'days'}`;
+};
+
 /** The decision waiting on a Knowledge Base row (highest priority), how many more, or why it is set aside. */
 export const KbPendingDecisionBadge = ({
   decision,
@@ -62,6 +77,9 @@ export const KbPendingDecisionBadge = ({
     )}
     {decision && others > 0 && (
       <span className="text-xs text-muted-foreground">+{others} more</span>
+    )}
+    {decision && expiryText(decision) && (
+      <span className="text-xs text-muted-foreground">{expiryText(decision)}</span>
     )}
     {decision && !decision.canDecide && (
       <span className="text-xs text-muted-foreground" title={compact ? CANNOT_DECIDE : undefined}>

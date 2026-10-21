@@ -60,4 +60,49 @@ describe('KbPendingDecisionBadge', () => {
       screen.getByText("You can't decide this one — it covers departments you don't moderate.")
     ).toHaveClass('sr-only');
   });
+
+  it('says when a suggestion expires, once it is within 14 days', () => {
+    const inDays = (days: number) =>
+      new Date(Date.now() + days * 86_400_000 - 60_000).toISOString();
+    const { rerender } = render(
+      <KbPendingDecisionBadge
+        decision={{
+          suggestionId: 3,
+          kind: 'merge',
+          reasons: [],
+          canDecide: true,
+          expiresAt: inDays(3),
+        }}
+      />
+    );
+    expect(screen.getByText('Expires in 3 days')).toBeInTheDocument();
+    rerender(
+      <KbPendingDecisionBadge
+        decision={{
+          suggestionId: 3,
+          kind: 'merge',
+          reasons: [],
+          canDecide: true,
+          expiresAt: inDays(30),
+        }}
+      />
+    );
+    expect(screen.queryByText(/Expires in/)).toBeNull();
+  });
+
+  it('an expired capture review says it is still waiting', () => {
+    render(
+      <KbPendingDecisionBadge
+        decision={{
+          suggestionId: 4,
+          kind: 'approve_capture',
+          reasons: [],
+          canDecide: true,
+          expiresAt: '2026-10-01T00:00:00.000Z',
+          expired: true,
+        }}
+      />
+    );
+    expect(screen.getByText('Expired — still waiting')).toBeInTheDocument();
+  });
 });

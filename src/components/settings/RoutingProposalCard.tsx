@@ -1,5 +1,5 @@
 /**
- * Engine Activity cards for routing proposals (spec 2026-10-14 §4.3): a single-department proposal,
+ * Routing-proposal cards (shown in Routing Rules › Suggestions) (spec 2026-10-14 §4.3): a single-department proposal,
  * a "pick one department" disagreement, and the one-time "Keep this learned rule?" review. Evidence
  * (conversations, agents, replay, auto-accept readiness) comes from the evidence endpoint; an older
  * backend sends none and the card shows the payload only.

@@ -85,41 +85,6 @@ describe('useKbReviewAlerts', () => {
     await waitFor(() => expect(result.current.alerts).toHaveLength(1));
   });
 
-  it('Approve accepts the REVIEW (suggestion id), not the notification, and removes the row', async () => {
-    respond([row()]);
-    const { result } = renderHook(() => useKbReviewAlerts());
-    await waitFor(() => expect(result.current.alerts).toHaveLength(1));
-
-    await act(() => result.current.decide(result.current.alerts[0], 'approve'));
-
-    expect(acceptSuggestion).toHaveBeenCalledWith(900);
-    expect(declineSuggestion).not.toHaveBeenCalled();
-    expect(result.current.alerts).toHaveLength(0);
-  });
-
-  it('Reject declines the review', async () => {
-    respond([row()]);
-    const { result } = renderHook(() => useKbReviewAlerts());
-    await waitFor(() => expect(result.current.alerts).toHaveLength(1));
-
-    await act(() => result.current.decide(result.current.alerts[0], 'reject'));
-
-    expect(declineSuggestion).toHaveBeenCalledWith(900);
-    expect(result.current.alerts).toHaveLength(0);
-  });
-
-  it('a FAILED decision keeps the row and says why — it must not look done', async () => {
-    respond([row()]);
-    acceptSuggestion.mockRejectedValue(new Error('Insufficient permissions'));
-    const { result } = renderHook(() => useKbReviewAlerts());
-    await waitFor(() => expect(result.current.alerts).toHaveLength(1));
-
-    await act(() => result.current.decide(result.current.alerts[0], 'approve'));
-
-    expect(result.current.alerts).toHaveLength(1);
-    expect(result.current.error).toBeTruthy();
-  });
-
   it('a failed poll keeps the standing rows', async () => {
     respond([row()]);
     const { result } = renderHook(() => useKbReviewAlerts());

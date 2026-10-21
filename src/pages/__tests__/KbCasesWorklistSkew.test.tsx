@@ -92,28 +92,14 @@ describe('audit pass 1 regressions', () => {
     expect(within(row23).queryAllByRole('button')).toHaveLength(0);
   });
 
-  it("Reject shows the purge date counted from the SERVER's rejection time", async () => {
-    renderPage();
-    const row22 = await workRowEl(22);
-    server.hold = (request) =>
-      request.path === '/api/knowledge-base/consolidation/cases'
-        ? new Promise<void>(() => {})
-        : null;
-    fireEvent.click(within(row22).getByRole('button', { name: /Reject/ }));
-    const purge = new Date(
-      Date.parse('2026-01-10T12:00:00.000Z') + 90 * 86_400_000
-    ).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-    expect(await within(row22).findByText(`Rejected · deleted after ${purge}`)).toBeInTheDocument();
-  });
-
-  it('a detached entry that still carries its old case id reads detached and can be unhidden', async () => {
+  it('a detached entry that still carries its old case id reads detached', async () => {
     const entry = server.entries.get(24) as KbWorkRow;
     server.entries.set(24, { ...entry, caseId: 905, casePublicId: 'KB-905' });
     renderPage();
     const row24 = await workRowEl(24);
     expect(within(row24).getByText('detached from a case')).toBeInTheDocument();
     expect(within(row24).queryByText(/merged into/)).not.toBeInTheDocument();
-    expect(within(row24).getByRole('button', { name: /Unhide/ })).toBeInTheDocument();
+    expect(within(row24).queryByRole('button', { name: /Unhide/ })).not.toBeInTheDocument();
   });
 
   it('a reason this app does not know is listed under a reason that claims nothing', async () => {
@@ -123,24 +109,6 @@ describe('audit pass 1 regressions', () => {
     const row40 = await workRowEl(40);
     expect(within(row40).getByText('Set aside (other reason)')).toBeInTheDocument();
     expect(within(row40).queryByText('Not classified')).not.toBeInTheDocument();
-  });
-
-  it('a refused action re-reads the row: it shows what the entry IS now', async () => {
-    server.mergedMeanwhile = new Set([21]);
-    renderPage();
-    const row21 = await workRowEl(21);
-    // Hold the report re-read (it would take the merged entry off this list): what the row says
-    // meanwhile is the row's own re-read.
-    server.hold = (request) =>
-      request.path === '/api/knowledge-base/consolidation/cases'
-        ? new Promise<void>(() => {})
-        : null;
-    fireEvent.click(within(row21).getByRole('button', { name: /Approve/ }));
-    expect(
-      await within(row21).findByText(/Could not approve: This entry is part of a merged case/)
-    ).toBeInTheDocument();
-    expect(await within(row21).findByText('merged into #KB-900')).toBeInTheDocument();
-    expect(within(row21).queryByRole('button', { name: /Approve/ })).not.toBeInTheDocument();
   });
 
   it('a slow rows answer for ids no longer shown never replaces the rows on screen', async () => {
@@ -221,20 +189,6 @@ describe('F5 older backend', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('no unhide route: nothing is approved behind the viewer — Approve is offered by name', async () => {
-    server.unhideAbsent = true;
-    renderPage();
-    const row24 = await workRowEl(24);
-    fireEvent.click(within(row24).getByRole('button', { name: /Unhide/ }));
-    const dialog = await screen.findByRole('dialog');
-    expect(dialog).toHaveTextContent('The entry was not changed.');
-    expect(wire.calls('PATCH', '/api/knowledge-base/entries/24/approve')).toHaveLength(0);
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Approve instead' }));
-    await waitFor(() =>
-      expect(wire.calls('PATCH', '/api/knowledge-base/entries/24/approve')).toHaveLength(1)
-    );
-  });
-
   it('no attach route: says the move is not available, nothing claimed', async () => {
     server.attach = 'absent';
     renderPage();
@@ -283,15 +237,22 @@ describe('in-flight answers', () => {
     renderPage();
     const row21 = await workRowEl(21);
     let release: () => void = () => {};
+    fireEvent.click(within(row21).getByRole('button', { name: /Move into case/ }));
+    fireEvent.click(
+      await within(await screen.findByRole('dialog')).findByRole('button', { name: /Case #KB-900/ })
+    );
+    const confirm = within(await screen.findByRole('dialog')).getByRole('button', { name: 'Move' });
     server.hold = (request) =>
-      request.path === '/api/knowledge-base/entries/21/approve'
+      request.path === '/api/knowledge-base/consolidation/cases/900/attach'
         ? new Promise<void>((resolve) => {
             release = resolve;
           })
         : null;
-    fireEvent.click(within(row21).getByRole('button', { name: /Approve/ }));
+    fireEvent.click(confirm);
     await waitFor(() =>
-      expect(wire.calls('PATCH', '/api/knowledge-base/entries/21/approve')).toHaveLength(1)
+      expect(wire.calls('POST', '/api/knowledge-base/consolidation/cases/900/attach')).toHaveLength(
+        1
+      )
     );
     fireEvent.click(screen.getByLabelText('Billing'));
     expect(await screen.findByText('refund for 7')).toBeInTheDocument();
@@ -305,52 +266,6 @@ describe('in-flight answers', () => {
     expect(reportReads().at(-1)?.params.departmentIds).toBe('7');
     expect(await screen.findByText('refund for 7')).toBeInTheDocument();
     expect(screen.queryByRole('status', { busy: true })).not.toBeInTheDocument();
-  });
-
-  it("a refused action's re-read of the row never overwrites a newer read of the list", async () => {
-    server.mergedMeanwhile = new Set([21]);
-    let gate: () => void = () => {};
-    let held = false;
-    wire.restore();
-    wire = installTransport(apiClient, async (request) => {
-      const ids = (request.body as { ids?: number[] } | undefined)?.ids;
-      if (
-        !held &&
-        request.path === '/api/knowledge-base/consolidation/entries/rows' &&
-        JSON.stringify(ids) === '[21]'
-      ) {
-        held = true;
-        // Answered as the server is NOW, delivered later: an old answer.
-        const answer = await handle(request);
-        await new Promise<void>((resolve) => {
-          gate = resolve;
-        });
-        return answer;
-      }
-      return handle(request);
-    });
-    renderPage();
-    const row21 = await workRowEl(21);
-    fireEvent.click(within(row21).getByRole('button', { name: /Approve/ }));
-    await waitFor(() => expect(held).toBe(true));
-    // Meanwhile someone approves it on its own, and the list is read again.
-    server.mergedMeanwhile = new Set();
-    server.entries.set(21, {
-      ...(server.entries.get(21) as KbWorkRow),
-      status: 'approved',
-      caseId: null,
-      casePublicId: null,
-    });
-    await chooseOption(screen.getByLabelText('Reason'), /^Raw email \(/);
-    await waitFor(() =>
-      expect(within(screen.getByTestId('work-row-21')).getByText('Approved')).toBeInTheDocument()
-    );
-    await act(async () => {
-      gate();
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    await waitFor(() => expect(reportReads().length).toBeGreaterThan(1));
-    expect(within(screen.getByTestId('work-row-21')).getByText('Approved')).toBeInTheDocument();
   });
 
   it('an older backend and an org admin with NO department: says there is none to pick, no spinner forever', async () => {

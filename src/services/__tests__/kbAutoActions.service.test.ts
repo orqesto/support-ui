@@ -1,7 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), patch: vi.fn() }));
+vi.mock('@/lib/api-client', () => ({ apiClient: api }));
+
 import {
   agreementAt,
   candidateBands,
+  kbAutoActionsService,
   normaliseOverview,
   normaliseRemovedPage,
   normaliseSample,
@@ -120,5 +125,109 @@ describe('kbAutoActions normalisation (older or partial backend)', () => {
       ['60% and over', 5],
       ['No score yet', 0],
     ]);
+  });
+});
+
+describe('per-action overview (optional: an older backend sends none)', () => {
+  it('an overview without actions reads as no actions, not as four empty ones', () => {
+    const overview = normaliseOverview({ settings: { remove: { mode: 'auto', threshold: 0.9 } } });
+    expect(overview.actions).toBeNull();
+    expect(overview.transientSkips).toBe(0);
+  });
+
+  it('reads every field defensively and keeps only the known actions', () => {
+    const overview = normaliseOverview({
+      transientSkips: 2,
+      actions: {
+        hold: {
+          mode: 'weird',
+          threshold: null,
+          agreement: { decided: 4, agreed: 3, rate: 0.75, atThreshold: null },
+          gate: { allowed: false, needRated: 16, rate: 0.75, reason: 'not_enough_rated' },
+          wouldAct: 2,
+          actedLast90d: 1,
+          blockedBy: ['kb.consolidation_enabled', 7],
+        },
+        approveMined: { mode: 'auto', threshold: 0.85 },
+        unknown: { mode: 'auto' },
+      },
+    });
+    expect(overview.transientSkips).toBe(2);
+    expect(Object.keys(overview.actions ?? {}).sort()).toEqual(['approveMined', 'hold']);
+    expect(overview.actions?.hold).toEqual({
+      mode: 'shadow',
+      threshold: null,
+      agreement: { decided: 4, agreed: 3, rate: 0.75, atThreshold: null },
+      gate: { allowed: false, needRated: 16, rate: 0.75, reason: 'not_enough_rated' },
+      wouldAct: 2,
+      actedLast90d: 1,
+      blockedBy: ['kb.consolidation_enabled'],
+    });
+    // A missing gate never reads as "allowed" for an action the backend did not vouch for.
+    expect(overview.actions?.approveMined?.gate.allowed).toBe(false);
+    expect(overview.actions?.approveMined?.threshold).toBe(0.85);
+    expect(overview.actions?.approveMined?.blockedBy).toEqual([]);
+  });
+
+  it('falls back to the last scoring run for transientSkips', () => {
+    expect(normaliseOverview({ scoring: { lastRun: { transientSkips: 3 } } }).transientSkips).toBe(
+      3
+    );
+  });
+
+  it('keeps a sample row that has an entry but no suggestion (mined approvals)', () => {
+    const sample = normaliseSample({
+      items: [{ entryId: 9, suggestionId: null, confidence: 0.9 }],
+    });
+    expect(sample.items.map((item) => [item.entryId, item.suggestionId])).toEqual([[9, null]]);
+  });
+});
+
+describe('kbAutoActionsService requests', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('asks for the sample of one action', async () => {
+    api.get.mockResolvedValue({ data: { data: { items: [] } } });
+    await kbAutoActionsService.getSample(30, 'hold');
+    expect(api.get).toHaveBeenCalledWith('/api/knowledge-base/auto-actions/sample', {
+      params: { limit: 30, action: 'hold' },
+    });
+  });
+
+  it('rate posts the rating and nothing else', async () => {
+    api.post.mockResolvedValue({ data: { data: {} } });
+    await kbAutoActionsService.rate('hold', 5, false);
+    expect(api.post).toHaveBeenCalledWith('/api/knowledge-base/auto-actions/ratings', {
+      action: 'hold',
+      entryId: 5,
+      agreed: false,
+    });
+  });
+
+  it('a partial patch sends only the actions given', async () => {
+    api.patch.mockResolvedValue({
+      data: { data: { settings: { remove: { mode: 'shadow', threshold: 0.9 } } } },
+    });
+    await kbAutoActionsService.patchSettings({ hold: { mode: 'auto' } });
+    expect(api.patch).toHaveBeenCalledWith('/api/knowledge-base/auto-actions/settings', {
+      hold: { mode: 'auto' },
+    });
+  });
+
+  it('reads the gate refusal off a 409', () => {
+    expect(
+      kbAutoActionsService.gateRefusal({
+        status: 409,
+        data: {
+          code: 'AUTOMATION_NEEDS_SAMPLE',
+          action: 'hold',
+          needRated: 2,
+          rate: null,
+          reason: 'not_enough_rated',
+        },
+      })
+    ).toEqual({ action: 'hold', needRated: 2, rate: null, reason: 'not_enough_rated' });
+    expect(kbAutoActionsService.gateRefusal({ status: 409, data: { code: 'OTHER' } })).toBeNull();
+    expect(kbAutoActionsService.gateRefusal(new Error('x'))).toBeNull();
   });
 });

@@ -29,7 +29,8 @@ import {
 } from '@/lib/kbConsolidation';
 
 import { RESTORE_AUTO_TITLE } from './KbStatusFilter';
-import type { KbAutoRestore } from './useKbAutoRestore';
+import { KbAutoUndoButton } from './KbAutoUndoButton';
+import { autoUndoOf, type KbAutoRestore } from './useKbAutoRestore';
 
 const getTypeIcon = (type: string) => {
   switch (type) {
@@ -239,6 +240,11 @@ export const KBTableView = ({
                     onReview={onReviewDecision}
                     className="!w-auto !px-2"
                   />
+                  <KbAutoUndoButton
+                    entry={entry}
+                    autoRestore={autoRestore}
+                    className="!w-auto !px-2"
+                  />
                   {canReview && offersReviewActions(entry) && !entry.approved && !entry.hidden && (
                     <>
                       <Button
@@ -276,7 +282,7 @@ export const KBTableView = ({
                       >
                         <EyeOff className="w-4 h-4" />
                       </Button>
-                    ) : (
+                    ) : autoRestore && autoUndoOf(entry) ? null : (
                       <Button
                         size="sm"
                         variant="outline"
@@ -291,11 +297,13 @@ export const KBTableView = ({
                           entry.rejectedAt && autoRestore
                             ? RESTORE_AUTO_TITLE
                             : entry.rejectedAt
-                              ? 'Approve — restores the rejected entry'
+                              ? 'Approve again — restores the rejected entry'
                               : 'Unhide'
                         }
                         disabled={autoRestore?.pending.has(entry.id) === true}
-                        aria-label={entry.rejectedAt ? 'Restore' : 'Unhide'}
+                        aria-label={
+                          entry.rejectedAt ? (autoRestore ? 'Restore' : 'Approve again') : 'Unhide'
+                        }
                       >
                         <Eye className="w-4 h-4" />
                       </Button>

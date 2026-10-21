@@ -17,6 +17,46 @@ export type KbAutoActionsSettings = {
   remove: { mode: KbAutoRemoveMode; threshold: number };
 };
 
+/** The four automatic actions the backend runs for the knowledge base. */
+export const KB_AUTO_ACTION_KEYS = ['remove', 'approveMined', 'hold', 'cleanPersonalData'] as const;
+export type KbAutoActionKey = (typeof KB_AUTO_ACTION_KEYS)[number];
+
+export type KbAutoGate = {
+  allowed: boolean;
+  needRated: number;
+  rate: number | null;
+  reason: 'not_enough_rated' | 'low_agreement' | null;
+};
+
+/** One action as the overview reports it (absent on a backend older than the one-page release). */
+export type KbAutoActionOverview = {
+  mode: KbAutoRemoveMode;
+  /** A fraction for scored actions, null for the others. */
+  threshold: number | null;
+  agreement: {
+    decided: number;
+    agreed: number;
+    rate: number | null;
+    atThreshold: { total: number; agreed: number; rate: number | null } | null;
+  };
+  gate: KbAutoGate;
+  wouldAct: number;
+  actedLast90d: number;
+  /** Feature-flag keys that stop the action from acting at all. */
+  blockedBy: string[];
+};
+
+export type KbAutoActionPatch = Partial<
+  Record<KbAutoActionKey, { mode?: KbAutoRemoveMode; threshold?: number }>
+>;
+
+export type KbAutoGateRefusal = {
+  action: KbAutoActionKey;
+  needRated: number;
+  rate: number | null;
+  reason: 'not_enough_rated' | 'low_agreement';
+};
+
 export type KbAutoBandKey =
   | 'lt50'
   | '50to70'
@@ -55,10 +95,15 @@ export type KbAutoActionsOverview = {
     last90Days: number;
     lastRun: { at: string; removed: number; capped: boolean; via: string | null } | null;
   };
+  /** Per action; null on an older backend, which then gets today's remove-only page. */
+  actions: Partial<Record<KbAutoActionKey, KbAutoActionOverview>> | null;
+  /** Scoring batches the last run skipped because the AI did not answer in time. */
+  transientSkips: number;
 };
 
 export type KbAutoSampleItem = {
-  suggestionId: number;
+  /** Null for entries without a suggestion (mined approvals). */
+  suggestionId: number | null;
   entryId: number;
   publicId: string | null;
   subject: 'qa' | 'document';
@@ -131,6 +176,53 @@ export const normaliseSettings = (value: unknown): KbAutoActionsSettings => {
   };
 };
 
+const modeOf = (value: unknown): KbAutoRemoveMode =>
+  value === 'off' || value === 'auto' ? value : 'shadow';
+
+const normaliseGate = (value: unknown): KbAutoGate => {
+  const raw = asObj(value);
+  const reason =
+    raw.reason === 'not_enough_rated' || raw.reason === 'low_agreement' ? raw.reason : null;
+  return {
+    // Not vouched for ⇒ not allowed: a gate the backend did not send never opens Automatic.
+    allowed: raw.allowed === true,
+    needRated: num(raw.needRated),
+    rate: numOrNull(raw.rate),
+    reason,
+  };
+};
+
+const normaliseAction = (value: unknown): KbAutoActionOverview => {
+  const raw = asObj(value);
+  const agreement = asObj(raw.agreement);
+  const band = agreement.atThreshold ? asObj(agreement.atThreshold) : null;
+  const threshold = numOrNull(raw.threshold);
+  return {
+    mode: modeOf(raw.mode),
+    threshold: threshold === null ? null : clampThreshold(threshold),
+    agreement: {
+      decided: num(agreement.decided),
+      agreed: num(agreement.agreed),
+      rate: numOrNull(agreement.rate),
+      atThreshold: band
+        ? { total: num(band.total), agreed: num(band.agreed), rate: numOrNull(band.rate) }
+        : null,
+    },
+    gate: normaliseGate(raw.gate),
+    wouldAct: num(raw.wouldAct),
+    actedLast90d: num(raw.actedLast90d),
+    blockedBy: arr(raw.blockedBy).filter((flag): flag is string => typeof flag === 'string'),
+  };
+};
+
+/** Null when the backend sent no known action: the page then stays the remove-only page. */
+export const normaliseActions = (value: unknown): KbAutoActionsOverview['actions'] => {
+  const raw = asObj(value);
+  const known = KB_AUTO_ACTION_KEYS.filter((key) => key in raw && typeof raw[key] === 'object');
+  if (known.length === 0) return null;
+  return Object.fromEntries(known.map((key) => [key, normaliseAction(raw[key])]));
+};
+
 export const normaliseOverview = (value: unknown): KbAutoActionsOverview => {
   const raw = asObj(value);
   const candidates = asObj(raw.candidates);
@@ -200,6 +292,8 @@ export const normaliseOverview = (value: unknown): KbAutoActionsOverview => {
             }
           : null,
     },
+    actions: normaliseActions(raw.actions),
+    transientSkips: num(raw.transientSkips, num(asObj(asObj(raw.scoring).lastRun).transientSkips)),
   };
 };
 
@@ -209,9 +303,12 @@ export const normaliseSample = (value: unknown): KbAutoSample => {
     items: arr(raw.items)
       .map(asObj)
       // A 0% score is no verdict to rate: never offer it in the sample.
-      .filter((item) => typeof item.suggestionId === 'number' && item.confidence !== 0)
+      .filter(
+        (item) =>
+          (typeof item.suggestionId === 'number' || num(item.entryId) > 0) && item.confidence !== 0
+      )
       .map((item) => ({
-        suggestionId: num(item.suggestionId),
+        suggestionId: numOrNull(item.suggestionId),
         entryId: num(item.entryId),
         publicId: strOrNull(item.publicId),
         subject: subjectOf(item.subject),
@@ -320,11 +417,46 @@ export const kbAutoActionsService = {
     return normaliseOverview(response.data?.data);
   },
 
-  async getSample(limit = 30): Promise<KbAutoSample> {
+  async getSample(limit = 30, action?: KbAutoActionKey): Promise<KbAutoSample> {
     const response = await apiClient.get<Envelope>('/api/knowledge-base/auto-actions/sample', {
-      params: { limit: Math.min(50, Math.max(1, Math.round(limit))) },
+      params: {
+        limit: Math.min(50, Math.max(1, Math.round(limit))),
+        ...(action ? { action } : {}),
+      },
     });
     return normaliseSample(response.data?.data);
+  },
+
+  /** Records a person's rating of what an action did or would do. Records only: nothing else changes. */
+  async rate(action: KbAutoActionKey, entryId: number, agreed: boolean): Promise<void> {
+    await apiClient.post('/api/knowledge-base/auto-actions/ratings', { action, entryId, agreed });
+  },
+
+  /** Saves only the actions given. A switch into Automatic may answer 409 (see `gateRefusal`). */
+  async patchSettings(
+    patch: KbAutoActionPatch
+  ): Promise<{ settings: KbAutoActionsSettings; startedRun: boolean }> {
+    const response = await apiClient.patch<Envelope>(
+      '/api/knowledge-base/auto-actions/settings',
+      patch
+    );
+    const data = asObj(response.data?.data);
+    return { settings: normaliseSettings(data.settings), startedRun: data.startedRun === true };
+  },
+
+  /** The gate's refusal carried by a 409 `AUTOMATION_NEEDS_SAMPLE`, or null for any other error. */
+  gateRefusal(error: unknown): KbAutoGateRefusal | null {
+    const failure = error as { status?: number; data?: unknown } | null | undefined;
+    const body = asObj(failure?.data);
+    if (failure?.status !== 409 || body.code !== 'AUTOMATION_NEEDS_SAMPLE') return null;
+    const action = KB_AUTO_ACTION_KEYS.find((key) => key === body.action);
+    if (!action) return null;
+    return {
+      action,
+      needRated: num(body.needRated),
+      rate: numOrNull(body.rate),
+      reason: body.reason === 'low_agreement' ? 'low_agreement' : 'not_enough_rated',
+    };
   },
 
   async saveSettings(

@@ -32,6 +32,7 @@ vi.mock('@/services/settings.service', () => ({
 }));
 
 vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => ({ isAdmin: true }) }));
+vi.mock('../FeatureSuggestions', () => ({ FeatureSuggestions: () => null }));
 vi.mock('@/components/admin/DepartmentBadge', () => ({ default: () => null }));
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({ data: [] }),

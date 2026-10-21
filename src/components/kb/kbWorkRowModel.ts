@@ -116,21 +116,15 @@ export const headline = (row: KbWorkRow): string =>
       ? row.title
       : `Entry ${kbRef(row.publicId ?? null, row.id)}`;
 
-export type RowAction = 'approve' | 'reject' | 'hide' | 'unhide' | 'restore';
-/** Decisions on the nightly review's own change to an entry (an automatic clean-up, a hold). */
-export type QualityAction = 'undoClean' | 'keepUsing' | 'rejectHeld';
-export type BusyAction = RowAction | 'move' | 'detach' | 'unmerge' | QualityAction;
-
 /**
- * What each button does, in the words of what the AI then does with the answer (it uses only
- * approved entries that are not hidden; a pending entry is never used). Shown as its tooltip.
+ * Decisions on the nightly review's own change to an entry (an automatic clean-up, a hold). Offered
+ * here ONLY while the backend has not confirmed "Changed automatically" (where each undo lives).
  */
+export type QualityAction = 'undoClean' | 'keepUsing' | 'rejectHeld';
+export type BusyAction = 'move' | 'detach' | 'unmerge' | QualityAction;
+
+/** What each button does, shown as its tooltip. */
 export const ACTION_TIPS = {
-  approve: 'The AI may use this answer. Hide undoes it.',
-  reject: `Never used: deleted after ${REJECTED_RETENTION_DAYS} days. Approve restores it until then.`,
-  hide: 'Out of use, not deleted. Unhide restores it as it was.',
-  unhide: 'Restores it exactly as it was before it was hidden.',
-  restore: 'Approve it again: the AI may use this answer.',
   edit: 'Change the question or answer text.',
   move: 'Join a case: answered with the case’s standard answer.',
   detach: 'Take it out of the case; the case stays.',
@@ -143,23 +137,14 @@ export const ACTION_TIPS = {
 /**
  * The one line above every entry list: what the buttons do (Move only where it is offered).
  *
- * ⛔ Only the buttons the list actually shows. Under a list of approved answers the line used to
- * explain Approve, Reject and "Pending answers are never used" — none of which was on screen — so
- * a moderator read it as a decision waiting to be made (2026-10-13). `statuses` absent keeps the
- * full line.
+ * ⛔ Only what the list actually offers. Deciding an entry (approve, reject, hide, undo) is done in
+ * the Knowledge Base list, not here — so the line says that, and explains no decision button.
+ * `statuses` absent keeps the full line.
  */
 export const actionsHelp = (withMove: boolean, statuses?: ReadonlySet<KbWorkRowStatus>): string => {
-  const has = (status: KbWorkRowStatus) => statuses === undefined || statuses.has(status);
-  const reviewing = has('pending');
+  const reviewing = statuses === undefined || statuses.has('pending');
   return (
-    'The AI uses only approved answers. ' +
-    (reviewing
-      ? `Approve: it may use the answer. Reject: never used, deleted after ${REJECTED_RETENTION_DAYS} days. `
-      : '') +
-    (reviewing || has('approved') ? 'Hide: out of use until Unhide. ' : '') +
-    (statuses !== undefined && has('hidden') && !has('approved') && !reviewing
-      ? 'Unhide: back in use as it was. '
-      : '') +
+    'The AI uses only approved answers. Approve, reject, hide or undo an entry in the Knowledge Base list (Open in Knowledge Base). ' +
     'Edit: change the text. ' +
     (withMove ? 'Move into case: answered with that case’s standard answer. ' : '') +
     (reviewing ? 'Pending answers are never used.' : '')
@@ -170,21 +155,6 @@ export const QUALITY_FAILED: Record<QualityAction, string> = {
   undoClean: 'Could not undo the clean-up',
   keepUsing: 'Could not keep using it',
   rejectHeld: 'Could not reject',
-};
-
-export const STATUS_AFTER: Record<Exclude<RowAction, 'unhide'>, KbWorkRowStatus> = {
-  approve: 'approved',
-  restore: 'approved',
-  reject: 'rejected',
-  hide: 'hidden',
-};
-
-export const ACTION_FAILED: Record<RowAction, string> = {
-  approve: 'Could not approve',
-  restore: 'Could not restore',
-  reject: 'Could not reject',
-  hide: 'Could not hide',
-  unhide: 'Could not unhide',
 };
 
 export const chunk = (ids: number[]): number[][] => {

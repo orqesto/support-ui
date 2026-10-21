@@ -16,6 +16,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { logger } from '@/lib/logger';
 import { organizationService } from '@/services/organization.service';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { FeatureSuggestions } from './FeatureSuggestions';
 
 /* eslint-disable max-lines -- single cohesive component; splitting would
    require threading 6+ pieces of state through child props or context. */
@@ -299,6 +300,13 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         </p>
       </CardHeader>
       <CardContent>
+        <div className="mb-4 empty:hidden">
+          <FeatureSuggestions
+            domains={['auto_reply']}
+            title="Suggestions"
+            description="Changes the engine suggests to when the AI replies on its own."
+          />
+        </div>
         {/* The settings below are kept, not cleared: they apply again the moment drafts are
             switched back on. So say plainly that nothing here sends while they are off. */}
         {aiDraftsOff && (
