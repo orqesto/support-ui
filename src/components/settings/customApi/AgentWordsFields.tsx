@@ -15,7 +15,7 @@ export const useAgentWords = (
   paramSource: string
 ) => {
   const reference = useReferenceName(endpoint, initial, paramSource);
-  const noMatchHint = useNoMatchHint(endpoint);
+  const noMatchHint = useNoMatchHint(endpoint, initial);
   return { reference, noMatchHint, payload: { ...reference.payload, ...noMatchHint.payload } };
 };
 

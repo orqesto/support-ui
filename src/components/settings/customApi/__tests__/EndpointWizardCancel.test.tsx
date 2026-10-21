@@ -192,6 +192,48 @@ describe('⛔ Cancel undoes what Test saved (FE audit H7, 2026-09-29)', () => {
     expect(removeEndpoint).not.toHaveBeenCalled();
   });
 
+  it('an EDIT: a hint and reference name changed, Tested and Cancelled are put back too', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const ep = { ...stored(), noMatchHint: 'Ask for the order number.', referenceLabel: 'Order' };
+    render(
+      <EndpointWizard connection={connection()} endpoint={ep} onClose={onClose} onSaved={noop} />
+    );
+    const hint = screen.getByLabelText(/When nothing is found, tell the agent/i);
+    await user.clear(hint);
+    await user.type(hint, 'Call them.');
+    await user.click(screen.getByRole('button', { name: 'Test' }));
+    await waitFor(() => expect(updateEndpoint).toHaveBeenCalledTimes(1));
+    expect(updateEndpoint.mock.calls[0]?.[2]).toMatchObject({ noMatchHint: 'Call them.' });
+
+    await cancel(user);
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(updateEndpoint.mock.calls[1]?.[2]).toMatchObject({
+      noMatchHint: 'Ask for the order number.',
+      referenceLabel: 'Order',
+    });
+  });
+
+  it('CONTROL: a backend without the hint field gets no hint key on Cancel', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const ep = stored();
+    delete (ep as { noMatchHint?: unknown }).noMatchHint;
+    render(
+      <EndpointWizard connection={connection()} endpoint={ep} onClose={onClose} onSaved={noop} />
+    );
+    const address = screen.getByLabelText(/Address in your system/i);
+    await user.clear(address);
+    await user.type(address, '/rest/broken?email={{value}');
+    await user.click(screen.getByRole('button', { name: 'Test' }));
+    await waitFor(() => expect(updateEndpoint).toHaveBeenCalledTimes(1));
+    await cancel(user);
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    const reverted = updateEndpoint.mock.calls[1]?.[2] as Record<string, unknown> | undefined;
+    expect(reverted).toBeDefined();
+    expect(reverted).not.toHaveProperty('noMatchHint');
+  });
+
   it('a NEW lookup: the one the first Test created is removed on Cancel', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

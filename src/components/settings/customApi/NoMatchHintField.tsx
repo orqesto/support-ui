@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Textarea } from '@/components/ui/Textarea';
 import type { CustomApiEndpoint } from '@/services/customApi.service';
+import type { EndpointInitial } from './endpointWizardProps';
 
 /** The backend's limit; the field stops at it rather than failing the save. */
 export const NO_MATCH_HINT_MAX = 500;
@@ -13,8 +14,12 @@ export const NO_MATCH_HINT_MAX = 500;
  * clearing it, not a step that was never shown. ⚠️ A backend without the column drops the key (its
  * endpoint schemas strip unknown keys), so the save still succeeds; the text is just not kept.
  */
-export const useNoMatchHint = (endpoint: CustomApiEndpoint | undefined) => {
-  const [value, setValue] = useState(endpoint?.noMatchHint ?? '');
+export const useNoMatchHint = (
+  endpoint: CustomApiEndpoint | undefined,
+  initial?: EndpointInitial
+) => {
+  // A template's hint pre-fills a NEW lookup (copied once, like the reference name).
+  const [value, setValue] = useState(endpoint?.noMatchHint ?? initial?.noMatchHint ?? '');
   const payload: { noMatchHint: string | null } = { noMatchHint: value.trim() || null };
   return { value, setValue, payload };
 };
