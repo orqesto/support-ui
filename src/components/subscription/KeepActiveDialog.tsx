@@ -3,7 +3,14 @@ import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
-import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
 import type { KeepChoice, PlanFit } from '@/services/subscription.service';
 import { defaultKeep, keepProblem, toggleId } from './keepActive';
 
@@ -23,7 +30,15 @@ type KeepActiveDialogProps = {
  * PAUSED, never deleted: paused members cannot sign in to this workspace, paused channels stop
  * receiving mail, and an upgrade brings them back.
  */
-export const KeepActiveDialog = ({ open, fit, currentUserId, mode, busy, onConfirm, onCancel }: KeepActiveDialogProps) => {
+export const KeepActiveDialog = ({
+  open,
+  fit,
+  currentUserId,
+  mode,
+  busy,
+  onConfirm,
+  onCancel,
+}: KeepActiveDialogProps) => {
   const [keep, setKeep] = useState<KeepChoice>({ memberUserIds: [], sourceIds: [] });
 
   useEffect(() => {
@@ -32,8 +47,12 @@ export const KeepActiveDialog = ({ open, fit, currentUserId, mode, busy, onConfi
       setKeep(
         mode === 'manage'
           ? {
-              memberUserIds: fit.members.filter((member) => member.state === 'active').map((member) => member.userId),
-              sourceIds: fit.channels.filter((channel) => channel.state === 'active').map((channel) => channel.id),
+              memberUserIds: fit.members
+                .filter((member) => member.state === 'active')
+                .map((member) => member.userId),
+              sourceIds: fit.channels
+                .filter((channel) => channel.state === 'active')
+                .map((channel) => channel.id),
             }
           : defaultKeep(fit, currentUserId)
       );
@@ -47,18 +66,27 @@ export const KeepActiveDialog = ({ open, fit, currentUserId, mode, busy, onConfi
   const channelsFull = keep.sourceIds.length >= maxIntegrations;
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onCancel()} dismissOnOverlayClick={false} sheetOnPhone>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => !next && onCancel()}
+      dismissOnOverlayClick={false}
+      sheetOnPhone
+    >
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>{mode === 'switch' ? 'Choose who stays active on Free' : "Choose who's active"}</DialogTitle>
+          <DialogTitle>
+            {mode === 'switch' ? 'Choose who stays active on Free' : "Choose who's active"}
+          </DialogTitle>
           <DialogClose onClose={onCancel} />
         </DialogHeader>
 
         <div className="space-y-5">
           <p className="text-sm text-muted-foreground">
-            The Free plan has {maxUsers} seat{maxUsers === 1 ? '' : 's'} and {maxIntegrations} channel
-            {maxIntegrations === 1 ? '' : 's'}. Everything you leave out is paused — never deleted. Paused members
-            can&apos;t sign in to this workspace and paused channels stop receiving mail; upgrading brings them back.
+            The Free plan has {maxUsers} seat{maxUsers === 1 ? '' : 's'} and {maxIntegrations}{' '}
+            channel
+            {maxIntegrations === 1 ? '' : 's'}. Everything you leave out is paused — never deleted.
+            Paused members can&apos;t sign in to this workspace and paused channels stop receiving
+            mail; upgrading brings them back.
           </p>
 
           <section aria-label="Members">
@@ -76,7 +104,12 @@ export const KeepActiveDialog = ({ open, fit, currentUserId, mode, busy, onConfi
                     <Checkbox
                       checked={checked}
                       disabled={busy === true || (!checked && membersFull)}
-                      onChange={() => setKeep({ ...keep, memberUserIds: toggleId(keep.memberUserIds, member.userId) })}
+                      onChange={() =>
+                        setKeep({
+                          ...keep,
+                          memberUserIds: toggleId(keep.memberUserIds, member.userId),
+                        })
+                      }
                       label={
                         <span>
                           {member.name}
@@ -112,7 +145,9 @@ export const KeepActiveDialog = ({ open, fit, currentUserId, mode, busy, onConfi
                       <Checkbox
                         checked={checked}
                         disabled={busy === true || (!checked && channelsFull)}
-                        onChange={() => setKeep({ ...keep, sourceIds: toggleId(keep.sourceIds, channel.id) })}
+                        onChange={() =>
+                          setKeep({ ...keep, sourceIds: toggleId(keep.sourceIds, channel.id) })
+                        }
                         label={
                           <span>
                             {channel.name}

@@ -3,7 +3,7 @@
  * or limit box; an AI-paused banner from the API's `ai` block; own-key wording; the one trial sentence.
  */
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, waitFor } from '@testing-library/react';
 
 type ApiResult = { data: unknown };
 const get = vi.fn<(...args: unknown[]) => Promise<ApiResult>>();
@@ -127,9 +127,22 @@ const aiBlock = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const load = (ai: unknown, status = 'active', packAvailable = true) => {
+type Providers = { platform?: { active: boolean } } | 'fail';
+const load = (
+  ai: unknown,
+  status = 'active',
+  packAvailable = true,
+  providers: Providers = { platform: { active: true } }
+) => {
   get.mockImplementation((url: unknown) => {
     const path = String(url);
+    if (path.includes('ai/providers')) {
+      return providers === 'fail'
+        ? Promise.reject(new Error('providers down'))
+        : Promise.resolve({
+            data: { success: true, data: { enabled: [], available: [], ...providers } },
+          });
+    }
     if (path.includes('usage/current')) return Promise.resolve({ data: { ai } });
     return Promise.resolve({
       data: {
@@ -175,27 +188,48 @@ describe('Subscription page: messages with AI included', () => {
     expect(line).not.toHaveTextContent(/own key/);
   });
 
-  it('own key without a budget: the own-key sentence and no money figures', async () => {
-    load(aiBlock({ usedMicros: null, budgetMicros: null }));
+  it('own key (platform AI off) WITH a budget: the own-key sentence, no money', async () => {
+    load(aiBlock(), 'active', true, { platform: { active: false } });
     render(<SubscriptionPage />);
-    const line = await screen.findByTestId('messages-summary');
-    expect(line).toHaveTextContent('AI runs on your own key; your plan covers 16,000 messages.');
+    await waitFor(() =>
+      expect(screen.getByTestId('messages-summary')).toHaveTextContent(
+        'AI runs on your own key; your plan covers 16,000 messages.'
+      )
+    );
     expect(document.body.textContent).not.toMatch(/≈ \$|\$\d/);
   });
 
-  it.each([
-    ['budget_used', 'Allowance is used up.'],
-    ['server_ceiling', 'Server limit reached.'],
-  ])('paused (%s): the API text, Buy 1,000 messages and Upgrade', async (reason, message) => {
-    load(aiBlock({ paused: true, reason, message }));
+  it('managed workspace whose spend read failed: no own-key wording', async () => {
+    load(aiBlock({ usedMicros: null, budgetMicros: null }));
+    render(<SubscriptionPage />);
+    expect(await screen.findByTestId('messages-summary')).not.toHaveTextContent(/own key/);
+  });
+
+  it('provider call fails: neither own-key wording nor figures', async () => {
+    load(aiBlock({ usedMicros: null, budgetMicros: null }), 'active', true, 'fail');
+    render(<SubscriptionPage />);
+    expect(await screen.findByTestId('messages-summary')).not.toHaveTextContent(/own key/);
+  });
+
+  it('paused (budget_used): a customer sentence without dollars, Buy 1,000 messages and Upgrade', async () => {
+    load(aiBlock({ paused: true, reason: 'budget_used', message: 'Used up ($5.00 of $5.00).' }));
     render(<SubscriptionPage />);
     const banner = await screen.findByTestId('ai-paused-banner');
-    expect(banner).toHaveTextContent(message);
+    expect(banner).toHaveTextContent(/AI messages are used up/);
     expect(screen.getByTestId('buy-message-pack-ai-banner')).toHaveTextContent(
       'Buy 1,000 messages'
     );
     expect(banner).toHaveTextContent('Upgrade');
     expect(banner).not.toHaveTextContent(/\$/);
+  });
+
+  it('paused (server_ceiling): text only, no way out offered', async () => {
+    load(aiBlock({ paused: true, reason: 'server_ceiling', message: 'Server limit reached.' }));
+    render(<SubscriptionPage />);
+    const banner = await screen.findByTestId('ai-paused-banner');
+    expect(banner).toHaveTextContent(/AI limit for the month is reached/);
+    expect(screen.queryByTestId('buy-message-pack-ai-banner')).not.toBeInTheDocument();
+    expect(banner).not.toHaveTextContent('Upgrade');
   });
 
   it('paused, not in plan: Upgrade / connect your own key, no pack button in the banner', async () => {

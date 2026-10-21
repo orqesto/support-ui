@@ -31,17 +31,27 @@ const show = (status: AiStatus | undefined, extra: { isAdmin?: boolean } = {}) =
 afterEach(cleanup);
 
 describe('AiPausedBanner', () => {
-  it.each<AiPauseReason>(['server_ceiling', 'budget_used', 'bulk_share_used', 'workspace_bulk_limit'])(
-    'reason %s: the API text, Buy 1,000 messages and Upgrade',
+  it('budget_used: fixed customer sentence, Buy 1,000 messages and Upgrade', () => {
+    show(ai());
+    expect(screen.getByTestId('ai-paused-banner')).toHaveAttribute('data-reason', 'budget_used');
+    expect(screen.getByText('Buy 1,000 messages')).toBeInTheDocument();
+    expect(screen.getByText('Upgrade')).toHaveAttribute('href', '/pricing');
+  });
+
+  it.each<AiPauseReason>(['server_ceiling', 'bulk_share_used', 'workspace_bulk_limit'])(
+    'reason %s: text only, no pack and no Upgrade (neither lifts it)',
     (reason) => {
       show(ai({ reason, message: `text for ${reason}` }));
-      expect(screen.getByTestId('ai-paused-banner')).toHaveAttribute('data-reason', reason);
-      expect(screen.getByText(new RegExp(`text for ${reason}`))).toBeInTheDocument();
-      expect(screen.getByText('Buy 1,000 messages')).toBeInTheDocument();
-      expect(screen.getByText('Upgrade')).toHaveAttribute('href', '/pricing');
-      expect(screen.queryByText(/own AI key/)).not.toBeInTheDocument();
+      expect(screen.getByTestId('ai-paused-banner')).toBeInTheDocument();
+      expect(screen.queryByText('Buy 1,000 messages')).not.toBeInTheDocument();
+      expect(screen.queryByText('Upgrade')).not.toBeInTheDocument();
     }
   );
+
+  it('an unknown reason gets the generic sentence for customers', () => {
+    show(ai({ reason: 'something_new' as AiPauseReason, message: 'x $1.00' }));
+    expect(screen.getByTestId('ai-paused-banner')).toHaveTextContent('AI is paused for now.');
+  });
 
   it('not_in_plan: Upgrade and connect your own key, no pack', () => {
     show(
@@ -74,12 +84,13 @@ describe('AiPausedBanner', () => {
     expect(screen.queryByTestId('ai-paused-banner')).not.toBeInTheDocument();
   });
 
-  it('admins see the money detail, customers do not', () => {
-    show(ai(), { isAdmin: true });
-    expect(screen.getByTestId('ai-paused-detail')).toHaveTextContent('≈ $5.00 of ≈ $5.00');
+  it('customers never see dollars; admins see the API sentence once', () => {
+    const message = 'Allowance used up ($4.20 of $5.00): pauses until it resets.';
+    show(ai({ message }));
+    expect(screen.getByTestId('ai-paused-banner').textContent).not.toMatch(/\$/);
     cleanup();
-    show(ai());
-    expect(screen.queryByTestId('ai-paused-detail')).not.toBeInTheDocument();
-    expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
+    show(ai({ message }), { isAdmin: true });
+    const text = screen.getByTestId('ai-paused-banner').textContent ?? '';
+    expect(text.match(/\$4\.20 of \$5\.00/g)).toHaveLength(1);
   });
 });

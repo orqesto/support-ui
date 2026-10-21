@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Pause } from 'lucide-react';
-import { adminMoneyDetail, type AiStatus } from './aiStatus';
+import { customerPauseText, type AiStatus } from './aiStatus';
 
 /**
  * Tells a workspace WHY its AI went quiet, and the way out. Shown only when the API says live AI
  * is paused (`ai.paused`); the words come from the API. Customers see messages wording; admins
- * also get the "≈ $used of $budget" detail. `not_in_plan` offers Upgrade or connecting an own AI
+ * read the API's own sentence (with the money). `not_in_plan` offers Upgrade or connecting an own AI
  * key (no pack — a pack cannot add AI the plan does not have); every other reason offers the
  * message pack (when `packAction` is given) and Upgrade.
  */
@@ -24,7 +24,12 @@ export const AiPausedBanner = ({
 }) => {
   if (!ai || !ai.paused || !ai.reason) return null;
   const notInPlan = ai.reason === 'not_in_plan';
-  const detail = isAdmin ? adminMoneyDetail(ai) : null;
+  // Admins read the API's sentence (it carries the money); customers never see dollars.
+  const text = isAdmin
+    ? (ai.message ?? customerPauseText(ai.reason))
+    : customerPauseText(ai.reason);
+  // Only an exhausted allowance is lifted by messages/upgrade; a server ceiling is text only.
+  const hasWayOut = notInPlan || ai.reason === 'budget_used';
   return (
     <div
       data-testid="ai-paused-banner"
@@ -33,16 +38,9 @@ export const AiPausedBanner = ({
     >
       <span className="flex items-center gap-2 text-foreground">
         <Pause className="h-4 w-4 shrink-0 text-warning" />
-        <span>
-          {ai.message ?? 'AI is paused.'}
-          {detail && (
-            <span data-testid="ai-paused-detail" className="ml-1 text-muted-foreground">
-              ({detail})
-            </span>
-          )}
-        </span>
+        <span>{text}</span>
       </span>
-      {canOpenSubscription && (
+      {canOpenSubscription && hasWayOut && (
         <span className="flex shrink-0 flex-wrap items-center gap-3">
           {!notInPlan && packAction}
           <Link to="/pricing" className="font-medium text-primary hover:underline">

@@ -161,7 +161,7 @@ describe('the AI-paused banner inside the app-level banner', () => {
       usage({ current: { messages: 10, users: 3, integrations: 2 }, ai: paused })
     );
     renderBanner();
-    expect(await screen.findByTestId('ai-paused-banner')).toHaveTextContent('AI allowance used up.');
+    expect(await screen.findByTestId('ai-paused-banner')).toHaveTextContent(/AI messages are used up/);
     expect(screen.getByText(/Buy 1,000 messages/)).toHaveAttribute('href', '/subscription');
     expect(screen.getByText('Upgrade')).toHaveAttribute('href', '/pricing');
     expect(screen.queryByTestId('message-cap-banner')).not.toBeInTheDocument();

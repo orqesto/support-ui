@@ -1,4 +1,6 @@
-import { fmtMoney } from '@/components/budget/budget.rules';
+import { logger } from '@/lib/logger';
+import { aiService } from '@/services/ai.service';
+import { subscriptionService } from '@/services/subscription.service';
 
 /** Why the API says AI is stopped (`/api/usage/current` → `ai.reason`). */
 export type AiPauseReason =
@@ -25,15 +27,40 @@ export type AiStatus = {
   resetsAt: string | null;
 };
 
-/** The words an admin may see: "≈ $4.20 of ≈ $5.00". Null when the API gave no figures. */
-export const adminMoneyDetail = (ai: AiStatus): string | null =>
-  ai.usedMicros !== null && ai.budgetMicros !== null
-    ? `${fmtMoney(ai.usedMicros)} of ${fmtMoney(ai.budgetMicros)}`
-    : null;
+/** The `ai` block of /api/usage/current; undefined when the call fails or the backend sends none. */
+export const loadAiStatus = async (): Promise<AiStatus | undefined> => {
+  try {
+    return (await subscriptionService.getUsage())?.ai;
+  } catch (error) {
+    logger.warn('Could not read the AI status:', error);
+    return undefined;
+  }
+};
+
+/** Own key = the provider settings say platform AI is off. Unknown (call fails, old backend) = false. */
+export const loadOwnKey = async (): Promise<boolean> => {
+  try {
+    const providers = await aiService.getProviders();
+    return providers.data?.platform?.active === false;
+  } catch (error) {
+    logger.warn('Could not read the AI provider settings:', error);
+    return false;
+  }
+};
 
 /**
- * An own-key workspace has no AI allowance of ours: budgets are on, nothing is paused and there
- * is no budget for it. (Before budgets are applied `active` is false: nothing to say yet.)
+ * What a customer reads for each reason: fixed sentences, never money (the API's own text names
+ * dollars for budget_used; that is for admins). Unknown reasons get the generic sentence.
  */
-export const runsOnOwnKey = (ai: AiStatus | undefined): boolean =>
-  !!ai && ai.active && ai.budgetMicros === null && !ai.paused;
+export const customerPauseText = (reason: string | null): string => {
+  switch (reason) {
+    case 'not_in_plan':
+      return 'AI is not included in your plan. Upgrade, or connect your own AI key.';
+    case 'budget_used':
+      return "This period's AI messages are used up: AI drafts, auto-replies and analysis pause until the period resets. Buying more messages or upgrading adds to it.";
+    case 'server_ceiling':
+      return "This server's AI limit for the month is reached: AI is paused until it resets.";
+    default:
+      return 'AI is paused for now.';
+  }
+};

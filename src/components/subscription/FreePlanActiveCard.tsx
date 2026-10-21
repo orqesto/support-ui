@@ -4,7 +4,11 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { toast } from '@/lib/toast';
-import { subscriptionService, type KeepChoice, type PlanFit } from '@/services/subscription.service';
+import {
+  subscriptionService,
+  type KeepChoice,
+  type PlanFit,
+} from '@/services/subscription.service';
 import { KeepActiveDialog } from './KeepActiveDialog';
 import { isOverPlan } from './keepActive';
 
@@ -19,7 +23,11 @@ type FreePlanActiveCardProps = {
  * Renders nothing anywhere else: on another plan, for someone who cannot manage billing, when the
  * backend does not offer `/plan-fit` yet, or when nothing is paused and the workspace fits.
  */
-export const FreePlanActiveCard = ({ planName, canManage, currentUserId }: FreePlanActiveCardProps) => {
+export const FreePlanActiveCard = ({
+  planName,
+  canManage,
+  currentUserId,
+}: FreePlanActiveCardProps) => {
   const [fit, setFit] = useState<PlanFit | null>(null);
   const [choosing, setChoosing] = useState(false);
   const [saving, setSaving] = useState(false);

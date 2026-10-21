@@ -23,7 +23,14 @@ const fit = (over: Partial<PlanFit> = {}): PlanFit => ({
   limits: { maxUsers: 2, maxIntegrations: 1 },
   over: { members: 0, sources: 0 },
   members: [
-    { userId: 1, name: 'Ada', email: 'ada@x.io', role: 'org_admin', state: 'active', joinedAt: null },
+    {
+      userId: 1,
+      name: 'Ada',
+      email: 'ada@x.io',
+      role: 'org_admin',
+      state: 'active',
+      joinedAt: null,
+    },
     { userId: 2, name: 'Bo', email: 'bo@x.io', role: 'support', state: 'active', joinedAt: null },
     { userId: 3, name: 'Cy', email: 'cy@x.io', role: 'support', state: 'paused', joinedAt: null },
   ],
@@ -41,16 +48,22 @@ describe('FreePlanActiveCard', () => {
   it('says who is paused and saves a swap', async () => {
     getPlanFit.mockResolvedValue(fit());
     render(<FreePlanActiveCard planName="free" canManage currentUserId={1} />);
-    expect(await screen.findByText(/1 member paused to fit Free — nothing was deleted/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/1 member paused to fit Free — nothing was deleted/)
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: "Choose who's active" }));
     fireEvent.click(await screen.findByRole('checkbox', { name: /Bo/ }));
     fireEvent.click(screen.getByRole('checkbox', { name: /Cy/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(setActiveWithinPlan).toHaveBeenCalledWith({ memberUserIds: [1, 3], sourceIds: [10] }));
+    await waitFor(() =>
+      expect(setActiveWithinPlan).toHaveBeenCalledWith({ memberUserIds: [1, 3], sourceIds: [10] })
+    );
   });
 
   it('nothing when nothing is paused and the workspace fits', async () => {
-    getPlanFit.mockResolvedValue(fit({ members: fit().members.filter((member) => member.state === 'active') }));
+    getPlanFit.mockResolvedValue(
+      fit({ members: fit().members.filter((member) => member.state === 'active') })
+    );
     const { container } = render(<FreePlanActiveCard planName="free" canManage />);
     await waitFor(() => expect(getPlanFit).toHaveBeenCalled());
     expect(container).toBeEmptyDOMElement();

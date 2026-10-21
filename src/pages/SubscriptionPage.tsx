@@ -24,7 +24,7 @@ import { billingDateLine } from '@/components/subscription/billingDateLine';
 import { FreePlanActiveCard } from '@/components/subscription/FreePlanActiveCard';
 import { MessagePackOfferCard } from '@/components/subscription/MessagePackOfferCard';
 import { AiPausedBanner } from '@/components/subscription/AiPausedBanner';
-import { runsOnOwnKey, type AiStatus } from '@/components/subscription/aiStatus';
+import { loadAiStatus, loadOwnKey, type AiStatus } from '@/components/subscription/aiStatus';
 import { MessagesSummary, TRIAL_SENTENCE } from '@/components/subscription/MessagesSummary';
 import { describeUsagePeriod } from '@/components/subscription/usagePeriodCopy';
 import { useMessagePackReturn } from '@/components/subscription/useMessagePackReturn';
@@ -134,6 +134,8 @@ export const SubscriptionPage = () => {
 
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   // `ai` of /api/usage/current: the AI-paused banner and the own-key line. Optional (older backend).
+  // From the provider settings (`platform.active === false` ⇒ own key). null = unknown ⇒ no wording.
+  const [ownKey, setOwnKey] = useState(false);
   const [aiStatus, setAiStatus] = useState<AiStatus | undefined>(undefined);
   const [subscriptionDetails, setSubscriptionDetails] = useState<SubscriptionDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -231,13 +233,9 @@ export const SubscriptionPage = () => {
 
       setDashboard(dashboardRes.data.data);
       setSubscriptionDetails(subRes.data.data);
-      // Its own try: the page is complete without the AI block.
-      try {
-        const usageNow = await subscriptionService.getUsage();
-        setAiStatus(usageNow?.ai);
-      } catch (aiError) {
-        logger.warn('Could not read the AI status:', aiError);
-      }
+      // Their own tries: the page is complete without the AI block and the provider settings.
+      setAiStatus(await loadAiStatus());
+      setOwnKey(await loadOwnKey());
     } catch (error) {
       logger.error('Failed to load subscription:', error);
     } finally {
@@ -483,7 +481,7 @@ export const SubscriptionPage = () => {
               limit={usage.messages.limit}
               used={usage.messages.current}
               period={dashboard.period}
-              ownKey={runsOnOwnKey(aiStatus)}
+              ownKey={ownKey}
             />
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <UsageTile title="Users" icon={Users} item={usage.users} />

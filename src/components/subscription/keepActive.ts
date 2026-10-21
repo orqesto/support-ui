@@ -10,11 +10,19 @@ const joined = (value: string | null): number => (value ? Date.parse(value) || 0
 export const defaultKeep = (fit: PlanFit, currentUserId?: number | null): KeepChoice => {
   const active = fit.members.filter((member) => member.state === 'active');
   const byJoined = <T extends { joinedAt: string | null; userId: number }>(list: T[]) =>
-    [...list].sort((left, right) => joined(left.joinedAt) - joined(right.joinedAt) || left.userId - right.userId);
+    [...list].sort(
+      (left, right) => joined(left.joinedAt) - joined(right.joinedAt) || left.userId - right.userId
+    );
   const me = active.filter((member) => member.userId === currentUserId);
-  const admins = byJoined(active.filter((member) => member.userId !== currentUserId && member.role === 'org_admin'));
-  const others = byJoined(active.filter((member) => member.userId !== currentUserId && member.role !== 'org_admin'));
-  const memberUserIds = [...me, ...admins, ...others].slice(0, Math.max(0, fit.limits.maxUsers)).map((member) => member.userId);
+  const admins = byJoined(
+    active.filter((member) => member.userId !== currentUserId && member.role === 'org_admin')
+  );
+  const others = byJoined(
+    active.filter((member) => member.userId !== currentUserId && member.role !== 'org_admin')
+  );
+  const memberUserIds = [...me, ...admins, ...others]
+    .slice(0, Math.max(0, fit.limits.maxUsers))
+    .map((member) => member.userId);
 
   const sourceIds = fit.channels
     .filter((channel) => channel.state === 'active')
