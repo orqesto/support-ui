@@ -395,6 +395,25 @@ describe('ComposerAiActions — the editor is the only input', () => {
       expect(await screen.findByText(expected)).toBeTruthy();
     });
 
+    it('a KB-free generate draft for Cc mail does not ask the agent to "add the answer"', async () => {
+      composeReply.mockResolvedValue({
+        data: { text: 'Noted.', groundedInKb: false, envelope: { position: 'cc' } },
+      });
+      render(<Host initial="" />);
+      pressDraft();
+      expect(await screen.findByText(/only on Cc/)).toBeTruthy();
+      expect(screen.queryByText(/acknowledges the question without answering/)).toBeNull();
+    });
+
+    it('CONTROL: a guided draft for Cc mail keeps "check the facts"', async () => {
+      composeReply.mockResolvedValue({
+        data: { text: 'Noted.', groundedInKb: false, envelope: { position: 'cc' } },
+      });
+      render(<Host initial="<p>we are on copy</p>" />);
+      pressDraft();
+      expect(await screen.findByText(/Written from what you said/)).toBeTruthy();
+    });
+
     it.each([
       ['addressed to the team', { position: 'to', senderIsColleague: false }],
       ['an older backend (no envelope)', undefined],

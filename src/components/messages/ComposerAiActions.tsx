@@ -363,13 +363,18 @@ export function ComposerAiActions({
         a guided draft carries the agent's OWN facts, a generate draft with an empty KB answers
         nothing and must not be sent as if it did.
       */}
-      {applied?.groundedInKb === false && !busy && (
-        <p className="basis-full order-last text-[11px] text-warning">
-          {applied.mode === 'guided'
-            ? 'Written from what you said, not from the knowledge base — check the facts before sending.'
-            : 'Nothing in the knowledge base matched, so this acknowledges the question without answering it. Add the answer before sending.'}
-        </p>
-      )}
+      {/* Not on a draft written for mail the team was only copied on (or a colleague's): there
+          was no question for us to answer, so "add the answer" would be wrong advice — the
+          envelope hint below explains that draft instead. A guided draft keeps its warning. */}
+      {applied?.groundedInKb === false &&
+        !busy &&
+        (applied.mode === 'guided' || !envelopeDraftHint(applied.envelope ?? null)) && (
+          <p className="basis-full order-last text-[11px] text-warning">
+            {applied.mode === 'guided'
+              ? 'Written from what you said, not from the knowledge base — check the facts before sending.'
+              : 'Nothing in the knowledge base matched, so this acknowledges the question without answering it. Add the answer before sending.'}
+          </p>
+        )}
       {/* Copied / not listed / a colleague's mail: the draft was written for that, say so. */}
       {applied && envelopeDraftHint(applied.envelope ?? null) && !busy && (
         <p
