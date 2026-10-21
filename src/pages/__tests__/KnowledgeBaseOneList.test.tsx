@@ -173,9 +173,9 @@ describe('Knowledge Base decision filters', () => {
       </MemoryRouter>
     );
     expect(await screen.findByText(NOTICE)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open the review page' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Open the cases report' })).toHaveAttribute(
       'href',
-      '/knowledge-base/merges'
+      '/knowledge-base/cases'
     );
     expect(screen.queryByText('Unfiltered row from an older server')).toBeNull();
   });

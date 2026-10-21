@@ -1,25 +1,17 @@
 /**
  * One entry of the KB cases worklist: its status as the KB list words it, why an action is not
  * offered, and the actions this viewer may take. State and requests live in `KbWorkRows`.
+ *
+ * ⛔ The Knowledge Base list is the ONE place to decide (Approve / Reject / Hide / Unhide / Restore,
+ * a clean-up's Undo, a hold's Keep using / Reject): this view groups and edits, it does not
+ * decide. A row links to the entry in the list instead.
  */
 import { Link } from 'react-router-dom';
-import {
-  CheckCircle,
-  RotateCcw,
-  Edit,
-  Eye,
-  EyeOff,
-  FolderInput,
-  FolderOutput,
-  MessageSquare,
-  Split,
-  XCircle,
-} from 'lucide-react';
+import { Edit, ExternalLink, FolderInput, FolderOutput, MessageSquare, Split } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { KBStatusBadge } from './KBStatusBadge';
-import { kbMergeReviewHref } from '@/components/layout/KbReviewSection';
 import { caseHref, offersReviewActions } from '@/lib/kbConsolidation';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import type { KbSetAsideReason, KbWorkRow } from '@/services/kbConsolidation.service';
@@ -31,8 +23,6 @@ import {
   isCaseEntry,
   mayModerate,
   type BusyAction,
-  type QualityAction,
-  type RowAction,
 } from './kbWorkRowModel';
 
 /** A row button with its effect as a tooltip. */
@@ -52,12 +42,10 @@ export const KbWorkRowItem = ({
   editLoading,
   error,
   orgCode,
-  onAct,
   onEdit,
   onMove,
   onDetach,
   onUnmerge,
-  onQuality,
   casesExist = null,
 }: {
   row: KbWorkRow;
@@ -68,7 +56,7 @@ export const KbWorkRowItem = ({
   lastMember?: boolean;
   /**
    * The pending merge suggestion that proposes this entry for the listed case (it is NOT a member
-   * yet): decided in Merges, so nothing else is offered on it here.
+   * yet): decided in the Knowledge Base list, so nothing else is offered on it here.
    */
   proposedBy?: number | null;
   /** The action in flight on this list, if any (one at a time). */
@@ -76,13 +64,10 @@ export const KbWorkRowItem = ({
   editLoading: boolean;
   error: string | undefined;
   orgCode: string | undefined;
-  onAct: (action: RowAction) => void;
   onEdit: () => void;
   onMove: () => void;
   onDetach: () => void;
   onUnmerge: () => void;
-  /** Undo an automatic clean-up, or decide a hold (Keep using / Reject). */
-  onQuality: (action: QualityAction) => void;
   /**
    * Is there a case in the report's departments to move an entry into? false: none — "Move into
    * case" is not offered. null: not known — it is offered (the picker says when none fits).
@@ -103,8 +88,6 @@ export const KbWorkRowItem = ({
   const moderate = mayModerate(row);
   const idle = busy === null;
   const usable = offersReviewActions(entry);
-  const reviewable = moderate && !isCase && !proposed && usable;
-  const rejected = row.status === 'rejected';
   // The nightly review's own change: text cleaned automatically, or taken out of use (held).
   const cleaned = row.autoCleaned ?? null;
   const held = row.heldForReview ?? null;
@@ -178,8 +161,11 @@ export const KbWorkRowItem = ({
       {proposed && (
         <p className="text-xs text-muted-foreground">
           Proposed to join this case (merge suggestion #{proposedBy}) —{' '}
-          <Link to={kbMergeReviewHref(proposedBy)} className="text-primary hover:underline">
-            review it in Merges
+          <Link
+            to={`/knowledge-base?status=suggested_change&id=${row.id}`}
+            className="text-primary hover:underline"
+          >
+            review it in the Knowledge Base
           </Link>
           .
         </p>
@@ -187,12 +173,6 @@ export const KbWorkRowItem = ({
       {held && (
         <p className="text-xs text-muted-foreground">
           The review judged this answer to be about one customer, so the AI stopped using it.
-        </p>
-      )}
-      {(cleaned !== null || held !== null) && !row.canDecide && (
-        // The review's decisions (Undo, Keep using, Reject) need the server's `canDecide` rule.
-        <p className="text-xs text-muted-foreground">
-          Only a moderator of every department it serves can decide the review’s change.
         </p>
       )}
       {reason === 'classifying' && (
@@ -245,77 +225,13 @@ export const KbWorkRowItem = ({
             Open thread {row.conversationPublicId ?? `#${row.conversationId}`}
           </Link>
         )}
-        {reviewable && row.status === 'pending' && (
-          <>
-            <Tip text={ACTION_TIPS.approve}>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!idle}
-                isLoading={busyOn('approve')}
-                onClick={() => onAct('approve')}
-              >
-                <CheckCircle className="mr-1 w-4 h-4" aria-hidden="true" />
-                Approve
-              </Button>
-            </Tip>
-            <Tip text={ACTION_TIPS.reject}>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!idle}
-                isLoading={busyOn('reject')}
-                onClick={() => onAct('reject')}
-              >
-                <XCircle className="mr-1 w-4 h-4" aria-hidden="true" />
-                Reject
-              </Button>
-            </Tip>
-          </>
-        )}
-        {reviewable && (row.status === 'approved' || row.status === 'pending') && (
-          <Tip text={ACTION_TIPS.hide}>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!idle}
-              isLoading={busyOn('hide')}
-              onClick={() => onAct('hide')}
-            >
-              <EyeOff className="mr-1 w-4 h-4" aria-hidden="true" />
-              Hide
-            </Button>
-          </Tip>
-        )}
-        {/* A held entry is decided by its review (Keep using / Reject), not by a plain Unhide. */}
-        {reviewable && row.status === 'hidden' && !held && (
-          <Tip text={ACTION_TIPS.unhide}>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!idle}
-              isLoading={busyOn('unhide')}
-              onClick={() => onAct('unhide')}
-            >
-              <Eye className="mr-1 w-4 h-4" aria-hidden="true" />
-              Unhide
-            </Button>
-          </Tip>
-        )}
-        {reviewable && rejected && (
-          <Tip text={ACTION_TIPS.restore}>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!idle}
-              isLoading={busyOn('restore')}
-              onClick={() => onAct('restore')}
-            >
-              <Eye className="mr-1 w-4 h-4" aria-hidden="true" />
-              Restore
-            </Button>
-          </Tip>
-        )}
+        <Link
+          to={`/knowledge-base?id=${row.id}`}
+          className="inline-flex gap-1 items-center text-xs text-primary hover:underline"
+        >
+          <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+          Open in Knowledge Base
+        </Link>
         {moderate && usable && !proposed && (
           <Tip text={ACTION_TIPS.edit}>
             <Button
@@ -373,48 +289,6 @@ export const KbWorkRowItem = ({
               Split case
             </Button>
           </Tip>
-        )}
-        {cleaned && row.canDecide && (
-          <Tip text={ACTION_TIPS.undoClean}>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!idle}
-              isLoading={busyOn('undoClean')}
-              onClick={() => onQuality('undoClean')}
-            >
-              <RotateCcw className="mr-1 w-4 h-4" aria-hidden="true" />
-              Undo
-            </Button>
-          </Tip>
-        )}
-        {held && row.canDecide && (
-          <>
-            <Tip text={ACTION_TIPS.keepUsing}>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!idle}
-                isLoading={busyOn('keepUsing')}
-                onClick={() => onQuality('keepUsing')}
-              >
-                <CheckCircle className="mr-1 w-4 h-4" aria-hidden="true" />
-                Keep using
-              </Button>
-            </Tip>
-            <Tip text={ACTION_TIPS.rejectHeld}>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!idle}
-                isLoading={busyOn('rejectHeld')}
-                onClick={() => onQuality('rejectHeld')}
-              >
-                <XCircle className="mr-1 w-4 h-4" aria-hidden="true" />
-                Reject
-              </Button>
-            </Tip>
-          </>
         )}
       </div>
     </li>

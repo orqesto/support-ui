@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '@/lib/api-client';
 import {
   kbService,
+  normaliseAutoChange,
   normalisePendingDecision,
   normaliseSetAsideReason,
 } from '@/services/kb.service';
@@ -22,7 +23,20 @@ describe('normalisePendingDecision', () => {
       kind: 'remove',
       reasons: ['no_answer'],
       canDecide: false,
+      expiresAt: null,
     });
+  });
+  it('keeps when it expires, and an expired capture that still waits', () => {
+    expect(
+      normalisePendingDecision({
+        suggestionId: 4,
+        kind: 'approve_capture',
+        reasons: [],
+        canDecide: true,
+        expiresAt: '2026-11-01T00:00:00.000Z',
+        expired: true,
+      })
+    ).toMatchObject({ expiresAt: '2026-11-01T00:00:00.000Z', expired: true });
   });
 });
 
@@ -56,6 +70,7 @@ describe('kbService.getAll filters.decisionStatuses', () => {
       status: 'needs_decision',
       decisionStatuses: false,
       autoRemovedStatus: false,
+      autoChangedStatus: false,
       statusApplied: false,
     });
     expect(result.data.entries[0].setAsideReason).toBe('other');
@@ -77,5 +92,32 @@ describe('kbService.getAll filters.decisionStatuses', () => {
     expect((await kbService.getAll({ status: 'auto_removed' })).data.filters?.statusApplied).toBe(
       true
     );
+  });
+
+  it('"Changed automatically" is applied only on a backend that says so (autoChangedStatus)', async () => {
+    answer({ status: 'auto_changed', decisionStatuses: true });
+    const old = await kbService.getAll({ status: 'auto_changed' });
+    expect(old.data.filters?.statusApplied).toBe(false);
+    answer({ status: 'auto_changed', decisionStatuses: true, autoChangedStatus: true });
+    const next = await kbService.getAll({ status: 'auto_changed' });
+    expect(next.data.filters?.statusApplied).toBe(true);
+  });
+});
+
+describe('normaliseAutoChange', () => {
+  it('absent or an undo this app cannot run ⇒ null (no button, never a guess)', () => {
+    expect(normaliseAutoChange(undefined)).toBeNull();
+    expect(normaliseAutoChange({ action: 'remove', undo: 'something_new' })).toBeNull();
+  });
+  it('keeps a well-formed change; a null date stays null', () => {
+    expect(
+      normaliseAutoChange({
+        action: 'hold',
+        at: null,
+        confidence: 0.9,
+        undo: 'release_hold',
+        suggestionId: 9,
+      })
+    ).toEqual({ action: 'hold', at: null, confidence: 0.9, undo: 'release_hold', suggestionId: 9 });
   });
 });

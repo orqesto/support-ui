@@ -63,14 +63,15 @@ describe('KB review states', () => {
     expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
   });
 
-  it('a rejected entry offers Restore (approve), not Reject again', () => {
+  it('a rejected entry offers Approve again (approve), not Reject again; only an automatic removal says Restore', () => {
     const handlers = card({
       entry: entry({ hidden: true, rejectedAt: '2026-09-19T09:00:00.000Z' }),
       canReview: true,
     });
     expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve again' }));
     expect(handlers.onApprove).toHaveBeenCalledWith(7);
+    expect(screen.queryByRole('button', { name: 'Restore' })).not.toBeInTheDocument();
   });
 
   it('someone who may not review is offered no review action (the server would 403 it)', () => {

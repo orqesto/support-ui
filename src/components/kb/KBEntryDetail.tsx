@@ -20,7 +20,10 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Drawer } from '@/components/ui/Drawer';
 import { apiClient } from '@/lib/api-client';
-import { kbService, type KBEntry } from '@/services/kb.service';
+import { kbService, type KBEntry, type KbPendingDecision } from '@/services/kb.service';
+import { KbPendingDecisionBadge } from './KbPendingDecisionBadge';
+import { KB_DECISION_REVIEW_LABEL } from './KbDecisionDialog';
+import { reviewableDecision } from './kbWorkRowModel';
 import { KBApprovalProvenance } from './KBApprovalProvenance';
 import { KBStatusBadge } from './KBStatusBadge';
 import { FormattedKBContent } from '../shared/FormattedKBContent';
@@ -94,6 +97,8 @@ type KBEntryDetailProps = {
   canReview: boolean;
   /** Undo a merged case (manage_knowledge_base). Shown only on case rows. */
   onUnmerge?: (entry: KBEntry) => void;
+  /** Open the review for the merge / add to case / rewrite / removal waiting on this entry. */
+  onReviewDecision?: (decision: KbPendingDecision) => void;
 };
 
 /**
@@ -113,6 +118,14 @@ const LIST_ONLY_FIELDS = [
   'consolidation',
 ] as const;
 const withListFields = (fromDetail: KBEntry, listed: KBEntry): KBEntry => {
+  // The detail route never sends the decision waiting on an entry (only the list does): a deep
+  // link's decision is looked up by the page and passed in with the entry.
+  if (fromDetail.pendingDecision === undefined && listed.pendingDecision !== undefined)
+    fromDetail = {
+      ...fromDetail,
+      pendingDecision: listed.pendingDecision,
+      otherPendingDecisions: listed.otherPendingDecisions,
+    };
   // `messageSourceId` decides whether the editor offers a department picker; the detail route
   // sends it only from the backend release that added the picker, so on an older backend the list
   // row's value stands in whenever it is absent — whatever `sourceDeleted` says.
@@ -141,6 +154,7 @@ export const KBEntryDetail = ({
   onUpdate,
   canReview,
   onUnmerge,
+  onReviewDecision,
 }: KBEntryDetailProps) => {
   const [fullEntry, setFullEntry] = useState<KBEntry | null>(null);
   const [loading, setLoading] = useState(false);
@@ -214,6 +228,25 @@ export const KBEntryDetail = ({
                 />
               </div>
             </div>
+
+            {/* The decision waiting on this entry: every deep link can decide it from here. */}
+            {displayEntry.pendingDecision && (
+              <div className="flex flex-wrap gap-3 items-center mb-4">
+                <KbPendingDecisionBadge
+                  decision={displayEntry.pendingDecision}
+                  others={displayEntry.otherPendingDecisions}
+                />
+                {canReview && onReviewDecision && reviewableDecision(displayEntry) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onReviewDecision(reviewableDecision(displayEntry)!)}
+                  >
+                    {KB_DECISION_REVIEW_LABEL[displayEntry.pendingDecision.kind]}
+                  </Button>
+                )}
+              </div>
+            )}
 
             {/* Metadata Grid */}
             <div className="grid grid-cols-2 gap-4 text-sm">
@@ -530,7 +563,7 @@ export const KBEntryDetail = ({
                     }
                   >
                     <Eye className="mr-2 w-4 h-4" />
-                    {displayEntry.rejectedAt ? 'Restore' : 'Unhide'}
+                    {displayEntry.rejectedAt ? 'Approve again' : 'Unhide'}
                   </Button>
                 ))}
               {!isMergedOriginal(displayEntry) && mayRemoveCase(displayEntry) && (

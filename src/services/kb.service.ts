@@ -17,6 +17,10 @@ export type KbPendingDecision = {
   kind: KbDecisionKind;
   reasons: string[];
   canDecide: boolean;
+  /** When the suggestion lapses (14 days after it was made); null/absent = it does not. */
+  expiresAt?: string | null;
+  /** An expired capture review that still waits: decide it through the ENTRY endpoints. */
+  expired?: boolean;
 };
 const DECISION_KINDS: readonly KbDecisionKind[] = [
   'approve_capture',
@@ -47,6 +51,36 @@ export const normalisePendingDecision = (value: unknown): KbPendingDecision | nu
       ? raw.reasons.filter((reason): reason is string => typeof reason === 'string')
       : [],
     canDecide: raw.canDecide === true,
+    expiresAt: typeof raw.expiresAt === 'string' ? raw.expiresAt : null,
+    ...(raw.expired === true ? { expired: true } : {}),
+  };
+};
+
+/** How a change the system made by itself is undone (BE `autoChange.undo`). */
+export type KbAutoUndo = 'restore' | 'undo_clean' | 'release_hold' | 'unapprove';
+const AUTO_UNDOS: readonly KbAutoUndo[] = ['restore', 'undo_clean', 'release_hold', 'unapprove'];
+export type KbAutoChange = {
+  action: 'remove' | 'hold' | 'cleanPersonalData' | 'approveMined';
+  /** May be null: then the row shows no date. */
+  at: string | null;
+  confidence: number | null;
+  undo: KbAutoUndo;
+  suggestionId: number | null;
+};
+const AUTO_ACTIONS: readonly string[] = ['remove', 'hold', 'cleanPersonalData', 'approveMined'];
+
+/** Absent on an older backend ⇒ null (no undo is offered); an undo this app cannot run ⇒ null. */
+export const normaliseAutoChange = (value: unknown): KbAutoChange | null => {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  if (!AUTO_UNDOS.includes(raw.undo as KbAutoUndo) || !AUTO_ACTIONS.includes(raw.action as string))
+    return null;
+  return {
+    action: raw.action as KbAutoChange['action'],
+    at: typeof raw.at === 'string' ? raw.at : null,
+    confidence: typeof raw.confidence === 'number' ? raw.confidence : null,
+    undo: raw.undo as KbAutoUndo,
+    suggestionId: typeof raw.suggestionId === 'number' ? raw.suggestionId : null,
   };
 };
 
@@ -59,7 +93,9 @@ export type KbListStatus =
   | 'suggested_change'
   | 'set_aside'
   /** Removed by the nightly automatic removal and not restored (BE sends `filters.autoRemovedStatus`). */
-  | 'auto_removed';
+  | 'auto_removed'
+  /** Everything the system did by itself in the last 90 days (BE sends `filters.autoChangedStatus`). */
+  | 'auto_changed';
 
 export type KBEntry = {
   id: number;
@@ -123,6 +159,8 @@ export type KBEntry = {
   } | null;
   /** The decision waiting on this entry (highest priority first); null/absent = none. */
   pendingDecision?: KbPendingDecision | null;
+  /** What the system did to it by itself, and how to undo it; null/absent = nothing. */
+  autoChange?: KbAutoChange | null;
   /** How many further decisions wait on it besides `pendingDecision`. */
   otherPendingDecisions?: number;
   /** Why the cases report leaves it out (the Set aside filter); null/absent = not set aside. */
@@ -210,6 +248,8 @@ export type PaginatedResponse<T> = {
       status?: string;
       decisionStatuses?: boolean;
       autoRemovedStatus?: boolean;
+      /** Present on a backend that applies `status=auto_changed`. */
+      autoChangedStatus?: boolean;
       /**
        * Set by `kbService.getAll`: did the server apply the requested status? A new status reads its
        * own capability flag (`decisionStatuses` / `autoRemovedStatus`); the four old ones always are.
@@ -258,9 +298,12 @@ export type KbExportSize = { count: number; cap: number; truncated: boolean };
 const DECISION_STATUSES: readonly string[] = ['needs_decision', 'suggested_change', 'set_aside'];
 const statusApplied = (
   status: string | undefined,
-  filters: { decisionStatuses?: boolean; autoRemovedStatus?: boolean } | undefined
+  filters:
+    | { decisionStatuses?: boolean; autoRemovedStatus?: boolean; autoChangedStatus?: boolean }
+    | undefined
 ): boolean => {
   if (status === 'auto_removed') return filters?.autoRemovedStatus === true;
+  if (status === 'auto_changed') return filters?.autoChangedStatus === true;
   if (status && DECISION_STATUSES.includes(status)) return filters?.decisionStatuses === true;
   return true;
 };
@@ -303,6 +346,7 @@ export const kbService = {
         entries: body.data.entries.map((entry) => ({
           ...entry,
           pendingDecision: normalisePendingDecision(entry.pendingDecision),
+          autoChange: normaliseAutoChange(entry.autoChange),
           otherPendingDecisions:
             typeof entry.otherPendingDecisions === 'number' ? entry.otherPendingDecisions : 0,
           setAsideReason: normaliseSetAsideReason(entry.setAsideReason),
@@ -312,6 +356,7 @@ export const kbService = {
           ...body.data.filters,
           decisionStatuses: body.data.filters?.decisionStatuses === true,
           autoRemovedStatus: body.data.filters?.autoRemovedStatus === true,
+          autoChangedStatus: body.data.filters?.autoChangedStatus === true,
           statusApplied: statusApplied(params?.status, body.data.filters),
         },
       },

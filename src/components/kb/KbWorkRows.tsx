@@ -1,8 +1,10 @@
 /**
  * KB cases worklist: the entries behind a case or a set-aside finding, each with what can be done
- * to it — Approve / Reject / Hide / Unhide, Edit, Move into a case, Remove from case (a member of
- * the case), Split case (the case's own row), Open thread — and, on an entry the nightly review
- * changed by itself, Undo (an automatic clean-up) or Keep using / Reject (an entry it held).
+ * to it — Edit, Move into a case, Remove from case (a member of the case), Split case (the case's
+ * own row), Open thread, and a link to the entry in the Knowledge Base list.
+ *
+ * ⛔ Deciding (Approve / Reject / Hide / Unhide / Restore, undoing an automatic change) is done in
+ * the Knowledge Base list only: this view groups, it does not decide.
  *
  * ⛔ An entry reads the same here as in the KB list: its status is the list's own `KBStatusBadge`,
  * and its actions are offered by the list's own rules (`offersReviewActions`, approved / hidden /
@@ -25,7 +27,6 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import { apiErrorStatus } from '@/lib/apiError';
 import { kbRef } from '@/lib/kbConsolidation';
 import { kbService, type KBEntry } from '@/services/kb.service';
-import { kbQualityService } from '@/services/kbQuality.service';
 import {
   kbConsolidationService,
   type KbSetAsideReason,
@@ -34,19 +35,14 @@ import {
 
 import {
   actionsHelp,
-  ACTION_FAILED,
-  QUALITY_FAILED,
   ATTACH_REFUSED,
   DETACH_REFUSED,
-  STATUS_AFTER,
   WORK_ROWS_PAGE,
   chunk,
   headline,
   refusalText,
   type BusyAction,
   type KbWorkNotice,
-  type QualityAction,
-  type RowAction,
 } from './kbWorkRowModel';
 
 export {
@@ -132,7 +128,6 @@ export const KbWorkRows = ({
   const [moving, setMoving] = useState<KbWorkRow | null>(null);
   const [detaching, setDetaching] = useState<KbWorkRow | null>(null);
   const [unmerging, setUnmerging] = useState<KbWorkRow | null>(null);
-  const [approveInstead, setApproveInstead] = useState<KbWorkRow | null>(null);
 
   // The handlers an action calls when it ANSWERS are the newest ones — never those captured when
   // it was sent (a department or page switched meanwhile would reload the scope just left).
@@ -282,103 +277,6 @@ export const KbWorkRows = ({
   const end = () => {
     busyRef.current = false;
     setBusy(null);
-  };
-
-  const act = async (row: KbWorkRow, action: RowAction) => {
-    if (!begin(row, action)) return;
-    let changed = false;
-    try {
-      if (action === 'unhide') {
-        const result = await kbService.unhide(row.id);
-        if (result.outcome === 'unsupported') {
-          setApproveInstead(row);
-          return;
-        }
-        changed = true;
-        if (result.approved !== null) {
-          patchRow(row.id, { status: result.approved ? 'approved' : 'pending' });
-        } else {
-          // The server restored what hiding recorded but did not say what: read the row.
-          await rereadRow(row.id);
-        }
-      } else {
-        let rejectedAt: string | null = null;
-        if (action === 'approve' || action === 'restore') await kbService.approve(row.id);
-        else if (action === 'reject')
-          // The date the purge counts from — the server's, as the KB list uses it.
-          rejectedAt =
-            (await kbService.reject(row.id)).data?.rejectedAt ?? new Date().toISOString();
-        else await kbService.hide(row.id);
-        changed = true;
-        patchRow(row.id, {
-          status: STATUS_AFTER[action],
-          rejectedAt: action === 'reject' ? rejectedAt : null,
-        });
-      }
-    } catch (err) {
-      setRowError(row.id, `${ACTION_FAILED[action]}: ${getApiErrorMessage(err) ?? 'try again.'}`);
-      // A refused write can still mean the entry moved on (someone else decided it, or merged
-      // it): read the row as it is now rather than keep showing what it was.
-      changed = true;
-      try {
-        await rereadRow(row.id);
-      } catch {
-        // The error above already says the action failed; the report re-read follows.
-      }
-    } finally {
-      end();
-      settle(changed);
-    }
-  };
-
-  /** The nightly review's own change: undo a clean-up, or decide a held entry. */
-  const decideQuality = async (row: KbWorkRow, action: QualityAction) => {
-    const suggestionId =
-      action === 'undoClean' ? row.autoCleaned?.suggestionId : row.heldForReview?.suggestionId;
-    if (suggestionId === undefined || !begin(row, action)) return;
-    let changed = false;
-    try {
-      if (action === 'undoClean') {
-        const result = await kbQualityService.undo(suggestionId);
-        changed = true;
-        if (result.outcome === 'refused')
-          setRowError(
-            row.id,
-            result.status === 409
-              ? 'Not undone: the entry was changed after the clean-up, so the original text was not put back.'
-              : 'Nothing to undo: this text was not cleaned automatically, or it was already put back.'
-          );
-        else setNotice({ text: 'The original text is back.', variant: 'success' });
-      } else if (action === 'keepUsing') {
-        await kbQualityService.keep(suggestionId);
-        changed = true;
-        setNotice({ text: 'The AI uses this answer again.', variant: 'success' });
-      } else {
-        const result = await kbQualityService.accept(suggestionId, { action: 'reject' });
-        changed = true;
-        if (result.status !== 'rejected')
-          setRowError(
-            row.id,
-            result.status === 'expired'
-              ? 'Not rejected: the entry changed since the review — read it again.'
-              : 'Not rejected: the server did not say it was.'
-          );
-      }
-    } catch (err) {
-      setRowError(row.id, `${QUALITY_FAILED[action]}: ${getApiErrorMessage(err) ?? 'try again.'}`);
-      changed = true;
-    } finally {
-      // Read the row as it is now — whatever the answer was, it says what the entry is.
-      if (changed) {
-        try {
-          await rereadRow(row.id);
-        } catch {
-          // The line above already says what happened; the report re-read follows.
-        }
-      }
-      end();
-      settle(changed);
-    }
   };
 
   const editLock = useRef(false);
@@ -577,12 +475,10 @@ export const KbWorkRows = ({
               editLoading={editLoading === row.id}
               error={rowErrors[row.id]}
               orgCode={orgCode}
-              onAct={(action) => void act(row, action)}
               onEdit={() => void startEdit(row)}
               onMove={() => setMoving(row)}
               onDetach={() => setDetaching(row)}
               onUnmerge={() => setUnmerging(row)}
-              onQuality={(action) => void decideQuality(row, action)}
               casesExist={casesExist}
             />
           );
@@ -661,19 +557,6 @@ export const KbWorkRows = ({
             : 'its original entries come'
         } back on their own. To take out one entry and keep the case, use Remove from case on it.`}
         confirmText="Split case"
-        variant="warning"
-      />
-      <ConfirmDialog
-        open={approveInstead !== null}
-        onOpenChange={(open) => {
-          if (!open) setApproveInstead(null);
-        }}
-        onConfirm={() => {
-          if (approveInstead) void act(approveInstead, 'approve');
-        }}
-        title="Unhide is not available on this server yet"
-        description="The entry was not changed. This server can show a hidden entry again only by approving it — which also lets the AI use it in answers."
-        confirmText="Approve instead"
         variant="warning"
       />
     </div>

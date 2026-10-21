@@ -1,23 +1,12 @@
 import type React from 'react';
-import { BookCheck, Check, Layers, X } from 'lucide-react';
+import { BookCheck, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import type {
   KbConsolidationAlert,
   KbReviewAlert,
   UseKbReviewAlertsResult,
 } from '@/hooks/useKbReviewAlerts';
-import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import { useDepartments } from '@/hooks/useDepartments';
-
-/** Where the bell's "Review" goes: the page listing every pending merge and quality suggestion. */
-export const KB_MERGES_REVIEW_PATH = '/knowledge-base/merges';
-/** The query parameter that opens ONE merge proposal on that page (and scrolls to it). */
-export const KB_MERGE_SUGGESTION_PARAM = 'suggestion';
-/** That page with one proposal opened. */
-export const kbMergeReviewHref = (suggestionId: number | null): string =>
-  suggestionId === null
-    ? KB_MERGES_REVIEW_PATH
-    : `${KB_MERGES_REVIEW_PATH}?tab=merges&${KB_MERGE_SUGGESTION_PARAM}=${suggestionId}`;
 
 // The row counts merge proposals AND quality suggestions (one bell per department, BE
 // consolidationBell): it cannot say how many of each, so it names both kinds.
@@ -73,9 +62,8 @@ const MergeReviewRow = ({
  * "Saved to the knowledge base — waiting for your review." The backend shows these rows only
  * to members who may review the KB; everyone else never receives them.
  *
- * Approve / Reject decide the whole capture here, in the bell, because that is the job: a
- * reviewer who had to find the entry in the KB list first is the reviewer who never did — the
- * KB review queue was used 0 times in 204 before a notification pointed at it.
+ * The bell only links: Review opens the Knowledge Base list on "Needs your decision", where the
+ * capture is decided — the one place to decide (owner rule, 2026-10-21).
  */
 export const KbReviewSection = ({
   review,
@@ -89,75 +77,51 @@ export const KbReviewSection = ({
   /** Close the panel and go — the caller owns the router and the open state. */
   onNavigate: (path: string) => void;
 }) => {
-  const { alerts, consolidations, decide, actingId, error } = review;
+  const { alerts, consolidations, error } = review;
   if (alerts.length === 0 && consolidations.length === 0) return null;
   const rowCount = alerts.length + consolidations.length;
   return (
     <>
       {showLabel && <SectionLabel>Knowledge base review ({rowCount})</SectionLabel>}
-      {/* One standing row per department — a merge is reviewed side by side on its own page,
-          never accepted from here: the moderator has to see the answers being combined. */}
+      {/* One standing row per department — a merge is reviewed side by side in the Knowledge Base
+          list, never accepted from here: the moderator has to see the answers being combined. */}
       {consolidations.map((merge) => (
         <MergeReviewRow key={`merge-${merge.id}`} merge={merge} onNavigate={onNavigate} />
       ))}
       {error && <p className="px-1 text-xs text-destructive">{error}</p>}
-      {alerts.map((alert) => {
-        const acting = actingId === alert.id;
-        return (
-          <div
-            key={alert.id}
-            className="flex gap-3 items-start p-3 text-sm rounded-lg border bg-background border-border"
-          >
-            <BookCheck className="mt-0.5 w-4 h-4 shrink-0 text-muted-foreground" />
-            <div className="flex-1 min-w-0">
-              <p className="font-medium break-words text-foreground">{describe(alert)}</p>
-              <p className="mt-0.5 text-muted-foreground">
-                The AI does not use it until it is approved.
-              </p>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 items-center mt-2">
-                <Button
-                  size="sm"
-                  onClick={() => void decide(alert, 'approve')}
-                  disabled={acting}
-                  aria-label="Approve for the knowledge base"
-                >
-                  <Check className="mr-1 w-3.5 h-3.5" />
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void decide(alert, 'reject')}
-                  disabled={acting}
-                  title={`Hidden now, deleted after ${REJECTED_RETENTION_DAYS} days unless approved again`}
-                  aria-label="Reject"
-                >
-                  <X className="mr-1 w-3.5 h-3.5" />
-                  Reject
-                </Button>
+      {alerts.map((alert) => (
+        <div
+          key={alert.id}
+          className="flex gap-3 items-start p-3 text-sm rounded-lg border bg-background border-border"
+        >
+          <BookCheck className="mt-0.5 w-4 h-4 shrink-0 text-muted-foreground" />
+          <div className="flex-1 min-w-0">
+            <p className="font-medium break-words text-foreground">{describe(alert)}</p>
+            <p className="mt-0.5 text-muted-foreground">
+              The AI does not use it until it is approved.
+            </p>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 items-center mt-2">
+              <Button
+                size="sm"
+                onClick={() => onNavigate('/knowledge-base?status=needs_decision')}
+                aria-label="Review"
+              >
+                Review
+              </Button>
+              {alert.conversationId !== null && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => onNavigate('/knowledge-base?status=needs_decision')}
+                  onClick={() => onNavigate(`/threads?id=${alert.conversationId}`)}
                   className="px-0 h-auto text-xs text-primary hover:bg-transparent hover:underline"
                 >
-                  Read or edit first
+                  Open thread
                 </Button>
-                {alert.conversationId !== null && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onNavigate(`/threads?id=${alert.conversationId}`)}
-                    className="px-0 h-auto text-xs text-primary hover:bg-transparent hover:underline"
-                  >
-                    Open thread
-                  </Button>
-                )}
-              </div>
+              )}
             </div>
           </div>
-        );
-      })}
+        </div>
+      ))}
     </>
   );
 };

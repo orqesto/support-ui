@@ -1,7 +1,6 @@
 import { useId } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { kbMergeReviewHref } from '@/components/layout/KbReviewSection';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { caseHref, kbRef } from '@/lib/kbConsolidation';
@@ -95,7 +94,7 @@ export const KbCaseRowView = ({
         )}
         {row.kind === 'proposed' && (
           <Link
-            to={kbMergeReviewHref(row.suggestionId)}
+            to={`/knowledge-base?status=suggested_change${row.entryIds.length > 0 ? `&id=${row.entryIds[0]}` : ''}`}
             className="text-xs text-primary hover:underline"
           >
             Review

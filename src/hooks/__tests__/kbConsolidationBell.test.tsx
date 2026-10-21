@@ -52,9 +52,7 @@ const { useKbReviewAlerts, KB_CONSOLIDATION_KIND, KB_REVIEW_KIND } = await impor
   '../useKbReviewAlerts'
 );
 const { announceKbConsolidationDecided } = await import('@/lib/kbConsolidation');
-const { KbReviewSection, KB_MERGES_REVIEW_PATH } = await import(
-  '@/components/layout/KbReviewSection'
-);
+const { KbReviewSection } = await import('@/components/layout/KbReviewSection');
 
 const mergeRow = (over: Record<string, unknown> = {}) => ({
   id: 31,
@@ -144,7 +142,6 @@ describe('KB merge bell row (F3)', () => {
     expect(screen.getByText('Support EU')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Review knowledge base suggestions' }));
     expect(onNavigate).toHaveBeenCalledWith('/knowledge-base?status=suggested_change');
-    expect(KB_MERGES_REVIEW_PATH).toBe('/knowledge-base/merges');
   });
 });
 
@@ -254,7 +251,7 @@ describe('KB merge bell — one proposal, one row; one workspace at a time', () 
 });
 
 describe('KB review alert row', () => {
-  it('"Read or edit first" opens the list filtered to needs_decision', () => {
+  it('the bell only links: no Approve / Reject, Review opens the list filtered to needs_decision', () => {
     const onNavigate = vi.fn();
     render(
       <KbReviewSection
@@ -263,7 +260,7 @@ describe('KB review alert row', () => {
             {
               id: 5,
               suggestionId: 9,
-              conversationId: null,
+              conversationId: 12,
               conversationPublicId: null,
               subject: 'Refunds',
               entryCount: 2,
@@ -282,7 +279,11 @@ describe('KB review alert row', () => {
         onNavigate={onNavigate}
       />
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Read or edit first' }));
+    expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Reject' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
     expect(onNavigate).toHaveBeenCalledWith('/knowledge-base?status=needs_decision');
+    fireEvent.click(screen.getByRole('button', { name: 'Open thread' }));
+    expect(onNavigate).toHaveBeenCalledWith('/threads?id=12');
   });
 });

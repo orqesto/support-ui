@@ -8,6 +8,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { chooseOption } from '@/test/chooseOption';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
@@ -81,10 +82,10 @@ describe('what the buttons do', () => {
     const row21 = await workRowEl(21);
     const list = screen.getByRole('region', { name: 'Entries not in any case' });
     expect(within(list).getByTestId('kb-actions-help')).toHaveTextContent(actionsHelp(true));
-    expect(await tooltipOf(within(row21).getByRole('button', { name: /Approve/ }))).toBe(
-      ACTION_TIPS.approve
+    expect(await tooltipOf(within(row21).getByRole('button', { name: /Edit/ }))).toBe(
+      ACTION_TIPS.edit
     );
-    fireEvent.blur(within(row21).getByRole('button', { name: /Approve/ }));
+    fireEvent.blur(within(row21).getByRole('button', { name: /Edit/ }));
     expect(await tooltipOf(within(row21).getByRole('button', { name: /Move into case/ }))).toBe(
       ACTION_TIPS.move
     );
@@ -116,7 +117,7 @@ describe('"Move into case" only where a case exists', () => {
     server.noCases = true;
     renderPage();
     const row21 = await workRowEl(21);
-    expect(within(row21).getByRole('button', { name: /Approve/ })).toBeInTheDocument();
+    expect(within(row21).getByRole('button', { name: /Edit/ })).toBeInTheDocument();
     expect(within(row21).queryByRole('button', { name: /Move into case/ })).toBeNull();
     // The page held every case: nothing more was read to tell.
     expect(reportReads()).toHaveLength(1);
@@ -179,10 +180,10 @@ describe('"Move into case" only where a case exists', () => {
     server.noCases = true;
     server.casesPages = 2;
     renderPage();
-    const row21 = await workRowEl(21);
+    await workRowEl(21);
     await waitFor(() => expect(probeReads()).toEqual([1, 2]));
-    fireEvent.click(within(row21).getByRole('button', { name: /Approve/ }));
-    await waitFor(() => expect(within(row21).getByText('Approved')).toBeInTheDocument());
+    // Anything that re-reads the report (here: a re-sort), not a row action.
+    await chooseOption(screen.getByLabelText('Sort'), 'Most recently seen');
     await waitFor(() =>
       expect(reportReads().filter((read) => read.params.pageSize !== '100').length).toBeGreaterThan(
         1
@@ -268,49 +269,19 @@ describe('the nightly review’s own changes', () => {
     ]);
   };
 
-  it('auto-cleaned: says so; Undo puts the original text back and the badge goes', async () => {
+  it('auto-cleaned: says so, offers no Undo here (undoing is in the Knowledge Base list)', async () => {
     cleaned();
     renderPage();
     const row = await workRowEl(26);
     expect(within(row).getByText('Customer details removed automatically')).toBeInTheDocument();
-    const undo = within(row).getByRole('button', { name: /Undo/ });
-    expect(await tooltipOf(undo)).toBe(ACTION_TIPS.undoClean);
-    fireEvent.click(undo);
-    await waitFor(() =>
-      expect(within(row).getByText('Order 0000-TEST ships within two days.')).toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: /Undo/ })).toBeNull();
+    expect(within(row).getByRole('link', { name: 'Open in Knowledge Base' })).toHaveAttribute(
+      'href',
+      '/knowledge-base?id=26'
     );
     expect(wire.calls('POST', '/api/knowledge-base/consolidation/quality/501/undo')).toHaveLength(
-      1
+      0
     );
-    expect(within(row).queryByText('Customer details removed automatically')).toBeNull();
-    expect(screen.getByText('The original text is back.')).toBeInTheDocument();
-  });
-
-  it('Undo refused (409, changed since): says why, keeps the row', async () => {
-    cleaned();
-    server.undo = 'conflict';
-    renderPage();
-    const row = await workRowEl(26);
-    fireEvent.click(within(row).getByRole('button', { name: /Undo/ }));
-    expect(
-      await within(row).findByText(
-        'Not undone: the entry was changed after the clean-up, so the original text was not put back.'
-      )
-    ).toBeInTheDocument();
-    expect(within(row).getByText('Your order ships within two days.')).toBeInTheDocument();
-  });
-
-  it('Undo with nothing to undo (404): says so, no crash', async () => {
-    cleaned();
-    server.originals = new Map();
-    renderPage();
-    const row = await workRowEl(26);
-    fireEvent.click(within(row).getByRole('button', { name: /Undo/ }));
-    expect(
-      await within(row).findByText(
-        'Nothing to undo: this text was not cleaned automatically, or it was already put back.'
-      )
-    ).toBeInTheDocument();
   });
 
   const held = () => {
@@ -320,57 +291,16 @@ describe('the nightly review’s own changes', () => {
     );
   };
 
-  it('held: "Not used — about one customer"; Keep using puts it back in use (no plain Unhide)', async () => {
+  it('held: "Not used — about one customer", with no Keep using / Reject / Unhide here', async () => {
     held();
     renderPage();
     const row = await workRowEl(23);
     expect(within(row).getByText('Not used — about one customer')).toBeInTheDocument();
-    expect(within(row).queryByRole('button', { name: /Unhide/ })).toBeNull();
-    const keep = within(row).getByRole('button', { name: /Keep using/ });
-    expect(await tooltipOf(keep)).toBe(ACTION_TIPS.keepUsing);
-    fireEvent.click(keep);
-    await waitFor(() =>
-      expect(within(row).queryByText('Not used — about one customer')).toBeNull()
+    for (const name of [/Unhide/, /Keep using/, /Reject/])
+      expect(within(row).queryByRole('button', { name })).toBeNull();
+    expect(within(row).getByRole('link', { name: 'Open in Knowledge Base' })).toHaveAttribute(
+      'href',
+      '/knowledge-base?id=23'
     );
-    expect(wire.calls('POST', '/api/learning/suggestions/601/decline')).toHaveLength(1);
-    expect(within(row).getByText('Approved')).toBeInTheDocument();
-  });
-
-  it('without canDecide (a department moderator on a wider entry): badges only, no review buttons', async () => {
-    cleaned();
-    held();
-    for (const id of [23, 26]) {
-      const entry = server.entries.get(id);
-      if (entry) server.entries.set(id, { ...entry, canDecide: false, canModerate: true });
-    }
-    renderPage();
-    const cleanedRow = await workRowEl(26);
-    expect(
-      within(cleanedRow).getByText('Customer details removed automatically')
-    ).toBeInTheDocument();
-    expect(within(cleanedRow).queryByRole('button', { name: /Undo/ })).toBeNull();
-    const heldRow = await workRowEl(23);
-    expect(within(heldRow).getByText('Not used — about one customer')).toBeInTheDocument();
-    expect(within(heldRow).queryByRole('button', { name: /Keep using/ })).toBeNull();
-    expect(within(heldRow).queryByRole('button', { name: /Reject/ })).toBeNull();
-    for (const row of [cleanedRow, heldRow])
-      expect(
-        within(row).getByText(
-          'Only a moderator of every department it serves can decide the review’s change.'
-        )
-      ).toBeInTheDocument();
-  });
-
-  it('held: Reject sends the review’s reject', async () => {
-    held();
-    renderPage();
-    const row = await workRowEl(23);
-    fireEvent.click(within(row).getByRole('button', { name: /Reject/ }));
-    await waitFor(() =>
-      expect(wire.calls('POST', '/api/learning/suggestions/601/accept')).toHaveLength(1)
-    );
-    expect(wire.calls('POST', '/api/learning/suggestions/601/accept')[0].body).toEqual({
-      action: 'reject',
-    });
   });
 });

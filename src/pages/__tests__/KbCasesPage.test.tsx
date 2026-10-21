@@ -96,10 +96,10 @@ describe('KB Cases report (F2)', () => {
     // nothing about it: "no standard answer yet" offered no action anywhere (2026-10-13).
     expect(screen.queryAllByText('no standard answer yet')).toHaveLength(0);
     expect(screen.getByText('Standard answer drafted — waiting for review')).toBeInTheDocument();
-    // Its Review opens THAT proposal, not the list of every proposal.
+    // Its Review opens that proposal's entry in the Knowledge Base list, where it is decided.
     expect(screen.getByRole('link', { name: 'Review' })).toHaveAttribute(
       'href',
-      '/knowledge-base/merges?tab=merges&suggestion=70'
+      '/knowledge-base?status=suggested_change&id=1'
     );
     expect(screen.getAllByText(/Standard answer:/)).toHaveLength(1);
     expect(screen.queryByText('AI DRAFT TEXT')).not.toBeInTheDocument();

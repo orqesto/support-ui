@@ -11,7 +11,8 @@ import {
 import { announceKbConsolidationDecided } from '@/lib/kbConsolidation';
 import type { KbDecisionKind, KbPendingDecision } from '@/services/kb.service';
 
-const TITLE: Record<KbDecisionKind, string> = {
+/** What reviewing each kind of decision is called (the dialog's title, a Review button's text). */
+export const KB_DECISION_REVIEW_LABEL: Record<KbDecisionKind, string> = {
   merge: 'Review merge',
   attach: 'Review add to case',
   rewrite: 'Review rewrite',
@@ -61,7 +62,7 @@ export const KbDecisionDialog = ({
       {decision && (
         <>
           <DialogHeader>
-            <DialogTitle>{TITLE[decision.kind]}</DialogTitle>
+            <DialogTitle>{KB_DECISION_REVIEW_LABEL[decision.kind]}</DialogTitle>
             <DialogClose onClose={close} />
           </DialogHeader>
           <DialogContent>

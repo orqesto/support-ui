@@ -3,21 +3,76 @@ import { apiErrorMessage } from '@/lib/apiError';
 import { toast } from '@/lib/toast';
 import type { KbFilterStatus } from '@/components/kb/KbStatusFilter';
 import { kbAutoActionsService } from '@/services/kbAutoActions.service';
+import { kbService, type KBEntry, type KbAutoUndo } from '@/services/kb.service';
+import { kbQualityService } from '@/services/kbQuality.service';
+
+/** What each undo is called on a row of "Changed automatically". */
+export const AUTO_UNDO_LABEL: Record<KbAutoUndo, string> = {
+  restore: 'Restore',
+  undo_clean: 'Undo clean-up',
+  release_hold: 'Use it again',
+  unapprove: 'Un-approve',
+};
+export const AUTO_UNDO_TITLE: Record<KbAutoUndo, string> = {
+  restore: 'Restore — puts the entry back as it was before it was removed',
+  undo_clean: 'Undo clean-up — puts the original text back',
+  release_hold: 'Use it again — the AI uses this answer again',
+  unapprove: 'Un-approve — takes the entry out of use until someone approves it',
+};
 
 export type KbAutoRestore = {
   restore: (id: number) => void;
-  /** Rows whose restore is in flight: their Restore is disabled until it answers. */
+  /** Undo the automatic change on a "Changed automatically" row, by its own `autoChange.undo`. */
+  undo: (entry: KBEntry) => void;
+  /** Rows whose restore / undo is in flight: their button is disabled until it answers. */
   pending: ReadonlySet<number>;
 };
 
+/** The undo a row offers, or null: none known, or the suggestion it runs through is missing. */
+export const autoUndoOf = (entry: KBEntry): KbAutoUndo | null => {
+  const change = entry.autoChange;
+  if (!change) return null;
+  if (
+    (change.undo === 'undo_clean' || change.undo === 'release_hold') &&
+    change.suggestionId === null
+  )
+    return null;
+  return change.undo;
+};
+
+const runUndo = async (entry: KBEntry, undo: KbAutoUndo): Promise<string> => {
+  const suggestionId = entry.autoChange?.suggestionId ?? null;
+  if (undo === 'restore') {
+    await kbAutoActionsService.restore(entry.id);
+    return 'Restored';
+  }
+  if (undo === 'unapprove') {
+    await kbService.reject(entry.id);
+    return 'Un-approved';
+  }
+  if (suggestionId === null) throw new Error('This change cannot be undone from here.');
+  if (undo === 'release_hold') {
+    await kbQualityService.keep(suggestionId);
+    return 'The AI uses this answer again';
+  }
+  const result = await kbQualityService.undo(suggestionId);
+  if (result.outcome === 'refused')
+    throw new Error(
+      result.status === 409
+        ? 'The entry was changed after the clean-up, so the original text was not put back.'
+        : 'Nothing to undo: this text was not cleaned automatically, or it was already put back.'
+    );
+  return 'The original text is back';
+};
+
 /**
- * Restore for the "Removed automatically" list: puts the entry back as it was before the nightly
- * removal (the Automatic actions restore route), which an Approve would not — Approve also marks
- * an entry the removal found unapproved as approved.
+ * Restore / undo for the "Changed automatically" and "Removed automatically" lists. A removed
+ * entry's Restore goes through the Automatic actions restore route (put back as it was), which an
+ * Approve would not do — Approve also marks an entry the removal found unapproved as approved.
  *
- * Undefined unless the server APPLIED `status=auto_removed` to the rows on screen: an older
- * backend ignores the status, and its rows (rejected by a person, say) have no automatic removal
- * to undo — every other list keeps its own Restore (Approve). One call per row at a time.
+ * Undefined unless the server APPLIED the status to the rows on screen: an older backend ignores
+ * the status, and its rows (rejected by a person, say) have no automatic change to undo — every
+ * other list keeps its own buttons. One call per row at a time.
  */
 export const useKbAutoRestore = (
   canReview: boolean,
@@ -33,27 +88,41 @@ export const useKbAutoRestore = (
   };
   const enabled =
     canReview &&
-    filterStatus === 'auto_removed' &&
-    appliedStatus?.requested === 'auto_removed' &&
+    (filterStatus === 'auto_removed' || filterStatus === 'auto_changed') &&
+    appliedStatus?.requested === filterStatus &&
     appliedStatus.applied;
   if (!enabled) return undefined;
-  const restore = (id: number) => {
+  const run = (id: number, call: () => Promise<string>, failure: string) => {
     if (inFlight.current.has(id)) return;
     inFlight.current.add(id);
     setPending(new Set(inFlight.current));
-    kbAutoActionsService.restore(id).then(
-      () => {
+    call().then(
+      (done) => {
         settle(id);
-        toast.success('Restored');
+        toast.success(done);
         reread();
       },
       (err: unknown) => {
         settle(id);
-        toast.error('Could not restore', {
-          description: apiErrorMessage(err, 'Please try again.'),
-        });
+        toast.error(failure, { description: apiErrorMessage(err, 'Please try again.') });
+        // A refused undo can mean the entry moved on meanwhile: show it as it is now.
+        reread();
       }
     );
   };
-  return { restore, pending };
+  const restore = (id: number) =>
+    run(
+      id,
+      async () => {
+        await kbAutoActionsService.restore(id);
+        return 'Restored';
+      },
+      'Could not restore'
+    );
+  const undo = (entry: KBEntry) => {
+    const kind = autoUndoOf(entry);
+    if (!kind) return;
+    run(entry.id, () => runUndo(entry, kind), `Could not ${AUTO_UNDO_LABEL[kind].toLowerCase()}`);
+  };
+  return { restore, undo, pending };
 };

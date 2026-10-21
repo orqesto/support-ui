@@ -6,7 +6,7 @@
  * The fake server keeps state: an action changes what the next report and rows read say.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { chooseOption } from '@/test/chooseOption';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -347,106 +347,18 @@ describe('F2 empty states', () => {
 // ---- F3: actions -----------------------------------------------------------------------------
 
 describe('F3 row actions', () => {
-  it('Approve: the request, the row at once, and the report re-read', async () => {
+  it('no row decides anything: no Approve / Reject / Hide / Unhide, and each links into the list', async () => {
     renderPage();
-    const row21 = await workRowEl(21);
-    const reads = reportReads().length;
-    fireEvent.click(within(row21).getByRole('button', { name: /Approve/ }));
-    await waitFor(() =>
-      expect(wire.calls('PATCH', '/api/knowledge-base/entries/21/approve')).toHaveLength(1)
-    );
-    await waitFor(() => expect(within(row21).getByText('Approved')).toBeInTheDocument());
-    await waitFor(() => expect(reportReads().length).toBeGreaterThan(reads));
-  });
-
-  it('a double click sends ONE request', async () => {
-    renderPage();
-    const row21 = await workRowEl(21);
-    const approve = within(row21).getByRole('button', { name: /Approve/ });
-    let release: () => void = () => {};
-    server.hold = (request) =>
-      request.path === '/api/knowledge-base/entries/21/approve'
-        ? new Promise<void>((resolve) => {
-            release = resolve;
-          })
-        : null;
-    // Both clicks land before React re-renders the button disabled (one act, no flush between).
-    act(() => {
-      approve.click();
-      approve.click();
-    });
-    // While it is in flight every action on the list is locked, visibly — not only ignored.
-    await waitFor(() =>
-      expect(within(row21).getByRole('button', { name: /^Hide$/ })).toBeDisabled()
-    );
-    await act(async () => {
-      release();
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    await waitFor(() => expect(within(row21).getByText('Approved')).toBeInTheDocument());
-    expect(wire.calls('PATCH', '/api/knowledge-base/entries/21/approve')).toHaveLength(1);
-  });
-
-  it('Hide a raw email: the row leaves the set-aside list and the count drops, without a reload', async () => {
-    renderPage();
-    const row21 = await workRowEl(21);
-    fireEvent.click(within(row21).getByRole('button', { name: /^Hide$/ }));
-    await waitFor(() =>
-      expect(wire.calls('PATCH', '/api/knowledge-base/entries/21/hide')).toHaveLength(1)
-    );
-    expect(await screen.findByRole('heading', { name: 'Not in any case (3)' })).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByTestId('work-row-21')).not.toBeInTheDocument());
-  });
-
-  it('Reject: the row says Rejected AT ONCE (before the re-read answers), as the KB list words it', async () => {
-    renderPage();
-    const row22 = await workRowEl(22);
-    // Hold the re-read: what the row says now is the page's own update, not the server's.
-    let release: () => void = () => {};
-    server.hold = (request) =>
-      request.path === '/api/knowledge-base/consolidation/cases'
-        ? new Promise<void>((resolve) => {
-            release = resolve;
-          })
-        : null;
-    fireEvent.click(within(row22).getByRole('button', { name: /Reject/ }));
-    await waitFor(() =>
-      expect(wire.calls('PATCH', '/api/knowledge-base/entries/22/reject')).toHaveLength(1)
-    );
-    await waitFor(() =>
-      expect(within(row22).getByText(/^Rejected · deleted after/)).toBeInTheDocument()
-    );
-    await act(async () => {
-      release();
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    // Rejected entries are no longer set aside: the re-read takes it off the list.
-    await waitFor(() => expect(screen.queryByTestId('work-row-22')).not.toBeInTheDocument());
-  });
-
-  it('Unhide (F4): PATCH /unhide — never approve — and the row comes back as it was (pending)', async () => {
-    renderPage();
-    const row24 = await workRowEl(24);
-    // Hold the re-read: the row says what the server restored, at once (it then leaves the list —
-    // unhiding ends "detached").
-    let release: () => void = () => {};
-    server.hold = (request) =>
-      request.path === '/api/knowledge-base/consolidation/cases'
-        ? new Promise<void>((resolve) => {
-            release = resolve;
-          })
-        : null;
-    fireEvent.click(within(row24).getByRole('button', { name: /Unhide/ }));
-    await waitFor(() =>
-      expect(wire.calls('PATCH', '/api/knowledge-base/entries/24/unhide')).toHaveLength(1)
-    );
-    expect(wire.calls('PATCH', '/api/knowledge-base/entries/24/approve')).toHaveLength(0);
-    await waitFor(() => expect(within(row24).getByText('Pending')).toBeInTheDocument());
-    server.hold = undefined;
-    await act(async () => {
-      release();
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
+    for (const id of [21, 22, 24]) {
+      const row = await workRowEl(id);
+      for (const name of [/Approve/, /Reject/, /^Hide$/, /Unhide/, /Restore/]) {
+        expect(within(row).queryByRole('button', { name })).not.toBeInTheDocument();
+      }
+      expect(within(row).getByRole('link', { name: 'Open in Knowledge Base' })).toHaveAttribute(
+        'href',
+        `/knowledge-base?id=${id}`
+      );
+    }
   });
 
   it('Edit: the full entry is read, the shared editor saves question + answer, the row and report update', async () => {
@@ -603,13 +515,11 @@ describe('F3 row actions', () => {
     ).toBeInTheDocument();
   });
 
-  it('canModerate without canDecide: review actions yes, Move no — and it says why', async () => {
+  it('canModerate without canDecide: Edit yes, Move no — and it says why', async () => {
     for (const [id, entry] of server.entries)
       server.entries.set(id, { ...entry, canDecide: false, canModerate: true });
     renderPage();
     const row21 = await workRowEl(21);
-    expect(within(row21).getByRole('button', { name: /Approve/ })).toBeInTheDocument();
-    expect(within(row21).getByRole('button', { name: /^Hide$/ })).toBeInTheDocument();
     expect(within(row21).getByRole('button', { name: /Edit/ })).toBeInTheDocument();
     expect(within(row21).queryByRole('button', { name: /Move into case/ })).not.toBeInTheDocument();
     expect(
@@ -619,34 +529,13 @@ describe('F3 row actions', () => {
     ).toBeInTheDocument();
   });
 
-  it('an older backend without canModerate: review actions follow canDecide', async () => {
+  it('an older backend without canModerate: Edit follows canDecide', async () => {
     for (const [id, entry] of server.entries) {
       const { canModerate: _dropped, ...older } = entry;
       server.entries.set(id, { ...older, canDecide: false });
     }
     renderPage();
     const row21 = await workRowEl(21);
-    expect(within(row21).queryByRole('button', { name: /Approve/ })).not.toBeInTheDocument();
-  });
-
-  it('Reject shows its own spinner while it runs; the other actions are locked', async () => {
-    renderPage();
-    const row22 = await workRowEl(22);
-    let release: () => void = () => {};
-    server.hold = (request) =>
-      request.path === '/api/knowledge-base/entries/22/reject'
-        ? new Promise<void>((resolve) => {
-            release = resolve;
-          })
-        : null;
-    fireEvent.click(within(row22).getByRole('button', { name: /Reject/ }));
-    await waitFor(() =>
-      expect(within(row22).queryByRole('button', { name: /Reject/ })).not.toBeInTheDocument()
-    );
-    expect(within(row22).getByRole('button', { name: /Approve/ })).toBeDisabled();
-    await act(async () => {
-      release();
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
+    expect(within(row21).queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument();
   });
 });

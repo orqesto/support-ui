@@ -32,6 +32,8 @@ import { Permission } from '@/types/roles';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useUiFlags } from '@/hooks/useUiFlags';
 import { isCaseRow, unmergeConsequence } from '@/lib/kbConsolidation';
+import { KB_ENTRY_NOT_FOUND_ALERT, useKbEntryParam } from '@/hooks/useKbEntryParam';
+import { useKbAutoChangedSupport } from '@/hooks/useKbAutoChangedSupport';
 import { CASE_ACTION_TITLES, LEFT_PAGE, runCaseAction } from '@/components/kb/runCaseAction';
 import { KbExportButton } from '@/components/kb/KbExportButton';
 import { KbReviewSuggestionsButton } from '@/components/kb/KbReviewSuggestionsButton';
@@ -182,38 +184,21 @@ export const KnowledgeBasePage = () => {
     }
   }, [filterType, filterStatus, searchQuery, fetchEntries]);
 
+  const autoChangedSupported = useKbAutoChangedSupport(appliedStatus, setFilterStatus);
+
   const bulkMode = canReview ? bulkModeFor(filterStatus) : null;
   // Re-read the page after a decision; a page the decided rows emptied falls back in fetchEntries.
   const rereadPage = () => void fetchEntries(pagination.page);
   const bulk = useKbBulkDecisions(entries, rereadPage, bulkMode);
 
-  // Handle ID URL parameter (e.g., /knowledge-base?id=123)
-  // Similar to Messages and Tickets pages - keeps ID in URL for sharing and refresh
-  useEffect(() => {
-    const idParam = searchParams.get('id');
-    if (!idParam) return;
-    const id = parseInt(idParam, 10);
-    if (isNaN(id)) return;
-    if (selectedEntry?.id === id) return; // already showing this entry — don't re-fetch
-    void kbService
-      .getById(id)
-      .then((response: { data: KBEntry }) => {
-        setSelectedEntry(response.data);
-      })
-      .catch((error: Error) => {
-        logger.error('Failed to fetch KB entry:', error);
-        setAlertDialog({
-          open: true,
-          title: 'Entry Not Found',
-          description: 'Could not find the requested knowledge base entry.',
-          variant: 'error',
-        });
-        const params = new URLSearchParams(searchParams);
-        params.delete('id');
-        // setSearchParams strips location.hash — go through navigate to keep the tab hash.
-        navigate({ search: params.toString(), hash: location.hash }, { replace: true });
-      });
-  }, [searchParams]);
+  useKbEntryParam({
+    selectedEntry,
+    setSelectedEntry,
+    canReview,
+    entries,
+    filterStatus,
+    onNotFound: () => setAlertDialog(KB_ENTRY_NOT_FOUND_ALERT),
+  });
 
   const handleSearch = () => {
     // Trigger actual search when button clicked or Enter pressed
@@ -254,7 +239,8 @@ export const KnowledgeBasePage = () => {
 
   // Under a review filter (a finding, or a decision status) a decided row may leave the list, and
   // its pending decision changes — re-read the page instead of patching the row in place.
-  const rereadAfterDecision = Boolean(finding.filter) || isNewStatus(filterStatus);
+  const rereadAfterDecision =
+    Boolean(finding.filter) || isNewStatus(filterStatus) || filterStatus === 'auto_changed';
 
   const handleApprove = async (id: number) => {
     try {
@@ -598,7 +584,13 @@ export const KnowledgeBasePage = () => {
                   />
 
                   {/* Status Filter — reviewers only: the server caps everyone else to approved. */}
-                  {canReview && <KbStatusFilter value={filterStatus} onChange={setFilterStatus} />}
+                  {canReview && (
+                    <KbStatusFilter
+                      value={filterStatus}
+                      onChange={setFilterStatus}
+                      autoChanged={autoChangedSupported !== false}
+                    />
+                  )}
 
                   {/* Source Filter */}
                   <div className="flex flex-col gap-2">
@@ -697,7 +689,11 @@ export const KnowledgeBasePage = () => {
                 setDecision(null);
                 if (!decided) rereadPage();
               }}
-              onDecided={rereadPage}
+              onDecided={() => {
+                // The drawer behind the dialog must not keep offering the decision just taken.
+                setSelectedEntry((entry) => entry && { ...entry, pendingDecision: null });
+                rereadPage();
+              }}
             />
             <KBDeleteDialog
               open={deleteDialogOpen}
@@ -721,6 +717,7 @@ export const KnowledgeBasePage = () => {
           onUpdate={handleUpdate}
           canReview={canReview}
           onUnmerge={handleUnmerge}
+          onReviewDecision={setDecision}
         />
 
         <ConfirmDialog
