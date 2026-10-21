@@ -4,6 +4,7 @@ import {
   GENERIC_FAILURE,
   notFoundText,
   lookupListLine,
+  noMatchHintText,
   pressPrompt,
   referenceNameOf,
   skippedText,
@@ -115,5 +116,54 @@ describe('lookupListLine — which lookups a press runs (2026-10-15)', () => {
     expect(lookupListLine([])).toBe('');
     expect(lookupListLine(['', '  '])).toBe('');
     expect(lookupListLine(['Account', ' '])).toBe('1 lookup: Account');
+  });
+});
+
+describe('noMatchHintText — the admin’s words, only when the lookup found nothing', () => {
+  const hint = 'Ask the customer for their reference.';
+
+  it('a no-match shows the hint, trimmed', () => {
+    expect(noMatchHintText(result({ status: 'no_match', noMatchHint: `  ${hint} ` }))).toBe(hint);
+  });
+
+  it('a chain skipped because its source found nothing shows it', () => {
+    const skipped = result({
+      status: 'no_match',
+      noMatchHint: hint,
+      skippedBecause: { reason: 'source_no_match', sourceLabel: 'Account' },
+    });
+    expect(noMatchHintText(skipped)).toBe(hint);
+  });
+
+  it('CONTROL: a chain skipped because its source FAILED does not', () => {
+    for (const status of ['no_match', 'failed'] as const) {
+      const skipped = result({
+        status,
+        noMatchHint: hint,
+        skippedBecause: { reason: 'source_failed', sourceLabel: 'Account' },
+      });
+      expect(noMatchHintText(skipped)).toBeNull();
+    }
+  });
+
+  it('CONTROL: a chain skipped for a missing email does not', () => {
+    const skipped = result({
+      status: 'no_identity',
+      noMatchHint: hint,
+      skippedBecause: { reason: 'source_no_identity', sourceLabel: 'Account' },
+    });
+    expect(noMatchHintText(skipped)).toBeNull();
+  });
+
+  it('CONTROL: failed, no-identity, needs-input and ok do not', () => {
+    for (const status of ['failed', 'no_identity', 'needs_input', 'ok', 'shape_changed'] as const) {
+      expect(noMatchHintText(result({ status, noMatchHint: hint }))).toBeNull();
+    }
+  });
+
+  it('CONTROL: an older backend (no field), null and blank show nothing', () => {
+    expect(noMatchHintText(result({ status: 'no_match' }))).toBeNull();
+    expect(noMatchHintText(result({ status: 'no_match', noMatchHint: null }))).toBeNull();
+    expect(noMatchHintText(result({ status: 'no_match', noMatchHint: '  \n ' }))).toBeNull();
   });
 });

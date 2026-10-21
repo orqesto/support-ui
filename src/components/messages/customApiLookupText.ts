@@ -78,6 +78,24 @@ export const skippedText = (
   }
 };
 
+/**
+ * 2026-10-21: the admin's "When nothing is found, tell the agent" text, verbatim, or null.
+ *
+ * ⛔ Only when the lookup FOUND NOTHING: a plain `no_match`, or a chained card skipped because its
+ * source found nothing. Never on a failure (a hint like "ask for the order number" would send the
+ * agent after the customer during an outage), a chain stopped by a failure or a missing email, a
+ * no-identity card, or a found record. Absent (older backend) or blank ⇒ null, nothing shown.
+ */
+export const noMatchHintText = (result: CustomApiLookupResult): string | null => {
+  const hint = typeof result.noMatchHint === 'string' ? result.noMatchHint.trim() : '';
+  if (!hint) return null;
+  // A chain skipped because its source found nothing arrives as `no_match` with `skippedBecause`.
+  const skipped = result.skippedBecause;
+  const foundNothing =
+    result.status === 'no_match' && (!skipped || skipped.reason === 'source_no_match');
+  return foundNothing ? hint : null;
+};
+
 /** A3: under an identity no-match, when the same connection has a typed-value lookup. */
 export const referenceHintText = (referenceName: string): string =>
   `You can still look up by ${referenceName} below.`;
