@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
-import { Paperclip, X, File, Sparkles } from 'lucide-react';
+import { Paperclip, Sparkles } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
+import { NewTicketFiles, pickUploadableFiles } from '@/components/tickets/NewTicketFiles';
 import { TicketThreadPicker, type ThreadCandidate } from '@/components/tickets/TicketThreadPicker';
 import { useTicketOwners } from '@/components/tickets/useTicketOwners';
 import { Alert } from '@/components/ui/Alert';
@@ -29,6 +30,9 @@ import { logger } from '@/lib/logger';
 /** The text of the editor's HTML, to tell an empty description from a written one. */
 const textOf = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim();
 
+/** Words, or a picture (a thread whose body is an image): an image-only description is written. */
+const hasContent = (html: string) => textOf(html) !== '' || /<img\b/i.test(html);
+
 /**
  * Create ticket — ONE page for both ways in (owner 2026-10-21,
  * `.planning/ONE-CREATE-TICKET-PAGE-PLAN-2026-10-21.md`):
@@ -46,7 +50,7 @@ export const CreateTicketPage = () => {
   const messageId = searchParams.get('messageId');
   const user = useAuthStore((state) => state.user);
   const userId = user?.id;
-  const { data: allDepartments = [] } = useDepartments();
+  const { data: allDepartments = [], isFetched: departmentsFetched } = useDepartments();
   // A ticket with no thread is filed in one of the creator's departments; an administrator may
   // pick any. From a thread it is the thread's department (the backend ignores another).
   const mayPickAny = user?.role === 'admin' || user?.organizationRole === 'org_admin';
@@ -61,6 +65,9 @@ export const CreateTicketPage = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** The thread the ticket is created from could not be read: Create cannot go ahead. */
+  const [threadFailed, setThreadFailed] = useState(false);
+  const [fileNotice, setFileNotice] = useState<string | null>(null);
   const [chosenThreads, setChosenThreads] = useState<ThreadCandidate[]>([]);
   const [pickedDepartmentId, setPickedDepartmentId] = useState('');
   /** Set once a ticket was created: the form stays disabled until the redirect. */
@@ -120,9 +127,12 @@ export const CreateTicketPage = () => {
   useEffect(() => {
     if (messageId) {
       const numId = parseInt(messageId, 10);
-      if (!isNaN(numId)) {
+      if (isNaN(numId)) {
+        setThreadFailed(true);
+      } else {
         fetchMessage(numId).catch((error) => {
           logger.error('Failed to fetch message:', error);
+          setThreadFailed(true);
         });
       }
     }
@@ -155,6 +165,7 @@ export const CreateTicketPage = () => {
       ]);
 
       if (messageResult.status === 'rejected' || !messageResult.value.success || !messageResult.value.data) {
+        setThreadFailed(true);
         return;
       }
 
@@ -261,23 +272,14 @@ export const CreateTicketPage = () => {
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) {
-      setSelectedFiles(Array.from(event.target.files));
-    }
+    if (!event.target.files) return;
+    const { kept, notice } = pickUploadableFiles(Array.from(event.target.files));
+    setFileNotice(notice);
+    setSelectedFiles(kept);
   };
 
   const handleRemoveFile = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, idx) => idx !== index));
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) {
-      return bytes + ' B';
-    }
-    if (bytes < 1024 * 1024) {
-      return (bytes / 1024).toFixed(1) + ' KB';
-    }
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   const handleAIEnhance = async () => {
@@ -318,7 +320,7 @@ export const CreateTicketPage = () => {
 
   const ready =
     formData.title.trim() !== '' &&
-    textOf(formData.description) !== '' &&
+    hasContent(formData.description) &&
     departmentKey !== null &&
     (messageId ? message !== null : departmentKey !== '') &&
     ownersLoaded;
@@ -346,7 +348,8 @@ export const CreateTicketPage = () => {
         priority: formData.priority,
         ...(formData.categoryId ? { categoryId: parseInt(formData.categoryId, 10) } : {}),
         ...(ownerValue ? { assigneeId: Number(ownerValue) } : {}),
-        syncToJira: formData.syncToJira,
+        // A ticket with no thread cannot go to Jira on create: the backend refuses it (400).
+        ...(messageId ? { syncToJira: formData.syncToJira } : {}),
         ...(messageId
           ? { messageId: parseInt(messageId, 10) }
           : { departmentId: Number(departmentKey) }),
@@ -378,12 +381,25 @@ export const CreateTicketPage = () => {
         }
       }
 
-      setAlertDialog({
-        open: true,
-        title: 'Success',
-        description: 'Ticket created successfully',
-        variant: 'success',
-      });
+      const missing = [
+        ...(threadsNotLinked ? ['its threads could not be linked'] : []),
+        ...(filesNotAttached ? ['its files could not be attached'] : []),
+      ];
+      setAlertDialog(
+        missing.length > 0
+          ? {
+              open: true,
+              title: 'Ticket created',
+              description: `The ticket was created, but ${missing.join(' and ')} — add them on its page.`,
+              variant: 'warning',
+            }
+          : {
+              open: true,
+              title: 'Success',
+              description: 'Ticket created successfully',
+              variant: 'success',
+            }
+      );
       clearTicketsCache(); // Clear tickets cache to show new ticket
       clearMessagesCache(); // Clear messages cache since message is now processed
       const notice = {
@@ -451,6 +467,18 @@ export const CreateTicketPage = () => {
             <CardTitle>Ticket Details</CardTitle>
           </CardHeader>
           <CardContent>
+            {threadFailed && (
+              <Alert variant="danger" className="mb-4">
+                This thread could not be loaded, so a ticket cannot be created from it. Open the
+                thread again and use Create ticket there.
+              </Alert>
+            )}
+            {!messageId && departmentsFetched && departments.length === 0 && (
+              <Alert variant="warning" className="mb-4">
+                A ticket with no thread is filed in one of your departments, and you are not in
+                any. Ask an administrator to add you to one, or create the ticket from a thread.
+              </Alert>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
                 label="Title"
@@ -509,7 +537,11 @@ export const CreateTicketPage = () => {
                       value: String(dept.id),
                       label: dept.name,
                     }))}
-                    onChange={setPickedDepartmentId}
+                    onChange={(value) => {
+                      setPickedDepartmentId(value);
+                      // Another department, another set of people: the owner is chosen again.
+                      setFormData((prev) => ({ ...prev, assigneeId: null }));
+                    }}
                   />
                 )}
                 <div className="space-y-1">
@@ -626,7 +658,7 @@ export const CreateTicketPage = () => {
                 )}
               </div>
 
-              {hasJira && (
+              {hasJira && messageId && (
                 <div className="flex gap-2 items-start p-4 rounded-lg border border-border bg-muted/30">
                   <input
                     type="checkbox"
@@ -648,39 +680,13 @@ export const CreateTicketPage = () => {
                 </div>
               )}
 
-              {/* File Attachments */}
-              {selectedFiles.length > 0 && (
-                <div className="space-y-2">
-                  <p className="block text-sm font-medium">Attachments</p>
-                  <div className="space-y-1">
-                    {selectedFiles.map((file, index) => (
-                      <div
-                        key={file.name}
-                        className="flex gap-2 items-center p-2 rounded border bg-muted border-border"
-                      >
-                        <File className="w-4 h-4 text-muted-foreground" />
-                        <span className="flex-1 text-sm truncate">{file.name}</span>
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {formatFileSize(file.size)}
-                        </span>
-                        <Button
-                          aria-label="Remove file"
-                          title="Remove file"
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveFile(index)}
-                          className="p-1 h-auto text-destructive hover:bg-destructive/10"
-                          disabled={loading}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <NewTicketFiles
+                files={selectedFiles}
+                onRemove={handleRemoveFile}
+                disabled={loading}
+              />
 
+              {fileNotice && <Alert variant="warning">{fileNotice}</Alert>}
               {error && <Alert variant="danger">{error}</Alert>}
 
               <div className="flex gap-2 justify-between items-center pt-4">

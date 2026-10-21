@@ -38,7 +38,12 @@ vi.mock('@/components/shared/RichTextEditor', () => ({
 }));
 vi.mock('@/lib/api-client', () => ({ apiClient: empty() }));
 vi.mock('@/services/category.service', () => ({ categoryService: empty() }));
-vi.mock('@/services/integrations.service', () => ({ integrationsService: empty() }));
+const integrations: { list: unknown[] } = { list: [] };
+vi.mock('@/services/integrations.service', () => ({
+  integrationsService: {
+    getAll: () => Promise.resolve({ success: true, data: integrations.list }),
+  },
+}));
 vi.mock('@/services/settings.service', () => ({ settingsService: empty() }));
 vi.mock('@/services/ticket.service', () => ({
   ticketService: {
@@ -67,6 +72,7 @@ vi.mock('@/hooks/useDepartments', () => ({
       { id: 3, name: 'Shipping', active: true },
       { id: 4, name: 'Billing', active: true },
     ],
+    isFetched: true,
   }),
 }));
 const SUPPORT = { id: 7, role: 'user', organizationRole: 'support', departmentIds: [3] };
@@ -118,6 +124,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
   beforeEach(() => {
     perms.create = true;
     auth.user = SUPPORT;
+    integrations.list = [];
     getThreads.mockResolvedValue({
       data: [
         thread(11, 'ada@example.com', 'Parcel held'),
@@ -472,6 +479,128 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       await user.click(screen.getByRole('button', { name: 'New ticket' }));
       expect(screen.getByText('create page')).toBeInTheDocument();
       expect(screen.queryByRole('dialog')).toBeNull();
+    });
+  });
+
+  describe('review fixes (#675)', () => {
+    it('no "Sync to Jira" on a ticket with no thread — the backend refuses it — and the flag is not sent', async () => {
+      const user = userEvent.setup();
+      integrations.list = [{ type: 'jira', enabled: true }];
+      renderPage();
+      await fill(user);
+      await waitFor(() => expect(createButton()).toBeEnabled());
+      expect(screen.queryByText('Sync to Jira')).toBeNull();
+      await user.click(createButton());
+      await waitFor(() => expect(create).toHaveBeenCalled());
+      expect(createdBody()).not.toHaveProperty('syncToJira');
+    });
+
+    it('CONTROL: from a thread, "Sync to Jira" is offered and sent', async () => {
+      const user = userEvent.setup();
+      integrations.list = [{ type: 'jira', enabled: true }];
+      renderPage('/tickets/create?messageId=11');
+      await user.click(await screen.findByLabelText(/Sync to Jira/));
+      await waitFor(() => expect(createButton()).toBeEnabled());
+      await user.click(createButton());
+      await waitFor(() => expect(create).toHaveBeenCalled());
+      expect(createdBody()).toMatchObject({ syncToJira: true, messageId: 11 });
+    });
+
+    it('a thread that cannot be loaded says so instead of leaving Create disabled in silence', async () => {
+      getById.mockRejectedValue(new Error('404'));
+      renderPage('/tickets/create?messageId=11');
+      expect(await screen.findByText(/This thread could not be loaded/)).toBeInTheDocument();
+      expect(createButton()).toBeDisabled();
+    });
+
+    it('a creator in no department is told why a ticket with no thread cannot be created', async () => {
+      auth.user = { id: 7, role: 'user', organizationRole: 'support', departmentIds: [] };
+      renderPage();
+      expect(await screen.findByText(/you are not in\s+any/)).toBeInTheDocument();
+      expect(createButton()).toBeDisabled();
+    });
+
+    it('CONTROL: a creator with a department sees no such notice', async () => {
+      renderPage();
+      await waitFor(() => expect(assignable).toHaveBeenCalled());
+      expect(screen.queryByText(/you are not in\s+any/)).toBeNull();
+    });
+
+    it('at most 5 files of 10 MB are kept — the upload route refuses the whole batch past that', async () => {
+      const user = userEvent.setup();
+      const { container } = renderPage();
+      await fill(user);
+      const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+      const small = (index: number) => new File(['x'], `f${index}.txt`, { type: 'text/plain' });
+      const big = new File(['x'], 'big.pdf', { type: 'application/pdf' });
+      Object.defineProperty(big, 'size', { value: 11 * 1024 * 1024 });
+      await user.upload(input, [big, ...[1, 2, 3, 4, 5, 6].map(small)]);
+      expect(
+        await screen.findByText(/files over 10 MB were left out; only the first 5/)
+      ).toBeInTheDocument();
+      await waitFor(() => expect(createButton()).toBeEnabled());
+      await user.click(createButton());
+      await waitFor(() => expect(uploadAttachments).toHaveBeenCalled());
+      const [, files] = uploadAttachments.mock.calls[0] as [number, File[]];
+      expect(files.map((file) => file.name)).toEqual([
+        'f1.txt',
+        'f2.txt',
+        'f3.txt',
+        'f4.txt',
+        'f5.txt',
+      ]);
+    });
+
+    it('a thread whose body is only a picture can still be created from', async () => {
+      getById.mockResolvedValue({
+        success: true,
+        data: {
+          id: 11,
+          subject: 'Photo of the damage',
+          sender: 'ada@example.com',
+          departmentId: 4,
+          content: '<p><img src="https://example.com/damage.png"></p>',
+        },
+      });
+      renderPage('/tickets/create?messageId=11');
+      await waitFor(() => expect(createButton()).toBeEnabled());
+    });
+
+    it('when the threads are not linked, the dialog says so instead of "Ticket created successfully"', async () => {
+      const user = userEvent.setup();
+      addThreads.mockRejectedValue(new Error('500'));
+      renderPage();
+      await fill(user);
+      await user.click(await screen.findByRole('button', { name: 'Add bob@example.com' }));
+      await waitFor(() => expect(createButton()).toBeEnabled());
+      await user.click(createButton());
+      expect(
+        await screen.findByText(
+          /created, but its threads could not be linked — add them on its page/
+        )
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Ticket created successfully')).toBeNull();
+    });
+
+    it('another department: the owner is chosen again, even someone who could own it there too', async () => {
+      auth.user = { id: 1, role: 'admin', organizationRole: null, departmentIds: [] };
+      assignable.mockResolvedValue([
+        { id: 9, firstName: 'Kim', lastName: 'Agent', email: 'kim@example.com', role: 'user' },
+      ]);
+      renderPage();
+      const owner = () => screen.getByRole('combobox', { name: 'Owner' });
+      await waitFor(async () => expect(await listOptions(owner())).toContain('Kim Agent'));
+      fireEvent.keyDown(owner(), { key: 'Escape' });
+      await chooseOption(owner(), 'Kim Agent');
+      await chooseOption(screen.getByRole('combobox', { name: 'Department' }), 'Billing');
+      await waitFor(() => expect(assignable).toHaveBeenCalledWith(4));
+      const user = userEvent.setup();
+      await fill(user);
+      await waitFor(() => expect(createButton()).toBeEnabled());
+      await user.click(createButton());
+      await waitFor(() => expect(create).toHaveBeenCalled());
+      expect(createdBody()).toMatchObject({ departmentId: 4 });
+      expect(createdBody()).not.toHaveProperty('assigneeId');
     });
   });
 });
