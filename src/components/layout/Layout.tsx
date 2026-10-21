@@ -41,7 +41,12 @@ import { useAutoActionsAvailable } from '@/hooks/useAutoActionsAvailable';
 import { joinOrganizationRoom, leaveOrganizationRoom } from '@/lib/socketManager';
 import { cn } from '@/lib/utils';
 import { sidebarWidthPx, useSidebarStore } from '@/stores/sidebarStore';
-import { NavTip, RAIL_QUERY, SidebarCollapseToggle, useSidebarShell } from './SidebarNav';
+import {
+  NavTip,
+  RAIL_QUERY,
+  SidebarCollapseToggle,
+  useSidebarShell,
+} from './SidebarNav';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useAuthStore } from '@/stores/authStore';
 import { useOnboardingStore } from '@/stores/onboardingStore';
@@ -188,20 +193,8 @@ const allNavigation: Array<{
 
   // ─── Consoles — scope-aware admin shells (own group; labels match the shell
   //     headers so the audience is obvious). Alliance = customer IT; Platform = Odly staff.
-  {
-    group: 'consoles',
-    name: 'Organisation Console',
-    href: '/console',
-    icon: Network,
-    allianceAdmin: true,
-  },
-  {
-    group: 'consoles',
-    name: 'Platform Console',
-    href: '/console/platform',
-    icon: ShieldAlert,
-    adminOnly: true,
-  },
+  { group: 'consoles', name: 'Organisation Console', href: '/console', icon: Network, allianceAdmin: true },
+  { group: 'consoles', name: 'Platform Console', href: '/console/platform', icon: ShieldAlert, adminOnly: true },
 
   // ─── Admin — org-scoped configuration & rare-use ────────────────────────────
   // Per-workspace user management (invite/create/edit/delete, skills, permission
@@ -373,8 +366,7 @@ export const Layout = ({ children }: LayoutProps) => {
   );
   const openProcessingPanel = useProcessingPanelStore((state) => state.open);
   const openProcessingPanels = useCallback(
-    (sourceIds: number[]) =>
-      sourceIds.forEach((sourceId) => openProcessingPanel(sourceId, 'manual')),
+    (sourceIds: number[]) => sourceIds.forEach((sourceId) => openProcessingPanel(sourceId, 'manual')),
     [openProcessingPanel]
   );
   // needs_routing badge now sources from the unified notification counts (P4) so
@@ -676,7 +668,10 @@ export const Layout = ({ children }: LayoutProps) => {
                     collapsed && 'lg:flex-col'
                   )}
                 >
-                  <ProcessingIndicator entries={processingSummary} onOpen={openProcessingPanels} />
+                  <ProcessingIndicator
+                    entries={processingSummary}
+                    onOpen={openProcessingPanels}
+                  />
                   <NotificationCenter sla={slaNotifications} learning={learningNotifications} />
                   <ThemeToggle />
                 </div>

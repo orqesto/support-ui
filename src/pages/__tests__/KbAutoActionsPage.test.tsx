@@ -452,6 +452,17 @@ const minedSample = {
   ],
   poolLimited: false,
 };
+const refusal409 = Object.assign(new Error('Request failed'), {
+  status: 409,
+  data: {
+    success: false,
+    code: 'AUTOMATION_NEEDS_SAMPLE',
+    action: 'hold',
+    needRated: 2,
+    rate: null,
+    reason: 'not_enough_rated',
+  },
+});
 const row = (key: string) => screen.getByTestId(`kb-auto-row-${key}`);
 const wireActions = (current: unknown = withActions()) => {
   api.get.mockImplementation((url: string, config?: { params?: { action?: string } }) => {
@@ -533,6 +544,64 @@ describe('Automatic actions page — every action on one page', () => {
     expect(api.patch).toHaveBeenCalledWith('/api/knowledge-base/auto-actions/settings', {
       hold: { mode: 'auto' },
     });
+  });
+
+  it('a 409 puts the segment back on the saved mode and the line stays until the overview refreshes', async () => {
+    wireActions(withActions({ hold: { gate: gateOpen } }));
+    api.patch.mockRejectedValue(refusal409);
+    renderPage();
+    await screen.findByTestId('kb-auto-row-hold');
+    fireEvent.click(within(row('hold')).getByRole('button', { name: 'Automatic' }));
+    fireEvent.click(within(row('hold')).getByRole('button', { name: 'Save' }));
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Turn on' }));
+    await within(row('hold')).findByText('Rate 2 more to switch this on.');
+    expect(within(row('hold')).getByRole('button', { name: 'Shadow' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(within(row('hold')).getByRole('button', { name: 'Automatic' })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
+  });
+
+  it('a 409 on lowering the bar while Automatic shows the line and restores the slider', async () => {
+    wireActions(
+      withActions({
+        remove: {
+          mode: 'auto',
+          gate: { allowed: false, needRated: 4, rate: null, reason: 'not_enough_rated' },
+        },
+      })
+    );
+    api.patch.mockRejectedValue({
+      ...refusal409,
+      data: { ...refusal409.data, action: 'remove', needRated: 4 },
+    });
+    renderPage();
+    await screen.findByTestId('kb-auto-row-remove');
+    fireEvent.change(within(row('remove')).getByRole('slider'), { target: { value: '80' } });
+    fireEvent.click(within(row('remove')).getByRole('button', { name: 'Save' }));
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Lower the bar' }));
+    expect(await within(row('remove')).findByText('Rate 4 more to switch this on.')).toBeVisible();
+    expect(within(row('remove')).getByRole('slider')).toHaveValue('90');
+  });
+
+  it('after the overview refreshes with the gate allowed there is no stale line', async () => {
+    wireActions(withActions({ hold: { gate: gateOpen } }));
+    api.patch.mockRejectedValueOnce(refusal409);
+    renderPage();
+    await screen.findByTestId('kb-auto-row-hold');
+    fireEvent.click(within(row('hold')).getByRole('button', { name: 'Automatic' }));
+    fireEvent.click(within(row('hold')).getByRole('button', { name: 'Save' }));
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Turn on' }));
+    await within(row('hold')).findByText('Rate 2 more to switch this on.');
+    // A rating elsewhere on the row re-reads the overview (gate allowed).
+    fireEvent.click(within(row('hold')).getByRole('button', { name: 'Check a sample' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Stop' }));
+    await waitFor(() =>
+      expect(within(row('hold')).queryByText(/Rate 2 more/)).not.toBeInTheDocument()
+    );
   });
 
   it('saves one action at a time, with its bar only when it has one', async () => {

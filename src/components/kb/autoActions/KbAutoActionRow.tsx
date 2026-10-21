@@ -64,12 +64,13 @@ export const KbAutoActionRow = ({
   useEffect(() => {
     setMode(state.mode);
     setPercent(savedPercent);
-  }, [state.mode, savedPercent]);
+    setRefusal(null);
+  }, [state]);
 
   const dirty = mode !== state.mode || (scored && percent !== savedPercent);
   const wouldAct = wouldActAt ? wouldActAt(percent) : state.wouldAct;
   const locked = !state.gate.allowed && !canOverrideGate && state.mode !== 'auto';
-  const showGate = state.mode !== 'auto' && (refusal !== null || !state.gate.allowed);
+  const showGate = refusal !== null || (state.mode !== 'auto' && !state.gate.allowed);
   const blocked = blockedByLine(state.blockedBy);
 
   const segments: Segment<KbAutoRemoveMode>[] = [
@@ -90,8 +91,11 @@ export const KbAutoActionRow = ({
       onChanged();
     } catch (err) {
       const refused = kbAutoActionsService.gateRefusal(err);
-      if (refused) setRefusal(refused);
-      else
+      if (refused) {
+        setRefusal(refused);
+        setMode(state.mode);
+        setPercent(savedPercent);
+      } else
         toast.error('Could not save', { description: apiErrorMessage(err, 'Please try again.') });
     } finally {
       setSaving(false);

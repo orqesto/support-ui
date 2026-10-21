@@ -1,5 +1,6 @@
 /**
- * Does this deployment's backend have the Automatic actions routes? The FE reaches production on
+ * Checks that the Automatic actions route EXISTS on this deployment's backend (the page itself
+ * falls back to the remove-only view on an older one). The FE reaches production on
  * merge, the backend on a tag, so the sidebar link must not lead to a page that cannot work.
  * Answers true only once the overview route has answered; a 404 from an absent route, an error,
  * or no answer yet all read as "not available" (the link simply is not drawn).
@@ -18,16 +19,14 @@ export const resetAutoActionsAvailability = (): void => {
 };
 
 const ask = (): Promise<boolean> => {
-  if (!answer) {
-    answer = kbAutoActionsService.getOverview().then(
-      () => true,
-      (error: unknown) => {
-        // Only an absent route is a verdict on the deployment; any other failure asks again later.
-        if (!isRouteAbsent(error)) answer = null;
-        return false;
-      }
-    );
-  }
+  answer ??= kbAutoActionsService.getOverview().then(
+    () => true,
+    (error: unknown) => {
+      // Only an absent route is a verdict on the deployment; any other failure asks again later.
+      if (!isRouteAbsent(error)) answer = null;
+      return false;
+    }
+  );
   return answer;
 };
 
