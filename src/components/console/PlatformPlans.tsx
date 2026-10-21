@@ -93,7 +93,9 @@ export const PlatformPlans = () => {
   const budgetState = useBudgetState();
   const budgetsAvailable = budgetState.data?.available === true;
   const microsPerMessage =
-    budgetState.data?.available === true ? (budgetState.data.state.settings.microsPerMessage ?? null) : null;
+    budgetState.data?.available === true && !budgetState.data.state.selfHosted
+      ? (budgetState.data.state.settings.microsPerMessage ?? null)
+      : null;
 
   // Delete + Stripe-price state. Both surface the SERVER's message rather than a generic
   // one: every refusal here (in use, seeded, Stripe unreachable) is a different problem

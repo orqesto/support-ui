@@ -192,6 +192,7 @@ export const BudgetAdvancedCard = ({
                   <span className="text-xs text-muted-foreground">{field.hint}</span>
                   {field.perMessage && (
                     <span className="text-xs text-muted-foreground">
+                      {/* Example only: 4,000 messages is the Starter plan. */}
                       {(() => {
                         const micros = parsePerMessage(
                           drafts[field.key] ?? shown(field, settings)

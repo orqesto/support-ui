@@ -41,6 +41,7 @@ beforeEach(() => {
               plans: [
                 plan('pro', 'Pro', 'base', { maxHistoryDays: 90 }),
                 plan('enterprise-cloud', 'Enterprise Cloud', 'enterprise'),
+                plan('self-hosted', 'Self-Hosted', 'enterprise'),
               ],
             },
           },
@@ -55,6 +56,7 @@ describe('PricingPage Enterprise Cloud', () => {
     selfHosted = false;
     render(<PricingPage />);
     expect(await screen.findByText('Enterprise Cloud')).toBeInTheDocument();
+    expect(screen.queryByText('Self-Hosted')).toBeNull();
     expect(screen.getAllByText('AI included').length).toBeGreaterThan(0);
     expect(screen.getByText(/of history import \(uses the monthly AI allowance\)/)).toBeInTheDocument();
     expect(
