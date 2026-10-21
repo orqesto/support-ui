@@ -22,11 +22,14 @@ import { logger } from '@/lib/logger';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import { formatDate } from '@/lib/utils';
-import { messageService } from '@/services/message.service';
 import { isInFlight } from '@/services/ticketReplies.service';
 import { ticketThreadsService, type TicketThread } from '@/services/ticketThreads.service';
-import type { Message } from '@/types';
 import { Permission } from '@/types/roles';
+import {
+  searchThreadCandidates,
+  THREAD_PICKER_LIMIT,
+  type ThreadCandidate,
+} from './threadCandidates';
 import { TicketReplyComposer, useTicketReplies } from './TicketReplyComposer';
 
 /**
@@ -54,10 +57,7 @@ type Props = {
   ticketStatus?: string;
 };
 
-type Candidate = { id: number; publicId: string | null; subject: string | null; sender: string };
-
-/** The picker lists at most this many threads; a full page says so, so "none" is never a cap. */
-const PICKER_LIMIT = 25;
+type Candidate = ThreadCandidate;
 
 const words = (status: string) => status.replace('_', ' ');
 const isDone = (status: string) => status === 'resolved' || status === 'closed';
@@ -223,40 +223,11 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
     setError(null);
     const seq = ++searchSeq.current;
     try {
-      /*
-          ANY customer's threads — an incident is reported by many. Every lifecycle: a thread the
-          agent already answered and resolved still belongs on the incident it reported.
-        */
-      const res = await messageService.getThreads(
-        { ...(term.trim() ? { search: term.trim() } : {}), lifecycle: 'all' },
-        1,
-        PICKER_LIMIT
-      );
+      const { candidates: found, capped: full } = await searchThreadCandidates(term);
       if (seq !== searchSeq.current) return;
-      const rows = (res.data ?? []) as unknown as Array<{
-        latestMessage?: Message;
-        sender?: string | null;
-      }>;
       const already = new Set(threadsNow.current.map((row) => row.conversationId));
-      setCapped(rows.length >= PICKER_LIMIT);
-      setCandidates(
-        rows
-          // The customer's address lives on the THREAD row (what the list shows), not on its
-          // latestMessage — reading only the message left every row as "· subject" on staging
-          // (the same trap MergeThreads fixed).
-          .map((row) =>
-            row.latestMessage
-              ? { ...row.latestMessage, sender: row.sender ?? row.latestMessage.sender }
-              : undefined
-          )
-          .filter((row): row is Message => !!row && !already.has(row.id))
-          .map((row) => ({
-            id: row.id,
-            publicId: row.publicId ?? null,
-            subject: row.subject ?? null,
-            sender: row.sender ?? '',
-          }))
-      );
+      setCapped(full);
+      setCandidates(found.filter((row) => !already.has(row.id)));
     } catch (err) {
       if (seq !== searchSeq.current) return;
       logger.error('Failed to search threads', err);
@@ -706,7 +677,7 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
                 ))}
                 {capped && (
                   <li className="text-xs text-muted-foreground">
-                    Showing the newest {PICKER_LIMIT}. Search to find another thread.
+                    Showing the newest {THREAD_PICKER_LIMIT}. Search to find another thread.
                   </li>
                 )}
               </ul>
