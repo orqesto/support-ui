@@ -15,6 +15,7 @@ import { WorkspaceDatabaseDialog } from '@/components/console/WorkspaceDatabaseD
 import { CONSOLE_PAGE_SIZE as PAGE_SIZE } from '@/components/console/consoleConstants';
 import { formatMemberCount, formatPlanLabel } from '@/pages/console/platformOrganizations.format';
 import { CreateOrganizationModal } from '@/components/modals/CreateOrganizationModal';
+import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { useMyAlliances } from '@/hooks/useAllianceAdmin';
 import { organizationService } from '@/services/organization.service';
 import { formatDate } from '@/lib/utils';
@@ -64,6 +65,7 @@ export const PlatformOrganizations = () => {
   // Attach/detach are alliance-tenancy actions and live ONLY in the alliance console
   // (Alliance → Workspaces); this platform list surfaces the membership as a read-only badge.
   const alliancesQuery = useMyAlliances();
+  const { data: backendVersion } = useBackendVersion();
   const allianceNameById = new Map(
     (alliancesQuery.data ?? []).map((alliance) => [alliance.id, alliance.name])
   );
@@ -312,6 +314,8 @@ export const PlatformOrganizations = () => {
         isOpen={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreate={handleCreate}
+        selfHostedDeployment={backendVersion?.selfHostedDeployment ?? false}
+        organisations={alliancesQuery.data ?? []}
       />
 
       <EditWorkspaceModal

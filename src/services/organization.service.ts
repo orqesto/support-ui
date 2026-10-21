@@ -233,7 +233,13 @@ export const organizationService = {
    * Creates the org on the managed database. The database choice is not a creation
    * parameter any more (BYODB §4): it is made in the wizard or the Settings card.
    */
-  create: async (data: { name: string; slug: string; description?: string }) => {
+  create: async (data: {
+    name: string;
+    slug: string;
+    description?: string;
+    /** Self-hosted: undefined = the default organisation, null = standalone, number = that organisation. */
+    allianceId?: number | null;
+  }) => {
     const response = await apiClient.post<ApiResponse<Organization>>('/api/organizations', data);
     return response.data.data;
   },

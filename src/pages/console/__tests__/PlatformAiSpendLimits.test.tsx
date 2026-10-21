@@ -30,6 +30,17 @@ vi.mock('@/services/managedAiUsage.service', () => ({
 }));
 vi.mock('sonner', () => ({ toast: { success: () => {}, warning: () => {}, error: () => {} } }));
 
+// The old limits UI shows only while the monthly budgets are not switched on: a backend without
+// the budget API here.
+let budgetState: unknown = { available: false };
+vi.mock('@/services/budgets.service', () => ({
+  budgetsService: {
+    getState: () => Promise.resolve(budgetState),
+    getMigration: () => Promise.resolve({ rows: [], alreadyActive: false }),
+    listGroups: () => Promise.resolve({ items: [], total: 0 }),
+  },
+}));
+
 const { PlatformAiSpend } = await import('../PlatformAiSpend');
 
 const budget: OrgTokenBudget = {
@@ -93,6 +104,7 @@ const openCell = (index: number) =>
   fireEvent.click(screen.getAllByTitle(/Today since 00:00 UTC/)[index]);
 
 beforeEach(() => {
+  budgetState = { available: false };
   gets = [];
   getImpl = () => Promise.resolve(page());
   saveImpl = () => Promise.resolve(null);
@@ -101,6 +113,57 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+});
+
+const budgetSettings = {
+  version: 1,
+  bulkPctMin: 50,
+  bulkPctMax: 90,
+  defaultBulkPct: 60,
+  tokensPerCall: 1490,
+  serverCeiling: null,
+  defaultStandaloneBudget: null,
+  liveSpikeFactor: 3,
+  workspaceBulkLimits: {},
+};
+const stateWith = (active: boolean) => ({
+  available: true,
+  state: {
+    active,
+    selfHosted: false,
+    settings: budgetSettings,
+    server: null,
+    requests: 0,
+    requestList: [],
+  },
+});
+
+// Until the BE is tagged AND Apply is pressed the old engine enforces: its controls must stay.
+describe('AI Spend — the old limits UI follows the budget switch', () => {
+  it('no budget API ⇒ the old limits render under "Current limits (until you switch to budgets)"', async () => {
+    budgetState = { available: false };
+    renderPage();
+    expect(await screen.findByText('Current limits (until you switch to budgets)')).toBeTruthy();
+    expect(await screen.findByText('Token limits · today / month')).toBeTruthy();
+  });
+
+  it('budgets not switched on yet (before Apply) ⇒ the old limits render under the migration panel', async () => {
+    budgetState = stateWith(false);
+    renderPage();
+    expect(await screen.findByText(/Current limits stay in force until you switch/)).toBeTruthy();
+    expect(screen.getByText('Current limits (until you switch to budgets)')).toBeTruthy();
+    expect(screen.getByText('Token limits · today / month')).toBeTruthy();
+  });
+
+  it('budgets active ⇒ no old limit cards, no limits column', async () => {
+    budgetState = stateWith(true);
+    renderPage();
+    expect(await screen.findByText('Bolt')).toBeTruthy();
+    await screen.findByPlaceholderText('Search organisations and workspaces');
+    expect(screen.queryByText('Current limits (until you switch to budgets)')).toBeNull();
+    expect(screen.queryByText('Token limits · today / month')).toBeNull();
+    expect(screen.queryAllByTitle(/Today since 00:00 UTC/)).toHaveLength(0);
+  });
 });
 
 // The backend from before the limits (2d8552fb managedAIUsageController) sends no

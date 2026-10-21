@@ -69,6 +69,9 @@ const ConsoleProvisioning = lazy(() =>
 const ConsoleAudit = lazy(() =>
   import('@/pages/console/ConsoleAudit').then((mod) => ({ default: mod.ConsoleAudit }))
 );
+const ConsoleAiBudget = lazy(() =>
+  import('@/pages/console/ConsoleAiBudget').then((mod) => ({ default: mod.ConsoleAiBudget }))
+);
 const ConsoleSettings = lazy(() =>
   import('@/pages/console/ConsoleSettings').then((mod) => ({ default: mod.ConsoleSettings }))
 );
@@ -76,6 +79,7 @@ const ConsoleSettings = lazy(() =>
 export const CONSOLE_SECTIONS: ConsoleSection[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '', index: true, element: ConsoleOverview },
   { id: 'organizations', label: 'Workspaces', icon: Building2, path: 'organizations', element: ConsoleOrganizations },
+  { id: 'ai-budget', label: 'AI budget', icon: Coins, path: 'ai-budget', element: ConsoleAiBudget },
   { id: 'members', label: 'Members', icon: Users, path: 'members', element: ConsoleMembers },
   { id: 'groups', label: 'Groups', icon: UsersRound, path: 'groups', element: ConsoleGroups },
   { id: 'identity', label: 'Identity', icon: KeyRound, path: 'identity', element: ConsoleIdentity },
@@ -134,6 +138,9 @@ const PlatformCustomApiTemplates = lazy(() =>
 const PlatformAiSpend = lazy(() =>
   import('@/pages/console/PlatformAiSpend').then((mod) => ({ default: mod.PlatformAiSpend }))
 );
+const PlatformBudgetGroup = lazy(() =>
+  import('@/pages/console/PlatformBudgetGroup').then((mod) => ({ default: mod.PlatformBudgetGroup }))
+);
 const PlatformEmailTemplates = lazy(() =>
   import('@/pages/EmailTemplatesPage').then((mod) => ({ default: mod.EmailTemplates }))
 );
@@ -160,6 +167,15 @@ export const PLATFORM_SECTIONS: ConsoleSection[] = [
   },
   { id: 'usage', label: 'Subscriptions', icon: CreditCard, path: 'usage', element: PlatformUsage },
   { id: 'ai-spend', label: 'AI Spend', icon: Coins, path: 'ai-spend', element: PlatformAiSpend },
+  {
+    // One organisation's or standalone workspace's monthly budget, opened from AI Spend.
+    id: 'ai-spend-group',
+    label: 'AI Spend group',
+    icon: Coins,
+    path: 'ai-spend/groups/:key',
+    element: PlatformBudgetGroup,
+    visible: () => false,
+  },
   {
     id: 'billing',
     label: 'Plans & Pricing',

@@ -27,6 +27,7 @@ import {
   useTogglePlatformPlan,
   useUpdatePlatformPlan,
 } from '@/hooks/usePlatformAdmin';
+import { useBudgetState } from '@/hooks/useBudgets';
 import { logger } from '@/lib/logger';
 import {
   PLAN_TYPE_OPTIONS,
@@ -37,7 +38,14 @@ import {
 } from '@/components/console/platformPlanCreate';
 import type { AdminPlan } from '@/services/platform.service';
 import { LimitInputsGrid } from './LimitInputsGrid';
-import { draftFromLimits, LIMIT_FIELDS, parseLimitDraft, type LimitDraft } from './limitFields';
+import {
+  draftFromLimits,
+  formatLimit,
+  LIMIT_FIELDS,
+  UNLIMITED,
+  parseLimitDraft,
+  type LimitDraft,
+} from './limitFields';
 
 /**
  * Platform console → plan catalog manager. Unlike the org-scoped AdminPlansTab this is a
@@ -62,6 +70,14 @@ const draftFromPlan = (plan: AdminPlan): EditDraft => ({
   limits: draftFromLimits(plan.limits as Partial<Record<string, number>>),
 });
 
+/** 14,900,000 → "14.9M"; whole thousands below a million. */
+const formatTokens = (tokens: number): string =>
+  tokens >= 1_000_000
+    ? `${Number((tokens / 1_000_000).toFixed(1))}M`
+    : tokens >= 1_000
+      ? `${Math.round(tokens / 1_000)}k`
+      : String(tokens);
+
 const formatPrice = (plan: AdminPlan) => {
   if (plan.price === 0) return 'Custom pricing';
   const symbol = plan.currency === 'EUR' ? '€' : '$';
@@ -82,6 +98,10 @@ export const PlatformPlans = () => {
   const createPlan = useCreatePlatformPlan();
   const deletePlan = useDeletePlatformPlan();
   const createStripePrice = useCreatePlanStripePrice();
+  // tokens per AI call, from the budgets API; absent on a backend without it (then nothing extra is shown)
+  const budgetState = useBudgetState();
+  const tokensPerCall =
+    budgetState.data?.available === true ? budgetState.data.state.settings.tokensPerCall : null;
 
   // Delete + Stripe-price state. Both surface the SERVER's message rather than a generic
   // one: every refusal here (in use, seeded, Stripe unreachable) is a different problem
@@ -284,6 +304,21 @@ export const PlatformPlans = () => {
               <strong className="text-foreground">{plan.limits.maxIntegrations}</strong>{' '}
               integrations
             </p>
+            {plan.limits.maxAICallsPerMonth !== undefined && (
+              <p>
+                <strong className="font-mono text-foreground">
+                  {formatLimit(plan.limits.maxAICallsPerMonth)}
+                </strong>{' '}
+                AI calls/month
+                {tokensPerCall !== null && plan.limits.maxAICallsPerMonth < UNLIMITED && (
+                  <span>
+                    {' '}
+                    (≈ {formatTokens(plan.limits.maxAICallsPerMonth * tokensPerCall)} tokens /
+                    month)
+                  </span>
+                )}
+              </p>
+            )}
           </div>
 
           <p className="text-sm text-muted-foreground">
@@ -376,6 +411,13 @@ export const PlatformPlans = () => {
 
       {renderGroup('Base plans', 'Core platform plans without AI features.', basePlans)}
       {renderGroup('Enterprise & other plans', 'Custom and enterprise solutions.', otherPlans)}
+
+      {tokensPerCall !== null && (
+        <p className="text-sm text-muted-foreground">
+          Organisations pool their workspaces' budgets: a workspace on a small plan can use budget
+          that came with a bigger one.
+        </p>
+      )}
 
       <Dialog open={editing !== null} onOpenChange={(open) => !open && closeEdit()}>
         <DialogHeader>
