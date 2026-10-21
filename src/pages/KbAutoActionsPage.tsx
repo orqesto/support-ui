@@ -298,6 +298,10 @@ export const KbAutoActionsPage = () => {
                       </li>
                     ))}
                   </ul>
+                  <p className="text-xs text-muted-foreground">
+                    Suggestions at 0% are not offered for review; they are cleared by the next
+                    nightly run.
+                  </p>
                 </div>
               )}
               {unscored > 0 && (

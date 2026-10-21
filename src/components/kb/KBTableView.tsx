@@ -29,6 +29,7 @@ import {
 } from '@/lib/kbConsolidation';
 
 import { RESTORE_AUTO_TITLE } from './KbStatusFilter';
+import type { KbAutoRestore } from './useKbAutoRestore';
 
 const getTypeIcon = (type: string) => {
   switch (type) {
@@ -67,7 +68,7 @@ type KBTableViewProps = {
   /** Open the review for a merge / rewrite / removal suggestion waiting on this entry. */
   onReviewDecision?: (decision: KbPendingDecision) => void;
   /** Under "Removed automatically": a removed row's Restore undoes the automatic removal. */
-  onRestoreAuto?: (id: number) => void;
+  autoRestore?: KbAutoRestore;
   /** Bulk selection: a leading checkbox column, only on rows `selectable` accepts. */
   selection?: {
     selected: ReadonlySet<number>;
@@ -88,7 +89,7 @@ export const KBTableView = ({
   canReview,
   onUnmerge,
   onReviewDecision,
-  onRestoreAuto,
+  autoRestore,
   selection,
 }: KBTableViewProps) => (
   <div className="hidden rounded-lg border md:block">
@@ -280,19 +281,20 @@ export const KBTableView = ({
                         size="sm"
                         variant="outline"
                         onClick={() =>
-                          entry.rejectedAt && onRestoreAuto
-                            ? onRestoreAuto(entry.id)
+                          entry.rejectedAt && autoRestore
+                            ? autoRestore.restore(entry.id)
                             : entry.rejectedAt
                               ? onApprove(entry.id)
                               : onUnhide(entry.id)
                         }
                         title={
-                          entry.rejectedAt && onRestoreAuto
+                          entry.rejectedAt && autoRestore
                             ? RESTORE_AUTO_TITLE
                             : entry.rejectedAt
                               ? 'Approve — restores the rejected entry'
                               : 'Unhide'
                         }
+                        disabled={autoRestore?.pending.has(entry.id) === true}
                         aria-label={entry.rejectedAt ? 'Restore' : 'Unhide'}
                       >
                         <Eye className="w-4 h-4" />

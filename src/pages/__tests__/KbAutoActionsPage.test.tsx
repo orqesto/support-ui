@@ -261,6 +261,7 @@ describe('Automatic actions page', () => {
       '95% and over4',
       'No score yet3',
     ]);
+    expect(screen.getByText(/Suggestions at 0% are not offered for review/)).toBeInTheDocument();
   });
 
   it('saves a Shadow change without a confirm', async () => {

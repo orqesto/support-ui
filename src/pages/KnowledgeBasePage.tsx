@@ -293,7 +293,7 @@ export const KnowledgeBasePage = () => {
     }
   };
 
-  const onRestoreAuto = useKbAutoRestore(canReview && filterStatus === 'auto_removed', rereadPage);
+  const autoRestore = useKbAutoRestore(canReview, filterStatus, appliedStatus, rereadPage);
 
   const { unhide: handleUnhide, dialog: unhideFallback } = useKbUnhide({
     setEntries,
@@ -654,7 +654,7 @@ export const KnowledgeBasePage = () => {
                     canReview={canReview}
                     onUnmerge={handleUnmerge}
                     onReviewDecision={setDecision}
-                    onRestoreAuto={onRestoreAuto}
+                    autoRestore={autoRestore}
                   />
                 ))
               )}
@@ -675,7 +675,7 @@ export const KnowledgeBasePage = () => {
               canReview={canReview}
               onUnmerge={handleUnmerge}
               onReviewDecision={setDecision}
-              onRestoreAuto={onRestoreAuto}
+              autoRestore={autoRestore}
               selection={bulkMode ? bulk : undefined}
             />
 

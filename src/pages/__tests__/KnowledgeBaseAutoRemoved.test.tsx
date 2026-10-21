@@ -140,6 +140,46 @@ describe('knowledge base → Removed automatically', () => {
     await waitFor(() => expect(state.getAllCalls.length).toBeGreaterThan(reads));
   });
 
+  it('a double click sends one restore; Restore is disabled while it runs', async () => {
+    let finish: () => void = () => {};
+    state.restore.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        })
+    );
+    renderPage('/knowledge-base?status=auto_removed');
+    await screen.findAllByText('Where do I send a return to Example Shop?');
+    const [button] = screen.getAllByRole('button', { name: 'Restore' });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    // Every view of the row (table and mobile card) is disabled while the call runs.
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByRole('button', { name: 'Restore' })
+          .every((each) => each.hasAttribute('disabled'))
+      ).toBe(true)
+    );
+    expect(state.restore).toHaveBeenCalledTimes(1);
+    finish();
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: 'Restore' })[0]).toBeEnabled()
+    );
+    expect(state.restore).toHaveBeenCalledTimes(1);
+  });
+
+  it('rows of a response that ignored the status keep the plain Restore (Approve)', async () => {
+    // A finding list shows its rows even when the status was not applied: the row must not offer
+    // an automatic-removal restore the server never vouched for.
+    state.autoRemovedStatus = false;
+    renderPage('/knowledge-base?status=auto_removed&finding=raw_email&departmentId=3');
+    await screen.findAllByText('Where do I send a return to Example Shop?');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Restore' })[0]);
+    await waitFor(() => expect(state.approve).toHaveBeenCalledWith(314));
+    expect(state.restore).not.toHaveBeenCalled();
+  });
+
   it('a backend that ignores the filter shows a notice and a link, never the whole list', async () => {
     state.autoRemovedStatus = false;
     renderPage('/knowledge-base?status=auto_removed');
