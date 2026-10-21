@@ -36,6 +36,18 @@ vi.mock('@/hooks/usePlatformAdmin', () => {
             maxAICallsPerMonth: 10000,
           },
         },
+        {
+          id: 2,
+          name: 'free',
+          displayName: 'Free',
+          planType: 'base',
+          price: 0,
+          currency: 'EUR',
+          billingInterval: 'month',
+          isActive: true,
+          stripePriceId: null,
+          limits: { maxUsers: 1, maxIntegrations: 1, maxMessagesPerMonth: 500 },
+        },
       ],
     }),
     usePlatformPlanStats: () => ({ data: {} }),
@@ -73,6 +85,13 @@ describe('PlatformPlans tokens', () => {
     expect(screen.queryByText(/AI calls/)).toBeNull();
     expect(screen.queryByText(/pool their/)).toBeNull();
     expect(screen.queryByText(/tokens \/ month/)).toBeNull();
+  });
+
+  it('shows no "AI included, about $" line on Free (no managed AI)', async () => {
+    renderPlans();
+    expect(await screen.findByTestId('plan-ai-money-1')).toBeInTheDocument();
+    expect(screen.getByText('Free')).toBeInTheDocument();
+    expect(screen.queryByTestId('plan-ai-money-2')).toBeNull();
   });
 
   it('shows nothing extra when the budgets API is unavailable', async () => {

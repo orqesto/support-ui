@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
+import { loadAiStatus } from '@/components/subscription/aiStatus';
 import { usageRowsFrom, type RawUsage } from './usageStatsRows';
 
 type UsageModule = {
@@ -30,7 +31,8 @@ export const UsageStatsPage = () => {
         const usageRes = await apiClient.get<{ success: boolean; data: { usage: RawUsage } }>(
           '/api/subscriptions/usage'
         );
-        setUsage(usageRowsFrom(usageRes.data.data.usage));
+        const ai = await loadAiStatus();
+        setUsage(usageRowsFrom(usageRes.data.data.usage, ai?.active === true));
       } catch (error) {
         logger.error('Failed to load usage:', error);
       } finally {

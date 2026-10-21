@@ -27,8 +27,10 @@ vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: () => canView }),
 }));
 
+let viewer: { role: string; organizationRole: string } = { role: 'user', organizationRole: 'support' };
 vi.mock('@/stores/authStore', () => ({
-  useAuthStore: (selector: (state: unknown) => unknown) => selector({ selectedOrganizationId: 4 }),
+  useAuthStore: (selector: (state: unknown) => unknown) =>
+    selector({ selectedOrganizationId: 4, user: viewer }),
 }));
 
 const usage = (over: Partial<OrgUsage> = {}): OrgUsage => ({
@@ -61,6 +63,7 @@ const renderBanner = (path = '/tickets') =>
 beforeEach(() => {
   billingEnabled = true;
   canView = true;
+  viewer = { role: 'user', organizationRole: 'support' };
   getUsage.mockReset();
 });
 afterEach(cleanup);
@@ -177,5 +180,37 @@ describe('the AI-paused banner inside the app-level banner', () => {
     renderBanner();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(screen.queryByTestId('ai-paused-banner')).not.toBeInTheDocument();
+  });
+
+  describe('AI paused: who reads the money', () => {
+    const paused = () =>
+      usage({
+        ai: {
+          currency: 'USD',
+          active: true,
+          usedMicros: 5_000_000,
+          budgetMicros: 5_000_000,
+          paused: true,
+          bulkPaused: false,
+          reason: 'budget_used',
+          message: 'Used up ($5.00 of $5.00).',
+          resetsAt: '2026-10-05T13:00:00.000Z',
+        },
+      });
+
+    it('an organisation admin reads the API sentence with the money', async () => {
+      viewer = { role: 'user', organizationRole: 'org_admin' };
+      getUsage.mockResolvedValue(paused());
+      renderBanner();
+      expect(await screen.findByTestId('ai-paused-banner')).toHaveTextContent('$5.00 of $5.00');
+    });
+
+    it('an agent reads a money-free sentence', async () => {
+      getUsage.mockResolvedValue(paused());
+      renderBanner();
+      const banner = await screen.findByTestId('ai-paused-banner');
+      expect(banner).toHaveTextContent(/AI messages are used up/);
+      expect(banner).not.toHaveTextContent(/\$/);
+    });
   });
 });

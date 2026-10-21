@@ -11,6 +11,7 @@ import {
   HardDrive,
   Settings,
   Database,
+  Zap,
   BookOpen,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -25,6 +26,7 @@ import { FreePlanActiveCard } from '@/components/subscription/FreePlanActiveCard
 import { MessagePackOfferCard } from '@/components/subscription/MessagePackOfferCard';
 import { AiPausedBanner } from '@/components/subscription/AiPausedBanner';
 import { loadAiStatus, loadOwnKey, type AiStatus } from '@/components/subscription/aiStatus';
+import { PlanLimitsCard } from '@/components/subscription/PlanLimitsCard';
 import { MessagesSummary, TRIAL_SENTENCE } from '@/components/subscription/MessagesSummary';
 import { describeUsagePeriod } from '@/components/subscription/usagePeriodCopy';
 import { useMessagePackReturn } from '@/components/subscription/useMessagePackReturn';
@@ -39,7 +41,7 @@ import {
   type UsagePeriod,
 } from '@/services/subscription.service';
 import { useAuthStore } from '@/stores/authStore';
-import { hasPermission, Permission } from '@/types/roles';
+import { hasPermission, isOrgAdminOrHigher, Permission } from '@/types/roles';
 
 
 type DashboardData = {
@@ -311,6 +313,11 @@ export const SubscriptionPage = () => {
   }
 
   const { plan, subscription } = subscriptionDetails;
+  // Managed AI is in the messages only where the plan carries it: not Free, not a workspace on its
+  // own key, not when the API says AI is not in the plan.
+  const aiIncluded = plan.name !== 'free' && !ownKey && aiStatus?.reason !== 'not_in_plan';
+  // Before the budgets are applied the old monthly AI-call cap still refuses work: keep showing it.
+  const showAiCalls = aiStatus?.active !== true && !ownKey;
   const billingLine = billingDateLine(plan, subscription);
   const { usage } = dashboard;
 
@@ -462,7 +469,7 @@ export const SubscriptionPage = () => {
           <CardContent>
             <AiPausedBanner
               ai={aiStatus}
-              isAdmin={user?.role === 'admin'}
+              isAdmin={!!user && isOrgAdminOrHigher(user.role, user.organizationRole)}
               packAction={
                 packOffer?.available ? (
                   <button
@@ -481,17 +488,20 @@ export const SubscriptionPage = () => {
               limit={usage.messages.limit}
               used={usage.messages.current}
               period={dashboard.period}
-              ownKey={ownKey}
+              aiIncluded={aiIncluded}
             />
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <UsageTile title="Users" icon={Users} item={usage.users} />
               <UsageTile title="Integrations" icon={Plug} item={usage.integrations} />
               <UsageTile
-                title="Messages (AI included)"
+                title={aiIncluded ? 'Messages (AI included)' : 'Messages'}
                 icon={MessageSquare}
                 item={usage.messages}
                 action={buyPackButton('outline')}
               />
+              {showAiCalls && usage.aiCalls && (
+                <UsageTile title="AI Calls" icon={Zap} item={usage.aiCalls} />
+              )}
               <UsageTile title="Storage (MB)" icon={HardDrive} item={usage.storage} />
               {usage.storedMessages && (
                 <UsageTile title="Stored messages" icon={Database} item={usage.storedMessages} />
@@ -512,6 +522,7 @@ export const SubscriptionPage = () => {
             {(usage.users.warning ||
               usage.integrations.warning ||
               usage.messages.warning ||
+              (showAiCalls && (usage.aiCalls?.warning ?? false)) ||
               usage.storage.warning ||
               (usage.storedMessages?.warning ?? false) ||
               (usage.kbItems?.warning ?? false)) && (
@@ -554,40 +565,10 @@ export const SubscriptionPage = () => {
         {/* Task #8: on Free with pausing on — who is paused, and choosing who stays active. */}
         <FreePlanActiveCard planName={plan.name} canManage={canManage} currentUserId={user?.id ?? null} />
 
-        {/* Plan Limits Reference */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Plan Limits</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">Max Users</p>
-                <p className="font-mono text-lg font-semibold">
-                  {dashboard.limits.maxUsers.toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">Max Integrations</p>
-                <p className="font-mono text-lg font-semibold">
-                  {dashboard.limits.maxIntegrations.toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">Messages / Month</p>
-                <p className="font-mono text-lg font-semibold">
-                  {dashboard.limits.maxMessagesPerMonth.toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">Storage</p>
-                <p className="font-mono text-lg font-semibold">
-                  {dashboard.limits.maxStorageMb.toLocaleString()} MB
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <PlanLimitsCard
+          limits={dashboard.limits}
+          aiCallsLimit={showAiCalls ? usage.aiCalls?.limit : undefined}
+        />
 
         {/* Quick Links */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

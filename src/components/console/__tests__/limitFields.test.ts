@@ -5,6 +5,7 @@ describe('limitFields', () => {
   it('covers every limit the backend accepts (LIMIT_KEYS in limitService.ts)', () => {
     expect(LIMIT_FIELDS.map((field) => field.key).sort()).toEqual(
       [
+        'maxAICallsPerMonth',
         'maxAutoRepliesPerMonth',
         'maxDepartments',
         'maxHistoryDays',

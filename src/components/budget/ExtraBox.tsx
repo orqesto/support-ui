@@ -70,7 +70,7 @@ export const ExtraBox = ({
           </span>
         </div>
         <span className="text-sm text-muted-foreground">
-          Outside the monthly budget. Unused extra expires.
+          Outside the budget for the billing period. Unused extra expires.
         </span>
         <div>
           <Button variant="outline" size="sm" disabled={busy} onClick={onEnd}>

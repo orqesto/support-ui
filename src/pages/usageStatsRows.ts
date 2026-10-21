@@ -25,30 +25,42 @@ export type UsageRow = {
 };
 
 /**
- * Rows for the Usage Stats table. AI calls are a statistic only (money-budget build): the AI
- * allowance is money, shown as messages, so the row has no "included", no overage and no
- * percentage whatever the workspace runs on. An own AI key is named in the label. The messages
- * row carries the limit (packs included).
+ * Rows for the Usage Stats table. Before the money budgets are applied (`budgetsActive` false: the
+ * server answers `ai.active === false`, or sends no `ai` block) the old monthly AI-call cap still
+ * refuses work, so the row keeps its limit and overage. Once applied, AI calls are a statistic
+ * only: no included, no overage, no percentage. Own AI key: the call allowance belongs to the
+ * platform key, so there is nothing to measure those calls against in either state.
  */
-export const usageRowsFrom = (raw: RawUsage | undefined): UsageRow[] => {
+export const usageRowsFrom = (raw: RawUsage | undefined, budgetsActive = false): UsageRow[] => {
   const ownKey = raw?.aiCalls?.appliesToThisWorkspace === false;
   const aiCurrent = raw?.aiCalls?.current ?? 0;
+  const capApplies = !budgetsActive && !ownKey;
+  const aiLimit = capApplies ? (raw?.aiCalls?.limit ?? 0) : 0;
   const msgCurrent = raw?.messages?.current ?? 0;
   const msgLimit = raw?.messages?.limit ?? 0;
+  const aiIncluded = budgetsActive && !ownKey;
+  let aiName = 'AI Calls';
+  if (budgetsActive) {
+    aiName = ownKey ? 'AI calls (your own AI key; a count, no limit)' : 'AI calls (a count, no limit)';
+  } else if (ownKey) {
+    aiName = 'AI Calls (your own AI key — no plan allowance)';
+  }
   return [
     {
       moduleName: 'ai-calls',
-      displayName: ownKey ? 'AI calls (your own AI key; a count, no limit)' : 'AI calls (a count, no limit)',
+      displayName: aiName,
       current: aiCurrent,
-      included: 0,
-      overage: 0,
+      included: aiLimit,
+      overage: capApplies
+        ? (raw?.aiCalls?.overage ?? Math.max(0, aiCurrent - aiLimit))
+        : 0,
       overagePrice: 0,
       estimatedOverageCost: 0,
       unitName: 'call',
     },
     {
       moduleName: 'messages',
-      displayName: 'Messages (AI included)',
+      displayName: aiIncluded ? 'Messages (AI included)' : 'Messages',
       current: msgCurrent,
       included: msgLimit,
       overage: Math.max(0, msgCurrent - msgLimit),

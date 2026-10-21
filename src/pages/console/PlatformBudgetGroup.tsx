@@ -17,6 +17,7 @@ import {
 } from '@/hooks/useBudgets';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { BudgetRequestsCard } from './BudgetRequestsCard';
+import { groupPath } from './PlatformBudgets';
 
 const failed = (fallback: string) => (error: unknown) =>
   toast.error(getApiErrorMessage(error) ?? fallback);
@@ -66,6 +67,7 @@ export const PlatformBudgetGroup = () => {
           detail={detail}
           canEdit={detail.canEdit}
           mode="platform"
+          workspacePath={(organizationId) => groupPath(`w:${organizationId}`)}
           plansAvailable={state ? !state.selfHosted : false}
           busy={busy}
           onUpdate={(body) =>

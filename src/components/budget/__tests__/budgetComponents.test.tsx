@@ -88,7 +88,7 @@ describe('BudgetField', () => {
   it('is typed in dollars and saves micros', () => {
     const onUpdate = vi.fn();
     render(<BudgetField detail={detail} canEdit plansAvailable={false} onUpdate={onUpdate} />);
-    const input = screen.getByRole('spinbutton', { name: 'Monthly budget, dollars' });
+    const input = screen.getByRole('spinbutton', { name: 'Budget per billing period, dollars' });
     expect(input).toHaveValue(40);
     fireEvent.change(input, { target: { value: '12.5' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save budget' }));
@@ -98,7 +98,7 @@ describe('BudgetField', () => {
   it('an empty field means no budget; zero is refused', () => {
     const onUpdate = vi.fn();
     render(<BudgetField detail={detail} canEdit plansAvailable={false} onUpdate={onUpdate} />);
-    const input = screen.getByRole('spinbutton', { name: 'Monthly budget, dollars' });
+    const input = screen.getByRole('spinbutton', { name: 'Budget per billing period, dollars' });
     fireEvent.change(input, { target: { value: '0' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save budget' }));
     expect(onUpdate).not.toHaveBeenCalled();
@@ -110,7 +110,7 @@ describe('BudgetField', () => {
 
   it('read-only shows the money', () => {
     render(<BudgetField detail={detail} canEdit={false} plansAvailable={false} />);
-    expect(screen.getByTestId('budget-readonly')).toHaveTextContent('≈ $40.00 / month');
+    expect(screen.getByTestId('budget-readonly')).toHaveTextContent('≈ $40.00 / billing period');
   });
 });
 

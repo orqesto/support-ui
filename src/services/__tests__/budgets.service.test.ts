@@ -16,14 +16,32 @@ const last = () => wire.requests[wire.requests.length - 1];
 
 describe('budgetsService - platform', () => {
   it('getState reads /state and unwraps data', async () => {
-    handler = () => ok({ active: false });
-    expect(await budgetsService.getState()).toEqual({ available: true, state: { active: false } });
+    handler = () => ok({ currency: 'USD', active: false });
+    expect(await budgetsService.getState()).toEqual({
+      available: true,
+      state: { currency: 'USD', active: false },
+    });
     expect(last()).toMatchObject({ method: 'GET', path: '/api/admin/budgets/state' });
   });
 
   it('getState: 404 (FE deployed before BE) is { available: false }, not an error', async () => {
     handler = routeAbsent;
     expect(await budgetsService.getState()).toEqual({ available: false });
+  });
+
+  it('getState: a payload without currency USD (token-era backend) is { available: false }', async () => {
+    handler = () => ok({ active: true, settings: { defaultBulkPct: 70 } });
+    expect(await budgetsService.getState()).toEqual({ available: false });
+    handler = () => ok({ currency: 'EUR', active: true });
+    expect(await budgetsService.getState()).toEqual({ available: false });
+  });
+
+  it('alliance and workspace budgets without currency USD read as not switched on', async () => {
+    handler = () => ok({ active: true, group: { key: 'a:1' }, budget: 28_000_000 });
+    expect(await budgetsService.getAllianceBudget(1)).toEqual({ active: false });
+    expect(await budgetsService.getMyAiUsage()).toEqual({ active: false });
+    handler = () => ok({ currency: 'USD', active: true, budget: 5_000_000 });
+    expect(await budgetsService.getMyAiUsage()).toMatchObject({ active: true, budget: 5_000_000 });
   });
 
   it('getState: a 500 is an error', async () => {

@@ -28,19 +28,28 @@ vi.mock('react-router-dom', () => ({
   ),
   useSearchParams: () => [new URLSearchParams(), vi.fn()],
 }));
+// The viewer: an organisation admin by default; tests set an agent where money must stay hidden.
+let testUser: { role: string; organizationRole: string } = {
+  role: 'user',
+  organizationRole: 'org_admin',
+};
 vi.mock('@/stores/authStore', () => ({
-  useAuthStore: () => ({ user: { role: 'user', organizationRole: 'org_admin' } }),
+  useAuthStore: () => ({ user: testUser }),
 }));
 vi.mock('@/types/roles', () => ({
   hasPermission: () => true,
+  isOrgAdminOrHigher: (role: string, orgRole?: string) => role === 'admin' || orgRole === 'org_admin',
   Permission: { MANAGE_SUBSCRIPTION: 'MANAGE_SUBSCRIPTION' },
 }));
 
 const { SubscriptionPage } = await import('@/pages/SubscriptionPage');
 
+let planName = 'pro';
 const PLAN = {
   id: 3,
-  name: 'pro',
+  get name() {
+    return planName;
+  },
   displayName: 'Pro',
   planType: 'base',
   price: 50000,
@@ -75,11 +84,11 @@ const dashboard = (messagesUsed: number, packAvailable: boolean, status = 'activ
     messages: { ...usageItem(messagesUsed, 16000), planLimit: 16000, extra: 0 },
     aiCalls: {
       current: 321,
-      limit: 0,
-      percentage: 0,
+      limit: 96000,
+      percentage: 1,
       warning: false,
       critical: false,
-      formatted: '321',
+      formatted: '321 / 96000',
     },
     storage: usageItem(3, 102400),
   },
@@ -163,6 +172,8 @@ const load = (
 };
 
 beforeEach(() => {
+  planName = 'pro';
+  testUser = { role: 'user', organizationRole: 'org_admin' };
   get.mockReset();
   post.mockReset();
 });
@@ -211,7 +222,14 @@ describe('Subscription page: messages with AI included', () => {
     expect(await screen.findByTestId('messages-summary')).not.toHaveTextContent(/own key/);
   });
 
-  it('paused (budget_used): a customer sentence without dollars, Buy 1,000 messages and Upgrade', async () => {
+  it('paused (budget_used), an organisation admin: the API sentence with the money', async () => {
+    load(aiBlock({ paused: true, reason: 'budget_used', message: 'Used up ($5.00 of $5.00).' }));
+    render(<SubscriptionPage />);
+    expect(await screen.findByTestId('ai-paused-banner')).toHaveTextContent('Used up ($5.00 of $5.00).');
+  });
+
+  it('paused (budget_used), an agent: a customer sentence without dollars, Buy 1,000 messages and Upgrade', async () => {
+    testUser = { role: 'user', organizationRole: 'support' };
     load(aiBlock({ paused: true, reason: 'budget_used', message: 'Used up ($5.00 of $5.00).' }));
     render(<SubscriptionPage />);
     const banner = await screen.findByTestId('ai-paused-banner');
@@ -224,6 +242,7 @@ describe('Subscription page: messages with AI included', () => {
   });
 
   it('paused (server_ceiling): text only, no way out offered', async () => {
+    testUser = { role: 'user', organizationRole: 'support' };
     load(aiBlock({ paused: true, reason: 'server_ceiling', message: 'Server limit reached.' }));
     render(<SubscriptionPage />);
     const banner = await screen.findByTestId('ai-paused-banner');
@@ -261,6 +280,40 @@ describe('Subscription page: messages with AI included', () => {
     render(<SubscriptionPage />);
     expect(await screen.findByTestId('messages-summary')).toBeInTheDocument();
     expect(screen.queryByTestId('ai-paused-banner')).not.toBeInTheDocument();
+  });
+
+  it('Free plan: no "AI included" anywhere, the own-key sentence instead', async () => {
+    planName = 'free';
+    load(aiBlock({ paused: true, reason: 'not_in_plan', usedMicros: null, budgetMicros: null }));
+    render(<SubscriptionPage />);
+    const line = await screen.findByTestId('messages-summary');
+    expect(line).toHaveTextContent(
+      '16,000 messages this period; 1,240 used; resets'
+    );
+    expect(line).toHaveTextContent('AI runs on your own key; your plan covers 16,000 messages.');
+    expect(document.body.textContent).not.toMatch(/AI included/);
+    expect(screen.getByText('Messages')).toBeInTheDocument();
+  });
+
+  it('not_in_plan on a paid plan: no "AI included" either', async () => {
+    load(aiBlock({ paused: true, reason: 'not_in_plan', usedMicros: null, budgetMicros: null }));
+    render(<SubscriptionPage />);
+    await screen.findByTestId('messages-summary');
+    expect(document.body.textContent).not.toMatch(/AI included/);
+  });
+
+  it('before Apply (ai.active false): the AI Calls tile and its monthly limit are shown as before', async () => {
+    load(aiBlock({ active: false, usedMicros: null, budgetMicros: null }));
+    render(<SubscriptionPage />);
+    expect(await screen.findByText('AI Calls')).toBeInTheDocument();
+    expect(screen.getByText('AI Calls / Month')).toBeInTheDocument();
+    expect(screen.getAllByText('/ 96,000').length).toBeGreaterThan(0);
+  });
+
+  it('an older backend with no ai block keeps the AI Calls tile too', async () => {
+    load(undefined);
+    render(<SubscriptionPage />);
+    expect(await screen.findByText('AI Calls')).toBeInTheDocument();
   });
 
   it('a trial states the one trial sentence', async () => {

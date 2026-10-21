@@ -170,7 +170,9 @@ export const costLine = (
   est: KbRangeEstimate | null,
   aiMode: KbRangePolicy['aiMode'],
   recentToFetch: number,
-  history: KbRangeCount | null
+  history: KbRangeCount | null,
+  /** Workspace / platform admins also read the money figure; agents never do. */
+  showMoney = false
 ): string => {
   if (aiMode === 'none') {
     return 'This workspace has no AI provider, so mining uses rule-based extraction — no AI tokens.';
@@ -211,7 +213,7 @@ export const costLine = (
   let line =
     `${lead}≈${num(est.estimatedTokens)} tokens${incompleteNote} for ${bound}${plural(est.threadsToMine, unit, `${unit}s`)} ` +
     `(${fetched}; ${num(est.tokensPerThread)} per ${unit}, measured on this workspace).`;
-  if (typeof est.estimatedMicros === 'number' && est.estimatedMicros > 0) {
+  if (showMoney && typeof est.estimatedMicros === 'number' && est.estimatedMicros > 0) {
     line += ` That is ${fmtMoney(est.estimatedMicros)} of AI.`;
   }
   if (est.daysAtLimit !== null) {
@@ -231,24 +233,27 @@ export const costLine = (
 
 export const allowanceLine = (
   allowance: {
-    bulkMicrosLeft: number | null;
-    estimatedMicros: number | null;
+    bulkMicrosLeft?: number | null;
+    estimatedMicros?: number | null;
     estimatedCalls?: number | null;
     short: boolean;
   },
   kbLimitReachedToday: boolean,
-  aiMode: KbRangePolicy['aiMode']
+  aiMode: KbRangePolicy['aiMode'],
+  showMoney = false
 ): string | null => {
   const parts: string[] = [];
-  if (aiMode !== 'none' && allowance.bulkMicrosLeft !== null) {
-    parts.push(
-      `${fmtMoney(allowance.bulkMicrosLeft)} of this month's AI allowance left for history import.`
-    );
+  // Money lines are for admins; a backend on the old `aiAllowance` shape sends no money fields.
+  const left = typeof allowance.bulkMicrosLeft === 'number' ? allowance.bulkMicrosLeft : null;
+  const needs = typeof allowance.estimatedMicros === 'number' ? allowance.estimatedMicros : null;
+  if (showMoney && aiMode !== 'none' && left !== null) {
+    parts.push(`${fmtMoney(left)} of this period's AI allowance left for history import.`);
   }
-  if (allowance.short && allowance.estimatedMicros !== null && allowance.bulkMicrosLeft !== null) {
+  if (allowance.short && left !== null && needs !== null) {
     parts.push(
-      `This read needs about ${fmtMoney(allowance.estimatedMicros)}, more than is left. ` +
-        'When it runs out, mining continues without AI (rule-based).'
+      showMoney
+        ? `This read needs about ${fmtMoney(needs)}, more than is left. When it runs out, mining continues without AI (rule-based).`
+        : "This read needs more than is left of this period's AI allowance. When it runs out, mining continues without AI (rule-based)."
     );
   }
   if (kbLimitReachedToday) {

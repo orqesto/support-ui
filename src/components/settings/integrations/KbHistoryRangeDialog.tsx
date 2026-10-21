@@ -16,6 +16,7 @@ import {
   countProgressText,
   type CountProgress,
 } from '@/services/countJobApi';
+import { usePermissions } from '@/hooks/usePermissions';
 import { integrationsService } from '@/services/integrations.service';
 import type { KbRangeApplied, KbRangeDryRun, KbRangePolicy } from '@/services/kbRangeTypes';
 import { useProcessingPanelStore } from '@/stores/processingPanelStore';
@@ -93,6 +94,8 @@ const defaultDays = (policy: KbRangePolicy, choices: Choice[]): number | null =>
 };
 
 export const KbHistoryRangeDialog = ({ source, onClose, onShowAlert, onApplied }: Props) => {
+  // Money (≈ $) is for workspace / platform admins; agents get the money-free sentences.
+  const { isOrgAdmin: showMoney } = usePermissions();
   const [policy, setPolicy] = useState<KbRangePolicy | null>(null);
   const [days, setDays] = useState<number | null>(null);
   const [result, setResult] = useState<KbRangeDryRun | null>(null);
@@ -251,8 +254,14 @@ export const KbHistoryRangeDialog = ({ source, onClose, onShowAlert, onApplied }
         ? notComparedLine(dryRun.history.notCompared)
         : null,
       recentLine(dryRun.recent, dryRun.days, dryRun.kbCutoff),
-      costLine(dryRun.estimate, dryRun.aiMode, dryRun.recent?.toFetch ?? 0, dryRun.history),
-      allowanceLine(dryRun.aiAllowance, dryRun.kbLimitReachedToday, dryRun.aiMode),
+      costLine(
+        dryRun.estimate,
+        dryRun.aiMode,
+        dryRun.recent?.toFetch ?? 0,
+        dryRun.history,
+        showMoney
+      ),
+      allowanceLine(dryRun.aiAllowance, dryRun.kbLimitReachedToday, dryRun.aiMode, showMoney),
       ...roomLines(dryRun.room, dryRun.history?.toFetch ?? 0, dryRun.history),
       f4Caveat(dryRun.type, dryRun.days, dryRun.openWindowDays),
     ].filter((line): line is string => Boolean(line));

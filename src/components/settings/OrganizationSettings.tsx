@@ -43,6 +43,8 @@ const ADMIN_ONLY_SECTIONS: OrgSection[] = [
   'business-hours',
   'open-conversations',
   'security',
+  // Money (≈ $) is for workspace / platform admins; the AI usage tab is all money.
+  'ai-usage',
 ];
 
 const KNOWN_ORG_SECTIONS = sections.map((sect) => sect.id);

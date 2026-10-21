@@ -100,7 +100,7 @@ describe('WorkspaceAiUsage', () => {
     expect(screen.getByText('≈ $10.00')).toBeInTheDocument();
     expect(screen.getByTestId('my-status')).toHaveTextContent('Running normally');
     expect(screen.getByTestId('group-status')).toHaveTextContent('Organisation running');
-    expect(screen.queryByLabelText('Monthly budget')).toBeNull();
+    expect(screen.queryByLabelText('Budget per billing period')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Send request' })).toBeNull();
     expect(screen.getByRole('switch', { name: /Limit it/ })).toBeDisabled();
   });
@@ -148,7 +148,7 @@ describe('WorkspaceAiUsage', () => {
       canEdit: { budget: true, bulk: true, request: true },
     });
     renderIt();
-    const input = await screen.findByLabelText('Monthly budget');
+    const input = await screen.findByLabelText('Budget per billing period');
     fireEvent.change(input, { target: { value: '150' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save budget' }));
     await waitFor(() => expect(calls.updateMyBudget).toEqual([{ budget: 150 * MLN }]));

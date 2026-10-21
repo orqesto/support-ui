@@ -340,8 +340,8 @@ export interface ManagedAiUsage {
        */
       providerRatesUnreadableOrgIds?: number[];
       /**
-       * AI calls to models with no known price: they are in the budgets as zero money, so the
-       * budgets under-count them. Absent on a backend that predates it.
+       * AI calls to models with no price set: the budgets count them at the highest known
+       * rate until a price is set, so spend may be over-counted. Absent on a backend that predates it.
        */
       unpricedCalls?: { calls: number; models: Array<{ model: string; calls: number }> };
     };

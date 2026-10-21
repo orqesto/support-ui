@@ -220,7 +220,7 @@ describe('the group page', () => {
       'Each workspace has its own AI allowance'
     );
     expect(screen.getByTestId('budget-readonly')).toBeInTheDocument();
-    expect(screen.queryByRole('spinbutton', { name: 'Monthly budget, dollars' })).toBeNull();
+    expect(screen.queryByRole('spinbutton', { name: 'Budget per billing period, dollars' })).toBeNull();
     expect(screen.getByRole('switch', { name: /Limit it/ })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Give extra to the whole organisation' })).toBeNull();
     // The rows keep their own controls.
@@ -233,7 +233,7 @@ describe('the group page', () => {
       canEdit: { budget: true, bulk: true, workspaceLimits: true, grant: true, mode: true },
     });
     renderGroup();
-    expect(await screen.findByRole('spinbutton', { name: 'Monthly budget, dollars' })).toBeVisible();
+    expect(await screen.findByRole('spinbutton', { name: 'Budget per billing period, dollars' })).toBeVisible();
     expect(screen.queryByTestId('budget-separate-note')).toBeNull();
     expect(screen.getByRole('switch', { name: /Limit it/ })).not.toBeDisabled();
     expect(
@@ -248,6 +248,36 @@ describe('the group page', () => {
     });
     renderGroup();
     expect(await screen.findByText('of its ≈ $50.00')).toBeInTheDocument();
+  });
+
+  it('a separate organisation: a workspace name links to its own budget page; the panel shows no organisation marker', async () => {
+    detail = groupDetail({
+      mode: { current: 'separate', next: null },
+      canEdit: { budget: true, bulk: true, workspaceLimits: true, grant: true, mode: true },
+      rows: [row(1, 30 * MLN, { budget: 50 * MLN })],
+    });
+    renderGroup();
+    const link = await screen.findByRole('link', { name: 'Shop 1' });
+    expect(link).toHaveAttribute('href', '/console/platform/ai-spend/groups/w%3A1');
+    expect(screen.getByTestId('budget-separate-note')).toHaveTextContent(
+      "click the workspace's name in the list"
+    );
+    // Opening the row: the organisation's bulk % is not the workspace's own, so no tick is drawn.
+    fireEvent.click(screen.getByRole('button', { name: /Shop 1/ }));
+    await screen.findByRole('slider', { name: /Limit for Shop 1/ });
+    expect(screen.queryByTitle('Organisation: bulk limit')).toBeNull();
+  });
+
+  it('a shared organisation keeps the organisation marker in the row panel and no name link', async () => {
+    detail = groupDetail({
+      mode: { current: 'shared', next: null },
+      rows: [row(1, 30 * MLN)],
+    });
+    renderGroup();
+    fireEvent.click(await screen.findByRole('button', { name: /Shop 1/ }));
+    await screen.findByRole('slider', { name: /Limit for Shop 1/ });
+    expect(screen.queryByRole('link', { name: 'Shop 1' })).toBeNull();
+    expect(screen.getByTitle('Organisation: bulk limit')).toBeInTheDocument();
   });
 
   it('bulk limit off ⇒ the warn line from the API; the field keeps its place', async () => {
@@ -384,7 +414,7 @@ describe('the group page', () => {
     fireEvent.click(await screen.findByText('Shop 1'));
     const slider = screen.getByRole('slider', { name: 'Limit for Shop 1, dollars' });
     expect(Number(slider.getAttribute('max'))).toBeGreaterThanOrEqual(10);
-    fireEvent.click(screen.getByRole('switch', { name: 'At most per month' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'At most per billing period' }));
     fireEvent.change(slider, { target: { value: '40' } });
     expect(screen.queryByText(/% of the budget/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Set limit' }));
@@ -406,7 +436,7 @@ describe('the group page', () => {
 
   it('a typed budget is saved in micros', async () => {
     renderGroup();
-    fireEvent.change(await screen.findByLabelText('Monthly budget'), { target: { value: '120' } });
+    fireEvent.change(await screen.findByLabelText('Budget per billing period'), { target: { value: '120' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save budget' }));
     await waitFor(() => expect(calls.updateGroup).toEqual([['a:7', { budget: 120 * MLN }]]));
   });
@@ -416,9 +446,9 @@ describe('the group page', () => {
     detail = groupDetail({ budget: 14_900_000, budgetSource: 'plans' });
     renderGroup();
     expect(await screen.findByText('From plans: ≈ $14.90')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Monthly budget')).toBeNull();
+    expect(screen.queryByLabelText('Budget per billing period')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Override' }));
-    expect(screen.getByLabelText('Monthly budget')).toHaveValue(14.9);
+    expect(screen.getByLabelText('Budget per billing period')).toHaveValue(14.9);
   });
 
   it('self-hosted standalone on the default budget: says so, and Override opens the field', async () => {
@@ -431,9 +461,9 @@ describe('the group page', () => {
     });
     renderGroup();
     expect(await screen.findByText('Default for standalone workspaces: ≈ $40.00')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Monthly budget')).toBeNull();
+    expect(screen.queryByLabelText('Budget per billing period')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Override' }));
-    fireEvent.change(screen.getByLabelText('Monthly budget'), { target: { value: '55' } });
+    fireEvent.change(screen.getByLabelText('Budget per billing period'), { target: { value: '55' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save budget' }));
     await waitFor(() => expect(calls.updateGroup).toEqual([['a:7', { budget: 55 * MLN }]]));
   });
@@ -462,7 +492,7 @@ describe('BudgetGroupView, organisation mode', () => {
         <BudgetGroupView detail={view} canEdit={view.canEdit} mode="organisation" />
       </MemoryRouter>
     );
-    expect(screen.queryByLabelText('Monthly budget')).toBeNull();
+    expect(screen.queryByLabelText('Budget per billing period')).toBeNull();
     expect(screen.getByTestId('budget-readonly')).toHaveTextContent('≈ $100.00');
     expect(
       screen.queryByRole('button', { name: 'Give extra to the whole organisation' })
@@ -482,7 +512,7 @@ describe('BudgetGroupView, organisation mode', () => {
         <BudgetGroupView detail={view} canEdit={view.canEdit} mode="organisation" />
       </MemoryRouter>
     );
-    expect(screen.queryByLabelText('Monthly budget')).toBeNull();
+    expect(screen.queryByLabelText('Budget per billing period')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Save budget' })).toBeNull();
     expect(screen.getByTestId('budget-readonly')).toHaveTextContent('≈ $100.00');
   });

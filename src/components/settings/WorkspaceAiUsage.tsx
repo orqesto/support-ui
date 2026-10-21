@@ -117,7 +117,7 @@ export const WorkspaceAiUsage = () => {
               </span>
             </div>
             <div className="flex flex-col gap-1.5">
-              <FieldLabel>Its bulk spend this month</FieldLabel>
+              <FieldLabel>Its bulk spend this period</FieldLabel>
               <span className="font-mono text-lg" data-testid="my-bulk-spend">
                 {fmtMoney(data.myBulkSpend)}
               </span>

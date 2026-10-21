@@ -11,6 +11,7 @@ import type {
 } from '@/services/kbRangeTypes';
 import type { AlertState } from '@/components/settings/integrations/types';
 import { useProcessingPanelStore } from '@/stores/processingPanelStore';
+import { useAuthStore } from '@/stores/authStore';
 
 /** Plain functions, not module-level vi.fn (a rejection from one fails the test even when caught). */
 let handler: (id: number, body: KbRangeRequest) => Promise<KbRangeResult> = () =>
@@ -648,12 +649,24 @@ describe('KbHistoryRangeDialog', () => {
       policy(),
       dry({ days: 0, aiAllowance: { bulkMicrosLeft: 3_200_000, estimatedMicros: 9_000_000, estimatedCalls: 360, short: true } })
     );
+    useAuthStore.setState({
+      user: { role: 'user', organizationRole: 'org_admin' } as never,
+    });
     mount();
     await ready();
     selectDays('0');
     check();
     await screen.findByText(/Also re-checks mail since the cutoff/);
-    expect(screen.getByText(/≈ \$3\.20 of this month's AI allowance left for history import/)).toBeTruthy();
+    expect(screen.getByText(/≈ \$3\.20 of this period's AI allowance left for history import/)).toBeTruthy();
+    cleanup();
+    // An agent reads the same dialog without a dollar sign.
+    useAuthStore.setState({ user: { role: 'user', organizationRole: 'support' } as never });
+    mount();
+    await ready();
+    selectDays('0');
+    check();
+    await screen.findByText(/more than is left of this period's AI allowance/);
+    expect(screen.queryByText(/\$/)).toBeNull();
     cleanup();
     handler = defaultHandler(
       policy({

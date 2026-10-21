@@ -6,7 +6,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { subscriptionService } from '@/services/subscription.service';
 import { AiPausedBanner } from '@/components/subscription/AiPausedBanner';
 import { useAuthStore } from '@/stores/authStore';
-import { Permission } from '@/types/roles';
+import { isOrgAdminOrHigher, Permission } from '@/types/roles';
 
 /**
  * Shown to every member once the workspace has used its message allowance for the
@@ -52,7 +52,7 @@ export const MessageCapBanner = () => {
       <AiPausedBanner
         ai={usage.ai}
         canOpenSubscription={canOpenSubscription}
-        isAdmin={user?.role === 'admin'}
+        isAdmin={!!user && isOrgAdminOrHigher(user.role, user.organizationRole)}
         packAction={
           packOnOffer ? (
             <Link to="/subscription" className="font-medium text-primary hover:underline">

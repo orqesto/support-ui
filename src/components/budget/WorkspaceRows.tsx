@@ -1,4 +1,5 @@
 import type { KeyboardEvent, ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,8 @@ export type WorkspaceRowsProps = {
    * only on a row the API marks `bulkPaused` (its bulk work is stopped and no extra is left).
    */
   onGiveSuggested?: (row: WorkspaceRow) => void;
+  /** Where a workspace's own budget page is; when given, its name links there. */
+  workspacePath?: (organizationId: number) => string;
   /** A write is on its way: the one-click give is disabled (no double give on a double click). */
   busy?: boolean;
 };
@@ -43,6 +46,7 @@ export const WorkspaceRows = ({
   renderPanel,
   onGiveSuggested,
   busy = false,
+  workspacePath,
 }: WorkspaceRowsProps) => {
   // Row bars are relative: the biggest workspace fills its bar.
   const biggest = Math.max(1, ...rows.map((row) => row.spend.total + (row.extra?.usedMicros ?? 0)));
@@ -88,7 +92,20 @@ export const WorkspaceRows = ({
                 )}
               >
                 <div className="min-w-0">
-                  <div className="font-semibold truncate">{row.name}</div>
+                  <div className="font-semibold truncate">
+                    {workspacePath ? (
+                      <Link
+                        to={workspacePath(id)}
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => event.stopPropagation()}
+                        className="text-primary hover:underline"
+                      >
+                        {row.name}
+                      </Link>
+                    ) : (
+                      row.name
+                    )}
+                  </div>
                   <div
                     className="flex overflow-hidden mt-1 h-1.5 rounded-full bg-muted"
                     title="Relative to the biggest workspace"

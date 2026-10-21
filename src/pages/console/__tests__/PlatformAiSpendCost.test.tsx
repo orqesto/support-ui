@@ -165,8 +165,10 @@ describe('calls to models with no known price (the budgets count them as $0)', (
     });
     renderPage();
     const warning = await screen.findByTestId('unpriced-models-warning');
-    expect(warning).toHaveTextContent('7 AI calls used 2 models with no known price');
-    expect(warning).toHaveTextContent('mystery-model (5), other-model (2)');
+    expect(warning).toHaveTextContent(
+      '7 calls used a model with no price set (models: mystery-model (5), other-model (2)). They are counted at the highest known rate until a price is set, so spend may be over-counted.'
+    );
+    expect(warning).not.toHaveTextContent(/\$0|under-count/);
   });
 
   it('says nothing when none are unpriced, or the backend does not report it', async () => {

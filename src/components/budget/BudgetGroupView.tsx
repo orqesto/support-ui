@@ -74,6 +74,8 @@ export type BudgetGroupViewProps = {
   ) => void | Promise<boolean>;
   /** Change the organisation's AI mode (shown when the API says `canEdit.mode`). Answers whether it was saved. */
   onSetMode?: (mode: OrganisationMode) => void | Promise<boolean>;
+  /** Where a workspace's own budget page is (the platform console); omit where there is none. */
+  workspacePath?: (organizationId: number) => string;
 };
 
 const MODE_OPTIONS: Array<{ value: OrganisationMode; label: string }> = [
@@ -150,11 +152,11 @@ export const BudgetField = ({
   if (!canEdit)
     return (
       <div className="flex flex-col gap-1.5">
-        <FieldLabel>Monthly budget</FieldLabel>
+        <FieldLabel>Budget per billing period</FieldLabel>
         <span className="font-mono text-lg" data-testid="budget-readonly">
           {detail.budget === null
             ? 'No budget set'
-            : `${fmtMoney(detail.budget)} / month`}
+            : `${fmtMoney(detail.budget)} / billing period`}
         </span>
       </div>
     );
@@ -164,7 +166,7 @@ export const BudgetField = ({
   if (inherited && !overriding)
     return (
       <div className="flex flex-col gap-1.5">
-        <FieldLabel>Monthly budget</FieldLabel>
+        <FieldLabel>Budget per billing period</FieldLabel>
         <div className="flex flex-wrap gap-2.5 items-center">
           <span className="font-mono text-lg">
             {`${detail.budgetSource === 'plans' ? 'From plans' : 'Default for standalone workspaces'}: ${
@@ -192,14 +194,14 @@ export const BudgetField = ({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <FieldLabel htmlFor={inputId}>Monthly budget</FieldLabel>
+      <FieldLabel htmlFor={inputId}>Budget per billing period</FieldLabel>
       <div className="flex flex-wrap gap-2.5 items-center">
         <Input
           id={inputId}
           type="number"
           min={0}
           step="0.01"
-          aria-label="Monthly budget, dollars"
+          aria-label="Budget per billing period, dollars"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
@@ -207,7 +209,7 @@ export const BudgetField = ({
           }}
           className="w-28 font-mono text-lg"
         />
-        <span className="text-sm text-muted-foreground">US dollars per month</span>
+        <span className="text-sm text-muted-foreground">US dollars per billing period</span>
         {changed && (
           <Button size="sm" disabled={busy} onClick={save}>
             Save budget
@@ -242,7 +244,10 @@ const WorkspacePanel = ({
   onGiveExtra,
   onEndExtra,
   onClose,
+  separate,
 }: {
+  /** A `separate` organisation: the workspace has its own group, whose bulk % the row does not carry. */
+  separate: boolean;
   row: WorkspaceRow;
   detail: GroupDetail;
   canEdit: CanEdit;
@@ -290,7 +295,7 @@ const WorkspacePanel = ({
                   setLimitOn(on);
                   if (!on && row.bulkLimit !== null) onSetLimits?.([row.organizationId], null);
                 }}
-                label="At most per month"
+                label="At most per billing period"
               />
               <span className="font-mono text-lg">
                 {!limitOn
@@ -309,7 +314,7 @@ const WorkspacePanel = ({
                 ariaLabel={`Limit for ${row.name}, dollars`}
                 ariaValueText={fmtMoney(draft * MICROS_PER_USD)}
                 markers={
-                  detail.bulkLimitOn && rowBudget ? (
+                  !separate && detail.bulkLimitOn && rowBudget ? (
                     <BarMarker
                       at={Math.min(100, (rowBudget * detail.bulkPct) / (top * MICROS_PER_USD))}
                       variant="tick"
@@ -387,6 +392,7 @@ export const BudgetGroupView = ({
   onEndExtra,
   onRequestExtra,
   onSetMode,
+  workspacePath,
 }: BudgetGroupViewProps) => {
   // Only the platform admin gives extra, and the budget is never set from the organisation console
   // (its PUT takes no budget): there the platform admin, too, gets neither control.
@@ -490,8 +496,11 @@ export const BudgetGroupView = ({
           />
           {separate && (
             <p className="text-sm text-muted-foreground" data-testid="budget-separate-note">
-              Each workspace has its own AI allowance — change it on the workspace&apos;s row or
-              page. The figures above are the sum of the workspaces.
+              Each workspace has its own AI allowance.{' '}
+              {workspacePath
+                ? "To change one, click the workspace's name in the list to open its own budget page."
+                : "Change it on the workspace's row."}{' '}
+              The figures above are the sum of the workspaces.
             </p>
           )}
           {detail.kind === 'alliance' &&
@@ -606,6 +615,7 @@ export const BudgetGroupView = ({
           <WorkspaceRows
             rows={visible}
             groupTotal={detail.spend.total}
+            workspacePath={separate ? workspacePath : undefined}
             openId={openId}
             onToggleOpen={(id) => setOpenId((current) => (current === id ? null : id))}
             busy={busy}
@@ -633,6 +643,7 @@ export const BudgetGroupView = ({
                 onGiveExtra={onGiveExtra}
                 onEndExtra={onEndExtra}
                 onClose={() => setOpenId(null)}
+                separate={separate}
               />
             )}
             onGiveSuggested={

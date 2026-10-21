@@ -124,7 +124,7 @@ export const PricingPage = () => {
   const basePlans = selectable.filter((plan) => plan.planType === 'base');
   const enterpriseAll = selectable.filter((plan) => plan.planType === 'enterprise');
   const adminPlans = isGlobalAdmin ? enterpriseAll.filter((plan) => plan.name === 'admin') : [];
-  const enterprisePlans = selfHosted ? [] : enterpriseAll.filter((plan) => (isGlobalAdmin ? plan.name !== 'admin' : plan.name === 'enterprise-cloud'));
+  const enterprisePlans = selfHosted ? [] : enterpriseAll.filter((plan) => plan.name === 'enterprise-cloud');
 
   if (loading) {
     return <Layout><div className="flex justify-center items-center h-64"><div className="text-muted-foreground">Loading pricing...</div></div></Layout>;

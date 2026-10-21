@@ -422,14 +422,13 @@ export const PlatformAiSpend = () => {
           {unpricedCalls && unpricedCalls.calls > 0 && (
             <Alert variant="warning">
               <p data-testid="unpriced-models-warning" className="text-sm">
-                {unpricedCalls.calls.toLocaleString()} AI call{unpricedCalls.calls === 1 ? '' : 's'}{' '}
-                used {unpricedCalls.models.length} model{unpricedCalls.models.length === 1 ? '' : 's'}{' '}
-                with no known price, so the budgets count{' '}
-                {unpricedCalls.calls === 1 ? 'it' : 'them'} as $0 and under-count the real spend:{' '}
+                {unpricedCalls.calls.toLocaleString()} call{unpricedCalls.calls === 1 ? '' : 's'}{' '}
+                used a model with no price set (models:{' '}
                 {unpricedCalls.models
                   .map((entry) => `${entry.model} (${entry.calls.toLocaleString()})`)
                   .join(', ')}
-                . Add a price for {unpricedCalls.models.length === 1 ? 'it' : 'each'} to fix this.
+                ). {unpricedCalls.calls === 1 ? 'It is' : 'They are'} counted at the highest known
+                rate until a price is set, so spend may be over-counted.
               </p>
             </Alert>
           )}

@@ -19,6 +19,7 @@ import {
   fetchAllOrganizationsUsage,
   formatCurrency,
   getPlanTypeBadgeColor,
+  AiCallsCell,
   getUsageBadge,
   statusBadgeVariant,
   type OrganizationUsage,
@@ -37,6 +38,7 @@ import { Select, type Option } from '@/components/ui/Select';
 import { Label } from '@/components/ui/Label';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { Pagination } from '@/components/ui/Pagination';
+import { loadAiStatus } from '@/components/subscription/aiStatus';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 import { OrgLimitOverridesSection } from './OrgLimitOverridesSection';
@@ -90,6 +92,14 @@ export const AdminUsageTab = () => {
 
   const refreshOrgs = useCallback(async () => {
     setOrganizations(await fetchAllOrganizationsUsage());
+  }, []);
+
+  // Before the money budgets are applied the old monthly AI-call cap still refuses work, so the
+  // AI-call column keeps its limit (platform-wide switch; the answer for this session's workspace).
+  const [budgetsActive, setBudgetsActive] = useState(false);
+
+  useEffect(() => {
+    void loadAiStatus().then((ai) => setBudgetsActive(ai?.active === true));
   }, []);
 
   useEffect(() => {
@@ -216,10 +226,12 @@ export const AdminUsageTab = () => {
       (usageFilter === 'at_risk'
         ? org.usage.users.warning ||
           org.usage.integrations.warning ||
-          org.usage.messagesThisMonth.warning
+          org.usage.messagesThisMonth.warning ||
+          (!budgetsActive && org.usage.aiCalls.warning)
         : org.usage.users.critical ||
           org.usage.integrations.critical ||
-          org.usage.messagesThisMonth.critical);
+          org.usage.messagesThisMonth.critical ||
+          (!budgetsActive && org.usage.aiCalls.critical));
     return matchesSearch && matchesPlan && matchesStatus && matchesUsage;
   });
 
@@ -232,14 +244,16 @@ export const AdminUsageTab = () => {
     (org) =>
       org.usage.users.warning ||
       org.usage.integrations.warning ||
-      org.usage.messagesThisMonth.warning
+      org.usage.messagesThisMonth.warning ||
+      (!budgetsActive && org.usage.aiCalls.warning)
   ).length;
 
   const overLimitCount = organizations.filter(
     (org) =>
       org.usage.users.critical ||
       org.usage.integrations.critical ||
-      org.usage.messagesThisMonth.critical
+      org.usage.messagesThisMonth.critical ||
+      (!budgetsActive && org.usage.aiCalls.critical)
   ).length;
 
   const planOptions: Option[] = [
@@ -361,7 +375,7 @@ export const AdminUsageTab = () => {
                 </th>
                 <th className="hidden px-3 py-2 text-sm font-medium text-center md:table-cell">
                   <div className="flex gap-1 justify-center items-center">
-                    <Zap className="w-4 h-4" /> AI calls (count)
+                    <Zap className="w-4 h-4" /> {budgetsActive ? 'AI calls (count)' : 'AI Calls'}
                   </div>
                 </th>
                 <th
@@ -452,9 +466,7 @@ export const AdminUsageTab = () => {
                         )}
                       </td>
                       <td className="hidden px-3 py-2 text-center md:table-cell">
-                        <span className="font-mono text-sm" data-testid="ai-calls-count">
-                          {org.usage.aiCalls.current.toLocaleString()}
-                        </span>
+                        <AiCallsCell aiCalls={org.usage.aiCalls} budgetsActive={budgetsActive} />
                       </td>
                       <td className="px-3 py-2">
                         <div className="space-y-1">
@@ -643,7 +655,7 @@ export const AdminUsageTab = () => {
 
                             <OrgLimitOverridesSection orgId={org.id} />
 
-                            <OrgAiUsageSection aiCalls={org.usage.aiCalls} />
+                            <OrgAiUsageSection aiCalls={org.usage.aiCalls} budgetsActive={budgetsActive} />
                           </div>
                         </td>
                       </tr>

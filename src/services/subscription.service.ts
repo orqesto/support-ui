@@ -188,7 +188,10 @@ export type PlanLimitValues = {
   maxOrganizations: number;
   maxIntegrations: number;
   maxMessagesPerMonth: number;
-  /** Not sent by the subscription API any more (a statistic); plan editors still write it. */
+  /**
+   * Not sent by the subscription dashboard/current routes any more; plan editors still write it
+   * (before the money budgets are applied it is the old monthly AI-call cap, after that a statistic).
+   */
   maxAICallsPerMonth?: number;
   maxStorageMb: number;
   maxAutoRepliesPerMonth: number;

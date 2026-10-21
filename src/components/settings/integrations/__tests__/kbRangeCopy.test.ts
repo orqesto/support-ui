@@ -120,8 +120,12 @@ describe('kbRangeCopy', () => {
   });
 
   it('the estimate line adds the money when the server prices the read', () => {
-    expect(costLine(estimate({ estimatedMicros: 1_200_000 }), 'managed', 0, count())).toContain(
-      'That is ≈ $1.20 of AI.'
+    expect(
+      costLine(estimate({ estimatedMicros: 1_200_000 }), 'managed', 0, count(), true)
+    ).toContain('That is ≈ $1.20 of AI.');
+    // agents never read the money
+    expect(costLine(estimate({ estimatedMicros: 1_200_000 }), 'managed', 0, count())).not.toMatch(
+      /\$/
     );
   });
 
@@ -133,9 +137,10 @@ describe('kbRangeCopy', () => {
     const allowance = allowanceLine(
       { bulkMicrosLeft: 3_200_000, estimatedMicros: 5_000_000, estimatedCalls: 130, short: true },
       false,
-      'managed'
+      'managed',
+      true
     );
-    expect(allowance).toContain("≈ $3.20 of this month's AI allowance left for history import.");
+    expect(allowance).toContain("≈ $3.20 of this period's AI allowance left for history import.");
     expect(allowance).toContain(
       'This read needs about ≈ $5.00, more than is left. When it runs out, mining continues without AI (rule-based).'
     );

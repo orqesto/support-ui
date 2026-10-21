@@ -123,7 +123,7 @@ export type GroupDetail = GroupSummary & {
   requests: RequestRow[];
   /** 'YYYY-MM' (UTC). */
   month: string;
-  /** The 1st of next month, 00:00 UTC. */
+  /** The start of the next billing period, UTC. */
   resetsAt: string;
   bulkPctMin: number;
   bulkPctMax: number;
@@ -320,12 +320,29 @@ const isOldServerUsageAnswer = (error: unknown): boolean => {
   return false;
 };
 
+/**
+ * A payload that is not in US dollars comes from a token-era backend: its amounts are tokens, and
+ * rendering them as dollars would be wrong by orders of magnitude. Treated as unavailable.
+ */
+const isUsd = (payload: { currency?: unknown } | null | undefined): boolean =>
+  payload?.currency === 'USD';
+
+/** An active payload without `currency: 'USD'` is a token-era backend's: same as not switched on. */
+const inactiveUnlessUsd = <T extends { active: boolean; currency?: unknown }>(
+  payload: T | BudgetsInactive
+): T | BudgetsInactive =>
+  payload.active === true && !isUsd(payload as { currency?: unknown })
+    ? { active: false }
+    : payload;
+
 export const budgetsService = {
   // ---- platform admin ----
   getState: async (): Promise<BudgetStateResult> => {
     try {
       const response = await apiClient.get<Envelope<BudgetState>>(`${base}/state`);
-      return { available: true, state: unwrap(response) };
+      const state = unwrap(response);
+      if (!isUsd(state)) return { available: false };
+      return { available: true, state };
     } catch (error) {
       if (getErrorStatus(error) === 404) return { available: false };
       throw error;
@@ -383,7 +400,9 @@ export const budgetsService = {
 
   // ---- organisation admin (the api-client adds X-Alliance-Context itself) ----
   getAllianceBudget: async (allianceId: number): Promise<GroupDetail | BudgetsInactive> =>
-    unwrap(await apiClient.get<Envelope<GroupDetail | BudgetsInactive>>(alliancePath(allianceId))),
+    inactiveUnlessUsd(
+      unwrap(await apiClient.get<Envelope<GroupDetail | BudgetsInactive>>(alliancePath(allianceId)))
+    ),
 
   updateAllianceBudget: async (
     allianceId: number,
@@ -420,7 +439,9 @@ export const budgetsService = {
   /** An old backend's answer (see isOldServerUsageAnswer) is `{ active: false }`, not an error. */
   getMyAiUsage: async (): Promise<WorkspaceUsage | BudgetsInactive> => {
     try {
-      return unwrap(await apiClient.get<Envelope<WorkspaceUsage | BudgetsInactive>>(usagePath));
+      return inactiveUnlessUsd(
+        unwrap(await apiClient.get<Envelope<WorkspaceUsage | BudgetsInactive>>(usagePath))
+      );
     } catch (error) {
       if (isOldServerUsageAnswer(error)) return { active: false };
       throw error;

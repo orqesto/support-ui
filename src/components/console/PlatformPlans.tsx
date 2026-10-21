@@ -29,6 +29,7 @@ import {
 } from '@/hooks/usePlatformAdmin';
 import { useBudgetState } from '@/hooks/useBudgets';
 import { fmtMoney } from '@/components/budget/budget.rules';
+import { planHasManagedAi } from '@/components/pricing/PricingPlanCard';
 import { logger } from '@/lib/logger';
 import {
   PLAN_TYPE_OPTIONS,
@@ -298,7 +299,9 @@ export const PlatformPlans = () => {
               <strong className="text-foreground">{plan.limits.maxIntegrations}</strong>{' '}
               integrations
             </p>
-            {microsPerMessage !== null && plan.limits.maxMessagesPerMonth ? (
+            {microsPerMessage !== null &&
+            planHasManagedAi(plan) &&
+            plan.limits.maxMessagesPerMonth ? (
               <p data-testid={`plan-ai-money-${plan.id}`}>
                 AI included, about{' '}
                 <strong className="font-mono text-foreground">
