@@ -34,6 +34,7 @@ import { SLABreachItem } from '@/components/layout/SLABreachItem';
 import { WorkAlertsSection } from '@/components/layout/WorkAlertsSection';
 import { KbReviewSection } from '@/components/layout/KbReviewSection';
 import { UnansweredOutboundSection } from '@/components/layout/UnansweredOutboundSection';
+import { suggestionHome } from '@/lib/suggestionHome';
 import { notificationPanelPosition, type PanelPosition } from './notificationPanelPosition';
 
 // Notification Center (P3 + P4): one bell that unifies every notification surface —
@@ -653,7 +654,12 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => goToAiSettings(sug.id)}
+                          onClick={() => {
+                            // Decided in the feature it belongs to; Learning activity only for the rest.
+                            const home = suggestionHome(sug);
+                            if (home) navigate(home.href);
+                            else goToAiSettings(sug.id);
+                          }}
                           className="flex gap-2 items-start p-2 w-full h-auto text-sm text-left rounded border bg-warning-muted border-warning-line hover:bg-warning-muted"
                         >
                           <Lightbulb className="mt-0.5 w-3.5 h-3.5 shrink-0 text-warning" />

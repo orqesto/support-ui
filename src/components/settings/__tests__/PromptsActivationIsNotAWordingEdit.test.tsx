@@ -21,6 +21,7 @@ vi.mock('@/services/settings.service', () => ({
     createPromptTemplate: vi.fn(),
   },
 }));
+vi.mock('../FeatureSuggestions', () => ({ FeatureSuggestions: () => null }));
 vi.mock('@/components/admin/DepartmentBadge', () => ({ default: () => null }));
 
 const TEMPLATE = {

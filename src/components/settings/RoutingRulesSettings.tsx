@@ -18,6 +18,7 @@ import {
   type RoutingRuleType,
 } from '@/services/routingRule.service';
 import { AcceptFromRulesDialog, RoutingRuleLifecycleBadges } from './RoutingRuleLifecycleBadges';
+import { FeatureSuggestions } from './FeatureSuggestions';
 import {
   RULE_FILTERS,
   RULE_FILTER_LABEL,
@@ -322,6 +323,13 @@ export const RoutingRulesSettings = () => {
 
   return (
     <div className="space-y-4">
+      {/* A proposed rule (propose_rule) is decided by switching its dormant row on — not here. */}
+      <FeatureSuggestions
+        domains={['routing']}
+        excludeTypes={['propose_rule']}
+        title="Suggestions"
+        description="Routing questions the engine could not settle on its own, and learned rules waiting for you to keep or drop them."
+      />
       <div className="rounded-lg border border-border bg-card p-4">
         <h3 className="font-display text-sm font-semibold text-foreground">Default department</h3>
         <p className="mt-1 mb-3 text-xs text-muted-foreground">

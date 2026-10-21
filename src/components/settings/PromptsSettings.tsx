@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { settingsService, type PromptTemplate } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
+import { FeatureSuggestions } from './FeatureSuggestions';
 
 export const PromptsSettings = () => {
   const [prompts, setPrompts] = useState<PromptTemplate[]>([]);
@@ -107,6 +108,13 @@ export const PromptsSettings = () => {
           Add Prompt
         </Button>
       </div>
+
+      <FeatureSuggestions
+        domains={['reply_style']}
+        types={['reply_style.update']}
+        title="Suggested house style"
+        description="The engine noticed how your team edits AI drafts. Accepting makes this the house style for every AI-drafted reply."
+      />
 
       {/* Info Banner */}
       <div className="p-4 rounded-lg border bg-muted dark:bg-muted border-border">

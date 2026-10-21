@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Brain } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import { prettifyRulePattern } from '@/lib/prettifyRulePattern';
+import { FeatureSuggestions } from './FeatureSuggestions';
 import { RuleEditor } from '@/components/shared/RuleEditor';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -94,6 +95,12 @@ export const DetectionRulesSettings = () => {
   });
 
   return (
+    <div className="space-y-6">
+      <FeatureSuggestions
+        domains={['detection']}
+        title="Suggestions"
+        description="Detection rules the engine suggests promoting or reconciling. Accept applies the change; Decline stops it coming back."
+      />
     <RuleEditor<DetectionRule, DetectionRuleFormData>
       {...ruleManagement}
       rules={filteredRules}
@@ -254,5 +261,6 @@ export const DetectionRulesSettings = () => {
       isSaveDisabled={(formData) => !formData.name || !formData.description}
       onToggleActive={toggleActive}
     />
+    </div>
   );
 };

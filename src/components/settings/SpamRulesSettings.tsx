@@ -11,6 +11,7 @@ import { useRuleManagement } from '@/hooks/useRuleManagement';
 import { settingsService, type SpamRule } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
 import { prettifyRulePattern } from '@/lib/prettifyRulePattern';
+import { FeatureSuggestions } from './FeatureSuggestions';
 import {
   MATCH_FIELD_OPTIONS,
   categoryLabel,
@@ -64,6 +65,12 @@ export const SpamRulesSettings = () => {
   });
 
   return (
+    <div className="space-y-6">
+      <FeatureSuggestions
+        domains={['spam']}
+        title="Suggestions"
+        description="Rules the engine suggests adding, promoting or reconciling from how your team handles spam. Accept applies the change; Decline stops it coming back."
+      />
     <RuleEditor<SpamRule, SpamRuleFormData>
       {...ruleManagement}
       rules={filteredRules}
@@ -314,5 +321,6 @@ export const SpamRulesSettings = () => {
           : undefined
       }
     />
+    </div>
   );
 };
