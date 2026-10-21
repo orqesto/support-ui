@@ -53,11 +53,13 @@ describe('formatting', () => {
     expect(fmtMoney(28 * USD)).toBe('≈ $28.00');
     expect(fmtMoney(1_234_500_000)).toBe('≈ $1,234.50');
     expect(fmtMoney(10_000)).toBe('≈ $0.01');
+    expect(fmtMoney(5_000)).toBe('≈ $0.01');
+    expect(fmtMoney(-100)).toBe('≈ $0.00');
   });
 
   it('fmtMoney says "<$0.01" for a tiny positive amount, never "$0.00"', () => {
     expect(fmtMoney(1)).toBe('<$0.01');
-    expect(fmtMoney(9_999)).toBe('<$0.01');
+    expect(fmtMoney(4_999)).toBe('<$0.01');
   });
 
   it('parseDollars turns typed dollars into micros', () => {
@@ -120,6 +122,21 @@ describe('ModeField', () => {
     render(<ModeField mode={mode} canEdit onSetMode={onSetMode} />);
     await chooseOption(screen.getByLabelText('How workspaces share AI'), /^Shared/);
     expect(onSetMode).toHaveBeenCalledWith('shared');
+  });
+
+  it('a queued change can be cancelled: picking the mode in force sends it', async () => {
+    const onSetMode = vi.fn();
+    render(
+      <ModeField
+        mode={{ current: 'separate', next: { mode: 'shared', from: '2026-11-01T00:00:00.000Z' } }}
+        canEdit
+        onSetMode={onSetMode}
+      />
+    );
+    // The select shows the queued choice, not the mode in force.
+    expect(screen.getByText(/^Shared/)).toBeInTheDocument();
+    await chooseOption(screen.getByLabelText('How workspaces share AI'), /^Separate/);
+    expect(onSetMode).toHaveBeenCalledWith('separate');
   });
 
   it('is plain text without edit rights and shows a pending change', () => {

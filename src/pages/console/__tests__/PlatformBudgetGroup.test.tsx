@@ -197,15 +197,48 @@ describe('the group page', () => {
     expect(screen.getByRole('heading', { name: 'Northwind' })).toBeInTheDocument();
   });
 
-  it('a platform admin changes an organisation’s mode; a pending change is shown', async () => {
+  it('a platform admin changes an organisation’s mode; a pending change is shown and can be cancelled', async () => {
     detail = groupDetail({
       mode: { current: 'separate', next: { mode: 'shared', from: '2026-11-01T00:00:00.000Z' } },
       canEdit: { budget: true, bulk: true, workspaceLimits: true, grant: true, mode: true },
     });
     renderGroup();
     expect(await screen.findByTestId('budget-mode-next')).toHaveTextContent('Changes to shared');
-    await chooseOption(screen.getByLabelText('How workspaces share AI'), /^Shared/);
-    await waitFor(() => expect(calls.setGroupMode).toEqual([['a:7', 'shared']]));
+    // Picking the mode in force again cancels the queued change.
+    await chooseOption(screen.getByLabelText('How workspaces share AI'), /^Separate/);
+    await waitFor(() => expect(calls.setGroupMode).toEqual([['a:7', 'separate']]));
+  });
+
+  it('a separate organisation: group-level budget, bulk line, extra and request are read-only', async () => {
+    detail = groupDetail({
+      mode: { current: 'separate', next: null },
+      groupExtra: null,
+      canEdit: { budget: true, bulk: true, workspaceLimits: true, grant: true, mode: true },
+    });
+    renderGroup();
+    expect(await screen.findByTestId('budget-separate-note')).toHaveTextContent(
+      'Each workspace has its own AI allowance'
+    );
+    expect(screen.getByTestId('budget-readonly')).toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton', { name: 'Monthly budget, dollars' })).toBeNull();
+    expect(screen.getByRole('switch', { name: /Limit it/ })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Give extra to the whole organisation' })).toBeNull();
+    // The rows keep their own controls.
+    expect(screen.getByRole('checkbox', { name: 'Select Shop 1' })).toBeInTheDocument();
+  });
+
+  it('a shared organisation keeps the group-level controls', async () => {
+    detail = groupDetail({
+      mode: { current: 'shared', next: null },
+      canEdit: { budget: true, bulk: true, workspaceLimits: true, grant: true, mode: true },
+    });
+    renderGroup();
+    expect(await screen.findByRole('spinbutton', { name: 'Monthly budget, dollars' })).toBeVisible();
+    expect(screen.queryByTestId('budget-separate-note')).toBeNull();
+    expect(screen.getByRole('switch', { name: /Limit it/ })).not.toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Give extra to the whole organisation' })
+    ).toBeInTheDocument();
   });
 
   it('a separate organisation: each workspace row shows its own budget', async () => {

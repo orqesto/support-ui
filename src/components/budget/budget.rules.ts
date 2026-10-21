@@ -59,16 +59,19 @@ export const limitSliderTop = ({
 
 /**
  * Money from micro-dollars: "≈ $12.40" (2 decimals). A positive amount under one cent is
- * "<$0.01", never "≈ $0.00" (it was spent). Thousands are grouped: "≈ $1,234.50".
+ * "<$0.01" (under half a cent), never "≈ $0.00" (it was spent). Thousands are grouped: "≈ $1,234.50".
  */
 export const fmtMoney = (micros: number): string => {
-  if (micros > 0 && micros < 10_000) return '<$0.01';
+  // Same rule as the backend: under half a cent (and above nothing) is "<$0.01"; a tiny negative
+  // is "$0.00", never "-$0.00".
+  if (micros > 0 && micros < 5_000) return '<$0.01';
   const dollars = micros / MICROS_PER_USD;
   const text = Math.abs(dollars).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  return `≈ ${dollars < 0 ? '-' : ''}$${text}`;
+  const negative = dollars < 0 && text !== '0.00';
+  return `≈ ${negative ? '-' : ''}$${text}`;
 };
 
 /** Whole dollars from micros, for an input or slider: 12_400_000 -> 12.4. */

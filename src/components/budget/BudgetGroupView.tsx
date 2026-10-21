@@ -104,10 +104,12 @@ export const ModeField = ({
         <Select
           id="budget-mode-select"
           label="How workspaces share AI"
-          value={mode.current}
+          // A queued change is what the admin chose last: showing it lets them pick the mode in
+          // force again, which the backend takes as "cancel the queued change".
+          value={mode.next?.mode ?? mode.current}
           disabled={busy}
           onChange={(next: string) => {
-            if (next !== mode.current) void onSetMode?.(next as OrganisationMode);
+            if (next !== (mode.next?.mode ?? mode.current)) void onSetMode?.(next as OrganisationMode);
           }}
           options={MODE_OPTIONS}
         />
@@ -119,8 +121,8 @@ export const ModeField = ({
       )}
       {mode.next && (
         <span className="text-sm text-warning" data-testid="budget-mode-next">
-          Changes to {mode.next.mode} on {new Date(mode.next.from).toLocaleDateString()} (the next
-          reset).
+          Changes to {mode.next.mode} on {new Date(mode.next.from).toLocaleDateString(undefined, { timeZone: 'UTC' })} (the
+          next reset). Choose {mode.current} again to cancel it.
         </span>
       )}
     </div>
@@ -196,7 +198,7 @@ export const BudgetField = ({
           id={inputId}
           type="number"
           min={0}
-          step={1}
+          step="0.01"
           aria-label="Monthly budget, dollars"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
@@ -388,8 +390,12 @@ export const BudgetGroupView = ({
 }: BudgetGroupViewProps) => {
   // Only the platform admin gives extra, and the budget is never set from the organisation console
   // (its PUT takes no budget): there the platform admin, too, gets neither control.
-  const canEdit: CanEdit =
+  // A `separate` organisation (the default) has no budget, bulk line or extra of its own: the
+  // backend refuses those writes (400), each workspace has them. Only the rows stay editable.
+  const separate = detail.kind === 'alliance' && detail.mode?.current === 'separate';
+  const baseCanEdit: CanEdit =
     mode === 'organisation' ? { ...apiCanEdit, grant: false, budget: false } : apiCanEdit;
+  const canEdit: CanEdit = separate ? { ...baseCanEdit, budget: false, bulk: false } : baseCanEdit;
   const [requestOpen, setRequestOpen] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
   const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
@@ -416,8 +422,19 @@ export const BudgetGroupView = ({
     rows.filter((row) => row.bulkRunning).reduce((sum, row) => sum + row.suggestedExtra, 0)
   );
 
+  // "% of the budget" in the bulk bar: a separate organisation's workspaces each have their own
+  // budget, so it is shown only when every picked workspace has the same one.
+  const pickedBudgets = new Set(pickedRows.map((row) => row.budget));
+  const bulkBarBudget = separate
+    ? pickedBudgets.size === 1
+      ? ([...pickedBudgets][0] ?? null)
+      : null
+    : detail.budget;
+
   const requestTargets: RequestTarget[] = [
-    { organizationId: null, label: 'Whole organisation', suggestion: suggestedForGroup },
+    ...(separate
+      ? []
+      : [{ organizationId: null, label: 'Whole organisation', suggestion: suggestedForGroup }]),
     ...rows.map((row) => ({
       organizationId: row.organizationId,
       label: row.name,
@@ -471,7 +488,14 @@ export const BudgetGroupView = ({
             text={detail.status.text}
             testId="budget-group-status"
           />
+          {separate && (
+            <p className="text-sm text-muted-foreground" data-testid="budget-separate-note">
+              Each workspace has its own AI allowance — change it on the workspace&apos;s row or
+              page. The figures above are the sum of the workspaces.
+            </p>
+          )}
           {detail.kind === 'alliance' &&
+            !separate &&
             (canEdit.grant ? (
               detail.groupExtra || groupExtraOpen ? (
                 <div className="flex flex-col gap-1.5 max-w-md">
@@ -551,7 +575,7 @@ export const BudgetGroupView = ({
           {canPick && (
             <BulkBar
               selected={pickedIds.length}
-              budget={detail.budget}
+              budget={bulkBarBudget}
               top={limitSliderTop({
                 budget: detail.budget,
                 groupSpend: detail.spend.total,

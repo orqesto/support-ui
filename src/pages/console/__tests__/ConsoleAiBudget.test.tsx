@@ -203,6 +203,21 @@ describe('ConsoleAiBudget', () => {
     expect(screen.getByTestId('budget-tokens')).toHaveTextContent('(4.0M tokens)');
   });
 
+  it('separate mode: no "Whole organisation" request target', async () => {
+    result = detail({ mode: { current: 'separate', next: null } });
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Request extra' }));
+    await chooseOption(screen.getByLabelText('For'), 'Shop 2');
+    expect(screen.queryByText('Whole organisation')).toBeNull();
+  });
+
+  it('shared mode: "Whole organisation" is a request target', async () => {
+    result = detail({ mode: { current: 'shared', next: null } });
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Request extra' }));
+    expect(screen.getByText('Whole organisation')).toBeInTheDocument();
+  });
+
   it('a refused request is a toast', async () => {
     requestRefusal = Object.assign(new Error('refused'), {
       status: 400,
