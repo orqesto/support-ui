@@ -683,7 +683,8 @@ describe('Automatic actions page — every action on one page', () => {
     await screen.findByTestId('kb-auto-row-remove');
     const link = screen.getByRole('link', { name: /Changed automatically|Review them/ });
     expect(link).toHaveAttribute('href', '/knowledge-base?status=auto_changed');
-    expect(screen.getByText(/in the last 90 days/)).toHaveTextContent(/15/);
+    expect(screen.getByText(/you can still undo/)).toHaveTextContent(/15/);
+    expect(screen.queryByText(/in the last 90 days/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Restore' })).not.toBeInTheDocument();
   });
 

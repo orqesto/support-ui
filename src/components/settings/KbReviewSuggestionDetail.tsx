@@ -26,6 +26,25 @@ export const summarizeKbReview = (suggestion: LearningSuggestion): string => {
   return `Review ${count === 1 ? '1 entry' : `${count} entries`} ${verb} ${thread}`;
 };
 
+/** The "never expires" date the backend stores is year 9999 (NEVER_EXPIRES). */
+const neverExpires = (expiresAt: string): boolean => new Date(expiresAt).getUTCFullYear() >= 9999;
+
+/**
+ * The expiry of a suggestion. A never-expiring row says so instead of printing 31/12/9999, and a
+ * scored removal the expiry job skips (`expiryApplies: false`: remove is Shadow or Automatic, same
+ * rule as the KB list) shows no date at all — it will not lapse, whatever date it was stamped with.
+ */
+const ExpiryMeta = ({ suggestion }: { suggestion: LearningSuggestion }) => {
+  if (suggestion.expiryApplies === false) return null;
+  if (neverExpires(suggestion.expiresAt)) return <span>Doesn&apos;t expire</span>;
+  return (
+    <span>
+      Expires:{' '}
+      <span className="font-mono">{new Date(suggestion.expiresAt).toLocaleDateString()}</span>
+    </span>
+  );
+};
+
 /**
  * The metadata line under a suggestion. A capture review has no evidence score and never
  * expires — "Expires: 31/12/9999" would be noise, and a lie about urgency — so it says what
@@ -47,10 +66,7 @@ export const SuggestionMeta = ({
     <>
       <span>Evidence: {suggestion.evidenceCount}</span>
       {confidence !== null && <span>Confidence: {confidence}%</span>}
-      <span>
-        Expires:{' '}
-        <span className="font-mono">{new Date(suggestion.expiresAt).toLocaleDateString()}</span>
-      </span>
+      <ExpiryMeta suggestion={suggestion} />
     </>
   );
 

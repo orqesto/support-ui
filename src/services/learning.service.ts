@@ -69,6 +69,8 @@ export type LearningSuggestion = {
   // 'reverted' = a KB consolidation case that was Unmerged (#873).
   status: 'pending' | 'accepted' | 'declined' | 'expired' | 'reverted';
   expiresAt: string;
+  /** `false`: the expiry job skips this suggestion (a scored KB removal while remove is Shadow / Automatic), so its date means nothing. Absent: the date applies. */
+  expiryApplies?: false;
   createdAt: string;
 };
 
