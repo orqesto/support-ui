@@ -59,3 +59,17 @@ export function buildContactsApiFilters(filters: FilterState): Record<string, st
   if (filters.search?.trim()) filterObj.search = filters.search.trim();
   return filterObj;
 }
+
+/**
+ * Whether these filters list threads of every lifecycle, so a contact's `hasOpen: false` means
+ * all their listed threads are resolved or closed. Under a status filter it would only describe
+ * that filter's threads (under "Resolved", every contact), so the mark is not shown there.
+ */
+export function listsEveryLifecycle(apiFilters: Record<string, string>): boolean {
+  return (
+    !apiFilters.view &&
+    !apiFilters.awaitingCustomerResponse &&
+    !apiFilters.customerResponded &&
+    !apiFilters.processed
+  );
+}

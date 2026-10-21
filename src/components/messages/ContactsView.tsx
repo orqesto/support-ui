@@ -16,7 +16,9 @@ import {
 } from '@/components/contacts/ContactNotesIndicator';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useSearchParams } from 'react-router-dom';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { listsEveryLifecycle } from './contactsApiFilters';
 import { Select } from '@/components/ui/Select';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Pagination } from '@/components/ui/Pagination';
@@ -162,6 +164,15 @@ function ContactRow({
                 <span className="inline-flex gap-1 items-center px-1.5 h-[19px] rounded-md text-[10.5px] font-bold tracking-wide bg-primary/10 text-primary shrink-0">
                   <Target className="w-3 h-3" /> LEAD
                 </span>
+              )}
+              {contact.hasOpen === false && listsEveryLifecycle(apiFilters) && (
+                <Badge
+                  variant="secondary"
+                  className="shrink-0"
+                  title="Every thread listed for this contact is resolved or closed"
+                >
+                  Resolved
+                </Badge>
               )}
               {contact.hasUnread && (
                 <span

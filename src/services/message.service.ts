@@ -205,6 +205,11 @@ export type MessageContact = {
   hasUnread: boolean;
   hasTicket: boolean;
   isLead: boolean;
+  /**
+   * Any listed thread still in live work. Undefined from a backend that predates the field —
+   * read as "unknown", never as resolved.
+   */
+  hasOpen?: boolean;
   /** Contact notes about this customer; 0 from a backend that predates the field. */
   noteCount: number;
   /** The newest note, cut for a preview; null when there are none. */
