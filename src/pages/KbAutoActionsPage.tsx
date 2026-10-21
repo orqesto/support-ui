@@ -207,7 +207,7 @@ export const KbAutoActionsPage = () => {
           </ul>
           <Section title="Changed automatically">
             <p>
-              {plural(changedTotal, 'change', 'changes')} made on their own in the last 90 days.
+              {plural(changedTotal, 'change', 'changes')} made on their own that you can still undo.
             </p>
             <ul className="list-disc pl-5 text-muted-foreground">
               {KB_AUTO_ACTION_KEYS.map((key) => (
