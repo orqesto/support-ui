@@ -5,6 +5,7 @@ import { getSpamCheck, hasMessageAttachments } from '@/lib/messageHelpers';
 import { formatDuration } from '@/lib/utils';
 import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/types/ai';
 import { notCustomerWorkMark } from './notCustomerWork';
+import { hasActiveContradiction, needsReviewTooltip } from './aiFlagCopy';
 import { sentenceCase, statusLabel } from './messageDetailConstants';
 
 /**
@@ -442,27 +443,32 @@ export const getAiState = (
     | undefined;
 
   if (message.needsHumanReview) {
+    // WHY it needs review, in words (`needsReviewReason`); the plain "Needs review" when an
+    // older backend sends no reason. Tooltip only — the card stays one short chip.
+    const why = needsReviewTooltip(message.needsReviewReason);
     if (!aiDraftsOff && meta?.suggestedAnswer !== null && meta?.suggestedAnswer !== undefined) {
       return {
         label: 'AI suggested',
-        tooltip: 'AI prepared a draft reply — review and send',
+        tooltip: `AI prepared a draft reply — review and send · ${why}`,
       };
     }
     return {
       label: 'Needs review',
-      tooltip: 'AI flagged this for human review',
+      tooltip: why,
     };
   }
   if (thread.isLead) {
+    // "Lead", not "Qualified lead": nothing qualifies a lead before it is marked (audit
+    // 2026-10-21) — the old word claimed a judgement no code makes.
     const stage = meta?.leadState?.stage;
     if (stage) {
       const stageLabel = stage.replace(/_/g, ' ');
       return {
         label: `Lead · ${stageLabel}`,
-        tooltip: `Qualified lead · stage: ${stageLabel}`,
+        tooltip: `Lead · stage: ${stageLabel}`,
       };
     }
-    return { label: 'Lead', tooltip: 'Qualified lead' };
+    return { label: 'Lead', tooltip: 'Lead' };
   }
   if (meta?.autoReply?.sent) {
     return {
@@ -515,9 +521,10 @@ export const getRiskSignals = (message: Message): RiskSignal[] => {
     });
   }
 
-  const contradiction = (
+  // A dismissed contradiction is no contradiction (`dismissedAt`, 2026-10-21).
+  const contradiction = hasActiveContradiction(
     message.metadata?.contradictionCheck as ContradictionCheckMetadata | undefined
-  )?.result?.hasContradiction;
+  );
   if (contradiction) {
     signals.push({
       key: 'contradiction',

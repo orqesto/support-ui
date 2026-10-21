@@ -31,6 +31,8 @@ vi.mock('../useFilterOptions', () => ({
     aliases: [],
   }),
 }));
+// Lead UI visibility reads the workspace's lead config through react-query; not under test here.
+vi.mock('@/hooks/useLeadsHidden', () => ({ useLeadsHidden: () => false }));
 vi.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ theme: 'light' }) }));
 
 const { MessageFilterBar } = await import('../MessageFilterBar');

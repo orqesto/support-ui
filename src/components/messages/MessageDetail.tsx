@@ -75,6 +75,7 @@ import type { WhatsAppTemplate } from '@/components/messages/whatsappTemplates';
 import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
 import { noteFromEditor } from '@/lib/noteText';
 import { toast } from '@/lib/toast';
+import { dismissContradictionWithFeedback } from './dismissContradiction';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import {
@@ -1159,6 +1160,17 @@ export function MessageDetail({
     onRefresh?.();
   }, [message.id, onRefresh]);
 
+  // "Not a contradiction" (dismissContradiction.ts). True on success — the tab hides the alert at
+  // once, before the refetch lands; failures (incl. a 404 from an older backend) are toasted there.
+  const handleDismissContradiction = useCallback(async (): Promise<boolean> => {
+    const dismissed = await dismissContradictionWithFeedback(message.id);
+    if (dismissed) {
+      setThreadRefreshKey((key) => key + 1);
+      onRefresh?.();
+    }
+    return dismissed;
+  }, [message.id, onRefresh]);
+
   // ── History banner ─────────────────────────────────────────────────────────
   // The predicate lives in `historyBanner.ts` with the reasoning: it must match the backend's
   // definition of "we did not write this", and it is unit-tested there — every test that renders
@@ -1229,6 +1241,7 @@ export function MessageDetail({
       setComposerMode={setPanelComposerMode}
       noteEditorRef={noteEditorRef}
       onCheckContradiction={handleCheckContradiction}
+      onDismissContradiction={handleDismissContradiction}
       onRefresh={handleContactChanged}
     />
   );

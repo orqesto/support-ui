@@ -17,6 +17,7 @@ import {
   renderOverflowTooltip,
   slaClockRuns,
 } from './inboxCardHelpers';
+import { hasActiveContradiction, needsReviewReasonLabel, needsReviewTooltip } from './aiFlagCopy';
 
 type Props = {
   message: Message;
@@ -117,10 +118,17 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
   return (
     <>
       {message.needsHumanReview && (
-        <Tooltip content="Flagged for human review" size="sm">
+        <Tooltip content={needsReviewTooltip(message.needsReviewReason)} size="sm">
           <Badge variant="warning" className={bc}>
             <BellRing className={ic} />
             {size === 'sm' ? 'Review' : 'Needs Review'}
+            {/* The reason as a short suffix on the full-size badge only; the small one keeps
+                it in the tooltip. Absent/unknown reason ⇒ the plain badge, as before. */}
+            {size !== 'sm' && needsReviewReasonLabel(message.needsReviewReason) && (
+              <span className="font-normal opacity-80">
+                · {needsReviewReasonLabel(message.needsReviewReason)}
+              </span>
+            )}
           </Badge>
         </Tooltip>
       )}
@@ -158,8 +166,9 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
           </Badge>
         </Tooltip>
       )}
-      {(message.metadata?.contradictionCheck as ContradictionCheckMetadata | undefined)?.result
-        ?.hasContradiction && (
+      {hasActiveContradiction(
+        message.metadata?.contradictionCheck as ContradictionCheckMetadata | undefined
+      ) && (
         <Tooltip content="Contradicts previous statement" size="sm">
           <Badge variant="warning" className={bc}>
             <AlertTriangle className={ic} />

@@ -15,6 +15,7 @@ import {
   ContactNotesIndicator,
 } from '@/components/contacts/ContactNotesIndicator';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
+import { useLeadsHidden } from '@/hooks/useLeadsHidden';
 import { useSearchParams } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -69,12 +70,15 @@ function ContactRow({
   active,
   onOpenMessage,
   onViewProfile,
+  leadsHidden = false,
 }: {
   contact: MessageContact;
   apiFilters: Record<string, string>;
   active: boolean;
   onOpenMessage: (message: Message) => void;
   onViewProfile: (email: string, section?: 'notes') => void;
+  /** Lead qualification is not configured — no LEAD marks (see useLeadsHidden). */
+  leadsHidden?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [subjectState, setSubjectState] = useState<SubjectState>({ loading: false, data: null });
@@ -160,7 +164,7 @@ function ContactRow({
                 latest={contact.latestNote}
                 onOpen={() => onViewProfile(contact.sender, 'notes')}
               />
-              {contact.isLead && (
+              {contact.isLead && !leadsHidden && (
                 <span className="inline-flex gap-1 items-center px-1.5 h-[19px] rounded-md text-[10.5px] font-bold tracking-wide bg-primary/10 text-primary shrink-0">
                   <Target className="w-3 h-3" /> LEAD
                 </span>
@@ -246,7 +250,9 @@ function ContactRow({
                   <span className="flex-1 text-[12.5px] truncate text-muted-foreground group-hover/topic:text-foreground">
                     {subject.displaySubject || '(no subject)'}
                   </span>
-                  {subject.isLead && <Target className="w-3 h-3 text-muted-foreground shrink-0" />}
+                  {subject.isLead && !leadsHidden && (
+                    <Target className="w-3 h-3 text-muted-foreground shrink-0" />
+                  )}
                   {subject.hasTicket && (
                     <Ticket className="w-3 h-3 text-muted-foreground shrink-0" />
                   )}
@@ -364,6 +370,7 @@ export function ContactsView({
   onOpenMessage,
   onPaginationChange,
 }: ContactsViewProps) {
+  const leadsHidden = useLeadsHidden();
   const [, setSearchParams] = useSearchParams();
   const [contacts, setContacts] = useState<MessageContact[]>([]);
   const [profileEmail, setProfileEmail] = useState<string | null>(null);
@@ -493,6 +500,7 @@ export function ContactsView({
               active={profileEmail === contact.sender}
               onOpenMessage={onOpenMessage}
               onViewProfile={openProfile}
+              leadsHidden={leadsHidden}
             />
           ))}
 

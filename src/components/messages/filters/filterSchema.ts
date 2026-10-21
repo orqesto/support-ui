@@ -160,10 +160,14 @@ export const AGE_RANGE: FilterOption[] = [
   { value: 'gt1mo', label: 'Over a month' },
 ];
 
+/**
+ * "AI Suggested" is gone (owner, 2026-10-21): it was Needs Review plus a stored draft, a subset
+ * nobody could tell apart. An old link carrying it is mapped to Needs Review by the URL layer
+ * (`normalizeAiState`).
+ */
 const AI_STATE: FilterOption[] = [
   { value: 'needs_review', label: 'Needs Review' },
   { value: 'needs_info', label: 'Needs Info' },
-  { value: 'ai_suggested', label: 'AI Suggested' },
   { value: 'bot_handled', label: 'Bot Handled' },
   { value: 'lead', label: 'Lead' },
   { value: 'contradiction', label: 'Contradiction' },
@@ -183,7 +187,7 @@ const LINKED_TICKET_STATUS: FilterOption[] = [
 ];
 
 const AI_STATE_HELP =
-  'Needs Review — AI flagged it for a human · AI Suggested — a draft is ready to send · ' +
+  'Needs Review — AI flagged it for a human · ' +
   'Bot Handled — resolved autonomously · Lead — identified as a business lead · ' +
   'Contradiction — the message conflicts with an earlier statement.';
 
@@ -195,6 +199,11 @@ export type DynamicOptions = {
   labels: FilterOption[];
   /** Addresses of ours that mail actually arrived at. */
   aliases: FilterOption[];
+  /**
+   * Lead qualification is not configured (`lead-config.configured === false`): the "Lead" AI
+   * state is not offered. Absent/false ⇒ offered, as before.
+   */
+  leadsHidden?: boolean;
 };
 
 export const EMPTY_DYNAMIC_OPTIONS: DynamicOptions = {
@@ -296,7 +305,9 @@ export const buildFilterDefs = (dynamic: DynamicOptions): FilterDef[] => {
       kind: 'select',
       negatable: true,
       help: AI_STATE_HELP,
-      options: AI_STATE,
+      options: dynamic.leadsHidden
+        ? AI_STATE.filter((option) => option.value !== 'lead')
+        : AI_STATE,
     },
     {
       key: 'linked',

@@ -49,7 +49,6 @@ export function buildContactsApiFilters(filters: FilterState): Record<string, st
   if (filters.aiState === 'lead') filterObj.isLead = 'true';
   if (filters.aiState === 'needs_review') filterObj.needsHumanReview = 'true';
   if (filters.aiState === 'needs_info') filterObj.showNeedsInfo = 'true';
-  if (filters.aiState === 'ai_suggested') filterObj.aiSuggested = 'true';
   if (filters.aiState === 'bot_handled') filterObj.botHandled = 'true';
   if (filters.aiState === 'contradiction') filterObj.hasContradiction = 'true';
   if (filters.linked === 'has_ticket') filterObj.hasTicket = 'true';

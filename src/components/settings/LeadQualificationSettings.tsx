@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Target, Info, ArrowRight, Zap, Mail } from 'lucide-react';
+import { Plus, Trash2, Info, ArrowRight, Zap, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
+import { LeadMissingDepartmentsWarning, LeadSettingsHeader } from './LeadSettingsParts';
 import {
   organizationService,
   type OrgLeadConfig,
@@ -189,19 +190,7 @@ export const LeadQualificationSettings = () => {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-muted">
-          <Target className="w-5 h-5 text-muted-foreground" />
-        </div>
-        <div>
-          <h2 className="font-display text-lg font-semibold">Lead Qualification</h2>
-          <p className="text-sm text-muted-foreground">
-            Configure multi-turn AI lead qualification — which departments use it, what to collect,
-            and how to categorize leads.
-          </p>
-        </div>
-      </div>
+      <LeadSettingsHeader />
 
       {/* How it works */}
       <div className="p-4 rounded-lg border bg-muted border-border">
@@ -235,6 +224,10 @@ export const LeadQualificationSettings = () => {
           </li>
         </ul>
       </div>
+
+      {/* Opted-in departments that were deleted: the gate compares against an id nothing has
+          any more, so lead qualification silently never runs for them. Newer backends only. */}
+      <LeadMissingDepartmentsWarning ids={config.missingDepartmentIds} />
 
       {error && (
         <div className="px-4 py-3 text-sm rounded-md border bg-destructive/10 text-destructive border-destructive/20">

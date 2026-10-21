@@ -49,12 +49,32 @@ export const VALID_AI_STATES = [
   'all',
   'needs_review',
   'needs_info',
-  'ai_suggested',
-  'in_human_work',
   'bot_handled',
   'lead',
   'contradiction',
 ] as const;
+
+/**
+ * AI-state values that are no longer offered, mapped to what an old link or saved view meant.
+ * `ai_suggested` (Needs Review with a draft, removed 2026-10-21) was a subset of Needs Review, so
+ * it opens Needs Review rather than the whole inbox. `in_human_work` never had a control; it is
+ * dropped (null ⇒ no AI-state filter).
+ */
+const RETIRED_AI_STATES: Record<string, (typeof VALID_AI_STATES)[number] | null> = {
+  ai_suggested: 'needs_review',
+  in_human_work: null,
+};
+
+/** A raw `aiState` (URL or saved view) → a value the filter still offers, or undefined. */
+export const normalizeAiState = (
+  raw: string | null | undefined
+): (typeof VALID_AI_STATES)[number] | undefined => {
+  if (!raw) return undefined;
+  if ((VALID_AI_STATES as readonly string[]).includes(raw)) {
+    return raw as (typeof VALID_AI_STATES)[number];
+  }
+  return RETIRED_AI_STATES[raw] ?? undefined;
+};
 export const VALID_LINKED = ['all', 'has_ticket', 'has_jira'] as const;
 export const VALID_LINKED_TICKET_STATUSES = [
   'all',
@@ -190,9 +210,9 @@ export const useMessagesUrlSync = ({
         urlFilters.read = urlRead as FilterState['read'];
       }
 
-      const urlAiState = searchParams.get('aiState');
-      if (urlAiState && (VALID_AI_STATES as readonly string[]).includes(urlAiState)) {
-        urlFilters.aiState = urlAiState as FilterState['aiState'];
+      const urlAiState = normalizeAiState(searchParams.get('aiState'));
+      if (urlAiState) {
+        urlFilters.aiState = urlAiState;
       }
 
       const urlLinked = searchParams.get('linked');
