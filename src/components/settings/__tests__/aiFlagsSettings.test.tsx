@@ -123,6 +123,17 @@ describe('Lead qualification — deleted opted-in departments', () => {
     const body = api.patches[0].body as Record<string, unknown>;
     expect(body).not.toHaveProperty('configured');
     expect(body).not.toHaveProperty('missingDepartmentIds');
-    expect(body.departments).toEqual([57, 68]);
+    // 68 is gone and the page cannot show it: it is not sent back to be re-stored.
+    expect(body.departments).toEqual([57]);
+  });
+
+  it('CONTROL: with nothing missing every opted-in department is sent', async () => {
+    await organizationService.updateLeadConfig({
+      ...leadBase,
+      configured: true,
+      missingDepartmentIds: [],
+    } as never);
+    await waitFor(() => expect(api.patches).toHaveLength(1));
+    expect((api.patches[0].body as Record<string, unknown>).departments).toEqual([57, 68]);
   });
 });

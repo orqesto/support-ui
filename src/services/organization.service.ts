@@ -384,10 +384,16 @@ export const organizationService = {
   updateLeadConfig: async (data: Partial<OrgLeadConfig>) => {
     // The two computed fields ride along on a config read back from GET; they are the
     // backend's answer, not settings, so they never go back in a PATCH.
-    const { configured: _configured, missingDepartmentIds: _missing, ...settings } = data;
+    // Departments the backend reported as gone are dropped too: the page cannot show them (its
+    // picker lists live departments only), so sending them back only re-stores a dead id.
+    const { configured: _configured, missingDepartmentIds: missing, ...settings } = data;
+    const gone = new Set(missing ?? []);
+    const departments = settings.departments?.filter(
+      (entry) => typeof entry !== 'number' || !gone.has(entry)
+    );
     const response = await apiClient.patch<ApiResponse<OrgLeadConfig>>(
       '/api/organizations/lead-config',
-      settings
+      departments ? { ...settings, departments } : settings
     );
     return response.data;
   },
