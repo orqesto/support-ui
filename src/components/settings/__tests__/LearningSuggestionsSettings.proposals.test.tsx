@@ -55,12 +55,8 @@ vi.mock('@/stores/authStore', () => ({
   useAuthStore: (select: (s: unknown) => unknown) => select({ selectedOrganizationId: 1 }),
 }));
 vi.mock('../KbMergeInboxParts', () => ({
-  KbMergeInboxReview: () => null,
-  KbMergeOutcomeBanner: () => null,
-  KbQualityInboxReview: () => null,
   summarizeKbMerge: () => '',
   summarizeKbQuality: () => '',
-  useKbMergeOutcome: () => ({ outcome: null, onDecided: () => {} }),
 }));
 
 const { LearningSuggestionsSettings } = await import('../LearningSuggestionsSettings');
@@ -97,7 +93,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe('Engine Activity with routing proposals', () => {
+describe('Learning activity', () => {
   it('empty state says when proposals appear', async () => {
     renderAt();
     expect(

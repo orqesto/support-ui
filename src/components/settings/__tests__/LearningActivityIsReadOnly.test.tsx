@@ -21,12 +21,8 @@ vi.mock('@/stores/authStore', () => ({
   useAuthStore: (select: (s: unknown) => unknown) => select({ selectedOrganizationId: 1 }),
 }));
 vi.mock('../KbMergeInboxParts', () => ({
-  KbMergeInboxReview: () => null,
-  KbMergeOutcomeBanner: () => null,
-  KbQualityInboxReview: () => null,
   summarizeKbMerge: () => 'Merge two entries',
   summarizeKbQuality: () => 'Review one entry',
-  useKbMergeOutcome: () => ({ outcome: null, onDecided: () => {} }),
 }));
 
 const { LearningSuggestionsSettings } = await import('../LearningSuggestionsSettings');

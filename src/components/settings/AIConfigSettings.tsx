@@ -50,7 +50,7 @@ type AIConfigSettingsProps = {
   /** Sub-section id parsed from the parent's hash (already query-stripped by
    *  SettingsPage). When matches a section the current user is allowed to see,
    *  it becomes the initial tab — closes the deep-link loop
-   *  (e.g. `/settings#ai/learning` opens straight on Engine Activity). */
+   *  (e.g. `/settings#ai/learning` opens straight on Learning activity). */
   section?: string;
 };
 

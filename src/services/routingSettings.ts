@@ -30,7 +30,7 @@ export type RoutingSettingSpec = {
 export const ROUTING_SETTING_SPECS: Record<RoutingSettingField, RoutingSettingSpec> = {
   proposalMinConversations: {
     label: 'Threads before a rule is proposed',
-    help: 'How many different threads must be routed the same way before Engine Activity shows one proposal.',
+    help: 'How many different threads must be routed the same way before the engine proposes a rule.',
     defaultValue: 3,
     min: 1,
     max: 50,

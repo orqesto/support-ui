@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -6,37 +5,22 @@ import type { RoutingRule } from '@/services/routingRule.service';
 import {
   acceptEffectsOf,
   isApprovedRule,
-  proposalCardIdOf,
   ruleLifecycle,
 } from './routingRuleLifecycle';
 
 type BadgeRule = RoutingRule & { name: string; pattern: string };
 
-/** Type-column badges: Proposed (links to its card), Declined (reason), Archived, Learned. */
-export const RoutingRuleLifecycleBadges = <T extends BadgeRule>({
-  rule,
-  rules,
-}: {
-  rule: T;
-  rules: T[];
-}) => {
+/** Type-column badges: Proposed (decided by switching the rule on), Declined (reason), Archived, Learned. */
+export const RoutingRuleLifecycleBadges = ({ rule }: { rule: BadgeRule }) => {
   const lifecycle = ruleLifecycle(rule);
-  const cardId = lifecycle === 'proposed' ? proposalCardIdOf(rule, rules) : null;
   const declineReason = rule.metadata?.declineReason ?? 'Declined';
   return (
     <>
-      {lifecycle === 'proposed' &&
-        (cardId !== null ? (
-          <Link to={`/settings?focus=${cardId}#ai/learning`}>
-            <Badge variant="secondary" className="opacity-70">
-              Proposed
-            </Badge>
-          </Link>
-        ) : (
-          <Badge variant="secondary" className="opacity-70">
-            Proposed
-          </Badge>
-        ))}
+      {lifecycle === 'proposed' && (
+        <Badge variant="secondary" className="opacity-70" title="Switch this rule on to accept it">
+          Proposed
+        </Badge>
+      )}
       {lifecycle === 'declined' && (
         <Tooltip content={declineReason}>
           <Badge variant="secondary" title={declineReason}>
@@ -52,7 +36,7 @@ export const RoutingRuleLifecycleBadges = <T extends BadgeRule>({
         <Badge
           variant="secondary"
           className="text-warning border-warning-line bg-warning-muted"
-          title="Learned by the engine before proposals existed; it has a Keep-this-rule card in Engine Activity."
+          title="Learned by the engine before proposals existed; it has a Keep-this-rule card in Suggestions above."
         >
           Learned
         </Badge>
@@ -91,9 +75,6 @@ export const acceptDescription = <T extends BadgeRule>(
     ];
     parts.push(`The proposal for this pattern in ${departments.join(', ')} is declined.`);
   }
-  if (ruleLifecycle(rule) === 'proposed' && proposalCardIdOf(rule, rules) !== null) {
-    parts.push('Its card in Engine Activity is closed.');
-  }
   return parts.join(' ');
 };
 
@@ -119,7 +100,6 @@ export const AcceptFromRulesDialog = <T extends BadgeRule>({
   onAccept: (rule: T) => void;
 }) => {
   const blocker = rule ? acceptBlockedBy(rule, rules) : null;
-  const cardId = blocker?.metadata?.proposal?.suggestionId;
   return (
     <ConfirmDialog
       open={rule !== null}
@@ -134,12 +114,7 @@ export const AcceptFromRulesDialog = <T extends BadgeRule>({
         rule && blocker ? (
           <>
             {departmentName(blocker.departmentId)} has an open proposal for this pattern — decide
-            that card in Engine Activity first.{' '}
-            {typeof cardId === 'number' && (
-              <Link className="underline" to={`/settings?focus=${cardId}#ai/learning`}>
-                Open the card
-              </Link>
-            )}
+            that proposed rule first (switch it on, or leave it declined), then come back.
           </>
         ) : rule ? (
           acceptDescription(rule, rules, departmentName)

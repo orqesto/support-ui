@@ -12,14 +12,17 @@ const state = vi.hoisted(() => ({
   accepted: [] as number[],
   declined: [] as number[],
   canAct: true,
+  loads: 0,
 }));
 vi.mock('@/services/learning.service', async (importOriginal) => {
   const actual = await importOriginal<typeof LearningServiceModule>();
   return {
     ...actual,
     learningService: {
-      listSuggestions: (domain?: string) =>
-        Promise.resolve(state.list.filter((item) => !domain || item.domain === domain)),
+      listSuggestions: (domain?: string) => {
+        state.loads += 1;
+        return Promise.resolve(state.list.filter((item) => !domain || item.domain === domain));
+      },
       acceptSuggestion: (id: number) => {
         state.accepted.push(id);
         return Promise.resolve({});
@@ -32,8 +35,24 @@ vi.mock('@/services/learning.service', async (importOriginal) => {
   };
 });
 vi.mock('../RoutingProposalCard', () => ({
-  RoutingProposalCard: ({ suggestion }: { suggestion: { id: number } }) => (
-    <div data-testid={`card-${suggestion.id}`} />
+  RoutingProposalCard: ({
+    suggestion,
+    canAct,
+    onDone,
+    onStale,
+    onError,
+  }: {
+    suggestion: { id: number };
+    canAct: boolean;
+    onDone: (id: number) => void;
+    onStale: () => void;
+    onError: (message: string) => void;
+  }) => (
+    <div data-testid={`card-${suggestion.id}`} data-can-act={String(canAct)}>
+      <button type="button" onClick={() => onDone(suggestion.id)}>DONE {suggestion.id}</button>
+      <button type="button" onClick={() => onStale()}>STALE {suggestion.id}</button>
+      <button type="button" onClick={() => onError('This suggestion was already decided.')}>FAIL {suggestion.id}</button>
+    </div>
   ),
 }));
 vi.mock('@/hooks/useDepartments', () => ({ useDepartments: () => ({ data: [] }) }));
@@ -67,6 +86,7 @@ beforeEach(() => {
   state.accepted = [];
   state.declined = [];
   state.canAct = true;
+  state.loads = 0;
 });
 afterEach(cleanup);
 
@@ -120,5 +140,48 @@ describe('FeatureSuggestions', () => {
     render(<FeatureSuggestions domains={['spam']} title="Spam suggestions" />);
     const accept = await screen.findByRole('button', { name: 'Accept this suggestion' });
     expect((accept as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('a decided routing card leaves the list', async () => {
+    state.list = [row(21, 'routing', 'resolve_routing_disagreement'), row(22, 'routing', 'confirm_learned_rule')] as never;
+    render(<FeatureSuggestions domains={['routing']} excludeTypes={['propose_rule']} title="Routing suggestions" />);
+    await screen.findByTestId('card-21');
+    fireEvent.click(screen.getByText('DONE 21'));
+    expect(screen.queryByTestId('card-21')).toBeNull();
+    expect(screen.getByTestId('card-22')).toBeTruthy();
+  });
+
+  it('a stale routing card reloads the list', async () => {
+    state.list = [row(21, 'routing', 'resolve_routing_disagreement')] as never;
+    render(<FeatureSuggestions domains={['routing']} title="Routing suggestions" />);
+    await screen.findByTestId('card-21');
+    expect(state.loads).toBe(1);
+    state.list = [];
+    fireEvent.click(screen.getByText('STALE 21'));
+    await waitFor(() => expect(state.loads).toBe(2));
+    await waitFor(() => expect(screen.queryByTestId('card-21')).toBeNull());
+  });
+
+  it('a card error is shown above the list', async () => {
+    state.list = [row(21, 'routing', 'resolve_routing_disagreement')] as never;
+    render(<FeatureSuggestions domains={['routing']} title="Routing suggestions" />);
+    fireEvent.click(await screen.findByText('FAIL 21'));
+    expect(screen.getByText('This suggestion was already decided.')).toBeTruthy();
+  });
+
+  it('without permission the routing card gets canAct=false and the reason is shown', async () => {
+    state.canAct = false;
+    state.list = [row(21, 'routing', 'resolve_routing_disagreement')] as never;
+    render(<FeatureSuggestions domains={['routing']} title="Routing suggestions" />);
+    expect((await screen.findByTestId('card-21')).getAttribute('data-can-act')).toBe('false');
+    expect(screen.getByText('You do not have permission to change this kind of rule. Ask an admin.')).toBeTruthy();
+  });
+
+  it('a house-style suggestion opens its diff without a click', async () => {
+    state.list = [
+      row(31, 'reply_style', 'reply_style.update', { currentStyle: 'Be formal.', proposedStyle: 'Be warm.', rationale: 'Agents shorten drafts.', signals: {} }),
+    ] as never;
+    render(<FeatureSuggestions domains={['reply_style']} title="Suggested house style" />);
+    expect(await screen.findByText(/Agents shorten drafts/)).toBeTruthy();
   });
 });

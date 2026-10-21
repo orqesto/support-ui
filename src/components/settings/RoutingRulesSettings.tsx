@@ -385,7 +385,7 @@ export const RoutingRulesSettings = () => {
                 <Badge variant="secondary" className="capitalize">
                   {rule.type.replace(/_/g, ' ')}
                 </Badge>
-                <RoutingRuleLifecycleBadges rule={rule} rules={rules} />
+                <RoutingRuleLifecycleBadges rule={rule} />
               </div>
             ),
           },
