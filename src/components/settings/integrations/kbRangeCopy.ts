@@ -9,6 +9,7 @@
  *  - "No estimate" is never a 0. "All time" (0 days) is never "last 0 days".
  *  - Narrowing keeps the knowledge base; an unconfirmed skip count is never "complete".
  */
+import { fmtMoney } from '@/components/budget/budget.rules';
 import { apiErrorMessage, apiErrorStatus } from '@/lib/apiError';
 import type {
   KbLastSweep,
@@ -210,6 +211,9 @@ export const costLine = (
   let line =
     `${lead}≈${num(est.estimatedTokens)} tokens${incompleteNote} for ${bound}${plural(est.threadsToMine, unit, `${unit}s`)} ` +
     `(${fetched}; ${num(est.tokensPerThread)} per ${unit}, measured on this workspace).`;
+  if (typeof est.estimatedMicros === 'number' && est.estimatedMicros > 0) {
+    line += ` That is ${fmtMoney(est.estimatedMicros)} of AI.`;
+  }
   if (est.daysAtLimit !== null) {
     if (est.daysAtLimit <= 1) line += " It fits in today's KB limit.";
     else if (est.enforced) {
@@ -226,19 +230,25 @@ export const costLine = (
 };
 
 export const allowanceLine = (
-  allowance: { callsLeftThisMonth: number | null; estimatedCalls: number | null; short: boolean },
+  allowance: {
+    bulkMicrosLeft: number | null;
+    estimatedMicros: number | null;
+    estimatedCalls?: number | null;
+    short: boolean;
+  },
   kbLimitReachedToday: boolean,
   aiMode: KbRangePolicy['aiMode']
 ): string | null => {
   const parts: string[] = [];
-  if (
-    allowance.short &&
-    allowance.estimatedCalls !== null &&
-    allowance.callsLeftThisMonth !== null
-  ) {
+  if (aiMode !== 'none' && allowance.bulkMicrosLeft !== null) {
     parts.push(
-      `This read needs about ${num(allowance.estimatedCalls)} AI calls; your plan has ${num(allowance.callsLeftThisMonth)} left this month. ` +
-        'When they run out, mining continues without AI (rule-based).'
+      `${fmtMoney(allowance.bulkMicrosLeft)} of this month's AI allowance left for history import.`
+    );
+  }
+  if (allowance.short && allowance.estimatedMicros !== null && allowance.bulkMicrosLeft !== null) {
+    parts.push(
+      `This read needs about ${fmtMoney(allowance.estimatedMicros)}, more than is left. ` +
+        'When it runs out, mining continues without AI (rule-based).'
     );
   }
   if (kbLimitReachedToday) {

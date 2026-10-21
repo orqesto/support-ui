@@ -37,11 +37,15 @@ export const loadAiStatus = async (): Promise<AiStatus | undefined> => {
   }
 };
 
-/** Own key = the provider settings say platform AI is off. Unknown (call fails, old backend) = false. */
+/**
+ * Own key = platform AI is off AND at least one provider of the workspace's own is enabled
+ * (platform off with no provider is "no AI", not "your own key"). Unknown (call fails, old
+ * backend) = false.
+ */
 export const loadOwnKey = async (): Promise<boolean> => {
   try {
     const providers = await aiService.getProviders();
-    return providers.data?.platform?.active === false;
+    return providers.data?.platform?.active === false && (providers.data?.enabled?.length ?? 0) > 0;
   } catch (error) {
     logger.warn('Could not read the AI provider settings:', error);
     return false;

@@ -6,6 +6,7 @@ import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
+import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
@@ -33,6 +34,8 @@ export const PricingPage = () => {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const isGlobalAdmin = user?.role === 'admin';
+  // Enterprise Cloud is self-serve on hosted; a self-hosted server has no plans to buy.
+  const selfHosted = useBackendVersion().data?.selfHostedDeployment ?? false;
 
   useEffect(() => {
     const fetchPricing = async () => {
@@ -119,7 +122,9 @@ export const PricingPage = () => {
   // choosing one only answers "Plan is not available". Offer what can actually be chosen.
   const selectable = plans.filter((plan) => plan.isActive !== false);
   const basePlans = selectable.filter((plan) => plan.planType === 'base');
-  const enterprisePlans = selectable.filter((plan) => plan.planType === 'enterprise' && (isGlobalAdmin || plan.name !== 'admin'));
+  const enterpriseAll = selectable.filter((plan) => plan.planType === 'enterprise');
+  const adminPlans = isGlobalAdmin ? enterpriseAll.filter((plan) => plan.name === 'admin') : [];
+  const enterprisePlans = selfHosted ? [] : enterpriseAll.filter((plan) => plan.name !== 'admin');
 
   if (loading) {
     return <Layout><div className="flex justify-center items-center h-64"><div className="text-muted-foreground">Loading pricing...</div></div></Layout>;
@@ -134,20 +139,21 @@ export const PricingPage = () => {
           <p className="text-xl text-faint-foreground">Scale your support operations with flexible pricing</p>
         </div>
 
-        {/* Base Plans */}
+        {/* Base plans and Enterprise Cloud: one grid, four across on a wide screen */}
         <div>
-          <h2 className="font-display mb-6 text-2xl font-bold">Base Plans</h2>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          <h2 className="font-display mb-6 text-2xl font-bold">Plans</h2>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {basePlans.map((plan) => <BasePlanCard key={plan.id} plan={plan} currentPlanName={currentPlanName} upgrading={upgrading} onSelect={(name) => void handleSelectPlan(name)} />)}
+            {enterprisePlans.map((plan) => <EnterprisePlanCard key={plan.id} plan={plan} currentPlanName={currentPlanName} upgrading={upgrading} onSelect={(name) => void handleSelectPlan(name)} />)}
           </div>
         </div>
 
-        {/* Admin/Enterprise Plans */}
-        {isGlobalAdmin && enterprisePlans.length > 0 && (
+        {/* Administrator plans (global admins only) */}
+        {adminPlans.length > 0 && (
           <div>
             <h2 className="font-display mb-6 text-2xl font-bold flex items-center gap-2"><Shield className="w-6 h-6 text-muted-foreground" />Administrator Plans</h2>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-              {enterprisePlans.map((plan) => <EnterprisePlanCard key={plan.id} plan={plan} currentPlanName={currentPlanName} upgrading={upgrading} onSelect={(name) => void handleSelectPlan(name)} />)}
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {adminPlans.map((plan) => <EnterprisePlanCard key={plan.id} plan={plan} currentPlanName={currentPlanName} upgrading={upgrading} onSelect={(name) => void handleSelectPlan(name)} />)}
             </div>
           </div>
         )}
@@ -173,7 +179,7 @@ export const PricingPage = () => {
             {[
               { question: 'Can I change plans later?', answer: 'Yes, you can upgrade or downgrade your plan at any time. Plan changes take effect immediately.' },
               { question: 'What happens if I exceed my limits?', answer: "You'll be prompted to upgrade to a higher plan with more capacity." },
-              { question: 'Is there a free trial?', answer: 'Yes, all plans come with a 14-day free trial. No credit card required.' },
+              { question: 'Is there a free trial?', answer: '14-day free trial on any paid plan, up to 1,000 messages, no card.' },
             ].map(({ question, answer }) => (
               <div key={question}><h3 className="font-display mb-2 font-semibold">{question}</h3><p className="text-faint-foreground">{answer}</p></div>
             ))}

@@ -213,6 +213,9 @@ export const KbHistoryRangeDialog = ({ source, onClose, onShowAlert, onApplied }
                 ...(result.history ? { historyToFetch: result.history.toFetch } : {}),
                 recentToFetch: result.recent?.toFetch ?? null,
                 estimatedTokens: result.estimate?.estimatedTokens ?? null,
+                ...(result.estimate?.estimatedMicros !== null && result.estimate?.estimatedMicros !== undefined
+                  ? { estimatedMicros: result.estimate.estimatedMicros }
+                  : {}),
               },
             }
           : { days, apply: true as const };

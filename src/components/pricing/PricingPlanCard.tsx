@@ -20,6 +20,7 @@ export interface Plan {
     maxMessagesPerMonth?: number;
     maxStorageGB?: number;
     maxIntegrations: number;
+    maxHistoryDays?: number;
   };
 }
 
@@ -54,6 +55,10 @@ function PlanLimits({ plan }: { plan: Plan }) {
         {plan.limits.maxMessagesPerMonth ? 'messages/month' : 'storage'}
       </p>
       <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxIntegrations}</strong> integrations</p>
+      <p className="text-sm text-faint-foreground">AI included</p>
+      {plan.limits.maxHistoryDays ? (
+        <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxHistoryDays.toLocaleString()} days</strong> of history import (uses the monthly AI allowance)</p>
+      ) : null}
     </div>
   );
 }
@@ -130,6 +135,10 @@ export function EnterprisePlanCard({ plan, currentPlanName, upgrading, onSelect 
           <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxUsers.toLocaleString()}</strong> users</p>
           <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxMessagesPerMonth ? plan.limits.maxMessagesPerMonth.toLocaleString() : '—'}</strong> messages/month</p>
           <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxIntegrations}</strong> integrations</p>
+          <p className="text-sm text-faint-foreground">AI included</p>
+          {plan.limits.maxHistoryDays ? (
+            <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxHistoryDays.toLocaleString()} days</strong> of history import (uses the monthly AI allowance)</p>
+          ) : null}
         </div>
         <div className="mb-6 space-y-3">
           {Object.entries(plan.features).filter(([_, enabled]) => enabled).slice(0, 8).map(([key]) => (

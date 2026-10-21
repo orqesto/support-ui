@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { ADVANCED_ANCHOR, dollarsText, parseDollars } from '@/components/budget/budget.rules';
+import { ADVANCED_ANCHOR, dollarsText, fmtMoney, parseDollars } from '@/components/budget/budget.rules';
 import { useUpdateBudgetSettings } from '@/hooks/useBudgets';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import type { BudgetSettingsView, SettingsUpdate } from '@/services/budgets.service';
@@ -20,6 +20,19 @@ type Field = {
   /** Blank is allowed and means "none" (serverCeiling). */
   nullable?: boolean;
   integer?: boolean;
+  /** Dollars per message with up to 6 decimals (micros are sent, rounded). */
+  perMessage?: boolean;
+};
+
+/** Micros per message shown as dollars with all its decimals: 4000 -> "0.004". */
+export const perMessageText = (micros: number): string => String(micros / 1_000_000);
+
+/** "$ per message" typed -> integer micros (0.004 -> 4000); NaN when not a positive amount. */
+export const parsePerMessage = (text: string): number => {
+  const value = Number(text.trim());
+  if (text.trim() === '' || !Number.isFinite(value) || value <= 0) return Number.NaN;
+  const micros = Math.round(value * 1_000_000);
+  return micros > 0 ? micros : Number.NaN;
 };
 
 const FIELDS: Field[] = [
@@ -43,9 +56,9 @@ const FIELDS: Field[] = [
   },
   {
     key: 'microsPerMessage',
-    label: 'Money per message, micros ($0.000001)',
-    hint: "A plan's messages × this = its share of the budget. 4000 = $0.004.",
-    integer: true,
+    label: 'AI money per message, US dollars',
+    hint: "A plan's messages × this = its share of the budget. Example: 0.004.",
+    perMessage: true,
   },
   {
     key: 'serverCeiling',
@@ -71,6 +84,7 @@ const FIELDS: Field[] = [
 const shown = (field: Field, settings: BudgetSettingsView): string => {
   const value = settings[field.key];
   if (value === null || value === undefined) return '';
+  if (field.perMessage) return perMessageText(value);
   return field.dollars ? dollarsText(value) : String(value);
 };
 
@@ -116,7 +130,11 @@ export const BudgetAdvancedCard = ({
         Object.assign(body, { [field.key]: null });
         continue;
       }
-      const value = field.dollars ? parseDollars(trimmed) : Number(trimmed);
+      const value = field.perMessage
+        ? parsePerMessage(trimmed)
+        : field.dollars
+          ? parseDollars(trimmed)
+          : Number(trimmed);
       if (
         value === null ||
         !Number.isFinite(value) ||
@@ -163,6 +181,7 @@ export const BudgetAdvancedCard = ({
                   <Input
                     label={field.label}
                     type="number"
+                    step={field.perMessage ? 'any' : undefined}
                     value={drafts[field.key] ?? shown(field, settings)}
                     placeholder={field.nullable ? 'None' : undefined}
                     onChange={(event) =>
@@ -171,6 +190,18 @@ export const BudgetAdvancedCard = ({
                     size="sm"
                   />
                   <span className="text-xs text-muted-foreground">{field.hint}</span>
+                  {field.perMessage && (
+                    <span className="text-xs text-muted-foreground">
+                      {(() => {
+                        const micros = parsePerMessage(
+                          drafts[field.key] ?? shown(field, settings)
+                        );
+                        return Number.isNaN(micros)
+                          ? null
+                          : `= ${fmtMoney(micros * 4000)} for 4,000 messages`;
+                      })()}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

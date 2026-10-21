@@ -2,14 +2,13 @@
  * Every plan limit an admin can set — on a plan (console plan editor) or for ONE workspace (the
  * workspace's limit overrides). Mirrors the backend's `LIMIT_KEYS` (limitService.ts); the backend
  * rejects an unknown key, and a key missing here could never be set from the console, which is how
- * AI calls, storage, departments and the auto-reply allotment were unreachable until 2026-10-07.
+ * storage, departments and the auto-reply allotment were unreachable until 2026-10-07.
  */
 export const LIMIT_FIELDS = [
   { key: 'maxUsers', label: 'Users', hint: 'Seats in the workspace' },
   { key: 'maxIntegrations', label: 'Channels', hint: 'Enabled mailboxes and channels; paused ones do not count' },
   { key: 'maxMessagesPerMonth', label: 'Messages / period', hint: 'Analysed per billing period; message packs add to it' },
   { key: 'maxAutoRepliesPerMonth', label: 'Auto-replies / period', hint: 'Over the allotment a reply becomes a suggestion' },
-  { key: 'maxAICallsPerMonth', label: 'AI calls / period', hint: 'On the platform AI key only — a workspace on its own key is not capped by this' },
   { key: 'maxDepartments', label: 'Active departments', hint: 'Departments switched on at once' },
   { key: 'maxStorageMb', label: 'Storage (MB)', hint: 'Files people upload; not inbound mail, not a workspace\'s own bucket' },
   { key: 'maxStoredMessages', label: 'Stored messages', hint: 'All messages kept, not per period' },

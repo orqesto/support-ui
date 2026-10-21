@@ -20,6 +20,7 @@ vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
+vi.mock('@/hooks/useBackendVersion', () => ({ useBackendVersion: () => ({ data: undefined }) }));
 
 import { PricingPage } from '@/pages/PricingPage';
 

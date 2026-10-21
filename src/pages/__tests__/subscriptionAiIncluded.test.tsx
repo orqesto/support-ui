@@ -127,7 +127,7 @@ const aiBlock = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-type Providers = { platform?: { active: boolean } } | 'fail';
+type Providers = { platform?: { active: boolean }; enabled?: unknown[] } | 'fail';
 const load = (
   ai: unknown,
   status = 'active',
@@ -189,7 +189,7 @@ describe('Subscription page: messages with AI included', () => {
   });
 
   it('own key (platform AI off) WITH a budget: the own-key sentence, no money', async () => {
-    load(aiBlock(), 'active', true, { platform: { active: false } });
+    load(aiBlock(), 'active', true, { platform: { active: false }, enabled: [{ id: 1 }] });
     render(<SubscriptionPage />);
     await waitFor(() =>
       expect(screen.getByTestId('messages-summary')).toHaveTextContent(

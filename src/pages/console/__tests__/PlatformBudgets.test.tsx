@@ -212,7 +212,7 @@ describe('before Apply: the migration panel', () => {
     renderPage();
     await screen.findByText(/Current limits stay in force until you switch/);
     fireEvent.click(screen.getByRole('button', { name: 'Show' }));
-    fireEvent.change(screen.getByLabelText(/^Money per message/), { target: { value: '1600' } });
+    fireEvent.change(screen.getByLabelText(/^AI money per message/), { target: { value: '0.0016' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
     await waitFor(() => expect(calls.updateSettings).toEqual([{ microsPerMessage: 1600 }]));
   });
@@ -379,7 +379,7 @@ describe('advanced settings', () => {
     });
     try {
       renderPage('/console/platform/ai-spend#budget-advanced');
-      expect(await screen.findByLabelText(/^Money per message/)).toBeInTheDocument();
+      expect(await screen.findByLabelText(/^AI money per message/)).toBeInTheDocument();
       expect(scrolled.map((element) => element.id)).toEqual(['budget-advanced']);
     } finally {
       if (original) Object.defineProperty(Element.prototype, 'scrollIntoView', original);
@@ -390,7 +390,8 @@ describe('advanced settings', () => {
   it('collapsed; sends only the changed setting', async () => {
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Show' }));
-    expect(screen.getByLabelText(/^Money per message/)).toHaveValue(4000);
+    expect(screen.getByLabelText(/^AI money per message/)).toHaveValue(0.004);
+    expect(screen.getByText('= ≈ $16.00 for 4,000 messages')).toBeInTheDocument();
     // Hosted: no server ceiling.
     expect(screen.queryByLabelText(/Server ceiling/)).toBeNull();
     fireEvent.change(screen.getByLabelText('Bulk limit, highest %'), { target: { value: '80' } });
@@ -406,7 +407,7 @@ describe('advanced settings', () => {
     renderPage();
     expect(await screen.findByText('≈ $200.00 of ≈ $500.00 this month, extra included')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Show' }));
-    expect(screen.queryByLabelText(/^Money per message/)).toBeNull();
+    expect(screen.queryByLabelText(/^AI money per message/)).toBeNull();
     fireEvent.change(screen.getByLabelText(/Server ceiling/), { target: { value: '' } });
     fireEvent.change(screen.getByLabelText(/Server ceiling/), { target: { value: '600' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
@@ -429,7 +430,7 @@ describe('advanced settings', () => {
   it('hosted: no default standalone budget field', async () => {
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Show' }));
-    expect(screen.getByLabelText(/^Money per message/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^AI money per message/)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Default budget for new standalone workspaces/)).toBeNull();
   });
 });

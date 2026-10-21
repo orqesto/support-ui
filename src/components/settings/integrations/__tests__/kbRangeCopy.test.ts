@@ -119,27 +119,35 @@ describe('kbRangeCopy', () => {
     expect(costLine(estimate(), 'own_key', 0, count())).not.toContain('Recent mail');
   });
 
+  it('the estimate line adds the money when the server prices the read', () => {
+    expect(costLine(estimate({ estimatedMicros: 1_200_000 }), 'managed', 0, count())).toContain(
+      'That is ≈ $1.20 of AI.'
+    );
+  });
+
   it('aiMode none has its own sentence; allowance says "without AI"', () => {
     expect(costLine(null, 'none', 0, count())).toBe(
       'This workspace has no AI provider, so mining uses rule-based extraction — no AI tokens.'
     );
     expect(costLine(estimate(), 'none', 0, count())).toMatch(/no AI provider/);
     const allowance = allowanceLine(
-      { callsLeftThisMonth: 40, estimatedCalls: 130, short: true },
+      { bulkMicrosLeft: 3_200_000, estimatedMicros: 5_000_000, estimatedCalls: 130, short: true },
       false,
       'managed'
     );
+    expect(allowance).toContain("≈ $3.20 of this month's AI allowance left for history import.");
     expect(allowance).toContain(
-      'This read needs about 130 AI calls; your plan has 40 left this month. When they run out, mining continues without AI (rule-based).'
+      'This read needs about ≈ $5.00, more than is left. When it runs out, mining continues without AI (rule-based).'
     );
+    expect(allowance).not.toMatch(/AI calls/);
     expect(allowance).toContain(
       'If AI is unavailable during the read, the affected threads stay unmined and are retried automatically.'
     );
     expect(
-      allowanceLine({ callsLeftThisMonth: 400, estimatedCalls: 130, short: false }, true, 'none')
+      allowanceLine({ bulkMicrosLeft: 400_000, estimatedMicros: 130_000, estimatedCalls: 130, short: false }, true, 'none')
     ).toBe("Today's KB limit is reached — mining starts after the reset.");
     expect(
-      allowanceLine({ callsLeftThisMonth: null, estimatedCalls: null, short: false }, false, 'none')
+      allowanceLine({ bulkMicrosLeft: null, estimatedMicros: null, estimatedCalls: null, short: false }, false, 'none')
     ).toBeNull();
   });
 

@@ -28,6 +28,7 @@ import {
   useUpdatePlatformPlan,
 } from '@/hooks/usePlatformAdmin';
 import { useBudgetState } from '@/hooks/useBudgets';
+import { fmtMoney } from '@/components/budget/budget.rules';
 import { logger } from '@/lib/logger';
 import {
   PLAN_TYPE_OPTIONS,
@@ -40,7 +41,6 @@ import type { AdminPlan } from '@/services/platform.service';
 import { LimitInputsGrid } from './LimitInputsGrid';
 import {
   draftFromLimits,
-  formatLimit,
   LIMIT_FIELDS,
   parseLimitDraft,
   type LimitDraft,
@@ -92,6 +92,8 @@ export const PlatformPlans = () => {
   // the budgets API; absent on a backend without it (then nothing extra is shown)
   const budgetState = useBudgetState();
   const budgetsAvailable = budgetState.data?.available === true;
+  const microsPerMessage =
+    budgetState.data?.available === true ? (budgetState.data.state.settings.microsPerMessage ?? null) : null;
 
   // Delete + Stripe-price state. Both surface the SERVER's message rather than a generic
   // one: every refusal here (in use, seeded, Stripe unreachable) is a different problem
@@ -294,14 +296,15 @@ export const PlatformPlans = () => {
               <strong className="text-foreground">{plan.limits.maxIntegrations}</strong>{' '}
               integrations
             </p>
-            {plan.limits.maxAICallsPerMonth !== undefined && (
-              <p>
+            {microsPerMessage !== null && plan.limits.maxMessagesPerMonth ? (
+              <p data-testid={`plan-ai-money-${plan.id}`}>
+                AI included, about{' '}
                 <strong className="font-mono text-foreground">
-                  {formatLimit(plan.limits.maxAICallsPerMonth)}
+                  {fmtMoney(plan.limits.maxMessagesPerMonth * microsPerMessage)}
                 </strong>{' '}
-                AI calls/month
+                per period
               </p>
-            )}
+            ) : null}
           </div>
 
           <p className="text-sm text-muted-foreground">
@@ -397,8 +400,8 @@ export const PlatformPlans = () => {
 
       {budgetsAvailable && (
         <p className="text-sm text-muted-foreground">
-          Organisations pool their workspaces' budgets: a workspace on a small plan can use budget
-          that came with a bigger one.
+          Each workspace in an organisation has its own AI allowance by default. An organisation can
+          be set to share one allowance across its workspaces.
         </p>
       )}
 

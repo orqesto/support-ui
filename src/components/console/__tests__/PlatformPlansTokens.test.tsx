@@ -1,6 +1,7 @@
 /**
- * Plan cards show the pooling line under the list when the budgets API exists; a backend without it
- * shows no pooling line. (The old "calls × tokens per call" figure is gone: AI is money now.)
+ * Plan cards show messages and, for admins, the AI money a plan carries (messages × money per
+ * message); the line under the list says each workspace has its own allowance by default. A backend
+ * without the budgets API shows neither. No AI-calls figure.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -31,7 +32,7 @@ vi.mock('@/hooks/usePlatformAdmin', () => {
           limits: {
             maxUsers: 3,
             maxIntegrations: 2,
-            maxMessagesPerMonth: 500,
+            maxMessagesPerMonth: 4000,
             maxAICallsPerMonth: 10000,
           },
         },
@@ -57,7 +58,7 @@ const renderPlans = () =>
     </QueryClientProvider>
   );
 
-const POOLING = /Organisations pool their workspaces' budgets/;
+const POOLING = /Each workspace in an organisation has its own AI allowance by default/;
 
 beforeEach(() => {
   stateResult = { available: true, state: { settings: { microsPerMessage: 4000 } } };
@@ -65,9 +66,12 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('PlatformPlans tokens', () => {
-  it('shows the pooling line and no token figure', async () => {
+  it('shows messages x money per message (Starter 4,000 => about $16.00) and no AI-calls figure', async () => {
     renderPlans();
     expect(await screen.findByText(POOLING)).toBeInTheDocument();
+    expect(screen.getByText('≈ $16.00')).toBeInTheDocument();
+    expect(screen.queryByText(/AI calls/)).toBeNull();
+    expect(screen.queryByText(/pool their/)).toBeNull();
     expect(screen.queryByText(/tokens \/ month/)).toBeNull();
   });
 
@@ -78,6 +82,7 @@ describe('PlatformPlans tokens', () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(screen.queryByText(/tokens \/ month/)).toBeNull();
     expect(screen.queryByText(POOLING)).toBeNull();
-    expect(screen.getByText(/AI calls\/month/)).toBeInTheDocument();
+    expect(screen.queryByText(/≈ \$/)).toBeNull();
+    expect(screen.queryByText(/AI calls/)).toBeNull();
   });
 });
