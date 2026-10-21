@@ -10,7 +10,7 @@ vi.mock('@/services/message.service', () => ({
   messageService: { getThreads: (...args: unknown[]) => getThreads(...args) },
 }));
 
-const { searchThreadCandidates, THREAD_PICKER_LIMIT } = await import('../threadCandidates');
+const { searchThreadCandidates, THREAD_PICKER_LIMIT } = await import('../threadCandidates.service');
 
 const row = (id: number, threadSender: string | null, messageSender: string) => ({
   sender: threadSender,
@@ -37,7 +37,8 @@ describe('searchThreadCandidates', () => {
       data: [
         row(1, 'ada@example.com', 'agent@example.com'),
         row(2, null, 'bob@example.com'),
-        { sender: 'nobody@example.com' }, // no latestMessage: not a pickable thread
+        { sender: 'nobody@example.com', latestMessage: null }, // no message: not pickable
+        row(-7, 'spam@example.com', 'spam@example.com'), // spam-log row: no conversation behind it
       ],
     });
     const { candidates, capped } = await searchThreadCandidates('');

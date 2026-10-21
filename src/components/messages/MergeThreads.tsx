@@ -19,6 +19,7 @@ import { queryClient } from '@/lib/queryClient';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import { conversationMergeService, type ManualMerge } from '@/services/conversationMerge.service';
 import { messageService } from '@/services/message.service';
+import { threadRowMessage } from '@/services/threadCandidates.service';
 import type { Message } from '@/types';
 import { MergeConfirmDialog, type MergeRow } from './MergeConfirmDialog';
 import {
@@ -125,19 +126,10 @@ export const MergePickerDialog = ({
       try {
         const res = await messageService.getThreads({ search: term, lifecycle: 'all' }, 1, 25);
         if (seq !== searchSeq.current) return;
-        const rows = (res.data ?? []) as unknown as Array<{
-          latestMessage?: Message;
-          sender?: string | null;
-        }>;
         setCandidates(
-          rows
-            // The customer's address lives on the THREAD row (what the list shows), not on its
-            // latestMessage — reading only the message left every picker row as "·" (staging).
-            .map((row) =>
-              row.latestMessage
-                ? { ...row.latestMessage, sender: row.sender ?? row.latestMessage.sender }
-                : undefined
-            )
+          (res.data ?? [])
+            // The customer from the thread row; spam-log rows (no conversation) dropped.
+            .map(threadRowMessage)
             .filter((row): row is Message => !!row && row.id !== message.id)
             // Same channel only: the backend refuses the rest, so do not offer them.
             .filter((row) => row.channel === message.channel)

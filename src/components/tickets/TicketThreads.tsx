@@ -29,7 +29,7 @@ import {
   searchThreadCandidates,
   THREAD_PICKER_LIMIT,
   type ThreadCandidate,
-} from './threadCandidates';
+} from '@/services/threadCandidates.service';
 import { TicketReplyComposer, useTicketReplies } from './TicketReplyComposer';
 
 /**
@@ -57,7 +57,6 @@ type Props = {
   ticketStatus?: string;
 };
 
-type Candidate = ThreadCandidate;
 
 const words = (status: string) => status.replace('_', ' ');
 const isDone = (status: string) => status === 'resolved' || status === 'closed';
@@ -79,7 +78,7 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
   const [state, setState] = useState<'loading' | 'ready' | 'failed' | 'unavailable'>('loading');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [candidates, setCandidates] = useState<Candidate[] | null>(null);
+  const [candidates, setCandidates] = useState<ThreadCandidate[] | null>(null);
   const [capped, setCapped] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

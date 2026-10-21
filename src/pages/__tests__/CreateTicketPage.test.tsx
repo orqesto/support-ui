@@ -603,4 +603,19 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       expect(createdBody()).not.toHaveProperty('assigneeId');
     });
   });
+
+  it('a search that fails after a full page drops its "Showing the newest 25" (#678 review)', async () => {
+    const user = userEvent.setup();
+    getThreads.mockResolvedValueOnce({
+      data: Array.from({ length: 25 }, (_, index) =>
+        thread(100 + index, `c${index}@example.com`, `Subject ${index}`)
+      ),
+    });
+    getThreads.mockRejectedValueOnce(new Error('503'));
+    renderPage();
+    expect(await screen.findByText(/Showing the newest 25/)).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Threads it explains (optional)'), 'x');
+    await waitFor(() => expect(screen.queryByText(/Showing the newest 25/)).toBeNull());
+    expect(screen.getByText('No threads match.')).toBeInTheDocument();
+  });
 });

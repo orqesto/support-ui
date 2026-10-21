@@ -8,9 +8,7 @@ import {
   searchThreadCandidates,
   THREAD_PICKER_LIMIT,
   type ThreadCandidate,
-} from './threadCandidates';
-
-export type { ThreadCandidate };
+} from '@/services/threadCandidates.service';
 
 type Props = {
   chosen: ThreadCandidate[];
@@ -41,6 +39,8 @@ export const TicketThreadPicker = ({ chosen, onChosenChange, fixed = null }: Pro
         .catch((err: unknown) => {
           if (seq !== searchSeq.current) return;
           logger.error('New ticket: thread search failed', err);
+          // Nothing listed: the "showing the newest 25" of an earlier search no longer applies.
+          setCapped(false);
           setCandidates([]);
         });
     }, 300);

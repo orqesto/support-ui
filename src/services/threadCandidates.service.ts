@@ -1,4 +1,4 @@
-import { messageService } from '@/services/message.service';
+import { messageService, type MessageThread } from '@/services/message.service';
 import type { Message } from '@/types';
 
 export type ThreadCandidate = {
@@ -10,6 +10,17 @@ export type ThreadCandidate = {
 
 /** A picker lists at most this many threads; a full page says so, so "none" is never a cap. */
 export const THREAD_PICKER_LIMIT = 25;
+
+/**
+ * A thread row as the message it can be picked as, or undefined when it cannot be: no message, or
+ * a spam-log row (a NEGATIVE id, no conversation behind it — it cannot be linked or merged).
+ * The customer's address lives on the THREAD row (what the list shows), not on its latestMessage —
+ * reading only the message left every picker row as "· subject" on staging.
+ */
+export const threadRowMessage = (row: MessageThread): Message | undefined =>
+  row.latestMessage && row.latestMessage.id > 0
+    ? { ...row.latestMessage, sender: row.sender ?? row.latestMessage.sender }
+    : undefined;
 
 /**
  * The threads a ticket picker offers — "Add threads" on a ticket and "Threads it explains" on
@@ -25,21 +36,11 @@ export const searchThreadCandidates = async (
     1,
     THREAD_PICKER_LIMIT
   );
-  const rows = (res.data ?? []) as unknown as Array<{
-    latestMessage?: Message;
-    sender?: string | null;
-  }>;
+  const rows = res.data ?? [];
   return {
     capped: rows.length >= THREAD_PICKER_LIMIT,
     candidates: rows
-      // The customer's address lives on the THREAD row (what the list shows), not on its
-      // latestMessage — reading only the message left every row as "· subject" on staging
-      // (the same trap MergeThreads fixed).
-      .map((row) =>
-        row.latestMessage
-          ? { ...row.latestMessage, sender: row.sender ?? row.latestMessage.sender }
-          : undefined
-      )
+      .map(threadRowMessage)
       .filter((row): row is Message => !!row)
       .map((row) => ({
         id: row.id,
