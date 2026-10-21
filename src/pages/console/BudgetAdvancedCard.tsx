@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { ADVANCED_ANCHOR, MILLION } from '@/components/budget/budget.rules';
+import { ADVANCED_ANCHOR, dollarsText, parseDollars } from '@/components/budget/budget.rules';
 import { useUpdateBudgetSettings } from '@/hooks/useBudgets';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import type { BudgetSettingsView, SettingsUpdate } from '@/services/budgets.service';
@@ -15,8 +15,8 @@ type Field = {
   key: keyof SettingsUpdate;
   label: string;
   hint: string;
-  /** Shown in millions of tokens (serverCeiling) instead of the raw number. */
-  millions?: boolean;
+  /** Money in dollars (typed) <-> micros (sent). */
+  dollars?: boolean;
   /** Blank is allowed and means "none" (serverCeiling). */
   nullable?: boolean;
   integer?: boolean;
@@ -42,23 +42,23 @@ const FIELDS: Field[] = [
     integer: true,
   },
   {
-    key: 'tokensPerCall',
-    label: 'Tokens per AI call',
-    hint: "A plan's AI calls × this = its share of the budget.",
+    key: 'microsPerMessage',
+    label: 'Money per message, micros ($0.000001)',
+    hint: "A plan's messages × this = its share of the budget. 4000 = $0.004.",
     integer: true,
   },
   {
     key: 'serverCeiling',
-    label: 'Server ceiling, million tokens / month',
+    label: 'Server ceiling, US dollars / month',
     hint: 'Everything on this server stops at it. Empty = none.',
-    millions: true,
+    dollars: true,
     nullable: true,
   },
   {
     key: 'defaultStandaloneBudget',
-    label: 'Default budget for new standalone workspaces, million tokens / month',
+    label: 'Default budget for new standalone workspaces, US dollars / month',
     hint: 'A standalone workspace with no budget of its own gets this. Empty = none.',
-    millions: true,
+    dollars: true,
     nullable: true,
   },
   {
@@ -71,7 +71,7 @@ const FIELDS: Field[] = [
 const shown = (field: Field, settings: BudgetSettingsView): string => {
   const value = settings[field.key];
   if (value === null || value === undefined) return '';
-  return field.millions ? String(Math.round((value / MILLION) * 10) / 10) : String(value);
+  return field.dollars ? dollarsText(value) : String(value);
 };
 
 /** The platform-wide budget settings, collapsed under "Advanced" on AI Spend. */
@@ -96,10 +96,10 @@ export const BudgetAdvancedCard = ({
   const [drafts, setDrafts] = useState<Partial<Record<keyof SettingsUpdate, string>>>({});
   const [error, setError] = useState<string | null>(null);
   const save = useUpdateBudgetSettings();
-  // Hosted: tokens per call turns plans into budgets. Self-hosted only (the API refuses them on
+  // Hosted: money per message turns plans into budgets. Self-hosted only (the API refuses them on
   // hosted): the server ceiling and the default standalone budget.
   const fields = FIELDS.filter((field) =>
-    field.key === 'tokensPerCall'
+    field.key === 'microsPerMessage'
       ? !selfHosted
       : field.key === 'serverCeiling' || field.key === 'defaultStandaloneBudget'
         ? selfHosted
@@ -116,12 +116,17 @@ export const BudgetAdvancedCard = ({
         Object.assign(body, { [field.key]: null });
         continue;
       }
-      const value = Number(trimmed);
-      if (!Number.isFinite(value) || value <= 0 || (field.integer && !Number.isInteger(value))) {
+      const value = field.dollars ? parseDollars(trimmed) : Number(trimmed);
+      if (
+        value === null ||
+        !Number.isFinite(value) ||
+        value <= 0 ||
+        (field.integer && !Number.isInteger(value))
+      ) {
         setError(`${field.label}: type a ${field.integer ? 'whole ' : ''}number above 0.`);
         return;
       }
-      Object.assign(body, { [field.key]: field.millions ? Math.round(value * MILLION) : value });
+      Object.assign(body, { [field.key]: value });
     }
     setError(null);
     if (Object.keys(body).length === 0) return;

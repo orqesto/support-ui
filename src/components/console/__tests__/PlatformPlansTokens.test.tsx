@@ -1,6 +1,6 @@
 /**
- * Plan cards show the AI calls a month with what that is in tokens (calls × tokensPerCall from the
- * budgets state) and the pooling line under the list; a backend without the budgets API shows neither.
+ * Plan cards show the pooling line under the list when the budgets API exists; a backend without it
+ * shows no pooling line. (The old "calls × tokens per call" figure is gone: AI is money now.)
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -60,15 +60,15 @@ const renderPlans = () =>
 const POOLING = /Organisations pool their workspaces' budgets/;
 
 beforeEach(() => {
-  stateResult = { available: true, state: { settings: { tokensPerCall: 1490 } } };
+  stateResult = { available: true, state: { settings: { microsPerMessage: 4000 } } };
 });
 afterEach(cleanup);
 
 describe('PlatformPlans tokens', () => {
-  it('shows calls × tokensPerCall and the pooling line', async () => {
+  it('shows the pooling line and no token figure', async () => {
     renderPlans();
-    expect(await screen.findByText(/≈ 14\.9M tokens \/ month/)).toBeInTheDocument();
-    expect(screen.getByText(POOLING)).toBeInTheDocument();
+    expect(await screen.findByText(POOLING)).toBeInTheDocument();
+    expect(screen.queryByText(/tokens \/ month/)).toBeNull();
   });
 
   it('shows nothing extra when the budgets API is unavailable', async () => {

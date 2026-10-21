@@ -7,6 +7,7 @@ import {
   type GroupListParams,
   type GroupUpdate,
   type MigrationOverrides,
+  type OrganisationMode,
   type SettingsUpdate,
   type WorkspaceBudgetUpdate,
 } from '@/services/budgets.service';
@@ -79,6 +80,14 @@ export const useUpdateBudgetGroup = (key: string) => {
 };
 
 /** Group-scoped writes below take the group key so its page is refreshed. */
+export const useSetGroupMode = (key: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (mode: OrganisationMode) => budgetsService.setGroupMode(key, mode),
+    onSuccess: () => invalidatePlatform(queryClient, key),
+  });
+};
+
 export const useSetWorkspaceLimits = (groupKey: string) => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -137,6 +146,14 @@ export const useUpdateAllianceBudget = (allianceId: number) => {
   return useMutation({
     mutationFn: (body: AllianceBudgetUpdate) =>
       budgetsService.updateAllianceBudget(allianceId, body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: budgetKeys.alliance(allianceId) }),
+  });
+};
+
+export const useSetAllianceMode = (allianceId: number) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (mode: OrganisationMode) => budgetsService.setAllianceMode(allianceId, mode),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: budgetKeys.alliance(allianceId) }),
   });
 };

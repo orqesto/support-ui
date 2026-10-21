@@ -70,6 +70,15 @@ describe('budgetsService - platform', () => {
     });
   });
 
+  it('setGroupMode puts the mode on the encoded group key', async () => {
+    await budgetsService.setGroupMode('a:7', 'separate');
+    expect(last()).toMatchObject({
+      method: 'PUT',
+      path: '/api/admin/budgets/groups/a%3A7/mode',
+      body: { mode: 'separate' },
+    });
+  });
+
   it('setWorkspaceLimits, giveExtra, endExtra, declineRequest, updateSettings', async () => {
     await budgetsService.setWorkspaceLimits([1, 2], null);
     expect(last()).toMatchObject({
@@ -79,7 +88,7 @@ describe('budgetsService - platform', () => {
     });
     const body = {
       targets: [{ allianceId: 3, organizationId: null }],
-      tokens: 'suggested' as const,
+      amountMicros: 'suggested' as const,
       end: 7 as const,
       requestId: 4,
       reason: 'x',
@@ -116,17 +125,23 @@ describe('budgetsService - organisation and workspace', () => {
       path: '/api/alliances/4/budget',
       body: { bulkPct: 55 },
     });
+    await budgetsService.setAllianceMode(4, 'shared');
+    expect(last()).toMatchObject({
+      method: 'PUT',
+      path: '/api/alliances/4/budget/mode',
+      body: { mode: 'shared' },
+    });
     await budgetsService.setAllianceWorkspaceLimits(4, [8], 1000);
     expect(last()).toMatchObject({
       method: 'PUT',
       path: '/api/alliances/4/budget/workspace-limits',
       body: { organizationIds: [8], limit: 1000 },
     });
-    await budgetsService.requestAllianceExtra(4, { organizationId: 8, tokens: 500, reason: 'r' });
+    await budgetsService.requestAllianceExtra(4, { organizationId: 8, amountMicros: 5_000_000, reason: 'r' });
     expect(last()).toMatchObject({
       method: 'POST',
       path: '/api/alliances/4/budget/requests',
-      body: { organizationId: 8, tokens: 500, reason: 'r' },
+      body: { organizationId: 8, amountMicros: 5_000_000, reason: 'r' },
     });
   });
 
@@ -139,11 +154,11 @@ describe('budgetsService - organisation and workspace', () => {
       path: '/api/organizations/ai-usage',
       body: { budget: 9 },
     });
-    await budgetsService.requestMyExtra({ tokens: 100 });
+    await budgetsService.requestMyExtra({ amountMicros: 100_000_000 });
     expect(last()).toMatchObject({
       method: 'POST',
       path: '/api/organizations/ai-usage/requests',
-      body: { tokens: 100 },
+      body: { amountMicros: 100_000_000 },
     });
   });
 

@@ -4,35 +4,58 @@ import { getErrorBody, getErrorStatus } from '@/lib/errorMessages';
 /*
  * The monthly AI budgets API. The types below are copied VERBATIM from the backend contract
  * (src/modules/budgets/budgetTypes.ts); change a shape there only together with here.
+ *
+ * MONEY: every amount is integer micro-dollars (1 USD = 1,000,000) in `currency` (always 'USD').
+ * The only token figures are the `tokens` fields (admins' secondary figure, whole tokens).
  */
+
+export type BudgetCurrency = 'USD';
+
+/** Admins' secondary figure: the same spend in whole TOKENS. */
+export type TokenSpend = { total: number; bulk: number };
+
+export type BudgetSource = 'override' | 'plans' | 'default' | 'none';
+
+/** An organisation's AI mode; a change applies from the next reset (`next.from`). */
+export type OrganisationMode = 'separate' | 'shared';
+export type OrganisationModeView = {
+  current: OrganisationMode;
+  next: { mode: OrganisationMode; from: string } | null;
+};
 
 export type StatusLine = { tone: 'ok' | 'warn' | 'bad'; text: string };
 
 /**
  * Active extra of one scope. Several active grants of the same scope are shown as one: tokens and
- * used summed, `id` = the one charged first (ending first), `endsAt` = the latest end, `grantIds`
+ * used summed (micros), `id` = the one charged first (ending first), `endsAt` = the latest end, `grantIds`
  * = all of them (End extra sends these).
  */
 export type ExtraView = {
   id: number;
   grantIds: number[];
-  tokens: number;
-  used: number;
+  amountMicros: number;
+  usedMicros: number;
   endsAt: string;
 };
 
 export type GroupSummary = {
+  currency: BudgetCurrency;
+  /** Organisations only: how its workspaces share AI. */
+  mode?: OrganisationModeView;
   key: string;
   kind: 'alliance' | 'workspace';
   /** The alliance id (kind 'alliance') or the workspace id (kind 'workspace'). */
   id: number;
   name: string;
-  /** In force this month: the override, else (hosted, our key) the plans' sum, else null. */
+  /**
+   * In force this period: the override, else (hosted, our key) the plans' sum, else null. A
+   * `separate` organisation: the SUM of its workspaces' own budgets.
+   */
   budget: number | null;
-  budgetSource: 'override' | 'plans' | 'default' | 'none';
+  budgetSource: BudgetSource;
   bulkLimitOn: boolean;
   bulkPct: number;
-  /** extra = tokens charged to extra this month (outside the budget). live = total − bulk. */
+  /** extra = micros charged to extra this month (outside the budget). live = total − bulk. */
   spend: { total: number; bulk: number; live: number; extra: number };
   /** Active workspaces in the group now. */
   workspaces: number;
@@ -48,7 +71,11 @@ export type WorkspaceRow = {
   name: string;
   /** This month, while in THIS group, not counting extra. */
   spend: { total: number; bulk: number; live: number };
-  /** The workspace's own bulk limit (tokens), or null. */
+  /** The same spend in tokens (admins' secondary figure). */
+  tokens: TokenSpend;
+  /** A workspace of a `separate` organisation: its OWN budget; null otherwise. */
+  budget: number | null;
+  /** The workspace's own bulk limit (micros), or null. */
   bulkLimit: number | null;
   /** The workspace's own active extra. */
   extra: ExtraView | null;
@@ -56,10 +83,10 @@ export type WorkspaceRow = {
   bulkRunning: boolean;
   /** Its bulk (KB) work is stopped right now: refused by the budget or a bulk limit, no extra left. */
   bulkPaused: boolean;
-  /** What its knowledge-base backlog would cost, rounded up to 5M, at least 5M. */
+  /** What its knowledge-base backlog would cost, micros, rounded up to whole dollars, at least $1. */
   suggestedExtra: number;
   status: StatusLine;
-  /** Live spend today vs its usual day — information only. */
+  /** Live spend today vs its usual day (micros) — information only. */
   liveSpike: { today: number; usual: number } | null;
 };
 
@@ -67,19 +94,29 @@ export type RequestRow = {
   id: number;
   /** organizationId null = the whole organisation; allianceId null = a standalone workspace. */
   target: { allianceId: number | null; organizationId: number | null; name: string };
-  tokens: number;
+  /** Micros asked for. 0 = a request made before money budgets (asked in tokens). */
+  amountMicros: number;
   reason: string | null;
   /** The requester's name (or email). */
   requestedBy: string;
   createdAt: string;
 };
 
-export type CanEdit = { budget: boolean; bulk: boolean; workspaceLimits: boolean; grant: boolean };
+export type CanEdit = {
+  budget: boolean;
+  bulk: boolean;
+  workspaceLimits: boolean;
+  grant: boolean;
+  /** The organisation's AI mode: platform admin; organisation admin on self-hosted. */
+  mode: boolean;
+};
 
 export type GroupDetail = GroupSummary & {
   active: true;
   /** Spend this month by workspaces no longer in the group (removed or deactivated). */
   removedSpend: { total: number; bulk: number };
+  /** The group's spend in tokens (admins' secondary figure): rows plus removed. */
+  tokens: TokenSpend;
   /** Organisation-wide extra (null for a standalone workspace). */
   groupExtra: ExtraView | null;
   rows: WorkspaceRow[];
@@ -95,12 +132,13 @@ export type GroupDetail = GroupSummary & {
 
 /** The settings the platform admin edits (`ai.budgets` without its per-group entries). */
 export type BudgetSettingsView = {
-  version: 1;
+  version: 2;
   activatedAt?: string;
   bulkPctMin: number;
   bulkPctMax: number;
   defaultBulkPct: number;
-  tokensPerCall: number;
+  /** Money one message carries, micros (default 4,000 ≈ $0.004). */
+  microsPerMessage: number;
   serverCeiling: number | null;
   /** Self-hosted: the budget of a standalone workspace with none of its own; null = none. */
   defaultStandaloneBudget: number | null;
@@ -110,6 +148,7 @@ export type BudgetSettingsView = {
 
 /** GET /api/admin/budgets/state */
 export type BudgetState = {
+  currency: BudgetCurrency;
   active: boolean;
   selfHosted: boolean;
   settings: BudgetSettingsView;
@@ -129,17 +168,18 @@ export type BudgetsInactive = { active: false };
 
 /** GET /api/organizations/ai-usage (once the budgets are switched on). */
 export type WorkspaceUsage = {
+  currency: BudgetCurrency;
   active: true;
   group: { key: string; kind: 'alliance' | 'workspace'; name: string };
   budget: number | null;
-  budgetSource: 'override' | 'plans' | 'default' | 'none';
+  budgetSource: BudgetSource;
   bulkLimitOn: boolean;
   bulkPct: number;
   bulkPctMin: number;
   bulkPctMax: number;
   /** The group's month spend (not counting extra). */
   spend: { total: number; bulk: number; live: number };
-  /** The group's bulk limit in tokens (budget × bulk %), null when off or no budget. */
+  /** The group's bulk limit (budget × bulk %), null when off or no budget. */
   bulkLimit: number | null;
   /** This workspace's own active extra. */
   extra: ExtraView | null;
@@ -161,31 +201,37 @@ export type WorkspaceUsage = {
 
 /* ---- Shapes not in the BE contract file: the migration dry run and the request bodies. ---- */
 
-export type MigrationBasis =
-  | 'alliance_pool'
-  | 'sum_of_members'
-  | 'standalone_limits'
-  | 'plan'
-  | 'none';
+export type MigrationBasis = 'plan' | 'none';
+
+/** Where the old cap of a group came from (the token era): what Apply no longer carries over. */
+export type MigrationOldCap = {
+  tokens: number;
+  basis: 'alliance_pool' | 'sum_of_members' | 'standalone_limits';
+};
 
 /** GET /api/admin/budgets/migration - one group of the dry run. */
 export type MigrationRow = {
   group: { kind: 'alliance'; allianceId: number } | { kind: 'workspace'; organizationId: number };
   name: string;
+  /** Micros (or null): what Apply gives. */
   budget: number | null;
   bulkPct: number;
   bulkLimitOn: true;
   basis: MigrationBasis;
-  workspaceBulkLimits: {
-    organizationId: number;
-    name: string;
-    from: number;
-    meaningChanged: true;
-  }[];
+  oldCap: MigrationOldCap | null;
+  oldWorkspaceKbCaps: { organizationId: number; name: string; tokens: number }[];
   wouldStopWithin7Days: boolean;
 };
 
-export type BudgetMigration = { rows: MigrationRow[]; alreadyActive: boolean };
+export type BudgetMigration = {
+  currency: BudgetCurrency;
+  rows: MigrationRow[];
+  alreadyActive: boolean;
+  carriesTokenCaps: false;
+  note: string;
+  defaultStandaloneBudget: number | null;
+  oldDefaultStandaloneTokens: number | null;
+};
 
 /** Per group key (a:<id> / w:<id>). */
 export type MigrationOverrides = Record<string, { budget: number | null; bulkPct?: number }>;
@@ -204,7 +250,8 @@ export type ExtraTarget = { allianceId: number | null; organizationId: number | 
 
 export type GiveExtraBody = {
   targets: ExtraTarget[];
-  tokens: number | 'suggested';
+  /** Micros, or 'suggested' (each target's knowledge-base forecast, whole dollars). */
+  amountMicros: number | 'suggested';
   end: 'today' | 3 | 7;
   requestId?: number;
   reason?: string;
@@ -214,7 +261,7 @@ export type GrantedExtra = {
   id: number;
   allianceId: number | null;
   organizationId: number | null;
-  tokens: number;
+  amountMicros: number;
   endsAt: string;
 };
 
@@ -224,7 +271,7 @@ export type SettingsUpdate = Partial<
     | 'bulkPctMin'
     | 'bulkPctMax'
     | 'defaultBulkPct'
-    | 'tokensPerCall'
+    | 'microsPerMessage'
     | 'serverCeiling'
     | 'defaultStandaloneBudget'
     | 'liveSpikeFactor'
@@ -232,7 +279,7 @@ export type SettingsUpdate = Partial<
 >;
 
 export type AllianceBudgetUpdate = { bulkLimitOn?: boolean; bulkPct?: number };
-export type ExtraRequestBody = { tokens: number; reason?: string };
+export type ExtraRequestBody = { amountMicros: number; reason?: string };
 export type WorkspaceBudgetUpdate = {
   budget?: number | null;
   bulkLimitOn?: boolean;
@@ -305,7 +352,7 @@ export const budgetsService = {
   updateGroup: async (key: string, body: GroupUpdate): Promise<GroupDetail> =>
     unwrap(await apiClient.put<Envelope<GroupDetail>>(groupPath(key), body)),
 
-  /** `limit` null removes the workspaces' own bulk limit. */
+  /** `limit` micros; null removes the workspaces' own bulk limit. */
   setWorkspaceLimits: async (
     organizationIds: number[],
     limit: number | null
@@ -330,6 +377,10 @@ export const budgetsService = {
   updateSettings: async (body: SettingsUpdate): Promise<BudgetSettingsView> =>
     unwrap(await apiClient.patch<Envelope<BudgetSettingsView>>(`${base}/settings`, body)),
 
+  /** An organisation's AI mode (platform admin); applies from the next reset. */
+  setGroupMode: async (key: string, mode: OrganisationMode): Promise<GroupDetail> =>
+    unwrap(await apiClient.put<Envelope<GroupDetail>>(`${groupPath(key)}/mode`, { mode })),
+
   // ---- organisation admin (the api-client adds X-Alliance-Context itself) ----
   getAllianceBudget: async (allianceId: number): Promise<GroupDetail | BudgetsInactive> =>
     unwrap(await apiClient.get<Envelope<GroupDetail | BudgetsInactive>>(alliancePath(allianceId))),
@@ -339,6 +390,10 @@ export const budgetsService = {
     body: AllianceBudgetUpdate
   ): Promise<GroupDetail> =>
     unwrap(await apiClient.put<Envelope<GroupDetail>>(alliancePath(allianceId), body)),
+
+  /** The organisation's AI mode (organisation admin, self-hosted); applies from the next reset. */
+  setAllianceMode: async (allianceId: number, mode: OrganisationMode): Promise<GroupDetail> =>
+    unwrap(await apiClient.put<Envelope<GroupDetail>>(`${alliancePath(allianceId)}/mode`, { mode })),
 
   setAllianceWorkspaceLimits: async (
     allianceId: number,

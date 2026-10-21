@@ -11,6 +11,7 @@ import {
   useBudgetState,
   useEndExtra,
   useGiveExtra,
+  useSetGroupMode,
   useSetWorkspaceLimits,
   useUpdateBudgetGroup,
 } from '@/hooks/useBudgets';
@@ -31,7 +32,9 @@ export const PlatformBudgetGroup = () => {
   const setLimits = useSetWorkspaceLimits(key);
   const give = useGiveExtra(key);
   const end = useEndExtra(key);
-  const busy = update.isPending || setLimits.isPending || give.isPending || end.isPending;
+  const setMode = useSetGroupMode(key);
+  const busy =
+    update.isPending || setLimits.isPending || give.isPending || end.isPending || setMode.isPending;
 
   const back = (
     <Link
@@ -80,9 +83,21 @@ export const PlatformBudgetGroup = () => {
               { onError: failed('Could not set the limit.') }
             )
           }
-          onGiveExtra={(targets, tokens, endChoice) =>
+          onSetMode={(mode) =>
+            setMode.mutateAsync(mode).then(
+              () => {
+                toast.success('Mode saved; it applies from the next reset');
+                return true;
+              },
+              (saveError: unknown) => {
+                failed('Could not change the mode.')(saveError);
+                return false;
+              }
+            )
+          }
+          onGiveExtra={(targets, amountMicros, endChoice) =>
             give.mutate(
-              { targets, tokens, end: endChoice },
+              { targets, amountMicros, end: endChoice },
               {
                 onSuccess: () => toast.success('Extra given'),
                 onError: failed('Could not give the extra.'),

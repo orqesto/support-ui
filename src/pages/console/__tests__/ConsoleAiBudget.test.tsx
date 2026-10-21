@@ -30,6 +30,10 @@ vi.mock('@/services/budgets.service', () => ({
       record('updateAllianceBudget', [id, body]);
       return Promise.resolve(result);
     },
+    setAllianceMode: (id: number, mode: string) => {
+      record('setAllianceMode', [id, mode]);
+      return Promise.resolve(result);
+    },
     setAllianceWorkspaceLimits: (id: number, ids: number[], limit: number | null) => {
       record('setAllianceWorkspaceLimits', [id, ids, limit]);
       return Promise.resolve({ updated: ids.length });
@@ -54,6 +58,8 @@ const row = (id: number, total: number, over: Partial<WorkspaceRow> = {}): Works
   organizationId: id,
   name: `Shop ${id}`,
   spend: { total, bulk: total / 4, live: (total * 3) / 4 },
+  tokens: { total: 1_000_000, bulk: 250_000 },
+  budget: null,
   bulkLimit: null,
   extra: null,
   bulkRunning: false,
@@ -65,6 +71,7 @@ const row = (id: number, total: number, over: Partial<WorkspaceRow> = {}): Works
 });
 
 const detail = (over: Partial<GroupDetail> = {}): GroupDetail => ({
+  currency: 'USD',
   key: 'a:7',
   kind: 'alliance',
   id: 7,
@@ -80,6 +87,7 @@ const detail = (over: Partial<GroupDetail> = {}): GroupDetail => ({
   requestCount: 0,
   active: true,
   removedSpend: { total: 0, bulk: 0 },
+  tokens: { total: 4_000_000, bulk: 1_000_000 },
   groupExtra: null,
   rows: [row(1, 30 * MLN), row(2, 20 * MLN)],
   requests: [],
@@ -87,7 +95,7 @@ const detail = (over: Partial<GroupDetail> = {}): GroupDetail => ({
   resetsAt: '2026-11-01T00:00:00.000Z',
   bulkPctMin: 50,
   bulkPctMax: 90,
-  canEdit: { budget: false, bulk: true, workspaceLimits: true, grant: false },
+  canEdit: { budget: false, bulk: true, workspaceLimits: true, grant: false, mode: false },
   ...over,
 });
 
@@ -114,7 +122,7 @@ afterEach(cleanup);
 describe('ConsoleAiBudget', () => {
   it('self-hosted (canEdit.bulk true): the bulk limit is editable, the budget is not', async () => {
     renderPage();
-    expect(await screen.findByTestId('budget-readonly')).toHaveTextContent('100M');
+    expect(await screen.findByTestId('budget-readonly')).toHaveTextContent('≈ $100.00');
     expect(screen.queryByLabelText('Monthly budget')).toBeNull();
     const toggle = screen.getByRole('switch', { name: /Limit it/ });
     expect(toggle).not.toBeDisabled();
@@ -124,7 +132,7 @@ describe('ConsoleAiBudget', () => {
 
   it('hosted (canEdit.bulk false): the bulk limit is read-only', async () => {
     result = detail({
-      canEdit: { budget: false, bulk: false, workspaceLimits: false, grant: false },
+      canEdit: { budget: false, bulk: false, workspaceLimits: false, grant: false, mode: false },
     });
     renderPage();
     await screen.findByTestId('budget-readonly');
@@ -135,7 +143,7 @@ describe('ConsoleAiBudget', () => {
 
   it('never offers Give extra, even if the API said grant', async () => {
     result = detail({
-      canEdit: { budget: false, bulk: true, workspaceLimits: true, grant: true },
+      canEdit: { budget: false, bulk: true, workspaceLimits: true, grant: true, mode: false },
     });
     renderPage();
     await screen.findByTestId('budget-readonly');
@@ -152,7 +160,7 @@ describe('ConsoleAiBudget', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send request' }));
     await waitFor(() =>
       expect(calls.requestAllianceExtra).toEqual([
-        [7, { tokens: 5 * MLN, reason: 'Big import', organizationId: undefined }],
+        [7, { amountMicros: 5 * MLN, reason: 'Big import', organizationId: undefined }],
       ])
     );
   });
@@ -164,9 +172,35 @@ describe('ConsoleAiBudget', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send request' }));
     await waitFor(() =>
       expect(calls.requestAllianceExtra).toEqual([
-        [7, { tokens: 15 * MLN, reason: undefined, organizationId: 2 }],
+        [7, { amountMicros: 15 * MLN, reason: undefined, organizationId: 2 }],
       ])
     );
+  });
+
+  it('shows the separate / shared mode and lets an organisation admin change it when canEdit.mode', async () => {
+    result = detail({
+      mode: { current: 'separate', next: null },
+      canEdit: { budget: false, bulk: true, workspaceLimits: true, grant: false, mode: true },
+    });
+    renderPage();
+    await chooseOption(await screen.findByLabelText('How workspaces share AI'), /^Shared/);
+    await waitFor(() => expect(calls.setAllianceMode).toEqual([[7, 'shared']]));
+  });
+
+  it('a hosted organisation admin sees the mode but cannot change it', async () => {
+    result = detail({
+      mode: { current: 'shared', next: { mode: 'separate', from: '2026-11-01T00:00:00.000Z' } },
+    });
+    renderPage();
+    expect(await screen.findByTestId('budget-mode')).toHaveTextContent('Shared');
+    expect(screen.getByTestId('budget-mode-next')).toHaveTextContent('Changes to separate');
+    expect(screen.queryByLabelText('How workspaces share AI')).toBeNull();
+  });
+
+  it('shows the tokens of each workspace as the secondary figure', async () => {
+    renderPage();
+    expect(await screen.findByTestId('budget-row-tokens-1')).toHaveTextContent('1.0M tokens');
+    expect(screen.getByTestId('budget-tokens')).toHaveTextContent('(4.0M tokens)');
   });
 
   it('a refused request is a toast', async () => {

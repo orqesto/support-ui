@@ -7,6 +7,7 @@ import { BudgetGroupView } from '@/components/budget/BudgetGroupView';
 import {
   useAllianceBudget,
   useRequestAllianceExtra,
+  useSetAllianceMode,
   useSetAllianceWorkspaceLimits,
   useUpdateAllianceBudget,
 } from '@/hooks/useBudgets';
@@ -29,7 +30,8 @@ export const ConsoleAiBudget = () => {
   const update = useUpdateAllianceBudget(numericId ?? 0);
   const setLimits = useSetAllianceWorkspaceLimits(numericId ?? 0);
   const request = useRequestAllianceExtra(numericId ?? 0);
-  const busy = update.isPending || setLimits.isPending || request.isPending;
+  const setMode = useSetAllianceMode(numericId ?? 0);
+  const busy = update.isPending || setLimits.isPending || request.isPending || setMode.isPending;
 
   const data = budgetQuery.data;
   const unavailable =
@@ -67,8 +69,20 @@ export const ConsoleAiBudget = () => {
             { onError: failed('Could not set the limit.') }
           )
         }
-        onRequestExtra={(organizationId, tokens, reason) =>
-          request.mutateAsync({ tokens, reason, organizationId: organizationId ?? undefined }).then(
+        onSetMode={(mode) =>
+          setMode.mutateAsync(mode).then(
+            () => {
+              toast.success('Mode saved; it applies from the next reset');
+              return true;
+            },
+            (error: unknown) => {
+              failed('Could not change the mode.')(error);
+              return false;
+            }
+          )
+        }
+        onRequestExtra={(organizationId, amountMicros, reason) =>
+          request.mutateAsync({ amountMicros, reason, organizationId: organizationId ?? undefined }).then(
             () => {
               toast.success('Request sent to the platform admin');
               return true;

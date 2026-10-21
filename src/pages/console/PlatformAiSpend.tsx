@@ -282,6 +282,7 @@ export const PlatformAiSpend = () => {
     : pricedFromParts.join(' + ');
   const unreadableRateOrgs = cost?.providerRatesUnreadableOrgIds ?? [];
   const totalCost = cost ? cost.usd : usage ? sumCost(usage.totals.byTier) : null;
+  const unpricedCalls = cost?.unpricedCalls;
   const unpricedTokens =
     cost?.unpricedTokens ??
     usage?.totals.byTier
@@ -417,6 +418,21 @@ export const PlatformAiSpend = () => {
               </CardContent>
             </Card>
           </div>
+
+          {unpricedCalls && unpricedCalls.calls > 0 && (
+            <Alert variant="warning">
+              <p data-testid="unpriced-models-warning" className="text-sm">
+                {unpricedCalls.calls.toLocaleString()} AI call{unpricedCalls.calls === 1 ? '' : 's'}{' '}
+                used {unpricedCalls.models.length} model{unpricedCalls.models.length === 1 ? '' : 's'}{' '}
+                with no known price, so the budgets count{' '}
+                {unpricedCalls.calls === 1 ? 'it' : 'them'} as $0 and under-count the real spend:{' '}
+                {unpricedCalls.models
+                  .map((entry) => `${entry.model} (${entry.calls.toLocaleString()})`)
+                  .join(', ')}
+                . Add a price for {unpricedCalls.models.length === 1 ? 'it' : 'each'} to fix this.
+              </p>
+            </Alert>
+          )}
 
           <Card className="flex overflow-hidden flex-col shrink-0">
             <CardContent padding="none" className="flex overflow-x-auto flex-col">

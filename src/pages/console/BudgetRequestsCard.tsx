@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ExtraBox } from '@/components/budget/ExtraBox';
-import { fmtTokens } from '@/components/budget/budget.rules';
+import { fmtMoney } from '@/components/budget/budget.rules';
 import { useDeclineRequest, useGiveExtra } from '@/hooks/useBudgets';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import type { RequestRow } from '@/services/budgets.service';
@@ -46,7 +46,10 @@ export const BudgetRequestsCard = ({
               <div className="flex flex-wrap gap-2.5 justify-between items-center">
                 <div className="flex flex-col">
                   <span className="font-semibold">
-                    {request.target.name} asks for +{fmtTokens(request.tokens)}
+                    {request.target.name} asks for{' '}
+                    {request.amountMicros > 0
+                      ? `${fmtMoney(request.amountMicros)}`
+                      : 'extra (asked in tokens, before money budgets)'}
                   </span>
                   <span className="text-sm text-muted-foreground">
                     {request.requestedBy} · {new Date(request.createdAt).toLocaleDateString()}
@@ -79,9 +82,9 @@ export const BudgetRequestsCard = ({
                   <ExtraBox
                     key={`request-${request.id}`}
                     extra={null}
-                    initialAmount={request.tokens}
+                    initialAmount={request.amountMicros}
                     busy={busy}
-                    onGive={(tokens, end) =>
+                    onGive={(amountMicros, end) =>
                       give.mutate(
                         {
                           targets: [
@@ -90,7 +93,7 @@ export const BudgetRequestsCard = ({
                               organizationId: request.target.organizationId,
                             },
                           ],
-                          tokens,
+                          amountMicros,
                           end,
                           requestId: request.id,
                         },
@@ -123,7 +126,9 @@ export const BudgetRequestsCard = ({
           }}
           title="Decline this request?"
           description={
-            declining ? `${declining.target.name} asked for +${fmtTokens(declining.tokens)}.` : ''
+            declining
+              ? `${declining.target.name} asked for ${declining.amountMicros > 0 ? `${fmtMoney(declining.amountMicros)}` : 'extra'}.`
+              : ''
           }
           confirmText="Decline"
           onConfirm={() => {

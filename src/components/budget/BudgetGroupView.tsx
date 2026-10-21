@@ -6,11 +6,13 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { Toggle } from '@/components/ui/Toggle';
+import { Select } from '@/components/ui/Select';
 import type {
   CanEdit,
   ExtraTarget,
   GroupDetail,
   GroupUpdate,
+  OrganisationMode,
   WorkspaceRow,
 } from '@/services/budgets.service';
 import { BudgetBar } from './BudgetBar';
@@ -22,14 +24,14 @@ import { StatusText } from './StatusText';
 import { WorkspaceRows, panelIdFor } from './WorkspaceRows';
 import {
   ADVANCED_ANCHOR,
-  MILLION,
+  MICROS_PER_USD,
   QUICK_EXTRA_END,
+  dollarsText,
   extraEndsText,
   extraLeft,
-  fmt,
-  fmtTokens,
+  fmtMoney,
   limitSliderTop,
-  usdTokens,
+  parseDollars,
   type ExtraEndChoice,
 } from './budget.rules';
 
@@ -52,9 +54,13 @@ export type BudgetGroupViewProps = {
   busy?: boolean;
   /** May answer whether the save went through (the bulk line goes back on `false`). */
   onUpdate?: (body: GroupUpdate) => void | Promise<boolean>;
-  /** `limit` null removes the workspaces' own bulk limit. Tokens. */
+  /** `limit` null removes the workspaces' own bulk limit. Micros. */
   onSetLimits?: (organizationIds: number[], limit: number | null) => void;
-  onGiveExtra?: (targets: ExtraTarget[], tokens: number | 'suggested', end: ExtraEndChoice) => void;
+  onGiveExtra?: (
+    targets: ExtraTarget[],
+    amountMicros: number | 'suggested',
+    end: ExtraEndChoice
+  ) => void;
   onEndExtra?: (grantIds: number[]) => void;
   /**
    * Organisation mode: ask the platform admin for extra (null = the whole organisation). Answers
@@ -63,21 +69,63 @@ export type BudgetGroupViewProps = {
    */
   onRequestExtra?: (
     organizationId: number | null,
-    tokens: number,
+    amountMicros: number,
     reason: string | undefined
   ) => void | Promise<boolean>;
+  /** Change the organisation's AI mode (shown when the API says `canEdit.mode`). Answers whether it was saved. */
+  onSetMode?: (mode: OrganisationMode) => void | Promise<boolean>;
 };
 
-/** Million tokens typed by a person → tokens; '' = no budget; NaN = not a number. */
-const parseMillions = (text: string): number | null => {
-  const trimmed = text.trim();
-  if (trimmed === '') return null;
-  const value = Number(trimmed);
-  return Number.isFinite(value) && value > 0 ? Math.round(value * MILLION) : Number.NaN;
-};
+const MODE_OPTIONS: Array<{ value: OrganisationMode; label: string }> = [
+  { value: 'separate', label: 'Separate: every workspace has its own AI budget' },
+  { value: 'shared', label: 'Shared: one AI budget for the whole organisation' },
+];
 
-const millionsText = (tokens: number | null) =>
-  tokens === null ? '' : String(Math.round((tokens / MILLION) * 10) / 10);
+/**
+ * An organisation's AI mode (separate / shared). Read-only text unless `canEdit`; a change applies
+ * from the next reset, so a pending one is shown under the select.
+ */
+export const ModeField = ({
+  mode,
+  canEdit,
+  busy,
+  onSetMode,
+}: {
+  mode: NonNullable<GroupDetail['mode']>;
+  canEdit: boolean;
+  busy?: boolean;
+  onSetMode?: (mode: OrganisationMode) => void | Promise<boolean>;
+}) => {
+  const label = (value: OrganisationMode) =>
+    MODE_OPTIONS.find((option) => option.value === value)?.label ?? value;
+  return (
+    <div className="flex flex-col gap-1.5 max-w-md" data-testid="budget-mode">
+      {canEdit ? (
+        <Select
+          id="budget-mode-select"
+          label="How workspaces share AI"
+          value={mode.current}
+          disabled={busy}
+          onChange={(next: string) => {
+            if (next !== mode.current) void onSetMode?.(next as OrganisationMode);
+          }}
+          options={MODE_OPTIONS}
+        />
+      ) : (
+        <>
+          <FieldLabel>How workspaces share AI</FieldLabel>
+          <span className="text-sm">{label(mode.current)}</span>
+        </>
+      )}
+      {mode.next && (
+        <span className="text-sm text-warning" data-testid="budget-mode-next">
+          Changes to {mode.next.mode} on {new Date(mode.next.from).toLocaleDateString()} (the next
+          reset).
+        </span>
+      )}
+    </div>
+  );
+};
 
 export const BudgetField = ({
   detail,
@@ -93,7 +141,7 @@ export const BudgetField = ({
   onUpdate?: (body: GroupUpdate) => void | Promise<boolean>;
 }) => {
   const inputId = `budget-${detail.key}`;
-  const [draft, setDraft] = useState(() => millionsText(detail.budget));
+  const [draft, setDraft] = useState(() => dollarsText(detail.budget));
   const [overriding, setOverriding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -104,7 +152,7 @@ export const BudgetField = ({
         <span className="font-mono text-lg" data-testid="budget-readonly">
           {detail.budget === null
             ? 'No budget set'
-            : `${fmtTokens(detail.budget)} ${usdTokens(detail.budget)} / month`}
+            : `${fmtMoney(detail.budget)} / month`}
         </span>
       </div>
     );
@@ -118,7 +166,7 @@ export const BudgetField = ({
         <div className="flex flex-wrap gap-2.5 items-center">
           <span className="font-mono text-lg">
             {`${detail.budgetSource === 'plans' ? 'From plans' : 'Default for standalone workspaces'}: ${
-              detail.budget === null ? '—' : fmtTokens(detail.budget)
+              detail.budget === null ? '—' : fmtMoney(detail.budget)
             }`}
           </span>
           <Button variant="outline" size="sm" onClick={() => setOverriding(true)}>
@@ -129,15 +177,15 @@ export const BudgetField = ({
     );
 
   const save = () => {
-    const budget = parseMillions(draft);
+    const budget = parseDollars(draft);
     if (Number.isNaN(budget)) {
-      setError('Type a number of million tokens above 0, or leave it empty for no budget.');
+      setError('Type an amount in dollars above 0, or leave it empty for no budget.');
       return;
     }
     setError(null);
     void onUpdate?.({ budget });
   };
-  const saved = millionsText(detail.budget);
+  const saved = dollarsText(detail.budget);
   const changed = draft.trim() !== saved || (inherited && overriding);
 
   return (
@@ -149,6 +197,7 @@ export const BudgetField = ({
           type="number"
           min={0}
           step={1}
+          aria-label="Monthly budget, dollars"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
@@ -156,7 +205,7 @@ export const BudgetField = ({
           }}
           className="w-28 font-mono text-lg"
         />
-        <span className="text-sm text-muted-foreground">million tokens</span>
+        <span className="text-sm text-muted-foreground">US dollars per month</span>
         {changed && (
           <Button size="sm" disabled={busy} onClick={save}>
             Save budget
@@ -212,10 +261,15 @@ const WorkspacePanel = ({
   const [draft, setDraft] = useState(() =>
     Math.min(
       top,
-      Math.max(1, Math.round((row.bulkLimit ?? row.spend.bulk + 10 * MILLION) / MILLION))
+      Math.max(
+        1,
+        Math.round((row.bulkLimit ?? row.spend.bulk + 5 * MICROS_PER_USD) / MICROS_PER_USD)
+      )
     )
   );
-  const savedM = row.bulkLimit === null ? null : Math.round(row.bulkLimit / MILLION);
+  const savedDollars = row.bulkLimit === null ? null : Math.round(row.bulkLimit / MICROS_PER_USD);
+  // A workspace of a separate organisation is rated against its OWN budget.
+  const rowBudget = row.budget ?? detail.budget;
 
   return (
     <div
@@ -239,9 +293,9 @@ const WorkspacePanel = ({
               <span className="font-mono text-lg">
                 {!limitOn
                   ? 'No own limit · only the organisation bulk limit applies'
-                  : detail.budget
-                    ? `${fmt(draft)} · ${Math.round(((draft * MILLION) / detail.budget) * 100)}% of the budget`
-                    : fmt(draft)}
+                  : rowBudget
+                    ? `${fmtMoney(draft * MICROS_PER_USD)} · ${Math.round(((draft * MICROS_PER_USD) / rowBudget) * 100)}% of the budget`
+                    : fmtMoney(draft * MICROS_PER_USD)}
               </span>
               <BarSlider
                 value={draft}
@@ -250,12 +304,12 @@ const WorkspacePanel = ({
                 step={1}
                 disabled={!limitOn}
                 onChange={setDraft}
-                ariaLabel={`Limit for ${row.name}`}
-                ariaValueText={`${fmt(draft)} tokens`}
+                ariaLabel={`Limit for ${row.name}, dollars`}
+                ariaValueText={fmtMoney(draft * MICROS_PER_USD)}
                 markers={
-                  detail.bulkLimitOn && detail.budget ? (
+                  detail.bulkLimitOn && rowBudget ? (
                     <BarMarker
-                      at={Math.min(100, (detail.budget * detail.bulkPct) / (top * MILLION))}
+                      at={Math.min(100, (rowBudget * detail.bulkPct) / (top * MICROS_PER_USD))}
                       variant="tick"
                       title="Organisation: bulk limit"
                     />
@@ -263,16 +317,16 @@ const WorkspacePanel = ({
                 }
               >
                 <BarSegment
-                  width={Math.min(100, (row.spend.bulk / MILLION / top) * 100)}
+                  width={Math.min(100, (row.spend.bulk / MICROS_PER_USD / top) * 100)}
                   className="bg-pending"
                 />
               </BarSlider>
-              {limitOn && draft !== savedM && (
+              {limitOn && draft !== savedDollars && (
                 <div>
                   <Button
                     size="sm"
                     disabled={busy}
-                    onClick={() => onSetLimits?.([row.organizationId], draft * MILLION)}
+                    onClick={() => onSetLimits?.([row.organizationId], draft * MICROS_PER_USD)}
                   >
                     Set limit
                   </Button>
@@ -281,7 +335,7 @@ const WorkspacePanel = ({
             </>
           ) : (
             <span className="font-mono text-lg">
-              {row.bulkLimit === null ? 'No own limit' : `At most ${fmtTokens(row.bulkLimit)}`}
+              {row.bulkLimit === null ? 'No own limit' : `At most ${fmtMoney(row.bulkLimit)}`}
             </span>
           )}
           <span className="text-sm text-muted-foreground">
@@ -295,16 +349,16 @@ const WorkspacePanel = ({
             suggestion={row.suggestedExtra}
             initialAmount={row.suggestedExtra}
             busy={busy}
-            onGive={(tokens, end) => onGiveExtra?.([target], tokens, end)}
+            onGive={(amountMicros, end) => onGiveExtra?.([target], amountMicros, end)}
             onEnd={() => row.extra && onEndExtra?.(row.extra.grantIds)}
           />
         ) : (
           row.extra && (
             <div className="flex flex-col gap-1.5">
               <FieldLabel>Extra for bulk work</FieldLabel>
-              <span className="font-mono text-lg">+{fmtTokens(row.extra.tokens)}</span>
+              <span className="font-mono text-lg">{fmtMoney(row.extra.amountMicros)}</span>
               <span className="text-sm text-muted-foreground">
-                {fmtTokens(row.extra.used)} used · {extraEndsText(row.extra.endsAt)}
+                {fmtMoney(row.extra.usedMicros)} used · {extraEndsText(row.extra.endsAt)}
               </span>
             </div>
           )
@@ -330,6 +384,7 @@ export const BudgetGroupView = ({
   onGiveExtra,
   onEndExtra,
   onRequestExtra,
+  onSetMode,
 }: BudgetGroupViewProps) => {
   // Only the platform admin gives extra, and the budget is never set from the organisation console
   // (its PUT takes no budget): there the platform admin, too, gets neither control.
@@ -357,7 +412,7 @@ export const BudgetGroupView = ({
   const pickedIds = pickedRows.map((row) => row.organizationId);
   const canPick = canEdit.workspaceLimits || canEdit.grant;
   const suggestedForGroup = Math.max(
-    5 * MILLION,
+    5 * MICROS_PER_USD,
     rows.filter((row) => row.bulkRunning).reduce((sum, row) => sum + row.suggestedExtra, 0)
   );
 
@@ -391,10 +446,19 @@ export const BudgetGroupView = ({
               onToggle={(bulkLimitOn) => onUpdate?.({ bulkLimitOn })}
             />
           </div>
+          {detail.mode && (
+            <ModeField
+              mode={detail.mode}
+              canEdit={canEdit.mode && Boolean(onSetMode)}
+              busy={busy}
+              onSetMode={onSetMode}
+            />
+          )}
           <BudgetBar
             budget={detail.budget}
             spend={detail.spend}
             removedSpend={detail.removedSpend.total}
+            tokens={detail.tokens}
             bulkLimitOn={detail.bulkLimitOn}
             bulkPct={detail.bulkPct}
             bulkPctMin={detail.bulkPctMin}
@@ -418,8 +482,12 @@ export const BudgetGroupView = ({
                     suggestion={suggestedForGroup}
                     initialAmount={suggestedForGroup}
                     busy={busy}
-                    onGive={(tokens, end) =>
-                      onGiveExtra?.([{ allianceId: detail.id, organizationId: null }], tokens, end)
+                    onGive={(amountMicros, end) =>
+                      onGiveExtra?.(
+                        [{ allianceId: detail.id, organizationId: null }],
+                        amountMicros,
+                        end
+                      )
                     }
                     onEnd={() => detail.groupExtra && onEndExtra?.(detail.groupExtra.grantIds)}
                   />
@@ -438,8 +506,8 @@ export const BudgetGroupView = ({
             ) : (
               detail.groupExtra && (
                 <p className="text-sm text-muted-foreground">
-                  Extra for the whole organisation: +{fmtTokens(detail.groupExtra.tokens)},{' '}
-                  {fmtTokens(extraLeft(detail.groupExtra))} left ·{' '}
+                  Extra for the whole organisation: {fmtMoney(detail.groupExtra.amountMicros)},{' '}
+                  {fmtMoney(extraLeft(detail.groupExtra))} left ·{' '}
                   {extraEndsText(detail.groupExtra.endsAt)}
                 </p>
               )
@@ -451,8 +519,8 @@ export const BudgetGroupView = ({
                 targets={requestTargets}
                 initialAmount={suggestedForGroup}
                 busy={busy}
-                onRequest={(tokens, reason, organizationId) =>
-                  onRequestExtra(organizationId, tokens, reason)
+                onRequest={(amountMicros, reason, organizationId) =>
+                  onRequestExtra(organizationId, amountMicros, reason)
                 }
               />
             ) : (
@@ -496,10 +564,10 @@ export const BudgetGroupView = ({
               onUnselectAll={() => setPicked(new Set())}
               onSetLimit={(limit) => onSetLimits?.(pickedIds, limit)}
               onRemoveLimit={() => onSetLimits?.(pickedIds, null)}
-              onGiveExtra={(tokens, end) =>
+              onGiveExtra={(amountMicros, end) =>
                 onGiveExtra?.(
                   pickedIds.map((id) => targetOf(id)),
-                  tokens,
+                  amountMicros,
                   end
                 )
               }

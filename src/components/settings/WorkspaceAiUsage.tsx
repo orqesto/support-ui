@@ -8,7 +8,7 @@ import { BudgetField } from '@/components/budget/BudgetGroupView';
 import { BulkLimitField, FieldLabel } from '@/components/budget/BulkLimitField';
 import { RequestExtraBox } from '@/components/budget/RequestExtraBox';
 import { StatusText } from '@/components/budget/StatusText';
-import { extraEndsText, fmtTokens } from '@/components/budget/budget.rules';
+import { extraEndsText, fmtMoney } from '@/components/budget/budget.rules';
 import { useMyAiUsage, useRequestMyExtra, useUpdateMyBudget } from '@/hooks/useBudgets';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import type { WorkspaceBudgetUpdate } from '@/services/budgets.service';
@@ -88,7 +88,7 @@ export const WorkspaceAiUsage = () => {
           </div>
           <BudgetBar
             budget={data.budget}
-            spend={{ ...data.spend, extra: data.extra?.used ?? 0 }}
+            spend={{ ...data.spend, extra: data.extra?.usedMicros ?? 0 }}
             bulkLimitOn={data.bulkLimitOn}
             bulkPct={data.bulkPct}
             bulkPctMin={data.bulkPctMin}
@@ -113,22 +113,22 @@ export const WorkspaceAiUsage = () => {
               <span className="font-mono text-lg" data-testid="my-bulk-limit">
                 {data.myBulkLimit === null
                   ? 'No own limit'
-                  : `At most ${fmtTokens(data.myBulkLimit)}`}
+                  : `At most ${fmtMoney(data.myBulkLimit)}`}
               </span>
             </div>
             <div className="flex flex-col gap-1.5">
               <FieldLabel>Its bulk spend this month</FieldLabel>
               <span className="font-mono text-lg" data-testid="my-bulk-spend">
-                {fmtTokens(data.myBulkSpend)}
+                {fmtMoney(data.myBulkSpend)}
               </span>
             </div>
             <div className="flex flex-col gap-1.5">
               <FieldLabel>Extra for bulk work</FieldLabel>
               {data.extra ? (
                 <>
-                  <span className="font-mono text-lg">+{fmtTokens(data.extra.tokens)}</span>
+                  <span className="font-mono text-lg">{fmtMoney(data.extra.amountMicros)}</span>
                   <span className="text-sm text-muted-foreground">
-                    {fmtTokens(data.extra.used)} used · {extraEndsText(data.extra.endsAt)}
+                    {fmtMoney(data.extra.usedMicros)} used · {extraEndsText(data.extra.endsAt)}
                   </span>
                 </>
               ) : (
@@ -149,8 +149,8 @@ export const WorkspaceAiUsage = () => {
           {canEdit.request && (
             <RequestExtraBox
               busy={busy}
-              onRequest={(tokens, reason) =>
-                request.mutateAsync({ tokens, reason }).then(
+              onRequest={(amountMicros, reason) =>
+                request.mutateAsync({ amountMicros, reason }).then(
                   () => {
                     toast.success('Request sent to the platform admin');
                     return true;

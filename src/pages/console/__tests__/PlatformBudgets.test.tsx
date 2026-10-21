@@ -63,7 +63,7 @@ const { PlatformBudgets } = await import('../PlatformBudgets');
 const request = (over: Partial<RequestRow> = {}): RequestRow => ({
   id: 41,
   target: { allianceId: 7, organizationId: 12, name: 'Northwind Shop' },
-  tokens: 40 * MLN,
+  amountMicros: 40 * MLN,
   reason: 'Big import',
   requestedBy: 'ana@example.com',
   createdAt: '2026-10-19T10:00:00.000Z',
@@ -72,14 +72,15 @@ const request = (over: Partial<RequestRow> = {}): RequestRow => ({
 
 function baseState(over: Partial<BudgetState> = {}): BudgetState {
   return {
+    currency: 'USD',
     active: true,
     selfHosted: false,
     settings: {
-      version: 1,
+      version: 2,
       bulkPctMin: 50,
       bulkPctMax: 90,
       defaultBulkPct: 60,
-      tokensPerCall: 1490,
+      microsPerMessage: 4000,
       serverCeiling: null,
       defaultStandaloneBudget: null,
       liveSpikeFactor: 3,
@@ -93,6 +94,7 @@ function baseState(over: Partial<BudgetState> = {}): BudgetState {
 }
 
 const summary = (key: string, name: string, over: Partial<GroupSummary> = {}): GroupSummary => ({
+  currency: 'USD',
   key,
   kind: key.startsWith('a:') ? 'alliance' : 'workspace',
   id: Number(key.slice(2)),
@@ -143,6 +145,11 @@ beforeEach(() => {
     total: 2,
   };
   migration = {
+    currency: 'USD',
+    carriesTokenCaps: false,
+    note: 'Token caps are not carried over.',
+    defaultStandaloneBudget: null,
+    oldDefaultStandaloneTokens: null,
     alreadyActive: false,
     rows: [
       {
@@ -151,10 +158,9 @@ beforeEach(() => {
         budget: 120 * MLN,
         bulkPct: 60,
         bulkLimitOn: true,
-        basis: 'alliance_pool',
-        workspaceBulkLimits: [
-          { organizationId: 12, name: 'Northwind Shop', from: 20 * MLN, meaningChanged: true },
-        ],
+        basis: 'plan',
+        oldCap: { tokens: 90 * MLN, basis: 'alliance_pool' },
+        oldWorkspaceKbCaps: [{ organizationId: 12, name: 'Northwind Shop', tokens: 20 * MLN }],
         wouldStopWithin7Days: true,
       },
       {
@@ -164,7 +170,8 @@ beforeEach(() => {
         bulkPct: 60,
         bulkLimitOn: true,
         basis: 'none',
-        workspaceBulkLimits: [],
+        oldCap: null,
+        oldWorkspaceKbCaps: [],
         wouldStopWithin7Days: false,
       },
     ],
@@ -191,11 +198,12 @@ describe('before Apply: the migration panel', () => {
     expect(
       await screen.findByText(/Current limits stay in force until you switch/)
     ).toBeInTheDocument();
-    expect(screen.getByText("The organisation's monthly pool")).toBeInTheDocument();
-    expect(screen.getByText('⚠ now limits bulk work only')).toBeInTheDocument();
+    expect(screen.getByText('From its plan')).toBeInTheDocument();
+    expect(screen.getByText(/90\.0M tokens, organisation's monthly pool/)).toBeInTheDocument();
+    expect(screen.getByText('⚠ replaced by the money budget')).toBeInTheDocument();
     expect(screen.getByText('Would stop within 7 days')).toBeInTheDocument();
     expect(
-      screen.getByRole('spinbutton', { name: 'Monthly budget for Northwind, million tokens' })
+      screen.getByRole('spinbutton', { name: 'Monthly budget for Northwind, dollars' })
     ).toHaveValue(120);
     expect(calls.listGroups).toBeUndefined();
   });
@@ -204,9 +212,9 @@ describe('before Apply: the migration panel', () => {
     renderPage();
     await screen.findByText(/Current limits stay in force until you switch/);
     fireEvent.click(screen.getByRole('button', { name: 'Show' }));
-    fireEvent.change(screen.getByLabelText('Tokens per AI call'), { target: { value: '1600' } });
+    fireEvent.change(screen.getByLabelText(/^Money per message/), { target: { value: '1600' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
-    await waitFor(() => expect(calls.updateSettings).toEqual([{ tokensPerCall: 1600 }]));
+    await waitFor(() => expect(calls.updateSettings).toEqual([{ microsPerMessage: 1600 }]));
   });
 
   it('Apply asks first, then switches on with no overrides', async () => {
@@ -226,12 +234,12 @@ describe('before Apply: the migration panel', () => {
     renderPage();
     fireEvent.change(
       await screen.findByRole('spinbutton', {
-        name: 'Monthly budget for Northwind, million tokens',
+        name: 'Monthly budget for Northwind, dollars',
       }),
       { target: { value: '150' } }
     );
     fireEvent.change(
-      screen.getByRole('spinbutton', { name: 'Monthly budget for Contoso Mail, million tokens' }),
+      screen.getByRole('spinbutton', { name: 'Monthly budget for Contoso Mail, dollars' }),
       { target: { value: '30' } }
     );
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
@@ -301,12 +309,12 @@ describe('requests card', () => {
     renderPage();
     expect(await screen.findByText('Requests for extra · 1 open')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Give' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Give +40.0M · ends in 3 days' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Give ≈ $40.00 · ends in 3 days' }));
     await waitFor(() =>
       expect(calls.giveExtra).toEqual([
         {
           targets: [{ allianceId: 7, organizationId: 12 }],
-          tokens: 40 * MLN,
+          amountMicros: 40 * MLN,
           end: 3,
           requestId: 41,
         },
@@ -314,20 +322,20 @@ describe('requests card', () => {
     );
   });
 
-  it('a request above the usual slider top (500M) is given exactly', async () => {
+  it('a request above the usual slider top ($500) is given exactly', async () => {
     stateResult = {
       available: true,
-      state: baseState({ requests: 1, requestList: [request({ tokens: 500 * MLN })] }),
+      state: baseState({ requests: 1, requestList: [request({ amountMicros: 500 * MLN })] }),
     };
     renderPage();
-    expect(await screen.findByText('Northwind Shop asks for +500M')).toBeInTheDocument();
+    expect(await screen.findByText('Northwind Shop asks for ≈ $500.00')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Give' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Give +500M · ends in 3 days' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Give ≈ $500.00 · ends in 3 days' }));
     await waitFor(() =>
       expect(calls.giveExtra).toEqual([
         {
           targets: [{ allianceId: 7, organizationId: 12 }],
-          tokens: 500 * MLN,
+          amountMicros: 500 * MLN,
           end: 3,
           requestId: 41,
         },
@@ -371,7 +379,7 @@ describe('advanced settings', () => {
     });
     try {
       renderPage('/console/platform/ai-spend#budget-advanced');
-      expect(await screen.findByLabelText('Tokens per AI call')).toBeInTheDocument();
+      expect(await screen.findByLabelText(/^Money per message/)).toBeInTheDocument();
       expect(scrolled.map((element) => element.id)).toEqual(['budget-advanced']);
     } finally {
       if (original) Object.defineProperty(Element.prototype, 'scrollIntoView', original);
@@ -382,7 +390,7 @@ describe('advanced settings', () => {
   it('collapsed; sends only the changed setting', async () => {
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Show' }));
-    expect(screen.getByLabelText('Tokens per AI call')).toHaveValue(1490);
+    expect(screen.getByLabelText(/^Money per message/)).toHaveValue(4000);
     // Hosted: no server ceiling.
     expect(screen.queryByLabelText(/Server ceiling/)).toBeNull();
     fireEvent.change(screen.getByLabelText('Bulk limit, highest %'), { target: { value: '80' } });
@@ -390,15 +398,15 @@ describe('advanced settings', () => {
     await waitFor(() => expect(calls.updateSettings).toEqual([{ bulkPctMax: 80 }]));
   });
 
-  it('self-hosted: the server ceiling bar and setting, no tokens per call', async () => {
+  it('self-hosted: the server ceiling bar and setting, no money per message', async () => {
     stateResult = {
       available: true,
       state: baseState({ selfHosted: true, server: { ceiling: 500 * MLN, spend: 200 * MLN } }),
     };
     renderPage();
-    expect(await screen.findByText('200M of 500M this month, extra included')).toBeInTheDocument();
+    expect(await screen.findByText('≈ $200.00 of ≈ $500.00 this month, extra included')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Show' }));
-    expect(screen.queryByLabelText('Tokens per AI call')).toBeNull();
+    expect(screen.queryByLabelText(/^Money per message/)).toBeNull();
     fireEvent.change(screen.getByLabelText(/Server ceiling/), { target: { value: '' } });
     fireEvent.change(screen.getByLabelText(/Server ceiling/), { target: { value: '600' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
@@ -421,7 +429,7 @@ describe('advanced settings', () => {
   it('hosted: no default standalone budget field', async () => {
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Show' }));
-    expect(screen.getByLabelText('Tokens per AI call')).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Money per message/)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Default budget for new standalone workspaces/)).toBeNull();
   });
 });

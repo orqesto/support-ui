@@ -8,7 +8,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable } from '@/components/ui/DataTable';
 import { Input } from '@/components/ui/Input';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
-import { MILLION, fmtTokens } from '@/components/budget/budget.rules';
+import { dollarsText, fmtTokenCount, parseDollars } from '@/components/budget/budget.rules';
 import { useApplyMigration, useBudgetMigration } from '@/hooks/useBudgets';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import type { MigrationBasis, MigrationOverrides, MigrationRow } from '@/services/budgets.service';
@@ -19,26 +19,19 @@ import type { MigrationBasis, MigrationOverrides, MigrationRow } from '@/service
  */
 
 const BASIS_TEXT: Record<MigrationBasis, string> = {
-  alliance_pool: "The organisation's monthly pool",
-  sum_of_members: "Its workspaces' monthly limits, added up",
-  standalone_limits: 'Its own monthly limits',
   plan: 'From its plan',
-  none: 'No monthly limit before',
+  none: 'No plan to base it on',
+};
+
+/** What the token-era cap was: Apply does not carry it over (the budget above replaces it). */
+const OLD_CAP_TEXT: Record<NonNullable<MigrationRow['oldCap']>['basis'], string> = {
+  alliance_pool: "organisation's monthly pool",
+  sum_of_members: "workspaces' monthly limits, added up",
+  standalone_limits: 'own monthly limits',
 };
 
 export const groupKeyOfRow = (row: MigrationRow): string =>
   row.group.kind === 'alliance' ? `a:${row.group.allianceId}` : `w:${row.group.organizationId}`;
-
-const millionsText = (tokens: number | null) =>
-  tokens === null ? '' : String(Math.round((tokens / MILLION) * 10) / 10);
-
-/** '' = no budget; NaN = not a valid number. */
-const parseMillions = (text: string): number | null => {
-  const trimmed = text.trim();
-  if (trimmed === '') return null;
-  const value = Number(trimmed);
-  return Number.isFinite(value) && value > 0 ? Math.round(value * MILLION) : Number.NaN;
-};
 
 export const BudgetMigrationPanel = () => {
   const { data, isLoading, error } = useBudgetMigration();
@@ -60,8 +53,8 @@ export const BudgetMigrationPanel = () => {
   for (const row of data.rows) {
     const key = groupKeyOfRow(row);
     const draft = drafts[key];
-    if (draft === undefined || draft.trim() === millionsText(row.budget)) continue;
-    const budget = parseMillions(draft);
+    if (draft === undefined || draft.trim() === dollarsText(row.budget)) continue;
+    const budget = parseDollars(draft);
     if (Number.isNaN(budget)) invalid.push(row.name);
     else overrides[key] = { budget };
   }
@@ -77,6 +70,7 @@ export const BudgetMigrationPanel = () => {
             standalone workspace would get; change any budget before you apply.
           </p>
         </div>
+        {data.note && <p className="text-sm text-muted-foreground">{data.note}</p>}
         {data.alreadyActive && (
           <Alert variant="info">The monthly budgets are already switched on.</Alert>
         )}
@@ -108,16 +102,16 @@ export const BudgetMigrationPanel = () => {
             },
             {
               id: 'budget',
-              header: 'Monthly budget (million tokens)',
+              header: 'Monthly budget (US dollars)',
               cell: (row) => {
                 const key = groupKeyOfRow(row);
                 return (
                   <Input
                     type="number"
                     min={0}
-                    aria-label={`Monthly budget for ${row.name}, million tokens`}
+                    aria-label={`Monthly budget for ${row.name}, dollars`}
                     placeholder="No budget"
-                    value={drafts[key] ?? millionsText(row.budget)}
+                    value={drafts[key] ?? dollarsText(row.budget)}
                     onChange={(event) =>
                       setDrafts((current) => ({ ...current, [key]: event.target.value }))
                     }
@@ -135,16 +129,21 @@ export const BudgetMigrationPanel = () => {
             },
             {
               id: 'workspaces',
-              header: 'Workspace limits',
+              header: 'Old token limits (not carried over)',
               cell: (row) =>
-                row.workspaceBulkLimits.length === 0 ? (
+                !row.oldCap && row.oldWorkspaceKbCaps.length === 0 ? (
                   <span className="text-sm text-muted-foreground">—</span>
                 ) : (
                   <ul className="flex flex-col gap-0.5 text-sm">
-                    {row.workspaceBulkLimits.map((limit) => (
+                    {row.oldCap && (
+                      <li>
+                        {fmtTokenCount(row.oldCap.tokens)} tokens, {OLD_CAP_TEXT[row.oldCap.basis]}
+                      </li>
+                    )}
+                    {row.oldWorkspaceKbCaps.map((limit) => (
                       <li key={limit.organizationId}>
-                        {limit.name} {fmtTokens(limit.from)}{' '}
-                        <span className="text-warning">⚠ now limits bulk work only</span>
+                        {limit.name} {fmtTokenCount(limit.tokens)} tokens{' '}
+                        <span className="text-warning">⚠ replaced by the money budget</span>
                       </li>
                     ))}
                   </ul>
