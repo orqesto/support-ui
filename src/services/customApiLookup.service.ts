@@ -13,7 +13,14 @@ import type { components } from '@/types/generated/api';
  * The shape is GENERATED from the backend contract, not hand-written: a local copy can disagree
  * with the API silently, which is the class of bug that cost three audit passes on the backend.
  */
-export type CustomApiLookupResult = components['schemas']['CustomApiLookupResult'];
+export type CustomApiLookupResult = components['schemas']['CustomApiLookupResult'] & {
+  /**
+   * 2026-10-21: the admin's own words for "this lookup found nothing" ("Ask the customer for their
+   * order number."), shown verbatim under the not-found line. ⛔ OPTIONAL: an older backend does not
+   * send it, and absent means nothing is shown. Read only through `noMatchHintText`.
+   */
+  noMatchHint?: string | null;
+};
 
 export type LookupOwnership = NonNullable<CustomApiLookupResult['ownership']>;
 /** CA-6: a record already fetched by an earlier lookup and kept by D37's store. */

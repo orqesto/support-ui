@@ -9,6 +9,7 @@ import { Permission } from '@/types/roles';
 import {
   ADMIN_CAN_SEE_DETAILS,
   failureSentence,
+  noMatchHintText,
   notFoundText,
   referenceNameOf,
   SHAPE_CHANGED_FOR_AGENTS,
@@ -197,6 +198,8 @@ export const CustomApiResultCard = ({
   const referenceName = referenceNameOf(result.referenceLabel);
   const skipped = result.skippedBecause;
   const notFound = notFoundText(result, typedValue ?? (value.trim() || undefined));
+  // The admin's own words for "found nothing" — plain text, so React escapes it (no HTML).
+  const noMatchHint = noMatchHintText(result);
   // ⛔ FALL BACK TO THE ROW'S OWN KEYS. `fieldPaths` DEFAULTS to empty, and the backend returns
   // rows unprojected in that case — so mapping over `fields` alone rendered a BLANK card while
   // holding data, on the commonest configuration state there is. Found by audit pass 2.
@@ -299,6 +302,14 @@ export const CustomApiResultCard = ({
           <p className="text-[11px] text-muted-foreground">
             {skipped ? skippedText(skipped) : notFound}
           </p>
+          {noMatchHint && (
+            <p
+              data-testid="lookup-no-match-hint"
+              className="text-[11px] text-foreground whitespace-pre-wrap break-words"
+            >
+              {noMatchHint}
+            </p>
+          )}
           {referenceHint && <p className="text-[11px] text-muted-foreground">{referenceHint}</p>}
         </div>
       )}

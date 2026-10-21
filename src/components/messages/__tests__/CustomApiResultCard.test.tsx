@@ -129,6 +129,24 @@ describe('no-match states', () => {
     ).toBeInTheDocument();
   });
 
+  it('2026-10-21: the admin’s hint sits under the not-found line, as plain text', () => {
+    show(
+      card({
+        status: 'no_match',
+        rows: [],
+        noMatchHint: '<b>Ask</b> the customer for their reference.',
+      })
+    );
+    const line = screen.getByTestId('lookup-no-match-hint');
+    expect(line).toHaveTextContent('<b>Ask</b> the customer for their reference.');
+    expect(line.querySelector('b')).toBeNull();
+  });
+
+  it('CONTROL: a failed card never shows the hint', () => {
+    show(card({ status: 'failed', rows: [], agentReason: 'timeout', noMatchHint: 'Ask them.' }));
+    expect(screen.queryByTestId('lookup-no-match-hint')).toBeNull();
+  });
+
   it('an older backend keeps today’s wording', () => {
     show(card({ status: 'no_match', rows: [], referenceLabel: null }));
     expect(screen.getByText('No matching records for this customer.')).toBeInTheDocument();

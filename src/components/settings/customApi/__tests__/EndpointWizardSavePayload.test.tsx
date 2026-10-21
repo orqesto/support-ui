@@ -258,3 +258,44 @@ describe('D4 (2026-10-14) — the reference name', () => {
     expect(screen.getByLabelText('Reference name')).toHaveValue('Ticket id');
   });
 });
+
+describe('2026-10-21 — "When nothing is found, tell the agent"', () => {
+  const lastPayload = () =>
+    (updateEndpoint.mock.calls.at(-1) as [number, number, Record<string, unknown>])[2];
+  const label = 'When nothing is found, tell the agent';
+
+  it('the typed text is saved as noMatchHint, trimmed', async () => {
+    const user = userEvent.setup();
+    render(
+      <EndpointWizard
+        connection={connection()}
+        endpoint={withNewEndpoint().endpoints[0]}
+        onClose={noop}
+        onSaved={noop}
+      />
+    );
+    expect(screen.getByLabelText(label)).toHaveAttribute('maxLength', '500');
+    await user.type(screen.getByLabelText(label), '  Ask the customer for their reference.  ');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
+    expect(lastPayload().noMatchHint).toBe('Ask the customer for their reference.');
+  });
+
+  it('blank clears it: null is sent, not omitted', async () => {
+    const user = userEvent.setup();
+    render(
+      <EndpointWizard
+        connection={connection()}
+        endpoint={{ ...withNewEndpoint().endpoints[0], noMatchHint: 'Old words' }}
+        onClose={noop}
+        onSaved={noop}
+      />
+    );
+    expect(screen.getByLabelText(label)).toHaveValue('Old words');
+    await user.clear(screen.getByLabelText(label));
+    await user.type(screen.getByLabelText(label), '   ');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
+    expect(lastPayload()).toHaveProperty('noMatchHint', null);
+  });
+});
