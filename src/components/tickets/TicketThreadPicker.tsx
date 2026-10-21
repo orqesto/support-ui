@@ -4,18 +4,11 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { logger } from '@/lib/logger';
-import { messageService } from '@/services/message.service';
-import type { Message } from '@/types';
-
-export type ThreadCandidate = {
-  id: number;
-  publicId: string | null;
-  subject: string | null;
-  sender: string;
-};
-
-/** Search results shown at once; a full page says so. */
-const PICKER_LIMIT = 25;
+import {
+  searchThreadCandidates,
+  THREAD_PICKER_LIMIT,
+  type ThreadCandidate,
+} from '@/services/threadCandidates.service';
 
 type Props = {
   chosen: ThreadCandidate[];
@@ -37,38 +30,17 @@ export const TicketThreadPicker = ({ chosen, onChosenChange, fixed = null }: Pro
   useEffect(() => {
     const seq = ++searchSeq.current;
     const timer = setTimeout(() => {
-      messageService
-        .getThreads(
-          { ...(query.trim() ? { search: query.trim() } : {}), lifecycle: 'all' },
-          1,
-          PICKER_LIMIT
-        )
-        .then((res) => {
+      searchThreadCandidates(query)
+        .then(({ candidates: found, capped: full }) => {
           if (seq !== searchSeq.current) return;
-          const rows = (res.data ?? []) as unknown as Array<{
-            latestMessage?: Message;
-            sender?: string | null;
-          }>;
-          setCapped(rows.length >= PICKER_LIMIT);
-          setCandidates(
-            rows
-              .map((row) =>
-                row.latestMessage
-                  ? { ...row.latestMessage, sender: row.sender ?? row.latestMessage.sender }
-                  : undefined
-              )
-              .filter((row): row is Message => !!row)
-              .map((row) => ({
-                id: row.id,
-                publicId: row.publicId ?? null,
-                subject: row.subject ?? null,
-                sender: row.sender ?? '',
-              }))
-          );
+          setCapped(full);
+          setCandidates(found);
         })
         .catch((err: unknown) => {
           if (seq !== searchSeq.current) return;
           logger.error('New ticket: thread search failed', err);
+          // Nothing listed: the "showing the newest 25" of an earlier search no longer applies.
+          setCapped(false);
           setCandidates([]);
         });
     }, 300);
@@ -136,7 +108,7 @@ export const TicketThreadPicker = ({ chosen, onChosenChange, fixed = null }: Pro
       </ul>
       {capped && (
         <p className="text-xs text-muted-foreground">
-          Showing the newest {PICKER_LIMIT}. Search to find another thread.
+          Showing the newest {THREAD_PICKER_LIMIT}. Search to find another thread.
         </p>
       )}
     </div>
