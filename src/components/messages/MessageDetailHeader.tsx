@@ -32,6 +32,7 @@ import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { ContactProfilePanel } from '@/components/contacts/ContactProfilePanel';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useLeadsHidden } from '@/hooks/useLeadsHidden';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { messageService } from '@/services/message.service';
@@ -310,6 +311,8 @@ export function MessageDetailHeader({
   const [reanalyzing, setReanalyzing] = useState(false);
   const [checkingContradiction, setCheckingContradiction] = useState(false);
   const [togglingLead, setTogglingLead] = useState(false);
+  // No existing department opted in to lead qualification ⇒ "Mark as lead" does nothing useful.
+  const leadsHidden = useLeadsHidden();
   // Async re-analysis kicked off by the tracking-page customer-reply path. The
   // BE flips metadata.aiReanalysisInFlight to true on enqueue and emits a WS
   // `conversation:ai_reanalysis` event (state: 'pending' → 'complete'/'failed').
@@ -995,7 +998,7 @@ export function MessageDetailHeader({
         setMoreOpen(false);
       },
     },
-    {
+    !leadsHidden && {
       label: togglingLead ? 'Updating…' : message.isLead ? 'Unmark as lead' : 'Mark as lead',
       icon: <Target className="w-3 h-3" />,
       action: () => {

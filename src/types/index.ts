@@ -133,6 +133,17 @@ export type Message = {
   subject: string | null;
   status: ThreadStatus;
   needsHumanReview: boolean;
+  /**
+   * WHY the thread needs review (`conversations.needs_review_reason`, a code — see
+   * `NEEDS_REVIEW_REASON_LABELS`). OPTIONAL: an older backend sends nothing and the badge keeps
+   * its plain "Needs review".
+   */
+  needsReviewReason?: string | null;
+  /**
+   * Why the router auto-assigned the thread: contact_manager | client_history | skill_match |
+   * load_balance. Absent/null ⇒ nothing is shown.
+   */
+  autoRoutedReason?: string | null;
   createdAt: string;
   updatedAt?: string;
   metadata?: Record<string, unknown> | null;

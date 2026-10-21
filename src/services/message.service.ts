@@ -1019,6 +1019,18 @@ export const messageService = {
     return response.data;
   },
 
+  /**
+   * An agent says the flagged contradiction is not one. The backend stamps
+   * `metadata.contradictionCheck.dismissedAt`; the caller refetches the thread. A backend that
+   * predates the route answers 404 — the caller turns that into a short message.
+   */
+  dismissContradiction: async (id: number) => {
+    const response = await apiClient.post<
+      ApiResponse<{ dismissedAt?: string; dismissedBy?: number | string | null }>
+    >(`/api/messages/${id}/contradiction/dismiss`, {});
+    return response.data;
+  },
+
   getContacts: async (filters?: Record<string, string>, page = 1, limit = 50) => {
     const params = new URLSearchParams({
       ...cleanFilters(filters),

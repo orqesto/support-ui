@@ -3,11 +3,7 @@ import type { AddOutcome } from './recordInsertOutcome';
 import { StickyNote, Pencil, Trash2 } from 'lucide-react';
 import { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
 import { Button } from '@/components/ui/Button';
-import {
-  ContradictionAlert,
-  contradictionChecksToRender,
-  contradictionFingerprint,
-} from './ContradictionAlert';
+import { ConflictTabPanel } from './ConflictTabPanel';
 import { MessageAttachments, type Attachment } from './MessageAttachments';
 import { MessageKBReferences } from './MessageKBReferences';
 import { AiTabPanel, type KBAttachment } from './AiTabPanel';
@@ -26,7 +22,6 @@ import { ContactFactRows } from '@/components/contacts/ContactFactRows';
 import type { LeadQualificationFieldConfig } from '@/services/organization.service';
 
 import type { Message, MessageEvent } from '@/types';
-import type { ContradictionCheckMetadata } from '@/types/ai';
 import { logger } from '@/lib/logger';
 import { contactLookupKey } from '@/lib/messageHelpers';
 import RichTextEditor from '@/components/shared/RichTextEditor';
@@ -38,6 +33,7 @@ import { useTabBadges } from './useTabBadges';
 import { TabBadge } from './TabBadge';
 import { useCustomerNotesMark } from '@/components/contacts/useCustomerNoteSummary';
 import { STRIP_FADE, useStripFade } from './useStripFade';
+import { useLeadsHidden } from '@/hooks/useLeadsHidden';
 
 type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
 
@@ -101,6 +97,11 @@ export type MessagePanelTabsProps = {
   setComposerMode: React.Dispatch<React.SetStateAction<'reply' | 'note'>>;
   noteEditorRef: React.RefObject<RichTextEditorHandle>;
   onCheckContradiction?: () => Promise<void>;
+  /**
+   * "Not a contradiction" (POST …/contradiction/dismiss). Resolves true on success; the caller
+   * reports failures. Absent ⇒ no Dismiss button.
+   */
+  onDismissContradiction?: () => Promise<boolean>;
   /** Refetch the list/thread after a contact change that shows on cards (labels). */
   onRefresh?: () => void;
 };
@@ -135,12 +136,15 @@ export function MessagePanelTabs({
   setComposerMode,
   noteEditorRef,
   onCheckContradiction,
+  onDismissContradiction,
   onRefresh,
 }: MessagePanelTabsProps) {
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editNoteContent, setEditNoteContent] = useState('');
   const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
-  const [checkingContradiction, setCheckingContradiction] = useState(false);
+  // Lead UI only where lead qualification can run (`configured === false` ⇒ hidden).
+  const leadsHidden = useLeadsHidden();
+  const showLead = !!message.isLead && !leadsHidden;
   // The KB badge, and the options callback handed to AiTabPanel (memoised in the hook so its
   // identity stays stable — see AiTabPanel's fetch effect).
   const { kbBadge, kbSuggested, handleOptionsLoaded, onReferenced } = useTabBadges(
@@ -175,18 +179,8 @@ export function MessagePanelTabs({
   // The customer's notes, marked on the Customer tab label from any tab.
   const customerNotes = useCustomerNotesMark(contactEmail, contactProfile.contact?.notes);
   const { stripRef, stripFades, updateStripFade } = useStripFade(
-    `${message.isLead ? 1 : 0}|${kbBadge}|${lookups.available ? lookups.label : ''}|${lookupsFound}|${notes.length}|${attachments?.length ?? 0}|${customerNotes.count}`
+    `${showLead ? 1 : 0}|${kbBadge}|${lookups.available ? lookups.label : ''}|${lookupsFound}|${notes.length}|${attachments?.length ?? 0}|${customerNotes.count}`
   );
-
-  const handleCheckContradiction = useCallback(async () => {
-    if (!onCheckContradiction) return;
-    setCheckingContradiction(true);
-    try {
-      await onCheckContradiction();
-    } finally {
-      setCheckingContradiction(false);
-    }
-  }, [onCheckContradiction]);
 
   const handleEditNote = useCallback(
     async (noteId: number) => {
@@ -284,7 +278,7 @@ export function MessagePanelTabs({
             { id: 'activity', label: 'Activity', badge: 0 },
             { id: 'notes', label: 'Notes', badge: notes.length },
             { id: 'contradiction', label: 'Conflict', badge: 0 },
-            ...(message.isLead ? [{ id: 'lead', label: 'Lead', badge: 0 }] : []),
+            ...(showLead ? [{ id: 'lead', label: 'Lead', badge: 0 }] : []),
           ] as { id: typeof tab; label: string; badge: number; mark?: ReactNode }[]
         ).map(({ id, label, badge, mark }) => (
           <Button
@@ -412,116 +406,13 @@ export function MessagePanelTabs({
             />
           )}
 
-          {/* Contradiction Tab */}
-          {tab === 'contradiction' &&
-            (() => {
-              const crossCheck = message.metadata?.contradictionCheck as
-                | ContradictionCheckMetadata
-                | undefined;
-              const intraCheck = message.metadata?.intraMessageContradictionCheck as
-                | ContradictionCheckMetadata
-                | undefined;
-              const hasCrossContradiction =
-                !!crossCheck?.result?.hasContradiction ||
-                !!crossCheck?.result?.contradictions?.length;
-              const hasIntraContradiction =
-                !!intraCheck?.result?.hasContradiction ||
-                !!intraCheck?.result?.contradictions?.length;
-              const checkWasRun = !!crossCheck || !!intraCheck;
-
-              const confidencePill: Record<string, string> = {
-                high: 'bg-success/10 text-success',
-                medium: 'bg-warning/10 text-warning',
-                low: 'bg-muted text-muted-foreground',
-              };
-
-              const CleanResult = ({ check }: { check: ContradictionCheckMetadata }) => (
-                <div className="p-2 rounded border border-border bg-card space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-medium text-success">
-                      No contradiction found
-                    </span>
-                    <span
-                      className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${confidencePill[check.result.confidence] ?? confidencePill.low}`}
-                    >
-                      {check.result.confidence} confidence
-                    </span>
-                  </div>
-                  {check.claimToVerify && (
-                    <div>
-                      <p className={`${LABEL} text-muted-foreground mb-0.5`}>CLAIM CHECKED</p>
-                      <p className="text-[11px] italic text-foreground">"{check.claimToVerify}"</p>
-                    </div>
-                  )}
-                  {check.result.explanation && (
-                    <div>
-                      <p className={`${LABEL} text-muted-foreground mb-0.5`}>ANALYSIS</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {check.result.explanation}
-                      </p>
-                    </div>
-                  )}
-                  <p className="text-[9px] text-muted-foreground pt-1 border-t border-border">
-                    {check.triggeredBy === 'auto_pattern' ? 'Auto' : 'Manual'} ·{' '}
-                    {new Date(check.checkedAt).toLocaleString()}
-                  </p>
-                </div>
-              );
-
-              if (hasIntraContradiction || hasCrossContradiction) {
-                return (
-                  <div className="space-y-2">
-                    {/* The fingerprint is unique across the rendered set by construction — it is
-                      what the list was deduplicated on. `checkedAt` alone would collide: the
-                      thread and intra checks of a single run share a timestamp. */}
-                    {contradictionChecksToRender(intraCheck, crossCheck).map((check) => (
-                      <ContradictionAlert
-                        key={contradictionFingerprint(check)}
-                        contradictionCheck={check}
-                      />
-                    ))}
-                    {crossCheck &&
-                      !hasCrossContradiction &&
-                      !crossCheck.result.hasContradiction && <CleanResult check={crossCheck} />}
-                  </div>
-                );
-              }
-
-              if (checkWasRun) {
-                return (
-                  <div className="space-y-2">
-                    {crossCheck && <CleanResult check={crossCheck} />}
-                    {intraCheck && <CleanResult check={intraCheck} />}
-                    {onCheckContradiction && (
-                      <Button
-                        variant="ghost"
-                        onClick={() => void handleCheckContradiction()}
-                        disabled={checkingContradiction}
-                        className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 h-auto rounded border border-border text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
-                      >
-                        {checkingContradiction ? 'Checking…' : 'Re-check'}
-                      </Button>
-                    )}
-                  </div>
-                );
-              }
-
-              return (
-                <div className="flex flex-col items-center justify-center gap-2 py-6 text-center">
-                  <p className="text-[11px] text-muted-foreground">Not checked yet.</p>
-                  {onCheckContradiction && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => void handleCheckContradiction()}
-                      disabled={checkingContradiction}
-                      className="flex items-center gap-1.5 px-3 py-1.5 h-auto rounded border border-border text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
-                    >
-                      {checkingContradiction ? 'Checking…' : 'Check contradiction'}
-                    </Button>
-                  )}
-                </div>
-              );
-            })()}
+          {tab === 'contradiction' && (
+            <ConflictTabPanel
+              message={message}
+              onCheckContradiction={onCheckContradiction}
+              onDismissContradiction={onDismissContradiction}
+            />
+          )}
 
           {/* KB Tab — always mounted so similar-results are fetched once and never re-generated */}
           <div className={tab === 'kb' ? 'space-y-2' : 'hidden'}>
@@ -699,7 +590,7 @@ export function MessagePanelTabs({
           )}
 
           {/* Lead Tab */}
-          {tab === 'lead' && message.isLead && (
+          {tab === 'lead' && showLead && (
             <div>
               {leadState ? (
                 <LeadQualificationPanel

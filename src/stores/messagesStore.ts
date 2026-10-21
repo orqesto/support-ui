@@ -91,7 +91,6 @@ export type AiStateFilter =
   | 'all'
   | 'needs_review'
   | 'needs_info'
-  | 'ai_suggested'
   | 'bot_handled'
   | 'lead'
   | 'contradiction';

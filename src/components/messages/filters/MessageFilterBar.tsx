@@ -12,6 +12,8 @@ import { useFilterOptions } from './useFilterOptions';
 import { BUILT_IN_VIEWS, viewAppliesTo, viewIsActive, type SavedView } from './savedViews';
 import { useSavedViews } from './useSavedViews';
 import type { FilterState } from '@/stores/messagesStore';
+import { useLeadsHidden } from '@/hooks/useLeadsHidden';
+import { normalizeAiState } from '@/hooks/useMessagesUrlSync';
 
 /**
  * The inbox filter surface — a token bar on desktop, a drawer on mobile.
@@ -50,7 +52,8 @@ export const MessageFilterBar = ({
   showCount?: boolean;
 }) => {
   const dynamic = useFilterOptions();
-  const defs = useMemo(() => buildFilterDefs(dynamic), [dynamic]);
+  const leadsHidden = useLeadsHidden();
+  const defs = useMemo(() => buildFilterDefs({ ...dynamic, leadsHidden }), [dynamic, leadsHidden]);
   const tokens = useMemo(() => tokensOf(defs, filters, isKanban), [defs, filters, isKanban]);
 
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -83,7 +86,13 @@ export const MessageFilterBar = ({
    */
   const applyView = useCallback(
     (view: SavedView) => {
-      onFilterPatch(view.filters);
+      // A view saved before "AI Suggested" was retired still names it — apply what it meant.
+      const raw = (view.filters as { aiState?: string }).aiState;
+      onFilterPatch(
+        raw === undefined
+          ? view.filters
+          : { ...view.filters, aiState: normalizeAiState(raw) ?? 'all' }
+      );
     },
     [onFilterPatch]
   );

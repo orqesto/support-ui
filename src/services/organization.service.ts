@@ -68,6 +68,14 @@ export type OrgLeadConfig = {
   avgLeadValue?: number;
   weeklyDigestEnabled?: boolean;
   digestRecipients?: string[];
+  /**
+   * READ-ONLY, computed by the backend: at least one EXISTING department is opted in. False ⇒
+   * lead qualification never runs, and the lead UI is hidden. Absent on an older backend ⇒ the
+   * UI keeps today's behaviour. Never sent back on save.
+   */
+  configured?: boolean;
+  /** READ-ONLY: opted-in department ids that no longer exist. Never sent back on save. */
+  missingDepartmentIds?: number[];
 };
 
 export type BusinessHoursWeekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
@@ -320,7 +328,12 @@ export const organizationService = {
     >('/api/organizations/auto-reply');
     return {
       enabled: response.data.data?.enabled ?? false,
-      requestMissingInfo: response.data.data?.requestMissingInfo ?? true,
+      // The real value when the backend sends it; `true` (the old, never-read default) ONLY when
+      // the field is absent — an older backend did not return it at all.
+      requestMissingInfo:
+        typeof response.data.data?.requestMissingInfo === 'boolean'
+          ? response.data.data.requestMissingInfo
+          : true,
       suggestSolutions: response.data.data?.suggestSolutions ?? true,
       highConfidenceThreshold: response.data.data?.highConfidenceThreshold ?? 0.9,
     };
@@ -369,9 +382,18 @@ export const organizationService = {
   },
 
   updateLeadConfig: async (data: Partial<OrgLeadConfig>) => {
+    // The two computed fields ride along on a config read back from GET; they are the
+    // backend's answer, not settings, so they never go back in a PATCH.
+    // Departments the backend reported as gone are dropped too: the page cannot show them (its
+    // picker lists live departments only), so sending them back only re-stores a dead id.
+    const { configured: _configured, missingDepartmentIds: missing, ...settings } = data;
+    const gone = new Set(missing ?? []);
+    const departments = settings.departments?.filter(
+      (entry) => typeof entry !== 'number' || !gone.has(entry)
+    );
     const response = await apiClient.patch<ApiResponse<OrgLeadConfig>>(
       '/api/organizations/lead-config',
-      data
+      departments ? { ...settings, departments } : settings
     );
     return response.data;
   },

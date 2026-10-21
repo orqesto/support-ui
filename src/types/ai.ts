@@ -35,6 +35,12 @@ export type ContradictionCheckMetadata = {
   result: ContradictionCheckResult;
   tokenUsage?: number;
   costEstimate?: number;
+  /**
+   * An agent dismissed this contradiction (POST /api/messages/:id/contradiction/dismiss). Set ⇒
+   * the thread reads as having no contradiction everywhere. Absent on an older backend.
+   */
+  dismissedAt?: string | null;
+  dismissedBy?: number | string | null;
 };
 
 // Attachment Relevance Types

@@ -15,6 +15,7 @@ import { logger } from '@/lib/logger';
 import { languageName as languageNameOf } from '@/lib/languageName';
 import { stripGreetingName } from '@/lib/depersonalise';
 import { priorityLabel } from './messageDetailConstants';
+import { AnalysisDegradedHint, analysisInfoValue } from './AnalysisDegradedHint';
 
 type Analysis = {
   isTicketWorthy?: boolean;
@@ -23,6 +24,11 @@ type Analysis = {
   suggestedPriority?: string;
   confidence?: number;
   summary?: string;
+  /**
+   * The triage AI could not judge this message (fallback, contamination, odd summary length).
+   * Newer backends only; such messages no longer get `needsMoreInfo`, so "Complete" would lie.
+   */
+  analysisDegraded?: boolean;
 };
 
 type KBSourceRef = {
@@ -423,6 +429,7 @@ export function AiTabPanel({
   const activeOption = options.find((opt) => opt.id === selectedId) ?? options[0];
 
   /** The analysis facets, in staging's order, each only when the backend sent it. */
+  const infoValue = analysisInfoValue(analysis);
   const facets: { label: string; value: string }[] = [
     ...(spamCheck ? [{ label: 'Class', value: spamClassLabel(spamCheck) }] : []),
     ...(analysis?.suggestedCategory
@@ -434,9 +441,7 @@ export function AiTabPanel({
     ...(analysis?.isTicketWorthy !== undefined
       ? [{ label: 'Ticket', value: analysis.isTicketWorthy ? 'Worthy' : 'No' }]
       : []),
-    ...(analysis?.needsMoreInfo !== undefined
-      ? [{ label: 'Info', value: analysis.needsMoreInfo ? 'Needs more' : 'Complete' }]
-      : []),
+    ...(infoValue ? [{ label: 'Info', value: infoValue }] : []),
     // v3 "Language": the language stamped at ingestion (conversations.detected_language), shown
     // only when the backend sends it — never a guess from this client.
     ...(languageName ? [{ label: 'Language', value: languageName }] : []),
@@ -658,6 +663,8 @@ export function AiTabPanel({
           <p className="mt-[5px] text-[13px] leading-[1.55]">{analysis.summary}</p>
         </div>
       )}
+
+      {section !== 'suggested' && <AnalysisDegradedHint degraded={analysis?.analysisDegraded} />}
 
       {section !== 'suggested' && facets.length > 0 && (
         // Two columns in a narrow panel, three once it is wide enough for three 130px facets —

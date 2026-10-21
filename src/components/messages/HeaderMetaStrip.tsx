@@ -1,10 +1,12 @@
 import { safeCssColor } from '@/lib/utils';
 import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Building2, X, Plus } from 'lucide-react';
+import { AlertTriangle, Building2, X, Plus, Sparkles } from 'lucide-react';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { WhyParked } from '@/components/messages/WhyParked';
 import { Select } from '@/components/ui/Select';
+import { Tooltip } from '@/components/ui/Tooltip';
+import { autoRoutedReasonLabel } from './aiFlagCopy';
 import { labelPickerEmptyText, type LabelsStatus } from '@/components/shared/labelPickerText';
 import { Button } from '@/components/ui/Button';
 import { useDepartmentById, useDepartments } from '@/hooks/useDepartments';
@@ -231,6 +233,23 @@ export function HeaderMetaStrip({
           variant="value"
           mobileSheet={card}
         />
+        {/* WHY the router picked this person — only when it did (`autoRoutedReason`) and someone
+            is still assigned. Absent / null / unknown code ⇒ nothing, as before. */}
+        {message.assigneeId !== null &&
+          message.assigneeId !== undefined &&
+          autoRoutedReasonLabel(message.autoRoutedReason) && (
+            <Tooltip content={autoRoutedReasonLabel(message.autoRoutedReason)} size="sm">
+              <span
+                role="img"
+                tabIndex={0}
+                aria-label={autoRoutedReasonLabel(message.autoRoutedReason) ?? undefined}
+                data-testid="auto-routed-reason"
+                className="inline-flex flex-shrink-0 items-center text-muted-foreground"
+              >
+                <Sparkles className="w-3 h-3" />
+              </span>
+            </Tooltip>
+          )}
       </div>
 
       {/* Category */}
