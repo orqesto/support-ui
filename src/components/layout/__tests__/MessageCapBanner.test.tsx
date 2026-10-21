@@ -142,3 +142,40 @@ describe('the message-cap banner', () => {
     expect(screen.queryByText('Upgrade')).not.toBeInTheDocument();
   });
 });
+
+describe('the AI-paused banner inside the app-level banner', () => {
+  const paused = {
+    currency: 'USD' as const,
+    active: true,
+    usedMicros: 5_000_000,
+    budgetMicros: 5_000_000,
+    paused: true,
+    bulkPaused: true,
+    reason: 'budget_used' as const,
+    message: 'AI allowance used up.',
+    resetsAt: null,
+  };
+
+  it('shows the API reason and both doors, below the message cap too', async () => {
+    getUsage.mockResolvedValue(
+      usage({ current: { messages: 10, users: 3, integrations: 2 }, ai: paused })
+    );
+    renderBanner();
+    expect(await screen.findByTestId('ai-paused-banner')).toHaveTextContent('AI allowance used up.');
+    expect(screen.getByText(/Buy 1,000 messages/)).toHaveAttribute('href', '/subscription');
+    expect(screen.getByText('Upgrade')).toHaveAttribute('href', '/pricing');
+    expect(screen.queryByTestId('message-cap-banner')).not.toBeInTheDocument();
+  });
+
+  it('not paused: nothing', async () => {
+    getUsage.mockResolvedValue(
+      usage({
+        current: { messages: 10, users: 3, integrations: 2 },
+        ai: { ...paused, paused: false, reason: null, message: null },
+      })
+    );
+    renderBanner();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByTestId('ai-paused-banner')).not.toBeInTheDocument();
+  });
+});

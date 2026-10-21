@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { usePermissions } from '@/hooks/usePermissions';
 import { subscriptionService } from '@/services/subscription.service';
+import { AiPausedBanner } from '@/components/subscription/AiPausedBanner';
 import { useAuthStore } from '@/stores/authStore';
 import { Permission } from '@/types/roles';
 
@@ -25,6 +26,7 @@ export const MessageCapBanner = () => {
   const location = useLocation();
   const { hasPermission } = usePermissions();
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
+  const user = useAuthStore((state) => state.user);
   const { data: backendVersion } = useBackendVersion();
   const billingEnabled = backendVersion?.billingEnabled ?? false;
 
@@ -38,14 +40,36 @@ export const MessageCapBanner = () => {
 
   if (!billingEnabled) return null;
   if (location.pathname.startsWith('/subscription')) return null;
-  if (!usage || usage.limits.messages <= 0) return null;
-  if (usage.current.messages < usage.limits.messages) return null;
+  if (!usage) return null;
 
   const canOpenSubscription = hasPermission(Permission.VIEW_SUBSCRIPTION);
+  const packOnOffer = usage.messagePack?.available === true;
+
+  // AI paused (allowance used up, not in plan…): the API says why; that banner covers the
+  // message-cap case too, so the two never stack.
+  if (usage.ai?.paused) {
+    return (
+      <AiPausedBanner
+        ai={usage.ai}
+        canOpenSubscription={canOpenSubscription}
+        isAdmin={user?.role === 'admin'}
+        packAction={
+          packOnOffer ? (
+            <Link to="/subscription" className="font-medium text-primary hover:underline">
+              Buy {usage.messagePack?.messages.toLocaleString()} messages
+            </Link>
+          ) : undefined
+        }
+      />
+    );
+  }
+
+  if (usage.limits.messages <= 0) return null;
+  if (usage.current.messages < usage.limits.messages) return null;
+
   const resetDay = usage.period
     ? new Date(usage.period.end).toLocaleDateString(undefined, { day: 'numeric', month: 'long' })
     : null;
-  const packOnOffer = usage.messagePack?.available === true;
 
   return (
     <div

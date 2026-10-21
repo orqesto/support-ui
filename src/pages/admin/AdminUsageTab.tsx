@@ -216,12 +216,10 @@ export const AdminUsageTab = () => {
       (usageFilter === 'at_risk'
         ? org.usage.users.warning ||
           org.usage.integrations.warning ||
-          org.usage.messagesThisMonth.warning ||
-          org.usage.aiCalls.warning
+          org.usage.messagesThisMonth.warning
         : org.usage.users.critical ||
           org.usage.integrations.critical ||
-          org.usage.messagesThisMonth.critical ||
-          org.usage.aiCalls.critical);
+          org.usage.messagesThisMonth.critical);
     return matchesSearch && matchesPlan && matchesStatus && matchesUsage;
   });
 
@@ -234,16 +232,14 @@ export const AdminUsageTab = () => {
     (org) =>
       org.usage.users.warning ||
       org.usage.integrations.warning ||
-      org.usage.messagesThisMonth.warning ||
-      org.usage.aiCalls.warning
+      org.usage.messagesThisMonth.warning
   ).length;
 
   const overLimitCount = organizations.filter(
     (org) =>
       org.usage.users.critical ||
       org.usage.integrations.critical ||
-      org.usage.messagesThisMonth.critical ||
-      org.usage.aiCalls.critical
+      org.usage.messagesThisMonth.critical
   ).length;
 
   const planOptions: Option[] = [
@@ -365,7 +361,7 @@ export const AdminUsageTab = () => {
                 </th>
                 <th className="hidden px-3 py-2 text-sm font-medium text-center md:table-cell">
                   <div className="flex gap-1 justify-center items-center">
-                    <Zap className="w-4 h-4" /> AI Calls
+                    <Zap className="w-4 h-4" /> AI calls (count)
                   </div>
                 </th>
                 <th
@@ -456,14 +452,9 @@ export const AdminUsageTab = () => {
                         )}
                       </td>
                       <td className="hidden px-3 py-2 text-center md:table-cell">
-                        <div className="space-y-1">
-                          {getUsageBadge(
-                            org.usage.aiCalls.current,
-                            org.usage.aiCalls.limit,
-                            org.usage.aiCalls.percentage
-                          )}
-                          <UsageProgressBar percentage={org.usage.aiCalls.percentage} />
-                        </div>
+                        <span className="font-mono text-sm" data-testid="ai-calls-count">
+                          {org.usage.aiCalls.current.toLocaleString()}
+                        </span>
                       </td>
                       <td className="px-3 py-2">
                         <div className="space-y-1">

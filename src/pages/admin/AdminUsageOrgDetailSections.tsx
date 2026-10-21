@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, RefreshCw, Users, Zap } from 'lucide-react';
-import { UsageProgressBar, type UsageItem } from './AdminUsageTab.helpers';
+import type { UsageItem } from './AdminUsageTab.helpers';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
@@ -113,31 +113,11 @@ export const OrgAiUsageSection = ({ aiCalls }: OrgAiUsageSectionProps) => (
         </div>
         <Zap className="w-4 h-4 text-warning" />
       </div>
-      <div className="space-y-2">
-        <div className="flex justify-between text-xs">
-          <span className="text-muted-foreground">Usage:</span>
-          <span className="font-medium">
-            <span className="font-mono">
-              {aiCalls.current.toLocaleString()} / {aiCalls.limit.toLocaleString()}
-            </span>{' '}
-            calls
-          </span>
-        </div>
-        <UsageProgressBar percentage={aiCalls.percentage} />
-        {aiCalls.critical && (
-          <div className="p-2 text-xs bg-destructive-muted rounded border border-destructive-line">
-            <span className="font-medium text-destructive">
-              AI call limit reached! Some AI features may be unavailable.
-            </span>
-          </div>
-        )}
-        {aiCalls.warning && !aiCalls.critical && (
-          <div className="p-2 text-xs bg-warning-muted rounded border border-warning-line">
-            <span className="font-medium text-warning">
-              Approaching AI call limit ({aiCalls.percentage}% used)
-            </span>
-          </div>
-        )}
+      <div className="flex justify-between text-xs">
+        <span className="text-muted-foreground">This period (a statistic, not a limit):</span>
+        <span className="font-medium">
+          <span className="font-mono">{aiCalls.current.toLocaleString()}</span> calls
+        </span>
       </div>
     </div>
   </div>

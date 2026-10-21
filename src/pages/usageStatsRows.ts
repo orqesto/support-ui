@@ -2,10 +2,11 @@
 export type RawUsage = {
   aiCalls: {
     current: number;
-    limit: number;
-    overage: number;
-    percentage: number;
-    /** false ⇒ own AI key: the allowance is the platform key's and does not apply. Absent on older backends. */
+    /** Ignored: AI calls have no limit any more. Older backends still send these. */
+    limit?: number;
+    overage?: number;
+    percentage?: number;
+    /** false ⇒ own AI key (named in the label). Absent on older backends. */
     appliesToThisWorkspace?: boolean;
   };
   /** `limit` includes message packs bought into this period (the cap the check enforces). */
@@ -24,30 +25,30 @@ export type UsageRow = {
 };
 
 /**
- * Rows for the Usage Stats table. Own AI key: the call allowance belongs to the platform key, so
- * there is nothing to measure those calls against — no "included", no "overage" (Free, own key
- * required, showed every call as overage). An older backend omits the flag: the old reading stays.
+ * Rows for the Usage Stats table. AI calls are a statistic only (money-budget build): the AI
+ * allowance is money, shown as messages, so the row has no "included", no overage and no
+ * percentage whatever the workspace runs on. An own AI key is named in the label. The messages
+ * row carries the limit (packs included).
  */
 export const usageRowsFrom = (raw: RawUsage | undefined): UsageRow[] => {
   const ownKey = raw?.aiCalls?.appliesToThisWorkspace === false;
   const aiCurrent = raw?.aiCalls?.current ?? 0;
-  const aiLimit = ownKey ? 0 : (raw?.aiCalls?.limit ?? 0);
   const msgCurrent = raw?.messages?.current ?? 0;
   const msgLimit = raw?.messages?.limit ?? 0;
   return [
     {
       moduleName: 'ai-calls',
-      displayName: ownKey ? 'AI Calls (your own AI key — no plan allowance)' : 'AI Calls',
+      displayName: ownKey ? 'AI calls (your own AI key; a count, no limit)' : 'AI calls (a count, no limit)',
       current: aiCurrent,
-      included: aiLimit,
-      overage: ownKey ? 0 : (raw?.aiCalls?.overage ?? Math.max(0, aiCurrent - aiLimit)),
+      included: 0,
+      overage: 0,
       overagePrice: 0,
       estimatedOverageCost: 0,
       unitName: 'call',
     },
     {
       moduleName: 'messages',
-      displayName: 'Messages',
+      displayName: 'Messages (AI included)',
       current: msgCurrent,
       included: msgLimit,
       overage: Math.max(0, msgCurrent - msgLimit),
