@@ -9,6 +9,10 @@
  * A decision that finds the suggestion gone — the accept answers `expired` (the entry changed since
  * it was scored), or either call answers 409 (decided elsewhere meanwhile) — is NOT a person's
  * verdict on it: counted as "changed since — skipped", never as agreed or disagreed.
+ *
+ * With `action` (a backend with the one-page release) the sample is RATING ONLY (owner decision D4):
+ * Agree / Disagree record a rating of what that action did or would do and change nothing on the
+ * entry; deciding the entry itself happens in the Knowledge Base.
  */
 import { useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
@@ -20,19 +24,27 @@ import { Spinner } from '@/components/ui/Spinner';
 import { apiErrorMessage, apiErrorStatus } from '@/lib/apiError';
 import { qualityReasonLabel } from '@/lib/kbQuality';
 import { toast } from '@/lib/toast';
-import { kbAutoActionsService, type KbAutoSampleItem } from '@/services/kbAutoActions.service';
+import {
+  kbAutoActionsService,
+  type KbAutoActionKey,
+  type KbAutoSampleItem,
+} from '@/services/kbAutoActions.service';
 import { kbQualityService } from '@/services/kbQuality.service';
 import { formatPercent, preview } from './kbAutoFormat';
 
 type Props = {
+  /** Rate what this action did or would do. Without it: the older remove-only sample. */
+  action?: KbAutoActionKey;
   /** Called once the person closes the sample, so the overview's agreement is re-read. */
   onDone: () => void;
 };
 
 type Tally = { agreed: number; disagreed: number; skipped: number; changed: number };
+const RATING_HELP =
+  'Your rating only teaches the %; decide the entry itself in the Knowledge Base.';
 const EMPTY_TALLY: Tally = { agreed: 0, disagreed: 0, skipped: 0, changed: 0 };
 
-export const KbAutoSampleReview = ({ onDone }: Props) => {
+export const KbAutoSampleReview = ({ action, onDone }: Props) => {
   const [items, setItems] = useState<KbAutoSampleItem[] | null>(null);
   const [poolLimited, setPoolLimited] = useState(false);
   const [index, setIndex] = useState(0);
@@ -45,7 +57,7 @@ export const KbAutoSampleReview = ({ onDone }: Props) => {
     setLoading(true);
     setError(null);
     try {
-      const sample = await kbAutoActionsService.getSample(30);
+      const sample = await kbAutoActionsService.getSample(30, action);
       setItems(sample.items);
       setPoolLimited(sample.poolLimited);
       setIndex(0);
@@ -72,7 +84,12 @@ export const KbAutoSampleReview = ({ onDone }: Props) => {
       setIndex((prev) => prev + 1);
     };
     try {
-      if (verdict === 'agree') {
+      if (action) {
+        await kbAutoActionsService.rate(action, item.entryId, verdict === 'agree');
+      } else if (item.suggestionId === null) {
+        changedSince();
+        return;
+      } else if (verdict === 'agree') {
         const result = await kbQualityService.accept(item.suggestionId, { action: 'reject' });
         if (result.status === 'expired') {
           changedSince();
@@ -88,7 +105,8 @@ export const KbAutoSampleReview = ({ onDone }: Props) => {
       );
       setIndex((prev) => prev + 1);
     } catch (err) {
-      if (apiErrorStatus(err) === 409) changedSince();
+      const status = apiErrorStatus(err);
+      if (status === 409 || (action && (status === 400 || status === 404))) changedSince();
       else
         toast.error('Could not save your decision', {
           description: apiErrorMessage(err, 'Please try again.'),
@@ -106,10 +124,17 @@ export const KbAutoSampleReview = ({ onDone }: Props) => {
   if (items === null) {
     return (
       <div className="space-y-2">
-        <p className="text-sm text-muted-foreground">
-          Rate a few of the system&apos;s removal suggestions. Agree removes the entry now; Disagree
-          keeps it. Your answers are how this page knows whether to trust the %.
-        </p>
+        {action ? (
+          <p className="text-sm text-muted-foreground">
+            Rate a few of the things this action did or would do. Your answers are how this page
+            knows whether to trust it.
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Rate a few of the system&apos;s removal suggestions. Agree removes the entry now;
+            Disagree keeps it. Your answers are how this page knows whether to trust the %.
+          </p>
+        )}
         {error && (
           <Alert variant="danger">
             <AlertDescription>{error}</AlertDescription>
@@ -127,7 +152,9 @@ export const KbAutoSampleReview = ({ onDone }: Props) => {
       <div className="space-y-2">
         <Alert variant="info">
           <AlertDescription>
-            There is nothing to check right now: no scored removal suggestions are waiting.
+            {action
+              ? 'There is nothing to rate right now for this action.'
+              : 'There is nothing to check right now: no scored removal suggestions are waiting.'}
           </AlertDescription>
         </Alert>
         <Button variant="outline" size="sm" onClick={close}>
@@ -143,9 +170,7 @@ export const KbAutoSampleReview = ({ onDone }: Props) => {
       <div className="space-y-2">
         <Alert variant="success">
           <AlertDescription>
-            Done: {tally.agreed} agreed (removed), {tally.disagreed} disagreed (kept),{' '}
-            {tally.skipped} skipped
-            {tally.changed > 0 ? `, ${tally.changed} changed since — skipped` : ''}.
+            {`Done: ${tally.agreed} agreed${action ? '' : ' (removed)'}, ${tally.disagreed} disagreed${action ? '' : ' (kept)'}, ${tally.skipped} skipped${tally.changed > 0 ? `, ${tally.changed} changed since — skipped` : ''}.`}
           </AlertDescription>
         </Alert>
         <Button variant="outline" size="sm" onClick={close}>
@@ -171,11 +196,14 @@ export const KbAutoSampleReview = ({ onDone }: Props) => {
           Fewer suggestions are waiting than a full sample, so this is all of them.
         </p>
       )}
+      {action && <p className="text-xs text-muted-foreground">{RATING_HELP}</p>}
       <Card>
         <CardHeader>
           <CardTitle className="flex flex-wrap items-center gap-2 text-base">
             <Badge variant="secondary">{item.subject === 'document' ? 'Document' : 'Q&A'}</Badge>
-            <Badge variant="warning">{formatPercent(item.confidence)} sure</Badge>
+            {item.confidence !== null && (
+              <Badge variant="warning">{formatPercent(item.confidence)} sure</Badge>
+            )}
             {item.reasons.map((reason) => (
               <Badge key={reason} variant="default">
                 {qualityReasonLabel(reason)}
@@ -197,7 +225,7 @@ export const KbAutoSampleReview = ({ onDone }: Props) => {
           disabled={busy}
           onClick={() => decide(item, 'agree')}
         >
-          Agree (remove)
+          {action ? 'Agree' : 'Agree (remove)'}
         </Button>
         <Button
           variant="outline"
@@ -205,7 +233,7 @@ export const KbAutoSampleReview = ({ onDone }: Props) => {
           disabled={busy}
           onClick={() => decide(item, 'disagree')}
         >
-          Disagree (keep)
+          {action ? 'Disagree' : 'Disagree (keep)'}
         </Button>
         <Button variant="ghost" size="sm" disabled={busy} onClick={skip}>
           Skip

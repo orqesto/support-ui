@@ -13,12 +13,16 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { useAuthStore } from '@/stores/authStore';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), patch: vi.fn() }));
 const perms = vi.hoisted(() => ({ canManageOrg: true }));
 vi.mock('@/lib/api-client', () => ({ apiClient: api }));
 vi.mock('@/lib/toast', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
+}));
+vi.mock('@/components/kb/KbQualityCoverage', () => ({
+  KbQualityCoverage: () => <div data-testid="quality-coverage" />,
 }));
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -142,6 +146,7 @@ const dialog = () => screen.getByRole('dialog');
 beforeEach(() => {
   vi.clearAllMocks();
   perms.canManageOrg = true;
+  useAuthStore.setState({ user: null });
   wireGets();
   api.post.mockImplementation(() => ok({ status: 'rejected' }));
   api.patch.mockImplementation((_url: string, body: { remove: unknown }) =>
@@ -383,5 +388,247 @@ describe('Automatic actions page', () => {
     renderPage();
     expect(await screen.findByText(/Workspace not found/)).toBeInTheDocument();
     expect(screen.queryByText(/arrive with the next backend release/)).not.toBeInTheDocument();
+  });
+});
+
+// ─── One page for every action (BE with `actions`) ──────────────────────────────────────────────
+const gateOpen = { allowed: true, needRated: 0, rate: 0.95, reason: null };
+const actionRow = (over: Record<string, unknown> = {}) => ({
+  mode: 'shadow',
+  threshold: null,
+  agreement: { decided: 0, agreed: 0, rate: null, atThreshold: null },
+  gate: gateOpen,
+  wouldAct: 0,
+  actedLast90d: 0,
+  blockedBy: [],
+  ...over,
+});
+const withActions = (over: Record<string, Record<string, unknown>> = {}) => ({
+  ...overview(),
+  actions: {
+    remove: actionRow({
+      threshold: 0.9,
+      wouldAct: 4,
+      actedLast90d: 7,
+      agreement: {
+        decided: 20,
+        agreed: 14,
+        rate: 0.7,
+        atThreshold: { total: 10, agreed: 9, rate: 0.9 },
+      },
+      ...over.remove,
+    }),
+    approveMined: actionRow({
+      mode: 'auto',
+      threshold: 0.85,
+      actedLast90d: 3,
+      ...over.approveMined,
+    }),
+    hold: actionRow({
+      wouldAct: 2,
+      gate: { allowed: false, needRated: 3, rate: null, reason: 'not_enough_rated' },
+      ...over.hold,
+    }),
+    cleanPersonalData: actionRow({ mode: 'auto', actedLast90d: 5, ...over.cleanPersonalData }),
+  },
+  transientSkips: 0,
+  ...over.top,
+});
+const minedSample = {
+  action: 'approveMined',
+  items: [
+    {
+      action: 'approveMined',
+      suggestionId: null,
+      entryId: 61,
+      publicId: 'KB-61',
+      subject: 'qa',
+      question: 'Do you ship to islands?',
+      answer: 'Yes, by boat.',
+      reasons: [],
+      note: null,
+      confidence: 0.88,
+    },
+  ],
+  poolLimited: false,
+};
+const row = (key: string) => screen.getByTestId(`kb-auto-row-${key}`);
+const wireActions = (current: unknown = withActions()) => {
+  api.get.mockImplementation((url: string, config?: { params?: { action?: string } }) => {
+    if (url === '/api/knowledge-base/auto-actions') return ok(current);
+    if (url === '/api/knowledge-base/auto-actions/sample')
+      return ok(config?.params?.action === 'approveMined' ? minedSample : sample);
+    if (url === '/api/knowledge-base/auto-actions/removed') return ok(removed);
+    return Promise.reject(new Error(`unexpected GET ${url}`));
+  });
+};
+
+describe('Automatic actions page — every action on one page', () => {
+  beforeEach(() => wireActions());
+
+  it('lists the four active actions and the three that always wait for a person', async () => {
+    renderPage();
+    await screen.findByTestId('kb-auto-row-remove');
+    for (const key of ['remove', 'approveMined', 'hold', 'cleanPersonalData']) {
+      const active = row(key);
+      expect(within(active).getByRole('button', { name: 'Off' })).toBeInTheDocument();
+      expect(within(active).getByRole('button', { name: 'Shadow' })).toBeInTheDocument();
+      expect(within(active).getByRole('button', { name: 'Automatic' })).toBeInTheDocument();
+      expect(within(active).getByRole('button', { name: 'Check a sample' })).toBeInTheDocument();
+    }
+    expect(screen.getByText('Remove entries the review is sure are wrong')).toBeInTheDocument();
+    expect(screen.getByText('Approve answers learned from the mailbox')).toBeInTheDocument();
+    expect(screen.getByText('Set aside answers about one customer')).toBeInTheDocument();
+    expect(screen.getByText('Remove personal details from answers')).toBeInTheDocument();
+    for (const label of ['Merge into a case', 'Rewrite an answer', 'Approve saved answers']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getAllByText('Always waits for a person (coming later)')).toHaveLength(3);
+    expect(within(row('remove')).getByText('Would act on 4')).toBeInTheDocument();
+    expect(within(row('remove')).getByRole('slider')).toBeInTheDocument();
+    expect(within(row('hold')).queryByRole('slider')).not.toBeInTheDocument();
+    expect(within(row('remove')).getByText(/agreed 9 of 10 \(90%\)/)).toBeInTheDocument();
+  });
+
+  it('a gate that is not met disables Automatic and says how many more to rate', async () => {
+    wireActions(withActions());
+    renderPage();
+    await screen.findByTestId('kb-auto-row-hold');
+    expect(within(row('hold')).getByText('Rate 3 more to switch this on.')).toBeInTheDocument();
+    expect(within(row('hold')).getByRole('button', { name: 'Automatic' })).toBeDisabled();
+    expect(within(row('remove')).getByRole('button', { name: 'Automatic' })).toBeEnabled();
+  });
+
+  it('a platform admin may override the gate', async () => {
+    useAuthStore.setState({ user: { role: 'admin' } as never });
+    renderPage();
+    await screen.findByTestId('kb-auto-row-hold');
+    expect(within(row('hold')).getByRole('button', { name: 'Automatic' })).toBeEnabled();
+    expect(
+      within(row('hold')).getByText(/You can override this as a platform admin\./)
+    ).toBeInTheDocument();
+  });
+
+  it('a 409 from the gate shows the same line on that row', async () => {
+    wireActions(withActions({ hold: { gate: gateOpen } }));
+    api.patch.mockRejectedValue(
+      Object.assign(new Error('Request failed'), {
+        status: 409,
+        data: {
+          success: false,
+          code: 'AUTOMATION_NEEDS_SAMPLE',
+          action: 'hold',
+          needRated: 2,
+          rate: null,
+          reason: 'not_enough_rated',
+        },
+      })
+    );
+    renderPage();
+    await screen.findByTestId('kb-auto-row-hold');
+    fireEvent.click(within(row('hold')).getByRole('button', { name: 'Automatic' }));
+    fireEvent.click(within(row('hold')).getByRole('button', { name: 'Save' }));
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Turn on' }));
+    expect(await within(row('hold')).findByText('Rate 2 more to switch this on.')).toBeVisible();
+    expect(api.patch).toHaveBeenCalledWith('/api/knowledge-base/auto-actions/settings', {
+      hold: { mode: 'auto' },
+    });
+  });
+
+  it('saves one action at a time, with its bar only when it has one', async () => {
+    renderPage();
+    await screen.findByTestId('kb-auto-row-remove');
+    fireEvent.change(within(row('remove')).getByRole('slider'), { target: { value: '95' } });
+    fireEvent.click(within(row('remove')).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/api/knowledge-base/auto-actions/settings', {
+        remove: { mode: 'shadow', threshold: 0.95 },
+      })
+    );
+    fireEvent.click(within(row('hold')).getByRole('button', { name: 'Off' }));
+    fireEvent.click(within(row('hold')).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/api/knowledge-base/auto-actions/settings', {
+        hold: { mode: 'off' },
+      })
+    );
+  });
+
+  it('shows a blocked-by notice on the actions it stops, and not on the others', async () => {
+    wireActions(
+      withActions({
+        remove: { blockedBy: ['kb.quality_review_enabled'] },
+        hold: { blockedBy: ['kb.consolidation_enabled', 'kb.consolidation_dry_run'] },
+      })
+    );
+    renderPage();
+    await screen.findByTestId('kb-auto-row-remove');
+    const notice = /Not checked for this workspace — switch on/;
+    expect(within(row('remove')).getByText(notice)).toHaveTextContent(
+      /Platform console › Feature flags/
+    );
+    expect(within(row('hold')).getByText(/switch off test mode/)).toBeInTheDocument();
+    expect(within(row('approveMined')).queryByText(notice)).not.toBeInTheDocument();
+    expect(within(row('cleanPersonalData')).queryByText(notice)).not.toBeInTheDocument();
+    expect(screen.queryByText(/kb\.quality_review_enabled/)).not.toBeInTheDocument();
+  });
+
+  it('sample: Agree only records a rating and never touches the suggestions', async () => {
+    renderPage();
+    await screen.findByTestId('kb-auto-row-approveMined');
+    fireEvent.click(within(row('approveMined')).getByRole('button', { name: 'Check a sample' }));
+    expect(await screen.findByText('Do you ship to islands?')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Your rating only teaches the %; decide the entry itself in the Knowledge Base.'
+      )
+    ).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith('/api/knowledge-base/auto-actions/sample', {
+      params: { limit: 30, action: 'approveMined' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Agree' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/api/knowledge-base/auto-actions/ratings', {
+        action: 'approveMined',
+        entryId: 61,
+        agreed: true,
+      })
+    );
+    expect(
+      api.post.mock.calls.filter(([url]) => String(url).startsWith('/api/learning/suggestions'))
+    ).toHaveLength(0);
+  });
+
+  it('links the Changed automatically card to the knowledge base filter', async () => {
+    renderPage();
+    await screen.findByTestId('kb-auto-row-remove');
+    const link = screen.getByRole('link', { name: /Changed automatically|Review them/ });
+    expect(link).toHaveAttribute('href', '/knowledge-base?status=auto_changed');
+    expect(screen.getByText(/in the last 90 days/)).toHaveTextContent(/15/);
+    expect(screen.queryByRole('button', { name: 'Restore' })).not.toBeInTheDocument();
+  });
+
+  it('says when scoring batches were skipped for a slow AI', async () => {
+    wireActions(withActions({ top: { transientSkips: 2 } }));
+    renderPage();
+    expect(
+      await screen.findByText(
+        '2 batches were skipped because the AI did not answer in time; they are retried next run.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('mounts the scoring health card here', async () => {
+    renderPage();
+    expect(await screen.findByTestId('quality-coverage')).toBeInTheDocument();
+  });
+
+  it('an older backend (no actions) keeps the remove-only page', async () => {
+    wireGets();
+    renderPage();
+    await screen.findByText('4 entries');
+    expect(screen.queryByTestId('kb-auto-row-remove')).not.toBeInTheDocument();
+    expect(screen.queryByText('Merge into a case')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Restore' })).toBeInTheDocument();
   });
 });

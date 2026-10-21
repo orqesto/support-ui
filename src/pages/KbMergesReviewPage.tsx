@@ -4,7 +4,6 @@ import { Layout } from '@/components/layout/Layout';
 import { KB_MERGE_SUGGESTION_PARAM } from '@/components/layout/KbReviewSection';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { KbConsolidationReview, summarizeKbMerge } from '@/components/kb/KbConsolidationReview';
-import { KbQualityCoverage } from '@/components/kb/KbQualityCoverage';
 import { KbQualityList } from '@/components/kb/KbQualityList';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -73,7 +72,8 @@ export const KbMergesReviewPage = () => {
       // never flips the tab under the moderator (FE audit M1).
       setParamsRef.current(
         (current) => {
-          if (current.get('tab') !== null || nextMerges.length > 0 || nextQuality.length === 0) return current;
+          if (current.get('tab') !== null || nextMerges.length > 0 || nextQuality.length === 0)
+            return current;
           const params = new URLSearchParams(current);
           params.set('tab', 'quality');
           return params;
@@ -114,7 +114,11 @@ export const KbMergesReviewPage = () => {
           onTabChange={changeTab}
           tabs={[
             { id: 'merges', label: 'Merges', badge: merges?.length ?? undefined },
-            { id: 'quality', label: 'Quality', badge: merges === null ? undefined : quality.length },
+            {
+              id: 'quality',
+              label: 'Quality',
+              badge: merges === null ? undefined : quality.length,
+            },
           ]}
         />
         {merges === null && error ? null : merges === null ? (
@@ -124,8 +128,6 @@ export const KbMergesReviewPage = () => {
           </div>
         ) : tab === 'quality' ? (
           <div className="space-y-3">
-            {/* How much of the KB has been checked: "no suggestions" is not "clean". */}
-            <KbQualityCoverage reloadKey={quality.length} />
             <KbQualityList rows={quality} onChanged={() => void load()} />
           </div>
         ) : merges?.length === 0 ? (

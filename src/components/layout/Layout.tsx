@@ -25,6 +25,7 @@ import {
   ScrollText,
   Network,
   Layers,
+  Zap,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -36,15 +37,11 @@ import { useMyAlliances } from '@/hooks/useAllianceAdmin';
 import { useFeatures } from '@/hooks/useFeatures';
 import { useUiFlags } from '@/hooks/useUiFlags';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
+import { useAutoActionsAvailable } from '@/hooks/useAutoActionsAvailable';
 import { joinOrganizationRoom, leaveOrganizationRoom } from '@/lib/socketManager';
 import { cn } from '@/lib/utils';
 import { sidebarWidthPx, useSidebarStore } from '@/stores/sidebarStore';
-import {
-  NavTip,
-  RAIL_QUERY,
-  SidebarCollapseToggle,
-  useSidebarShell,
-} from './SidebarNav';
+import { NavTip, RAIL_QUERY, SidebarCollapseToggle, useSidebarShell } from './SidebarNav';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useAuthStore } from '@/stores/authStore';
 import { useOnboardingStore } from '@/stores/onboardingStore';
@@ -100,6 +97,8 @@ const allNavigation: Array<{
    * "not built yet"; use `featureRequired` for "your plan does not include it".
    */
   flagRequired?: string;
+  /** Hidden unless the backend has the Automatic actions routes (see useAutoActionsAvailable). */
+  requiresAutoActions?: boolean;
   showBadge?: boolean;
   // Hidden whenever the BE reports billing is off (deployment.billingEnabled=false):
   // self-hosted boxes AND managed boxes where a billing provider isn't configured
@@ -143,6 +142,15 @@ const allNavigation: Array<{
     permission: Permission.VIEW_MESSAGES,
   },
   {
+    // A sibling of Knowledge Base, not of KB Cases: it is not behind the ui.kb_cases flag.
+    group: 'work',
+    name: 'Automatic actions',
+    href: '/knowledge-base/automatic',
+    icon: Zap,
+    permission: Permission.MANAGE_KNOWLEDGE_BASE,
+    requiresAutoActions: true,
+  },
+  {
     group: 'work',
     name: 'KB Cases',
     href: '/knowledge-base/cases',
@@ -180,8 +188,20 @@ const allNavigation: Array<{
 
   // ─── Consoles — scope-aware admin shells (own group; labels match the shell
   //     headers so the audience is obvious). Alliance = customer IT; Platform = Odly staff.
-  { group: 'consoles', name: 'Organisation Console', href: '/console', icon: Network, allianceAdmin: true },
-  { group: 'consoles', name: 'Platform Console', href: '/console/platform', icon: ShieldAlert, adminOnly: true },
+  {
+    group: 'consoles',
+    name: 'Organisation Console',
+    href: '/console',
+    icon: Network,
+    allianceAdmin: true,
+  },
+  {
+    group: 'consoles',
+    name: 'Platform Console',
+    href: '/console/platform',
+    icon: ShieldAlert,
+    adminOnly: true,
+  },
 
   // ─── Admin — org-scoped configuration & rare-use ────────────────────────────
   // Per-workspace user management (invite/create/edit/delete, skills, permission
@@ -353,7 +373,8 @@ export const Layout = ({ children }: LayoutProps) => {
   );
   const openProcessingPanel = useProcessingPanelStore((state) => state.open);
   const openProcessingPanels = useCallback(
-    (sourceIds: number[]) => sourceIds.forEach((sourceId) => openProcessingPanel(sourceId, 'manual')),
+    (sourceIds: number[]) =>
+      sourceIds.forEach((sourceId) => openProcessingPanel(sourceId, 'manual')),
     [openProcessingPanel]
   );
   // needs_routing badge now sources from the unified notification counts (P4) so
@@ -403,6 +424,10 @@ export const Layout = ({ children }: LayoutProps) => {
   // billing UI never flashes before we know — it reveals once the flag arrives.
   const billingEnabled = backendVersion?.billingEnabled ?? false;
 
+  const autoActionsAvailable = useAutoActionsAvailable(
+    hasPermission(Permission.MANAGE_KNOWLEDGE_BASE)
+  );
+
   // Filter navigation based on permissions
   const navigation = useMemo(
     () =>
@@ -442,6 +467,9 @@ export const Layout = ({ children }: LayoutProps) => {
         if (item.flagRequired && !isSurfaceVisibleToMe(item.flagRequired)) {
           return false;
         }
+        if (item.requiresAutoActions && !autoActionsAvailable) {
+          return false;
+        }
         // Tickets is shown even before the first ticket (it used to wait for one): New ticket
         // lives on that page, so a workspace with none could never make one (prod 2026-10-20).
         if (item.href === '/needs-routing' && !hasRoutingItems) {
@@ -459,6 +487,7 @@ export const Layout = ({ children }: LayoutProps) => {
       isSurfaceVisibleToMe,
       user?.role,
       hasRoutingItems,
+      autoActionsAvailable,
       billingEnabled,
       showAllianceConsole,
     ]
@@ -647,10 +676,7 @@ export const Layout = ({ children }: LayoutProps) => {
                     collapsed && 'lg:flex-col'
                   )}
                 >
-                  <ProcessingIndicator
-                    entries={processingSummary}
-                    onOpen={openProcessingPanels}
-                  />
+                  <ProcessingIndicator entries={processingSummary} onOpen={openProcessingPanels} />
                   <NotificationCenter sla={slaNotifications} learning={learningNotifications} />
                   <ThemeToggle />
                 </div>
