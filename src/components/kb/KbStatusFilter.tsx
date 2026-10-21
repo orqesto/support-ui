@@ -6,6 +6,7 @@ export const KB_FILTER_STATUSES: readonly KbFilterStatus[] = [
   'needs_decision',
   'suggested_change',
   'set_aside',
+  'auto_removed',
   'approved',
   'pending',
   'hidden',
@@ -17,17 +18,22 @@ export const KB_FILTER_STATUS_LABEL: Record<KbFilterStatus, string> = {
   needs_decision: 'Needs your decision',
   suggested_change: 'Suggested change',
   set_aside: 'Set aside',
+  auto_removed: 'Removed automatically',
   approved: 'Approved',
   pending: 'Pending',
   hidden: 'Hidden',
   rejected: 'Rejected',
   all: 'All',
 };
+/** The Restore button's title on a "Removed automatically" row. */
+export const RESTORE_AUTO_TITLE = 'Restore — puts the entry back as it was before it was removed';
 const TITLE: Partial<Record<KbFilterStatus, string>> = {
   needs_decision: 'Saved answers waiting for a reviewer to approve or reject them.',
   suggested_change:
     'Entries the nightly review proposes to merge, add to a case, rewrite or remove.',
   set_aside: 'Entries the cases report leaves out, with the reason.',
+  auto_removed:
+    'Entries the nightly automatic removal took out — Restore puts one back as it was, for 90 days.',
   rejected:
     'Rejected by a reviewer or automatically — deleted 90 days after the reject; Approve restores one before then.',
 };

@@ -212,6 +212,57 @@ describe('Automatic actions page', () => {
     );
   });
 
+  it('asks again when Automatic is already on and the bar is lowered', async () => {
+    wireGets(overview('auto', 0.9));
+    renderPage();
+    await screen.findByText('4 entries');
+    fireEvent.change(slider(), { target: { value: '85' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(
+      within(dialog()).getByText(/At 85% the next run removes 10 entries now/)
+    ).toBeInTheDocument();
+    expect(api.patch).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Lower the bar' }));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/api/knowledge-base/auto-actions/settings', {
+        remove: { mode: 'auto', threshold: 0.85 },
+      })
+    );
+  });
+
+  it('raising the bar while Automatic is on removes less, so it saves without a confirm', async () => {
+    wireGets(overview('auto', 0.9));
+    renderPage();
+    await screen.findByText('4 entries');
+    fireEvent.change(slider(), { target: { value: '95' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/api/knowledge-base/auto-actions/settings', {
+        remove: { mode: 'auto', threshold: 0.95 },
+      })
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows how many candidates sit in each confidence band, unscored included', async () => {
+    renderPage();
+    await screen.findByText('4 entries');
+    const list = screen.getByRole('list', { name: 'Candidates by confidence' });
+    const rows = within(list)
+      .getAllByRole('listitem')
+      .map((row) => row.textContent);
+    expect(rows).toEqual([
+      'Under 50%2',
+      '50–70%3',
+      '70–80%10',
+      '80–90%6',
+      '90–95%0',
+      '95% and over4',
+      'No score yet3',
+    ]);
+  });
+
   it('saves a Shadow change without a confirm', async () => {
     renderPage();
     await screen.findByText('4 entries');
@@ -252,6 +303,50 @@ describe('Automatic actions page', () => {
         api.get.mock.calls.filter(([url]) => url === '/api/knowledge-base/auto-actions')
       ).toHaveLength(2)
     );
+  });
+
+  it('sample: a suggestion that changed or was decided elsewhere counts as skipped, not as a verdict', async () => {
+    api.post.mockImplementation((url: string) =>
+      url.endsWith('/501/accept')
+        ? ok({ status: 'expired', reason: 'The entry was edited.' })
+        : Promise.reject(
+            Object.assign(new Error('Request failed'), {
+              status: 409,
+              data: { success: false, error: 'This suggestion was already decided.' },
+            })
+          )
+    );
+    renderPage();
+    await screen.findByText('4 entries');
+    fireEvent.click(screen.getByRole('button', { name: 'Check a sample' }));
+    expect(await screen.findByText('1 of 2')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Agree (remove)' }));
+    expect(await screen.findByText('2 of 2')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Disagree (keep)' }));
+    expect(
+      await screen.findByText(
+        /0 agreed \(removed\), 0 disagreed \(kept\), 0 skipped, 2 changed since — skipped/
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('sample: a 0% suggestion is never offered', async () => {
+    api.get.mockImplementation((url: string) => {
+      if (url === '/api/knowledge-base/auto-actions') return ok(overview());
+      if (url === '/api/knowledge-base/auto-actions/sample')
+        return ok({
+          ...sample,
+          items: [{ ...sample.items[0], confidence: 0 }, sample.items[1]],
+        });
+      if (url === '/api/knowledge-base/auto-actions/removed') return ok(removed);
+      return Promise.reject(new Error(`unexpected GET ${url}`));
+    });
+    renderPage();
+    await screen.findByText('4 entries');
+    fireEvent.click(screen.getByRole('button', { name: 'Check a sample' }));
+    expect(await screen.findByText('1 of 1')).toBeInTheDocument();
+    expect(screen.getByText('Opening hours')).toBeInTheDocument();
+    expect(screen.queryByText(/Example Shop/)).not.toBeInTheDocument();
   });
 
   it('Restore asks first, then calls the restore route', async () => {

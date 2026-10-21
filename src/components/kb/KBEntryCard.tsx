@@ -27,6 +27,8 @@ import {
   offersReviewActions,
 } from '@/lib/kbConsolidation';
 
+import { RESTORE_AUTO_TITLE } from './KbStatusFilter';
+
 const getTypeIcon = (type: string) => {
   switch (type) {
     case 'qa_pair':
@@ -62,6 +64,8 @@ type KBEntryCardProps = {
   onUnmerge?: (entry: KBEntry) => void;
   /** Open the review for a merge / rewrite / removal suggestion waiting on this entry. */
   onReviewDecision?: (decision: KbPendingDecision) => void;
+  /** Under "Removed automatically": a removed row's Restore undoes the automatic removal. */
+  onRestoreAuto?: (id: number) => void;
 };
 
 export const KBEntryCard = ({
@@ -75,6 +79,7 @@ export const KBEntryCard = ({
   canReview,
   onUnmerge,
   onReviewDecision,
+  onRestoreAuto,
 }: KBEntryCardProps) => (
   <Card className="p-4">
     <div className="flex gap-3">
@@ -192,8 +197,20 @@ export const KBEntryCard = ({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => (entry.rejectedAt ? onApprove(entry.id) : onUnhide(entry.id))}
-                title={entry.rejectedAt ? 'Approve — restores the rejected entry' : 'Unhide'}
+                onClick={() =>
+                  entry.rejectedAt && onRestoreAuto
+                    ? onRestoreAuto(entry.id)
+                    : entry.rejectedAt
+                      ? onApprove(entry.id)
+                      : onUnhide(entry.id)
+                }
+                title={
+                  entry.rejectedAt && onRestoreAuto
+                    ? RESTORE_AUTO_TITLE
+                    : entry.rejectedAt
+                      ? 'Approve — restores the rejected entry'
+                      : 'Unhide'
+                }
                 aria-label={entry.rejectedAt ? 'Restore' : 'Unhide'}
               >
                 <Eye className="w-4 h-4" />

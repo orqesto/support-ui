@@ -4,9 +4,18 @@ import { KB_MERGES_REVIEW_PATH } from '@/components/layout/KbReviewSection';
 
 export const KB_STATUS_IGNORED_NOTICE = 'This server cannot filter by this yet.';
 
-export type KbDecisionFilterStatus = 'needs_decision' | 'suggested_change' | 'set_aside';
+export type KbDecisionFilterStatus =
+  | 'needs_decision'
+  | 'suggested_change'
+  | 'set_aside'
+  | 'auto_removed';
 /** The statuses an older backend does not know: it ignores them and returns the unfiltered list. */
-const NEW_STATUSES: readonly string[] = ['needs_decision', 'suggested_change', 'set_aside'];
+const NEW_STATUSES: readonly string[] = [
+  'needs_decision',
+  'suggested_change',
+  'set_aside',
+  'auto_removed',
+];
 export const isNewStatus = (status: string): status is KbDecisionFilterStatus =>
   NEW_STATUSES.includes(status);
 
@@ -30,6 +39,11 @@ const FALLBACK: Record<KbDecisionFilterStatus, { text: string; to: string; label
     text: 'Set-aside entries are listed in the cases report.',
     to: '/knowledge-base/cases',
     label: 'Open the cases report',
+  },
+  auto_removed: {
+    text: 'Automatically removed entries are listed on the Automatic actions page.',
+    to: '/knowledge-base/automatic',
+    label: 'Open Automatic actions',
   },
 };
 

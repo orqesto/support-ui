@@ -37,6 +37,12 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
             filters: {
               status: params.status ?? 'all',
               ...(capable ? { decisionStatuses: true } : {}),
+              // What the real getAll derives from that flag for the status asked for.
+              statusApplied:
+                capable ||
+                !['needs_decision', 'suggested_change', 'set_aside'].includes(
+                  params.status as string
+                ),
             },
           },
         });

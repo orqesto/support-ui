@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   agreementAt,
+  candidateBands,
   normaliseOverview,
   normaliseRemovedPage,
   normaliseSample,
+  normaliseSettings,
   wouldRemoveAt,
 } from '../kbAutoActions.service';
 
@@ -33,10 +35,10 @@ describe('kbAutoActions math', () => {
 });
 
 describe('kbAutoActions normalisation (older or partial backend)', () => {
-  it('reads an empty or malformed overview as Off with nothing waiting', () => {
+  it('reads an empty or malformed overview as Shadow (the backend default) with nothing waiting', () => {
     for (const raw of [undefined, null, 'html', { settings: { remove: { mode: 'weird' } } }]) {
       const overview = normaliseOverview(raw);
-      expect(overview.settings.remove.mode).toBe('off');
+      expect(overview.settings.remove.mode).toBe('shadow');
       expect(overview.settings.remove.threshold).toBe(0.9);
       expect(overview.candidates.removableByPercent).toEqual([]);
       expect(overview.agreement.byPercent).toEqual([]);
@@ -69,5 +71,54 @@ describe('kbAutoActions normalisation (older or partial backend)', () => {
     const page = normaliseRemovedPage({ items: [{ entryId: 9, reasons: ['outdated', 4] }] });
     expect(page.items[0].reasons).toEqual(['outdated']);
     expect(page).toMatchObject({ page: 1, pageSize: 25, total: 0 });
+  });
+
+  it('a missing or unknown mode falls back to Shadow, never Off; known modes are kept', () => {
+    for (const raw of [undefined, {}, { remove: {} }, { remove: { mode: 'later' } }])
+      expect(normaliseSettings(raw).remove.mode).toBe('shadow');
+    expect(normaliseSettings({ remove: { mode: 'off' } }).remove.mode).toBe('off');
+    expect(normaliseSettings({ remove: { mode: 'auto' } }).remove.mode).toBe('auto');
+  });
+
+  it('never offers a 0% suggestion in the sample', () => {
+    const sample = normaliseSample({
+      items: [
+        { suggestionId: 1, confidence: 0 },
+        { suggestionId: 2, confidence: 0.01 },
+        { suggestionId: 3, confidence: 0.9 },
+      ],
+    });
+    expect(sample.items.map((item) => item.suggestionId)).toEqual([2, 3]);
+  });
+
+  it('lists every band in order, unscored last, with the default bands when none are sent', () => {
+    const overview = normaliseOverview({
+      candidates: { byBand: { '70to80': 4, unscored: 2, lt50: 'x' } },
+      bands: [{ key: 'broken' }],
+    });
+    expect(candidateBands(overview)).toEqual([
+      { key: 'lt50', label: 'Under 50%', count: 0 },
+      { key: '50to70', label: '50–70%', count: 0 },
+      { key: '70to80', label: '70–80%', count: 4 },
+      { key: '80to90', label: '80–90%', count: 0 },
+      { key: '90to95', label: '90–95%', count: 0 },
+      { key: 'gte95', label: '95% and over', count: 0 },
+      { key: 'unscored', label: 'No score yet', count: 2 },
+    ]);
+  });
+
+  it("uses the server's bands when it sends them", () => {
+    const overview = normaliseOverview({
+      candidates: { byBand: { low: 1, high: 5 } },
+      bands: [
+        { key: 'low', from: 0, to: 0.6 },
+        { key: 'high', from: 0.6, to: 1 },
+      ],
+    });
+    expect(candidateBands(overview).map((row) => [row.label, row.count])).toEqual([
+      ['Under 60%', 1],
+      ['60% and over', 5],
+      ['No score yet', 0],
+    ]);
   });
 });

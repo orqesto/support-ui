@@ -52,7 +52,12 @@ describe('kbService.getAll filters.decisionStatuses', () => {
   it('an older backend (echoes the status, no flag) ⇒ false', async () => {
     answer({ status: 'needs_decision' });
     const result = await kbService.getAll({ status: 'needs_decision' });
-    expect(result.data.filters).toEqual({ status: 'needs_decision', decisionStatuses: false });
+    expect(result.data.filters).toEqual({
+      status: 'needs_decision',
+      decisionStatuses: false,
+      autoRemovedStatus: false,
+      statusApplied: false,
+    });
     expect(result.data.entries[0].setAsideReason).toBe('other');
   });
 
@@ -60,5 +65,17 @@ describe('kbService.getAll filters.decisionStatuses', () => {
     answer({ status: 'needs_decision', decisionStatuses: true });
     const result = await kbService.getAll({ status: 'needs_decision' });
     expect(result.data.filters?.decisionStatuses).toBe(true);
+    expect(result.data.filters?.statusApplied).toBe(true);
+  });
+
+  it('"Removed automatically" is applied only on a backend that says so (autoRemovedStatus)', async () => {
+    answer({ status: 'auto_removed', decisionStatuses: true });
+    expect((await kbService.getAll({ status: 'auto_removed' })).data.filters?.statusApplied).toBe(
+      false
+    );
+    answer({ status: 'auto_removed', decisionStatuses: true, autoRemovedStatus: true });
+    expect((await kbService.getAll({ status: 'auto_removed' })).data.filters?.statusApplied).toBe(
+      true
+    );
   });
 });
