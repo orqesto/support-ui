@@ -2,36 +2,67 @@ import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Paperclip, X, File, Sparkles } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
+import { TicketThreadPicker, type ThreadCandidate } from '@/components/tickets/TicketThreadPicker';
+import { useTicketOwners } from '@/components/tickets/useTicketOwners';
+import { Alert } from '@/components/ui/Alert';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { useDepartments } from '@/hooks/useDepartments';
 import { apiClient } from '@/lib/api-client';
-import { assignmentService, type AssignableUser } from '@/services/assignment.service';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 import { categoryService } from '@/services/category.service';
 import { integrationsService } from '@/services/integrations.service';
 import { settingsService } from '@/services/settings.service';
 import { messageService } from '@/services/message.service';
 import { ticketService } from '@/services/ticket.service';
+import { ticketThreadsService } from '@/services/ticketThreads.service';
+import { useAuthStore } from '@/stores/authStore';
 import { useMessagesStore } from '@/stores/messagesStore';
 import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Message, Category, TicketPriority, ApiResponse } from '@/types';
 import RichTextEditor from '@/components/shared/RichTextEditor';
 import { logger } from '@/lib/logger';
 
+/** The text of the editor's HTML, to tell an empty description from a written one. */
+const textOf = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim();
+
+/**
+ * Create ticket — ONE page for both ways in (owner 2026-10-21,
+ * `.planning/ONE-CREATE-TICKET-PAGE-PLAN-2026-10-21.md`):
+ * - Tickets → New ticket: empty — a contingency (client spec; owner 2026-10-19: allowed with no
+ *   thread yet, the cause is often known before anyone reports it), filed in one of the creator's
+ *   departments;
+ * - a thread → Create ticket (`?messageId=`): that thread is listed and its department shown.
+ * Essentials first (title, cause, department, owner, threads), then priority, category, Jira and
+ * files. The ticket is created, then the extra threads are linked and the files uploaded; a step
+ * that fails after the ticket exists opens it anyway, and its page says what is missing.
+ */
 export const CreateTicketPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const messageId = searchParams.get('messageId');
+  const user = useAuthStore((state) => state.user);
+  const userId = user?.id;
+  const { data: allDepartments = [] } = useDepartments();
+  // A ticket with no thread is filed in one of the creator's departments; an administrator may
+  // pick any. From a thread it is the thread's department (the backend ignores another).
+  const mayPickAny = user?.role === 'admin' || user?.organizationRole === 'org_admin';
+  const departments = allDepartments.filter(
+    (dept) => dept.active !== false && (mayPickAny || (user?.departmentIds ?? []).includes(dept.id))
+  );
   const clearTicketsCache = useTicketsStore((state) => state.clearCache);
   const clearMessagesCache = useMessagesStore((state) => state.clearCache);
 
   const [message, setMessage] = useState<Message | null>(null);
   const [threadMessageIds, setThreadMessageIds] = useState<number[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [users, setUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [chosenThreads, setChosenThreads] = useState<ThreadCandidate[]>([]);
+  const [pickedDepartmentId, setPickedDepartmentId] = useState('');
   /** Set once a ticket was created: the form stays disabled until the redirect. */
   const [created, setCreated] = useState(false);
   const submittedRef = useRef(false);
@@ -50,9 +81,30 @@ export const CreateTicketPage = () => {
     description: '',
     priority: 'medium' as TicketPriority,
     categoryId: '',
-    assigneeId: null as number | null,
+    // The creator by default on a ticket with no thread; the thread's owner on one from a thread.
+    // Sent only when the department's owner list shows they can own it.
+    assigneeId: messageId ? null : (userId ?? null),
     syncToJira: false,
   });
+
+  // The department the owner list is read for: null until it is known.
+  const firstDepartment = departments[0]?.id;
+  const departmentKey: string | null = messageId
+    ? message
+      ? String(message.departmentId ?? '')
+      : null
+    : pickedDepartmentId || (firstDepartment !== undefined ? String(firstDepartment) : null);
+  const { owners, ownersLoaded } = useTicketOwners(departmentKey);
+  const ownerValue =
+    formData.assigneeId !== null && owners.some((opt) => opt.value === String(formData.assigneeId))
+      ? String(formData.assigneeId)
+      : '';
+  const threadDepartmentName = message
+    ? message.departmentId
+      ? (allDepartments.find((dept) => dept.id === message.departmentId)?.name ??
+        `Department #${message.departmentId}`)
+      : 'No department'
+    : '';
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [enhancing, setEnhancing] = useState(false);
@@ -76,9 +128,6 @@ export const CreateTicketPage = () => {
     }
     fetchCategories().catch((error) => {
       logger.error('Failed to fetch categories:', error);
-    });
-    fetchUsers().catch((error) => {
-      logger.error('Failed to fetch users:', error);
     });
     fetchJiraStatus().catch((error) => {
       logger.error('Failed to check Jira integration:', error);
@@ -190,15 +239,6 @@ export const CreateTicketPage = () => {
     }
   };
 
-  const fetchUsers = async () => {
-    try {
-      const data = await assignmentService.getAssignableUsers();
-      setUsers(data);
-    } catch (error) {
-      logger.error('Failed to fetch assignable users:', error);
-    }
-  };
-
   const fetchCategories = async () => {
     try {
       const response = await categoryService.getAll();
@@ -276,11 +316,16 @@ export const CreateTicketPage = () => {
     }
   };
 
+  const ready =
+    formData.title.trim() !== '' &&
+    textOf(formData.description) !== '' &&
+    departmentKey !== null &&
+    (messageId ? message !== null : departmentKey !== '') &&
+    ownersLoaded;
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!messageId) {
-      return;
-    }
+    if (!ready) return;
     /*
       One ticket per press. Every create makes a NEW ticket now — a thread may be on several
       (2026-09-30) — so a second click is a second ticket, not the same one handed back. The ref
@@ -291,43 +336,74 @@ export const CreateTicketPage = () => {
     submittedRef.current = true;
 
     setLoading(true);
+    setError(null);
     try {
-      const response = await ticketService.createWithAttachments(
-        {
-          ...formData,
-          messageId: parseInt(messageId),
-          categoryId: formData.categoryId ? parseInt(formData.categoryId) : undefined,
-          assigneeId: formData.assigneeId ?? undefined,
-          syncToJira: formData.syncToJira,
-        },
-        selectedFiles
-      );
+      // JSON, never multipart: POST /api/tickets reads no files (a multipart body arrived empty,
+      // staging 2026-10-21) — the files go to the ticket once it exists.
+      const response = await ticketService.create({
+        title: formData.title.trim(),
+        description: formData.description,
+        priority: formData.priority,
+        ...(formData.categoryId ? { categoryId: parseInt(formData.categoryId, 10) } : {}),
+        ...(ownerValue ? { assigneeId: Number(ownerValue) } : {}),
+        syncToJira: formData.syncToJira,
+        ...(messageId
+          ? { messageId: parseInt(messageId, 10) }
+          : { departmentId: Number(departmentKey) }),
+      });
+      const ticketId = response.data?.id;
+      if (!ticketId) throw new Error('The ticket was not created');
 
-      if (response.success && response.data) {
-        const ticketId = response.data.id;
-        setAlertDialog({
-          open: true,
-          title: 'Success',
-          description: 'Ticket created successfully',
-          variant: 'success',
-        });
-        clearTicketsCache(); // Clear tickets cache to show new ticket
-        clearMessagesCache(); // Clear messages cache since message is now processed
-        // Navigate to the newly created ticket after a short delay
-        setTimeout(() => navigate(`/tickets/${ticketId}`), 1500);
-        setCreated(true);
-      } else {
-        submittedRef.current = false;
+      // The ticket exists from here on: a later step that fails opens it anyway, and its page
+      // says what is missing (TicketDetailPage) rather than failing the whole create.
+      let threadsNotLinked = false;
+      if (chosenThreads.length > 0) {
+        try {
+          await ticketThreadsService.addThreads(
+            ticketId,
+            chosenThreads.map((row) => row.id)
+          );
+        } catch (err) {
+          logger.error('New ticket: linking its threads failed', err);
+          threadsNotLinked = true;
+        }
       }
-    } catch (error) {
-      submittedRef.current = false;
-      logger.error('Failed to create ticket:', error);
+      let filesNotAttached = false;
+      if (selectedFiles.length > 0) {
+        try {
+          await ticketService.uploadAttachments(ticketId, selectedFiles);
+        } catch (err) {
+          logger.error('New ticket: uploading its files failed', err);
+          filesNotAttached = true;
+        }
+      }
+
       setAlertDialog({
         open: true,
-        title: 'Creation Failed',
-        description: 'Failed to create ticket',
-        variant: 'error',
+        title: 'Success',
+        description: 'Ticket created successfully',
+        variant: 'success',
       });
+      clearTicketsCache(); // Clear tickets cache to show new ticket
+      clearMessagesCache(); // Clear messages cache since message is now processed
+      const notice = {
+        ...(threadsNotLinked ? { threadsNotLinked: true } : {}),
+        ...(filesNotAttached ? { filesNotAttached: true } : {}),
+      };
+      // Navigate to the newly created ticket after a short delay
+      setTimeout(
+        () =>
+          navigate(
+            `/tickets/${ticketId}`,
+            Object.keys(notice).length > 0 ? { state: notice } : {}
+          ),
+        1500
+      );
+      setCreated(true);
+    } catch (err) {
+      submittedRef.current = false;
+      logger.error('Failed to create ticket:', err);
+      setError(getApiErrorMessage(err) ?? 'The ticket could not be created. Try again.');
     } finally {
       setLoading(false);
     }
@@ -338,7 +414,11 @@ export const CreateTicketPage = () => {
       <div className="px-4 mx-auto space-y-4 w-full">
         <div>
           <h1 className="font-display text-3xl font-bold">Create Ticket</h1>
-          <p className="mt-2 text-muted-foreground">Convert thread into a support ticket</p>
+          <p className="mt-2 text-muted-foreground">
+            {messageId
+              ? 'Turn this thread into a ticket — add other threads it explains if you like.'
+              : 'A ticket for a known cause — add the threads it explains now or later.'}
+          </p>
         </div>
 
         {message && (
@@ -384,7 +464,7 @@ export const CreateTicketPage = () => {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label htmlFor="description" className="text-sm font-medium">
-                    Description
+                    Cause or description
                   </label>
                   <Button
                     type="button"
@@ -403,7 +483,7 @@ export const CreateTicketPage = () => {
                   onChange={(html: string) =>
                     setFormData((prev) => ({ ...prev, description: html }))
                   }
-                  placeholder="Enter ticket description..."
+                  placeholder="What happened, as far as you know"
                   minHeight="200px"
                   // Always show the full editor here — no collapse toggle. The
                   // description is the ticket's core field, not an optional add-on.
@@ -411,38 +491,65 @@ export const CreateTicketPage = () => {
                 />
               </div>
 
-              {/* File Attachments */}
-              {selectedFiles.length > 0 && (
-                <div className="space-y-2">
-                  <p className="block text-sm font-medium">Attachments</p>
-                  <div className="space-y-1">
-                    {selectedFiles.map((file, index) => (
-                      <div
-                        key={file.name}
-                        className="flex gap-2 items-center p-2 rounded border bg-muted border-border"
-                      >
-                        <File className="w-4 h-4 text-muted-foreground" />
-                        <span className="flex-1 text-sm truncate">{file.name}</span>
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {formatFileSize(file.size)}
-                        </span>
-                        <Button
-                          aria-label="Remove file"
-                          title="Remove file"
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveFile(index)}
-                          className="p-1 h-auto text-destructive hover:bg-destructive/10"
-                          disabled={loading}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {messageId ? (
+                  <Input
+                    label="Department"
+                    aria-label="Department"
+                    value={threadDepartmentName}
+                    readOnly
+                    disabled
+                  />
+                ) : (
+                  <Select
+                    label="Department"
+                    aria-label="Department"
+                    value={departmentKey ?? ''}
+                    options={departments.map((dept) => ({
+                      value: String(dept.id),
+                      label: dept.name,
+                    }))}
+                    onChange={setPickedDepartmentId}
+                  />
+                )}
+                <div className="space-y-1">
+                  <Select
+                    label="Owner"
+                    aria-label="Owner"
+                    value={ownerValue}
+                    options={[{ value: '', label: 'Unassigned' }, ...owners]}
+                    onChange={(value) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        assigneeId: value ? Number.parseInt(value, 10) : null,
+                      }))
+                    }
+                    searchable
+                  />
+                  {departmentKey !== null && !ownersLoaded && (
+                    <p className="text-xs text-muted-foreground">Loading who can own it…</p>
+                  )}
                 </div>
-              )}
+              </div>
+
+              <TicketThreadPicker
+                chosen={chosenThreads}
+                onChosenChange={setChosenThreads}
+                fixed={
+                  message
+                    ? {
+                        id: message.id,
+                        publicId: message.publicId ?? null,
+                        subject: message.subject ?? null,
+                        sender: message.sender ?? '',
+                      }
+                    : null
+                }
+              />
+
+              <p className="pt-2 text-sm font-medium text-muted-foreground">
+                More details (optional)
+              </p>
 
               <div>
                 <Select
@@ -519,28 +626,6 @@ export const CreateTicketPage = () => {
                 )}
               </div>
 
-              <div>
-                <Select
-                  label="Assigned to"
-                  value={formData.assigneeId ? String(formData.assigneeId) : ''}
-                  onChange={(value) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      assigneeId: value ? Number.parseInt(value, 10) : null,
-                    }))
-                  }
-                  options={[
-                    { value: '', label: 'Unassigned' },
-                    ...users.map((user) => ({
-                      value: String(user.id),
-                      label: `${user.firstName} ${user.lastName} (${user.role})`,
-                    })),
-                  ]}
-                  placeholder="Select assignee"
-                  searchable
-                />
-              </div>
-
               {hasJira && (
                 <div className="flex gap-2 items-start p-4 rounded-lg border border-border bg-muted/30">
                   <input
@@ -563,6 +648,41 @@ export const CreateTicketPage = () => {
                 </div>
               )}
 
+              {/* File Attachments */}
+              {selectedFiles.length > 0 && (
+                <div className="space-y-2">
+                  <p className="block text-sm font-medium">Attachments</p>
+                  <div className="space-y-1">
+                    {selectedFiles.map((file, index) => (
+                      <div
+                        key={file.name}
+                        className="flex gap-2 items-center p-2 rounded border bg-muted border-border"
+                      >
+                        <File className="w-4 h-4 text-muted-foreground" />
+                        <span className="flex-1 text-sm truncate">{file.name}</span>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {formatFileSize(file.size)}
+                        </span>
+                        <Button
+                          aria-label="Remove file"
+                          title="Remove file"
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveFile(index)}
+                          className="p-1 h-auto text-destructive hover:bg-destructive/10"
+                          disabled={loading}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {error && <Alert variant="danger">{error}</Alert>}
+
               <div className="flex gap-2 justify-between items-center pt-4">
                 <label className="flex gap-1 items-center px-3 py-2 text-sm font-medium rounded-md border transition-colors cursor-pointer text-foreground bg-background border-border hover:bg-accent">
                   <Paperclip className="w-4 h-4" />
@@ -576,10 +696,14 @@ export const CreateTicketPage = () => {
                   />
                 </label>
                 <div className="flex gap-2">
-                  <Button type="submit" isLoading={loading} disabled={loading || created}>
+                  <Button type="submit" isLoading={loading} disabled={!ready || loading || created}>
                     Create Ticket
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => navigate('/threads')}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate(messageId ? '/threads' : '/tickets')}
+                  >
                     Cancel
                   </Button>
                 </div>

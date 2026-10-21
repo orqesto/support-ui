@@ -81,30 +81,15 @@ export const ticketService = {
     return response.data;
   },
 
-  createWithAttachments: async (data: CreateTicketRequest, files: File[] = []) => {
-    // If no files, use regular JSON POST
-    if (!files || files.length === 0) {
-      const response = await apiClient.post<ApiResponse<Ticket>>('/api/tickets', data);
-      return response.data;
-    }
-
-    // With files, use FormData
+  /**
+   * Files for a ticket that exists (the route the ticket page's attachments use). Create sends
+   * none: POST /api/tickets parses no multipart body — a create with files arrived with no
+   * fields at all and was refused (staging 2026-10-21).
+   */
+  uploadAttachments: async (ticketId: number, files: File[]) => {
     const formData = new FormData();
-
-    // Append all ticket data as JSON string
-    Object.entries(data).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        formData.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
-      }
-    });
-
-    // Append files
-    files.forEach((file) => {
-      formData.append('attachments', file);
-    });
-
-    const response = await apiClient.post<ApiResponse<Ticket>>('/api/tickets', formData);
-    return response.data;
+    files.forEach((file) => formData.append('files', file));
+    await apiClient.post(`/api/tickets/${ticketId}/attachments`, formData);
   },
 
   update: async (id: number, data: UpdateTicketRequest) => {
