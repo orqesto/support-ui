@@ -80,6 +80,8 @@ export const KnowledgeBasePage = () => {
   const [appliedStatus, setAppliedStatus] = useState<{
     requested: KbFilterStatus;
     applied: boolean;
+    /** The backend's own word on "Changed automatically", on every list answer. */
+    autoChanged: boolean;
   } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
@@ -157,6 +159,7 @@ export const KnowledgeBasePage = () => {
         setAppliedStatus({
           requested: filterStatus,
           applied: response.data.filters?.statusApplied === true,
+          autoChanged: response.data.filters?.autoChangedStatus === true,
         });
       } catch (error) {
         logger.error('Failed to fetch KB entries:', error);
@@ -239,8 +242,7 @@ export const KnowledgeBasePage = () => {
 
   // Under a review filter (a finding, or a decision status) a decided row may leave the list, and
   // its pending decision changes — re-read the page instead of patching the row in place.
-  const rereadAfterDecision =
-    Boolean(finding.filter) || isNewStatus(filterStatus) || filterStatus === 'auto_changed';
+  const rereadAfterDecision = Boolean(finding.filter) || isNewStatus(filterStatus);
 
   const handleApprove = async (id: number) => {
     try {
@@ -588,7 +590,7 @@ export const KnowledgeBasePage = () => {
                     <KbStatusFilter
                       value={filterStatus}
                       onChange={setFilterStatus}
-                      autoChanged={autoChangedSupported !== false}
+                      autoChanged={autoChangedSupported}
                     />
                   )}
 

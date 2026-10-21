@@ -12,18 +12,26 @@ import { useEffect, useState } from 'react';
 import { isRouteAbsent } from '@/lib/apiError';
 import { kbAutoActionsService } from '@/services/kbAutoActions.service';
 
+/** A 5xx / network failure is remembered this long, so the Layout does not re-probe on every mount. */
+export const AUTO_ACTIONS_RETRY_MS = 60_000;
+
 let answer: Promise<boolean> | null = null;
+let failedAt: number | null = null;
 
 export const resetAutoActionsAvailability = (): void => {
   answer = null;
+  failedAt = null;
 };
 
 const ask = (): Promise<boolean> => {
+  // Only an absent route is a verdict on the deployment; any other failure is asked again, but
+  // not before AUTO_ACTIONS_RETRY_MS has passed.
+  if (failedAt !== null && Date.now() - failedAt >= AUTO_ACTIONS_RETRY_MS)
+    resetAutoActionsAvailability();
   answer ??= kbAutoActionsService.getOverview().then(
     () => true,
     (error: unknown) => {
-      // Only an absent route is a verdict on the deployment; any other failure asks again later.
-      if (!isRouteAbsent(error)) answer = null;
+      if (!isRouteAbsent(error)) failedAt = Date.now();
       return false;
     }
   );

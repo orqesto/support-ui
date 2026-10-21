@@ -10,6 +10,7 @@ import {
   type KbWorkRowStatus,
 } from '@/services/kbConsolidation.service';
 import { kbRef } from '@/lib/kbConsolidation';
+import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 
 export const SET_ASIDE_REASON_LABEL: Record<KbSetAsideReason, string> = {
   raw_email: 'Raw email',
@@ -115,7 +116,12 @@ export const headline = (row: KbWorkRow): string =>
       ? row.title
       : `Entry ${kbRef(row.publicId ?? null, row.id)}`;
 
-export type BusyAction = 'move' | 'detach' | 'unmerge';
+/**
+ * Decisions on the nightly review's own change to an entry (an automatic clean-up, a hold). Offered
+ * here ONLY while the backend has not confirmed "Changed automatically" (where each undo lives).
+ */
+export type QualityAction = 'undoClean' | 'keepUsing' | 'rejectHeld';
+export type BusyAction = 'move' | 'detach' | 'unmerge' | QualityAction;
 
 /** What each button does, shown as its tooltip. */
 export const ACTION_TIPS = {
@@ -123,6 +129,9 @@ export const ACTION_TIPS = {
   move: 'Join a case: answered with the case’s standard answer.',
   detach: 'Take it out of the case; the case stays.',
   split: 'Undo this case: its original entries come back on their own',
+  undoClean: 'Put back the original text from before the clean-up.',
+  keepUsing: 'The AI uses this answer again, as it is.',
+  rejectHeld: `Never used: deleted after ${REJECTED_RETENTION_DAYS} days.`,
 } as const;
 
 /**
@@ -140,6 +149,12 @@ export const actionsHelp = (withMove: boolean, statuses?: ReadonlySet<KbWorkRowS
     (withMove ? 'Move into case: answered with that case’s standard answer. ' : '') +
     (reviewing ? 'Pending answers are never used.' : '')
   ).trim();
+};
+
+export const QUALITY_FAILED: Record<QualityAction, string> = {
+  undoClean: 'Could not undo the clean-up',
+  keepUsing: 'Could not keep using it',
+  rejectHeld: 'Could not reject',
 };
 
 export const chunk = (ids: number[]): number[][] => {

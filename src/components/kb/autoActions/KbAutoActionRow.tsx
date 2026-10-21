@@ -165,8 +165,16 @@ export const KbAutoActionRow = ({
             </div>
           )}
           <p>
-            <span aria-live="polite">Would act on {wouldAct}</span>
-            {action === 'remove' ? ` ${wouldAct === 1 ? 'entry' : 'entries'}` : ''}
+            <span aria-live="polite">
+              Would act on {wouldAct}{' '}
+              {action === 'remove'
+                ? wouldAct === 1
+                  ? 'entry'
+                  : 'entries'
+                : wouldAct === 1
+                  ? 'answer'
+                  : 'answers'}
+            </span>
           </p>
           <p className="text-muted-foreground">{agreementLine}</p>
           {canEdit ? (

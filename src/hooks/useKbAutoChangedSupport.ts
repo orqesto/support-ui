@@ -9,7 +9,7 @@ import { useAuthStore } from '@/stores/authStore';
  * workspace forgets it (another deployment of the backend may know more).
  */
 export const useKbAutoChangedSupport = (
-  appliedStatus: { requested: KbFilterStatus; applied: boolean } | null,
+  appliedStatus: { requested: KbFilterStatus; applied: boolean; autoChanged?: boolean } | null,
   setFilterStatus: (next: KbFilterStatus) => void
 ): boolean | null => {
   const [supported, setSupported] = useState<boolean | null>(null);
@@ -26,5 +26,5 @@ export const useKbAutoChangedSupport = (
     seenOrganization.current = organizationId;
     setSupported(null);
   }, [organizationId]);
-  return supported;
+  return supported ?? appliedStatus?.autoChanged ?? null;
 };

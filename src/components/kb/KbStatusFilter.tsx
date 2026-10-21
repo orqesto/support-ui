@@ -45,7 +45,8 @@ const TITLE: Partial<Record<KbFilterStatus, string>> = {
 /**
  * The filter shows ONE of the two automatic-change statuses: "Changed automatically" where the
  * backend knows it (`autoChanged` true or not yet known), today's "Removed automatically" on an
- * older backend that answered without `filters.autoChangedStatus`.
+ * older backend that answered without `filters.autoChangedStatus`. null: the backend has not
+ * answered yet — NEITHER is offered (no flash of one that then turns into the other).
  */
 export const KbStatusFilter = ({
   value,
@@ -54,15 +55,18 @@ export const KbStatusFilter = ({
 }: {
   value: KbFilterStatus;
   onChange: (next: KbFilterStatus) => void;
-  autoChanged?: boolean;
+  autoChanged?: boolean | null;
 }) => (
   <div className="flex flex-col gap-2">
     <span className="text-xs font-semibold text-muted-foreground">Status:</span>
     <div className="flex flex-wrap gap-1 w-fit">
-      {KB_FILTER_STATUSES.filter(
-        (status) =>
+      {KB_FILTER_STATUSES.filter((status) => {
+        if (autoChanged === null && (status === 'auto_changed' || status === 'auto_removed'))
+          return false;
+        return (
           status !== (autoChanged && value !== 'auto_removed' ? 'auto_removed' : 'auto_changed')
-      ).map((status) => (
+        );
+      }).map((status) => (
         <Button
           key={status}
           variant={value === status ? 'primary' : 'outline'}

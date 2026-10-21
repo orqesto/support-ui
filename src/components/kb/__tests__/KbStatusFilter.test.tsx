@@ -28,6 +28,13 @@ describe('KbStatusFilter', () => {
     expect(screen.queryByRole('button', { name: 'Changed automatically' })).toBeNull();
   });
 
+  it('before the backend has answered it offers NEITHER automatic status', () => {
+    render(<KbStatusFilter value="approved" onChange={() => {}} autoChanged={null} />);
+    expect(screen.queryByRole('button', { name: 'Removed automatically' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Changed automatically' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Approved' })).toBeInTheDocument();
+  });
+
   it('marks only the chosen filter as pressed, for screen readers', () => {
     render(<KbStatusFilter value="set_aside" onChange={() => {}} />);
     expect(screen.getByRole('button', { name: 'Set aside' })).toHaveAttribute(

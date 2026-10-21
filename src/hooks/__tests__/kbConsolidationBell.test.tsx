@@ -124,9 +124,6 @@ describe('KB merge bell row (F3)', () => {
           alerts: [],
           consolidations: [{ id: 31, departmentId: 4, suggestionIds: [70, 71, 72], pending: 3 }],
           rowCount: 1,
-          decide: vi.fn(),
-          actingId: null,
-          error: null,
           refresh: vi.fn(),
         }}
         showLabel
@@ -269,9 +266,6 @@ describe('KB review alert row', () => {
           ],
           consolidations: [],
           rowCount: 1,
-          decide: vi.fn(),
-          actingId: null,
-          error: null,
           refresh: vi.fn(),
         }}
         showLabel

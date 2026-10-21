@@ -27,6 +27,8 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import { apiErrorStatus } from '@/lib/apiError';
 import { kbRef } from '@/lib/kbConsolidation';
 import { kbService, type KBEntry } from '@/services/kb.service';
+import { kbQualityService } from '@/services/kbQuality.service';
+import { useKbAutoChangedBackend } from '@/hooks/useKbAutoChangedBackend';
 import {
   kbConsolidationService,
   type KbSetAsideReason,
@@ -37,12 +39,14 @@ import {
   actionsHelp,
   ATTACH_REFUSED,
   DETACH_REFUSED,
+  QUALITY_FAILED,
   WORK_ROWS_PAGE,
   chunk,
   headline,
   refusalText,
   type BusyAction,
   type KbWorkNotice,
+  type QualityAction,
 } from './kbWorkRowModel';
 
 export {
@@ -108,6 +112,8 @@ export const KbWorkRows = ({
   pageSize = WORK_ROWS_PAGE,
 }: KbWorkRowsProps) => {
   const orgCode = useCurrentOrgCode();
+  // Until the backend confirms "Changed automatically" (the list's undo), the row keeps its own.
+  const legacyQuality = useKbAutoChangedBackend() !== true;
   const [shown, setShown] = useState(pageSize);
   const visibleIds = useMemo(() => ids.slice(0, shown), [ids, shown]);
   const visibleKey = visibleIds.join(',');
@@ -277,6 +283,56 @@ export const KbWorkRows = ({
   const end = () => {
     busyRef.current = false;
     setBusy(null);
+  };
+
+  /** The nightly review's own change: undo a clean-up, or decide a held entry. */
+  const decideQuality = async (row: KbWorkRow, action: QualityAction) => {
+    const suggestionId =
+      action === 'undoClean' ? row.autoCleaned?.suggestionId : row.heldForReview?.suggestionId;
+    if (suggestionId === undefined || !begin(row, action)) return;
+    let changed = false;
+    try {
+      if (action === 'undoClean') {
+        const result = await kbQualityService.undo(suggestionId);
+        changed = true;
+        if (result.outcome === 'refused')
+          setRowError(
+            row.id,
+            result.status === 409
+              ? 'Not undone: the entry was changed after the clean-up, so the original text was not put back.'
+              : 'Nothing to undo: this text was not cleaned automatically, or it was already put back.'
+          );
+        else setNotice({ text: 'The original text is back.', variant: 'success' });
+      } else if (action === 'keepUsing') {
+        await kbQualityService.keep(suggestionId);
+        changed = true;
+        setNotice({ text: 'The AI uses this answer again.', variant: 'success' });
+      } else {
+        const result = await kbQualityService.accept(suggestionId, { action: 'reject' });
+        changed = true;
+        if (result.status !== 'rejected')
+          setRowError(
+            row.id,
+            result.status === 'expired'
+              ? 'Not rejected: the entry changed since the review — read it again.'
+              : 'Not rejected: the server did not say it was.'
+          );
+      }
+    } catch (err) {
+      setRowError(row.id, `${QUALITY_FAILED[action]}: ${getApiErrorMessage(err) ?? 'try again.'}`);
+      changed = true;
+    } finally {
+      // Read the row as it is now — whatever the answer was, it says what the entry is.
+      if (changed) {
+        try {
+          await rereadRow(row.id);
+        } catch {
+          // The line above already says what happened; the report re-read follows.
+        }
+      }
+      end();
+      settle(changed);
+    }
   };
 
   const editLock = useRef(false);
@@ -479,6 +535,7 @@ export const KbWorkRows = ({
               onMove={() => setMoving(row)}
               onDetach={() => setDetaching(row)}
               onUnmerge={() => setUnmerging(row)}
+              onQuality={legacyQuality ? (action) => void decideQuality(row, action) : undefined}
               casesExist={casesExist}
             />
           );

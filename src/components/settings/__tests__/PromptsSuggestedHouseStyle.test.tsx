@@ -48,4 +48,17 @@ describe('AI Prompts › Suggested house style', () => {
     expect(screen.getByRole('button', { name: 'Decline' })).toBeTruthy();
     expect(screen.getByText(/Suggested house style/)).toBeTruthy();
   });
+
+  it('any pending reply_style suggestion is decidable here, whatever its type', async () => {
+    pending.list = [
+      suggestion(52, 'reply_style', 'reply_style.refresh', {
+        currentStyle: 'Be formal.',
+        proposedStyle: 'Be warm and brief.',
+        rationale: 'Agents shorten drafts.',
+        signals: {},
+      }),
+    ];
+    render(<PromptsSettings />);
+    expect(await screen.findByRole('button', { name: 'Accept this suggestion' })).toBeTruthy();
+  });
 });

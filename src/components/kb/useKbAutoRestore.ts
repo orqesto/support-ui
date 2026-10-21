@@ -5,6 +5,7 @@ import type { KbFilterStatus } from '@/components/kb/KbStatusFilter';
 import { kbAutoActionsService } from '@/services/kbAutoActions.service';
 import { kbService, type KBEntry, type KbAutoUndo } from '@/services/kb.service';
 import { kbQualityService } from '@/services/kbQuality.service';
+import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 
 /** What each undo is called on a row of "Changed automatically". */
 export const AUTO_UNDO_LABEL: Record<KbAutoUndo, string> = {
@@ -17,7 +18,8 @@ export const AUTO_UNDO_TITLE: Record<KbAutoUndo, string> = {
   restore: 'Restore — puts the entry back as it was before it was removed',
   undo_clean: 'Undo clean-up — puts the original text back',
   release_hold: 'Use it again — the AI uses this answer again',
-  unapprove: 'Un-approve — takes the entry out of use until someone approves it',
+  // Un-approve IS a reject (PATCH …/reject): worded as every other reject button.
+  unapprove: `Un-approve — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days unless approved again`,
 };
 
 export type KbAutoRestore = {

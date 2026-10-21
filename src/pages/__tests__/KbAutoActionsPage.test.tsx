@@ -477,6 +477,13 @@ const wireActions = (current: unknown = withActions()) => {
 describe('Automatic actions page — every action on one page', () => {
   beforeEach(() => wireActions());
 
+  it('singular noun for one: "1 answer"', async () => {
+    wireActions(withActions({ hold: { wouldAct: 1 } }));
+    renderPage();
+    await screen.findByTestId('kb-auto-row-remove');
+    expect(within(row('hold')).getByText('Would act on 1 answer')).toBeInTheDocument();
+  });
+
   it('lists the four active actions and the three that always wait for a person', async () => {
     renderPage();
     await screen.findByTestId('kb-auto-row-remove');
@@ -495,7 +502,10 @@ describe('Automatic actions page — every action on one page', () => {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
     expect(screen.getAllByText('Always waits for a person (coming later)')).toHaveLength(3);
-    expect(within(row('remove')).getByText('Would act on 4')).toBeInTheDocument();
+    expect(within(row('remove')).getByText('Would act on 4 entries')).toBeInTheDocument();
+    // Every row names what it would act on (the hold fixture says 2).
+    expect(within(row('hold')).getByText('Would act on 2 answers')).toBeInTheDocument();
+    expect(within(row('approveMined')).getByText('Would act on 0 answers')).toBeInTheDocument();
     expect(within(row('remove')).getByRole('slider')).toBeInTheDocument();
     expect(within(row('hold')).queryByRole('slider')).not.toBeInTheDocument();
     expect(within(row('remove')).getByText(/agreed 9 of 10 \(90%\)/)).toBeInTheDocument();

@@ -171,6 +171,7 @@ vi.mock('@/hooks/useDepartments', () => ({
 }));
 
 const { KnowledgeBasePage } = await import('../KnowledgeBasePage');
+const { isNewStatus } = await import('@/components/kb/KbStatusIgnoredNotice');
 
 const renderPage = (url: string) =>
   render(
@@ -248,6 +249,30 @@ describe('knowledge base → Changed automatically', () => {
       await screen.findByRole('button', { name: 'Removed automatically' })
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Changed automatically' })).toBeNull();
+  });
+});
+
+describe('knowledge base → the automatic status filter waits for the backend', () => {
+  it('offers neither automatic status until a list answer says which one this backend has', async () => {
+    renderPage('/knowledge-base?status=approved');
+    expect(screen.queryByRole('button', { name: 'Changed automatically' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Removed automatically' })).toBeNull();
+    expect(
+      await screen.findByRole('button', { name: 'Changed automatically' })
+    ).toBeInTheDocument();
+  });
+
+  it('an older backend: only "Removed automatically" ever appears, never "Changed automatically"', async () => {
+    state.autoChangedStatus = false;
+    renderPage('/knowledge-base?status=approved');
+    expect(
+      await screen.findByRole('button', { name: 'Removed automatically' })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Changed automatically' })).toBeNull();
+  });
+
+  it('an older backend echoing an unapplied auto_changed gets the notice, not the unfiltered list', () => {
+    expect(isNewStatus('auto_changed')).toBe(true);
   });
 });
 

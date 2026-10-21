@@ -77,7 +77,7 @@ export const KbReviewSection = ({
   /** Close the panel and go — the caller owns the router and the open state. */
   onNavigate: (path: string) => void;
 }) => {
-  const { alerts, consolidations, error } = review;
+  const { alerts, consolidations } = review;
   if (alerts.length === 0 && consolidations.length === 0) return null;
   const rowCount = alerts.length + consolidations.length;
   return (
@@ -88,7 +88,6 @@ export const KbReviewSection = ({
       {consolidations.map((merge) => (
         <MergeReviewRow key={`merge-${merge.id}`} merge={merge} onNavigate={onNavigate} />
       ))}
-      {error && <p className="px-1 text-xs text-destructive">{error}</p>}
       {alerts.map((alert) => (
         <div
           key={alert.id}

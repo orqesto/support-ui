@@ -15,6 +15,7 @@ import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { apiClient } from '@/lib/api-client';
 import { installTransport } from '@/test/apiTransport';
 import { handle, reportNow, resetServer, server, workRow } from '@/test/kbWorklistServer';
+import { resetKbAutoChangedBackend } from '@/hooks/useKbAutoChangedBackend';
 import { useAuthStore } from '@/stores/authStore';
 import { ACTION_TIPS, actionsHelp } from '@/components/kb/kbWorkRowModel';
 import { CASE_PROBE_MAX_PAGES, KbCasesReportView } from '@/components/kb/KbCasesReportView';
@@ -62,6 +63,7 @@ const tooltipOf = async (button: HTMLElement) => {
 
 beforeEach(() => {
   resetServer();
+  resetKbAutoChangedBackend();
   useAuthStore.setState({
     isAuthenticated: false,
     selectedOrganizationId: 42,
@@ -302,5 +304,87 @@ describe('the nightly review’s own changes', () => {
       'href',
       '/knowledge-base?id=23'
     );
+  });
+});
+
+describe('an older backend (no "Changed automatically" in the KB list): the row keeps its own undo', () => {
+  beforeEach(() => {
+    server.autoChangedStatus = false;
+  });
+
+  it('auto-cleaned: Undo puts the original text back through the old route', async () => {
+    server.entries.set(
+      26,
+      workRow({
+        id: 26,
+        status: 'approved',
+        question: 'When does my parcel ship?',
+        answer: 'Your order ships within two days.',
+        autoCleaned: { suggestionId: 501, at: '2026-10-09T02:00:00.000Z' },
+      })
+    );
+    server.reasons.set(26, 'customer_specific');
+    server.originals = new Map([
+      [
+        501,
+        { question: 'When does my parcel ship?', answer: 'Order 0000-TEST ships within two days.' },
+      ],
+    ]);
+    renderPage();
+    const row = await workRowEl(26);
+    const undo = await within(row).findByRole('button', { name: /Undo/ });
+    expect(await tooltipOf(undo)).toBe(ACTION_TIPS.undoClean);
+    fireEvent.click(undo);
+    await waitFor(() =>
+      expect(within(row).getByText('Order 0000-TEST ships within two days.')).toBeInTheDocument()
+    );
+    expect(wire.calls('POST', '/api/knowledge-base/consolidation/quality/501/undo')).toHaveLength(
+      1
+    );
+  });
+
+  it('held: Keep using declines the suggestion; Reject accepts it with action reject', async () => {
+    server.entries.set(
+      23,
+      workRow({ id: 23, status: 'hidden', heldForReview: { suggestionId: 601 } })
+    );
+    server.entries.set(
+      24,
+      workRow({ id: 24, status: 'hidden', heldForReview: { suggestionId: 602 } })
+    );
+    renderPage();
+    const keepRow = await workRowEl(23);
+    fireEvent.click(await within(keepRow).findByRole('button', { name: /Keep using/ }));
+    await waitFor(() =>
+      expect(wire.calls('POST', '/api/learning/suggestions/601/decline')).toHaveLength(1)
+    );
+    const rejectRow = await workRowEl(24);
+    fireEvent.click(await within(rejectRow).findByRole('button', { name: /Reject/ }));
+    await waitFor(() =>
+      expect(wire.calls('POST', '/api/learning/suggestions/602/accept')).toHaveLength(1)
+    );
+    expect(wire.calls('POST', '/api/learning/suggestions/602/accept')[0].body).toEqual({
+      action: 'reject',
+    });
+  });
+
+  it('a moderator of only part of the entry sees the badge and why there is no button', async () => {
+    server.entries.set(
+      23,
+      workRow({
+        id: 23,
+        status: 'hidden',
+        heldForReview: { suggestionId: 601 },
+        canDecide: false,
+      })
+    );
+    renderPage();
+    const row = await workRowEl(23);
+    expect(
+      await within(row).findByText(
+        'Only a moderator of every department it serves can decide the review’s change.'
+      )
+    ).toBeInTheDocument();
+    expect(within(row).queryByRole('button', { name: /Keep using/ })).toBeNull();
   });
 });

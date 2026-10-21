@@ -7,7 +7,17 @@
  * decide. A row links to the entry in the list instead.
  */
 import { Link } from 'react-router-dom';
-import { Edit, ExternalLink, FolderInput, FolderOutput, MessageSquare, Split } from 'lucide-react';
+import {
+  CheckCircle,
+  Edit,
+  ExternalLink,
+  FolderInput,
+  FolderOutput,
+  MessageSquare,
+  RotateCcw,
+  Split,
+  XCircle,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -23,6 +33,7 @@ import {
   isCaseEntry,
   mayModerate,
   type BusyAction,
+  type QualityAction,
 } from './kbWorkRowModel';
 
 /** A row button with its effect as a tooltip. */
@@ -46,6 +57,7 @@ export const KbWorkRowItem = ({
   onMove,
   onDetach,
   onUnmerge,
+  onQuality,
   casesExist = null,
 }: {
   row: KbWorkRow;
@@ -68,6 +80,12 @@ export const KbWorkRowItem = ({
   onMove: () => void;
   onDetach: () => void;
   onUnmerge: () => void;
+  /**
+   * Undo an automatic clean-up, or decide a hold (Keep using / Reject). Passed ONLY while the
+   * backend has not confirmed "Changed automatically" (where those decisions live); absent: the
+   * row offers just "Open in Knowledge Base".
+   */
+  onQuality?: (action: QualityAction) => void;
   /**
    * Is there a case in the report's departments to move an entry into? false: none — "Move into
    * case" is not offered. null: not known — it is offered (the picker says when none fits).
@@ -173,6 +191,12 @@ export const KbWorkRowItem = ({
       {held && (
         <p className="text-xs text-muted-foreground">
           The review judged this answer to be about one customer, so the AI stopped using it.
+        </p>
+      )}
+      {onQuality && (cleaned !== null || held !== null) && !row.canDecide && (
+        // The review's decisions (Undo, Keep using, Reject) need the server's `canDecide` rule.
+        <p className="text-xs text-muted-foreground">
+          Only a moderator of every department it serves can decide the review’s change.
         </p>
       )}
       {reason === 'classifying' && (
@@ -289,6 +313,48 @@ export const KbWorkRowItem = ({
               Split case
             </Button>
           </Tip>
+        )}
+        {onQuality && cleaned && row.canDecide && (
+          <Tip text={ACTION_TIPS.undoClean}>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!idle}
+              isLoading={busyOn('undoClean')}
+              onClick={() => onQuality('undoClean')}
+            >
+              <RotateCcw className="mr-1 w-4 h-4" aria-hidden="true" />
+              Undo
+            </Button>
+          </Tip>
+        )}
+        {onQuality && held && row.canDecide && (
+          <>
+            <Tip text={ACTION_TIPS.keepUsing}>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!idle}
+                isLoading={busyOn('keepUsing')}
+                onClick={() => onQuality('keepUsing')}
+              >
+                <CheckCircle className="mr-1 w-4 h-4" aria-hidden="true" />
+                Keep using
+              </Button>
+            </Tip>
+            <Tip text={ACTION_TIPS.rejectHeld}>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!idle}
+                isLoading={busyOn('rejectHeld')}
+                onClick={() => onQuality('rejectHeld')}
+              >
+                <XCircle className="mr-1 w-4 h-4" aria-hidden="true" />
+                Reject
+              </Button>
+            </Tip>
+          </>
         )}
       </div>
     </li>
