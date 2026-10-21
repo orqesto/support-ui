@@ -7,8 +7,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
-const { createWithAttachments } = vi.hoisted(() => ({ createWithAttachments: vi.fn() }));
-const empty = () => new Proxy({}, { get: () => () => Promise.resolve({ success: true, data: [] }) });
+const { create } = vi.hoisted(() => ({ create: vi.fn() }));
+const empty = () =>
+  new Proxy({}, { get: () => () => Promise.resolve({ success: true, data: [] }) });
 
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -26,19 +27,29 @@ vi.mock('@/services/settings.service', () => ({ settingsService: empty() }));
 vi.mock('@/services/message.service', () => ({
   messageService: {
     getById: () =>
-      Promise.resolve({ success: true, data: { id: 11, subject: 'Cannot pay', content: 'Card declined' } }),
+      Promise.resolve({
+        success: true,
+        data: { id: 11, subject: 'Cannot pay', content: 'Card declined' },
+      }),
     getThreadMessages: () => Promise.resolve({ success: true, data: [] }),
+    getThreads: () => Promise.resolve({ success: true, data: [] }),
   },
 }));
-vi.mock('@/services/ticket.service', () => ({ ticketService: { createWithAttachments } }));
-vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() } }));
+vi.mock('@/services/ticket.service', () => ({ ticketService: { create } }));
+vi.mock('@/services/ticketThreads.service', () => ({
+  ticketThreadsService: { addThreads: vi.fn() },
+}));
+vi.mock('@/hooks/useDepartments', () => ({ useDepartments: () => ({ data: [] }) }));
+vi.mock('@/lib/logger', () => ({
+  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
+}));
 
 const { CreateTicketPage } = await import('@/pages/CreateTicketPage');
 const { ThemeProvider } = await import('@/contexts/ThemeContext');
 
 beforeEach(() => {
   vi.clearAllMocks();
-  createWithAttachments.mockResolvedValue({ success: true, data: { id: 42 } });
+  create.mockResolvedValue({ success: true, data: { id: 42 } });
 });
 
 const renderPage = () =>
@@ -52,46 +63,43 @@ const renderPage = () =>
     </ThemeProvider>
   );
 
+// Create is enabled once the thread and its department's owner list are in (CreateTicketPage `ready`).
+const readyForm = (container: HTMLElement) =>
+  waitFor(() => {
+    const found = container.querySelector('form');
+    const submit = container.querySelector<HTMLButtonElement>('button[type="submit"]');
+    if (!found || !submit || submit.disabled) throw new Error('form not ready yet');
+    return found;
+  });
+
 describe('Create ticket — one press, one ticket', () => {
   it('a double submit sends ONE create', async () => {
     const { container } = renderPage();
-    const form = await waitFor(() => {
-      const found = container.querySelector('form');
-      if (!found) throw new Error('form not rendered yet');
-      return found;
-    });
+    const form = await readyForm(container);
     fireEvent.submit(form);
     fireEvent.submit(form);
-    await waitFor(() => expect(createWithAttachments).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
   });
 
   it('after a success the button stays disabled until the redirect', async () => {
     const { container } = renderPage();
-    const form = await waitFor(() => {
-      const found = container.querySelector('form');
-      if (!found) throw new Error('form not rendered yet');
-      return found;
-    });
+    const form = await readyForm(container);
     fireEvent.submit(form);
-    await waitFor(() => expect(createWithAttachments).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
     const submit = container.querySelector('button[type="submit"]') as HTMLButtonElement;
     await waitFor(() => expect(submit).toBeDisabled());
     fireEvent.submit(form);
-    expect(createWithAttachments).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledTimes(1);
   });
 
   it('CONTROL: after a FAILED create the agent can try again', async () => {
-    createWithAttachments.mockRejectedValueOnce(new Error('boom'));
+    create.mockRejectedValueOnce(new Error('boom'));
     const { container } = renderPage();
-    const form = await waitFor(() => {
-      const found = container.querySelector('form');
-      if (!found) throw new Error('form not rendered yet');
-      return found;
-    });
+    const form = await readyForm(container);
     fireEvent.submit(form);
-    await waitFor(() => expect(createWithAttachments).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.getByText('Failed to create ticket')).toBeInTheDocument());
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/could not be created|boom/)).toBeInTheDocument();
     fireEvent.submit(form);
-    await waitFor(() => expect(createWithAttachments).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
   });
 });

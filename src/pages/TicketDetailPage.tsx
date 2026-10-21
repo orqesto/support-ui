@@ -25,16 +25,22 @@ export const TicketDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { hasAnyPermission } = usePermissions();
-  // New ticket opens it with this when its threads could not be linked (NewTicketButton). Read
-  // once for this ticket, then dropped from the history entry: it lived there, so it came back on
-  // every reload and Back long after the threads were added.
+  // Create ticket opens it with these when its threads could not be linked or its files could not
+  // be uploaded (CreateTicketPage). Read once for this ticket, then dropped from the history
+  // entry: it lived there, so it came back on every reload and Back long after they were added.
   const location = useLocation();
-  const [threadsNotLinkedFor] = useState(() =>
-    (location.state as { threadsNotLinked?: boolean } | null)?.threadsNotLinked === true ? id : null
-  );
-  const threadsNotLinked = threadsNotLinkedFor !== null && threadsNotLinkedFor === id;
+  type CreateNotice = { threadsNotLinked?: boolean; filesNotAttached?: boolean } | null;
+  const [noticeFor] = useState(() => {
+    const state = location.state as CreateNotice;
+    return state?.threadsNotLinked === true || state?.filesNotAttached === true
+      ? { id, threads: state.threadsNotLinked === true, files: state.filesNotAttached === true }
+      : null;
+  });
+  const threadsNotLinked = noticeFor !== null && noticeFor.id === id && noticeFor.threads;
+  const filesNotAttached = noticeFor !== null && noticeFor.id === id && noticeFor.files;
   useEffect(() => {
-    if ((location.state as { threadsNotLinked?: boolean } | null)?.threadsNotLinked)
+    const state = location.state as CreateNotice;
+    if (state?.threadsNotLinked || state?.filesNotAttached)
       navigate(location.pathname, { replace: true, state: null });
   }, [location.state, location.pathname, navigate]);
   const clearCache = useTicketsStore((state) => state.clearCache);
@@ -145,6 +151,11 @@ export const TicketDetailPage = () => {
           {threadsNotLinked && (
             <Alert variant="warning">
               The ticket was created, but its threads could not be linked — add them here.
+            </Alert>
+          )}
+          {filesNotAttached && (
+            <Alert variant="warning">
+              The ticket was created, but its files could not be attached — add them here.
             </Alert>
           )}
 
