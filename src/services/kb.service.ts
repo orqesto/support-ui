@@ -57,7 +57,9 @@ export type KbListStatus =
   | 'rejected'
   | 'needs_decision'
   | 'suggested_change'
-  | 'set_aside';
+  | 'set_aside'
+  /** Removed by the nightly automatic removal and not restored (BE sends `filters.autoRemovedStatus`). */
+  | 'auto_removed';
 
 export type KBEntry = {
   id: number;
@@ -204,7 +206,16 @@ export type PaginatedResponse<T> = {
      * `decisionStatuses` (normalised to a boolean) is true only on a backend that applies
      * needs_decision / suggested_change / set_aside.
      */
-    filters?: { status?: string; decisionStatuses?: boolean };
+    filters?: {
+      status?: string;
+      decisionStatuses?: boolean;
+      autoRemovedStatus?: boolean;
+      /**
+       * Set by `kbService.getAll`: did the server apply the requested status? A new status reads its
+       * own capability flag (`decisionStatuses` / `autoRemovedStatus`); the four old ones always are.
+       */
+      statusApplied?: boolean;
+    };
   };
 };
 
@@ -243,6 +254,16 @@ export const kbSourceParam = (value: string): number | 'none' | undefined => {
 
 export type KbExportType = 'qa_pair' | 'document';
 export type KbExportSize = { count: number; cap: number; truncated: boolean };
+
+const DECISION_STATUSES: readonly string[] = ['needs_decision', 'suggested_change', 'set_aside'];
+const statusApplied = (
+  status: string | undefined,
+  filters: { decisionStatuses?: boolean; autoRemovedStatus?: boolean } | undefined
+): boolean => {
+  if (status === 'auto_removed') return filters?.autoRemovedStatus === true;
+  if (status && DECISION_STATUSES.includes(status)) return filters?.decisionStatuses === true;
+  return true;
+};
 
 export const kbService = {
   getAll: async (params?: {
@@ -290,6 +311,8 @@ export const kbService = {
         filters: {
           ...body.data.filters,
           decisionStatuses: body.data.filters?.decisionStatuses === true,
+          autoRemovedStatus: body.data.filters?.autoRemovedStatus === true,
+          statusApplied: statusApplied(params?.status, body.data.filters),
         },
       },
     };

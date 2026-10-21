@@ -120,10 +120,11 @@ const subjectOf = (value: unknown): 'qa' | 'document' => (value === 'document' ?
 export const clampThreshold = (value: number): number =>
   Math.min(THRESHOLD_MAX, Math.max(THRESHOLD_MIN, value));
 
+/** A missing or unknown mode reads as Shadow, the backend's default — never as Off. */
 export const normaliseSettings = (value: unknown): KbAutoActionsSettings => {
   const remove = asObj(asObj(value).remove);
   const mode: KbAutoRemoveMode =
-    remove.mode === 'shadow' || remove.mode === 'auto' ? remove.mode : 'off';
+    remove.mode === 'off' || remove.mode === 'auto' ? remove.mode : 'shadow';
   const threshold = numOrNull(remove.threshold);
   return {
     remove: { mode, threshold: threshold === null ? DEFAULT_THRESHOLD : clampThreshold(threshold) },
@@ -155,7 +156,12 @@ export const normaliseOverview = (value: unknown): KbAutoActionsOverview => {
     },
     bands: arr(raw.bands)
       .map(asObj)
-      .filter((band) => typeof band.key === 'string')
+      .filter(
+        (band) =>
+          typeof band.key === 'string' &&
+          numOrNull(band.from) !== null &&
+          numOrNull(band.to) !== null
+      )
       .map((band) => ({ key: str(band.key), from: num(band.from), to: num(band.to) })),
     agreement: {
       decided: num(agreement.decided),
@@ -202,7 +208,8 @@ export const normaliseSample = (value: unknown): KbAutoSample => {
   return {
     items: arr(raw.items)
       .map(asObj)
-      .filter((item) => typeof item.suggestionId === 'number')
+      // A 0% score is no verdict to rate: never offer it in the sample.
+      .filter((item) => typeof item.suggestionId === 'number' && item.confidence !== 0)
       .map((item) => ({
         suggestionId: num(item.suggestionId),
         entryId: num(item.entryId),
@@ -243,6 +250,43 @@ export const normaliseRemovedPage = (value: unknown): KbAutoRemovedPage => {
     pageSize: num(raw.pageSize, 25) || 25,
     total: num(raw.total),
   };
+};
+
+/** The backend's bands (BE `CONFIDENCE_BANDS`), used when an overview carries none. */
+export const DEFAULT_BANDS: KbAutoActionsOverview['bands'] = [
+  { key: 'lt50', from: 0, to: 0.5 },
+  { key: '50to70', from: 0.5, to: 0.7 },
+  { key: '70to80', from: 0.7, to: 0.8 },
+  { key: '80to90', from: 0.8, to: 0.9 },
+  { key: '90to95', from: 0.9, to: 0.95 },
+  { key: 'gte95', from: 0.95, to: 1 },
+];
+
+export type KbAutoBandRow = { key: string; label: string; count: number };
+
+const bandLabel = (band: { from: number; to: number }): string => {
+  const from = Math.round(band.from * 100);
+  const to = Math.round(band.to * 100);
+  if (from <= 0) return `Under ${to}%`;
+  if (to >= 100) return `${from}% and over`;
+  return `${from}–${to}%`;
+};
+
+/**
+ * Candidates per confidence band, in band order, unscored last. Every band is listed (a band the
+ * counts leave out reads 0), so an empty band is visible rather than missing.
+ */
+export const candidateBands = (overview: KbAutoActionsOverview): KbAutoBandRow[] => {
+  const bands = overview.bands.length > 0 ? overview.bands : DEFAULT_BANDS;
+  const counts = overview.candidates.byBand;
+  return [
+    ...bands.map((band) => ({
+      key: band.key,
+      label: bandLabel(band),
+      count: counts[band.key] ?? 0,
+    })),
+    { key: 'unscored', label: 'No score yet', count: counts.unscored ?? 0 },
+  ];
 };
 
 /**

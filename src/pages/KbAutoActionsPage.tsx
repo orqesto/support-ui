@@ -21,6 +21,7 @@ import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { BarSlider } from '@/components/ui/BarSlider';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Progress } from '@/components/ui/Progress';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SegmentedControl, type Segment } from '@/components/ui/SegmentedControl';
 import { Spinner } from '@/components/ui/Spinner';
@@ -30,6 +31,7 @@ import { qualityReasonLabel } from '@/lib/kbQuality';
 import { toast } from '@/lib/toast';
 import {
   agreementAt,
+  candidateBands,
   kbAutoActionsService,
   wouldRemoveAt,
   type KbAutoActionsOverview,
@@ -149,13 +151,20 @@ export const KbAutoActionsPage = () => {
     }
   };
 
+  // Asks before anything that removes MORE than the saved setting: turning Automatic on, or
+  // lowering the bar while it is already on.
+  const turningOn = mode === 'auto' && saved?.mode !== 'auto';
+  const loweringBar =
+    mode === 'auto' && saved?.mode === 'auto' && percent < Math.round(saved.threshold * 100);
   const onSave = () => {
-    if (mode === 'auto' && saved?.mode !== 'auto') setConfirming(true);
+    if (turningOn || loweringBar) setConfirming(true);
     else void save();
   };
 
   const candidates = overview?.candidates;
   const unscored = candidates?.byBand.unscored ?? 0;
+  const bandRows = overview ? candidateBands(overview) : [];
+  const bandMax = Math.max(1, ...bandRows.map((row) => row.count));
   const lastRun = overview?.autoRemoved.lastRun ?? null;
 
   return (
@@ -274,6 +283,27 @@ export const KbAutoActionsPage = () => {
                   {candidates.openReviewAtThreshold === 1 ? 'is' : 'are'} not removed automatically.
                 </p>
               )}
+              {candidates.total > 0 && (
+                <div className="space-y-1">
+                  <p className="font-medium">By how sure the review is</p>
+                  <ul className="space-y-1" aria-label="Candidates by confidence">
+                    {bandRows.map((row) => (
+                      <li
+                        key={row.key}
+                        className="grid grid-cols-[7rem_1fr_3rem] items-center gap-2"
+                      >
+                        <span className="text-muted-foreground">{row.label}</span>
+                        <Progress value={(row.count / bandMax) * 100} size="sm" />
+                        <span className="text-right tabular-nums">{row.count}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-muted-foreground">
+                    Suggestions at 0% are not offered for review; they are cleared by the next
+                    nightly run.
+                  </p>
+                </div>
+              )}
               {unscored > 0 && (
                 <p className="text-muted-foreground">
                   {plural(unscored, 'suggestion has', 'suggestions have')} no score yet; they get
@@ -316,9 +346,9 @@ export const KbAutoActionsPage = () => {
           onOpenChange={setConfirming}
           onConfirm={() => void save()}
           variant="warning"
-          title="Turn on automatic removal?"
+          title={turningOn ? 'Turn on automatic removal?' : 'Lower the automatic removal bar?'}
           description={`At ${percent}% the next run removes ${plural(removeCount, 'entry', 'entries')} now. Entries a person approved are never removed, and every removed entry can be restored for 90 days.`}
-          confirmText="Turn on"
+          confirmText={turningOn ? 'Turn on' : 'Lower the bar'}
         />
       </div>
     </Layout>

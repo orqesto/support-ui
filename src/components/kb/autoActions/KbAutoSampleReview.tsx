@@ -5,6 +5,10 @@
  * Agree = remove the entry now (the quality review's accept with `reject`); Disagree = keep it
  * (decline the suggestion); Skip = no decision. Both decisions go through the existing KB quality
  * service, the same calls the review list makes.
+ *
+ * A decision that finds the suggestion gone — the accept answers `expired` (the entry changed since
+ * it was scored), or either call answers 409 (decided elsewhere meanwhile) — is NOT a person's
+ * verdict on it: counted as "changed since — skipped", never as agreed or disagreed.
  */
 import { useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
@@ -13,7 +17,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Progress } from '@/components/ui/Progress';
 import { Spinner } from '@/components/ui/Spinner';
-import { apiErrorMessage } from '@/lib/apiError';
+import { apiErrorMessage, apiErrorStatus } from '@/lib/apiError';
 import { qualityReasonLabel } from '@/lib/kbQuality';
 import { toast } from '@/lib/toast';
 import { kbAutoActionsService, type KbAutoSampleItem } from '@/services/kbAutoActions.service';
@@ -25,7 +29,8 @@ type Props = {
   onDone: () => void;
 };
 
-type Tally = { agreed: number; disagreed: number; skipped: number };
+type Tally = { agreed: number; disagreed: number; skipped: number; changed: number };
+const EMPTY_TALLY: Tally = { agreed: 0, disagreed: 0, skipped: 0, changed: 0 };
 
 export const KbAutoSampleReview = ({ onDone }: Props) => {
   const [items, setItems] = useState<KbAutoSampleItem[] | null>(null);
@@ -34,7 +39,7 @@ export const KbAutoSampleReview = ({ onDone }: Props) => {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tally, setTally] = useState<Tally>({ agreed: 0, disagreed: 0, skipped: 0 });
+  const [tally, setTally] = useState<Tally>(EMPTY_TALLY);
 
   const start = async () => {
     setLoading(true);
@@ -44,7 +49,7 @@ export const KbAutoSampleReview = ({ onDone }: Props) => {
       setItems(sample.items);
       setPoolLimited(sample.poolLimited);
       setIndex(0);
-      setTally({ agreed: 0, disagreed: 0, skipped: 0 });
+      setTally(EMPTY_TALLY);
     } catch (err) {
       setError(apiErrorMessage(err, 'Could not load a sample.'));
     } finally {
@@ -59,13 +64,19 @@ export const KbAutoSampleReview = ({ onDone }: Props) => {
 
   const decide = async (item: KbAutoSampleItem, verdict: 'agree' | 'disagree') => {
     setBusy(true);
+    const changedSince = () => {
+      toast.info('Changed since — skipped', {
+        description: 'The entry changed or was decided elsewhere since it was scored.',
+      });
+      setTally((prev) => ({ ...prev, changed: prev.changed + 1 }));
+      setIndex((prev) => prev + 1);
+    };
     try {
       if (verdict === 'agree') {
         const result = await kbQualityService.accept(item.suggestionId, { action: 'reject' });
         if (result.status === 'expired') {
-          toast.info('This suggestion had already expired', {
-            description: 'The entry changed since it was scored. Nothing was removed.',
-          });
+          changedSince();
+          return;
         }
       } else {
         await kbQualityService.keep(item.suggestionId);
@@ -77,9 +88,11 @@ export const KbAutoSampleReview = ({ onDone }: Props) => {
       );
       setIndex((prev) => prev + 1);
     } catch (err) {
-      toast.error('Could not save your decision', {
-        description: apiErrorMessage(err, 'Please try again.'),
-      });
+      if (apiErrorStatus(err) === 409) changedSince();
+      else
+        toast.error('Could not save your decision', {
+          description: apiErrorMessage(err, 'Please try again.'),
+        });
     } finally {
       setBusy(false);
     }
@@ -131,7 +144,8 @@ export const KbAutoSampleReview = ({ onDone }: Props) => {
         <Alert variant="success">
           <AlertDescription>
             Done: {tally.agreed} agreed (removed), {tally.disagreed} disagreed (kept),{' '}
-            {tally.skipped} skipped.
+            {tally.skipped} skipped
+            {tally.changed > 0 ? `, ${tally.changed} changed since — skipped` : ''}.
           </AlertDescription>
         </Alert>
         <Button variant="outline" size="sm" onClick={close}>

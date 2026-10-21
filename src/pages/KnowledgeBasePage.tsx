@@ -10,7 +10,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfluenceCatalogSection } from '@/components/knowledge-base/ConfluenceCatalogSection';
 import { MessageSourceFilter, ALL_SOURCES } from '@/components/messages/MessageSourceFilter';
 import { DocumentationSettings } from '@/components/settings/DocumentationSettings';
-import { AlertDialog } from '@/components/ui/AlertDialog';
+import { AlertDialog, type AlertDialogProps } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -41,6 +41,7 @@ import { useKbStatusParam } from '@/hooks/useKbStatusParam';
 import { KbFindingBanner } from '@/components/kb/KbFindingBanner';
 import { KbIdMatchHint } from '@/components/kb/KbIdMatchHint';
 import { KbStatusIgnoredNotice, isNewStatus } from '@/components/kb/KbStatusIgnoredNotice';
+import { useKbAutoRestore } from '@/components/kb/useKbAutoRestore';
 import { useKbUnhide } from '@/components/kb/useKbUnhide';
 import { KBDeleteDialog } from '@/components/kb/KBDeleteDialog';
 import { KbDecisionDialog } from '@/components/kb/KbDecisionDialog';
@@ -73,10 +74,10 @@ export const KnowledgeBasePage = () => {
   const [loading, setLoading] = useState(true);
   // The entry the search names by number ("KB-134"), for the hint when this view's filters hide it.
   const [idMatch, setIdMatch] = useState<KbIdMatch | null>(null);
-  // Whether the server can apply the decision statuses (an older one echoes them, unapplied).
+  // Whether the server applied the requested status (an older one echoes a new one, unapplied).
   const [appliedStatus, setAppliedStatus] = useState<{
     requested: KbFilterStatus;
-    decisionStatuses: boolean;
+    applied: boolean;
   } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
@@ -109,12 +110,9 @@ export const KnowledgeBasePage = () => {
   const showCasesLink = canReview && isSurfaceVisibleToMe('ui.kb_cases');
 
   // Alert dialog state
-  const [alertDialog, setAlertDialog] = useState<{
-    open: boolean;
-    title: string;
-    description: string;
-    variant: 'success' | 'error' | 'warning' | 'info';
-  }>({ open: false, title: '', description: '', variant: 'info' });
+  const [alertDialog, setAlertDialog] = useState<
+    Pick<AlertDialogProps, 'open' | 'title' | 'description' | 'variant'>
+  >({ open: false, title: '', description: '', variant: 'info' });
   // BE `knowledgeBaseController.getAll` is dept-scoped via X-Department-Context.
   const selectedDeptKey = useDepartmentContextKey();
   // A KB cases finding ("48 learned entries are raw emails") opens exactly its entries.
@@ -127,7 +125,7 @@ export const KnowledgeBasePage = () => {
     !finding.filter &&
     isNewStatus(filterStatus) &&
     appliedStatus?.requested === filterStatus &&
-    !appliedStatus.decisionStatuses
+    !appliedStatus.applied
       ? filterStatus
       : null;
   const fetchEntries = useCallback(
@@ -156,7 +154,7 @@ export const KnowledgeBasePage = () => {
         setPagination(response.data.pagination);
         setAppliedStatus({
           requested: filterStatus,
-          decisionStatuses: response.data.filters?.decisionStatuses === true,
+          applied: response.data.filters?.statusApplied === true,
         });
       } catch (error) {
         logger.error('Failed to fetch KB entries:', error);
@@ -294,6 +292,8 @@ export const KnowledgeBasePage = () => {
       });
     }
   };
+
+  const autoRestore = useKbAutoRestore(canReview, filterStatus, appliedStatus, rereadPage);
 
   const { unhide: handleUnhide, dialog: unhideFallback } = useKbUnhide({
     setEntries,
@@ -654,6 +654,7 @@ export const KnowledgeBasePage = () => {
                     canReview={canReview}
                     onUnmerge={handleUnmerge}
                     onReviewDecision={setDecision}
+                    autoRestore={autoRestore}
                   />
                 ))
               )}
@@ -674,6 +675,7 @@ export const KnowledgeBasePage = () => {
               canReview={canReview}
               onUnmerge={handleUnmerge}
               onReviewDecision={setDecision}
+              autoRestore={autoRestore}
               selection={bulkMode ? bulk : undefined}
             />
 

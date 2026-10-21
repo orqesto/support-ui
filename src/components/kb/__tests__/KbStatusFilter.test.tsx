@@ -10,6 +10,7 @@ describe('KbStatusFilter', () => {
       'Needs your decision',
       'Suggested change',
       'Set aside',
+      'Removed automatically',
       'Approved',
       'Pending',
       'Hidden',
