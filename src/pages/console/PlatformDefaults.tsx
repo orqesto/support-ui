@@ -4,6 +4,7 @@ import { ManagedAiDefaultsCard } from '@/components/console/platformDefaults/Man
 import { DefaultStorageCard } from '@/components/console/platformDefaults/DefaultStorageCard';
 import { ReasoningCard } from '@/components/console/platformDefaults/ReasoningCard';
 import { KbCaptureCard } from '@/components/console/platformDefaults/KbCaptureCard';
+import { AiDraftsCard } from '@/components/console/platformDefaults/AiDraftsCard';
 import { CustomApiHealthCard } from '@/components/console/platformDefaults/CustomApiHealthCard';
 import { AnalysisHourlyCard } from '@/components/console/platformDefaults/AnalysisHourlyCard';
 import { IngestionCard } from '@/components/console/platformDefaults/IngestionCard';
@@ -25,7 +26,7 @@ export const PlatformDefaults = () => {
     <div className="space-y-6">
       <ConsolePageHeader
         title="Platform Defaults"
-        description="Managed-AI models, cost rates, default storage, knowledge-base capture, custom API health, mail-import limits and routing proposals — resolved DB → environment → built-in default."
+        description="Managed-AI models, cost rates, default storage, knowledge-base capture, AI drafts, custom API health, mail-import limits and routing proposals — resolved DB → environment → built-in default."
       />
 
       {query.isLoading ? (
@@ -45,6 +46,7 @@ export const PlatformDefaults = () => {
           <DefaultStorageCard storage={query.data.storage} />
           <ReasoningCard reasoning={query.data.reasoning} />
           <KbCaptureCard kb={query.data.kb} />
+          <AiDraftsCard drafts={query.data.drafts} />
           <CustomApiHealthCard customApi={query.data.customApi} />
           <AnalysisHourlyCard analysisHourly={query.data.analysisHourly} />
           <IngestionCard ingestion={query.data.ingestion} />
