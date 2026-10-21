@@ -15,6 +15,8 @@ export interface EndpointInitial {
   ownershipSourceEndpointId?: number | null;
   /** D4: the reference name a template pre-fills (typed-value lookups). */
   referenceLabel?: string;
+  /** What agents are told when the lookup finds nothing, when a template names it. */
+  noMatchHint?: string;
   /** Sent on CREATE only: the wizard has no UI for these. */
   createExtras?: { surface?: 'thread' | 'contact' | 'both'; templateKey?: string };
 }

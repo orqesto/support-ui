@@ -41,6 +41,10 @@ export const useTestRevert = (
           resultShape: endpoint.resultShape,
           category: endpoint.category ?? null,
           statusLabels: endpoint.statusLabels,
+          // The agent-facing words a Test also writes (ensureSaved sends them): without these a
+          // hint or reference name edited, Tested and Cancelled stayed live for agents.
+          referenceLabel: endpoint.referenceLabel ?? null,
+          ...('noMatchHint' in endpoint ? { noMatchHint: endpoint.noMatchHint ?? null } : {}),
           ...(supportsFlexibleRequests(connection)
             ? requestSettingsPayload(
                 readRequestSettings(endpoint),

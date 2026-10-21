@@ -53,4 +53,17 @@ describe('initialFromTemplate', () => {
   it('CONTROL: a template lookup without one leaves it unset', () => {
     expect('referenceLabel' in initialFromTemplate('order_tracking', lookup(), {})).toBe(false);
   });
+
+  it('the template "when nothing is found" text pre-fills the new lookup, trimmed', () => {
+    const withHint = { ...lookup(), noMatchHint: '  Ask for the order number. ' } as TemplateLookup;
+    expect(initialFromTemplate('order_tracking', withHint, {}).noMatchHint).toBe(
+      'Ask for the order number.'
+    );
+  });
+
+  it('CONTROL: a template without one (or a blank one) leaves it unset', () => {
+    expect('noMatchHint' in initialFromTemplate('order_tracking', lookup(), {})).toBe(false);
+    const blank = { ...lookup(), noMatchHint: '  ' } as TemplateLookup;
+    expect('noMatchHint' in initialFromTemplate('order_tracking', blank, {})).toBe(false);
+  });
 });

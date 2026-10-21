@@ -1,6 +1,9 @@
 import type { TemplateLookup } from '@/services/customApiTemplates.service';
 import type { EndpointInitial } from './endpointWizardProps';
 
+/** BE #1056 added it to templates; the generated types predate it, so read it as optional. */
+type WithHint = TemplateLookup & { noMatchHint?: string | null };
+
 /**
  * A template lookup → the wizard's starting values (copied, never shared). Ownership points at
  * the lookup saved for `ownershipFrom` in an earlier step; a skipped source leaves it null, which
@@ -20,4 +23,7 @@ export const initialFromTemplate = (
   createExtras: { surface: lookup.surface, templateKey },
   // D4: copied once, like the status words; absent when the template names none.
   ...(lookup.referenceLabel ? { referenceLabel: lookup.referenceLabel } : {}),
+  ...((lookup as WithHint).noMatchHint?.trim()
+    ? { noMatchHint: (lookup as WithHint).noMatchHint!.trim() }
+    : {}),
 });
