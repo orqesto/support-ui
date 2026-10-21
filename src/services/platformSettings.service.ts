@@ -158,7 +158,21 @@ export type PlatformSettings = {
    * (`analysisHourly`, 2026-10-19). Absent on a backend that predates it — the card then says so.
    */
   analysisHourly?: AnalysisHourlySettings;
+  /**
+   * Suggested-answer drafting (`drafts`, 2026-10-21): the similarity one KB entry needs before a
+   * draft is written from it alone, and how long drafting may take. Absent on a backend that
+   * predates it — the card then says so.
+   */
+  drafts?: DraftSettings;
 };
+
+/** GET `drafts` — each {value, source, min, max}; the similarity is a fraction, the timeout in ms. */
+export type DraftSettings = {
+  kbOnlyDraftMinSimilarity: BoundedField;
+  suggestionPipelineTimeoutMs: BoundedField;
+};
+/** PUT /settings/drafts — a non-empty subset; only the fields sent are saved. */
+export type PlatformDraftsInput = Partial<Record<keyof DraftSettings, number>>;
 
 export type AnalysisHourlySettings = {
   callsPerHour: BoundedField;
@@ -294,6 +308,7 @@ type RawPlatformSettings = {
   routing?: unknown;
   ingestion?: unknown;
   analysisHourly?: unknown;
+  drafts?: unknown;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -475,6 +490,30 @@ export const normalizeAnalysisHourly = (raw: unknown): AnalysisHourlySettings | 
   };
 };
 
+/** A bounded field whose value and bounds may be fractions (the similarity bar). */
+const readBoundedNumber = (raw: unknown): BoundedField | undefined => {
+  if (!isRecord(raw)) return undefined;
+  const { value, min, max, source } = raw;
+  const finite = (num: unknown): num is number => typeof num === 'number' && Number.isFinite(num);
+  if (!finite(value) || !finite(min) || !finite(max)) return undefined;
+  return {
+    value,
+    source: FIELD_SOURCES.includes(source as FieldSource) ? (source as FieldSource) : 'default',
+    min,
+    max,
+  };
+};
+
+/** Both fields with numeric bounds (the timeout whole), or undefined ("this backend lacks it"). */
+export const normalizeDrafts = (raw: unknown): DraftSettings | undefined => {
+  if (!isRecord(raw)) return undefined;
+  const kbOnlyDraftMinSimilarity = readBoundedNumber(raw.kbOnlyDraftMinSimilarity);
+  const suggestionPipelineTimeoutMs = readBounded(raw.suggestionPipelineTimeoutMs);
+  return kbOnlyDraftMinSimilarity && suggestionPipelineTimeoutMs
+    ? { kbOnlyDraftMinSimilarity, suggestionPipelineTimeoutMs }
+    : undefined;
+};
+
 const UNSET_SECRET: SecretStatus = { configured: false, source: 'none', last4: null };
 
 const field = <T>(raw: ResolvedField<T> | undefined): ResolvedField<T> =>
@@ -575,6 +614,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
   const routing = normalizeRouting(raw.routing);
   const ingestion = normalizeIngestion(raw.ingestion);
   const analysisHourly = normalizeAnalysisHourly(raw.analysisHourly);
+  const drafts = normalizeDrafts(raw.drafts);
   const provider = field(raw.ai.provider);
   const effectiveProvider = provider.value ?? 'openai';
   return {
@@ -628,6 +668,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
     ...(routing ? { routing } : {}),
     ...(ingestion ? { ingestion } : {}),
     ...(analysisHourly ? { analysisHourly } : {}),
+    ...(drafts ? { drafts } : {}),
   };
 };
 
@@ -696,6 +737,11 @@ export const platformSettingsService = {
   /** PUT the hourly AI call limit / live reserve: a non-empty subset (`analysis-hourly`). */
   updateAnalysisHourly: async (input: PlatformAnalysisHourlyInput): Promise<void> => {
     await apiClient.put(`${BASE}/analysis-hourly`, input);
+  },
+
+  /** PUT the suggested-answer drafting settings (`drafts`): a non-empty subset. */
+  updateDrafts: async (input: PlatformDraftsInput): Promise<void> => {
+    await apiClient.put(`${BASE}/drafts`, input);
   },
 
   /** PUT the mail-import limits (`ingestion.*`): a partial body, only the fields sent are saved. */

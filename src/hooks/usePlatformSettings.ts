@@ -8,6 +8,7 @@ import {
   type PlatformDatabaseInput,
   type PlatformCustomApiInput,
   type PlatformAnalysisHourlyInput,
+  type PlatformDraftsInput,
   type PlatformIngestionInput,
   type PlatformKbInput,
   type PlatformSecretKey,
@@ -106,6 +107,15 @@ export const useUpdatePlatformAnalysisHourly = () => {
       platformSettingsService.updateAnalysisHourly(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
     onError: (error: unknown) => toast.failure('save the hourly AI call limit', error),
+  });
+};
+
+export const useUpdatePlatformDrafts = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PlatformDraftsInput) => platformSettingsService.updateDrafts(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onError: (error: unknown) => toast.failure('save the AI draft settings', error),
   });
 };
 
