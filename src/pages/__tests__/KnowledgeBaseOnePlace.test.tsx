@@ -12,6 +12,8 @@ import type * as ApiClientModule from '@/lib/api-client';
 type Params = { status?: string; search?: string };
 const state = vi.hoisted(() => ({
   autoChangedStatus: true,
+  canReview: true,
+  autoEntries: [] as unknown[],
   getAllCalls: [] as Array<{ status?: string; search?: string }>,
   post: vi.fn((..._args: unknown[]) => Promise.resolve({ data: {} })),
   patch: vi.fn((..._args: unknown[]) => Promise.resolve({ data: { data: {} } })),
@@ -50,6 +52,45 @@ const cleanedEntry = {
   },
 };
 
+const autoRow = (id: number, title: string, autoChange: Record<string, unknown>, over = {}) => ({
+  ...base,
+  id,
+  title,
+  ...over,
+  autoChange: { at: '2026-10-20T02:00:00.000Z', confidence: 0.9, ...autoChange },
+});
+const removedEntry = autoRow(
+  60,
+  'Removed answer',
+  { action: 'remove', undo: 'restore', suggestionId: null },
+  { approved: false, hidden: true, rejectedAt: '2026-10-19T02:00:00.000Z' }
+);
+const heldEntry = autoRow(
+  61,
+  'Held answer',
+  { action: 'hold', undo: 'release_hold', suggestionId: 88 },
+  { hidden: true }
+);
+const minedEntry = autoRow(62, 'Mined answer', {
+  action: 'approveMined',
+  undo: 'unapprove',
+  suggestionId: null,
+});
+const expiredCapture = {
+  ...base,
+  id: 70,
+  title: 'Expired capture',
+  approved: false,
+  pendingDecision: {
+    suggestionId: 99,
+    kind: 'approve_capture',
+    reasons: [],
+    canDecide: true,
+    expiresAt: '2026-10-01T00:00:00.000Z',
+    expired: true,
+  },
+};
+
 vi.mock('@/lib/api-client', async (importOriginal) => {
   const actual = await importOriginal<typeof ApiClientModule>();
   return {
@@ -73,12 +114,16 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
         const status = params.status;
         const entries =
           status === 'auto_changed'
-            ? [cleanedEntry]
-            : status === 'suggested_change'
-              ? params.search
-                ? [mergeEntry]
-                : [otherEntry]
-              : [];
+            ? state.autoEntries.length > 0
+              ? state.autoEntries
+              : [cleanedEntry]
+            : status === 'needs_decision'
+              ? [expiredCapture]
+              : status === 'suggested_change'
+                ? params.search
+                  ? [mergeEntry]
+                  : [otherEntry]
+                : [];
         const applied = status !== 'auto_changed' || state.autoChangedStatus ? true : false;
         return Promise.resolve({
           data: {
@@ -116,7 +161,7 @@ vi.mock('@/components/kb/KbConsolidationReview', () => ({ KbConsolidationReview:
 vi.mock('@/components/kb/KbQualityReview', () => ({ KbQualityReview: () => null }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => '' }));
 vi.mock('@/hooks/usePermissions', () => ({
-  usePermissions: () => ({ hasPermission: () => true, isOrgAdmin: true }),
+  usePermissions: () => ({ hasPermission: () => state.canReview, isOrgAdmin: true }),
 }));
 vi.mock('@/hooks/useUiFlags', () => ({ useUiFlags: () => ({ isSurfaceVisibleToMe: () => true }) }));
 vi.mock('@/components/kb/KbExportButton', () => ({ KbExportButton: () => null }));
@@ -139,6 +184,8 @@ const renderPage = (url: string) =>
 afterEach(() => {
   cleanup();
   state.autoChangedStatus = true;
+  state.canReview = true;
+  state.autoEntries = [];
   state.getAllCalls.length = 0;
   state.post.mockClear();
   state.patch.mockClear();
@@ -176,6 +223,21 @@ describe('knowledge base → Changed automatically', () => {
     );
   });
 
+  it.each([
+    ['Restore', removedEntry, 'post', '/api/knowledge-base/auto-actions/removed/60/restore'],
+    ['Use it again', heldEntry, 'post', '/api/learning/suggestions/88/decline'],
+    ['Un-approve', minedEntry, 'patch', '/api/knowledge-base/entries/62/reject'],
+  ])('"%s" calls exactly its own route', async (label, entry, verb, url) => {
+    state.autoEntries = [entry];
+    renderPage('/knowledge-base?status=auto_changed');
+    await screen.findAllByText(entry.title);
+    fireEvent.click(screen.getAllByRole('button', { name: label })[0]);
+    await waitFor(() => expect(state[verb as 'post' | 'patch']).toHaveBeenCalledTimes(1));
+    expect(state[verb as 'post' | 'patch'].mock.calls[0][0]).toBe(url);
+    const other = state[verb === 'post' ? 'patch' : 'post'];
+    expect(other).not.toHaveBeenCalled();
+  });
+
   it('an older backend (no autoChangedStatus) falls back to "Removed automatically"', async () => {
     state.autoChangedStatus = false;
     renderPage('/knowledge-base?status=auto_changed');
@@ -186,5 +248,34 @@ describe('knowledge base → Changed automatically', () => {
       await screen.findByRole('button', { name: 'Removed automatically' })
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Changed automatically' })).toBeNull();
+  });
+});
+
+describe('knowledge base → expired capture and non-reviewers', () => {
+  it('an expired capture is approved and rejected through the ENTRY endpoints only', async () => {
+    renderPage('/knowledge-base?status=needs_decision');
+    await screen.findAllByText('Expired capture');
+    expect(screen.getAllByText('Expired — still waiting').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Approve' })[0]);
+    await waitFor(() =>
+      expect(state.patch).toHaveBeenCalledWith('/api/knowledge-base/entries/70/approve')
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: 'Reject' })[0]);
+    await waitFor(() =>
+      expect(state.patch).toHaveBeenCalledWith('/api/knowledge-base/entries/70/reject')
+    );
+    const urls = [...state.post.mock.calls, ...state.patch.mock.calls].map((call) => call[0]);
+    expect(urls.some((url) => String(url).includes('/api/learning/suggestions/'))).toBe(false);
+  });
+
+  it('a non-reviewer opening a suggested_change deep link: no lookup, no error, the entry opens', async () => {
+    state.canReview = false;
+    renderPage('/knowledge-base?status=suggested_change&id=42');
+    expect(
+      await screen.findByRole('heading', { name: 'Return address for Example Shop' })
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Entry Not Found')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Review merge' })).toBeNull();
+    expect(state.getAllCalls.every((call) => call.search === undefined)).toBe(true);
   });
 });
