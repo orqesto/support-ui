@@ -1,0 +1,291 @@
+/**
+ * Knowledge base → Automatic actions. Renders the real page and services over a mocked transport,
+ * so what is asserted is the request each control sends and what the page derives from the
+ * overview without refetching:
+ * - the preview and the agreement follow the slider (sums over the per-percent counts);
+ * - without MANAGE_ORGANIZATION the setting is read-only;
+ * - switching to Automatic needs a confirm that names the count, and only then PATCHes;
+ * - Agree / Disagree in the sample call accept-with-reject / decline;
+ * - Restore calls the restore route after a confirm;
+ * - a backend without these routes shows a calm notice, not an error.
+ * All data is invented.
+ */
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+
+const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), patch: vi.fn() }));
+const perms = vi.hoisted(() => ({ canManageOrg: true }));
+vi.mock('@/lib/api-client', () => ({ apiClient: api }));
+vi.mock('@/lib/toast', () => ({
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
+}));
+vi.mock('@/components/layout/Layout', () => ({
+  Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+vi.mock('@/hooks/usePermissions', () => ({
+  usePermissions: () => ({
+    hasPermission: (perm: string) => perm !== 'manage_organization' || perms.canManageOrg,
+  }),
+}));
+
+import { KbAutoActionsPage } from '../KbAutoActionsPage';
+
+const overview = (mode = 'shadow', threshold = 0.9) => ({
+  settings: { remove: { mode, threshold } },
+  candidates: {
+    total: 25,
+    byReason: { customer_specific: 12, no_answer: 8, outdated: 5 },
+    bySubject: { qa: 21, document: 4 },
+    byBand: { lt50: 2, '50to70': 3, '70to80': 10, '80to90': 6, '90to95': 0, gte95: 4, unscored: 3 },
+    wouldRemoveAtThreshold: 4,
+    personApprovedAtThreshold: 2,
+    removableByPercent: [
+      { percent: 95, count: 4 },
+      { percent: 85, count: 6 },
+      { percent: 72, count: 10 },
+    ],
+  },
+  bands: [],
+  agreement: {
+    decided: 20,
+    agreed: 14,
+    disagreed: 6,
+    byBand: {},
+    atThreshold: { agreed: 9, disagreed: 1, total: 10, rate: 0.9 },
+    byPercent: [
+      { percent: 96, agreed: 9, disagreed: 1 },
+      { percent: 80, agreed: 5, disagreed: 5 },
+    ],
+  },
+  autoRemoved: {
+    last90Days: 7,
+    lastRun: { at: '2026-10-19T02:00:00.000Z', removed: 5, capped: true, via: 'nightly' },
+  },
+});
+
+const sample = {
+  items: [
+    {
+      suggestionId: 501,
+      entryId: 41,
+      publicId: 'KB-41',
+      subject: 'qa',
+      question: 'Can I change the colour of my order from Example Shop?',
+      answer: 'Yes, write to us.',
+      reasons: ['customer_specific'],
+      note: 'Mentions one order only.',
+      confidence: 0.93,
+      approved: false,
+      personApproved: false,
+    },
+    {
+      suggestionId: 502,
+      entryId: 42,
+      publicId: 'KB-42',
+      subject: 'document',
+      question: 'Opening hours',
+      answer: 'Monday to Friday.',
+      reasons: ['outdated'],
+      note: '',
+      confidence: 0.81,
+      approved: false,
+      personApproved: false,
+    },
+  ],
+  poolLimited: true,
+};
+
+const removed = {
+  items: [
+    {
+      entryId: 77,
+      publicId: 'KB-77',
+      subject: 'qa',
+      question: 'Where is the old warehouse?',
+      answer: 'Nowhere now.',
+      reasons: ['outdated'],
+      confidence: 0.97,
+      threshold: 0.9,
+      suggestionId: 900,
+      removedAt: '2026-10-19T02:00:00.000Z',
+      purgeAfter: '2027-01-17T02:00:00.000Z',
+      previous: { approved: false, hidden: false },
+    },
+  ],
+  page: 1,
+  pageSize: 25,
+  total: 1,
+};
+
+const ok = (data: unknown) => Promise.resolve({ data: { success: true, data } });
+
+const wireGets = (current = overview()) => {
+  api.get.mockImplementation((url: string) => {
+    if (url === '/api/knowledge-base/auto-actions') return ok(current);
+    if (url === '/api/knowledge-base/auto-actions/sample') return ok(sample);
+    if (url === '/api/knowledge-base/auto-actions/removed') return ok(removed);
+    return Promise.reject(new Error(`unexpected GET ${url}`));
+  });
+};
+
+const renderPage = () =>
+  render(
+    <MemoryRouter>
+      <KbAutoActionsPage />
+    </MemoryRouter>
+  );
+
+const slider = () => screen.getByRole('slider', { name: 'Removal bar, % sure' });
+const dialog = () => screen.getByRole('dialog');
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  perms.canManageOrg = true;
+  wireGets();
+  api.post.mockImplementation(() => ok({ status: 'rejected' }));
+  api.patch.mockImplementation((_url: string, body: { remove: unknown }) =>
+    ok({ settings: body, startedRun: true })
+  );
+});
+afterEach(cleanup);
+
+describe('Automatic actions page', () => {
+  it('previews the count and the agreement at the slider value without refetching', async () => {
+    renderPage();
+    expect(await screen.findByText('4 entries')).toBeInTheDocument();
+    // At 90%: only the 96% row counts → 9 of 10, under the 20-decision floor.
+    expect(screen.getByText('9 of 10')).toBeInTheDocument();
+    expect(screen.getByText(/Not enough decisions yet/)).toBeInTheDocument();
+
+    fireEvent.change(slider(), { target: { value: '80' } });
+    expect(screen.getByText('10 entries')).toBeInTheDocument();
+    expect(screen.getByText('14 of 20')).toBeInTheDocument();
+    expect(screen.getByText(/\(70%\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/Not enough decisions yet/)).not.toBeInTheDocument();
+
+    fireEvent.change(slider(), { target: { value: '72' } });
+    expect(screen.getByText('20 entries')).toBeInTheDocument();
+    expect(
+      api.get.mock.calls.filter(([url]) => url === '/api/knowledge-base/auto-actions')
+    ).toHaveLength(1);
+
+    // Reasons read with the review's labels; person-approved, unscored and the last run are shown.
+    expect(screen.getByText('only fits one customer: 12')).toBeInTheDocument();
+    expect(
+      screen.getByText(/2 entries a person approved are above the saved bar/)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/3 suggestions have no score yet/)).toBeInTheDocument();
+    expect(screen.getByTestId('kb-auto-status')).toHaveTextContent(
+      /removed 5 entries \(stopped at the per-night limit/
+    );
+  });
+
+  it('is read-only without MANAGE_ORGANIZATION', async () => {
+    perms.canManageOrg = false;
+    renderPage();
+    await screen.findByText('4 entries');
+    expect(slider()).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Automatic' })).not.toBeInTheDocument();
+    expect(screen.getByText('Only workspace admins can change this setting.')).toBeInTheDocument();
+  });
+
+  it('asks before turning on Automatic, naming the count, and then PATCHes the setting', async () => {
+    renderPage();
+    await screen.findByText('4 entries');
+    fireEvent.click(screen.getByRole('button', { name: 'Automatic' }));
+    fireEvent.change(slider(), { target: { value: '85' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(
+      within(dialog()).getByText(/At 85% the next run removes 10 entries now/)
+    ).toBeInTheDocument();
+    expect(within(dialog()).getByText(/a person approved are never removed/)).toBeInTheDocument();
+    expect(api.patch).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Turn on' }));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/api/knowledge-base/auto-actions/settings', {
+        remove: { mode: 'auto', threshold: 0.85 },
+      })
+    );
+  });
+
+  it('saves a Shadow change without a confirm', async () => {
+    renderPage();
+    await screen.findByText('4 entries');
+    fireEvent.change(slider(), { target: { value: '80' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/api/knowledge-base/auto-actions/settings', {
+        remove: { mode: 'shadow', threshold: 0.8 },
+      })
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('sample: Agree removes via accept-reject, Disagree keeps via decline, then refreshes', async () => {
+    renderPage();
+    await screen.findByText('4 entries');
+    fireEvent.click(screen.getByRole('button', { name: 'Check a sample' }));
+    expect(await screen.findByText('1 of 2')).toBeInTheDocument();
+    expect(screen.getByText('93% sure')).toBeInTheDocument();
+    expect(screen.getAllByText('only fits one customer').length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Agree (remove)' }));
+    expect(await screen.findByText('2 of 2')).toBeInTheDocument();
+    expect(api.post).toHaveBeenCalledWith('/api/learning/suggestions/501/accept', {
+      action: 'reject',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Disagree (keep)' }));
+    expect(
+      await screen.findByText(/1 agreed \(removed\), 1 disagreed \(kept\)/)
+    ).toBeInTheDocument();
+    expect(api.post).toHaveBeenCalledWith('/api/learning/suggestions/502/decline', {});
+    expect(api.post).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close and update the numbers' }));
+    await waitFor(() =>
+      expect(
+        api.get.mock.calls.filter(([url]) => url === '/api/knowledge-base/auto-actions')
+      ).toHaveLength(2)
+    );
+  });
+
+  it('Restore asks first, then calls the restore route', async () => {
+    renderPage();
+    await screen.findByText('Where is the old warehouse?');
+    fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
+    expect(api.post).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Restore' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        '/api/knowledge-base/auto-actions/removed/77/restore',
+        {}
+      )
+    );
+  });
+
+  it('shows a calm notice on a backend without these routes', async () => {
+    api.get.mockRejectedValue(
+      Object.assign(new Error('Request failed'), { status: 404, data: '<pre>Cannot GET</pre>' })
+    );
+    renderPage();
+    expect(await screen.findByText(/arrive with the next backend release/)).toBeInTheDocument();
+    expect(screen.queryByText(/Could not load/)).not.toBeInTheDocument();
+  });
+
+  it('a 404 from a route that exists is an error, not the older-backend notice', async () => {
+    api.get.mockRejectedValue(
+      Object.assign(new Error('Request failed'), {
+        status: 404,
+        data: { success: false, error: 'Workspace not found' },
+      })
+    );
+    renderPage();
+    expect(await screen.findByText(/Workspace not found/)).toBeInTheDocument();
+    expect(screen.queryByText(/arrive with the next backend release/)).not.toBeInTheDocument();
+  });
+});
