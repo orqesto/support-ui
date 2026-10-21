@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/Progress';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { StatusText } from '@/components/budget/StatusText';
-import { fmtTokens } from '@/components/budget/budget.rules';
+import { fmtMoney } from '@/components/budget/budget.rules';
 import { useBudgetGroups, useBudgetState } from '@/hooks/useBudgets';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import type { BudgetState, GroupListParams, GroupSummary } from '@/services/budgets.service';
@@ -49,8 +49,8 @@ const GroupBar = ({ group }: { group: GroupSummary }) => {
         <span className="h-full bg-primary" style={{ width: `${live}%` }} />
       </div>
       <span className="font-mono text-xs text-muted-foreground">
-        {fmtTokens(group.spend.total)} of {size ? fmtTokens(size) : 'no budget'}
-        {group.spend.extra > 0 && ` · +${fmtTokens(group.spend.extra)} extra`}
+        {fmtMoney(group.spend.total)} of {size ? fmtMoney(size) : 'no budget'}
+        {group.spend.extra > 0 && ` · +${fmtMoney(group.spend.extra)} extra`}
       </span>
     </div>
   );
@@ -78,7 +78,7 @@ const GroupList = ({ state }: { state: BudgetState }) => {
             <span className="text-sm font-medium">Server ceiling</span>
             {state.server.ceiling === null ? (
               <span className="text-sm text-muted-foreground">
-                None · {fmtTokens(state.server.spend)} used this month on the whole server
+                None · {fmtMoney(state.server.spend)} used this month on the whole server
               </span>
             ) : (
               <>
@@ -88,7 +88,7 @@ const GroupList = ({ state }: { state: BudgetState }) => {
                   variant={state.server.spend >= state.server.ceiling ? 'danger' : 'default'}
                 />
                 <span className="font-mono text-sm text-muted-foreground">
-                  {fmtTokens(state.server.spend)} of {fmtTokens(state.server.ceiling)} this month,
+                  {fmtMoney(state.server.spend)} of {fmtMoney(state.server.ceiling)} this month,
                   extra included
                 </span>
               </>
@@ -171,6 +171,11 @@ const GroupList = ({ state }: { state: BudgetState }) => {
                 <Badge variant="secondary" size="sm">
                   {group.kind === 'alliance' ? 'Organisation' : 'Workspace'}
                 </Badge>
+                {group.mode && (
+                  <Badge variant="default" size="sm">
+                    {group.mode.current === 'shared' ? 'Shared AI' : 'Separate AI'}
+                  </Badge>
+                )}
                 {group.requestCount > 0 && (
                   <Badge variant="warning" size="sm">
                     {group.requestCount} request{group.requestCount === 1 ? '' : 's'}
@@ -227,7 +232,7 @@ export const PlatformBudgets = () => {
       ) : (
         <>
           <BudgetMigrationPanel />
-          {/* Before Apply too: the settings (tokens per call, default %) feed the dry run. */}
+          {/* Before Apply too: the settings (money per message, default %) feed the dry run. */}
           <BudgetAdvancedCard settings={data.state.settings} selfHosted={data.state.selfHosted} />
         </>
       )}

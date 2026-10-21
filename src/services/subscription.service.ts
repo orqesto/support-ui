@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import type { AiStatus } from '@/components/subscription/aiStatus';
 
 /**
  * Effective on/off state of every feature for the current org (plan grant with
@@ -91,6 +92,8 @@ export type OrgUsage = {
   period?: UsagePeriod;
   extra?: { messages: number };
   messagePack?: MessagePackOffer;
+  /** AI budget standing (money-budget build). Absent on an older backend. */
+  ai?: AiStatus;
 };
 
 /**
@@ -185,7 +188,11 @@ export type PlanLimitValues = {
   maxOrganizations: number;
   maxIntegrations: number;
   maxMessagesPerMonth: number;
-  maxAICallsPerMonth: number;
+  /**
+   * Not sent by the subscription dashboard/current routes any more; plan editors still write it
+   * (before the money budgets are applied it is the old monthly AI-call cap, after that a statistic).
+   */
+  maxAICallsPerMonth?: number;
   maxStorageMb: number;
   maxAutoRepliesPerMonth: number;
   maxDepartments: number;

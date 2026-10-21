@@ -30,6 +30,7 @@ vi.mock('@/stores/authStore', () => ({
 }));
 vi.mock('@/types/roles', () => ({
   hasPermission: () => true,
+  isOrgAdminOrHigher: (role: string, orgRole?: string) => role === 'admin' || orgRole === 'org_admin',
   Permission: { MANAGE_SUBSCRIPTION: 'MANAGE_SUBSCRIPTION' },
 }));
 

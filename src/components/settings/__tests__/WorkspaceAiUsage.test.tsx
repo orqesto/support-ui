@@ -7,6 +7,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { BudgetsInactive, WorkspaceUsage } from '@/services/budgets.service';
 
+/** One dollar in micros. */
 const MLN = 1_000_000;
 
 let calls: Record<string, unknown[]> = {};
@@ -43,6 +44,7 @@ vi.mock('sonner', () => ({
 const { WorkspaceAiUsage } = await import('../WorkspaceAiUsage');
 
 const usage = (over: Partial<WorkspaceUsage> = {}): WorkspaceUsage => ({
+  currency: 'USD',
   active: true,
   group: { key: 'a:7', kind: 'alliance', name: 'Northwind' },
   budget: 100 * MLN,
@@ -56,8 +58,8 @@ const usage = (over: Partial<WorkspaceUsage> = {}): WorkspaceUsage => ({
   extra: {
     id: 1,
     grantIds: [1],
-    tokens: 10 * MLN,
-    used: 2 * MLN,
+    amountMicros: 10 * MLN,
+    usedMicros: 2 * MLN,
     endsAt: new Date(Date.now() + 2 * 86_400_000).toISOString(),
   },
   status: { tone: 'ok', text: 'Running normally' },
@@ -92,13 +94,13 @@ describe('WorkspaceAiUsage', () => {
   it('a member reads the numbers and gets no controls', async () => {
     renderIt();
     expect(await screen.findByText('Organisation Northwind')).toBeInTheDocument();
-    expect(screen.getByTestId('budget-readonly')).toHaveTextContent('100M');
-    expect(screen.getByTestId('my-bulk-limit')).toHaveTextContent('At most 25.0M');
-    expect(screen.getByTestId('my-bulk-spend')).toHaveTextContent('8.0M');
-    expect(screen.getByText('+10.0M')).toBeInTheDocument();
+    expect(screen.getByTestId('budget-readonly')).toHaveTextContent('≈ $100.00');
+    expect(screen.getByTestId('my-bulk-limit')).toHaveTextContent('At most ≈ $25.00');
+    expect(screen.getByTestId('my-bulk-spend')).toHaveTextContent('≈ $8.00');
+    expect(screen.getByText('≈ $10.00')).toBeInTheDocument();
     expect(screen.getByTestId('my-status')).toHaveTextContent('Running normally');
     expect(screen.getByTestId('group-status')).toHaveTextContent('Organisation running');
-    expect(screen.queryByLabelText('Monthly budget')).toBeNull();
+    expect(screen.queryByLabelText('Budget per billing period')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Send request' })).toBeNull();
     expect(screen.getByRole('switch', { name: /Limit it/ })).toBeDisabled();
   });
@@ -123,7 +125,7 @@ describe('WorkspaceAiUsage', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send request' }));
     await waitFor(() =>
-      expect(calls.requestMyExtra).toEqual([{ tokens: 10 * MLN, reason: 'Re-mine' }])
+      expect(calls.requestMyExtra).toEqual([{ amountMicros: 5 * MLN, reason: 'Re-mine' }])
     );
     expect(screen.queryByLabelText('For')).toBeNull();
   });
@@ -146,7 +148,7 @@ describe('WorkspaceAiUsage', () => {
       canEdit: { budget: true, bulk: true, request: true },
     });
     renderIt();
-    const input = await screen.findByLabelText('Monthly budget');
+    const input = await screen.findByLabelText('Budget per billing period');
     fireEvent.change(input, { target: { value: '150' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save budget' }));
     await waitFor(() => expect(calls.updateMyBudget).toEqual([{ budget: 150 * MLN }]));

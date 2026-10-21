@@ -2,10 +2,11 @@
 export type RawUsage = {
   aiCalls: {
     current: number;
-    limit: number;
-    overage: number;
-    percentage: number;
-    /** false ⇒ own AI key: the allowance is the platform key's and does not apply. Absent on older backends. */
+    /** Ignored: AI calls have no limit any more. Older backends still send these. */
+    limit?: number;
+    overage?: number;
+    percentage?: number;
+    /** false ⇒ own AI key (named in the label). Absent on older backends. */
     appliesToThisWorkspace?: boolean;
   };
   /** `limit` includes message packs bought into this period (the cap the check enforces). */
@@ -24,30 +25,42 @@ export type UsageRow = {
 };
 
 /**
- * Rows for the Usage Stats table. Own AI key: the call allowance belongs to the platform key, so
- * there is nothing to measure those calls against — no "included", no "overage" (Free, own key
- * required, showed every call as overage). An older backend omits the flag: the old reading stays.
+ * Rows for the Usage Stats table. Before the money budgets are applied (`budgetsActive` false: the
+ * server answers `ai.active === false`, or sends no `ai` block) the old monthly AI-call cap still
+ * refuses work, so the row keeps its limit and overage. Once applied, AI calls are a statistic
+ * only: no included, no overage, no percentage. Own AI key: the call allowance belongs to the
+ * platform key, so there is nothing to measure those calls against in either state.
  */
-export const usageRowsFrom = (raw: RawUsage | undefined): UsageRow[] => {
+export const usageRowsFrom = (raw: RawUsage | undefined, budgetsActive = false): UsageRow[] => {
   const ownKey = raw?.aiCalls?.appliesToThisWorkspace === false;
   const aiCurrent = raw?.aiCalls?.current ?? 0;
-  const aiLimit = ownKey ? 0 : (raw?.aiCalls?.limit ?? 0);
+  const capApplies = !budgetsActive && !ownKey;
+  const aiLimit = capApplies ? (raw?.aiCalls?.limit ?? 0) : 0;
   const msgCurrent = raw?.messages?.current ?? 0;
   const msgLimit = raw?.messages?.limit ?? 0;
+  const aiIncluded = budgetsActive && !ownKey;
+  let aiName = 'AI Calls';
+  if (budgetsActive) {
+    aiName = ownKey ? 'AI calls (your own AI key; a count, no limit)' : 'AI calls (a count, no limit)';
+  } else if (ownKey) {
+    aiName = 'AI Calls (your own AI key — no plan allowance)';
+  }
   return [
     {
       moduleName: 'ai-calls',
-      displayName: ownKey ? 'AI Calls (your own AI key — no plan allowance)' : 'AI Calls',
+      displayName: aiName,
       current: aiCurrent,
       included: aiLimit,
-      overage: ownKey ? 0 : (raw?.aiCalls?.overage ?? Math.max(0, aiCurrent - aiLimit)),
+      overage: capApplies
+        ? (raw?.aiCalls?.overage ?? Math.max(0, aiCurrent - aiLimit))
+        : 0,
       overagePrice: 0,
       estimatedOverageCost: 0,
       unitName: 'call',
     },
     {
       moduleName: 'messages',
-      displayName: 'Messages',
+      displayName: aiIncluded ? 'Messages (AI included)' : 'Messages',
       current: msgCurrent,
       included: msgLimit,
       overage: Math.max(0, msgCurrent - msgLimit),

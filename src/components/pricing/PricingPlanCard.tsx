@@ -20,6 +20,7 @@ export interface Plan {
     maxMessagesPerMonth?: number;
     maxStorageGB?: number;
     maxIntegrations: number;
+    maxHistoryDays?: number;
   };
 }
 
@@ -45,6 +46,29 @@ export function getFeatureLabel(key: string): string {
   return FEATURE_LABELS[key] ?? key;
 }
 
+/**
+ * Managed AI is part of the messages on paid plans only: Free runs on the workspace's own AI key,
+ * and the internal admin plan is not sold. (Plans carry no marker for it, so the name decides.)
+ */
+export const planHasManagedAi = (plan: Pick<Plan, 'name'>): boolean =>
+  plan.name !== 'free' && plan.name !== 'admin';
+
+function PlanAiLines({ plan }: { plan: Plan }) {
+  const managed = planHasManagedAi(plan);
+  const days = plan.limits.maxHistoryDays;
+  return (
+    <>
+      {managed && <p className="text-sm text-faint-foreground">AI included</p>}
+      {days ? (
+        <p className="text-sm text-faint-foreground">
+          <strong>{days.toLocaleString()} days</strong> of history import{' '}
+          {managed ? '(uses the monthly AI allowance)' : '(runs on your own AI key)'}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
 function PlanLimits({ plan }: { plan: Plan }) {
   return (
     <div className="pb-6 mb-6 space-y-2 border-b">
@@ -54,6 +78,7 @@ function PlanLimits({ plan }: { plan: Plan }) {
         {plan.limits.maxMessagesPerMonth ? 'messages/month' : 'storage'}
       </p>
       <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxIntegrations}</strong> integrations</p>
+      <PlanAiLines plan={plan} />
     </div>
   );
 }
@@ -130,6 +155,7 @@ export function EnterprisePlanCard({ plan, currentPlanName, upgrading, onSelect 
           <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxUsers.toLocaleString()}</strong> users</p>
           <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxMessagesPerMonth ? plan.limits.maxMessagesPerMonth.toLocaleString() : '—'}</strong> messages/month</p>
           <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxIntegrations}</strong> integrations</p>
+          <PlanAiLines plan={plan} />
         </div>
         <div className="mb-6 space-y-3">
           {Object.entries(plan.features).filter(([_, enabled]) => enabled).slice(0, 8).map(([key]) => (

@@ -136,3 +136,22 @@ export const formatCurrency = (cents: number, currency: string) =>
 
 export const statusBadgeVariant = (status: string) =>
   status === 'active' ? 'default' : status === 'trialing' ? 'secondary' : 'danger';
+
+/** The AI-calls cell: a plain count once the money budgets are applied, else used / limit + bar. */
+export const AiCallsCell = ({
+  aiCalls,
+  budgetsActive,
+}: {
+  aiCalls: UsageItem;
+  budgetsActive: boolean;
+}) =>
+  budgetsActive ? (
+    <span className="font-mono text-sm" data-testid="ai-calls-count">
+      {aiCalls.current.toLocaleString()}
+    </span>
+  ) : (
+    <div className="space-y-1">
+      {getUsageBadge(aiCalls.current, aiCalls.limit, aiCalls.percentage)}
+      <UsageProgressBar percentage={aiCalls.percentage} />
+    </div>
+  );

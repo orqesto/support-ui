@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Toggle } from '@/components/ui/Toggle';
 import { cn } from '@/lib/utils';
-import { fmtTokens } from './budget.rules';
+import { fmtMoney } from './budget.rules';
 
 export const FieldLabel = ({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) =>
   htmlFor ? (
@@ -35,7 +35,7 @@ export const BulkLimitField = ({
 }: {
   on: boolean;
   pct: number;
-  /** The limit in tokens (budget × bulk %). */
+  /** The limit in micros (budget × bulk %). */
   cap: number;
   /** Read-only when false: the switch is disabled. */
   canEdit?: boolean;
@@ -52,7 +52,7 @@ export const BulkLimitField = ({
     {/* Same size either way, so switching never moves the layout; the warning for "off" is
         in the status line under the bar. */}
     <span className="font-mono text-lg min-h-[1.75rem]">
-      {on ? `At most ${pct}% · ${fmtTokens(cap)} · counts bulk spend only` : 'No limit'}
+      {on ? `At most ${pct}% · ${fmtMoney(cap)} · counts bulk spend only` : 'No limit'}
     </span>
   </div>
 );
@@ -61,11 +61,11 @@ export const BulkLimitField = ({
 export const BulkLegend = ({ on, used, cap }: { on: boolean; used: number; cap: number }) => (
   <span>
     <Swatch className="bg-pending" />
-    Bulk processing <span className="font-mono">{fmtTokens(used)}</span>
+    Bulk processing <span className="font-mono">{fmtMoney(used)}</span>
     {on && (
       <>
         {' '}
-        of <span className="font-mono">{fmtTokens(cap)}</span>
+        of <span className="font-mono">{fmtMoney(cap)}</span>
       </>
     )}
   </span>

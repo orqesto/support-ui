@@ -43,7 +43,7 @@ export function SubscriptionGateOverlay() {
   const explanation = !trialEnded
     ? "Access is paused until the workspace has an active plan. Choose one — Free included, with Free's limits — or contact us. Once it's active again, reload to continue."
     : waitingForAdmin
-      ? "An admin of this workspace has been asked to choose a plan. Incoming messages are still received; nothing is lost. Once a plan is chosen, reload to continue."
+      ? 'An admin of this workspace has been asked to choose a plan. Incoming messages are still received; nothing is lost. Once a plan is chosen, reload to continue.'
       : "Choose how to continue: a paid plan with a card, or Free with Free's limits. Incoming messages are still received; nothing is lost.";
 
   return (

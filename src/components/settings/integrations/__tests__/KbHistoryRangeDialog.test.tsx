@@ -11,6 +11,7 @@ import type {
 } from '@/services/kbRangeTypes';
 import type { AlertState } from '@/components/settings/integrations/types';
 import { useProcessingPanelStore } from '@/stores/processingPanelStore';
+import { useAuthStore } from '@/stores/authStore';
 
 /** Plain functions, not module-level vi.fn (a rejection from one fails the test even when caught). */
 let handler: (id: number, body: KbRangeRequest) => Promise<KbRangeResult> = () =>
@@ -118,13 +119,14 @@ const dry = (over: Partial<KbRangeDryRun> = {}): KbRangeDryRun => ({
     threadsBasis: 'distinct_threads',
     tokensPerThread: 1000,
     estimatedTokens: 327000,
+    estimatedMicros: 1_300_000,
     daysAtLimit: 1,
     limit: 500000,
     spentToday: 0,
     enforced: true,
   },
   room: { storedMessages: null, kbItems: null, projectedSkipped: 0, kbFull: false },
-  aiAllowance: { callsLeftThisMonth: null, estimatedCalls: null, short: false },
+  aiAllowance: { bulkMicrosLeft: null, estimatedMicros: null, estimatedCalls: null, short: false },
   ...over,
 });
 const applied = (over: Partial<KbRangeApplied> = {}): KbRangeApplied => ({
@@ -558,7 +560,7 @@ describe('KbHistoryRangeDialog', () => {
     expect(calls[calls.length - 1]).toEqual({
       days: 90,
       apply: true,
-      estimate: { historyToFetch: 382, recentToFetch: 3, estimatedTokens: 327000 },
+      estimate: { historyToFetch: 382, recentToFetch: 3, estimatedTokens: 327000, estimatedMicros: 1_300_000 },
     });
     expect(useProcessingPanelStore.getState().opened[5]).toMatchObject({ reason: 'manual' });
     expect(onShowAlert.mock.calls[0][0]).toMatchObject({
@@ -645,14 +647,26 @@ describe('KbHistoryRangeDialog', () => {
   it('G14: F4 caveat for Gmail only; allowance warning when short', async () => {
     handler = defaultHandler(
       policy(),
-      dry({ days: 0, aiAllowance: { callsLeftThisMonth: 100, estimatedCalls: 360, short: true } })
+      dry({ days: 0, aiAllowance: { bulkMicrosLeft: 3_200_000, estimatedMicros: 9_000_000, estimatedCalls: 360, short: true } })
     );
+    useAuthStore.setState({
+      user: { role: 'user', organizationRole: 'org_admin' } as never,
+    });
     mount();
     await ready();
     selectDays('0');
     check();
     await screen.findByText(/Also re-checks mail since the cutoff/);
-    expect(screen.getByText(/needs about 360 AI calls; your plan has 100 left/)).toBeTruthy();
+    expect(screen.getByText(/≈ \$3\.20 of this period's AI allowance left for history import/)).toBeTruthy();
+    cleanup();
+    // An agent reads the same dialog without a dollar sign.
+    useAuthStore.setState({ user: { role: 'user', organizationRole: 'support' } as never });
+    mount();
+    await ready();
+    selectDays('0');
+    check();
+    await screen.findByText(/more than is left of this period's AI allowance/);
+    expect(screen.queryByText(/\$/)).toBeNull();
     cleanup();
     handler = defaultHandler(
       policy({

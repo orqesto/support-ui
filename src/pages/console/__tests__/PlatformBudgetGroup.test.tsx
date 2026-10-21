@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { chooseOption } from '@/test/chooseOption';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
 import type {
   BudgetState,
@@ -52,6 +53,10 @@ vi.mock('@/services/budgets.service', () => ({
       record('giveExtra', body);
       return giveHold ?? Promise.resolve({ grants: [] });
     },
+    setGroupMode: (key: string, mode: string) => {
+      record('setGroupMode', [key, mode]);
+      return Promise.resolve(detail);
+    },
     endExtra: (grantIds: number[]) => {
       record('endExtra', grantIds);
       return Promise.resolve({ ended: grantIds.length });
@@ -70,14 +75,15 @@ const { PlatformBudgetGroup } = await import('../PlatformBudgetGroup');
 const { BudgetGroupView } = await import('@/components/budget/BudgetGroupView');
 
 const state = (over: Partial<BudgetState> = {}): BudgetState => ({
+  currency: 'USD',
   active: true,
   selfHosted: true,
   settings: {
-    version: 1,
+    version: 2,
     bulkPctMin: 50,
     bulkPctMax: 90,
     defaultBulkPct: 60,
-    tokensPerCall: 1490,
+    microsPerMessage: 4000,
     serverCeiling: null,
     defaultStandaloneBudget: null,
     liveSpikeFactor: 3,
@@ -92,8 +98,8 @@ const state = (over: Partial<BudgetState> = {}): BudgetState => ({
 const extra = (id: number): ExtraView => ({
   id,
   grantIds: [id],
-  tokens: 20 * MLN,
-  used: 2 * MLN,
+  amountMicros: 20 * MLN,
+  usedMicros: 2 * MLN,
   endsAt: new Date(Date.now() + 2 * 86_400_000).toISOString(),
 });
 
@@ -101,6 +107,8 @@ const row = (id: number, total: number, over: Partial<WorkspaceRow> = {}): Works
   organizationId: id,
   name: `Shop ${id}`,
   spend: { total, bulk: total / 4, live: (total * 3) / 4 },
+  tokens: { total: 1_000_000, bulk: 250_000 },
+  budget: null,
   bulkLimit: null,
   extra: null,
   bulkRunning: false,
@@ -112,6 +120,7 @@ const row = (id: number, total: number, over: Partial<WorkspaceRow> = {}): Works
 });
 
 const groupDetail = (over: Partial<GroupDetail> = {}): GroupDetail => ({
+  currency: 'USD',
   key: 'a:7',
   kind: 'alliance',
   id: 7,
@@ -127,6 +136,7 @@ const groupDetail = (over: Partial<GroupDetail> = {}): GroupDetail => ({
   requestCount: 0,
   active: true,
   removedSpend: { total: 0, bulk: 0 },
+  tokens: { total: 4_000_000, bulk: 1_000_000 },
   groupExtra: null,
   rows: [
     row(1, 30 * MLN),
@@ -142,7 +152,7 @@ const groupDetail = (over: Partial<GroupDetail> = {}): GroupDetail => ({
   resetsAt: '2026-11-01T00:00:00.000Z',
   bulkPctMin: 50,
   bulkPctMax: 90,
-  canEdit: { budget: true, bulk: true, workspaceLimits: true, grant: true },
+  canEdit: { budget: true, bulk: true, workspaceLimits: true, grant: true, mode: false },
   ...over,
 });
 
@@ -185,6 +195,89 @@ describe('the group page', () => {
     expect(await screen.findByTestId('budget-group-status')).toHaveTextContent('Running normally');
     expect(calls.getGroup).toEqual(['a:7']);
     expect(screen.getByRole('heading', { name: 'Northwind' })).toBeInTheDocument();
+  });
+
+  it('a platform admin changes an organisation’s mode; a pending change is shown and can be cancelled', async () => {
+    detail = groupDetail({
+      mode: { current: 'separate', next: { mode: 'shared', from: '2026-11-01T00:00:00.000Z' } },
+      canEdit: { budget: true, bulk: true, workspaceLimits: true, grant: true, mode: true },
+    });
+    renderGroup();
+    expect(await screen.findByTestId('budget-mode-next')).toHaveTextContent('Changes to shared');
+    // Picking the mode in force again cancels the queued change.
+    await chooseOption(screen.getByLabelText('How workspaces share AI'), /^Separate/);
+    await waitFor(() => expect(calls.setGroupMode).toEqual([['a:7', 'separate']]));
+  });
+
+  it('a separate organisation: group-level budget, bulk line, extra and request are read-only', async () => {
+    detail = groupDetail({
+      mode: { current: 'separate', next: null },
+      groupExtra: null,
+      canEdit: { budget: true, bulk: true, workspaceLimits: true, grant: true, mode: true },
+    });
+    renderGroup();
+    expect(await screen.findByTestId('budget-separate-note')).toHaveTextContent(
+      'Each workspace has its own AI allowance'
+    );
+    expect(screen.getByTestId('budget-readonly')).toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton', { name: 'Budget per billing period, dollars' })).toBeNull();
+    expect(screen.getByRole('switch', { name: /Limit it/ })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Give extra to the whole organisation' })).toBeNull();
+    // The rows keep their own controls.
+    expect(screen.getByRole('checkbox', { name: 'Select Shop 1' })).toBeInTheDocument();
+  });
+
+  it('a shared organisation keeps the group-level controls', async () => {
+    detail = groupDetail({
+      mode: { current: 'shared', next: null },
+      canEdit: { budget: true, bulk: true, workspaceLimits: true, grant: true, mode: true },
+    });
+    renderGroup();
+    expect(await screen.findByRole('spinbutton', { name: 'Budget per billing period, dollars' })).toBeVisible();
+    expect(screen.queryByTestId('budget-separate-note')).toBeNull();
+    expect(screen.getByRole('switch', { name: /Limit it/ })).not.toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Give extra to the whole organisation' })
+    ).toBeInTheDocument();
+  });
+
+  it('a separate organisation: each workspace row shows its own budget', async () => {
+    detail = groupDetail({
+      mode: { current: 'separate', next: null },
+      rows: [row(1, 30 * MLN, { budget: 50 * MLN })],
+    });
+    renderGroup();
+    expect(await screen.findByText('of its ≈ $50.00')).toBeInTheDocument();
+  });
+
+  it('a separate organisation: a workspace name links to its own budget page; the panel shows no organisation marker', async () => {
+    detail = groupDetail({
+      mode: { current: 'separate', next: null },
+      canEdit: { budget: true, bulk: true, workspaceLimits: true, grant: true, mode: true },
+      rows: [row(1, 30 * MLN, { budget: 50 * MLN })],
+    });
+    renderGroup();
+    const link = await screen.findByRole('link', { name: 'Shop 1' });
+    expect(link).toHaveAttribute('href', '/console/platform/ai-spend/groups/w%3A1');
+    expect(screen.getByTestId('budget-separate-note')).toHaveTextContent(
+      "click the workspace's name in the list"
+    );
+    // Opening the row: the organisation's bulk % is not the workspace's own, so no tick is drawn.
+    fireEvent.click(screen.getByRole('button', { name: /Shop 1/ }));
+    await screen.findByRole('slider', { name: /Limit for Shop 1/ });
+    expect(screen.queryByTitle('Organisation: bulk limit')).toBeNull();
+  });
+
+  it('a shared organisation keeps the organisation marker in the row panel and no name link', async () => {
+    detail = groupDetail({
+      mode: { current: 'shared', next: null },
+      rows: [row(1, 30 * MLN)],
+    });
+    renderGroup();
+    fireEvent.click(await screen.findByRole('button', { name: /Shop 1/ }));
+    await screen.findByRole('slider', { name: /Limit for Shop 1/ });
+    expect(screen.queryByRole('link', { name: 'Shop 1' })).toBeNull();
+    expect(screen.getByTitle('Organisation: bulk limit')).toBeInTheDocument();
   });
 
   it('bulk limit off ⇒ the warn line from the API; the field keeps its place', async () => {
@@ -230,16 +323,16 @@ describe('the group page', () => {
     await waitFor(() => expect(slider).toHaveValue('60'));
   });
 
-  it('select two rows ⇒ "2 selected"; Set limit sends both ids and the limit in tokens', async () => {
+  it('select two rows ⇒ "2 selected"; Set limit sends both ids and the limit in micros', async () => {
     renderGroup();
     fireEvent.click(await screen.findByRole('checkbox', { name: 'Select Shop 1' }));
     fireEvent.click(screen.getByRole('checkbox', { name: 'Select Shop 2' }));
     expect(screen.getByText('2 selected')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Set limit' }));
-    await waitFor(() => expect(calls.setWorkspaceLimits).toEqual([[[1, 2], 30 * MLN]]));
+    await waitFor(() => expect(calls.setWorkspaceLimits).toEqual([[[1, 2], 5 * MLN]]));
   });
 
-  it('Give extra with "Each gets what its import still needs" sends tokens: suggested', async () => {
+  it('Give extra with "Each gets what its import still needs" sends amountMicros: suggested', async () => {
     renderGroup();
     fireEvent.click(await screen.findByRole('checkbox', { name: 'Select Shop 1' }));
     fireEvent.click(screen.getByRole('checkbox', { name: 'Select Shop 2' }));
@@ -256,7 +349,7 @@ describe('the group page', () => {
             { allianceId: 7, organizationId: 1 },
             { allianceId: 7, organizationId: 2 },
           ],
-          tokens: 'suggested',
+          amountMicros: 'suggested',
           end: 3,
         },
       ])
@@ -283,10 +376,10 @@ describe('the group page', () => {
 
   it('one click on a paused row gives its suggested extra for 3 days', async () => {
     renderGroup();
-    fireEvent.click(await screen.findByRole('button', { name: 'Give +15.0M extra · 3 days' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Give ≈ $15.00 extra · 3 days' }));
     await waitFor(() =>
       expect(calls.giveExtra).toEqual([
-        { targets: [{ allianceId: 7, organizationId: 3 }], tokens: 15 * MLN, end: 3 },
+        { targets: [{ allianceId: 7, organizationId: 3 }], amountMicros: 15 * MLN, end: 3 },
       ])
     );
   });
@@ -294,7 +387,7 @@ describe('the group page', () => {
   it('one-click give: a second click while the first is on its way sends nothing', async () => {
     giveHold = new Promise(() => {});
     renderGroup();
-    const give = await screen.findByRole('button', { name: 'Give +15.0M extra · 3 days' });
+    const give = await screen.findByRole('button', { name: 'Give ≈ $15.00 extra · 3 days' });
     fireEvent.click(give);
     await waitFor(() => expect(give).toBeDisabled());
     fireEvent.click(give);
@@ -315,35 +408,35 @@ describe('the group page', () => {
       expect(bar.getByRole('button', { name })).toBeDisabled();
   });
 
-  it('no budget: the own-limit slider is not capped at 1M and Set limit sends the value', async () => {
+  it('no budget: the own-limit slider is not capped at $1 and Set limit sends the value', async () => {
     detail = groupDetail({ budget: null, budgetSource: 'none' });
     renderGroup();
     fireEvent.click(await screen.findByText('Shop 1'));
-    const slider = screen.getByRole('slider', { name: 'Limit for Shop 1' });
-    expect(Number(slider.getAttribute('max'))).toBeGreaterThanOrEqual(50);
-    fireEvent.click(screen.getByRole('switch', { name: 'At most per month' }));
+    const slider = screen.getByRole('slider', { name: 'Limit for Shop 1, dollars' });
+    expect(Number(slider.getAttribute('max'))).toBeGreaterThanOrEqual(10);
+    fireEvent.click(screen.getByRole('switch', { name: 'At most per billing period' }));
     fireEvent.change(slider, { target: { value: '40' } });
     expect(screen.queryByText(/% of the budget/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Set limit' }));
     await waitFor(() => expect(calls.setWorkspaceLimits).toEqual([[[1], 40 * MLN]]));
   });
 
-  it('no budget: the bulk bar slider is not capped at 1M either', async () => {
+  it('no budget: the bulk bar slider is not capped at $1 either', async () => {
     detail = groupDetail({ budget: null, budgetSource: 'none' });
     renderGroup();
     fireEvent.click(await screen.findByRole('checkbox', { name: 'Select Shop 1' }));
     const slider = screen.getByRole('slider', {
-      name: 'Own bulk limit for each selected workspace',
+      name: 'Own bulk limit for each selected workspace, dollars',
     });
-    expect(Number(slider.getAttribute('max'))).toBeGreaterThanOrEqual(50);
+    expect(Number(slider.getAttribute('max'))).toBeGreaterThanOrEqual(10);
     fireEvent.change(slider, { target: { value: '45' } });
     fireEvent.click(screen.getByRole('button', { name: 'Set limit' }));
     await waitFor(() => expect(calls.setWorkspaceLimits).toEqual([[[1], 45 * MLN]]));
   });
 
-  it('a typed budget is saved in tokens', async () => {
+  it('a typed budget is saved in micros', async () => {
     renderGroup();
-    fireEvent.change(await screen.findByLabelText('Monthly budget'), { target: { value: '120' } });
+    fireEvent.change(await screen.findByLabelText('Budget per billing period'), { target: { value: '120' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save budget' }));
     await waitFor(() => expect(calls.updateGroup).toEqual([['a:7', { budget: 120 * MLN }]]));
   });
@@ -352,10 +445,10 @@ describe('the group page', () => {
     stateResult = { available: true, state: state({ selfHosted: false }) };
     detail = groupDetail({ budget: 14_900_000, budgetSource: 'plans' });
     renderGroup();
-    expect(await screen.findByText('From plans: 14.9M')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Monthly budget')).toBeNull();
+    expect(await screen.findByText('From plans: ≈ $14.90')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Budget per billing period')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Override' }));
-    expect(screen.getByLabelText('Monthly budget')).toHaveValue(14.9);
+    expect(screen.getByLabelText('Budget per billing period')).toHaveValue(14.9);
   });
 
   it('self-hosted standalone on the default budget: says so, and Override opens the field', async () => {
@@ -367,10 +460,10 @@ describe('the group page', () => {
       budgetSource: 'default',
     });
     renderGroup();
-    expect(await screen.findByText('Default for standalone workspaces: 40.0M')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Monthly budget')).toBeNull();
+    expect(await screen.findByText('Default for standalone workspaces: ≈ $40.00')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Budget per billing period')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Override' }));
-    fireEvent.change(screen.getByLabelText('Monthly budget'), { target: { value: '55' } });
+    fireEvent.change(screen.getByLabelText('Budget per billing period'), { target: { value: '55' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save budget' }));
     await waitFor(() => expect(calls.updateGroup).toEqual([['a:7', { budget: 55 * MLN }]]));
   });
@@ -380,10 +473,10 @@ describe('the group page', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: 'Give extra to the whole organisation' })
     );
-    fireEvent.click(screen.getByRole('button', { name: /^Give \+.* · ends in 3 days$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Give ≈ .* · ends in 3 days$/ }));
     await waitFor(() =>
       expect(calls.giveExtra).toEqual([
-        { targets: [{ allianceId: 7, organizationId: null }], tokens: 15 * MLN, end: 3 },
+        { targets: [{ allianceId: 7, organizationId: null }], amountMicros: 15 * MLN, end: 3 },
       ])
     );
   });
@@ -392,15 +485,15 @@ describe('the group page', () => {
 describe('BudgetGroupView, organisation mode', () => {
   it('canEdit.budget false hides the budget input; no grant controls without canEdit.grant', () => {
     const view = groupDetail({
-      canEdit: { budget: false, bulk: true, workspaceLimits: true, grant: false },
+      canEdit: { budget: false, bulk: true, workspaceLimits: true, grant: false, mode: false },
     });
     render(
       <MemoryRouter future={ROUTER_FUTURE}>
         <BudgetGroupView detail={view} canEdit={view.canEdit} mode="organisation" />
       </MemoryRouter>
     );
-    expect(screen.queryByLabelText('Monthly budget')).toBeNull();
-    expect(screen.getByTestId('budget-readonly')).toHaveTextContent('100M');
+    expect(screen.queryByLabelText('Budget per billing period')).toBeNull();
+    expect(screen.getByTestId('budget-readonly')).toHaveTextContent('≈ $100.00');
     expect(
       screen.queryByRole('button', { name: 'Give extra to the whole organisation' })
     ).toBeNull();
@@ -412,15 +505,15 @@ describe('BudgetGroupView, organisation mode', () => {
 
   it('the platform admin in the organisation console gets no editable budget (its PUT has none)', () => {
     const view = groupDetail({
-      canEdit: { budget: true, bulk: true, workspaceLimits: true, grant: true },
+      canEdit: { budget: true, bulk: true, workspaceLimits: true, grant: true, mode: false },
     });
     render(
       <MemoryRouter future={ROUTER_FUTURE}>
         <BudgetGroupView detail={view} canEdit={view.canEdit} mode="organisation" />
       </MemoryRouter>
     );
-    expect(screen.queryByLabelText('Monthly budget')).toBeNull();
+    expect(screen.queryByLabelText('Budget per billing period')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Save budget' })).toBeNull();
-    expect(screen.getByTestId('budget-readonly')).toHaveTextContent('100M');
+    expect(screen.getByTestId('budget-readonly')).toHaveTextContent('≈ $100.00');
   });
 });

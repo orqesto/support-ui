@@ -282,6 +282,7 @@ export const PlatformAiSpend = () => {
     : pricedFromParts.join(' + ');
   const unreadableRateOrgs = cost?.providerRatesUnreadableOrgIds ?? [];
   const totalCost = cost ? cost.usd : usage ? sumCost(usage.totals.byTier) : null;
+  const unpricedCalls = cost?.unpricedCalls;
   const unpricedTokens =
     cost?.unpricedTokens ??
     usage?.totals.byTier
@@ -417,6 +418,20 @@ export const PlatformAiSpend = () => {
               </CardContent>
             </Card>
           </div>
+
+          {unpricedCalls && unpricedCalls.calls > 0 && (
+            <Alert variant="warning">
+              <p data-testid="unpriced-models-warning" className="text-sm">
+                {unpricedCalls.calls.toLocaleString()} call{unpricedCalls.calls === 1 ? '' : 's'}{' '}
+                used a model with no price set (models:{' '}
+                {unpricedCalls.models
+                  .map((entry) => `${entry.model} (${entry.calls.toLocaleString()})`)
+                  .join(', ')}
+                ). {unpricedCalls.calls === 1 ? 'It is' : 'They are'} counted at the highest known
+                rate until a price is set, so spend may be over-counted.
+              </p>
+            </Alert>
+          )}
 
           <Card className="flex overflow-hidden flex-col shrink-0">
             <CardContent padding="none" className="flex overflow-x-auto flex-col">

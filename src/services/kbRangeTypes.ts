@@ -39,6 +39,7 @@ export type KbRangeRequest = {
     historyToFetch?: number;
     recentToFetch?: number | null;
     estimatedTokens?: number | null;
+    estimatedMicros?: number | null;
   };
 };
 export type KbRangeOption = {
@@ -103,6 +104,9 @@ export type KbRangeEstimate = {
   threadsBasis: 'distinct_threads' | 'upper_bound_messages';
   tokensPerThread: number | null;
   estimatedTokens: number | null;
+  /** Money (micro-dollars) of the same read, when the server prices it. */
+  microsPerThread?: number | null;
+  estimatedMicros?: number | null;
   daysAtLimit: number | null;
   limit: number;
   spentToday: number;
@@ -121,7 +125,15 @@ export type KbRangeDryRun = KbRangePolicy & {
   recent: KbRangeCount | null;
   estimate: KbRangeEstimate | null;
   room: KbRangeRoom;
-  aiAllowance: { callsLeftThisMonth: number | null; estimatedCalls: number | null; short: boolean };
+  aiAllowance: {
+    currency?: 'USD';
+    /** What is left of this month's AI allowance for history import, micro-dollars. */
+    bulkMicrosLeft: number | null;
+    estimatedMicros: number | null;
+    estimatedCalls: number | null;
+    short: boolean;
+    resetsAt?: string | null;
+  };
 };
 export type KbRangeApplied = {
   applied: true;

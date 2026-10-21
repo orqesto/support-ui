@@ -1,21 +1,21 @@
 import type { ExtraView, GiveExtraBody } from '@/services/budgets.service';
 
 /**
- * Formatting and constants shared by the budget components. The API speaks tokens; the screens
- * speak million tokens ("106M"). Moved here from the budget model demo's rules.
+ * Formatting and constants shared by the budget components. The API speaks money in integer
+ * micro-dollars (1 USD = 1,000,000); the screens speak dollars ("≈ $12.40"). Tokens appear only as
+ * the admins' secondary figure ("106M tokens") where the API gives them.
  */
 
-/** $ per 1M tokens: Haiku 5.5 list price ($0.10 in / $0.50 out per 1M) at a 92.5% input mix. */
-export const PRICE_PER_MILLION = 0.925 * 0.1 + 0.075 * 0.5;
-
-export const MILLION = 1_000_000;
+/** Micro-dollars in one dollar. */
+export const MICROS_PER_USD = 1_000_000;
 
 /** Id of the Advanced card on Platform → AI Spend; the group page links to it. */
 export const ADVANCED_ANCHOR = 'budget-advanced';
 
-/** Extra amount slider range, million tokens. */
-export const EXTRA_MIN = 5;
-export const EXTRA_MAX = 200;
+/** Extra amount slider range, dollars (step $1). */
+export const EXTRA_MIN = 1;
+export const EXTRA_MAX = 100;
+export const EXTRA_STEP = 1;
 
 /** How long a granted extra lasts: the choice sent to the API. */
 export type ExtraEndChoice = GiveExtraBody['end'];
@@ -27,14 +27,14 @@ export const END_CHOICES: ReadonlyArray<{ value: ExtraEndChoice; label: string }
 /** The row shortcut gives the suggested extra for 3 days. */
 export const QUICK_EXTRA_END: ExtraEndChoice = 3;
 
-/** An own-bulk-limit slider never tops out below this, million tokens (a group may have no budget). */
-export const LIMIT_SLIDER_FLOOR = 50;
+/** An own-bulk-limit slider never tops out below this, dollars (a group may have no budget). */
+export const LIMIT_SLIDER_FLOOR = 10;
 
 /**
- * Top of an own-bulk-limit slider, million tokens: the biggest of the budget, the group's month
+ * Top of an own-bulk-limit slider, dollars: the biggest of the budget, the group's month
  * spend, the workspaces' current limits, twice their month spend and LIMIT_SLIDER_FLOOR, rounded
- * up to 5M. So a group with no budget is not capped at 1M, an existing limit always fits, and a
- * workspace's spend is visible on the bar before a limit below it is saved. Takes tokens.
+ * up to $5. So a group with no budget is not capped at 1M, an existing limit always fits, and a
+ * workspace's spend is visible on the bar before a limit below it is saved. Takes micros, answers dollars.
  */
 export const limitSliderTop = ({
   budget,
@@ -47,29 +47,64 @@ export const limitSliderTop = ({
   limits?: ReadonlyArray<number | null>;
   spends?: ReadonlyArray<number>;
 }): number => {
-  const tokens = Math.max(
+  const micros = Math.max(
     budget ?? 0,
     groupSpend,
     ...limits.map((limit) => limit ?? 0),
     ...spends.map((spend) => 2 * spend),
-    LIMIT_SLIDER_FLOOR * MILLION
+    LIMIT_SLIDER_FLOOR * MICROS_PER_USD
   );
-  return Math.ceil(tokens / MILLION / 5) * 5;
+  return Math.ceil(micros / MICROS_PER_USD / 5) * 5;
 };
 
-/** Million tokens: "106M", "28.0M". */
-export const fmt = (millions: number): string =>
-  (Math.abs(millions) >= 100 ? millions.toFixed(0) : millions.toFixed(1)) + 'M';
-
-/** "≈ $0.48" / "≈ $40". */
-export const usd = (millions: number): string => {
-  const dollars = millions * PRICE_PER_MILLION;
-  return '≈ $' + (dollars >= 10 ? dollars.toFixed(0) : dollars.toFixed(2));
+/**
+ * Money from micro-dollars: "≈ $12.40" (2 decimals). A positive amount under one cent is
+ * "<$0.01" (under half a cent), never "≈ $0.00" (it was spent). Thousands are grouped: "≈ $1,234.50".
+ */
+export const fmtMoney = (micros: number): string => {
+  // Same rule as the backend: under half a cent (and above nothing) is "<$0.01"; a tiny negative
+  // is "$0.00", never "-$0.00".
+  if (micros > 0 && micros < 5_000) return '<$0.01';
+  const dollars = micros / MICROS_PER_USD;
+  const text = Math.abs(dollars).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const negative = dollars < 0 && text !== '0.00';
+  return `≈ ${negative ? '-' : ''}$${text}`;
 };
 
-/** Tokens as "106M". */
-export const fmtTokens = (tokens: number): string => fmt(tokens / MILLION);
-export const usdTokens = (tokens: number): string => usd(tokens / MILLION);
+/** Whole dollars from micros, for an input or slider: 12_400_000 -> 12.4. */
+export const microsToDollars = (micros: number): number => micros / MICROS_PER_USD;
+
+/** Dollars typed by a person -> micros (whole cents of a cent: rounded to a micro). */
+export const dollarsToMicros = (dollars: number): number => Math.round(dollars * MICROS_PER_USD);
+
+/** Input text for an amount in micros: "" for none, "12.4" for $12.40. */
+export const dollarsText = (micros: number | null): string =>
+  micros === null ? '' : String(Math.round(microsToDollars(micros) * 100) / 100);
+
+/**
+ * Dollars typed by a person -> micros. '' = null (none); NaN = not a positive number. Under one
+ * micro (e.g. "0.0000001") is not a positive amount.
+ */
+export const parseDollars = (text: string): number | null => {
+  const trimmed = text.trim();
+  if (trimmed === '') return null;
+  const value = Number(trimmed);
+  if (!Number.isFinite(value) || value <= 0) return Number.NaN;
+  const micros = dollarsToMicros(value);
+  return micros > 0 ? micros : Number.NaN;
+};
+
+/** Whole tokens as "106M" / "1.2M" / "850K": the admins' secondary figure. */
+export const fmtTokenCount = (tokens: number): string => {
+  const abs = Math.abs(tokens);
+  if (abs >= 1_000_000)
+    return (abs >= 100_000_000 ? (tokens / 1e6).toFixed(0) : (tokens / 1e6).toFixed(1)) + 'M';
+  if (abs >= 1_000) return (tokens / 1_000).toFixed(0) + 'K';
+  return String(tokens);
+};
 
 export const grantEndsText = (end: ExtraEndChoice): string =>
   end === 'today' ? 'today' : `in ${end} days`;
@@ -86,9 +121,9 @@ export const extraEndsText = (endsAt: string, now?: number): string => {
   return `ends ${days ? `in ${days} d` : 'today'}`;
 };
 
-/** Tokens of an extra that are still unused. */
+/** Micros of an extra that are still unused. */
 export const extraLeft = (extra: ExtraView | null): number =>
-  extra ? Math.max(0, extra.tokens - extra.used) : 0;
+  extra ? Math.max(0, extra.amountMicros - extra.usedMicros) : 0;
 
 export const clampPct = (pct: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, pct));

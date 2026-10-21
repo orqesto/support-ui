@@ -339,6 +339,11 @@ export interface ManagedAiUsage {
        * not answer) — their own-key usage is at list prices. Absent on an older backend.
        */
       providerRatesUnreadableOrgIds?: number[];
+      /**
+       * AI calls to models with no price set: the budgets count them at the highest known
+       * rate until a price is set, so spend may be over-counted. Absent on a backend that predates it.
+       */
+      unpricedCalls?: { calls: number; models: Array<{ model: string; calls: number }> };
     };
   };
 }

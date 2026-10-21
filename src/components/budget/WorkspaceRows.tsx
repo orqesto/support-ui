@@ -1,14 +1,15 @@
 import type { KeyboardEvent, ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { cn } from '@/lib/utils';
 import type { WorkspaceRow } from '@/services/budgets.service';
-import { END_CHOICES, QUICK_EXTRA_END, fmtTokens } from './budget.rules';
+import { END_CHOICES, QUICK_EXTRA_END, fmtMoney, fmtTokenCount } from './budget.rules';
 import { TONE_CLASS } from './StatusText';
 
 export type WorkspaceRowsProps = {
   rows: WorkspaceRow[];
-  /** The group's month spend, tokens: the "% of used" share is taken from it. */
+  /** The group's period spend, micros: the "% of used" share is taken from it. */
   groupTotal: number;
   /** Id of the one expanded row. */
   openId: number | null;
@@ -23,6 +24,8 @@ export type WorkspaceRowsProps = {
    * only on a row the API marks `bulkPaused` (its bulk work is stopped and no extra is left).
    */
   onGiveSuggested?: (row: WorkspaceRow) => void;
+  /** Where a workspace's own budget page is; when given, its name links there. */
+  workspacePath?: (organizationId: number) => string;
   /** A write is on its way: the one-click give is disabled (no double give on a double click). */
   busy?: boolean;
 };
@@ -43,9 +46,10 @@ export const WorkspaceRows = ({
   renderPanel,
   onGiveSuggested,
   busy = false,
+  workspacePath,
 }: WorkspaceRowsProps) => {
   // Row bars are relative: the biggest workspace fills its bar.
-  const biggest = Math.max(1, ...rows.map((row) => row.spend.total + (row.extra?.used ?? 0)));
+  const biggest = Math.max(1, ...rows.map((row) => row.spend.total + (row.extra?.usedMicros ?? 0)));
   const onRowKey = (event: KeyboardEvent<HTMLDivElement>, id: number) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
@@ -60,7 +64,7 @@ export const WorkspaceRows = ({
         const id = row.organizationId;
         const open = id === openId;
         const share = groupTotal > 0 ? Math.round((row.spend.total / groupTotal) * 100) : 0;
-        const extraUsed = row.extra?.used ?? 0;
+        const extraUsed = row.extra?.usedMicros ?? 0;
         return (
           <li key={id} data-testid={`budget-row-${id}`}>
             <div className="flex gap-2 items-stretch">
@@ -88,7 +92,20 @@ export const WorkspaceRows = ({
                 )}
               >
                 <div className="min-w-0">
-                  <div className="font-semibold truncate">{row.name}</div>
+                  <div className="font-semibold truncate">
+                    {workspacePath ? (
+                      <Link
+                        to={workspacePath(id)}
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => event.stopPropagation()}
+                        className="text-primary hover:underline"
+                      >
+                        {row.name}
+                      </Link>
+                    ) : (
+                      row.name
+                    )}
+                  </div>
                   <div
                     className="flex overflow-hidden mt-1 h-1.5 rounded-full bg-muted"
                     title="Relative to the biggest workspace"
@@ -106,11 +123,17 @@ export const WorkspaceRows = ({
                   </div>
                 </div>
                 <div className="font-mono text-sm">
-                  {fmtTokens(row.spend.total)}{' '}
+                  {fmtMoney(row.spend.total)}{' '}
                   <span className="text-muted-foreground">· {share}% of used</span>
-                  {row.bulkLimit !== null && (
-                    <div className="text-muted-foreground">limit {fmtTokens(row.bulkLimit)}</div>
+                  {row.budget !== null && (
+                    <div className="text-muted-foreground">of its {fmtMoney(row.budget)}</div>
                   )}
+                  {row.bulkLimit !== null && (
+                    <div className="text-muted-foreground">limit {fmtMoney(row.bulkLimit)}</div>
+                  )}
+                  <div className="text-xs text-muted-foreground" data-testid={`budget-row-tokens-${id}`}>
+                    {fmtTokenCount(row.tokens.total)} tokens
+                  </div>
                 </div>
                 <div className="flex flex-col gap-0.5 text-sm">
                   <span
@@ -121,8 +144,8 @@ export const WorkspaceRows = ({
                   </span>
                   {row.liveSpike && (
                     <span className={cn('text-xs', TONE_CLASS.warn)}>
-                      Live mail today {fmtTokens(row.liveSpike.today)}, usually{' '}
-                      {fmtTokens(row.liveSpike.usual)}
+                      Live mail today {fmtMoney(row.liveSpike.today)}, usually{' '}
+                      {fmtMoney(row.liveSpike.usual)}
                     </span>
                   )}
                 </div>
@@ -136,7 +159,7 @@ export const WorkspaceRows = ({
                   disabled={busy}
                   onClick={() => onGiveSuggested(row)}
                 >
-                  Give +{fmtTokens(row.suggestedExtra)} extra · {QUICK_EXTRA_LABEL}
+                  Give {fmtMoney(row.suggestedExtra)} extra · {QUICK_EXTRA_LABEL}
                 </Button>
               </div>
             )}

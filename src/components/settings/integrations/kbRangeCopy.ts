@@ -9,6 +9,7 @@
  *  - "No estimate" is never a 0. "All time" (0 days) is never "last 0 days".
  *  - Narrowing keeps the knowledge base; an unconfirmed skip count is never "complete".
  */
+import { fmtMoney } from '@/components/budget/budget.rules';
 import { apiErrorMessage, apiErrorStatus } from '@/lib/apiError';
 import type {
   KbLastSweep,
@@ -169,7 +170,9 @@ export const costLine = (
   est: KbRangeEstimate | null,
   aiMode: KbRangePolicy['aiMode'],
   recentToFetch: number,
-  history: KbRangeCount | null
+  history: KbRangeCount | null,
+  /** Workspace / platform admins also read the money figure; agents never do. */
+  showMoney = false
 ): string => {
   if (aiMode === 'none') {
     return 'This workspace has no AI provider, so mining uses rule-based extraction — no AI tokens.';
@@ -210,6 +213,9 @@ export const costLine = (
   let line =
     `${lead}≈${num(est.estimatedTokens)} tokens${incompleteNote} for ${bound}${plural(est.threadsToMine, unit, `${unit}s`)} ` +
     `(${fetched}; ${num(est.tokensPerThread)} per ${unit}, measured on this workspace).`;
+  if (showMoney && typeof est.estimatedMicros === 'number' && est.estimatedMicros > 0) {
+    line += ` That is ${fmtMoney(est.estimatedMicros)} of AI.`;
+  }
   if (est.daysAtLimit !== null) {
     if (est.daysAtLimit <= 1) line += " It fits in today's KB limit.";
     else if (est.enforced) {
@@ -226,19 +232,28 @@ export const costLine = (
 };
 
 export const allowanceLine = (
-  allowance: { callsLeftThisMonth: number | null; estimatedCalls: number | null; short: boolean },
+  allowance: {
+    bulkMicrosLeft?: number | null;
+    estimatedMicros?: number | null;
+    estimatedCalls?: number | null;
+    short: boolean;
+  },
   kbLimitReachedToday: boolean,
-  aiMode: KbRangePolicy['aiMode']
+  aiMode: KbRangePolicy['aiMode'],
+  showMoney = false
 ): string | null => {
   const parts: string[] = [];
-  if (
-    allowance.short &&
-    allowance.estimatedCalls !== null &&
-    allowance.callsLeftThisMonth !== null
-  ) {
+  // Money lines are for admins; a backend on the old `aiAllowance` shape sends no money fields.
+  const left = typeof allowance.bulkMicrosLeft === 'number' ? allowance.bulkMicrosLeft : null;
+  const needs = typeof allowance.estimatedMicros === 'number' ? allowance.estimatedMicros : null;
+  if (showMoney && aiMode !== 'none' && left !== null) {
+    parts.push(`${fmtMoney(left)} of this period's AI allowance left for history import.`);
+  }
+  if (allowance.short && left !== null && needs !== null) {
     parts.push(
-      `This read needs about ${num(allowance.estimatedCalls)} AI calls; your plan has ${num(allowance.callsLeftThisMonth)} left this month. ` +
-        'When they run out, mining continues without AI (rule-based).'
+      showMoney
+        ? `This read needs about ${fmtMoney(needs)}, more than is left. When it runs out, mining continues without AI (rule-based).`
+        : "This read needs more than is left of this period's AI allowance. When it runs out, mining continues without AI (rule-based)."
     );
   }
   if (kbLimitReachedToday) {

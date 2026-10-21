@@ -141,6 +141,59 @@ describe('AI Spend cost', () => {
   });
 });
 
+describe('calls to models with no known price (the budgets count them as $0)', () => {
+  it('warns with the count and the models when the API reports some', async () => {
+    const base = payload();
+    get.mockResolvedValue({
+      ...base,
+      usage: {
+        ...base.usage,
+        totals: {
+          ...base.usage.totals,
+          cost: {
+            ...base.usage.totals.cost!,
+            unpricedCalls: {
+              calls: 7,
+              models: [
+                { model: 'mystery-model', calls: 5 },
+                { model: 'other-model', calls: 2 },
+              ],
+            },
+          },
+        },
+      },
+    });
+    renderPage();
+    const warning = await screen.findByTestId('unpriced-models-warning');
+    expect(warning).toHaveTextContent(
+      '7 calls used a model with no price set (models: mystery-model (5), other-model (2)). They are counted at the highest known rate until a price is set, so spend may be over-counted.'
+    );
+    expect(warning).not.toHaveTextContent(/\$0|under-count/);
+  });
+
+  it('says nothing when none are unpriced, or the backend does not report it', async () => {
+    const base = payload();
+    get.mockResolvedValue({
+      ...base,
+      usage: {
+        ...base.usage,
+        totals: {
+          ...base.usage.totals,
+          cost: { ...base.usage.totals.cost!, unpricedCalls: { calls: 0, models: [] } },
+        },
+      },
+    });
+    renderPage();
+    await screen.findByText('Estimated cost');
+    expect(screen.queryByTestId('unpriced-models-warning')).toBeNull();
+    cleanup();
+    get.mockResolvedValue(payload());
+    renderPage();
+    await screen.findByText('Estimated cost');
+    expect(screen.queryByTestId('unpriced-models-warning')).toBeNull();
+  });
+});
+
 describe('the tier column that used to be called "Unpriced"', () => {
   it('does not claim a tier is unpriced when its models are priced', async () => {
     // `other` = "not a current tier model", which is a different thing from "no rate".

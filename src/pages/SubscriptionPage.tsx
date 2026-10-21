@@ -8,10 +8,10 @@ import {
   Users,
   Plug,
   MessageSquare,
-  Zap,
   HardDrive,
   Settings,
   Database,
+  Zap,
   BookOpen,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -24,6 +24,10 @@ import { AddPaymentMethodDialog } from '@/components/billing/AddPaymentMethodDia
 import { billingDateLine } from '@/components/subscription/billingDateLine';
 import { FreePlanActiveCard } from '@/components/subscription/FreePlanActiveCard';
 import { MessagePackOfferCard } from '@/components/subscription/MessagePackOfferCard';
+import { AiPausedBanner } from '@/components/subscription/AiPausedBanner';
+import { loadAiStatus, loadOwnKey, type AiStatus } from '@/components/subscription/aiStatus';
+import { PlanLimitsCard } from '@/components/subscription/PlanLimitsCard';
+import { MessagesSummary, TRIAL_SENTENCE } from '@/components/subscription/MessagesSummary';
 import { describeUsagePeriod } from '@/components/subscription/usagePeriodCopy';
 import { useMessagePackReturn } from '@/components/subscription/useMessagePackReturn';
 import { UsageTile, type UsageItem } from '@/components/subscription/UsageTile';
@@ -37,7 +41,7 @@ import {
   type UsagePeriod,
 } from '@/services/subscription.service';
 import { useAuthStore } from '@/stores/authStore';
-import { hasPermission, Permission } from '@/types/roles';
+import { hasPermission, isOrgAdminOrHigher, Permission } from '@/types/roles';
 
 
 type DashboardData = {
@@ -58,7 +62,8 @@ type DashboardData = {
     users: UsageItem;
     integrations: UsageItem;
     messages: UsageItem;
-    aiCalls: UsageItem;
+    /** A statistic only (no limit, no percentage). Kept for older readers; not shown as a tile. */
+    aiCalls?: UsageItem;
     storage: UsageItem;
     /** Volume caps (BE 2026-09-24). Absent on a backend that predates them — render nothing. */
     storedMessages?: UsageItem;
@@ -68,7 +73,6 @@ type DashboardData = {
     maxUsers: number;
     maxIntegrations: number;
     maxMessagesPerMonth: number;
-    maxAICallsPerMonth: number;
     maxStorageMb: number;
   };
   /** Both optional for the same skew reason as `UsageItem.extra`. */
@@ -131,6 +135,10 @@ export const SubscriptionPage = () => {
   useMessagePackReturn();
 
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  // `ai` of /api/usage/current: the AI-paused banner and the own-key line. Optional (older backend).
+  // From the provider settings (`platform.active === false` ⇒ own key). null = unknown ⇒ no wording.
+  const [ownKey, setOwnKey] = useState(false);
+  const [aiStatus, setAiStatus] = useState<AiStatus | undefined>(undefined);
   const [subscriptionDetails, setSubscriptionDetails] = useState<SubscriptionDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [portalLoading, setPortalLoading] = useState(false);
@@ -227,6 +235,9 @@ export const SubscriptionPage = () => {
 
       setDashboard(dashboardRes.data.data);
       setSubscriptionDetails(subRes.data.data);
+      // Their own tries: the page is complete without the AI block and the provider settings.
+      setAiStatus(await loadAiStatus());
+      setOwnKey(await loadOwnKey());
     } catch (error) {
       logger.error('Failed to load subscription:', error);
     } finally {
@@ -302,6 +313,11 @@ export const SubscriptionPage = () => {
   }
 
   const { plan, subscription } = subscriptionDetails;
+  // Managed AI is in the messages only where the plan carries it: not Free, not a workspace on its
+  // own key, not when the API says AI is not in the plan.
+  const aiIncluded = plan.name !== 'free' && !ownKey && aiStatus?.reason !== 'not_in_plan';
+  // Before the budgets are applied the old monthly AI-call cap still refuses work: keep showing it.
+  const showAiCalls = aiStatus?.active !== true && !ownKey;
   const billingLine = billingDateLine(plan, subscription);
   const { usage } = dashboard;
 
@@ -402,6 +418,9 @@ export const SubscriptionPage = () => {
                     Trial ends: <span className="font-mono">{new Date(subscription.trialEndsAt).toLocaleDateString()}</span>
                   </p>
                 )}
+                {subscription.status === 'trialing' && (
+                  <p className="text-xs text-muted-foreground">{TRIAL_SENTENCE}</p>
+                )}
               </div>
             </div>
 
@@ -448,16 +467,41 @@ export const SubscriptionPage = () => {
             </div>
           </CardHeader>
           <CardContent>
+            <AiPausedBanner
+              ai={aiStatus}
+              isAdmin={!!user && isOrgAdminOrHigher(user.role, user.organizationRole)}
+              packAction={
+                packOffer?.available ? (
+                  <button
+                    type="button"
+                    data-testid="buy-message-pack-ai-banner"
+                    onClick={() => void handleBuyPack()}
+                    disabled={buyingPack}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    Buy {packOffer.messages.toLocaleString()} messages
+                  </button>
+                ) : undefined
+              }
+            />
+            <MessagesSummary
+              limit={usage.messages.limit}
+              used={usage.messages.current}
+              period={dashboard.period}
+              aiIncluded={aiIncluded}
+            />
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <UsageTile title="Users" icon={Users} item={usage.users} />
               <UsageTile title="Integrations" icon={Plug} item={usage.integrations} />
               <UsageTile
-                title="Messages"
+                title={aiIncluded ? 'Messages (AI included)' : 'Messages'}
                 icon={MessageSquare}
                 item={usage.messages}
                 action={buyPackButton('outline')}
               />
-              <UsageTile title="AI Calls" icon={Zap} item={usage.aiCalls} />
+              {showAiCalls && usage.aiCalls && (
+                <UsageTile title="AI Calls" icon={Zap} item={usage.aiCalls} />
+              )}
               <UsageTile title="Storage (MB)" icon={HardDrive} item={usage.storage} />
               {usage.storedMessages && (
                 <UsageTile title="Stored messages" icon={Database} item={usage.storedMessages} />
@@ -478,7 +522,7 @@ export const SubscriptionPage = () => {
             {(usage.users.warning ||
               usage.integrations.warning ||
               usage.messages.warning ||
-              usage.aiCalls.warning ||
+              (showAiCalls && (usage.aiCalls?.warning ?? false)) ||
               usage.storage.warning ||
               (usage.storedMessages?.warning ?? false) ||
               (usage.kbItems?.warning ?? false)) && (
@@ -521,48 +565,10 @@ export const SubscriptionPage = () => {
         {/* Task #8: on Free with pausing on — who is paused, and choosing who stays active. */}
         <FreePlanActiveCard planName={plan.name} canManage={canManage} currentUserId={user?.id ?? null} />
 
-        {/* Plan Limits Reference */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Plan Limits</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">Max Users</p>
-                <p className="font-mono text-lg font-semibold">
-                  {dashboard.limits.maxUsers.toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">Max Integrations</p>
-                <p className="font-mono text-lg font-semibold">
-                  {dashboard.limits.maxIntegrations.toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">Messages / Month</p>
-                <p className="font-mono text-lg font-semibold">
-                  {dashboard.limits.maxMessagesPerMonth.toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">AI Calls / Month</p>
-                <p className="text-lg font-semibold">
-                  {dashboard.limits.maxAICallsPerMonth === 0
-                    ? 'Not included'
-                    : dashboard.limits.maxAICallsPerMonth.toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">Storage</p>
-                <p className="font-mono text-lg font-semibold">
-                  {dashboard.limits.maxStorageMb.toLocaleString()} MB
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <PlanLimitsCard
+          limits={dashboard.limits}
+          aiCallsLimit={showAiCalls ? usage.aiCalls?.limit : undefined}
+        />
 
         {/* Quick Links */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

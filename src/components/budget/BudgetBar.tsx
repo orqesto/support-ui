@@ -1,17 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { BarMarker, BarSegment, BarSlider } from '@/components/ui/BarSlider';
-import { clampPct, fmtTokens, usdTokens } from './budget.rules';
+import type { TokenSpend } from '@/services/budgets.service';
+import { clampPct, fmtMoney, fmtTokenCount } from './budget.rules';
 import { BulkLegend, BulkLimitLegend, Swatch } from './BulkLimitField';
 
 export const BULK_PCT_DEBOUNCE_MS = 400;
 
 export type BudgetBarProps = {
-  /** Tokens; null = no budget set (the bar stays empty and cannot be dragged). */
+  /** Micros; null = no budget set (the bar stays empty and cannot be dragged). */
   budget: number | null;
-  /** This month's spend, tokens: total = bulk + live; extra is outside the budget. */
+  /** This period's spend, micros: total = bulk + live; extra is outside the budget. */
   spend: { total: number; bulk: number; live: number; extra: number };
   /** Spend of workspaces that have left the group (shown as a note). */
   removedSpend?: number;
+  /** Admins' secondary figure: the same spend in tokens, when the API gives it. */
+  tokens?: TokenSpend;
   bulkLimitOn: boolean;
   bulkPct: number;
   bulkPctMin: number;
@@ -36,6 +39,7 @@ export const BudgetBar = ({
   budget,
   spend,
   removedSpend = 0,
+  tokens,
   bulkLimitOn,
   bulkPct,
   bulkPctMin,
@@ -99,18 +103,24 @@ export const BudgetBar = ({
       </BarSlider>
       <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
         <span>
-          Used <span className="font-mono">{fmtTokens(spend.total)}</span> ({usdTokens(spend.total)}
-          ):
+          Used <span className="font-mono">{fmtMoney(spend.total)}</span>
+          {tokens && (
+            <span className="text-muted-foreground" data-testid="budget-tokens">
+              {' '}
+              ({fmtTokenCount(tokens.total)} tokens)
+            </span>
+          )}
+          :
         </span>
         <BulkLegend on={bulkLimitOn && size > 0} used={spend.bulk} cap={cap} />
         <span>
           <Swatch className="bg-primary" />
-          Live mail <span className="font-mono">{fmtTokens(spend.live)}</span>
+          Live mail <span className="font-mono">{fmtMoney(spend.live)}</span>
         </span>
         {size > 0 && (
           <span>
             <Swatch className="bg-muted border border-border" />
-            Free <span className="font-mono">{fmtTokens(Math.max(0, size - spend.total))}</span>
+            Free <span className="font-mono">{fmtMoney(Math.max(0, size - spend.total))}</span>
           </span>
         )}
         <BulkLimitLegend on={bulkLimitOn && size > 0} />
@@ -118,12 +128,12 @@ export const BudgetBar = ({
           <span>
             <Swatch className="bg-warning" />
             Extra for bulk work, outside the budget{' '}
-            <span className="font-mono">{fmtTokens(spend.extra)}</span>
+            <span className="font-mono">{fmtMoney(spend.extra)}</span>
           </span>
         )}
         {removedSpend > 0 && (
           <span>
-            Includes <span className="font-mono">{fmtTokens(removedSpend)}</span> spent by removed
+            Includes <span className="font-mono">{fmtMoney(removedSpend)}</span> spent by removed
             workspaces
           </span>
         )}

@@ -9,7 +9,7 @@ export const LIMIT_FIELDS = [
   { key: 'maxIntegrations', label: 'Channels', hint: 'Enabled mailboxes and channels; paused ones do not count' },
   { key: 'maxMessagesPerMonth', label: 'Messages / period', hint: 'Analysed per billing period; message packs add to it' },
   { key: 'maxAutoRepliesPerMonth', label: 'Auto-replies / period', hint: 'Over the allotment a reply becomes a suggestion' },
-  { key: 'maxAICallsPerMonth', label: 'AI calls / period', hint: 'On the platform AI key only — a workspace on its own key is not capped by this' },
+  { key: 'maxAICallsPerMonth', label: 'AI calls per month (applies until money budgets are applied)', hint: 'Platform AI key only. Once the budgets are applied this is a statistic, not a limit' },
   { key: 'maxDepartments', label: 'Active departments', hint: 'Departments switched on at once' },
   { key: 'maxStorageMb', label: 'Storage (MB)', hint: 'Files people upload; not inbound mail, not a workspace\'s own bucket' },
   { key: 'maxStoredMessages', label: 'Stored messages', hint: 'All messages kept, not per period' },

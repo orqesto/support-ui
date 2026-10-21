@@ -6,10 +6,10 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import {
   EXTRA_MAX,
   EXTRA_MIN,
-  MILLION,
-  fmt,
+  EXTRA_STEP,
+  MICROS_PER_USD,
+  fmtMoney,
   limitSliderTop,
-  usd,
   type ExtraEndChoice,
 } from './budget.rules';
 import { END_SEGMENTS, parseEnd } from './ExtraBox';
@@ -17,24 +17,24 @@ import { FieldLabel } from './BulkLimitField';
 
 /**
  * Select / select all / unselect all, and the actions for the selected workspaces (set the same
- * own limit, remove it, give extra). Sizes arrive and leave in tokens.
+ * own limit, remove it, give extra). Sizes arrive and leave in micros of money; the sliders step in dollars.
  */
 
 export type BulkBarProps = {
   selected: number;
-  /** The group budget, tokens (null = none): the "% of the budget" text. */
+  /** The group budget, micros (null = none): the "% of the budget" text. */
   budget: number | null;
-  /** The limit slider's top, million tokens. Default: limitSliderTop of the budget alone. */
+  /** The limit slider's top, dollars. Default: limitSliderTop of the budget alone. */
   top?: number;
   /** How many "Select all" would pick: every workspace matching the search, not only those shown. */
   selectable: number;
   onSelectAll: () => void;
   onUnselectAll: () => void;
-  /** Tokens. */
+  /** Micros. */
   onSetLimit: (limit: number) => void;
   onRemoveLimit: () => void;
   /** 'suggested' = each workspace gets its own suggested amount. */
-  onGiveExtra: (tokens: number | 'suggested', end: ExtraEndChoice) => void;
+  onGiveExtra: (amountMicros: number | 'suggested', end: ExtraEndChoice) => void;
   /** How many of the selected have extra running: "End extra" shows only then. */
   withExtra: number;
   onEndExtra: () => void;
@@ -62,10 +62,10 @@ export const BulkBar = ({
   canGrant = true,
   busy = false,
 }: BulkBarProps) => {
-  const [limitDraft, setLimitDraft] = useState(30);
+  const [limitDraft, setLimitDraft] = useState(5);
   const limit = Math.min(limitDraft, top);
   const [eachSuggested, setEachSuggested] = useState(true);
-  const [extra, setExtra] = useState(20);
+  const [extra, setExtra] = useState(5);
   const [end, setEnd] = useState<ExtraEndChoice>(3);
 
   return (
@@ -91,9 +91,9 @@ export const BulkBar = ({
             <div className="flex flex-col gap-1.5">
               <FieldLabel>Own bulk limit for each</FieldLabel>
               <span className="font-mono text-lg">
-                {fmt(limit)}
+                {fmtMoney(limit * MICROS_PER_USD)}
                 {budget
-                  ? ` · ${Math.round(((limit * MILLION) / budget) * 100)}% of the budget`
+                  ? ` · ${Math.round(((limit * MICROS_PER_USD) / budget) * 100)}% of the budget`
                   : ''}
               </span>
               <BarSlider
@@ -102,13 +102,13 @@ export const BulkBar = ({
                 max={top}
                 step={1}
                 onChange={setLimitDraft}
-                ariaLabel="Own bulk limit for each selected workspace"
-                ariaValueText={`${fmt(limit)} tokens`}
+                ariaLabel="Own bulk limit for each selected workspace, dollars"
+                ariaValueText={fmtMoney(limit * MICROS_PER_USD)}
               >
                 <BarSegment width={(limit / top) * 100} className="bg-pending" />
               </BarSlider>
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" disabled={busy} onClick={() => onSetLimit(limit * MILLION)}>
+                <Button size="sm" disabled={busy} onClick={() => onSetLimit(limit * MICROS_PER_USD)}>
                   Set limit
                 </Button>
                 <Button variant="outline" size="sm" disabled={busy} onClick={onRemoveLimit}>
@@ -129,17 +129,17 @@ export const BulkBar = ({
                 label="Each gets what its import still needs"
               />
               <span className="font-mono text-lg">
-                {eachSuggested ? 'Suggested for each' : `+${fmt(extra)} ${usd(extra)}`}
+                {eachSuggested ? 'Suggested for each' : `${fmtMoney(extra * MICROS_PER_USD)}`}
               </span>
               <BarSlider
                 value={extra}
                 min={EXTRA_MIN}
                 max={EXTRA_MAX}
-                step={5}
+                step={EXTRA_STEP}
                 disabled={eachSuggested}
                 onChange={setExtra}
-                ariaLabel="Extra for each selected workspace, million tokens"
-                ariaValueText={`${fmt(extra)} tokens`}
+                ariaLabel="Extra for each selected workspace, dollars"
+                ariaValueText={fmtMoney(extra * MICROS_PER_USD)}
               >
                 <BarSegment
                   width={(extra / EXTRA_MAX) * 100}
@@ -156,7 +156,7 @@ export const BulkBar = ({
                 <Button
                   size="sm"
                   disabled={busy}
-                  onClick={() => onGiveExtra(eachSuggested ? 'suggested' : extra * MILLION, end)}
+                  onClick={() => onGiveExtra(eachSuggested ? 'suggested' : extra * MICROS_PER_USD, end)}
                 >
                   Give extra
                 </Button>

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { defaultKeep, isOverPlan, keepProblem, toggleId } from '@/components/subscription/keepActive';
+import {
+  defaultKeep,
+  isOverPlan,
+  keepProblem,
+  toggleId,
+} from '@/components/subscription/keepActive';
 import { normalizePlanFit, type PlanFit } from '@/services/subscription.service';
 
 /** Task #8 — the keep-active choice, mirroring the backend's default and rules. */
@@ -8,10 +13,38 @@ const fit = (over: Partial<PlanFit> = {}): PlanFit => ({
   limits: { maxUsers: 2, maxIntegrations: 1 },
   over: { members: 2, sources: 1 },
   members: [
-    { userId: 1, name: 'A', email: 'a@x.io', role: 'support', state: 'active', joinedAt: '2026-01-01T00:00:00Z' },
-    { userId: 2, name: 'B', email: 'b@x.io', role: 'org_admin', state: 'active', joinedAt: '2026-02-01T00:00:00Z' },
-    { userId: 3, name: 'C', email: 'c@x.io', role: 'support', state: 'active', joinedAt: '2026-03-01T00:00:00Z' },
-    { userId: 4, name: 'D', email: 'd@x.io', role: 'support', state: 'paused', joinedAt: '2025-01-01T00:00:00Z' },
+    {
+      userId: 1,
+      name: 'A',
+      email: 'a@x.io',
+      role: 'support',
+      state: 'active',
+      joinedAt: '2026-01-01T00:00:00Z',
+    },
+    {
+      userId: 2,
+      name: 'B',
+      email: 'b@x.io',
+      role: 'org_admin',
+      state: 'active',
+      joinedAt: '2026-02-01T00:00:00Z',
+    },
+    {
+      userId: 3,
+      name: 'C',
+      email: 'c@x.io',
+      role: 'support',
+      state: 'active',
+      joinedAt: '2026-03-01T00:00:00Z',
+    },
+    {
+      userId: 4,
+      name: 'D',
+      email: 'd@x.io',
+      role: 'support',
+      state: 'paused',
+      joinedAt: '2025-01-01T00:00:00Z',
+    },
   ],
   channels: [
     { id: 20, name: 'new', type: 'email', state: 'active', createdAt: '2026-05-01T00:00:00Z' },
@@ -36,8 +69,12 @@ describe('keepProblem', () => {
     expect(keepProblem(fit(), { memberUserIds: [2], sourceIds: [20, 21] })).toMatch(/1 channel/);
   });
   it('no admin while the workspace has one', () => {
-    expect(keepProblem(fit(), { memberUserIds: [1, 3], sourceIds: [] })).toMatch(/at least one admin/);
-    const noAdmins = fit({ members: fit().members.map((member) => ({ ...member, role: 'support' })) });
+    expect(keepProblem(fit(), { memberUserIds: [1, 3], sourceIds: [] })).toMatch(
+      /at least one admin/
+    );
+    const noAdmins = fit({
+      members: fit().members.map((member) => ({ ...member, role: 'support' })),
+    });
     expect(keepProblem(noAdmins, { memberUserIds: [1], sourceIds: [] })).toBeNull();
   });
 });
@@ -66,8 +103,14 @@ describe('normalizePlanFit — version skew', () => {
     expect(normalizePlanFit({ plan: { name: 'free' } }).enforced).toBe(false);
   });
   it('tolerates odd values without throwing', () => {
-    const fitted = normalizePlanFit({ enforced: true, members: [{ userId: 5, email: 'e@x.io', state: 'weird' }, null], channels: 'no' });
-    expect(fitted.members).toEqual([{ userId: 5, name: 'e@x.io', email: 'e@x.io', role: '', state: 'active', joinedAt: null }]);
+    const fitted = normalizePlanFit({
+      enforced: true,
+      members: [{ userId: 5, email: 'e@x.io', state: 'weird' }, null],
+      channels: 'no',
+    });
+    expect(fitted.members).toEqual([
+      { userId: 5, name: 'e@x.io', email: 'e@x.io', role: '', state: 'active', joinedAt: null },
+    ]);
     expect(fitted.channels).toEqual([]);
   });
 });
