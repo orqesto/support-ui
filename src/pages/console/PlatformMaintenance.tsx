@@ -302,8 +302,7 @@ export const formatValue = (value: unknown): string => {
   return String(value);
 };
 
-const plural = (count: number, noun: string): string =>
-  `${count} ${noun}${count === 1 ? '' : 's'}`;
+const plural = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? '' : 's'}`;
 
 type LostAttachmentsResult = {
   scanned?: number;
@@ -329,17 +328,19 @@ const LostAttachmentsView = ({ title, result }: { title: string; result: RepairR
         <p>No lost attachments found.</p>
       ) : (
         <p>
-          {plural(lost, 'attachment')} in {plural(lostEvents, 'message')} were lost{' '}
+          {plural(lost, 'attachment')} in {plural(lostEvents, 'message')}{' '}
+          {lost === 1 ? 'was' : 'were'} lost and{' '}
           {data.applied
-            ? 'and were queued; each mailbox check fetches them a few at a time.'
-            : 'and can be fetched again.'}
+            ? `${lost === 1 ? 'was' : 'were'} queued; each mailbox check fetches ${lost === 1 ? 'it' : 'them'} a few at a time.`
+            : 'can be fetched again.'}
         </p>
       )}
       {(data.byMailbox ?? []).length > 0 && (
         <ul className="space-y-0.5" data-testid="by-mailbox">
           {(data.byMailbox ?? []).map((box) => (
             <li key={box.messageSourceId}>
-              {box.name ?? `Mailbox ${box.messageSourceId}`}: {plural(box.partsLost, 'attachment')} lost
+              {box.name ?? `Mailbox ${box.messageSourceId}`}: {plural(box.partsLost, 'attachment')}{' '}
+              lost
             </li>
           ))}
         </ul>
