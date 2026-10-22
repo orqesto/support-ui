@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { splitByTerms } from '../highlightTerms';
+import { highlightTermsFor, splitByTerms } from '../highlightTerms';
 
 const marked = (text: string, terms: string[]) =>
   splitByTerms(text, terms)
@@ -34,8 +34,26 @@ describe('splitByTerms', () => {
     expect(parts.map((part) => part.text).join('')).toBe('Say thank you, you!');
   });
 
-  it('matches a term under three letters anywhere — the backend does too', () => {
-    expect(marked('the bqz code', ['qz'])).toEqual(['qz']);
+  it('marks a short word only as a whole word, in every field — as the backend matches it', () => {
+    expect(marked('Hi Jose y Natalie, on Friday', ['y'])).toEqual(['y']);
+    expect(marked('the bqz code', ['qz'])).toEqual([]);
+    const anywhere = splitByTerms('hi.jose@y.test via yahoo', ['y', 'hi'], 'anywhere')
+      .filter((part) => part.match)
+      .map((part) => part.text);
+    expect(anywhere).toEqual(['hi', 'y']);
+    // CONTROL: a short CODE with a digit is still marked anywhere.
+    expect(marked('ORD-4217', ['42'])).toEqual(['42']);
+  });
+
+  it('marks the whole typed text as one passage where it appears exactly', () => {
+    const terms = highlightTermsFor({ terms: ['Hi', 'Jose', 'y', 'Natalie'], asPhrase: false });
+    expect(terms).toContain('Hi Jose y Natalie');
+    expect(marked('Hi Jose y Natalie ¿Puedo', terms)).toEqual(['Hi Jose y Natalie']);
+    // Elsewhere the single words still mark.
+    expect(marked('Hello Natalie', terms)).toEqual(['Natalie']);
+    // One word, or input already read as a phrase: nothing added.
+    expect(highlightTermsFor({ terms: ['invoice'], asPhrase: false })).toEqual(['invoice']);
+    expect(highlightTermsFor(null)).toEqual([]);
   });
 
   it('matches a code or an address anywhere, digits and symbols included', () => {
