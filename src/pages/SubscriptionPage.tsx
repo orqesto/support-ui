@@ -27,7 +27,12 @@ import { MessagePackOfferCard } from '@/components/subscription/MessagePackOffer
 import { AiPausedBanner } from '@/components/subscription/AiPausedBanner';
 import { loadAiStatus, loadOwnKey, type AiStatus } from '@/components/subscription/aiStatus';
 import { PlanLimitsCard } from '@/components/subscription/PlanLimitsCard';
-import { MessagesSummary, TRIAL_SENTENCE } from '@/components/subscription/MessagesSummary';
+import {
+  MessagesSummary,
+  TRIAL_SENTENCE,
+  aiSourceOf,
+} from '@/components/subscription/MessagesSummary';
+import { StarterAllowanceLine } from '@/components/subscription/StarterAllowanceLine';
 import { describeUsagePeriod } from '@/components/subscription/usagePeriodCopy';
 import { useMessagePackReturn } from '@/components/subscription/useMessagePackReturn';
 import { UsageTile, type UsageItem } from '@/components/subscription/UsageTile';
@@ -315,8 +320,17 @@ export const SubscriptionPage = () => {
   const { plan, subscription } = subscriptionDetails;
   // Managed AI is in the messages only where the plan carries it: not Free, not a workspace on its
   // own key, not when the API says AI is not in the plan.
-  const aiIncluded = plan.name !== 'free' && !ownKey && aiStatus?.reason !== 'not_in_plan';
+  const aiSource = aiSourceOf({
+    planName: plan.name,
+    ownKey,
+    notInPlan: aiStatus?.reason === 'not_in_plan',
+    hasStarterAllowance: Boolean(aiStatus?.starterAllowance),
+  });
+  const aiIncluded = aiSource === 'included';
+  const isAdmin = !!user && isOrgAdminOrHigher(user.role, user.organizationRole);
   // Before the budgets are applied the old monthly AI-call cap still refuses work: keep showing it.
+  // By design (parked ruling, kept): an own-key workspace never sees the AI-calls tile, before
+  // Apply too — that cap applies to the platform key only.
   const showAiCalls = aiStatus?.active !== true && !ownKey;
   const billingLine = billingDateLine(plan, subscription);
   const { usage } = dashboard;
@@ -469,7 +483,7 @@ export const SubscriptionPage = () => {
           <CardContent>
             <AiPausedBanner
               ai={aiStatus}
-              isAdmin={!!user && isOrgAdminOrHigher(user.role, user.organizationRole)}
+              isAdmin={isAdmin}
               packAction={
                 packOffer?.available ? (
                   <button
@@ -488,8 +502,9 @@ export const SubscriptionPage = () => {
               limit={usage.messages.limit}
               used={usage.messages.current}
               period={dashboard.period}
-              aiIncluded={aiIncluded}
+              aiSource={aiSource}
             />
+            <StarterAllowanceLine ai={aiStatus} isAdmin={isAdmin} />
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <UsageTile title="Users" icon={Users} item={usage.users} />
               <UsageTile title="Integrations" icon={Plug} item={usage.integrations} />

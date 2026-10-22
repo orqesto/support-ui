@@ -3,7 +3,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { VAT_NOTE, formatMoney } from '@/lib/money';
-import { teamLimitLine } from '@/components/onboarding/planSummary';
+import { isUnlimited, teamLimitLine } from '@/components/onboarding/planSummary';
+import { FREE_PLAN_AI_LINE } from '@/components/subscription/starterAllowance';
 
 export interface Plan {
   id: number;
@@ -50,8 +51,10 @@ export function getFeatureLabel(key: string): string {
 }
 
 /**
- * Managed AI is part of the messages on paid plans only: Free runs on the workspace's own AI key,
- * and the internal admin plan is not sold. (Plans carry no marker for it, so the name decides.)
+ * Managed AI is part of the messages on paid plans only: Free runs on the workspace's own AI key
+ * (with a one-time starter allowance on ours), and the internal admin plan is not sold.
+ * Kept by design: plans carry no marker for it, so the NAME decides — the same rule as the
+ * backend's `decideManagedEntitlement`. Pinned by pricingPlanCard.test.tsx.
  */
 export const planHasManagedAi = (plan: Pick<Plan, 'name'>): boolean =>
   plan.name !== 'free' && plan.name !== 'admin';
@@ -62,10 +65,17 @@ function PlanAiLines({ plan }: { plan: Plan }) {
   return (
     <>
       {managed && <p className="text-sm text-faint-foreground">AI included</p>}
+      {plan.name === 'free' && <p className="text-sm text-faint-foreground">{FREE_PLAN_AI_LINE}</p>}
       {days ? (
         <p className="text-sm text-faint-foreground">
-          <strong>{days.toLocaleString()} days</strong> of history import{' '}
-          {managed ? '(uses the monthly AI allowance)' : '(runs on your own AI key)'}
+          {isUnlimited(days) ? (
+            <strong>Unlimited history import</strong>
+          ) : (
+            <>
+              <strong>{days.toLocaleString()} days</strong> of history import
+            </>
+          )}{' '}
+          {managed ? "(uses the plan's AI allowance)" : '(runs on your own AI key)'}
         </p>
       ) : null}
     </>

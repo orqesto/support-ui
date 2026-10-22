@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import type { AiStatus } from '@/components/subscription/aiStatus';
+import { parseStarterAllowance } from '@/components/subscription/starterAllowance';
 
 /**
  * Effective on/off state of every feature for the current org (plan grant with
@@ -101,7 +102,19 @@ export type OrgUsage = {
  * Used to show remaining seats/quota. The endpoint returns the object directly
  * (no { success, data } envelope).
  */
-const getUsage = () => apiClient.get<OrgUsage>('/api/usage/current').then((res) => res.data);
+const getUsage = () =>
+  apiClient.get<OrgUsage>('/api/usage/current').then((res) => normalizeUsage(res.data));
+
+/**
+ * Version skew: `ai.starterAllowance` is new (Free starter allowance). Keep it only when it parses;
+ * an older backend (no field) or a shape we do not know leaves it undefined.
+ */
+const normalizeUsage = (usage: OrgUsage): OrgUsage => {
+  if (!usage?.ai || typeof usage.ai !== 'object') return usage;
+  const { starterAllowance: _raw, ...ai } = usage.ai;
+  const starterAllowance = parseStarterAllowance(usage.ai);
+  return { ...usage, ai: starterAllowance ? { ...ai, starterAllowance } : ai };
+};
 
 /**
  * Start a one-time Stripe Checkout for a message pack (1,000 messages for €50,

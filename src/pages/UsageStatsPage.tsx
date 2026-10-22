@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
-import { loadAiStatus } from '@/components/subscription/aiStatus';
+import { loadAiStatus, type AiStatus } from '@/components/subscription/aiStatus';
+import { StarterAllowanceLine } from '@/components/subscription/StarterAllowanceLine';
+import { useAuthStore } from '@/stores/authStore';
+import { isOrgAdminOrHigher } from '@/types/roles';
 import { usageRowsFrom, type RawUsage } from './usageStatsRows';
 
 type UsageModule = {
@@ -24,6 +27,9 @@ export const UsageStatsPage = () => {
   const navigate = useNavigate();
   const [usage, setUsage] = useState<UsageModule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [aiStatus, setAiStatus] = useState<AiStatus | undefined>(undefined);
+  const user = useAuthStore((state) => state.user);
+  const isAdmin = !!user && isOrgAdminOrHigher(user.role, user.organizationRole);
 
   useEffect(() => {
     const fetchUsage = async () => {
@@ -32,6 +38,7 @@ export const UsageStatsPage = () => {
           '/api/subscriptions/usage'
         );
         const ai = await loadAiStatus();
+        setAiStatus(ai);
         setUsage(usageRowsFrom(usageRes.data.data.usage, ai?.active === true));
       } catch (error) {
         logger.error('Failed to load usage:', error);
@@ -102,6 +109,8 @@ export const UsageStatsPage = () => {
             Export CSV
           </Button>
         </div>
+
+        <StarterAllowanceLine ai={aiStatus} isAdmin={isAdmin} />
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">

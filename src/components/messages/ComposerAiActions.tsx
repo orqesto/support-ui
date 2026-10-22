@@ -18,6 +18,10 @@ import {
   isAiDraftsOffError,
   isAiNotConfiguredError,
 } from '@/lib/errorMessages';
+import {
+  isFreeAiAllowanceUsedError,
+  STARTER_USED_REFUSAL_TEXT,
+} from '@/components/subscription/starterAllowance';
 import { messageService, type AiDraft } from '@/services/message.service';
 import { answerToEditorHtml, COMPOSER_AI_TOOL, LABEL } from './messageDetailConstants';
 
@@ -152,6 +156,7 @@ export function ComposerAiActions({
     const status = getErrorStatus(err);
     if (isAiDraftsOffError(err)) return AI_DRAFTS_OFF_MESSAGE;
     if (isAiNotConfiguredError(err)) return AI_NOT_CONFIGURED_MESSAGE;
+    if (isFreeAiAllowanceUsedError(err)) return STARTER_USED_REFUSAL_TEXT;
     if (status === 429) return 'AI limit reached for now — try again shortly.';
     if (status === 403)
       return 'No AI provider is connected for this workspace. An admin can add one in Settings.';

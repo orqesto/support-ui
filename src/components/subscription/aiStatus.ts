@@ -1,6 +1,7 @@
 import { logger } from '@/lib/logger';
 import { aiService } from '@/services/ai.service';
 import { subscriptionService } from '@/services/subscription.service';
+import type { StarterAllowance } from './starterAllowance';
 
 /** Why the API says AI is stopped (`/api/usage/current` → `ai.reason`). */
 export type AiPauseReason =
@@ -25,6 +26,11 @@ export type AiStatus = {
   /** The reason as a sentence, from the API. */
   message: string | null;
   resetsAt: string | null;
+  /**
+   * Free on our key only: the one-time starter allowance. Parsed by `parseStarterAllowance` in
+   * the service (absent or malformed ⇒ undefined); see starterAllowance.ts.
+   */
+  starterAllowance?: StarterAllowance;
 };
 
 /** The `ai` block of /api/usage/current; undefined when the call fails or the backend sends none. */
@@ -54,14 +60,20 @@ export const loadOwnKey = async (): Promise<boolean> => {
 
 /**
  * What a customer reads for each reason: fixed sentences, never money (the API's own text names
- * dollars for budget_used; that is for admins). Unknown reasons get the generic sentence.
+ * dollars for budget_used; that is for admins). Unknown reasons get the generic sentence. A viewer
+ * who cannot open the Subscription page (`canOpenSubscription` false) cannot buy or upgrade, so the
+ * sentence asks an admin instead of offering it.
  */
-export const customerPauseText = (reason: string | null): string => {
+export const customerPauseText = (reason: string | null, canOpenSubscription = true): string => {
   switch (reason) {
     case 'not_in_plan':
-      return 'AI is not included in your plan. Upgrade, or connect your own AI key.';
+      return canOpenSubscription
+        ? 'AI is not included in your plan. Upgrade, or connect your own AI key.'
+        : 'AI is not included in your plan. Ask an admin to upgrade or connect your own AI key.';
     case 'budget_used':
-      return "This period's AI messages are used up: AI drafts, auto-replies and analysis pause until the period resets. Buying more messages or upgrading adds to it.";
+      return canOpenSubscription
+        ? "This period's AI messages are used up: AI drafts, auto-replies and analysis pause until the period resets. Buying more messages or upgrading adds to it."
+        : "This period's AI messages are used up: AI drafts, auto-replies and analysis pause until the period resets. Ask an admin to buy more messages or upgrade.";
     case 'server_ceiling':
       return "This server's AI limit for the month is reached: AI is paused until it resets.";
     default:

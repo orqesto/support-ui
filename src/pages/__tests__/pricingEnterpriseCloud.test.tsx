@@ -61,7 +61,7 @@ describe('PricingPage Enterprise Cloud', () => {
     expect(await screen.findByText('Enterprise Cloud')).toBeInTheDocument();
     expect(screen.queryByText('Self-Hosted')).toBeNull();
     expect(screen.getAllByText('AI included').length).toBeGreaterThan(0);
-    expect(screen.getByText(/of history import \(uses the monthly AI allowance\)/)).toBeInTheDocument();
+    expect(screen.getByText(/of history import \(uses the plan's AI allowance\)/)).toBeInTheDocument();
     expect(
       screen.getByText('14-day free trial on any paid plan, up to 1,000 messages, no card.')
     ).toBeInTheDocument();
@@ -73,7 +73,7 @@ describe('PricingPage Enterprise Cloud', () => {
     expect(screen.getByText(/of history import \(runs on your own AI key\)/)).toBeInTheDocument();
     // Pro and Enterprise Cloud carry AI; the Free card does not.
     expect(screen.getAllByText('AI included')).toHaveLength(2);
-    expect(screen.getAllByText(/\(uses the monthly AI allowance\)/)).toHaveLength(1);
+    expect(screen.getAllByText(/\(uses the plan's AI allowance\)/)).toHaveLength(1);
   });
 
   it('a global admin on hosted sees only Enterprise Cloud in the enterprise grid, not Self-Hosted', async () => {

@@ -13,6 +13,14 @@ import { useAuthStore } from '@/stores/authStore';
 import { useScopeStore } from '@/stores/scopeStore';
 import { useDepartmentContextStore } from '@/stores/departmentContextStore';
 import { useSubscriptionGateStore } from '@/stores/subscriptionGateStore';
+import { FREE_AI_ALLOWANCE_USED } from '@/components/subscription/starterAllowance';
+
+/** 402 codes that are a step-level or AI refusal, never the app-wide subscription gate. */
+const NOT_A_SUBSCRIPTION_GATE: ReadonlySet<string> = new Set([
+  'MANAGED_DB_NOT_ENTITLED',
+  FREE_AI_ALLOWANCE_USED,
+  'AI_USAGE_LIMIT_EXCEEDED',
+]);
 import { isDatabasePauseCode, useDatabaseStatusStore } from '@/stores/databaseStatusStore';
 
 declare module 'axios' {
@@ -374,7 +382,10 @@ export const handleResponseError = async (error: unknown): Promise<unknown> => {
     // `MANAGED_DB_NOT_ENTITLED` when a workspace with no active plan picks the managed database (BYODB §3.4).
     // That is a step-level refusal the step renders inline; gating the whole app on it would
     // lock a brand-new signup behind "your subscription is not active" mid-setup.
-    if (data?.code !== 'MANAGED_DB_NOT_ENTITLED') {
+    // Nor is an AI refusal: a used-up Free starter allowance (`FREE_AI_ALLOWANCE_USED`) or the old
+    // AI usage limit (`AI_USAGE_LIMIT_EXCEEDED`, translation) pauses AI only — mail and agents keep
+    // working, so the whole app must not lock behind "your subscription is not active".
+    if (!data?.code || !NOT_A_SUBSCRIPTION_GATE.has(data.code)) {
       useSubscriptionGateStore
         .getState()
         .setGated(data?.error ?? data?.message ?? 'Your subscription is not active.', {

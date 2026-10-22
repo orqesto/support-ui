@@ -16,6 +16,10 @@ import {
   isAiDraftsOffError,
   isAiNotConfiguredError,
 } from '@/lib/errorMessages';
+import {
+  isFreeAiAllowanceUsedError,
+  STARTER_USED_REFUSAL_TEXT,
+} from '@/components/subscription/starterAllowance';
 import { messageService } from '@/services/message.service';
 import { answerToEditorHtml, COMPOSER_AI_TOOL, COMPOSER_TOOL } from './messageDetailConstants';
 
@@ -130,6 +134,8 @@ export function ComposeNewAiDraft({
         setError(AI_DRAFTS_OFF_MESSAGE);
       } else if (isAiNotConfiguredError(err)) {
         setError(AI_NOT_CONFIGURED_MESSAGE);
+      } else if (isFreeAiAllowanceUsedError(err)) {
+        setError(STARTER_USED_REFUSAL_TEXT);
       } else if (getErrorStatus(err) === 429) {
         setError('AI limit reached for now — try again shortly.');
       } else {

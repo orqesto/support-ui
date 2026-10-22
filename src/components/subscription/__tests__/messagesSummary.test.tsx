@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { MessagesSummary, messagesSummary } from '../MessagesSummary';
+import { MessagesSummary, aiSourceOf, messagesSummary } from '../MessagesSummary';
 
 afterEach(cleanup);
 
@@ -28,10 +28,22 @@ describe('messagesSummary', () => {
   });
 
   it('without AI included the line carries the own-key sentence', () => {
-    render(<MessagesSummary limit={500} used={10} aiIncluded={false} />);
+    render(<MessagesSummary limit={500} used={10} aiSource="own_key" />);
     expect(screen.getByTestId('messages-summary')).toHaveTextContent(
       'AI runs on your own key; your plan covers 500 messages.'
     );
     expect(screen.getByTestId('messages-summary')).not.toHaveTextContent(/AI included/);
   });
+});
+
+describe('aiSourceOf', () => {
+  const base = { planName: 'pro', ownKey: false, notInPlan: false, hasStarterAllowance: false };
+  it('paid plan with AI: included', () => expect(aiSourceOf(base)).toBe('included'));
+  it('own key wins', () => expect(aiSourceOf({ ...base, ownKey: true, hasStarterAllowance: true })).toBe('own_key'));
+  it('Free on our key with its starter allowance: starter', () =>
+    expect(aiSourceOf({ ...base, planName: 'free', hasStarterAllowance: true })).toBe('starter'));
+  it('Free on an older backend: own key (the plan model)', () =>
+    expect(aiSourceOf({ ...base, planName: 'free', notInPlan: true })).toBe('own_key'));
+  it('paid plan, not in plan, no own key: not_in_plan (F3)', () =>
+    expect(aiSourceOf({ ...base, notInPlan: true })).toBe('not_in_plan'));
 });
