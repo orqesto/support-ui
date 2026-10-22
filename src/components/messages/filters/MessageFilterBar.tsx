@@ -10,6 +10,7 @@ import { RECEIVED_KEYS, buildFilterDefs } from './filterSchema';
 import { clearPatch, tokensOf } from './filterTokens';
 import { useFilterOptions } from './useFilterOptions';
 import { BUILT_IN_VIEWS, viewAppliesTo, viewIsActive, type SavedView } from './savedViews';
+import { useRecentSearches } from './useRecentSearches';
 import { useSavedViews } from './useSavedViews';
 import type { FilterState } from '@/stores/messagesStore';
 import { useLeadsHidden } from '@/hooks/useLeadsHidden';
@@ -64,6 +65,7 @@ export const MessageFilterBar = ({
     saveView,
     removeView,
   } = useSavedViews();
+  const recentSearches = useRecentSearches();
   const [namingView, setNamingView] = useState(false);
   const [viewName, setViewName] = useState('');
 
@@ -195,6 +197,12 @@ export const MessageFilterBar = ({
             onFilterChange={onFilterChange}
             onFilterPatch={onFilterPatch}
             onCommitSearch={onCommitSearch}
+            recent={recentSearches.recent}
+            onSearchSettled={recentSearches.record}
+            onRemoveRecent={recentSearches.remove}
+            onClearRecent={recentSearches.clear}
+            // A view of just this search — applying it MERGES, so other filters stay as set.
+            onSaveSearchAsView={(text) => void saveView(text.slice(0, 60), { search: text })}
           />
         </div>
 

@@ -320,7 +320,8 @@ export const messageService = {
       | 'sla'
       | 'priority_sla'
       | 'last_client_reply'
-      | 'last_our_reply' = 'time'
+      | 'last_our_reply' = 'time',
+    options?: { signal?: AbortSignal }
   ) =>
     fetchThreads<ThreadsResponse>({
       filters: cleanFilters(filters),
@@ -328,6 +329,7 @@ export const messageService = {
       limit,
       sortOrder,
       sortBy,
+      signal: options?.signal,
     }),
 
   getAll: async (

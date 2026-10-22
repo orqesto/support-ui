@@ -24,6 +24,7 @@ import {
   DialogContent,
   DialogFooter,
 } from '@/components/ui/Dialog';
+import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
 import { messageService, type MessageThread } from '@/services/message.service';
@@ -329,6 +330,7 @@ export const MessagesPage = () => {
     threads: rawThreads,
     loading,
     refreshing,
+    searching,
     setRefreshing,
     messagesPagination,
     fetchMessages,
@@ -1171,85 +1173,91 @@ export const MessagesPage = () => {
                   narrow={split}
                 />
 
-                {loading ? (
-                  <div className={compactRows ? 'space-y-0' : 'space-y-2'}>
-                    {[0, 1, 2, 3, 4].map((idx) => (
-                      <Card key={idx} className="animate-pulse">
-                        <CardContent className="py-3 px-4 space-y-2">
-                          <div className="w-2/5 h-2.5 bg-muted rounded" />
-                          <div className="w-3/4 h-2.5 bg-muted rounded" />
-                          <div className="w-1/2 h-2.5 bg-muted rounded" />
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                ) : threads.length === 0 ? (
-                  <Card>
-                    <CardContent className="p-12 text-center">
-                      <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
-                      <h3 className="font-display mb-2 text-lg font-semibold">No threads found</h3>
-                      <p className="text-muted-foreground">
-                        {activeFilterCount > 0
-                          ? 'No threads match your filters'
-                          : 'No threads available'}
-                      </p>
-                      {(listScope?.hidden ?? 0) > 0 && (
-                        <p className="mt-2 text-[12.5px] text-muted-foreground">
-                          {listScope?.hidden.toLocaleString()} are outside this view — use{' '}
-                          <b>Not shown</b> above to jump to them.
+                {/* A search reloads with the previous rows still drawn. Shaded, so they do not
+                    read as the answer to the new search while it is on its way. */}
+                <LoadingOverlay active={searching && !loading} label="Searching…">
+                  {loading ? (
+                    <div className={compactRows ? 'space-y-0' : 'space-y-2'}>
+                      {[0, 1, 2, 3, 4].map((idx) => (
+                        <Card key={idx} className="animate-pulse">
+                          <CardContent className="py-3 px-4 space-y-2">
+                            <div className="w-2/5 h-2.5 bg-muted rounded" />
+                            <div className="w-3/4 h-2.5 bg-muted rounded" />
+                            <div className="w-1/2 h-2.5 bg-muted rounded" />
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : threads.length === 0 ? (
+                    <Card>
+                      <CardContent className="p-12 text-center">
+                        <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
+                        <h3 className="font-display mb-2 text-lg font-semibold">
+                          No threads found
+                        </h3>
+                        <p className="text-muted-foreground">
+                          {activeFilterCount > 0
+                            ? 'No threads match your filters'
+                            : 'No threads available'}
                         </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                ) : compactRows ? (
-                  // Compact: one ruled panel, a hairline between rows.
-                  <Card padding="none" className="overflow-hidden">
-                    {threads.map((thread) => (
-                      <MessageListItem
-                        key={thread.threadId}
-                        thread={thread}
-                        density="compact"
-                        narrow={split}
-                        current={split && openThreadId === thread.threadId}
-                        onOpen={handleOpenThread}
-                        selected={
-                          thread.latestMessage
-                            ? bulkSelection.isSelected(thread.latestMessage.id)
-                            : false
-                        }
-                        onToggleSelected={toggleListRow}
-                        selectMode={selectMode}
-                        onReadChanged={() => {
-                          bumpKanban();
-                          void fetchMessages(messagesPagination.page, true);
-                        }}
-                      />
-                    ))}
-                  </Card>
-                ) : (
-                  // Comfortable: a card per thread, 8px apart (staging's look, kept).
-                  <div className="grid gap-2">
-                    {threads.map((thread) => (
-                      <MessageListItem
-                        key={thread.threadId}
-                        thread={thread}
-                        current={split && openThreadId === thread.threadId}
-                        onOpen={handleOpenThread}
-                        selected={
-                          thread.latestMessage
-                            ? bulkSelection.isSelected(thread.latestMessage.id)
-                            : false
-                        }
-                        onToggleSelected={toggleListRow}
-                        selectMode={selectMode}
-                        onReadChanged={() => {
-                          bumpKanban();
-                          void fetchMessages(messagesPagination.page, true);
-                        }}
-                      />
-                    ))}
-                  </div>
-                )}
+                        {(listScope?.hidden ?? 0) > 0 && (
+                          <p className="mt-2 text-[12.5px] text-muted-foreground">
+                            {listScope?.hidden.toLocaleString()} are outside this view — use{' '}
+                            <b>Not shown</b> above to jump to them.
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ) : compactRows ? (
+                    // Compact: one ruled panel, a hairline between rows.
+                    <Card padding="none" className="overflow-hidden">
+                      {threads.map((thread) => (
+                        <MessageListItem
+                          key={thread.threadId}
+                          thread={thread}
+                          density="compact"
+                          narrow={split}
+                          current={split && openThreadId === thread.threadId}
+                          onOpen={handleOpenThread}
+                          selected={
+                            thread.latestMessage
+                              ? bulkSelection.isSelected(thread.latestMessage.id)
+                              : false
+                          }
+                          onToggleSelected={toggleListRow}
+                          selectMode={selectMode}
+                          onReadChanged={() => {
+                            bumpKanban();
+                            void fetchMessages(messagesPagination.page, true);
+                          }}
+                        />
+                      ))}
+                    </Card>
+                  ) : (
+                    // Comfortable: a card per thread, 8px apart (staging's look, kept).
+                    <div className="grid gap-2">
+                      {threads.map((thread) => (
+                        <MessageListItem
+                          key={thread.threadId}
+                          thread={thread}
+                          current={split && openThreadId === thread.threadId}
+                          onOpen={handleOpenThread}
+                          selected={
+                            thread.latestMessage
+                              ? bulkSelection.isSelected(thread.latestMessage.id)
+                              : false
+                          }
+                          onToggleSelected={toggleListRow}
+                          selectMode={selectMode}
+                          onReadChanged={() => {
+                            bumpKanban();
+                            void fetchMessages(messagesPagination.page, true);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </LoadingOverlay>
               </div>
             )}
 
