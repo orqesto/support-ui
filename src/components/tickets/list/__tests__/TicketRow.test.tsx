@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { Ticket } from '@/types';
 import { TicketCard } from '../TicketCard';
 import { TicketRow } from '../TicketRow';
 import { spineTone } from '../ticketRowBits';
+
+// The app reads the workspace code from the server; these suites render rows on their own.
+vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'TES' }));
 
 const base: Ticket = {
   id: 1182,
@@ -86,6 +89,16 @@ describe('TicketRow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Claim #1182' }));
     expect(props.onAssign).toHaveBeenCalledWith(1182, 7);
     expect(props.onOpen).not.toHaveBeenCalled();
+  });
+
+  it("names Claim, Re-assign and the row menu by the ticket's own ID, not its row id", () => {
+    renderRow({ ...base, reference: 'SUP-T-42' });
+    expect(screen.getByRole('button', { name: 'Claim TES-SUP-T-42' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Actions for TES-SUP-T-42' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /#1182/ })).toBeNull();
+    cleanup();
+    renderRow({ ...base, reference: 'SUP-T-42', assigneeId: 8, assigneeName: 'Sam Sample' });
+    expect(screen.getByRole('button', { name: 'Re-assign TES-SUP-T-42' })).toBeInTheDocument();
   });
 
   it('re-assigns or unassigns from the avatar', () => {

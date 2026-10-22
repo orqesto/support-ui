@@ -65,7 +65,7 @@ type TicketRuntimeExtras = {
 type TicketWithExtras = TicketType & TicketRuntimeExtras;
 
 /** What a card needs to show its owner and offer Claim / re-assign, as the list rows do. */
-type AssignProps = {
+export type AssignProps = {
   canManage: boolean;
   assignees: Array<{ id: number; name: string }>;
   currentUserId: number | null;
@@ -114,7 +114,8 @@ function TicketCardContent({ ticket, assign }: { ticket: TicketType; assign?: As
   );
 }
 
-function TicketKanbanCard({
+/** Exported for its test only. */
+export function TicketKanbanCard({
   ticket,
   colId,
   onOpen,

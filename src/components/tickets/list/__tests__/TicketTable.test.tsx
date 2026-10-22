@@ -5,6 +5,9 @@ import type { Ticket, TicketStatus } from '@/types';
 import { TicketTable, type TicketTableProps } from '../TicketTable';
 import { buildTicketFilterKeys } from '../ticketFilterKeys';
 
+// The app reads the workspace code from the server; these suites render rows on their own.
+vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'TES' }));
+
 const ticket = (id: number, status: TicketStatus, owedCount = 0): Ticket => ({
   id,
   title: `Ticket ${id}`,
