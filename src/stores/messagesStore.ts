@@ -9,7 +9,12 @@ import {
 // Value import, but not a cycle: filterSchema's reference back to this module is
 // `import type` and erases at build time.
 import { scopeReadToTriage } from '@/components/messages/filters/filterSchema';
-import type { PaginationMeta, MessageThread, ListScope } from '@/services/message.service';
+import type {
+  PaginationMeta,
+  MessageThread,
+  ListScope,
+  SearchReading,
+} from '@/services/message.service';
 
 export type MessageViewStatus =
   | 'all'
@@ -21,12 +26,7 @@ export type MessageViewStatus =
   | 'spam'
   | 'resolved';
 
-export type ThreadStatusFilter =
-  | 'all'
-  | 'open'
-  | 'in_progress'
-  | 'pending'
-  | 'closed';
+export type ThreadStatusFilter = 'all' | 'open' | 'in_progress' | 'pending' | 'closed';
 
 // LIST-view single lifecycle dropdown (replaces the old status/threadStatus pair
 // in list mode). Mutually exclusive with `queue` in the FE.
@@ -96,7 +96,13 @@ export type AiStateFilter =
   | 'contradiction';
 
 export type LinkedFilter = 'all' | 'has_ticket' | 'has_jira';
-export type LinkedTicketStatusFilter = 'all' | 'pending' | 'open' | 'in_progress' | 'resolved' | 'closed';
+export type LinkedTicketStatusFilter =
+  | 'all'
+  | 'pending'
+  | 'open'
+  | 'in_progress'
+  | 'resolved'
+  | 'closed';
 
 export type FilterState = {
   messageSourceId?: string;
@@ -206,6 +212,11 @@ type CacheEntry = {
    * claims, and collapsing them re-creates the silence this exists to break.
    */
   listScope: ListScope | null;
+  /**
+   * How the search behind these rows was read. Cached WITH them: a cut-short answer served
+   * again from the cache must still say it was cut short.
+   */
+  searchReading?: SearchReading | null;
   timestamp: number;
 };
 
@@ -240,12 +251,14 @@ type MessagesState = {
     threads: MessageThread[];
     pagination: PaginationMeta;
     listScope: ListScope | null;
+    searchReading: SearchReading | null;
   } | null;
   setMessages: (
     threads: MessageThread[],
     pagination: PaginationMeta,
     listScope: ListScope | null,
-    cacheKey: string
+    cacheKey: string,
+    searchReading?: SearchReading | null
   ) => void;
   /** Restore the notice for a page served from cache. */
   setListScope: (listScope: ListScope | null) => void;
@@ -333,15 +346,16 @@ export const useMessagesStore = create<MessagesState>()(
           // Older persisted entries predate this field; `?? null` keeps them readable
           // and, correctly, says "no information" rather than inventing a zero.
           listScope: entry.listScope ?? null,
+          searchReading: entry.searchReading ?? null,
         };
       },
 
-      setMessages: (threads, pagination, listScope, cacheKey) => {
+      setMessages: (threads, pagination, listScope, cacheKey, searchReading = null) => {
         const state = get();
         set({
           cache: {
             ...state.cache,
-            [cacheKey]: { threads, pagination, listScope, timestamp: Date.now() },
+            [cacheKey]: { threads, pagination, listScope, searchReading, timestamp: Date.now() },
           },
           currentPage: pagination.page,
           listScope,

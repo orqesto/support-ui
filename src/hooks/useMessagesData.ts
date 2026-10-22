@@ -140,7 +140,8 @@ export const useMessagesData = ({
           setLoading(false);
           shownSearchRef.current = currentFilters.search?.trim() ?? '';
           setSearching(false);
-          setSearchReading(null);
+          // The reading cached WITH these rows — a cut-short answer must still say so.
+          setSearchReading(cached.searchReading);
           return;
         }
       }
@@ -175,7 +176,12 @@ export const useMessagesData = ({
       const abort = new AbortController();
       inFlightAbortRef.current = abort;
       const requestedSearch = currentFilters.search?.trim() ?? '';
-      if (requestedSearch !== shownSearchRef.current) setSearching(true);
+      if (requestedSearch !== shownSearchRef.current) {
+        setSearching(true);
+        // The notice describes the search ON SCREEN; a different one is on its way, and if it
+        // fails the old notice would sit under the new search box.
+        setSearchReading(null);
+      }
       if (hasLoadedRef.current) {
         setRefreshing(true);
       } else {
@@ -433,23 +439,19 @@ export const useMessagesData = ({
         if (response.success && response.data) {
           // `scope` is absent on a stale bundle/older backend and null when the count
           // could not be taken. Both mean "no information" — never a zeroed object.
-          setMessages(response.data, response.pagination, response.scope ?? null, cacheKey);
+          setMessages(
+            response.data,
+            response.pagination,
+            response.scope ?? null,
+            cacheKey,
+            response.search
+          );
           setThreadsLocal(response.data);
           setMessagesPagination(response.pagination);
           hasLoadedRef.current = true;
           shownSearchRef.current = requestedSearch;
-          // Defensive: an older backend sends no `search`, and a malformed one must not render.
-          const reading = response.search;
-          setSearchReading(
-            reading && Array.isArray(reading.terms) && typeof reading.asPhrase === 'boolean'
-              ? {
-                  ...reading,
-                  cutShort: Array.isArray(reading.cutShort)
-                    ? reading.cutShort.filter((term) => typeof term === 'string')
-                    : [],
-                }
-              : null
-          );
+          // Normalised by the service (an older backend sends no `search`).
+          setSearchReading(response.search);
 
           if (
             page > 1 &&

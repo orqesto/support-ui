@@ -179,20 +179,38 @@ export type ListScope = {
   };
 };
 
-/** How the backend read the typed search. Absent from a backend that predates it. */
+/** How the backend read the typed search, after `normalizeSearchReading`. */
 export type SearchReading = {
   terms: string[];
   asPhrase: boolean;
   /**
    * Terms whose search INSIDE words (no word starts with them) hit its time or size bound, so
-   * the list may be missing threads for them. Absent from a backend that predates it.
+   * matches for them may be missing. Always an array once normalised.
    */
-  cutShort?: string[];
+  cutShort: string[];
+};
+
+/**
+ * The reading as sent. Every field may be absent: the frontend deploys before the backend tag,
+ * so an older backend sends no `search`, or one without `cutShort`.
+ */
+export const normalizeSearchReading = (raw: unknown): SearchReading | null => {
+  if (!raw || typeof raw !== 'object') return null;
+  const reading = raw as { terms?: unknown; asPhrase?: unknown; cutShort?: unknown };
+  if (!Array.isArray(reading.terms) || typeof reading.asPhrase !== 'boolean') return null;
+  return {
+    terms: reading.terms.filter((term): term is string => typeof term === 'string'),
+    asPhrase: reading.asPhrase,
+    cutShort: Array.isArray(reading.cutShort)
+      ? reading.cutShort.filter((term): term is string => typeof term === 'string')
+      : [],
+  };
 };
 
 export type ThreadsResponse = PaginatedResponse<MessageThread[]> & {
   scope?: ListScope | null;
-  search?: SearchReading | null;
+  /** Normalised in `getThreads` — never the raw wire shape. */
+  search: SearchReading | null;
 };
 
 export type MessagesMetadata = {
@@ -334,15 +352,18 @@ export const messageService = {
       | 'last_client_reply'
       | 'last_our_reply' = 'time',
     options?: { signal?: AbortSignal }
-  ) =>
-    fetchThreads<ThreadsResponse>({
+  ): Promise<ThreadsResponse> => {
+    const response = await fetchThreads<Omit<ThreadsResponse, 'search'> & { search?: unknown }>({
       filters: cleanFilters(filters),
       page,
       limit,
       sortOrder,
       sortBy,
       signal: options?.signal,
-    }),
+    });
+    // Normalised HERE, so no caller can read the raw shape (CLAUDE.md: version skew).
+    return { ...response, search: normalizeSearchReading(response.search) };
+  },
 
   getAll: async (
     filters?: Record<string, string>,
