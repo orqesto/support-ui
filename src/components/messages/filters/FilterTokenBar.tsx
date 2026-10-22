@@ -42,6 +42,7 @@ export const FilterTokenBar = ({
   onRemoveRecent,
   onClearRecent,
   onSaveSearchAsView,
+  liveSearch = true,
 }: {
   defs: FilterDef[];
   filters: FilterState;
@@ -63,6 +64,11 @@ export const FilterTokenBar = ({
   onClearRecent?: () => void;
   /** Keep a recent search as a saved view (a pill). */
   onSaveSearchAsView?: (text: string) => void;
+  /**
+   * Search as you type. Off where each search costs a fan of requests nothing can cancel —
+   * the board refetches every column, the contacts view its own list — so there Enter searches.
+   */
+  liveSearch?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -89,6 +95,8 @@ export const FilterTokenBar = ({
   commitSearchRef.current = onCommitSearch;
   const committedSearchRef = useRef(filters.search ?? '');
   committedSearchRef.current = filters.search ?? '';
+  const queryRef = useRef(query);
+  queryRef.current = query;
   const settledRef = useRef(onSearchSettled);
   settledRef.current = onSearchSettled;
 
@@ -122,7 +130,7 @@ export const FilterTokenBar = ({
   // Search as you type. The menu stays open, so a filter suggestion is still one keystroke
   // away; Enter searches at once, as before.
   useEffect(() => {
-    if (!open || panelKey) return undefined;
+    if (!open || panelKey || !liveSearch) return undefined;
     const term = query.trim();
     if (term && liveRef.current.before === null)
       liveRef.current.before = committedSearchRef.current;
@@ -139,21 +147,36 @@ export const FilterTokenBar = ({
       }
     }, LIVE_SEARCH_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [query, open, panelKey]);
+  }, [query, open, panelKey, liveSearch]);
 
   // Click-away. Bound while open only, so a closed bar costs nothing.
   useEffect(() => {
     if (!open) return undefined;
     const onDown = (event: MouseEvent) => {
       if (!wrapRef.current?.contains(event.target as Node)) {
-        // Usually a click on a result of the live search, so it stands.
+        // Usually a click on a result of the live search, so it stands — as TYPED. The pause
+        // timer dies with the close, so text typed since the last pause is searched now, not
+        // dropped in favour of the stale prefix.
+        if (liveSearch && !panelKey) {
+          const typed = queryRef.current.trim();
+          if (typed.length >= LIVE_SEARCH_MIN_LENGTH && typed !== liveRef.current.term) {
+            liveRef.current.before ??= committedSearchRef.current;
+            commitSearchRef.current(typed);
+            liveRef.current.live = true;
+            liveRef.current.term = typed;
+          } else if (typed.length < LIVE_SEARCH_MIN_LENGTH && liveRef.current.live) {
+            // Erased below the minimum, then clicked away: what was there before typing.
+            commitSearchRef.current(liveRef.current.before ?? '');
+            liveRef.current = { before: null, live: false, term: '' };
+          }
+        }
         endTyping(true);
         close();
       }
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
-  }, [open, close, endTyping]);
+  }, [open, close, endTyping, liveSearch, panelKey]);
 
   // "/" focuses the bar, the way it does in every tool this borrows from. Ignored
   // while the caret is in some other field, or it would eat a typed slash.

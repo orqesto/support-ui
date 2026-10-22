@@ -16,7 +16,7 @@ afterEach(() => {
 
 const defs = buildFilterDefs(EMPTY_DYNAMIC_OPTIONS);
 
-const setup = (filters: FilterState = {} as FilterState) => {
+const setup = (filters: FilterState = {} as FilterState, liveSearch = true) => {
   const onCommitSearch = vi.fn();
   const onFilterChange = vi.fn();
   render(
@@ -27,6 +27,7 @@ const setup = (filters: FilterState = {} as FilterState) => {
       onFilterChange={onFilterChange}
       onFilterPatch={vi.fn()}
       onCommitSearch={onCommitSearch}
+      liveSearch={liveSearch}
     />
   );
   const input = screen.getByLabelText(/filter or search/i);
@@ -112,5 +113,36 @@ describe('FilterTokenBar search as you type', () => {
     fireEvent.mouseDown(document.body);
     expect(onCommitSearch).toHaveBeenLastCalledWith('refund');
     expect(onCommitSearch).toHaveBeenCalledTimes(1);
+  });
+
+  it('a click away searches what was TYPED, not the prefix of the last pause', () => {
+    const { type, pause, onCommitSearch } = setup();
+    type('invo');
+    pause();
+    type('invoice'); // no pause before the click
+    fireEvent.mouseDown(document.body);
+    expect(onCommitSearch).toHaveBeenLastCalledWith('invoice');
+  });
+
+  it('a click away after erasing below three characters puts back the earlier search', () => {
+    const { type, pause, onCommitSearch } = setup({ search: 'earlier' } as FilterState);
+    type('refund');
+    pause();
+    type('re');
+    fireEvent.mouseDown(document.body);
+    expect(onCommitSearch).toHaveBeenLastCalledWith('earlier');
+  });
+
+  it('with live search off (board, contacts) only Enter searches', () => {
+    const { input, type, pause, onCommitSearch } = setup({} as FilterState, false);
+    type('refund');
+    pause();
+    fireEvent.mouseDown(document.body);
+    expect(onCommitSearch).not.toHaveBeenCalled();
+    // CONTROL: Enter still does.
+    fireEvent.mouseDown(input);
+    type('refund');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onCommitSearch).toHaveBeenCalledWith('refund');
   });
 });

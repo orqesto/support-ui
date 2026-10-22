@@ -40,4 +40,58 @@ describe('useRecentSearches', () => {
     expect(result.current.recent).toEqual([]);
     expect(recordCall).not.toHaveBeenCalled();
   });
+
+  it('an entry removed before its save landed is deleted on the server when it lands', async () => {
+    vi.spyOn(recentSearchService, 'list').mockResolvedValue([]);
+    let land: (value: ReturnType<typeof row>) => void = () => undefined;
+    vi.spyOn(recentSearchService, 'record').mockImplementation(
+      () => new Promise((resolve) => (land = resolve))
+    );
+    const removeCall = vi.spyOn(recentSearchService, 'remove').mockResolvedValue();
+    const { result } = renderHook(() => useRecentSearches());
+    await waitFor(() => expect(recentSearchService.list).toHaveBeenCalled());
+
+    act(() => result.current.record('acme refund'));
+    const [pendingRow] = result.current.recent;
+    expect(pendingRow.id).toBeLessThan(0); // no server id yet
+    act(() => result.current.remove(pendingRow));
+    expect(removeCall).not.toHaveBeenCalled(); // nothing to delete yet…
+    await act(async () => {
+      land(row(41, 'acme refund'));
+      await Promise.resolve();
+    });
+    expect(removeCall).toHaveBeenCalledWith(41); // …so it is deleted as it lands
+    expect(result.current.recent).toEqual([]);
+  });
+
+  it('a clear deletes saves that were still on their way', async () => {
+    vi.spyOn(recentSearchService, 'list').mockResolvedValue([]);
+    let land: (value: ReturnType<typeof row>) => void = () => undefined;
+    vi.spyOn(recentSearchService, 'record').mockImplementation(
+      () => new Promise((resolve) => (land = resolve))
+    );
+    vi.spyOn(recentSearchService, 'clear').mockResolvedValue();
+    const removeCall = vi.spyOn(recentSearchService, 'remove').mockResolvedValue();
+    const { result } = renderHook(() => useRecentSearches());
+    await waitFor(() => expect(recentSearchService.list).toHaveBeenCalled());
+    act(() => result.current.record('acme refund'));
+    act(() => result.current.clear());
+    await act(async () => {
+      land(row(42, 'acme refund'));
+      await Promise.resolve();
+    });
+    expect(removeCall).toHaveBeenCalledWith(42);
+  });
+
+  it('does not record a search longer than the backend accepts', async () => {
+    vi.spyOn(recentSearchService, 'list').mockResolvedValue([]);
+    const recordCall = vi.spyOn(recentSearchService, 'record').mockResolvedValue(row(1, 'x'));
+    const { result } = renderHook(() => useRecentSearches());
+    await waitFor(() => expect(recentSearchService.list).toHaveBeenCalled());
+    act(() => result.current.record('x'.repeat(201)));
+    expect(recordCall).not.toHaveBeenCalled();
+    // CONTROL: at the bound it is recorded.
+    act(() => result.current.record('y'.repeat(200)));
+    expect(recordCall).toHaveBeenCalledTimes(1);
+  });
 });

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Badge } from './Badge';
 import { Spinner } from './Spinner';
 
 type LoadingOverlayProps = {
@@ -30,10 +31,14 @@ export const LoadingOverlay = ({
         role="status"
         className="absolute inset-0 z-10 flex items-start justify-center rounded-md bg-background/60 pt-16 backdrop-blur-[1px]"
       >
-        <span className="sticky top-24 flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-[13px] text-foreground shadow-sm">
+        <Badge
+          variant="secondary"
+          size="lg"
+          className="sticky top-24 gap-2 shadow-sm cursor-default"
+        >
           <Spinner size={14} />
           {label}
-        </span>
+        </Badge>
       </div>
     )}
   </div>

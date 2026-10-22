@@ -331,6 +331,7 @@ export const MessagesPage = () => {
     loading,
     refreshing,
     searching,
+    searchReading,
     setRefreshing,
     messagesPagination,
     fetchMessages,
@@ -1059,6 +1060,7 @@ export const MessagesPage = () => {
               onCommitSearch={handleCommitSearch}
               onClearFilters={() => void clearFilters()}
               isKanban={isKanban}
+              liveSearch={displayMode === 'threads'}
             />
 
             {/* One-click equivalents of the board's columns. List mode only: on the kanban the
@@ -1175,6 +1177,14 @@ export const MessagesPage = () => {
 
                 {/* A search reloads with the previous rows still drawn. Shaded, so they do not
                     read as the answer to the new search while it is on its way. */}
+                {searchReading?.asPhrase && (
+                  // The backend bound bit: too many words to match one by one. Say so, or an
+                  // empty result reads as "no such thread".
+                  <p className="text-[12.5px] text-muted-foreground">
+                    Searched as one exact phrase — more than 8 words. Use fewer words to match them
+                    in any order.
+                  </p>
+                )}
                 <LoadingOverlay active={searching && !loading} label="Searching…">
                   {loading ? (
                     <div className={compactRows ? 'space-y-0' : 'space-y-2'}>

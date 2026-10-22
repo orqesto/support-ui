@@ -179,8 +179,12 @@ export type ListScope = {
   };
 };
 
+/** How the backend read the typed search. Absent from a backend that predates it. */
+export type SearchReading = { terms: string[]; asPhrase: boolean };
+
 export type ThreadsResponse = PaginatedResponse<MessageThread[]> & {
   scope?: ListScope | null;
+  search?: SearchReading | null;
 };
 
 export type MessagesMetadata = {
