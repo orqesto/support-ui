@@ -62,7 +62,7 @@ describe('InsertFieldMenu', () => {
     render(<InsertFieldMenu onInsert={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /Insert field/ }));
     for (const field of ['{first_name}', '{customer_name}', '{ticket_id}', '{thread_id}', '{agent_name}']) {
-      expect(screen.getByRole('menuitem', { name: new RegExp(field.replace(/[{}]/g, '\\$&')) })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: (name) => name.includes(field) })).toBeInTheDocument();
     }
     expect(screen.getByText('Add a fallback for unknown names: {customer_name|there}')).toBeInTheDocument();
   });
