@@ -270,6 +270,28 @@ describe('ZendeskImportSettings — review round 2', () => {
     );
     expect((toggle as HTMLButtonElement).disabled).toBe(true);
   });
+
+  // Staging 2026-10-22: the page crashed ("Something went wrong") right after every upload.
+  it('straight after the upload, a check with no position yet shows as running, not a crash', async () => {
+    const bookkeeping = { partBytes: { '0': 2 } };
+    let listed: unknown[] = [];
+    get.mockImplementation((url: string) => routeGet(listed)(url));
+    const fresh = { ...uploadingRun, partsUploaded: 0, updatedAt: new Date().toISOString() };
+    const checking = { ...fresh, status: 'previewing', partsUploaded: 1, progress: bookkeeping };
+    post.mockImplementation((url: string) =>
+      Promise.resolve({
+        data: { success: true, data: url.endsWith('/complete') ? checking : fresh },
+      })
+    );
+    put.mockResolvedValue({ data: { success: true, data: { index: 0, bytes: 2 } } });
+    render(<ZendeskImportSettings />);
+    const input = await screen.findByLabelText('Zendesk export file');
+    listed = [checking];
+    fireEvent.change(input, { target: { files: [new File(['{}'], 'export.json')] } });
+
+    expect(await screen.findByText('Checking the export')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Stop' })).toBeTruthy();
+  });
 });
 
 describe('useSerialOptionSaves', () => {

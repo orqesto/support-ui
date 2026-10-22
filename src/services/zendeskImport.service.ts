@@ -83,6 +83,16 @@ const unwrap = <T>(res: { data: ApiResponse<T> }): T => {
   return res.data.data;
 };
 
+/**
+ * `progress` is the step's position only once a step has written it. Until then the server's column
+ * holds the upload's own bookkeeping (byte counts per part, the "upload unfinished" mark) with no
+ * `done`, and a run shown as 'previewing' straight after its upload would read `done` as undefined.
+ */
+const normalizeRun = (run: ZendeskRun): ZendeskRun => ({
+  ...run,
+  progress: typeof run.progress?.done === 'number' ? run.progress : null,
+});
+
 /** Upload part size. The BE accepts up to 16 MB per part. */
 export const PART_BYTES = 8 * 1024 * 1024;
 
@@ -91,17 +101,19 @@ export const PART_TIMEOUT_MS = 5 * 60_000;
 
 export const zendeskImportService = {
   list: async (): Promise<ZendeskRun[]> =>
-    unwrap(await apiClient.get<ApiResponse<ZendeskRun[]>>(BASE)),
+    unwrap(await apiClient.get<ApiResponse<ZendeskRun[]>>(BASE)).map(normalizeRun),
 
   get: async (runId: number): Promise<ZendeskRun> =>
-    unwrap(await apiClient.get<ApiResponse<ZendeskRun>>(`${BASE}/${runId}`)),
+    normalizeRun(unwrap(await apiClient.get<ApiResponse<ZendeskRun>>(`${BASE}/${runId}`))),
 
   create: async (file: { name: string; size: number }): Promise<ZendeskRun> =>
-    unwrap(
-      await apiClient.post<ApiResponse<ZendeskRun>>(BASE, {
-        fileName: file.name,
-        fileSize: file.size,
-      })
+    normalizeRun(
+      unwrap(
+        await apiClient.post<ApiResponse<ZendeskRun>>(BASE, {
+          fileName: file.name,
+          fileSize: file.size,
+        })
+      )
     ),
 
   uploadPart: async (
@@ -119,13 +131,17 @@ export const zendeskImportService = {
   },
 
   complete: async (runId: number): Promise<ZendeskRun> =>
-    unwrap(await apiClient.post<ApiResponse<ZendeskRun>>(`${BASE}/${runId}/complete`, {})),
+    normalizeRun(
+      unwrap(await apiClient.post<ApiResponse<ZendeskRun>>(`${BASE}/${runId}/complete`, {}))
+    ),
 
   updateOptions: async (
     runId: number,
     options: Partial<ZendeskImportOptions>
   ): Promise<ZendeskRun> =>
-    unwrap(await apiClient.put<ApiResponse<ZendeskRun>>(`${BASE}/${runId}/options`, options)),
+    normalizeRun(
+      unwrap(await apiClient.put<ApiResponse<ZendeskRun>>(`${BASE}/${runId}/options`, options))
+    ),
 
   preview: async (runId: number): Promise<void> => {
     await apiClient.post(`${BASE}/${runId}/preview`, {});
