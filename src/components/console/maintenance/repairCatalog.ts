@@ -23,6 +23,8 @@ export interface RepairEntry {
   checkOnly?: boolean;
   /** A warning shown before Apply. */
   caution?: string;
+  /** Long scans stop at a limit; the next run continues from the result's `nextAfterEventId`. */
+  pagedByEventId?: boolean;
 }
 
 export const REPAIRS: RepairEntry[] = [
@@ -127,6 +129,14 @@ export const REPAIRS: RepairEntry[] = [
     scope: 'workspace',
     method: 'get',
     checkOnly: true,
+  },
+  {
+    id: 'repair-lost-attachments',
+    label: 'Find attachments lost to Gmail quota',
+    does: 'Finds attachments Gmail refused to hand over when it was asked too fast, per mailbox. Apply records them so the next mailbox checks fetch them again. Check first: it changes nothing.',
+    path: 'repair-lost-attachments',
+    scope: 'workspace',
+    pagedByEventId: true,
   },
   {
     id: 'kb-delete-reason-backfill',

@@ -62,7 +62,42 @@ const SEND_FIELDS: FieldDef[] = [
     hint: 'A reply sent from a ticket to many threads goes out one email at a time, this many seconds apart, so a mailbox never sends a burst. 0 = no gap.',
   },
 ];
-const FIELDS: FieldDef[] = [...RATE_FIELDS, ...PAUSE_FIELDS, ...SEND_FIELDS];
+/** Gmail: attachment retry and the pacing that keeps a mailbox under Google's quota. */
+const GMAIL_FIELDS: FieldDef[] = [
+  {
+    key: 'attachmentRefetchPerRun',
+    label: 'Attachment refetch per check',
+    hint: 'Attachments that failed to download are tried again, this many per mailbox check. 0 = off.',
+  },
+  {
+    key: 'pacedUnitsPerMinute',
+    label: 'Gmail units per minute',
+    hint: 'How much Gmail work one mailbox may do per minute. Google allows 15,000 per minute per mailbox; this and the burst value together must stay below it.',
+  },
+  {
+    key: 'burstUnits',
+    label: 'Gmail burst units',
+    hint: 'How much extra work a mailbox may do at once before the per-minute pace applies. Together with units per minute it must stay below Google’s 15,000.',
+  },
+  {
+    key: 'cooldownSeconds',
+    label: 'Gmail cooldown after a refusal (seconds)',
+    hint: 'When Google refuses a request for being too fast, the mailbox waits this long before trying again.',
+  },
+  {
+    key: 'bulkFetchMax',
+    label: 'Parallel fetches — import',
+    hint: 'How many messages are downloaded at the same time while importing old mail. Lower is gentler on Google’s limit.',
+  },
+  {
+    key: 'pollFetchMax',
+    label: 'Parallel fetches — new mail',
+    hint: 'How many messages are downloaded at the same time when checking for new mail.',
+  },
+];
+/** Google's own per-minute limit for one mailbox; paced + burst must stay below it. */
+const GMAIL_UNIT_LIMIT = 15000;
+const FIELDS: FieldDef[] = [...RATE_FIELDS, ...PAUSE_FIELDS, ...SEND_FIELDS, ...GMAIL_FIELDS];
 
 /** The text as a whole number inside the field's bounds, or null. */
 const asBounded = (text: string, field: BoundedField): number | null => {
@@ -115,6 +150,10 @@ export const IngestionCard = ({ ingestion }: { ingestion: IngestionSettings | un
     crossErrors.importResumeAtUnits = 'Must be lower than the pause value.';
   if (pauseAt !== null && ceiling !== null && ceiling < pauseAt)
     crossErrors.livePollCeilingUnits = 'Must not be lower than the pause value.';
+  const paced = typed('pacedUnitsPerMinute');
+  const burst = typed('burstUnits');
+  if (paced !== null && burst !== null && paced + burst >= GMAIL_UNIT_LIMIT)
+    crossErrors.burstUnits = `Units per minute plus burst must stay below ${GMAIL_UNIT_LIMIT.toLocaleString('en-US')}.`;
   if (Object.keys(crossErrors).length > 0) invalid = true;
   const serverError = save.isError ? getApiErrorMessage(save.error) : undefined;
   const nothingChanged = Object.keys(changed).length === 0;
@@ -183,6 +222,16 @@ export const IngestionCard = ({ ingestion }: { ingestion: IngestionSettings | un
               <>
                 <h3 className="text-sm font-medium pt-2">Ticket replies</h3>
                 {renderGrid(SEND_FIELDS)}
+              </>
+            )}
+            {GMAIL_FIELDS.some((field) => ingestion?.[field.key] !== undefined) && (
+              <>
+                <h3 className="text-sm font-medium pt-2">Gmail</h3>
+                <p className="text-sm text-muted-foreground">
+                  Keeps each Gmail mailbox under Google&rsquo;s quota, and fetches again the
+                  attachments that quota made fail.
+                </p>
+                {renderGrid(GMAIL_FIELDS)}
               </>
             )}
             {serverError && (

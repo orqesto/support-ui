@@ -231,3 +231,93 @@ describe('normalizeIngestion', () => {
     ).toBe('default');
   });
 });
+
+const GMAIL = {
+  attachmentRefetchPerRun: { value: 20, source: 'default' as const, min: 0, max: 200 },
+  pacedUnitsPerMinute: { value: 12000, source: 'default' as const, min: 1000, max: 14000 },
+  burstUnits: { value: 2000, source: 'db' as const, min: 100, max: 5000 },
+  cooldownSeconds: { value: 30, source: 'default' as const, min: 5, max: 300 },
+  bulkFetchMax: { value: 15, source: 'default' as const, min: 1, max: 30 },
+  pollFetchMax: { value: 8, source: 'default' as const, min: 1, max: 30 },
+};
+const GMAIL_LABELS = [
+  'Attachment refetch per check',
+  'Gmail units per minute',
+  'Gmail burst units',
+  'Gmail cooldown after a refusal (seconds)',
+  'Parallel fetches — import',
+  'Parallel fetches — new mail',
+];
+
+describe('IngestionCard — Gmail', () => {
+  it('shows the six Gmail fields under a Gmail heading', () => {
+    wrap(<IngestionCard ingestion={{ ...SETTING, ...GMAIL }} />);
+    expect(screen.getByRole('heading', { name: 'Gmail' })).toBeTruthy();
+    for (const label of GMAIL_LABELS) expect(screen.getByLabelText(label)).toBeTruthy();
+  });
+
+  it.each(Object.keys(GMAIL) as (keyof typeof GMAIL)[])('%s alone is offered alone', (key) => {
+    wrap(<IngestionCard ingestion={{ ...SETTING, [key]: GMAIL[key] }} />);
+    expect(screen.getAllByRole('spinbutton').length).toBe(Object.keys(SETTING).length + 1);
+  });
+
+  it('an older backend without them shows no Gmail heading', () => {
+    wrap(<IngestionCard ingestion={SETTING} />);
+    expect(screen.queryByRole('heading', { name: 'Gmail' })).toBeNull();
+  });
+
+  it('saving sends only the changed Gmail field', async () => {
+    wrap(<IngestionCard ingestion={{ ...SETTING, ...GMAIL }} />);
+    fireEvent.change(screen.getByLabelText('Gmail units per minute'), {
+      target: { value: '1000' },
+    });
+    fireEvent.click(save());
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0].body).toEqual({ pacedUnitsPerMinute: 1000 });
+  });
+
+  it('0 is allowed for the refetch (off)', async () => {
+    wrap(<IngestionCard ingestion={{ ...SETTING, ...GMAIL }} />);
+    fireEvent.change(screen.getByLabelText('Attachment refetch per check'), {
+      target: { value: '0' },
+    });
+    fireEvent.click(save());
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0].body).toEqual({ attachmentRefetchPerRun: 0 });
+  });
+
+  it('units plus burst at or above 15,000 is said and blocked', () => {
+    wrap(<IngestionCard ingestion={{ ...SETTING, ...GMAIL }} />);
+    fireEvent.change(screen.getByLabelText('Gmail burst units'), { target: { value: '3000' } });
+    expect(screen.getByText(/must stay below 15,000/)).toBeTruthy();
+    expect(save()).toBeDisabled();
+  });
+
+  it("the server's 400 sentence is shown", async () => {
+    putError = Object.assign(new Error('Request failed'), {
+      status: 400,
+      data: { success: false, error: 'Units per minute plus burst must stay below 15000.' },
+    });
+    wrap(<IngestionCard ingestion={{ ...SETTING, ...GMAIL }} />);
+    fireEvent.change(screen.getByLabelText('Parallel fetches — new mail'), {
+      target: { value: '9' },
+    });
+    fireEvent.click(save());
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(
+      await screen.findByText('Units per minute plus burst must stay below 15000.')
+    ).toBeInTheDocument();
+  });
+});
+
+describe('normalizeIngestion — Gmail', () => {
+  it('keeps the six fields, and drops one that is not a whole number', () => {
+    expect(normalizeIngestion(GMAIL)).toEqual(GMAIL);
+    expect(
+      normalizeIngestion({
+        ...GMAIL,
+        burstUnits: { value: 1.5, source: 'db', min: 100, max: 5000 },
+      })?.burstUnits
+    ).toBeUndefined();
+  });
+});

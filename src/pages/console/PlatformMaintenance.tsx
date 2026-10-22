@@ -132,6 +132,10 @@ const RepairRow = ({
   const [applied, setApplied] = useState<RepairResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  // A paged repair that stopped at its limit: where the next run continues.
+  const [cursor, setCursor] = useState<number | null>(null);
+  // Where the last Check started: Apply must write that same batch, not the one after it.
+  const [checkedFrom, setCheckedFrom] = useState<number | null>(null);
 
   const needsWorkspace = repair.scope === 'workspace' && !organizationId;
   const target = repair.scope === 'workspace' ? organizationId : null;
@@ -146,12 +150,19 @@ const RepairRow = ({
     try {
       const body: Record<string, unknown> = apply ? { apply: true } : {};
       if (apply && repair.scope === 'platform') body.organizationIds = platformIds;
+      const from = apply ? checkedFrom : cursor;
+      if (repair.pagedByEventId && from !== null) body.afterEventId = from;
+      if (!apply) setCheckedFrom(from);
       const result = await maintenanceService.runRepair(
         repair.path,
         repair.method ?? 'post',
         body,
         target
       );
+      if (repair.pagedByEventId) {
+        const next = result.nextAfterEventId;
+        setCursor(moreRemains(result) && typeof next === 'number' ? next : null);
+      }
       // An Apply spends its Check: the next Apply needs a fresh one.
       if (apply) {
         setApplied(result);
@@ -199,7 +210,7 @@ const RepairRow = ({
             disabled={(!allowed && !repair.checkOnly) || needsWorkspace || busy !== null}
             onClick={() => void run(false)}
           >
-            Check
+            {cursor !== null ? 'Check next batch' : 'Check'}
           </Button>
           {!repair.checkOnly && (
             <Button
@@ -297,7 +308,24 @@ const RepairResultView = ({ title, result }: { title: string; result: RepairResu
           </div>
         ))}
       </dl>
-      {moreRemains(result) && <p className="mt-2 text-warning">More remain — run it again.</p>}
+      {Array.isArray(result.byMailbox) && (
+        <ul className="mt-2 space-y-0.5" data-testid="by-mailbox">
+          {(
+            result.byMailbox as Array<{ messageSourceId: number; name?: string; partsLost: number }>
+          ).map((box) => (
+            <li key={box.messageSourceId}>
+              {box.name ?? `Mailbox ${box.messageSourceId}`}: {box.partsLost} attachment(s) lost
+            </li>
+          ))}
+        </ul>
+      )}
+      {moreRemains(result) && (
+        <p className="mt-2 text-warning">
+          {typeof result.nextAfterEventId === 'number'
+            ? 'More remain — use “Check next batch” to continue where this stopped.'
+            : 'More remain — run it again.'}
+        </p>
+      )}
     </div>
   );
 };

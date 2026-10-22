@@ -329,6 +329,94 @@ describe('PlatformMaintenance — repairs', () => {
   });
 });
 
+describe('PlatformMaintenance — lost attachments repair', () => {
+  const ID = 'repair-repair-lost-attachments';
+  const pick = async () => {
+    renderPage();
+    await screen.findByTestId(ID);
+    await chooseOption(
+      document.getElementById('maintenance-workspace') as HTMLElement,
+      'Example Workspace'
+    );
+    return screen.getByTestId(ID);
+  };
+
+  it('is listed by name and POSTs repair-lost-attachments as a dry run first', async () => {
+    api.post.mockResolvedValue({
+      data: {
+        data: {
+          scanned: 100,
+          eventsWithLoss: 2,
+          partsLost: 5,
+          byMailbox: [{ messageSourceId: 4, name: 'Support Gmail', partsLost: 5 }],
+          unrecoverable: { events: 1, parts: 2 },
+          nextAfterEventId: null,
+          truncated: false,
+          applied: false,
+        },
+      },
+    });
+    const row = await pick();
+    expect(within(row).getByText('Find attachments lost to Gmail quota')).toBeTruthy();
+    expect(within(row).getByRole('button', { name: 'Apply' })).toBeDisabled();
+    fireEvent.click(within(row).getByRole('button', { name: 'Check' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        '/api/system/repair-lost-attachments',
+        {},
+        { organizationContext: 12 }
+      )
+    );
+    expect(await within(row).findByText(/Support Gmail: 5 attachment\(s\) lost/)).toBeTruthy();
+    expect(within(row).getByText('events 1 · parts 2')).toBeTruthy();
+  });
+
+  it('a truncated check continues from nextAfterEventId; Apply writes the batch that was checked', async () => {
+    const page = (next: number | null) => ({
+      data: {
+        data: {
+          scanned: 10,
+          eventsWithLoss: 1,
+          partsLost: 1,
+          byMailbox: [],
+          unrecoverable: { events: 0, parts: 0 },
+          nextAfterEventId: next,
+          truncated: next !== null,
+          applied: false,
+        },
+      },
+    });
+    api.post.mockResolvedValueOnce(page(500)).mockResolvedValueOnce(page(null));
+    const row = await pick();
+    fireEvent.click(within(row).getByRole('button', { name: 'Check' }));
+    expect(await within(row).findByText(/Check next batch” to continue/)).toBeTruthy();
+    fireEvent.click(within(row).getByRole('button', { name: 'Check next batch' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenLastCalledWith(
+        '/api/system/repair-lost-attachments',
+        { afterEventId: 500 },
+        { organizationContext: 12 }
+      )
+    );
+    await waitFor(() => expect(within(row).getByRole('button', { name: 'Check' })).toBeTruthy());
+    api.post.mockResolvedValueOnce(page(null));
+    fireEvent.click(within(row).getByRole('button', { name: 'Apply' }));
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: 'Apply' }).length).toBeGreaterThan(
+        REPAIR_APPLY_BUTTONS
+      )
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: 'Apply' }).at(-1) as HTMLElement);
+    await waitFor(() =>
+      expect(api.post).toHaveBeenLastCalledWith(
+        '/api/system/repair-lost-attachments',
+        { apply: true, afterEventId: 500 },
+        { organizationContext: 12 }
+      )
+    );
+  });
+});
+
 describe('PlatformMaintenance — tools moved from Console → System', () => {
   it('shows the sync checkpoints and the global-admin memberships cards', async () => {
     renderPage();
