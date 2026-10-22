@@ -324,9 +324,9 @@ describe('TicketReplyComposer', () => {
     });
     renderTicket();
     expect(
-      await screen.findByText('Sent only to threads in departments you cannot open.')
+      await screen.findByText('Sent only to threads in teams you cannot open.')
     ).toBeInTheDocument();
-    expect(screen.getByText(/2 more in departments you cannot open/)).toBeInTheDocument();
+    expect(screen.getByText(/2 more in teams you cannot open/)).toBeInTheDocument();
     // Not readable ⇒ not re-sendable: no "send to the threads that have not had it" (G1).
     expect(screen.queryByRole('button', { name: /not had it/ })).toBeNull();
   });

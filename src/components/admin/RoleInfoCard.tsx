@@ -32,7 +32,7 @@ export const PERMISSION_CATALOG: PermissionGroup[] = [
       { permission: Permission.VIEW_ORGANIZATION_SETTINGS, label: 'View workspace settings' },
       {
         permission: Permission.MANAGE_MEMBER_DEPARTMENTS,
-        label: 'Assign members to departments',
+        label: 'Assign members to teams',
       },
     ],
   },

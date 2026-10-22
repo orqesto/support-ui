@@ -293,7 +293,7 @@ export const buildFilterDefs = (dynamic: DynamicOptions): FilterDef[] => {
     },
     {
       key: 'departmentId',
-      label: 'Department',
+      label: 'Team',
       group: 'Routing',
       kind: 'select',
       options: dynamic.departments,

@@ -507,9 +507,7 @@ describe('KB page — a case opened by deep link only (H1)', () => {
     fireEvent.click(within(panel).getByRole('button', { name: /Edit/ }));
     expect(await screen.findByText(/This is a merged case/)).toBeInTheDocument();
     expect(screen.queryByText(/about,\s+Unmerge it/)).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/covering every department it serves, or an org admin/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/covering every team it serves, or an org admin/)).toBeInTheDocument();
   });
 
   it('a deep-linked merged original reads "merged into #KB-9" and offers no action', async () => {

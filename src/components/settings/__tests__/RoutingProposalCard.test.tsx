@@ -155,7 +155,7 @@ const renderCard = (card: LearningSuggestion, over: Partial<typeof props> = {}) 
       <RoutingProposalCard suggestion={card} {...props} {...over} />
     </MemoryRouter>
   );
-const evidenceLoaded = () => screen.findByText(/^Routed there by your team/);
+const evidenceLoaded = () => screen.findByText(/^Routed there by people in your workspace/);
 
 beforeEach(() => {
   calls.accept = [];
@@ -191,14 +191,14 @@ describe('helpers', () => {
   });
 
   it('supportLine: span only when both ends are known; a weighted count is never shown as a fraction', () => {
-    expect(supportLine(dept())).toBe('Routed there by your team 3 times — 2 agents over 9 days');
-    expect(supportLine(dept({ firstAt: null }))).toBe('Routed there by your team 3 times — 2 agents');
-    expect(supportLine(dept({ lastAt: null, agents: 0 }))).toBe('Routed there by your team 3 times');
+    expect(supportLine(dept())).toBe('Routed there by people in your workspace 3 times — 2 agents over 9 days');
+    expect(supportLine(dept({ firstAt: null }))).toBe('Routed there by people in your workspace 3 times — 2 agents');
+    expect(supportLine(dept({ lastAt: null, agents: 0 }))).toBe('Routed there by people in your workspace 3 times');
     expect(supportLine(dept({ supportCount: 1, agents: 1, lastAt: '2026-10-05T10:00:00Z' }))).toBe(
-      'Routed there by your team 1 time — 1 agent over 1 day'
+      'Routed there by people in your workspace 1 time — 1 agent over 1 day'
     );
     expect(supportLine(dept({ supportCount: 2.25 }))).toBe(
-      'Routed there by your team about 2 times — 2 agents over 9 days'
+      'Routed there by people in your workspace about 2 times — 2 agents over 9 days'
     );
   });
 });
@@ -207,7 +207,7 @@ describe('propose_rule card', () => {
   it('says what, how often, by whom, the estimate and the badge', async () => {
     renderCard(PROPOSE);
     expect(screen.getByText('Route mail mentioning "pallet label" in the message to Support')).toBeTruthy();
-    expect(await screen.findByText('Routed there by your team 3 times — 2 agents over 9 days')).toBeTruthy();
+    expect(await screen.findByText('Routed there by people in your workspace 3 times — 2 agents over 9 days')).toBeTruthy();
     expect(
       screen.getByText('Would have matched 14 threads in the last 30 days; 13 went to Support (93 %)')
     ).toBeTruthy();
@@ -217,7 +217,7 @@ describe('propose_rule card', () => {
     expect(screen.getByRole('link', { name: /SUP-5 · Pallet label missing/ }).getAttribute('href')).toBe('/threads/5');
     const day = new Date('2026-10-14T09:00:00Z').toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
     expect(screen.getByText(`— Anna Weber, ${day}`)).toBeTruthy();
-    expect(screen.getByText('+1 in departments you can’t see')).toBeTruthy();
+    expect(screen.getByText('+1 in teams you can’t see')).toBeTruthy();
   });
 
   it('never renders a date it does not have (no "Invalid Date", no epoch)', async () => {
@@ -235,7 +235,7 @@ describe('propose_rule card', () => {
       ],
     });
     const { container } = renderCard(PROPOSE);
-    expect(await screen.findByText('Routed there by your team 3 times — 2 agents')).toBeTruthy();
+    expect(await screen.findByText('Routed there by people in your workspace 3 times — 2 agents')).toBeTruthy();
     expect(screen.getByRole('link', { name: '#6 · (no subject)' })).toBeTruthy();
     // A row with a name but no time names the person only.
     expect(screen.getByText('— Anna Weber')).toBeTruthy();
@@ -266,7 +266,7 @@ describe('propose_rule card', () => {
     expect(await screen.findByText('Not recommended')).toBeTruthy();
   });
 
-  it('shows the department warn-band overlap, labelled as of proposal time', async () => {
+  it('shows the team warn-band overlap, labelled as of proposal time', async () => {
     impl.evidence = evidence({
       departments: [dept({ warnOverlap: { ruleId: 40, departmentId: 2, similarity: 0.83 } })],
     });
@@ -295,7 +295,7 @@ describe('propose_rule card', () => {
     renderCard(PROPOSE);
     expect(screen.getByText('Route mail mentioning "pallet label" in the message to Support')).toBeTruthy();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Accept' })).toBeTruthy());
-    expect(screen.queryByText(/^Routed there by your team/)).toBeNull();
+    expect(screen.queryByText(/^Routed there by people in your workspace/)).toBeNull();
   });
 
   it('Accept accepts once (double click) and reports done', async () => {
@@ -351,7 +351,7 @@ describe('propose_rule card', () => {
     await waitFor(() => expect(calls.decline).toEqual([[77, undefined]]));
   });
 
-  it('Edit saves the rule (never moving its department) then accepts', async () => {
+  it('Edit saves the rule (never moving its team) then accepts', async () => {
     renderCard(PROPOSE);
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: ' pallet labels ' } });
@@ -383,13 +383,13 @@ describe('propose_rule card', () => {
   });
 
   it('a duplicate-rule 409 on a pair edit shows the message, goes stale and sends no second request', async () => {
-    const err = await real409('Editing this rule would duplicate another rule with the same type and value in this department');
+    const err = await real409('Editing this rule would duplicate another rule with the same type and value in this team');
     impl.update = () => Promise.reject(err as Error);
     renderCard(suggestion('propose_rule', { ...PROPOSE.payload, siblingRuleId: 12 }));
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save and accept' }));
     await waitFor(() => expect(props.onError).toHaveBeenCalledWith(
-        'Editing this rule would duplicate another rule with the same type and value in this department'
+        'Editing this rule would duplicate another rule with the same type and value in this team'
       ));
     expect(props.onStale).toHaveBeenCalled();
     expect(calls.update).toHaveLength(1);
@@ -397,14 +397,14 @@ describe('propose_rule card', () => {
   });
 
   it('a refused edit does not accept', async () => {
-    const err = await real409('Editing this rule would duplicate another rule with the same type and value in this department');
+    const err = await real409('Editing this rule would duplicate another rule with the same type and value in this team');
     impl.update = () => Promise.reject(err as Error);
     renderCard(PROPOSE);
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save and accept' }));
     await waitFor(() =>
       expect(props.onError).toHaveBeenCalledWith(
-        'Editing this rule would duplicate another rule with the same type and value in this department'
+        'Editing this rule would duplicate another rule with the same type and value in this team'
       )
     );
     expect(calls.accept).toEqual([]);
@@ -420,7 +420,7 @@ describe('propose_rule card', () => {
 });
 
 describe('disagreement card', () => {
-  it('lists each department with its evidence and picks one or Neither', async () => {
+  it('lists each team with its evidence and picks one or Neither', async () => {
     impl.evidence = evidence({
       kind: 'resolve_routing_disagreement',
       departments: [dept(), dept({ departmentId: 2, ruleId: 11, supportCount: 1, agents: 1, conversations: [], contradictions: [], redactedCount: 0 })],
@@ -430,7 +430,7 @@ describe('disagreement card', () => {
     expect(screen.getByText('Agents disagree where "crate" mail goes')).toBeTruthy();
     expect(screen.getByText('Support — 2 threads')).toBeTruthy();
     expect(screen.getByText('Sales — 1 thread')).toBeTruthy();
-    expect(await screen.findByText('Routed there by your team 1 time — 1 agent over 9 days')).toBeTruthy();
+    expect(await screen.findByText('Routed there by people in your workspace 1 time — 1 agent over 9 days')).toBeTruthy();
     // A disagreement is never auto-accepted, whatever the evidence says.
     expect(screen.queryByText('Would be accepted automatically in Balanced mode')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Sales' }));

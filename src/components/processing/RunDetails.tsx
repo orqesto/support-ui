@@ -352,7 +352,7 @@ const MailRunDetails = ({
         {run.stages && run.stages.awaitingRouting > 0 && (
           <li>
             {plural(run.stages.awaitingRouting, 'message is', 'messages are')} waiting for someone
-            to route {run.stages.awaitingRouting === 1 ? 'it' : 'them'} to a department.
+            to route {run.stages.awaitingRouting === 1 ? 'it' : 'them'} to a team.
           </li>
         )}
         {run.linked > 0 && (

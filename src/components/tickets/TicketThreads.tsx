@@ -581,7 +581,7 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
           ))}
           {hiddenCount > 0 && (
             <li className="text-xs text-muted-foreground">
-              + {hiddenCount} {hiddenCount === 1 ? 'thread' : 'threads'} in departments you cannot
+              + {hiddenCount} {hiddenCount === 1 ? 'thread' : 'threads'} in teams you cannot
               open.
             </li>
           )}

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { departmentService, type Department } from '@/services/department.service';
 import { integrationsService } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 
 /**
  * Load active departments once and manage the create-form picker state for a new
@@ -27,13 +28,18 @@ export const useCreateSourceDepartments = () => {
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [defaultId, setDefaultId] = useState<number | undefined>();
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined>();
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const depts = await departmentService.getAll();
+        let mode: boolean | undefined;
+        const depts = await departmentService.getAll(false, (value) => {
+          mode = value;
+        });
         if (cancelled) return;
+        setTeamsMode(mode);
         setDepartments(depts);
         if (depts.length > 0) {
           // Pre-select all active departments — Wave 4 smart routing fan-out only
@@ -84,6 +90,11 @@ export const useCreateSourceDepartments = () => {
     setSelectedIds,
     defaultId,
     setDefaultId,
+    /**
+     * Whether the workspace uses teams. Off ⇒ hide the picker; the selection (every active
+     * team, which is only the default one) still rides along with the create request.
+     */
+    teamsEnabled: deriveTeamsEnabled(teamsMode, departments),
     /** Whether the picker has at least one department selected. */
     isValid: selectedIds.length > 0,
     assignToNewSource,

@@ -79,7 +79,7 @@ describe('H2 — the ticket chip and its Related popover', () => {
     // Threads: this one marked, the other opens; the hidden one is counted, not dropped.
     expect(await within(nine).findByText('3 threads on this ticket')).toBeInTheDocument();
     expect(within(nine).getByText('This thread')).toBeInTheDocument();
-    expect(within(nine).getByText(/1 in departments you cannot open/)).toBeInTheDocument();
+    expect(within(nine).getByText(/1 in teams you cannot open/)).toBeInTheDocument();
     // A link (staging's was): Cmd/Ctrl-click and "Open in new tab" work.
     const openThread = within(nine).getByRole('link', { name: 'Open TES-SUP-44' });
     expect(openThread).toHaveAttribute('href', '/threads?id=TES-SUP-44');

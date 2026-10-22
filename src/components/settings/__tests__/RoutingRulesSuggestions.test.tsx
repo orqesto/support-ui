@@ -13,7 +13,12 @@ vi.mock('@/services/routingRule.service', () => ({
   routingRuleService: { list: () => Promise.resolve({ success: true, data: [] }) },
 }));
 vi.mock('@/services/department.service', () => ({
-  departmentService: { getAll: () => Promise.resolve([{ id: 1, name: 'Support', active: true }]) },
+  departmentService: {
+    getAll: (_inactive?: boolean, onTeamsMode?: (on: boolean) => void) => {
+      onTeamsMode?.(true);
+      return Promise.resolve([{ id: 1, name: 'Support', active: true }]);
+    },
+  },
 }));
 vi.mock('@/components/admin/DepartmentBadge', () => ({ default: () => null }));
 vi.mock('../RoutingProposalCard', () => ({
@@ -69,7 +74,7 @@ describe('Routing Rules › Suggestions', () => {
   it('a pending propose_rule gets NO card here — the dormant rule row is the place', async () => {
     pending.list = [suggestion(72, 'routing', 'propose_rule', { ruleId: 1 })];
     renderPage();
-    await screen.findByText('Default department');
+    await screen.findByText('Default team');
     expect(screen.queryByTestId('card-72')).toBeNull();
   });
 });

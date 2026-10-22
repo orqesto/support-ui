@@ -11,6 +11,7 @@ import {
   MessageSquareReply,
   AtSign,
   GitCompare,
+  MessageCircleReply,
 } from 'lucide-react';
 import { AckReplyEditor } from '@/components/settings/integrations/AckReplyEditor';
 import { EmailForm } from '@/components/settings/integrations/EmailForm';
@@ -505,10 +506,14 @@ export const EmailIntegrationCard = ({
                         variant="outline"
                         size="sm"
                         onClick={() => setEditDepts(integration.id)}
-                        title="Assign departments"
-                        aria-label="Assign departments"
+                        title={deptPicker.teamsEnabled ? 'Assign teams' : 'Auto-reply'}
+                        aria-label={deptPicker.teamsEnabled ? 'Assign teams' : 'Auto-reply'}
                       >
-                        <Building2 className="w-4 h-4" />
+                        {deptPicker.teamsEnabled ? (
+                          <Building2 className="w-4 h-4" />
+                        ) : (
+                          <MessageCircleReply className="w-4 h-4" />
+                        )}
                       </Button>
                       <Button
                         variant="outline"
@@ -597,6 +602,7 @@ export const EmailIntegrationCard = ({
               showAdvanced={showAdvanced}
               departments={deptPicker.departments}
               departmentsLoading={deptPicker.loading}
+              teamsEnabled={deptPicker.teamsEnabled}
               selectedDepartmentIds={deptPicker.selectedIds}
               defaultDepartmentId={deptPicker.defaultId}
               defaultKB={defaultKB}

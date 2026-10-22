@@ -222,7 +222,7 @@ export const NeedsRoutingPage = () => {
               Needs Routing
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Threads the routing engine couldn't assign to a department
+              Threads the routing engine couldn't assign to a team
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -307,7 +307,7 @@ export const NeedsRoutingPage = () => {
                 <>
                   <p className="text-muted-foreground font-medium">No threads need routing</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    All incoming threads have been assigned to a department
+                    All incoming threads have been assigned to a team
                   </p>
                 </>
               )}
@@ -372,8 +372,8 @@ export const NeedsRoutingPage = () => {
                             }))
                           }
                           options={deptOptions}
-                          placeholder="Select department…"
-                          aria-label="Department to route to"
+                          placeholder="Select team…"
+                          aria-label="Team to route to"
                           // sm: sits in a table row beside the row's small buttons.
                           size="sm"
                           className="min-w-[12rem]"
@@ -407,7 +407,7 @@ export const NeedsRoutingPage = () => {
                             disabled={
                               !selectedDept[msg.id] || routingId === msg.id || spamId === msg.id
                             }
-                            aria-label="Route to the selected department"
+                            aria-label="Route to the selected team"
                           >
                             {routingId === msg.id ? (
                               'Routing…'
@@ -459,8 +459,8 @@ export const NeedsRoutingPage = () => {
                             }))
                           }
                           options={deptOptions}
-                          placeholder="Select department…"
-                          aria-label="Department to route to"
+                          placeholder="Select team…"
+                          aria-label="Team to route to"
                         />
                       </div>
                       <Button
@@ -472,8 +472,8 @@ export const NeedsRoutingPage = () => {
                         disabled={
                           !selectedDept[msg.id] || routingId === msg.id || spamId === msg.id
                         }
-                        aria-label="Route to the selected department"
-                        title="Route to the selected department"
+                        aria-label="Route to the selected team"
+                        title="Route to the selected team"
                       >
                         {routingId === msg.id ? (
                           '…'

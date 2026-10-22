@@ -45,7 +45,7 @@ vi.mock('@/stores/authStore', () => ({
     selector({ selectedOrganizationId: orgId, user: { organizationId: orgId } }),
 }));
 vi.mock('@/hooks/useDepartments', () => ({
-  useDepartments: () => ({ data: [{ id: 4, name: 'Support EU' }] }),
+  useDepartments: () => ({ data: [{ id: 4, name: 'Support EU' }], teamsEnabled: true }),
 }));
 
 const { useKbReviewAlerts, KB_CONSOLIDATION_KIND, KB_REVIEW_KIND } = await import(
@@ -81,7 +81,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('KB merge bell row (F3)', () => {
-  it('asks for its own kind and surfaces ONE row per department with the pending count', async () => {
+  it('asks for its own kind and surfaces ONE row per team with the pending count', async () => {
     respondByKind({ [KB_CONSOLIDATION_KIND]: [mergeRow()] });
     const { result } = renderHook(() => useKbReviewAlerts());
     await waitFor(() => expect(result.current.consolidations).toHaveLength(1));
@@ -116,7 +116,7 @@ describe('KB merge bell row (F3)', () => {
     await waitFor(() => expect(result.current.consolidations).toHaveLength(1));
   });
 
-  it('the section shows the count and department, and Review opens the suggested changes', () => {
+  it('the section shows the count and team, and Review opens the suggested changes', () => {
     const onNavigate = vi.fn();
     render(
       <KbReviewSection
@@ -196,7 +196,7 @@ describe('KB merge bell stays current (M1)', () => {
 });
 
 describe('KB merge bell — one proposal, one row; one workspace at a time', () => {
-  it('an org-wide proposal written once per department counts once (LOW-2)', async () => {
+  it('an org-wide proposal written once per team counts once (LOW-2)', async () => {
     respondByKind({
       [KB_CONSOLIDATION_KIND]: [
         mergeRow({ id: 31, departmentId: 4, details: { suggestionIds: [71, 70], pending: 2 } }),

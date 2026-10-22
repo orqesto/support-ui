@@ -255,7 +255,7 @@ export const KBEntryDetail = ({
                 <div className="font-medium">{displayEntry.category}</div>
               </div>
               <div>
-                <span className="text-muted-foreground">Department:</span>
+                <span className="text-muted-foreground">Team:</span>
                 <div className="font-medium">
                   <DepartmentBadge departmentId={displayEntry.departmentId} />
                 </div>

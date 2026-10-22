@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Brain } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
@@ -11,6 +12,7 @@ import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
 import { departmentService, type Department } from '@/services/department.service';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import {
   ROUTING_RULE_TYPES,
   routingRuleService,
@@ -139,6 +141,8 @@ export const RoutingRulesSettings = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [ruleFilter, setRuleFilter] = useState<RuleFilter>('all');
   const [savingDefault, setSavingDefault] = useState(false);
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined>();
+  const [deptsLoaded, setDeptsLoaded] = useState(false);
 
   const deptNameById = useMemo(() => {
     const map = new Map<number, string>();
@@ -148,9 +152,11 @@ export const RoutingRulesSettings = () => {
 
   const loadDepts = useCallback(async () => {
     try {
-      setAllDepts(await departmentService.getAll());
+      setAllDepts(await departmentService.getAll(false, setTeamsMode));
     } catch (err: unknown) {
-      logger.error('Failed to load departments:', err);
+      logger.error('Failed to load teams:', err);
+    } finally {
+      setDeptsLoaded(true);
     }
   }, []);
 
@@ -196,7 +202,7 @@ export const RoutingRulesSettings = () => {
     },
     createRule: async (data) => {
       if (data.departmentId === null) {
-        setFormError('Pick a department for the rule');
+        setFormError('Pick a team for the rule');
         throw new Error('Missing department');
       }
       const shouldTrim = data.type !== 'subject_regex' && data.type !== 'header_match';
@@ -321,6 +327,21 @@ export const RoutingRulesSettings = () => {
   const editingDormant =
     ruleManagement.editingRule !== null && switchOnIsAccept(ruleManagement.editingRule);
 
+  // Teams off: every thread goes to the one team, so there is nothing to route. Rules stay
+  // stored and come back with their teams when teams are switched on again.
+  if (deptsLoaded && !deriveTeamsEnabled(teamsMode, allDepts)) {
+    return (
+      <Alert>
+        <AlertTitle>Teams are switched off</AlertTitle>
+        <AlertDescription>
+          Every new thread goes to {defaultDept ? defaultDept.name : 'your workspace'}, so there is
+          nothing to route. To route threads to different teams, switch teams on in Settings ›
+          Teams.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* A proposed rule (propose_rule) is decided by switching its dormant row on — not here. */}
@@ -331,19 +352,19 @@ export const RoutingRulesSettings = () => {
         description="Routing questions the engine could not settle on its own, and learned rules waiting for you to keep or drop them."
       />
       <div className="rounded-lg border border-border bg-card p-4">
-        <h3 className="font-display text-sm font-semibold text-foreground">Default department</h3>
+        <h3 className="font-display text-sm font-semibold text-foreground">Default team</h3>
         <p className="mt-1 mb-3 text-xs text-muted-foreground">
-          The fallback department for incoming threads when no source binding or routing rule
-          resolves one. Exactly one per workspace.
+          The fallback team for incoming threads when no source binding or routing rule resolves
+          one. Exactly one per workspace.
         </p>
         <div className="max-w-xs">
           <Select
             value={defaultDept ? String(defaultDept.id) : ''}
             onChange={handleSetDefault}
             options={allDepts.map((dept) => ({ value: String(dept.id), label: dept.name }))}
-            placeholder={allDepts.length === 0 ? 'No departments' : 'Select default department'}
+            placeholder={allDepts.length === 0 ? 'No teams' : 'Select default team'}
             disabled={allDepts.length === 0 || savingDefault}
-            aria-label="Default department"
+            aria-label="Default team"
           />
         </div>
       </div>
@@ -370,12 +391,12 @@ export const RoutingRulesSettings = () => {
           </div>
         )}
         title="Routing Rules"
-        description="Department-scoped rules that decide which department incoming threads route to. Rules apply to all channels serving the department. Highest score wins; if nothing matches, the source default is used."
+        description="Team-scoped rules that decide which team incoming threads route to. Rules apply to all channels serving the team. Highest score wins; if nothing matches, the source default is used."
         dialogTitle="Routing Rule"
         emptyMessage="No routing rules yet. Add one to route threads by subject, sender, or header."
         prefixColumns={[
           {
-            header: 'Department',
+            header: 'Team',
             render: (rule) => <DepartmentBadge departmentId={rule.departmentId} size="sm" />,
           },
           {
@@ -421,7 +442,7 @@ export const RoutingRulesSettings = () => {
         renderFormFields={(formData, setFormData) => (
           <>
             <Select
-              label="Department"
+              label="Team"
               value={formData.departmentId?.toString() ?? ''}
               onChange={(value) => {
                 setFormData({
@@ -431,12 +452,12 @@ export const RoutingRulesSettings = () => {
                 setFormError(null);
               }}
               options={deptOptionsForDialog}
-              placeholder={allDepts.length === 0 ? 'No departments' : 'Select a department'}
+              placeholder={allDepts.length === 0 ? 'No teams' : 'Select a team'}
               disabled={allDepts.length === 0}
             />
             {ruleManagement.editingRule !== null && (
               <p className="text-xs text-muted-foreground">
-                Changing the department moves this rule to another team.
+                Changing the team moves this rule to another team.
               </p>
             )}
             <Select
@@ -535,9 +556,7 @@ export const RoutingRulesSettings = () => {
       <AcceptFromRulesDialog
         rule={confirmRule}
         rules={rules}
-        departmentName={(departmentId) =>
-          deptNameById.get(departmentId) ?? `department #${departmentId}`
-        }
+        departmentName={(departmentId) => deptNameById.get(departmentId) ?? `team #${departmentId}`}
         onCancel={() => setConfirmRule(null)}
         onAccept={(rule) => void switchRule(rule, true, 'accept the proposed rule')}
       />

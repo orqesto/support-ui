@@ -117,7 +117,7 @@ export const NotificationPreferencesSettings = () => {
       <div>
         <h3 className="font-display text-sm font-semibold mb-1">Inbox notifications</h3>
         <p className="text-xs text-muted-foreground mb-3">
-          Live mail nobody is assigned to yet, in your departments. Assignments to you always notify you.
+          Live mail nobody is assigned to yet, in your teams. Assignments to you always notify you.
         </p>
         <div className="rounded-lg border border-border bg-card px-4">
           <PreferenceRow

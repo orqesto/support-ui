@@ -97,7 +97,7 @@ describe('Learning activity', () => {
   it('empty state says when proposals appear', async () => {
     renderAt();
     expect(
-      await screen.findByText('No proposals yet — they appear after your team routes similar mail a few times.')
+      await screen.findByText('No proposals yet — they appear after people in your workspace route similar mail a few times.')
     ).toBeTruthy();
     expect(screen.queryByText('No pending suggestions.')).toBeNull();
   });
@@ -105,16 +105,16 @@ describe('Learning activity', () => {
   it('without Manage Routing Rules the empty state does not mention routing', async () => {
     rows.canRoute = false;
     renderAt();
-    expect(await screen.findByText('No suggestions yet — they appear as your team works through mail.')).toBeTruthy();
+    expect(await screen.findByText('No suggestions yet — they appear as people in your workspace work through mail.')).toBeTruthy();
     expect(screen.queryByText(/routes similar mail/)).toBeNull();
   });
 
   it('promote shows the engine summary, not "Promote provisional rule"', async () => {
     rows.list = [
-      { ...row(6, 'promote', { ruleId: 3, ruleTable: 'routing_rules', summary: 'subject_contains="invoice" → dept 2' }), domain: 'kb_quality' },
+      { ...row(6, 'promote', { ruleId: 3, ruleTable: 'routing_rules', summary: 'subject_contains="invoice" → team 2' }), domain: 'kb_quality' },
     ];
     renderAt();
-    expect(await screen.findByText('Promote: subject_contains="invoice" → dept 2')).toBeTruthy();
+    expect(await screen.findByText('Promote: subject_contains="invoice" → team 2')).toBeTruthy();
     expect(screen.queryByText('Promote provisional rule')).toBeNull();
   });
 

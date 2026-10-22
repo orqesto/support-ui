@@ -87,7 +87,7 @@ export const ATTACH_REFUSED: Record<string, string> = {
   hidden: 'it is hidden — unhide it first.',
   source_deleted: 'its source was removed.',
   not_qa_pair: 'only a question-and-answer entry can join a case.',
-  other_scope: 'that case serves a different mailbox or department.',
+  other_scope: 'that case serves a different mailbox or team.',
   under_review: 'it has an open KB review — decide that review first.',
 };
 /** Why taking an entry out of a case was refused (BE detach). */

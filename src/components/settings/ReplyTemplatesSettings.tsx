@@ -16,6 +16,7 @@ import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import RichTextEditor from '@/components/shared/RichTextEditor';
 import { useDepartments } from '@/hooks/useDepartments';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { usePermissions } from '@/hooks/usePermissions';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
@@ -75,7 +76,9 @@ export const ReplyTemplatesSettings = () => {
   const { hasPermission, isOrgAdmin } = usePermissions();
   const canCreate = hasPermission(Permission.MANAGE_REPLY_TEMPLATES);
   const myDepartmentIds = useAuthStore((state) => state.user?.departmentIds);
-  const { data: departments = [] } = useDepartments();
+  const { data: departments = [], teamsEnabled: teamsMode } = useDepartments();
+  // Teams off: no team field or chip; a new template is for the whole workspace.
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
 
   const [state, setState] = useState<'loading' | 'ready' | 'failed' | 'unavailable'>('loading');
   const [templates, setTemplates] = useState<ReplyTemplate[]>([]);
@@ -108,7 +111,7 @@ export const ReplyTemplatesSettings = () => {
   const departmentName = (id: number | null) =>
     id === null
       ? 'Whole workspace'
-      : (departments.find((dept) => dept.id === id)?.name ?? `Department #${id}`);
+      : (departments.find((dept) => dept.id === id)?.name ?? `Team #${id}`);
 
   // A non-admin may file a template only under the whole workspace or their own departments.
   const ownDepartments = isOrgAdmin
@@ -215,7 +218,7 @@ export const ReplyTemplatesSettings = () => {
           <h3 className="font-display text-lg font-semibold">Reply templates</h3>
           <p className="text-sm text-muted-foreground">
             Saved replies agents insert from the Templates menu of a thread’s reply box, or turn
-            into one draft per customer on a ticket. A department’s templates are listed only to its
+            into one draft per customer on a ticket. A team’s templates are listed only to its
             members.
           </p>
         </div>
@@ -250,7 +253,9 @@ export const ReplyTemplatesSettings = () => {
             >
               <span className="text-sm font-medium flex-1 min-w-0 truncate">{template.name}</span>
               <Badge variant="secondary">{USE_LABELS[template.use]}</Badge>
-              <Badge variant="secondary">{departmentName(template.departmentId)}</Badge>
+              {teamsEnabled && (
+                <Badge variant="secondary">{departmentName(template.departmentId)}</Badge>
+              )}
               {template.attachments.length > 0 && (
                 <Badge variant="secondary">
                   {template.attachments.length}{' '}
@@ -313,14 +318,16 @@ export const ReplyTemplatesSettings = () => {
                 value={form.use}
                 onChange={(value) => setForm({ ...form, use: value as TemplateUse })}
               />
-              <Select
-                label="Department"
-                aria-label="Department"
-                options={departmentOptions}
-                value={form.departmentId}
-                onChange={(value) => setForm({ ...form, departmentId: value })}
-                hint="A department’s template is listed only to that department’s members."
-              />
+              {teamsEnabled && (
+                <Select
+                  label="Team"
+                  aria-label="Team"
+                  options={departmentOptions}
+                  value={form.departmentId}
+                  onChange={(value) => setForm({ ...form, departmentId: value })}
+                  hint="A team’s template is listed only to that team’s members."
+                />
+              )}
               <div className="space-y-1">
                 <Label>Text</Label>
                 <RichTextEditor

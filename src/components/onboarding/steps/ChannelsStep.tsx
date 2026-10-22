@@ -144,7 +144,7 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
         Connect the channels your customers reach you on — messages are fetched, analyzed and routed
-        to your departments. Set up one or more now, or skip and add them anytime in Settings.
+        to your teams. Set up one or more now, or skip and add them anytime in Settings.
       </p>
       <p className="text-xs text-muted-foreground">
         Tip: when adding a mailbox, tick “Use as Knowledge Base source” to also learn answers from

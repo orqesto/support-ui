@@ -13,7 +13,7 @@ vi.mock('@tanstack/react-query', () => ({
 }));
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartmentById: () => null,
-  useDepartments: () => ({ data: [] }),
+  useDepartments: () => ({ data: [], teamsEnabled: true }),
 }));
 vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: () => true, isOrgAdmin: true }),

@@ -277,8 +277,8 @@ export const LeadQualificationPanel = ({
           <div className="flex gap-2 items-center">
             <div className="w-2 h-2 bg-destructive rounded-full" />
             <p className="text-sm font-medium text-destructive">
-              This lead has been escalated and requires immediate attention from a senior team
-              member.
+              This lead has been escalated and requires immediate attention from a senior
+              colleague.
             </p>
           </div>
         </div>

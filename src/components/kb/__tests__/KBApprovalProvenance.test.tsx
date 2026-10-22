@@ -95,14 +95,14 @@ describe('KBApprovalProvenance', () => {
     getAssignableUsers.mockResolvedValue([]);
     render(<KBApprovalProvenance entry={entry({ approvedBy: 7 })} />);
     await waitFor(() => expect(getAssignableUsers).toHaveBeenCalled());
-    expect(screen.getByText('Reviewed by a team member')).toBeInTheDocument();
+    expect(screen.getByText('Reviewed by a colleague')).toBeInTheDocument();
   });
 
   it('survives a failing lookup', async () => {
     getAssignableUsers.mockRejectedValue(new Error('403'));
     render(<KBApprovalProvenance entry={entry({ approvedBy: 7 })} />);
     await waitFor(() => expect(getAssignableUsers).toHaveBeenCalled());
-    expect(screen.getByText('Reviewed by a team member')).toBeInTheDocument();
+    expect(screen.getByText('Reviewed by a colleague')).toBeInTheDocument();
   });
 
   it('renders nothing when the backend has not sent the field', () => {

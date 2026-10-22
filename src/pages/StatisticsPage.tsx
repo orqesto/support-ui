@@ -253,7 +253,7 @@ export const StatisticsPage = () => {
   const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
     { id: 'overview', label: 'Overview', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'performance', label: 'Performance', icon: <Activity className="w-4 h-4" /> },
-    { id: 'team', label: 'Team Performance', icon: <Users className="w-4 h-4" /> },
+    { id: 'team', label: 'Agent Performance', icon: <Users className="w-4 h-4" /> },
     // Admin-only: AI/model internals split out of the customer-facing Overview.
     ...(isOrgAdmin
       ? [

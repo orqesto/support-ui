@@ -152,8 +152,8 @@ export const JiraIntegrationCard = ({
                         size="sm"
                         onClick={() => handleSetDefault(integration.id, integration.name)}
                         isLoading={settingDefault === integration.id}
-                        title="Set as default for this department"
-                        aria-label="Set as default for this department"
+                        title="Set as default for this team"
+                        aria-label="Set as default for this team"
                       >
                         <Star className="w-4 h-4" />
                       </Button>

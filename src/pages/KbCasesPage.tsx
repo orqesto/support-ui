@@ -11,6 +11,7 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { useDepartments } from '@/hooks/useDepartments';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { usePermissions } from '@/hooks/usePermissions';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { KbCaseRowView } from '@/components/kb/KbCaseRowView';
@@ -65,9 +66,15 @@ export const KbCasesPage = () => {
   // Inactive departments too: the report's "all" counts them. Ticking every box covers every
   // department — "all" (none ticked) can cover more: an org-level viewer's also takes in mailboxes
   // linked to no department (`unassignedScopes`).
-  const { data: allDepartments = [], isLoading: deptsLoading } = useDepartments({
+  const {
+    data: allDepartments = [],
+    isLoading: deptsLoading,
+    teamsEnabled: teamsMode,
+  } = useDepartments({
     includeInactive: true,
   });
+  // Teams off: no team filter; the report covers the one team.
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, allDepartments);
   const { isOrgAdmin } = usePermissions();
   const myDepartmentIds = useAuthStore((state) => state.user?.departmentIds);
   // The report route answers 404 for a department a moderator is not in (org admins: any), so
@@ -270,9 +277,9 @@ export const KbCasesPage = () => {
         </p>
 
         <div className="flex flex-wrap gap-3 items-end">
-          {legacy ? (
+          {!teamsEnabled ? null : legacy ? (
             <div>
-              <Label htmlFor="cases-dept">Department</Label>
+              <Label htmlFor="cases-dept">Team</Label>
               <Select
                 id="cases-dept"
                 value={legacyDepartmentId === null ? '' : String(legacyDepartmentId)}
@@ -286,8 +293,8 @@ export const KbCasesPage = () => {
             // No department to tick (an org-level viewer still gets a report): say what it covers.
             shownReport?.unassignedScopes === true && (
               <p className="text-xs text-muted-foreground" data-testid="departments-scope">
-                No department in this workspace — showing everything you can see, including
-                mailboxes linked to no department.
+                No team in this workspace — showing everything you can see, including mailboxes
+                linked to no team.
               </p>
             )
           ) : (
@@ -343,14 +350,14 @@ export const KbCasesPage = () => {
         </div>
         {legacy && (
           <p className="text-xs text-muted-foreground">
-            This server reports on one department at a time, and its entries cannot be acted on from
-            this page yet — open them from the knowledge base.
+            This server reports on one team at a time, and its entries cannot be acted on from this
+            page yet — open them from the knowledge base.
           </p>
         )}
 
-        {noDepartments && <Alert>You have no department to report on.</Alert>}
+        {noDepartments && <Alert>You have no team to report on.</Alert>}
         {legacyNoDepartment && (
-          <Alert>This server reports on one department at a time, and there is none to pick.</Alert>
+          <Alert>This server reports on one team at a time, and there is none to pick.</Alert>
         )}
         {error && <Alert variant="danger">{error}</Alert>}
         {notice && (

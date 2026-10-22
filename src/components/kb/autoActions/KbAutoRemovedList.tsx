@@ -29,7 +29,7 @@ const restoreFallback = (status: number | undefined): string => {
   if (status === 404)
     return 'This entry no longer exists (it may already have been deleted for good).';
   if (status === 409) return 'This entry was already restored, or was not removed automatically.';
-  if (status === 403) return 'You cannot restore entries of this department.';
+  if (status === 403) return 'You cannot restore entries of this team.';
   return 'Please try again.';
 };
 

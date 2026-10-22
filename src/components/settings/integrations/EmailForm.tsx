@@ -71,6 +71,8 @@ type EmailFormProps = {
   /** Create-only — when editing an existing source, departments are managed via the per-source editor. */
   departments: Department[];
   departmentsLoading?: boolean;
+  /** Teams off ⇒ no team picker; the preselected default team is still sent. */
+  teamsEnabled?: boolean;
   selectedDepartmentIds: number[];
   defaultDepartmentId: number | undefined;
   /**
@@ -98,6 +100,7 @@ export const EmailForm = ({
   showAdvanced,
   departments,
   departmentsLoading,
+  teamsEnabled = true,
   selectedDepartmentIds,
   defaultDepartmentId,
   defaultKB,
@@ -425,10 +428,10 @@ export const EmailForm = ({
         </div>
       )}
 
-      {isCreating && (
+      {isCreating && teamsEnabled && (
         <div className="space-y-2 pt-1 border-t">
           <label className="text-sm font-medium flex items-center gap-1">
-            <Building2 className="w-3.5 h-3.5" /> Departments
+            <Building2 className="w-3.5 h-3.5" /> Teams
           </label>
           <DepartmentMultiPicker
             allDepts={departments}
@@ -440,12 +443,12 @@ export const EmailForm = ({
           />
           {!departmentsLoading && departments.length === 0 && (
             <p className="text-xs text-warning">
-              No active departments. Create one before connecting a source.
+              No active teams. Create one before connecting a source.
             </p>
           )}
           {!departmentsLoading && departments.length > 0 && !deptsValid && (
             <p className="text-xs text-muted-foreground">
-              Select at least one department to route messages from this source.
+              Select at least one team to route messages from this source.
             </p>
           )}
         </div>

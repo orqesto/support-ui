@@ -13,6 +13,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { useDepartments } from '@/hooks/useDepartments';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { apiClient } from '@/lib/api-client';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { categoryService } from '@/services/category.service';
@@ -51,7 +52,13 @@ export const CreateTicketPage = () => {
   const messageId = searchParams.get('messageId');
   const user = useAuthStore((state) => state.user);
   const userId = user?.id;
-  const { data: allDepartments = [], isFetched: departmentsFetched } = useDepartments();
+  const {
+    data: allDepartments = [],
+    isFetched: departmentsFetched,
+    teamsEnabled: teamsMode,
+  } = useDepartments();
+  // Teams off: no team field; the ticket is filed in the one team (the first offered).
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, allDepartments);
   // A ticket with no thread is filed in one of the creator's departments; an administrator may
   // pick any. From a thread it is the thread's department (the backend ignores another).
   const mayPickAny = user?.role === 'admin' || user?.organizationRole === 'org_admin';
@@ -111,8 +118,8 @@ export const CreateTicketPage = () => {
   const threadDepartmentName = message
     ? message.departmentId
       ? (allDepartments.find((dept) => dept.id === message.departmentId)?.name ??
-        `Department #${message.departmentId}`)
-      : 'No department'
+        `Team #${message.departmentId}`)
+      : 'No team'
     : '';
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -475,7 +482,7 @@ export const CreateTicketPage = () => {
             )}
             {!messageId && departmentsFetched && departments.length === 0 && (
               <Alert variant="warning" className="mb-4">
-                A ticket with no thread is filed in one of your departments, and you are not in
+                A ticket with no thread is filed in one of your teams, and you are not in
                 any. Ask an administrator to add you to one, or create the ticket from a thread.
               </Alert>
             )}
@@ -543,18 +550,18 @@ export const CreateTicketPage = () => {
                       Where it goes
                     </h3>
                     <div className="grid gap-3">
-                      {messageId ? (
+                      {!teamsEnabled ? null : messageId ? (
                         <Input
-                          label="Department"
-                          aria-label="Department"
+                          label="Team"
+                          aria-label="Team"
                           value={threadDepartmentName}
                           readOnly
                           disabled
                         />
                       ) : (
                         <Select
-                          label="Department"
-                          aria-label="Department"
+                          label="Team"
+                          aria-label="Team"
                           value={departmentKey ?? ''}
                           options={departments.map((dept) => ({
                             value: String(dept.id),

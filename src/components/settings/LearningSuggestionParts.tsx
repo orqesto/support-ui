@@ -39,7 +39,7 @@ export const SeverityBadge = ({ suggestion }: { suggestion: LearningSuggestion }
     return (
       <span
         className="font-display inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold uppercase tracking-[0.09em] bg-warning/15 text-warning"
-        title="Borderline cross-dept overlap (cosine 0.85-0.92). Soft signal — these rules may converge over time. Not blocking."
+        title="Borderline cross-team overlap (cosine 0.85-0.92). Soft signal — these rules may converge over time. Not blocking."
       >
         Soft
       </span>
@@ -79,7 +79,7 @@ export const summarizeSuggestion = (
     const targetClause = targetName
       ? ` → ${targetName}`
       : targetDeptId !== null
-        ? ` → dept #${targetDeptId}`
+        ? ` → team #${targetDeptId}`
         : '';
     return `Add ${ruleType} rule${value ? `: "${value}"` : ''}${targetClause}`;
   }
@@ -141,8 +141,8 @@ export const summarizeSuggestion = (
     if (conflictType === 'cross_dept_overlap') {
       const deptIdA = typeof evidence.deptIdA === 'number' ? evidence.deptIdA : null;
       const deptIdB = typeof evidence.deptIdB === 'number' ? evidence.deptIdB : null;
-      const deptA = deptIdA !== null ? (deptNameById(deptIdA) ?? `dept #${deptIdA}`) : null;
-      const deptB = deptIdB !== null ? (deptNameById(deptIdB) ?? `dept #${deptIdB}`) : null;
+      const deptA = deptIdA !== null ? (deptNameById(deptIdA) ?? `team #${deptIdA}`) : null;
+      const deptB = deptIdB !== null ? (deptNameById(deptIdB) ?? `team #${deptIdB}`) : null;
       const valA = typeof evidence.ruleAValue === 'string' ? evidence.ruleAValue : null;
       const valB = typeof evidence.ruleBValue === 'string' ? evidence.ruleBValue : null;
       if (deptA && deptB && valA && valB) return `Resolve conflict: "${valA}" (${deptA}) ↔ "${valB}" (${deptB})`;
@@ -156,8 +156,8 @@ export const summarizeSuggestion = (
     if (conflictType === 'cross_dept_warn_overlap') {
       const deptIdA = typeof evidence.deptIdA === 'number' ? evidence.deptIdA : null;
       const deptIdB = typeof evidence.deptIdB === 'number' ? evidence.deptIdB : null;
-      const deptA = deptIdA !== null ? (deptNameById(deptIdA) ?? `dept #${deptIdA}`) : null;
-      const deptB = deptIdB !== null ? (deptNameById(deptIdB) ?? `dept #${deptIdB}`) : null;
+      const deptA = deptIdA !== null ? (deptNameById(deptIdA) ?? `team #${deptIdA}`) : null;
+      const deptB = deptIdB !== null ? (deptNameById(deptIdB) ?? `team #${deptIdB}`) : null;
       const similarity = typeof evidence.similarity === 'number' ? evidence.similarity : null;
       const simClause = similarity !== null ? ` (${(similarity * 100).toFixed(0)}% similar)` : '';
       if (deptA && deptB) return `Soft overlap: ${deptA} ↔ ${deptB}${simClause}`;
@@ -246,7 +246,7 @@ export const ConflictDetail = ({
     if (deptIdA !== null) rows.push({ label: 'Dept A', value: deptNameById(deptIdA) ?? `#${deptIdA}` });
     if (typeof evidence.ruleBValue === 'string') rows.push({ label: 'Rule B', value: `"${evidence.ruleBValue}" (${typeof evidence.ruleBType === 'string' ? evidence.ruleBType : 'rule'})` });
     if (deptIdB !== null) rows.push({ label: 'Dept B', value: deptNameById(deptIdB) ?? `#${deptIdB}` });
-    rows.push({ label: 'Problem', value: 'Two routing rules in different departments match very similar messages. Accepting merges or removes the weaker one.' });
+    rows.push({ label: 'Problem', value: 'Two routing rules in different teams match very similar messages. Accepting merges or removes the weaker one.' });
   } else if (conflictType === 'cross_dept_warn_overlap') {
     // Warn-band payload (emitted by L2 at materialize) doesn't include rule
     // values or types — only the pair ids, dept ids, similarity, and the
@@ -264,7 +264,7 @@ export const ConflictDetail = ({
     rows.push({
       label: 'Problem',
       value:
-        'Borderline cross-dept overlap (similarity 85–92%). Not a hard conflict — both rules can coexist — but they may converge over time. Accepting consolidates them; declining records that they should stay distinct.',
+        'Borderline cross-team overlap (similarity 85–92%). Not a hard conflict — both rules can coexist — but they may converge over time. Accepting consolidates them; declining records that they should stay distinct.',
     });
   } else {
     const idA = typeof payload.ruleAId === 'number' ? String(payload.ruleAId) : '—';

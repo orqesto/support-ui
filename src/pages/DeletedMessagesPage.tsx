@@ -179,7 +179,7 @@ export const DeletedMessages = () => {
                           Channel
                         </th>
                         <th className="px-4 py-3 font-medium text-left text-muted-foreground">
-                          Department
+                          Team
                         </th>
                         <th className="px-4 py-3 font-medium text-left text-muted-foreground">
                           Deleted At

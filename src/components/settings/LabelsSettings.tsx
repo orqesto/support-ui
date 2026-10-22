@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/Dialog';
 import { labelService, type Label } from '@/services/settings.service';
 import { useDepartments } from '@/hooks/useDepartments';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { logger } from '@/lib/logger';
 
 const PRESET_COLORS = [
@@ -31,7 +32,9 @@ export const LabelsSettings = () => {
     { name: '', color: '#6366f1', departmentIds: [] }
   );
   const [saving, setSaving] = useState(false);
-  const { data: allDepts = [] } = useDepartments();
+  const { data: allDepts = [], teamsEnabled: teamsMode } = useDepartments();
+  // Teams off: no team scope to pick or show; a label applies everywhere.
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, allDepts);
   const activeDepts = allDepts.filter((dept) => dept.active);
 
   const toggleDept = (deptId: number) =>
@@ -43,11 +46,11 @@ export const LabelsSettings = () => {
     }));
 
   const deptScopeLabel = (ids?: number[]): string => {
-    if (!ids || ids.length === 0) return 'All departments';
+    if (!ids || ids.length === 0) return 'All teams';
     return activeDepts
       .filter((dept) => ids.includes(dept.id))
       .map((dept) => dept.name)
-      .join(', ') || `${ids.length} department(s)`;
+      .join(', ') || `${ids.length} team(s)`;
   };
 
   const fetchLabels = async () => {
@@ -178,9 +181,10 @@ export const LabelsSettings = () => {
               />
             </div>
           </div>
-          {/* Department scope */}
+          {/* Team scope */}
+          {teamsEnabled && (
           <div className="space-y-1.5">
-            <p className="text-xs text-muted-foreground">Departments</p>
+            <p className="text-xs text-muted-foreground">Teams</p>
             <div className="flex items-center gap-1.5 flex-wrap">
               {activeDepts.map((dept) => {
                 const selected = formData.departmentIds.includes(dept.id);
@@ -200,10 +204,11 @@ export const LabelsSettings = () => {
             </div>
             <p className="text-[11px] text-muted-foreground">
               {formData.departmentIds.length === 0
-                ? 'No departments selected — this label applies to all departments (org-wide).'
-                : 'The label can be applied only to threads in the selected department(s).'}
+                ? 'No teams selected — this label applies to all teams (org-wide).'
+                : 'The label can be applied only to threads in the selected team(s).'}
             </p>
           </div>
+          )}
           <div className="flex gap-2">
             <Button size="sm" onClick={handleSave} isLoading={saving} disabled={!formData.name.trim()}>
               Save
@@ -233,9 +238,11 @@ export const LabelsSettings = () => {
                   style={{ backgroundColor: safeCssColor(label.color) }}
                 />
                 <span className="text-sm font-medium truncate">{label.name}</span>
-                <span className="text-xs text-muted-foreground truncate">
-                  {deptScopeLabel(label.departmentIds)}
-                </span>
+                {teamsEnabled && (
+                  <span className="text-xs text-muted-foreground truncate">
+                    {deptScopeLabel(label.departmentIds)}
+                  </span>
+                )}
               </div>
               <div className="flex gap-1">
                 <Button

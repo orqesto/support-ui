@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
 import { useDepartments } from '@/hooks/useDepartments';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import type { DocumentType } from '@/services/documentation.service';
 
 type FileUploadProgress = {
@@ -59,7 +60,9 @@ export const DocumentationUploadForm = ({
   onDocumentTypeChange,
   onUpload,
 }: DocumentationUploadFormProps) => {
-  const { data: departments = [] } = useDepartments();
+  const { data: departments = [], teamsEnabled: teamsMode } = useDepartments();
+  // Teams off: no team scope; documentation is shared with the whole workspace.
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
   const isOrgWide = selectedDeptIds.length === 0;
   const toggleDept = (id: number) => {
     if (selectedDeptIds.includes(id)) {
@@ -246,8 +249,9 @@ export const DocumentationUploadForm = ({
           </div>
         </div>
 
+        {teamsEnabled && (
         <div>
-          <div className="block mb-2 text-sm font-medium">Department scope</div>
+          <div className="block mb-2 text-sm font-medium">Team scope</div>
           <div className="space-y-2">
             <label className="flex gap-2 items-center cursor-pointer">
               <input
@@ -257,12 +261,12 @@ export const DocumentationUploadForm = ({
                 className="w-4 h-4"
               />
               <Globe className="w-4 h-4" />
-              <span className="text-sm">Shared with all departments</span>
+              <span className="text-sm">Shared with all teams</span>
             </label>
             {!isOrgWide && (
               <div className="pl-6 space-y-1">
                 {departments.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No departments available.</p>
+                  <p className="text-xs text-muted-foreground">No teams available.</p>
                 ) : (
                   departments.map((dept) => (
                     <label key={dept.id} className="flex gap-2 items-center cursor-pointer">
@@ -286,18 +290,19 @@ export const DocumentationUploadForm = ({
                 onClick={() => onSelectedDeptIdsChange(departments.map((dept) => dept.id))}
                 className="p-0 pl-6 h-auto text-xs text-primary hover:underline hover:bg-transparent"
               >
-                Select all departments
+                Select all teams
               </Button>
             )}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             {isOrgWide
-              ? 'All departments can see and use this documentation.'
+              ? 'All teams can see and use this documentation.'
               : selectedDeptIds.length === 0
-                ? 'Pick at least one department, or check "Shared with all departments".'
-                : `Visible to ${selectedDeptIds.length} department(s).`}
+                ? 'Pick at least one team, or check "Shared with all teams".'
+                : `Visible to ${selectedDeptIds.length} team(s).`}
           </p>
         </div>
+        )}
 
         <div>
           <Select

@@ -12,6 +12,12 @@ import type { Message } from '@/types';
 import { MessageDetailHeader } from '../MessageDetailHeader';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 
+vi.mock('@/hooks/useTeamsEnabled', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  // These tests are about the team row itself: the workspace uses teams.
+  useTeamsEnabled: () => true,
+  deriveTeamsEnabled: () => true,
+}));
 vi.mock('@/lib/api-client', () => ({
   apiClient: new Proxy(
     {},
@@ -110,9 +116,7 @@ describe('The ticket chip', () => {
     svc.ticketsOfThread.mockResolvedValue({ unavailable: false, rows: [], hiddenCount: 1 });
     render(tree());
     const chip = await screen.findByTestId('ticket-chip');
-    expect(chip.getAttribute('aria-label')).toBe(
-      '1 hidden — on 1 ticket in departments you cannot open'
-    );
+    expect(chip.getAttribute('aria-label')).toBe('1 hidden — on 1 ticket in teams you cannot open');
   });
 
   it('CONTROL: two hidden are named in the plural', async () => {
@@ -120,7 +124,7 @@ describe('The ticket chip', () => {
     render(tree());
     const chip = await screen.findByTestId('ticket-chip');
     expect(chip.getAttribute('aria-label')).toBe(
-      '2 hidden — on 2 tickets in departments you cannot open'
+      '2 hidden — on 2 tickets in teams you cannot open'
     );
   });
 
@@ -220,13 +224,13 @@ describe('Header wiring', () => {
   it('metaTarget null (sidebar not mounted yet): no meta strip on first paint', async () => {
     render(tree({ metaTarget: null }));
     await settle();
-    expect(screen.queryByText('Dept')).toBeNull();
+    expect(screen.queryByText('Team')).toBeNull();
     expect(screen.queryByText('Assigned')).toBeNull();
   });
 
   it('CONTROL: no metaTarget renders the inline meta strip', async () => {
     render(tree());
-    expect(await screen.findByText('Dept')).toBeTruthy();
+    expect(await screen.findByText('Team')).toBeTruthy();
   });
 
   it('CONTROL: the ticket fixture has a resolved row the headline skips', async () => {

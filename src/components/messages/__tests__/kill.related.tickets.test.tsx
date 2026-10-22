@@ -322,18 +322,18 @@ describe('the card and its list', () => {
     await flush();
     const row = within(card(9)).getByText('(no subject)', { exact: false }).closest('li')!;
     expect(row.className.split(' ')).toEqual(expect.arrayContaining(REL_GROUP_ROW.split(' ')));
-    const hidden = within(card(9)).getByText('+ 2 in departments you cannot open');
+    const hidden = within(card(9)).getByText('+ 2 in teams you cannot open');
     expect(hidden.className.split(' ')).toEqual(
       expect.arrayContaining([...REL_GROUP_ROW.split(' '), 'text-muted-foreground'])
     );
   });
 
-  it('no "+ 0 in departments" row when no thread is hidden', async () => {
+  it('no "+ 0 in teams" row when no thread is hidden', async () => {
     hoist.threadsImpl = () => listOf([thread(1)], 0);
     render(<Section tickets={ready([ticket(9)])} />);
     await flush();
     expect(within(card(9)).getByText('1 thread on this ticket')).toBeInTheDocument();
-    expect(screen.queryByText(/in departments you cannot open/)).toBeNull();
+    expect(screen.queryByText(/in teams you cannot open/)).toBeNull();
   });
 });
 
@@ -349,9 +349,9 @@ describe('section states', () => {
 
   it('no "+ 0 tickets" hint when none are hidden, ready or loading', () => {
     const { rerender } = render(<Section tickets={ready([ticket(9)], 0)} />);
-    expect(screen.queryByText(/tickets? in departments/)).toBeNull();
+    expect(screen.queryByText(/tickets? in teams/)).toBeNull();
     rerender(<Section tickets={{ state: 'loading', rows: [], hiddenCount: 0, legacy: null }} />);
-    expect(screen.queryByText(/tickets? in departments/)).toBeNull();
+    expect(screen.queryByText(/tickets? in teams/)).toBeNull();
   });
 });
 

@@ -17,6 +17,7 @@ import { Checkbox } from '@/components/ui/Checkbox';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { Button } from '@/components/ui/Button';
 import { useDepartments } from '@/hooks/useDepartments';
+import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { useAuthStore } from '@/stores/authStore';
 import { getChannelIcon, formatConvId, getConvUrlId } from '@/lib/messageHelpers';
@@ -98,6 +99,8 @@ export const KanbanCard = ({
       : undefined
   );
   const { data: allDepts = [] } = useDepartments();
+  // Teams off: no team chip on the row (one team says nothing).
+  const teamsEnabled = useTeamsEnabled();
   const currentUser = useAuthStore((state) => state.user);
   const orgCode = useCurrentOrgCode();
   const [copied, setCopied] = useState(false);
@@ -152,9 +155,10 @@ export const KanbanCard = ({
   // cannot disagree again.
   const activityAt = thread.lastMessageAt ?? receivedAt;
 
-  const primaryDept = msg.departmentId
-    ? allDepts.find((dept) => dept.id === msg.departmentId)
-    : undefined;
+  const primaryDept =
+    teamsEnabled && msg.departmentId
+      ? allDepts.find((dept) => dept.id === msg.departmentId)
+      : undefined;
   const needsRouting = msg.status === 'needs_routing';
   const suspicionBadge = getSuspicionBadge(msg);
 

@@ -43,7 +43,7 @@ const signIn = (departmentIds: number[]) => {
   });
 };
 
-const openMenu = () => fireEvent.click(screen.getByRole('button', { name: /departments?$/i }));
+const openMenu = () => fireEvent.click(screen.getByRole('button', { name: /teams?$/i }));
 
 beforeEach(() => {
   useDepartmentContextStore.setState({ _selectedByKey: {} });
@@ -56,7 +56,7 @@ afterEach(() => {
 });
 
 describe('DepartmentSwitcher', () => {
-  it('lists only departments a message source serves', () => {
+  it('lists only teams a message source serves', () => {
     withDepartments([dept(3, 'Sales', true), dept(4, 'Billing', false), dept(5, 'Support', true)]);
     signIn([3, 4, 5]);
 
@@ -72,31 +72,29 @@ describe('DepartmentSwitcher', () => {
   // The regression this file exists for: source-reachability filtering must narrow the
   // LIST, never unmount the control. Before the fix the guard ran on the filtered list,
   // so an org with one served department lost the switcher entirely.
-  it('stays mounted when fewer than two departments are served', () => {
+  it('stays mounted when fewer than two teams are served', () => {
     withDepartments([dept(3, 'Sales', true), dept(4, 'Billing', false)]);
     signIn([3, 4]);
 
     render(<DepartmentSwitcher />);
 
-    expect(screen.getByText('All departments')).toBeInTheDocument();
+    expect(screen.getByText('All teams')).toBeInTheDocument();
   });
 
-  it('explains the empty list when no department is served at all', () => {
+  it('explains the empty list when no team is served at all', () => {
     withDepartments([dept(3, 'Sales', false), dept(4, 'Billing', false)]);
     signIn([3, 4]);
 
     render(<DepartmentSwitcher />);
     openMenu();
 
-    expect(
-      screen.getByText(/No department is served by a message channel yet/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/No team is served by a message channel yet/i)).toBeInTheDocument();
     expect(screen.queryByText('Sales')).not.toBeInTheDocument();
   });
 
   // Control: the multi-department gate itself must survive the fix. A user with a single
   // accessible department has nothing to filter, so the switcher stays hidden.
-  it('renders nothing for a single-department user', () => {
+  it('renders nothing for a single-team user', () => {
     withDepartments([dept(3, 'Sales', true), dept(4, 'Billing', true)]);
     signIn([3]);
 
@@ -106,7 +104,7 @@ describe('DepartmentSwitcher', () => {
   });
 
   // Control: still hidden while the department list is in flight.
-  it('renders nothing while departments are loading', () => {
+  it('renders nothing while teams are loading', () => {
     withDepartments([], true);
     signIn([3, 4]);
 
@@ -115,7 +113,7 @@ describe('DepartmentSwitcher', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('checking every offered department collapses back to "All"', () => {
+  it('checking every offered team collapses back to "All"', () => {
     withDepartments([dept(3, 'Sales', true), dept(4, 'Billing', false), dept(5, 'Support', true)]);
     signIn([3, 4, 5]);
 
@@ -139,12 +137,12 @@ describe('DepartmentSwitcher', () => {
 
       render(<DepartmentSwitcher compact />);
       const trigger = screen.getByRole('button', {
-        name: 'Filter by department (current: Sales)',
+        name: 'Filter by team (current: Sales)',
       });
       expect(trigger.textContent).toBe('1'); // icon + selected-count badge, no label text
       fireEvent.click(trigger);
 
-      const menu = screen.getByText('Filter by department').closest('div.overflow-y-auto');
+      const menu = screen.getByText('Filter by team').closest('div.overflow-y-auto');
       expect(menu).not.toBeNull();
       expect((menu as HTMLElement).style.position).toBe('fixed');
       expect(menu!.className).not.toContain('absolute');
@@ -156,7 +154,7 @@ describe('DepartmentSwitcher', () => {
       signIn([3, 5]);
       render(<DepartmentSwitcher />);
       openMenu();
-      const menu = screen.getByText('Filter by department').closest('div.overflow-y-auto');
+      const menu = screen.getByText('Filter by team').closest('div.overflow-y-auto');
       expect(menu!.className).toContain('absolute');
       expect((menu as HTMLElement).style.position).toBe('');
     });

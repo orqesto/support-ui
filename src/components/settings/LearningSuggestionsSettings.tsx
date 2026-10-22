@@ -161,8 +161,8 @@ export const LearningSuggestionsSettings = () => {
             <Sparkles className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
               {canActOn('routing')
-                ? 'No proposals yet — they appear after your team routes similar mail a few times.'
-                : 'No suggestions yet — they appear as your team works through mail.'}
+                ? 'No proposals yet — they appear after people in your workspace route similar mail a few times.'
+                : 'No suggestions yet — they appear as people in your workspace work through mail.'}
             </p>
           </div>
         ) : (

@@ -35,6 +35,7 @@ import { hashNameToLabelColor } from '@/components/messages/inboxCardHelpers';
 import { ticketService } from '@/services/ticket.service';
 import { ticketFieldPatch } from './ticketFieldPatch';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { Permission } from '@/types/roles';
 import type { Ticket, TicketStatus, TicketPriority, Message, Category } from '@/types';
 import { logger } from '@/lib/logger';
@@ -112,6 +113,8 @@ export const TicketDetail = ({
   const [localDescription, setLocalDescription] = useState(ticket.description ?? '');
   const [translatedDescription, setTranslatedDescription] = useState<string | null>(null);
   const [moveDeptOpen, setMoveDeptOpen] = useState(false);
+  // Teams off: one team, so there is nowhere to move a ticket.
+  const teamsEnabled = useTeamsEnabled();
 
   const handleCreateLabel = async (name: string) => {
     try {
@@ -520,10 +523,10 @@ export const TicketDetail = ({
           <LinkIcon className="mr-2 w-4 h-4" />
           {linkCopied ? 'Link Copied!' : 'Copy Link'}
         </Button>
-        {hasManageTickets && (
+        {hasManageTickets && teamsEnabled && (
           <Button onClick={() => setMoveDeptOpen(true)} variant="outline" size="sm">
             <GitBranch className="mr-2 w-4 h-4" />
-            Move department
+            Move team
           </Button>
         )}
         {!ticket.externalId && onPushToJira && (

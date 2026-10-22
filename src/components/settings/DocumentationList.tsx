@@ -317,7 +317,7 @@ export const DocumentationList = ({
                     {(doc.departmentIds ?? []).length === 0 ? (
                       <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-foreground bg-muted rounded-full">
                         <Globe className="w-3 h-3" />
-                        All departments
+                        All teams
                       </span>
                     ) : (
                       (doc.departmentIds ?? []).map((deptId) => (

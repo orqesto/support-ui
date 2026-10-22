@@ -81,7 +81,7 @@ export const EmbedCodeModal = ({ widget, onClose }: EmbedCodeModalProps) => {
                 <dd className="font-mono">{widget.widgetKey}</dd>
               </div>
               <div className="flex">
-                <dt className="w-32 text-muted-foreground">Department:</dt>
+                <dt className="w-32 text-muted-foreground">Team:</dt>
                 <dd>
                   <DepartmentBadge departmentId={widget.departmentId} />
                 </dd>

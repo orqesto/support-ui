@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 let selectedOrganizationId: number | null = 7;
+let teamsOn = true;
 let isAdmin = true;
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: (selector: (state: unknown) => unknown) =>
@@ -29,7 +30,12 @@ const defaultDepartments = [{ id: 70, name: 'Support', active: true, served: tru
 type Dept = { id: number; name: string; active: boolean; served: boolean };
 const getDepartments = vi.fn<() => Promise<Dept[]>>();
 vi.mock('@/services/department.service', () => ({
-  departmentService: { getAll: () => getDepartments() },
+  departmentService: {
+    getAll: (_inactive?: boolean, onTeamsMode?: (on: boolean) => void) => {
+      onTeamsMode?.(teamsOn);
+      return getDepartments();
+    },
+  },
 }));
 type Integration = { id: number; name: string; enabled: boolean; type: string };
 const getIntegrations = vi.fn<() => Promise<{ data: Integration[] }>>();
@@ -47,6 +53,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   selectedOrganizationId = 7;
   isAdmin = true;
+  teamsOn = true;
   departmentsByWorkspace = {};
   getIntegrations.mockResolvedValue({ data: [] });
   getDepartments.mockImplementation(() =>
@@ -196,7 +203,7 @@ describe('InviteUserModal — the invite goes to the workspace the requests go t
     expect(screen.getByDisplayValue('Other')).toBeInTheDocument();
   });
 
-  it('a late department list from before a switch is not applied', async () => {
+  it('a late team list from before a switch is not applied', async () => {
     let resolveOld: (value: Dept[]) => void = () => {};
     getDepartments.mockImplementationOnce(
       () =>
@@ -244,5 +251,37 @@ describe('InviteUserModal — the invite goes to the workspace the requests go t
     fireEvent.click(screen.getByRole('button', { name: /Send Invitation|Invite/ }));
     await waitFor(() => expect(onInvite).toHaveBeenCalled());
     expect(onInvite.mock.calls[0][4]).toBe(801);
+  });
+});
+
+describe('InviteUserModal — teams switched off', () => {
+  it('asks for no team and invites into the default team (an older backend still needs one)', async () => {
+    teamsOn = false;
+    departmentsByWorkspace = {
+      7: [
+        { id: 70, name: 'Support team', active: true, served: true },
+        { id: 71, name: 'General team', active: true, served: true, isDefault: true } as Dept,
+      ],
+    };
+    render(<InviteUserModal isOpen onClose={vi.fn()} onInvite={onInvite} />);
+    expect(await screen.findByDisplayValue('Acme Support')).toBeInTheDocument();
+    await waitFor(() => expect(getDepartments).toHaveBeenCalled());
+    fill();
+    expect(screen.queryByText('Teams')).toBeNull();
+    expect(screen.queryByText('Support team')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Send Invitation|Invite/ }));
+    await waitFor(() => expect(onInvite).toHaveBeenCalled());
+    expect(onInvite.mock.calls[0][2]).toEqual([71]);
+  });
+
+  it('CONTROL — teams on: the team list is offered', async () => {
+    departmentsByWorkspace = {
+      7: [
+        { id: 70, name: 'Support team', active: true, served: true },
+        { id: 71, name: 'General team', active: true, served: true },
+      ],
+    };
+    render(<InviteUserModal isOpen onClose={vi.fn()} onInvite={onInvite} />);
+    expect(await screen.findByText('Support team')).toBeInTheDocument();
   });
 });

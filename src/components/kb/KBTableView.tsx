@@ -114,9 +114,7 @@ export const KBTableView = ({
           <th className="px-3 py-3 text-sm font-medium text-left">Title</th>
           <th className="hidden px-3 py-3 text-sm font-medium text-center md:table-cell">Source</th>
           <th className="hidden px-3 py-3 text-sm font-medium text-left lg:table-cell">Category</th>
-          <th className="hidden px-3 py-3 text-sm font-medium text-left xl:table-cell">
-            Department
-          </th>
+          <th className="hidden px-3 py-3 text-sm font-medium text-left xl:table-cell">Team</th>
           <th className="hidden px-3 py-3 text-sm font-medium text-center sm:table-cell">
             Quality
           </th>

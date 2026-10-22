@@ -46,7 +46,7 @@ const STEP_TITLES: Record<number, string> = {
   2: 'Where should your data live?',
   3: 'Where should files be stored?',
   4: 'Connect your message channels',
-  5: 'Invite your team',
+  5: 'Invite people',
   6: 'Add knowledge for your AI',
   7: 'Add a payment method',
 };

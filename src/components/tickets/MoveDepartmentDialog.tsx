@@ -111,7 +111,7 @@ export const MoveDepartmentDialog = ({
       onClose();
       if (result.assigneeCleared) {
         logger.info(
-          `Ticket ${ticketId} moved to dept ${targetDeptId}. Assignee cleared (not in new dept).`
+          `Ticket ${ticketId} moved to team ${targetDeptId}. Assignee cleared (not in new team).`
         );
       }
     } catch (err) {
@@ -135,7 +135,7 @@ export const MoveDepartmentDialog = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Move ticket to another department</DialogTitle>
+          <DialogTitle>Move ticket to another team</DialogTitle>
           <DialogClose onClose={onClose} />
         </DialogHeader>
 
@@ -153,17 +153,17 @@ export const MoveDepartmentDialog = ({
 
           <div>
             <label htmlFor="target-dept" className="block mb-2 text-sm font-medium">
-              Target department
+              Target team
             </label>
             {candidateDepts.length === 0 ? (
               <p className="text-xs text-muted-foreground">
-                No other departments available to move to. You can only move to depts you&apos;re a
-                member of (or all active depts as an admin).
+                No other teams available to move to. You can only move to teams you&apos;re a
+                member of (or all active teams as an admin).
               </p>
             ) : (
               <Select
                 id="target-dept"
-                placeholder="Select department…"
+                placeholder="Select team…"
                 value={targetDeptId === null ? '' : String(targetDeptId)}
                 options={candidateDepts.map((dept) => ({
                   value: String(dept.id),
@@ -181,7 +181,7 @@ export const MoveDepartmentDialog = ({
               <span>
                 The current assignee
                 {currentAssigneeName ? ` (${currentAssigneeName})` : ''} is not a member of the
-                target department and will be cleared.
+                target team and will be cleared.
               </span>
             </div>
           )}

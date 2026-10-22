@@ -98,7 +98,7 @@ export const KbQualityReview = ({ suggestionId, onDecided }: Props) => {
   const entry = detail.entry;
   const stale = detail.editedSinceProposed || !detail.stillEligible;
   const blocked = !detail.canDecide
-    ? 'You can see this suggestion, but deciding it needs knowledge-base permission for every department this mailbox serves. Ask an admin.'
+    ? 'You can see this suggestion, but deciding it needs knowledge-base permission for every team this mailbox serves. Ask an admin.'
     : stale
       ? 'The entry changed or left the knowledge base since it was reviewed — this suggestion will expire.'
       : null;

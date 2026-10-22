@@ -226,7 +226,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
                 ) : emailSources.length === 0 ? (
                   <span className="text-xs text-muted-foreground">
                     No email source you can send from. An admin can add one in Settings → Connected
-                    Services, or give you access to its department.
+                    Services, or give you access to its team.
                   </span>
                 ) : (
                   <Select

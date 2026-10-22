@@ -44,7 +44,7 @@ export const DepartmentMultiPicker = ({
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
-        <Loader2 className="w-4 h-4 animate-spin" /> Loading departments…
+        <Loader2 className="w-4 h-4 animate-spin" /> Loading teams…
       </div>
     );
   }
@@ -64,8 +64,8 @@ export const DepartmentMultiPicker = ({
     <>
       <Select
         multi
-        aria-label="Departments"
-        placeholder="Choose departments…"
+        aria-label="Teams"
+        placeholder="Choose teams…"
         options={options}
         value={selected.map(String)}
         onChange={handleChange}
@@ -74,7 +74,7 @@ export const DepartmentMultiPicker = ({
       {selected.length > 1 && (
         <div className="mt-3">
           <Select
-            label="Default department"
+            label="Default team"
             options={defaultOptions}
             value={defaultId !== undefined ? String(defaultId) : ''}
             onChange={(value) => onDefaultChange(Number(value))}

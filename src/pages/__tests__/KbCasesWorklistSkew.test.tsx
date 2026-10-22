@@ -142,7 +142,7 @@ describe('audit pass 1 regressions', () => {
 // ---- F5: an older backend --------------------------------------------------------------------
 
 describe('F5 older backend', () => {
-  it('a report that needs ONE department falls back to a single department, read-only', async () => {
+  it('a report that needs ONE team falls back to a single team, read-only', async () => {
     server.legacy = true;
     renderPage();
     expect(await screen.findByText('Refunds take 5 days.')).toBeInTheDocument();
@@ -150,7 +150,7 @@ describe('F5 older backend', () => {
     expect(reads[0].params.departmentId).toBeUndefined();
     expect(reads.at(-1)?.params.departmentId).toBe('4');
     expect(screen.getByText('Support EU')).toBeInTheDocument();
-    expect(screen.getByText(/This server reports on one department at a time/)).toBeInTheDocument();
+    expect(screen.getByText(/This server reports on one team at a time/)).toBeInTheDocument();
     // No rows route there: nothing to expand, no set-aside rows; the findings stay counts.
     expect(screen.queryByRole('button', { name: /Show entries/ })).not.toBeInTheDocument();
     expect(screen.getByRole('list', { name: 'Findings' })).toHaveTextContent(
@@ -206,7 +206,7 @@ describe('F5 older backend', () => {
 // ---- in flight -------------------------------------------------------------------------------
 
 describe('in-flight answers', () => {
-  it('a slow report for the departments just left never lands on the new choice', async () => {
+  it('a slow report for the teams just left never lands on the new choice', async () => {
     let release: () => void = () => {};
     renderPage();
     await screen.findByText('Refunds take 5 days.');
@@ -233,7 +233,7 @@ describe('in-flight answers', () => {
     expect(screen.queryByText('refund for 4')).not.toBeInTheDocument();
   });
 
-  it('an action that answers after a department switch re-reads the departments shown NOW', async () => {
+  it('an action that answers after a team switch re-reads the teams shown NOW', async () => {
     renderPage();
     const row21 = await workRowEl(21);
     let release: () => void = () => {};
@@ -268,26 +268,26 @@ describe('in-flight answers', () => {
     expect(screen.queryByRole('status', { busy: true })).not.toBeInTheDocument();
   });
 
-  it('an older backend and an org admin with NO department: says there is none to pick, no spinner forever', async () => {
+  it('an older backend and an org admin with NO team: says there is none to pick, no spinner forever', async () => {
     server.legacy = true;
     departments = [];
     renderPage();
     expect(
       await screen.findByText(
-        'This server reports on one department at a time, and there is none to pick.'
+        'This server reports on one team at a time, and there is none to pick.'
       )
     ).toBeInTheDocument();
     expect(screen.queryByRole('status', { busy: true })).toBeNull();
   });
 
-  it('a backend upgraded meanwhile: the single-department fallback returns to the department set', async () => {
+  it('a backend upgraded meanwhile: the single-team fallback returns to the team set', async () => {
     server.legacy = true;
     renderPage();
-    expect(await screen.findByLabelText('Department')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Team')).toBeInTheDocument();
     server.legacy = false;
-    await chooseOption(screen.getByLabelText('Department'), 'Billing');
+    await chooseOption(screen.getByLabelText('Team'), 'Billing');
     expect(await screen.findByLabelText('Support EU')).toBeInTheDocument();
-    expect(screen.queryByText(/This server reports on one department/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/This server reports on one team/)).not.toBeInTheDocument();
     await waitFor(() => expect(reportReads().at(-1)?.params.departmentIds).toBe('7'));
   });
 });

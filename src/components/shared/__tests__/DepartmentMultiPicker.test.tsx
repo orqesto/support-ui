@@ -39,9 +39,9 @@ const removeChip = (name: string) => {
 afterEach(cleanup);
 
 describe('DepartmentMultiPicker', () => {
-  it('the first department ticked becomes the default', async () => {
+  it('the first team ticked becomes the default', async () => {
     const { onSelectedChange, onDefaultChange } = renderPicker([], undefined);
-    await chooseOption(screen.getByRole('combobox', { name: 'Departments' }), 'Billing');
+    await chooseOption(screen.getByRole('combobox', { name: 'Teams' }), 'Billing');
     expect(onSelectedChange).toHaveBeenCalledWith([2]);
     expect(onDefaultChange).toHaveBeenCalledWith(2);
   });
@@ -49,19 +49,19 @@ describe('DepartmentMultiPicker', () => {
   it('ticking another keeps the order it had and appends, and leaves the default alone', async () => {
     // Selected out of list order on purpose: the next default is "first remaining" of THIS order.
     const { onSelectedChange, onDefaultChange } = renderPicker([3, 1], 3);
-    await chooseOption(screen.getByRole('combobox', { name: 'Departments' }), 'Billing');
+    await chooseOption(screen.getByRole('combobox', { name: 'Teams' }), 'Billing');
     expect(onSelectedChange).toHaveBeenCalledWith([3, 1, 2]);
     expect(onDefaultChange).not.toHaveBeenCalled();
   });
 
-  it('removing the default hands it to the first department left', () => {
+  it('removing the default hands it to the first team left', () => {
     const { onSelectedChange, onDefaultChange } = renderPicker([3, 1, 2], 3);
     removeChip('Support (default)');
     expect(onSelectedChange).toHaveBeenCalledWith([1, 2]);
     expect(onDefaultChange).toHaveBeenCalledWith(1);
   });
 
-  it('removing a department that is not the default leaves the default alone (control)', () => {
+  it('removing a team that is not the default leaves the default alone (control)', () => {
     const { onSelectedChange, onDefaultChange } = renderPicker([3, 1, 2], 3);
     removeChip('Billing');
     expect(onSelectedChange).toHaveBeenCalledWith([3, 1]);
@@ -71,15 +71,15 @@ describe('DepartmentMultiPicker', () => {
   it('marks the default on its chip, and offers the default only with two or more ticked', async () => {
     renderPicker([1], 1);
     expect(screen.getByText('Sales (default)')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Default department')).toBeNull();
+    expect(screen.queryByLabelText('Default team')).toBeNull();
     cleanup();
 
     const { onDefaultChange } = renderPicker([1, 3], 1);
-    await chooseOption(screen.getByLabelText('Default department'), 'Support');
+    await chooseOption(screen.getByLabelText('Default team'), 'Support');
     expect(onDefaultChange).toHaveBeenCalledWith(3);
   });
 
-  it('shows the loading line instead of the picker while departments load', () => {
+  it('shows the loading line instead of the picker while teams load', () => {
     render(
       <DepartmentMultiPicker
         allDepts={[]}
@@ -90,7 +90,7 @@ describe('DepartmentMultiPicker', () => {
         onDefaultChange={vi.fn()}
       />
     );
-    expect(screen.getByText(/Loading departments/)).toBeInTheDocument();
+    expect(screen.getByText(/Loading teams/)).toBeInTheDocument();
     expect(screen.queryByRole('combobox')).toBeNull();
   });
 });

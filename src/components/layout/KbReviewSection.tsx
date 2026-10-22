@@ -7,6 +7,7 @@ import type {
   UseKbReviewAlertsResult,
 } from '@/hooks/useKbReviewAlerts';
 import { useDepartments } from '@/hooks/useDepartments';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 
 // The row counts merge proposals AND quality suggestions (one bell per department, BE
 // consolidationBell): it cannot say how many of each, so it names both kinds.
@@ -33,9 +34,10 @@ const MergeReviewRow = ({
   merge: KbConsolidationAlert;
   onNavigate: (path: string) => void;
 }) => {
-  const { data: departments = [] } = useDepartments();
+  const { data: departments = [], teamsEnabled } = useDepartments();
+  // Teams off: no team name under the row.
   const deptName =
-    merge.departmentId !== null
+    deriveTeamsEnabled(teamsEnabled, departments) && merge.departmentId !== null
       ? departments.find((dept) => dept.id === merge.departmentId)?.name
       : undefined;
   return (

@@ -34,6 +34,7 @@ import { ContactProfilePanel } from '@/components/contacts/ContactProfilePanel';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useLeadsHidden } from '@/hooks/useLeadsHidden';
 import { useDepartments } from '@/hooks/useDepartments';
+import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { messageService } from '@/services/message.service';
 import type { ManualMerge } from '@/services/conversationMerge.service';
@@ -173,15 +174,13 @@ export const isNearMissDismissed = (messageId: number) => dismissedNearMiss.has(
 export const nearMissSentence = (names: (string | undefined)[]): string => {
   const known = names.filter((name): name is string => Boolean(name));
   if (known.length === 0) {
-    return `Routing also scored this for ${names.length === 1 ? 'another department' : 'other departments'}.`;
+    return `Routing also scored this for ${names.length === 1 ? 'another team' : 'other teams'}.`;
   }
   // A department missing from this user's list is still COUNTED, so the sentence never claims
   // fewer departments than the buttons' source did.
   const unknown = names.length - known.length;
   const parts =
-    unknown > 0
-      ? [...known, unknown === 1 ? 'another department' : `${unknown} other departments`]
-      : known;
+    unknown > 0 ? [...known, unknown === 1 ? 'another team' : `${unknown} other teams`] : known;
   const list =
     parts.length === 1
       ? parts[0]
@@ -263,7 +262,9 @@ export function MessageDetailHeader({
   // Never "Move to <the department it is already in>". The scores are the first route's, and the
   // thread may have moved since (routed by hand out of Needs Routing, or to a runner-up); the
   // backend filters this too, but an older backend does not (demo, 2026-10-14).
-  const nearMissDepts = (message.nearMissDepts ?? []).filter(
+  // Teams off: one team, so there is nowhere else to move a thread.
+  const teamsEnabled = useTeamsEnabled();
+  const nearMissDepts = (teamsEnabled ? (message.nearMissDepts ?? []) : []).filter(
     (deptId) => deptId !== message.departmentId
   );
   useEffect(() => setNearMissDismissed(isNearMissDismissed(message.id)), [message.id]);
@@ -465,10 +466,10 @@ export function MessageDetailHeader({
     linkedTicketId === null
       ? tickets.state === 'failed'
         ? 'Could not read this thread’s tickets'
-        : `On ${tickets.hiddenCount} ${tickets.hiddenCount === 1 ? 'ticket' : 'tickets'} in departments you cannot open`
+        : `On ${tickets.hiddenCount} ${tickets.hiddenCount === 1 ? 'ticket' : 'tickets'} in teams you cannot open`
       : totalTicketCount > 1
         ? `Linked to ${totalTicketCount} tickets${
-            hiddenTicketCount > 0 ? ` (${hiddenTicketCount} in departments you cannot open)` : ''
+            hiddenTicketCount > 0 ? ` (${hiddenTicketCount} in teams you cannot open)` : ''
           }`
         : `Linked to ticket #${linkedTicketId}`;
   /*

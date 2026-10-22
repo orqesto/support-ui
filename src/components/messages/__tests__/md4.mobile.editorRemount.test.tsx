@@ -80,7 +80,7 @@ afterEach(() => {
 describe('M7 — folding the phone composer collapses the editor again', () => {
   it.each([
     ['reply', 'Reply as Dana…'],
-    ['note', 'Internal note — only visible to the team…'],
+    ['note', 'Internal note — only visible to your colleagues…'],
   ] as const)(
     '%s: open, then an outside press while empty → the one-line placeholder',
     async (mode, placeholder) => {

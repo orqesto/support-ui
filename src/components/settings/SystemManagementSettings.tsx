@@ -17,6 +17,7 @@ import systemService from '@/services/system.service';
 import { BounceRepairSection } from './BounceRepairSection';
 import { KbRepairSection } from './KbRepairSection';
 import { departmentService, type Department } from '@/services/department.service';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
 
 type ConfirmDialog = {
@@ -40,9 +41,15 @@ export const SystemManagementSettings = () => {
   const [confirmInput, setConfirmInput] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined>();
+  // Teams off ⇒ no team scope: cleanup covers the workspace.
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
 
   useEffect(() => {
-    departmentService.getAll().then(setDepartments).catch(() => setDepartments([]));
+    departmentService
+      .getAll(false, setTeamsMode)
+      .then(setDepartments)
+      .catch(() => setDepartments([]));
   }, []);
   const [spamLogDays, setSpamLogDays] = useState<string>('90');
   const [notification, setNotification] = useState<{
@@ -148,7 +155,7 @@ export const SystemManagementSettings = () => {
 
   const handleDeleteMessages = () => {
     const dept = selectedDepartment === 'all' ? undefined : selectedDepartment;
-    const scope = dept ? `${dept} department` : 'your workspace';
+    const scope = dept ? `${dept} team` : 'your workspace';
     handleAction(
       `Delete ${dept ? dept.charAt(0).toUpperCase() + dept.slice(1) : 'All'} Threads`,
       `This will permanently delete all threads for ${scope}. This action cannot be undone.`,
@@ -164,7 +171,7 @@ export const SystemManagementSettings = () => {
 
   const handleDeleteTickets = () => {
     const dept = selectedDepartment === 'all' ? undefined : selectedDepartment;
-    const scope = dept ? `${dept} department` : 'your workspace';
+    const scope = dept ? `${dept} team` : 'your workspace';
     handleAction(
       `Delete ${dept ? dept.charAt(0).toUpperCase() + dept.slice(1) : 'All'} Tickets`,
       `This will permanently delete all tickets for ${scope}. This action cannot be undone.`,
@@ -179,7 +186,7 @@ export const SystemManagementSettings = () => {
 
   const handleDeleteKB = () => {
     const dept = selectedDepartment === 'all' ? undefined : selectedDepartment;
-    const scope = dept ? `${dept} department` : 'your workspace';
+    const scope = dept ? `${dept} team` : 'your workspace';
     handleAction(
       `Delete ${dept ? dept.charAt(0).toUpperCase() + dept.slice(1) : 'All'} Knowledge Base`,
       `This will permanently delete all KB entries and documentation for ${scope}. This action cannot be undone.`,
@@ -305,23 +312,25 @@ export const SystemManagementSettings = () => {
           Data Cleanup
         </h3>
 
-        {/* Department Filter */}
+        {/* Team filter */}
+        {teamsEnabled && (
         <div className="mb-4 pb-4 border-b border-destructive-line">
           <Select
-            label="Department Scope"
+            label="Team Scope"
             value={selectedDepartment}
             onChange={(value) => setSelectedDepartment(value)}
             options={[
-              { value: 'all', label: 'All Departments' },
+              { value: 'all', label: 'All Teams' },
               ...departments.map((dept) => ({ value: dept.slug, label: dept.name })),
             ]}
-            placeholder="Select department scope"
+            placeholder="Select team scope"
           />
           <p className="mt-2 text-xs text-muted-foreground">
-            Filter cleanup operations by department. Select "All Departments" to affect the entire
+            Filter cleanup operations by team. Select "All Teams" to affect the entire
             workspace.
           </p>
         </div>
+        )}
 
         <div className="space-y-3">
           <div className="flex justify-between items-start">

@@ -199,7 +199,7 @@ describe('KB Cases report (F2)', () => {
   });
 
   const allSettled = { settled: 0, total: 0, beyondBound: 0, outOfReach: 0 };
-  const MINING_OFF = /No mailbox in this department feeds the knowledge base automatically/;
+  const MINING_OFF = /No mailbox in this team feeds the knowledge base automatically/;
 
   it('mining off with nothing in the knowledge base here says so instead of an empty table', () => {
     view(
@@ -471,7 +471,7 @@ describe('KB Cases report (F2)', () => {
     expect(screen.queryByText(/No case matches “refund”/)).not.toBeInTheDocument();
   });
 
-  it('a report that ALSO covers unlinked mailboxes gives no per-department finding link', async () => {
+  it('a report that ALSO covers unlinked mailboxes gives no per-team finding link', async () => {
     getCases.mockResolvedValue({ ...report(), departmentIds: [4], unassignedScopes: true });
     render(
       <MemoryRouter>
@@ -482,7 +482,7 @@ describe('KB Cases report (F2)', () => {
     expect(screen.queryByRole('link', { name: 'clean up' })).toBeNull();
   });
 
-  it('one department and nothing else: the finding links to that department', async () => {
+  it('one team and nothing else: the finding links to that team', async () => {
     getCases.mockResolvedValue({ ...report(), departmentIds: [4], unassignedScopes: false });
     render(
       <MemoryRouter>
@@ -519,7 +519,7 @@ describe('KB Cases report (F2)', () => {
     );
   });
 
-  it('a search with no match says so — never a department-wide claim (LOW-1)', async () => {
+  it('a search with no match says so — never a team-wide claim (LOW-1)', async () => {
     getCases.mockImplementation((query) =>
       Promise.resolve(
         (query as { search?: string }).search
@@ -546,7 +546,7 @@ describe('KB Cases report (F2)', () => {
   });
 
   const ticked = () =>
-    within(screen.getByRole('group', { name: 'Departments' }))
+    within(screen.getByRole('group', { name: 'Teams' }))
       .getAllByRole('checkbox')
       .map((box) => ({
         name: box.closest('label')?.textContent,
@@ -554,7 +554,7 @@ describe('KB Cases report (F2)', () => {
       }));
   const departmentsOf = (query: unknown) => (query as { departmentIds?: number[] }).departmentIds;
 
-  it('D2: a moderator is offered only their own departments, and ALL of them are reported by default', async () => {
+  it('D2: a moderator is offered only their own teams, and ALL of them are reported by default', async () => {
     departments = [
       { id: 4, name: 'Support EU' },
       { id: 7, name: 'Billing' },
@@ -566,14 +566,14 @@ describe('KB Cases report (F2)', () => {
       </MemoryRouter>
     );
     expect(ticked()).toEqual([{ name: 'Billing', checked: false }]);
-    expect(screen.getByText('No department filter')).toBeInTheDocument();
+    expect(screen.getByText('No team filter')).toBeInTheDocument();
     await waitFor(() => expect(getCases).toHaveBeenCalled());
     // None ticked = every department the viewer can see: no list is sent, the server decides.
     expect(getCases.mock.calls.every(([query]) => departmentsOf(query)?.length === 0)).toBe(true);
     expect(getCases.mock.calls.some(([query]) => 'departmentId' in (query as object))).toBe(false);
   });
 
-  it('D2: an org admin is offered every department, none forced', async () => {
+  it('D2: an org admin is offered every team, none forced', async () => {
     departments = [
       { id: 4, name: 'Support EU' },
       { id: 7, name: 'Billing' },
@@ -593,7 +593,7 @@ describe('KB Cases report (F2)', () => {
     );
   });
 
-  it('a ticked department that leaves the list (org switch) is never requested again', async () => {
+  it('a ticked team that leaves the list (org switch) is never requested again', async () => {
     departments = [{ id: 4, name: 'Support EU' }];
     viewer = { isOrgAdmin: true, departmentIds: [] };
     const { rerender } = render(
@@ -617,7 +617,7 @@ describe('KB Cases report (F2)', () => {
     expect(getCases.mock.calls.some(([query]) => departmentsOf(query)?.includes(4))).toBe(false);
   });
 
-  it('a moderator in no department is told so, and nothing is requested', async () => {
+  it('a moderator in no team is told so, and nothing is requested', async () => {
     departments = [{ id: 4, name: 'Support EU' }];
     viewer = { isOrgAdmin: false, departmentIds: undefined };
     render(
@@ -625,12 +625,12 @@ describe('KB Cases report (F2)', () => {
         <KbCasesPage />
       </MemoryRouter>
     );
-    expect(screen.getByText('You have no department to report on.')).toBeInTheDocument();
+    expect(screen.getByText('You have no team to report on.')).toBeInTheDocument();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(getCases).not.toHaveBeenCalled();
   });
 
-  it('changing departments shows loading, never the previous departments as if they were these', async () => {
+  it('changing teams shows loading, never the previous teams as if they were these', async () => {
     departments = [
       { id: 4, name: 'Support EU' },
       { id: 7, name: 'Billing' },
@@ -676,7 +676,7 @@ describe('KB Cases report (F2)', () => {
     expect(screen.queryByText('Refunds take 5 days.')).not.toBeInTheDocument();
   });
 
-  it('the page states what the counts are, reports every department by default, sorts, and downloads the CSV', async () => {
+  it('the page states what the counts are, reports every team by default, sorts, and downloads the CSV', async () => {
     render(
       <MemoryRouter>
         <KbCasesPage />

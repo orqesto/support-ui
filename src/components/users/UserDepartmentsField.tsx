@@ -33,9 +33,9 @@ export const UserDepartmentsField = ({
   if (isGlobalAdmin) {
     return (
       <div>
-        <div className="block mb-2 text-sm font-medium">Departments</div>
+        <div className="block mb-2 text-sm font-medium">Teams</div>
         <p className="-mt-1 text-xs text-muted-foreground">
-          Global admins have access to all departments
+          Global admins have access to all teams
         </p>
       </div>
     );
@@ -43,7 +43,7 @@ export const UserDepartmentsField = ({
 
   return (
     <div>
-      <div className="block mb-2 text-sm font-medium">Departments</div>
+      <div className="block mb-2 text-sm font-medium">Teams</div>
       <div className="p-4 space-y-2 rounded-md border border-border bg-muted/30">
         {departments
           .filter((dept) => isDepartmentServed(dept) || selectedIds.includes(dept.id))
@@ -108,8 +108,8 @@ export const UserDepartmentsField = ({
       <p className="flex gap-1 items-center mt-1 text-xs text-muted-foreground">
         {hasDirectoryGrants && <Lock className="w-3 h-3 shrink-0" />}
         {hasDirectoryGrants
-          ? 'You can add departments here; the ones marked “from directory” come from your identity provider and have to be changed there.'
-          : 'User can access tickets and threads from selected departments'}
+          ? 'You can add teams here; the ones marked “from directory” come from your identity provider and have to be changed there.'
+          : 'User can access tickets and threads from selected teams'}
       </p>
     </div>
   );

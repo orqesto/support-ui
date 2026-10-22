@@ -27,6 +27,7 @@ import { DataTable, type ColumnDef } from '@/components/ui/DataTable';
 import { usePermissions } from '@/hooks/usePermissions';
 import { formatDate } from '@/lib/utils';
 import { departmentService, type Department } from '@/services/department.service';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { invitationService } from '@/services/invitation.service';
 import { userService } from '@/services/user.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -71,6 +72,9 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
   }>({ open: false, title: '', description: '', variant: 'info' });
 
   const [departments, setDepartments] = useState<Department[]>([]);
+  // Teams off ⇒ no Teams column and no team chips: everyone is in the one team.
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined>();
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
   // The workspace's member count as the SERVER reports it, not the length of whatever
   // this page happened to fetch.
   const [userTotal, setUserTotal] = useState<number | null>(null);
@@ -122,7 +126,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
         // Include archived ones: this list only resolves NAMES for the departments members
         // already hold, it never feeds a picker, so an archived entry cannot be assigned from
         // here — it can only stop the row rendering a meaningless number.
-        .getAll(true)
+        .getAll(true, setTeamsMode)
         .then(setDepartments)
         .catch(() => setDepartments([]));
     }
@@ -137,7 +141,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
    */
   const deptNameById = (id: number) => {
     const found = departments.find((dep) => dep.id === id);
-    if (!found) return `Unknown department (#${id})`;
+    if (!found) return `Unknown team (#${id})`;
     return found.active === false ? `${found.name} (archived)` : found.name;
   };
 
@@ -277,7 +281,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
     `${user.firstName?.charAt(0) ?? ''}${user.lastName?.charAt(0) ?? ''}`.toUpperCase();
 
   const deptBadges = (user: User) =>
-    user.departmentIds?.map((deptId) => (
+    (teamsEnabled ? user.departmentIds : undefined)?.map((deptId) => (
       <Badge key={deptId} className="text-xs text-foreground bg-muted">
         {deptNameById(deptId)}
       </Badge>
@@ -375,7 +379,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
     },
     {
       id: 'departments',
-      header: 'Departments',
+      header: 'Teams',
       cell: (user) =>
         user.departmentIds && user.departmentIds.length > 0 ? (
           <div className="flex flex-wrap gap-1">{deptBadges(user)}</div>
@@ -651,7 +655,9 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
               <DataTable
                 rows={users}
                 rowKey={(user) => user.id}
-                columns={columns}
+                columns={
+                  teamsEnabled ? columns : columns.filter((column) => column.id !== 'departments')
+                }
                 actions={rowActions}
                 renderCard={renderUserCard}
                 search={{

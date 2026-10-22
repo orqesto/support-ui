@@ -115,7 +115,7 @@ describe('what the buttons do', () => {
 });
 
 describe('"Move into case" only where a case exists', () => {
-  it('no case anywhere in the departments: not offered', async () => {
+  it('no case anywhere in the teams: not offered', async () => {
     server.noCases = true;
     renderPage();
     const row21 = await workRowEl(21);
@@ -382,7 +382,7 @@ describe('an older backend (no "Changed automatically" in the KB list): the row 
     const row = await workRowEl(23);
     expect(
       await within(row).findByText(
-        'Only a moderator of every department it serves can decide the review’s change.'
+        'Only a moderator of every team it serves can decide the review’s change.'
       )
     ).toBeInTheDocument();
     expect(within(row).queryByRole('button', { name: /Keep using/ })).toBeNull();

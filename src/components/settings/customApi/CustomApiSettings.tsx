@@ -229,7 +229,7 @@ export const CustomApiSettings = ({
                 {/* ⛔ Whether a key is SET — never the key, and never a masked stand-in for it. */}
                 {connection.hasCredential ? 'API key set' : 'No API key'}
                 {connection.scopeMode === 'departments' &&
-                  ` · ${connection.departmentIds.length} department${connection.departmentIds.length === 1 ? '' : 's'}`}
+                  ` · ${connection.departmentIds.length} team${connection.departmentIds.length === 1 ? '' : 's'}`}
               </p>
             </div>
             {/*

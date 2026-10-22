@@ -17,7 +17,7 @@ vi.mock('@/hooks/useDepartments', () => ({
 afterEach(cleanup);
 
 describe('ConfluenceDepartmentScope', () => {
-  it('seeds a NEW connect to the admin’s own department(s)', () => {
+  it('seeds a NEW connect to the admin’s own team(s)', () => {
     const onChange = vi.fn();
     render(
       <ConfluenceDepartmentScope
@@ -31,7 +31,7 @@ describe('ConfluenceDepartmentScope', () => {
     expect(onChange).toHaveBeenCalledWith([2]);
   });
 
-  it('does NOT seed org-wide before the auth store hydrates; seeds admin dept(s) once available', () => {
+  it('does NOT seed org-wide before the auth store hydrates; seeds admin team(s) once available', () => {
     const onChange = vi.fn();
     const { rerender } = render(
       <ConfluenceDepartmentScope
@@ -68,43 +68,43 @@ describe('ConfluenceDepartmentScope', () => {
     expect(onChange).toHaveBeenCalledWith([]);
   });
 
-  it('renders the org-wide state ([]) with the all-departments caption', () => {
+  it('renders the org-wide state ([]) with the all-teams caption', () => {
     render(
       <ConfluenceDepartmentScope value={[]} onChange={vi.fn()} seedDeptIds={[2]} isCreate={false} />
     );
-    expect(screen.getByText(/visible to every department/i)).toBeInTheDocument();
+    expect(screen.getByText(/visible to every team/i)).toBeInTheDocument();
     // No dept chips in org-wide mode.
     expect(screen.queryByRole('button', { name: 'Sales' })).not.toBeInTheDocument();
   });
 
-  it('renders scoped state ([ids]) with the department chips + scoped caption', () => {
+  it('renders scoped state ([ids]) with the team chips + scoped caption', () => {
     render(
       <ConfluenceDepartmentScope value={[1]} onChange={vi.fn()} seedDeptIds={[1]} isCreate={false} />
     );
-    expect(screen.getByText(/only the selected departments/i)).toBeInTheDocument();
+    expect(screen.getByText(/only the selected teams/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Support' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sales' })).toBeInTheDocument();
   });
 
-  it('clicking "All departments" switches to org-wide ([])', () => {
+  it('clicking "All teams" switches to org-wide ([])', () => {
     const onChange = vi.fn();
     render(
       <ConfluenceDepartmentScope value={[1]} onChange={onChange} seedDeptIds={[1]} isCreate={false} />
     );
-    fireEvent.click(screen.getByRole('button', { name: 'All departments' }));
+    fireEvent.click(screen.getByRole('button', { name: 'All teams' }));
     expect(onChange).toHaveBeenCalledWith([]);
   });
 
-  it('entering "Specific departments" from org-wide seeds the admin’s dept(s)', () => {
+  it('entering "Specific teams" from org-wide seeds the admin’s team(s)', () => {
     const onChange = vi.fn();
     render(
       <ConfluenceDepartmentScope value={[]} onChange={onChange} seedDeptIds={[3]} isCreate={false} />
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Specific departments' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Specific teams' }));
     expect(onChange).toHaveBeenCalledWith([3]);
   });
 
-  it('toggling a department chip adds it to the scoped set', () => {
+  it('toggling a team chip adds it to the scoped set', () => {
     const onChange = vi.fn();
     render(
       <ConfluenceDepartmentScope value={[1]} onChange={onChange} seedDeptIds={[1]} isCreate={false} />

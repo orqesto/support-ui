@@ -349,8 +349,7 @@ export const ImportProgressPanel = ({
         )}
         {progress.awaitingRouting > 0 && (
           <li>
-            {progress.awaitingRouting.toLocaleString()} waiting for someone to route them to a
-            department.
+            {progress.awaitingRouting.toLocaleString()} waiting for someone to route them to a team.
           </li>
         )}
         {leftovers.map((stage) => (

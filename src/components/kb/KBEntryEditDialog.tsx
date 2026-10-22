@@ -13,6 +13,7 @@ import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { useDepartments } from '@/hooks/useDepartments';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { getErrorBody } from '@/lib/errorMessages';
 import { kbService, type KBEntry } from '@/services/kb.service';
 import { isCaseRow, mayRemoveCase } from '@/lib/kbConsolidation';
@@ -27,7 +28,7 @@ import {
 /** The backend's refusal of a department change on an entry learned from a mailbox. */
 const FOLLOWS_MAILBOX_CODE = 'KB_DEPARTMENT_FOLLOWS_MAILBOX';
 export const FOLLOWS_MAILBOX_MESSAGE =
-  'This entry comes from a mailbox; its department follows the mailbox.';
+  'This entry comes from a mailbox; its team follows the mailbox.';
 
 /**
  * Who sets the entry's department: `pick` — nobody but a person (no mailbox: an uploaded
@@ -149,7 +150,7 @@ const OpenEditDialog = ({
             This is a merged case. Edit its wording here; to change what this case is about,
             {mayRemoveCase(entry)
               ? ' Unmerge it.'
-              : ' only a moderator covering every department it serves, or an org admin, can Unmerge it.'}
+              : ' only a moderator covering every team it serves, or an org admin, can Unmerge it.'}
           </p>
         )}
         <div className="space-y-4">
@@ -184,7 +185,7 @@ const OpenEditDialog = ({
           )}
           {deptMode === 'mailbox' && (
             <div>
-              <span className="block mb-1 text-sm font-medium">Department</span>
+              <span className="block mb-1 text-sm font-medium">Team</span>
               <div className="flex gap-2 items-center">
                 <DepartmentBadge departmentId={entry.departmentId} />
                 {/* The badge is the department of the ONE ticket the entry came from; a mailbox can
@@ -268,13 +269,15 @@ const DepartmentPicker = ({
   picked: number | null;
   onPick: (departmentId: number) => void;
 }) => {
-  const { data: departments = [], isError } = useDepartments();
+  const { data: departments = [], isError, teamsEnabled } = useDepartments();
   const current = departments.some((dept) => dept.id === departmentId) ? departmentId : null;
   const shown = picked ?? current;
+  // Teams off: every entry is in the one team, so there is nothing to pick.
+  if (!deriveTeamsEnabled(teamsEnabled, departments)) return null;
   return (
     <div>
       <label htmlFor="edit-department" className="block mb-1 text-sm font-medium">
-        Department
+        Team
       </label>
       <Select
         id="edit-department"
@@ -285,7 +288,7 @@ const DepartmentPicker = ({
           if (value !== '') onPick(Number(value));
         }}
       />
-      {isError && <p className="mt-1 text-xs text-destructive">Could not load the departments.</p>}
+      {isError && <p className="mt-1 text-xs text-destructive">Could not load the teams.</p>}
     </div>
   );
 };

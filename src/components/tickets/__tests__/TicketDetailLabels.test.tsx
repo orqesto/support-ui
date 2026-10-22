@@ -28,6 +28,12 @@ const removeLabelFromTicket = vi.fn<(ticketId: number, labelId: number) => Promi
 const createLabel = vi.fn<(body: { name: string; color: string }) => Promise<Label>>();
 const getCategories = vi.fn(() => Promise.resolve({ success: true, data: [] }));
 
+vi.mock('@/hooks/useTeamsEnabled', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  // These tests are about the team row itself: the workspace uses teams.
+  useTeamsEnabled: () => true,
+  deriveTeamsEnabled: () => true,
+}));
 vi.mock('@/services/settings.service', () => ({
   labelService: {
     getTicketLabels: (id: number) => getTicketLabels(id),

@@ -89,29 +89,29 @@ function renderStrip(message: Message) {
 describe('HeaderMetaStrip — re-route without an opt-in', () => {
   it('offers no "Create rule" toggle, routes with (id, departmentId) and shows the learning note', async () => {
     renderStrip(base as unknown as Message);
-    fireEvent.click(screen.getByTitle('Click to change department'));
+    fireEvent.click(screen.getByTitle('Click to change team'));
     expect(screen.queryByText('Create rule')).toBeNull();
-    await chooseOption(screen.getByRole('combobox', { name: 'Department' }), 'Sales');
+    await chooseOption(screen.getByRole('combobox', { name: 'Team' }), 'Sales');
     await waitFor(() => expect(route.calls).toEqual([[41, 3]]));
     await waitFor(() => expect(route.notes).toEqual([{ learningRecorded: true }]));
     // The sidebar badge's own key (useNotificationCounts), so the count drops at once.
     expect(route.invalidated).toContainEqual(['notification-counts']);
   });
 
-  it('picking the same department on an active conversation does nothing', async () => {
+  it('picking the same team on an active conversation does nothing', async () => {
     renderStrip(base as unknown as Message);
-    fireEvent.click(screen.getByTitle('Click to change department'));
-    await chooseOption(screen.getByRole('combobox', { name: 'Department' }), 'Support');
-    await waitFor(() => expect(screen.queryByRole('combobox', { name: 'Department' })).toBeNull());
+    fireEvent.click(screen.getByTitle('Click to change team'));
+    await chooseOption(screen.getByRole('combobox', { name: 'Team' }), 'Support');
+    await waitFor(() => expect(screen.queryByRole('combobox', { name: 'Team' })).toBeNull());
     expect(route.calls).toEqual([]);
     expect(route.notes).toEqual([]);
     expect(route.invalidated).toEqual([]);
   });
 
-  it('a needs_routing conversation routes even to its placeholder department', async () => {
+  it('a needs_routing conversation routes even to its placeholder team', async () => {
     renderStrip({ ...base, status: 'needs_routing' } as unknown as Message);
-    fireEvent.click(screen.getByTitle('Click to change department'));
-    await chooseOption(screen.getByRole('combobox', { name: 'Department' }), 'Support');
+    fireEvent.click(screen.getByTitle('Click to change team'));
+    await chooseOption(screen.getByRole('combobox', { name: 'Team' }), 'Support');
     await waitFor(() => expect(route.calls).toEqual([[41, 1]]));
   });
 });

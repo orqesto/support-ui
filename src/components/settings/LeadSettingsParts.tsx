@@ -10,8 +10,8 @@ export const LeadSettingsHeader = () => (
     <div>
       <h2 className="font-display text-lg font-semibold">Lead Qualification</h2>
       <p className="text-sm text-muted-foreground">
-        Configure multi-turn AI lead qualification — which departments use it, what to collect, and
-        how to categorize leads.
+        Configure multi-turn AI lead qualification — which teams use it, what to collect, and how to
+        categorize leads.
       </p>
     </div>
   </div>
@@ -26,8 +26,8 @@ export const LeadMissingDepartmentsWarning = ({ ids }: { ids?: number[] }) =>
   ids && ids.length > 0 ? (
     <div data-testid="lead-missing-departments">
       <Alert variant="warning">
-        These departments were deleted — lead qualification doesn't run for them:{' '}
-        {ids.map((id) => `#${id}`).join(', ')}. Opt in an existing department below and save.
+        These teams were deleted — lead qualification doesn't run for them:{' '}
+        {ids.map((id) => `#${id}`).join(', ')}. Opt in an existing team below and save.
       </Alert>
     </div>
   ) : null;

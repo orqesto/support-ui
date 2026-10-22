@@ -11,6 +11,7 @@ import {
   AtSign,
   Hash,
   RefreshCw,
+  MessageCircleReply,
 } from 'lucide-react';
 import { AckReplyEditor } from '@/components/settings/integrations/AckReplyEditor';
 import { GmailRowCount } from '@/components/settings/integrations/GmailCountReview';
@@ -130,9 +131,9 @@ export const GmailIntegrationCard = ({
       if (!assigned) {
         onShowAlert({
           open: true,
-          title: 'Department assignment failed',
+          title: 'Team assignment failed',
           description:
-            'The Gmail account was connected, but department assignment failed. Edit departments from the source list.',
+            'The Gmail account was connected, but team assignment failed. Edit teams from the source list.',
           variant: 'warning',
         });
       }
@@ -154,7 +155,7 @@ export const GmailIntegrationCard = ({
     if (newIntegrationId) setReviewId(newIntegrationId);
 
     const connected = reconnected
-      ? `${data.email ?? 'This mailbox'} was already a source here and has been reconnected. Its departments were kept; the settings on this form were applied to it.`
+      ? `${data.email ?? 'This mailbox'} was already a source here and has been reconnected. Its teams were kept; the settings on this form were applied to it.`
       : `Gmail account connected!\n\n${data.email ?? 'Account'} has been added. Check the message count, then start the sync.`;
     onShowAlert({
       open: true,
@@ -192,7 +193,7 @@ export const GmailIntegrationCard = ({
         title: 'Reconnected',
         description:
           response.data?.id === integration.id
-            ? `${integration.name} is connected again. Its settings and departments were kept.`
+            ? `${integration.name} is connected again. Its settings and teams were kept.`
             : `Google signed in to ${response.data?.email ?? 'another mailbox'}, not ${integration.name}. That mailbox is now a source of its own; ${integration.name} is unchanged.`,
         variant: response.data?.id === integration.id ? 'success' : 'warning',
       });
@@ -500,8 +501,8 @@ export const GmailIntegrationCard = ({
                                   onClick={() => { setEditAliases(integration.id); setShowMenu(null); }}
                                 />
                                 <SourceMenuItem
-                                  icon={Building2}
-                                  label="Assign Departments"
+                                  icon={deptPicker.teamsEnabled ? Building2 : MessageCircleReply}
+                                  label={deptPicker.teamsEnabled ? 'Assign teams' : 'Auto-reply on/off'}
                                   onClick={() => { setEditDepts(integration.id); setShowMenu(null); }}
                                 />
                                 <SourceMenuItem
@@ -632,6 +633,7 @@ export const GmailIntegrationCard = ({
               defaultKB={!!defaultKB}
               departments={deptPicker.departments}
               departmentsLoading={deptPicker.loading}
+              teamsEnabled={deptPicker.teamsEnabled}
               selectedDepartmentIds={deptPicker.selectedIds}
               defaultDepartmentId={deptPicker.defaultId}
               onConfigChange={setConfig}

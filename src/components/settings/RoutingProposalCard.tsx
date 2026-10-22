@@ -58,7 +58,7 @@ const shortDate = (iso: string | null): string | null => {
 
 export const supportLine = (dept: ProposalDepartmentEvidence): string => {
   const count = countText(dept.supportCount);
-  const times = `Routed there by your team ${count} time${dept.supportCount === 1 ? '' : 's'}`;
+  const times = `Routed there by people in your workspace ${count} time${dept.supportCount === 1 ? '' : 's'}`;
   if (dept.agents <= 0) return times;
   const agents = plural(dept.agents, 'agent');
   const first = dept.firstAt ? Date.parse(dept.firstAt) : NaN;
@@ -119,7 +119,7 @@ const keywordPhrase = (
 };
 
 type NameOf = (id: number) => string | undefined;
-const labelOf = (deptNameById: NameOf, id: number) => deptNameById(id) ?? `department #${id}`;
+const labelOf = (deptNameById: NameOf, id: number) => deptNameById(id) ?? `team #${id}`;
 
 const Evidence = ({ dept, deptNameById }: { dept: ProposalDepartmentEvidence; deptNameById: NameOf }) => {
   const name = labelOf(deptNameById, dept.departmentId);
@@ -161,7 +161,7 @@ const Evidence = ({ dept, deptNameById }: { dept: ProposalDepartmentEvidence; de
           })}
         </ul>
       )}
-      {dept.redactedCount > 0 && <p>{`+${dept.redactedCount} in departments you can’t see`}</p>}
+      {dept.redactedCount > 0 && <p>{`+${dept.redactedCount} in teams you can’t see`}</p>}
     </div>
   );
 };
@@ -234,7 +234,7 @@ export const RoutingProposalCard = ({
   const decline = (key: string, why?: string) =>
     run(key, () => learningService.declineSuggestion(suggestion.id, why));
 
-  const deptName = (id: number | undefined) => (id === undefined ? 'a department' : labelOf(deptNameById, id));
+  const deptName = (id: number | undefined) => (id === undefined ? 'a team' : labelOf(deptNameById, id));
   // Until the evidence loads (or when its fetch fails) only the payload says a rule has a sibling; once loaded, trust dept.sibling.
   const hasSibling = (dept: ProposalDepartmentEvidence | undefined, payloadSiblingId: unknown) =>
     evidence ? !!dept?.sibling : typeof payloadSiblingId === 'number';

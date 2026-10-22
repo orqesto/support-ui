@@ -10,5 +10,5 @@ export const kbEntriesCount = (count: number): string =>
  */
 export const kbMovedSuffix = (kb: KbEntriesMove | null | undefined): string =>
   kb && kb.count > 0
-    ? ` · ${kbEntriesCount(kb.count)} moved to ${kb.toDepartmentName ?? 'another department'}`
+    ? ` · ${kbEntriesCount(kb.count)} moved to ${kb.toDepartmentName ?? 'another team'}`
     : '';

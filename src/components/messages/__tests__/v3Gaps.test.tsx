@@ -63,7 +63,7 @@ describe('describeResolved — "Resolved 2h ago by Daniel Reiss."', () => {
   });
 });
 
-describe('nearMissSentence — the routing hint names the departments', () => {
+describe('nearMissSentence — the routing hint names the teams', () => {
   it.each([
     [['Logistics'], 'Routing also scored this for Logistics.'],
     [['Logistics', 'Billing'], 'Routing also scored this for Logistics or Billing.'],
@@ -72,19 +72,19 @@ describe('nearMissSentence — the routing hint names the departments', () => {
     expect(nearMissSentence(names)).toBe(sentence);
   });
 
-  it('counts a department it cannot name rather than dropping it', () => {
+  it('counts a team it cannot name rather than dropping it', () => {
     expect(nearMissSentence(['Logistics', undefined])).toBe(
-      'Routing also scored this for Logistics or another department.'
+      'Routing also scored this for Logistics or another team.'
     );
     expect(nearMissSentence(['Logistics', undefined, undefined])).toBe(
-      'Routing also scored this for Logistics or 2 other departments.'
+      'Routing also scored this for Logistics or 2 other teams.'
     );
   });
 
   it('CONTROL: none known keeps the generic wording', () => {
-    expect(nearMissSentence([undefined])).toBe('Routing also scored this for another department.');
+    expect(nearMissSentence([undefined])).toBe('Routing also scored this for another team.');
     expect(nearMissSentence([undefined, undefined])).toBe(
-      'Routing also scored this for other departments.'
+      'Routing also scored this for other teams.'
     );
   });
 });

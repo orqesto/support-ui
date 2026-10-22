@@ -120,7 +120,7 @@ describe('ChatWidgetModal — AI drafts off', () => {
     fireEvent.change(screen.getByLabelText('Asking for an email'), {
       target: { value: '  What is your email?  ' },
     });
-    fireEvent.change(screen.getByLabelText('After handing the chat to your team'), {
+    fireEvent.change(screen.getByLabelText('After handing the chat to your people'), {
       target: { value: '   ' },
     });
     save();
@@ -135,7 +135,9 @@ describe('ChatWidgetModal — AI drafts off', () => {
   it('with drafts on the texts are not shown, and stored ones are sent back unchanged', async () => {
     aiDrafts.off = false;
     renderModal(widget({ handoffMessage: 'Kept', escalationSourceId: 11 }));
-    expect(screen.queryByLabelText('After handing the chat to your team')).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('After handing the chat to your people')
+    ).not.toBeInTheDocument();
     save();
 
     await waitFor(() => expect(update).toHaveBeenCalled());

@@ -21,8 +21,7 @@ const SHORT_LABEL: Record<KbDecisionKind, string> = {
   attach: 'Add to case?',
 };
 
-export const CANNOT_DECIDE =
-  "You can't decide this one — it covers departments you don't moderate.";
+export const CANNOT_DECIDE = "You can't decide this one — it covers teams you don't moderate.";
 
 /** A short visible label; the full one is read out instead (a tooltip alone reaches no keyboard
  *  or screen-reader user). */

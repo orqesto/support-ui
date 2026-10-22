@@ -526,9 +526,9 @@ export const SimilarMessagesDialog = ({
                           <Badge
                             variant="warning"
                             className="text-xs"
-                            title="No knowledge in this thread's department — found elsewhere in the workspace"
+                            title="No knowledge in this thread's team — found elsewhere in the workspace"
                           >
-                            Other department
+                            Other team
                           </Badge>
                         )}
                       </div>

@@ -72,9 +72,9 @@ const renderPage = (client = new QueryClient()) =>
   );
 
 const routeFirst = async () => {
-  const [select] = await screen.findAllByRole('combobox', { name: 'Department to route to' });
+  const [select] = await screen.findAllByRole('combobox', { name: 'Team to route to' });
   await chooseOption(select, 'Support');
-  fireEvent.click(screen.getAllByRole('button', { name: 'Route to the selected department' })[0]);
+  fireEvent.click(screen.getAllByRole('button', { name: 'Route to the selected team' })[0]);
 };
 
 beforeEach(() => {
@@ -86,7 +86,7 @@ beforeEach(() => {
 describe('Needs Routing — every route counts', () => {
   it('has no "Create routing rule" checkbox', async () => {
     renderPage();
-    await screen.findAllByRole('combobox', { name: 'Department to route to' });
+    await screen.findAllByRole('combobox', { name: 'Team to route to' });
     expect(screen.queryByText('Create routing rule')).toBeNull();
     expect(screen.queryByRole('checkbox')).toBeNull();
   });
@@ -105,7 +105,7 @@ describe('Needs Routing — every route counts', () => {
     await waitFor(() => expect(route.calls).toHaveLength(1));
     // Let handleRoute finish past the awaited manualRoute before asserting the absence.
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'Route to the selected department' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Route to the selected team' })).toBeNull()
     );
     expect(toastInfo.calls).toHaveLength(0);
   });

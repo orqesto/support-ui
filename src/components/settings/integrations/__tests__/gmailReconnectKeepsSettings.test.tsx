@@ -82,7 +82,7 @@ describe('reconnecting a Gmail source keeps what it had', () => {
     expect(assignToNewSource).not.toHaveBeenCalled();
     const alert = onShowAlert.mock.calls.at(-1)?.[0] as { variant: string; description: string };
     expect(alert.variant).toBe('success');
-    expect(alert.description).toContain('settings and departments were kept');
+    expect(alert.description).toContain('settings and teams were kept');
   });
 
   it('Reconnect that Google answers with a DIFFERENT mailbox says so', async () => {
@@ -106,7 +106,7 @@ describe('reconnecting a Gmail source keeps what it had', () => {
     expect(alert.description).toContain('other@militech.info');
   });
 
-  it('Add Gmail that lands on an EXISTING mailbox does not relink its departments', async () => {
+  it('Add Gmail that lands on an EXISTING mailbox does not relink its teams', async () => {
     connectWithPopup.mockResolvedValue({
       success: true,
       data: { id: 68, email: 'orders@militech.info' },
@@ -127,7 +127,7 @@ describe('reconnecting a Gmail source keeps what it had', () => {
     expect(alert.description).toContain('already a source here');
   });
 
-  it('CONTROL: Add Gmail that creates a NEW mailbox links it to the chosen departments', async () => {
+  it('CONTROL: Add Gmail that creates a NEW mailbox links it to the chosen teams', async () => {
     connectWithPopup.mockResolvedValue({
       success: true,
       data: { id: 99, email: 'new@militech.info' },

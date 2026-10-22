@@ -825,7 +825,11 @@ export const TrackingPage = () => {
                   </svg>
                   Handled by{' '}
                   <span className="text-foreground font-medium">
-                    {department.name ? `the ${department.name} team` : 'our support team'}
+                    {department.name
+                      ? /\bteam$/i.test(department.name.trim())
+                        ? `the ${department.name}`
+                        : `the ${department.name} team`
+                      : 'our support team'}
                   </span>
                 </div>
               </div>

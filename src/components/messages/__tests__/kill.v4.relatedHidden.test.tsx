@@ -29,16 +29,16 @@ const openTickets = async (hiddenCount: number) => {
 describe('the Related popover and the tickets this viewer cannot open', () => {
   it('names how many there are, in the plural', async () => {
     await openTickets(2);
-    expect(screen.getByText(/\+ 2 tickets in departments you cannot open\./)).toBeInTheDocument();
+    expect(screen.getByText(/\+ 2 tickets in teams you cannot open\./)).toBeInTheDocument();
   });
 
   it('one is named in the singular', async () => {
     await openTickets(1);
-    expect(screen.getByText(/\+ 1 ticket in departments you cannot open\./)).toBeInTheDocument();
+    expect(screen.getByText(/\+ 1 ticket in teams you cannot open\./)).toBeInTheDocument();
   });
 
   it('CONTROL: none means no such line', async () => {
     await openTickets(0);
-    expect(screen.queryByText(/in departments you cannot open/)).toBeNull();
+    expect(screen.queryByText(/in teams you cannot open/)).toBeNull();
   });
 });

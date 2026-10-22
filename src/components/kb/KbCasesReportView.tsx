@@ -141,8 +141,8 @@ const listsSetAside = (report: KbCasesReport): boolean => (report.setAside?.leng
 /** "this department" only when the report covers exactly one. */
 const scopeWords = (report: KbCasesReport): string =>
   report.departmentIds !== undefined && report.departmentIds.length !== 1
-    ? 'these departments'
-    : 'this department';
+    ? 'these teams'
+    : 'this team';
 
 const hasFindings = (findings: KbCasesFindings) =>
   findings.rawEmails > 0 ||

@@ -281,7 +281,7 @@ describe('KbConsolidationReview (F1)', () => {
     expect(screen.getByRole('button', { name: /Accept merge/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Decline/ })).toBeDisabled();
     expect(screen.getByTestId('accept-blocked-reason')).toHaveTextContent(
-      /needs knowledge-base permission for every department/
+      /needs knowledge-base permission for every team/
     );
   });
 

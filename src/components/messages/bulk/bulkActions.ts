@@ -77,10 +77,10 @@ export const REFUSAL_TEXT: Record<RefusalReason, string> = {
   // deleted or merged after it was selected.
   // Count-neutral like every other reason here: it is shown after a number ("3 no longer …").
   not_a_conversation: 'no longer available — deleted or merged after selection',
-  out_of_scope: 'in a department you do not have access to',
+  out_of_scope: 'in a team you do not have access to',
   already_resolved: 'already resolved or closed',
   in_spam: 'in the spam lane',
-  needs_routing: 'still waiting to be routed to a department',
+  needs_routing: 'still waiting to be routed to a team',
   not_customer_work: 'marked as not customer work',
   no_reply_to_save: 'nobody has answered it yet, so there is nothing to save',
   already_has_ticket: 'already belongs to a ticket',

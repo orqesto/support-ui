@@ -456,7 +456,7 @@ describe('R and N on a phone, with another tab open', () => {
     expect(composerHidden()).toBe(false);
     await waitFor(() =>
       expect(document.activeElement).toBe(
-        screen.getByPlaceholderText('Internal note — only visible to the team…')
+        screen.getByPlaceholderText('Internal note — only visible to your colleagues…')
       )
     );
   });
