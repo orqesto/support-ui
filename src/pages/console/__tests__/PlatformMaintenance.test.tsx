@@ -367,14 +367,14 @@ describe('PlatformMaintenance — lost attachments repair', () => {
         { organizationContext: 12 }
       )
     );
-    expect(await within(row).findByText(/Support Gmail: 5 attachment\(s\) lost/)).toBeTruthy();
+    expect(await within(row).findByText(/Support Gmail: 5 attachments lost/)).toBeTruthy();
     expect(within(row).getByText('Checked 100 messages.')).toBeTruthy();
     expect(
-      within(row).getByText('5 attachment(s) in 2 message(s) were lost and can be fetched again.')
+      within(row).getByText('5 attachments in 2 messages were lost and can be fetched again.')
     ).toBeTruthy();
     expect(within(row).getAllByText(/Support Gmail/)).toHaveLength(1);
     expect(
-      within(row).getByText(/2 attachment\(s\) in 1 message\(s\) can’t be fetched again because/)
+      within(row).getByText(/2 attachments in 1 message can’t be fetched again because/)
     ).toBeTruthy();
     for (const raw of ['eventsWithLoss', 'partsLost', 'nextAfterEventId', 'truncated'])
       expect(within(row).queryByText(raw)).toBeNull();
@@ -406,9 +406,39 @@ describe('PlatformMaintenance — lost attachments repair', () => {
     );
     fireEvent.click(screen.getAllByRole('button', { name: 'Apply' }).at(-1) as HTMLElement);
     expect(
-      await within(row).findByText(/3 attachment\(s\) in 1 message\(s\) were lost and were queued/)
+      await within(row).findByText(/3 attachments in 1 message were lost and were queued/)
     ).toBeTruthy();
     expect(within(row).queryByText(/can’t be fetched again/)).toBeNull();
+  });
+
+  it('singular wording, and nothing lost reads as such', async () => {
+    api.post.mockResolvedValueOnce({
+      data: {
+        data: {
+          scanned: 1,
+          eventsWithLoss: 1,
+          partsLost: 1,
+          byMailbox: [{ messageSourceId: 4, name: 'Box', partsLost: 1 }],
+          unrecoverable: { events: 1, parts: 1 },
+          nextAfterEventId: null,
+          truncated: false,
+          applied: false,
+        },
+      },
+    });
+    const row = await pick();
+    fireEvent.click(within(row).getByRole('button', { name: 'Check' }));
+    expect(await within(row).findByText('Checked 1 message.')).toBeTruthy();
+    expect(
+      within(row).getByText('1 attachment in 1 message were lost and can be fetched again.')
+    ).toBeTruthy();
+    expect(within(row).getByText('Box: 1 attachment lost')).toBeTruthy();
+    api.post.mockResolvedValueOnce({
+      data: { data: { scanned: 4, eventsWithLoss: 0, partsLost: 0, byMailbox: [], truncated: false } },
+    });
+    fireEvent.click(within(row).getByRole('button', { name: 'Check' }));
+    expect(await within(row).findByText('No lost attachments found.')).toBeTruthy();
+    expect(within(row).queryByText(/were lost/)).toBeNull();
   });
 
   it('Apply right after the first batch sends no afterEventId', async () => {

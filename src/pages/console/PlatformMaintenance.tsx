@@ -302,7 +302,9 @@ export const formatValue = (value: unknown): string => {
   return String(value);
 };
 
-/** The backend's answer as it came: each top-level count, nested counts on one line. */
+const plural = (count: number, noun: string): string =>
+  `${count} ${noun}${count === 1 ? '' : 's'}`;
+
 type LostAttachmentsResult = {
   scanned?: number;
   eventsWithLoss?: number;
@@ -322,26 +324,30 @@ const LostAttachmentsView = ({ title, result }: { title: string; result: RepairR
   return (
     <div className="p-3 mt-2 space-y-1 text-sm rounded-md bg-muted/40">
       <p className="mb-1 font-medium text-foreground">{title}</p>
-      <p>Checked {data.scanned ?? 0} messages.</p>
-      <p>
-        {lost} attachment(s) in {lostEvents} message(s) were lost{' '}
-        {data.applied
-          ? 'and were queued; each mailbox check fetches them a few at a time.'
-          : 'and can be fetched again.'}
-      </p>
+      <p>Checked {plural(data.scanned ?? 0, 'message')}.</p>
+      {lost === 0 ? (
+        <p>No lost attachments found.</p>
+      ) : (
+        <p>
+          {plural(lost, 'attachment')} in {plural(lostEvents, 'message')} were lost{' '}
+          {data.applied
+            ? 'and were queued; each mailbox check fetches them a few at a time.'
+            : 'and can be fetched again.'}
+        </p>
+      )}
       {(data.byMailbox ?? []).length > 0 && (
         <ul className="space-y-0.5" data-testid="by-mailbox">
           {(data.byMailbox ?? []).map((box) => (
             <li key={box.messageSourceId}>
-              {box.name ?? `Mailbox ${box.messageSourceId}`}: {box.partsLost} attachment(s) lost
+              {box.name ?? `Mailbox ${box.messageSourceId}`}: {plural(box.partsLost, 'attachment')} lost
             </li>
           ))}
         </ul>
       )}
       {gone && (gone.parts ?? 0) > 0 && (
         <p>
-          {gone.parts} attachment(s) in {gone.events ?? 0} message(s) can&rsquo;t be fetched again
-          because those messages aren&rsquo;t linked to a mailbox.
+          {plural(gone.parts ?? 0, 'attachment')} in {plural(gone.events ?? 0, 'message')}{' '}
+          can&rsquo;t be fetched again because those messages aren&rsquo;t linked to a mailbox.
         </p>
       )}
       {data.truncated === true && (
@@ -351,6 +357,7 @@ const LostAttachmentsView = ({ title, result }: { title: string; result: RepairR
   );
 };
 
+/** The backend's answer as it came: each top-level count, nested counts on one line. */
 const RepairResultView = ({ title, result }: { title: string; result: RepairResult }) => {
   const rows = Object.entries(result).filter(
     ([key, value]) => key !== 'success' && value !== undefined && formatValue(value) !== ''
