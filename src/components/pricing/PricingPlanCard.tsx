@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { VAT_NOTE, formatMoney } from '@/lib/money';
+import { teamLimitLine } from '@/components/onboarding/planSummary';
 
 export interface Plan {
   id: number;
@@ -21,6 +22,8 @@ export interface Plan {
     maxStorageGB?: number;
     maxIntegrations: number;
     maxHistoryDays?: number;
+    /** 999999 = no limit ("Teams included"); Free has 1. Absent on an older backend. */
+    maxDepartments?: number;
   };
 }
 
@@ -69,6 +72,12 @@ function PlanAiLines({ plan }: { plan: Plan }) {
   );
 }
 
+/** "Teams included" on paid plans, "1 team" on Free; nothing when the plan does not say. */
+function PlanTeamLine({ plan }: { plan: Plan }) {
+  const line = teamLimitLine(plan.limits.maxDepartments);
+  return line ? <p className="text-sm text-faint-foreground">{line}</p> : null;
+}
+
 function PlanLimits({ plan }: { plan: Plan }) {
   return (
     <div className="pb-6 mb-6 space-y-2 border-b">
@@ -78,6 +87,7 @@ function PlanLimits({ plan }: { plan: Plan }) {
         {plan.limits.maxMessagesPerMonth ? 'messages/month' : 'storage'}
       </p>
       <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxIntegrations}</strong> integrations</p>
+      <PlanTeamLine plan={plan} />
       <PlanAiLines plan={plan} />
     </div>
   );
@@ -155,6 +165,7 @@ export function EnterprisePlanCard({ plan, currentPlanName, upgrading, onSelect 
           <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxUsers.toLocaleString()}</strong> users</p>
           <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxMessagesPerMonth ? plan.limits.maxMessagesPerMonth.toLocaleString() : '—'}</strong> messages/month</p>
           <p className="text-sm text-faint-foreground"><strong>{plan.limits.maxIntegrations}</strong> integrations</p>
+          <PlanTeamLine plan={plan} />
           <PlanAiLines plan={plan} />
         </div>
         <div className="mb-6 space-y-3">

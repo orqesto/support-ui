@@ -41,6 +41,18 @@ export const formatStorage = (megabytes: number): string => {
 };
 
 /**
+ * The plan's team line. Paid plans have no team limit ("Teams included"); Free has one team.
+ * A plan the console set to some other number says that number. Absent ⇒ no line (older
+ * backend, or a plan row without the key).
+ */
+export const teamLimitLine = (maxDepartments: number | undefined): string | null => {
+  if (typeof maxDepartments !== 'number' || !Number.isFinite(maxDepartments)) return null;
+  if (isUnlimited(maxDepartments)) return 'Teams included';
+  if (maxDepartments <= 1) return '1 team';
+  return `${maxDepartments.toLocaleString()} teams`;
+};
+
+/**
  * The caps a buyer actually compares tiers on, in reading order. Deliberately
  * not every limit — `maxOrganizations` is 1 on every sellable plan, and
  * `maxAICallsPerMonth` is a derived headroom number that only confuses.
@@ -62,6 +74,8 @@ export const planLimitLines = (plan: SubscriptionPlan): string[] => {
   if (typeof limits.maxIntegrations === 'number') {
     lines.push(formatCount(limits.maxIntegrations, 'channel', 'channels'));
   }
+  const teams = teamLimitLine(limits.maxDepartments);
+  if (teams) lines.push(teams);
   if (typeof limits.maxStorageMb === 'number') {
     lines.push(formatStorage(limits.maxStorageMb));
   }

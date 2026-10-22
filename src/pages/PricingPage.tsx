@@ -162,7 +162,7 @@ export const PricingPage = () => {
         <Card className="text-background bg-foreground">
           <CardContent className="p-12 text-center">
             <h2 className="font-display mb-3 text-3xl font-bold">Enterprise</h2>
-            <p className="mb-6 text-xl text-background">Custom solutions for large teams with specific requirements</p>
+            <p className="mb-6 text-xl text-background">Custom solutions for large organisations with specific requirements</p>
             <div className="flex flex-wrap gap-6 justify-center mb-8">
               {['Unlimited users','Custom integrations','Dedicated support','SLA guarantees'].map((feat) => (
                 <div key={feat} className="flex gap-2 items-center"><Check className="w-5 h-5" /><span>{feat}</span></div>

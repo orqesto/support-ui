@@ -10,7 +10,7 @@ export const LIMIT_FIELDS = [
   { key: 'maxMessagesPerMonth', label: 'Messages / period', hint: 'Analysed per billing period; message packs add to it' },
   { key: 'maxAutoRepliesPerMonth', label: 'Auto-replies / period', hint: 'Over the allotment a reply becomes a suggestion' },
   { key: 'maxAICallsPerMonth', label: 'AI calls per month (applies until money budgets are applied)', hint: 'Platform AI key only. Once the budgets are applied this is a statistic, not a limit' },
-  { key: 'maxDepartments', label: 'Active departments', hint: 'Departments switched on at once' },
+  { key: 'maxDepartments', label: 'Active teams', hint: 'Teams switched on at once' },
   { key: 'maxStorageMb', label: 'Storage (MB)', hint: 'Files people upload; not inbound mail, not a workspace\'s own bucket' },
   { key: 'maxStoredMessages', label: 'Stored messages', hint: 'All messages kept, not per period' },
   { key: 'maxKbItems', label: 'Knowledge base items', hint: 'All knowledge base entries kept' },

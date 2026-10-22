@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  teamLimitLine,
   formatFeatureAdditions,
   formatStorage,
   planFeatureAdditions,
@@ -151,5 +152,17 @@ describe('formatFeatureAdditions', () => {
 
   it('is null when a tier adds nothing nameable', () => {
     expect(formatFeatureAdditions([])).toBeNull();
+  });
+});
+
+describe('teamLimitLine — teams on the plan card', () => {
+  it('paid plans have no team limit: "Teams included"; Free has one team', () => {
+    expect(teamLimitLine(999999)).toBe('Teams included');
+    expect(teamLimitLine(1)).toBe('1 team');
+  });
+
+  it('a plan the console set to another number says that number; no key, no line', () => {
+    expect(teamLimitLine(2)).toBe('2 teams');
+    expect(teamLimitLine(undefined)).toBeNull();
   });
 });
