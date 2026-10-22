@@ -61,7 +61,7 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
   };
 });
 vi.mock('@/services/kbAutoActions.service', () => ({
-  kbAutoActionsService: { restore: state.restore },
+  kbAutoActionsService: { restore: state.restore, getOverview: () => Promise.resolve({}) },
 }));
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -190,7 +190,7 @@ describe('knowledge base → Removed automatically', () => {
     expect(await screen.findByText('This server cannot filter by this yet.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open Automatic actions' })).toHaveAttribute(
       'href',
-      '/knowledge-base/automatic'
+      '/settings#ai/automatic-actions'
     );
     expect(screen.queryByText('Where do I send a return to Example Shop?')).toBeNull();
   });

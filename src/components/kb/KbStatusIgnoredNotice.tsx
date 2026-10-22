@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/Alert';
+import { AUTO_ACTIONS_HREF } from '@/components/kb/autoActions/kbAutoActionCopy';
 
 export const KB_STATUS_IGNORED_NOTICE = 'This server cannot filter by this yet.';
 
@@ -43,12 +44,12 @@ const FALLBACK: Record<KbDecisionFilterStatus, { text: string; to: string; label
   },
   auto_removed: {
     text: 'Automatically removed entries are listed on the Automatic actions page.',
-    to: '/knowledge-base/automatic',
+    to: AUTO_ACTIONS_HREF,
     label: 'Open Automatic actions',
   },
   auto_changed: {
     text: 'Automatically removed entries are listed on the Automatic actions page.',
-    to: '/knowledge-base/automatic',
+    to: AUTO_ACTIONS_HREF,
     label: 'Open Automatic actions',
   },
 };

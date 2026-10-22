@@ -1,12 +1,12 @@
 /**
- * Checks that the Automatic actions route EXISTS on this deployment's backend (the page itself
+ * Checks that the Automatic actions route EXISTS on this deployment's backend (the panel itself
  * falls back to the remove-only view on an older one). The FE reaches production on
- * merge, the backend on a tag, so the sidebar link must not lead to a page that cannot work.
- * Answers true only once the overview route has answered; a 404 from an absent route, an error,
- * or no answer yet all read as "not available" (the link simply is not drawn).
+ * merge, the backend on a tag, so the Settings › AI section and the Knowledge Base button must not
+ * lead to something that cannot work. Answers true only once the overview route has answered; a
+ * 404 from an absent route, an error, or no answer yet all read as "not available".
  *
  * Asked at most once per session and only when `enabled` (the person may manage the knowledge
- * base): the Layout mounts on every page, and the overview is not a cheap request.
+ * base): the overview is not a cheap request.
  */
 import { useEffect, useState } from 'react';
 import { isRouteAbsent } from '@/lib/apiError';

@@ -1,6 +1,7 @@
 /**
- * Knowledge base → Automatic actions. Renders the real page and services over a mocked transport,
- * so what is asserted is the request each control sends and what the page derives from the
+ * Settings › AI › Automatic actions (the panel). Renders the real panel and services over a
+ * mocked transport, so what is asserted is the request each control sends and what the panel
+ * derives from the
  * overview without refetching:
  * - the preview and the agreement follow the slider (sums over the per-percent counts);
  * - without MANAGE_ORGANIZATION the setting is read-only;
@@ -24,16 +25,13 @@ vi.mock('@/lib/toast', () => ({
 vi.mock('@/components/kb/KbQualityCoverage', () => ({
   KbQualityCoverage: () => <div data-testid="quality-coverage" />,
 }));
-vi.mock('@/components/layout/Layout', () => ({
-  Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
 vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({
     hasPermission: (perm: string) => perm !== 'manage_organization' || perms.canManageOrg,
   }),
 }));
 
-import { KbAutoActionsPage } from '../KbAutoActionsPage';
+import { KbAutoActionsPanel } from '../KbAutoActionsPanel';
 
 const overview = (mode = 'shadow', threshold = 0.9) => ({
   settings: { remove: { mode, threshold } },
@@ -136,7 +134,7 @@ const wireGets = (current = overview()) => {
 const renderPage = () =>
   render(
     <MemoryRouter>
-      <KbAutoActionsPage />
+      <KbAutoActionsPanel />
     </MemoryRouter>
   );
 

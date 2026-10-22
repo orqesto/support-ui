@@ -1,10 +1,10 @@
 /**
- * "Automatic actions" is a sibling of "Knowledge Base" in the sidebar (not under the ui.kb_cases
- * item), for a KB manager only, and only when the backend has the overview route: the FE reaches
- * production on merge, the backend on a tag, so on an older backend the link would lead to nothing.
+ * "Automatic actions" left the sidebar (owner decision 2026-10-22): it is a section of
+ * Settings › AI, reached from the Knowledge Base page's button. The sidebar neither lists it nor
+ * asks the backend whether its routes exist.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('@/hooks/useUiFlags', () => ({
@@ -101,35 +101,20 @@ const renderLayout = () => {
   );
 };
 
-const autoLinks = () =>
-  screen
-    .queryAllByRole('link')
-    .filter((link) => link.getAttribute('href') === '/knowledge-base/automatic');
-
-describe('Automatic actions in the sidebar', () => {
-  it('shown to a KB manager when the backend has the overview route, with ui.kb_cases off', async () => {
+describe('Automatic actions is not in the sidebar (it lives in Settings › AI)', () => {
+  it('a KB manager on a backend with the routes sees no sidebar item, and the sidebar does not probe', async () => {
     renderLayout();
-    await waitFor(() => expect(autoLinks().length).toBeGreaterThan(0));
+    expect(await screen.findByRole('link', { name: /Knowledge Base/ })).toBeInTheDocument();
+    // Let any availability probe settle before asserting the item is absent.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(screen.queryAllByRole('link', { name: /Automatic actions/ })).toHaveLength(0);
     expect(
       screen
         .queryAllByRole('link')
-        .some((link) => link.getAttribute('href') === '/knowledge-base/cases')
-    ).toBe(false);
-  });
-
-  it('hidden when the overview route is absent (older backend 404)', async () => {
-    overviewCall.getOverview.mockRejectedValue(
-      Object.assign(new Error('Request failed'), { status: 404, data: '<pre>Cannot GET</pre>' })
-    );
-    renderLayout();
-    await waitFor(() => expect(overviewCall.getOverview).toHaveBeenCalled());
-    expect(autoLinks()).toHaveLength(0);
-  });
-
-  it('CONTROL: not shown (and not even asked for) without MANAGE_KNOWLEDGE_BASE', () => {
-    perms.manageKb = false;
-    renderLayout();
-    expect(autoLinks()).toHaveLength(0);
+        .filter((link) => (link.getAttribute('href') ?? '').includes('automatic'))
+    ).toHaveLength(0);
     expect(overviewCall.getOverview).not.toHaveBeenCalled();
   });
 });

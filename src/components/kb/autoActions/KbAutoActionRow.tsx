@@ -20,7 +20,7 @@ import {
   type KbAutoGateRefusal,
   type KbAutoRemoveMode,
 } from '@/services/kbAutoActions.service';
-import { ACTION_LABELS, blockedByLine, gateLine } from './kbAutoActionCopy';
+import { ACTION_LABELS, backlogBlockedLine, blockedByLine, gateLine } from './kbAutoActionCopy';
 import { KbAutoSampleReview } from './KbAutoSampleReview';
 
 const MODE_HELP: Record<KbAutoRemoveMode, string> = {
@@ -59,6 +59,9 @@ export const KbAutoActionRow = ({
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [refusal, setRefusal] = useState<KbAutoGateRefusal | null>(null);
+  // The save that switched approveCaptures on started a run over the answers already waiting.
+  // Only a backend that says so (`startedRuns`) shows the line; it stays until the next save.
+  const [applyingNow, setApplyingNow] = useState(false);
 
   // A fresh overview (after a save, or a rating) resets the draft to what is saved.
   useEffect(() => {
@@ -72,6 +75,7 @@ export const KbAutoActionRow = ({
   const locked = !state.gate.allowed && !canOverrideGate && state.mode !== 'auto';
   const showGate = refusal !== null || (state.mode !== 'auto' && !state.gate.allowed);
   const blocked = blockedByLine(state.blockedBy);
+  const backlogBlocked = backlogBlockedLine(state.backlogBlockedBy);
 
   const segments: Segment<KbAutoRemoveMode>[] = [
     { value: 'off', label: 'Off' },
@@ -84,9 +88,10 @@ export const KbAutoActionRow = ({
     setSaving(true);
     setRefusal(null);
     try {
-      await kbAutoActionsService.patchSettings({
+      const result = await kbAutoActionsService.patchSettings({
         [action]: scored ? { mode, threshold: percent / 100 } : { mode },
       });
+      setApplyingNow(action === 'approveCaptures' && result.startedRuns?.[action] === true);
       toast.success('Saved');
       onChanged();
     } catch (err) {
@@ -127,6 +132,11 @@ export const KbAutoActionRow = ({
           {blocked && (
             <Alert variant="warning">
               <AlertDescription>{blocked}</AlertDescription>
+            </Alert>
+          )}
+          {backlogBlocked && (
+            <Alert variant="info">
+              <AlertDescription>{backlogBlocked}</AlertDescription>
             </Alert>
           )}
           <SegmentedControl
@@ -176,6 +186,7 @@ export const KbAutoActionRow = ({
                   : 'answers'}
             </span>
           </p>
+          {applyingNow && <p role="status">Approving the waiting answers now.</p>}
           <p className="text-muted-foreground">{agreementLine}</p>
           {canEdit ? (
             <Button size="sm" onClick={onSave} disabled={!dirty || saving} isLoading={saving}>

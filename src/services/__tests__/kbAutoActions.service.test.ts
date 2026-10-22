@@ -71,6 +71,8 @@ describe('kbAutoActions normalisation (older or partial backend)', () => {
         confidence: null,
         approved: false,
         personApproved: false,
+        capturedVia: null,
+        capturedByName: null,
       },
     ]);
     const page = normaliseRemovedPage({ items: [{ entryId: 9, reasons: ['outdated', 4] }] });
@@ -229,5 +231,66 @@ describe('kbAutoActionsService requests', () => {
     ).toEqual({ action: 'hold', needRated: 2, rate: null, reason: 'not_enough_rated' });
     expect(kbAutoActionsService.gateRefusal({ status: 409, data: { code: 'OTHER' } })).toBeNull();
     expect(kbAutoActionsService.gateRefusal(new Error('x'))).toBeNull();
+  });
+});
+
+describe('approving answers people saved (approveCaptures)', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('keeps the approveCaptures action and its backlog notice flags', () => {
+    const overview = normaliseOverview({
+      actions: {
+        approveCaptures: {
+          mode: 'shadow',
+          threshold: 0.9,
+          wouldAct: 12,
+          gate: { allowed: false, needRated: 20, rate: null, reason: 'not_enough_rated' },
+          blockedBy: [],
+          backlogBlockedBy: ['kb.quality_review_enabled', 3],
+        },
+        hold: { mode: 'auto' },
+      },
+    });
+    expect(overview.actions?.approveCaptures?.wouldAct).toBe(12);
+    expect(overview.actions?.approveCaptures?.threshold).toBe(0.9);
+    expect(overview.actions?.approveCaptures?.backlogBlockedBy).toEqual([
+      'kb.quality_review_enabled',
+    ]);
+    // Only approveCaptures has a backlog; another action without the field has none.
+    expect(overview.actions?.hold?.backlogBlockedBy).toBeUndefined();
+  });
+
+  it('reads who saved a sample answer, and how', () => {
+    const sample = normaliseSample({
+      items: [
+        { entryId: 1, confidence: 0.95, capturedVia: 'resolve', capturedByName: 'Anna' },
+        { entryId: 2, confidence: 0.91, capturedVia: 'manual_promote', capturedByName: null },
+        { entryId: 3, confidence: 0.9, capturedVia: 'mined' },
+        { entryId: 4, confidence: 0.9 },
+      ],
+    });
+    expect(sample.items.map((item) => [item.capturedVia, item.capturedByName])).toEqual([
+      ['resolve', 'Anna'],
+      ['manual_promote', null],
+      [null, null],
+      [null, null],
+    ]);
+  });
+
+  it('the settings save reports which runs started; an older backend reports none', async () => {
+    api.patch.mockResolvedValueOnce({
+      data: {
+        data: {
+          settings: {},
+          startedRun: false,
+          startedRuns: { remove: false, approveCaptures: true },
+        },
+      },
+    });
+    const started = await kbAutoActionsService.patchSettings({ approveCaptures: { mode: 'auto' } });
+    expect(started.startedRuns).toEqual({ remove: false, approveCaptures: true });
+    api.patch.mockResolvedValueOnce({ data: { data: { settings: {}, startedRun: true } } });
+    const older = await kbAutoActionsService.patchSettings({ remove: { mode: 'auto' } });
+    expect(older.startedRuns).toBeNull();
   });
 });
