@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { endOfDayIso, startOfDayIso } from '@/components/messages/filters/receivedRange';
 
 export type AuditLog = {
   id: number;
@@ -53,11 +54,13 @@ export const auditLogService = {
     if (filters?.userId) {
       params.append('userId', filters.userId.toString());
     }
+    // The filter holds local days; the API gets their first and last INSTANT. A bare
+    // `YYYY-MM-DD` was read as UTC midnight, so the "to" day itself was cut off.
     if (filters?.startDate) {
-      params.append('startDate', filters.startDate);
+      params.append('startDate', startOfDayIso(filters.startDate) ?? filters.startDate);
     }
     if (filters?.endDate) {
-      params.append('endDate', filters.endDate);
+      params.append('endDate', endOfDayIso(filters.endDate) ?? filters.endDate);
     }
     if (filters?.page) {
       params.append('page', filters.page.toString());

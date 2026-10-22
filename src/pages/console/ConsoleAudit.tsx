@@ -16,6 +16,7 @@ import { useAllianceAudit, useAllianceAuditActions } from '@/hooks/useAllianceAu
 import { useAllianceOrgs } from '@/hooks/useAllianceAdmin';
 import { dateInputToIso } from '@/services/auditQueryParams';
 import type { AllianceAuditRow } from '@/services/alliance-audit.service';
+import { DateRangePicker } from '@/components/ui/DateRangePicker';
 
 /**
  * Alliance Audit log (05-09, OQ4 v1). A PURE READ over the existing per-org audit
@@ -157,15 +158,7 @@ export const ConsoleAudit = () => {
     resetForFilter();
   };
 
-  const handleDateFromChange = (next: string) => {
-    setDateFrom(next);
-    resetForFilter();
-  };
 
-  const handleDateToChange = (next: string) => {
-    setDateTo(next);
-    resetForFilter();
-  };
 
   // Commit the typed actor email (Enter or blur) into the applied filter.
   const commitActorEmail = () => {
@@ -257,27 +250,23 @@ export const ConsoleAudit = () => {
               />
             </div>
             <div>
-              <Label htmlFor="audit-date-from" className="mb-1">
-                From
-              </Label>
-              <Input
-                id="audit-date-from"
-                type="date"
-                value={dateFrom}
-                max={dateTo || undefined}
-                onChange={(event) => handleDateFromChange(event.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="audit-date-to" className="mb-1">
-                To
-              </Label>
-              <Input
-                id="audit-date-to"
-                type="date"
-                value={dateTo}
-                min={dateFrom || undefined}
-                onChange={(event) => handleDateToChange(event.target.value)}
+              <Label className="mb-1">Date range</Label>
+              <DateRangePicker
+                ariaLabel="Date range"
+                presets={[]}
+                value={dateFrom && dateTo ? { kind: 'range', from: dateFrom, to: dateTo } : { kind: 'preset', value: '' }}
+                onChange={(next) => {
+                  if (next.kind !== 'range') return;
+                  setDateFrom(next.from);
+                  setDateTo(next.to);
+                  resetForFilter();
+                }}
+                onClear={() => {
+                  setDateFrom('');
+                  setDateTo('');
+                  resetForFilter();
+                }}
+                placeholder="Any date"
               />
             </div>
           </div>

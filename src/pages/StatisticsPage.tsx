@@ -7,6 +7,16 @@ import { Layout } from '@/components/layout/Layout';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
+import { DateRangePicker } from '@/components/ui/DateRangePicker';
+import {
+  dayPresets,
+  periodFromSearch,
+  periodKey,
+  periodToPickerValue,
+  periodToSearch,
+  pickerValueToPeriod,
+  type ReportPeriod,
+} from '@/lib/reportPeriod';
 import { cn } from '@/lib/utils';
 import { statisticsService, type StatisticsData, type UserStatEntry, type MessageStatsData, type AIStatsData, type LabelStatEntry, type SpeedToLeadData, type SLASummary } from '@/services/statistics.service';
 import { StatisticsOverviewTab } from '@/components/statistics/StatisticsOverviewTab';
@@ -38,12 +48,12 @@ const CHANNEL_OPTIONS = [
   { value: 'other', label: 'Other' },
 ];
 
-const DAYS_OPTIONS = [
-  { label: '7 days', value: 7 },
-  { label: '30 days', value: 30 },
-  { label: '90 days', value: 90 },
-  { label: '365 days', value: 365 },
-];
+const DAYS_PRESETS = dayPresets([
+  { label: '7 days', days: 7 },
+  { label: '30 days', days: 30 },
+  { label: '90 days', days: 90 },
+  { label: '365 days', days: 365 },
+]);
 
 export const StatisticsPage = () => {
   const location = useLocation();
@@ -66,32 +76,31 @@ export const StatisticsPage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Phase A: one shared date window for every tab, synced to the URL (?days=)
-  // so it survives tab switches and is shareable. Replaces the old per-tab selectors.
-  const [days, setDaysState] = useState<number>(() => {
-    const parsed = Number(new URLSearchParams(location.search).get('days'));
-    return parsed > 0 ? parsed : 30;
-  });
+  // Phase A: one shared date window for every tab, synced to the URL (?days= or, for a custom
+  // range, ?from=&to=) so it survives tab switches and is shareable.
+  const [period, setPeriodState] = useState<ReportPeriod>(() =>
+    periodFromSearch(location.search, 30)
+  );
+  const { days } = period;
   // Channel filter — shared across tabs, synced to the URL (?channel=). 'all' = no filter.
   const [channel, setChannelState] = useState<string>(
     () => new URLSearchParams(location.search).get('channel') ?? 'all'
   );
-  const syncUrl = (nextDays: number, nextChannel: string) => {
-    const params = new URLSearchParams();
-    params.set('days', String(nextDays));
+  const syncUrl = (nextPeriod: ReportPeriod, nextChannel: string) => {
+    const params = periodToSearch(nextPeriod, new URLSearchParams());
     if (nextChannel !== 'all') params.set('channel', nextChannel);
     navigate(
       { pathname: '/statistics', search: `?${params.toString()}`, hash: activeTab },
       { replace: true }
     );
   };
-  const setDays = (next: number) => {
-    setDaysState(next);
+  const setPeriod = (next: ReportPeriod) => {
+    setPeriodState(next);
     syncUrl(next, channel);
   };
   const setChannel = (next: string) => {
     setChannelState(next);
-    syncUrl(days, next);
+    syncUrl(period, next);
   };
   const [teamError, setTeamError] = useState<string | null>(null);
 
@@ -102,7 +111,7 @@ export const StatisticsPage = () => {
     refresh: refreshSpeed,
   } = useStatisticsFetch<SpeedToLeadData>(
     statisticsService.getSpeedToLead,
-    days,
+    period,
     channel,
     activeTab === 'performance' || activeTab === 'overview'
   );
@@ -114,7 +123,7 @@ export const StatisticsPage = () => {
     refresh: refreshTeam,
   } = useStatisticsFetch<UserStatEntry[]>(
     statisticsService.getTeamStats,
-    days,
+    period,
     channel,
     activeTab === 'team',
     setTeamError
@@ -127,14 +136,14 @@ export const StatisticsPage = () => {
     refresh: refreshMsg,
   } = useStatisticsFetch<MessageStatsData>(
     statisticsService.getMessageStats,
-    days,
+    period,
     channel,
     activeTab === 'performance' || activeTab === 'overview'
   );
 
   const { data: slaSummary } = useStatisticsFetch<SLASummary>(
     statisticsService.getSlaSummary,
-    days,
+    period,
     channel,
     activeTab === 'overview'
   );
@@ -145,7 +154,7 @@ export const StatisticsPage = () => {
     refresh: refreshAI,
   } = useStatisticsFetch<AIStatsData>(
     statisticsService.getAIStats,
-    days,
+    period,
     channel,
     activeTab === 'overview'
   );
@@ -156,7 +165,7 @@ export const StatisticsPage = () => {
     refresh: refreshLabels,
   } = useStatisticsFetch<LabelStatEntry[]>(
     statisticsService.getLabelStats,
-    days,
+    period,
     channel,
     activeTab === 'performance'
   );
@@ -167,7 +176,7 @@ export const StatisticsPage = () => {
   const selectedDeptKey = useDepartmentContextKey();
   const fetchStatistics = useCallback(async () => {
     try {
-      const statsResponse = await statisticsService.getAll(days, channel);
+      const statsResponse = await statisticsService.getAll(period, channel);
       if (statsResponse.success && statsResponse.data) {
         setStats(statsResponse.data);
       }
@@ -179,8 +188,9 @@ export const StatisticsPage = () => {
     }
     // selectedDeptKey is a refresh trigger read indirectly through the axios interceptor
     // (X-Department-Context), as in useStatisticsFetch.
+    // A new period object for the same window (periodKey) must not refetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [days, channel, selectedDeptKey]);
+  }, [periodKey(period), channel, selectedDeptKey]);
 
   useEffect(() => {
     fetchStatistics().catch((error) => {
@@ -279,25 +289,13 @@ export const StatisticsPage = () => {
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Period:</span>
-            <div className="flex rounded-md border border-border overflow-hidden">
-              {DAYS_OPTIONS.map((opt) => (
-                <Button
-                  key={opt.value}
-                  type="button"
-                  variant={days === opt.value ? 'primary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setDays(opt.value)}
-                  className={cn(
-                    'rounded-none px-3 h-auto py-1.5 font-medium',
-                    days === opt.value
-                      ? ''
-                      : 'text-muted-foreground hover:bg-muted'
-                  )}
-                >
-                  {opt.label}
-                </Button>
-              ))}
-            </div>
+            <DateRangePicker
+              ariaLabel="Period"
+              presets={DAYS_PRESETS}
+              value={periodToPickerValue(period)}
+              onChange={(next) => setPeriod(pickerValueToPeriod(next))}
+              maxSpanDays={365}
+            />
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Channel:</span>
@@ -386,7 +384,7 @@ export const StatisticsPage = () => {
 
         {activeTab === 'tokens' && isOrgAdmin && (
           <div id="panel-tokens" role="tabpanel">
-            <TokenUsageTab days={days} />
+            <TokenUsageTab period={period} />
           </div>
         )}
       </div>

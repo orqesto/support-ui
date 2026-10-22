@@ -132,7 +132,7 @@ export type SLABreachEvent = {
 };
 
 // SLA endpoints return the resource directly (no { success, data } envelope)
-const getSummary = async (params?: { days?: number }): Promise<SLASummary> => {
+const getSummary = async (params?: { days?: number; from?: string; to?: string }): Promise<SLASummary> => {
   const response = await apiClient.get<SLASummary>('/api/sla/summary', { params });
   return response.data;
 };
@@ -141,6 +141,8 @@ const getStatistics = async (params?: {
   channel?: string;
   departmentSlug?: string;
   days?: number;
+  from?: string;
+  to?: string;
 }): Promise<SLAStatistics> => {
   const response = await apiClient.get<SLAStatistics>('/api/sla/statistics', { params });
   return response.data;
@@ -150,6 +152,8 @@ const getBreaches = async (params?: {
   limit?: number;
   type?: 'message' | 'ticket';
   days?: number;
+  from?: string;
+  to?: string;
 }): Promise<SLABreachesResponse> => {
   const response = await apiClient.get<SLABreachesResponse>('/api/sla/breaches', { params });
   return response.data;
@@ -157,6 +161,8 @@ const getBreaches = async (params?: {
 
 const getTrends = async (params?: {
   days?: number;
+  from?: string;
+  to?: string;
   interval?: 'hour' | 'day' | 'week';
 }): Promise<SLATrendsResponse> => {
   const response = await apiClient.get<SLATrendsResponse>('/api/sla/trends', { params });

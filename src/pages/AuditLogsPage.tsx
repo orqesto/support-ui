@@ -15,6 +15,7 @@ import type { OrganizationMember } from '@/services/organization.service';
 import { useAuditLogsStore } from '@/stores/auditLogsStore';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
+import { DateRangePicker } from '@/components/ui/DateRangePicker';
 
 const ACTION_OPTIONS = [
   { value: '', label: 'All Actions' },
@@ -255,27 +256,20 @@ export const AuditLogsPage = () => {
                 />
 
                 {/* Date range */}
-                <div className="flex items-center gap-1">
-                  <input
-                    type="date"
-                    value={filters.startDate ?? ''}
-                    max={filters.endDate ?? undefined}
-                    onChange={(event) => patchFilter({ startDate: event.target.value || undefined })}
-                    className={filterInputClass}
-                    aria-label="From date"
-                    title="From date"
-                  />
-                  <span className="text-xs text-muted-foreground">–</span>
-                  <input
-                    type="date"
-                    value={filters.endDate ?? ''}
-                    min={filters.startDate ?? undefined}
-                    onChange={(event) => patchFilter({ endDate: event.target.value || undefined })}
-                    className={filterInputClass}
-                    aria-label="To date"
-                    title="To date"
-                  />
-                </div>
+                <DateRangePicker
+                  ariaLabel="Date range"
+                  presets={[]}
+                  value={
+                    filters.startDate && filters.endDate
+                      ? { kind: 'range', from: filters.startDate, to: filters.endDate }
+                      : { kind: 'preset', value: '' }
+                  }
+                  onChange={(next) => {
+                    if (next.kind === 'range') patchFilter({ startDate: next.from, endDate: next.to });
+                  }}
+                  onClear={() => patchFilter({ startDate: undefined, endDate: undefined })}
+                  placeholder="Any date"
+                />
 
                 {/* User search */}
                 <div className="relative">

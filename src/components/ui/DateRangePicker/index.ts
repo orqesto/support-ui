@@ -1,4 +1,5 @@
 export { DateRangePicker } from './DateRangePicker';
+export { MonthCalendar } from './MonthCalendar';
 export {
   dateToDay,
   dayToDate,

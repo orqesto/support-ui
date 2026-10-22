@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useDepartmentContextKey } from './useDepartmentContextKey';
+import { periodKey, type ReportPeriod } from '@/lib/reportPeriod';
 
-type FetchFn<T> = (days: number, channel?: string) => Promise<{ success: boolean; data?: T }>;
+type FetchFn<T> = (period: ReportPeriod, channel?: string) => Promise<{ success: boolean; data?: T }>;
 
 type UseStatisticsFetchResult<T> = {
   data: T | null;
@@ -13,12 +14,12 @@ type UseStatisticsFetchResult<T> = {
 
 /**
  * Generic hook for statistics tabs.
- * Fetches on mount and whenever `active` or `days` changes.
+ * Fetches on mount and whenever `active` or the period changes.
  * Exposes a `refresh()` function that re-fetches with the refreshing flag set.
  */
 export function useStatisticsFetch<T>(
   fetchFn: FetchFn<T>,
-  days: number,
+  period: ReportPeriod,
   channel: string,
   active: boolean,
   onError?: (message: string) => void
@@ -37,7 +38,7 @@ export function useStatisticsFetch<T>(
       else setLoading(true);
       setError(null);
       try {
-        const response = await fetchFn(days, channel);
+        const response = await fetchFn(period, channel);
         if (response.success && response.data !== undefined) {
           setData(response.data);
         } else if (!response.success) {
@@ -59,7 +60,8 @@ export function useStatisticsFetch<T>(
     // checkbox, callback identity must change so the consumer effect re-runs
     // and the axios interceptor sees the new X-Department-Context header.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [days, channel, fetchFn, onError, selectedDeptKey]
+    // periodKey: a new range object with the same days must not refetch.
+    [periodKey(period), channel, fetchFn, onError, selectedDeptKey]
   );
 
   useEffect(() => {

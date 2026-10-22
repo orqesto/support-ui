@@ -4,17 +4,20 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { slaService } from '@/services/sla.service';
+import { periodKey, periodParams, type ReportPeriod } from '@/lib/reportPeriod';
 
 export const SLA_DEFAULT_DAYS = 30;
 
 type SLAByPriorityTableProps = {
   days?: number;
+  /** A custom window (the date picker); wins over `days`. */
+  period?: ReportPeriod;
 };
 
-export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS }: SLAByPriorityTableProps) => {
+export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS, period }: SLAByPriorityTableProps) => {
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['sla-statistics', { days }],
-    queryFn: () => slaService.getStatistics({ days }),
+    queryKey: ['sla-statistics', { window: period ? periodKey(period) : days }],
+    queryFn: () => slaService.getStatistics(period ? periodParams(period) : { days }),
   });
 
   if (isLoading) {

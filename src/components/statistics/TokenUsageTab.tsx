@@ -18,6 +18,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { statisticsService, type TokenUsageData } from '@/services/statistics.service';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { periodKey, type ReportPeriod } from '@/lib/reportPeriod';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
 
@@ -33,7 +34,7 @@ const compact = (value: number): string =>
 const featureLabel = (feature: string): string =>
   feature.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
-export const TokenUsageTab = ({ days }: { days: number }) => {
+export const TokenUsageTab = ({ period }: { period: ReportPeriod }) => {
   const [data, setData] = useState<TokenUsageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +46,7 @@ export const TokenUsageTab = ({ days }: { days: number }) => {
     setLoading(true);
     setError(null);
     statisticsService
-      .getTokenUsage(days, undefined, {
+      .getTokenUsage(period, undefined, {
         feature: feature === 'all' ? undefined : feature,
         provider: provider === 'all' ? undefined : provider,
       })
@@ -65,7 +66,9 @@ export const TokenUsageTab = ({ days }: { days: number }) => {
     return () => {
       cancelled = true;
     };
-  }, [days, feature, provider]);
+    // periodKey: a new period object for the same window must not refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodKey(period), feature, provider]);
 
   // Feature/provider options come from the UNFILTERED first load so the dropdowns
   // stay stable while drilling in. Fall back to the current data if needed.

@@ -26,8 +26,10 @@ type DateRangePickerProps = {
   maxDay?: string;
   /** The longest range accepted, in days (a report's server limit is 365). */
   maxSpanDays?: number;
-  /** Shown on the trigger when nothing is chosen yet. */
+  /** Shown on the trigger when nothing is chosen (a preset value no preset matches, e.g. ''). */
   placeholder?: string;
+  /** Offered as "Clear dates" when a custom value is set (a filter that can be empty). */
+  onClear?: () => void;
   disabled?: boolean;
   className?: string;
 };
@@ -48,6 +50,7 @@ export const DateRangePicker = ({
   maxDay,
   maxSpanDays,
   placeholder,
+  onClear,
   disabled,
   className,
 }: DateRangePickerProps) => {
@@ -93,8 +96,9 @@ export const DateRangePicker = ({
     apply({ kind: 'range', from, to });
   };
 
-  const isEmptyCustom = value.kind !== 'preset' && !shownDay;
-  const label = isEmptyCustom ? (placeholder ?? 'Choose dates') : formatRangeLabel(value, presets);
+  const isEmpty =
+    value.kind === 'preset' ? !presets.some((preset) => preset.value === value.value) : !shownDay;
+  const label = isEmpty ? (placeholder ?? 'Choose dates') : formatRangeLabel(value, presets);
   const selectedFrom = anchor ?? (value.kind === 'range' ? value.from : value.kind === 'since' ? value.since : undefined);
   const selectedTo = anchor ? undefined : value.kind === 'range' ? value.to : undefined;
 
@@ -152,11 +156,25 @@ export const DateRangePicker = ({
               {problem}
             </p>
           )}
-          {presets.length > 0 && (
-            <div className="border-t border-border p-1">
-              <Button variant="ghost" size="sm" onClick={() => setCustom(false)}>
-                Back to quick choices
-              </Button>
+          {(presets.length > 0 || (onClear && value.kind !== 'preset')) && (
+            <div className="flex justify-between border-t border-border p-1">
+              {presets.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={() => setCustom(false)}>
+                  Back to quick choices
+                </Button>
+              )}
+              {onClear && value.kind !== 'preset' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    onClear();
+                    setOpen(false);
+                  }}
+                >
+                  Clear dates
+                </Button>
+              )}
             </div>
           )}
         </div>

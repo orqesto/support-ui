@@ -8,18 +8,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import type { SLABreach } from '@/services/sla.service';
 import { slaService } from '@/services/sla.service';
 import { SLA_DEFAULT_DAYS } from './SLAByPriorityTable';
+import { isCustomPeriod, periodKey, periodParams, type ReportPeriod } from '@/lib/reportPeriod';
 
 type SLABreachListProps = {
   days?: number;
+  /** A custom window (the date picker); wins over `days`. */
+  period?: ReportPeriod;
 };
 
 const windowLabel = (days: number) => (days === 1 ? 'last 24 hours' : `last ${days} days`);
 
-export const SLABreachList = ({ days = SLA_DEFAULT_DAYS }: SLABreachListProps) => {
+export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachListProps) => {
   const navigate = useNavigate();
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['sla-breaches', { days }],
-    queryFn: () => slaService.getBreaches({ limit: 20, days }),
+    queryKey: ['sla-breaches', { window: period ? periodKey(period) : days }],
+    queryFn: () => slaService.getBreaches({ limit: 20, ...(period ? periodParams(period) : { days }) }),
     refetchInterval: 30000,
     refetchIntervalInBackground: false,
   });
@@ -74,7 +77,7 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS }: SLABreachListProps) =
               No active SLA breaches
             </p>
             <p className="text-sm text-success">
-              No SLA breaches in the {windowLabel(days)}
+              No SLA breaches in the {period && isCustomPeriod(period) ? 'selected period' : windowLabel(days)}
             </p>
           </div>
         </CardContent>

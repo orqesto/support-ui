@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { MonthCalendar, dateToDay, dayToDate } from '@/components/ui/DateRangePicker';
 import { endOfDayIso, startOfDayIso, toDateInput } from './receivedRange';
 
 /**
@@ -61,65 +63,61 @@ export const NegateSwitch = ({
 };
 
 /**
- * From / to, as two day pickers.
+ * From / to, picked on a month calendar (the shared date-range control's calendar, inline: this
+ * already lives in a menu panel). The first day clicked is "from"; the next completes the range,
+ * in date order whichever end came first; a click after that starts a new range. A range with
+ * one end ("everything since the 9th") is kept as it was — the API takes it.
  *
- * The stored value is an instant, not a day — see `receivedRange.ts` for why — so these
- * convert on the way in and out. `to` is the END of its day, or picking the same day for
- * both bounds would select the single instant of midnight and match nothing.
+ * The stored value is an instant, not a day — see `receivedRange.ts` for why — so these convert
+ * on the way in and out. `to` is the END of its day, or picking the same day for both bounds
+ * would select the single instant of midnight and match nothing.
  */
 export const DateRangeFields = ({
   from,
   to,
   onChange,
-  size = 'compact',
 }: {
   from?: string;
   to?: string;
   onChange: (next: { from?: string; to?: string }) => void;
   size?: Size;
 }) => {
-  const field = `w-full rounded-md border bg-input border-border px-2 outline-none focus:border-primary ${
-    size === 'touch' ? 'h-11 text-[14px]' : 'h-8 text-[12.5px]'
-  }`;
-  const fromInput = toDateInput(from);
-  const toInput = toDateInput(to);
+  const fromDay = toDateInput(from) || undefined;
+  const toDay = toDateInput(to) || undefined;
+  const [month, setMonth] = useState<Date>(() => (fromDay ? dayToDate(fromDay) : new Date()));
+
+  const pick = (day: string) => {
+    if (!fromDay || toDay) {
+      onChange({ from: startOfDayIso(day), to: undefined });
+      return;
+    }
+    const [first, last] = fromDay <= day ? [fromDay, day] : [day, fromDay];
+    onChange({ from: startOfDayIso(first), to: endOfDayIso(last) });
+  };
 
   return (
-    <div className="p-3 space-y-2">
-      <div className="grid grid-cols-2 gap-2">
-        <label className="block space-y-1">
-          <span className="block text-[11px] font-medium text-muted-foreground">From</span>
-          <input
-            type="date"
-            value={fromInput}
-            // An empty input clears that bound rather than the whole filter: "everything
-            // before the 9th" is a range with one end, and the API takes it.
-            max={toInput === '' ? undefined : toInput}
-            onChange={(event) =>
-              onChange({ from: startOfDayIso(event.target.value), to })
-            }
-            className={field}
-          />
-        </label>
-        <label className="block space-y-1">
-          <span className="block text-[11px] font-medium text-muted-foreground">To</span>
-          <input
-            type="date"
-            value={toInput}
-            min={fromInput === '' ? undefined : fromInput}
-            onChange={(event) => onChange({ from, to: endOfDayIso(event.target.value) })}
-            className={field}
-          />
-        </label>
-      </div>
+    <div className="space-y-1">
+      <MonthCalendar
+        month={month}
+        onMonthChange={setMonth}
+        from={fromDay}
+        to={toDay}
+        maxDay={dateToDay(new Date())}
+        onPick={pick}
+      />
+      <p className="px-3 text-[11px] text-muted-foreground">
+        {fromDay && !toDay ? 'Since this day — pick another to end the range.' : 'Pick the first and last day.'}
+      </p>
       {(from !== undefined || to !== undefined) && (
-        <Button
-          variant="ghost"
-          onClick={() => onChange({ from: undefined, to: undefined })}
-          className="px-2 h-7 text-[12px] text-muted-foreground hover:text-foreground"
-        >
-          Clear dates
-        </Button>
+        <div className="px-3 pb-2">
+          <Button
+            variant="ghost"
+            onClick={() => onChange({ from: undefined, to: undefined })}
+            className="px-2 h-7 text-[12px] text-muted-foreground hover:text-foreground"
+          >
+            Clear dates
+          </Button>
+        </div>
       )}
     </div>
   );
