@@ -1233,6 +1233,7 @@ export const MessagesPage = () => {
                           }
                           onToggleSelected={toggleListRow}
                           selectMode={selectMode}
+                          highlightTerms={searchReading?.terms}
                           onReadChanged={() => {
                             bumpKanban();
                             void fetchMessages(messagesPagination.page, true);
@@ -1256,6 +1257,7 @@ export const MessagesPage = () => {
                           }
                           onToggleSelected={toggleListRow}
                           selectMode={selectMode}
+                          highlightTerms={searchReading?.terms}
                           onReadChanged={() => {
                             bumpKanban();
                             void fetchMessages(messagesPagination.page, true);

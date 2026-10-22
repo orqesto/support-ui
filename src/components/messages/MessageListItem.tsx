@@ -24,6 +24,7 @@ import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { getChannelIcon, formatConvId, getConvUrlId, isTriageMessage } from '@/lib/messageHelpers';
 import { logger } from '@/lib/logger';
 import { SPAM_LOG_CARD_COPY } from '@/lib/spamLogCardCopy';
+import { Highlight } from '@/components/ui/Highlight';
 import { previewText } from '@/lib/stripHtml';
 import { cn, formatAge, formatDate, formatWhen, safeCssColor } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -76,6 +77,8 @@ type MessageListItemProps = {
   current?: boolean;
   /** The list column is narrow (split layout): the compact line wraps to two. */
   narrow?: boolean;
+  /** The typed search as the backend read it: marked in the sender, subject and preview. */
+  highlightTerms?: readonly string[];
 };
 
 export const MessageListItem = ({
@@ -88,6 +91,7 @@ export const MessageListItem = ({
   density = 'comfortable',
   current = false,
   narrow = false,
+  highlightTerms,
 }: MessageListItemProps) => {
   // Before any early return — hooks must run in the same order on every render.
   const { off: aiDraftsOff } = useAiDraftsOff();
@@ -292,7 +296,7 @@ export const MessageListItem = ({
           senderClass
         )}
       >
-        {thread.sender}
+        <Highlight text={thread.sender} terms={highlightTerms} />
       </p>
       {readToggle}
     </>
@@ -495,7 +499,11 @@ export const MessageListItem = ({
     </>
   );
 
-  const preview = previewText(thread.latestIncomingMessage?.content ?? msg.content);
+  // A search that matched only inside a message quotes THAT passage, not the latest message —
+  // otherwise the row gives no hint why it is listed.
+  const bodySnippet =
+    thread.searchMatch?.field === 'body' ? (thread.searchMatch.snippet ?? null) : null;
+  const preview = bodySnippet ?? previewText(thread.latestIncomingMessage?.content ?? msg.content);
 
   const rowProps = {
     role: 'button' as const,
@@ -552,10 +560,12 @@ export const MessageListItem = ({
         >
           {msg.subject && (
             <span className="max-w-[55%] text-[13px] font-medium truncate shrink-0">
-              {msg.subject}
+              <Highlight text={msg.subject} terms={highlightTerms} />
             </span>
           )}
-          <span className="text-[13px] text-muted-foreground truncate">{preview}</span>
+          <span className="text-[13px] text-muted-foreground truncate">
+            <Highlight text={preview} terms={highlightTerms} />
+          </span>
         </div>
         {!narrow && (
           <div className="flex items-center gap-[5px] min-w-0 overflow-hidden [&>*:nth-child(n+3)]:hidden">
@@ -620,11 +630,20 @@ export const MessageListItem = ({
 
         {/* Subject (muted) */}
         {msg.subject && (
-          <p className="text-[12.5px] text-muted-foreground truncate">{msg.subject}</p>
+          <p className="text-[12.5px] text-muted-foreground truncate">
+            <Highlight text={msg.subject} terms={highlightTerms} />
+          </p>
         )}
 
         {/* Preview — 1 line of the latest incoming message content */}
-        <p className="text-[13.5px] text-muted-foreground line-clamp-1">{preview}</p>
+        <p
+          className={cn(
+            'text-[13.5px] text-muted-foreground',
+            bodySnippet ? 'line-clamp-2' : 'line-clamp-1'
+          )}
+        >
+          <Highlight text={preview} terms={highlightTerms} />
+        </p>
 
         {/* Sig row — signals, then the reference footer, then the assignee.
             Separator above marks the boundary between content (title/subject/preview)

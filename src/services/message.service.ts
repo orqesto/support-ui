@@ -207,6 +207,33 @@ export const normalizeSearchReading = (raw: unknown): SearchReading | null => {
   };
 };
 
+/**
+ * Where a listed thread matched the typed search (backend threadSearchMatch.ts). `snippet` only for
+ * a body match: PLAIN TEXT around the hit, shown in place of the latest-message preview.
+ */
+export type SearchMatch = {
+  field: 'reference' | 'subject' | 'people' | 'body';
+  snippet?: string;
+};
+
+const SEARCH_MATCH_FIELDS: readonly SearchMatch['field'][] = [
+  'reference',
+  'subject',
+  'people',
+  'body',
+];
+
+/** Absent (an older backend), null (no search) and anything malformed all read as null. */
+export const normalizeSearchMatch = (raw: unknown): SearchMatch | null => {
+  if (!raw || typeof raw !== 'object') return null;
+  const match = raw as { field?: unknown; snippet?: unknown };
+  if (!SEARCH_MATCH_FIELDS.includes(match.field as SearchMatch['field'])) return null;
+  const field = match.field as SearchMatch['field'];
+  return typeof match.snippet === 'string' && match.snippet.trim() !== ''
+    ? { field, snippet: match.snippet }
+    : { field };
+};
+
 export type ThreadsResponse = PaginatedResponse<MessageThread[]> & {
   scope?: ListScope | null;
   /** Normalised in `getThreads` — never the raw wire shape. */
@@ -300,6 +327,8 @@ export type MessageThread = {
   lastMessageAt: Date;
   latestMessage: Message | null;
   latestIncomingMessage: Message | null;
+  /** Normalised in `getThreads`: null when nothing was typed or the backend predates it. */
+  searchMatch?: SearchMatch | null;
 };
 
 /**
@@ -362,7 +391,19 @@ export const messageService = {
       signal: options?.signal,
     });
     // Normalised HERE, so no caller can read the raw shape (CLAUDE.md: version skew).
-    return { ...response, search: normalizeSearchReading(response.search) };
+    const rows: unknown = response.data;
+    return {
+      ...response,
+      ...(Array.isArray(rows)
+        ? {
+            data: rows.map((row: MessageThread & { searchMatch?: unknown }) => ({
+              ...row,
+              searchMatch: normalizeSearchMatch(row.searchMatch),
+            })) as unknown as ThreadsResponse['data'],
+          }
+        : {}),
+      search: normalizeSearchReading(response.search),
+    };
   },
 
   getAll: async (
