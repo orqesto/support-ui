@@ -29,10 +29,13 @@ export const TeamsOffDialog = ({
   open,
   onClose,
   onDone,
+  onInterrupted,
 }: {
   open: boolean;
   onClose: () => void;
   onDone: () => Promise<void>;
+  /** The switch-off stopped part-way: the screen shows Finish / Keep teams on at once. */
+  onInterrupted?: () => void;
 }) => {
   const [preview, setPreview] = useState<TeamsOffPreview | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -70,6 +73,13 @@ export const TeamsOffDialog = ({
     } catch (err) {
       if (!isTeamsSwitchStillRunning(err)) {
         logger.error('Failed to switch teams off:', err);
+        // Any refusal or server error may have stopped a switch part-way (a 5xx, or 409
+        // TEAMS_SWITCH_INTERRUPTED). Ask the backend, so "didn't finish" shows without a reload.
+        const now = await departmentService.getTeamsMode().catch(() => null);
+        if (now?.interrupted) {
+          onInterrupted?.();
+          return;
+        }
         setSaveError(describeError(err, 'Could not switch teams off. Try again.'));
         return;
       }
@@ -78,9 +88,11 @@ export const TeamsOffDialog = ({
       const final = await departmentService.waitForTeamsSwitch();
       setStillSwitching(false);
       if (final.interrupted) {
-        setSaveError(
-          "Switching teams off didn't finish. Press Switch teams off again to finish it."
-        );
+        if (onInterrupted) onInterrupted();
+        else
+          setSaveError(
+            "Switching teams off didn't finish. Press Switch teams off again to finish it."
+          );
       } else if (final.switching) {
         setSaveError(
           'Teams are still being switched off. This page will show the result once it finishes; check again in a few minutes.'
@@ -143,8 +155,8 @@ export const TeamsOffDialog = ({
                           key={`${blocker.kind}-${blocker.teamId ?? index}-${blocker.integrationName}`}
                         >
                           {blocker.kind === 'ticketingIntegration'
-                            ? `Team ${blocker.teamName} has its own ticket system connection ${blocker.integrationName}; remove or move it before switching teams off.`
-                            : `Team ${blocker.teamName} has ${blocker.integrationName || 'something'} that must be removed or moved first.`}
+                            ? `Team ${blocker.teamName} has its own ticket system connection ${blocker.integrationName}, of the same kind as ${target}'s. Remove or disable it, or replace ${target}'s own with it, before switching teams off. Its tickets will then sync through ${target}'s connection.`
+                            : `Team ${blocker.teamName} has ${blocker.integrationName || 'something'} that must be removed or disabled first.`}
                         </li>
                       ))}
                     </ul>

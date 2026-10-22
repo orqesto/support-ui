@@ -234,8 +234,6 @@ const stays = (routingRules: number, spamTwins: number) => ({
     detectionRules: 0,
     contradictionRules: 0,
     responseRules: 0,
-    categories: 0,
-    labels: 0,
   },
 });
 
@@ -341,7 +339,7 @@ describe('teams mode — the final backend payloads', () => {
 });
 
 describe('teams mode — blockers and same-name merges', () => {
-  it('reads blockers and sums moves.mergedIntoSameName over the teams', async () => {
+  it('fallback: no mergedIntoSameName in totals ⇒ summed over the teams; blockers read', async () => {
     api.get.mockResolvedValue({
       data: {
         success: true,
@@ -365,6 +363,7 @@ describe('teams mode — blockers and same-name merges', () => {
               kind: 'ticketingIntegration',
               teamId: 3,
               teamName: 'Sales team',
+              integrationId: 41,
               integrationName: 'Sales Jira',
             },
           ],
@@ -377,11 +376,34 @@ describe('teams mode — blockers and same-name merges', () => {
         kind: 'ticketingIntegration',
         teamId: 3,
         teamName: 'Sales team',
+        integrationId: 41,
         integrationName: 'Sales Jira',
       },
     ]);
     expect(preview.mergedIntoSameName).toEqual({ labels: 3, categories: 1 });
     // The nested object is not a count row.
+    expect(preview.counts).toEqual({ labels: 1 });
+  });
+
+  it('main path (the BE always does this): mergedIntoSameName read from totals, not re-summed', async () => {
+    api.get.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          teams: [
+            {
+              id: 2,
+              name: 'Support team',
+              moves: { mergedIntoSameName: { labels: 9, categories: 9 } },
+            },
+          ],
+          // Totals are the authority; a different number proves which one was read.
+          totals: { labels: 1, mergedIntoSameName: { labels: 2, categories: 1 } },
+        },
+      },
+    });
+    const preview = await departmentService.previewTeamsOff();
+    expect(preview.mergedIntoSameName).toEqual({ labels: 2, categories: 1 });
     expect(preview.counts).toEqual({ labels: 1 });
   });
 

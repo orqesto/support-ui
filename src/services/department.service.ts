@@ -51,6 +51,7 @@ export type TeamsOffPreview = {
     kind: string;
     teamId: number | null;
     teamName: string;
+    integrationId: number | null;
     integrationName: string;
   }>;
   /** Labels / categories merged into the default team's same-named one (`moves.mergedIntoSameName`). */
@@ -141,6 +142,7 @@ const normalisePreview = (raw: unknown): TeamsOffPreview => {
           kind: typeof one.kind === 'string' ? one.kind : 'unknown',
           teamId: typeof one.teamId === 'number' ? one.teamId : null,
           teamName: typeof one.teamName === 'string' ? one.teamName : '',
+          integrationId: typeof one.integrationId === 'number' ? one.integrationId : null,
           integrationName: typeof one.integrationName === 'string' ? one.integrationName : '',
         },
       ];

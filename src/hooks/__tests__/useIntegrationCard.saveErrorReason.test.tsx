@@ -41,4 +41,30 @@ describe('useIntegrationCard — a refused save', () => {
     expect(alert.variant).toBe('error');
     expect(alert.description).toContain('auth failed (tenant 401, gateway 401)');
   });
+
+  it('a ticket system saved while teams are being switched off shows TEAMS_SWITCH_IN_PROGRESS as sent', async () => {
+    const message = 'Teams are being switched off for this workspace. Try again when it has finished.';
+    upsert.mockRejectedValue(
+      Object.assign(new Error('Request failed with status code 409'), {
+        status: 409,
+        data: { success: false, error: message, code: 'TEAMS_SWITCH_IN_PROGRESS' },
+      })
+    );
+    const onShowAlert = vi.fn();
+    const { result } = renderHook(() =>
+      useIntegrationCard({
+        integrationType: 'jira',
+        integrationDisplayName: 'Jira',
+        initialConfig: { projectKey: 'SUP' },
+        onRefresh: vi.fn().mockResolvedValue(undefined),
+        onShowAlert,
+      })
+    );
+    await act(async () => {
+      await result.current.saveIntegration('Jira-SUP');
+    });
+    const alert = onShowAlert.mock.calls.at(-1)?.[0] as { variant: string; description: string };
+    expect(alert.variant).toBe('error');
+    expect(alert.description).toBe(message);
+  });
 });

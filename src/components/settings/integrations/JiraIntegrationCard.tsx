@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useIntegrationCard } from '@/hooks/useIntegrationCard';
 import { integrationsService } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
+import { apiErrorMessage } from '@/lib/apiError';
 
 type JiraConfig = {
   apiUrl: string;
@@ -84,7 +85,8 @@ export const JiraIntegrationCard = ({
       onShowAlert({
         open: true,
         title: 'Error',
-        description: `Failed to set ${name} as default integration`,
+        // The server's reason (e.g. 409 TEAMS_SWITCH_IN_PROGRESS while teams are being switched off).
+        description: apiErrorMessage(error, `Failed to set ${name} as default integration`),
         variant: 'error',
       });
     } finally {

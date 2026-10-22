@@ -384,6 +384,40 @@ describe('TeamsSettings — a switch-off that did not finish', () => {
     await waitFor(() => expect(screen.queryByText('Switching teams off didn’t finish')).toBeNull());
   });
 
+  it('#6: a switch-off that fails part-way shows Finish / Keep teams on at once, no reload', async () => {
+    svc.previewTeamsOff.mockResolvedValue({
+      defaultDepartment: { id: 1, name: 'General team' },
+      teams: [],
+      inactiveTeamsSwept: 0,
+      blockers: [],
+      mergedIntoSameName: {},
+      teamsToMerge: 1,
+      counts: { conversations: 2 },
+      membersAddedToDefault: 0,
+      leadQualificationMovesToDefault: false,
+      staysWithTeam: [],
+    });
+    svc.setTeamsMode.mockRejectedValue(
+      Object.assign(new Error('boom'), {
+        status: 500,
+        data: { success: false, error: 'Internal error' },
+      })
+    );
+    // On mount nothing is running; after the failed PUT the backend reports it interrupted.
+    svc.getTeamsMode
+      .mockResolvedValueOnce({ teamsEnabled: true, switching: false, interrupted: false })
+      .mockResolvedValue({ teamsEnabled: true, switching: true, interrupted: true });
+    renderPage();
+    fireEvent.click(await screen.findByRole('switch', { name: 'Use teams' }));
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByText(/1 team will be merged/);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Switch teams off' }));
+    expect(await screen.findByText('Switching teams off didn’t finish')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Finish switching off' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Keep teams on' })).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
   it('running elsewhere: shows it is running, waits, and does not offer Finish now', async () => {
     svc.getTeamsMode.mockResolvedValue({ teamsEnabled: true, switching: true, interrupted: false });
     svc.waitForTeamsSwitch.mockReturnValue(new Promise(() => {}));
@@ -433,11 +467,12 @@ describe('TeamsSettings — what stops a switch-off', () => {
     renderPage();
     fireEvent.click(await screen.findByRole('switch', { name: 'Use teams' }));
     const dialog = await screen.findByRole('dialog');
-    expect(
-      await within(dialog).findByText(
-        'Team Sales has its own ticket system connection Sales Jira; remove or move it before switching teams off.'
-      )
-    ).toBeTruthy();
+    const line = await within(dialog).findByText(
+      /Team Sales has its own ticket system connection Sales Jira/
+    );
+    expect(line.textContent).toContain(
+      "Remove or disable it, or replace General team's own with it"
+    );
     expect(within(dialog).getByRole('button', { name: 'Switch teams off' })).toBeDisabled();
   });
 

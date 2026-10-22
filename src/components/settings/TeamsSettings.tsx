@@ -146,6 +146,8 @@ export const TeamsSettings = () => {
         setSwitchState(final.interrupted ? 'interrupted' : final.switching ? 'running' : 'none');
       } else {
         logger.error('Failed to resolve an interrupted switch-off:', err);
+        const now = await departmentService.getTeamsMode().catch(() => null);
+        if (now?.interrupted) setSwitchState('interrupted');
         setError(
           describeError(
             err,
@@ -371,6 +373,11 @@ export const TeamsSettings = () => {
       <TeamsOffDialog
         open={offDialogOpen}
         onClose={() => setOffDialogOpen(false)}
+        onInterrupted={() => {
+          setOffDialogOpen(false);
+          setSwitchState('interrupted');
+          void refresh();
+        }}
         onDone={async () => {
           setOffDialogOpen(false);
           await refresh();
