@@ -45,7 +45,7 @@ const KbEntriesNotice = ({
       <p className="text-sm text-foreground">
         {targetName
           ? `${entries} will move to ${targetName}.`
-          : `${entries} will move to the department you choose.`}
+          : `${entries} will move to the team you choose.`}
       </p>
     );
   }
@@ -58,8 +58,8 @@ const KbEntriesNotice = ({
   }
   return (
     <p className="text-sm text-destructive">
-      This department has {entries} and the workspace has no active default department to move them
-      to, so deactivating it will be refused. Set an active default department first.
+      This team has {entries} and the workspace has no active default team to move them to, so
+      deactivating it will be refused. Set an active default team first.
     </p>
   );
 };
@@ -107,20 +107,20 @@ export const DeactivateDepartmentDialog = ({
         <div className="p-4 space-y-4">
           {empty ? (
             <p className="text-sm text-foreground">
-              This department has no message sources, members, or threads. It will be turned
-              off and can be re-activated later.
+              This team has no message sources, members, or threads. It will be turned off and can
+              be re-activated later.
             </p>
           ) : (
             <>
               <p className="text-sm text-foreground">
-                This department owns{' '}
+                This team owns{' '}
                 <span className="font-medium">{department.counts.messageSources}</span> source
                 {department.counts.messageSources === 1 ? '' : 's'},{' '}
                 <span className="font-medium">{department.counts.users}</span> member
                 {department.counts.users === 1 ? '' : 's'} and{' '}
-                <span className="font-medium">{department.counts.totalConversations}</span>{' '}
-                thread{department.counts.totalConversations === 1 ? '' : 's'}. Choose a
-                department to move them into before it is turned off — nothing is deleted.
+                <span className="font-medium">{department.counts.totalConversations}</span> thread
+                {department.counts.totalConversations === 1 ? '' : 's'}. Choose a team to move them
+                into before it is turned off — nothing is deleted.
               </p>
               <div className="space-y-1.5">
                 <label htmlFor="merge-target" className="text-sm font-medium text-foreground">
@@ -130,7 +130,7 @@ export const DeactivateDepartmentDialog = ({
                   id="merge-target"
                   value={targetId}
                   disabled={busy}
-                  placeholder="Select a department…"
+                  placeholder="Select a team…"
                   options={targets.map((target) => ({
                     value: String(target.id),
                     label: `${target.name}${target.isDefault ? ' (default)' : ''}`,
@@ -139,8 +139,7 @@ export const DeactivateDepartmentDialog = ({
                 />
                 {targets.length === 0 && (
                   <p className="text-xs text-destructive">
-                    No other active department to move this data into. Activate another department
-                    first.
+                    No other active team to move this data into. Activate another team first.
                   </p>
                 )}
               </div>

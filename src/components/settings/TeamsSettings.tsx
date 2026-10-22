@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -31,33 +31,15 @@ import { TeamsOffDialog } from './TeamsOffDialog';
 
 /**
  * Settings › Teams (admins). Lists every team with an on/off switch, a rename field and a
- * colour; adds teams; and holds the workspace's "Use teams" switch.
+ * colour, and holds the workspace's "Use teams" switch.
  *
  * Switching teams OFF merges every other team into the default team. It cannot be undone, and
  * the confirm dialog says so with the counts from the preview endpoint. Switching teams back ON
  * only brings the team screens back: teams switched on again start empty.
  *
- * The plan limit is the backend's: a refused create/activate answers 403 with a message that
+ * The plan limit is the backend's: a refused activate answers 403 with a message that
  * names the plan, shown here as-is.
  */
-
-/** `Support team` → `support-team`; never empty, at most 50 characters (the API's limit). */
-export const slugFromName = (name: string, taken: string[]): string => {
-  const base =
-    name
-      .normalize('NFKD')
-      .replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 40) || 'team';
-  if (!taken.includes(base)) return base;
-  for (let suffix = 2; suffix < 1000; suffix += 1) {
-    const candidate = `${base}-${suffix}`;
-    if (!taken.includes(candidate)) return candidate;
-  }
-  return `${base}-${Date.now()}`;
-};
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 const FALLBACK_COLOR = '#6366f1';
@@ -79,11 +61,9 @@ export const TeamsSettings = () => {
 
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
-  const [newName, setNewName] = useState('');
-  const [adding, setAdding] = useState(false);
   const [modeSaving, setModeSaving] = useState(false);
   // The plan's team limit. 1 (Free): teams cannot be switched on, so the switch says so
-  // instead of storing "on" and letting Add team answer 403.
+  // instead of storing "on" and letting a switch-on answer 403.
   const [planTeamLimit, setPlanTeamLimit] = useState<number | undefined>();
   useEffect(() => {
     let cancelled = false;
@@ -179,29 +159,6 @@ export const TeamsSettings = () => {
     }
   };
 
-  const handleAdd = async () => {
-    const name = newName.trim();
-    if (!name) return;
-    setAdding(true);
-    const ok = await run(
-      null,
-      () =>
-        departmentService.create({
-          name,
-          slug: slugFromName(
-            name,
-            teams.map((team) => team.slug)
-          ),
-        }),
-      'Could not add the team.'
-    );
-    setAdding(false);
-    if (ok) {
-      setNewName('');
-      toast.success(`Added ${name}.`);
-    }
-  };
-
   const handleTurnOn = (team: Department) =>
     run(team.id, () => departmentService.reactivate(team.id), `Could not switch ${team.name} on.`);
 
@@ -257,9 +214,8 @@ export const TeamsSettings = () => {
                 <AlertDescription>
                   <p>
                     Part of the work may already be in {defaultTeam?.name ?? 'the default team'}.
-                    Until you finish it or keep teams on, you cannot add a team or switch one on.
-                    What already moved stays in {defaultTeam?.name ?? 'the default team'} either
-                    way.
+                    Until you finish it or keep teams on, you cannot switch a team on. What already
+                    moved stays in {defaultTeam?.name ?? 'the default team'} either way.
                   </p>
                   <div className="flex flex-wrap gap-2 mt-2">
                     <Button
@@ -338,34 +294,6 @@ export const TeamsSettings = () => {
                 )
               )}
             </ul>
-
-            {teamsEnabled && (
-              <form
-                className="flex flex-wrap gap-2 items-end"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void handleAdd();
-                }}
-              >
-                <div className="flex-1 min-w-[12rem]">
-                  <Input
-                    label="New team"
-                    placeholder="For example: Billing team"
-                    value={newName}
-                    maxLength={100}
-                    onChange={(event) => setNewName(event.target.value)}
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  isLoading={adding}
-                  disabled={!newName.trim() || adding || switchState !== 'none'}
-                >
-                  <Plus className="mr-2 w-4 h-4" />
-                  Add team
-                </Button>
-              </form>
-            )}
           </>
         )}
       </CardContent>

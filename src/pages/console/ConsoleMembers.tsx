@@ -668,7 +668,7 @@ export const ConsoleMembers = () => {
         description={
           (roleChange?.newRole === 'alliance_admin'
             ? 'Organisation admins manage identity, provisioning, groups, members and workspaces — this grants workspace-admin access across every workspace in the organisation. Applied on the next reconcile.'
-            : 'This lowers the member to organisation agent (associate) across every workspace in the organisation and may reduce their department visibility. Applied on the next reconcile.') +
+            : 'This lowers the member to organisation agent (associate) across every workspace in the organisation and may reduce their team visibility. Applied on the next reconcile.') +
           // Setting the role by hand marks it 'manual', and a manual role is never lowered by
           // the IdP again. That is a permanent detachment from directory control and nothing
           // used to say so.

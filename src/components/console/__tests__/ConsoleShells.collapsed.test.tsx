@@ -80,7 +80,7 @@ describe('console shells — collapsed sidebar', () => {
   it('WorkspaceShell collapsed: no label text, links named', () => {
     useSidebarStore.setState({ collapsed: true });
     renderWorkspace();
-    for (const name of ['Back to app', 'Users', 'Workspace', 'Departments']) {
+    for (const name of ['Back to app', 'Users', 'Workspace', 'Teams']) {
       const link = nav().getByRole('link', { name });
       expect(link.textContent).toBe('');
     }
@@ -88,6 +88,6 @@ describe('console shells — collapsed sidebar', () => {
 
   it('WorkspaceShell expanded: labels visible', () => {
     renderWorkspace();
-    expect(nav().getByRole('link', { name: 'Departments' })).toHaveTextContent('Departments');
+    expect(nav().getByRole('link', { name: 'Teams' })).toHaveTextContent('Teams');
   });
 });

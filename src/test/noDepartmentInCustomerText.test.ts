@@ -11,15 +11,14 @@ import { describe, it, expect } from 'vitest';
  * as words (has a space, or is the bare word "Department"), and fails on any it finds. Comments,
  * log lines, thrown developer errors, imports and paths are skipped.
  *
- * The staff console (`src/pages/console`, `src/components/console`) is staff-only and keeps its
- * wording; it is allow-listed by directory. A line that must keep the word for another reason
+ * The staff console (`src/pages/console`, `src/components/console`) is held to the same rule. A line that must keep the word for another reason
  * goes in ALLOWED_LINES with the reason.
  */
 
 const WORD = /\b(?:departments?|Departments?|depts?)\b/;
 
-/** Staff-only screens: identifiers and wording there are ours, not the customer's. */
-const ALLOWED_DIRS = ['src/pages/console/', 'src/components/console/'];
+/** Directories exempt from the scan (none: the staff console says "team" too). */
+const ALLOWED_DIRS: string[] = [];
 
 /** `path:substring` — the line containing the substring is allowed, with the reason. */
 const ALLOWED_LINES: Array<{ file: string; contains: string; why: string }> = [];

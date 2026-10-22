@@ -105,7 +105,7 @@ const renderPage = () =>
 /** Opens the Deactivate dialog of Sales (index 0) or Billing (index 1). */
 const openDeactivate = async (which: 'Sales' | 'Billing') => {
   renderPage();
-  await screen.findByText('Departments');
+  await screen.findByText('Teams');
   const buttons = screen.getAllByRole('button', { name: 'Deactivate' });
   fireEvent.click(buttons[which === 'Sales' ? 0 : 1]);
   await screen.findByText(`Deactivate “${which}”`);
@@ -131,7 +131,7 @@ describe('Deactivate department — KB entries said before the confirm', () => {
     salesKb = toSupport(1);
     await openDeactivate('Sales');
     expect(
-      screen.getByText('1 knowledge-base entry will move to the department you choose.')
+      screen.getByText('1 knowledge-base entry will move to the team you choose.')
     ).toBeTruthy();
     await chooseOption(screen.getByLabelText('Move everything to'), /^Billing/);
     expect(screen.getByText('1 knowledge-base entry will move to Billing.')).toBeTruthy();
@@ -142,7 +142,7 @@ describe('Deactivate department — KB entries said before the confirm', () => {
     billingKb = { count: 2, toDepartmentId: null, toDepartmentName: null };
     await openDeactivate('Billing');
     expect(screen.getByText(/so deactivating it will be refused/)).toBeTruthy();
-    expect(screen.getByText(/This department has 2 knowledge-base entries/)).toBeTruthy();
+    expect(screen.getByText(/This team has 2 knowledge-base entries/)).toBeTruthy();
   });
 
   it('no entries (kbEntries null): nothing about the knowledge base', async () => {
