@@ -32,6 +32,7 @@ import { canTransition } from '@/lib/ticketStatus';
 import { useAuthStore } from '@/stores/authStore';
 import type { TicketFilters } from '@/stores/ticketsStore';
 import type { Ticket as TicketType, TicketStatus } from '@/types';
+import { TicketRef } from '@/components/tickets/TicketRef';
 
 type KanbanColumnDef = {
   id: TicketStatus;
@@ -77,7 +78,7 @@ function TicketCardContent({ ticket, assign }: { ticket: TicketType; assign?: As
   return (
     <div className="grid gap-1.5">
       <div className="flex gap-1.5 items-center">
-        <span className="font-mono text-[11.5px] text-muted-foreground">#{ticket.id}</span>
+        <TicketRef ticket={ticket} className="text-[11.5px] text-muted-foreground" />
         <PriorityIcon priority={ticket.priority} />
         <span className="flex-1" />
         {jiraKey && (

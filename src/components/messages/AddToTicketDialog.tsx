@@ -25,6 +25,7 @@ import { logger } from '@/lib/logger';
 import { ticketService } from '@/services/ticket.service';
 import { ticketThreadsService, type ThreadTicket } from '@/services/ticketThreads.service';
 import type { Message } from '@/types';
+import { TicketRef } from '@/components/tickets/TicketRef';
 
 type Candidate = {
   id: number;
@@ -32,6 +33,8 @@ type Candidate = {
   status: string;
   priority: string;
   externalId: string | null;
+  /** Shown id (`SUP-T-42`); absent from an older backend. */
+  reference?: string | null;
 };
 
 /**
@@ -43,6 +46,7 @@ type Candidate = {
 export const joinedTicket = (row: Candidate): ThreadTicket => ({
   ticketId: row.id,
   publicId: null,
+  reference: row.reference ?? null,
   title: row.title,
   status: row.status,
   priority: row.priority,
@@ -135,6 +139,7 @@ export const AddToTicketDialog = ({
           status: string;
           priority?: string | null;
           externalId?: string | null;
+          reference?: string | null;
         }>;
         const already = new Set(excludeKey ? excludeKey.split(',').map(Number) : []);
         setCapped(rows.length >= PICKER_LIMIT);
@@ -147,6 +152,7 @@ export const AddToTicketDialog = ({
               status: row.status,
               priority: row.priority ?? '',
               externalId: row.externalId ?? null,
+              reference: row.reference ?? null,
             }))
         );
       } catch (err) {
@@ -241,7 +247,7 @@ export const AddToTicketDialog = ({
             {candidates.map((row) => (
               <li key={row.id} className={MG_OPTION}>
                 <span className="flex flex-col flex-1 min-w-0 leading-[1.35]">
-                  <span className="font-mono text-[11.5px] text-muted-foreground">#{row.id}</span>
+                  <TicketRef ticket={row} className="text-[11.5px] text-muted-foreground" />
                   <span className="text-[13px] font-medium truncate">{row.title}</span>
                   <span className={MG_DIM}>{statusLabel(row.status)}</span>
                 </span>

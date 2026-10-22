@@ -43,6 +43,7 @@ import { createTicketLabel, priorityLabel, statusLabel } from './messageDetailCo
 import { bareStatusLabel } from './inboxCardHelpers';
 import { useIsPhone } from './useIsPhone';
 import { useModalLayer } from '@/hooks/useModalLayer';
+import { TicketRef } from '@/components/tickets/TicketRef';
 
 /** The prompt a fixed incident owes THIS customer (D2) — one sentence, every owed ticket named. */
 export const owesReplySentence = (ticketIds: number[]): string | null => {
@@ -520,10 +521,11 @@ export const TicketsSection = ({
           >
             <article className={REL_TICKET_CARD}>
               <div className="flex items-center gap-2">
-                {/* #id — the same number the ticket page and the list show. */}
-                <span className="font-mono text-[11.5px] text-muted-foreground">
-                  #{row.ticketId}
-                </span>
+                {/* The same id the ticket page and the list show (ACME-SUP-T-42, or #id). */}
+                <TicketRef
+                  ticket={{ id: row.ticketId, reference: row.reference }}
+                  className="text-[11.5px] text-muted-foreground"
+                />
                 {row.externalId && <span className={REL_JIRA_TAG}>Jira {row.externalId}</span>}
               </div>
               <b className="text-[13px] font-semibold leading-[1.35]">{row.title}</b>

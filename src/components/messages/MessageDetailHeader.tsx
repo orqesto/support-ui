@@ -84,6 +84,7 @@ import { useHeaderFocusReturn } from './useHeaderFocusReturn';
 import { asManualMerge, type MergeChange } from './useThreadMergeContext';
 import { useThreadTicketsState } from './useThreadTicketsState';
 import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
+import { TicketRef } from '@/components/tickets/TicketRef';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -1441,7 +1442,10 @@ export function MessageDetailHeader({
                 {linkedTicketId === null ? (
                   <span>{ticketChipText}</span>
                 ) : (
-                  <span className="font-mono text-[11.5px]">#{linkedTicketId}</span>
+                  <TicketRef
+                    ticket={{ id: linkedTicketId, reference: headlineTicket?.reference }}
+                    className="text-[11.5px]"
+                  />
                 )}
                 {linkedTicketId !== null && totalTicketCount > 1 && (
                   <span>+{totalTicketCount - 1}</span>
