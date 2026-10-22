@@ -16,6 +16,8 @@ import type { ApiResponse } from '@/types';
 export type ThreadTicket = {
   ticketId: number;
   publicId: string | null;
+  /** Shown id (`SUP-T-42`); absent from a backend older than ticket numbers. */
+  reference?: string | null;
   title: string;
   status: string;
   priority: string;
@@ -76,7 +78,6 @@ export type Scoped<T> =
   | { unavailable: true };
 
 const asNumber = (value: unknown): number => (typeof value === 'number' ? value : 0);
-
 
 const scoped = async <T>(load: () => Promise<{ rows: T[] | undefined; hiddenCount: unknown }>) => {
   try {

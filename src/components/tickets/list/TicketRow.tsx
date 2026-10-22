@@ -5,6 +5,7 @@ import { AssigneeCell } from './AssigneeCell';
 import { RowMenu } from './RowMenu';
 import { LabelChip, OwedCell, PriorityIcon, StatusDot, ThreadCount } from './ticketRowBits';
 import { HIDE_BELOW_MD, TICKET_GRID, type TicketRowProps } from './ticketRowShared';
+import { TicketRef } from '@/components/tickets/TicketRef';
 
 /** One ticket as a table row — scan by column. */
 export const TicketRow = ({
@@ -36,7 +37,7 @@ export const TicketRow = ({
         <PriorityIcon priority={ticket.priority} />
       </span>
       <span className="flex gap-2 items-center min-w-0">
-        <span className="font-mono text-[11.5px] text-muted-foreground shrink-0">#{ticket.id}</span>
+        <TicketRef ticket={ticket} className="text-[11.5px] text-muted-foreground shrink-0" />
         <span className="font-semibold truncate text-[13.5px]">{ticket.title}</span>
         {firstLabel && (
           <span className="hidden lg:inline-flex">

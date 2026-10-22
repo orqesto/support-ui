@@ -24,7 +24,14 @@ export type ChannelType = 'email' | 'telegram' | 'slack' | 'chat' | 'whatsapp' |
 // Drives which integrations count as message sources in the inbox filter, the spam-log
 // filter and the dashboard. 'whatsapp' was missed when the channel shipped, so WhatsApp
 // sources existed but were filtered out of all three.
-export const MESSAGE_SOURCE_TYPES = ['email', 'gmail', 'telegram', 'slack', 'chat', 'whatsapp'] as const;
+export const MESSAGE_SOURCE_TYPES = [
+  'email',
+  'gmail',
+  'telegram',
+  'slack',
+  'chat',
+  'whatsapp',
+] as const;
 export type MessageSourceType = (typeof MESSAGE_SOURCE_TYPES)[number];
 /** Which surface the Messages screen renders. Persisted in localStorage and the `mode` URL param. */
 export type MessagesDisplayMode = 'threads' | 'contacts' | 'kanban';
@@ -217,7 +224,12 @@ export type Message = {
   // render an "inherited via contact" badge so agents understand why the
   // label is showing without having to look it up. Optional for back-compat
   // with older payloads that didn't include the field.
-  labels?: { id: number; name: string; color: string; source?: 'conversation' | 'ticket' | 'contact' }[];
+  labels?: {
+    id: number;
+    name: string;
+    color: string;
+    source?: 'conversation' | 'ticket' | 'contact';
+  }[];
   botHandled?: boolean;
   // sparse: only present on spam_log fake entries
   content?: string | null;
@@ -291,6 +303,11 @@ export type Ticket = {
   assigneeId: number | null;
   assigneeName?: string | null;
   departmentId?: number | null;
+  /**
+   * Shown id without the workspace code: `SUP-T-42`, or `BIL-SUP-T-42` after a move. Optional:
+   * a backend older than ticket numbers sends none (see `ticketDisplayId`).
+   */
+  reference?: string | null;
   externalId: string | null;
   externalUrl: string | null;
   createdAt: string;

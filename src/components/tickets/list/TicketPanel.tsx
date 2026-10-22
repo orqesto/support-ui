@@ -6,6 +6,8 @@ import { Tooltip } from '@/components/ui/Tooltip';
 
 type TicketPanelProps = {
   ticketId: number;
+  /** The ticket's shown id (`ACME-SUP-T-42`); `#id` when absent. */
+  label?: string;
   /** Neighbours in the current list; null at either end. */
   prevId: number | null;
   nextId: number | null;
@@ -62,6 +64,7 @@ const IconAction = ({
  */
 export const TicketPanel = ({
   ticketId,
+  label,
   prevId,
   nextId,
   onGo,
@@ -92,7 +95,7 @@ export const TicketPanel = ({
       >
         <ChevronDown className="w-4 h-4" />
       </IconAction>
-      <span className="font-mono">#{ticketId}</span>
+      <span className="font-mono">{label ?? `#${ticketId}`}</span>
       <span className="flex-1" />
       <IconAction label="Copy link" onClick={onCopyLink}>
         <Link2 className="w-4 h-4" />
