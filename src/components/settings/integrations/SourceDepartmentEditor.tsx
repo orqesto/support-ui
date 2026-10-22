@@ -9,6 +9,7 @@ import {
 import { logger } from '@/lib/logger';
 import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
 import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 
 type Props = {
   sourceId: number;
@@ -25,6 +26,9 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [togglingLinkId, setTogglingLinkId] = useState<number | null>(null);
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
+  // Teams off: no team picker, only the channel's auto-reply switch (one team, one link).
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, allDepts);
 
   // Refresh the link list only (used after per-link PATCH) — does NOT touch
   // `selected` or `defaultId` so any unsaved picker edits are preserved.
@@ -38,12 +42,16 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
   useEffect(() => {
     let ignore = false;
     const load = async () => {
+      let mode: boolean | undefined;
       try {
         const [depts, assignments] = await Promise.all([
-          departmentService.getAll(),
+          departmentService.getAll(false, (value) => {
+            mode = value;
+          }),
           integrationsService.getSourceDepartments(sourceId),
         ]);
         if (ignore) return;
+        setTeamsMode(mode);
         setAllDepts(depts);
         if (assignments.success && assignments.data) {
           setLinks(assignments.data);
@@ -52,7 +60,7 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
           setDefaultId(def?.departmentId);
         }
       } catch (err) {
-        logger.error('Failed to load departments:', err);
+        logger.error('Failed to load teams:', err);
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -69,7 +77,7 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
       await integrationsService.setSourceDepartments(sourceId, selected, defaultId);
       onSaved();
     } catch (err) {
-      logger.error('Failed to save departments:', err);
+      logger.error('Failed to save teams:', err);
     } finally {
       setSaving(false);
     }
@@ -93,25 +101,37 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
     <div className="mt-2 p-3 rounded-lg border bg-muted/30">
       <div className="flex justify-between items-center mb-2">
         <span className="text-sm font-medium flex items-center gap-1">
-          <Building2 className="w-3.5 h-3.5" /> Assign Departments
+          {teamsEnabled ? (
+            <>
+              <Building2 className="w-3.5 h-3.5" /> Assign teams
+            </>
+          ) : (
+            <>
+              <MessageCircleReply className="w-3.5 h-3.5" /> Auto-reply
+            </>
+          )}
         </span>
         <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" className="p-0 w-auto h-auto text-muted-foreground hover:text-foreground">
           <X className="w-4 h-4" />
         </Button>
       </div>
 
-      <DepartmentMultiPicker
-        allDepts={allDepts}
-        selected={selected}
-        defaultId={defaultId}
-        loading={loading}
-        onSelectedChange={setSelected}
-        onDefaultChange={setDefaultId}
-      />
+      {(teamsEnabled || loading) && (
+        <DepartmentMultiPicker
+          allDepts={allDepts}
+          selected={selected}
+          defaultId={defaultId}
+          loading={loading}
+          onSelectedChange={setSelected}
+          onDefaultChange={setDefaultId}
+        />
+      )}
 
       {!loading && links.some((link) => selected.includes(link.departmentId)) && (
-        <div className="mt-4 pt-3 border-t border-border/60">
-          <p className="text-xs text-muted-foreground mb-2">Auto-reply per department:</p>
+        <div className={teamsEnabled ? 'mt-4 pt-3 border-t border-border/60' : 'mt-1'}>
+          <p className="text-xs text-muted-foreground mb-2">
+            {teamsEnabled ? 'Auto-reply per team:' : 'Auto-reply for this channel:'}
+          </p>
           {aiDraftsOff && (
             <p className="text-xs text-warning mb-2">
               AI drafts are switched off for this workspace, so the AI sends no auto-reply — whatever
@@ -171,12 +191,14 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
       {!loading && (
         <div className="flex justify-end gap-2 mt-3">
           <Button variant="ghost" size="sm" onClick={onClose}>
-            Cancel
+            {teamsEnabled ? 'Cancel' : 'Close'}
           </Button>
-          <Button size="sm" onClick={() => void handleSave()} disabled={saving}>
-            {saving && <Loader2 className="mr-1 w-3 h-3 animate-spin" />}
-            Save
-          </Button>
+          {teamsEnabled && (
+            <Button size="sm" onClick={() => void handleSave()} disabled={saving}>
+              {saving && <Loader2 className="mr-1 w-3 h-3 animate-spin" />}
+              Save
+            </Button>
+          )}
         </div>
       )}
     </div>

@@ -626,7 +626,7 @@ export const TicketReplyComposer = ({
                 <li key={reply.id} className="p-3 rounded-lg border border-border space-y-1">
                   {reply.content === null ? (
                     <p className="text-sm text-muted-foreground">
-                      Sent only to threads in departments you cannot open.
+                      Sent only to threads in teams you cannot open.
                     </p>
                   ) : (
                     <p className="text-sm line-clamp-2">{stripHtml(reply.content)}</p>
@@ -647,7 +647,7 @@ export const TicketReplyComposer = ({
                     {reached} of {threads.length}
                     {live.size > 0 && ` · sending to ${live.size}…`}
                     {reply.hiddenCount > 0 &&
-                      ` · ${reply.hiddenCount} more in departments you cannot open`}
+                      ` · ${reply.hiddenCount} more in teams you cannot open`}
                   </p>
                   {problems.map((row) => (
                     <p key={row.conversationId} className="text-xs text-destructive">

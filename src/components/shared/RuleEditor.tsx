@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/Dialog';
 import { useDepartmentContextStore } from '@/stores/departmentContextStore';
 import { useDepartments } from '@/hooks/useDepartments';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { useAuthStore } from '@/stores/authStore';
 
 export type RuleEditorColumn<TRule> = {
@@ -154,7 +155,9 @@ export function RuleEditor<
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterPos, setFilterPos] = useState<{ top: number; left: number } | null>(null);
 
-  const { data: allDepts = [] } = useDepartments();
+  const { data: allDepts = [], teamsEnabled: teamsMode } = useDepartments();
+  // Teams off: no team filter, and a stale pick from the switcher narrows nothing.
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, allDepts);
   const user = useAuthStore((state) => state.user);
   const accessibleDepts =
     user?.role === 'admin'
@@ -162,7 +165,7 @@ export function RuleEditor<
       : allDepts.filter((dept) => (user?.departmentIds ?? []).includes(dept.id));
 
   const filteredRules =
-    localDeptFilter.length === 0
+    localDeptFilter.length === 0 || !teamsEnabled
       ? rules
       : rules.filter(
           (rule) =>
@@ -173,7 +176,7 @@ export function RuleEditor<
 
   const showPlaceholder = placeholder !== undefined && !loading && rules.length === 0;
   // Only show the dept filter when there are multiple accessible depts and we're past loading/placeholder
-  const showDeptFilter = !loading && !showPlaceholder && accessibleDepts.length > 1;
+  const showDeptFilter = teamsEnabled && !loading && !showPlaceholder && accessibleDepts.length > 1;
 
   const openFilter = (ev: React.MouseEvent<HTMLButtonElement>) => {
     const rect = ev.currentTarget.getBoundingClientRect();
@@ -234,7 +237,7 @@ export function RuleEditor<
             >
               <div className="p-2">
                 <p className="font-display px-2 mb-1 text-[10px] font-semibold tracking-[0.09em] uppercase text-muted-foreground">
-                  Filter by department
+                  Filter by team
                 </p>
                 <Button
                   type="button"
@@ -243,7 +246,7 @@ export function RuleEditor<
                   onClick={clearFilter}
                   className={`justify-between px-3 py-2 w-full h-auto text-sm text-left rounded-md hover:bg-accent ${localDeptFilter.length === 0 ? 'text-primary font-medium' : ''}`}
                 >
-                  <span>All departments</span>
+                  <span>All teams</span>
                   {localDeptFilter.length === 0 && <X className="w-3.5 h-3.5 opacity-50" />}
                 </Button>
                 {accessibleDepts.map((dept) => {
@@ -308,7 +311,7 @@ export function RuleEditor<
         <div className="py-12 text-center text-muted-foreground">
           {localDeptFilter.length > 0 ? (
             <p>
-              No rules match the selected department filter.{' '}
+              No rules match the selected team filter.{' '}
               <button
                 type="button"
                 onClick={() => setLocalDeptFilter([])}
@@ -339,8 +342,8 @@ export function RuleEditor<
                             size="icon"
                             onClick={openFilter}
                             className={`${filterTriggerClasses(localDeptFilter.length > 0)} w-auto h-auto`}
-                            title="Filter by department"
-                            aria-label="Filter by department"
+                            title="Filter by team"
+                            aria-label="Filter by team"
                           >
                             <Filter className="w-3 h-3" />
                           </Button>
@@ -482,8 +485,8 @@ export function RuleEditor<
                   <Filter className="w-3 h-3" />
                   <span>
                     {localDeptFilter.length === 0
-                      ? 'All depts'
-                      : `${localDeptFilter.length} dept${localDeptFilter.length === 1 ? '' : 's'}`}
+                      ? 'All teams'
+                      : `${localDeptFilter.length} team${localDeptFilter.length === 1 ? '' : 's'}`}
                   </span>
                 </Button>
               </div>

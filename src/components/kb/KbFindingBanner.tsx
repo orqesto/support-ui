@@ -1,6 +1,7 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { useDepartmentById } from '@/hooks/useDepartments';
+import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import type { KbFindingBannerProps } from '@/hooks/useKbFindingFilter';
 import { KB_FINDING_TEXT } from '@/lib/kbFinding';
 
@@ -13,7 +14,7 @@ type Props = KbFindingBannerProps & {
  * Says the list is narrowed to one KB cases finding's entries — only when the server says it is —
  * and how to leave it. The count is the finding's own only when no other filter narrows it.
  */
-/** Renders nothing — and asks for nothing (no department lookup) — without a finding. */
+/** Renders nothing — and asks for nothing (no team lookup) — without a finding. */
 export const KbFindingBanner = (props: Props) =>
   props.filter ? <FindingBanner {...props} filter={props.filter} /> : null;
 
@@ -24,10 +25,12 @@ const FindingBanner = ({
   onShowAll,
   total,
 }: Props & { filter: NonNullable<Props['filter']> }) => {
-  // The finding is per department, and the global department selector does not narrow it.
+  // The finding is per team, and the global team selector does not narrow it.
   const department = useDepartmentById(filter.departmentId);
+  // Teams off: one team, so "in <team>" adds nothing.
+  const teamsEnabled = useTeamsEnabled();
   const text = KB_FINDING_TEXT[filter.finding];
-  const where = department ? ` in ${department.name}` : '';
+  const where = department && teamsEnabled ? ` in ${department.name}` : '';
   const showAll = (
     <Button variant="outline" size="sm" onClick={() => onShowAll()}>
       Show all entries

@@ -85,7 +85,7 @@ describe('audit round 2 — the move picker', () => {
     expect(within(row21).queryByRole('button', { name: /Move into case/ })).toBeNull();
     expect(
       within(row21).getByText(
-        'It belongs to no mailbox or department, so it cannot be moved into a case.'
+        'It belongs to no mailbox or team, so it cannot be moved into a case.'
       )
     ).toBeInTheDocument();
   });
@@ -97,7 +97,7 @@ describe('audit round 2 — the move picker', () => {
     // No search: KB-950 (another scope) is counted as left out.
     expect(
       await within(dialog).findByText(
-        '1 matching case serves another mailbox or department and is not offered.'
+        '1 matching case serves another mailbox or team and is not offered.'
       )
     ).toBeInTheDocument();
     // "refunds" matches KB-900's question; the server returns its whole topic, KB-950 included —
@@ -157,7 +157,7 @@ describe('audit round 2 — the move picker', () => {
     );
   });
 
-  it('"all departments": the picker sends no department list', async () => {
+  it('"all teams": the picker sends no team list', async () => {
     renderPage();
     fireEvent.click(within(await workRowEl(21)).getByRole('button', { name: /Move into case/ }));
     await within(await screen.findByRole('dialog')).findByRole('button', { name: /Case #KB-900/ });
@@ -177,7 +177,7 @@ describe('audit round 2 — the move picker', () => {
     expect(within(dialog).queryByText(/this entry’s own mailbox/)).toBeNull();
     expect(
       within(dialog).getByText(
-        'Cases in the departments shown. Only a case of the entry’s own mailbox or department accepts it.'
+        'Cases in the teams shown. Only a case of the entry’s own mailbox or team accepts it.'
       )
     ).toBeInTheDocument();
     fireEvent.change(within(dialog).getByLabelText('Find a case'), {

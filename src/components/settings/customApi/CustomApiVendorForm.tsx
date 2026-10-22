@@ -12,7 +12,8 @@ import { Checkbox } from '@/components/ui/Checkbox';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Toggle } from '@/components/ui/Toggle';
-import { departmentService } from '@/services/department.service';
+import { departmentService, type Department } from '@/services/department.service';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { customApiService, type CustomApiConnection } from '@/services/customApi.service';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { useInvalidateCustomApiAvailability } from '@/hooks/useCustomApiLookup';
@@ -79,6 +80,10 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
   const [departmentIds, setDepartmentIds] = useState<number[]>(connection?.departmentIds ?? []);
   const [departments, setDepartments] = useState<Array<{ id: number; name: string }>>([]);
   const [departmentsFailed, setDepartmentsFailed] = useState(false);
+  // Teams off ⇒ no team scope (every vendor serves the whole workspace) — unless the vendor
+  // is still scoped to teams, so the admin can set it back to every team.
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
+  const [activeTeams, setActiveTeams] = useState<Department[]>([]);
   // A string, so a parent that re-renders with a fresh array does not refetch.
   const linkedKey = (connection?.departmentIds ?? []).join(',');
   useEffect(() => {
@@ -88,9 +93,10 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
     // that link, not an unexplained blank. Only the linked archived ones are listed.
     const linked = linkedKey === '' ? [] : linkedKey.split(',').map(Number);
     departmentService
-      .getAll(true)
+      .getAll(true, (value) => !cancelled && setTeamsMode(value))
       .then((list) => {
         if (cancelled) return;
+        setActiveTeams(list.filter((one) => one.active));
         setDepartments(
           list
             .filter((one) => one.active || linked.includes(one.id))
@@ -309,44 +315,48 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
                   </AlertDescription>
                 </Alert>
               )}
-              <Select
-                id="ca-scope"
-                label="Which departments can use it?"
-                value={scopeMode}
-                options={[
-                  { value: 'all', label: 'Every department' },
-                  { value: 'departments', label: 'Only the ones I choose' },
-                ]}
-                onChange={(value) => setScopeMode(value as 'all' | 'departments')}
-              />
-              {scopeMode === 'departments' && (
-                <div className="space-y-1">
-                  {departments.map((dept) => (
-                    <Checkbox
-                      key={dept.id}
-                      checked={departmentIds.includes(dept.id)}
-                      onChange={(event) =>
-                        setDepartmentIds((ids) =>
-                          event.target.checked
-                            ? [...ids, dept.id]
-                            : ids.filter((id) => id !== dept.id)
-                        )
-                      }
-                      label={dept.name}
-                    />
-                  ))}
-                  {departmentsFailed && (
-                    <p className="text-xs text-destructive">
-                      Couldn’t load the departments. Close this and try again.
-                    </p>
+              {(deriveTeamsEnabled(teamsMode, activeTeams) || scopeMode === 'departments') && (
+                <>
+                  <Select
+                    id="ca-scope"
+                    label="Which teams can use it?"
+                    value={scopeMode}
+                    options={[
+                      { value: 'all', label: 'Every team' },
+                      { value: 'departments', label: 'Only the ones I choose' },
+                    ]}
+                    onChange={(value) => setScopeMode(value as 'all' | 'departments')}
+                  />
+                  {scopeMode === 'departments' && (
+                    <div className="space-y-1">
+                      {departments.map((dept) => (
+                        <Checkbox
+                          key={dept.id}
+                          checked={departmentIds.includes(dept.id)}
+                          onChange={(event) =>
+                            setDepartmentIds((ids) =>
+                              event.target.checked
+                                ? [...ids, dept.id]
+                                : ids.filter((id) => id !== dept.id)
+                            )
+                          }
+                          label={dept.name}
+                        />
+                      ))}
+                      {departmentsFailed && (
+                        <p className="text-xs text-destructive">
+                          Couldn’t load the teams. Close this and try again.
+                        </p>
+                      )}
+                      {/* D26: an empty list is "admins only" on the backend, not "nobody". */}
+                      {departmentIds.length === 0 && (
+                        <p className="text-xs text-warning">
+                          No team chosen — only workspace admins will be able to use this system.
+                        </p>
+                      )}
+                    </div>
                   )}
-                  {/* D26: an empty list is "admins only" on the backend, not "nobody". */}
-                  {departmentIds.length === 0 && (
-                    <p className="text-xs text-warning">
-                      No department chosen — only workspace admins will be able to use this system.
-                    </p>
-                  )}
-                </div>
+                </>
               )}
             </div>
           )}

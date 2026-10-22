@@ -97,7 +97,7 @@ beforeEach(() => {
 });
 
 describe('ReplyTemplatesSettings', () => {
-  it('lists each template with its use, department and files', async () => {
+  it('lists each template with its use, team and files', async () => {
     render(<ReplyTemplatesSettings />);
     const items = await screen.findAllByRole('listitem');
     expect(within(items[0]).getByText('Refund approved')).toBeInTheDocument();
@@ -136,7 +136,7 @@ describe('ReplyTemplatesSettings', () => {
     expect(screen.queryByRole('button', { name: /New template/ })).toBeNull();
   });
 
-  it('creates a template for one of MY departments; other departments are not offered', async () => {
+  it('creates a template for one of MY teams; other teams are not offered', async () => {
     perms.granted.add(Permission.MANAGE_REPLY_TEMPLATES);
     create.mockResolvedValue(row({ id: 3 }));
     const user = userEvent.setup();
@@ -144,7 +144,7 @@ describe('ReplyTemplatesSettings', () => {
     await user.click(await screen.findByRole('button', { name: /New template/ }));
     await user.type(screen.getByLabelText('Name'), 'Shipping delay');
     await user.type(screen.getByLabelText('Template text'), '<p>Sorry</p>');
-    const dept = screen.getByRole('combobox', { name: 'Department' });
+    const dept = screen.getByRole('combobox', { name: 'Team' });
     await expect(chooseOption(dept, 'Support')).rejects.toBeTruthy(); // not mine
     await chooseOption(dept, 'Billing');
     await chooseOption(screen.getByRole('combobox', { name: 'Use in' }), 'Ticket replies');
@@ -157,13 +157,13 @@ describe('ReplyTemplatesSettings', () => {
     );
   });
 
-  it('a workspace admin may file a template under any department', async () => {
+  it('a workspace admin may file a template under any team', async () => {
     perms.granted.add(Permission.MANAGE_REPLY_TEMPLATES);
     perms.orgAdmin = true;
     const user = userEvent.setup();
     render(<ReplyTemplatesSettings />);
     await user.click(await screen.findByRole('button', { name: /New template/ }));
-    await chooseOption(screen.getByRole('combobox', { name: 'Department' }), 'Support');
+    await chooseOption(screen.getByRole('combobox', { name: 'Team' }), 'Support');
   });
 
   it('a duplicate name (409) says so and keeps the form open', async () => {

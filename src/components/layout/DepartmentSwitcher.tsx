@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { useAuthStore } from '@/stores/authStore';
 import { useDepartmentContextStore } from '@/stores/departmentContextStore';
 import { useDepartments } from '@/hooks/useDepartments';
+import { deriveTeamsMode } from '@/hooks/useTeamsEnabled';
 import { isDepartmentServed } from '@/utils/departmentReachability';
 import { cn } from '@/lib/utils';
 import { NavTip, railMenuStyle } from './SidebarNav';
@@ -17,7 +18,11 @@ export const DepartmentSwitcher = ({ compact = false }: DepartmentSwitcherProps 
   const user = useAuthStore((state) => state.user);
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
 
-  const { data: allDepts = [], isLoading } = useDepartments();
+  const { data, isLoading, isError, teamsEnabled: teamsFlag } = useDepartments();
+  const allDepts = data ?? [];
+  // 'unknown' (loading / failed list) is never treated as off: no hiding, no reset on a guess.
+  const teamsMode = deriveTeamsMode(teamsFlag, data);
+  const teamsEnabled = teamsMode !== 'off';
   const { getSelectedDeptIds, setSelected, clear } = useDepartmentContextStore();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -35,18 +40,25 @@ export const DepartmentSwitcher = ({ compact = false }: DepartmentSwitcherProps 
   // depts yet). For global admins `accessibleDeptIds = allDepts.map(...)` which is
   // [] until useDepartments resolves — running the reconciliation in that empty
   // window would wipe the persisted selection on every page reload.
+  const accessibleKey = accessibleDeptIds.join(',');
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || isError) return;
     if (accessibleDeptIds.length === 0) return;
     const stored = getSelectedDeptIds();
     if (stored.length === 0) return;
+    // Teams switched off: a remembered team pick would narrow the inbox with no control on
+    // screen to undo it. Drop it.
+    if (teamsMode === 'off') {
+      clear();
+      return;
+    }
     const valid = stored.filter((id) => accessibleDeptIds.includes(id));
     if (valid.length !== stored.length) {
       if (valid.length === 0) clear();
       else setSelected(valid);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedOrganizationId, user?.id, isLoading, accessibleDeptIds.join(',')]);
+  }, [selectedOrganizationId, user?.id, isLoading, isError, teamsMode, accessibleKey]);
 
   const selectedIds = getSelectedDeptIds().filter((id) => accessibleDeptIds.includes(id));
 
@@ -87,24 +99,25 @@ export const DepartmentSwitcher = ({ compact = false }: DepartmentSwitcherProps 
   // channel yet would otherwise lose the control altogether, with nothing on screen
   // to explain where it went. Source-reachability narrows the list inside, and the
   // empty state below says why it's empty.
-  if (isLoading || accessibleDepts.length <= 1) return null;
+  // Teams switched off: no switcher at all, whatever the member's links say.
+  if (isLoading || !teamsEnabled || accessibleDepts.length <= 1) return null;
 
   // Label for the trigger button
   const isAll = selectedIds.length === 0;
   const label = isAll
-    ? 'All departments'
+    ? 'All teams'
     : selectedIds.length === 1
-      ? (allDepts.find((dept) => dept.id === selectedIds[0])?.name ?? '1 dept')
-      : `${selectedIds.length} departments`;
+      ? (allDepts.find((dept) => dept.id === selectedIds[0])?.name ?? '1 team')
+      : `${selectedIds.length} teams`;
 
   return (
     <div ref={triggerRef} className="relative mb-3">
       {compact ? (
-        <NavTip label={`Departments: ${label}`}>
+        <NavTip label={`Teams: ${label}`}>
           <Button
             variant="ghost"
             onClick={() => setIsOpen((prev) => !prev)}
-            aria-label={`Filter by department (current: ${label})`}
+            aria-label={`Filter by team (current: ${label})`}
             aria-expanded={isOpen}
             className="flex relative justify-center items-center p-0 w-full h-9 rounded-md border text-foreground bg-card border-border hover:bg-accent"
           >
@@ -145,7 +158,7 @@ export const DepartmentSwitcher = ({ compact = false }: DepartmentSwitcherProps 
             onKeyDown={(ev) => {
               if (ev.key === 'Escape') setIsOpen(false);
             }}
-            aria-label="Close department menu"
+            aria-label="Close team menu"
           />
 
           {/* Dropdown */}
@@ -158,7 +171,7 @@ export const DepartmentSwitcher = ({ compact = false }: DepartmentSwitcherProps 
           >
             <div className="p-2">
               <p className="font-display px-2 mb-1 text-[10px] font-semibold tracking-[0.09em] uppercase text-muted-foreground">
-                Filter by department
+                Filter by team
               </p>
 
               {/* "All departments" row */}
@@ -169,15 +182,15 @@ export const DepartmentSwitcher = ({ compact = false }: DepartmentSwitcherProps 
                 onClick={handleSelectAll}
                 className={`justify-between px-3 py-2 w-full h-auto text-sm text-left rounded-md hover:bg-accent ${isAll ? 'text-primary font-medium' : ''}`}
               >
-                <span>All departments</span>
+                <span>All teams</span>
                 {isAll && <X className="w-3.5 h-3.5 opacity-50" />}
               </Button>
 
               {/* No department is reachable yet — say so instead of showing a bare list */}
               {servedDepts.length === 0 && (
                 <p className="px-3 py-2 text-xs text-muted-foreground">
-                  No department is served by a message channel yet. Connect a channel and route
-                  it to a department in Settings › Channels.
+                  No team is served by a message channel yet. Connect a channel and route it to a
+                  team in Settings › Channels.
                 </p>
               )}
 

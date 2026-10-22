@@ -24,7 +24,7 @@ let departments = [
   { id: 7, name: 'Billing' },
 ];
 vi.mock('@/hooks/useDepartments', () => ({
-  useDepartments: () => ({ data: departments, isLoading: false }),
+  useDepartments: () => ({ data: departments, isLoading: false, teamsEnabled: true }),
 }));
 let orgAdmin = true;
 vi.mock('@/hooks/usePermissions', () => ({
@@ -93,8 +93,8 @@ afterEach(() => {
 
 // ---- F1: departments -------------------------------------------------------------------------
 
-describe('F1 departments', () => {
-  it('reports every department the viewer can see by default — no department sent, through the real client', async () => {
+describe('F1 teams', () => {
+  it('reports every team the viewer can see by default — no team sent, through the real client', async () => {
     renderPage();
     expect(await screen.findByText('Refunds take 5 days.')).toBeInTheDocument();
     const [first] = reportReads();
@@ -104,39 +104,39 @@ describe('F1 departments', () => {
     expect(first.headers['X-Organization-Context']).toBe('42');
     // Org-level viewer, nothing ticked: the server says "all" took in unlinked mailboxes too.
     expect(
-      await screen.findByText('Showing every department, and mailboxes linked to no department')
+      await screen.findByText('Showing every team, and mailboxes linked to no team')
     ).toBeInTheDocument();
   });
 
-  it('an org admin in a workspace with NO department still gets the report (org-wide, unlinked mailboxes)', async () => {
+  it('an org admin in a workspace with NO team still gets the report (org-wide, unlinked mailboxes)', async () => {
     departments = [];
     renderPage();
     expect(await screen.findByText('Refunds take 5 days.')).toBeInTheDocument();
     expect(reportReads()[0].params.departmentIds).toBeUndefined();
-    expect(screen.queryByText('You have no department to report on.')).toBeNull();
+    expect(screen.queryByText('You have no team to report on.')).toBeNull();
     expect(
       screen.getByText(
-        'No department in this workspace — showing everything you can see, including mailboxes linked to no department.'
+        'No team in this workspace — showing everything you can see, including mailboxes linked to no team.'
       )
     ).toBeInTheDocument();
   });
 
-  it('a department moderator with no department: nothing requested, and it says so', async () => {
+  it('a team moderator with no team: nothing requested, and it says so', async () => {
     orgAdmin = false;
     departments = [];
     renderPage();
-    expect(await screen.findByText('You have no department to report on.')).toBeInTheDocument();
+    expect(await screen.findByText('You have no team to report on.')).toBeInTheDocument();
     expect(reportReads()).toHaveLength(0);
   });
 
-  it('"all" for a department moderator (server: no unlinked mailboxes) says departments only', async () => {
+  it('"all" for a team moderator (server: no unlinked mailboxes) says teams only', async () => {
     server.departmentViewer = true;
     renderPage();
-    expect(await screen.findByText('Showing all departments you can see')).toBeInTheDocument();
-    expect(screen.queryByText(/mailboxes linked to no department/)).toBeNull();
+    expect(await screen.findByText('Showing all teams you can see')).toBeInTheDocument();
+    expect(screen.queryByText(/mailboxes linked to no team/)).toBeNull();
   });
 
-  it('ticking departments narrows the report and keeps the choice in the URL', async () => {
+  it('ticking teams narrows the report and keeps the choice in the URL', async () => {
     renderPage();
     await screen.findByText('Refunds take 5 days.');
     fireEvent.click(screen.getByLabelText('Billing'));
@@ -151,7 +151,7 @@ describe('F1 departments', () => {
     expect(screen.getByTestId('location')).toHaveTextContent(/^$/);
   });
 
-  it('a URL choice is restored on load; a department the viewer cannot see is never requested', async () => {
+  it('a URL choice is restored on load; a team the viewer cannot see is never requested', async () => {
     renderPage('/knowledge-base/cases?departments=7,99');
     await screen.findByText('Refunds take 5 days.');
     expect(screen.getByLabelText('Billing')).toBeChecked();
@@ -396,9 +396,7 @@ describe('F3 row actions', () => {
     expect(await within(dialog).findByRole('button', { name: /Case #KB-900/ })).toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: /Case #KB-950/ })).not.toBeInTheDocument();
     expect(
-      within(dialog).getByText(
-        '1 matching case serves another mailbox or department and is not offered.'
-      )
+      within(dialog).getByText('1 matching case serves another mailbox or team and is not offered.')
     ).toBeInTheDocument();
     fireEvent.change(within(dialog).getByLabelText('Find a case'), {
       target: { value: 'nothing like it' },
@@ -459,7 +457,7 @@ describe('F3 row actions', () => {
     await moveInto(row21);
     expect(
       await within(row21).findByText(
-        'Not moved into case #KB-900: that case serves a different mailbox or department.'
+        'Not moved into case #KB-900: that case serves a different mailbox or team.'
       )
     ).toBeInTheDocument();
   });
@@ -502,16 +500,14 @@ describe('F3 row actions', () => {
     const row21 = await workRowEl(21);
     expect(within(row21).queryAllByRole('button')).toHaveLength(0);
     expect(
-      within(row21).getByText('View only — you do not moderate this entry’s department.')
+      within(row21).getByText('View only — you do not moderate this entry’s team.')
     ).toBeInTheDocument();
     expect(within(row21).getByRole('link', { name: /Open thread C-1/ })).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: 'Show entries (2)' }));
     const caseRow = await workRowEl(900);
     expect(within(caseRow).queryAllByRole('button')).toHaveLength(0);
     expect(
-      within(caseRow).getByText(
-        'Only a moderator of every department this case serves can split it.'
-      )
+      within(caseRow).getByText('Only a moderator of every team this case serves can split it.')
     ).toBeInTheDocument();
   });
 
@@ -524,7 +520,7 @@ describe('F3 row actions', () => {
     expect(within(row21).queryByRole('button', { name: /Move into case/ })).not.toBeInTheDocument();
     expect(
       within(row21).getByText(
-        'Moving it into a case needs a moderator of every department its source serves.'
+        'Moving it into a case needs a moderator of every team its source serves.'
       )
     ).toBeInTheDocument();
   });

@@ -9,6 +9,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useOrganizationsStore } from '@/stores/organizationsStore';
 import type { OrganizationRole } from '@/types/roles';
 import { isDepartmentServed } from '@/utils/departmentReachability';
+import { deriveTeamsEnabled, pickDefaultTeam } from '@/hooks/useTeamsEnabled';
 
 /**
  * Whether the "Admin (Global)" role may be offered: only inside the system org, and only
@@ -64,13 +65,25 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [departments, setDepartments] = useState<Department[]>([]);
+  // Teams off ⇒ no team picker; the new member joins the default team.
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
 
   useEffect(() => {
     if (isOpen) {
+      let mode: boolean | undefined;
       departmentService
-        .getAll()
+        .getAll(false, (value) => {
+          mode = value;
+        })
         .then((depts) => {
           setDepartments(depts);
+          setTeamsMode(mode);
+          if (!deriveTeamsEnabled(mode, depts)) {
+            const defaultTeam = pickDefaultTeam(depts) ?? depts[0];
+            setSelectedDeptIds(defaultTeam ? new Set([defaultTeam.id]) : new Set());
+            return;
+          }
           setSelectedDeptIds((prev) => {
             if (prev.size > 0) return prev;
             // Seed the first SERVED dept — never pre-select an unserved one (it's disabled).
@@ -259,10 +272,10 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
             placeholder="Select workspace role"
           />
 
-          {organizationRole === 'org_admin' || role === 'admin' ? (
+          {!teamsEnabled ? null : organizationRole === 'org_admin' || role === 'admin' ? (
             <div className="px-3 py-2 text-sm rounded-md border bg-muted/30 text-muted-foreground">
-              <strong>Departments:</strong> All active departments (admin role — auto-linked for
-              cross-dept routing visibility). Adjust later via Edit.
+              <strong>Teams:</strong> All active teams (admin role — auto-linked for cross-team
+              routing visibility). Adjust later via Edit.
             </div>
           ) : (
             <div>
@@ -278,7 +291,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
                 </div>
               ) : departments.filter(isDepartmentServed).length === 0 ? (
                 <div className="px-3 py-2 text-sm rounded-md border text-muted-foreground">
-                  No departments have a connected message source yet.
+                  No teams have a connected message source yet.
                 </div>
               ) : (
                 <div className="overflow-y-auto p-2 max-h-40 rounded-md border">

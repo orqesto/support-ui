@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { useDepartments } from '@/hooks/useDepartments';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import {
@@ -34,7 +35,9 @@ export const CategoriesSettings = () => {
     keywords: '',
     departmentId: null,
   });
-  const { data: allDepts = [] } = useDepartments();
+  const { data: allDepts = [], teamsEnabled: teamsMode } = useDepartments();
+  // Teams off: no team scope to pick; a category applies everywhere.
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, allDepts);
   const activeDepts = allDepts.filter((dept) => dept.active);
 
   /**
@@ -44,9 +47,9 @@ export const CategoriesSettings = () => {
    * departments" is not a convenience — it is the baseline scope the API stores as NULL, and
    * the classifier now treats those as candidates everywhere.
    */
-  const departmentPicker = (
+  const departmentPicker = teamsEnabled && (
     <div className="space-y-1.5">
-      <p className="text-sm font-medium">Department</p>
+      <p className="text-sm font-medium">Team</p>
       <div className="flex flex-wrap gap-1.5 items-center">
         <Button
           type="button"
@@ -55,7 +58,7 @@ export const CategoriesSettings = () => {
           onClick={() => setFormData((prev) => ({ ...prev, departmentId: null }))}
           className="px-2 py-1 h-auto text-xs rounded-full"
         >
-          All departments
+          All teams
         </Button>
         {activeDepts.map((dept) => (
           <Button
@@ -72,8 +75,8 @@ export const CategoriesSettings = () => {
       </div>
       <p className="text-[11px] text-muted-foreground">
         {formData.departmentId === null
-          ? 'Applies everywhere — threads in any department can be given this category.'
-          : 'Only threads in this department can be given this category.'}
+          ? 'Applies everywhere — threads in any team can be given this category.'
+          : 'Only threads in this team can be given this category.'}
       </p>
     </div>
   );

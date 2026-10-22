@@ -13,6 +13,12 @@ import { MessageDetailPage } from '@/pages/MessageDetailPage';
 
 // In each test file, not the shared utils: the apiClient path scanner
 // (servicePathsCarryApiPrefix.test.ts) reads every module that is not itself a test.
+vi.mock('@/hooks/useTeamsEnabled', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  // These tests are about the team row itself: the workspace uses teams.
+  useTeamsEnabled: () => true,
+  deriveTeamsEnabled: () => true,
+}));
 vi.mock('@/lib/api-client', () => ({
   apiClient: new Proxy(
     {},
@@ -183,10 +189,10 @@ describe('M2 — subject and the sender Details card', () => {
     expect(within(region).getByText('billing@acme.test')).toBeTruthy(); // Cc
     // The meta rows live in the card, and only there (the inline strip is not rendered).
     const rows = within(region).getByTestId('meta-card-rows');
-    expect(within(rows).getByText('Dept')).toBeTruthy();
+    expect(within(rows).getByText('Team')).toBeTruthy();
     expect(within(rows).getByText('Assigned')).toBeTruthy();
-    expect(screen.getAllByText('Dept')).toHaveLength(1);
-    expect(classOf(within(rows).getByText('Dept'))).toContain('w-[84px]');
+    expect(screen.getAllByText('Team')).toHaveLength(1);
+    expect(classOf(within(rows).getByText('Team'))).toContain('w-[84px]');
   });
 
   it('phone: the card labels its Labels row, as it does Dept and Assigned', () => {
@@ -230,7 +236,7 @@ describe('M2 — subject and the sender Details card', () => {
     renderDetail({ recipients: undefined } as Partial<Message>);
     fireEvent.click(screen.getByRole('button', { name: /Ada Lovelace/ }));
     expect(screen.queryByText('Received at')).toBeNull();
-    expect(screen.getByText('Dept')).toBeTruthy();
+    expect(screen.getByText('Team')).toBeTruthy();
   });
 
   it('phone: the chips row drops the sender identity; the subject is 17px, pretty-wrapped', () => {
@@ -250,7 +256,7 @@ describe('M2 — subject and the sender Details card', () => {
     expect(screen.queryByTestId('mobile-sender-card')).toBeNull();
     expect(screen.getByTitle('View contact profile')).toBeTruthy();
     expect(screen.getByText('received at')).toBeTruthy();
-    expect(screen.getByText('Dept')).toBeTruthy();
+    expect(screen.getByText('Team')).toBeTruthy();
     expect(screen.queryByTestId('meta-card-rows')).toBeNull();
   });
 });

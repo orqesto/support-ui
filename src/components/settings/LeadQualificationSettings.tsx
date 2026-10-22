@@ -10,6 +10,7 @@ import {
   type LeadCategoryConfig,
 } from '@/services/organization.service';
 import { useDepartments } from '@/hooks/useDepartments';
+import { deriveTeamsEnabled, pickDefaultTeam } from '@/hooks/useTeamsEnabled';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 
 // Dept list now derives from useDepartments() so any default dept (incl. Marketing
@@ -34,10 +35,14 @@ const DEFAULT_CONFIG: OrgLeadConfig = {
 };
 
 export const LeadQualificationSettings = () => {
-  const { data: depts } = useDepartments();
+  const { data: depts, teamsEnabled: teamsMode } = useDepartments();
   const activeDepts = (depts ?? [])
     .filter((dept) => dept.active)
     .sort((left, right) => left.name.localeCompare(right.name));
+  // Teams off: one switch for the workspace; it opts the one (default) team in.
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, depts);
+  const defaultTeam = pickDefaultTeam(depts);
+  const shownDepts = teamsEnabled ? activeDepts : defaultTeam ? [defaultTeam] : [];
 
   /**
    * The opt-in is stored as department IDs (support-service#623). It used to be written as
@@ -216,7 +221,7 @@ export const LeadQualificationSettings = () => {
           <li>
             <span className="font-medium">Lead Categories</span> — once the AI has enough context it
             assigns the lead to a category (e.g. hot, warm, cold). Categories with{' '}
-            <span className="font-medium">Auto-escalate</span> enabled immediately notify your team.
+            <span className="font-medium">Auto-escalate</span> enabled immediately notify your members.
           </li>
           <li>
             <span className="font-medium">Auto-reply off?</span> — lead qualification still runs.
@@ -235,19 +240,23 @@ export const LeadQualificationSettings = () => {
         </div>
       )}
 
-      {/* Departments */}
+      {/* Teams. Teams off: one switch, for the one (default) team. */}
       <div className="p-4 space-y-3 rounded-lg border">
         <div>
-          <h3 className="font-display text-sm font-semibold">Enabled Departments</h3>
+          <h3 className="font-display text-sm font-semibold">
+            {teamsEnabled ? 'Enabled teams' : 'Lead qualification'}
+          </h3>
           <p className="text-xs text-muted-foreground">
-            Lead qualification runs for incoming messages in these departments.
+            {teamsEnabled
+              ? 'Lead qualification runs for incoming messages in these teams.'
+              : 'Run lead qualification on incoming messages.'}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          {activeDepts.length === 0 ? (
-            <span className="text-xs text-muted-foreground italic">No active departments.</span>
+          {shownDepts.length === 0 ? (
+            <span className="text-xs text-muted-foreground italic">No active teams.</span>
           ) : (
-            activeDepts.map((dept) => (
+            shownDepts.map((dept) => (
               <label key={dept.id} className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
@@ -255,7 +264,7 @@ export const LeadQualificationSettings = () => {
                   onChange={() => toggleDept(dept)}
                   className="rounded"
                 />
-                <span className="text-sm">{dept.name}</span>
+                <span className="text-sm">{teamsEnabled ? dept.name : 'On'}</span>
               </label>
             ))
           )}
@@ -484,7 +493,7 @@ export const LeadQualificationSettings = () => {
                   />
                   Auto-escalate
                   <span className="block text-xs text-muted-foreground font-normal leading-tight">
-                    Notify team
+                    Notify members
                   </span>
                 </label>
                 <Button
@@ -559,7 +568,7 @@ export const LeadQualificationSettings = () => {
                   />
                   Auto-escalate when assigned
                   <span className="block text-xs text-muted-foreground font-normal">
-                    Notify team immediately
+                    Notify members immediately
                   </span>
                 </label>
               </div>

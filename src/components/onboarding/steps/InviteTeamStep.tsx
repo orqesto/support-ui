@@ -92,7 +92,7 @@ export const InviteTeamStep = () => {
       {seats !== null && (
         <p className="text-sm text-muted-foreground">
           {unlimited
-            ? `${seats.used} teammate${seats.used === 1 ? '' : 's'} · unlimited seats on your plan`
+            ? `${seats.used} ${seats.used === 1 ? 'person' : 'people'} · unlimited seats on your plan`
             : `${seats.used} of ${seats.limit} seats used${
                 remaining !== null && remaining > 0 ? ` · ${remaining} left` : ''
               }`}
@@ -102,7 +102,7 @@ export const InviteTeamStep = () => {
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" disabled={atLimit} onClick={() => setInviteOpen(true)}>
           <UserPlus className="mr-2 h-4 w-4" />
-          Invite a teammate
+          Invite someone
         </Button>
         <Button variant="outline" disabled={atLimit} onClick={() => setCreateOpen(true)}>
           <UserRoundPlus className="mr-2 h-4 w-4" />
@@ -133,7 +133,7 @@ export const InviteTeamStep = () => {
 
       <p className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
         This is the last step. Click <span className="font-medium text-foreground">Finish setup</span>{' '}
-        below when you&apos;re ready — you can add more teammates anytime from the Users page.
+        below when you&apos;re ready — you can add more people anytime from the Users page.
       </p>
 
       <InviteUserModal

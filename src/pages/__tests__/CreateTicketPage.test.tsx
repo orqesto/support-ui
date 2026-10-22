@@ -156,7 +156,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
   });
 
   describe('opened empty (Tickets → New ticket)', () => {
-    it('creates it with no thread in the creator’s department, links the chosen threads, then opens it', async () => {
+    it('creates it with no thread in the creator’s team, links the chosen threads, then opens it', async () => {
       const user = userEvent.setup();
       renderPage();
       // A title and a cause are needed.
@@ -196,9 +196,9 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       expect(createButton()).toBeDisabled();
     });
 
-    it('only the creator’s departments are offered', async () => {
+    it('only the creator’s teams are offered', async () => {
       renderPage();
-      expect(await listOptions(screen.getByRole('combobox', { name: 'Department' }))).toEqual([
+      expect(await listOptions(screen.getByRole('combobox', { name: 'Team' }))).toEqual([
         'Shipping',
       ]);
     });
@@ -216,7 +216,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       expect(createdBody()).not.toHaveProperty('assigneeId');
     });
 
-    it('only people in the department are offered as owner (the roster flags the others)', async () => {
+    it('only people in the team are offered as owner (the roster flags the others)', async () => {
       assignable.mockResolvedValue([
         { id: 7, firstName: 'Sam', lastName: 'Agent', email: 'sam@example.com', eligible: true },
         { id: 8, firstName: 'Bo', lastName: 'Other', email: 'bo@example.com', eligible: false },
@@ -231,7 +231,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       );
     });
 
-    it('a creator outside the department (listed, not eligible) leaves it unassigned', async () => {
+    it('a creator outside the team (listed, not eligible) leaves it unassigned', async () => {
       const user = userEvent.setup();
       assignable.mockResolvedValue([
         { id: 7, firstName: 'Sam', lastName: 'Agent', email: 'sam@example.com', eligible: false },
@@ -264,7 +264,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       expect(createdBody()).not.toHaveProperty('assigneeId');
     });
 
-    it('another department: the previous one’s people are no longer offered', async () => {
+    it('another team: the previous one’s people are no longer offered', async () => {
       auth.user = { id: 1, role: 'admin', organizationRole: null, departmentIds: [] };
       let billing: (rows: unknown[]) => void = () => {};
       assignable.mockImplementation((departmentId) =>
@@ -286,7 +286,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       await waitFor(async () => expect(await listOptions(owner())).toContain('Kim Agent'));
       fireEvent.keyDown(owner(), { key: 'Escape' });
       await chooseOption(owner(), 'Kim Agent');
-      await chooseOption(screen.getByRole('combobox', { name: 'Department' }), 'Billing');
+      await chooseOption(screen.getByRole('combobox', { name: 'Team' }), 'Billing');
       await waitFor(() => expect(assignable).toHaveBeenCalledWith(4));
 
       expect(await listOptions(owner())).toEqual(['Unassigned']);
@@ -332,7 +332,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       const user = userEvent.setup();
       create.mockRejectedValue({
         isAxiosError: true,
-        response: { status: 403, data: { error: 'You do not have access to this department' } },
+        response: { status: 403, data: { error: 'You do not have access to this team' } },
       });
       renderPage();
       await fill(user);
@@ -406,13 +406,13 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
   });
 
   describe('opened from a thread (a thread → Create ticket)', () => {
-    it('lists that thread, shows its department, and is created from it — with another thread linked', async () => {
+    it('lists that thread, shows its team, and is created from it — with another thread linked', async () => {
       const user = userEvent.setup();
       renderPage('/tickets/create?messageId=11');
       expect(
         await screen.findByText(/SHP-11 · ada@example\.com \(this thread\)/)
       ).toBeInTheDocument();
-      expect(screen.getByLabelText('Department')).toHaveValue('Billing');
+      expect(screen.getByLabelText('Team')).toHaveValue('Billing');
       // The owner list is the thread's department's.
       await waitFor(() => expect(assignable).toHaveBeenCalledWith(4));
       // The thread itself is not offered again.
@@ -430,7 +430,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       expect(addThreads).toHaveBeenCalledWith(42, [12]);
     });
 
-    it('a thread with no department: the whole roster is offered, as before', async () => {
+    it('a thread with no team: the whole roster is offered, as before', async () => {
       getById.mockResolvedValue({
         success: true,
         data: {
@@ -442,7 +442,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
         },
       });
       renderPage('/tickets/create?messageId=11');
-      await waitFor(() => expect(screen.getByLabelText('Department')).toHaveValue('No department'));
+      await waitFor(() => expect(screen.getByLabelText('Team')).toHaveValue('No team'));
       await waitFor(() => expect(assignable).toHaveBeenCalledWith(undefined));
     });
   });
@@ -513,14 +513,14 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       expect(createButton()).toBeDisabled();
     });
 
-    it('a creator in no department is told why a ticket with no thread cannot be created', async () => {
+    it('a creator in no team is told why a ticket with no thread cannot be created', async () => {
       auth.user = { id: 7, role: 'user', organizationRole: 'support', departmentIds: [] };
       renderPage();
       expect(await screen.findByText(/you are not in\s+any/)).toBeInTheDocument();
       expect(createButton()).toBeDisabled();
     });
 
-    it('CONTROL: a creator with a department sees no such notice', async () => {
+    it('CONTROL: a creator with a team sees no such notice', async () => {
       renderPage();
       await waitFor(() => expect(assignable).toHaveBeenCalled());
       expect(screen.queryByText(/you are not in\s+any/)).toBeNull();
@@ -582,7 +582,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       expect(screen.queryByText('Ticket created successfully')).toBeNull();
     });
 
-    it('another department: the owner is chosen again, even someone who could own it there too', async () => {
+    it('another team: the owner is chosen again, even someone who could own it there too', async () => {
       auth.user = { id: 1, role: 'admin', organizationRole: null, departmentIds: [] };
       assignable.mockResolvedValue([
         { id: 9, firstName: 'Kim', lastName: 'Agent', email: 'kim@example.com', role: 'user' },
@@ -592,7 +592,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       await waitFor(async () => expect(await listOptions(owner())).toContain('Kim Agent'));
       fireEvent.keyDown(owner(), { key: 'Escape' });
       await chooseOption(owner(), 'Kim Agent');
-      await chooseOption(screen.getByRole('combobox', { name: 'Department' }), 'Billing');
+      await chooseOption(screen.getByRole('combobox', { name: 'Team' }), 'Billing');
       await waitFor(() => expect(assignable).toHaveBeenCalledWith(4));
       const user = userEvent.setup();
       await fill(user);

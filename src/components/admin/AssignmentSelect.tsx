@@ -95,7 +95,7 @@ export const AssignmentSelect = ({
       const base = `${user.firstName} ${user.lastName} (${user.role})`;
       return {
         value: String(user.id),
-        label: ineligible ? `${base} — not in this department` : base,
+        label: ineligible ? `${base} — not in this team` : base,
         isDisabled: ineligible,
       };
     }),

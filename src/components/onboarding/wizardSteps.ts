@@ -21,7 +21,7 @@ export const STEP_LABELS = [
   'Database',
   'Storage',
   'Channels',
-  'Team',
+  'People',
   'Knowledge',
 ] as const;
 

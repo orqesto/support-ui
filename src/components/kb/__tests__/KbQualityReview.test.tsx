@@ -169,7 +169,7 @@ describe('KbQualityReview — who may decide, and when', () => {
   it('a moderator who does not cover the whole scope sees it but cannot decide', async () => {
     getDetail.mockResolvedValue(detail({ canDecide: false }));
     renderReview();
-    expect(await screen.findByTestId('quality-blocked-reason')).toHaveTextContent('every department this mailbox serves');
+    expect(await screen.findByTestId('quality-blocked-reason')).toHaveTextContent('every team this mailbox serves');
     expect(screen.getByRole('button', { name: /Save rewrite/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Remove entry/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Keep as is/ })).toBeDisabled();

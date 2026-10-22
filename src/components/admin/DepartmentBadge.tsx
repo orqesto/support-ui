@@ -1,5 +1,6 @@
 import React from 'react';
 import { useDepartmentById } from '@/hooks/useDepartments';
+import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { tintedChip } from '@/lib/userColor';
 
 type DepartmentBadgeProps = {
@@ -37,6 +38,9 @@ const DepartmentBadge: React.FC<DepartmentBadgeProps> = ({
   nullVariant = 'unassigned',
 }) => {
   const dept = useDepartmentById(departmentId);
+  // Teams off: every row is in the one team, so the chip says nothing. Hide it everywhere.
+  const teamsEnabled = useTeamsEnabled();
+  if (!teamsEnabled) return null;
 
   if (!dept) {
     const isBaseline = nullVariant === 'baseline';
@@ -47,8 +51,8 @@ const DepartmentBadge: React.FC<DepartmentBadgeProps> = ({
         } ${sizeClasses[size]}`}
         title={
           isBaseline
-            ? 'Baseline rule — applies to every department'
-            : 'Department: Unassigned'
+            ? 'Baseline rule — applies to every team'
+            : 'Team: Unassigned'
         }
       >
         {isBaseline ? 'Baseline' : 'Unassigned'}
@@ -62,7 +66,7 @@ const DepartmentBadge: React.FC<DepartmentBadgeProps> = ({
     <span
       className={`inline-flex gap-1 items-center font-medium rounded-full border ${sizeClasses[size]} ${chip.className}`}
       style={chip.style}
-      title={`Department: ${dept.name}`}
+      title={`Team: ${dept.name}`}
     >
       {dept.name}
     </span>

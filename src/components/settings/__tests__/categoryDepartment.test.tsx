@@ -48,17 +48,17 @@ const openCreate = async () => {
   fireEvent.click(screen.getByText(/Add Category|New Category/i));
 };
 
-describe('choosing a category department', () => {
-  it('offers every ACTIVE department, plus baseline', async () => {
+describe('choosing a category team', () => {
+  it('offers every ACTIVE team, plus baseline', async () => {
     await openCreate();
-    expect(screen.getByText('All departments')).toBeTruthy();
+    expect(screen.getByText('All teams')).toBeTruthy();
     expect(screen.getByText('Support')).toBeTruthy();
     expect(screen.getByText('Billing')).toBeTruthy();
     // A retired department must not be offered — it could never be assigned.
     expect(screen.queryByText('Retired')).toBeNull();
   });
 
-  it('sends the chosen department on create', async () => {
+  it('sends the chosen team on create', async () => {
     await openCreate();
     fireEvent.change(screen.getByPlaceholderText(/e\.g\., Technical Support/i), { target: { value: 'Refunds' } });
     fireEvent.click(screen.getByText('Billing'));
@@ -73,7 +73,7 @@ describe('choosing a category department', () => {
     await openCreate();
     fireEvent.change(screen.getByPlaceholderText(/e\.g\., Technical Support/i), { target: { value: 'Account Management' } });
     fireEvent.click(screen.getByText('Support'));
-    fireEvent.click(screen.getByText('All departments'));
+    fireEvent.click(screen.getByText('All teams'));
     fireEvent.click(screen.getByText('Save'));
     await waitFor(() => expect(createCategory).toHaveBeenCalled());
     const sent = createCategory.mock.calls[0]?.[0] as Record<string, unknown>;

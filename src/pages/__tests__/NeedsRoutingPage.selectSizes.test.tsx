@@ -73,7 +73,7 @@ describe('Needs Routing — selects match the controls beside them', () => {
     expect(sourceFilterSize.value).toBe('md');
     expect(heightOf(screen.getByRole('combobox', { name: 'Sort threads' }))).toBe('2.5rem');
     const inTableRow = screen
-      .getAllByRole('combobox', { name: 'Department to route to' })
+      .getAllByRole('combobox', { name: 'Team to route to' })
       .filter((box) => box.closest('td'));
     expect(inTableRow).toHaveLength(1);
     expect(heightOf(inTableRow[0])).toBe('2rem');

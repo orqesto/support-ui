@@ -290,9 +290,7 @@ describe('members of a case', () => {
     const row11 = await workRowEl(11);
     expect(within(row11).queryByRole('button', { name: /Remove from case/ })).toBeNull();
     expect(
-      within(row11).getByText(
-        /Only a moderator of every department the case serves can remove it\./
-      )
+      within(row11).getByText(/Only a moderator of every team the case serves can remove it\./)
     ).toBeInTheDocument();
   });
 });
@@ -311,7 +309,7 @@ describe('audit round 2', () => {
     ).toBeInTheDocument();
   });
 
-  it('inactive departments are listed, labelled, so ticking every box is "all"', async () => {
+  it('inactive teams are listed, labelled, so ticking every box is "all"', async () => {
     departments = [
       { id: 4, name: 'Support EU' },
       { id: 7, name: 'Billing' },

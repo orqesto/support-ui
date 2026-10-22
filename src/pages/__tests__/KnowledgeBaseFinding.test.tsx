@@ -126,7 +126,7 @@ vi.mock('@/components/kb/KbExportButton', () => ({
   KbExportButton: ({ type }: { type: string }) => <div data-testid="kb-export">{type}</div>,
 }));
 vi.mock('@/hooks/useDepartments', () => ({
-  useDepartments: () => ({ data: [{ id: 3, name: 'Support' }] }),
+  useDepartments: () => ({ data: [{ id: 3, name: 'Support' }], teamsEnabled: true }),
   useDepartmentById: (id: number | null | undefined) =>
     id === 3 ? { id: 3, name: 'Support' } : undefined,
 }));
@@ -161,7 +161,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('KB cases findings link to their own lists', () => {
-  it('"clean up" and "KB review" open the finding, for the report department', () => {
+  it('"clean up" and "KB review" open the finding, for the report team', () => {
     render(
       <MemoryRouter>
         <KbCasesFindingsPanel findings={findings()} departmentId={3} />
@@ -175,7 +175,7 @@ describe('KB cases findings link to their own lists', () => {
     );
   });
 
-  it('without a department there is no list to open, so no link — never one to every entry', () => {
+  it('without a team there is no list to open, so no link — never one to every entry', () => {
     render(
       <MemoryRouter>
         <KbCasesFindingsPanel findings={findings()} />
@@ -188,7 +188,7 @@ describe('KB cases findings link to their own lists', () => {
 });
 
 describe('kbFinding URL helpers', () => {
-  it('reads a finding only with a valid department, and removes both', () => {
+  it('reads a finding only with a valid team, and removes both', () => {
     expect(kbFindingFromSearch(new URLSearchParams('finding=raw_email&departmentId=3'))).toEqual({
       finding: 'raw_email',
       departmentId: 3,

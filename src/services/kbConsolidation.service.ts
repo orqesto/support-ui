@@ -254,7 +254,7 @@ export type KbCasesQuery = {
  */
 export class KbCasesNeedsDepartmentError extends Error {
   constructor() {
-    super('This server reports on one department at a time.');
+    super('This server reports on one team at a time.');
     this.name = 'KbCasesNeedsDepartmentError';
   }
 }

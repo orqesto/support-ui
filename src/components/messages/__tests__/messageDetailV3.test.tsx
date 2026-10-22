@@ -61,7 +61,7 @@ const depts = vi.hoisted(() => ({
   list: [] as Array<{ id: number; name: string; active: boolean }>,
 }));
 vi.mock('@/hooks/useDepartments', () => ({
-  useDepartments: () => ({ departments: [], data: depts.list }),
+  useDepartments: () => ({ departments: [], data: depts.list, teamsEnabled: true }),
   useDepartmentById: () => null,
 }));
 vi.mock('@/hooks/useAiConfigured', () => ({ useAiConfigured: () => ({ configured: true }) }));
@@ -294,21 +294,21 @@ describe('full page (v3) = two columns on a wide screen', () => {
     const aside = document.querySelector('aside');
     expect(aside).not.toBeNull();
     const side = within(aside as HTMLElement);
-    expect(side.getByText('Dept')).toBeTruthy();
+    expect(side.getByText('Team')).toBeTruthy();
     expect(side.getByText('Labels')).toBeTruthy();
     // The context tabs render IN the sidebar, in their sidebar form (no Thread tab — the
     // thread is always beside them)…
     expect(side.getByTestId('panel-tabs').getAttribute('data-variant')).toBe('sidebar');
     expect(screen.getAllByTestId('panel-tabs')).toHaveLength(1);
     // …and the meta block is not ALSO inline in the header.
-    expect(screen.getAllByText('Dept')).toHaveLength(1);
+    expect(screen.getAllByText('Team')).toHaveLength(1);
   });
 
   it('CONTROL: narrow full page keeps the slide-over layout — nothing hidden', () => {
     media.wide = false;
     renderDetail({ status: 'in_progress' as Message['status'] }, { isFullPage: true });
     expect(document.querySelector('aside')).toBeNull();
-    expect(screen.getByText('Dept')).toBeTruthy();
+    expect(screen.getByText('Team')).toBeTruthy();
     expect(screen.getByTestId('panel-tabs').getAttribute('data-variant')).toBe('rail');
   });
 });
@@ -482,7 +482,7 @@ describe('routing hint (v3): dismissable', () => {
     renderDetail({ ...activeThread, id: 9101, nearMissDepts: [3] } as Partial<Message>);
     expect(screen.getByText('Also matched')).toBeTruthy();
     // No department list loaded in this harness: the sentence counts it instead of naming it.
-    expect(screen.getByText('Routing also scored this for another department.')).toBeTruthy();
+    expect(screen.getByText('Routing also scored this for another team.')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss routing suggestion' }));
     expect(screen.queryByText('Also matched')).toBeNull();
   });
@@ -500,8 +500,8 @@ describe('routing hint (v3): dismissable', () => {
   });
 });
 
-describe('routing hint: never the department the thread is already in (demo, 2026-10-14)', () => {
-  it('🔴 a thread in department 3 is not offered "Move to" department 3', () => {
+describe('routing hint: never the team the thread is already in (demo, 2026-10-14)', () => {
+  it('🔴 a thread in team 3 is not offered "Move to" team 3', () => {
     renderDetail({
       ...activeThread,
       id: 9111,
@@ -511,7 +511,7 @@ describe('routing hint: never the department the thread is already in (demo, 202
     expect(screen.queryByText('Also matched')).toBeNull();
   });
 
-  it('control: the same scores on a thread in another department still show the hint', () => {
+  it('control: the same scores on a thread in another team still show the hint', () => {
     renderDetail({
       ...activeThread,
       id: 9112,

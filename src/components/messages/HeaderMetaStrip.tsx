@@ -10,6 +10,7 @@ import { autoRoutedReasonLabel } from './aiFlagCopy';
 import { labelPickerEmptyText, type LabelsStatus } from '@/components/shared/labelPickerText';
 import { Button } from '@/components/ui/Button';
 import { useDepartmentById, useDepartments } from '@/hooks/useDepartments';
+import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { usePermissions } from '@/hooks/usePermissions';
 import { messageService } from '@/services/message.service';
 import { showRouteLearningNote } from '@/lib/routingCopy';
@@ -91,6 +92,8 @@ export function HeaderMetaStrip({
   const primaryDept = useDepartmentById(message.departmentId ?? null);
   const needsRouting = message.status === 'needs_routing';
   const { data: allDepts = [] } = useDepartments();
+  // Teams off: no team row (a thread still parked in Needs routing keeps it, so it can be routed).
+  const teamsEnabled = useTeamsEnabled();
   const { hasPermission, isOrgAdmin } = usePermissions();
   const currentUser = useAuthStore((state) => state.user);
   // MANAGE_MESSAGES is the matching gate on the BE manualRouteMessage endpoint —
@@ -159,65 +162,69 @@ export function HeaderMetaStrip({
             : 'flex flex-wrap items-center gap-x-[9px] gap-y-1.5 px-3.5 pb-2.5'
       }
     >
-      {/* Department (resolved by smart routing; admins can re-route inline) */}
-      <div className="flex items-center gap-2 min-w-0">
-        <span className={`flex-shrink-0 ${LABEL} text-muted-foreground ${labelWidth}`}>Dept</span>
-        {editingDept && canRoute ? (
-          <div className="flex items-center gap-2">
-            <Select
-              // needs_routing carries a placeholder departmentId; leave the picker
-              // UNSET so choosing any dept (incl. the placeholder) is a real change
-              // that fires onChange. Active convs keep their current dept selected.
-              value={needsRouting ? '' : message.departmentId ? String(message.departmentId) : ''}
-              onChange={(value) => void handleDeptChange(value)}
-              options={activeDeptOptions}
-              disabled={savingDept}
-              size="sm"
-              aria-label="Department"
-              autoFocus
-              onBlur={() => setEditingDept(false)}
-              className="min-w-[140px]"
-            />
-          </div>
-        ) : (
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={!canRoute}
-            onClick={() => canRoute && setEditingDept(true)}
-            title={
-              canRoute
-                ? 'Click to change department'
-                : 'You need ticket management permission to re-route'
-            }
-            // A v3 value like Assigned/Category beside it; the department's own colour stays
-            // on the icon. Needs routing keeps its state tone — it is a condition, not a value.
-            // v3 `.val`: one line, never wraps. It must not SHRINK either: the why-parked text beside
-            // it would squeeze it to its icon. max-w-full still ellipsizes a very long name.
-            className={`inline-flex flex-shrink-0 gap-1 items-center ${card ? 'h-9 text-[13.5px]' : 'h-[23px] text-[11.5px]'} max-w-full px-2 rounded-md border font-normal whitespace-nowrap overflow-hidden ${
-              canRoute ? 'cursor-pointer hover:border-border-strong' : 'cursor-default'
-            } ${needsRouting ? 'bg-warning-muted text-warning border-warning-line' : 'bg-card text-foreground border-border'}`}
-          >
-            {needsRouting ? (
-              <>
-                <AlertTriangle className="flex-shrink-0 w-3 h-3" />
-                <span className="truncate">Needs routing</span>
-              </>
-            ) : primaryDept ? (
-              <>
-                <Building2
-                  className="flex-shrink-0 w-3 h-3"
-                  style={primaryDept.color ? { color: safeCssColor(primaryDept.color) } : undefined}
-                />
-                <span className="truncate">{primaryDept.name}</span>
-              </>
-            ) : (
-              <span className="text-muted-foreground">—</span>
-            )}
-          </Button>
-        )}
-        {needsRouting && <WhyParked conversationId={message.id} />}
-      </div>
+      {/* Team (resolved by smart routing; admins can re-route inline) */}
+      {(teamsEnabled || needsRouting) && (
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`flex-shrink-0 ${LABEL} text-muted-foreground ${labelWidth}`}>Team</span>
+          {editingDept && canRoute ? (
+            <div className="flex items-center gap-2">
+              <Select
+                // needs_routing carries a placeholder departmentId; leave the picker
+                // UNSET so choosing any dept (incl. the placeholder) is a real change
+                // that fires onChange. Active convs keep their current dept selected.
+                value={needsRouting ? '' : message.departmentId ? String(message.departmentId) : ''}
+                onChange={(value) => void handleDeptChange(value)}
+                options={activeDeptOptions}
+                disabled={savingDept}
+                size="sm"
+                aria-label="Team"
+                autoFocus
+                onBlur={() => setEditingDept(false)}
+                className="min-w-[140px]"
+              />
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={!canRoute}
+              onClick={() => canRoute && setEditingDept(true)}
+              title={
+                canRoute
+                  ? 'Click to change team'
+                  : 'You need ticket management permission to re-route'
+              }
+              // A v3 value like Assigned/Category beside it; the department's own colour stays
+              // on the icon. Needs routing keeps its state tone — it is a condition, not a value.
+              // v3 `.val`: one line, never wraps. It must not SHRINK either: the why-parked text beside
+              // it would squeeze it to its icon. max-w-full still ellipsizes a very long name.
+              className={`inline-flex flex-shrink-0 gap-1 items-center ${card ? 'h-9 text-[13.5px]' : 'h-[23px] text-[11.5px]'} max-w-full px-2 rounded-md border font-normal whitespace-nowrap overflow-hidden ${
+                canRoute ? 'cursor-pointer hover:border-border-strong' : 'cursor-default'
+              } ${needsRouting ? 'bg-warning-muted text-warning border-warning-line' : 'bg-card text-foreground border-border'}`}
+            >
+              {needsRouting ? (
+                <>
+                  <AlertTriangle className="flex-shrink-0 w-3 h-3" />
+                  <span className="truncate">Needs routing</span>
+                </>
+              ) : primaryDept ? (
+                <>
+                  <Building2
+                    className="flex-shrink-0 w-3 h-3"
+                    style={
+                      primaryDept.color ? { color: safeCssColor(primaryDept.color) } : undefined
+                    }
+                  />
+                  <span className="truncate">{primaryDept.name}</span>
+                </>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              )}
+            </Button>
+          )}
+          {needsRouting && <WhyParked conversationId={message.id} />}
+        </div>
+      )}
 
       {/* Assignee */}
       <div className="flex items-center gap-2 min-w-0">

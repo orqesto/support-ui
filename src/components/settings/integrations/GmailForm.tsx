@@ -38,6 +38,8 @@ type GmailFormProps = {
   defaultKB?: boolean;
   departments: Department[];
   departmentsLoading?: boolean;
+  /** Teams off ⇒ no team picker; the preselected default team is still sent. */
+  teamsEnabled?: boolean;
   selectedDepartmentIds: number[];
   defaultDepartmentId: number | undefined;
   onConfigChange: (config: GmailConfig) => void;
@@ -59,6 +61,7 @@ export const GmailForm = ({
   defaultKB,
   departments,
   departmentsLoading,
+  teamsEnabled = true,
   selectedDepartmentIds,
   defaultDepartmentId,
   onConfigChange,
@@ -171,9 +174,10 @@ export const GmailForm = ({
         )}
       </div>
 
+      {teamsEnabled && (
       <div className="space-y-2 pt-1">
         <label className="text-sm font-medium flex items-center gap-1">
-          <Building2 className="w-3.5 h-3.5" /> Departments
+          <Building2 className="w-3.5 h-3.5" /> Teams
         </label>
         <DepartmentMultiPicker
           allDepts={departments}
@@ -185,15 +189,16 @@ export const GmailForm = ({
         />
         {!departmentsLoading && departments.length === 0 && (
           <p className="text-xs text-warning">
-            No active departments. Create one before connecting a source.
+            No active teams. Create one before connecting a source.
           </p>
         )}
         {!departmentsLoading && departments.length > 0 && !canConnect && (
           <p className="text-xs text-muted-foreground">
-            Select at least one department to route messages from this source.
+            Select at least one team to route messages from this channel.
           </p>
         )}
       </div>
+      )}
 
       <div className="flex gap-2 pt-1">
         <Button onClick={onConnect} isLoading={saving} disabled={!canConnect || saving}>

@@ -83,7 +83,7 @@ export const RulesSettings = ({ section }: RulesSettingsProps = {}) => {
     {
       id: 'routing' as RuleType,
       label: 'Routing Rules',
-      description: 'Route threads to departments by subject, sender, or header',
+      description: 'Route threads to teams by subject, sender, or header',
     },
     {
       id: 'priority' as RuleType,
@@ -110,7 +110,7 @@ export const RulesSettings = ({ section }: RulesSettingsProps = {}) => {
             Rules Management
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Configure spam filtering, message detection, knowledge extraction, department
+            Configure spam filtering, message detection, knowledge extraction, team
             routing, and thread priority
           </p>
         </div>

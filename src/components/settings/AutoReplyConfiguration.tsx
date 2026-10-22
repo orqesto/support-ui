@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Toggle } from '@/components/ui/Toggle';
 import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import { useDepartments } from '@/hooks/useDepartments';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { usePermissions } from '@/hooks/usePermissions';
 import { logger } from '@/lib/logger';
 import { organizationService } from '@/services/organization.service';
@@ -46,7 +47,9 @@ const formatThreshold = (value: number): string => `${Math.round(value * 100)}%`
 export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   const { isOrgAdmin } = usePermissions();
   const { off: aiDraftsOff } = useAiDraftsOff();
-  const { data: departments = [] } = useDepartments();
+  const { data: departments = [], teamsEnabled: teamsMode } = useDepartments();
+  // Teams off: no per-team rows, except one that still carries an override (so it can be reset).
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
   const activeDepts = useMemo(
     () => departments.filter((dept) => dept.active),
     [departments]
@@ -200,7 +203,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         onShowAlert({
           open: true,
           title: 'Save failed',
-          description: `Could not save the override for this department.`,
+          description: `Could not save the override for this team.`,
           variant: 'error',
         });
       } finally {
@@ -295,8 +298,10 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
           AI Auto-Reply
         </CardTitle>
         <p className="mt-1 text-xs text-muted-foreground">
-          Drafts a real reply when the AI is confident. The Default row applies to every department.
-          A department row uses the default unless overridden.
+          Drafts a real reply when the AI is confident.
+          {teamsEnabled
+            ? ' The Default row applies to every team. A team row uses the default unless overridden.'
+            : ''}
         </p>
       </CardHeader>
       <CardContent>
@@ -356,7 +361,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                   <div>
                     <p className="text-sm font-medium">Enable AI auto-reply</p>
                     <p className="text-xs text-muted-foreground">
-                      Master switch for the default. Each dept can override below.
+                      Master switch for the default. Each team can override below.
                     </p>
                   </div>
                   <Toggle
@@ -440,13 +445,16 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
               </div>
           </div>
 
-          {/* Department rows */}
-          {activeDepts.length === 0 && (
+          {/* Team rows */}
+          {teamsEnabled && activeDepts.length === 0 && (
             <div className="px-3 py-3 text-xs text-muted-foreground">
-              No active departments configured.
+              No active teams configured.
             </div>
           )}
-          {activeDepts.map((dept) => {
+          {(teamsEnabled
+            ? activeDepts
+            : activeDepts.filter((dept) => perDept[String(dept.id)] !== undefined)
+          ).map((dept) => {
             const key = String(dept.id);
             const isSaving = savingScope === dept.id;
             const settings = perDept[key];
@@ -502,7 +510,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                 <div className="px-3 pt-1 pb-3 space-y-3 bg-muted/10">
                     {/* Override toggle: tri-state via two explicit choices */}
                     <div className="flex flex-wrap gap-2 items-center pt-2">
-                      <span className="text-xs text-muted-foreground">Auto-reply for this dept:</span>
+                      <span className="text-xs text-muted-foreground">Auto-reply for this team:</span>
                       <Button
                         type="button"
                         variant="outline"
@@ -674,7 +682,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                               }
                               if (phrases.length >= MAX_ESCALATION_PHRASES) {
                                 setError(
-                                  `Maximum ${MAX_ESCALATION_PHRASES} escalation phrases per department.`
+                                  `Maximum ${MAX_ESCALATION_PHRASES} escalation phrases per team.`
                                 );
                                 return;
                               }
@@ -700,7 +708,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                             }
                             if (phrases.length >= MAX_ESCALATION_PHRASES) {
                               setError(
-                                `Maximum ${MAX_ESCALATION_PHRASES} escalation phrases per department.`
+                                `Maximum ${MAX_ESCALATION_PHRASES} escalation phrases per team.`
                               );
                               return;
                             }

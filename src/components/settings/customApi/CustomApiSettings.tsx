@@ -8,6 +8,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { customApiService, type CustomApiConnection } from '@/services/customApi.service';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { LookupHealthLine } from './LookupHealthLine';
+import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 
 /**
  * Settings → Integrations → Custom APIs — the vendor list (CA-5 Task 1).
@@ -103,6 +104,8 @@ export const CustomApiSettings = ({
    * Disabling stays global (one removal at a time is the safe rule); only the LABEL is targeted.
    */
   const [inFlight, setInFlight] = useState<PendingRemoval | null>(null);
+  // Teams off: no team label next to the (hidden) team badge.
+  const teamsEnabled = useTeamsEnabled();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -228,8 +231,9 @@ export const CustomApiSettings = ({
               <p className="text-xs text-muted-foreground mt-1">
                 {/* ⛔ Whether a key is SET — never the key, and never a masked stand-in for it. */}
                 {connection.hasCredential ? 'API key set' : 'No API key'}
-                {connection.scopeMode === 'departments' &&
-                  ` · ${connection.departmentIds.length} department${connection.departmentIds.length === 1 ? '' : 's'}`}
+                {teamsEnabled &&
+                  connection.scopeMode === 'departments' &&
+                  ` · ${connection.departmentIds.length} team${connection.departmentIds.length === 1 ? '' : 's'}`}
               </p>
             </div>
             {/*

@@ -24,6 +24,7 @@ import {
   type PermissionOverrides,
 } from '@/types/roles';
 import { UserDepartmentsField } from '@/components/users/UserDepartmentsField';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { UserRoutingSkillsCard } from '@/components/users/UserRoutingSkillsCard';
 
 /**
@@ -73,6 +74,9 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
 
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [availableDepartments, setAvailableDepartments] = useState<Department[]>([]);
+  // Teams off ⇒ no team checklist: every member is in the default team.
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, availableDepartments);
   const [selectedOrgId, setSelectedOrgId] = useState<number | undefined>(undefined);
   // The role permission matrix is dense; keep it collapsed by default and reveal on demand.
   const [showRolePermissions, setShowRolePermissions] = useState(false);
@@ -160,7 +164,16 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
   }, [isAdmin]);
 
   useEffect(() => {
-    departmentService.getAll().then(setAvailableDepartments).catch(() => setAvailableDepartments([]));
+    let mode: boolean | undefined;
+    departmentService
+      .getAll(false, (value) => {
+        mode = value;
+      })
+      .then((depts) => {
+        setAvailableDepartments(depts);
+        setTeamsMode(mode);
+      })
+      .catch(() => setAvailableDepartments([]));
   }, []);
 
   // Count org admins for the last-admin hint. A failure leaves the hint off rather than
@@ -511,6 +524,7 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
                   )}
                 </div>
 
+                {teamsEnabled && (
                 <UserDepartmentsField
                   departments={availableDepartments}
                   selectedIds={selectedDepartmentIds}
@@ -521,6 +535,7 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
                   provisionedIds={provisionedDepartmentIds}
                   isGlobalAdmin={globalRole === 'admin'}
                 />
+                )}
 
                 {/* Wave 5 B: per-user permission overrides */}
                 {globalRole !== 'admin' && (
@@ -578,8 +593,8 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
           setGeneralDeptUnlinkConfirm({ open: false, deptId: 0 });
           setSelectedDepartmentIds(selectedDepartmentIds.filter((deptItemId) => deptItemId !== deptId));
         }}
-        title="Remove catch-all department?"
-        description="The Info department handles general information requests. Removing it means this user won't see Info threads. Are you sure?"
+        title="Remove catch-all team?"
+        description="The catch-all team gets the general requests nothing else matches. Removing it means this user won't see those threads. Are you sure?"
         confirmText="Remove"
         cancelText="Keep"
         variant="warning"

@@ -69,7 +69,7 @@ export const SpamRulesSettings = () => {
       <FeatureSuggestions
         domains={['spam']}
         title="Suggestions"
-        description="Rules the engine suggests adding, promoting or reconciling from how your team handles spam. Accept applies the change; Decline stops it coming back."
+        description="Rules the engine suggests adding, promoting or reconciling from how people in your workspace handle spam. Accept applies the change; Decline stops it coming back."
       />
     <RuleEditor<SpamRule, SpamRuleFormData>
       {...ruleManagement}

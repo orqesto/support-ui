@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { Toggle } from '@/components/ui/Toggle';
 import { departmentService, type Department } from '@/services/department.service';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { organizationService } from '@/services/organization.service';
 import {
   getScimConfig,
@@ -80,6 +81,9 @@ export const SCIMConfigSettings = () => {
 
   const [groups, setGroups] = useState<ScimGroupMapping[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  // Teams off ⇒ groups map to a role only; every member lands in the default team.
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
   const [savingGroupId, setSavingGroupId] = useState<number | null>(null);
   const [removeConfirm, setRemoveConfirm] = useState<ScimGroupMapping | null>(null);
 
@@ -106,7 +110,7 @@ export const SCIMConfigSettings = () => {
     // read-only "managed by your alliance" state instead.
     if (!isAdmin || allianceId !== null) return;
     let active = true;
-    Promise.all([getScimConfig(), listScimGroupMappings(), departmentService.getAll()])
+    Promise.all([getScimConfig(), listScimGroupMappings(), departmentService.getAll(false, setTeamsMode)])
       .then(([configResp, groupList, deptList]) => {
         if (!active) return;
         setEnabled(configResp.config.enabled);
@@ -301,7 +305,7 @@ export const SCIMConfigSettings = () => {
         <CardDescription>
           Automatically provision and de-provision members from your identity provider (Okta,
           Entra, JumpCloud). Configure the SCIM Base URL + a bearer token in your IdP, then map
-          synced groups to in-app roles and departments.
+          synced groups to in-app roles and teams.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -542,10 +546,10 @@ export const SCIMConfigSettings = () => {
                         />
                       </div>
 
-                      {departments.length > 0 && (
+                      {teamsEnabled && departments.length > 0 && (
                         <div className="space-y-1">
                           <span className="text-xs font-medium text-muted-foreground">
-                            Departments
+                            Teams
                           </span>
                           <div className="flex flex-wrap gap-x-4 gap-y-2">
                             {departments.map((dept) => (

@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import { departmentService, type Department } from '@/services/department.service';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { messageService, type MessageSourceOption } from '@/services/message.service';
 import { logger } from '@/lib/logger';
 
@@ -133,6 +134,9 @@ export const ChatWidgetModal = ({
   const [domainsText, setDomainsText] = useState('');
   const [saving, setSaving] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
+  // Teams off ⇒ no team scope; the widget serves the whole workspace.
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
   const [emailSources, setEmailSources] = useState<MessageSourceOption[]>([]);
   const { off: aiDraftsOff } = useAiDraftsOff();
   const accountId = formData.escalationSourceId ?? null;
@@ -148,7 +152,7 @@ export const ChatWidgetModal = ({
   useEffect(() => {
     if (open) {
       departmentService
-        .getAll()
+        .getAll(false, setTeamsMode)
         .then(setDepartments)
         .catch(() => setDepartments([]));
       messageService
@@ -322,8 +326,9 @@ export const ChatWidgetModal = ({
             />
           </div>
 
+          {teamsEnabled && (
           <div className="space-y-1.5">
-            <p className="text-sm font-medium">Departments</p>
+            <p className="text-sm font-medium">Teams</p>
             <div className="flex flex-wrap gap-1.5 items-center">
               {departments.length === 0 ? (
                 <span className="text-xs text-muted-foreground">Loading…</span>
@@ -347,10 +352,11 @@ export const ChatWidgetModal = ({
             </div>
             <p className="text-[11px] text-muted-foreground">
               {(formData.departmentIds ?? []).length === 0
-                ? 'No departments selected — the widget serves the whole workspace.'
-                : 'The widget is scoped to the selected department(s).'}
+                ? 'No teams selected — the widget serves the whole workspace.'
+                : 'The widget is scoped to the selected team(s).'}
             </p>
           </div>
+          )}
 
           <div>
             <Label htmlFor="welcomeMessage">Welcome Message</Label>
@@ -393,7 +399,7 @@ export const ChatWidgetModal = ({
               ]}
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
-              When a chat is handed to your team, replies to the visitor go out by email from this
+              When a chat is handed to your people, replies to the visitor go out by email from this
               account.
             </p>
           </div>
@@ -402,12 +408,12 @@ export const ChatWidgetModal = ({
             <div className="space-y-3 p-3 rounded-md border">
               <p className="text-xs text-muted-foreground">
                 AI drafts are switched off for this workspace, so the widget does not answer with
-                AI: it asks the visitor for an email address and hands the chat to your team. These
+                AI: it asks the visitor for an email address and hands the chat to your people. These
                 are the two things it says — leave a box empty to use the default.
               </p>
               {!hasEmailAccount && (
                 <Alert variant="warning">
-                  No email account is selected, so your team cannot reply to visitors by email.
+                  No email account is selected, so your people cannot reply to visitors by email.
                   Choose one above.
                 </Alert>
               )}
@@ -425,7 +431,7 @@ export const ChatWidgetModal = ({
                 />
               </div>
               <div>
-                <Label htmlFor="handoffMessage">After handing the chat to your team</Label>
+                <Label htmlFor="handoffMessage">After handing the chat to your people</Label>
                 <Textarea
                   id="handoffMessage"
                   value={formData.handoffMessage ?? ''}
@@ -531,8 +537,8 @@ export const ChatWidgetModal = ({
             </summary>
             <div className="space-y-3 px-4 pb-4 pt-2">
               <p className="text-xs text-muted-foreground">
-                When a visitor is handed to your team, the widget offers to email them a 6-digit
-                code. Once they enter it, their email replies to your team stay in the same
+                When a visitor is handed to your people, the widget offers to email them a 6-digit
+                code. Once they enter it, their email replies to your people stay in the same
                 thread. Without it, each email reply opens a separate thread: anyone can
                 type any address into the widget. Needs the email account above. Leave a box empty
                 to use the default. {'{email}'} is the visitor&apos;s address (partly hidden),{' '}

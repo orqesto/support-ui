@@ -49,14 +49,14 @@ export const envelopeBadge = (
     return {
       label: "You're on Cc",
       title:
-        'Written to someone else — your team is only copied. No SLA clock and no new-message alert.',
+        'Written to someone else — you are only copied. No SLA clock and no new-message alert.',
     };
   }
   if (envelope.position === 'not_listed') {
     return {
       label: 'Not a recipient',
       title:
-        'Your team is not among the listed recipients (a blind copy, a forward or a list). No SLA clock and no new-message alert.',
+        'Your workspace is not among the listed recipients (a blind copy, a forward or a list). No SLA clock and no new-message alert.',
     };
   }
   return null;
@@ -69,10 +69,10 @@ export const envelopeDraftHint = (envelope: EnvelopeSummary | null): string | nu
     return 'A colleague wrote this to the customer, so the draft is a follow-up to the customer.';
   }
   if (envelope.position === 'cc') {
-    return "You're only on Cc, so the draft is a short note from your team. Add a note if you want it to say more.";
+    return "You're only on Cc, so the draft is a short note from you. Add a note if you want it to say more.";
   }
   if (envelope.position === 'not_listed') {
-    return "Your team isn't among the recipients, so the draft stays short. Add a note if you want it to say more.";
+    return "Your workspace isn't among the recipients, so the draft stays short. Add a note if you want it to say more.";
   }
   return null;
 };

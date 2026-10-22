@@ -21,7 +21,7 @@ export const KbDepartmentFilter = ({
   unassignedScopes?: boolean | null;
 }) => (
   <fieldset className="min-w-0" disabled={disabled}>
-    <legend className="mb-1 text-sm font-medium">Departments</legend>
+    <legend className="mb-1 text-sm font-medium">Teams</legend>
     <div className="flex flex-wrap gap-x-4 gap-y-1 items-center">
       {departments.map((dept) => (
         <Checkbox
@@ -42,10 +42,10 @@ export const KbDepartmentFilter = ({
       {selected.length === 0 ? (
         <span className="text-xs text-muted-foreground" data-testid="departments-scope">
           {unassignedScopes === null
-            ? 'No department filter'
+            ? 'No team filter'
             : unassignedScopes
-              ? 'Showing every department, and mailboxes linked to no department'
-              : 'Showing all departments you can see'}
+              ? 'Showing every team, and mailboxes linked to no team'
+              : 'Showing all teams you can see'}
         </span>
       ) : (
         <Button size="sm" variant="ghost" onClick={() => onChange([])}>

@@ -128,7 +128,7 @@ export const ChatWidgetSettings = () => {
           <h2 className="font-display text-2xl font-bold">Chat Widgets</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {aiDraftsOff
-              ? 'Embeddable chat widgets for your website. AI drafts are off, so they collect the visitor’s email and hand the chat to your team.'
+              ? 'Embeddable chat widgets for your website. AI drafts are off, so they collect the visitor’s email and hand the chat to your people.'
               : 'Embeddable AI-powered chat widgets for your website'}
           </p>
         </div>
@@ -173,7 +173,7 @@ export const ChatWidgetSettings = () => {
                     {aiDraftsOff && widget.escalationSourceId === null && (
                       <Badge
                         variant="warning"
-                        title="AI drafts are off, so this widget hands chats to your team — but with no email account selected, your team cannot reply to visitors by email."
+                        title="AI drafts are off, so this widget hands chats to your people — but with no email account selected, they cannot reply to visitors by email."
                       >
                         No email account for replies
                       </Badge>

@@ -19,6 +19,7 @@ import { ticketChip } from './ticketChip';
 import { ReceivedAtAddresses } from './ReceivedAtAddresses';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { useDepartments } from '@/hooks/useDepartments';
+import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { getChannelIcon, formatConvId, getConvUrlId, isTriageMessage } from '@/lib/messageHelpers';
 import { logger } from '@/lib/logger';
@@ -106,6 +107,8 @@ export const MessageListItem = ({
       : undefined
   );
   const { data: allDepts = [] } = useDepartments();
+  // Teams off: no team chip on the row (one team says nothing).
+  const teamsEnabled = useTeamsEnabled();
   const orgCode = useCurrentOrgCode();
   const [copied, setCopied] = useState(false);
   // Optimistic read/unread shadow so the row flips instantly; cleared once the server value
@@ -114,9 +117,10 @@ export const MessageListItem = ({
 
   if (!msg) return null;
 
-  const primaryDept = msg.departmentId
-    ? allDepts.find((dept) => dept.id === msg.departmentId)
-    : undefined;
+  const primaryDept =
+    teamsEnabled && msg.departmentId
+      ? allDepts.find((dept) => dept.id === msg.departmentId)
+      : undefined;
   const needsRouting = msg.status === 'needs_routing';
   const receivedAt = (msg.metadata as { receivedAt?: string })?.receivedAt ?? msg.createdAt;
   // What the row is sorted by, so the timestamp shown and the ordering agree: when the
@@ -335,7 +339,7 @@ export const MessageListItem = ({
       {routingBadge && (
         <span
           className={`${chipClass} ${routingBadge.className}`}
-          title="Open this thread to choose its department"
+          title="Open this thread to choose its team"
         >
           {routingBadge.label}
         </span>

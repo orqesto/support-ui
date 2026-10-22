@@ -1,5 +1,14 @@
 import { useState } from 'react';
-import { Zap, Plus, Save, TestTube2, Trash2, Edit, Building2 } from 'lucide-react';
+import {
+  Zap,
+  Plus,
+  Save,
+  TestTube2,
+  Trash2,
+  Edit,
+  Building2,
+  MessageCircleReply,
+} from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
@@ -146,10 +155,14 @@ export const SlackIntegrationCard = ({
                         variant="outline"
                         size="sm"
                         onClick={() => setEditDepts(integration.id)}
-                        title="Assign departments"
-                        aria-label="Assign departments"
+                        title={deptPicker.teamsEnabled ? 'Assign teams' : 'Auto-reply'}
+                        aria-label={deptPicker.teamsEnabled ? 'Assign teams' : 'Auto-reply'}
                       >
-                        <Building2 className="w-4 h-4" />
+                        {deptPicker.teamsEnabled ? (
+                          <Building2 className="w-4 h-4" />
+                        ) : (
+                          <MessageCircleReply className="w-4 h-4" />
+                        )}
                       </Button>
                       <Button
                         variant="outline"
@@ -226,10 +239,10 @@ export const SlackIntegrationCard = ({
                 </a>
               </p>
 
-              {editingId === null && (
+              {editingId === null && deptPicker.teamsEnabled && (
                 <div className="space-y-2 pt-1 border-t">
                   <label className="text-sm font-medium flex items-center gap-1">
-                    <Building2 className="w-3.5 h-3.5" /> Departments
+                    <Building2 className="w-3.5 h-3.5" /> Teams
                   </label>
                   <DepartmentMultiPicker
                     allDepts={deptPicker.departments}
@@ -241,14 +254,14 @@ export const SlackIntegrationCard = ({
                   />
                   {!deptPicker.loading && deptPicker.departments.length === 0 && (
                     <p className="text-xs text-warning">
-                      No active departments. Create one before adding a source.
+                      No active teams. Add one in Settings › Teams before adding a channel.
                     </p>
                   )}
                   {!deptPicker.loading &&
                     deptPicker.departments.length > 0 &&
                     !deptPicker.isValid && (
                       <p className="text-xs text-muted-foreground">
-                        Select at least one department to route messages from this source.
+                        Select at least one team to route messages from this source.
                       </p>
                     )}
                 </div>

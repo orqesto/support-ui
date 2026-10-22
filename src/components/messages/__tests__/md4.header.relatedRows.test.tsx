@@ -138,8 +138,8 @@ describe('H2 — the Related popover’s rows', () => {
   });
 
   it.each([
-    [1, '+ 1 ticket in departments you cannot open.'],
-    [2, '+ 2 tickets in departments you cannot open.'],
+    [1, '+ 1 ticket in teams you cannot open.'],
+    [2, '+ 2 tickets in teams you cannot open.'],
   ])('%i hidden ticket(s): "%s"', async (hiddenCount, line) => {
     svc.ticketsOfThread.mockResolvedValue({
       unavailable: false,

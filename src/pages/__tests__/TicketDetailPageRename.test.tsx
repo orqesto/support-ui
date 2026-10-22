@@ -28,6 +28,12 @@ const server: { ticket: Ticket } = {
 const update = vi.fn<(id: number, patch: Partial<Ticket>) => Promise<void>>();
 const getById = vi.fn(() => Promise.resolve({ success: true, data: { ...server.ticket } }));
 
+vi.mock('@/hooks/useTeamsEnabled', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  // These tests are about the team row itself: the workspace uses teams.
+  useTeamsEnabled: () => true,
+  deriveTeamsEnabled: () => true,
+}));
 vi.mock('@/services/ticket.service', () => ({
   ticketService: {
     getById: () => getById(),

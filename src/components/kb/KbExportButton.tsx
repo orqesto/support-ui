@@ -61,8 +61,8 @@ export const KbExportButton = ({ type, refreshKey }: KbExportButtonProps) => {
       </Button>
       {counted && size.truncated && (
         <Alert variant="warning">
-          Only the first {size.cap} of {size.count} entries are exported. Narrow the department or
-          type to get the rest.
+          Only the first {size.cap} of {size.count} entries are exported. Narrow the team or type to
+          get the rest.
         </Alert>
       )}
       {error && <Alert variant="danger">{error}</Alert>}

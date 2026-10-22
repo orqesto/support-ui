@@ -109,7 +109,7 @@ const OwedStageLine = ({ stage, list }: { stage: OwedStageKey; list: OwedList })
         </Fragment>
       ))}
       {listed > 0 && more && ' and more'}
-      {hidden > 0 && " · some in departments you can't see"}
+      {hidden > 0 && " · some in teams you can't see"}
     </li>
   );
 };

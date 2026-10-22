@@ -349,7 +349,7 @@ export const SourceAliasEditor = ({
       {!loading && (
         <>
           <p className="mb-2 text-xs text-muted-foreground">
-            Turn on the addresses that belong to this mailbox. Replies your team sends from
+            Turn on the addresses that belong to this mailbox. Replies your people send from
             them will then be recognised as yours instead of appearing as new customer mail.
             Leave anything you do not recognise switched off.
           </p>

@@ -131,17 +131,17 @@ export const KbWorkRowItem = ({
       : member
         ? row.canDecide
           ? 'Merged into this case — it is served through the case, so it is not approved or hidden on its own. Remove it from the case to act on it alone.'
-          : 'Merged into this case — it is served through the case. Only a moderator of every department the case serves can remove it.'
+          : 'Merged into this case — it is served through the case. Only a moderator of every team the case serves can remove it.'
         : isCase && !row.canDecide
-          ? 'Only a moderator of every department this case serves can split it.'
+          ? 'Only a moderator of every team this case serves can split it.'
           : !isCase && !moderate
-            ? 'View only — you do not moderate this entry’s department.'
+            ? 'View only — you do not moderate this entry’s team.'
             : noScope
-              ? 'It belongs to no mailbox or department, so it cannot be moved into a case.'
+              ? 'It belongs to no mailbox or team, so it cannot be moved into a case.'
               : inReview
                 ? 'Its KB review is still open — decide that review first, then it can join a case.'
                 : movable && !row.canDecide
-                  ? 'Moving it into a case needs a moderator of every department its source serves.'
+                  ? 'Moving it into a case needs a moderator of every team its source serves.'
                   : null;
   return (
     <li
@@ -196,7 +196,7 @@ export const KbWorkRowItem = ({
       {onQuality && (cleaned !== null || held !== null) && !row.canDecide && (
         // The review's decisions (Undo, Keep using, Reject) need the server's `canDecide` rule.
         <p className="text-xs text-muted-foreground">
-          Only a moderator of every department it serves can decide the review’s change.
+          Only a moderator of every team it serves can decide the review’s change.
         </p>
       )}
       {reason === 'classifying' && (

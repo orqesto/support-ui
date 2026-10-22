@@ -87,25 +87,25 @@ describe('DocumentationList — serving state is visible', () => {
   });
 });
 
-describe('DocumentationList — dept scope rendering', () => {
+describe('DocumentationList — team scope rendering', () => {
   it('renders a row whose departmentIds is missing entirely', () => {
     // Exactly the shape an older backend returns from the toggle endpoint.
     const partial = { ...doc(), departmentIds: undefined } as unknown as Documentation;
 
     expect(() => renderList([partial])).not.toThrow();
     // It degrades to the org-wide affordance rather than disappearing or crashing.
-    expect(screen.getByText('All departments')).toBeInTheDocument();
+    expect(screen.getByText('All teams')).toBeInTheDocument();
     expect(screen.getByText('pricing')).toBeInTheDocument();
   });
 
   it('still shows org-wide for an explicit empty scope', () => {
     renderList([doc({ departmentIds: [] })]);
-    expect(screen.getByText('All departments')).toBeInTheDocument();
+    expect(screen.getByText('All teams')).toBeInTheDocument();
   });
 
-  it('does not claim org-wide when the doc IS dept-scoped', () => {
+  it('does not claim org-wide when the doc IS team-scoped', () => {
     // Control: the guard must not turn a scoped doc into an org-wide one.
     renderList([doc({ departmentIds: [4] })]);
-    expect(screen.queryByText('All departments')).toBeNull();
+    expect(screen.queryByText('All teams')).toBeNull();
   });
 });

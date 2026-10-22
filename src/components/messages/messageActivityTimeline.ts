@@ -37,7 +37,7 @@ const ACTION_LABEL: Record<string, string> = {
   'ticket.assign': 'Ticket assigned',
   'ticket.update': 'Ticket updated',
   'ticket.delete': 'Ticket deleted',
-  'ticket.dept_moved': 'Moved department',
+  'ticket.dept_moved': 'Moved to another team',
   // System-authored transitions — nobody clicked these, so they carry a NULL userId and
   // render with "System" as the actor. Phrased as what the system observed, not as a
   // command, so the feed reads as an explanation for a status the agent did not set.
@@ -130,10 +130,9 @@ const byRule = (dept: string, rule: LiveRule): string => {
  */
 export function routingDecisionLabel(details: Record<string, unknown> | null): string {
   const dept =
-    typeof details?.['departmentName'] === 'string' ? details['departmentName'] : 'a department';
+    typeof details?.['departmentName'] === 'string' ? details['departmentName'] : 'a team';
   const reason = details?.['reason'];
-  if (reason === 'sole_department')
-    return `Routed to ${dept} — the only department for this mailbox`;
+  if (reason === 'sole_department') return `Routed to ${dept} — the only team for this mailbox`;
   if (reason === 'sender_history')
     return `Routed to ${dept} — where this sender’s mail usually goes`;
   if (reason === 'ai_primary') return `Routed to ${dept} by the AI classifier`;

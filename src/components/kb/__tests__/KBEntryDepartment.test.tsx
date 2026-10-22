@@ -102,11 +102,11 @@ const openEditor = (entry: KBEntry) => {
   return saved;
 };
 
-const departmentSelect = () => screen.queryByLabelText('Department');
+const departmentSelect = () => screen.queryByLabelText('Team');
 const saveButton = () => screen.getByRole<HTMLButtonElement>('button', { name: 'Save Changes' });
 // Opens the picker until the departments have loaded into it, then closes it again.
 const waitForDepartments = async () => {
-  const control = await screen.findByLabelText('Department');
+  const control = await screen.findByLabelText('Team');
   await waitFor(async () => expect(await listOptions(control)).toContain('Sales'));
   // Blur, not Escape: Escape would also close the dialog/drawer around it.
   fireEvent.blur(control);
@@ -114,8 +114,8 @@ const waitForDepartments = async () => {
 };
 const patches = () => wire.calls('PATCH', /^\/api\/knowledge-base\/entries\//);
 
-describe('Department in the KB entry editor (F1)', () => {
-  it('a source-less entry gets a picker of the active departments', async () => {
+describe('Team in the KB entry editor (F1)', () => {
+  it('a source-less entry gets a picker of the active teams', async () => {
     openEditor(brochure);
     await waitForDepartments();
     expect(departmentSelect()).not.toBeNull();
@@ -125,7 +125,7 @@ describe('Department in the KB entry editor (F1)', () => {
     expect(screen.queryByText(MAILBOX_NOTE)).toBeNull();
   });
 
-  it("a mailbox entry has no picker: its ticket's department, the mailbox deciding where it is used", async () => {
+  it("a mailbox entry has no picker: its ticket's team, the mailbox deciding where it is used", async () => {
     openEditor(mailboxQa);
     await waitFor(() => expect(screen.getByText('Support')).toBeTruthy());
     expect(departmentSelect()).toBeNull();
@@ -140,7 +140,7 @@ describe('Department in the KB entry editor (F1)', () => {
     expect(screen.queryByText(MAILBOX_NOTE)).toBeNull();
   });
 
-  it('a department-only change saves, and sends ONLY departmentId', async () => {
+  it('a team-only change saves, and sends ONLY departmentId', async () => {
     const saved = openEditor(brochure);
     await waitForDepartments();
     expect(saveButton().disabled).toBe(true);
@@ -152,7 +152,7 @@ describe('Department in the KB entry editor (F1)', () => {
     expect(saved[0].departmentId).toBe(5);
   });
 
-  it('a Q&A entry with no mailbox: a department-only change does not resend the text', async () => {
+  it('a Q&A entry with no mailbox: a team-only change does not resend the text', async () => {
     const saved = openEditor({ ...mailboxQa, messageSourceId: null });
     await waitForDepartments();
     await chooseOption(departmentSelect()!, 'Sales');
@@ -161,7 +161,7 @@ describe('Department in the KB entry editor (F1)', () => {
     expect(patches().map((call) => call.body)).toEqual([{ departmentId: 5 }]);
   });
 
-  it('an unchanged department is not sent; picking the current one again is no change', async () => {
+  it('an unchanged team is not sent; picking the current one again is no change', async () => {
     const saved = openEditor({ ...brochure, departmentId: 3 });
     await waitForDepartments();
     expect(screen.getByText('Support')).toBeTruthy();
@@ -175,7 +175,7 @@ describe('Department in the KB entry editor (F1)', () => {
   });
 });
 
-describe('The backend refusing a department change (F3)', () => {
+describe('The backend refusing a team change (F3)', () => {
   it('KB_DEPARTMENT_FOLLOWS_MAILBOX is said in words', async () => {
     patchAnswer = () => ({
       status: 400,
@@ -191,7 +191,7 @@ describe('The backend refusing a department change (F3)', () => {
     fireEvent.click(saveButton());
     await waitFor(() => expect(screen.getByText(FOLLOWS_MAILBOX_MESSAGE)).toBeTruthy());
     expect(FOLLOWS_MAILBOX_MESSAGE).toBe(
-      'This entry comes from a mailbox; its department follows the mailbox.'
+      'This entry comes from a mailbox; its team follows the mailbox.'
     );
     expect(saved).toEqual([]);
   });
@@ -199,15 +199,13 @@ describe('The backend refusing a department change (F3)', () => {
   it('any other error keeps the server message', async () => {
     patchAnswer = () => ({
       status: 403,
-      data: { success: false, error: 'You are not a member of that department' },
+      data: { success: false, error: 'You are not a member of that team' },
     });
     openEditor(brochure);
     await waitForDepartments();
     await chooseOption(departmentSelect()!, 'Sales');
     fireEvent.click(saveButton());
-    await waitFor(() =>
-      expect(screen.getByText('You are not a member of that department')).toBeTruthy()
-    );
+    await waitFor(() => expect(screen.getByText('You are not a member of that team')).toBeTruthy());
     expect(screen.queryByText(FOLLOWS_MAILBOX_MESSAGE)).toBeNull();
   });
 });

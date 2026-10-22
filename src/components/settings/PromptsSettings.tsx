@@ -112,7 +112,7 @@ export const PromptsSettings = () => {
       <FeatureSuggestions
         domains={['reply_style']}
         title="Suggested house style"
-        description="The engine noticed how your team edits AI drafts. Accepting makes this the house style for every AI-drafted reply."
+        description="The engine noticed how people in your workspace edit AI drafts. Accepting makes this the house style for every AI-drafted reply."
       />
 
       {/* Info Banner */}

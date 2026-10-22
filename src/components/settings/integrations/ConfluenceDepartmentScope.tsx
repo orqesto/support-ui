@@ -2,6 +2,7 @@ import { Check } from 'lucide-react';
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { useDepartments } from '@/hooks/useDepartments';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { isDepartmentServed } from '@/utils/departmentReachability';
 
 type Props = {
@@ -24,7 +25,7 @@ type Props = {
  * the initial toggle state and the seeded value in sync with no first-render flash.
  */
 export const ConfluenceDepartmentScope = ({ value, onChange, seedDeptIds, isCreate }: Props) => {
-  const { data: departments = [], isLoading } = useDepartments();
+  const { data: departments = [], isLoading, teamsEnabled: teamsMode } = useDepartments();
 
   useEffect(() => {
     if (value !== undefined) return; // already set: a stored value, or the user picked
@@ -66,9 +67,13 @@ export const ConfluenceDepartmentScope = ({ value, onChange, seedDeptIds, isCrea
     );
   };
 
+  // Teams off: one team sees everything, so there is no visibility to choose. The seeding
+  // above still runs, so the stored value stays valid if teams are switched back on.
+  if (!deriveTeamsEnabled(teamsMode, departments)) return null;
+
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-sm font-medium">Department visibility</span>
+      <span className="text-sm font-medium">Team visibility</span>
       <div className="flex w-fit rounded-md shadow-sm">
         <Button
           type="button"
@@ -77,7 +82,7 @@ export const ConfluenceDepartmentScope = ({ value, onChange, seedDeptIds, isCrea
           onClick={() => onChange([])}
           className="rounded-r-none border-r-0 text-xs"
         >
-          All departments
+          All teams
         </Button>
         <Button
           type="button"
@@ -86,16 +91,16 @@ export const ConfluenceDepartmentScope = ({ value, onChange, seedDeptIds, isCrea
           onClick={enterScoped}
           className="rounded-l-none text-xs"
         >
-          Specific departments
+          Specific teams
         </Button>
       </div>
 
       {orgWide ? (
         <p className="text-xs text-muted-foreground">
-          Synced pages are visible to every department&apos;s AI.
+          Synced pages are visible to every team&apos;s AI.
         </p>
       ) : isLoading ? (
-        <p className="text-xs text-muted-foreground">Loading departments…</p>
+        <p className="text-xs text-muted-foreground">Loading teams…</p>
       ) : (
         <>
           <div className="flex flex-wrap gap-1.5">
@@ -121,7 +126,7 @@ export const ConfluenceDepartmentScope = ({ value, onChange, seedDeptIds, isCrea
             })}
           </div>
           <p className="text-xs text-muted-foreground">
-            Only the selected departments&apos; AI can use these pages.
+            Only the selected teams&apos; AI can use these pages.
           </p>
         </>
       )}

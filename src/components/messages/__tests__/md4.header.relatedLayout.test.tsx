@@ -349,15 +349,11 @@ describe('H2 — the ticket chip and its Related popover', () => {
     const chip = await screen.findByTestId('ticket-chip');
     expect(chip.textContent).toContain('#7');
     expect(chip.textContent).toContain('+2');
-    expect(chip).toHaveAccessibleName(
-      '#7 +2 — linked to 3 tickets (2 in departments you cannot open)'
-    );
+    expect(chip).toHaveAccessibleName('#7 +2 — linked to 3 tickets (2 in teams you cannot open)');
     fireEvent.click(chip);
     const popover = await screen.findByRole('dialog', { name: 'Tickets' });
     expect(within(popover).getByRole('heading', { name: 'On 3 tickets' })).toBeInTheDocument();
-    expect(
-      within(popover).getByText(/\+ 2 tickets in departments you cannot open/)
-    ).toBeInTheDocument();
+    expect(within(popover).getByText(/\+ 2 tickets in teams you cannot open/)).toBeInTheDocument();
   });
 
   it('1 visible, none hidden: "#7", no +N, "Linked to ticket #7" and a "Linked to ticket" heading', async () => {
@@ -381,13 +377,11 @@ describe('H2 — the ticket chip and its Related popover', () => {
     const chip = await screen.findByTestId('ticket-chip');
     expect(chip.textContent).toContain('2 hidden');
     expect(chip.textContent).not.toContain('+');
-    expect(chip).toHaveAccessibleName('2 hidden — on 2 tickets in departments you cannot open');
+    expect(chip).toHaveAccessibleName('2 hidden — on 2 tickets in teams you cannot open');
     fireEvent.click(chip);
     const popover = await screen.findByRole('dialog', { name: 'Tickets' });
     expect(within(popover).getByRole('heading', { name: 'Tickets' })).toBeInTheDocument();
-    expect(
-      within(popover).getByText(/\+ 2 tickets in departments you cannot open/)
-    ).toBeInTheDocument();
+    expect(within(popover).getByText(/\+ 2 tickets in teams you cannot open/)).toBeInTheDocument();
   });
 
   it('Esc closes the popover', async () => {

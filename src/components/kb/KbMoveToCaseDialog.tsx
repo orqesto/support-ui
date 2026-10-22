@@ -248,8 +248,8 @@ export const KbMoveToCaseDialog = ({
         <DialogContent>
           <p className="mb-3 text-sm text-muted-foreground">
             {knowsScope
-              ? 'Cases of this entry’s own mailbox or department, in the departments shown.'
-              : 'Cases in the departments shown. Only a case of the entry’s own mailbox or department accepts it.'}
+              ? 'Cases of this entry’s own mailbox or team, in the teams shown.'
+              : 'Cases in the teams shown. Only a case of the entry’s own mailbox or team accepts it.'}
           </p>
           <Label htmlFor="move-case-search">Find a case</Label>
           <Input
@@ -301,8 +301,8 @@ export const KbMoveToCaseDialog = ({
               {found.otherScope !== null && found.otherScope > 0 && (
                 <p>
                   {found.otherScope === 1
-                    ? '1 matching case serves another mailbox or department and is not offered.'
-                    : `${found.otherScope} matching cases serve another mailbox or department and are not offered.`}
+                    ? '1 matching case serves another mailbox or team and is not offered.'
+                    : `${found.otherScope} matching cases serve another mailbox or team and are not offered.`}
                 </p>
               )}
               {found.more && (

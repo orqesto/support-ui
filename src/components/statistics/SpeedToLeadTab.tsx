@@ -97,7 +97,7 @@ export function SpeedToLeadTab({ speedData, speedLoading }: Props) {
                 </p>
               ) : (
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  Lead qualification isn&apos;t enabled yet. Turn it on for your sales department (or
+                  Lead qualification isn&apos;t enabled yet. Turn it on for your sales team (or
                   flag threads as leads manually) to start measuring how fast leads get a first
                   response.
                 </p>

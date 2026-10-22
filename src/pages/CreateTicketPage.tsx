@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { useDepartments } from '@/hooks/useDepartments';
+import { useNewTicketTeams } from '@/hooks/useTeamsEnabled';
 import { apiClient } from '@/lib/api-client';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { categoryService } from '@/services/category.service';
@@ -51,13 +51,9 @@ export const CreateTicketPage = () => {
   const messageId = searchParams.get('messageId');
   const user = useAuthStore((state) => state.user);
   const userId = user?.id;
-  const { data: allDepartments = [], isFetched: departmentsFetched } = useDepartments();
-  // A ticket with no thread is filed in one of the creator's departments; an administrator may
-  // pick any. From a thread it is the thread's department (the backend ignores another).
-  const mayPickAny = user?.role === 'admin' || user?.organizationRole === 'org_admin';
-  const departments = allDepartments.filter(
-    (dept) => dept.active !== false && (mayPickAny || (user?.departmentIds ?? []).includes(dept.id))
-  );
+  // A ticket with no thread is filed in one of the creator's teams (an administrator may pick
+  // any); from a thread it is the thread's team. Teams off: the default team, no field.
+  const { allDepartments, departmentsFetched, teamsEnabled, departments } = useNewTicketTeams(user);
   const clearTicketsCache = useTicketsStore((state) => state.clearCache);
   const clearMessagesCache = useMessagesStore((state) => state.clearCache);
 
@@ -111,8 +107,8 @@ export const CreateTicketPage = () => {
   const threadDepartmentName = message
     ? message.departmentId
       ? (allDepartments.find((dept) => dept.id === message.departmentId)?.name ??
-        `Department #${message.departmentId}`)
-      : 'No department'
+        `Team #${message.departmentId}`)
+      : 'No team'
     : '';
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -475,7 +471,7 @@ export const CreateTicketPage = () => {
             )}
             {!messageId && departmentsFetched && departments.length === 0 && (
               <Alert variant="warning" className="mb-4">
-                A ticket with no thread is filed in one of your departments, and you are not in
+                A ticket with no thread is filed in one of your teams, and you are not in
                 any. Ask an administrator to add you to one, or create the ticket from a thread.
               </Alert>
             )}
@@ -543,18 +539,18 @@ export const CreateTicketPage = () => {
                       Where it goes
                     </h3>
                     <div className="grid gap-3">
-                      {messageId ? (
+                      {!teamsEnabled ? null : messageId ? (
                         <Input
-                          label="Department"
-                          aria-label="Department"
+                          label="Team"
+                          aria-label="Team"
                           value={threadDepartmentName}
                           readOnly
                           disabled
                         />
                       ) : (
                         <Select
-                          label="Department"
-                          aria-label="Department"
+                          label="Team"
+                          aria-label="Team"
                           value={departmentKey ?? ''}
                           options={departments.map((dept) => ({
                             value: String(dept.id),

@@ -16,7 +16,7 @@ describe('KbPendingDecisionBadge', () => {
     expect(screen.getByText('+1 more')).toBeInTheDocument();
   });
 
-  it('says why the viewer cannot decide (departments they do not moderate)', () => {
+  it('says why the viewer cannot decide (teams they do not moderate)', () => {
     render(
       <KbPendingDecisionBadge
         decision={{ suggestionId: 2, kind: 'remove', reasons: [], canDecide: false }}
@@ -24,7 +24,7 @@ describe('KbPendingDecisionBadge', () => {
     );
     expect(screen.getByText('Suggested: remove')).toBeInTheDocument();
     expect(
-      screen.getByText("You can't decide this one — it covers departments you don't moderate.")
+      screen.getByText("You can't decide this one — it covers teams you don't moderate.")
     ).toBeInTheDocument();
   });
 
@@ -54,10 +54,10 @@ describe('KbPendingDecisionBadge', () => {
     expect(screen.getByText('Suggested: merge')).toHaveClass('sr-only');
     expect(screen.getByText('Not yours to decide').parentElement).toHaveAttribute(
       'title',
-      "You can't decide this one — it covers departments you don't moderate."
+      "You can't decide this one — it covers teams you don't moderate."
     );
     expect(
-      screen.getByText("You can't decide this one — it covers departments you don't moderate.")
+      screen.getByText("You can't decide this one — it covers teams you don't moderate.")
     ).toHaveClass('sr-only');
   });
 

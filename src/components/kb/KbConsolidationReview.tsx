@@ -166,7 +166,7 @@ export const KbConsolidationReview = ({ suggestionId, onDecided }: Props) => {
   const tooFew = tickedIds.length < minTicked;
   const textMissing = isConsolidate && (!question.trim() || !answer.trim());
   const acceptBlockedReason = !detail.canDecide
-    ? 'You can see this proposal, but deciding it needs knowledge-base permission for every department this mailbox serves. Ask an admin.'
+    ? 'You can see this proposal, but deciding it needs knowledge-base permission for every team this mailbox serves. Ask an admin.'
     : tooFew
       ? isConsolidate
         ? 'Tick at least two entries to merge.'

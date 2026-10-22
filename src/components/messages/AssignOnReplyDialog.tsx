@@ -44,7 +44,7 @@ export const AssignOnReplyDialog = ({
           <p className="text-sm text-foreground">
             {takeover
               ? `${prompt.ownerName} owns this thread. Your reply is sent either way; taking over makes you the owner from now on.`
-              : 'Nobody owns this thread yet. Your reply is sent either way; assigning it to you tells the team you are handling it.'}
+              : 'Nobody owns this thread yet. Your reply is sent either way; assigning it to you tells your colleagues you are handling it.'}
           </p>
         </div>
         <DialogFooter>

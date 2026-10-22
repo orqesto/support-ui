@@ -13,7 +13,10 @@ const setScope = vi.fn<(id: number, scope: unknown) => Promise<void>>();
 const getDepartments = vi.fn<(includeInactive?: boolean) => Promise<unknown[]>>();
 vi.mock('@/services/department.service', () => ({
   departmentService: {
-    getAll: (includeInactive?: boolean) => getDepartments(includeInactive),
+    getAll: (includeInactive?: boolean, onTeamsMode?: (on: boolean) => void) => {
+      onTeamsMode?.(true);
+      return getDepartments(includeInactive);
+    },
   },
 }));
 const DEPARTMENTS = [
@@ -439,7 +442,7 @@ describe('version skew on a NEW vendor (audit pass 1)', () => {
   });
 });
 
-describe('switch a vendor off, and choose its departments (FE audit M17)', () => {
+describe('switch a vendor off, and choose its teams (FE audit M17)', () => {
   it('turning it OFF warns that stored records are deleted, and sends enabled:false', async () => {
     const user = userEvent.setup();
     render(<CustomApiVendorForm open connection={connection()} onClose={noop} onSaved={noop} />);
@@ -461,10 +464,10 @@ describe('switch a vendor off, and choose its departments (FE audit M17)', () =>
     expect(setScope).not.toHaveBeenCalled();
   });
 
-  it('only chosen departments: the scope is saved; none chosen says only admins can', async () => {
+  it('only chosen teams: the scope is saved; none chosen says only admins can', async () => {
     const user = userEvent.setup();
     render(<CustomApiVendorForm open connection={connection()} onClose={noop} onSaved={noop} />);
-    await chooseOption(screen.getByLabelText(/Which departments/i), 'Only the ones I choose');
+    await chooseOption(screen.getByLabelText(/Which teams/i), 'Only the ones I choose');
     expect(await screen.findByText(/only workspace admins will be able to use/i)).toBeTruthy();
     await user.click(await screen.findByRole('checkbox', { name: 'Support' }));
     expect(screen.queryByText(/only workspace admins will be able to use/i)).toBeNull();
@@ -473,7 +476,7 @@ describe('switch a vendor off, and choose its departments (FE audit M17)', () =>
     expect(setScope).toHaveBeenCalledWith(1, { scopeMode: 'departments', departmentIds: [4] });
   });
 
-  it('a vendor linked to an ARCHIVED department shows that link, ticked and marked; other archived ones stay hidden', async () => {
+  it('a vendor linked to an ARCHIVED team shows that link, ticked and marked; other archived ones stay hidden', async () => {
     const user = userEvent.setup();
     render(
       <CustomApiVendorForm
@@ -494,7 +497,7 @@ describe('switch a vendor off, and choose its departments (FE audit M17)', () =>
     expect(setScope).toHaveBeenCalledWith(1, { scopeMode: 'departments', departmentIds: [] });
   });
 
-  it('the departments list fails to load ⇒ the form says so', async () => {
+  it('the teams list fails to load ⇒ the form says so', async () => {
     getDepartments.mockRejectedValueOnce(new Error('boom'));
     render(
       <CustomApiVendorForm
@@ -504,12 +507,12 @@ describe('switch a vendor off, and choose its departments (FE audit M17)', () =>
         onSaved={noop}
       />
     );
-    expect(await screen.findByText(/Couldn’t load the departments/)).toBeTruthy();
+    expect(await screen.findByText(/Couldn’t load the teams/)).toBeTruthy();
   });
 
-  it('a NEW vendor shows neither control — it starts on, for every department', () => {
+  it('a NEW vendor shows neither control — it starts on, for every team', () => {
     render(<CustomApiVendorForm open onClose={noop} onSaved={noop} />);
     expect(screen.queryByRole('switch')).toBeNull();
-    expect(screen.queryByLabelText(/Which departments/i)).toBeNull();
+    expect(screen.queryByLabelText(/Which teams/i)).toBeNull();
   });
 });

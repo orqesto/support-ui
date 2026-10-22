@@ -409,7 +409,7 @@ describe('Sent from this ticket — Send here', () => {
     });
     renderTicket();
     expect(
-      await screen.findByText('Sent only to threads in departments you cannot open.')
+      await screen.findByText('Sent only to threads in teams you cannot open.')
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Send this reply to/ })).toBeNull();
   });

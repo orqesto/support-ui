@@ -1,5 +1,5 @@
 /**
- * Workspace-specific filter options: assignees, departments, sources, labels, aliases.
+ * Workspace-specific filter options: assignees, teams, sources, labels, aliases.
  *
  * One fetch site for all of them, so the desktop bar and the mobile sheet cannot drift
  * onto different option sets — they render from the same object.
@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useDepartments } from '@/hooks/useDepartments';
+import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { usePermissions } from '@/hooks/usePermissions';
 import { assignmentService } from '@/services/assignment.service';
 import { getMessageSourceOptions } from '@/services/messageSourceOptions.service';
@@ -38,6 +39,7 @@ const STATIC_ASSIGNEES: FilterOption[] = [
 
 export const useFilterOptions = (): DynamicOptions => {
   const { data: departments = [] } = useDepartments();
+  const teamsEnabled = useTeamsEnabled();
   // Seeded, not empty: 'Me' and 'Unassigned' need no lookup, and a filter with zero
   // options is dropped from the schema entirely — so an empty initial value made the
   // whole Assignee filter blink out of existence until the fetch returned.
@@ -134,18 +136,22 @@ export const useFilterOptions = (): DynamicOptions => {
     };
   }, [departmentKey, canViewLabels]);
 
+  // Teams off: no options, so the schema drops the Team filter entirely.
   const departmentOptions = useMemo<FilterOption[]>(
-    () => [
-      { value: 'needs_routing', label: 'Needs Routing' },
-      ...departments
-        .filter((dept) => dept.active !== false)
-        .map((dept) => ({
-          value: String(dept.id),
-          label: dept.name,
-          dot: dept.color ? safeCssColor(dept.color) : undefined,
-        })),
-    ],
-    [departments]
+    () =>
+      !teamsEnabled
+        ? []
+        : [
+            { value: 'needs_routing', label: 'Needs Routing' },
+            ...departments
+              .filter((dept) => dept.active !== false)
+              .map((dept) => ({
+                value: String(dept.id),
+                label: dept.name,
+                dot: dept.color ? safeCssColor(dept.color) : undefined,
+              })),
+          ],
+    [departments, teamsEnabled]
   );
 
   return useMemo(

@@ -595,7 +595,7 @@ export const TicketsSection = ({
                   })}
                   {threads.hiddenCount > 0 && (
                     <li className={`${REL_GROUP_ROW} text-muted-foreground`}>
-                      + {threads.hiddenCount} in departments you cannot open
+                      + {threads.hiddenCount} in teams you cannot open
                     </li>
                   )}
                 </ul>
@@ -629,8 +629,8 @@ export const TicketsSection = ({
 
       {tickets.state === 'ready' && tickets.hiddenCount > 0 && (
         <p className={REL_HINT}>
-          + {tickets.hiddenCount} {tickets.hiddenCount === 1 ? 'ticket' : 'tickets'} in departments
-          you cannot open.
+          + {tickets.hiddenCount} {tickets.hiddenCount === 1 ? 'ticket' : 'tickets'} in teams you
+          cannot open.
         </p>
       )}
       {error && <p className="m-0 text-[12px] text-destructive">{error}</p>}

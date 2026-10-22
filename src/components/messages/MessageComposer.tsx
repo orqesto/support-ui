@@ -477,7 +477,7 @@ export function MessageComposer({
             onChange={setComposer}
             onSubmit={onSend}
             onImageFiles={addImageFiles}
-            placeholder="Internal note — only visible to the team…"
+            placeholder="Internal note — only visible to your colleagues…"
             minHeight={editorMinHeight}
             maxHeight="180px"
             transparent

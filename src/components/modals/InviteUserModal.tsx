@@ -11,6 +11,7 @@ import { integrationsService } from '@/services/integrations.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 import { isDepartmentServed } from '@/utils/departmentReachability';
+import { deriveTeamsEnabled, pickDefaultTeam } from '@/hooks/useTeamsEnabled';
 
 type EmailIntegrationOption = { id: number; name: string };
 
@@ -56,6 +57,10 @@ export const InviteUserModal = ({
     organizationId !== null &&
     prefilledOrganizationId !== organizationId;
   const [departments, setDepartments] = useState<Department[]>([]);
+  // Teams off ⇒ the invite asks for no team; it carries the default team (an older backend
+  // still requires one).
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
   const [emailIntegrations, setEmailIntegrations] = useState<EmailIntegrationOption[]>([]);
   const [senderIntegrationId, setSenderIntegrationId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -91,12 +96,22 @@ export const InviteUserModal = ({
       }
       loadWorkspaceName().catch((err) => logger.error('Failed to load the workspace:', err));
 
+      let mode: boolean | undefined;
       departmentService
-        .getAll()
+        .getAll(false, (value) => {
+          mode = value;
+        })
         .then((depts) => {
           if (stale) return;
           setDepartments(depts);
-          // Preselect the first SERVED department so the form is valid by default — never
+          setTeamsMode(mode);
+          if (!deriveTeamsEnabled(mode, depts)) {
+            // Teams off: everything lives in the default team, so the invite goes there.
+            const defaultTeam = pickDefaultTeam(depts) ?? depts[0];
+            if (defaultTeam) setDepartmentIds([defaultTeam.id]);
+            return;
+          }
+          // Preselect the first SERVED team so the form is valid by default — never
           // an unserved one (it's disabled and can't be handled).
           const firstServed = depts.find(isDepartmentServed);
           if (firstServed) {
@@ -154,7 +169,7 @@ export const InviteUserModal = ({
     const effectiveDepartmentIds =
       role === 'org_admin' ? departments.map((dept) => dept.id) : departmentIds;
     if (role !== 'org_admin' && departmentIds.length === 0) {
-      setError('Please select at least one department');
+      setError('Please select at least one team');
       return;
     }
 
@@ -170,7 +185,8 @@ export const InviteUserModal = ({
       );
       setEmail('');
       setRole('associate');
-      setDepartmentIds(departments[0] ? [departments[0].id] : []);
+      const nextTeam = teamsEnabled ? departments[0] : (pickDefaultTeam(departments) ?? departments[0]);
+      setDepartmentIds(nextTeam ? [nextTeam.id] : []);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send invitation');
@@ -278,14 +294,15 @@ export const InviteUserModal = ({
               : 'Workspace admins cannot invite other workspace admins'}
           </p>
 
-          {/* Departments. org_admin is auto-linked to every department (BE fans out),
-              so — like CreateUser — we hide the picker and show an "all departments" note. */}
-          {role === 'org_admin' ? (
+          {/* Teams. org_admin is auto-linked to every team (BE fans out),
+              so — like CreateUser — we hide the picker and show an "all teams" note.
+              Teams off: nothing to choose, so nothing shows. */}
+          {!teamsEnabled ? null : role === 'org_admin' ? (
             <div>
-              <span className="block mb-2 text-sm font-medium text-foreground">Departments</span>
+              <span className="block mb-2 text-sm font-medium text-foreground">Teams</span>
               <div className="px-3 py-2 text-sm rounded-md border bg-muted/30 text-muted-foreground">
-                <strong>All active departments</strong> — org admins are auto-linked to every
-                department for cross-department visibility.
+                <strong>All active teams</strong> — org admins are auto-linked to every
+                team for cross-team visibility.
               </div>
             </div>
           ) : (
@@ -294,10 +311,10 @@ export const InviteUserModal = ({
                 Departments <span className="text-destructive">*</span>
               </span>
               {departments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Loading departments…</p>
+                <p className="text-sm text-muted-foreground">Loading teams…</p>
               ) : departments.filter(isDepartmentServed).length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No departments have a connected message source yet.
+                  No teams have a connected message source yet.
                 </p>
               ) : (
                 <div className="max-h-40 overflow-y-auto rounded-md border border-border divide-y divide-border">

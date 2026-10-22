@@ -8,6 +8,7 @@ import {
   Plug,
   KeyRound,
   Users,
+  UsersRound,
   type LucideIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -23,6 +24,7 @@ import { RulesSettings } from '@/components/settings/RulesSettings';
 import { SystemSettings } from '@/components/settings/SystemSettings';
 import { SSOConfigSettings } from '@/components/settings/SSOConfigSettings';
 import { SCIMConfigSettings } from '@/components/settings/SCIMConfigSettings';
+import { TeamsSettings } from '@/components/settings/TeamsSettings';
 import { useAuthStore } from '@/stores/authStore';
 
 export type SettingsTabContext = {
@@ -66,6 +68,14 @@ const SETTINGS_TABS: SettingsTabDef[] = [
     icon: Layers,
     description: 'Manage categories and labels',
     render: (ctx) => <OrganizationSettings section={ctx.section} />,
+  },
+  {
+    id: 'teams',
+    label: 'Teams',
+    icon: UsersRound,
+    description: 'Switch teams on or off, add, rename and colour them',
+    render: () => <TeamsSettings />,
+    visible: (ctx) => ctx.isGlobalAdmin || ctx.isOrgAdmin,
   },
   {
     id: 'ai',

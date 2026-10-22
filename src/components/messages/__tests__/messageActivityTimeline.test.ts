@@ -176,11 +176,11 @@ describe('routing.decision entries (spec §4.5)', () => {
     [{ departmentName: dept }, 'Routed to Support automatically'],
     [
       { reason: 'ai_primary', departmentName: null, rules: [] },
-      'Routed to a department by the AI classifier',
+      'Routed to a team by the AI classifier',
     ],
     [
       { reason: 'sole_department', departmentName: dept, rules: [] },
-      'Routed to Support — the only department for this mailbox',
+      'Routed to Support — the only team for this mailbox',
     ],
     [
       { reason: 'sender_history', departmentName: dept, rules: [] },
@@ -191,7 +191,7 @@ describe('routing.decision entries (spec §4.5)', () => {
   });
 
   it('survives null details', () => {
-    expect(auditEntryLabel('routing.decision', null)).toBe('Routed to a department automatically');
+    expect(auditEntryLabel('routing.decision', null)).toBe('Routed to a team automatically');
   });
 
   describe('the rule that carried the route (largest share, §9)', () => {

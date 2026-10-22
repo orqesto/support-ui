@@ -146,10 +146,10 @@ describe('What is holding this check', () => {
     // Exactly 20 tickets, all listed: no "and more".
     expect(screen.getByTestId('owed-analysis')).toHaveTextContent(/SUP-119$/);
     expect(screen.getByTestId('owed-embedding')).toHaveTextContent(
-      /^Search index: 6 threads — SUP-5 and more · some in departments you can't see$/
+      /^Search index: 6 threads — SUP-5 and more · some in teams you can't see$/
     );
     expect(screen.getByTestId('owed-kb')).toHaveTextContent(
-      /^Knowledge base: 3 threads — SUP-6 · some in departments you can't see$/
+      /^Knowledge base: 3 threads — SUP-6 · some in teams you can't see$/
     );
   });
 
