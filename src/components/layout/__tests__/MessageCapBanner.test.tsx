@@ -255,8 +255,10 @@ describe('Free starter allowance used up', () => {
         budgetMicros: null,
         paused,
         bulkPaused: paused,
-        reason: paused ? 'not_in_plan' : null,
-        message: null,
+        reason: paused ? 'free_allowance_used' : null,
+        message: paused
+          ? 'Your free AI allowance is used. Add your own AI key to keep AI running.'
+          : null,
         resetsAt: null,
         starterAllowance: {
           totalMicros: 400_000,
@@ -273,7 +275,7 @@ describe('Free starter allowance used up', () => {
     renderBanner();
     const banner = await screen.findByTestId('ai-paused-banner');
     expect(banner).toHaveTextContent(
-      'Your free AI allowance is used — add your own AI key to keep AI running.'
+      'Your free AI allowance is used. Add your own AI key to keep AI running.'
     );
     expect(screen.getByText('Add your AI key')).toHaveAttribute(
       'href',
@@ -282,12 +284,19 @@ describe('Free starter allowance used up', () => {
     expect(screen.getByText('Upgrade')).toHaveAttribute('href', '/pricing');
   });
 
-  it('an agent: "ask your admin", no buttons — even if the API does not flag paused', async () => {
-    getUsage.mockResolvedValue(exhausted(false));
+  it('an agent: "ask your admin", no buttons', async () => {
+    getUsage.mockResolvedValue(exhausted(true));
     renderBanner();
     const banner = await screen.findByTestId('ai-paused-banner');
     expect(banner).toHaveTextContent(/ask your admin/);
     expect(screen.queryByText('Add your AI key')).not.toBeInTheDocument();
     expect(screen.queryByText('Upgrade')).not.toBeInTheDocument();
+  });
+
+  it('exhausted but not paused (an own-key Free workspace): no banner', async () => {
+    getUsage.mockResolvedValue(exhausted(false));
+    renderBanner();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByTestId('ai-paused-banner')).not.toBeInTheDocument();
   });
 });

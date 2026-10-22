@@ -9,7 +9,9 @@ export type AiPauseReason =
   | 'server_ceiling'
   | 'budget_used'
   | 'bulk_share_used'
-  | 'workspace_bulk_limit';
+  | 'workspace_bulk_limit'
+  /** Free on our key, its one-time starter allowance used up (starterAllowance.ts). */
+  | 'free_allowance_used';
 
 /** `ai` block of `GET /api/usage/current`. Optional on the wire: an older backend sends none. */
 export type AiStatus = {
@@ -27,8 +29,8 @@ export type AiStatus = {
   message: string | null;
   resetsAt: string | null;
   /**
-   * Free on our key only: the one-time starter allowance. Parsed by `parseStarterAllowance` in
-   * the service (absent or malformed ⇒ undefined); see starterAllowance.ts.
+   * Free only (also on its own key): the one-time starter allowance. Parsed by
+   * `parseStarterAllowance` in the service (null, absent or malformed ⇒ undefined).
    */
   starterAllowance?: StarterAllowance;
 };
@@ -74,6 +76,10 @@ export const customerPauseText = (reason: string | null, canOpenSubscription = t
       return canOpenSubscription
         ? "This period's AI messages are used up: AI drafts, auto-replies and analysis pause until the period resets. Buying more messages or upgrading adds to it."
         : "This period's AI messages are used up: AI drafts, auto-replies and analysis pause until the period resets. Ask an admin to buy more messages or upgrade.";
+    case 'free_allowance_used':
+      return canOpenSubscription
+        ? 'Your free AI allowance is used — add your own AI key to keep AI running.'
+        : 'Your free AI allowance is used — ask your admin to add your own AI key to keep AI running.';
     case 'server_ceiling':
       return "This server's AI limit for the month is reached: AI is paused until it resets.";
     default:

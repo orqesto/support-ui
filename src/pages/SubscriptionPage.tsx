@@ -504,7 +504,7 @@ export const SubscriptionPage = () => {
               period={dashboard.period}
               aiSource={aiSource}
             />
-            <StarterAllowanceLine ai={aiStatus} isAdmin={isAdmin} />
+            <StarterAllowanceLine ai={aiStatus} isAdmin={isAdmin} ownKey={ownKey} />
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <UsageTile title="Users" icon={Users} item={usage.users} />
               <UsageTile title="Integrations" icon={Plug} item={usage.integrations} />

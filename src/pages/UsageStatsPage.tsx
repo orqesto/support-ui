@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
-import { loadAiStatus, type AiStatus } from '@/components/subscription/aiStatus';
+import { loadAiStatus, loadOwnKey, type AiStatus } from '@/components/subscription/aiStatus';
 import { StarterAllowanceLine } from '@/components/subscription/StarterAllowanceLine';
 import { useAuthStore } from '@/stores/authStore';
 import { isOrgAdminOrHigher } from '@/types/roles';
@@ -28,6 +28,7 @@ export const UsageStatsPage = () => {
   const [usage, setUsage] = useState<UsageModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [aiStatus, setAiStatus] = useState<AiStatus | undefined>(undefined);
+  const [ownKey, setOwnKey] = useState(false);
   const user = useAuthStore((state) => state.user);
   const isAdmin = !!user && isOrgAdminOrHigher(user.role, user.organizationRole);
 
@@ -38,6 +39,9 @@ export const UsageStatsPage = () => {
           '/api/subscriptions/usage'
         );
         const ai = await loadAiStatus();
+        // Only for the starter-allowance line (an own-key Free workspace does not draw on it);
+        // read before the line can show, so it never flashes.
+        if (ai?.starterAllowance) setOwnKey(await loadOwnKey());
         setAiStatus(ai);
         setUsage(usageRowsFrom(usageRes.data.data.usage, ai?.active === true));
       } catch (error) {
@@ -110,7 +114,7 @@ export const UsageStatsPage = () => {
           </Button>
         </div>
 
-        <StarterAllowanceLine ai={aiStatus} isAdmin={isAdmin} />
+        <StarterAllowanceLine ai={aiStatus} isAdmin={isAdmin} ownKey={ownKey} />
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">

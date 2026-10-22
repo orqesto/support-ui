@@ -388,24 +388,51 @@ describe('Subscription page: Free AI starter allowance', () => {
     );
   });
 
-  it('no microsPerMessage: a percentage', async () => {
+  it('no microsPerMessage in the response (the real backend): 100 messages from the allowance', async () => {
     load(starter({}, { microsPerMessage: undefined }));
     render(<SubscriptionPage />);
     expect(await screen.findByTestId('starter-allowance-line')).toHaveTextContent(
-      'AI starter allowance: about 63% left'
+      'AI starter allowance: about 63 of 100 messages left'
     );
+  });
+
+  it('own-key Free (the backend sends the block too): no line, no banner, own-key sentence', async () => {
+    load(
+      starter({ usedMicros: 400_000, remainingMicros: 0, exhausted: true }),
+      'active',
+      true,
+      { platform: { active: false }, enabled: [{ id: 1 }] }
+    );
+    render(<SubscriptionPage />);
+    await waitFor(() =>
+      expect(screen.getByTestId('messages-summary')).toHaveTextContent('AI runs on your own key')
+    );
+    expect(screen.queryByTestId('starter-allowance-line')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ai-paused-banner')).not.toBeInTheDocument();
+  });
+
+  it('not on Free: starterAllowance null, nothing new', async () => {
+    planName = 'pro';
+    load(aiBlock({ starterAllowance: null }));
+    render(<SubscriptionPage />);
+    await screen.findByTestId('messages-summary');
+    expect(screen.queryByTestId('starter-allowance-line')).not.toBeInTheDocument();
   });
 
   it('used up: the banner with Add your AI key and Upgrade (admin)', async () => {
     load(
       starter(
         { usedMicros: 400_000, remainingMicros: 0, exhausted: true },
-        { paused: true, reason: 'not_in_plan' }
+        {
+          paused: true,
+          reason: 'free_allowance_used',
+          message: 'Your free AI allowance is used. Add your own AI key to keep AI running.',
+        }
       )
     );
     render(<SubscriptionPage />);
     const banner = await screen.findByTestId('ai-paused-banner');
-    expect(banner).toHaveTextContent('Your free AI allowance is used — add your own AI key');
+    expect(banner).toHaveTextContent('Your free AI allowance is used. Add your own AI key');
     expect(screen.getByText('Add your AI key')).toHaveAttribute(
       'href',
       '/settings#integrations/ai-providers'

@@ -68,7 +68,14 @@ describe('api-client — database-related codes', () => {
  * allowance used up, owner decision 2026-10-22; the old translation limit).
  */
 describe('api-client — AI refusals on 402', () => {
-  it.each(['FREE_AI_ALLOWANCE_USED', 'AI_USAGE_LIMIT_EXCEEDED'])(
+  it.each([
+    'FREE_AI_ALLOWANCE_USED',
+    'AI_NOT_IN_PLAN',
+    'AI_BUDGET_PAUSED',
+    'AI_PAUSED',
+    // Older backend's translation code, kept for one release.
+    'AI_USAGE_LIMIT_EXCEEDED',
+  ])(
     'does not raise the subscription gate on 402 %s',
     async (code) => {
       await expect(

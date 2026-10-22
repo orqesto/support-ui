@@ -6,6 +6,7 @@ import {
   AI_KEY_SETTINGS_PATH,
   STARTER_USED_ADMIN_TEXT,
   STARTER_USED_AGENT_TEXT,
+  isStarterPaused,
 } from './starterAllowance';
 
 /**
@@ -15,10 +16,10 @@ import {
  * key (no pack — a pack cannot add AI the plan does not have); every other reason offers the
  * message pack (when `packAction` is given) and Upgrade.
  *
- * Free on our key with its starter allowance used up (`ai.starterAllowance.exhausted`) wins over
- * any reason: admins read "add your own AI key" with Add your AI key + Upgrade; agents read the
- * same sentence with "ask your admin" and no buttons. Without the field (older backend) nothing
- * changes.
+ * Free on our key with its starter allowance used up (`paused` + reason `free_allowance_used`;
+ * `exhausted` alone is not a pause — an own-key Free workspace gets it too): admins read the
+ * server's sentence with Add your AI key + Upgrade; agents read "ask your admin" with no buttons.
+ * Without the reason (older backend) nothing changes.
  */
 export const AiPausedBanner = ({
   ai,
@@ -32,7 +33,7 @@ export const AiPausedBanner = ({
   canOpenSubscription?: boolean;
   isAdmin?: boolean;
 }) => {
-  if (ai?.starterAllowance?.exhausted) {
+  if (isStarterPaused(ai)) {
     return (
       <div
         data-testid="ai-paused-banner"
@@ -41,7 +42,9 @@ export const AiPausedBanner = ({
       >
         <span className="flex items-center gap-2 text-foreground">
           <Pause className="h-4 w-4 shrink-0 text-warning" />
-          <span>{isAdmin ? STARTER_USED_ADMIN_TEXT : STARTER_USED_AGENT_TEXT}</span>
+          <span>
+            {isAdmin ? (ai?.message ?? STARTER_USED_ADMIN_TEXT) : STARTER_USED_AGENT_TEXT}
+          </span>
         </span>
         {isAdmin && (
           <span className="flex shrink-0 flex-wrap items-center gap-3">

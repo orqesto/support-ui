@@ -5,7 +5,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  AI_REFUSAL_CODES,
   FREE_AI_ALLOWANCE_USED,
+  isStarterPaused,
   isFreeAiAllowanceUsedError,
   parseStarterAllowance,
   starterAllowanceLine,
@@ -24,6 +26,7 @@ describe('parseStarterAllowance', () => {
   it('older backend: no field, no ai block, or not an object ⇒ undefined', () => {
     expect(parseStarterAllowance(undefined)).toBeUndefined();
     expect(parseStarterAllowance({ active: true })).toBeUndefined();
+    // Not on Free: the backend sends null.
     expect(parseStarterAllowance({ starterAllowance: null })).toBeUndefined();
     expect(parseStarterAllowance({ starterAllowance: 'lots' })).toBeUndefined();
   });
@@ -36,16 +39,17 @@ describe('parseStarterAllowance', () => {
     ).toBeUndefined();
   });
 
-  it('reads microsPerMessage from the block or from the ai block', () => {
+  it('the response carries no microsPerMessage: one message is a hundredth of the allowance', () => {
+    expect(parseStarterAllowance({ starterAllowance: block() })?.microsPerMessage).toBe(4_000);
+  });
+
+  it('a microsPerMessage a later backend sends wins (block or ai block)', () => {
     expect(
       parseStarterAllowance({ starterAllowance: block({ microsPerMessage: 4_000 }) })
     ).toMatchObject({ microsPerMessage: 4_000 });
     expect(
       parseStarterAllowance({ microsPerMessage: 4_000, starterAllowance: block() })
     ).toMatchObject({ microsPerMessage: 4_000 });
-    expect(parseStarterAllowance({ starterAllowance: block() })).not.toHaveProperty(
-      'microsPerMessage'
-    );
   });
 
   it('a missing `exhausted` is derived from what is left', () => {
@@ -84,19 +88,43 @@ describe('starterAllowanceLine', () => {
 
   it('used up', () => {
     expect(
-      starterAllowanceLine(allowance({ remainingMicros: 0, usedMicros: 400_000, exhausted: true }), false)
+      starterAllowanceLine(
+        allowance({ remainingMicros: 0, usedMicros: 400_000, exhausted: true }),
+        false
+      )
     ).toBe('AI starter allowance: used up.');
   });
 });
 
 describe('isFreeAiAllowanceUsedError', () => {
   it('matches the refusal code only', () => {
-    expect(isFreeAiAllowanceUsedError({ response: { data: { code: FREE_AI_ALLOWANCE_USED } } })).toBe(
-      true
-    );
+    expect(
+      isFreeAiAllowanceUsedError({ response: { data: { code: FREE_AI_ALLOWANCE_USED } } })
+    ).toBe(true);
     expect(isFreeAiAllowanceUsedError({ response: { data: { code: 'AI_NOT_CONFIGURED' } } })).toBe(
       false
     );
     expect(isFreeAiAllowanceUsedError(new Error('x'))).toBe(false);
+  });
+});
+
+describe('isStarterPaused', () => {
+  it('only a pause with reason free_allowance_used; exhausted alone (own-key Free) is not', () => {
+    expect(isStarterPaused({ paused: true, reason: 'free_allowance_used' })).toBe(true);
+    expect(isStarterPaused({ paused: false, reason: null })).toBe(false);
+    expect(isStarterPaused({ paused: true, reason: 'budget_used' })).toBe(false);
+    expect(isStarterPaused(undefined)).toBe(false);
+  });
+});
+
+describe('AI_REFUSAL_CODES', () => {
+  it('carries every backend refusal code and the old translation code (one release)', () => {
+    expect([...AI_REFUSAL_CODES].sort()).toEqual([
+      'AI_BUDGET_PAUSED',
+      'AI_NOT_IN_PLAN',
+      'AI_PAUSED',
+      'AI_USAGE_LIMIT_EXCEEDED',
+      'FREE_AI_ALLOWANCE_USED',
+    ]);
   });
 });

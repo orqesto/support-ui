@@ -49,7 +49,7 @@ export const MessageCapBanner = () => {
 
   // AI paused (allowance used up, not in plan…): the API says why; that banner covers the
   // message-cap case too, so the two never stack.
-  if (usage.ai?.paused || usage.ai?.starterAllowance?.exhausted) {
+  if (usage.ai?.paused) {
     return (
       <AiPausedBanner
         ai={usage.ai}

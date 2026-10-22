@@ -76,4 +76,69 @@ describe('AiProviderModeSwitch', () => {
     expect(managedCard()).toHaveAttribute('aria-pressed', 'false');
     expect(byoCard()).toHaveAttribute('aria-pressed', 'false');
   });
+
+  describe('Free starter allowance (Free stays on our AI after the trial)', () => {
+    const allowance = (remaining: number) => ({
+      totalMicros: 400_000,
+      usedMicros: 400_000 - remaining,
+      remainingMicros: remaining,
+      exhausted: remaining <= 0,
+      microsPerMessage: 4_000,
+    });
+
+    it('allowance left on own key: "Use our AI" can be switched back on, and says what it runs on', () => {
+      const onSelect = vi.fn();
+      render(
+        <AiProviderModeSwitch
+          mode="byo"
+          managedAvailable={true}
+          saving={false}
+          onSelect={onSelect}
+          starter={allowance(252_000)}
+        />
+      );
+      expect(screen.getByText(/one-time starter allowance on us/)).toBeInTheDocument();
+      expect(screen.getByText(/about 63 of 100 messages left/)).toBeInTheDocument();
+      fireEvent.click(managedCard()!);
+      expect(onSelect).toHaveBeenCalledWith('managed');
+    });
+
+    it('used up on own key: the card says why and cannot be picked', () => {
+      const onSelect = vi.fn();
+      render(
+        <AiProviderModeSwitch
+          mode="byo"
+          managedAvailable={true}
+          saving={false}
+          onSelect={onSelect}
+          starter={allowance(0)}
+        />
+      );
+      expect(screen.getByTestId('managed-ai-starter-used')).toHaveTextContent(
+        /free AI allowance is used/
+      );
+      expect(managedCard()).toBeNull();
+      expect(byoCard()).not.toBeNull();
+    });
+
+    it('used up while on our AI: the active card stays (the banner explains the pause)', () => {
+      render(
+        <AiProviderModeSwitch
+          mode="managed"
+          managedAvailable={true}
+          saving={false}
+          onSelect={vi.fn()}
+          starter={allowance(0)}
+        />
+      );
+      expect(managedCard()).not.toBeNull();
+    });
+
+    it('paid plan / older backend (no allowance): the plan wording', () => {
+      render(
+        <AiProviderModeSwitch mode="byo" managedAvailable={true} saving={false} onSelect={vi.fn()} />
+      );
+      expect(screen.getByText(/Included in your plan/)).toBeInTheDocument();
+    });
+  });
 });

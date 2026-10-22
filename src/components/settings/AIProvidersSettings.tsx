@@ -1,6 +1,8 @@
 import { Bot } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { AiProviderModeSwitch } from '@/components/settings/AiProviderModeSwitch';
+import { loadAiStatus } from '@/components/subscription/aiStatus';
+import type { StarterAllowance } from '@/components/subscription/starterAllowance';
 import { AIProviderHealthCheck } from '@/components/settings/AIProviderHealthCheck';
 import { AckReplyPerSourceList } from '@/components/settings/AckReplyPerSourceList';
 import { AINoProviderBanner } from '@/components/settings/AINoProviderBanner';
@@ -45,6 +47,8 @@ export const AIProvidersSettings = ({
   // its own intent-based AiChoiceStep). Reflects the org's live settings.aiMode.
   const [aiMode, setAiMode] = useState<'byo' | 'managed'>('byo');
   const [managedAvailable, setManagedAvailable] = useState(false);
+  // Free only: the starter allowance decides whether "Use our AI" can be switched on.
+  const [starter, setStarter] = useState<StarterAllowance | undefined>(undefined);
   const [modeSaving, setModeSaving] = useState(false);
 
   const [openaiModels, setOpenaiModels] = useState<AIModel[]>([]);
@@ -81,6 +85,8 @@ export const AIProvidersSettings = ({
         setManagedAvailable(status.managedAiAvailable ?? false);
       })
       .catch((error) => logger.error('Failed to load AI mode:', error));
+    // Its own try (loadAiStatus never throws): an older backend or a failure leaves it unknown.
+    void loadAiStatus().then((ai) => setStarter(ai?.starterAllowance));
   }, [showModeSwitch]);
 
   const handleProviderDisabled = useCallback((data: unknown) => {
@@ -161,7 +167,9 @@ export const AIProvidersSettings = ({
       const code = err.data?.code;
       const description =
         code === 'managed_ai_not_entitled'
-          ? 'Managed AI is not available on your current plan. Upgrade your plan, or connect your own provider.'
+          ? starter
+            ? 'Your free AI allowance is used. Connect your own provider, or upgrade your plan.'
+            : 'Managed AI is not available on your current plan. Upgrade your plan, or connect your own provider.'
           : code === 'managed_ai_requires_verified_admin'
             ? 'This workspace has no admin with a verified email. One of its admins must verify their email before managed AI can be enabled.'
             : (err.data?.message ?? err.message ?? 'Failed to change AI mode.');
@@ -406,6 +414,7 @@ export const AIProvidersSettings = ({
           managedAvailable={managedAvailable}
           saving={modeSaving}
           onSelect={handleSelectMode}
+          starter={starter}
         />
       )}
 

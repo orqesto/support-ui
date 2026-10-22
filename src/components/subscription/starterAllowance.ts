@@ -7,13 +7,20 @@ import { getErrorBody } from '@/lib/errorMessages';
  * workspace adds its own AI key (or upgrades).
  *
  * EVERYTHING the frontend knows about the wire shape lives in this file: the parsing of
- * `/api/usage/current` → `ai.starterAllowance`, the refusal code, and the sentences. Adjust here
- * when the backend contract settles.
+ * `/api/usage/current` → `ai.starterAllowance`, the refusal codes, and the sentences.
  *
- * Contract (2026-10-22, backend built in parallel):
- *   `ai.starterAllowance?: { totalMicros, usedMicros, remainingMicros, exhausted }` — present only
- *   on Free on our key. `microsPerMessage` may come with it (on the block or on `ai`); without it
- *   the line shows a percentage. An AI refusal can carry code `FREE_AI_ALLOWANCE_USED`.
+ * Backend contract (final, BE release punch list 2026-10-22):
+ * - `ai.starterAllowance: { totalMicros, usedMicros, remainingMicros, exhausted } | null` — null
+ *   when the workspace is not on Free. Sent for an own-key Free workspace too, where nothing is
+ *   paused: `exhausted` alone is NOT "AI is paused".
+ * - Used up on our key: `ai.paused=true`, `ai.reason='free_allowance_used'`, `ai.message` = the
+ *   server's sentence.
+ * - The allowance is `STARTER_ALLOWANCE_MESSAGES` (100) × the platform's microsPerMessage, and the
+ *   response carries no microsPerMessage: one message = totalMicros / 100. A `microsPerMessage`
+ *   on the block or on `ai` (not sent today) wins if a later backend adds it.
+ * - Refusal codes: `FREE_AI_ALLOWANCE_USED` (translation 402 + stream error, AI test call 429),
+ *   `AI_NOT_IN_PLAN`, `AI_BUDGET_PAUSED`, `AI_PAUSED`; `AI_USAGE_LIMIT_EXCEEDED` was the old
+ *   translation code (older backend, kept for one release).
  * An older backend sends no field: nothing new is shown.
  */
 
@@ -28,6 +35,25 @@ export type StarterAllowance = {
 
 /** The refusal code of an AI call made after the allowance is used up. */
 export const FREE_AI_ALLOWANCE_USED = 'FREE_AI_ALLOWANCE_USED';
+
+/** `ai.reason` when the allowance is used up on our key. */
+export const FREE_ALLOWANCE_REASON = 'free_allowance_used';
+
+/** Messages in the allowance (backend `STARTER_ALLOWANCE_MESSAGES`). */
+export const STARTER_ALLOWANCE_MESSAGES = 100;
+
+/**
+ * Codes of an AI refusal: AI pauses, mail and agents keep working. None of them may raise the
+ * app-wide subscription gate on a 402 (api-client).
+ */
+export const AI_REFUSAL_CODES: readonly string[] = [
+  FREE_AI_ALLOWANCE_USED,
+  'AI_NOT_IN_PLAN',
+  'AI_BUDGET_PAUSED',
+  'AI_PAUSED',
+  // Older backend's translation code; drop one release after the starter allowance ships.
+  'AI_USAGE_LIMIT_EXCEEDED',
+];
 
 /** The route of the workspace's own AI key settings (Settings › Integrations › AI Providers). */
 export const AI_KEY_SETTINGS_PATH = '/settings#integrations/ai-providers';
@@ -59,13 +85,16 @@ export const parseStarterAllowance = (ai: unknown): StarterAllowance | undefined
   const { totalMicros, usedMicros, remainingMicros } = raw;
   if (!isCount(totalMicros) || totalMicros <= 0) return undefined;
   if (!isCount(usedMicros) || !isCount(remainingMicros)) return undefined;
-  const perMessage = raw.microsPerMessage ?? (ai as { microsPerMessage?: unknown }).microsPerMessage;
+  const sent = raw.microsPerMessage ?? (ai as { microsPerMessage?: unknown }).microsPerMessage;
+  // The response carries none today: the allowance is 100 messages, so one is a hundredth of it.
+  const perMessage =
+    isCount(sent) && sent > 0 ? sent : totalMicros / STARTER_ALLOWANCE_MESSAGES;
   return {
     totalMicros,
     usedMicros,
     remainingMicros,
     exhausted: typeof raw.exhausted === 'boolean' ? raw.exhausted : remainingMicros <= 0,
-    ...(isCount(perMessage) && perMessage > 0 ? { microsPerMessage: perMessage } : {}),
+    microsPerMessage: perMessage,
   };
 };
 
@@ -89,6 +118,10 @@ export const starterAllowanceLine = (allowance: StarterAllowance, isAdmin: boole
   const pct = Math.min(100, Math.round((allowance.remainingMicros / allowance.totalMicros) * 100));
   return `AI starter allowance: about ${pct}% left${money}.`;
 };
+
+/** AI is paused because the allowance is used up on our key (never for an own-key Free workspace). */
+export const isStarterPaused = (ai: { paused?: boolean; reason?: string | null } | undefined) =>
+  ai?.paused === true && ai.reason === FREE_ALLOWANCE_REASON;
 
 /** True for an AI refusal made because the starter allowance is used up. */
 export const isFreeAiAllowanceUsedError = (err: unknown): boolean =>
