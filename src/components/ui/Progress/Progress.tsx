@@ -10,6 +10,7 @@ export const Progress = ({
   variant = 'default',
   size = 'md',
   rounded = 'full',
+  'aria-label': ariaLabel,
 }: ProgressProps) => {
   const percentage = Math.min(Math.max(value, 0), max);
   const progressPercent = (percentage / max) * 100;
@@ -24,6 +25,7 @@ export const Progress = ({
           aria-valuenow={value}
           aria-valuemin={0}
           aria-valuemax={max}
+          aria-label={ariaLabel}
         />
       </div>
       {showLabel && (

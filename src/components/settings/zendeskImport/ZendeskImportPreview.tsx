@@ -1,5 +1,5 @@
 import { Download } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { summarizePreview } from './zendeskImportSummary';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -25,8 +25,15 @@ type Props = {
   onAct: (action: () => Promise<unknown>, failure: string) => Promise<void>;
 };
 
-/** Mailbox types a reply can leave through. */
-const MAIL_SOURCE_TYPES = new Set(['email', 'gmail']);
+/**
+ * Mailbox types a reply can leave through: every mail source type the backend has. An IMAP/SMTP
+ * mailbox is type `email` ("imap" is only a sync-channel label, never a source type), Gmail is
+ * `gmail`; the backend's own mail paths filter on exactly these two.
+ */
+export const MAIL_SOURCE_TYPES = new Set(['email', 'gmail']);
+
+/** How long the CSV's object URL lives after the click: revoking at once cancels some downloads. */
+const REVOKE_AFTER_MS = 1000;
 
 export const downloadConflicts = async (runId: number): Promise<void> => {
   const blob = await zendeskImportService.conflictsCsv(runId);
@@ -34,8 +41,10 @@ export const downloadConflicts = async (runId: number): Promise<void> => {
   const link = document.createElement('a');
   link.href = url;
   link.download = `zendesk-import-${runId}-conflicts.csv`;
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), REVOKE_AFTER_MS);
 };
 
 /** What the import will do, and the choices that change it. Nothing is written until Import. */
@@ -45,6 +54,12 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
   const [mailboxes, setMailboxes] = useState<Array<{ value: string; label: string }>>([]);
   const [confirmApply, setConfirmApply] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Saves run one at a time, each built from the LAST SAVED run: the backend replaces the whole
+  // options object, so two saves in flight would overwrite each other (a team set on group A
+  // lost when group B's save, built from the older render, lands second).
+  const latest = useRef(run);
+  latest.current = run;
+  const queue = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     departmentService
@@ -74,15 +89,24 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
     value: String(dept.id),
     label: dept.name,
   }));
-  const save = async (patch: Partial<ZendeskImportOptions>) => {
+  const save = (patchFrom: (current: ZendeskImportOptions) => Partial<ZendeskImportOptions>) => {
     setSaving(true);
-    try {
-      onRunChange(await zendeskImportService.updateOptions(run.id, patch));
-    } catch (error) {
-      toast.error(apiErrorMessage(error, 'Could not save the choice'));
-    } finally {
-      setSaving(false);
-    }
+    const next = queue.current.then(async () => {
+      try {
+        const saved = await zendeskImportService.updateOptions(
+          latest.current.id,
+          patchFrom(latest.current.options)
+        );
+        latest.current = saved;
+        onRunChange(saved);
+      } catch (error) {
+        toast.error(apiErrorMessage(error, 'Could not save the choice'));
+      } finally {
+        if (queue.current === next) setSaving(false);
+      }
+    });
+    queue.current = next;
+    return next;
   };
   const unmatched = Object.entries(preview.assignees).filter(
     ([, info]) => info.odlyUserId === null
@@ -104,6 +128,9 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
           </li>
           {summary.unchanged > 0 && (
             <li>{summary.unchanged.toLocaleString()} are unchanged since the last import</li>
+          )}
+          {summary.deletedInOdly > 0 && (
+            <li>{summary.deletedInOdly.toLocaleString()} deleted in Odly — skipped</li>
           )}
           {summary.skippedSpam > 0 && (
             <li>{summary.skippedSpam.toLocaleString()} closed as spam by Zendesk are skipped</li>
@@ -141,14 +168,14 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
         <h3 className="font-semibold">Choices</h3>
         <Toggle
           checked={options.includeSpam}
-          onChange={(next) => void save({ includeSpam: next })}
+          onChange={(next) => void save(() => ({ includeSpam: next }))}
           disabled={saving}
           label={`Also import tickets Zendesk closed as spam (${(preview.counts.spamClosed ?? 0).toLocaleString()})`}
         />
         {summary.probable > 0 && (
           <Toggle
             checked={options.includeProbable}
-            onChange={(next) => void save({ includeProbable: next })}
+            onChange={(next) => void save(() => ({ includeProbable: next }))}
             disabled={saving}
             label={`Join ${summary.probable.toLocaleString()} tickets to a thread with the same sender and subject from the same minutes (otherwise they become new threads)`}
           />
@@ -170,12 +197,15 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
                   aria-label={`Team for ${group}`}
                   placeholder="By the mailbox it was sent to"
                   clearable
-                  onChange={(value: string) => {
-                    const next = { ...options.groupDepartments };
-                    if (value) next[group] = Number(value);
-                    else delete next[group];
-                    void save({ groupDepartments: next });
-                  }}
+                  disabled={saving}
+                  onChange={(value: string) =>
+                    void save((current) => {
+                      const next = { ...current.groupDepartments };
+                      if (value) next[group] = Number(value);
+                      else delete next[group];
+                      return { groupDepartments: next };
+                    })
+                  }
                 />
               </div>
             ))}
@@ -189,8 +219,9 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
             value={options.defaultDepartmentId ? String(options.defaultDepartmentId) : ''}
             placeholder="Your first team"
             clearable
+            disabled={saving}
             onChange={(value: string) =>
-              void save({ defaultDepartmentId: value ? Number(value) : null })
+              void save(() => ({ defaultDepartmentId: value ? Number(value) : null }))
             }
           />
           <Select
@@ -200,8 +231,9 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
             value={options.defaultSourceId ? String(options.defaultSourceId) : ''}
             placeholder="The team's mailbox"
             clearable
+            disabled={saving}
             onChange={(value: string) =>
-              void save({ defaultSourceId: value ? Number(value) : null })
+              void save(() => ({ defaultSourceId: value ? Number(value) : null }))
             }
           />
         </div>
