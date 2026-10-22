@@ -209,6 +209,67 @@ describe('ZendeskImportSettings — review round 2', () => {
     expect(toastMock.info).not.toHaveBeenCalled();
     expect(lists()).toBe(before);
   });
+
+  // The server still lists the run as 'uploading', touched seconds ago (the stop has not reached
+  // it, or the cancel failed): this tab knows it stopped, so it is not "in another tab".
+  it.each([
+    ['stopped by the admin', 'abort'],
+    ['failed on a part', 'fail'],
+  ])('an upload %s in this tab is shown as stopped, with Delete', async (_label, how) => {
+    let listed: unknown[] = [];
+    get.mockImplementation((url: string) => routeGet(listed)(url));
+    const fresh = { ...uploadingRun, partsUploaded: 1, updatedAt: new Date().toISOString() };
+    post.mockImplementation((url: string) =>
+      Promise.resolve({ data: { success: true, data: url.endsWith('/runs') ? fresh : {} } })
+    );
+    put.mockImplementation(
+      (_url: string, _body: unknown, config: { signal?: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          if (how === 'fail') reject(apiError(400, { message: 'Bad part' }));
+          config.signal?.addEventListener('abort', () =>
+            reject(
+              Object.assign(new Error('canceled'), { name: 'CanceledError', code: 'ERR_CANCELED' })
+            )
+          );
+        })
+    );
+    render(<ZendeskImportSettings />);
+    const input = await screen.findByLabelText('Zendesk export file');
+    listed = [fresh];
+    fireEvent.change(input, { target: { files: [new File(['{}'], 'export.json')] } });
+    if (how === 'abort') {
+      await screen.findByRole('progressbar', { name: 'Upload progress' });
+      fireEvent.click(screen.getByRole('button', { name: /Stop upload/ }));
+    }
+
+    expect(await screen.findByText(/This upload stopped before it finished/)).toBeTruthy();
+    expect(screen.queryByText(/being uploaded in another tab/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Delete this import' })).toBeTruthy();
+    expect(post).toHaveBeenCalledWith(`/api/imports/zendesk/runs/${fresh.id}/cancel`, {});
+  });
+
+  it('the spam choice cannot be flipped again while its new check is starting', async () => {
+    get.mockImplementation(routeGet([previewedRun]));
+    put.mockImplementation((_url: string, body: unknown) =>
+      Promise.resolve({
+        data: {
+          success: true,
+          data: { ...previewedRun, options: { ...previewedRun.options, ...(body as object) } },
+        },
+      })
+    );
+    post.mockImplementation(() => new Promise(() => undefined));
+    render(<ZendeskImportSettings />);
+    const toggle = await screen.findByRole('switch', {
+      name: /Also import tickets Zendesk closed as spam/,
+    });
+
+    fireEvent.click(toggle);
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith('/api/imports/zendesk/runs/5/preview', {})
+    );
+    expect((toggle as HTMLButtonElement).disabled).toBe(true);
+  });
 });
 
 describe('useSerialOptionSaves', () => {

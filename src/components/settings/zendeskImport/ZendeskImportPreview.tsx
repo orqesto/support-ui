@@ -57,6 +57,8 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
    * Set while that check could not be started: the numbers on screen are from before the change.
    */
   const [stale, setStale] = useState(false);
+  /** A new check is being started: a second spam flip now would be refused (409) by the server. */
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     departmentService
@@ -86,8 +88,14 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
     value: String(dept.id),
     label: dept.name,
   }));
-  const recheck = () =>
-    onAct(() => zendeskImportService.preview(run.id), 'Could not start the check');
+  const recheck = async () => {
+    setChecking(true);
+    try {
+      await onAct(() => zendeskImportService.preview(run.id), 'Could not start the check');
+    } finally {
+      setChecking(false);
+    }
+  };
   const toggleSpam = async (next: boolean) => {
     if (!(await save(() => ({ includeSpam: next })))) return;
     // Until the new check starts the numbers are stale. Once it starts this screen is replaced by
@@ -156,7 +164,7 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
         <Toggle
           checked={options.includeSpam}
           onChange={(next) => void toggleSpam(next)}
-          disabled={saving}
+          disabled={saving || checking}
           label={`Also import tickets Zendesk closed as spam (${(preview.counts.spamClosed ?? 0).toLocaleString()}) — the export is checked again to update the numbers`}
         />
         {summary.probable > 0 && (
@@ -245,13 +253,13 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
             These numbers are from before the spam choice changed. Check again to update them before
             importing.{' '}
           </span>
-          <Button variant="outline" size="sm" onClick={() => void recheck()}>
+          <Button variant="outline" size="sm" onClick={() => void recheck()} disabled={checking}>
             Check again
           </Button>
         </Alert>
       )}
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => setConfirmApply(true)} disabled={saving || stale}>
+        <Button onClick={() => setConfirmApply(true)} disabled={saving || stale || checking}>
           Import {(summary.created + summary.joined).toLocaleString()} tickets
         </Button>
       </div>

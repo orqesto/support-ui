@@ -64,6 +64,8 @@ export const ZendeskImportSettings = () => {
   const [upload, setUpload] = useState<{ sent: number; total: number } | null>(null);
   /** The run the delete dialog is asking about. */
   const [deleteTarget, setDeleteTarget] = useState<ZendeskRun | null>(null);
+  /** The upload this tab stopped or lost: never "running in another tab", even before it goes quiet. */
+  const [stoppedHere, setStoppedHere] = useState<number | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const abort = useRef<AbortController | null>(null);
   /** False once the screen is gone: an upload stopped by leaving it says nothing and loads nothing. */
@@ -129,8 +131,10 @@ export const ZendeskImportSettings = () => {
     }
     const controller = new AbortController();
     abort.current = controller;
+    let createdId: number | null = null;
     try {
       const created = await zendeskImportService.create(file);
+      createdId = created.id;
       // The upload first, so the run is never seen as 'uploading' with nothing uploading.
       setUpload({ sent: 0, total: file.size });
       setRun(created);
@@ -149,6 +153,12 @@ export const ZendeskImportSettings = () => {
       // Stopping is the admin's own choice, not a failure.
       if (isAbortError(error, controller.signal)) toast.info('Upload stopped');
       else toast.error(apiErrorMessage(error, 'The upload failed'));
+      if (createdId !== null) {
+        // Stopped or failed here, so nothing is sending parts: mark it stopped on the server too,
+        // so other tabs and a reload see it as well. If that fails, this tab still knows.
+        setStoppedHere(createdId);
+        await zendeskImportService.cancel(createdId).catch(() => undefined);
+      }
       await load();
     } finally {
       setUpload(null);
@@ -179,7 +189,7 @@ export const ZendeskImportSettings = () => {
   // 'uploading' with no upload running in this tab: either stopped or lost (nothing sent for a
   // while — it can be deleted), or running in another tab or window (left alone).
   const elsewhere = run?.status === 'uploading' && !upload;
-  const abandoned = elsewhere && isAbandonedUpload(run, now);
+  const abandoned = elsewhere && (run.id === stoppedHere || isAbandonedUpload(run, now));
   const canStartNew = !run || ['applied', 'failed', 'cancelled', 'uploading'].includes(run.status);
   const progress = run?.progress;
   // The newest earlier run with a report — shown for reference while the current run has none
