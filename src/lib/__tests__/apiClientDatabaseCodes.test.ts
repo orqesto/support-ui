@@ -62,3 +62,33 @@ describe('api-client — database-related codes', () => {
     expect(useDatabaseStatusStore.getState().paused).toBeNull();
   });
 });
+
+/**
+ * An AI refusal is not the subscription gate: AI pauses, mail and agents keep working (Free starter
+ * allowance used up, owner decision 2026-10-22; the old translation limit).
+ */
+describe('api-client — AI refusals on 402', () => {
+  it.each([
+    'FREE_AI_ALLOWANCE_USED',
+    'AI_NOT_IN_PLAN',
+    'AI_BUDGET_PAUSED',
+    'AI_PAUSED',
+    // Older backend's translation code, kept for one release.
+    'AI_USAGE_LIMIT_EXCEEDED',
+  ])(
+    'does not raise the subscription gate on 402 %s',
+    async (code) => {
+      await expect(
+        handleResponseError(failure(402, { code, error: 'AI is paused.' }))
+      ).rejects.toMatchObject({ status: 402 });
+      expect(useSubscriptionGateStore.getState().gated).toBe(false);
+    }
+  );
+
+  it('a 402 with no code still raises the gate', async () => {
+    await expect(
+      handleResponseError(failure(402, { error: 'Your subscription is not active.' }))
+    ).rejects.toMatchObject({ status: 402 });
+    expect(useSubscriptionGateStore.getState().gated).toBe(true);
+  });
+});

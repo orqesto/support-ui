@@ -25,9 +25,15 @@ import { billingDateLine } from '@/components/subscription/billingDateLine';
 import { FreePlanActiveCard } from '@/components/subscription/FreePlanActiveCard';
 import { MessagePackOfferCard } from '@/components/subscription/MessagePackOfferCard';
 import { AiPausedBanner } from '@/components/subscription/AiPausedBanner';
-import { loadAiStatus, loadOwnKey, type AiStatus } from '@/components/subscription/aiStatus';
+import { loadAiKeyState, loadAiStatus, type AiStatus } from '@/components/subscription/aiStatus';
+import { isStarterPaused } from '@/components/subscription/starterAllowance';
 import { PlanLimitsCard } from '@/components/subscription/PlanLimitsCard';
-import { MessagesSummary, TRIAL_SENTENCE } from '@/components/subscription/MessagesSummary';
+import {
+  MessagesSummary,
+  TRIAL_SENTENCE,
+  aiSourceOf,
+} from '@/components/subscription/MessagesSummary';
+import { StarterAllowanceLine } from '@/components/subscription/StarterAllowanceLine';
 import { describeUsagePeriod } from '@/components/subscription/usagePeriodCopy';
 import { useMessagePackReturn } from '@/components/subscription/useMessagePackReturn';
 import { UsageTile, type UsageItem } from '@/components/subscription/UsageTile';
@@ -138,6 +144,7 @@ export const SubscriptionPage = () => {
   // `ai` of /api/usage/current: the AI-paused banner and the own-key line. Optional (older backend).
   // From the provider settings (`platform.active === false` ⇒ own key). null = unknown ⇒ no wording.
   const [ownKey, setOwnKey] = useState(false);
+  const [ourAiOff, setOurAiOff] = useState(false);
   const [aiStatus, setAiStatus] = useState<AiStatus | undefined>(undefined);
   const [subscriptionDetails, setSubscriptionDetails] = useState<SubscriptionDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -237,7 +244,9 @@ export const SubscriptionPage = () => {
       setSubscriptionDetails(subRes.data.data);
       // Their own tries: the page is complete without the AI block and the provider settings.
       setAiStatus(await loadAiStatus());
-      setOwnKey(await loadOwnKey());
+      const keyState = await loadAiKeyState();
+      setOwnKey(keyState.ownKey);
+      setOurAiOff(keyState.ourAiOff);
     } catch (error) {
       logger.error('Failed to load subscription:', error);
     } finally {
@@ -315,8 +324,19 @@ export const SubscriptionPage = () => {
   const { plan, subscription } = subscriptionDetails;
   // Managed AI is in the messages only where the plan carries it: not Free, not a workspace on its
   // own key, not when the API says AI is not in the plan.
-  const aiIncluded = plan.name !== 'free' && !ownKey && aiStatus?.reason !== 'not_in_plan';
+  const aiSource = aiSourceOf({
+    planName: plan.name,
+    ownKey,
+    notInPlan: aiStatus?.reason === 'not_in_plan',
+    hasStarterAllowance: Boolean(aiStatus?.starterAllowance),
+    ourAiOff,
+    starterPaused: isStarterPaused(aiStatus),
+  });
+  const aiIncluded = aiSource === 'included';
+  const isAdmin = !!user && isOrgAdminOrHigher(user.role, user.organizationRole);
   // Before the budgets are applied the old monthly AI-call cap still refuses work: keep showing it.
+  // By design (parked ruling, kept): an own-key workspace never sees the AI-calls tile, before
+  // Apply too — that cap applies to the platform key only.
   const showAiCalls = aiStatus?.active !== true && !ownKey;
   const billingLine = billingDateLine(plan, subscription);
   const { usage } = dashboard;
@@ -469,7 +489,7 @@ export const SubscriptionPage = () => {
           <CardContent>
             <AiPausedBanner
               ai={aiStatus}
-              isAdmin={!!user && isOrgAdminOrHigher(user.role, user.organizationRole)}
+              isAdmin={isAdmin}
               packAction={
                 packOffer?.available ? (
                   <button
@@ -488,8 +508,9 @@ export const SubscriptionPage = () => {
               limit={usage.messages.limit}
               used={usage.messages.current}
               period={dashboard.period}
-              aiIncluded={aiIncluded}
+              aiSource={aiSource}
             />
+            <StarterAllowanceLine ai={aiStatus} isAdmin={isAdmin} inUse={aiSource === 'starter'} />
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <UsageTile title="Users" icon={Users} item={usage.users} />
               <UsageTile title="Integrations" icon={Plug} item={usage.integrations} />

@@ -60,6 +60,8 @@ export const limitSliderTop = ({
 /**
  * Money from micro-dollars: "≈ $12.40" (2 decimals). A positive amount under one cent is
  * "<$0.01" (under half a cent), never "≈ $0.00" (it was spent). Thousands are grouped: "≈ $1,234.50".
+ * Kept by design (M7): always en-US, whatever the browser locale — the amount is US dollars and a
+ * "$1.234,50" would misread. The server's texts drop "≈"; this adds it.
  */
 export const fmtMoney = (micros: number): string => {
   // Same rule as the backend: under half a cent (and above nothing) is "<$0.01"; a tiny negative

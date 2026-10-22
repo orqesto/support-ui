@@ -57,6 +57,20 @@ describe('formatting', () => {
     expect(fmtMoney(-100)).toBe('≈ $0.00');
   });
 
+  it('kept by design (M7): fmtMoney is en-US whatever the browser locale', () => {
+    // A German browser: the default locale would write 1.234,50.
+    const spy = vi
+      .spyOn(Number.prototype, 'toLocaleString')
+      .mockImplementation(function (this: number, locale?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions) {
+        return new Intl.NumberFormat(locale ?? 'de-DE', options).format(this);
+      });
+    try {
+      expect(fmtMoney(1_234_500_000)).toBe('≈ $1,234.50');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('fmtMoney says "<$0.01" for a tiny positive amount, never "$0.00"', () => {
     expect(fmtMoney(1)).toBe('<$0.01');
     expect(fmtMoney(4_999)).toBe('<$0.01');

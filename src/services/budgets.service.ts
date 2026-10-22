@@ -2,7 +2,7 @@ import { apiClient } from '@/lib/api-client';
 import { getErrorBody, getErrorStatus } from '@/lib/errorMessages';
 
 /*
- * The monthly AI budgets API. The types below are copied VERBATIM from the backend contract
+ * The AI budgets API (budgets follow the billing period). The types below are copied VERBATIM from the backend contract
  * (src/modules/budgets/budgetTypes.ts); change a shape there only together with here.
  *
  * MONEY: every amount is integer micro-dollars (1 USD = 1,000,000) in `currency` (always 'USD').

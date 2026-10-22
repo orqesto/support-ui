@@ -14,7 +14,7 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import type { MigrationBasis, MigrationOverrides, MigrationRow } from '@/services/budgets.service';
 
 /**
- * Before the switch: the dry run of the monthly budgets (what each group would get, from what),
+ * Before the switch: the dry run of the AI budgets (what each group would get, from what),
  * editable per group, and Apply. Until Apply the old daily limits stay in force.
  */
 
@@ -64,7 +64,7 @@ export const BudgetMigrationPanel = () => {
     <Card>
       <CardContent className="flex flex-col gap-4 p-5 sm:p-6">
         <div className="flex flex-col gap-1">
-          <h3 className="font-display text-base font-semibold">Switch to monthly budgets</h3>
+          <h3 className="font-display text-base font-semibold">Switch to AI budgets</h3>
           <p className="text-sm text-muted-foreground">
             Current limits stay in force until you switch. Below is what each organisation and
             standalone workspace would get; change any budget before you apply.
@@ -72,7 +72,7 @@ export const BudgetMigrationPanel = () => {
         </div>
         {data.note && <p className="text-sm text-muted-foreground">{data.note}</p>}
         {data.alreadyActive && (
-          <Alert variant="info">The monthly budgets are already switched on.</Alert>
+          <Alert variant="info">The AI budgets are already switched on.</Alert>
         )}
         <DataTable
           rows={data.rows}
@@ -102,14 +102,14 @@ export const BudgetMigrationPanel = () => {
             },
             {
               id: 'budget',
-              header: 'Monthly budget (US dollars)',
+              header: 'AI budget per billing period (US dollars)',
               cell: (row) => {
                 const key = groupKeyOfRow(row);
                 return (
                   <Input
                     type="number"
                     min={0}
-                    aria-label={`Monthly budget for ${row.name}, dollars`}
+                    aria-label={`AI budget for ${row.name}, dollars`}
                     placeholder="No budget"
                     value={drafts[key] ?? dollarsText(row.budget)}
                     onChange={(event) =>
@@ -189,7 +189,7 @@ export const BudgetMigrationPanel = () => {
           confirmText="Apply"
           onConfirm={() =>
             apply.mutate(changed > 0 ? overrides : undefined, {
-              onSuccess: () => toast.success('Monthly budgets are on'),
+              onSuccess: () => toast.success('AI budgets are on'),
               onError: (applyError) =>
                 toast.error(getApiErrorMessage(applyError) ?? 'Could not switch the budgets on.'),
             })

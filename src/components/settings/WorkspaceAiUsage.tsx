@@ -19,8 +19,8 @@ const failed = (fallback: string) => (error: unknown) =>
   toast.error(getApiErrorMessage(error) ?? fallback);
 
 /**
- * Workspace settings → AI usage. Every member sees this workspace's group budget and its own
- * bulk numbers (read-only); a workspace admin may request extra; a hosted own-key standalone
+ * Workspace settings → AI usage. Admin-only since R15 (the tab is hidden from other members): a
+ * workspace admin sees this workspace's group budget and its own bulk numbers and may request extra; a hosted own-key standalone
  * admin also sets the budget and the bulk limit. What is editable comes from `canEdit`.
  */
 export const WorkspaceAiUsage = () => {

@@ -79,7 +79,7 @@ export const PricingPage = () => {
         setKeepFit(fit);
         return;
       }
-      setAlertDialog({ open: true, title: 'Switch to Free', description: "Switch this workspace to the Free plan? Free's limits apply and AI runs on your own key. This change takes effect immediately.", variant: 'info', confirmAction: true });
+      setAlertDialog({ open: true, title: 'Switch to Free', description: "Switch this workspace to the Free plan? Free's limits apply, with AI on your own key (and a starter allowance of AI on us). This change takes effect immediately.", variant: 'info', confirmAction: true });
       return;
     }
     setAlertDialog({ open: true, title: 'Confirm Upgrade', description: `Are you sure you want to upgrade to the ${planName} plan? This change will take effect immediately.`, variant: 'info', confirmAction: true });

@@ -36,7 +36,19 @@ vi.mock('@/components/shared/RichTextEditor', () => ({
     />
   ),
 }));
-vi.mock('@/lib/api-client', () => ({ apiClient: empty() }));
+/** Set ⇒ POST /api/ai/enhance-ticket is refused with this (an apiError). */
+let enhanceRefusal: Error | null = null;
+vi.mock('@/lib/api-client', () => ({
+  apiClient: new Proxy(
+    {},
+    {
+      get: (_target, key) => (url: unknown) =>
+        key === 'post' && String(url).includes('enhance-ticket') && enhanceRefusal
+          ? Promise.reject(enhanceRefusal)
+          : Promise.resolve({ success: true, data: [] }),
+    }
+  ),
+}));
 vi.mock('@/services/category.service', () => ({ categoryService: empty() }));
 const integrations: { list: unknown[] } = { list: [] };
 vi.mock('@/services/integrations.service', () => ({
@@ -617,5 +629,44 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
     await user.type(screen.getByLabelText('Threads it explains (optional)'), 'x');
     await waitFor(() => expect(screen.queryByText(/Showing the newest 25/)).toBeNull());
     expect(screen.getByText('No threads match.')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Enhance-ticket answers 429 FREE_AI_ALLOWANCE_USED once the Free starter allowance is used up
+ * (release review finding 1): an agent reads the allowance sentence, not "Please try again".
+ */
+describe('AI enhance refused by the Free starter allowance', () => {
+  afterEach(() => {
+    enhanceRefusal = null;
+    cleanup();
+  });
+
+  it.each([429, 402])('%i FREE_AI_ALLOWANCE_USED: "ask your admin", no "try again"', async (status) => {
+    const { apiError } = await import('@/test/apiError');
+    enhanceRefusal = (await apiError(status, {
+      code: 'FREE_AI_ALLOWANCE_USED',
+      error: 'Your free AI allowance is used. Add your own AI key to keep AI running.',
+    })) as Error;
+    auth.user = SUPPORT;
+    perms.create = true;
+    const user = userEvent.setup();
+    renderPage();
+    await user.type(await screen.findByTestId('description'), 'Expected delays.');
+    await user.click(screen.getByRole('button', { name: /AI enhance/ }));
+    expect(
+      await screen.findByText(/Your free AI allowance is used — ask your admin/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Please try again/)).not.toBeInTheDocument();
+  });
+
+  it('any other failure keeps "Please try again"', async () => {
+    const { apiError } = await import('@/test/apiError');
+    enhanceRefusal = (await apiError(500, { error: 'boom' })) as Error;
+    const user = userEvent.setup();
+    renderPage();
+    await user.type(await screen.findByTestId('description'), 'Expected delays.');
+    await user.click(screen.getByRole('button', { name: /AI enhance/ }));
+    expect(await screen.findByText(/Please try again/)).toBeInTheDocument();
   });
 });

@@ -93,4 +93,84 @@ describe('AiPausedBanner', () => {
     const text = screen.getByTestId('ai-paused-banner').textContent ?? '';
     expect(text.match(/\$4\.20 of \$5\.00/g)).toHaveLength(1);
   });
+
+  it('budget_used to someone who cannot open the Subscription page: ask an admin, no buy wording', () => {
+    render(
+      <MemoryRouter>
+        <AiPausedBanner ai={ai()} packAction={pack} canOpenSubscription={false} />
+      </MemoryRouter>
+    );
+    const banner = screen.getByTestId('ai-paused-banner');
+    expect(banner).toHaveTextContent(/Ask an admin to buy more messages or upgrade/);
+    expect(banner).not.toHaveTextContent(/Buying more messages/);
+    expect(screen.queryByText('Buy 1,000 messages')).not.toBeInTheDocument();
+  });
+
+  describe('Free starter allowance', () => {
+    const starter = (exhausted: boolean) =>
+      ai({
+        paused: exhausted,
+        reason: exhausted ? 'free_allowance_used' : null,
+        message: exhausted
+          ? 'Your free AI allowance is used. Add your own AI key to keep AI running.'
+          : null,
+        starterAllowance: {
+          totalMicros: 400_000,
+          usedMicros: exhausted ? 400_000 : 100_000,
+          remainingMicros: exhausted ? 0 : 300_000,
+          exhausted,
+        },
+      });
+
+    it('used up, admin: the sentence with Add your AI key + Upgrade, no pack', () => {
+      show(starter(true), { isAdmin: true });
+      const banner = screen.getByTestId('ai-paused-banner');
+      expect(banner).toHaveAttribute('data-reason', 'free_allowance_used');
+      // The server's sentence.
+      expect(banner).toHaveTextContent(
+        'Your free AI allowance is used. Add your own AI key to keep AI running.'
+      );
+      expect(screen.getByText('Add your AI key')).toHaveAttribute(
+        'href',
+        '/settings#integrations/ai-providers'
+      );
+      expect(screen.getByText('Upgrade')).toHaveAttribute('href', '/pricing');
+      expect(screen.queryByText('Buy 1,000 messages')).not.toBeInTheDocument();
+    });
+
+    it('used up, agent: "ask your admin" and no buttons', () => {
+      show(starter(true));
+      expect(screen.getByTestId('ai-paused-banner')).toHaveTextContent(
+        'Your free AI allowance is used — ask your admin to add your own AI key to keep AI running.'
+      );
+      expect(screen.queryByText('Add your AI key')).not.toBeInTheDocument();
+      expect(screen.queryByText('Upgrade')).not.toBeInTheDocument();
+    });
+
+    it('used up but not paused (own-key Free): no banner', () => {
+      show(
+        ai({
+          paused: false,
+          reason: null,
+          starterAllowance: { totalMicros: 1, usedMicros: 1, remainingMicros: 0, exhausted: true },
+        }),
+        { isAdmin: true }
+      );
+      expect(screen.queryByTestId('ai-paused-banner')).not.toBeInTheDocument();
+    });
+
+    it('used up, no server sentence: the fixed admin sentence', () => {
+      show(ai({ reason: 'free_allowance_used', message: null }), {
+        isAdmin: true,
+      });
+      expect(screen.getByTestId('ai-paused-banner')).toHaveTextContent(
+        'Your free AI allowance is used — add your own AI key to keep AI running.'
+      );
+    });
+
+    it('allowance left: no banner', () => {
+      show(starter(false), { isAdmin: true });
+      expect(screen.queryByTestId('ai-paused-banner')).not.toBeInTheDocument();
+    });
+  });
 });

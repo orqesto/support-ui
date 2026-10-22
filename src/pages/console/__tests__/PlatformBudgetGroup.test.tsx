@@ -517,3 +517,63 @@ describe('BudgetGroupView, organisation mode', () => {
     expect(screen.getByTestId('budget-readonly')).toHaveTextContent('≈ $100.00');
   });
 });
+
+describe('an organisation switched to separate (F1)', () => {
+  const separateMode = { current: 'separate' as const, next: null };
+  const orgWideRequest = {
+    id: 41,
+    target: { allianceId: 7, organizationId: null, name: 'Northwind' },
+    amountMicros: 10 * MLN,
+    reason: null,
+    requestedBy: 'admin@northwind.example',
+    createdAt: '2026-10-20T10:00:00.000Z',
+  };
+  const workspaceRequest = {
+    ...orgWideRequest,
+    id: 42,
+    target: { allianceId: 7, organizationId: 1, name: 'Shop 1' },
+  };
+
+  it('an organisation-wide request: Give is off with the reason, Decline stays; a workspace request keeps Give', async () => {
+    detail = groupDetail({ mode: separateMode, requests: [orgWideRequest, workspaceRequest] });
+    renderGroup();
+    const orgWide = await screen.findByTestId('budget-request-41');
+    expect(within(orgWide).getByRole('button', { name: 'Give' })).toBeDisabled();
+    expect(within(orgWide).getByRole('button', { name: 'Decline' })).toBeEnabled();
+    expect(within(orgWide).getByTestId('budget-request-41-blocked')).toHaveTextContent(
+      /gives each workspace its own budget/
+    );
+    const perWorkspace = screen.getByTestId('budget-request-42');
+    expect(within(perWorkspace).getByRole('button', { name: 'Give' })).toBeEnabled();
+    // The group page knew the mode: no second read of the group for the request.
+    expect(calls.getGroup).toEqual(['a:7']);
+  });
+
+  it('shared: the organisation-wide request keeps Give', async () => {
+    detail = groupDetail({
+      mode: { current: 'shared', next: null },
+      requests: [orgWideRequest],
+    });
+    renderGroup();
+    const orgWide = await screen.findByTestId('budget-request-41');
+    expect(within(orgWide).getByRole('button', { name: 'Give' })).toBeEnabled();
+    expect(within(orgWide).queryByTestId('budget-request-41-blocked')).toBeNull();
+  });
+
+  it('an organisation extra still active after the switch is shown read-only and can be ended', async () => {
+    detail = groupDetail({ mode: separateMode, groupExtra: extra(9) });
+    renderGroup();
+    const line = await screen.findByTestId('budget-separate-group-extra');
+    expect(line).toHaveTextContent(/given before the switch/);
+    expect(line).toHaveTextContent('$20.00');
+    fireEvent.click(within(line).getByRole('button', { name: 'End extra' }));
+    await waitFor(() => expect(calls.endExtra).toEqual([[9]]));
+  });
+
+  it('no organisation extra: no line', async () => {
+    detail = groupDetail({ mode: separateMode });
+    renderGroup();
+    await screen.findByTestId('budget-separate-note');
+    expect(screen.queryByTestId('budget-separate-group-extra')).toBeNull();
+  });
+});

@@ -280,6 +280,7 @@ describe('Subscription page: messages with AI included', () => {
     render(<SubscriptionPage />);
     expect(await screen.findByTestId('messages-summary')).toBeInTheDocument();
     expect(screen.queryByTestId('ai-paused-banner')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('starter-allowance-line')).not.toBeInTheDocument();
   });
 
   it('Free plan: no "AI included" anywhere, the own-key sentence instead', async () => {
@@ -322,5 +323,141 @@ describe('Subscription page: messages with AI included', () => {
     expect(
       await screen.findByText('14-day free trial on any paid plan, up to 1,000 messages, no card')
     ).toBeInTheDocument();
+  });
+
+  it('not_in_plan on a paid plan without an own key: says so, never "runs on your own key" (F3)', async () => {
+    load(aiBlock({ paused: true, reason: 'not_in_plan', usedMicros: null, budgetMicros: null }));
+    render(<SubscriptionPage />);
+    const line = await screen.findByTestId('messages-summary');
+    expect(line).toHaveTextContent(
+      'AI is not included in your plan: upgrade, or connect your own AI key; your plan covers 16,000 messages.'
+    );
+    expect(line).not.toHaveTextContent(/runs on your own key/);
+  });
+
+  it('kept by ruling (parked): an own-key workspace has no AI Calls tile before Apply either', async () => {
+    load(aiBlock({ active: false, usedMicros: null, budgetMicros: null }), 'active', true, {
+      platform: { active: false },
+      enabled: [{ id: 1 }],
+    });
+    render(<SubscriptionPage />);
+    await screen.findByTestId('messages-summary');
+    await waitFor(() => expect(screen.queryByText('AI Calls')).not.toBeInTheDocument());
+    expect(screen.queryByText('AI Calls / Month')).not.toBeInTheDocument();
+  });
+});
+
+describe('Subscription page: Free AI starter allowance', () => {
+  const starter = (over: Record<string, unknown> = {}, aiOver: Record<string, unknown> = {}) =>
+    aiBlock({
+      usedMicros: null,
+      budgetMicros: null,
+      microsPerMessage: 4_000,
+      starterAllowance: {
+        totalMicros: 400_000,
+        usedMicros: 148_000,
+        remainingMicros: 252_000,
+        exhausted: false,
+        ...over,
+      },
+      ...aiOver,
+    });
+
+  beforeEach(() => {
+    planName = 'free';
+  });
+
+  it('an agent reads messages left, no money; the summary names the starter allowance', async () => {
+    testUser = { role: 'user', organizationRole: 'support' };
+    load(starter());
+    render(<SubscriptionPage />);
+    const line = await screen.findByTestId('starter-allowance-line');
+    expect(line).toHaveTextContent('AI starter allowance: about 63 of 100 messages left.');
+    expect(line).not.toHaveTextContent(/\$/);
+    expect(screen.getByTestId('messages-summary')).toHaveTextContent(
+      'AI runs on a starter allowance on us until you add your own AI key'
+    );
+    expect(screen.queryByTestId('ai-paused-banner')).not.toBeInTheDocument();
+  });
+
+  it('an admin also reads the money', async () => {
+    load(starter());
+    render(<SubscriptionPage />);
+    expect(await screen.findByTestId('starter-allowance-line')).toHaveTextContent(
+      'about 63 of 100 messages left (≈ $0.25 of $0.40 left).'
+    );
+  });
+
+  it('no microsPerMessage in the response (the real backend): 100 messages from the allowance', async () => {
+    load(starter({}, { microsPerMessage: undefined }));
+    render(<SubscriptionPage />);
+    expect(await screen.findByTestId('starter-allowance-line')).toHaveTextContent(
+      'AI starter allowance: about 63 of 100 messages left'
+    );
+  });
+
+  it('own-key Free (the backend sends the block too): no line, no banner, own-key sentence', async () => {
+    load(
+      starter({ usedMicros: 400_000, remainingMicros: 0, exhausted: true }),
+      'active',
+      true,
+      { platform: { active: false }, enabled: [{ id: 1 }] }
+    );
+    render(<SubscriptionPage />);
+    await waitFor(() =>
+      expect(screen.getByTestId('messages-summary')).toHaveTextContent('AI runs on your own key')
+    );
+    expect(screen.queryByTestId('starter-allowance-line')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ai-paused-banner')).not.toBeInTheDocument();
+  });
+
+  it('not on Free: starterAllowance null, nothing new', async () => {
+    planName = 'pro';
+    load(aiBlock({ starterAllowance: null }));
+    render(<SubscriptionPage />);
+    await screen.findByTestId('messages-summary');
+    expect(screen.queryByTestId('starter-allowance-line')).not.toBeInTheDocument();
+  });
+
+  it('used up: the banner with Add your AI key and Upgrade (admin)', async () => {
+    load(
+      starter(
+        { usedMicros: 400_000, remainingMicros: 0, exhausted: true },
+        {
+          paused: true,
+          reason: 'free_allowance_used',
+          message: 'Your free AI allowance is used. Add your own AI key to keep AI running.',
+        }
+      )
+    );
+    render(<SubscriptionPage />);
+    const banner = await screen.findByTestId('ai-paused-banner');
+    expect(banner).toHaveTextContent('Your free AI allowance is used. Add your own AI key');
+    expect(screen.getByText('Add your AI key')).toHaveAttribute(
+      'href',
+      '/settings#integrations/ai-providers'
+    );
+    expect(screen.getByTestId('starter-allowance-line')).toHaveTextContent('used up');
+  });
+
+  it('a malformed allowance from the backend: nothing new, the page renders', async () => {
+    load(starter({ totalMicros: 'lots' }));
+    render(<SubscriptionPage />);
+    expect(await screen.findByTestId('messages-summary')).toHaveTextContent(
+      'AI runs on your own key'
+    );
+    expect(screen.queryByTestId('starter-allowance-line')).not.toBeInTheDocument();
+  });
+
+  it('own-key mode with no provider (review finding 4): "AI is off", no starter line', async () => {
+    load(starter(), 'active', true, { platform: { active: false }, enabled: [] });
+    render(<SubscriptionPage />);
+    await waitFor(() =>
+      expect(screen.getByTestId('messages-summary')).toHaveTextContent(
+        'AI is off: add your own AI key to run it'
+      )
+    );
+    expect(screen.getByTestId('messages-summary')).not.toHaveTextContent(/starter allowance/);
+    expect(screen.queryByTestId('starter-allowance-line')).not.toBeInTheDocument();
   });
 });

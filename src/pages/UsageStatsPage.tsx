@@ -6,7 +6,12 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
-import { loadAiStatus } from '@/components/subscription/aiStatus';
+import { loadAiKeyState, loadAiStatus, type AiStatus } from '@/components/subscription/aiStatus';
+import { isStarterPaused } from '@/components/subscription/starterAllowance';
+import { StarterAllowanceLine } from '@/components/subscription/StarterAllowanceLine';
+import { aiSourceOf } from '@/components/subscription/MessagesSummary';
+import { useAuthStore } from '@/stores/authStore';
+import { isOrgAdminOrHigher } from '@/types/roles';
 import { usageRowsFrom, type RawUsage } from './usageStatsRows';
 
 type UsageModule = {
@@ -24,6 +29,11 @@ export const UsageStatsPage = () => {
   const navigate = useNavigate();
   const [usage, setUsage] = useState<UsageModule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [aiStatus, setAiStatus] = useState<AiStatus | undefined>(undefined);
+  // The starter line shows only while the workspace is on our AI (not own key, not AI off).
+  const [starterInUse, setStarterInUse] = useState(false);
+  const user = useAuthStore((state) => state.user);
+  const isAdmin = !!user && isOrgAdminOrHigher(user.role, user.organizationRole);
 
   useEffect(() => {
     const fetchUsage = async () => {
@@ -32,6 +42,23 @@ export const UsageStatsPage = () => {
           '/api/subscriptions/usage'
         );
         const ai = await loadAiStatus();
+        // Only for the starter-allowance line (an own-key Free workspace does not draw on it);
+        // read before the line can show, so it never flashes.
+        if (ai?.starterAllowance) {
+          const keyState = await loadAiKeyState();
+          // The allowance is Free-only, so the Subscription page's rule applies as is.
+          setStarterInUse(
+            aiSourceOf({
+              planName: 'free',
+              ownKey: keyState.ownKey,
+              notInPlan: false,
+              hasStarterAllowance: true,
+              ourAiOff: keyState.ourAiOff,
+              starterPaused: isStarterPaused(ai),
+            }) === 'starter'
+          );
+        }
+        setAiStatus(ai);
         setUsage(usageRowsFrom(usageRes.data.data.usage, ai?.active === true));
       } catch (error) {
         logger.error('Failed to load usage:', error);
@@ -102,6 +129,8 @@ export const UsageStatsPage = () => {
             Export CSV
           </Button>
         </div>
+
+        <StarterAllowanceLine ai={aiStatus} isAdmin={isAdmin} inUse={starterInUse} />
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">

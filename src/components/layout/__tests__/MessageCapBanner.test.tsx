@@ -135,6 +135,8 @@ describe('the message-cap banner', () => {
     renderBanner('/subscription');
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(screen.queryByTestId('message-cap-banner')).not.toBeInTheDocument();
+    // …and does not read /api/usage/current there: the page reads it itself (one request, not two).
+    expect(getUsage).not.toHaveBeenCalled();
   });
 
   it('shows the fact but no links to members who cannot open the Subscription page', async () => {
@@ -212,5 +214,89 @@ describe('the AI-paused banner inside the app-level banner', () => {
       expect(banner).toHaveTextContent(/AI messages are used up/);
       expect(banner).not.toHaveTextContent(/\$/);
     });
+  });
+});
+
+describe('budget_used to a member who cannot buy (F4)', () => {
+  it('asks an admin instead of offering to buy', async () => {
+    canView = false;
+    getUsage.mockResolvedValue(
+      usage({
+        current: { messages: 10, users: 3, integrations: 2 },
+        ai: {
+          currency: 'USD',
+          active: true,
+          usedMicros: 5_000_000,
+          budgetMicros: 5_000_000,
+          paused: true,
+          bulkPaused: false,
+          reason: 'budget_used',
+          message: 'Used up.',
+          resetsAt: null,
+        },
+      })
+    );
+    renderBanner();
+    const banner = await screen.findByTestId('ai-paused-banner');
+    expect(banner).toHaveTextContent(/Ask an admin to buy more messages or upgrade/);
+    expect(banner).not.toHaveTextContent(/Buying more messages/);
+    expect(screen.queryByText('Upgrade')).not.toBeInTheDocument();
+  });
+});
+
+describe('Free starter allowance used up', () => {
+  const exhausted = (paused: boolean) =>
+    usage({
+      current: { messages: 10, users: 3, integrations: 2 },
+      ai: {
+        currency: 'USD',
+        active: true,
+        usedMicros: null,
+        budgetMicros: null,
+        paused,
+        bulkPaused: paused,
+        reason: paused ? 'free_allowance_used' : null,
+        message: paused
+          ? 'Your free AI allowance is used. Add your own AI key to keep AI running.'
+          : null,
+        resetsAt: null,
+        starterAllowance: {
+          totalMicros: 400_000,
+          usedMicros: 400_000,
+          remainingMicros: 0,
+          exhausted: true,
+        },
+      },
+    });
+
+  it('an admin: the sentence, Add your AI key and Upgrade', async () => {
+    viewer = { role: 'user', organizationRole: 'org_admin' };
+    getUsage.mockResolvedValue(exhausted(true));
+    renderBanner();
+    const banner = await screen.findByTestId('ai-paused-banner');
+    expect(banner).toHaveTextContent(
+      'Your free AI allowance is used. Add your own AI key to keep AI running.'
+    );
+    expect(screen.getByText('Add your AI key')).toHaveAttribute(
+      'href',
+      '/settings#integrations/ai-providers'
+    );
+    expect(screen.getByText('Upgrade')).toHaveAttribute('href', '/pricing');
+  });
+
+  it('an agent: "ask your admin", no buttons', async () => {
+    getUsage.mockResolvedValue(exhausted(true));
+    renderBanner();
+    const banner = await screen.findByTestId('ai-paused-banner');
+    expect(banner).toHaveTextContent(/ask your admin/);
+    expect(screen.queryByText('Add your AI key')).not.toBeInTheDocument();
+    expect(screen.queryByText('Upgrade')).not.toBeInTheDocument();
+  });
+
+  it('exhausted but not paused (an own-key Free workspace): no banner', async () => {
+    getUsage.mockResolvedValue(exhausted(false));
+    renderBanner();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByTestId('ai-paused-banner')).not.toBeInTheDocument();
   });
 });

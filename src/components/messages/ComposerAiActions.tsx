@@ -18,6 +18,7 @@ import {
   isAiDraftsOffError,
   isAiNotConfiguredError,
 } from '@/lib/errorMessages';
+import { useAiRefusalText } from '@/components/subscription/useAiRefusalText';
 import { messageService, type AiDraft } from '@/services/message.service';
 import { answerToEditorHtml, COMPOSER_AI_TOOL, LABEL } from './messageDetailConstants';
 
@@ -142,6 +143,7 @@ export function ComposerAiActions({
   const { aiConfigured } = useAiConfigured();
   const { off: aiDraftsOff } = useAiDraftsOff();
   const refreshAiDrafts = useRefreshAiDrafts();
+  const refusalText = useAiRefusalText();
 
   /**
    * What went wrong, in the agent's words. The BE's 4xx copy is the message ("This conversation
@@ -152,6 +154,9 @@ export function ComposerAiActions({
     const status = getErrorStatus(err);
     if (isAiDraftsOffError(err)) return AI_DRAFTS_OFF_MESSAGE;
     if (isAiNotConfiguredError(err)) return AI_NOT_CONFIGURED_MESSAGE;
+    // An AI refusal (used-up starter allowance, not in plan, paused) — a 402 or a 429 with the code.
+    const refusal = refusalText(err);
+    if (refusal) return refusal;
     if (status === 429) return 'AI limit reached for now — try again shortly.';
     if (status === 403)
       return 'No AI provider is connected for this workspace. An admin can add one in Settings.';

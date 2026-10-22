@@ -33,7 +33,9 @@ export const MessageCapBanner = () => {
   const { data: usage } = useQuery({
     queryKey: ['usage-current', selectedOrganizationId],
     queryFn: subscriptionService.getUsage,
-    enabled: billingEnabled,
+    // Not on /subscription: the banner is hidden there and the page reads the same endpoint itself
+    // (one request, not two).
+    enabled: billingEnabled && !location.pathname.startsWith('/subscription'),
     staleTime: 5 * 60_000,
     retry: false,
   });

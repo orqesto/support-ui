@@ -13,6 +13,7 @@ import {
   AI_NOT_CONFIGURED_MESSAGE,
 } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
+import { useAiRefusalText } from '@/components/subscription/useAiRefusalText';
 
 type TranslateButtonProps = {
   messageId?: number;
@@ -64,6 +65,7 @@ export const TranslateButton = ({
   const { translateMessage, translateTicket, translateText, isTranslating } = useTranslation();
   const { languages, fetchLanguages } = useSupportedLanguages();
   const { aiConfigured } = useAiConfigured();
+  const refusalText = useAiRefusalText();
 
   // The panel closes itself on a pick (single select).
   const handleSelect = async (language: string) => {
@@ -97,6 +99,9 @@ export const TranslateButton = ({
         toast.error(AI_DRAFTS_OFF_MESSAGE);
       } else if (isAiNotConfiguredError(err)) {
         toast.error(AI_NOT_CONFIGURED_MESSAGE);
+      } else if (refusalText(err) !== undefined) {
+        // An AI refusal (402 with a code): agents never read the server's buying sentence.
+        toast.error(refusalText(err) ?? '');
       } else {
         toast.error(err instanceof Error ? err.message : 'Translation failed');
       }

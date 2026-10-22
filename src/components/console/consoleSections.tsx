@@ -168,7 +168,7 @@ export const PLATFORM_SECTIONS: ConsoleSection[] = [
   { id: 'usage', label: 'Subscriptions', icon: CreditCard, path: 'usage', element: PlatformUsage },
   { id: 'ai-spend', label: 'AI Spend', icon: Coins, path: 'ai-spend', element: PlatformAiSpend },
   {
-    // One organisation's or standalone workspace's monthly budget, opened from AI Spend.
+    // One organisation's or standalone workspace's AI budget (per billing period), opened from AI Spend.
     id: 'ai-spend-group',
     label: 'AI Spend group',
     icon: Coins,

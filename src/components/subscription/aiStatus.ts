@@ -1,6 +1,7 @@
 import { logger } from '@/lib/logger';
 import { aiService } from '@/services/ai.service';
 import { subscriptionService } from '@/services/subscription.service';
+import type { StarterAllowance } from './starterAllowance';
 
 /** Why the API says AI is stopped (`/api/usage/current` → `ai.reason`). */
 export type AiPauseReason =
@@ -8,7 +9,9 @@ export type AiPauseReason =
   | 'server_ceiling'
   | 'budget_used'
   | 'bulk_share_used'
-  | 'workspace_bulk_limit';
+  | 'workspace_bulk_limit'
+  /** Free on our key, its one-time starter allowance used up (starterAllowance.ts). */
+  | 'free_allowance_used';
 
 /** `ai` block of `GET /api/usage/current`. Optional on the wire: an older backend sends none. */
 export type AiStatus = {
@@ -25,6 +28,11 @@ export type AiStatus = {
   /** The reason as a sentence, from the API. */
   message: string | null;
   resetsAt: string | null;
+  /**
+   * Free only (also on its own key): the one-time starter allowance. Parsed by
+   * `parseStarterAllowance` in the service (null, absent or malformed ⇒ undefined).
+   */
+  starterAllowance?: StarterAllowance;
 };
 
 /** The `ai` block of /api/usage/current; undefined when the call fails or the backend sends none. */
@@ -42,26 +50,44 @@ export const loadAiStatus = async (): Promise<AiStatus | undefined> => {
  * (platform off with no provider is "no AI", not "your own key"). Unknown (call fails, old
  * backend) = false.
  */
-export const loadOwnKey = async (): Promise<boolean> => {
+export const loadOwnKey = async (): Promise<boolean> => (await loadAiKeyState()).ownKey;
+
+/**
+ * Which AI the workspace runs on. `ownKey`: as loadOwnKey. `ourAiOff`: platform AI is off (own-key
+ * mode) — with no own provider enabled, no AI runs at all. Unknown (call fails, old backend) =
+ * both false, so nothing is claimed.
+ */
+export const loadAiKeyState = async (): Promise<{ ownKey: boolean; ourAiOff: boolean }> => {
   try {
     const providers = await aiService.getProviders();
-    return providers.data?.platform?.active === false && (providers.data?.enabled?.length ?? 0) > 0;
+    const ourAiOff = providers.data?.platform?.active === false;
+    return { ownKey: ourAiOff && (providers.data?.enabled?.length ?? 0) > 0, ourAiOff };
   } catch (error) {
     logger.warn('Could not read the AI provider settings:', error);
-    return false;
+    return { ownKey: false, ourAiOff: false };
   }
 };
 
 /**
  * What a customer reads for each reason: fixed sentences, never money (the API's own text names
- * dollars for budget_used; that is for admins). Unknown reasons get the generic sentence.
+ * dollars for budget_used; that is for admins). Unknown reasons get the generic sentence. A viewer
+ * who cannot open the Subscription page (`canOpenSubscription` false) cannot buy or upgrade, so the
+ * sentence asks an admin instead of offering it.
  */
-export const customerPauseText = (reason: string | null): string => {
+export const customerPauseText = (reason: string | null, canOpenSubscription = true): string => {
   switch (reason) {
     case 'not_in_plan':
-      return 'AI is not included in your plan. Upgrade, or connect your own AI key.';
+      return canOpenSubscription
+        ? 'AI is not included in your plan. Upgrade, or connect your own AI key.'
+        : 'AI is not included in your plan. Ask an admin to upgrade or connect your own AI key.';
     case 'budget_used':
-      return "This period's AI messages are used up: AI drafts, auto-replies and analysis pause until the period resets. Buying more messages or upgrading adds to it.";
+      return canOpenSubscription
+        ? "This period's AI messages are used up: AI drafts, auto-replies and analysis pause until the period resets. Buying more messages or upgrading adds to it."
+        : "This period's AI messages are used up: AI drafts, auto-replies and analysis pause until the period resets. Ask an admin to buy more messages or upgrade.";
+    case 'free_allowance_used':
+      return canOpenSubscription
+        ? 'Your free AI allowance is used — add your own AI key to keep AI running.'
+        : 'Your free AI allowance is used — ask your admin to add your own AI key to keep AI running.';
     case 'server_ceiling':
       return "This server's AI limit for the month is reached: AI is paused until it resets.";
     default:

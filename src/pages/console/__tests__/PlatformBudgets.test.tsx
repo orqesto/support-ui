@@ -29,6 +29,8 @@ let migration: BudgetMigration;
 let groupPage: GroupPage;
 /** Set ⇒ declineRequest answers only when this promise settles (a write in flight). */
 let declineHold: Promise<void> | null = null;
+/** An organisation's mode, as its detail answers (the list page reads it for an org-wide request). */
+let orgMode: 'separate' | 'shared' = 'shared';
 
 vi.mock('@/services/budgets.service', () => ({
   budgetsService: {
@@ -37,6 +39,10 @@ vi.mock('@/services/budgets.service', () => ({
     applyMigration: (overrides?: unknown) => {
       record('applyMigration', overrides);
       return Promise.resolve({ active: true });
+    },
+    getGroup: (key: string) => {
+      record('getGroup', key);
+      return Promise.resolve({ key, mode: { current: orgMode, next: null } });
     },
     listGroups: (params: GroupListParams) => {
       record('listGroups', params);
@@ -203,7 +209,7 @@ describe('before Apply: the migration panel', () => {
     expect(screen.getByText('⚠ replaced by the money budget')).toBeInTheDocument();
     expect(screen.getByText('Would stop within 7 days')).toBeInTheDocument();
     expect(
-      screen.getByRole('spinbutton', { name: 'Monthly budget for Northwind, dollars' })
+      screen.getByRole('spinbutton', { name: 'AI budget for Northwind, dollars' })
     ).toHaveValue(120);
     expect(calls.listGroups).toBeUndefined();
   });
@@ -234,12 +240,12 @@ describe('before Apply: the migration panel', () => {
     renderPage();
     fireEvent.change(
       await screen.findByRole('spinbutton', {
-        name: 'Monthly budget for Northwind, dollars',
+        name: 'AI budget for Northwind, dollars',
       }),
       { target: { value: '150' } }
     );
     fireEvent.change(
-      screen.getByRole('spinbutton', { name: 'Monthly budget for Contoso Mail, dollars' }),
+      screen.getByRole('spinbutton', { name: 'AI budget for Contoso Mail, dollars' }),
       { target: { value: '30' } }
     );
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
@@ -432,5 +438,42 @@ describe('advanced settings', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Show' }));
     expect(screen.getByLabelText(/^AI money per message/)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Default budget for new standalone workspaces/)).toBeNull();
+  });
+});
+
+describe('an organisation-wide request on the list page (F1)', () => {
+  const orgWide = request({ target: { allianceId: 7, organizationId: null, name: 'Northwind' } });
+
+  beforeEach(() => {
+    calls = {};
+    orgMode = 'shared';
+    groupPage = { items: [], total: 0 };
+    stateResult = {
+      available: true,
+      state: baseState({ requests: 1, requestList: [orgWide] }),
+    };
+  });
+
+  it('separate: reads the organisation, then Give is off with the reason and Decline stays', async () => {
+    orgMode = 'separate';
+    renderPage();
+    const item = await screen.findByTestId('budget-request-41');
+    await waitFor(() => expect(within(item).getByRole('button', { name: 'Give' })).toBeDisabled());
+    expect(within(item).getByRole('button', { name: 'Decline' })).toBeEnabled();
+    expect(calls.getGroup).toEqual(['a:7']);
+  });
+
+  it('shared: Give stays on', async () => {
+    renderPage();
+    const item = await screen.findByTestId('budget-request-41');
+    await waitFor(() => expect(calls.getGroup).toEqual(['a:7']));
+    expect(within(item).getByRole('button', { name: 'Give' })).toBeEnabled();
+  });
+
+  it('a workspace request reads no organisation', async () => {
+    stateResult = { available: true, state: baseState({ requests: 1, requestList: [request()] }) };
+    renderPage();
+    await screen.findByTestId('budget-request-41');
+    expect(calls.getGroup).toBeUndefined();
   });
 });

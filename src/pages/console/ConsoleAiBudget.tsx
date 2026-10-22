@@ -19,7 +19,7 @@ const failed = (fallback: string) => (error: unknown) =>
 const NOT_ON = 'Budgets are not switched on yet.';
 
 /**
- * Organisation console → AI budget. The organisation admin sees the monthly budget (never
+ * Organisation console → AI budget. The organisation admin sees the AI budget per billing period (never
  * editable here), may change the bulk limit and the workspaces' own limits where the API says
  * so (`canEdit`), and asks the platform admin for extra.
  */
@@ -103,7 +103,7 @@ export const ConsoleAiBudget = () => {
         description={
           data?.active
             ? `${data.name} · ${data.month} · resets ${new Date(data.resetsAt).toLocaleDateString()}`
-            : 'The monthly AI budget of this organisation'
+            : 'The AI budget of this organisation, per billing period'
         }
       />
       {body}

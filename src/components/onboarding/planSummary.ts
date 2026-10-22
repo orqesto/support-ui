@@ -25,7 +25,7 @@ import type { PlanFeatureFlags, PlanLimitValues, SubscriptionPlan } from '@/serv
  */
 const UNLIMITED_SENTINEL = 999999;
 
-const isUnlimited = (value: number): boolean => value === UNLIMITED_SENTINEL;
+export const isUnlimited = (value: number): boolean => value === UNLIMITED_SENTINEL;
 
 const formatCount = (value: number, singular: string, plural: string): string =>
   isUnlimited(value)
