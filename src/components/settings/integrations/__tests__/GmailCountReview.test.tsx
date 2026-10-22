@@ -137,7 +137,12 @@ describe('GmailCountReview', () => {
     try {
       const onStarted = vi.fn();
       render(
-        <GmailCountReview source={paused} onStarted={onStarted} onClose={vi.fn()} onShowAlert={vi.fn()} />
+        <GmailCountReview
+          source={paused}
+          onStarted={onStarted}
+          onClose={vi.fn()}
+          onShowAlert={vi.fn()}
+        />
       );
       await screen.findByText(/Found 1,200 messages/);
       fireEvent.click(screen.getByRole('button', { name: /last 7 days/i }));
@@ -148,7 +153,7 @@ describe('GmailCountReview', () => {
       expect(update).toHaveBeenLastCalledWith(68, {
         type: 'gmail',
         enabled: true,
-        config: { gmail: { searchQuery: '', bulkImportSince: '2026-10-03' } },
+        config: { gmail: { searchQuery: '', bulkImportSince: new Date(2026, 9, 3).toISOString() } },
       });
     } finally {
       vi.useRealTimers();

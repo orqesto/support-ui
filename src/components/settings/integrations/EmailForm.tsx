@@ -15,7 +15,7 @@ import {
 } from '@/utils/mailboxValidation';
 import type { Department } from '@/services/department.service';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
-import { imapEarliestDay } from '@/lib/importRange';
+import { imapEarliestDay, sinceDay, sinceInstant } from '@/lib/importRange';
 import { Label } from '@/components/ui/Label';
 
 type EmailConfig = {
@@ -280,15 +280,15 @@ export const EmailForm = ({
                 mode="single"
                 presets={lookbackOptions.map((opt) => ({ value: opt.value.toString(), label: opt.label }))}
                 value={
-                  config.bulkImportSince
-                    ? { kind: 'since', since: config.bulkImportSince }
+                  sinceDay(config.bulkImportSince)
+                    ? { kind: 'since', since: sinceDay(config.bulkImportSince) as string }
                     : { kind: 'preset', value: (config.lookbackDays ?? 30).toString() }
                 }
                 onChange={(next) =>
                   onConfigChange(
                     next.kind === 'preset'
                       ? { ...config, lookbackDays: parseInt(next.value), bulkImportSince: null }
-                      : { ...config, bulkImportSince: next.kind === 'since' ? next.since : next.from }
+                      : { ...config, bulkImportSince: sinceInstant(next.kind === 'since' ? next.since : next.from) }
                   )
                 }
               />
