@@ -11,18 +11,31 @@ export type { Department };
  * place once the backend lands.
  */
 
-/** `GET /api/departments/mode` and the body of `PUT /api/departments/mode`. */
-export type TeamsMode = { teamsEnabled: boolean };
+/**
+ * `GET /api/departments/mode` → `{ data: { enabled, source, defaultDepartmentId } }`, and
+ * `PUT /api/departments/mode` with body `{ enabled }`. Exposed here as `teamsEnabled`.
+ */
+export type TeamsMode = {
+  teamsEnabled: boolean;
+  /** 'stored' = the admin chose; 'derived' = nothing stored (on when 2+ active teams). */
+  source?: 'stored' | 'derived';
+  defaultDepartmentId?: number | null;
+};
 
 /**
  * `GET /api/departments/mode/preview`: what moves into the default team when teams are
- * switched off. `counts` is rendered generically by key, so a key the backend adds or drops
- * needs no FE change; see `TEAMS_OFF_COUNT_LABELS` for the readable labels.
+ * switched off. The backend sends `{ defaultDepartment, teams: [{ …, moves }], totals,
+ * membersAddedToDefault, irreversible }`; `counts` here is `totals`, rendered generically by
+ * key, so a key the backend adds or drops needs no FE change (labels: `TEAMS_OFF_COUNT_LABELS`).
  */
 export type TeamsOffPreview = {
   defaultDepartment: { id: number; name: string } | null;
+  /** Every active team except the default, with its own moves. */
+  teams: Array<{ id: number; name: string; moves: Record<string, number> }>;
   teamsToMerge: number;
   counts: Record<string, number>;
+  /** Members not yet in the default team, who will be added to it. */
+  membersAddedToDefault: number;
 };
 
 /** New team. The slug is derived from the name; the backend derives the ID prefix. */
@@ -47,23 +60,58 @@ const readTeamsEnabled = (body: unknown): boolean | undefined => {
 const toNumber = (value: unknown): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : 0;
 
+/** `{ a: 1, b: 'x' }` → `{ a: 1 }`: numbers only, anything else dropped. */
+const numbersOf = (raw: unknown): Record<string, number> => {
+  const out: Record<string, number> = {};
+  if (raw && typeof raw === 'object') {
+    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+      if (typeof value === 'number' && Number.isFinite(value)) out[key] = value;
+    }
+  }
+  return out;
+};
+
+/** The `data` of `{ success, data }`, or the body itself when it is not wrapped. */
+const unwrap = (body: unknown): Record<string, unknown> => {
+  const obj = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+  const inner = 'success' in obj && obj.data && typeof obj.data === 'object' ? obj.data : obj;
+  return inner as Record<string, unknown>;
+};
+
+/** `{ enabled }` (current backend) or `{ teamsEnabled }`; undefined when neither is a boolean. */
+const readEnabled = (body: Record<string, unknown>): boolean | undefined => {
+  if (typeof body.enabled === 'boolean') return body.enabled;
+  if (typeof body.teamsEnabled === 'boolean') return body.teamsEnabled;
+  return undefined;
+};
+
 /** Normalise the preview so a missing or odd field never reaches the dialog. */
 const normalisePreview = (raw: unknown): TeamsOffPreview => {
   const body = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const rawDefault = body.defaultDepartment as { id?: unknown; name?: unknown } | null | undefined;
-  const counts: Record<string, number> = {};
-  if (body.counts && typeof body.counts === 'object') {
-    for (const [key, value] of Object.entries(body.counts as Record<string, unknown>)) {
-      if (typeof value === 'number' && Number.isFinite(value)) counts[key] = value;
-    }
-  }
+  const teams = (Array.isArray(body.teams) ? (body.teams as unknown[]) : []).flatMap((raw) => {
+    const one = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+    return typeof one.id === 'number'
+      ? [
+          {
+            id: one.id,
+            name: typeof one.name === 'string' ? one.name : '',
+            moves: numbersOf(one.moves),
+          },
+        ]
+      : [];
+  });
+  // `totals` is the backend's name; `counts` is accepted too.
+  const counts = numbersOf(body.totals ?? body.counts);
   return {
     defaultDepartment:
       rawDefault && typeof rawDefault.id === 'number'
         ? { id: rawDefault.id, name: typeof rawDefault.name === 'string' ? rawDefault.name : '' }
         : null,
-    teamsToMerge: toNumber(body.teamsToMerge),
+    teams,
+    teamsToMerge: Array.isArray(body.teams) ? teams.length : toNumber(body.teamsToMerge),
     counts,
+    membersAddedToDefault: toNumber(body.membersAddedToDefault),
   };
 };
 
@@ -107,7 +155,10 @@ export const departmentService = {
     });
   },
 
-  /** Restore a soft-deleted department (active=true). 403 = plan limit, 409 = teams off. */
+  /**
+   * Restore a soft-deleted department (active=true). 403 `PLAN_TEAM_LIMIT` = plan limit,
+   * 409 `TEAMS_SWITCHED_OFF` = teams off; both messages are shown as the server wrote them.
+   */
   reactivate: async (id: number): Promise<Department> => {
     const response = await apiClient.patch<{ success: boolean; data: Department }>(
       `/api/departments/${id}`,
@@ -116,7 +167,7 @@ export const departmentService = {
     return response.data.data;
   },
 
-  /** Create a team. 403 = plan limit (message shown as-is), 409 = teams are switched off. */
+  /** Create a team. 403 `PLAN_TEAM_LIMIT` / 409 `TEAMS_SWITCHED_OFF`: messages shown as-is. */
   create: async (input: CreateTeamInput): Promise<Department> => {
     const response = await apiClient.post<{ success: boolean; data: Department }>(
       '/api/departments',
@@ -140,10 +191,14 @@ export const departmentService = {
   /** Whether the workspace uses teams. */
   getTeamsMode: async (): Promise<TeamsMode> => {
     const response = await apiClient.get<unknown>('/api/departments/mode');
-    const body = response.data as { data?: unknown } | undefined;
-    // Accept both `{ teamsEnabled }` and the usual `{ success, data: { teamsEnabled } }`.
-    const value = readTeamsEnabled(body) ?? readTeamsEnabled(body?.data);
-    return { teamsEnabled: value ?? false };
+    const body = unwrap(response.data);
+    const source = body.source === 'stored' || body.source === 'derived' ? body.source : undefined;
+    return {
+      teamsEnabled: readEnabled(body) ?? false,
+      source,
+      defaultDepartmentId:
+        typeof body.defaultDepartmentId === 'number' ? body.defaultDepartmentId : null,
+    };
   },
 
   /**
@@ -151,18 +206,16 @@ export const departmentService = {
    * undone; on only writes the flag (teams switched back on start empty).
    */
   setTeamsMode: async (teamsEnabled: boolean): Promise<TeamsMode> => {
-    const response = await apiClient.put<unknown>('/api/departments/mode', { teamsEnabled });
-    const body = response.data as { data?: unknown } | undefined;
-    const value = readTeamsEnabled(body) ?? readTeamsEnabled(body?.data);
-    return { teamsEnabled: value ?? teamsEnabled };
+    const response = await apiClient.put<unknown>('/api/departments/mode', {
+      enabled: teamsEnabled,
+    });
+    return { teamsEnabled: readEnabled(unwrap(response.data)) ?? teamsEnabled };
   },
 
   /** What switching teams off would move into the default team. */
   previewTeamsOff: async (): Promise<TeamsOffPreview> => {
     const response = await apiClient.get<unknown>('/api/departments/mode/preview');
-    const body = response.data as { success?: unknown; data?: unknown } | undefined;
-    const payload = body && 'success' in body && body.data !== undefined ? body.data : body;
-    return normalisePreview(payload);
+    return normalisePreview(unwrap(response.data));
   },
 };
 
@@ -184,6 +237,9 @@ export const TEAMS_OFF_COUNT_LABELS: Record<string, string> = {
   members: 'Members',
   memberships: 'Members',
   kbEntries: 'Knowledge base entries',
+  knowledgeBaseEntries: 'Knowledge base entries',
+  userMemberships: 'Members',
+  messageSourceLinks: 'Channel links',
   knowledgeBase: 'Knowledge base entries',
   ticketingIntegrations: 'Ticket system connections',
   integrations: 'Ticket system connections',

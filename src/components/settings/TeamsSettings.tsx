@@ -440,6 +440,13 @@ const TeamsOffDialog = ({
                   ))}
                 </ul>
               )}
+              {preview.membersAddedToDefault > 0 && (
+                <p>
+                  {preview.membersAddedToDefault.toLocaleString()}{' '}
+                  {preview.membersAddedToDefault === 1 ? 'person is' : 'people are'} added to{' '}
+                  {target}, so they see its threads.
+                </p>
+              )}
             </>
           )}
 

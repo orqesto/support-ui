@@ -67,10 +67,10 @@ const renderPage = () =>
   );
 
 /** An axios-shaped refusal the error helpers read. */
-const refused = (status: number, error: string) =>
+const refused = (status: number, error: string, code: string) =>
   Object.assign(new Error(error), {
     isAxiosError: true,
-    response: { status, data: { success: false, error } },
+    response: { status, data: { success: false, error, code } },
   });
 
 beforeEach(() => {
@@ -120,11 +120,13 @@ describe('TeamsSettings — teams on', () => {
 
   it('a plan limit refusal (403) is shown exactly as the backend wrote it', async () => {
     svc.reactivate.mockRejectedValue(
-      refused(403, 'Free includes one team. Upgrade to add another.')
+      refused(403, 'Your plan includes one team. Upgrade to add another.', 'PLAN_TEAM_LIMIT')
     );
     renderPage();
     fireEvent.click(await screen.findByRole('switch', { name: 'Sales team on or off' }));
-    expect(await screen.findByText('Free includes one team. Upgrade to add another.')).toBeTruthy();
+    expect(
+      await screen.findByText('Your plan includes one team. Upgrade to add another.')
+    ).toBeTruthy();
     expect(svc.reactivate).toHaveBeenCalledWith(3);
   });
 
@@ -136,6 +138,22 @@ describe('TeamsSettings — teams on', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
     await waitFor(() => expect(svc.update).toHaveBeenCalledWith(2, { name: 'Help desk' }));
+  });
+
+  it('teams switched off by someone else meanwhile (409) shows the server message', async () => {
+    svc.create.mockRejectedValue(
+      refused(
+        409,
+        'Teams are switched off for this workspace. Switch teams on in Settings → Teams first.',
+        'TEAMS_SWITCHED_OFF'
+      )
+    );
+    renderPage();
+    fireEvent.change(await screen.findByLabelText('New team'), {
+      target: { value: 'Billing team' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Add team/ }));
+    expect(await screen.findByText(/Teams are switched off for this workspace/)).toBeTruthy();
   });
 
   it('switching one team off asks where its work goes (the default team preselected), then sends it', async () => {
@@ -153,15 +171,17 @@ describe('TeamsSettings — the "Use teams" switch', () => {
   it('off: the dialog shows the preview counts, says it cannot be undone and that agents will see everything', async () => {
     svc.previewTeamsOff.mockResolvedValue({
       defaultDepartment: { id: 1, name: 'General team' },
+      teams: [],
       teamsToMerge: 2,
       counts: {
         conversations: 120,
         tickets: 8,
-        messageSources: 3,
-        users: 4,
+        channels: 3,
+        members: 4,
         kbEntries: 15,
         someNewKey: 2,
       },
+      membersAddedToDefault: 3,
     });
     svc.setTeamsMode.mockResolvedValue({ teamsEnabled: false });
     renderPage();
@@ -178,6 +198,7 @@ describe('TeamsSettings — the "Use teams" switch', () => {
     expect(within(moves).getByText('Knowledge base entries')).toBeTruthy();
     // A key the FE has no label for still renders, in words.
     expect(within(moves).getByText('Some new key')).toBeTruthy();
+    expect(within(dialog).getByText(/3 people are added to General team/)).toBeTruthy();
     expect(within(dialog).getByText('This can’t be undone')).toBeTruthy();
     expect(
       within(dialog).getByText(/Agents who could see only their own team will see everything/)
@@ -190,7 +211,13 @@ describe('TeamsSettings — the "Use teams" switch', () => {
   });
 
   it('CONTROL — Cancel switches nothing off', async () => {
-    svc.previewTeamsOff.mockResolvedValue({ defaultDepartment: null, teamsToMerge: 1, counts: {} });
+    svc.previewTeamsOff.mockResolvedValue({
+      defaultDepartment: null,
+      teams: [],
+      teamsToMerge: 1,
+      counts: {},
+      membersAddedToDefault: 0,
+    });
     renderPage();
     fireEvent.click(await screen.findByRole('switch', { name: 'Use teams' }));
     const dialog = await screen.findByRole('dialog');
