@@ -9,7 +9,12 @@ import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { TicketDetail } from '@/components/tickets/TicketDetail';
-import { TicketFilters } from '@/components/tickets/TicketFilters';
+import { TicketFilterBar } from '@/components/tickets/list/TicketFilterBar';
+import { TicketViewPills } from '@/components/tickets/list/TicketViewPills';
+import { buildTicketFilterKeys } from '@/components/tickets/list/ticketFilterKeys';
+import { viewFiltersOf } from '@/components/tickets/list/ticketViews';
+import { useTicketFilterSources } from '@/components/tickets/list/useTicketFilterSources';
+import { useTicketViews } from '@/components/tickets/list/useTicketViews';
 import { TicketListItem } from '@/components/tickets/TicketListItem';
 import { NewTicketButton } from '@/components/tickets/NewTicketButton';
 import { TicketsKanbanView } from '@/components/tickets/TicketsKanbanView';
@@ -73,7 +78,6 @@ export const TicketsPage = () => {
   const [pendingSearch, setPendingSearch] = useState(filters.search ?? '');
   const sorting = useTicketsStore((state) => state.sorting);
   const setFiltersStore = useTicketsStore((state) => state.setFilters);
-  const setSortingStore = useTicketsStore((state) => state.setSorting);
   const clearFiltersStore = useTicketsStore((state) => state.clearFilters);
   const setTicketsCache = useTicketsStore((state) => state.setTickets);
   const getCached = useTicketsStore((state) => state.getCached);
@@ -81,6 +85,10 @@ export const TicketsPage = () => {
 
   const { hasPermission } = usePermissions();
   const currentUserId = useAuthStore((state) => state.user?.id ?? null);
+  // Bumped by a realtime ticket event or a change made here, so the pill counts follow the list.
+  const [countsKey, setCountsKey] = useState(0);
+  const { views, counts, saveView, deleteView } = useTicketViews(currentUserId, countsKey);
+  const filterSources = useTicketFilterSources();
 
   // Local state for current view
   const [tickets, setTickets] = useState<TicketType[]>([]);
@@ -113,6 +121,8 @@ export const TicketsPage = () => {
       }
 
       setLoading(true);
+      // A forced fetch means something changed (realtime, a write here): the pill counts follow.
+      if (force) setCountsKey((key) => key + 1);
       try {
         const apiFilters = ticketApiFilters(filters, currentUserId);
 
@@ -170,24 +180,6 @@ export const TicketsPage = () => {
     await fetchTickets(page);
   };
 
-  const handleApplyPreset = (presetName: string) => {
-    switch (presetName) {
-      case 'urgent':
-        setFiltersStore({ ...filters, status: 'open', priority: 'critical' });
-        break;
-      case 'in-progress':
-        setFiltersStore({ ...filters, status: 'in_progress', priority: 'all' });
-        break;
-      case 'pending':
-        setFiltersStore({ ...filters, status: 'pending', priority: 'all' });
-        break;
-      case 'recent':
-        setFiltersStore({ ...filters, status: 'resolved', priority: 'all' });
-        setSortingStore({ sortBy: 'updatedAt', sortOrder: 'desc' });
-        break;
-    }
-  };
-
   const handleFilterChange = (key: string, value: string) => {
     if (key === 'search') {
       setPendingSearch(value);
@@ -203,13 +195,6 @@ export const TicketsPage = () => {
   const handleSearch = () => {
     // Trigger actual search when button clicked or Enter pressed
     setFiltersStore({ ...filters, search: pendingSearch });
-  };
-
-  const handleSearchBlur = () => {
-    // If search is empty on blur, clear the search filter to show all data
-    if (!pendingSearch.trim() && filters.search) {
-      setFiltersStore({ ...filters, search: '' });
-    }
   };
 
   const clearFilters = () => {
@@ -394,15 +379,7 @@ export const TicketsPage = () => {
     }
   };
 
-  const activeFilterCount =
-    (filters.status && filters.status !== 'all' ? 1 : 0) +
-    (filters.priority && filters.priority !== 'all' ? 1 : 0) +
-    (filters.categoryId && filters.categoryId !== 'all' ? 1 : 0) +
-    (filters.messageSourceId && filters.messageSourceId !== 'all' ? 1 : 0) +
-    (filters.assigneeId && filters.assigneeId !== 'all' ? 1 : 0) +
-    (filters.labelId && filters.labelId !== 'all' ? 1 : 0) +
-    (filters.linked && filters.linked !== 'all' ? 1 : 0) +
-    (filters.search?.trim() ? 1 : 0);
+  const filterKeys = buildTicketFilterKeys({ ...filterSources, jiraOn: jiraIntegrations.length > 0 });
 
   return (
     <Layout>
@@ -456,20 +433,26 @@ export const TicketsPage = () => {
           />
         </div>
 
-        {/* Filters Card */}
-        <TicketFilters
+        {/* Views and filters — the Messages pattern */}
+        <TicketViewPills
           filters={filters}
-          sorting={sorting}
-          pendingSearch={pendingSearch}
-          pagination={pagination}
-          activeFilterCount={activeFilterCount}
-          onFilterChange={handleFilterChange}
-          onApplyPreset={handleApplyPreset}
+          views={views}
+          counts={counts}
+          onApply={(next) => {
+            setPendingSearch('');
+            setFiltersStore(next);
+          }}
+          onSave={(name) => saveView(name, viewFiltersOf(filters))}
+          onDelete={(view) => void deleteView(view).catch((error) => logger.error('Failed to delete view:', error))}
+        />
+        <TicketFilterBar
+          filters={filters}
+          keys={filterKeys}
+          search={pendingSearch}
+          onChange={setFiltersStore}
+          onSearchChange={(value) => handleFilterChange('search', value)}
           onSearch={handleSearch}
-          onSearchBlur={handleSearchBlur}
-          onClearFilters={clearFilters}
-          onSortingChange={setSortingStore}
-          onPendingSearchChange={setPendingSearch}
+          onClear={clearFilters}
         />
 
         {/* Display mode toggle */}
