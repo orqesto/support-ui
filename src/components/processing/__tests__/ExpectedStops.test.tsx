@@ -72,9 +72,12 @@ describe('an expected stop in the panel', () => {
     const word = await openPanel(untracked({ runs: [run] }), entry());
     expect(word).not.toBe('Needs attention');
     expect(
-      screen.getByText(/^Continues on the next check: the server restarted during the check\. /, {
-        selector: 'li',
-      })
+      screen.getByText(
+        /^Continues on the next check: the check was cut short before it finished \(a server restart or crash\), and a later check picked up from where it stopped\. /,
+        {
+          selector: 'li',
+        }
+      )
     ).toBeTruthy();
   });
 

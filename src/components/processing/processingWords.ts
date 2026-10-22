@@ -25,7 +25,8 @@ const STOP_REASON: Record<string, string> = {
   rate_limited: 'Gmail asked us to slow down',
   transient_error: 'the mail provider answered with a temporary error',
   daily_limit: "Gmail's daily limit was reached",
-  interrupted: 'the server restarted during the check',
+  interrupted:
+    'the check was cut short before it finished (a server restart or crash), and a later check picked up from where it stopped',
 };
 
 /**
