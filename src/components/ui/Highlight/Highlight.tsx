@@ -7,8 +7,8 @@ import { cn } from '@/lib/utils';
  * Text with the typed search terms marked. Renders text nodes and `<mark>` only — never HTML from
  * the data — so a body that says `<script>` shows those characters.
  */
-export const Highlight = ({ text, terms, className, markClassName }: HighlightProps) => {
-  const parts = splitByTerms(text, terms);
+export const Highlight = ({ text, terms, mode, className, markClassName }: HighlightProps) => {
+  const parts = splitByTerms(text, terms, mode);
   if (!parts.some((part) => part.match)) return <>{text}</>;
   return (
     <span className={className}>

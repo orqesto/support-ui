@@ -296,7 +296,7 @@ export const MessageListItem = ({
           senderClass
         )}
       >
-        <Highlight text={thread.sender} terms={highlightTerms} />
+        <Highlight text={thread.sender} terms={highlightTerms} mode="anywhere" />
       </p>
       {readToggle}
     </>
@@ -560,7 +560,7 @@ export const MessageListItem = ({
         >
           {msg.subject && (
             <span className="max-w-[55%] text-[13px] font-medium truncate shrink-0">
-              <Highlight text={msg.subject} terms={highlightTerms} />
+              <Highlight text={msg.subject} terms={highlightTerms} mode="anywhere" />
             </span>
           )}
           <span className="text-[13px] text-muted-foreground truncate">
@@ -631,7 +631,7 @@ export const MessageListItem = ({
         {/* Subject (muted) */}
         {msg.subject && (
           <p className="text-[12.5px] text-muted-foreground truncate">
-            <Highlight text={msg.subject} terms={highlightTerms} />
+            <Highlight text={msg.subject} terms={highlightTerms} mode="anywhere" />
           </p>
         )}
 
