@@ -148,6 +148,23 @@ describe('TeamsOffDialog — raw backend preview through the service', () => {
     expect(within(dialog).getByRole('button', { name: 'Switch teams off' })).not.toBeDisabled();
   });
 
+  it('lists Threads, Open threads, Tickets first, and the warning keeps "AI" upper case', async () => {
+    const raw = rawPreview();
+    raw.data.totals = { ...raw.data.totals, categories: 6, openConversations: 9 };
+    routeGet(raw, { success: true, data: { enabled: true, switching: false, interrupted: false } });
+    renderDialog();
+    const dialog = await screen.findByRole('dialog');
+    const moves = await within(dialog).findByRole('list', { name: 'What moves' });
+    expect(
+      within(moves)
+        .getAllByRole('listitem')
+        .map((row) => row.textContent)
+    ).toEqual(['Threads45', 'Open threads9', 'Tickets3', 'Reply templates2', 'Categories6']);
+    expect(
+      within(dialog).getByText(/comes back with its routing rules, AI prompt templates/)
+    ).toBeTruthy();
+  });
+
   it('a raw blocker (with integrationId) is listed in the backend wording and disables the confirm', async () => {
     routeGet(
       rawPreview([

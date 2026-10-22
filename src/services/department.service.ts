@@ -363,6 +363,25 @@ export const departmentService = {
   },
 };
 
+/** Count keys listed first, in this order, in the switch-off preview; the rest keep the backend's order. */
+const TEAMS_OFF_FIRST_KEYS = ['conversations', 'threads', 'openConversations', 'tickets'];
+
+export const sortTeamsOffCounts = <T extends [string, unknown]>(entries: T[]): T[] => {
+  const rank = (key: string): number => {
+    const at = TEAMS_OFF_FIRST_KEYS.indexOf(key);
+    return at === -1 ? TEAMS_OFF_FIRST_KEYS.length : at;
+  };
+  // Array.prototype.sort is stable: equal ranks keep their order.
+  return [...entries].sort((left, right) => rank(left[0]) - rank(right[0]));
+};
+
+/** A label inside a sentence: "AI prompt templates" -> "AI prompt templates", "Routing rules" -> "routing rules". Acronyms (all-caps words) keep their case. */
+export const labelAsPhrase = (label: string): string =>
+  label
+    .split(' ')
+    .map((word) => (word.length > 1 && word === word.toUpperCase() ? word : word.toLowerCase()))
+    .join(' ');
+
 /**
  * Readable labels for the preview's count keys. A key not listed here is shown with a label
  * derived from the key itself, so a new backend key still renders.

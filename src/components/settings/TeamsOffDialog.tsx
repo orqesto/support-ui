@@ -15,7 +15,9 @@ import { logger } from '@/lib/logger';
 import {
   departmentService,
   isTeamsSwitchStillRunning,
+  labelAsPhrase,
   labelForTeamsOffCount,
+  sortTeamsOffCounts,
   type TeamsOffPreview,
 } from '@/services/department.service';
 
@@ -110,7 +112,9 @@ export const TeamsOffDialog = ({
   const defaultName = preview?.defaultDepartment?.name ?? '';
   const target = defaultName === '' ? 'the default team' : defaultName;
   // Zero rows say nothing; the backend sends every key.
-  const counts = Object.entries(preview?.counts ?? {}).filter(([, value]) => value > 0);
+  const counts = sortTeamsOffCounts(
+    Object.entries(preview?.counts ?? {}).filter(([, value]) => value > 0)
+  );
   const stays = preview?.staysWithTeam ?? [];
   // What comes back with a team switched on again: what stays with it (BE: routing rules and
   // AI prompt templates, plus twins the default team already has).
@@ -118,7 +122,7 @@ export const TeamsOffDialog = ({
     ? ['routingRules', 'promptTemplates']
     : stays.map((item) => item.key)
   )
-    .map((key) => labelForTeamsOffCount(key).toLowerCase())
+    .map((key) => labelAsPhrase(labelForTeamsOffCount(key)))
     .join(', ')}`;
 
   return (
@@ -206,7 +210,7 @@ export const TeamsOffDialog = ({
                   {Object.entries(preview.mergedIntoSameName)
                     .filter(([, value]) => value > 0)
                     .map(([key, value]) => {
-                      const words = labelForTeamsOffCount(key).toLowerCase();
+                      const words = labelAsPhrase(labelForTeamsOffCount(key));
                       // 1 category, 1 label — not "1 categories".
                       const one = words.replace(/ies$/, 'y').replace(/s$/, '');
                       return `${value.toLocaleString()} ${value === 1 ? one : words}`;

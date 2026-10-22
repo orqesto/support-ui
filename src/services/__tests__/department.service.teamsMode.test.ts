@@ -11,7 +11,9 @@ vi.mock('@/lib/api-client', () => ({ apiClient: api }));
 const {
   departmentService,
   isTeamsSwitchStillRunning,
+  labelAsPhrase,
   labelForTeamsOffCount,
+  sortTeamsOffCounts,
   TEAMS_OFF_COUNT_LABELS,
 } = await import('../department.service');
 
@@ -194,6 +196,29 @@ describe('teams mode — switch-off extras', () => {
     expect(labelForTeamsOffCount('routingRules')).toBe('Routing rules');
     expect(labelForTeamsOffCount('customApiConnections')).toBe('Custom API connection links');
     expect(labelForTeamsOffCount('someNewThing')).toBe('Some new thing');
+  });
+
+  it('a label inside a sentence keeps its acronyms', () => {
+    expect(labelAsPhrase('AI prompt templates')).toBe('AI prompt templates');
+    expect(labelAsPhrase('Routing rules')).toBe('routing rules');
+    expect(labelAsPhrase(labelForTeamsOffCount('promptTemplates'))).toBe('AI prompt templates');
+  });
+
+  it('threads, open threads and tickets sort first; the rest keep their order', () => {
+    const sorted = sortTeamsOffCounts([
+      ['categories', 1],
+      ['tickets', 2],
+      ['labels', 3],
+      ['openConversations', 4],
+      ['conversations', 5],
+    ] as [string, number][]).map(([key]) => key);
+    expect(sorted).toEqual([
+      'conversations',
+      'openConversations',
+      'tickets',
+      'categories',
+      'labels',
+    ]);
   });
 });
 
