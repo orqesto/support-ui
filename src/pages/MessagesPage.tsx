@@ -29,6 +29,7 @@ import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
 import { messageService, type MessageThread } from '@/services/message.service';
+import { highlightTermsFor } from '@/lib/highlightTerms';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { similarResultsCache } from '@/components/messages/AiTabPanel';
@@ -1064,7 +1065,9 @@ export const MessagesPage = () => {
               onCommitSearch={handleCommitSearch}
               onClearFilters={() => void clearFilters()}
               isKanban={isKanban}
-              liveSearch={displayMode === 'threads'}
+              // Owner, 2026-10-22: the list changes only on Enter or "Search threads for…" —
+              // never while a long phrase is still being typed.
+              liveSearch={false}
             />
 
             {/* One-click equivalents of the board's columns. List mode only: on the kanban the
@@ -1233,7 +1236,7 @@ export const MessagesPage = () => {
                           }
                           onToggleSelected={toggleListRow}
                           selectMode={selectMode}
-                          highlightTerms={searchReading?.terms}
+                          highlightTerms={highlightTermsFor(searchReading)}
                           onReadChanged={() => {
                             bumpKanban();
                             void fetchMessages(messagesPagination.page, true);
@@ -1257,7 +1260,7 @@ export const MessagesPage = () => {
                           }
                           onToggleSelected={toggleListRow}
                           selectMode={selectMode}
-                          highlightTerms={searchReading?.terms}
+                          highlightTerms={highlightTermsFor(searchReading)}
                           onReadChanged={() => {
                             bumpKanban();
                             void fetchMessages(messagesPagination.page, true);
