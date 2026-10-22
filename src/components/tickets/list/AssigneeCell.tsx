@@ -4,7 +4,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { Menu, MenuItem, MenuLabel, MenuNote, MenuSeparator } from '@/components/ui/Menu';
 import type { Ticket } from '@/types';
 import { Avatar } from './ticketRowBits';
-import { TicketRef } from '@/components/tickets/TicketRef';
+import { TicketRef, useTicketDisplayId } from '@/components/tickets/TicketRef';
 
 export type AssigneeCellProps = {
   ticket: Ticket;
@@ -31,6 +31,7 @@ export const AssigneeCell = ({
   compact,
   keepActionLabel = false,
 }: AssigneeCellProps) => {
+  const shownId = useTicketDisplayId(ticket);
   const name =
     ticket.assigneeName ?? assignees.find((user) => user.id === ticket.assigneeId)?.name ?? '';
   const mine = ticket.assigneeId !== null && ticket.assigneeId === currentUserId;
@@ -59,14 +60,14 @@ export const AssigneeCell = ({
     return (
       <span onClick={stop} onKeyDown={stop} role="presentation" className="inline-flex min-w-0">
         <Menu
-          ariaLabel={`Assign #${ticket.id}`}
+          ariaLabel={`Assign ${shownId}`}
           align="end"
           width={270}
           trigger={({ toggle }) => (
             <Button
               variant="ghost"
               size="sm"
-              aria-label={`Assign #${ticket.id}`}
+              aria-label={`Assign ${shownId}`}
               aria-haspopup="menu"
               onClick={toggle}
               className="gap-1 px-2 h-6 text-[11.5px] font-semibold rounded-md border border-dashed border-muted-foreground/60 text-muted-foreground hover:border-solid hover:border-primary hover:text-primary"
@@ -103,7 +104,7 @@ export const AssigneeCell = ({
         <Button
           variant="ghost"
           size="sm"
-          aria-label={`Claim #${ticket.id}`}
+          aria-label={`Claim ${shownId}`}
           disabled={currentUserId === null}
           onClick={(event) => {
             stop(event);
@@ -122,7 +123,7 @@ export const AssigneeCell = ({
   return (
     <span onClick={stop} onKeyDown={stop} role="presentation" className="inline-flex min-w-0">
       <Menu
-        ariaLabel={`Assign #${ticket.id}`}
+        ariaLabel={`Assign ${shownId}`}
         align="end"
         width={270}
         trigger={({ open, toggle }) => (
@@ -132,7 +133,7 @@ export const AssigneeCell = ({
           >
             <Button
               variant="ghost"
-              aria-label={`Re-assign #${ticket.id}`}
+              aria-label={`Re-assign ${shownId}`}
               aria-haspopup="menu"
               onClick={toggle}
               className="gap-1.5 justify-start px-0.5 pr-2 h-auto min-w-0 font-normal rounded-full text-[12.5px]"

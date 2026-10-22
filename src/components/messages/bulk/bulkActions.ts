@@ -50,6 +50,8 @@ export type BulkResult = Omit<BulkPreview, 'eligible'> & {
   applied: number[];
   failed: Array<{ id: number; error: string }>;
   ticketId?: number;
+  /** `create_ticket`: the ticket's reference without the workspace code (`SUP-T-42`); absent from an older backend. */
+  ticketReference?: string | null;
   kbJobsQueued?: number;
 };
 

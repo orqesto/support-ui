@@ -100,6 +100,23 @@ describe('H2 — the ticket chip and its Related popover', () => {
     expect(screen.getByTestId('where').textContent).toBe('/tickets?id=9');
   });
 
+  it('Remove names the ticket by the ID the card shows, not its row id', async () => {
+    svc.ticketsOfThread.mockResolvedValue({
+      unavailable: false,
+      hiddenCount: 0,
+      rows: [
+        ticket({ ticketId: 7, isPrimary: true }),
+        ticket({ ticketId: 9, reference: 'SUP-T-2' }),
+      ],
+    });
+    renderHeader();
+    fireEvent.click(await screen.findByTestId('ticket-chip'));
+    const popover = await screen.findByRole('dialog', { name: 'Tickets' });
+    expect(
+      within(popover).getByRole('button', { name: /^Remove from ticket TES-SUP-T-2: / })
+    ).toBeInTheDocument();
+  });
+
   it('Remove takes the thread off a ticket — never the one created from it', async () => {
     twoTickets();
     renderHeader();

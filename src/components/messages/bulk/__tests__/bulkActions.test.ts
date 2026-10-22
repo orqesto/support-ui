@@ -103,7 +103,17 @@ describe('describeResult', () => {
 
   it('names the ticket a create_ticket run produced', () => {
     const outcome = describeResult('create_ticket', result({ ticketId: 77 }));
-    expect(outcome.text).toContain('#77');
+    expect(outcome.text).toContain('ticket #77 created');
+  });
+
+  it('names the created ticket by its own ID when the backend sends one', () => {
+    const outcome = describeResult(
+      'create_ticket',
+      result({ ticketId: 77, ticketReference: 'SUP-T-42' }),
+      'ACME'
+    );
+    expect(outcome.text).toContain('ticket ACME-SUP-T-42 created');
+    expect(outcome.text).not.toContain('#77');
   });
 
   it('does not claim work when nothing was applied', () => {

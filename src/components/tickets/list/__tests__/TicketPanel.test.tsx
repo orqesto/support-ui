@@ -114,6 +114,11 @@ describe('TicketPanel', () => {
     expect(screen.getByRole('region', { name: 'Ticket #1182' })).toBeInTheDocument();
   });
 
+  it('names itself by the ID it shows once the ticket has one', () => {
+    setup({ label: 'ACME-SUP-T-42' });
+    expect(screen.getByRole('region', { name: 'Ticket ACME-SUP-T-42' })).toBeInTheDocument();
+  });
+
   it('shows the ticket number and its detail', () => {
     setup();
     expect(screen.getByText('#1182')).toBeInTheDocument();

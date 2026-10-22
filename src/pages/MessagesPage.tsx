@@ -369,7 +369,7 @@ export const MessagesPage = () => {
           toast.error('The bulk action returned nothing to report');
           return;
         }
-        const outcome = describeResult(bulkAction, response.data);
+        const outcome = describeResult(bulkAction, response.data, orgCode);
         if (outcome.tone === 'warning') toast.error(outcome.text);
         else toast.success(outcome.text);
 
@@ -384,7 +384,7 @@ export const MessagesPage = () => {
         setBulkRunning(false);
       }
     },
-    [bulkAction, bulkSelection, bumpKanban, fetchMessages, messagesPagination.page]
+    [bulkAction, bulkSelection, bumpKanban, fetchMessages, messagesPagination.page, orgCode]
   );
 
   const threads: MessageThread[] = rawThreads;

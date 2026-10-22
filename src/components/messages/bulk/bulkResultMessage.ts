@@ -5,6 +5,7 @@
  * that failed is the only part that needs a person — so it is named first when it happens, and
  * never folded into "12 threads updated".
  */
+import { ticketDisplayId } from '@/lib/ticketReference';
 import {
   ACTION_LABEL,
   ACTION_PHRASE,
@@ -17,7 +18,11 @@ export type BulkOutcome = { tone: 'success' | 'warning'; text: string };
 
 const threads = (count: number): string => `${count} ${count === 1 ? 'thread' : 'threads'}`;
 
-export const describeResult = (action: BulkAction, result: BulkResult): BulkOutcome => {
+export const describeResult = (
+  action: BulkAction,
+  result: BulkResult,
+  orgCode?: string | null
+): BulkOutcome => {
   const parts: string[] = [];
   const applied = result.applied.length;
 
@@ -33,7 +38,14 @@ export const describeResult = (action: BulkAction, result: BulkResult): BulkOutc
     parts.push(`knowledge-base capture running for ${threads(result.kbJobsQueued)}`);
   }
 
-  if (result.ticketId !== undefined) parts.push(`ticket #${result.ticketId} created`);
+  // The ticket's own ID (`ACME-SUP-T-42`); `#<id>` from a backend that does not send it.
+  if (result.ticketId !== undefined) {
+    const shown = ticketDisplayId(
+      { id: result.ticketId, reference: result.ticketReference },
+      orgCode
+    );
+    parts.push(`ticket ${shown} created`);
+  }
 
   if (result.refused.length > 0) {
     const [biggest, ...rest] = groupRefusals(result.refused);

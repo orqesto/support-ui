@@ -2,6 +2,7 @@ import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PRIORITY_LABELS, STATUS_LABELS } from '@/components/tickets/list/ticketFilterKeys';
 import type { TicketPriority, TicketStatus } from '@/types';
+import { TicketRef } from '@/components/tickets/TicketRef';
 import {
   Dialog,
   DialogHeader,
@@ -14,7 +15,13 @@ import {
 interface DeleteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  ticketToDelete: { id?: number; title: string; status: string; priority: string } | null;
+  ticketToDelete: {
+    id?: number;
+    reference?: string | null;
+    title: string;
+    status: string;
+    priority: string;
+  } | null;
   deleting: boolean;
   /** Why the last attempt failed, shown under the ticket. */
   error?: string | null;
@@ -47,9 +54,10 @@ export function TicketDeleteDialog({
           <div className="p-3 mt-3 rounded-lg border bg-muted border-border">
             <p className="text-sm font-semibold text-foreground">
               {ticketToDelete.id !== undefined && (
-                <span className="mr-1.5 font-mono font-normal text-muted-foreground">
-                  #{ticketToDelete.id}
-                </span>
+                <TicketRef
+                  ticket={{ id: ticketToDelete.id, reference: ticketToDelete.reference }}
+                  className="mr-1.5 font-normal text-muted-foreground"
+                />
               )}
               {ticketToDelete.title}
             </p>

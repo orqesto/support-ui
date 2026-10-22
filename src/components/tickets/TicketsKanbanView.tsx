@@ -32,7 +32,7 @@ import { canTransition } from '@/lib/ticketStatus';
 import { useAuthStore } from '@/stores/authStore';
 import type { TicketFilters } from '@/stores/ticketsStore';
 import type { Ticket as TicketType, TicketStatus } from '@/types';
-import { TicketRef } from '@/components/tickets/TicketRef';
+import { TicketRef, useTicketDisplayId } from '@/components/tickets/TicketRef';
 
 type KanbanColumnDef = {
   id: TicketStatus;
@@ -65,7 +65,7 @@ type TicketRuntimeExtras = {
 type TicketWithExtras = TicketType & TicketRuntimeExtras;
 
 /** What a card needs to show its owner and offer Claim / re-assign, as the list rows do. */
-type AssignProps = {
+export type AssignProps = {
   canManage: boolean;
   assignees: Array<{ id: number; name: string }>;
   currentUserId: number | null;
@@ -114,7 +114,8 @@ function TicketCardContent({ ticket, assign }: { ticket: TicketType; assign?: As
   );
 }
 
-function TicketKanbanCard({
+/** Exported for its test only. */
+export function TicketKanbanCard({
   ticket,
   colId,
   onOpen,
@@ -131,6 +132,8 @@ function TicketKanbanCard({
     id: ticket.id,
     data: { colId },
   });
+  // The card's name starts with the ID it draws (WCAG 2.5.3), not the row id.
+  const shownId = useTicketDisplayId(ticket);
 
   return (
     // distance:8 activation means a short press still opens the card without starting a drag.
@@ -140,7 +143,7 @@ function TicketKanbanCard({
       {...listeners}
       role="button"
       tabIndex={0}
-      aria-label={`Open ticket #${ticket.id}`}
+      aria-label={`Open ticket ${shownId}`}
       onClick={() => onOpen(ticket)}
       onKeyDown={(event) => {
         if (event.key === 'Enter' && event.target === event.currentTarget) onOpen(ticket);

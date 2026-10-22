@@ -630,7 +630,7 @@ export const TicketsSection = ({
                     onClick={() => void remove(row.ticketId, index)}
                     data-remove-ticket={row.ticketId}
                     disabled={busyId !== null}
-                    aria-label={`Remove from ticket #${row.ticketId}: ${row.title}`}
+                    aria-label={`Remove from ticket ${ticketDisplayId({ id: row.ticketId, reference: row.reference }, orgCode)}: ${row.title}`}
                   >
                     {busyId === row.ticketId ? 'Removing…' : 'Remove'}
                   </Button>
