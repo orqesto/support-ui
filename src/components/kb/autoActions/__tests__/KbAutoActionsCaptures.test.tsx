@@ -279,3 +279,28 @@ describe('Automatic actions — approve answers people saved: what Automatic mea
     expect(within(row('remove')).queryByText(/at the saved bar/)).toBeNull();
   });
 });
+
+describe('Automatic actions — approve answers people saved: lowering the bar', () => {
+  const lowerText =
+    'Answers that now pass the lower bar are approved at their next check — tonight at the latest. Every approval is listed under Changed automatically, where you can send it back for review.';
+
+  it('lowering the bar while Automatic says when answers are approved, not "right away"', async () => {
+    wireCaptures(withCaptures({ mode: 'auto', gate: gateOpen }));
+    renderPage();
+    const captures = await screen.findByTestId('kb-auto-row-approveCaptures');
+    fireEvent.change(within(captures).getByRole('slider'), { target: { value: '80' } });
+    fireEvent.click(within(captures).getByRole('button', { name: 'Save' }));
+    expect(within(dialog()).getByText(lowerText)).toBeInTheDocument();
+    expect(within(dialog()).queryByText(/right away/)).toBeNull();
+  });
+
+  it('CONTROL: switching Automatic on still says "right away"', async () => {
+    wireCaptures(withCaptures({ gate: gateOpen }));
+    renderPage();
+    const captures = await screen.findByTestId('kb-auto-row-approveCaptures');
+    fireEvent.click(within(captures).getByRole('button', { name: 'Automatic' }));
+    fireEvent.click(within(captures).getByRole('button', { name: 'Save' }));
+    expect(within(dialog()).getByText(/right away/)).toBeInTheDocument();
+    expect(within(dialog()).queryByText(lowerText)).toBeNull();
+  });
+});

@@ -36,6 +36,10 @@ const MODE_HELP: Record<KbAutoRemoveMode, string> = {
 const CAPTURES_AUTO_HELP =
   'Approves the waiting answers that pass right away, and each new saved answer as soon as it is checked. Every approval is listed under Changed automatically, where you can send it back for review.';
 
+/** Lowering the bar while Automatic starts no run: newly passing answers wait for their next check. */
+const CAPTURES_LOWER_BAR =
+  'Answers that now pass the lower bar are approved at their next check — tonight at the latest. Every approval is listed under Changed automatically, where you can send it back for review.';
+
 const modeHelp = (action: KbAutoActionKey, mode: KbAutoRemoveMode): string =>
   action === 'approveCaptures' && mode === 'auto' ? CAPTURES_AUTO_HELP : MODE_HELP[mode];
 
@@ -225,7 +229,9 @@ export const KbAutoActionRow = ({
           action === 'remove'
             ? `At ${percent}% the next run removes ${entries(wouldAct)} now. Entries a person approved are never removed, and every removed entry can be restored for 90 days.`
             : action === 'approveCaptures'
-              ? CAPTURES_AUTO_HELP
+              ? loweringBar
+                ? CAPTURES_LOWER_BAR
+                : CAPTURES_AUTO_HELP
               : `"${label}" acts on its own from the next run. Everything it changes is listed under Changed automatically in the Knowledge Base, with an undo.`
         }
         confirmText={turningOn ? 'Turn on' : 'Lower the bar'}
