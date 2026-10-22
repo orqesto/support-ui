@@ -33,6 +33,17 @@ const assignees = [
   { id: 8, name: 'Sam Sample' },
 ];
 
+const renderRowProps = (ticket: Ticket, canManage = true) => ({
+  ticket,
+  canManage,
+  assignees,
+  currentUserId: 7,
+  current: false,
+  onOpen: vi.fn(),
+  onAssign: vi.fn(),
+  onRowMenu: vi.fn(),
+});
+
 const renderRow = (ticket: Ticket, canManage = true) => {
   const props = {
     ticket,
@@ -88,6 +99,15 @@ describe('TicketRow', () => {
     expect(props.onOpen).not.toHaveBeenCalled();
   });
 
+  it('offers Assign instead of Claim to someone who cannot own tickets here (a global admin outside the workspace)', () => {
+    const props = { ...renderRowProps(base), assignees: [{ id: 8, name: 'Sam Sample' }] };
+    render(<TicketRow {...props} />);
+    expect(screen.queryByRole('button', { name: 'Claim #1182' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Assign #1182' }));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Sam Sample/ }));
+    expect(props.onAssign).toHaveBeenCalledWith(1182, 8);
+  });
+
   it('offers no Claim to someone who cannot manage tickets', () => {
     renderRow(base, false);
     expect(screen.queryByRole('button', { name: /Claim/ })).toBeNull();
@@ -124,7 +144,9 @@ describe('TicketCard', () => {
 describe('spineTone', () => {
   it('ranks critical-and-open over owed over resolved over active over calm', () => {
     expect(spineTone({ ...base, priority: 'critical', status: 'open' })).toBe('danger');
-    expect(spineTone({ ...base, priority: 'critical', status: 'resolved', owedCount: 2 })).toBe('att');
+    expect(spineTone({ ...base, priority: 'critical', status: 'resolved', owedCount: 2 })).toBe(
+      'att'
+    );
     expect(spineTone({ ...base, owedCount: 0 })).toBe('ok');
     expect(spineTone({ ...base, status: 'in_progress', owedCount: 0 })).toBe('blue');
     expect(spineTone({ ...base, status: 'pending', owedCount: 0 })).toBe('calm');

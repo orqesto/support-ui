@@ -1,6 +1,6 @@
 import { Plus, UserMinus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Menu, MenuItem, MenuLabel, MenuSeparator } from '@/components/ui/Menu';
+import { Menu, MenuItem, MenuLabel, MenuNote, MenuSeparator } from '@/components/ui/Menu';
 import type { Ticket } from '@/types';
 import { Avatar } from './ticketRowBits';
 
@@ -41,6 +41,51 @@ export const AssigneeCell = ({
       <span className="inline-flex gap-1.5 items-center min-w-0 text-[12.5px]">
         <Avatar id={ticket.assigneeId} name={name} />
         {!compact && <span className="truncate">{name}</span>}
+      </span>
+    );
+  }
+
+  // Only someone the workspace can assign tickets to may claim one. A global admin looking at a
+  // workspace they are not a member of has every permission but cannot own its tickets — the
+  // server refuses — so they get the Assign menu instead.
+  const canClaim = currentUserId !== null && assignees.some((user) => user.id === currentUserId);
+
+  if (ticket.assigneeId === null && !canClaim) {
+    return (
+      <span onClick={stop} onKeyDown={stop} role="presentation" className="inline-flex min-w-0">
+        <Menu
+          ariaLabel={`Assign #${ticket.id}`}
+          align="end"
+          width={270}
+          trigger={({ toggle }) => (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Assign #${ticket.id}`}
+              aria-haspopup="menu"
+              onClick={toggle}
+              className="gap-1 px-2 h-6 text-[11.5px] font-semibold rounded-md border border-dashed border-muted-foreground/60 text-muted-foreground hover:border-solid hover:border-primary hover:text-primary"
+            >
+              <Plus className="w-3 h-3" />
+              {!compact && 'Assign'}
+            </Button>
+          )}
+        >
+          <MenuLabel>Assign #{ticket.id} to</MenuLabel>
+          {assignees.map((user) => (
+            <MenuItem
+              key={user.id}
+              checked={false}
+              icon={<Avatar id={user.id} name={user.name} />}
+              onSelect={() => onAssign(ticket.id, user.id)}
+            >
+              {user.name}
+            </MenuItem>
+          ))}
+          {assignees.length === 0 && (
+            <MenuNote>Nobody in this workspace can own tickets yet.</MenuNote>
+          )}
+        </Menu>
       </span>
     );
   }
