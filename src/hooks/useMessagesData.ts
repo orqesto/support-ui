@@ -16,6 +16,8 @@ type MessagesDataReturn = {
   threads: MessageThread[];
   loading: boolean;
   refreshing: boolean;
+  /** A read for a DIFFERENT search than the rows on screen is in flight — the rows are stale. */
+  searching: boolean;
   setRefreshing: Dispatch<SetStateAction<boolean>>;
   messagesPagination: {
     page: number;
@@ -52,6 +54,11 @@ export const useMessagesData = ({
   const [threads, setThreadsLocal] = useState<MessageThread[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searching, setSearching] = useState(false);
+  /** The search the rows on screen answer. A read for another one shades the list. */
+  const shownSearchRef = useRef('');
+  /** Aborts the in-flight list read once a newer one replaces it. */
+  const inFlightAbortRef = useRef<AbortController | null>(null);
   const [messagesPagination, setMessagesPagination] = useState({
     page: 1,
     limit: DEFAULT_LIMIT,
@@ -125,6 +132,8 @@ export const useMessagesData = ({
           // quiet again — which is the exact behaviour being fixed.
           setListScope(cached.listScope);
           setLoading(false);
+          shownSearchRef.current = currentFilters.search?.trim() ?? '';
+          setSearching(false);
           return;
         }
       }
@@ -147,10 +156,19 @@ export const useMessagesData = ({
          * terminates.
          */
         supersededPageRef.current = page;
+        // …and stop waiting for the stale answer. Typing a search further issues a read per
+        // pause; without this each one waited out the previous, slower one before it could
+        // start. The aborted read settles at once, and its `finally` re-issues this page.
+        // (This frees the list; the server still finishes the query it was given.)
+        inFlightAbortRef.current?.abort();
         return;
       }
 
       messagesFetchingRef.current = true;
+      const abort = new AbortController();
+      inFlightAbortRef.current = abort;
+      const requestedSearch = currentFilters.search?.trim() ?? '';
+      if (requestedSearch !== shownSearchRef.current) setSearching(true);
       if (hasLoadedRef.current) {
         setRefreshing(true);
       } else {
@@ -401,7 +419,8 @@ export const useMessagesData = ({
           page,
           DEFAULT_LIMIT,
           currentSorting.sortOrder,
-          currentSorting.sortBy
+          currentSorting.sortBy,
+          { signal: abort.signal }
         );
 
         if (response.success && response.data) {
@@ -411,6 +430,7 @@ export const useMessagesData = ({
           setThreadsLocal(response.data);
           setMessagesPagination(response.pagination);
           hasLoadedRef.current = true;
+          shownSearchRef.current = requestedSearch;
 
           if (
             page > 1 &&
@@ -421,10 +441,13 @@ export const useMessagesData = ({
           }
         }
       } catch (error) {
-        logger.error('Failed to fetch messages:', error);
+        // Aborted on purpose by the newer read above — not a failure.
+        if (!abort.signal.aborted) logger.error('Failed to fetch messages:', error);
       } finally {
         setLoading(false);
         setRefreshing(false);
+        setSearching(false);
+        if (inFlightAbortRef.current === abort) inFlightAbortRef.current = null;
         messagesFetchingRef.current = false;
         // A request arrived while this one was in flight and was held rather than
         // dropped. Issue it now that the slot is free — it was built from newer
@@ -523,6 +546,7 @@ export const useMessagesData = ({
     threads,
     loading,
     refreshing,
+    searching,
     setRefreshing,
     messagesPagination,
     fetchMessages,

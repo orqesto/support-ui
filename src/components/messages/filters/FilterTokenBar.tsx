@@ -12,6 +12,14 @@ import {
 } from './filterSchema';
 import type { FilterState } from '@/stores/messagesStore';
 
+/** Search as you type: this long after the last keystroke, the typed text is searched. */
+export const LIVE_SEARCH_DELAY_MS = 300;
+/**
+ * Shorter text waits for Enter. The backend's trigram indexes cannot serve under three
+ * characters, so a live search on "ab" would read every thread, and match most of them.
+ */
+export const LIVE_SEARCH_MIN_LENGTH = 3;
+
 /**
  * The inbox filter bar: every active filter as a token on one line, with a menu that
  * both searches and browses.
@@ -48,6 +56,25 @@ export const FilterTokenBar = ({
   const wrapRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  /**
+   * Live search state. `before` is the search that was committed when typing began, so that
+   * typing which turns out to be a FILTER (`stat…` → Status) or is abandoned with Escape puts
+   * the list back; `live` is whether the typed text has been searched yet.
+   */
+  const liveRef = useRef<{ before: string | null; live: boolean }>({ before: null, live: false });
+  // Through refs: both are new on every render, and the debounce must not restart on a render.
+  const commitSearchRef = useRef(onCommitSearch);
+  commitSearchRef.current = onCommitSearch;
+  const committedSearchRef = useRef(filters.search ?? '');
+  committedSearchRef.current = filters.search ?? '';
+
+  /** Typing is over. `keep` = the live search stands; otherwise the earlier search returns. */
+  const endTyping = useCallback((keep: boolean) => {
+    const { before, live } = liveRef.current;
+    if (!keep && live && before !== null) commitSearchRef.current(before);
+    liveRef.current = { before: null, live: false };
+  }, []);
+
   const tokens = useMemo(() => tokensOf(defs, filters, isKanban), [defs, filters, isKanban]);
   const suggestions = useMemo(
     () => suggestionsFor(defs, query, isKanban, filters),
@@ -67,15 +94,39 @@ export const FilterTokenBar = ({
     window.setTimeout(() => inputRef.current?.focus(), 0);
   }, []);
 
+  // Search as you type. The menu stays open, so a filter suggestion is still one keystroke
+  // away; Enter searches at once, as before.
+  useEffect(() => {
+    if (!open || panelKey) return undefined;
+    const term = query.trim();
+    if (term && liveRef.current.before === null)
+      liveRef.current.before = committedSearchRef.current;
+    const timer = window.setTimeout(() => {
+      if (term.length >= LIVE_SEARCH_MIN_LENGTH) {
+        commitSearchRef.current(term);
+        liveRef.current.live = true;
+      } else if (liveRef.current.live) {
+        // Erased below the minimum: show what was there before typing, not the stale prefix.
+        commitSearchRef.current(liveRef.current.before ?? '');
+        liveRef.current.live = false;
+      }
+    }, LIVE_SEARCH_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [query, open, panelKey]);
+
   // Click-away. Bound while open only, so a closed bar costs nothing.
   useEffect(() => {
     if (!open) return undefined;
     const onDown = (event: MouseEvent) => {
-      if (!wrapRef.current?.contains(event.target as Node)) close();
+      if (!wrapRef.current?.contains(event.target as Node)) {
+        // Usually a click on a result of the live search, so it stands.
+        endTyping(true);
+        close();
+      }
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
-  }, [open, close]);
+  }, [open, close, endTyping]);
 
   // "/" focuses the bar, the way it does in every tool this borrows from. Ignored
   // while the caret is in some other field, or it would eat a typed slash.
@@ -162,10 +213,13 @@ export const FilterTokenBar = ({
       const suggestion = suggestions[index];
       if (!suggestion) return;
       if (suggestion.kind === 'free') {
+        endTyping(true);
         onCommitSearch(suggestion.query);
         close();
         return;
       }
+      // The typed text was the way to a filter, not a search.
+      endTyping(false);
       if (suggestion.kind === 'flag') {
         onFilterChange(suggestion.def.key, true);
         close();
@@ -178,7 +232,7 @@ export const FilterTokenBar = ({
       setPanelKey(suggestion.def.key);
       setQuery('');
     },
-    [suggestions, onCommitSearch, onFilterChange, setValue, close]
+    [suggestions, onCommitSearch, onFilterChange, setValue, close, endTyping]
   );
 
   const removeToken = useCallback(
@@ -191,6 +245,7 @@ export const FilterTokenBar = ({
 
   const onInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') {
+      endTyping(false);
       close();
       return;
     }

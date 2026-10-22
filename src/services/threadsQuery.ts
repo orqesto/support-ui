@@ -31,6 +31,8 @@ export type ThreadsRequest = {
   limit: number;
   sortOrder?: 'asc' | 'desc';
   sortBy: string;
+  /** Aborts the request when a newer list read replaces it (a search typed further). */
+  signal?: AbortSignal;
 };
 
 export const fetchThreads = async <T>({
@@ -39,16 +41,21 @@ export const fetchThreads = async <T>({
   limit,
   sortOrder,
   sortBy,
+  signal,
 }: ThreadsRequest): Promise<T> => {
   if (threadsSearchSupported !== false) {
     try {
-      const response = await apiClient.post<T>('/api/messages/threads/search', {
-        ...filters,
-        page,
-        limit,
-        ...(sortOrder ? { sortOrder } : {}),
-        ...(sortBy !== 'time' ? { sortBy } : {}),
-      });
+      const response = await apiClient.post<T>(
+        '/api/messages/threads/search',
+        {
+          ...filters,
+          page,
+          limit,
+          ...(sortOrder ? { sortOrder } : {}),
+          ...(sortBy !== 'time' ? { sortBy } : {}),
+        },
+        { signal }
+      );
       threadsSearchSupported = true;
       return response.data;
     } catch (err) {
@@ -78,9 +85,9 @@ export const fetchThreads = async <T>({
   if (sortOrder) params.append('sortOrder', sortOrder);
   if (sortBy !== 'time') params.append('sortBy', sortBy);
 
-  const response = await apiClient.get<T>(
-    `/api/messages/threads?${params.toString()}`,
-    filters.receivedAt ? { headers: { 'X-Filter-Received-At': filters.receivedAt } } : undefined
-  );
+  const response = await apiClient.get<T>(`/api/messages/threads?${params.toString()}`, {
+    signal,
+    ...(filters.receivedAt ? { headers: { 'X-Filter-Received-At': filters.receivedAt } } : {}),
+  });
   return response.data;
 };
