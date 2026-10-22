@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
-import { Badge } from './Badge';
-import { Spinner } from './Spinner';
+import { LoadingRing } from './LoadingRing';
 
 type LoadingOverlayProps = {
   /** Shade the content and show the label. False renders the content untouched. */
@@ -29,16 +28,14 @@ export const LoadingOverlay = ({
     {active && (
       <div
         role="status"
-        className="absolute inset-0 z-10 flex items-start justify-center rounded-md bg-background/60 pt-16 backdrop-blur-[1px]"
+        aria-label={label}
+        className="absolute inset-0 z-10 rounded-md bg-background/60 backdrop-blur-[1px]"
       >
-        <Badge
-          variant="secondary"
-          size="lg"
-          className="sticky top-24 gap-2 shadow-sm cursor-default"
-        >
-          <Spinner size={14} />
-          {label}
-        </Badge>
+        {/* The app's big loader, centred where the agent is looking: sticky, so on a long
+            list it stays in view while the list scrolls under it (owner, 2026-10-22). */}
+        <div className="sticky top-[30vh] flex justify-center py-12">
+          <LoadingRing label={label} />
+        </div>
       </div>
     )}
   </div>

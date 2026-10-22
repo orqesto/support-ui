@@ -11,6 +11,7 @@ import { useRolePermissionMatrix } from '@/hooks/useRolePermissionMatrix';
 import { CONSOLE_SECTIONS, PLATFORM_SECTIONS } from './components/console/consoleSections';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Button } from './components/ui/Button';
+import { LoadingRing } from './components/ui/LoadingRing';
 import { useBackendVersion } from './hooks/useBackendVersion';
 // Eager load critical routes
 import { DashboardPage } from './pages/DashboardPage';
@@ -120,10 +121,7 @@ const WorkspaceDepartmentsPage = lazy(() =>
 
 const LoadingFallback = () => (
   <div className="flex justify-center items-center min-h-screen bg-background">
-    <div className="text-center">
-      <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 animate-spin border-primary" />
-      <p className="text-muted-foreground">Loading...</p>
-    </div>
+    <LoadingRing label="Loading..." />
   </div>
 );
 
