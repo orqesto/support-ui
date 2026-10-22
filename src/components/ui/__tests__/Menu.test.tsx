@@ -53,6 +53,19 @@ describe('Menu', () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
+  it('can be used from the keyboard: focus moves in, arrows move, Escape returns to the trigger', async () => {
+    renderMenu();
+    const trigger = screen.getByRole('button', { name: 'More' });
+    fireEvent.click(trigger);
+    await vi.waitFor(() => expect(screen.getByRole('menuitem', { name: 'Open' })).toHaveFocus());
+    fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Open' }), { key: 'ArrowDown' });
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Pinned' })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole('menuitemcheckbox', { name: 'Pinned' }), { key: 'ArrowDown' });
+    expect(screen.getByRole('menuitem', { name: 'Open' })).toHaveFocus();
+    fireEvent.keyDown(document.activeElement as Element, { key: 'Escape' });
+    expect(trigger).toHaveFocus();
+  });
+
   it('marks a checked item for assistive tech', () => {
     renderMenu();
     fireEvent.click(screen.getByRole('button', { name: 'More' }));

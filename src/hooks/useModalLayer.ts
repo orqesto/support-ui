@@ -99,3 +99,6 @@ export const useModalLayer = (
 
 /** Tests only: how many modal layers are open. */
 export const openModalLayersForTests = (): number => layers.length;
+
+/** A modal (dialog, confirm) is open: page-level shortcuts must leave its keys alone. */
+export const hasOpenModalLayer = (): boolean => layers.length > 0;

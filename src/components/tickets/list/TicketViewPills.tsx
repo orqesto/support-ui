@@ -1,5 +1,6 @@
 import { Plus, X } from 'lucide-react';
 import { useState } from 'react';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,
@@ -39,6 +40,7 @@ export const TicketViewPills = ({
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const current = activeView(filters, views);
   const custom =
     !current && (Object.keys(viewFiltersOf(filters)).length > 0 || !!filters.search?.trim());
@@ -47,10 +49,13 @@ export const TicketViewPills = ({
     const trimmed = name.trim();
     if (!trimmed) return;
     setSaving(true);
+    setSaveError(null);
     try {
       await onSave(trimmed);
       setNaming(false);
       setName('');
+    } catch {
+      setSaveError('This view could not be saved. Try again in a moment.');
     } finally {
       setSaving(false);
     }
@@ -122,6 +127,11 @@ export const TicketViewPills = ({
               }}
             />
           </div>
+          {saveError && (
+            <Alert variant="danger" className="mt-3">
+              {saveError}
+            </Alert>
+          )}
         </DialogContent>
         <DialogFooter>
           <Button variant="outline" onClick={() => setNaming(false)}>

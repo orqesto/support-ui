@@ -33,8 +33,7 @@ export function useTicketsUrlSync({
   // Sync URL → filters on mount. A link with no filter at all opens on the "Needs us" view
   // (the tickets list's default); a link that names filters gets exactly those.
   useEffect(() => {
-    const { filters: urlFilters, sorting: urlSorting } = filtersFromParams(searchParams);
-    const named = Object.keys(urlFilters).length > 0;
+    const { filters: urlFilters, sorting: urlSorting, explicit: named } = filtersFromParams(searchParams);
     // Always start from defaults and layer URL params on top — prevents stale persisted filters
     // from bleeding in when the URL has no params.
     setFiltersStore(named ? { ...defaultFilters, ...urlFilters } : filtersOfView(DEFAULT_VIEW_FILTERS));

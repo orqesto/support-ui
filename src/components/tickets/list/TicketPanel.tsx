@@ -56,7 +56,7 @@ export const TicketPanel = ({
   onCopyLink,
   children,
 }: TicketPanelProps) => (
-  <div className="flex flex-col h-full min-h-0">
+  <div role="region" aria-label={`Ticket #${ticketId}`} className="flex flex-col h-full min-h-0">
     <div className="flex gap-1 items-center px-2 h-[46px] border-b shrink-0 border-border bg-card text-[12.5px] text-muted-foreground">
       <IconAction label="Close" kbd="Esc" onClick={onClose}>
         <X className="w-4 h-4" />

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, renderHook, screen } from '@testing-library/react';
+import { Dialog, DialogContent } from '@/components/ui/Dialog';
 import { TicketPanel } from '../TicketPanel';
 import { useTicketKeys } from '../useTicketKeys';
 
@@ -54,6 +55,19 @@ describe('useTicketKeys', () => {
     expect(handlers.onClose).not.toHaveBeenCalled();
   });
 
+  it('stands down while a dialog is open over the ticket — its Escape is the dialog’s', () => {
+    const handlers = keysFor(true);
+    render(
+      <Dialog open onOpenChange={() => {}}>
+        <DialogContent>Move department</DialogContent>
+      </Dialog>
+    );
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.keyDown(document, { key: 'j' });
+    expect(handlers.onClose).not.toHaveBeenCalled();
+    expect(handlers.onNext).not.toHaveBeenCalled();
+  });
+
   it('ignores shortcuts with a modifier held', () => {
     const handlers = keysFor(true);
     fireEvent.keyDown(document, { key: 'j', metaKey: true });
@@ -93,6 +107,11 @@ describe('TicketPanel', () => {
     expect(props.onFullPage).toHaveBeenCalled();
     expect(props.onCopyLink).toHaveBeenCalled();
     expect(props.onClose).toHaveBeenCalled();
+  });
+
+  it('names itself for assistive tech', () => {
+    setup();
+    expect(screen.getByRole('region', { name: 'Ticket #1182' })).toBeInTheDocument();
   });
 
   it('shows the ticket number and its detail', () => {

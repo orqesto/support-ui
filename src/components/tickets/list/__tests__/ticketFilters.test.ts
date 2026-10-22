@@ -61,6 +61,11 @@ describe('filters in the URL', () => {
     expect(back.sorting).toEqual({ sortBy: 'owed', sortOrder: 'desc' });
   });
 
+  it('treats a link that names only a sort as an explicit list (All), not as no link', () => {
+    expect(filtersFromParams(new URLSearchParams('sort=createdAt')).explicit).toBe(true);
+    expect(filtersFromParams(new URLSearchParams('id=12')).explicit).toBe(false);
+  });
+
   it('ignores values it does not know', () => {
     const back = filtersFromParams(new URLSearchParams('owes=maybe&threads=99&sort=nonsense&status=lost'));
     expect(back.filters).toEqual({});

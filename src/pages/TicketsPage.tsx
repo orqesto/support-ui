@@ -90,11 +90,10 @@ export const TicketsPage = () => {
   const getCached = useTicketsStore((state) => state.getCached);
   const clearCache = useTicketsStore((state) => state.clearCache);
 
-  const { hasPermission } = usePermissions();
+  const { hasPermission, hasAnyPermission } = usePermissions();
   const currentUserId = useAuthStore((state) => state.user?.id ?? null);
   // Bumped by a realtime ticket event or a change made here, so the pill counts follow the list.
   const [countsKey, setCountsKey] = useState(0);
-  const { views, counts, saveView, deleteView } = useTicketViews(currentUserId, countsKey);
   const filterSources = useTicketFilterSources();
 
   // Local state for current view
@@ -113,6 +112,10 @@ export const TicketsPage = () => {
 
   // Re-fetch when the dept-context checkboxes change.
   const selectedDeptKey = useDepartmentContextKey();
+  const { views, counts, saveView, deleteView } = useTicketViews(
+    currentUserId,
+    `${countsKey}:${selectedDeptKey}`
+  );
 
   const fetchTickets = useCallback(
     async (page = 1, force = false) => {
@@ -298,7 +301,7 @@ export const TicketsPage = () => {
       await fetchTickets(pagination.page, true);
     } catch (error) {
       logger.error('Failed to assign ticket:', error);
-      toast.error('Could not change who owns this ticket');
+      toast.failure('change who owns this ticket', error);
     }
   };
 
@@ -307,13 +310,14 @@ export const TicketsPage = () => {
     navigator.clipboard
       .writeText(url)
       .then(() => toast.success('Link copied'))
-      .catch(() => toast.error('Could not copy the link'));
+      .catch((error: unknown) => toast.failure('copy the link', error));
   };
 
   const rowMenu = (ticket: TicketType) => (
     <TicketRowMenuItems
       ticket={ticket}
       canManage={hasPermission(Permission.MANAGE_TICKETS)}
+      canDelete={hasAnyPermission([Permission.DELETE_TICKETS, Permission.MANAGE_ORGANIZATION])}
       jiraOn={jiraIntegrations.length > 0}
       onOpen={openTicket}
       onCopyLink={copyLink}
@@ -483,7 +487,7 @@ export const TicketsPage = () => {
             }}
             onSave={(name) => saveView(name, viewFiltersOf(filters))}
             onDelete={(view) =>
-              void deleteView(view).catch((error) => logger.error('Failed to delete view:', error))
+              void deleteView(view).catch((error: unknown) => toast.failure('delete this view', error))
             }
           />
           <TicketFilterBar

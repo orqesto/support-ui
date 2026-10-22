@@ -108,13 +108,15 @@ export const TicketFilterBar = ({
             </span>
           );
         })}
-        <SearchInput
-          value={search}
-          onChange={onSearchChange}
-          onSearch={onSearch}
-          placeholder={active.length ? 'Search…' : 'Search by ID, title or description'}
-          className="flex-1 min-w-[160px]"
-        />
+        <span data-ticket-search className="flex flex-1 min-w-[160px]">
+          <SearchInput
+            value={search}
+            onChange={onSearchChange}
+            onSearch={onSearch}
+            placeholder={active.length ? 'Search…' : 'Search by ID, title or description'}
+            className="flex-1"
+          />
+        </span>
       </div>
       <Menu
         ariaLabel="Filter tickets"

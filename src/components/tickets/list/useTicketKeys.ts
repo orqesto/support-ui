@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { hasOpenModalLayer } from '@/hooks/useModalLayer';
 
 type Handlers = {
   /** A ticket is open (in the sheet or the split pane). */
@@ -29,6 +30,8 @@ export const useTicketKeys = (handlers: Handlers) => {
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return;
       if (isTyping(event.target)) return;
+      // A dialog over the ticket owns Escape and the letters; the sheet behind it must not move.
+      if (hasOpenModalLayer()) return;
       const { open, onNext, onPrev, onClose, onSlash } = latest.current;
       if (event.key === '/' && !open) {
         event.preventDefault();

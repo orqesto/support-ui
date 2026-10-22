@@ -5,6 +5,7 @@ import type { Ticket } from '@/types';
 export const TicketRowMenuItems = ({
   ticket,
   canManage,
+  canDelete,
   jiraOn,
   onOpen,
   onCopyLink,
@@ -13,6 +14,8 @@ export const TicketRowMenuItems = ({
 }: {
   ticket: Ticket;
   canManage: boolean;
+  /** DELETE_TICKETS or MANAGE_ORGANIZATION — what the server's delete route requires. */
+  canDelete: boolean;
   jiraOn: boolean;
   onOpen: (ticket: Ticket) => void;
   onCopyLink: (ticketId: number) => void;
@@ -25,7 +28,7 @@ export const TicketRowMenuItems = ({
     {canManage && jiraOn && !ticket.externalId && (
       <MenuItem onSelect={() => onPushToJira(ticket.id)}>Push to Jira</MenuItem>
     )}
-    {canManage && (
+    {canDelete && (
       <>
         <MenuSeparator />
         <MenuItem danger onSelect={() => onDelete(ticket)}>

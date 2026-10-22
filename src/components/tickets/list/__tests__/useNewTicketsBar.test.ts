@@ -31,6 +31,18 @@ describe('useNewTicketsBar', () => {
     expect(result.current.count).toBe(0);
   });
 
+  it('asks the server once for a burst of new tickets', async () => {
+    getAll.mockReturnValue(page([52, 51, 50]));
+    const { result } = renderHook(() => useNewTicketsBar({}, sorting));
+    act(() => {
+      result.current.onCreated(50);
+      result.current.onCreated(51);
+      result.current.onCreated(52);
+    });
+    await waitFor(() => expect(result.current.count).toBe(3));
+    expect(getAll).toHaveBeenCalledTimes(1);
+  });
+
   it('counts each new ticket once, however many events arrive for it', async () => {
     getAll.mockReturnValue(page([50, 49]));
     const { result } = renderHook(() => useNewTicketsBar({}, sorting));

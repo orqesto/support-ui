@@ -48,6 +48,28 @@ describe('useTicketViews', () => {
     await waitFor(() => expect(getMetadata.mock.calls.length).toBeGreaterThan(before));
   });
 
+  it('counts once for a burst of refreshes, not once per event', async () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = renderHook(({ key }) => useTicketViews(7, key), { initialProps: { key: 'a' } });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      const settled = getMetadata.mock.calls.length;
+      rerender({ key: 'b' });
+      rerender({ key: 'c' });
+      rerender({ key: 'd' });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      // Six built-ins (the saved view is not loaded under fake timers' first tick): one round.
+      expect(getMetadata.mock.calls.length - settled).toBeLessThanOrEqual(7);
+      expect(getMetadata.mock.calls.length - settled).toBeGreaterThan(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('saves a view and shows it, replacing one with the same name', async () => {
     save.mockResolvedValue({ id: 10, name: 'Billing', filters: { owes: 'yes' } });
     const { result } = renderHook(() => useTicketViews(7, 0));

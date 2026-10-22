@@ -52,6 +52,16 @@ describe('TicketViewPills', () => {
     await waitFor(() => expect(props.onSave).toHaveBeenCalledWith('My high ones'));
   });
 
+  it('says so when a view cannot be saved, and keeps the name typed', async () => {
+    const props = setup({ ...defaultFilters, priority: 'high' });
+    props.onSave.mockRejectedValueOnce(new Error('Request failed with status code 404'));
+    fireEvent.click(screen.getByRole('button', { name: /Save as view/ }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'High ones' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText(/could not be saved/i)).toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toHaveValue('High ones');
+  });
+
   it('lets a saved view be deleted, but not a built-in one', () => {
     const props = setup();
     fireEvent.click(screen.getByRole('button', { name: 'Delete view Billing incidents' }));

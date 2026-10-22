@@ -18,6 +18,33 @@ const EDGE_MARGIN_PX = 8;
 
 const MenuCloseContext = createContext<() => void>(() => undefined);
 
+type FocusMove = 'first' | 'last' | 'next' | 'prev';
+const KEY_MOVES: Record<string, FocusMove | undefined> = {
+  ArrowDown: 'next',
+  ArrowUp: 'prev',
+  Home: 'first',
+  End: 'last',
+};
+
+/** Moves focus among the panel's enabled items, wrapping at the ends. */
+const focusItem = (panel: HTMLElement | null, move: FocusMove) => {
+  if (!panel) return;
+  const items = Array.from(
+    panel.querySelectorAll<HTMLElement>('[role^="menuitem"]:not([disabled])')
+  );
+  if (!items.length) return;
+  const at = items.indexOf(document.activeElement as HTMLElement);
+  const index =
+    move === 'first'
+      ? 0
+      : move === 'last'
+        ? items.length - 1
+        : move === 'next'
+          ? (at + 1) % items.length
+          : (at - 1 + items.length) % items.length;
+  items[index].focus();
+};
+
 /**
  * An action menu: a trigger and a panel of items, portalled to <body> so a scroll container or
  * a table row's overflow never clips it. Closes on Escape, on a click outside, and when an item
@@ -36,7 +63,14 @@ export const Menu = ({
   const rootRef = useRef<HTMLSpanElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const close = useCallback(() => setOpen(false), []);
+  /** Back to the control that opened the menu — keyboard users must not lose their place. */
+  const focusTrigger = useCallback(() => {
+    rootRef.current?.querySelector<HTMLElement>('button, [tabindex]')?.focus();
+  }, []);
+  const close = useCallback(() => {
+    setOpen(false);
+    focusTrigger();
+  }, [focusTrigger]);
   const toggle = useCallback(() => setOpen((was) => !was), []);
 
   useLayoutEffect(() => {
@@ -84,15 +118,20 @@ export const Menu = ({
         // The menu takes this Escape: a sheet or dialog behind it must not close too.
         event.stopPropagation();
         setOpen(false);
+        focusTrigger();
       }
     };
     document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('keydown', onKey, true);
+    // Focus moves into the menu, so arrow keys and Enter work at once (the panel is portalled to
+    // the end of <body>; Tab from the trigger would never reach it).
+    const focusTimer = setTimeout(() => focusItem(panelRef.current, 'first'));
     return () => {
+      clearTimeout(focusTimer);
       document.removeEventListener('mousedown', onPointerDown);
       document.removeEventListener('keydown', onKey, true);
     };
-  }, [open]);
+  }, [open, focusTrigger]);
 
   return (
     <span ref={rootRef} className={cn('inline-flex relative', className)}>
@@ -105,6 +144,12 @@ export const Menu = ({
             aria-label={ariaLabel}
             style={{ top: pos?.top ?? -9999, left: pos?.left ?? -9999, width }}
             className="absolute z-[9999] p-1 rounded-lg border shadow-xl border-border bg-card text-card-foreground"
+            onKeyDown={(event) => {
+              const move = KEY_MOVES[event.key];
+              if (!move) return;
+              event.preventDefault();
+              focusItem(panelRef.current, move);
+            }}
           >
             <MenuCloseContext.Provider value={close}>
               {typeof children === 'function' ? children(close) : children}
@@ -134,9 +179,11 @@ export const MenuItem = ({
       role={checkable ? 'menuitemcheckbox' : 'menuitem'}
       aria-checked={checkable ? checked : undefined}
       disabled={disabled}
-      onClick={() => {
+      onClick={(event) => {
+        const panel = (event.currentTarget as HTMLElement).closest<HTMLElement>('[role="menu"]');
         onSelect();
         if (!keepOpen) close();
+        else setTimeout(() => focusItem(panel, 'first'));
       }}
       className={cn(
         'flex gap-2 justify-start items-center px-2 w-full h-auto font-normal text-left rounded-md min-h-[34px] text-[13px]',

@@ -46,6 +46,11 @@ describe('TicketFilterBar', () => {
     expect(props.onChange).toHaveBeenCalledWith({ ...defaultFilters, priority: 'high' });
   });
 
+  it('marks its search field so / can jump to it', () => {
+    setup(defaultFilters);
+    expect(document.querySelector('[data-ticket-search] input')).not.toBeNull();
+  });
+
   it('offers no Jira filter when Jira is not connected', () => {
     setup(defaultFilters);
     fireEvent.click(screen.getByRole('button', { name: 'Filter' }));

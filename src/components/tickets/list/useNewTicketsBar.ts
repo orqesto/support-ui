@@ -10,6 +10,8 @@ import type { TicketSorting } from '@/stores/ticketsStore';
  * (its filters, department scope, top page) is asked of the server: the first page is fetched
  * with the current filters and the ticket counts only if it is on it.
  */
+const PROBE_DEBOUNCE_MS = 400;
+
 export const useNewTicketsBar = (apiFilters: Record<string, string>, sorting: TicketSorting) => {
   const [pending, setPending] = useState<number[]>([]);
   const filtersKey = JSON.stringify(apiFilters);
@@ -21,7 +23,20 @@ export const useNewTicketsBar = (apiFilters: Record<string, string>, sorting: Ti
     setPending([]);
   }, [filtersKey]);
 
-  const onCreated = useCallback((ticketId: number) => {
+  // New tickets arriving together (an import) are checked with ONE request, not one each.
+  const waiting = useRef<Set<number>>(new Set());
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    []
+  );
+
+  const probe = useCallback(() => {
+    timer.current = null;
+    const ids = [...waiting.current];
+    waiting.current = new Set();
     const asked = latest.current;
     ticketService
       .getAll(
@@ -33,13 +48,22 @@ export const useNewTicketsBar = (apiFilters: Record<string, string>, sorting: Ti
       )
       .then((response) => {
         // The filters changed while this was in flight: the answer is for a list nobody shows.
-        if (latest.current.filtersKey !== asked.filtersKey) return;
-        if (response.success && response.data.some((ticket) => ticket.id === ticketId)) {
-          setPending((prev) => (prev.includes(ticketId) ? prev : [...prev, ticketId]));
-        }
+        if (latest.current.filtersKey !== asked.filtersKey || !response.success) return;
+        const onPage = new Set(response.data.map((ticket) => ticket.id));
+        const belong = ids.filter((id) => onPage.has(id));
+        if (belong.length)
+          setPending((prev) => [...prev, ...belong.filter((id) => !prev.includes(id))]);
       })
-      .catch((error) => logger.error('Failed to check a new ticket against the list:', error));
+      .catch((error) => logger.error('Failed to check new tickets against the list:', error));
   }, []);
+
+  const onCreated = useCallback(
+    (ticketId: number) => {
+      waiting.current.add(ticketId);
+      if (!timer.current) timer.current = setTimeout(probe, PROBE_DEBOUNCE_MS);
+    },
+    [probe]
+  );
 
   const reset = useCallback(() => setPending([]), []);
 

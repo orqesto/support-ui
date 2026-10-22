@@ -63,7 +63,7 @@ export const ticketApiFilters = (
  *  produces a filter the API would ignore while the page shows it as active. */
 export const filtersFromParams = (
   params: URLSearchParams
-): { filters: Partial<TicketFilters>; sorting: TicketSorting | null } => {
+): { filters: Partial<TicketFilters>; sorting: TicketSorting | null; explicit: boolean } => {
   const filters: Partial<TicketFilters> = {};
   const status = oneOf(STATUSES, params.get('status'));
   if (status) filters.status = status;
@@ -91,7 +91,13 @@ export const filtersFromParams = (
 
   const sortBy = oneOf(SORTS, params.get('sort'));
   const sortOrder = params.get('order') === 'asc' ? 'asc' : 'desc';
-  return { filters, sorting: sortBy ? { sortBy, sortOrder } : null };
+  return {
+    filters,
+    sorting: sortBy ? { sortBy, sortOrder } : null,
+    // A link that names a filter or a sort is a list someone chose (a shared "All" carries only
+    // its sort); a bare link (or one naming only a ticket) opens on the default view.
+    explicit: Object.keys(filters).length > 0 || params.has('sort'),
+  };
 };
 
 /** Filters and sort → URL (into `params`, which may already hold `id` / `mode`). */

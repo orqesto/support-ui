@@ -15,7 +15,9 @@ import {
  * tickets each holds. One metadata request per view (counts only, no rows), re-run whenever
  * `refreshKey` changes: the page bumps it on a realtime ticket event or a change it made itself.
  */
-export const useTicketViews = (currentUserId: number | null, refreshKey: number) => {
+const COUNTS_DEBOUNCE_MS = 600;
+
+export const useTicketViews = (currentUserId: number | null, refreshKey: number | string) => {
   const [saved, setSaved] = useState<TicketView[]>([]);
   const [counts, setCounts] = useState<Record<string, number | undefined>>({});
 
@@ -37,19 +39,24 @@ export const useTicketViews = (currentUserId: number | null, refreshKey: number)
 
   useEffect(() => {
     let live = true;
-    views.forEach((view) => {
-      const filters = ticketApiFilters(filtersOfView(view.filters), currentUserId);
-      ticketService
-        .getMetadata(filters, 1)
-        .then((response) => {
-          if (live && response.success) {
-            setCounts((prev) => ({ ...prev, [view.name]: response.data.total }));
-          }
-        })
-        .catch((error) => logger.error(`Failed to count the "${view.name}" view:`, error));
-    });
+    // A burst of realtime events (an import, a bulk change) refreshes the counts once, not once per
+    // event: every refresh is one request per view, for every agent with the list open.
+    const timer = setTimeout(() => {
+      views.forEach((view) => {
+        const filters = ticketApiFilters(filtersOfView(view.filters), currentUserId);
+        ticketService
+          .getMetadata(filters, 1)
+          .then((response) => {
+            if (live && response.success) {
+              setCounts((prev) => ({ ...prev, [view.name]: response.data.total }));
+            }
+          })
+          .catch((error) => logger.error(`Failed to count the "${view.name}" view:`, error));
+      });
+    }, COUNTS_DEBOUNCE_MS);
     return () => {
       live = false;
+      clearTimeout(timer);
     };
   }, [views, currentUserId, refreshKey]);
 
