@@ -25,6 +25,7 @@ const STOP_REASON: Record<string, string> = {
   rate_limited: 'Gmail asked us to slow down',
   transient_error: 'the mail provider answered with a temporary error',
   daily_limit: "Gmail's daily limit was reached",
+  interrupted: 'the server restarted during the check',
 };
 
 /**
@@ -38,6 +39,7 @@ const EXPECTED_STOPS: ReadonlySet<string> = new Set([
   'deferred_under_load',
   'rate_limited',
   'transient_error',
+  'interrupted',
 ]);
 
 /** Did this run stop for a reason that resolves by itself on the next check? */

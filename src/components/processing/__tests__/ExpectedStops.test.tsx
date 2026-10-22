@@ -55,7 +55,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('an expected stop in the panel', () => {
-  it.each(['run_budget', 'deferred_under_load', 'rate_limited', 'transient_error'])(
+  it.each(['run_budget', 'deferred_under_load', 'rate_limited', 'transient_error', 'interrupted'])(
     '%s with no problem from the backend: "Continues on the next check", not "Needs attention"',
     async (code) => {
       const run = makeRun({ outcome: 'paused', stoppedBy: code, problems: [] });
@@ -66,6 +66,17 @@ describe('an expected stop in the panel', () => {
       expect(screen.queryByText(/^Paused because/)).toBeNull();
     }
   );
+
+  it('a run cut short by a restart reads the plain reason and is not a problem', async () => {
+    const run = makeRun({ outcome: 'paused', stoppedBy: 'interrupted', problems: [] });
+    const word = await openPanel(untracked({ runs: [run] }), entry());
+    expect(word).not.toBe('Needs attention');
+    expect(
+      screen.getByText(/^Continues on the next check: the server restarted during the check\. /, {
+        selector: 'li',
+      })
+    ).toBeTruthy();
+  });
 
   it('CONTROL: a daily-limit stop the backend counts as a problem is "Needs attention"', async () => {
     const run = makeRun({ outcome: 'paused', stoppedBy: 'daily_limit', problems: ['paused'] });
