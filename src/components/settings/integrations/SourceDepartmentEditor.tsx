@@ -26,7 +26,7 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [togglingLinkId, setTogglingLinkId] = useState<number | null>(null);
-  const [teamsMode, setTeamsMode] = useState<boolean | undefined>();
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
   // Teams off: no team picker, only the channel's auto-reply switch (one team, one link).
   const teamsEnabled = deriveTeamsEnabled(teamsMode, allDepts);
 

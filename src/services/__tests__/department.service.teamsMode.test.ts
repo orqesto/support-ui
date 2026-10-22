@@ -8,7 +8,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 vi.mock('@/lib/api-client', () => ({ apiClient: api }));
 
-const { departmentService } = await import('../department.service');
+const {
+  departmentService,
+  isTeamsSwitchStillRunning,
+  labelForTeamsOffCount,
+  TEAMS_OFF_COUNT_LABELS,
+} = await import('../department.service');
 
 beforeEach(() => {
   api.get.mockReset();
@@ -22,6 +27,8 @@ describe('teams mode — real backend shapes', () => {
     });
     expect(await departmentService.getTeamsMode()).toEqual({
       teamsEnabled: false,
+      switching: false,
+      interrupted: false,
       source: 'stored',
       defaultDepartmentId: 4,
     });
@@ -101,5 +108,287 @@ describe('teams mode — real backend shapes', () => {
     const seen: Array<boolean | undefined> = [];
     await departmentService.getAll(false, (value) => seen.push(value));
     expect(seen).toEqual([undefined]);
+  });
+});
+
+describe('teams mode — switch-off extras', () => {
+  it('preview: lead qualification flag and what stays with each team (summed per key)', async () => {
+    api.get.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          defaultDepartment: { id: 1, name: 'General team' },
+          teams: [
+            { id: 2, name: 'Support team', moves: {}, staysWithTeam: { routingRules: 3 } },
+            { id: 3, name: 'Sales team', moves: {}, staysWithTeam: { routingRules: 2 } },
+          ],
+          totals: {},
+          membersAddedToDefault: 0,
+          leadQualificationMovesToDefault: true,
+        },
+      },
+    });
+    const preview = await departmentService.previewTeamsOff();
+    expect(preview.leadQualificationMovesToDefault).toBe(true);
+    expect(preview.staysWithTeam).toEqual([{ key: 'routingRules', count: 5 }]);
+  });
+
+  it('preview: a top-level staysWithTeam list of names is shown as names', async () => {
+    api.get.mockResolvedValue({
+      data: {
+        success: true,
+        data: { teams: [], totals: {}, staysWithTeam: ['routingRules', 'prompts'] },
+      },
+    });
+    const preview = await departmentService.previewTeamsOff();
+    expect(preview.staysWithTeam).toEqual([{ key: 'routingRules' }, { key: 'prompts' }]);
+    expect(preview.leadQualificationMovesToDefault).toBe(false);
+  });
+
+  it('GET mode reports `switching`', async () => {
+    api.get.mockResolvedValue({
+      data: { success: true, data: { enabled: true, switching: true } },
+    });
+    expect((await departmentService.getTeamsMode()).switching).toBe(true);
+  });
+
+  it('waitForTeamsSwitch polls until switching is false, riding over a failed poll', async () => {
+    api.get
+      .mockResolvedValueOnce({ data: { success: true, data: { enabled: true, switching: true } } })
+      .mockRejectedValueOnce(new Error('busy'))
+      .mockResolvedValueOnce({
+        data: { success: true, data: { enabled: false, switching: false } },
+      });
+    const final = await departmentService.waitForTeamsSwitch({ intervalMs: 1, timeoutMs: 5000 });
+    expect(final).toMatchObject({ teamsEnabled: false, switching: false });
+    expect(api.get).toHaveBeenCalledTimes(3);
+  });
+
+  it('isTeamsSwitchStillRunning: timeout / no answer / in-progress yes; a real refusal no', () => {
+    expect(isTeamsSwitchStillRunning(Object.assign(new Error('x'), { isAxiosError: true }))).toBe(
+      true
+    );
+    expect(
+      isTeamsSwitchStillRunning({ status: 409, data: { code: 'TEAMS_SWITCH_IN_PROGRESS' } })
+    ).toBe(true);
+    expect(isTeamsSwitchStillRunning({ status: 504 })).toBe(true);
+    expect(isTeamsSwitchStillRunning({ status: 409, data: { code: 'TEAMS_SWITCHED_OFF' } })).toBe(
+      false
+    );
+    expect(isTeamsSwitchStillRunning({ status: 403, data: { code: 'PLAN_TEAM_LIMIT' } })).toBe(
+      false
+    );
+  });
+
+  it('getPlanTeamLimit reads the plan limits; unreadable ⇒ undefined', async () => {
+    api.get.mockResolvedValueOnce({
+      data: { success: true, data: { plan: { name: 'free', limits: { maxDepartments: 1 } } } },
+    });
+    expect(await departmentService.getPlanTeamLimit()).toBe(1);
+    api.get.mockRejectedValueOnce(new Error('403'));
+    expect(await departmentService.getPlanTeamLimit()).toBeUndefined();
+  });
+
+  it('labels read well for the moved/staying keys, and an unknown key turns into words', () => {
+    expect(labelForTeamsOffCount('replyTemplates')).toBe('Reply templates');
+    expect(labelForTeamsOffCount('routingRules')).toBe('Routing rules');
+    expect(labelForTeamsOffCount('customApiConnections')).toBe('Custom API connection links');
+    expect(labelForTeamsOffCount('someNewThing')).toBe('Some new thing');
+  });
+});
+
+/** The backend's final preview payload (be-report.md API section, 2026-10-22 12:21). */
+const MOVES_KEYS = [
+  'conversations',
+  'openConversations',
+  'tickets',
+  'channels',
+  'members',
+  'messageSources',
+  'channelLinks',
+  'kbEntries',
+  'kbSourceLinks',
+  'documents',
+  'replyTemplates',
+  'customApiConnections',
+  'chatWidgets',
+  'chatWidgetLinks',
+  'ticketingIntegrations',
+  'spamRules',
+  'detectionRules',
+  'contradictionRules',
+  'responseRules',
+  'categories',
+  'labels',
+  'labelLinks',
+  'spamLogEntries',
+] as const;
+const moves = (fill: number) =>
+  Object.fromEntries(MOVES_KEYS.map((key) => [key, fill])) as Record<string, number>;
+const stays = (routingRules: number, spamTwins: number) => ({
+  routingRules,
+  promptTemplates: 1,
+  sameAsDefault: {
+    ticketingIntegrations: 0,
+    spamRules: spamTwins,
+    detectionRules: 0,
+    contradictionRules: 0,
+    responseRules: 0,
+    categories: 0,
+    labels: 0,
+  },
+});
+
+describe('teams mode — the final backend payloads', () => {
+  it('every `moves` key has its own readable label (no fallback words)', () => {
+    for (const key of MOVES_KEYS) expect(TEAMS_OFF_COUNT_LABELS[key], key).toBeTruthy();
+    expect(TEAMS_OFF_COUNT_LABELS.routingRules).toBe('Routing rules');
+    expect(TEAMS_OFF_COUNT_LABELS.promptTemplates).toBe('AI prompt templates');
+  });
+
+  it('preview: active + inactive teams, totals, stays summed (twins kept apart), lead flag', async () => {
+    api.get.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          enabled: true,
+          defaultDepartment: { id: 1, name: 'General team' },
+          teams: [
+            {
+              id: 2,
+              name: 'Support team',
+              slug: 'support',
+              moves: moves(1),
+              staysWithTeam: stays(3, 1),
+            },
+          ],
+          inactiveTeams: [
+            { id: 5, name: 'Old team', slug: 'old', moves: moves(0), staysWithTeam: stays(2, 0) },
+          ],
+          totals: moves(1),
+          membersAddedToDefault: 4,
+          leadQualificationMovesToDefault: true,
+          irreversible: true,
+        },
+      },
+    });
+    const preview = await departmentService.previewTeamsOff();
+    expect(preview.teamsToMerge).toBe(1);
+    expect(preview.inactiveTeamsSwept).toBe(1);
+    expect(Object.keys(preview.counts)).toHaveLength(MOVES_KEYS.length);
+    expect(preview.membersAddedToDefault).toBe(4);
+    expect(preview.leadQualificationMovesToDefault).toBe(true);
+    expect(preview.staysWithTeam).toEqual([
+      { key: 'routingRules', count: 5 },
+      { key: 'promptTemplates', count: 2 },
+      { key: 'sameAsDefault.spamRules', count: 1 },
+    ]);
+    expect(labelForTeamsOffCount('sameAsDefault.spamRules')).toBe(
+      'Spam rules the default team already has'
+    );
+  });
+
+  it('GET mode: interrupted is read; waitForTeamsSwitch stops on it (nobody is running it)', async () => {
+    api.get.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          enabled: true,
+          source: 'stored',
+          defaultDepartmentId: 1,
+          switching: true,
+          interrupted: true,
+        },
+      },
+    });
+    expect(await departmentService.getTeamsMode()).toMatchObject({
+      switching: true,
+      interrupted: true,
+    });
+    const final = await departmentService.waitForTeamsSwitch({ intervalMs: 1, timeoutMs: 5000 });
+    expect(final.interrupted).toBe(true);
+    expect(api.get).toHaveBeenCalledTimes(2);
+  });
+
+  it('PUT off: the final response shape reads back as off', async () => {
+    api.put.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          enabled: false,
+          merged: [],
+          absorbed: {},
+          membersAddedToDefault: 0,
+          leadQualificationAddedDefault: true,
+        },
+      },
+    });
+    expect(await departmentService.setTeamsMode(false)).toEqual({ teamsEnabled: false });
+  });
+
+  it('409 TEAMS_SWITCH_IN_PROGRESS (its real body) counts as still running', () => {
+    expect(
+      isTeamsSwitchStillRunning({
+        status: 409,
+        data: {
+          success: false,
+          error: 'Teams are being switched off for this workspace. Try again when it has finished.',
+          code: 'TEAMS_SWITCH_IN_PROGRESS',
+        },
+      })
+    ).toBe(true);
+  });
+});
+
+describe('teams mode — blockers and same-name merges', () => {
+  it('reads blockers and sums moves.mergedIntoSameName over the teams', async () => {
+    api.get.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          defaultDepartment: { id: 1, name: 'General team' },
+          teams: [
+            {
+              id: 2,
+              name: 'Support team',
+              moves: { labels: 1, mergedIntoSameName: { labels: 2, categories: 0 } },
+            },
+            {
+              id: 3,
+              name: 'Sales team',
+              moves: { mergedIntoSameName: { labels: 1, categories: 1 } },
+            },
+          ],
+          totals: { labels: 1 },
+          blockers: [
+            {
+              kind: 'ticketingIntegration',
+              teamId: 3,
+              teamName: 'Sales team',
+              integrationName: 'Sales Jira',
+            },
+          ],
+        },
+      },
+    });
+    const preview = await departmentService.previewTeamsOff();
+    expect(preview.blockers).toEqual([
+      {
+        kind: 'ticketingIntegration',
+        teamId: 3,
+        teamName: 'Sales team',
+        integrationName: 'Sales Jira',
+      },
+    ]);
+    expect(preview.mergedIntoSameName).toEqual({ labels: 3, categories: 1 });
+    // The nested object is not a count row.
+    expect(preview.counts).toEqual({ labels: 1 });
+  });
+
+  it('CONTROL: no blockers field ⇒ none', async () => {
+    api.get.mockResolvedValue({ data: { success: true, data: { teams: [], totals: {} } } });
+    const preview = await departmentService.previewTeamsOff();
+    expect(preview.blockers).toEqual([]);
+    expect(preview.mergedIntoSameName).toEqual({});
   });
 });

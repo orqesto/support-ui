@@ -135,7 +135,7 @@ export const ChatWidgetModal = ({
   const [saving, setSaving] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   // Teams off ⇒ no team scope; the widget serves the whole workspace.
-  const [teamsMode, setTeamsMode] = useState<boolean | undefined>();
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
   const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
   const [emailSources, setEmailSources] = useState<MessageSourceOption[]>([]);
   const { off: aiDraftsOff } = useAiDraftsOff();

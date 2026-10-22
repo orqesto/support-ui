@@ -13,7 +13,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { useDepartments } from '@/hooks/useDepartments';
-import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
+import { deriveTeamsEnabled, pickDefaultTeam } from '@/hooks/useTeamsEnabled';
 import { apiClient } from '@/lib/api-client';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { categoryService } from '@/services/category.service';
@@ -57,14 +57,21 @@ export const CreateTicketPage = () => {
     isFetched: departmentsFetched,
     teamsEnabled: teamsMode,
   } = useDepartments();
-  // Teams off: no team field; the ticket is filed in the one team (the first offered).
+  // Teams off: no team field; the ticket is filed in the default team. The session's own team
+  // list is not consulted: one loaded before the switch-off may name only merged teams.
   const teamsEnabled = deriveTeamsEnabled(teamsMode, allDepartments);
-  // A ticket with no thread is filed in one of the creator's departments; an administrator may
-  // pick any. From a thread it is the thread's department (the backend ignores another).
+  const defaultTeam = pickDefaultTeam(allDepartments);
+  // A ticket with no thread is filed in one of the creator's teams; an administrator may
+  // pick any. From a thread it is the thread's team (the backend ignores another).
   const mayPickAny = user?.role === 'admin' || user?.organizationRole === 'org_admin';
-  const departments = allDepartments.filter(
-    (dept) => dept.active !== false && (mayPickAny || (user?.departmentIds ?? []).includes(dept.id))
-  );
+  const departments = !teamsEnabled
+    ? defaultTeam
+      ? [defaultTeam]
+      : []
+    : allDepartments.filter(
+        (dept) =>
+          dept.active !== false && (mayPickAny || (user?.departmentIds ?? []).includes(dept.id))
+      );
   const clearTicketsCache = useTicketsStore((state) => state.clearCache);
   const clearMessagesCache = useMessagesStore((state) => state.clearCache);
 

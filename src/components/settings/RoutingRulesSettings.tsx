@@ -141,7 +141,7 @@ export const RoutingRulesSettings = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [ruleFilter, setRuleFilter] = useState<RuleFilter>('all');
   const [savingDefault, setSavingDefault] = useState(false);
-  const [teamsMode, setTeamsMode] = useState<boolean | undefined>();
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
   const [deptsLoaded, setDeptsLoaded] = useState(false);
 
   const deptNameById = useMemo(() => {

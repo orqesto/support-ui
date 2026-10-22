@@ -36,6 +36,7 @@ import {
   offersReviewActions,
 } from '@/lib/kbConsolidation';
 import { KBEntryEditDialog } from './KBEntryEditDialog';
+import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 
 const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico']);
 const isImageFile = (filename: string) =>
@@ -157,6 +158,8 @@ export const KBEntryDetail = ({
   onReviewDecision,
 }: KBEntryDetailProps) => {
   const [fullEntry, setFullEntry] = useState<KBEntry | null>(null);
+  // Teams off: no team label next to the (hidden) team badge.
+  const teamsEnabled = useTeamsEnabled();
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
   // The drawer holds the entry's FULL text only once the detail route answered.
@@ -254,12 +257,14 @@ export const KBEntryDetail = ({
                 <span className="text-muted-foreground">Category:</span>
                 <div className="font-medium">{displayEntry.category}</div>
               </div>
-              <div>
-                <span className="text-muted-foreground">Team:</span>
-                <div className="font-medium">
-                  <DepartmentBadge departmentId={displayEntry.departmentId} />
+              {teamsEnabled && (
+                <div>
+                  <span className="text-muted-foreground">Team:</span>
+                  <div className="font-medium">
+                    <DepartmentBadge departmentId={displayEntry.departmentId} />
+                  </div>
                 </div>
-              </div>
+              )}
               <div>
                 <span className="text-muted-foreground">Quality Score:</span>
                 <div className="font-medium">{(displayEntry.qualityScore * 100).toFixed(0)}%</div>

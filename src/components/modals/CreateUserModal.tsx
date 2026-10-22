@@ -66,7 +66,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
   const [error, setError] = useState('');
   const [departments, setDepartments] = useState<Department[]>([]);
   // Teams off ⇒ no team picker; the new member joins the default team.
-  const [teamsMode, setTeamsMode] = useState<boolean | undefined>();
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
   const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
 
   useEffect(() => {

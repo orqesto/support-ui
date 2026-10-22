@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { useAuthStore } from '@/stores/authStore';
 import { useDepartmentContextStore } from '@/stores/departmentContextStore';
 import { useDepartments } from '@/hooks/useDepartments';
-import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
+import { deriveTeamsMode } from '@/hooks/useTeamsEnabled';
 import { isDepartmentServed } from '@/utils/departmentReachability';
 import { cn } from '@/lib/utils';
 import { NavTip, railMenuStyle } from './SidebarNav';
@@ -18,8 +18,11 @@ export const DepartmentSwitcher = ({ compact = false }: DepartmentSwitcherProps 
   const user = useAuthStore((state) => state.user);
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
 
-  const { data: allDepts = [], isLoading, teamsEnabled: teamsMode } = useDepartments();
-  const teamsEnabled = deriveTeamsEnabled(teamsMode, allDepts);
+  const { data, isLoading, isError, teamsEnabled: teamsFlag } = useDepartments();
+  const allDepts = data ?? [];
+  // 'unknown' (loading / failed list) is never treated as off: no hiding, no reset on a guess.
+  const teamsMode = deriveTeamsMode(teamsFlag, data);
+  const teamsEnabled = teamsMode !== 'off';
   const { getSelectedDeptIds, setSelected, clear } = useDepartmentContextStore();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -37,14 +40,15 @@ export const DepartmentSwitcher = ({ compact = false }: DepartmentSwitcherProps 
   // depts yet). For global admins `accessibleDeptIds = allDepts.map(...)` which is
   // [] until useDepartments resolves — running the reconciliation in that empty
   // window would wipe the persisted selection on every page reload.
+  const accessibleKey = accessibleDeptIds.join(',');
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || isError) return;
     if (accessibleDeptIds.length === 0) return;
     const stored = getSelectedDeptIds();
     if (stored.length === 0) return;
     // Teams switched off: a remembered team pick would narrow the inbox with no control on
     // screen to undo it. Drop it.
-    if (!teamsEnabled) {
+    if (teamsMode === 'off') {
       clear();
       return;
     }
@@ -54,7 +58,7 @@ export const DepartmentSwitcher = ({ compact = false }: DepartmentSwitcherProps 
       else setSelected(valid);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedOrganizationId, user?.id, isLoading, teamsEnabled, accessibleDeptIds.join(',')]);
+  }, [selectedOrganizationId, user?.id, isLoading, isError, teamsMode, accessibleKey]);
 
   const selectedIds = getSelectedDeptIds().filter((id) => accessibleDeptIds.includes(id));
 
@@ -185,8 +189,8 @@ export const DepartmentSwitcher = ({ compact = false }: DepartmentSwitcherProps 
               {/* No department is reachable yet — say so instead of showing a bare list */}
               {servedDepts.length === 0 && (
                 <p className="px-3 py-2 text-xs text-muted-foreground">
-                  No team is served by a message channel yet. Connect a channel and route
-                  it to a team in Settings › Channels.
+                  No team is served by a message channel yet. Connect a channel and route it to a
+                  team in Settings › Channels.
                 </p>
               )}
 

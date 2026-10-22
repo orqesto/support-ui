@@ -1,6 +1,16 @@
-import { useQuery } from '@tanstack/react-query';
+import { useContext } from 'react';
+import { QueryClient, QueryClientContext, useQuery } from '@tanstack/react-query';
 import { departmentService, type Department } from '@/services/department.service';
 import { useAuthStore } from '@/stores/authStore';
+
+/**
+ * Used only where no QueryClientProvider is mounted (an isolated component in a test): the
+ * query is then disabled, nothing is fetched, and the teams state reads 'unknown' (= on), as
+ * for a list that has not loaded. The app always has a provider.
+ */
+let noProviderClient: QueryClient | undefined;
+// Created on first use, never at import: some tests mock the whole query module.
+const getNoProviderClient = (): QueryClient => (noProviderClient ??= new QueryClient());
 
 type DepartmentsQueryData = {
   departments: Department[];
@@ -13,7 +23,7 @@ type DepartmentsQueryData = {
  * whose "all departments" is the server's, which counts them (the KB cases report).
  *
  * Besides the query result, returns `teamsEnabled` as the backend sent it (undefined on an
- * older backend). Read it through `useTeamsEnabled`, which derives a value when it is missing.
+ * older backend, null while nothing is loaded). Read it through `useTeamsEnabled`, which derives a value when it is missing.
  */
 export const useDepartments = ({ includeInactive = false }: { includeInactive?: boolean } = {}) => {
   // Departments are per-workspace, so the cache entry must be too — same shape as
@@ -24,20 +34,30 @@ export const useDepartments = ({ includeInactive = false }: { includeInactive?: 
   const orgId = useAuthStore(
     (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
   );
-  const query = useQuery<DepartmentsQueryData>({
-    queryKey: includeInactive ? ['departments', orgId, 'with-inactive'] : ['departments', orgId],
-    // Wrap in an arrow: getAll takes an optional `includeInactive` flag, and React Query
-    // would otherwise pass its QueryFunctionContext as that argument.
-    queryFn: async () => {
-      let teamsEnabled: boolean | undefined;
-      const departments = await departmentService.getAll(includeInactive, (value) => {
-        teamsEnabled = value;
-      });
-      return { departments, teamsEnabled };
+  const providedClient = useContext(QueryClientContext);
+  const query = useQuery<DepartmentsQueryData>(
+    {
+      queryKey: includeInactive ? ['departments', orgId, 'with-inactive'] : ['departments', orgId],
+      // Wrap in an arrow: getAll takes an optional `includeInactive` flag, and React Query
+      // would otherwise pass its QueryFunctionContext as that argument.
+      queryFn: async () => {
+        let teamsEnabled: boolean | undefined;
+        const departments = await departmentService.getAll(includeInactive, (value) => {
+          teamsEnabled = value;
+        });
+        return { departments, teamsEnabled };
+      },
+      staleTime: 5 * 60 * 1000, // 5 min
+      enabled: providedClient !== undefined,
     },
-    staleTime: 5 * 60 * 1000, // 5 min
-  });
-  return { ...query, data: query.data?.departments, teamsEnabled: query.data?.teamsEnabled };
+    providedClient ?? getNoProviderClient()
+  );
+  // `null` = not known (loading or failed): see `deriveTeamsMode`.
+  return {
+    ...query,
+    data: query.data?.departments,
+    teamsEnabled: query.data ? query.data.teamsEnabled : null,
+  };
 };
 
 export const useDepartmentById = (id: number | null | undefined): Department | undefined => {

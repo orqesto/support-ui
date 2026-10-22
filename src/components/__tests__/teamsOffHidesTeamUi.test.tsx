@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, renderHook } from '@testing-library/react';
 import type { Department, User } from '@/types';
 
-const state = vi.hoisted(() => ({ teamsEnabled: true as boolean | undefined }));
+const state = vi.hoisted(() => ({ teamsEnabled: true as boolean | undefined, failed: false }));
 
 const team = (id: number, name: string): Department => ({
   id,
@@ -23,7 +23,10 @@ const team = (id: number, name: string): Department => ({
 const TEAMS = [team(1, 'General'), team(2, 'Sales')];
 
 vi.mock('@/hooks/useDepartments', () => ({
-  useDepartments: () => ({ data: TEAMS, isLoading: false, teamsEnabled: state.teamsEnabled }),
+  useDepartments: () =>
+    state.failed
+      ? { data: undefined, isLoading: false, isError: true, teamsEnabled: null }
+      : { data: TEAMS, isLoading: false, isError: false, teamsEnabled: state.teamsEnabled },
   useDepartmentById: (id: number | null | undefined) => TEAMS.find((one) => one.id === id),
 }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'all' }));
@@ -51,6 +54,7 @@ const { useDepartmentContextStore } = await import('@/stores/departmentContextSt
 
 beforeEach(() => {
   state.teamsEnabled = true;
+  state.failed = false;
   useDepartmentContextStore.setState({ _selectedByKey: {} });
   useAuthStore.setState({
     user: { id: 1, email: 'agent@example.com', role: 'user', departmentIds: [1, 2] } as User,
@@ -90,6 +94,19 @@ describe('teams off hides team UI', () => {
     state.teamsEnabled = false;
     render(<DepartmentSwitcher />);
     expect(useDepartmentContextStore.getState().getSelectedDeptIds()).toEqual([]);
+  });
+
+  it('CONTROL: a FAILED team list is not "off" — the remembered pick survives', () => {
+    useDepartmentContextStore.getState().setSelected([2]);
+    state.failed = true;
+    render(<DepartmentSwitcher />);
+    expect(useDepartmentContextStore.getState().getSelectedDeptIds()).toEqual([2]);
+  });
+
+  it('a failed list renders team badges as on (no flash away on a guess)', () => {
+    state.failed = true;
+    render(<DepartmentBadge departmentId={null} nullVariant="baseline" />);
+    expect(screen.getByText('Baseline')).toBeTruthy();
   });
 
   it('inbox Team filter: options on, none off (the schema then drops the filter)', () => {

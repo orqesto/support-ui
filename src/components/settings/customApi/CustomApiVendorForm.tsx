@@ -82,7 +82,7 @@ export const CustomApiVendorForm = ({ open, onClose, connection, onSaved }: Prop
   const [departmentsFailed, setDepartmentsFailed] = useState(false);
   // Teams off ⇒ no team scope (every vendor serves the whole workspace) — unless the vendor
   // is still scoped to teams, so the admin can set it back to every team.
-  const [teamsMode, setTeamsMode] = useState<boolean | undefined>();
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
   const [activeTeams, setActiveTeams] = useState<Department[]>([]);
   // A string, so a parent that re-renders with a fresh array does not refetch.
   const linkedKey = (connection?.departmentIds ?? []).join(',');

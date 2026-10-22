@@ -33,6 +33,7 @@ import type {
   DocumentType,
   DocumentationProgress,
 } from '@/services/documentation.service';
+import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 
 type DocumentationListProps = {
   docs: Documentation[];
@@ -134,6 +135,8 @@ export const DocumentationList = ({
   // unnoticed. Being able to ask "what is actually serving?" is the point.
   const [servingFilter, setServingFilter] = useState<'all' | 'serving' | 'disabled'>('all');
   const [search, setSearch] = useState('');
+  // Teams off: no team label next to the (hidden) team badge.
+  const teamsEnabled = useTeamsEnabled();
   const isConfluenceDoc = (doc: Documentation) =>
     doc.externalSource?.split(':')[0] === 'confluence';
   const hasConfluence = docs.some(isConfluenceDoc);
@@ -314,7 +317,7 @@ export const DocumentationList = ({
                         Confluence
                       </span>
                     )}
-                    {(doc.departmentIds ?? []).length === 0 ? (
+                    {!teamsEnabled ? null : (doc.departmentIds ?? []).length === 0 ? (
                       <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-foreground bg-muted rounded-full">
                         <Globe className="w-3 h-3" />
                         All teams

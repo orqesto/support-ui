@@ -41,9 +41,12 @@ export const SystemManagementSettings = () => {
   const [confirmInput, setConfirmInput] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [teamsMode, setTeamsMode] = useState<boolean | undefined>();
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
   // Teams off ⇒ no team scope: cleanup covers the workspace.
   const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
+  // The scope's value is the slug (what the cleanup API takes); people read the team's name.
+  const teamName = (slug: string) =>
+    departments.find((dept) => dept.slug === slug)?.name ?? slug;
 
   useEffect(() => {
     departmentService
@@ -155,9 +158,9 @@ export const SystemManagementSettings = () => {
 
   const handleDeleteMessages = () => {
     const dept = selectedDepartment === 'all' ? undefined : selectedDepartment;
-    const scope = dept ? `${dept} team` : 'your workspace';
+    const scope = dept ? teamName(dept) : 'your workspace';
     handleAction(
-      `Delete ${dept ? dept.charAt(0).toUpperCase() + dept.slice(1) : 'All'} Threads`,
+      dept ? `Delete threads in ${teamName(dept)}` : 'Delete all threads',
       `This will permanently delete all threads for ${scope}. This action cannot be undone.`,
       async () => {
         const res = await systemService.deleteAllMessages(dept);
@@ -171,9 +174,9 @@ export const SystemManagementSettings = () => {
 
   const handleDeleteTickets = () => {
     const dept = selectedDepartment === 'all' ? undefined : selectedDepartment;
-    const scope = dept ? `${dept} team` : 'your workspace';
+    const scope = dept ? teamName(dept) : 'your workspace';
     handleAction(
-      `Delete ${dept ? dept.charAt(0).toUpperCase() + dept.slice(1) : 'All'} Tickets`,
+      dept ? `Delete tickets in ${teamName(dept)}` : 'Delete all tickets',
       `This will permanently delete all tickets for ${scope}. This action cannot be undone.`,
       async () => {
         const res = await systemService.deleteAllTickets(dept);
@@ -186,9 +189,9 @@ export const SystemManagementSettings = () => {
 
   const handleDeleteKB = () => {
     const dept = selectedDepartment === 'all' ? undefined : selectedDepartment;
-    const scope = dept ? `${dept} team` : 'your workspace';
+    const scope = dept ? teamName(dept) : 'your workspace';
     handleAction(
-      `Delete ${dept ? dept.charAt(0).toUpperCase() + dept.slice(1) : 'All'} Knowledge Base`,
+      dept ? `Delete knowledge base in ${teamName(dept)}` : 'Delete all knowledge base',
       `This will permanently delete all KB entries and documentation for ${scope}. This action cannot be undone.`,
       async () => {
         const res = await systemService.deleteAllKB(dept);
@@ -316,17 +319,17 @@ export const SystemManagementSettings = () => {
         {teamsEnabled && (
         <div className="mb-4 pb-4 border-b border-destructive-line">
           <Select
-            label="Team Scope"
+            label="Team scope"
             value={selectedDepartment}
             onChange={(value) => setSelectedDepartment(value)}
             options={[
-              { value: 'all', label: 'All Teams' },
+              { value: 'all', label: 'All teams' },
               ...departments.map((dept) => ({ value: dept.slug, label: dept.name })),
             ]}
             placeholder="Select team scope"
           />
           <p className="mt-2 text-xs text-muted-foreground">
-            Filter cleanup operations by team. Select "All Teams" to affect the entire
+            Filter cleanup operations by team. Select "All teams" to affect the entire
             workspace.
           </p>
         </div>

@@ -82,7 +82,7 @@ export const SCIMConfigSettings = () => {
   const [groups, setGroups] = useState<ScimGroupMapping[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   // Teams off ⇒ groups map to a role only; every member lands in the default team.
-  const [teamsMode, setTeamsMode] = useState<boolean | undefined>();
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
   const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
   const [savingGroupId, setSavingGroupId] = useState<number | null>(null);
   const [removeConfirm, setRemoveConfirm] = useState<ScimGroupMapping | null>(null);

@@ -75,7 +75,7 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [availableDepartments, setAvailableDepartments] = useState<Department[]>([]);
   // Teams off ⇒ no team checklist: every member is in the default team.
-  const [teamsMode, setTeamsMode] = useState<boolean | undefined>();
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
   const teamsEnabled = deriveTeamsEnabled(teamsMode, availableDepartments);
   const [selectedOrgId, setSelectedOrgId] = useState<number | undefined>(undefined);
   // The role permission matrix is dense; keep it collapsed by default and reveal on demand.

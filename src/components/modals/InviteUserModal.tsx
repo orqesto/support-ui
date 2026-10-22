@@ -59,7 +59,7 @@ export const InviteUserModal = ({
   const [departments, setDepartments] = useState<Department[]>([]);
   // Teams off ⇒ the invite asks for no team; it carries the default team (an older backend
   // still requires one).
-  const [teamsMode, setTeamsMode] = useState<boolean | undefined>();
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
   const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
   const [emailIntegrations, setEmailIntegrations] = useState<EmailIntegrationOption[]>([]);
   const [senderIntegrationId, setSenderIntegrationId] = useState<number | null>(null);

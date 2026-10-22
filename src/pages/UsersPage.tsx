@@ -73,7 +73,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
 
   const [departments, setDepartments] = useState<Department[]>([]);
   // Teams off ⇒ no Teams column and no team chips: everyone is in the one team.
-  const [teamsMode, setTeamsMode] = useState<boolean | undefined>();
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
   const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
   // The workspace's member count as the SERVER reports it, not the length of whatever
   // this page happened to fetch.

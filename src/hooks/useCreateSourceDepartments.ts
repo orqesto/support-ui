@@ -28,7 +28,7 @@ export const useCreateSourceDepartments = () => {
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [defaultId, setDefaultId] = useState<number | undefined>();
-  const [teamsMode, setTeamsMode] = useState<boolean | undefined>();
+  const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
 
   useEffect(() => {
     let cancelled = false;

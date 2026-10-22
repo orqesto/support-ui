@@ -5,6 +5,7 @@ import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import type { ChatWidget } from '@/services/chatWidget.service';
 import { Button } from '@/components/ui/Button';
 import { logger } from '@/lib/logger';
+import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 
 interface EmbedCodeModalProps {
   widget: ChatWidget | null;
@@ -13,6 +14,8 @@ interface EmbedCodeModalProps {
 
 export const EmbedCodeModal = ({ widget, onClose }: EmbedCodeModalProps) => {
   const [copied, setCopied] = useState(false);
+  // Teams off: no team label next to the (hidden) team badge.
+  const teamsEnabled = useTeamsEnabled();
 
   if (!widget) return null;
 
@@ -80,12 +83,14 @@ export const EmbedCodeModal = ({ widget, onClose }: EmbedCodeModalProps) => {
                 <dt className="w-32 text-muted-foreground">Widget Key:</dt>
                 <dd className="font-mono">{widget.widgetKey}</dd>
               </div>
-              <div className="flex">
-                <dt className="w-32 text-muted-foreground">Team:</dt>
-                <dd>
-                  <DepartmentBadge departmentId={widget.departmentId} />
-                </dd>
-              </div>
+              {teamsEnabled && (
+                <div className="flex">
+                  <dt className="w-32 text-muted-foreground">Team:</dt>
+                  <dd>
+                    <DepartmentBadge departmentId={widget.departmentId} />
+                  </dd>
+                </div>
+              )}
               <div className="flex">
                 <dt className="w-32 text-muted-foreground">Position:</dt>
                 <dd className="capitalize">{widget.position.replace('-', ' ')}</dd>

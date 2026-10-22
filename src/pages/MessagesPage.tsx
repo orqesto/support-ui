@@ -34,6 +34,7 @@ import { similarResultsCache } from '@/components/messages/AiTabPanel';
 import { useSharedLinkWorkspace } from '@/hooks/useSharedLinkWorkspace';
 import { cn, formatDate } from '@/lib/utils';
 import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
+import { useDropTeamFilterWhenTeamsOff } from '@/hooks/useDropTeamFilterWhenTeamsOff';
 import type { Message, MessagesDisplayMode } from '@/types';
 import { Permission } from '@/types/roles';
 import { BulkActionBar } from '@/components/messages/bulk/BulkActionBar';
@@ -253,6 +254,8 @@ export const MessagesPage = () => {
     variant: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, title: '', description: '', variant: 'info' });
 
+  // Teams off: a saved/URL Team filter is reset, so it neither narrows nor counts.
+  useDropTeamFilterWhenTeamsOff();
   const filters = useMessagesStore((state) => state.filters);
   // The scope key: a change to what the board is SHOWING clears the selection, because the
   // ids then name rows the agent can no longer see.

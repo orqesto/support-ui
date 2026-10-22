@@ -24,10 +24,10 @@ import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
 import {
   departmentService,
-  labelForTeamsOffCount,
+  isTeamsSwitchStillRunning,
   type Department,
-  type TeamsOffPreview,
 } from '@/services/department.service';
+import { TeamsOffDialog } from './TeamsOffDialog';
 
 /**
  * Settings › Teams (admins). Lists every team with an on/off switch, a rename field and a
@@ -82,10 +82,84 @@ export const TeamsSettings = () => {
   const [newName, setNewName] = useState('');
   const [adding, setAdding] = useState(false);
   const [modeSaving, setModeSaving] = useState(false);
+  // The plan's team limit. 1 (Free): teams cannot be switched on, so the switch says so
+  // instead of storing "on" and letting Add team answer 403.
+  const [planTeamLimit, setPlanTeamLimit] = useState<number | undefined>();
+  useEffect(() => {
+    let cancelled = false;
+    void departmentService.getPlanTeamLimit().then((limit) => {
+      if (!cancelled) setPlanTeamLimit(limit);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const planAllowsTeams = planTeamLimit === undefined || planTeamLimit > 1;
   const [offDialogOpen, setOffDialogOpen] = useState(false);
   const [deactivating, setDeactivating] = useState<Department | null>(null);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['departments'] });
+
+  // A switch-off still running (another tab, another admin) or one that did not finish.
+  const [switchState, setSwitchState] = useState<'none' | 'running' | 'interrupted'>('none');
+  const [finishing, setFinishing] = useState<'off' | 'on' | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const mode = await departmentService.getTeamsMode();
+        if (cancelled) return;
+        if (mode.interrupted) {
+          setSwitchState('interrupted');
+          return;
+        }
+        if (!mode.switching) return;
+        setSwitchState('running');
+        const final = await departmentService.waitForTeamsSwitch();
+        if (cancelled) return;
+        setSwitchState(final.interrupted ? 'interrupted' : final.switching ? 'running' : 'none');
+        if (!final.switching) void queryClient.invalidateQueries({ queryKey: ['departments'] });
+      } catch {
+        // An older backend without the route, or a blip: nothing to show.
+      }
+    };
+    void check();
+    return () => {
+      cancelled = true;
+    };
+  }, [queryClient]);
+
+  /**
+   * An interrupted switch-off: PUT { enabled: false } finishes it; PUT { enabled: true } keeps
+   * teams on (and clears the marker). What already moved stays where it is either way.
+   */
+  const resolveInterrupted = async (keepOn: boolean) => {
+    setFinishing(keepOn ? 'on' : 'off');
+    setError(null);
+    try {
+      await departmentService.setTeamsMode(keepOn);
+      setSwitchState('none');
+    } catch (err) {
+      if (isTeamsSwitchStillRunning(err)) {
+        setSwitchState('running');
+        const final = await departmentService.waitForTeamsSwitch();
+        setSwitchState(final.interrupted ? 'interrupted' : final.switching ? 'running' : 'none');
+      } else {
+        logger.error('Failed to resolve an interrupted switch-off:', err);
+        setError(
+          describeError(
+            err,
+            keepOn
+              ? 'Could not switch teams back on. Try again.'
+              : 'Could not finish switching teams off. Try again.'
+          )
+        );
+      }
+    } finally {
+      setFinishing(null);
+      await refresh();
+    }
+  };
 
   const run = async (id: number | null, action: () => Promise<unknown>, fallback: string) => {
     setError(null);
@@ -175,6 +249,43 @@ export const TeamsSettings = () => {
           </Alert>
         ) : (
           <>
+            {switchState === 'interrupted' && (
+              <Alert variant="warning">
+                <AlertTitle>Switching teams off didn’t finish</AlertTitle>
+                <AlertDescription>
+                  <p>
+                    Part of the work may already be in {defaultTeam?.name ?? 'the default team'}.
+                    Until you finish it or keep teams on, you cannot add a team or switch one on.
+                    What already moved stays in {defaultTeam?.name ?? 'the default team'} either
+                    way.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <Button
+                      size="sm"
+                      onClick={() => void resolveInterrupted(false)}
+                      isLoading={finishing === 'off'}
+                      disabled={finishing !== null}
+                    >
+                      Finish switching off
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void resolveInterrupted(true)}
+                      isLoading={finishing === 'on'}
+                      disabled={finishing !== null}
+                    >
+                      Keep teams on
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+            {switchState === 'running' && (
+              <div className="flex gap-2 items-center text-sm text-muted-foreground" role="status">
+                <Spinner /> Teams are being switched off. This can take a few minutes.
+              </div>
+            )}
             <div className="flex flex-wrap gap-3 justify-between items-start p-4 rounded-lg border border-border">
               <div className="min-w-0">
                 <p className="text-sm font-medium">Use teams</p>
@@ -183,10 +294,17 @@ export const TeamsSettings = () => {
                     ? 'Threads are routed to teams, and agents see the teams they are in.'
                     : `Teams are off. Everything is in ${defaultTeam?.name ?? 'one team'}, and every agent sees all of it.`}
                 </p>
+                {!teamsEnabled && !planAllowsTeams && (
+                  <p className="mt-1 text-xs text-warning" data-testid="teams-plan-limit">
+                    Your plan includes one team. Upgrade to use teams.
+                  </p>
+                )}
               </div>
               <Toggle
                 checked={teamsEnabled}
-                disabled={modeSaving}
+                disabled={
+                  modeSaving || switchState !== 'none' || (!teamsEnabled && !planAllowsTeams)
+                }
                 ariaLabel="Use teams"
                 label={teamsEnabled ? 'On' : 'Off'}
                 onChange={(next) => {
@@ -236,7 +354,11 @@ export const TeamsSettings = () => {
                     onChange={(event) => setNewName(event.target.value)}
                   />
                 </div>
-                <Button type="submit" isLoading={adding} disabled={!newName.trim() || adding}>
+                <Button
+                  type="submit"
+                  isLoading={adding}
+                  disabled={!newName.trim() || adding || switchState !== 'none'}
+                >
                   <Plus className="mr-2 w-4 h-4" />
                   Add team
                 </Button>
@@ -352,141 +474,6 @@ const TeamRow = ({
 };
 
 /**
- * "Use teams" → off. Reads the preview first, so the admin sees what moves before confirming.
- */
-const TeamsOffDialog = ({
-  open,
-  onClose,
-  onDone,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onDone: () => Promise<void>;
-}) => {
-  const [preview, setPreview] = useState<TeamsOffPreview | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    setPreview(null);
-    setLoadError(null);
-    setSaveError(null);
-    departmentService
-      .previewTeamsOff()
-      .then((result) => {
-        if (!cancelled) setPreview(result);
-      })
-      .catch((err: unknown) => {
-        logger.error('Failed to load the teams-off preview:', err);
-        if (!cancelled) setLoadError(describeError(err, 'Could not load what would move.'));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open]);
-
-  const confirm = async () => {
-    setSaving(true);
-    setSaveError(null);
-    try {
-      await departmentService.setTeamsMode(false);
-      await onDone();
-    } catch (err) {
-      logger.error('Failed to switch teams off:', err);
-      setSaveError(describeError(err, 'Could not switch teams off. Try again.'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const defaultName = preview?.defaultDepartment?.name ?? '';
-  const target = defaultName === '' ? 'the default team' : defaultName;
-  const counts = Object.entries(preview?.counts ?? {});
-
-  return (
-    <Dialog open={open} onOpenChange={(next) => !next && !saving && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Switch teams off?</DialogTitle>
-          <DialogClose onClose={onClose} />
-        </DialogHeader>
-
-        <div className="space-y-4 text-sm">
-          {loadError ? (
-            <Alert variant="danger">
-              <AlertDescription>{loadError}</AlertDescription>
-            </Alert>
-          ) : !preview ? (
-            <div className="flex gap-2 items-center text-muted-foreground">
-              <Spinner /> Checking what would move…
-            </div>
-          ) : (
-            <>
-              <p>
-                {preview.teamsToMerge === 0
-                  ? `There are no other teams. Everything is already in ${target}.`
-                  : `${preview.teamsToMerge} ${preview.teamsToMerge === 1 ? 'team' : 'teams'} will be merged into ${target}. This moves:`}
-              </p>
-              {counts.length > 0 && (
-                <ul className="space-y-1" aria-label="What moves">
-                  {counts.map(([key, value]) => (
-                    <li key={key} className="flex justify-between gap-4">
-                      <span className="text-muted-foreground">{labelForTeamsOffCount(key)}</span>
-                      <span className="font-medium tabular-nums">{value.toLocaleString()}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {preview.membersAddedToDefault > 0 && (
-                <p>
-                  {preview.membersAddedToDefault.toLocaleString()}{' '}
-                  {preview.membersAddedToDefault === 1 ? 'person is' : 'people are'} added to{' '}
-                  {target}, so they see its threads.
-                </p>
-              )}
-            </>
-          )}
-
-          <Alert variant="warning">
-            <AlertTitle>This can’t be undone</AlertTitle>
-            <AlertDescription>
-              <ul className="pl-4 mt-1 space-y-1 list-disc">
-                <li>Everything stays in {target}, even if you switch teams on again.</li>
-                <li>Agents who could see only their own team will see everything.</li>
-                <li>Teams you switch on again later start empty.</li>
-              </ul>
-            </AlertDescription>
-          </Alert>
-
-          {saveError && (
-            <Alert variant="danger">
-              <AlertDescription>{saveError}</AlertDescription>
-            </Alert>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={() => void confirm()}
-            isLoading={saving}
-            disabled={saving || !preview}
-          >
-            Switch teams off
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-/**
  * One team → off. Its threads, channels, members and knowledge base entries move to the team
  * picked here (the default team unless the admin picks another).
  */
@@ -536,7 +523,7 @@ const TurnTeamOffDialog = ({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Switch {team?.name ?? 'this team'} off?</DialogTitle>
-          <DialogClose onClose={onClose} />
+          <DialogClose onClose={() => !saving && onClose()} />
         </DialogHeader>
         <div className="space-y-4 text-sm">
           <p>

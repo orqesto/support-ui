@@ -18,7 +18,9 @@ vi.mock('@/stores/authStore', async () => {
 const get = vi.fn<(url: string) => Promise<unknown>>();
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: (url: string) => get(url) } }));
 
-const { useTeamsEnabled, deriveTeamsEnabled, pickDefaultTeam } = await import('../useTeamsEnabled');
+const { useTeamsEnabled, deriveTeamsEnabled, deriveTeamsMode, pickDefaultTeam } = await import(
+  '../useTeamsEnabled'
+);
 
 const team = (id: number, extra: Partial<Department> = {}): Department => ({
   id,
@@ -54,8 +56,16 @@ describe('deriveTeamsEnabled', () => {
     expect(deriveTeamsEnabled(undefined, [team(1), team(2, { active: false })])).toBe(false);
   });
 
-  it('nothing loaded yet reads as off', () => {
-    expect(deriveTeamsEnabled(undefined, undefined)).toBe(false);
+  it('nothing known yet (loading or failed) is "unknown", which renders as on', () => {
+    expect(deriveTeamsMode(undefined, undefined)).toBe('unknown');
+    expect(deriveTeamsMode(null, [team(1)])).toBe('unknown');
+    expect(deriveTeamsEnabled(undefined, undefined)).toBe(true);
+    expect(deriveTeamsEnabled(null, [])).toBe(true);
+  });
+
+  it('CONTROL: a known off stays off', () => {
+    expect(deriveTeamsMode(false, undefined)).toBe('off');
+    expect(deriveTeamsMode(undefined, [team(1)])).toBe('off');
   });
 });
 
