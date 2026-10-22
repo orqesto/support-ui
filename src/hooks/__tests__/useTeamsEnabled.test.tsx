@@ -18,9 +18,8 @@ vi.mock('@/stores/authStore', async () => {
 const get = vi.fn<(url: string) => Promise<unknown>>();
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: (url: string) => get(url) } }));
 
-const { useTeamsEnabled, deriveTeamsEnabled, deriveTeamsMode, pickDefaultTeam } = await import(
-  '../useTeamsEnabled'
-);
+const { useTeamsEnabled, deriveTeamsEnabled, deriveTeamsMode, pickDefaultTeam, teamsForNewTicket } =
+  await import('../useTeamsEnabled');
 
 const team = (id: number, extra: Partial<Department> = {}): Department => ({
   id,
@@ -91,5 +90,29 @@ describe('useTeamsEnabled — through the real list call', () => {
     get.mockResolvedValue({ data: { success: true, data: [team(1), team(2)] } });
     const { result } = renderHook(() => useTeamsEnabled(), { wrapper });
     await waitFor(() => expect(result.current).toBe(true));
+  });
+});
+
+describe('teamsForNewTicket — where a new ticket is filed (F5)', () => {
+  const all = [team(1, { isDefault: true }), team(2), team(3)];
+  it('teams off: only the default team, whatever the (stale) session team list says', () => {
+    const result = teamsForNewTicket(all, false, { mayPickAny: false, myTeamIds: [3] });
+    expect(result.teamsEnabled).toBe(false);
+    expect(result.departments.map((dept) => dept.id)).toEqual([1]);
+    // Even a session naming only merged-away teams gets the default, never an empty list.
+    expect(
+      teamsForNewTicket(all, false, { mayPickAny: false, myTeamIds: [99] }).departments
+    ).toHaveLength(1);
+  });
+
+  it("CONTROL — teams on: the creator's own teams; an administrator gets all", () => {
+    expect(
+      teamsForNewTicket(all, true, { mayPickAny: false, myTeamIds: [3] }).departments.map(
+        (dept) => dept.id
+      )
+    ).toEqual([3]);
+    expect(
+      teamsForNewTicket(all, true, { mayPickAny: true, myTeamIds: [] }).departments
+    ).toHaveLength(3);
   });
 });

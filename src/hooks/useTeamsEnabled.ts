@@ -55,3 +55,45 @@ export const useDefaultTeam = (): Department | undefined => {
   const { data } = useDepartments();
   return pickDefaultTeam(data);
 };
+
+/**
+ * The teams a new ticket can be filed in. Teams on: the active ones the creator is in (an
+ * administrator: all). Teams off: only the default team — the session's own team list is not
+ * consulted, since one loaded before the switch-off may name only merged teams.
+ */
+export const teamsForNewTicket = (
+  all: Department[],
+  teamsFlag: boolean | undefined | null,
+  { mayPickAny, myTeamIds }: { mayPickAny: boolean; myTeamIds: number[] }
+): { teamsEnabled: boolean; departments: Department[] } => {
+  const teamsEnabled = deriveTeamsEnabled(teamsFlag, all);
+  if (!teamsEnabled) {
+    const defaultTeam = pickDefaultTeam(all);
+    return { teamsEnabled, departments: defaultTeam ? [defaultTeam] : [] };
+  }
+  return {
+    teamsEnabled,
+    departments: all.filter(
+      (dept) => dept.active !== false && (mayPickAny || myTeamIds.includes(dept.id))
+    ),
+  };
+};
+
+/** `teamsForNewTicket` for the signed-in creator, with the list it was picked from. */
+export const useNewTicketTeams = (
+  user: { role?: string; organizationRole?: string | null; departmentIds?: number[] } | null
+) => {
+  const {
+    data: allDepartments = [],
+    isFetched: departmentsFetched,
+    teamsEnabled,
+  } = useDepartments();
+  return {
+    allDepartments,
+    departmentsFetched,
+    ...teamsForNewTicket(allDepartments, teamsEnabled, {
+      mayPickAny: user?.role === 'admin' || user?.organizationRole === 'org_admin',
+      myTeamIds: user?.departmentIds ?? [],
+    }),
+  };
+};
