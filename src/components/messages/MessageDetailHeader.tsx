@@ -85,6 +85,7 @@ import { asManualMerge, type MergeChange } from './useThreadMergeContext';
 import { useThreadTicketsState } from './useThreadTicketsState';
 import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
 import { TicketRef } from '@/components/tickets/TicketRef';
+import { ticketDisplayId } from '@/lib/ticketReference';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -447,7 +448,7 @@ export function MessageDetailHeader({
   /** D2: finished tickets whose fix this customer has not been told about yet. */
   const owedTicketIds = tickets.rows
     .filter((row) => row.owesReply === true)
-    .map((row) => row.ticketId);
+    .map((row) => ticketDisplayId({ id: row.ticketId, reference: row.reference }, orgCode));
   const owedSentence = owesReplySentence(owedTicketIds);
   // The chip shows whenever there is something to say: a ticket, tickets this viewer cannot open,
   // or a read that failed (⛔ never "on no ticket" for "could not ask").
@@ -1644,7 +1645,11 @@ export function MessageDetailHeader({
         onCreateTicket={createTicket}
         isLead={message.isLead}
         onAdded={({ ticketId, alreadyOn, ticket, conversationId }) => {
-          if (alreadyOn) toast.info(`This thread is already on ticket #${ticketId}.`);
+          if (alreadyOn) {
+            toast.info(
+              `This thread is already on ticket ${ticketDisplayId({ id: ticketId, reference: ticket.reference }, orgCode)}.`
+            );
+          }
           // Shown at once — a re-read that fails must not leave the thread "on no ticket". The
           // service also announces it and the chip re-reads; the board's card chip comes from
           // the thread list.

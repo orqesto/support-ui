@@ -294,12 +294,16 @@ export const TicketsPage = () => {
   const handleAssign = async (ticketId: number, userId: number | null) => {
     try {
       await assignmentService.assignTicket(ticketId, userId);
+      const shown = ticketDisplayId(
+        { id: ticketId, reference: tickets.find((tick) => tick.id === ticketId)?.reference },
+        orgCode
+      );
       toast.success(
         userId === null
-          ? `#${ticketId} unassigned`
+          ? `${shown} unassigned`
           : userId === currentUserId
-            ? `#${ticketId} claimed — assigned to you`
-            : `#${ticketId} re-assigned`
+            ? `${shown} claimed — assigned to you`
+            : `${shown} re-assigned`
       );
       clearCache();
       await fetchTickets(pagination.page, true);
@@ -631,7 +635,7 @@ export const TicketsPage = () => {
         <Drawer
           open
           onClose={closeTicket}
-          title={`Ticket #${selectedTicket.id}`}
+          title={`Ticket ${ticketDisplayId(selectedTicket, orgCode)}`}
           size="sheet"
           bodyClassName="p-0"
           header={null}
