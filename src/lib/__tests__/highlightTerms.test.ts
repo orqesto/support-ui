@@ -18,6 +18,22 @@ describe('splitByTerms', () => {
     expect(marked('the invoices', ['invo'])).toEqual(['invo']);
   });
 
+  it('in a sender or subject, marks a term anywhere — the backend matches those anywhere', () => {
+    const anywhere = (text: string, terms: string[]) =>
+      splitByTerms(text, terms, 'anywhere')
+        .filter((part) => part.match)
+        .map((part) => part.text);
+    expect(anywhere('bayou.tours@shop.example', ['you'])).toEqual(['you']);
+    // CONTROL: in message text the same term marks only a word start.
+    expect(marked('bayou tours', ['you'])).toEqual([]);
+  });
+
+  it('marks each word start at its own offset (separator not included)', () => {
+    const parts = splitByTerms('Say thank you, you!', ['you']);
+    expect(parts.filter((part) => part.match).map((part) => part.start)).toEqual([10, 15]);
+    expect(parts.map((part) => part.text).join('')).toBe('Say thank you, you!');
+  });
+
   it('matches a term under three letters anywhere — the backend does too', () => {
     expect(marked('the bqz code', ['qz'])).toEqual(['qz']);
   });

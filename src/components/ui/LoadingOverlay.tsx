@@ -23,7 +23,9 @@ export const LoadingOverlay = ({
   children,
   className = '',
 }: LoadingOverlayProps) => (
-  <div className={`relative ${className}`} aria-busy={active}>
+  // While active, tall enough for the loader: on a short list it would otherwise hang out below
+  // the shade, over whatever sits under the list.
+  <div className={`relative ${active ? 'min-h-[12rem]' : ''} ${className}`} aria-busy={active}>
     {children}
     {active && (
       <div
