@@ -8,6 +8,7 @@ import { MessageSourcesSettings } from './MessageSourcesSettings';
 import { DatabaseConfigCard } from './providers/DatabaseConfigCard';
 import { ObjectStorageConfigCard } from './providers/ObjectStorageConfigCard';
 import { TicketAutomationSettings } from './TicketAutomationSettings';
+import { ZendeskImportSettings } from './zendeskImport/ZendeskImportSettings';
 import { Tabs } from '@/components/ui/Tabs';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/types/roles';
@@ -19,7 +20,8 @@ type ServiceSection =
   | 'chat-widgets'
   | 'object-storage'
   | 'database'
-  | 'custom-apis';
+  | 'custom-apis'
+  | 'import';
 
 type Props = {
   /** Sub-section from parent hash (e.g. `/settings#integrations/ai-providers`). */
@@ -33,6 +35,9 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
   // can own — gate them on MANAGE_INTEGRATIONS (which the save endpoints require anyway)
   // so the onboarding wizard's "set this up in Settings" promises are actually reachable.
   const canManageIntegrations = hasPermission(Permission.MANAGE_INTEGRATIONS);
+  // Importing from Zendesk writes the whole workspace's history: org admins only, as the BE
+  // routes require (a moderator sees Integrations but not Import).
+  const canImport = hasPermission(Permission.MANAGE_ORGANIZATION);
 
   // Fold visibility into the section list so a deep-link a user can't see falls
   // back to the default rather than selecting a tab that renders blank.
@@ -49,8 +54,9 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
             'custom-apis',
           ] as ServiceSection[])
         : []),
+      ...(canImport ? (['import'] as ServiceSection[]) : []),
     ],
-    [canManageIntegrations]
+    [canManageIntegrations, canImport]
   );
   const initial =
     section && (visibleIds as string[]).includes(section)
@@ -85,6 +91,9 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
           { id: 'custom-apis' as ServiceSection, label: 'Custom APIs', description: 'Look up orders, shipments or bookings from your own systems' },
         ]
       : []),
+    ...(canImport
+      ? [{ id: 'import' as ServiceSection, label: 'Import', description: 'Move your tickets over from Zendesk' }]
+      : []),
   ];
 
   return (
@@ -117,6 +126,7 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
         {canManageIntegrations && active === 'custom-apis' && (
           <CustomApiSection canManageVendors={isOrgAdmin} />
         )}
+        {canImport && active === 'import' && <ZendeskImportSettings />}
       </Tabs>
     </div>
   );
