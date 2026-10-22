@@ -438,6 +438,11 @@ export function MessageDetailHeader({
     tickets.rows.find((row) => row.status !== 'resolved' && row.status !== 'closed') ??
     tickets.rows[0];
   const linkedTicketId = headlineTicket?.ticketId ?? tickets.legacy?.id ?? null;
+  /** The ID the chip draws (`ACME-SUP-T-42`, `#21` without a number) — its name and tooltip say the same. */
+  const linkedTicketShown =
+    linkedTicketId === null
+      ? null
+      : ticketDisplayId({ id: linkedTicketId, reference: headlineTicket?.reference }, orgCode);
   const ticketCount = tickets.rows.length || (tickets.legacy ? 1 : 0);
   /*
     Tickets this viewer cannot open still count: 1 visible + 2 hidden is "#12 +2", named "Linked
@@ -462,7 +467,7 @@ export function MessageDetailHeader({
       ? tickets.state === 'failed'
         ? '?'
         : `${tickets.hiddenCount} hidden`
-      : `#${linkedTicketId}${totalTicketCount > 1 ? ` +${totalTicketCount - 1}` : ''}`;
+      : `${linkedTicketShown}${totalTicketCount > 1 ? ` +${totalTicketCount - 1}` : ''}`;
   /** What the chip means — the tooltip. */
   const ticketChipMeaning =
     linkedTicketId === null
@@ -473,7 +478,7 @@ export function MessageDetailHeader({
         ? `Linked to ${totalTicketCount} tickets${
             hiddenTicketCount > 0 ? ` (${hiddenTicketCount} in teams you cannot open)` : ''
           }`
-        : `Linked to ticket #${linkedTicketId}`;
+        : `Linked to ticket ${linkedTicketShown}`;
   /*
     WCAG 2.5.3 label in name: the accessible name STARTS with the visible words ("#12 +1 —
     linked to 2 tickets"), so a voice-control user saying what they see reaches the chip.

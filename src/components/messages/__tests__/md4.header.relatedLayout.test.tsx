@@ -371,6 +371,18 @@ describe('H2 — the ticket chip and its Related popover', () => {
     expect(within(popover).getByRole('heading', { name: 'Linked to ticket' })).toBeInTheDocument();
   });
 
+  it('a ticket with its own ID: the chip, its name and tooltip all say TES-SUP-T-4, never #7', async () => {
+    svc.ticketsOfThread.mockResolvedValue({
+      unavailable: false,
+      hiddenCount: 0,
+      rows: [ticket({ reference: 'SUP-T-4' })],
+    });
+    renderHeader();
+    const chip = await screen.findByTestId('ticket-chip');
+    expect(chip.textContent).toContain('TES-SUP-T-4');
+    expect(chip).toHaveAccessibleName('TES-SUP-T-4 — linked to ticket TES-SUP-T-4');
+  });
+
   it('every ticket hidden: the chip says "2 hidden" (no +N), the heading claims only "Tickets"', async () => {
     svc.ticketsOfThread.mockResolvedValue({ unavailable: false, hiddenCount: 2, rows: [] });
     renderHeader();
