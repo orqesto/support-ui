@@ -16,6 +16,8 @@ import { useLookupsTab } from '@/components/messages/lookupsTab';
 import { avatarColor, formatAge, getInitials, safeCssColor } from '@/lib/utils';
 import { customerSince } from './contactFacts';
 import { tintedChip } from '@/lib/userColor';
+import { ticketDisplayId } from '@/lib/ticketReference';
+import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 
 type ContactProfilePanelProps = {
   email: string;
@@ -44,6 +46,7 @@ export function ContactProfilePanel({
   initialSection,
 }: ContactProfilePanelProps) {
   const navigate = useNavigate();
+  const orgCode = useCurrentOrgCode();
   const lookups = useLookupsTab('contact');
   const [tab, setTab] = useState<'activity' | 'details' | 'lookups'>(
     initialSection === 'notes' ? 'details' : 'activity'
@@ -153,7 +156,8 @@ export function ContactProfilePanel({
         kind: 'ticket',
         at: tkt.createdAt,
         title: tkt.title,
-        meta: `#${tkt.id}`,
+        // The ticket's own ID (`ACME-SUP-T-42`); `#21` before it has a number.
+        meta: ticketDisplayId({ id: tkt.id, reference: tkt.reference }, orgCode),
         status: tkt.status,
         onClick: () => {
           onClose();
@@ -171,7 +175,7 @@ export function ContactProfilePanel({
       });
     }
     return items.sort((lhs, rhs) => new Date(rhs.at).getTime() - new Date(lhs.at).getTime());
-  }, [contact, navigate, onClose]);
+  }, [contact, navigate, onClose, orgCode]);
 
   return (
     <>

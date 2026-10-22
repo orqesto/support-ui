@@ -110,6 +110,7 @@ export interface components {
             status: string;
             priority: string;
             createdAt: string;
+            reference: string | null;
         };
         ContactListItem: {
             id: number;

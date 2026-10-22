@@ -23,6 +23,8 @@ const { lookupsTab, CONTACT, noop } = vi.hoisted(() => ({
   },
   noop: () => {},
 }));
+// The panel reads the workspace code for ticket IDs; no query client here.
+vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'TES' }));
 vi.mock('@/components/messages/lookupsTab', () => ({
   useLookupsTab: (surface: string) => lookupsTab(surface) as unknown,
 }));
