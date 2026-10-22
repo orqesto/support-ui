@@ -9,7 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
 import { Spinner } from '@/components/ui/Spinner';
+import { useCurrentWorkspace } from '@/hooks/useCurrentWorkspace';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import {
@@ -45,6 +48,9 @@ export const TeamsOffDialog = ({
   const [saving, setSaving] = useState(false);
   // The PUT got no answer, or the backend says a switch-off is already running: wait for it.
   const [stillSwitching, setStillSwitching] = useState(false);
+  // Irreversible, so the admin types the workspace name (the one the app header shows) first.
+  const { name: workspaceName } = useCurrentWorkspace();
+  const [typedName, setTypedName] = useState('');
 
   useEffect(() => {
     if (!open) return;
@@ -52,6 +58,7 @@ export const TeamsOffDialog = ({
     setPreview(null);
     setLoadError(null);
     setSaveError(null);
+    setTypedName('');
     departmentService
       .previewTeamsOff()
       .then((result) => {
@@ -66,7 +73,14 @@ export const TeamsOffDialog = ({
     };
   }, [open]);
 
+  const expectedName = workspaceName?.trim() ?? '';
+  // Case-insensitive after trimming. No workspace name (not loaded) keeps it locked: never guess.
+  const nameMatches =
+    expectedName !== '' && typedName.trim().toLowerCase() === expectedName.toLowerCase();
+  const canConfirm = !saving && !!preview && preview.blockers.length === 0 && nameMatches;
+
   const confirm = async () => {
+    if (!canConfirm) return;
     setSaving(true);
     setSaveError(null);
     try {
@@ -248,6 +262,26 @@ export const TeamsOffDialog = ({
             </AlertDescription>
           </Alert>
 
+          <div className="space-y-2">
+            <Label htmlFor="teams-off-confirm-name">
+              To confirm, type the workspace name:{' '}
+              <strong>{expectedName || 'unavailable (reload the page)'}</strong>
+            </Label>
+            <Input
+              id="teams-off-confirm-name"
+              value={typedName}
+              onChange={(event) => setTypedName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void confirm();
+                }
+              }}
+              disabled={saving}
+              autoComplete="off"
+            />
+          </div>
+
           {stillSwitching && (
             <div className="flex gap-2 items-center text-muted-foreground" role="status">
               <Spinner /> Still switching teams off. This can take a few minutes; keep this open.
@@ -269,7 +303,7 @@ export const TeamsOffDialog = ({
             variant="destructive"
             onClick={() => void confirm()}
             isLoading={saving}
-            disabled={saving || !preview || preview.blockers.length > 0}
+            disabled={!canConfirm}
           >
             Switch teams off
           </Button>
