@@ -8,19 +8,31 @@ import {
 } from '@/stores/workspaceScopedStorage';
 import type { Ticket, TicketStatus, TicketPriority } from '@/types';
 
-type TicketFilters = {
+export type TicketOwesFilter = 'yes' | 'none';
+export type TicketThreadsFilter = '0' | '1' | '2-5' | '6+';
+export type TicketUpdatedFilter = '1h' | '24h' | '7d' | 'old';
+
+export type TicketFilters = {
   status: TicketStatus | 'all';
   priority: TicketPriority | 'all';
   categoryId: string;
   messageSourceId?: string;
+  /** 'all', 'unassigned', 'me' (the signed-in agent, resolved when the request is built) or a user id. */
   assigneeId?: string;
   labelId?: string;
   search?: string;
   linked?: 'all' | 'synced_to_jira' | 'not_synced';
+  /** "Needs us": open or in progress, or a customer is still owed the fix. */
+  needs?: 'yes';
+  owes?: TicketOwesFilter;
+  threads?: TicketThreadsFilter;
+  updated?: TicketUpdatedFilter;
 };
 
-type TicketSorting = {
-  sortBy: 'createdAt' | 'updatedAt' | 'priority';
+export type TicketSortBy = 'createdAt' | 'updatedAt' | 'priority' | 'status' | 'threads' | 'owed';
+
+export type TicketSorting = {
+  sortBy: TicketSortBy;
   sortOrder: 'asc' | 'desc';
 };
 

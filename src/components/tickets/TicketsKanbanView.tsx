@@ -23,6 +23,7 @@ import {
   User,
   GripVertical,
 } from 'lucide-react';
+import { ticketApiFilters } from '@/components/tickets/list/ticketFilters';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { ticketService } from '@/services/ticket.service';
 import { Badge } from '@/components/ui/Badge';
@@ -30,6 +31,8 @@ import { Button } from '@/components/ui/Button';
 import { formatAge } from '@/lib/utils';
 import { logger } from '@/lib/logger';
 import { canTransition } from '@/lib/ticketStatus';
+import { useAuthStore } from '@/stores/authStore';
+import type { TicketFilters } from '@/stores/ticketsStore';
 import type { Ticket as TicketType, TicketStatus } from '@/types';
 
 type KanbanColumnDef = {
@@ -264,14 +267,7 @@ const KanbanColumn = ({ col, state, activeTicketId, onLoadMore, onOpen }: Kanban
 };
 
 type TicketsKanbanViewProps = {
-  filters: {
-    priority?: string;
-    assigneeId?: string;
-    categoryId?: string;
-    labelId?: string;
-    search?: string;
-    linked?: string;
-  };
+  filters: TicketFilters;
   onOpen: (ticket: TicketType) => void;
 };
 
@@ -285,26 +281,12 @@ const initialColStates = (): Record<string, ColumnState> =>
 
 export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) => {
   // Memoize to avoid rebuilding on every parent re-render (colStates updates, etc.)
-  const sharedFilters = useMemo((): SharedFilters => {
-    const filterObj: SharedFilters = {};
-    if (filters.priority && filters.priority !== 'all') filterObj.priority = filters.priority;
-    if (filters.assigneeId && filters.assigneeId !== 'all')
-      filterObj.assigneeId = filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId;
-    if (filters.categoryId && filters.categoryId !== 'all')
-      filterObj.categoryId = filters.categoryId;
-    if (filters.labelId && filters.labelId !== 'all') filterObj.labelId = filters.labelId;
-    if (filters.search?.trim()) filterObj.search = filters.search.trim();
-    if (filters.linked === 'synced_to_jira') filterObj.syncedToJira = 'true';
-    else if (filters.linked === 'not_synced') filterObj.syncedToJira = 'false';
-    return filterObj;
-  }, [
-    filters.priority,
-    filters.assigneeId,
-    filters.categoryId,
-    filters.labelId,
-    filters.search,
-    filters.linked,
-  ]);
+  const currentUserId = useAuthStore((state) => state.user?.id ?? null);
+  // The board's columns ARE the statuses, so a status filter never applies here.
+  const sharedFilters = useMemo(
+    (): SharedFilters => ticketApiFilters({ ...filters, status: 'all' }, currentUserId),
+    [filters, currentUserId]
+  );
 
   const filterKey = useMemo(() => JSON.stringify(sharedFilters), [sharedFilters]);
   const selectedDeptKey = useDepartmentContextKey();

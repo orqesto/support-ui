@@ -24,6 +24,8 @@ import { PAGINATION } from '@/lib/constants';
 import { type JiraIntegration } from '@/services/integrations.service';
 import { ticketService, type PaginationMeta } from '@/services/ticket.service';
 import { useTicketsStore } from '@/stores/ticketsStore';
+import { useAuthStore } from '@/stores/authStore';
+import { ticketApiFilters } from '@/components/tickets/list/ticketFilters';
 import type { Ticket as TicketType, TicketsDisplayMode } from '@/types';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
@@ -78,6 +80,7 @@ export const TicketsPage = () => {
   const clearCache = useTicketsStore((state) => state.clearCache);
 
   const { hasPermission } = usePermissions();
+  const currentUserId = useAuthStore((state) => state.user?.id ?? null);
 
   // Local state for current view
   const [tickets, setTickets] = useState<TicketType[]>([]);
@@ -111,37 +114,7 @@ export const TicketsPage = () => {
 
       setLoading(true);
       try {
-        // Build API filters - capture current filters
-        const currentFilters = filters;
-        const apiFilters: Record<string, string> = {};
-
-        if (currentFilters.status !== 'all') {
-          apiFilters.status = currentFilters.status;
-        }
-        if (currentFilters.priority !== 'all') {
-          apiFilters.priority = currentFilters.priority;
-        }
-        if (currentFilters.categoryId !== 'all') {
-          apiFilters.categoryId = currentFilters.categoryId;
-        }
-        if (currentFilters.messageSourceId && currentFilters.messageSourceId !== 'all') {
-          apiFilters.messageSourceId = currentFilters.messageSourceId;
-        }
-        if (currentFilters.assigneeId && currentFilters.assigneeId !== 'all') {
-          apiFilters.assigneeId =
-            currentFilters.assigneeId === 'unassigned' ? '0' : currentFilters.assigneeId;
-        }
-        if (currentFilters.search?.trim()) {
-          apiFilters.search = currentFilters.search.trim();
-        }
-        if (currentFilters.labelId) {
-          apiFilters.labelId = currentFilters.labelId;
-        }
-        if (currentFilters.linked === 'synced_to_jira') {
-          apiFilters.syncedToJira = 'true';
-        } else if (currentFilters.linked === 'not_synced') {
-          apiFilters.syncedToJira = 'false';
-        }
+        const apiFilters = ticketApiFilters(filters, currentUserId);
 
         const response = await ticketService.getAll(
           Object.keys(apiFilters).length > 0 ? apiFilters : undefined,
@@ -174,7 +147,7 @@ export const TicketsPage = () => {
     // selectedDeptKey is a refresh trigger — read indirectly via the axios
     // X-Department-Context header. Force callback identity to change on toggle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filters, sorting, getCached, setTicketsCache, selectedDeptKey]
+    [filters, sorting, currentUserId, getCached, setTicketsCache, selectedDeptKey]
   );
 
   useEffect(() => {

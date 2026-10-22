@@ -2,6 +2,7 @@ import { apiClient } from '@/lib/api-client';
 import { PAGINATION } from '@/lib/constants';
 import type { Ticket, CreateTicketRequest, UpdateTicketRequest, ApiResponse } from '@/types';
 import type { TicketListItem, TicketDetail } from '@/types/api';
+import type { TicketSortBy } from '@/stores/ticketsStore';
 
 export type PaginationMeta = {
   page: number;
@@ -49,7 +50,7 @@ export const ticketService = {
     filters?: Record<string, string>,
     page = PAGINATION.DEFAULT_PAGE,
     limit = PAGINATION.DEFAULT_LIMIT,
-    sortBy?: 'createdAt' | 'updatedAt' | 'priority',
+    sortBy?: TicketSortBy,
     sortOrder?: 'asc' | 'desc'
   ) => {
     const params = new URLSearchParams({

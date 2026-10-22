@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ticketService } from '@/services/ticket.service';
+import { filtersFromParams, filtersToParams } from '@/components/tickets/list/ticketFilters';
+import { DEFAULT_VIEW_FILTERS, filtersOfView } from '@/components/tickets/list/ticketViews';
 import { useTicketsStore, defaultFilters } from '@/stores/ticketsStore';
 import type { Ticket } from '@/types';
 import { logger } from '@/lib/logger';
@@ -19,54 +21,27 @@ export function useTicketsUrlSync({
   // Tracks which ticket ID was last fetched to prevent re-fetching when selectedTicket state changes
   const fetchedTicketIdRef = useRef<number | null>(null);
   const filters = useTicketsStore((state) => state.filters);
+  const sorting = useTicketsStore((state) => state.sorting);
   const setFiltersStore = useTicketsStore((state) => state.setFilters);
+  const setSortingStore = useTicketsStore((state) => state.setSorting);
 
   // Keep ref in sync with latest searchParams without adding it to effect dep arrays
   useEffect(() => {
     searchParamsRef.current = searchParams;
   });
 
-  // Sync URL → filters on mount
+  // Sync URL → filters on mount. A link with no filter at all opens on the "Needs us" view
+  // (the tickets list's default); a link that names filters gets exactly those.
   useEffect(() => {
-    const urlStatus = searchParams.get('status');
-    const urlPriority = searchParams.get('priority');
-    const urlCategory = searchParams.get('category');
-    const urlMessageSource = searchParams.get('source');
-    const urlAssignee = searchParams.get('assignee');
-    const urlSearch = searchParams.get('search');
-    const urlLinked = searchParams.get('linked');
-
-    const urlFilters: Partial<typeof filters> = {};
-
-    if (
-      urlStatus &&
-      ['all', 'pending', 'open', 'in_progress', 'resolved', 'closed'].includes(urlStatus)
-    ) {
-      urlFilters.status = urlStatus as
-        | 'all'
-        | 'pending'
-        | 'open'
-        | 'in_progress'
-        | 'resolved'
-        | 'closed';
-    }
-    if (urlPriority && ['all', 'low', 'medium', 'high', 'critical'].includes(urlPriority)) {
-      urlFilters.priority = urlPriority as 'all' | 'low' | 'medium' | 'high' | 'critical';
-    }
-    if (urlCategory) urlFilters.categoryId = urlCategory;
-    if (urlMessageSource) urlFilters.messageSourceId = urlMessageSource;
-    if (urlAssignee) urlFilters.assigneeId = urlAssignee;
-    if (urlLinked && ['all', 'synced_to_jira', 'not_synced'].includes(urlLinked)) {
-      urlFilters.linked = urlLinked as 'all' | 'synced_to_jira' | 'not_synced';
-    }
-    if (urlSearch) urlFilters.search = urlSearch;
-
+    const { filters: urlFilters, sorting: urlSorting } = filtersFromParams(searchParams);
+    const named = Object.keys(urlFilters).length > 0;
     // Always start from defaults and layer URL params on top — prevents stale persisted filters
     // from bleeding in when the URL has no params.
-    setFiltersStore({ ...defaultFilters, ...urlFilters });
+    setFiltersStore(named ? { ...defaultFilters, ...urlFilters } : filtersOfView(DEFAULT_VIEW_FILTERS));
+    if (urlSorting) setSortingStore(urlSorting);
   }, []); // Only run on mount
 
-  // Sync filters → URL whenever filters/displayMode change.
+  // Sync filters → URL whenever filters/sort/displayMode change.
   // searchParams is intentionally read via searchParamsRef (not in the dep array)
   // to avoid an infinite loop: setSearchParams → searchParams changes → effect reruns.
   useEffect(() => {
@@ -74,18 +49,9 @@ export function useTicketsUrlSync({
     const ticketIdParam = searchParamsRef.current.get('id');
     if (ticketIdParam) params.set('id', ticketIdParam);
     if (displayMode === 'kanban') params.set('mode', 'kanban');
-    if (filters.status && filters.status !== 'all') params.set('status', filters.status);
-    if (filters.priority && filters.priority !== 'all') params.set('priority', filters.priority);
-    if (filters.categoryId && filters.categoryId !== 'all')
-      params.set('category', filters.categoryId);
-    if (filters.messageSourceId && filters.messageSourceId !== 'all')
-      params.set('source', filters.messageSourceId);
-    if (filters.assigneeId && filters.assigneeId !== 'all')
-      params.set('assignee', filters.assigneeId);
-    if (filters.linked && filters.linked !== 'all') params.set('linked', filters.linked);
-    if (filters.search) params.set('search', filters.search);
+    filtersToParams(filters, sorting, params);
     setSearchParams(params, { replace: true });
-  }, [filters, displayMode, setSearchParams]); // searchParams intentionally omitted — read via ref
+  }, [filters, sorting, displayMode, setSearchParams]); // searchParams intentionally omitted — read via ref
 
   // Auto-open ticket from ?id= param.
   // selectedTicket is intentionally excluded from the dependency array — including it causes

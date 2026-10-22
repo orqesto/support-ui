@@ -1,3 +1,4 @@
+import type { TicketSorting } from '@/stores/ticketsStore';
 import { useEffect, useState } from 'react';
 import { FilterCell } from '@/components/filters/FilterCell';
 import {
@@ -32,10 +33,7 @@ type FilterState = {
   linked?: 'all' | 'synced_to_jira' | 'not_synced';
 };
 
-type SortingState = {
-  sortBy: 'createdAt' | 'updatedAt' | 'priority';
-  sortOrder: 'asc' | 'desc';
-};
+type SortingState = TicketSorting;
 
 const STATUS_OPTIONS = [
   { value: 'all',         label: 'All' },
