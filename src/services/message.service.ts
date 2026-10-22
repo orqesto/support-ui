@@ -180,7 +180,15 @@ export type ListScope = {
 };
 
 /** How the backend read the typed search. Absent from a backend that predates it. */
-export type SearchReading = { terms: string[]; asPhrase: boolean };
+export type SearchReading = {
+  terms: string[];
+  asPhrase: boolean;
+  /**
+   * Terms whose search INSIDE words (no word starts with them) hit its time or size bound, so
+   * the list may be missing threads for them. Absent from a backend that predates it.
+   */
+  cutShort?: string[];
+};
 
 export type ThreadsResponse = PaginatedResponse<MessageThread[]> & {
   scope?: ListScope | null;

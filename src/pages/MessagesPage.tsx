@@ -1188,6 +1188,15 @@ export const MessagesPage = () => {
                     in any order.
                   </p>
                 )}
+                {(searchReading?.cutShort?.length ?? 0) > 0 && (
+                  // The backend's search-inside-words bound bit: say so, or a short list reads
+                  // as every match.
+                  <p className="text-[12.5px] text-muted-foreground">
+                    Some matches may be missing — searching inside words for{' '}
+                    {searchReading?.cutShort?.map((term) => `“${term}”`).join(', ')} was cut short.
+                    Use a whole word, or the start of one.
+                  </p>
+                )}
                 <LoadingOverlay active={searching && !loading} label="Searching…">
                   {loading ? (
                     <div className={compactRows ? 'space-y-0' : 'space-y-2'}>

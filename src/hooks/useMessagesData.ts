@@ -442,7 +442,12 @@ export const useMessagesData = ({
           const reading = response.search;
           setSearchReading(
             reading && Array.isArray(reading.terms) && typeof reading.asPhrase === 'boolean'
-              ? reading
+              ? {
+                  ...reading,
+                  cutShort: Array.isArray(reading.cutShort)
+                    ? reading.cutShort.filter((term) => typeof term === 'string')
+                    : [],
+                }
               : null
           );
 
