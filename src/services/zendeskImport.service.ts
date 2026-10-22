@@ -86,6 +86,9 @@ const unwrap = <T>(res: { data: ApiResponse<T> }): T => {
 /** Upload part size. The BE accepts up to 16 MB per part. */
 export const PART_BYTES = 8 * 1024 * 1024;
 
+/** How long one try of a part may take: a part is up to 8 MB on a possibly slow uplink. */
+export const PART_TIMEOUT_MS = 5 * 60_000;
+
 export const zendeskImportService = {
   list: async (): Promise<ZendeskRun[]> =>
     unwrap(await apiClient.get<ApiResponse<ZendeskRun[]>>(BASE)),
@@ -109,8 +112,7 @@ export const zendeskImportService = {
   ): Promise<void> => {
     await apiClient.put(`${BASE}/${runId}/parts/${index}`, part, {
       headers: { 'Content-Type': 'application/octet-stream' },
-      // A part is up to 8 MB on a possibly slow uplink.
-      timeout: 5 * 60_000,
+      timeout: PART_TIMEOUT_MS,
       // "Stop upload" aborts the part on the wire, not only the parts after it.
       signal,
     });

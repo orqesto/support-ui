@@ -1,5 +1,6 @@
 import { Download } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSerialOptionSaves } from './useSerialOptionSaves';
 import { summarizePreview } from './zendeskImportSummary';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -12,11 +13,7 @@ import { apiErrorMessage } from '@/lib/apiError';
 import { toast } from '@/lib/toast';
 import { departmentService } from '@/services/department.service';
 import { integrationsService } from '@/services/integrations.service';
-import {
-  zendeskImportService,
-  type ZendeskImportOptions,
-  type ZendeskRun,
-} from '@/services/zendeskImport.service';
+import { zendeskImportService, type ZendeskRun } from '@/services/zendeskImport.service';
 import type { Department } from '@/types';
 
 type Props = {
@@ -53,13 +50,13 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [mailboxes, setMailboxes] = useState<Array<{ value: string; label: string }>>([]);
   const [confirmApply, setConfirmApply] = useState(false);
-  const [saving, setSaving] = useState(false);
-  // Saves run one at a time, each built from the LAST SAVED run: the backend replaces the whole
-  // options object, so two saves in flight would overwrite each other (a team set on group A
-  // lost when group B's save, built from the older render, lands second).
-  const latest = useRef(run);
-  latest.current = run;
-  const queue = useRef<Promise<void>>(Promise.resolve());
+  const { save, saving } = useSerialOptionSaves(run, onRunChange);
+  /**
+   * "Import spam" changes which follow-ups join a thread (a follow-up of a skipped spam ticket
+   * has no thread to join), and only the server can count that — so the export is checked again.
+   * Set while that check could not be started: the numbers on screen are from before the change.
+   */
+  const [stale, setStale] = useState(false);
 
   useEffect(() => {
     departmentService
@@ -89,24 +86,14 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
     value: String(dept.id),
     label: dept.name,
   }));
-  const save = (patchFrom: (current: ZendeskImportOptions) => Partial<ZendeskImportOptions>) => {
-    setSaving(true);
-    const next = queue.current.then(async () => {
-      try {
-        const saved = await zendeskImportService.updateOptions(
-          latest.current.id,
-          patchFrom(latest.current.options)
-        );
-        latest.current = saved;
-        onRunChange(saved);
-      } catch (error) {
-        toast.error(apiErrorMessage(error, 'Could not save the choice'));
-      } finally {
-        if (queue.current === next) setSaving(false);
-      }
-    });
-    queue.current = next;
-    return next;
+  const recheck = () =>
+    onAct(() => zendeskImportService.preview(run.id), 'Could not start the check');
+  const toggleSpam = async (next: boolean) => {
+    if (!(await save(() => ({ includeSpam: next })))) return;
+    // Until the new check starts the numbers are stale. Once it starts this screen is replaced by
+    // its progress; if it cannot start, the warning below stays and Import waits for a check.
+    setStale(true);
+    await recheck();
   };
   const unmatched = Object.entries(preview.assignees).filter(
     ([, info]) => info.odlyUserId === null
@@ -168,9 +155,9 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
         <h3 className="font-semibold">Choices</h3>
         <Toggle
           checked={options.includeSpam}
-          onChange={(next) => void save(() => ({ includeSpam: next }))}
+          onChange={(next) => void toggleSpam(next)}
           disabled={saving}
-          label={`Also import tickets Zendesk closed as spam (${(preview.counts.spamClosed ?? 0).toLocaleString()})`}
+          label={`Also import tickets Zendesk closed as spam (${(preview.counts.spamClosed ?? 0).toLocaleString()}) — the export is checked again to update the numbers`}
         />
         {summary.probable > 0 && (
           <Toggle
@@ -252,8 +239,19 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
         )}
       </section>
 
+      {stale && (
+        <Alert variant="warning">
+          <span>
+            These numbers are from before the spam choice changed. Check again to update them before
+            importing.{' '}
+          </span>
+          <Button variant="outline" size="sm" onClick={() => void recheck()}>
+            Check again
+          </Button>
+        </Alert>
+      )}
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => setConfirmApply(true)} disabled={saving}>
+        <Button onClick={() => setConfirmApply(true)} disabled={saving || stale}>
           Import {(summary.created + summary.joined).toLocaleString()} tickets
         </Button>
       </div>
