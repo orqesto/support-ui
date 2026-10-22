@@ -25,6 +25,9 @@ import {
   type GmailCountResult,
   type Integration,
 } from '@/services/integrations.service';
+import { Label } from '@/components/ui/Label';
+import { DateRangePicker, type DateRangeValue } from '@/components/ui/DateRangePicker';
+import { importRangeDays, importRangePatch, importRangeValue } from '@/lib/importRange';
 
 /**
  * "Check Messages Count" for Gmail — the twin of IMAP's button in `EmailForm`.
@@ -47,6 +50,8 @@ export type GmailCountReviewSource = {
   isKnowledgeBase: boolean;
   searchQuery: string;
   bulkImportDays: number;
+  /** A stored import start day (YYYY-MM-DD); wins over bulkImportDays. */
+  bulkImportSince?: string | null;
 };
 
 type Props = {
@@ -132,7 +137,9 @@ export const notComparedNote = (result: GmailCountResult): string => {
 
 export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Props) => {
   const [searchQuery, setSearchQuery] = useState(source.searchQuery);
-  const [bulkImportDays, setBulkImportDays] = useState(source.bulkImportDays);
+  const [range, setRange] = useState<DateRangeValue>(() => importRangeValue(source, 30));
+  // The count endpoint takes days: a since day is sent as the days the import will reach back.
+  const bulkImportDays = importRangeDays(range);
   const [result, setResult] = useState<GmailCountResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -187,8 +194,8 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
     setSearchQuery(value);
     dropCount();
   };
-  const changeDays = (value: string) => {
-    setBulkImportDays(parseInt(value, 10) || 0);
+  const changeRange = (value: DateRangeValue) => {
+    setRange(value);
     dropCount();
   };
 
@@ -198,7 +205,7 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
       await integrationsService.update(source.id, {
         type: 'gmail',
         enabled: true,
-        config: { gmail: { searchQuery, bulkImportDays } },
+        config: { gmail: { searchQuery, ...importRangePatch(range) } },
       });
       await onStarted();
       onShowAlert({
@@ -240,12 +247,18 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
           onChange={changeQuery}
           options={searchQueryOptions}
         />
-        <Select
-          label="Historical Import Range"
-          value={bulkImportDays.toString()}
-          onChange={changeDays}
-          options={historicalRangeOptions}
-        />
+        <div className="space-y-1">
+          <Label>Historical Import Range</Label>
+          <div>
+            <DateRangePicker
+              ariaLabel="Historical Import Range"
+              mode="single"
+              presets={historicalRangeOptions}
+              value={range}
+              onChange={changeRange}
+            />
+          </div>
+        </div>
         {/* Once a count is shown, its own history line says what is mined in THIS mailbox's
             state (swept already, no cutoff); a general sentence beside it would contradict it. */}
         {source.isKnowledgeBase && !result?.kbHistory && (
@@ -355,8 +368,11 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
 /** Row → the panel's shape. Read from the refreshed row, so the redirect flow (a fresh mount
  * that never saw the form's config) shows the settings that were actually saved. */
 export const reviewSourceOf = (integ: Integration): GmailCountReviewSource => {
-  const gmail = (integ.config as { gmail?: { searchQuery?: string; bulkImportDays?: number } })
-    .gmail;
+  const gmail = (
+    integ.config as {
+      gmail?: { searchQuery?: string; bulkImportDays?: number; bulkImportSince?: string | null };
+    }
+  ).gmail;
   return {
     id: integ.id,
     email: (integ.config as { user?: string }).user ?? integ.name,
@@ -365,6 +381,7 @@ export const reviewSourceOf = (integ: Integration): GmailCountReviewSource => {
     searchQuery: gmail?.searchQuery ?? '',
     // Same default as the poll when the setting was never stored.
     bulkImportDays: gmail?.bulkImportDays ?? 30,
+    bulkImportSince: gmail?.bulkImportSince ?? null,
   };
 };
 

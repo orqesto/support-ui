@@ -2,7 +2,9 @@ import { Save } from 'lucide-react';
 import { useState } from 'react';
 import type { AlertState } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
-import { Select } from '@/components/ui/Select';
+import { DateRangePicker, formatRangeLabel, type DateRangeValue } from '@/components/ui/DateRangePicker';
+import { Label } from '@/components/ui/Label';
+import { importRangePatch, importRangeValue } from '@/lib/importRange';
 import { logger } from '@/lib/logger';
 import { integrationsService } from '@/services/integrations.service';
 
@@ -11,24 +13,34 @@ import { integrationsService } from '@/services/integrations.service';
  * in behaviour when the card reached its `max-lines` ceiling (2026-09-16).
  */
 type Props = {
-  source: { id: number; name: string; currentDays: number };
+  source: { id: number; name: string; currentDays: number; currentSince?: string | null };
   onClose: () => void;
   onRefresh: () => Promise<void>;
   onShowAlert: (alert: AlertState) => void;
 };
 
+const RANGE_OPTIONS = [
+  { value: '0', label: 'All Time' },
+  { value: '1', label: 'Last 1 Day' },
+  { value: '7', label: 'Last 7 Days' },
+  { value: '30', label: 'Last 30 Days' },
+  { value: '90', label: 'Last 90 Days' },
+  { value: '180', label: 'Last 6 Months' },
+  { value: '365', label: 'Last Year' },
+];
+
 export const GmailSyncRangeDialog = ({ source, onClose, onRefresh, onShowAlert }: Props) => {
-  const [daysInput, setDaysInput] = useState(source.currentDays.toString());
+  const [range, setRange] = useState<DateRangeValue>(() =>
+    importRangeValue({ bulkImportDays: source.currentDays, bulkImportSince: source.currentSince }, 30)
+  );
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
     setSaving(true);
     try {
-      const days = parseInt(daysInput) || 0;
-
       await integrationsService.update(source.id, {
         type: 'gmail',
-        config: { gmail: { bulkImportDays: days } },
+        config: { gmail: importRangePatch(range) },
       });
 
       await onRefresh();
@@ -37,7 +49,7 @@ export const GmailSyncRangeDialog = ({ source, onClose, onRefresh, onShowAlert }
       onShowAlert({
         open: true,
         title: 'Success',
-        description: `Bulk import days updated to ${days === 0 ? 'All time' : `${days} days`}`,
+        description: `Initial sync range updated to ${formatRangeLabel(range, RANGE_OPTIONS)}`,
         variant: 'success',
       });
     } catch (error) {
@@ -60,23 +72,19 @@ export const GmailSyncRangeDialog = ({ source, onClose, onRefresh, onShowAlert }
         <p className="mb-4 text-sm text-muted-foreground">{source.name}</p>
         <div className="space-y-4">
           <div>
-            <Select
-              label="Historical Import Range"
-              value={daysInput}
-              onChange={(value) => setDaysInput(value)}
-              options={[
-                { value: '0', label: 'All Time' },
-                { value: '1', label: 'Last 1 Day' },
-                { value: '7', label: 'Last 7 Days' },
-                { value: '30', label: 'Last 30 Days' },
-                { value: '90', label: 'Last 90 Days' },
-                { value: '180', label: 'Last 6 Months' },
-                { value: '365', label: 'Last Year' },
-              ]}
-            />
+            <Label className="mb-1">Historical Import Range</Label>
+            <div>
+              <DateRangePicker
+                ariaLabel="Historical Import Range"
+                mode="single"
+                presets={RANGE_OPTIONS}
+                value={range}
+                onChange={setRange}
+              />
+            </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              How far back to fetch emails on first connect. Set to &quot;All Time&quot; to fetch
-              everything (may take a while).
+              How far back to fetch emails on first connect — a period, or Custom… to start from a
+              day. Set to &quot;All Time&quot; to fetch everything (may take a while).
             </p>
           </div>
           <div className="flex flex-wrap gap-2 shrink-0">

@@ -103,7 +103,8 @@ describe('GmailCountReview', () => {
       />
     );
     await screen.findByText(/Found 1,200 messages/);
-    fireEvent.change(screen.getByLabelText('Historical Import Range'), { target: { value: '30' } });
+    fireEvent.click(screen.getByRole('button', { name: /last 7 days/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Last 30 Days' }));
     expect(screen.queryByText(/Found 1,200 messages/)).not.toBeInTheDocument();
   });
 
@@ -125,8 +126,33 @@ describe('GmailCountReview', () => {
     expect(update).toHaveBeenCalledWith(68, {
       type: 'gmail',
       enabled: true,
-      config: { gmail: { searchQuery: '', bulkImportDays: 7 } },
+      // A preset also clears a stored since day: it would otherwise outrank the preset.
+      config: { gmail: { searchQuery: '', bulkImportDays: 7, bulkImportSince: null } },
     });
+  });
+
+  it('Custom… a since day: Start sync saves the day, and the count reaches back to it', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-22T07:00:00Z'));
+    try {
+      const onStarted = vi.fn();
+      render(
+        <GmailCountReview source={paused} onStarted={onStarted} onClose={vi.fn()} onShowAlert={vi.fn()} />
+      );
+      await screen.findByText(/Found 1,200 messages/);
+      fireEvent.click(screen.getByRole('button', { name: /last 7 days/i }));
+      fireEvent.click(screen.getByRole('button', { name: 'Custom…' }));
+      fireEvent.click(screen.getByRole('button', { name: '3 October 2026' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Start sync' }));
+      await waitFor(() => expect(onStarted).toHaveBeenCalled());
+      expect(update).toHaveBeenLastCalledWith(68, {
+        type: 'gmail',
+        enabled: true,
+        config: { gmail: { searchQuery: '', bulkImportSince: '2026-10-03' } },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('a live source is count-only: no Start sync, and no automatic count', () => {
